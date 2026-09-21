@@ -1,0 +1,154 @@
+# ADR-005: Authentication policy and secret storage
+
+**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D5, D10 · `docs/phase0/auftrag-original-2026-09-21.md` §6, §6.1, §6.3, §8, §11, §13 Q2 · `docs/phase0/research/providers-chat-auth-caching.md` (§1–§4 and the subscription-login policy table) · `docs/phase0/research/hermes-learnings-and-import.md` A3 · `docs/phase0/research/platform-binaries-and-startup.md` (binaries table)
+
+## Context
+
+§6.3 fixes the auth engine's shape: four auth kinds, declarative auth profiles, headless-capable flows, a token lifecycle with pools and failover, an OS-keychain secret store with an encrypted file fallback, and a per-profile `policy_status ∈ {allowed, restricted, prohibited}` with source and check date, under one absolute rule — **`prohibited` is never shipped** — and one default that §13 Q2 leaves open: `restricted` as opt-in with a visible risk notice. §6.3 also instructs: *"Stand bei Anthropic, Google, OpenAI und xAI zum Implementierungszeitpunkt prüfen — die Regeln haben sich 2026 mehrfach geändert."* That check was performed on 2026-09-22 and its results change what §6.1's provider table can deliver.
+
+Three further constraints apply. No client impersonation: foreign client IDs, or user-agent / system-prompt fingerprints of official CLIs, are forbidden without the vendor's explicit permission (§6.3). Subscription logins are person-bound: usable only for agents whose owner is the login holder, never shareable with other harness users (§6.3). And the documented escape hatch when a subscription cannot be used directly is the vendor's official CLI attached as an external agent over ACP (§6.3 → §8; brief D5, ADR-011).
+
+## Decision
+
+**Ship four auth kinds driven by declarative profiles, store every secret in the OS keychain via `@napi-rs/keyring` with an encrypted file fallback, hand the engine only short-lived leases — and ship no subscription-OAuth login whose current vendor policy reads `prohibited`.** Concretely at v0.1: Anthropic Claude subscription OAuth and Google Gemini CLI / Code Assist / Antigravity OAuth are **not implemented**; OpenAI ChatGPT/Codex OAuth is **not implemented** either, because its status is ambiguous *and* its endpoints are undocumented, and implementing it would require reverse-engineering; xAI's SuperGrok device-code path is **not implemented** (unofficial, tier-gated). OpenRouter PKCE, Nous Portal OAuth, Vertex ADC and API keys everywhere are shipped.
+
+### Auth kinds
+
+| Kind | Where used | Notes |
+|---|---|---|
+| API key | OpenAI Platform, Anthropic API, Google AI (AI Studio), xAI API, OpenRouter, OpenCode Zen/Go, Ollama Cloud, Cohere/Jina/Voyage, self-hosted endpoints | The universally permitted path. Anthropic's own compliance page keeps API-key use by third parties fully permitted (`research/providers-chat-auth-caching.md` §1) |
+| OAuth 2.0 Authorization Code + PKCE, loopback redirect | OpenRouter key issuance (`https://openrouter.ai/auth` → `POST https://openrouter.ai/api/v1/auth/keys`, no pre-registration, any localhost port) ; Nous Portal | `research/providers-chat-auth-caching.md` §4 |
+| Device Authorization Grant (RFC 8628) | Reserved for vendors that document one. **None of the four frontier subscription vendors documents one usable by third parties** (ibid. §1, §3) |
+| ADC / service account | Google Vertex AI (`gcloud auth application-default login` interactively, service-account JSON unattended) | ibid. §2; full ADC setup detail is flagged as a gap there |
+
+### Declarative auth profiles (data, not code)
+
+One JSON/YAML record per profile, versioned in config, never containing a secret:
+
+`id` · `display_name` · `kind` (`api_key|oauth_pkce|device_code|adc`) · `capabilities` (`chat|embedding|rerank`) · `base_url` · `auth_header_scheme` (e.g. `Authorization: Bearer {token}`, `x-api-key: {token}`) · `extra_headers` · `authorization_endpoint` · `token_endpoint` · `device_authorization_endpoint` · `revocation_endpoint` · `scopes` · `client_registration` (`none|static|dynamic`) · `client_id` (only where the vendor publishes one for third parties) · `redirect` (`loopback` + port policy) · `pkce` (`S256`) · `refresh` (`rotating|static`, `refresh_skew_seconds`) · `discovery` (`/v1/models` or manual list) · `policy_status` · `policy_source` (URL) · `policy_checked` (date) · `person_bound` (bool) · `secret_ref` (keychain handle, never the value).
+
+Adding a vendor that fits an existing kind must require no code — §6.1's "generic OpenAI-compatible / Anthropic-compatible templates" and §6.2's embedding/rerank equivalents are the same mechanism applied to profiles.
+
+### Headless / SSH
+
+Preference order, decided per environment probe, not per provider: (1) **device code** where the vendor documents one; (2) **loopback PKCE with a configurable port** plus an explicit `ssh -L <port>:localhost:<port>` hint in the CLI output; (3) **paste-callback fallback** — print the authorization URL, let the user complete it anywhere, paste the full callback URL back. OpenRouter's documented conventions support all three, including omitting the callback for headless apps (`research/providers-chat-auth-caching.md` §4).
+
+Ship **one** pair of shared predicates — `canOpenGraphicalBrowser()` and `isRemoteSession()` — consulted by every flow, rather than per-provider heuristics; this is Hermes' `auth_device_flow.py` idea (`research/hermes-learnings-and-import.md` A3, citing `hermes_cli/auth_device_flow.py:49-88`). Its documented weakness is that the remote-IDE detection is a hard-coded env-var allowlist (`:40-46`) that always lags reality, so the harness adds a fallback signal (no `DISPLAY`/`WAYLAND_DISPLAY`, an `SSH_CONNECTION` present, or a non-TTY stdout) and always offers the paste fallback manually via `--paste-callback`.
+
+A login can be started from the **web UI** (device-code dialog and QR/URL display, §9), the **CLI** (`plur1bus-harness login <profile>`) and a **chat channel** (§6.3) — in the channel case only for the identity-linked owner of the profile, with the code delivered in a DM, never in a group.
+
+### Token lifecycle and credential pools
+
+- Refresh proactively before expiry (`refresh_skew_seconds`, default 120 s), not on 401.
+- Handle rotating refresh tokens as single-use; exactly **one** process owns refresh (the core), so the multi-process rotation race Hermes solves with file locks and reconciliation (`research/hermes-learnings-and-import.md` A3, `agent/credential_pool.py:100-105,908-926`) is designed out rather than worked around.
+- Revoke/logout calls the profile's `revocation_endpoint` where present, then deletes the keychain entry and writes an audit record.
+- **Multi-account credential pools** per profile with selection strategy (`fill_first|round_robin|least_used`) and **failure-classified cooldowns**: HTTP status alone cannot size a cooldown, so persist a classification and distinguish *confirmed* from *ambiguous* exhaustion; give the sole remaining credential a much shorter cooldown than one of several. This is Hermes' design idea, adopted conceptually and not verbatim — its own vocabulary (`billing`, `billing_unverified`, `EXHAUSTED_TTL_429_SECONDS = 3600` vs `EXHAUSTED_TTL_SOLE_CREDENTIAL_SECONDS = 60`) was a retrofit after a production incident (`research/hermes-learnings-and-import.md` A3, `agent/credential_pool.py:130-148,175-180`); we design the ambiguous/confirmed split in from day one and invent our own codes. Also adopted: **per-model cooldowns separate from per-credential status** (`:228-238`).
+- Exactly one cooldown authority. Hermes runs a second, independent backoff in cron (`cron/quota_hold.py`, A7) and the note flags the disagreement risk; the harness routes cron and interactive turns through the same pool.
+- **UI status per credential:** valid until, plan/tier if the provider reports it, last error with its classification, cooldown remaining, and the profile's `policy_status` badge with source link and check date (§6.3, §9).
+
+### Secret storage
+
+| Aspect | Decision | Source |
+|---|---|---|
+| Primary store | OS keychain via **`@napi-rs/keyring`** (macOS Keychain, Windows Credential Manager, libsecret) | Prebuilds confirmed for all six targets incl. win32-arm64: `darwin-x64/arm64`, `win32-x64/arm64-msvc`, `linux-x64/arm64-gnu` (+musl) — `research/platform-binaries-and-startup.md`, binaries table, checked 2026-09-22 |
+| Explicitly rejected | **keytar** — no win32-arm64 prebuild ever shipped, and treated as unmaintained by its former consumers (Element Desktop #1947, VS Code migration discussion #662) | ibid. |
+| Headless fallback | Encrypted file store (age/AES-GCM with a key derived from an operator-supplied passphrase or a machine-bound key), used only when no keyring backend is reachable; the degraded state is visible in Doctor and the UI | §6.3 |
+| Never | Plaintext in config, logs, browser payloads, exports, backups, test fixtures or the report of an import | §4.2, §6.3, §11. Hermes' documented failure here — `~/.hermes/` unencrypted and "backup exports include API keys" — is the anti-pattern (`research/harness-engineering-state-of-the-art.md` §7, Hermes table) |
+| Engine access | The core receives **short-lived leases** only (value + expiry + purpose), never a persisted credential in PLUR1BUS config. Matches today's plugin contract, which declares 8 secret config paths (`embedding.apiKey`, `reranker.apiKey`, …) that the harness must supply at runtime instead (`research/plur1bus-host-contract.md` §7, `configContracts.secretInputs`) | §6.2, §6.3 |
+| Management | Owner/Admin only; every create/rotate/delete audited; secret values are write-only through the API (ADR-004) | §5.1, §6.3 |
+| Scoping | Fail-closed per agent/profile: an unscoped secret read raises rather than falling back to ambient environment. Hermes' `UnscopedSecretError` is the model, including its honest caveat that cloud-SDK default credential chains stay ambient (`research/hermes-learnings-and-import.md` A6) — the harness closes that exception for everything except Vertex ADC, where ambient discovery *is* the documented mechanism | §6.3 |
+
+### Auth policy per profile — state as of 2026-09-22
+
+| Profile | Flow | `policy_status` | Basis | Source | Checked |
+|---|---|---|---|---|---|
+| Anthropic Claude subscription | Claude Code OAuth | **prohibited** | Vendor doc, verbatim: *"Anthropic does not permit third-party developers to offer Claude.ai login into their own applications, or to route requests through Free, Pro, or Max plan credentials on behalf of their users… developers may not collect, store, or intermediate Claude.ai credentials or session tokens"*; and *"The Claude Code binary must not be modified."* Restated/enforced Feb 2026 per independent reporting | [code.claude.com/docs/en/legal-and-compliance](https://code.claude.com/docs/en/legal-and-compliance); [The Register 2026-02-20](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/); via `research/providers-chat-auth-caching.md` §1 | 2026-09-22 |
+| Anthropic API key | `x-api-key` | **allowed** | Same doc keeps third-party API-key use permitted where usage is billed to the key owner and not resold | ibid. | 2026-09-22 |
+| Google Gemini CLI / Code Assist | Google Code Assist OAuth | **prohibited** | Vendor ToS names this exact pattern: *"Directly accessing the services powering Gemini CLI (for example, the Gemini Code Assist service) using third-party software, tools, or services (for example, using OpenClaw with Gemini CLI OAuth) is a violation of applicable terms and policies."* Client-ID-level enforcement already observed | [geminicli.com/docs/resources/tos-privacy/](https://geminicli.com/docs/resources/tos-privacy/); [gemini-cli #28229](https://github.com/google-gemini/gemini-cli/issues/28229); via ibid. §2 | 2026-09-22 |
+| Google Antigravity | OAuth | **prohibited (presumed)** | No separate carve-out found; no Antigravity ToS page fetched — explicitly an **unverified presumption**, recorded as such | ibid. §2 (gap noted there) | 2026-09-22 |
+| Google AI Studio API key / Vertex ADC | API key / ADC | **allowed** | Documented public auth paths | ibid. §2 | 2026-09-22 |
+| OpenAI ChatGPT/Codex subscription | "Sign in with ChatGPT" OAuth; device code gated behind workspace-admin opt-in | **restricted at best — not shipped** | Maintainer answer in a public discussion acknowledged the question and pointed to general Terms of Use without ruling; no definitive guidance. Separately, OpenAI publishes **no** authorization/token endpoints, client ID, scopes or device-code parameters for third parties | [openai/codex discussion #8338](https://github.com/openai/codex/discussions/8338) (maintainer reply 2025-12-19); via ibid. §1 and its gap list | 2026-09-22 |
+| OpenAI Platform API key | Bearer | **allowed** | Documented | ibid. §1 | 2026-09-22 |
+| xAI SuperGrok / X Premium+ | Unofficial device-code OAuth against `accounts.x.ai` | **unverified → restricted; not shipped** | Community implementation only; no xAI documentation permitting or prohibiting it; xAI's backend allowlists the surface and has returned HTTP 403 to paying SuperGrok subscribers | [Hermes: xAI Grok OAuth](https://hermes-agent.nousresearch.com/docs/guides/xai-grok-oauth); via ibid. §3 | 2026-09-22 |
+| xAI API key | Bearer | **allowed** | Documented | ibid. §3 | 2026-09-22 |
+| OpenRouter | OAuth PKCE key issuance | **allowed** | Vendor-documented and purpose-built for third-party apps; no pre-registration | [openrouter.ai/docs/guides/overview/auth/oauth](https://openrouter.ai/docs/guides/overview/auth/oauth); via ibid. §4 | 2026-09-22 |
+| Nous Portal | OAuth (only method) | **allowed** | Vendor's own primary and only documented access path, built for CLI/agent integration | [Nous Portal integration docs](https://hermes-agent.nousresearch.com/docs/integrations/nous-portal); via ibid. §4 | 2026-09-22 |
+
+Rules attached to the field: `prohibited` profiles are absent from the shipped catalogue — not hidden behind a flag, not loadable from user config. `restricted` profiles ship only when a **documented** flow exists; a status is never upgraded by reverse-engineering an official client. Every row carries `policy_source` + `policy_checked` and is re-checked on a schedule (Action item 1).
+
+**No client impersonation.** The harness never sends another product's client ID, never spoofs an official CLI's user agent, and never reproduces an official CLI's system prompt to look like it (§6.3). **Person-bound.** A subscription-derived credential (if one ever becomes `allowed`) is usable only by agents owned by the login holder and cannot be granted to other harness users (§6.3); RBAC enforces this in the same policy layer as everything else (ADR-004).
+
+## Options considered
+
+### Option A: Ship every flow that technically works, gate the risky ones behind opt-in
+| Dimension | Assessment |
+|---|---|
+| Complexity | High — three bespoke, undocumented flows to reverse-engineer and then maintain against silent vendor changes |
+| Fit with brief | **Violates §6.3** ("`prohibited` wird nie ausgeliefert") and its no-impersonation clause |
+| Cross-platform risk | Low technically |
+| Maintenance burden | Very high: undocumented endpoints break without notice; xAI's surface already 403s legitimate subscribers |
+| Latency / token cost | n/a |
+
+**Pros:** users could use subscriptions they already pay for. **Cons:** knowingly ships terms violations in an MIT-licensed public repo under the owner's name; exposes users to account suspension (Gemini ToS states this explicitly); requires impersonating client IDs the vendors do not publish.
+
+### Option B: API keys only; no subscription OAuth at all
+| Dimension | Assessment |
+|---|---|
+| Complexity | Lowest |
+| Fit with brief | Conflicts with §6.1's provider table, which lists OpenRouter PKCE and Nous Portal OAuth as intended — and Nous Portal has **no** API-key path at all |
+| Maintenance burden | Lowest |
+
+**Pros:** no policy exposure. **Cons:** drops two vendors that explicitly invite third-party OAuth, and loses the whole OAuth machinery §6.3 requires.
+
+### Option C: Full auth engine; per-profile policy gate; no `prohibited` profile ships — **recommended**
+| Dimension | Assessment |
+|---|---|
+| Complexity | Medium — one OAuth/device-code engine, driven by data |
+| Fit with brief D1–D11 | Full: §6.3 as written, D5's ACP escape hatch as the compliant subscription path |
+| Cross-platform risk | Keyring prebuilds confirmed on all six targets (`@napi-rs/keyring`) |
+| Maintenance burden | The recurring cost is a dated policy re-check, not code |
+| Latency / token cost | Proactive refresh keeps auth off the hot path (D6) |
+
+**Pros:** every shipped flow is vendor-documented; policy changes are config-data changes; users keep a compliant route to their subscriptions via ADR-011. **Cons:** users who expected "log in with my Claude Max / Gemini subscription" must either use an API key or run the vendor CLI as an external agent; the harness looks less capable than tools that ignore the rules.
+
+## Trade-off analysis
+
+The only genuinely contested axis is user convenience versus enforceable compliance. Two of the four frontier vendors state the prohibition in their own words, one naming a competing harness by name; a public MIT repo under the owner's name that shipped those flows would be documenting its own violation. The technical argument points the same way: all three unavailable flows rest on undocumented endpoints, and one (xAI) is already observed failing for paying subscribers — so the maintenance cost is high and the reliability low even setting policy aside. The escape hatch costs the user little: the official CLI attached over ACP keeps the login inside the unmodified vendor binary, which is exactly the shape the vendors permit, and the harness already needs that subsystem for D5.
+
+## Consequences
+
+- **Easier:** auth becomes data — adding a vendor is a profile record, not a code path; one refresh owner removes a whole class of distributed race; one cooldown authority removes the Hermes cron-vs-pool disagreement; secrets have exactly one storage API with confirmed prebuilds on every target; the policy field makes the reason for an absent login visible in the UI instead of a mystery.
+- **Harder:** "why can't I log in with my Claude subscription?" becomes a support question the docs must answer; the ACP path (ADR-011) is now load-bearing for subscription users, so its M6 timing matters more; an encrypted-file fallback needs its own key-management story on headless servers; the policy table needs a dated re-check forever, and a stale row is a compliance risk rather than a cosmetic one.
+- **Revisit when:** any vendor publishes a third-party OAuth path (Anthropic, Google, OpenAI, xAI), the OpenAI ambiguity is resolved in either direction, or xAI documents the `accounts.x.ai` flow. Each is a config change plus an ADR amendment, not a rewrite.
+
+## Conflicts with the brief
+
+**Finding.** §6.1's provider table lists "Anthropic Claude-Abo — nur gemäß Auth-Policy (6.3)" and "Google-Gemini-Abo-Logins (Gemini CLI / Code Assist / Antigravity) — nur gemäß Auth-Policy (6.3)", i.e. it anticipates that those logins might ship under the policy. It does not. The 2026-09-22 check shows both are **prohibited** in the vendors' own current wording, and §6.3's own rule says `prohibited` is never shipped. Additionally, the owner's earlier default for `restricted` profiles (opt-in with a visible risk notice, §13 Q2) has nothing to apply to at v0.1: OpenAI's subscription flow is at best `restricted` but has no documented endpoints, and xAI's is unverified and tier-gated, so neither can be implemented without reverse-engineering, which §6.3 forbids.
+
+**Source.** §6.1 and §6.3 vs. [code.claude.com/docs/en/legal-and-compliance](https://code.claude.com/docs/en/legal-and-compliance) and [geminicli.com/docs/resources/tos-privacy/](https://geminicli.com/docs/resources/tos-privacy/) (both fetched 2026-09-22), the Feb-2026 clarification reporting ([The Register 2026-02-20](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/)), [openai/codex discussion #8338](https://github.com/openai/codex/discussions/8338), and [Hermes: xAI Grok OAuth](https://hermes-agent.nousresearch.com/docs/guides/xai-grok-oauth) — all as recorded in `research/providers-chat-auth-caching.md` §1–§4 and its subscription-login policy table.
+
+**Options.** (i) Ship the flows anyway behind an opt-in warning (Option A above). (ii) Ship nothing for those vendors and say nothing. (iii) Ship no prohibited flow, but ship the two compliant substitutes and explain the gap in the UI at the point of use.
+
+**Recommended resolution (iii), stated for the record:**
+
+> **Anthropic and Google subscription logins are not shipped — not as an opt-in, not behind a risk notice, not behind a hidden flag.** The rule "`prohibited` is never shipped" (§6.3) decides it, and both are `prohibited` on the vendors' own current wording rather than on our interpretation. Two compliant substitutes are shipped in their place: **(1) API keys** for the same vendors, which Anthropic's compliance page and Google's AI Studio / Vertex paths explicitly permit, and **(2) the vendor's own official CLI attached as an external ACP agent (ADR-011)**, which is the compliant way to use a subscription because the login completes inside the unmodified vendor binary and the harness never collects, stores or intermediates the credential. The owner's earlier default of opt-in-with-warning therefore governs only `restricted` profiles, of which the harness ships none at v0.1: OpenAI's subscription flow is ambiguous *and* undocumented, and xAI's is unofficial and tier-gated, so shipping either would require reverse-engineering an official client, which §6.3 forbids. Each affected profile stays in the catalogue as a **visible, disabled entry** carrying its `policy_status`, the source URL, the check date and the recommended alternative, so the gap is explained where the user looks for the login. A dated re-check task re-verifies Anthropic, Google, OpenAI and xAI every 90 days and on any vendor announcement; a change to `allowed` or a documented `restricted` flow is then a profile-data change plus an ADR-005 amendment, not new architecture.
+
+## Open questions for the owner
+
+1. **§13 Q2 — answered here, confirm:** recommendation is *opt-in with a visible risk notice remains the policy for `restricted`, but no `restricted` profile ships at v0.1, and no `prohibited` profile ships ever.* Confirm this replaces the "Default: Opt-in" in `docs/assumptions.md` Q2.
+2. Should disabled subscription profiles be **visible with an explanation** (recommended) or hidden entirely from the catalogue?
+3. Encrypted-file fallback: operator passphrase prompted at daemon start (safer, blocks unattended restart) or a machine-bound key file with restrictive ACLs (survives reboot, weaker)? A hybrid with an optional TPM/Secure-Enclave-backed key is a later option.
+4. Re-check cadence: 90 days proposed. Shorter (30) given how often 2026 policies moved, or event-driven only?
+5. Do we support **per-user** provider credentials (Member brings their own key) in v0.1, or Owner/Admin-provisioned credentials only? This changes the pool and RBAC model, not the flows.
+
+## Action items
+
+1. [ ] Create a recurring, dated **policy re-check task** (Anthropic, Google incl. Antigravity, OpenAI, xAI, OpenRouter, Nous Portal) writing `policy_status`, `policy_source`, `policy_checked` back into the profile catalogue and `docs/provider-matrix.md`; first re-check 2026-12-21.
+2. [ ] Close the Antigravity gap: locate and read an Antigravity-specific ToS page; until then the row stays `prohibited (presumed, unverified)`.
+3. [ ] Specify the auth-profile schema (fields above) and validate the shipped catalogue against it in CI, including a test that **no profile with `policy_status: prohibited` is loadable**.
+4. [ ] Implement `canOpenGraphicalBrowser()` / `isRemoteSession()` once, with an env-var allowlist **plus** the display/SSH/TTY fallback signals, and a manual `--paste-callback` override.
+5. [ ] Build the secret store on `@napi-rs/keyring` behind one interface with keychain, encrypted-file and in-memory-test backends; add a smoke test on all five CI targets (`platform-matrix.md`).
+6. [ ] Define the lease API the core consumes (`{value, expiresAt, purpose, profileId}`), and add a contract test asserting PLUR1BUS never persists a leased secret into its own config (the 8 `configContracts.secretInputs` paths).
+7. [ ] Specify the credential-pool failure classifier with an explicit *ambiguous vs confirmed* split and our own reason codes, plus per-model cooldowns; single cooldown authority shared with cron.
+8. [ ] Add a secret-redaction test over logs, API responses, exports, backups and import reports (grep the fixtures for known test tokens).
+9. [ ] Write the user-facing doc page "Using a Claude / Gemini subscription with the harness" pointing to API keys and the ACP route (ADR-011), linked from the disabled profile entries.
