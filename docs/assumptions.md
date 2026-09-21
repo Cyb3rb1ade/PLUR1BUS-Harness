@@ -6,22 +6,31 @@ Kept current throughout the project. Each entry: what we assume, why, and what w
 
 | ID | Assumption | Basis | Would change if |
 |----|------------|-------|-----------------|
-| A1 | PLUR1BUS can be split into a host-neutral engine and an OpenClaw adapter without behaviour change, verified by the existing test suite. | Owner decision D2; PLUR1BUS already ships `docs/compatibility-openclaw.md` and a host-compat audit, i.e. the host surface is enumerable. | `docs/host-contract.md` finds engine logic that depends on OpenClaw runtime objects in ways that cannot be abstracted. |
+| A1 | PLUR1BUS can be split into a host-neutral engine and an OpenClaw adapter without behaviour change, verified by the existing test suite. | Owner decision D2; `docs/engine-extraction.md` maps ≈ 68 000 lines of `lib/` as host-neutral and ≈ 6 400 as adapter; the mixed part is `index.js` (13 496 lines, ~40 `api.*` sites). | Extraction of `index.js` uncovers engine logic that cannot be abstracted from OpenClaw runtime objects. Two planned PRs (job run-state semantics, RRF ranking for multi-identity recall) are deliberately *not* behaviour-neutral and are owner decisions. |
 | A2 | Node ≥ 24 is the floor for engine, harness and CLI (PLUR1BUS 7.15.x already requires `>=24.16 <25 || >=26.1`). | `package.json` of `@cyb3rb1ade/plur1bus-memory` 7.15.4. | Owner wants a lower floor; a required native module lacks Node-24 prebuilds on a target. |
-| A3 | Local embedding and reranking via Transformers.js/ONNX runs on all five targets (macOS arm64, Windows x64/arm64, Linux x64/arm64). | To be verified in `docs/platform-matrix.md`. | No `onnxruntime-node` prebuild for Windows arm64 → degrade to remote embedding on that target and record as K3-style finding. |
-| A4 | Coding CLIs are attached primarily through ACP (Agent Client Protocol); a PTY/JSON fallback covers the rest. | Owner decision D5. | ACP adoption among the named CLIs turns out too thin — then the PTY adapter becomes the primary path. |
-| A5 | Two repositories: PLUR1BUS (engine + OpenClaw adapter) and PLUR1BUS-Harness (host, CLI, API, UI). | Owner decision D3 default. | ADR-002 shows the engine API churn during M1 makes a monorepo cheaper. |
+| A3 | Local embedding and reranking via Transformers.js/ONNX runs on all five targets. | `docs/platform-matrix.md`: `onnxruntime-node` 1.30.0 ships prebuilds for all six platform triples (CPU EP everywhere). | A model artefact or execution provider turns out unusable on a target in CI → degrade to remote embedding there. |
+| A4 | Coding CLIs are attached primarily through ACP (Agent Client Protocol); headless JSON and PTY adapters cover the rest. | Owner decision D5; ACP registry @ bba7ddf lists Claude Code (adapter), Codex (adapter), Gemini CLI, Goose, Kimi Code, Qwen Code, Copilot CLI, Grok Build, Antigravity, pi, OpenCode, Cline, Cursor. | ACP adoption stalls or the SDK breaks compatibility — then headless JSON becomes the primary path. |
+| A5 | Two repositories: PLUR1BUS (engine + OpenClaw adapter + control UI) and PLUR1BUS-Harness (host, CLI, API, UI). | Owner decision D3 default; confirmed by ADR-002 and `docs/engine-extraction.md` §e. | Engine-API churn during M1 makes a monorepo cheaper (trigger defined in ADR-002). |
 | A6 | Documentation in English, owner conversation in German. | Owner decision D10. | — |
+| A7 | `node:sqlite` with FTS5 is sufficient for session storage and lexical search; no `better-sqlite3`. | Hands-on: `docs/phase0/research/verification-log.md` V1 (Node 26.8.2, macOS arm64) and V2 (Node 22.22.2, Linux x64). | FTS5 missing on a CI target (not expected: Node's official binaries bundle the same SQLite build). |
+| A8 | Windows arm64 is the weakest target, but the blocker is the PLUR1BUS Windows port (named pipe, ACLs, lock, scripts), not native binaries. | `docs/platform-matrix.md` §3, §6; node-pty 1.1.0 ships a win32-arm64 prebuild (tarball inspected). | The PLUR1BUS Windows-port PRs slip; then the engine does not run on Windows at all (K3-style). |
 
 ## Open questions
 
-Defaults apply until answered; each is asked before the phase that depends on it.
+Numbering follows the original commission §13 (Q1–Q5); Q6+ were added on 2026-09-22. Defaults apply until answered; each is asked before the phase that depends on it.
 
-| ID | Question | Default | Ask before |
-|----|----------|---------|------------|
-| Q1 | macOS x64: required or best-effort? | Best-effort. | M8 |
-| Q2 | Subscription logins with policy `restricted`: opt-in with risk notice, or omit? | Opt-in with notice (owner leaned this way earlier). | M2 |
-| Q3 | Should one bot connection be able to route to several agents? | Support both; routing is lower priority. | M4 |
-| Q4 | Role model: full (Owner/Admin/Operator/Member/Viewer) or slim (Owner/Admin/Member)? | Full, object-level rights on agents and projects. | M3 |
-| Q5 | Monorepo vs two repos for engine and harness. | Two repos (A5). | End of Phase 0 (ADR-002) |
-| Q6 | Which coding CLIs must work at M6 acceptance (minimum set)? | claude-code, codex, opencode, kimi; others best-effort. | M6 |
+| ID | Question | Status / default | Where discussed | Ask before |
+|----|----------|------------------|-----------------|------------|
+| Q1 | Base: Variant A or B? | **Answered 2026-09-22: B** (TypeScript monorepo, Node ≥ 24, pnpm). ADR-001 documents the counter-check of A (K4 tripped, K3 red on Windows arm64). | ADR-001 | — |
+| Q2 | macOS x64: required or best-effort? | Best-effort. `@lancedb/lancedb` 0.39.0 has no darwin-x64 package (source build or Rosetta). | ADR-001, `docs/platform-matrix.md` | M8 |
+| Q3 | Subscription logins with policy `restricted`: opt-in with risk notice, or omit? | **Superseded by evidence:** Anthropic and Google subscription OAuth are `prohibited` by the vendors (never shipped); OpenAI ambiguous and undocumented; xAI unofficial. ADR-005 recommends: ship API keys + vendor CLI as external ACP agent (ADR-011); show disabled profiles with policy status; 90-day re-check. **Owner confirmation needed.** | ADR-005, `docs/provider-matrix.md` §4 | M2 |
+| Q4 | Should one bot connection be able to route to several agents? | Default: "one agent, many bot connections" for M4; mention-routing to several agents no earlier than M6. | ADR-003 | M4 |
+| Q5 | Role model: full (Owner/Admin/Operator/Member/Viewer) or slim (Owner/Admin/Member)? | Default: full five roles as capability presets plus a "simple mode"; Operator is what makes the no-secrets audit story work. | ADR-007 | M3 |
+| Q6 | Monorepo vs two repos for engine and harness. | Two repos (A5); monorepo trigger defined in ADR-002. | ADR-002 | End of Phase 0 |
+| Q7 | Which coding CLIs must work at M6 acceptance (minimum set)? | Default: Claude Code, Codex, Goose (all three cross-validated by `buzz-acp`), Gemini CLI best-effort. | ADR-011 | M6 |
+| Q8 | Persona file name: keep `SOUL.md` (original §5) or rename (e.g. `persona.md`) to avoid Hermes' product naming? | Default: rename; "persona" is already engine vocabulary. | ADR-003 | M1 |
+| Q9 | Default embedding model in installer/wizard: Jina v5 Text Nano (CC BY-NC-4.0, original §6.2) or Apache-2.0 Qwen3-Embedding-0.6B with E5-small (MIT) as keyless fallback? | Default: Qwen3-Embedding-0.6B pre-selected, E5-small fallback, Jina behind the owner-only audited license gate. | ADR-006 | M1 |
+| Q10 | Dreaming promotion target: PLUR1BUS has no `MEMORY.md`; its curated files are `memory/KNOWLEDGE.md` and `DREAMS.md`. Promote into `KNOWLEDGE.md`? | Default: yes, plus the dream diary in `DREAMS.md`. | ADR-009 | M1 |
+| Q11 | Dreaming cost cap per agent per sweep/day. | Default: proposal in ADR-009 (USD 0.25/agent/day), circuit breaker on session count. | ADR-009 | M1 |
+
+The full list of per-ADR open questions (24 in ADR-001/002/009/010, 8 in ADR-003/007/008/011, 14 in ADR-004/005/006) is in each ADR's "Open questions for the owner" section; `docs/phase0/decisions-for-owner.md` consolidates the ones that block a milestone.
