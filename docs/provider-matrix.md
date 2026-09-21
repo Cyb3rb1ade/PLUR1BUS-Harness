@@ -1,0 +1,242 @@
+# Provider matrix — chat / embedding / rerank
+
+**Status:** Phase 0 research output, feeds ADR-005 (auth policy), ADR-006 (embedding/rerank), ADR-010 (latency/caching). **Date:** 2026-09-22 · **Inputs:** `docs/phase0/brief.md` D7, D9 · `docs/phase0/auftrag-original-2026-09-21.md` §6 · `docs/phase0/research/providers-chat-auth-caching.md` · `docs/phase0/research/providers-embedding-rerank.md`.
+
+Every row is sourced. "unverified" is written explicitly rather than inventing a value; see §8 for the closing plan. All checks below are dated **2026-09-22** unless a row says otherwise.
+
+---
+
+## 1. Legend and conventions
+
+**Capability flags:** `chat` (text generation), `embedding` (`embed()`), `rerank` (`rerank()`). A provider profile (base URL, auth, headers) may offer more than one.
+
+**Wire formats:**
+| Code | Meaning |
+|---|---|
+| `oai-chat` | OpenAI Chat Completions (`/v1/chat/completions`) |
+| `oai-resp` | OpenAI Responses API (`/v1/responses`) |
+| `anthropic` | Anthropic Messages API (`/v1/messages`) |
+| `native` | Vendor-specific shape not covered above (e.g. Gemini `generateContent`, Ollama `/api/*`) |
+
+Original §6.1 requires generic "OpenAI-compatible" and "Anthropic-compatible" templates (base URL, auth-header scheme, manual or `/v1/models` model list, header overrides, capability flags) so any further `oai-chat`/`anthropic` endpoint is coverable without code.
+
+**Auth kinds:**
+| Code | Meaning |
+|---|---|
+| `api-key` | Static bearer/header key |
+| `oauth-pkce-loopback` | OAuth 2.0 Authorization Code + PKCE, local loopback redirect |
+| `device-code` | OAuth 2.0 Device Authorization Grant (RFC 8628) |
+| `adc` | Google Application Default Credentials / service-account JSON |
+| `none` | Unauthenticated (local, loopback-only) |
+
+**Policy status** (original §6.3, restated in `docs/phase0/brief.md` D7 context and binding via §6.3 language kept from the original):
+| Status | Meaning |
+|---|---|
+| `allowed` | Vendor documentation confirms or does not restrict this auth path for third-party use |
+| `restricted` | Usable only opt-in, with a visible risk notice in the UI; owner accepts the risk per use |
+| `prohibited` | **Never shipped.** No code path, no UI entry, regardless of technical feasibility |
+| `unverified` | No policy statement found either way; treated as `restricted` until checked |
+
+Original §6.3 verbatim rule: *"pro Auth-Profil `policy_status` ∈ {allowed, restricted, prohibited} mit Quelle und Prüfdatum. `prohibited` wird nie ausgeliefert; `restricted` als Opt-in mit sichtbarem Risikohinweis."* No client imitation (foreign client IDs, official-CLI user-agent or system-prompt fingerprints) without explicit vendor permission; the escape hatch is an API key or the official client run as an external agent over ACP (§8 of the original, ADR-011). Subscription logins are person-bound: usable only by agents owned by the login holder, never shared to other users.
+
+---
+
+## 2. Chat providers
+
+One row per provider from the original §6.1 minimum-scope table.
+
+| Provider | Wire format(s) | Base URL | Auth | Discovery | Streaming / Tools / Reasoning / Vision / Usage | Prompt caching | Policy | Source | Checked |
+|---|---|---|---|---|---|---|---|---|---|
+| **OpenAI Platform** | `oai-chat`, `oai-resp` | `https://api.openai.com/v1` | `api-key` (`Authorization: Bearer`) | `GET /v1/models`, `GET /v1/models/{id}` | SSE both formats (different event taxonomies); tools in both; reasoning = summary text only (`response.reasoning_summary_text.delta`), no raw CoT; vision via `image_url`/`input_image`; usage fields differ by format (`prompt_tokens`/`completion_tokens` vs `input_tokens`/`output_tokens`) | Yes — see §3 | `allowed` | [Pricing](https://developers.openai.com/api/docs/pricing), [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching), [Models list](https://platform.openai.com/docs/api-reference/models/list), [Responses API](https://developers.openai.com/blog/responses-api) | 2026-09-22 |
+| **OpenAI ChatGPT/Codex subscription** | Undocumented (Codex CLI's own backend contract) | N/A | `oauth-pkce-loopback` ("Sign in with ChatGPT", browser) + `device-code` (workspace-admin opt-in, headless) | N/A | N/A — no public wire-format contract | N/A | `restricted` (ambiguous vendor stance; see §4) | [ChatGPT Learn: Auth](https://learn.chatgpt.com/docs/auth), [openai/codex#9253](https://github.com/openai/codex/issues/9253) | 2026-09-22 |
+| **Anthropic API** | `anthropic` | `https://api.anthropic.com/v1` (requires `anthropic-version` header) | `api-key` (`x-api-key`) | `GET /v1/models` | SSE (`message_start`/`content_block_delta`/…); tools stream as `input_json_delta`; extended thinking as `thinking`/`signature_delta` blocks; vision via image content blocks; usage incl. `cache_read_input_tokens`/`cache_creation_input_tokens` | Yes — see §3 | `allowed` | [List models](https://platform.claude.com/docs/en/api/models/list), [Streaming](https://platform.claude.com/docs/en/build-with-claude/streaming), [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching), [Extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) | 2026-09-22 |
+| **Anthropic Claude subscription (Claude Code OAuth)** | N/A (consumer OAuth token, unmodified Claude Code binary only) | N/A | `oauth-pkce-loopback` (informal, official-client-only per vendor) | N/A | N/A | N/A | `prohibited` (explicit, see §4) | [Claude Code: Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance) | 2026-09-22 |
+| **Google AI / Gemini API (AI Studio)** | `native` (`generateContent`/`streamGenerateContent`) + official `oai-chat`-compatible surface | Native: `https://generativelanguage.googleapis.com/v1beta`; OpenAI-compat: `.../v1beta/openai/` | `api-key` (`Authorization: Bearer` or `?key=`) | Native model-list under `v1beta`; OpenAI-compat `models` object | Both native SSE and `stream=True`; tools via `functionDeclarations`/`tools`; reasoning-block documentation **not found this session (gap)**; vision via `inline_data`/`image_url`; usage via `usageMetadata` / `usage.total_cached_tokens` | Yes — see §3 | `allowed` | [OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai), [Context caching](https://ai.google.dev/gemini-api/docs/caching) | 2026-09-22 |
+| **Gemini subscription logins (Gemini CLI / Code Assist / Antigravity)** | N/A | N/A | `oauth-pkce-loopback` (Google Code Assist login) | N/A | N/A | N/A | `prohibited` (explicit, see §4) | [Gemini CLI ToS & Privacy](https://geminicli.com/docs/resources/tos-privacy/) | 2026-09-22 |
+| **xAI API** | `oai-chat`-compatible + native `oai-resp`-style `/v1/responses` | `https://api.x.ai/v1` | `api-key` (`Authorization: Bearer`); also proprietary `xai_sdk` | `/v1/models` existence **not confirmed this session (gap)** | SSE/tool/reasoning/vision deviations **not deep-dived (gap)** | `unverified` — see §3 | `allowed` (API key path) | [docs.x.ai Overview](https://docs.x.ai/overview) | 2026-09-22 |
+| **xAI Grok subscription (SuperGrok / X Premium+)** | Undocumented | N/A | `device-code` (unofficial, community, against `accounts.x.ai`); on HTTP 403 tier-gating, fall back to API key | N/A | N/A | N/A | `unverified`/unreliable (see §4) | [Hermes Agent: xAI Grok OAuth](https://hermes-agent.nousresearch.com/docs/guides/xai-grok-oauth) | 2026-09-22 |
+| **OpenRouter** | `oai-chat`-compatible unified format, translated per-upstream | `https://openrouter.ai/api/v1` | `api-key`, or `oauth-pkce-loopback` for end-user key issuance (`/auth` → `POST /api/v1/auth/keys`, no client-ID pre-registration) | Standard `models` listing endpoint (path not re-verified this pass) | SSE; tools per upstream; pass-through caching — see §3 | Automatic pass-through + sticky routing (`session_id`, 10 min idle timeout) | `allowed` (vendor-designed for this) | [OAuth PKCE](https://openrouter.ai/docs/guides/overview/auth/oauth), [Provisioning API keys](https://openrouter.ai/docs/features/provisioning-api-keys), [Prompt caching](https://openrouter.ai/docs/guides/best-practices/prompt-caching) | 2026-09-22 |
+| **OpenCode Zen** | Per-model passthrough: `oai-resp`+`oai-chat` (OpenAI models), `anthropic` (Claude, Qwen), `native` (Gemini `streamGenerateContent`-style) | `https://opencode.ai/zen/v1/` (+ per-format suffix) | `api-key` only, no subscription login | `GET https://opencode.ai/zen/v1/models` | Per upstream format; caching pass-through **not independently re-verified for Zen (gap)** | Inherited, unverified for Zen specifically | `allowed` (API key path) | [OpenCode Zen docs](https://opencode.ai/docs/zen/), [Zen/Go breakdown](https://deepwiki.com/sst/opencode/4.5-opencode-zen-and-go-services) | 2026-09-22 |
+| **OpenCode Go** | Same gateway/formats as Zen | Same as Zen | `api-key`; Go is a $10/month usage-limited tier on the same key model, not a distinct OAuth login | Same as Zen | Same as Zen | Inherited | `allowed` (API key path) | [Zen/Go breakdown](https://deepwiki.com/sst/opencode/4.5-opencode-zen-and-go-services) — **secondary source (DeepWiki), Go-specific details lower-confidence** | 2026-09-22 |
+| **Nous Portal** | `oai-chat`-compatible unified API over 300+ models; OpenAI-specific extensions (provider-routing, `session_id`, top-level `cache_control`) **not part of the contract**, may be silently dropped | `https://inference-api.nousresearch.com/v1` | `oauth-pkce-loopback` only (no persistent API key; refresh token → short-lived JWT per call) | Interactive picker only; no machine-readable `/v1/models`-equivalent confirmed (**gap**) | Cache-control passthrough explicitly documented as unreliable/backend-dependent | `unverified`/unreliable pass-through | `allowed` (vendor's own primary access method) | [Nous Portal integration docs](https://hermes-agent.nousresearch.com/docs/integrations/nous-portal) | 2026-09-22 |
+| **Ollama Cloud** | `oai-chat`-compatible | `https://ollama.com/api` (cloud) vs. `http://localhost:11434` (local) | `api-key` (`Authorization: Bearer`; non-expiring, revocable) | Cloud-specific listing endpoint **not deep-dived (gap)**; local `/v1/models`/`/api/tags` well documented | Not documented in fetched material (**gap**) | Not documented (**gap**) | `allowed` (API key) | [Ollama auth docs](https://github.com/ollama/ollama/blob/main/docs/api/authentication.mdx) | 2026-09-22 |
+| **Ollama (local)** | `oai-chat`-compatible + native | `http://localhost:11434` | `none` (local, unauthenticated) | Native `/api/tags`; OpenAI-compat `/v1/models` also present | Tools yes; caching **not deep-dived (gap)** | Not deep-dived (**gap**) | `allowed` (local) | [Ollama auth docs](https://github.com/ollama/ollama/blob/main/docs/api/authentication.mdx) | 2026-09-22 |
+| **LM Studio** | `oai-chat`-compatible full surface (`/v1/models`, `/v1/responses`, `/v1/chat/completions`, `/v1/embeddings`, `/v1/completions`) | `http://localhost:1234/v1` (assumed default) | `none`/optional key | `GET /v1/models` | Tools documented ("Tool Use"); cross-request KV/prefix caching **not detailed (gap)**; health endpoint **not documented (gap)** | Unverified | `allowed` (local) | [LM Studio: OpenAI Compatibility](https://lmstudio.ai/docs/developer/openai-compat) | 2026-09-22 |
+| **llama.cpp (`llama-server`)** | `oai-chat`-compatible (chat completions, responses, embeddings routes per README) | Port `8080` default | `none`/optional key | Model listing via `--cache-list`; full `/v1/models` conformance **partially unverified (gap)** | Tool/function calling documented separately; KV/prompt caching yes — see §3; health via `--metrics` (Prometheus) and `--slots` | Yes — see §3 | `allowed` (local) | [llama.cpp server README](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) | 2026-09-22 |
+| **vLLM** | `oai-chat`-compatible server | Default port not re-confirmed this session (**gap**, commonly `8000`) | `none`/optional key | Documented feature, not re-confirmed in detail (**gap**) | Tools documented elsewhere, not re-verified (**gap**); Automatic Prefix Caching requires explicit `enable_prefix_caching=True` (not default-on) — see §3 | Yes, opt-in — see §3 | `allowed` (local) | [vLLM Automatic Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) | 2026-09-22 |
+| **mlx-lm (`mlx_lm.server`)** | `oai-chat`-mirrored `/v1/chat/completions` | Port `8080` default | `none` | `GET /v1/models` (locally cached HF repo IDs) | Tool calling, caching, health **not documented in `SERVER.md` (gap)**; docs explicitly warn server is "not recommended for production" | Not documented (**gap**) | `allowed` (local) | [mlx-lm SERVER.md](https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md) | 2026-09-22 |
+| **oMLX** | Both `oai-chat`-compatible (`/v1/chat/completions`, `/v1/completions`) and `anthropic`-compatible (`/v1/messages`) | Port `8000` default | `none`/optional key | `GET /v1/models` (auto-discovers dirs/aliases) | Tools: "all function-calling formats available in mlx-lm," JSON-schema validation, MCP integration, auto-detected parser per model family; tiered Hot-RAM/Cold-SSD KV cache — see §3 | Yes — see §3 | `allowed` (local); provenance is a community project, not first-party (see §8) | [github.com/tbro0815/omlx](https://github.com/tbro0815/omlx) (fork exists at `jundot/omlx`; canonical status not fully verified) | 2026-09-22 |
+| **Google Vertex AI** | `native` (`projects.locations.publishers.models.../generateContent`, `:streamGenerateContent`) | `https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/publishers/google/models/{model}:generateContent` | `adc` (`gcloud auth application-default login` or service-account JSON) | Via Vertex Model Garden / publisher listings, mechanics not deep-dived (**gap**) | Streaming yes; tools yes; reasoning/vision/usage deviations for Vertex specifically **not independently verified (gap)** | Not itemized for Vertex specifically (**gap**) | `allowed` (ADC/service-account, standard GCP IAM) | [generateContent reference](https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/v1/projects.locations.publishers.models/generateContent), [streamGenerateContent reference](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/v1/projects.locations.endpoints/streamGenerateContent) | 2026-09-22 |
+
+20 provider rows (OpenCode Zen and Go counted separately, matching the original's parenthetical grouping).
+
+---
+
+## 3. Prompt-caching mechanisms
+
+Feeds D7 (Phase 0 brief): provider prompt caching is layer 1 of the three-layer caching design; the client must place volatile recall/temporal/mood blocks **after** the cached prefix.
+
+| Provider | Mechanism | Min tokens | TTL | Pricing multipliers | Client layout rule | Source |
+|---|---|---|---|---|---|---|
+| **Anthropic** | Explicit `cache_control: {"type":"ephemeral"[,"ttl":"1h"]}` breakpoints, ≤4/request; automatic-advancing mode consumes one slot per turn | Model-dependent: 512 (Fable 5.1/Mythos 5.1, Opus 5, Fable 5, Mythos 5) · 1,024 (Sonnet 5, Sonnet 4.5/4.6, Opus 4/4.1) · 2,048 (Mythos Preview, Opus 4.7, Haiku 3.5) · 4,096 (Opus 4.5/4.6, Haiku 4.5) | 5 min default (free refresh on hit) or 1 h paid opt-in; generation time counts against the window; 1h entries must precede 5min entries in the same request | Write 1.25× (5min) / 2.0× (1h) base input; read 0.1× (0.025× for Fable 5.1/Mythos 5.1) | Longest stable prefix first; single breakpoint on the last block identical across requests, never on per-request content (timestamps); 20-block backward lookback — long-growing transcripts may need a second breakpoint ~15–20 blocks back | [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) |
+| **OpenAI** | GPT-5.6+: implicit (auto-placed) or explicit (`prompt_cache_options`); pre-5.6: automatic only | 1,024 visible input tokens (GPT-5.6+); variable/model-dependent pre-5.6 | GPT-5.6+: `prompt_cache_options.ttl`, only `"30m"` supported; pre-5.6: `"in_memory"` (5–10 min) or `"24h"` | Read 0.1× uncached rate (GPT-5.6+); write 1.25× | Stable developer instructions and shared reference material first; entire rendered prefix must match byte-for-byte up to the breakpoint — any earlier change (tool defs, schemas) invalidates the whole cache | [Prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) |
+| **Google Gemini** | Implicit/automatic, on by default for Gemini 2.5+ in both the stateful Interactions API and stateless `generateContent`; Interactions API supports implicit only | 4,096 tokens (3.5/3.6/3.7/3.8 Flash, 3.1 Pro Preview); 2,048 tokens (2.5 Flash/Pro) | Not stated in Google's own caching page (**gap**, checked again 2026-09-22, still absent); OpenRouter's secondary characterization claims a fixed non-renewable 5-minute window — unverified against Google | Confirmed 2026-09-22 from Google's pricing page: cached input ≈ **10% of standard input price** per model (e.g. 3.8/3.7/3.6 Flash: $0.075/M through 2026-12-31, $0.15/M from 2027-01-01), **plus** a separate hourly storage fee of **$0.50/M tokens/hour through 2026-12-31, $1.00/M tokens/hour from 2027-01-01** | "Put large and common contents at the beginning of your prompt"; "send requests with similar prefix in a short amount of time" to keep the cache warm | [Context caching](https://ai.google.dev/gemini-api/docs/caching); pricing gap closed via [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing), checked 2026-09-22 |
+| **OpenRouter (pass-through)** | Translates caller cache syntax into whichever upstream expects (e.g. OpenAI `prompt_cache_breakpoint` ↔ Anthropic `cache_control`); adds its own sticky routing (`session_id`/`x-session-id`, ≤256 chars), auto-activated whenever cache-read pricing beats standard input pricing | Inherits upstream minimums (Anthropic 1,024–4,096 by model tier; Gemini 2.5 1,024/4,096 by Flash/Pro; OpenAI 1,024; others generally automatic, no explicit minimum) | Inherits upstream, per OpenRouter's own characterization (not independently confirmed against every upstream): Anthropic 5min/1h; Gemini "fixed 5min non-renewable" (unconfirmed vs. Google); OpenAI "min 30min"; DeepSeek/Groq/Moonshot automatic, no TTL | Inherits upstream: DeepSeek 0.1× reads; Anthropic/Alibaba 0.1× reads/1.25× writes; OpenAI 0.25–0.5× reads (1.25× writes on GPT-5.6+); Grok/Groq 0.25–0.5× reads, free writes | Same stable-prefix-first principle as the underlying provider, plus a stable `session_id`/`x-session-id` from the first follow-up request | [OpenRouter prompt caching](https://openrouter.ai/docs/guides/best-practices/prompt-caching) — OpenRouter's own characterization of upstreams, secondary corroboration only |
+| **vLLM (local)** | Automatic Prefix Caching (APC), KV-cache reuse across requests sharing a prefix; **requires explicit `enable_prefix_caching=True`** in the engine — not default-on (closed this session by re-fetch of the raw docs source) | Unverified — block-size/minimum-benefit threshold not documented in the fetched source (**gap**) | N/A (local KV cache, no billing TTL) | N/A (self-hosted) | Same stable-prefix-first principle; only accelerates prefill, not generation — minimal benefit for long generations or prompts without a shared prefix with prior requests | [vLLM: Automatic Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/), re-fetched 2026-09-22 |
+| **llama.cpp `llama-server`** | KV-cache reuse via `--cache-prompt` (default on) and `--cache-reuse N` (KV-shift reuse of overlapping prefixes); slot-based (`--parallel N`), independent cache per slot | N/A (byte/prefix-based, not a token-count gate) | N/A (persists per-process/slot; no documented expiry) | N/A (self-hosted) | Stable prefix first; repeated requests KV-shift-reuse the shared prefix | [llama.cpp server README](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) |
+| **oMLX (local)** | Tiered KV cache: Hot RAM for frequent blocks, Cold SSD (`safetensors`) on overflow; persists across requests **and server restarts** | N/A (local) | N/A — persistent until evicted/overflowed, not wall-clock | N/A (self-hosted) | Same prefix-stability principle; persistence-across-restarts means a stable system-prompt/tool-schema prefix pays off across sessions, not just within one | [github.com/tbro0815/omlx](https://github.com/tbro0815/omlx) |
+
+---
+
+## 4. Subscription-login policy (third-party harness use)
+
+| Provider | Flow | Status | Statement / evidence | Source | Checked |
+|---|---|---|---|---|---|
+| OpenAI (ChatGPT/Codex) | OAuth "Sign in with ChatGPT" (browser); device-code gated behind workspace-admin opt-in for headless | **Ambiguous** | OpenAI maintainer (`etraut-openai`, 2025-12-19) confirmed Codex CLI code is Apache-2.0 but deferred to general Terms of Use, no definitive ruling on third-party OAuth harnesses; follow-ups on commercial wrappers unanswered | [openai/codex Discussion #8338](https://github.com/openai/codex/discussions/8338) | 2026-09-22 |
+| Anthropic (Claude Code OAuth) | OAuth token, official flow, unmodified Claude Code binary / claude.ai only | **Prohibited** | Verbatim: *"OAuth authentication is intended exclusively for purchasers of Claude Free, Pro, Max, Team, and Enterprise subscription plans... Anthropic does not permit third-party developers to offer Claude.ai login into their own applications, or to route requests through Free, Pro, or Max plan credentials on behalf of their users... developers may not collect, store, or intermediate Claude.ai credentials or session tokens... The Claude Code binary must not be modified... customers may not remove, disable, or restrict any authentication method built into it."* Clarified/reiterated Feb 2026 (banned use "in any other product, tool, or service — including the Agent SDK"); reporting cites rationale of unusual traffic patterns without telemetry | [Claude Code: Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance), [The Register 2026-02-20](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/), [VentureBeat](https://venturebeat.com/technology/anthropic-cracks-down-on-unauthorized-claude-usage-by-third-party-harnesses), [Winbuzzer](https://winbuzzer.com/2026/02/19/anthropic-bans-claude-subscription-oauth-in-third-party-apps-xcxwbn/) | 2026-09-22 (policy dated 2026-02) |
+| Google (Gemini CLI / Code Assist / Antigravity) | OAuth via Google Code Assist login | **Prohibited** | Verbatim: *"Directly accessing the services powering Gemini CLI (for example, the Gemini Code Assist service) using third-party software, tools, or services (for example, using OpenClaw with Gemini CLI OAuth) is a violation of applicable terms and policies."* Violations may lead to suspension/termination. Related: `gemini-cli` issue #28229 shows client-ID-level enforcement already happening ("This client is no longer supported..."); Antigravity CLI superseded the unpaid Gemini CLI tier on 2026-06-18, no separate carve-out found — treated as the same prohibited category (gap: no direct Antigravity ToS fetched) | [Gemini CLI ToS & Privacy](https://geminicli.com/docs/resources/tos-privacy/), [gemini-cli#28229](https://github.com/google-gemini/gemini-cli/issues/28229), [oh-my-pi#12487](https://github.com/can1357/oh-my-pi/issues/12487) | 2026-09-22 |
+| xAI (SuperGrok / X Premium+) | Unofficial device-code OAuth against `accounts.x.ai`, community-implemented, undocumented by xAI | **Unverified, functionally unreliable** | No xAI policy statement found either way; xAI backend enforces an allowlist and has returned HTTP 403 to legitimate SuperGrok subscribers on this surface (known issue); community docs recommend falling back to the API key path | [Hermes Agent: xAI Grok OAuth](https://hermes-agent.nousresearch.com/docs/guides/xai-grok-oauth) | 2026-09-22 |
+| OpenRouter | OAuth PKCE, vendor-documented | **Allowed** | Purpose-built primary integration pattern for third-party apps | [OpenRouter OAuth PKCE](https://openrouter.ai/docs/guides/overview/auth/oauth) | 2026-09-22 |
+| Nous Portal | OAuth (only auth method) | **Allowed** | Vendor's own primary and only documented access method, built for CLI/agent integration | [Nous Portal integration docs](https://hermes-agent.nousresearch.com/docs/integrations/nous-portal) | 2026-09-22 |
+
+### Conflicts with the brief
+
+**Finding.** The original §6.1 table lists Anthropic Claude-subscription and Google Gemini-subscription (CLI/Code Assist/Antigravity) logins as in-scope auth kinds, subject only to "the auth policy in §6.3." §6.3's own rule is: `prohibited` is never shipped, `restricted` is opt-in with a visible risk notice. Research this session found that both are **explicitly and currently `prohibited`** by the vendors themselves (Anthropic's Legal and compliance doc; Google's Gemini CLI ToS, naming exactly "using OpenClaw with Gemini CLI OAuth" as a violation). OpenAI's ChatGPT/Codex subscription OAuth is **ambiguous** — no vendor ruling either way, so it can be at best `restricted`, never `allowed`, until OpenAI clarifies. xAI's SuperGrok/X Premium+ device-code login is **unofficial and unreliable** (undocumented, allowlist-gated, known to 403 legitimate subscribers) — `unverified`, not a supported flow.
+
+**What this means under §6.3.** Applying the brief's own rule mechanically: the Anthropic and Google subscription-login paths cannot be shipped in the harness at all — no code path, no UI entry, no "opt-in with risk notice," because `prohibited` never ships regardless of opt-in framing. OpenAI's path would be `restricted` at best (opt-in, explicit risk notice, no default enablement) pending an official OpenAI ruling. xAI's path is `unverified`/unreliable and should not be presented as a supported flow.
+
+**Options for the owner** (not decided here):
+1. **API keys only** for Anthropic and Google — the fully permitted, documented path for both vendors; loses "use my existing subscription" convenience but is unambiguously compliant.
+2. **Official CLI as an external agent over ACP** (original §8, ADR-011) — run the vendor's own unmodified Claude Code / Gemini CLI binary as a subprocess the harness talks to via the Agent Client Protocol, so the subscription login stays entirely inside the official, unmodified client and the harness never touches or stores its credentials. This is the escape hatch the original §6.3 itself names ("Ausweg: API-Key oder der offizielle Client als externer Agent über ACP").
+3. **Wait for policy changes** — revisit if Anthropic, Google, OpenAI, or xAI issue clearer or more permissive guidance; §6.3 already anticipates this ("Stand... zum Implementierungszeitpunkt prüfen — die Regeln haben sich 2026 mehrfach geändert"). Re-check before Phase 1 implementation of ADR-005, not just at Phase 0 time.
+
+This is a finding for ADR-005 to resolve with the owner, not a decision made here.
+
+---
+
+## 5. Embedding providers
+
+### 5a. In-process (Transformers.js / ONNX, `@huggingface/transformers` v4.3.0, `onnxruntime-node` v1.30.0)
+
+`onnxruntime-node` platform support: Windows/Linux/macOS × x64/arm64, CPU EP everywhere; WebGPU not yet prebuilt for Linux arm64; DirectML Windows-only; CUDA Linux x64 only (CUDA v12); CoreML macOS-only. Source: [onnxruntime js/node README](https://github.com/microsoft/onnxruntime/blob/main/js/node/README.md), checked 2026-09-22.
+
+| Model | HF id | Type | Dim | Matryoshka | Max tokens | Prefix/task scheme | Normalisation | License (verbatim) | ONNX in Transformers.js | Source |
+|---|---|---|---|---|---|---|---|---|---|---|
+| multilingual-e5-small | `intfloat/multilingual-e5-small` | Embedding | 384 | No | 512 | `query: `/`passage: ` prefixes required | Not stated in card excerpt (unverified) | `mit` | Yes, `onnx/model.onnx` in repo | [HF model card](https://huggingface.co/intfloat/multilingual-e5-small) |
+| Jina v3 | `jinaai/jina-embeddings-v3` | Embedding | unverified (commonly 1024 per public docs, not re-confirmed) | Yes, task LoRA + Matryoshka (not re-confirmed) | 8192 (not re-confirmed this pass) | `task=` param (`retrieval.query`, `retrieval.passage`, `separation`, `classification`, `text-matching`) | Not stated (unverified) | `cc-by-nc-4.0` | Yes, ONNX tag present; full README too large to fetch | [HF model card](https://huggingface.co/jinaai/jina-embeddings-v3) |
+| Jina v5-text-nano | `jinaai/jina-embeddings-v5-text-nano` | Embedding | 768 | Yes — 32/64/128/256/512/768 | 8192 | `task=` + `prompt_name` (`retrieval`+`query`/`document`; also `text-matching`, `classification`, `clustering`) | Not stated (unverified) | `cc-by-nc-4.0` (commercial use requires contacting sales@jina.ai) | Yes, ONNX weights in `onnx/` per task variant | [HF model card](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano) |
+| BGE reranker v2-m3 | `BAAI/bge-reranker-v2-m3` | Reranker (cross-encoder) | N/A (scalar) | N/A | 512 (per usage examples) | Query/document pair; `normalize=True` applies sigmoid | Not stated (unverified) | `apache-2.0` | **No** — safetensors only in the official repo | [HF model card](https://huggingface.co/BAAI/bge-reranker-v2-m3) |
+| Jina reranker v2 | `jinaai/jina-reranker-v2-base-multilingual` | Reranker (cross-encoder) | N/A | N/A | 1024, sliding-window chunking for longer inputs | Query/document pair, 26+ languages | Not stated (unverified) | `cc-by-nc-4.0` | ONNX listed as a supported library tag | [HF model card](https://huggingface.co/jinaai/jina-reranker-v2-base-multilingual) |
+| Qwen3-Embedding-0.6B | `Qwen/Qwen3-Embedding-0.6B` | Embedding | Up to 1024, user-selectable 32–1024 | Yes ("MRL Support") | 32,768 | `Instruct: {task}\nQuery:{query}` for queries; documents unprefixed | Not stated (unverified) | `apache-2.0` | Yes, `onnx-community/Qwen3-Embedding-0.6B-ONNX` | [HF model card](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) |
+| Qwen3-Reranker-0.6B | `Qwen/Qwen3-Reranker-0.6B` | Reranker | N/A | N/A | 32,768 | Default instruction "Given a web search query, retrieve relevant passages that answer the query."; customizable via `prompts` | Raw logit-difference by default; sigmoid optional for [0,1] | `apache-2.0` | Yes, `onnx-community/Qwen3-Reranker-0.6B-ONNX` | [HF model card](https://huggingface.co/Qwen/Qwen3-Reranker-0.6B) |
+| gte-multilingual-base | `Alibaba-NLP/gte-multilingual-base` | Embedding | unverified (README excerpt returned no dim/token fields) | unverified | unverified | unverified | Not stated (unverified) | `apache-2.0` | Yes, `onnx-community/gte-multilingual-base` (reranker variant also mirrored) | [HF model card](https://huggingface.co/Alibaba-NLP/gte-multilingual-base) |
+| nomic-embed-text-v2-moe | `nomic-ai/nomic-embed-text-v2-moe` | Embedding (MoE) | Flexible, Matryoshka to 256 from a 768 base | Yes | 512 | `search_query: `/`search_document: ` prefixes required | Not stated (unverified) | `apache-2.0` | Unverified — GGUF variant exists, ONNX not confirmed | [HF README](https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe/blob/main/README.md) |
+
+All rows checked 2026-09-22. multilingual-e5-base/large dimensions (768/1024) are inferred by naming convention from the small variant and not independently re-verified this pass — treat as **unverified** and re-fetch before pinning a revision.
+
+### 5b. Remote embedding APIs
+
+| Provider | Model(s) | Params | Limits | Source |
+|---|---|---|---|---|
+| OpenAI | `text-embedding-3-small` (1536 dim), `text-embedding-3-large` (3072 dim), `text-embedding-ada-002` (1536 fixed) | `dimensions` truncation on the two v3 models (e.g. 3-large shortened to 256 still outperforms unshortened ada-002 per vendor) | 8,192 tokens, all three | [Embeddings guide](https://developers.openai.com/api/docs/guides/embeddings) |
+| Google Gemini | `gemini-embedding-2` (multimodal: text/image/video/audio/PDF), `gemini-embedding-001` (text-only) | `task_type` supported **only** on `-001` (`SEMANTIC_SIMILARITY`, `CLASSIFICATION`, `CLUSTERING`, `RETRIEVAL_DOCUMENT`, `RETRIEVAL_QUERY`, `CODE_RETRIEVAL_QUERY`, `QUESTION_ANSWERING`, `FACT_VERIFICATION`); `-2` needs task instructions embedded in prompt text; both: output dims 128–3072, recommended 768/1536/3072 (Matryoshka-style) | `-2`: 8,192 tokens; `-001`: 2,048 tokens; batch API 50% of default price | [Embeddings docs](https://ai.google.dev/gemini-api/docs/embeddings) |
+| Cohere | `embed-v4.0` | `input_type` param presumed present by longstanding convention, **not independently re-verified this pass** — primary docs 404'd | unverified | Primary 404 (`docs.cohere.com/docs/embed`); secondary: [Vercel AI Gateway listing](https://vercel.com/ai-gateway/models/embed-v4.0) — **treat as unverified, see §8** |
+| Jina AI | v5-text-small (1024 dim, 32K ctx), v5-text-nano (768 dim, 32K ctx), v5-omni-small/nano (multimodal), v4 (research-license only, not for commercial production), v3 (legacy, 8192 ctx, 89 languages) | `task=` (`retrieval.query`, `retrieval.passage`, `text-matching`, `classification`, `separation`); Matryoshka per v5-text-nano (32–768) | 32K (v5-text/omni-small), 8K (v5-omni-nano), 8192 (v3); rate tiers: Free 100RPM/100K TPM, Paid 500RPM/2M TPM, Premium 5,000RPM/50M TPM | [jina.ai/embeddings](https://jina.ai/embeddings/) |
+| Voyage AI | `voyage-4-large` (1024/256/512/2048 selectable), `voyage-4` (256–2048 flexible), `voyage-4-lite`, `voyage-code-4`, `voyage-finance-2` (fixed 1024), `voyage-law-2`; open-weight `voyage-4-nano` on HF | `input_type`: `query`/`document`/none (auto-prepends retrieval prompt) | 32K tokens (voyage-4 family); voyage-law-2 16K; batch up to 1M tokens/batch (lite), ~320K (standard) | [Embeddings docs](https://docs.voyageai.com/docs/embeddings) |
+| Mistral | `mistral-embed` (text), separate code-embeddings model | Not resolved — sub-pages (`text_embeddings`, `code_embeddings`) not fetched | unverified | [docs.mistral.ai/capabilities/embeddings](https://docs.mistral.ai/capabilities/embeddings/) — **see §8** |
+| OpenRouter | Pass-through Embeddings API (`oai-chat`-compatible `/v1/embeddings`), "every modality, one API" | Depends on pinned upstream model | Depends on upstream | [Embeddings API ref](https://openrouter.ai/docs/api_reference/embeddings), [Embedding models collection](https://openrouter.ai/collections/embedding-models) — endpoint content not fetched, existence confirmed via search/blog only |
+| Ollama Cloud | `/api/embed` (`{model,input}` → `{embeddings:[[...]]}`) | N/A | Local — no API pricing; cloud pricing not investigated; `/v1/embeddings` OpenAI-compat status **disputed between an older "coming soon" blog post and the current docs page (unverified/likely still absent)** | [docs.ollama.com/capabilities/embeddings](https://docs.ollama.com/capabilities/embeddings) |
+
+All rows checked 2026-09-22 unless noted.
+
+### 5c. Explicit "none" rows
+
+| Provider | Embedding | Evidence level |
+|---|---|---|
+| Anthropic | **None.** Vendor doc states verbatim: *"Anthropic does not offer its own embedding model"* and recommends Voyage AI instead | Confirmed, primary source: [Anthropic embeddings docs](https://platform.claude.com/docs/en/build-with-claude/embeddings) |
+| xAI | No evidence of an embeddings API found | Unverified/likely none — no primary xAI page located confirming or denying |
+| Nous Portal | No embedding or reranking models found; portal emphasizes chat/agent tools (browser use, scraping, image gen, speech) | Confirmed by omission on the vendor's own page: [portal.nousresearch.com](https://portal.nousresearch.com/) |
+| OpenCode Zen | No embedding models surfaced | Unverified — primary page blocked by `robots.txt` at research time; secondary aggregator listing showed none |
+
+---
+
+## 6. Rerank providers
+
+### 6a. Remote
+
+| Provider | Endpoint | Request | Response | Score range | Source |
+|---|---|---|---|---|---|
+| Cohere | `POST /v2/rerank` (models `rerank-v4.0-pro`, `rerank-v3.5`) | `{model, query, documents: string[], top_n?}` | `{results:[{index, relevance_score}], id, meta}` | [0,1] (examples: 0.999071, 0.7867867, 0.32713068) | [docs.cohere.com/reference/rerank](https://docs.cohere.com/reference/rerank) |
+| Jina | `POST /v1/rerank` (models `jina-reranker-v3.5` 0.6B listwise 131K ctx, `jina-reranker-v3` listwise 131K ctx, `jina-reranker-m0` multimodal, `jina-reranker-v2-base-multilingual` cross-encoder 100+ languages, `jina-colbert-v2` late-interaction 89 languages) | `{model, query, documents: string[], top_n, return_documents}` | Expected `{results:[{index, relevance_score}]}` mirroring Cohere's Cohere-API-compatibility positioning — **not independently confirmed with an exact JSON example (gap)** | [0,1] (assumed, not independently confirmed) | [jina.ai/reranker](https://jina.ai/reranker/) |
+| Voyage | `POST /rerank` (models `rerank-3`, `rerank-3-lite`, `rerank-2.5`, `rerank-2.5-lite`) | `{query, documents: string[], model, top_k, truncation}` | `{results:[{index, document, relevance_score}], total_tokens}` | [0,1] (example: 0.94140625) | [docs.voyageai.com/docs/reranker](https://docs.voyageai.com/docs/reranker) |
+
+Voyage limits: max 1,000 documents/request, 32K token context for rerank-2.5.
+
+### 6b. Local servers
+
+| Server | Endpoint | Request/response shape | Source |
+|---|---|---|---|
+| llama.cpp (`llama-server`) | `--rerank`/`--reranking` flag (default disabled), `/v1/rerank` + `/rerank` (PR #9510) | `query, documents, top_n` params documented; **exact JSON not captured this pass (gap)** | [llama.cpp server README](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) |
+| vLLM | `/v1/score` (Score API) + Cohere-compatible `/v1/rerank` | Cohere-shape-compatible per vLLM's own docs page title; **exact JSON not rendered this pass (gap)** | [vLLM pooling models: scoring](https://docs.vllm.ai/en/latest/models/pooling_models/scoring/) |
+| Hugging Face TEI | `POST /rerank` | Request `{query, texts: string[], raw_scores: bool}` (note: `texts`, not `documents`); response field names **not captured this pass (gap)** | [TEI quick tour](https://huggingface.co/docs/text-embeddings-inference/en/quick_tour) |
+| oMLX | `POST /v1/rerank` | Framed as "drop-in replacement for OpenAI and Anthropic APIs"; supports ModernBERT, XLM-RoBERTa rerankers; **exact JSON not documented (gap)** | [github.com/jundot/omlx](https://github.com/jundot/omlx) |
+| Infinity (`michaelfeil/infinity`) | Confirmed to support reranking per repo description and a dedicated discussion thread | Endpoint paths/JSON **not fetched this pass (gap)** | [github.com/michaelfeil/infinity](https://github.com/michaelfeil/infinity), [discussion #228](https://github.com/michaelfeil/infinity/discussions/228) |
+| Ollama | — | **No rerank endpoint.** Issue "Reranking models" (#3368) remains open; community PR #7219 exists, merge/ship status unconfirmed | [ollama/ollama#3368](https://github.com/ollama/ollama/issues/3368), [PR #7219](https://github.com/ollama/ollama/pull/7219) |
+| LM Studio | — | **No rerank endpoint.** Multiple open feature requests confirm the gap: `lmstudio-ai/docs#162`, `lmstudio-ai/lms#521`, `#167` | [lmstudio-ai/docs#162](https://github.com/lmstudio-ai/docs/issues/162), [lmstudio-ai/lms#521](https://github.com/lmstudio-ai/lms/issues/521) |
+
+### 6c. Normalised adapter interface
+
+```
+rerank(query: string, documents: string[], topN?: number) => Promise<{ index: number, score: number }[]>
+```
+
+Field-mapping notes: Cohere/Voyage/Jina all return `relevance_score` under `results[]` → map to `score`; TEI uses `texts` (not `documents`) in its request; vLLM, llama.cpp, and oMLX response field names are unconfirmed (§6b gaps) and must be verified against a live instance before the adapter is finalised.
+
+**Scores are not comparable across rerankers.** At least one major hosted rerank API documents that relevance scores are meaningful only within a single request (same query/document set), not as an absolute cross-model quality measure. A normalised adapter must not blend or threshold scores from different rerank models/providers without re-calibration — use rank-based fusion instead when combining outputs from more than one reranker. Source: [Cross-Encoder Reranker Score Calibration — Why 0.5 Cutoffs Fail](https://dev.to/ji_ai/cross-encoder-reranker-score-calibration-why-05-cutoffs-fail-1k9b), checked 2026-09-22. This matches original §6.2's own rule: *"Scores verschiedener Reranker sind nicht vergleichbar → Schwellen pro Reranker oder rangbasierte Fusion."*
+
+BGE-reranker-v2-m3 and Qwen3-Reranker-0.6B are local/self-hosted only among the models reviewed here (served via TEI/vLLM/llama.cpp/oMLX/Infinity or in-process) — not available behind any hosted rerank API checked.
+
+---
+
+## 7. Embedding-identity fields (per store)
+
+From original §6.2 ("Embedding-Identität") and the research notes. Recorded per store and per generation, and folded into every cache key (D7 layer 2):
+
+| Field | Meaning | Notes |
+|---|---|---|
+| Model id | e.g. `intfloat/multilingual-e5-small`, `text-embedding-3-large` | |
+| Revision / artefact hash | Pinned HF commit SHA (in-process) or SHA-256 of the artefact | Not yet captured for any in-process model this pass — a real gap, see §8 |
+| Quantisation | e.g. fp32, int8, GGUF Q4 | Affects both vector values and RAM footprint |
+| Dimension | Native or Matryoshka-truncated output dimension | Never mix dimensions in one recall table |
+| Prefix/task scheme | `query:`/`passage:`, `Query:`/`Document:`, `input_type`, `task_type`, instruction-prefix format | Per-provider, see §5a/5b tables |
+| Normalisation | L2-normalised or not | Not independently confirmed for any in-process model this pass (§5a "unverified") |
+| Token cap | Max input tokens (default 512 per original §6.2 for local models, against OOM) | Shown/enforced in UI |
+| Pinned upstream (aggregators only) | The specific upstream model an aggregator (OpenRouter, etc.) is pinned to | Required because aggregator "model ids" are proxies, not identities |
+
+Rules restated from the original (binding, not re-litigated here): never mix vector spaces; every identity change goes through the PLUR1BUS re-embedding migration (prepare target → dry-run → copy into new generation → separate switch → old generation kept for rollback); identity is selectable per agent/store; `/share` re-embeds text in the target pool's identity, never copies vectors; cross-store recall embeds the query once per identity and fuses by rank or via the reranker (never raw similarity comparison across identities); failover only between endpoints of the *same* identity, gated by a compatibility probe (fixed probe set vs. stored reference vectors) before first use; similarity thresholds (duplicate 0.95, reserved band ≥0.96, semantic links 0.78) are pinned to the identity and re-calibrated after every model change.
+
+---
+
+## 8. Gaps
+
+Every item the research notes flagged as unverified, carried forward for the ADR authors. Two gaps (marked ✅) were closed this session via direct web fetch; the rest remain open.
+
+| Gap | Where it matters | What would close it |
+|---|---|---|
+| Cohere `embed-v4.0` exact spec (dimension, Matryoshka, `input_type` values, pricing) | §5b, ADR-006 | Re-fetch a working Cohere URL (`docs.cohere.com/v2/docs/embeddings` or API reference) or the changelog for Embed Multimodal v4 |
+| Mistral `mistral-embed` spec (dimension, max tokens, pricing) | §5b, ADR-006 | Fetch the `text_embeddings`/`code_embeddings` sub-pages linked from `docs.mistral.ai/capabilities/embeddings` |
+| Gemini context-caching TTL | §3, ADR-010 | ✅ Pricing closed 2026-09-22 via `ai.google.dev/gemini-api/docs/pricing` (≈10% of input rate + hourly storage fee). TTL itself still absent from Google's own caching page after a second fetch this session — needs a direct question to Google support or a live smoke test measuring cache-hit decay |
+| vLLM Automatic Prefix Caching internals (block size, minimum-benefit threshold, default state) | §3, ADR-010 | ✅ Partially closed 2026-09-22: default state confirmed **not** on-by-default (`enable_prefix_caching=True` required). Block size and minimum-benefit threshold still unconfirmed — read `docs.vllm.ai/en/latest/design/prefix_caching/` or the vLLM source directly |
+| xAI SSE/tool-call/reasoning/vision deviations, `/v1/models` existence | §2, §4 | Fetch xAI's chat-completions and tool-use reference pages directly (only `docs.x.ai/overview` was reachable this pass) |
+| Exact rerank response JSON for Jina, TEI, vLLM, llama.cpp, oMLX | §6b, ADR-006 | Direct fetch of raw GitHub source (llama.cpp PR #9510 diff, vLLM's `examples/pooling/score/rerank_api_online.py`) or a live smoke test against each running server |
+| RAM footprint per in-process embedding/rerank model (int8 vs fp32) | §5a, ADR-006 (RAM-budget/LRU design) | Compute from HF `safetensors` file sizes × quantisation multiplier, or from `@huggingface/transformers` quantisation docs; no source was fetched for this in either research pass |
+| Revision/commit-hash pinning for each in-process model | §5a, §7 | Capture exact HF commit SHA per model at the time each is vendored, not just `main` |
+| Normalisation flag (L2 or not) per in-process embedding model | §5a, §7 | Re-fetch each model card's usage example / source code for the normalisation step |
+| `multilingual-e5-base`/`-large` exact dim/max-tokens | §5a | Direct fetch of the base/large model cards (only small was independently confirmed) |
+| `jina-embeddings-v3` exact dim/Matryoshka/max-tokens | §5a | Full README fetch (was too large to render in either pass) |
+| `gte-multilingual-base` dim/Matryoshka/max-tokens/prefix scheme | §5a | Direct re-check of the model card (fetch returned only license/language list) |
+| `nomic-embed-text-v2-moe` ONNX availability (vs. GGUF-only) | §5a | Check for an `onnx-community/*` mirror or ask upstream |
+| OpenCode Zen/Go embeddings, cache pass-through specifics | §2, §5c | `opencode.ai/zen` primary docs not fetched (robots.txt-blocked in one pass); re-attempt or request a rendered copy |
+| Nous Portal machine-readable model listing | §2 | Ask Nous Research directly or watch for a documented `/v1/models`-equivalent |
+| OpenCode Go subscription/pricing details sourced only from a secondary aggregator (DeepWiki) | §2 | Re-verify against `opencode.ai` primary docs |
+| oMLX canonical repo/provenance (community project, fork exists) | §2, §5a | Confirm which of `tbro0815/omlx` / `jundot/omlx` is canonical before pinning a version in the harness |
