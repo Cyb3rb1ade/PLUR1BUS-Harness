@@ -1,6 +1,6 @@
 # Making PLUR1BUS host-neutral: engine, adapters, PR plan
 
-**Status:** Phase 0 analysis · **Date:** 2026-09-22 · **Inputs:** `docs/host-contract.md`, `docs/phase0/brief.md` D2/D3/D4/D6/D9/D11, `docs/phase0/research/plur1bus-host-contract.md` §10–§11, `docs/phase0/research/plur1bus-crons-embedding-portability.md` §1–§4, `docs/assumptions.md` A1/A5/Q5.
+**Status:** Phase 0 analysis · **Date:** 2026-09-22 · **Inputs:** `docs/host-contract.md`, `docs/phase0/brief.md` D2/D3/D4/D6/D9/D11, `docs/phase0/research/plur1bus-host-contract.md` §10–§11, `docs/phase0/research/plur1bus-crons-embedding-portability.md` §1–§4, `docs/assumptions.md` A1/A5/Q6.
 
 **Source of record:** `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9` (`@cyb3rb1ade/plur1bus-memory` 7.15.4). All `file:line` are relative to that root at that commit; `oc:` prefixes are `/home/claude/refs/openclaw` @ `b9421f4`. Line counts marked *(wc)* were re-measured with `wc -l` @ 89148f9; counts marked *(note)* are taken from research §10 and not independently re-derived. This document contains **interface sketches only** — no implementation, per `docs/adr/README.md`.
 
@@ -254,6 +254,8 @@ Each PR is gated by the same **behaviour-neutrality test**: the full PLUR1BUS su
 | **PR-14** | Publish `@cyb3rb1ade/plur1bus-engine` and repoint the plugin | **M** | PR-03…PR-13 | The plugin package becomes `@cyb3rb1ade/plur1bus-host-openclaw` depending on the engine; manifest, `contracts.*` and `cliCommands` unchanged | Full suite green in the plugin repo against the published engine; `docs/compatibility-openclaw.md` matrix re-verified |
 | **PR-15** | Engine-side `checkpoint()` | **S** | PR-03 | Turn the `event.compactedAt` read (`index.js:12959`) into an explicit `Engine.checkpoint(agentId,"compaction")`; the OpenClaw adapter may optionally register `before_compaction` (oc:`src/plugins/hook-types.ts:116`, 30 000 ms default) | Suite green; test asserts reactivation recall still keys off the same timestamp when only `compactedAt` is supplied |
 
+**Numbering note.** PR-01…PR-15 is the authoritative numbering. ADR-002's "PR plan" table labels the same plan P0–P10 at coarser grain; the mapping is recorded in ADR-002 §"PR plan for the PLUR1BUS repo".
+
 **Ordering.** PR-01 → PR-02 → PR-03 is the critical path; PR-04…PR-09, PR-11, PR-12, PR-13 parallelise after PR-03; PR-10 is last among the behaviour-affecting ones because it needs PR-04/05/06; PR-14 closes the extraction; PR-15 is independent and can land any time after PR-03. Estimated: 4 × L, 8 × M, 3 × S.
 
 **Two PRs are not behaviour-neutral and need an explicit owner decision** before they land: PR-08 (run-state semantics) and PR-10 (ranking). Both are required by the brief (D4 observability, multi-identity recall), so they are listed as decisions, not as risks to avoid.
@@ -275,7 +277,7 @@ Each PR is gated by the same **behaviour-neutrality test**: the full PLUR1BUS su
 
 ---
 
-## (e) Recommendation on Q5 — two repos vs monorepo
+## (e) Recommendation on Q6 — two repos vs monorepo
 
 **Recommendation: two repos, as A5 assumes — `Cyb3rb1ade/PLUR1BUS` (engine + OpenClaw adapter + control UI, published as three npm packages) and `Cyb3rb1ade/PLUR1BUS-Harness` (host, CLI, API, web UI).** This is for ADR-002 to accept formally.
 

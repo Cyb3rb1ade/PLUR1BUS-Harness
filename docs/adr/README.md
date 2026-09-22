@@ -49,16 +49,20 @@ The recommendation, stated in one paragraph, then the details.
 
 ## Index
 
-| ADR | Title | Status |
-|-----|-------|--------|
-| 001 | Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A) | Proposed |
-| 002 | PLUR1BUS engine extraction and the harness as native host | Proposed |
-| 003 | Agent model, collaboration, group vs 1:1 behaviour | Proposed |
-| 004 | Harness API and web UI | Proposed |
-| 005 | Authentication policy and secret storage | Proposed |
-| 006 | Embedding and reranking service | Proposed |
-| 007 | Users, roles, identity linking | Proposed |
-| 008 | Protocols: MCP, ACP, A2A | Proposed |
-| 009 | Dreaming scheduler | Proposed |
-| 010 | Latency and caching | Proposed |
-| 011 | External coding agents | Proposed |
+| ADR | Title | File | Status |
+|-----|-------|------|--------|
+| 001 | Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A) | `ADR-001-base-architecture.md` | Proposed |
+| 002 | PLUR1BUS engine extraction and the harness as native host | `ADR-002-plur1bus-engine-and-host.md` | Proposed |
+| 003 | Agent model, collaboration, group vs 1:1 behaviour | `ADR-003-agent-model-and-collaboration.md` | Proposed |
+| 004 | Harness API and web UI | `ADR-004-harness-api-and-web-ui.md` | Proposed |
+| 005 | Authentication policy and secret storage | `ADR-005-auth-policy-and-secrets.md` | Proposed |
+| 006 | Embedding and reranking service | `ADR-006-embedding-and-reranking.md` | Proposed |
+| 007 | Users, roles, identity linking | `ADR-007-users-roles-identity.md` | Proposed |
+| 008 | Protocols — MCP, ACP, A2A | `ADR-008-protocols-mcp-acp-a2a.md` | Proposed |
+| 009 | Dreaming scheduler | `ADR-009-dreaming-scheduler.md` | Proposed |
+| 010 | Latency and caching | `ADR-010-latency-and-caching.md` | Proposed |
+| 011 | External coding agents | `ADR-011-external-coding-agents.md` | Proposed |
+
+## Open-question numbering
+
+Canonical numbering for owner questions is **`docs/assumptions.md` Q1–Q11** (Q1–Q5 follow the original commission §13; Q6+ were added on 2026-09-22). An ADR that also numbers its *own* open questions (ADR-001, ADR-002, ADR-009, ADR-010 …) numbers them locally and says so; a reference to a canonical question always cites `docs/assumptions.md`. The Phase-0 review consolidates both sets in `docs/phase0/decisions-for-owner.md`.

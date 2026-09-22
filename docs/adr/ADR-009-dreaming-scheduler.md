@@ -30,7 +30,7 @@ Field symptom that ties them together: `too_few_memories, count: 0` for both sha
 
 ### OpenClaw's memory-core dreaming — the reference model (D4) and its documented failures
 
-OpenClaw implements the same three phases in the bundled `memory-core` plugin, with all defaults literal in source (`src/memory-host-sdk/dreaming.ts:21-56` @ `b9421f4`, version 2026.9.5, read directly):
+OpenClaw implements the same three phases in the bundled `memory-core` plugin, with all defaults literal in source (`src/memory-host-sdk/dreaming.ts:22-65` for the scalar defaults and `:272-284` for the per-phase `sources` arrays, both @ `b9421f4`, version 2026.9.5, read directly):
 
 - Top level: `enabled: true`, `frequency: "0 3 * * *"`, `timezone: undefined` (host-local), `storage: { mode: "separate", separateReports: false }`, `execution.defaults: { speed: "balanced", thinking: "medium", budget: "medium" }`.
 - **Light:** `lookbackDays: 2`, `limit: 100`, `dedupeSimilarity: 0.9`, `sources: ["daily","sessions","recall"]`. Stages candidates; does not touch `MEMORY.md`.
@@ -137,7 +137,7 @@ The ledger row is written **before** the job body runs (`started_at`, `outcome =
 | **Stale-candidate expiry** | `expires_at` default 72 h; expired candidates are ineligible regardless of score | #65550: stale candidates from 2–4-day-old transcripts, all `confidence 0.00, recalls 0`, stayed eligible |
 | **Minimum corpus** | Deep runs only above a minimum candidate count and a minimum *fresh* fraction; below it the run records `skipped, reason=min_corpus` with counts — **not silence** | Cause 6: `too_few_memories` (<3) logs nothing today |
 | **Promotion requires demonstrated utility** | Never promote `recalls = 0`; and the recall counter **must** cover the paths that can be promoted | #142393's inverted incentive — "a pure design error worth encoding as a test" (`harness-engineering-state-of-the-art.md` §"What better means" item 5) |
-| **Bounded prior-entry loss** | A consolidation pass may not remove more than **25 %** of prior entries (`maxPriorEntryLossFraction` 0.25) and may not exceed **160 tokens** per promoted snippet | OpenClaw's own defaults, `dreaming.ts:47-48` |
+| **Bounded prior-entry loss** | A consolidation pass may not remove more than **25 %** of prior entries (`maxPriorEntryLossFraction` 0.25) and may not exceed **160 tokens** per promoted snippet | OpenClaw's own defaults, `dreaming.ts:50-51` |
 | **No silent truncation** | If a memory file or an injected copy would be clipped, emit a visible warning and a deferral record | #142393: 9 728 B against a 9 000-char cap, tail truncated on every load |
 | **Model emits operations, a validator applies them** | The consolidation model returns typed `add/merge/supersede`, never prose; a deterministic validator enforces prior-entry preservation, source attribution and size compliance; prior versions backed up | `harness-engineering-state-of-the-art.md` §6 ("Adopt exactly. Never let a model write the memory file directly") |
 | **Fresh context per run** | Consolidation and diary completions never inherit a conversation session, so diary output cannot become a promotion source | ibid. |
@@ -198,7 +198,7 @@ Results go only to **validated targets** (§4.1): the dream diary file, the ledg
 | Maintenance burden | Low |
 | Latency / token cost | One long run instead of three short ones; harder to bound |
 
-**Pros:** removes the "N jobs get out of sync" class; it is what OpenClaw converged on after starting with three separate jobs (`LEGACY_MEMORY_*_CRON_NAME` constants, `dreaming.ts:31-36`).
+**Pros:** removes the "N jobs get out of sync" class; it is what OpenClaw converged on after starting with three separate jobs (`LEGACY_MEMORY_*_CRON_NAME` constants, `dreaming.ts:33-38`).
 **Cons:** "concentrates all three phases' failure modes onto a single trigger path — if the one system event never fires, *no* phase runs at all", which matches #62920/#62296/#62857 (`openclaw-layout-dreaming-ui.md` §2 Inferences). D4 requires per-phase control anyway.
 
 **Recommendation: B, taking C's lesson as a constraint** — phases are independently scheduled, but a *deep* run consumes the candidate table produced by *light*, so a deep run with no fresh light output records `skipped, reason=no_candidates` instead of doing nothing quietly.
@@ -220,7 +220,7 @@ Primary trigger is **accumulated importance** in the style of Generative Agents 
 | **A7** | **Staggering.** 20 agents, same phase, same window | Start times spread across the stagger window; global concurrency never exceeds 3 |
 | **A8** | **Downtime catch-up.** Stop the daemon across a scheduled window, restart | Exactly **one** catch-up run per missed window (`trigger='catchup'`), not one per missed tick |
 
-## Trade-offs
+## Trade-off analysis
 
 The scheduler is not hard; the honesty is. Every one of the eleven PLUR1BUS causes and most of the OpenClaw issues are the same bug shape: *a failure that produces no durable evidence*. The cost of the design above is that the harness writes a row for every no-op, keeps a candidate table, and refuses to promote things that look useful but have never been recalled — all of which make dreaming *less* productive in the short term and much more trustworthy. Given that OpenClaw publishes **no** quality measurement for dreaming while documenting the mechanism in unusual detail (`harness-engineering-state-of-the-art.md` §"hype vs holds up"), trustworthiness is the right thing to optimise first.
 

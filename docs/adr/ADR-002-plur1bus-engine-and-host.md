@@ -14,7 +14,7 @@ D2 is the binding constraint: **PLUR1BUS is the core, not a plugin.** The harnes
 
 ## Decision
 
-**Refactor PLUR1BUS into three published units — a host-neutral `engine` package, an `openclaw-adapter` package, and a `ui` package — and have the harness consume the engine in-process inside the core daemon as an ordinary workspace dependency, not as a plugin.** The engine exposes a typed, host-agnostic API (lifecycle, recall, capture, checkpoint, tools, commands, jobs registry, embed/rerank, admin, events). The harness implements the engine's `Host` interface directly, supplying a **first-class principal** and a **typed turn origin**, which lets the engine delete the OpenClaw turn-route ticket machinery on the harness path. The six injection blocks and the 17 000-char budget are preserved verbatim as engine output; the harness applies its own, tighter time budgets where the OpenClaw ones exist only to survive a slow host. Multi-identity recall replaces the pool-wide `vectorDim` scalar with a per-route dimension and rank-based fusion. **Two repositories** remain the default (Q5 answered below), with a strict behaviour-neutrality gate on every extraction PR.
+**Refactor PLUR1BUS into three published units — a host-neutral `engine` package, an `openclaw-adapter` package, and a `ui` package — and have the harness consume the engine in-process inside the core daemon as an ordinary workspace dependency, not as a plugin.** The engine exposes a typed, host-agnostic API (lifecycle, recall, capture, checkpoint, tools, commands, jobs registry, embed/rerank, admin, events). The harness implements the engine's `Host` interface directly, supplying a **first-class principal** and a **typed turn origin**, which lets the engine delete the OpenClaw turn-route ticket machinery on the harness path. The six injection blocks and the 17 000-char budget are preserved verbatim as engine output; the harness applies its own, tighter time budgets where the OpenClaw ones exist only to survive a slow host. Multi-identity recall replaces the pool-wide `vectorDim` scalar with a per-route dimension and rank-based fusion. **Two repositories** remain the default (open question Q6 of `docs/assumptions.md`, answered below), with a strict behaviour-neutrality gate on every extraction PR.
 
 ## Options considered
 
@@ -212,6 +212,8 @@ On the harness path the turn-route ticket subsystem is not used. It stays in the
 
 Each PR is independently mergeable, behaviour-neutral by construction, and gated on **the full existing suite green under both adapters** plus new contract tests. Detail lives in `docs/engine-extraction.md`; this is the summary.
 
+**Numbering note.** The P0–P10 labels below are this ADR's coarse-grained view of **the same plan** that `docs/engine-extraction.md` §c and `docs/milestones.md` carry at finer grain as PR-01…PR-15. They are not two plans. Mapping: P0→PR-01 · P1→PR-02+PR-03 · P2→PR-04+PR-05 · P3→PR-15 (checkpoint; capture is folded into PR-03) · P4→PR-03 (tools/commands move with the split) · P5→PR-07+PR-08 · P6→PR-11 (+ the in-process embedding owner of ADR-001 C1, which `engine-extraction.md` §c does not yet carry as its own row) · P7→PR-06 · P8→PR-10 · P9→PR-01+PR-06+PR-11+PR-12 · P10→PR-13+PR-14. **PR-01…PR-15 is the authoritative numbering for execution**; these labels are kept only so earlier references resolve.
+
 | PR | Scope | Neutrality gate |
 |---|---|---|
 | P0 | `lib/platform.js` — `securePath()`, `ipcAddress()`, `isUnsafeLink()`, `canonicalIdentityPath()`; route the 8 `chmod 0o600/0o700` sites, the `HOME`→`os.homedir()` bug (`lib/providers/openclaw-memory-embedding-adapters.js:56-57`) and the symlink checks through it | Existing suite; new platform unit tests; no behaviour change on POSIX |
@@ -228,7 +230,7 @@ Each PR is independently mergeable, behaviour-neutral by construction, and gated
 
 **Behaviour-neutrality is the gate, not a goal.** Concretely, each PR must keep green: the full existing PLUR1BUS suite; a **golden-prefix corpus** (recorded `(principal, turn) → prependContext` pairs, asserted byte-identical); the ACL reason codes; and the time-budget assertions. `docs/engine-extraction.md` owns the fixture list.
 
-## Two repos vs monorepo (§13 Q5 for this ADR)
+## Two repos vs monorepo (open question Q6, `docs/assumptions.md`)
 
 **Recommendation: two repositories, with a single-direction dependency.** `Cyb3rb1ade/PLUR1BUS-*` keeps the engine, the OpenClaw adapter and the UI; `Cyb3rb1ade/PLUR1BUS-Harness` depends on the engine by pinned version.
 

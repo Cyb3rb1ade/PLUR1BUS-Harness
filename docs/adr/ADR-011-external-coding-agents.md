@@ -82,7 +82,7 @@ Tiers 2 and 3 have no permission callback. There, containment is: a dedicated wo
 
 Every external run is a harness session with a durable transcript: the prompt we sent, every `session/update` (or Tier-2 JSON event, or Tier-3 parsed marker), every permission request and its decision with actor and timestamp, every file read/written with path, every command with exit code, token/cost accounting where the CLI reports it, and the final result. It is replayable, diffable and attached to the project board entry that caused it. That is the difference between "we shelled out to a coding agent" and "a coding agent is a member of this project": the black box gets a glass wall, which is exactly the design response the dossier prescribes ([Zechner 2025-11-30](https://mariozechner.at/posts/2025-11-30-pi-coding-agent/), via `harness-engineering-state-of-the-art.md` §5).
 
-### Minimum set for M6 acceptance — recommendation (Q6)
+### Minimum set for M6 acceptance — recommendation (Q7)
 
 **Tier 1, shipped and in CI: Claude Code, OpenAI Codex CLI, Goose. Tier 1, shipped best-effort: Gemini CLI. Tier 2 fallback: Claude Code and Codex. Everything else: discoverable and attachable, but labelled "community-tested, unverified" until a spike closes it.**
 
@@ -186,12 +186,12 @@ D5 says "reuse its login". Anthropic's terms forbid third parties collecting, st
 **Options:** (a) implement vendor OAuth flows in the harness; (b) read the CLI's credential files and pass tokens along; (c) spawn the vendor CLI so it resolves its own credentials, and never touch them (proposed).
 **Recommended resolution:** (c). (a) and (b) are prohibited for at least two of the listed vendors and ambiguous for a third; ADR-005 already decides that no `prohibited` flow ships and names ADR-011 as the compliant route to the same user outcome. (c) satisfies D5's user-visible intent exactly — the user does not log in twice — while the harness never sees a secret. The discovery step is therefore restricted to *existence* checks, not reads.
 
-**Finding 3 — "Q6" is not in the original open-questions list.**
-auftrag §13 numbers open questions 1–5 only. The M6 minimum-set question is answered above and should be added to the register as a new numbered question.
+**Finding 3 — the M6 minimum-set question is not in the original open-questions list.**
+auftrag §13 numbers open questions 1–5 only. The M6 minimum-set question is answered above and is registered as **Q7** in `docs/assumptions.md` (Q6 is the monorepo-vs-two-repos question).
 
 ## Open questions for the owner
 
-1. **Q6 (needs a decision now):** confirm the M6 set as Claude Code + Codex + Goose (gated) and Gemini CLI (best-effort)? Or add Copilot CLI, given Hermes already drives it?
+1. **Q7 (needs a decision now):** confirm the M6 set as Claude Code + Codex + Goose (gated) and Gemini CLI (best-effort)? Or add Copilot CLI, given Hermes already drives it?
 2. Should **Tier 3 (PTY)** ship in v0.1 at all, or be deferred until a concrete CLI needs it (Aider is currently the only candidate)?
 3. Should an external agent be allowed to be **bound to a channel directly** (a Telegram bot that is Claude Code), or only reachable through another agent's `delegate_task`?
 4. Should external agents get **their own PLUR1BUS store** (default proposed: no, results captured into the caller's store)?
@@ -210,4 +210,4 @@ auftrag §13 numbers open questions 1–5 only. The M6 minimum-set question is a
 8. [ ] Stand up the nightly per-CLI integration matrix against a fixture repository; add the auto-degrade rule after two consecutive failures.
 9. [ ] Work the spike list; promote CLIs out of "community-tested, unverified" only with a green nightly job and a ToS re-check against ADR-005.
 10. [ ] Feed the corrected ACP evidence (grok, pi, agy, OpenCode, Cline, Cursor now registry-listed) back into `docs/phase0/research/protocols-channels-coding-clis.md`.
-11. [ ] Add the M6 minimum-set question to `docs/assumptions.md` as open question 6.
+11. [x] The M6 minimum-set question is registered in `docs/assumptions.md` as open question **Q7** (asked before M6).
