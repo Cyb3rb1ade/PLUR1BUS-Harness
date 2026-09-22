@@ -2,9 +2,9 @@
 
 PLUR1BUS Harness is a self-hosted, multi-user multi-agent harness built **around PLUR1BUS as its fixed memory core**, with a feature scope in the order of Hermes Agent and a web UI in PLUR1BUS optics. PLUR1BUS is not a swappable memory provider: the harness grows out of it. PLUR1BUS gains a host-neutral engine with its own API, the harness is that engine's primary native host, and the existing OpenClaw plugin becomes a secondary adapter. Identities come from the core (agent = PLUR1BUS `agentId`, project = PLUR1BUS workspace, human = one canonical principal), embedding and reranking are mandatory core capabilities, and dreaming — light / REM / deep sleep, on the harness's own scheduler, never a host cron — must demonstrably work and be visible in the UI. No cloud component, no telemetry, no re-implementation of PLUR1BUS logic in another language.
 
-**Status: Phase 0 — analysis complete, awaiting owner approval. No product code yet.**
+**Status: Phase 0 approved 2026-09-22 — implementation starts with M1a. No product code yet.**
 
-Phase 0 produced analysis and decision records only. Nothing here is implemented; the eleven ADRs are all *Proposed* and become *Accepted* only on the owner's sign-off.
+Phase 0 produced analysis and decision records only. The owner approved all eleven ADRs on 2026-09-22 (`docs/phase0/decisions-for-owner.md`, "Owner answers 2026-09-22"); they moved from *Proposed* to *Accepted*, with amendments D12–D15 recorded in `docs/phase0/brief.md` where the owner's answer changed a recommendation. Implementation begins with milestone **M1a** (`docs/milestones.md`).
 
 ## Document map
 

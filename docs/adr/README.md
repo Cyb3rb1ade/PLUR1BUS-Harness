@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-One file per decision: `ADR-NNN-<slug>.md`. Status flow: Proposed → Accepted (by the owner, Christian) → Superseded/Deprecated. Phase 0 ADRs are all **Proposed** until the Phase 0 review.
+One file per decision: `ADR-NNN-<slug>.md`. Status flow: Proposed → Accepted (by the owner, Christian) → Superseded/Deprecated. All eleven Phase 0 ADRs were **Accepted** by the owner on 2026-09-22 (`docs/phase0/decisions-for-owner.md`, "Owner answers 2026-09-22"); ADR-003, ADR-005 and ADR-009 carry owner amendments D14, D12–D13 and D15 respectively.
 
 Rules (from `docs/phase0/brief.md`):
 - Every factual claim about a provider, protocol, SDK, binary or PLUR1BUS internal carries a source: URL with check date, or `file:line @ commit`. Research notes live in `docs/phase0/research/`; cite them by section, and cite the primary source they cite.
@@ -51,17 +51,17 @@ The recommendation, stated in one paragraph, then the details.
 
 | ADR | Title | File | Status |
 |-----|-------|------|--------|
-| 001 | Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A) | `ADR-001-base-architecture.md` | Proposed |
-| 002 | PLUR1BUS engine extraction and the harness as native host | `ADR-002-plur1bus-engine-and-host.md` | Proposed |
-| 003 | Agent model, collaboration, group vs 1:1 behaviour | `ADR-003-agent-model-and-collaboration.md` | Proposed |
-| 004 | Harness API and web UI | `ADR-004-harness-api-and-web-ui.md` | Proposed |
-| 005 | Authentication policy and secret storage | `ADR-005-auth-policy-and-secrets.md` | Proposed |
-| 006 | Embedding and reranking service | `ADR-006-embedding-and-reranking.md` | Proposed |
-| 007 | Users, roles, identity linking | `ADR-007-users-roles-identity.md` | Proposed |
-| 008 | Protocols — MCP, ACP, A2A | `ADR-008-protocols-mcp-acp-a2a.md` | Proposed |
-| 009 | Dreaming scheduler | `ADR-009-dreaming-scheduler.md` | Proposed |
-| 010 | Latency and caching | `ADR-010-latency-and-caching.md` | Proposed |
-| 011 | External coding agents | `ADR-011-external-coding-agents.md` | Proposed |
+| 001 | Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A) | `ADR-001-base-architecture.md` | Accepted (2026-09-22) |
+| 002 | PLUR1BUS engine extraction and the harness as native host | `ADR-002-plur1bus-engine-and-host.md` | Accepted (2026-09-22) |
+| 003 | Agent model, collaboration, group vs 1:1 behaviour | `ADR-003-agent-model-and-collaboration.md` | Accepted (2026-09-22, amendment D14) |
+| 004 | Harness API and web UI | `ADR-004-harness-api-and-web-ui.md` | Accepted (2026-09-22) |
+| 005 | Authentication policy and secret storage | `ADR-005-auth-policy-and-secrets.md` | Accepted (2026-09-22, amendments D12–D13) |
+| 006 | Embedding and reranking service | `ADR-006-embedding-and-reranking.md` | Accepted (2026-09-22) |
+| 007 | Users, roles, identity linking | `ADR-007-users-roles-identity.md` | Accepted (2026-09-22) |
+| 008 | Protocols — MCP, ACP, A2A | `ADR-008-protocols-mcp-acp-a2a.md` | Accepted (2026-09-22) |
+| 009 | Dreaming scheduler | `ADR-009-dreaming-scheduler.md` | Accepted (2026-09-22, amendment D15) |
+| 010 | Latency and caching | `ADR-010-latency-and-caching.md` | Accepted (2026-09-22) |
+| 011 | External coding agents | `ADR-011-external-coding-agents.md` | Accepted (2026-09-22) |
 
 ## Open-question numbering
 

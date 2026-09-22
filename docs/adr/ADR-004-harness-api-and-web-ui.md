@@ -1,6 +1,6 @@
 # ADR-004: Harness API and web UI
 
-**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D2, D6, D10 · `docs/phase0/auftrag-original-2026-09-21.md` §4, §5.1, §9, §11, §13 Q4 · `docs/phase0/research/openclaw-layout-dreaming-ui.md` §3 · `docs/phase0/research/plur1bus-host-contract.md` §7 · `docs/phase0/research/hermes-learnings-and-import.md` A13 · `docs/phase0/research/harness-engineering-state-of-the-art.md` §4, §7 · `docs/phase0/research/protocols-channels-coding-clis.md` (protocol table)
+**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D2, D6, D10 · `docs/phase0/auftrag-original-2026-09-21.md` §4, §5.1, §9, §11, §13 Q4 · `docs/phase0/research/openclaw-layout-dreaming-ui.md` §3 · `docs/phase0/research/plur1bus-host-contract.md` §7 · `docs/phase0/research/hermes-learnings-and-import.md` A13 · `docs/phase0/research/harness-engineering-state-of-the-art.md` §4, §7 · `docs/phase0/research/protocols-channels-coding-clis.md` (protocol table)
 
 ## Context
 

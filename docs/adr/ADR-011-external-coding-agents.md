@@ -1,6 +1,6 @@
 # ADR-011: External coding agents
 
-**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
+**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
 
 ## Context
 
@@ -60,7 +60,7 @@ If a CLI is not logged in, the harness shows the vendor's own documented login c
 
 ### The external agent as a first-class agent
 
-An attached CLI is an `Agent` record (ADR-003) with `engine.kind = "external"`. It has: a `persona.md` used only as the prompt preamble we pass in (the vendor CLI keeps its own system prompt — we do not replace it); its **own** approval policy and budget; membership in projects; optional channel bindings; a place in `delegate_task` / `consult_agent` target lists and on project boards. It does **not** get the caller's permissions (ADR-003), and its output enters the calling agent as `tool_result` with provenance, never as instructions (auftrag §7, §11).
+An attached CLI is an `Agent` record (ADR-003) with `engine.kind = "external"`. It has: a `SOUL.md` (D14, 2026-09-22 — not renamed to `persona.md`) used only as the prompt preamble we pass in (the vendor CLI keeps its own system prompt — we do not replace it); its **own** approval policy and budget; membership in projects; optional channel bindings; a place in `delegate_task` / `consult_agent` target lists and on project boards. It does **not** get the caller's permissions (ADR-003), and its output enters the calling agent as `tool_result` with provenance, never as instructions (auftrag §7, §11).
 
 Memory: by default an external agent has **no PLUR1BUS store** — its results are captured as provenance-tagged cards in the *caller's* `agent-private` scope. A store is opt-in per external agent (open question 4 in ADR-003). It never receives `user`-scope or `agent-private` content belonging to other agents, and nothing is shared into it except through explicit `/share` (copy-never-move, re-embedding).
 

@@ -1,6 +1,6 @@
 # ADR-001: Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A)
 
-**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D5, D6, D9, D10 · `docs/phase0/auftrag-original-2026-09-21.md` §2.2 (K1–K4), §4, §10, §11, §12 · `docs/phase0/research/hermes-learnings-and-import.md` A2, A4, A5, A6, A10–A14 · `docs/phase0/research/plur1bus-host-contract.md` §1, §5, §9, §10 · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2, §4 · `docs/phase0/research/platform-binaries-and-startup.md` · `docs/phase0/research/protocols-channels-coding-clis.md` · `docs/phase0/research/harness-engineering-state-of-the-art.md` §4, §7 · `docs/phase0/research/verification-log.md` V1–V4
+**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D5, D6, D9, D10 · `docs/phase0/auftrag-original-2026-09-21.md` §2.2 (K1–K4), §4, §10, §11, §12 · `docs/phase0/research/hermes-learnings-and-import.md` A2, A4, A5, A6, A10–A14 · `docs/phase0/research/plur1bus-host-contract.md` §1, §5, §9, §10 · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2, §4 · `docs/phase0/research/platform-binaries-and-startup.md` · `docs/phase0/research/protocols-channels-coding-clis.md` · `docs/phase0/research/harness-engineering-state-of-the-art.md` §4, §7 · `docs/phase0/research/verification-log.md` V1–V4
 
 ## Context
 

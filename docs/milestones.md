@@ -23,10 +23,13 @@
 
 ## 2. Milestones
 
+**M1 is split in two, per owner decision 2026-09-22 (B15, "yes"):** M1a ends in an **owner gate** before M1b starts, so a mis-drawn extraction boundary is caught after three PRs rather than after ten.
+
 | M | Title | Engine PRs | Effort (ad) | Blocking questions |
 |---|---|---|---|---|
 | M0 | Phase 0 — analysis, ADR-001…011, matrices | — | done | Q1 (answered: B) |
-| M1 | Engine extraction · core daemon · CLI skeleton | PR-01…PR-09, PR-15 | **45–70** | Q8, Q9, Q10, Q11; ADR-002 Q1/Q2; ADR-009 Q1–Q7; ADR-010 Q6/Q7 |
+| M1a | Engine extraction: platform, HostServices, index.js split · `Host` interface · golden-prefix corpus — **owner gate** | PR-01…PR-03 | **~14–20** (part of the 45–70 below) | ADR-002 Q1/Q2 (both answered 2026-09-22 — package names confirmed, recall budget "40/60" interpreted as 400/600 ms pending confirmation), **before PR-01** |
+| M1b | Recall/capture/jobs · core daemon · IPC · session store · in-process embedding · dreaming scheduler · CLI | PR-04…PR-09, PR-15 | **~31–50** (part of the 45–70 below) | Q8 (answered: keep `SOUL.md`, D14), Q9 (answered), Q10 (answered: four files, D15), Q11 (answered: measure first); ADR-009 Q1–Q7; ADR-010 Q6/Q7 |
 | M2 | Models, providers, auth, caching, budgets | PR-10, PR-11 | **30–46** | Q3; ADR-006 Q1–Q5; ADR-005 Q1–Q5; ADR-010 Q1–Q5 |
 | M3 | Harness API · users/roles · agents · web UI skeleton | PR-06 follow-up (`subject`/v2) | **32–48** | Q5; ADR-004 Q1–Q5; ADR-007 Q1–Q6 |
 | M4 | Channels: Telegram, Discord, Matrix, Buzz | PR-06 channel vocabulary (**M4 blocker**) | **22–34** | Q4; ADR-003 Q1–Q3 |
@@ -40,7 +43,9 @@
 
 Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-hermes-openclaw.md`, `provider-matrix.md`, `platform-matrix.md`, `import.md`, ADR-001…011, `assumptions.md`, this file. **Exit:** owner approves B (Q1), the ADR set moves Proposed → Accepted, and the blocking questions for M1 are answered. **Effort:** spent.
 
-### M1 — Engine extraction, core daemon, CLI skeleton
+### M1 — Engine extraction, core daemon, CLI skeleton (split into M1a + M1b, owner decision 2026-09-22, B15)
+
+**M1a/M1b boundary.** Per the owner's "yes" to B15, M1 is split at the point where a mis-drawn extraction boundary would otherwise surface three PRs later: **M1a** = PR-01 (`lib/platform.js`) → PR-02 (`HostServices` injection) → PR-03 (split `index.js` into engine + adapter) plus the frozen `Host`/`Engine`/`Principal`/`TurnOrigin` `.d.ts` and the golden-prefix corpus, gated by an **owner review** before M1b starts. **M1b** = everything else below (PR-04…PR-09, PR-15, the core daemon, IPC, session store, in-process embedding, dreaming scheduler, CLI skeleton, benchmarks). The scope, acceptance and exit criteria below are written for the combined M1; the per-PR grouping into M1a/M1b is given in the scope bullets and the table row above.
 
 **Goal.** PLUR1BUS is a host-neutral engine; the harness is its native host; a fact said in session 1 is recalled in session 2 from the CLI, with rerank, and a killed engine never blocks a turn.
 
@@ -49,7 +54,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 - **Core daemon:** exactly one resident process per installation, multi-tenant by `agentId`; JSON-RPC 2.0 over UDS / named pipe with `timingSafeEqual` token, `0o600`/pipe-ACL; submit/event turn loop; `node:sqlite`+FTS5 session store (V1/V2); supervisor with backoff and health. ADR-001 §"Process model"; ADR-010 L2.
 - **In-process embedding + reranking**, one load per model, warm-up in background, in-process owner replacing the loopback claim listener on the harness path (ADR-001 conflict C1). ADR-006 Option A; D9.
 - **CLI `plur1bus-harness`:** `setup`, `doctor`, `agent`, `memory`, `dreams` (+ stubs for `user`, `model`, `login`, `channel`, `project`, `import`, `service`, `update`, `uninstall`). Bundled, lazy `import()` for every native/provider dependency, `NODE_COMPILE_CACHE`. ADR-004 §"Harness API" CLI row; `platform-matrix.md` §5.
-- **Recall/capture/tools/commands:** 5 tools, the `/state|/memory|/forget|/correct|/mf|/share` command set, deny-by-classification tables kept engine-side; harness budgets soft 400 ms / hard 1 200 ms, reactivation race 50 ms unchanged. ADR-002 §"Time budgets"; Q8 renames `SOUL.md` → `persona.md` (ADR-003).
+- **Recall/capture/tools/commands:** 5 tools, the `/state|/memory|/forget|/correct|/mf|/share` command set, deny-by-classification tables kept engine-side; harness budgets soft 400 ms / hard 600 ms (re-answered 2026-09-22, "40/60" — interpretation pending confirmation; was 1 200 ms hard), reactivation race 50 ms unchanged. ADR-002 §"Time budgets"; Q8 keeps `SOUL.md` unchanged (owner decision D14, 2026-09-22 — reverses the earlier planned rename to `persona.md`; ADR-003).
 - **Dreaming scheduler** in the core: three phases with own cron+timezone+enable+stagger, `dream_run`/`dream_schedule`/`dream_candidate` tables, all guards (breaker, dedupe, staleness, min corpus, utility gate, bounded prior-entry loss, model-emits-operations, fresh context, budget, concurrency 3), idempotency key over transcript digest, diary, `dreams status|run|log|diary`, doctor check. **Never a host cron.** ADR-009.
 - **Fail-soft + degraded mode** as a first-class state visible in CLI, API and (later) UI. ADR-002 §"Degraded mode".
 - **Benchmarks from day one:** B1–B10 harness with mock provider; B1/B6/B9 as build gates (ADR-010 Q7 may relax to advisory until M3).
@@ -199,7 +204,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 ### M7 — Importers: OpenClaw and Hermes
 
-**Scope.** `plur1bus-harness import <openclaw|hermes>` plus a UI wizard; dry-run default, copy-never-move, idempotent and resumable, snapshot before, rollback, source-version detection, conflict strategy, report (JSON + readable) **without content or secrets**; secrets opt-in and allowlist-based, straight into the secret store, never in the report. OpenClaw: agents, persona (`SOUL.md` accepted on import, `persona.md` written), curated files, skills, cron, channel config and allowlists, and the **PLUR1BUS stores in full** — take-over without re-embedding when the embedding identity is preserved, otherwise the guided re-embedding migration. Hermes: profiles → agents, `SOUL.md`, `MEMORY.md`/`USER.md` → cards with provenance `imported`, skills, cron, platform config, **approved pairing lists imported / pending codes excluded**. original §4.2; `docs/import.md`.
+**Scope.** `plur1bus-harness import <openclaw|hermes>` plus a UI wizard; dry-run default, copy-never-move, idempotent and resumable, snapshot before, rollback, source-version detection, conflict strategy, report (JSON + readable) **without content or secrets**; secrets opt-in and allowlist-based, straight into the secret store, never in the report. OpenClaw: agents, persona (`SOUL.md` accepted on import, `SOUL.md` written — kept unchanged by owner decision D14, 2026-09-22), curated files (`memory/YYYY-MM-DD.md` → `DailyNote_*`, `MEMORY.md` → `memories.md`, `KNOWLEDGE.md` → `knowledgepool.md`, `DREAMS.md` → `dreaming.md`, per owner decision D15, 2026-09-22), skills, cron, channel config and allowlists, and the **PLUR1BUS stores in full** — take-over without re-embedding when the embedding identity is preserved, otherwise the guided re-embedding migration. Hermes: profiles → agents, `SOUL.md`, `MEMORY.md`/`USER.md` → cards with provenance `imported` (`MEMORY.md` → `memories.md`, D15), skills, cron, platform config, **approved pairing lists imported / pending codes excluded**. original §4.2; `docs/import.md`.
 
 **Acceptance** (§12 M7 re-cut, = `import.md` §6.3)
 1. Dry-run against the OpenClaw fixture matches the report schema with **zero writes** to source or target.

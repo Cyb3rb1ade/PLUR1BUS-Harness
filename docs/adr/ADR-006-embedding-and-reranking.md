@@ -1,6 +1,6 @@
 # ADR-006: Embedding and reranking service
 
-**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2, D6, D9 · `docs/phase0/auftrag-original-2026-09-21.md` §6, §6.2, §10, §11 · `docs/phase0/research/providers-embedding-rerank.md` (all) · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2 (and §3 for `/share`) · `docs/phase0/research/platform-binaries-and-startup.md` (binaries table) · PLUR1BUS checkout `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9`
+**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2, D6, D9 · `docs/phase0/auftrag-original-2026-09-21.md` §6, §6.2, §10, §11 · `docs/phase0/research/providers-embedding-rerank.md` (all) · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2 (and §3 for `/share`) · `docs/phase0/research/platform-binaries-and-startup.md` (binaries table) · PLUR1BUS checkout `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9`
 
 ## Context
 

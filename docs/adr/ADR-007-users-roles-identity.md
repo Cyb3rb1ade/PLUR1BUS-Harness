@@ -1,6 +1,6 @@
 # ADR-007: Users, roles, identity linking
 
-**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2, D3, D10; `docs/phase0/auftrag-original-2026-09-21.md` §2.1, §5.1, §8, §9, §11, §12 (M3/M4), §13 Q5; `docs/phase0/research/plur1bus-host-contract.md` §8; `docs/phase0/research/plur1bus-crons-embedding-portability.md` §3; `docs/phase0/research/hermes-learnings-and-import.md` B1; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5
+**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2, D3, D10; `docs/phase0/auftrag-original-2026-09-21.md` §2.1, §5.1, §8, §9, §11, §12 (M3/M4), §13 Q5; `docs/phase0/research/plur1bus-host-contract.md` §8; `docs/phase0/research/plur1bus-crons-embedding-portability.md` §3; `docs/phase0/research/hermes-learnings-and-import.md` B1; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5
 
 ## Context
 

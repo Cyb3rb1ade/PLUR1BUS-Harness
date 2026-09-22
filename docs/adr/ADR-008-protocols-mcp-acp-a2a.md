@@ -1,6 +1,6 @@
 # ADR-008: Protocols — MCP, ACP, A2A
 
-**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D5, D6, D7; `docs/phase0/auftrag-original-2026-09-21.md` §8, §11, §12 (M6), §13; `docs/phase0/research/protocols-channels-coding-clis.md` (all); `docs/phase0/research/hermes-learnings-and-import.md` A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` rule 7; local spec repos `modelcontextprotocol@24efd6e`, `agent-client-protocol@bba7ddf`, `A2A@afda831`, `buzz@77729ab`
+**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D5, D6, D7; `docs/phase0/auftrag-original-2026-09-21.md` §8, §11, §12 (M6), §13; `docs/phase0/research/protocols-channels-coding-clis.md` (all); `docs/phase0/research/hermes-learnings-and-import.md` A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` rule 7; local spec repos `modelcontextprotocol@24efd6e`, `agent-client-protocol@bba7ddf`, `A2A@afda831`, `buzz@77729ab`
 
 ## Context
 

@@ -1,6 +1,6 @@
 # ADR-003: Agent model, collaboration, group vs 1:1 behaviour
 
-**Status:** Proposed · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2/D5/D8/D11; `docs/phase0/auftrag-original-2026-09-21.md` §2.1, §5, §7, §8, §13 Q4; `docs/phase0/research/hermes-learnings-and-import.md` A6, A8, A11, A12, "What our harness must explicitly NOT copy"; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5, rules 13–14; `docs/phase0/research/plur1bus-host-contract.md` §8; `docs/phase0/research/plur1bus-crons-embedding-portability.md` §3; `docs/phase0/research/openclaw-layout-dreaming-ui.md` §1
+**Status:** Accepted (2026-09-22, with amendment D14) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2/D5/D8/D11/D14/D15; `docs/phase0/auftrag-original-2026-09-21.md` §2.1, §5, §7, §8, §13 Q4; `docs/phase0/research/hermes-learnings-and-import.md` A6, A8, A11, A12, "What our harness must explicitly NOT copy"; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5, rules 13–14; `docs/phase0/research/plur1bus-host-contract.md` §8; `docs/phase0/research/plur1bus-crons-embedding-portability.md` §3; `docs/phase0/research/openclaw-layout-dreaming-ui.md` §1
 
 ## Context
 
@@ -19,14 +19,18 @@ Forces from the research:
 
 An **agent** is one record with four separable parts — engine identity, exactly one persona file, a runtime profile, and a pair of behaviour profiles — stored as a directory per agent, provisioned engine-first and torn down archive-first. Behaviour is resolved by a four-level, last-wins merge (`agent default → behaviour.{direct|group} → channel-kind override → bot-connection override`). Isolation is enforced by an `AgentScope` carried in `AsyncLocalStorage`, with every registry (tools, MCP clients, skills, secrets, terminal env) built as a *per-agent view over a global catalog* rather than as a global mutable registry — and with an explicit, published list of what remains process-global. Collaboration is modelled as **projects with peer agents**, not as hidden subagents: six tools (`consult_agent`, `delegate_task`, `post_to_project`, `read_project_board`, `request_review`, `handoff`), targets local / ACP-external (ADR-011) / A2A-remote (ADR-008), every call a budgeted, guard-railed, fully traced, replayable session whose result re-enters the caller as provenance-tagged `tool_result`.
 
-### The persona file: `persona.md`, not `SOUL.md`
+### The persona file: `SOUL.md`, not `persona.md` — reversed by owner decision D14 (2026-09-22)
 
-One persona file per agent, at `agents/<agentId>/persona.md`, canonical name lowercase, lookup case-insensitive (`persona.md`, `Persona.md`, and legacy `SOUL.md`/`soul.md` accepted on import, only `persona.md` ever written). Rationale:
+**This ADR originally recommended renaming the persona file to `persona.md`; the owner declined the rename on 2026-09-22 (A3, verbatim): "nein, es gibt ja auch persona-voice, etc. pp. es braucht ja auch eine Identity, User, etc."** The rename's own rationale (avoid reproducing Hermes product vocabulary) is still sound, but the proposed replacement name turned out to collide with a name PLUR1BUS **already uses for itself** — `persona-voice` and `persona-evolve` are existing engine/dreaming vocabulary (ADR-009's phase mapping), so naming the file `persona.md` would create exactly the kind of naming confusion the rename was meant to avoid, just with the harness's own product instead of Hermes's. The owner's own reasoning is adopted verbatim: keep `SOUL.md`.
 
-1. `SOUL.md` is Hermes product vocabulary; the research note's explicit instruction is not to reproduce Hermes's naming (`SOUL.md`, `MEMORY.md`, `USER.md`, `HERMES_HOME`) verbatim in a competing product (`hermes-learnings-and-import.md`, "NOT copy" item 10).
-2. `persona` is already **engine** vocabulary, not borrowed: PLUR1BUS's injection points are enumerated as "Recall-, Temporal-, Mood-, Persona-, Reaktivierungsblöcke" (auftrag §2.2, K1). The file names the thing that fills the persona block.
-3. Lowercase avoids the case-sensitivity class of bug flagged for the Windows port (`plur1bus-crons-embedding-portability.md` §4) and the dual-casing lookup that OpenClaw needed for `DREAMS.md`/`dreams.md` (`extensions/memory-core/src/dreaming-dreams-file.ts:12` @ `b9421f4`, via `openclaw-layout-dreaming-ui.md` §1).
-4. `soul.md` was the runner-up. Rejected: it keeps the Hermes connotation while gaining nothing, and "soul" has no counterpart in the engine's own prompt-block vocabulary.
+The owner adds a second requirement in the same answer: the agent needs more than a persona file — it needs an **identity** and a **user** file too, mirroring OpenClaw's own `IDENTITY.md`/`USER.md` split (persona = who the agent is, identity = stable facts about the agent's own operating context, user = stable facts about the human(s) it serves). This ADR adopts OpenClaw's names as the default pending the action items below fixing them exactly (§"Action items").
+
+**Resolution (D14):** One persona file per agent, at `agents/<agentId>/SOUL.md`, canonical name as originally specified (§5), lookup case-insensitive (`SOUL.md`, `soul.md`). Two further curated files join it: `IDENTITY.md` and `USER.md` (OpenClaw-style default names — final naming is an ADR-003 action item, not fixed here). All three travel together in the agent's curated-file set; only `SOUL.md` is the *persona* file proper, so "exactly one persona file per agent" (§5's original rule) still holds — identity and user are separate curated files, not additional personas.
+
+1. `SOUL.md` is the name the original commission specifies (§5: "Genau eine Soul (`SOUL.md`) pro Agent"), and the owner's 2026-09-22 answer restores it as binding.
+2. `persona` remains **engine** vocabulary for the *prompt block* (auftrag §2.2, K1's "Recall-, Temporal-, Mood-, Persona-, Reaktivierungsblöcke") — but the file that fills that block is `SOUL.md`, not a file sharing the block's own name, precisely to avoid the collision the owner flagged.
+3. Case-insensitive lookup (`SOUL.md`/`soul.md`) still avoids the case-sensitivity class of bug flagged for the Windows port (`plur1bus-crons-embedding-portability.md` §4) and mirrors the dual-casing lookup OpenClaw needed for `DREAMS.md`/`dreams.md` (`extensions/memory-core/src/dreaming-dreams-file.ts:12` @ `b9421f4`, via `openclaw-layout-dreaming-ui.md` §1).
+4. `persona.md` was this ADR's original recommendation. Reversed 2026-09-22: it collides with the harness's own `persona-voice`/`persona-evolve` vocabulary, which is the exact failure mode ("don't reuse a name someone else already means something by") that motivated moving away from `SOUL.md` in the first place.
 
 Same persona on every channel the agent is reachable on (auftrag §5) — the behaviour profiles may overlay *tone*, never identity.
 
@@ -35,15 +39,24 @@ Same persona on every channel the agent is reachable on (auftrag §5) — the be
 ```
 agents/<agentId>/
   agent.json          # the record below
-  persona.md          # the one persona file
+  SOUL.md             # the one persona file (D14, 2026-09-22 — not renamed)
+  IDENTITY.md          # agent identity (D14; default name, OpenClaw-style, see action items)
+  USER.md               # user/owner facts (D14; default name, OpenClaw-style, see action items)
   behaviour/          # optional split-out overrides, merged into agent.json
+  memory/
+    DailyNote_<YYYY-MM-DD_HHMMSS>.md   # timestamped daily notes — light-sleep input (D15, ADR-009)
+    memories.md                        # long-term memory — deep-sleep promotion target (D15, ADR-009)
+    dreaming.md                        # dream diary (D15, ADR-009)
+    knowledgepool.md                   # curated knowledge corpus (D15, ADR-009)
 ```
 
 ```ts
 interface Agent {
   id: AgentId;                      // === PLUR1BUS agentId, through safeAgentId()
   displayName: string;
-  persona: { file: "persona.md"; checksum: string };
+  persona: { file: "SOUL.md"; checksum: string };
+  identity: { file: "IDENTITY.md"; checksum: string };   // D14, 2026-09-22
+  user: { file: "USER.md"; checksum: string };           // D14, 2026-09-22
   owner: UserId; access: AgentAccess;          // use / manage — ADR-007
   engine: { kind: "native" | "external"; externalRef?: ExternalAgentId };  // ADR-011
   runtime: RuntimeProfile;
@@ -105,7 +118,7 @@ interface BehaviourLayer {
 | Pause | detach channel bindings → disable schedules → drain in-flight sessions (grace, then cancel) | Store stays readable; the agent disappears from `consult_agent`/`delegate_task` target lists. |
 | Archive | pause, then mark `archived`; store archived, not deleted | Re-activation is a supported operation. |
 | Delete | **archive-first**, then export offer, then confirmation, then purge | Identity-bound confirmation (user + chat + nonce, auftrag §11); destructive-op audit entry. |
-| Export / Import | bundle = `agent.json` (secret *references* only) + `persona.md` + behaviour + skill/plugin pins + embedding identity per store + schedule definitions | **No secrets, ever.** Import re-resolves references and fails closed on anything unresolvable; embedding identity mismatch triggers the migration path, never a silent mixed vector space. |
+| Export / Import | bundle = `agent.json` (secret *references* only) + `SOUL.md` + `IDENTITY.md` + `USER.md` + behaviour + skill/plugin pins + embedding identity per store + schedule definitions | **No secrets, ever.** Import re-resolves references and fails closed on anything unresolvable; embedding identity mismatch triggers the migration path, never a silent mixed vector space. |
 
 ### Isolation: what is per-agent and what is not
 
@@ -246,10 +259,13 @@ The third trade is **collaboration power vs. cost**. The 15× multiplier and the
 **Finding:** auftrag §5 mandates "Genau eine Soul (`SOUL.md`) pro Agent". `brief.md` D8 expands §5's agent settings but does not touch the file name, so §5 remains binding.
 **Source:** `docs/phase0/auftrag-original-2026-09-21.md` §5 vs. `docs/phase0/research/hermes-learnings-and-import.md`, "What our harness must explicitly NOT copy", item 10 ("Do not reproduce Hermes's exact naming vocabulary — `SOUL.md`, `MEMORY.md`, `USER.md`, `HERMES_HOME` … these are Nous Research/Hermes-specific product identity").
 **Options:** (a) keep `SOUL.md` as specified; (b) rename to `persona.md`, keeping "exactly one file per agent"; (c) keep `SOUL.md` on disk but never in the UI.
-**Recommended resolution:** (b). The *rule* from §5 — exactly one persona file, identical across all channels — is preserved verbatim; only the file name changes, to a word the engine already uses for the corresponding prompt block (auftrag §2.2 K1). Import accepts `SOUL.md` so nothing breaks in M7.
+**Original recommended resolution:** (b) — since superseded.
+
+**Resolved by owner decision D14 (2026-09-22): option (a).** The owner declined the rename (A3, verbatim: *"nein, es gibt ja auch persona-voice, etc. pp. es braucht ja auch eine Identity, User, etc."*) — `persona.md` collides with PLUR1BUS's own `persona-voice`/`persona-evolve` vocabulary, the same class of naming confusion §5's "NOT copy" rule was meant to avoid, just pointed at this harness's own product instead of Hermes's. `SOUL.md` stays the persona file, unchanged from §5. The *rule* — exactly one persona file, identical across all channels — is preserved exactly as originally specified, with no filename change at all. Import needs no `SOUL.md`→`persona.md` mapping any more: `SOUL.md` maps straight onto `SOUL.md` (`docs/import.md`, both OpenClaw and Hermes paths). The owner's added requirement — identity and user files — is new scope, addressed above under "The persona file" and in the action items below.
 
 ## Open questions for the owner
 
+0. **D14 follow-up (new, 2026-09-22):** `IDENTITY.md` and `USER.md` are adopted here as OpenClaw-style *default* names for the two new curated files the owner asked for. Confirm these exact names, or give the final ones — this ADR's action items fix them before PR-06.
 1. **Q4 sequencing (needs a decision now):** confirm "one agent, many connections" for M4 and multi-agent mention routing no earlier than M6, gated on `AgentScope`? Or is routing needed at M4?
 2. Should there be a **fifth precedence layer per chat/peer** (one specific group behaves differently from all other groups on the same connection), or is per-bot-connection granularity enough for v0.1?
 3. **Group memory default:** is `provenance-only` capture in groups acceptable, or should groups capture nothing at all by default until a human promotes a note?
@@ -258,6 +274,7 @@ The third trade is **collaboration power vs. cost**. The 15× multiplier and the
 
 ## Action items
 
+0. [ ] Fix the final names for the identity and user curated files (default `IDENTITY.md`/`USER.md`, D14) and land them in the `Agent` schema alongside `SOUL.md`, before PR-06.
 1. [ ] Freeze the `Agent` / `RuntimeProfile` / `BehaviourSet` schemas as a versioned JSON Schema with a migration path; add `safeAgentId` validation at every boundary (`lib/sql-safety.js:84`).
 2. [ ] Write the behaviour-merge contract test matrix (4 layers × {direct,dm,group,channel} × {telegram,discord,matrix,buzz}), including the deny-union and scope-intersection invariants.
 3. [ ] Implement `AgentScope` on `AsyncLocalStorage` with a lint/test rule that every thread, worker and timer entry point re-establishes it; add a fail-closed test for "worker started without scope".
