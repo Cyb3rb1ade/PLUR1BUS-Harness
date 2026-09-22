@@ -1,0 +1,31 @@
+# Task 20 — controller addendum (facts that moved since the plan was written)
+
+The brief's prose is the target; where the brief and this addendum disagree, the addendum wins, and where both disagree with the tree, **the tree wins** — verify every number and path with `ls`/`grep` before writing it down. Nothing in this task touches code; `git diff --stat -- '*.js' '*.mjs' '*.ts'` must be empty at commit time.
+
+## Corrections
+
+1. **Contract version is `1.2.0`, not 1.0.0.** `types/engine.d.ts:35`. `docs/engine-api.md` must say "Contract version 1.2.0 · frozen at 1.0.0 on 2026-09-22, amended twice under the amendment policy" and reproduce the changelog from the `.d.ts` header: 1.1.0 — `SecurePathResult.reason` gains `"acl-tool-unavailable"`; 1.2.0 — `HostServices.workspaceDir` becomes async. Quote the amendment policy paragraph (types/engine.d.ts:20-29) in a short "Amending the contract" section. The CHANGELOG entry likewise says 1.2.0.
+2. **Golden corpus has seven scenarios, not five** (`ls tests/fixtures/golden-prefix/expected/` → recall-basic, recall-canonical-flagged, recall-empty-store, recall-knowledge-canonical, recall-maintenance-only, recall-over-budget, recall-truncated). Write "sieben" in the CHANGELOG.
+3. **Module layout table** — the tree is authoritative:
+   - `engine/recall/assemble-prompt-context.js`, `engine/recall/minimal-maintenance.js`, `engine/capture/capture-turn.js`, `engine/commands/plur1bus-command.js`, `engine/tools/memory-tools.js`;
+   - `adapter/openclaw/`: `register-turn-route.js`, `register-maintenance-hook.js`, `register-recall-hook.js`, `register-capture-hook.js`, `register-commands.js`, `register-tools.js`, `register-prompt-supplements.js`, `register-gateway.js`, `register-cron.js`, plus `README.md` (read it — it records that the gateway/cron ranges keep their original call positions and that `/wiki` stays in `index.js`; the engine-api doc must repeat both facts in one sentence each).
+   - `index.js` still holds construction, the registration calls, the `/wiki` command, the five pre-`register()` host-coupled functions (`inspectCronNativeCapabilities`, `reconcileUnsafeDirectCronsWithService`, `runDeferredFeatureCronBootstrap`, `makeReactionsCapabilityChecker`, `resolveNeoHooksConfig` — exempt in `tests/index-host-logger.test.js`, slated for PR-14) and the `export default` plugin factory.
+4. **Lint rules are five, not two.** Take them from the docblock of `scripts/lint-engine-imports.mjs:1-35` (forbidden host imports; no import of `index.js`; no cycle; no `.api` member read; no bare `api` identifier) and mention `scripts/lint-no-api-outside-adapter.mjs` and `scripts/typecheck.mjs` as the other two gates inside `npm run lint`. Also state the comment consequence: an `engine/**` comment may not spell `api.`.
+5. **Line citations in the brief's engine-api draft are stale.** Cite by function/anchor, not line: "`lib/setup/memory-host-runtime.js` (`recall({ … signal: opts?.signal ?? null })`, the comment above it says the pipeline has no cancellation input)" and "`lib/memory-request-context.js` (the `inferred` trust branch)". Verify each with grep first; if an anchor does not exist, drop the sentence rather than invent one.
+6. **`HostServices` in M1a** (from `lib/host-services.js` — read it): `createHostServices(api)` and `createStubHost()`; `logger` normalised to exactly four methods; `runtime` is a lazy getter returning `HostRuntime | null`; `workspaceDir(agentId)` is async; a transitional `api` escape hatch exists for the adapter only. Say so in the "What is implemented in M1a" section. Also mention `lib/platform.js` (`securePath`, `ipcAddress`, `isUnsafeLink`, `canonicalIdentityPath`) implements `PlatformCapabilities`.
+7. **CHANGELOG additions the brief does not know about** (all in German, Keep-a-Changelog headings "Hinzugefügt / Geändert / Behoben"):
+   - `tools/free-identifiers.mjs` (scope analyser used to cut the extraction boundaries; TypeScript compiler API, no new dependency);
+   - `scripts/lint-engine-imports.mjs`, `scripts/lint-no-api-outside-adapter.mjs`, `scripts/typecheck.mjs` — all wired into `npm run lint`;
+   - `tests/helpers/runtime-sources.js` (`readRuntimeSources()`);
+   - `bench/recall-budget-probe.mjs` **and** `bench/results/2026-09-22-recall-budget-probe.md` (measured p50/p95/p99, stub embedder, synthetic corpus — say explicitly that at N=20 p95 equals the maximum);
+   - optional test-only ctx key `recallTimingSink` (additive; no-op in production).
+   - "Behoben" items: verify both against commits `9efbfd97` (`git show --stat 9efbfd97`) before keeping them; keep the wording only if the commit did what the bullet claims.
+   - Add one line under "Geändert": `index.js` logger sites go through `HostServices` (`host.logger`), 14 sites in the five pre-`register()` functions excepted.
+8. **`bench/results/2026-09-22-recall-budget-probe.md`** — add one sentence to its method/caveat section stating that with N=20 samples the p95 and p99 columns are the sample maximum (nearest-rank, floor). This is a docs file; it is the only file outside the brief's list you may touch.
+9. **Compatibility table**: the brief's row-by-row cells stand. Verify the table is still at `docs/compatibility-openclaw.md:175-190` (it is as of `c95c94c4`), keep every existing cell byte-identical, and run `tests/config-docs-contract.test.js` plus any test that greps that file (`grep -rl "compatibility-openclaw" tests/`).
+10. **Verification** — the controller runs the full suite after you report; you run: `npm run lint`, `tests/config-docs-contract.test.js`, `tests/golden-prefix.test.js`, `tests/index-public-exports.test.js`, `tests/deploy-integrity*.test.js` (docs are not in `DEPLOY_FILES`, but confirm nothing complains), `git diff --stat .github/` empty, `git diff --stat -- '*.js' '*.mjs' '*.ts'` empty except `bench/results` is `.md` so untouched.
+11. **Commit** as in the brief (scope `docs`), with the trailers the controller adds; do not rewrite author config.
+
+## Report
+
+Write `.superpowers/sdd/2026-09-22-m1a-engine-extraction/task-20-report.md`: files touched, every fact you verified against the tree (with the command), anything in the brief you could not confirm and therefore left out, and the commit hash.
