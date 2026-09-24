@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # SDD scratch workspaces (superpowers)
 .superpowers/
+
+target/
+packages/*/generated/

@@ -1,0 +1,23 @@
+{
+  "name": "plur1bus-harness",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.16.0 <25 || >=26.1.0", "pnpm": ">=10" },
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "check": "node scripts/check-toolchain.mjs",
+    "gen": "pnpm --filter @plur1bus/rpc-schema gen",
+    "build": "pnpm -r --workspace-concurrency=1 build",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit",
+    "lint": "pnpm typecheck && node scripts/lint-hygiene.mjs",
+    "docs": "node scripts/gen-docs.mjs",
+    "docs:check": "node scripts/gen-docs.mjs --check",
+    "bench": "node scripts/bench.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}
