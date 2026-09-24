@@ -1,0 +1,3 @@
+{ "params": { "agentId": "bernd" },
+  "result": { "agentId": "bernd", "open": true, "activity": { "state": "idle", "since": 1758700000000 }, "workspace": "/home/bernd/workspace",
+              "lastJobs": [{ "runId": "run-1", "job": "consolidate", "agentId": "bernd", "trigger": "cron", "startedAt": 1758700000000, "finishedAt": 1758700001000, "durationMs": 1000, "outcome": "completed", "attempt": 1 }] } }
