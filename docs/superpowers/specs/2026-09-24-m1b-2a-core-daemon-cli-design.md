@@ -1,6 +1,6 @@
 # M1b-2a — Core daemon, supervisor and CLI: design
 
-**Status:** Draft for owner review · **Date:** 2026-09-24 · **Owner:** Christian (Cyb3rb1ade) · **Milestone:** M1b-2a (first of M1b-2a → M1b-2b → M1b-3 → M1b-2c, owner order 2026-09-24) · **Inputs:** ADR-001, ADR-002, ADR-004, ADR-006, ADR-008, ADR-009, ADR-010 · `docs/milestones.md` §M1 · `docs/platform-matrix.md` §5, §7 · `docs/superpowers/specs/2026-09-23-m1b-1-engine-api-design.md` · engine contract `types/engine.d.ts` 1.4.1 (`openclaw-plur1bus-memory` PR #186) · owner decisions of 2026-09-24 (recorded in §2).
+**Status:** Draft rev 2 for owner review · **Date:** 2026-09-24 · **Owner:** Christian (Cyb3rb1ade) · **Milestone:** M1b-2a (first of M1b-2a → M1b-2b → M1b-3 → M1b-2c, owner order 2026-09-24) · **Inputs:** ADR-001, ADR-002, ADR-004, ADR-006, ADR-008, ADR-009, ADR-010 · `docs/milestones.md` §M1 · `docs/platform-matrix.md` §5, §7 · `docs/superpowers/specs/2026-09-23-m1b-1-engine-api-design.md` · engine contract `types/engine.d.ts` 1.4.1 (`openclaw-plur1bus-memory` PR #186) · Cobot architecture analysis · owner decisions of 2026-09-24 (recorded in §2, D1–D19).
 
 ## 1. Goal
 
@@ -24,10 +24,17 @@ Success is milestone M1 acceptance 1 (two-session recall with rerank), 3 (kill s
 | D10 | Activity states per agent (`recalling`, `dreaming`, later `thinking`, `replying`) are a **separate layer** from process health; they never drive restarts. | Owner proposal, accepted with the separation. |
 | D11 | Children **reconnect instead of respawn** when a parent returns within a grace window (§6.4). | "dass das Kind nicht neu gespawnt werden muss." |
 | D12 | The diagnostic/repair command is **`1staid`** with `check` and `repair` subcommands. `doctor` is not used. | "1stAid finde ich schöner … First Aid braucht ja auch Check und Repair Optionen." |
+| D13 | **Agent ≡ Persona.** An agent is one persona (Bernd, not "instance 3"). `SOUL.md`, `USER.md`, `persona-voice.md`, memory, `agentId` are one unit. Sessions (*n*), model roles (*n*), users (*n*) are separate dimensions. | "ich meine Persona." |
+| D14 | **Module manifest** gains `provides`, `consumes`, `implements`, `extensionPoints`, `scope: installation\|agent`, `priority`. **Priority bands** are 100-wide: 0–99 Foundation, 100–199 Core services, 200–299 Services, 300–399 Aggregators, 400–499 Orchestration, 500–999 Add-ons. A `module graph` command visualises the dependency tree. | "jeder Bereich sollte mindestens 25 Slots breit sein" (→ 100 for headroom). |
+| D15 | **Provider profiles** (M2): `{ vendor, lane: "api"\|"cli", account, credentialRef, baseUrl, headers, models, quotas }`. Multiple profiles per vendor. API lane = user's own key or OAuth; CLI lane = official CLI as agent via ACP/stdio. ~18 coding CLIs supported. 2a reserves the config shape and the model role `decision`. | "CLI und API — wie besprochen." |
+| D16 | **OAuth 2.1 client** (M2): generic implementation with **provider templates** for every vendor that allows third-party clients (Kimi, GitHub Copilot, Gemini, Grok, etc.). The harness's own OAuth server for inbound MCP. Claude/Anthropic: no template shipped — the docs explain how a user who has their own OAuth app registration can set it up themselves. | "Trotzdem möchte ich … den Claude-OAuth-Weg baust" — built as user-facing documentation, not a shipped client template. |
+| D17 | **MCP client and server per agent** (2b): `scope: installation` (shared) or `scope: agent` (private); idle timeout 15 min, tool-schema cache survives timeout; central context-window management (2c). | Owner requirement. |
+| D18 | **Decision service** (M2, ADR-015): TypeSafe Jev (cloud) + Laya (local ONNX, Apache-2.0), three primitives (`Choice`, `Score`, `Noul`), 14 use cases. 2a reserves the model role `decision` and the config namespace `decision.*`. A **Laya spike** at the end of 2a checks ONNX export availability and latency on macOS arm64. | "Macht das einen Unterschied?" — no, for 2a only the reservation matters. |
+| D19 | **Trust-routing provenance** (ADR-014, 2b): every cross-system message carries `{ origin: { system, agent, principal, trust }, hops, transformedBy }`. Persona-colouring is not a separate LLM call — the agent speaks through SOUL/persona-voice in the system prompt. | Owner requirement for A2A MCP forwarding. |
 
 ## 3. Non-goals
 
-MCP server (2b) · session store, submit/event turn loop, compaction (2c) · dreaming scheduler (M1b-3) · LLM providers, secrets, OAuth (M2) · HTTP API and GUI (M3) · channels (M4) · Windows named-pipe transport in the engine's embedding IPC (PR-11; Windows runs unit + contract tests + `service install` in 2a, system tests after PR-11) · updater as a function (2a ships the manifest check and the binary layout; download-and-swap is M8) · token-efficiency levers from the owner's 2026-09-23 input (profile cache, vault de-dup, layered registry, intent slicing) — they belong to prompt assembly (2c/M2) and the MCP client (M6); 2a only keeps the block output cache-breakpoint-friendly.
+MCP server and client (2b, ADR-014; scope `installation|agent`, idle timeout 15 min with tool-schema cache, trust-routing provenance envelope — D17, D19) · session store, submit/event turn loop, compaction, central context-window management (2c) · dreaming scheduler (M1b-3) · LLM providers, secrets, provider profiles, OAuth 2.1 client with templates (M2; D15, D16; config shape and model role `decision` reserved in 2a) · decision service (M2, ADR-015; Laya spike at end of 2a — D18) · HTTP API and GUI (M3) · channels (M4) · Windows named-pipe transport in the engine's embedding IPC (PR-11; Windows runs unit + contract tests + `service install` in 2a, system tests after PR-11) · updater as a function (2a ships the manifest check and the binary layout; download-and-swap is M8) · token-efficiency levers from the owner's 2026-09-23 input (profile cache, vault de-dup, layered registry, intent slicing) — they belong to prompt assembly (2c/M2) and the MCP client (M6); 2a only keeps the block output cache-breakpoint-friendly. · Token caching zones notation (2c): `tools` (stable), `system-static` (SOUL, persona-voice — breakpoint 1), `system-session` (USER.md, trust context — breakpoint 2), `history` (breakpoint 3), `volatile` (time, memories, reminders — never cached); max 4 explicit breakpoints per Anthropic API, 20-block lookback window.
 
 ## 4. Process model (ADR-012)
 
@@ -41,7 +48,29 @@ plur1bus <cmd>                     Rust CLI, thin client of core and supervisor
 
 - **Supervisor** (`plur1bus supervise`, started by the OS service manager or `plur1bus daemon start`): owns `config.json`, the module manifest registry, spawn/monitor/restart with backoff, log rotation per child, the adoption handshake (§6.4), and its own RPC endpoint (`run/supervisor.sock` + token) for `config.*`, `module.*`, `daemon.*`. It has no heavy dependencies and no reason to crash; a supervisor crash is a first-class bug.
 - **Core** (`@plur1bus/core`, one process per installation): builds `createEngine(host, config)` on the harness `HostServices`, holds LanceDB and ONNX handles (the only process that does — T7), runs the in-process embedding owner (ADR-001 C1: the loopback claim listener is not started on the harness path), serves JSON-RPC 2.0 over `run/core.sock` (POSIX, `0600`, directory `0700`) or a named pipe with a user-SID ACL (Windows), with a 32-byte token compared by `timingSafeEqual`.
-- **Modules** (2a defines the shape, ships none): separate processes started by the supervisor from a manifest `{ name, version, apiVersion, entry, needs: [core?], restart: policy, lifeline: true }`. They are clients of the core through `@plur1bus/module-api`. First-party (scheduler, MCP, HTTP API, channels) and third-party add-ons have the same shape; the updater and the add-on mechanism are one mechanism.
+- **Modules** (2a defines the shape, ships none): separate processes started by the supervisor from a manifest (D14):
+  ```jsonc
+  {
+    "name": "mcp-host",
+    "version": "0.1.0",
+    "apiVersion": "1",
+    "entry": "dist/index.js",
+    "needs": ["core"],
+    "provides": ["mcp-server", "mcp-client"],
+    "consumes": ["memory", "agent"],
+    "implements": ["transport"],
+    "extensionPoints": {
+      "on-recall-complete": "chain",   // sequential, each sees predecessor's result
+      "collect-status": "collect"      // parallel, results merged
+    },
+    "scope": "installation",           // or "agent" — per-agent instance
+    "restart": "on-failure",
+    "lifeline": true,
+    "priority": 200                    // 0–99 Foundation, 100–199 Core, 200–299 Services,
+                                       // 300–399 Aggregators, 400–499 Orchestration, 500–999 Add-ons
+  }
+  ```
+  They are clients of the core through `@plur1bus/module-api`. First-party (scheduler, MCP, HTTP API, channels) and third-party add-ons have the same shape; the updater and the add-on mechanism are one mechanism. `module graph` (§6.6) visualises the dependency tree from `provides`/`consumes`/`needs`.
 - **CLI** (`plur1bus`): connects directly to the core for memory/agent/jobs commands and to the supervisor for config/module/daemon commands. Never spawns the core itself; if nothing is running it says so (§6.3) and offers `daemon start`.
 
 Why B over A (single process with hot reload) and C (worker threads): ESM cannot unload, so A's "restart" leaves timers, listeners and native handles behind and a faulty add-on takes the core down; C isolates JS heaps but a native crash or OOM kills every worker, and add-ons share the process memory with secrets. B's only real cost is RAM per process (30–50 MB baseline each), mitigated by lazy module start and, later, a first-party "module host" that runs trusted small modules as workers *inside* B. Full table in ADR-012.
@@ -57,10 +86,10 @@ Monorepo `PLUR1BUS-Harness`, two toolchains, one CI:
 | `packages/rpc-schema` | JSON Schema + codegen | `@plur1bus/rpc-schema` | The single source: methods, params, results, notifications, error codes, `x-restart` classes for config keys. Generates `types.ts` and `types.rs` (`json-schema-to-typescript`, `typify`) and the contract fixtures. |
 | `packages/core` | TypeScript | `@plur1bus/core` | The core process: harness `HostServices`, engine binding, RPC server, event fan-out, journal replay, activity derivation, lifeline client. |
 | `packages/module-api` | TypeScript | `@plur1bus/module-api` | Manifest schema, core client with reconnect, lifeline client, state reporting. Used by every module, first- or third-party. |
-| `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key, migrations `vN → vN+1`. Consumed by the supervisor (validation, diff) and the CLI (`config set` preview). |
+| `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key, migrations `vN → vN+1`. Consumed by the supervisor (validation, diff) and the CLI (`config set` preview). Reserves namespaces `providers.*` (D15), `oauth.*` (D16), `decision.*` (D18) and model role `decision` for M2. |
 | `skills/plur1bus-harness` | Markdown | — | The operations skill (§9). |
 | `tests/system` | TypeScript + shell | — | Stack-level tests: two-session recall, kill soak, config restart classes, T7. |
-| `docs/` | — | — | ADR-012 (process model and languages), ADR-013 (configuration and restart classes), generated `docs/rpc.md` and `docs/cli.md`, `docs/operations.md`, `docs/config-engine-keys.md`. ADR-014 (MCP host adapter) is written in 2b. |
+| `docs/` | — | — | ADR-012 (process model and languages), ADR-013 (configuration and restart classes), generated `docs/rpc.md` and `docs/cli.md`, `docs/operations.md`, `docs/config-engine-keys.md`, `docs/module-guide.md` (manifest fields, README convention, `AGENTS.md` for each module — D14). ADR-014 (MCP host adapter, trust-routing provenance — D19) is written in 2b. ADR-015 (decision service) is written in M2. |
 
 Package manager `pnpm` (workspaces); Rust workspace with `cargo-zigbuild` for the five targets; TypeScript built once (`esbuild`, ESM, Node ≥ 24.16). Test runners: `cargo test`, `node:test` (as in the engine; no second JS framework).
 
@@ -74,7 +103,11 @@ Package manager `pnpm` (workspaces); Rust workspace with `cargo-zigbuild` for th
   config.json.bak-<schemaVersion> written by every migration
   state/                          engine stateDir; per-agent stores; core.lock
   state/journal/<agentId>.jsonl   captures written while the core was unavailable
-  agents/<agentId>/workspace/     workspace dir handed to the engine
+  agents/<agentId>/               one directory per persona (D13: agent ≡ persona)
+    SOUL.md                        persona definition (identity, values, voice)
+    USER.md                        owner/user context
+    persona-voice.md               idiolect (managed block, seed + learned bullets)
+    workspace/                     workspace dir handed to the engine
   run/                            core.sock core.token core.pid supervisor.sock supervisor.token supervisor.pid module-<name>.lock   (0700 / user-SID ACL)
   logs/<role>.log                 JSON lines, rotated by size (default 20 MB × 5)
   runtime/node-<version>/         pinned Node runtime installed by `setup` (SHA-256-verified)
@@ -119,6 +152,8 @@ Error codes are a closed enum (`E_UNAUTHORIZED`, `E_RPC_VERSION`, `E_NOT_AVAILAB
 | `events.emit` | fan-out to `events.subscribe` clients |
 | `platform` | own implementation of `securePath`, `ipcAddress`, `isUnsafeLink`, `canonicalIdentityPath` with Windows branches |
 | `clock` | `Date.now` (tests inject) |
+
+**Agent ≡ Persona (D13).** An agent directory (`agents/<agentId>/`) is a persona: it holds `SOUL.md` (identity, values, voice), `USER.md` (owner/user context), `persona-voice.md` (idiolect — managed block between markers, seed + learned bullets, directive built only from managed block), and `workspace/` (the engine's `workspaceDir`). `agent create <id>` scaffolds the directory with template files; the engine reads persona-voice from the workspace at construction. Sessions, model roles and users are separate dimensions attached to the agent, not identity-defining.
 
 Engine configuration in 2a: `autoRecall` and `autoCapture` off (the harness calls explicitly), rerank on, embedding per ADR-006 (`setup` non-interactive → E5-small; interactive → the use-class question; NC licence only with explicit confirmation, audit-logged).
 
@@ -166,6 +201,7 @@ Signing: macOS binaries signed with the owner's Developer ID and notarised (`not
 | `dreams status|run <job>|log [--agent A]` | core | `jobs.list|run|history`; shows breaker, retries, `already_running`, ledger health. |
 | `config get [key]|set <key> <value> [--yes|--dry-run]|schema` | supervisor | §6.1 |
 | `module list|start|stop|restart <name>` | supervisor | §6.4 (no first-party modules in 2a; the commands are tested with a fixture module) |
+| `module graph [--json]` | supervisor | Prints the dependency tree from `provides`/`consumes`/`needs` of all registered module manifests; `--json` returns the adjacency list. Detects cycles and unresolved dependencies. |
 | `daemon start|stop|restart|status` | supervisor / OS | Start = via service manager if registered, else spawn `supervise` detached |
 | `service install|uninstall|status` | OS | §6.5 |
 | `update --check` | — | §6.5 |
@@ -187,6 +223,10 @@ Each is its own PR with the M1b-1 gate (full suite, lint, golden 9/9, contract c
 | E6 | **`HostServices` neutralised**: `pathOverrides.openclawHome` removed, `configPath()` documented as the host's own config, `routing?()` replaced by an optional `identity` capability, `HostRuntime` removed in favour of typed optional capabilities; `lib/host-paths.js` has no default root (a host supplies its paths). | **2.0** (observable change) |
 
 Also in the engine backlog from the #186 review, scheduled before M1b-3, not 2a: ledger index/rotation, pid+instance on run markers, job-body signal plumbing, tool execution with `Principal` (needed by 2b).
+
+### 7.1 Laya spike (end of 2a, D18)
+
+Half-day spike, independent of the rest. Goal: confirm that the Laya multilingual model (Apache-2.0) has an ONNX export or that we can produce one; measure inference latency for the three primitives (`Choice`, `Score`, `Noul`) on macOS arm64. The result determines whether ADR-015 (M2) starts with a local default model or cloud-only. Deliverable: a short report with latency numbers and an ONNX availability verdict, no code shipped.
 
 ## 8. Data flow examples
 
@@ -215,6 +255,7 @@ Also in the engine backlog from the #186 review, scheduled before M1b-3, not 2a:
 9. **Service:** `service install|status|uninstall` in user context on all five targets; supervisor restarted by the OS after a kill on macOS and Linux (Windows once PR-11 lands).
 10. **Skill freshness test** (§9) green; `docs/rpc.md` and `docs/cli.md` regenerated and committed.
 11. **Engine side:** E1–E6 merged with green gates, contract 2.0 published as prerelease, harness pinned exactly; the adapter's OpenClaw suite still green.
+12. **Fixture module zero-edit:** a fixture module with a manifest (`provides`, `consumes`, `extensionPoints`, `scope: installation`, `priority: 500`) is installed via `module` commands and appears in `module list` and `module graph` without editing any existing harness code — the module system is purely declarative (D14).
 
 ## 11. Risks and open questions
 
