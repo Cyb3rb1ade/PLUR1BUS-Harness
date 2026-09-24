@@ -1,0 +1,13 @@
+{
+  "name": "@plur1bus/module-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
+  "exports": { ".": "./dist/index.js" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist/index.js",
+    "test": "node ../../scripts/test-package.mjs"
+  }
+}
