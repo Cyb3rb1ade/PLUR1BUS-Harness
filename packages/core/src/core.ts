@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RPC_VERSION, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
@@ -36,7 +36,9 @@ export function createCore(o: { home?: string; instanceId?: string; testInternal
   let state: State = { state: "starting", since: startedAt };
   let server: RpcServer | null = null; let lock: { release(): void } | null = null;
   let engine: Engine | null = null; let logger: HarnessLogger | null = null; let agents: AgentRegistry | null = null;
-  let journalBacklog = 0; let stopping: Promise<void> | null = null;
+  let journalBacklog = 0; let stopping: Promise<void> | null = null; let wroteRunFiles = false;
+  // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
+  const shutdown = new AbortController();
 
   const setState = (s: State) => { state = s; server?.notify("core.state", { process: s }); };
 
@@ -66,7 +68,7 @@ export function createCore(o: { home?: string; instanceId?: string; testInternal
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
       const methods = buildMethods({
-        engine: eng, config, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog,
+        engine: eng, config, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         // Deferred so the core.shutdown reply is written before the server closes its connections.
         shutdown: (budgetMs) => { setImmediate(() => { void stop(budgetMs !== undefined ? { budgetMs } : {}); }); },
       });
@@ -75,32 +77,50 @@ export function createCore(o: { home?: string; instanceId?: string; testInternal
       const replay = await replayJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
       journalBacklog = replay.kept;
 
+      wroteRunFiles = true;
       writeFileSync(l.coreToken, token, { mode: 0o600 });
       writeFileSync(l.corePid, `${process.pid}\n`, { mode: 0o600 });
       await server.listen();
       setState({ state: "ready", since: clock() });
       logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept });
     } catch (e) {
-      logger.error("core start failed", { err: e });
-      await engine?.close({ budgetMs: 5_000 });
-      await server?.close().catch(() => {});
-      lock?.release(); lock = null;
+      // Cleanup never replaces the original start error.
+      const log = logger;
+      log.error("core start failed", { err: e });
+      shutdown.abort(new Error("core start failed"));
+      await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
+      await step(log, "server close", async () => { await server?.close(); }); server = null;
+      await step(log, "lock release", () => { lock?.release(); }); lock = null;
+      await step(log, "run files", () => removeRunFiles());
       state = { state: "stopped", since: clock(), reason: "start-failed" };
-      if (!o.logger) await logger.close();
+      if (!o.logger) await step(null, "logger close", () => log.close());
       throw e;
     }
   }
 
-  async function stop(so: { budgetMs?: number } = {}): Promise<void> {
+  function removeRunFiles(): void {
+    if (!wroteRunFiles) return; // a refused core never touches the running core's token and pid
+    rmSync(l.coreToken, { force: true }); rmSync(l.corePid, { force: true }); wroteRunFiles = false;
+  }
+
+  /** Runs one shutdown step: a failure is logged and collected, never propagated. */
+  async function step(log: HarnessLogger | null, name: string, fn: () => unknown, errors?: unknown[]): Promise<void> {
+    try { await fn(); } catch (err) { errors?.push(err); try { log?.error(`stop step failed: ${name}`, { err }); } catch { /* logger gone */ } }
+  }
+
+  function stop(so: { budgetMs?: number } = {}): Promise<void> { // not async: every call returns the one settled promise
     if (stopping) return stopping;
     stopping = (async () => {
       setState({ state: "stopping", since: clock() });
-      await engine?.close({ budgetMs: so.budgetMs ?? 30_000 });
-      await server?.close();
-      lock?.release(); lock = null;
-      setState({ state: "stopped", since: clock() });
-      logger?.info("core stopped", { instanceId });
-      if (!o.logger) await logger?.close();
+      shutdown.abort(new Error("core stopping"));
+      const errors: unknown[] = [];
+      await step(logger, "engine close", async () => { await engine?.close({ budgetMs: so.budgetMs ?? 30_000 }); }, errors);
+      await step(logger, "server close", async () => { await server?.close(); }, errors);
+      await step(logger, "lock release", () => { lock?.release(); lock = null; }, errors);
+      await step(logger, "run files", () => removeRunFiles(), errors);
+      setState({ state: "stopped", since: clock(), ...(errors.length ? { reason: "stop-step-failed" } : {}) });
+      await step(logger, "log", () => logger?.info("core stopped", { instanceId, failedSteps: errors.length, ...(errors.length ? { firstError: errors[0] } : {}) }));
+      if (!o.logger) await step(null, "logger close", () => logger?.close());
     })();
     return stopping;
   }

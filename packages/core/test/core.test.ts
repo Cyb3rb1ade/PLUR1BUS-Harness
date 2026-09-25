@@ -7,19 +7,40 @@ import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore, type Core } from "../src/core.ts";
 import { layout } from "../src/paths.ts";
-import { flatEmbedder } from "./helpers/flat-embedder.ts";
+import { flatTestInternals } from "./helpers/flat-embedder.ts";
 
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 
-describe("core", () => {
+function newHome(): string {
   const home = mkdtempSync(join(tmpdir(), "p1b-core-"));
+  const cfg = defaults(); cfg.agents.bernd = {};
+  cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
+  // The flat embedder gives every text the same vector, so the engine's capture dedup (cosine ≥ duplicateThreshold,
+  // default 0.95; engine/capture/capture-turn.js) would skip every fact after the first. Above 1 it never matches.
+  cfg.engine.duplicateThreshold = 1.01;
+  writeFileSync(layout(home).configPath, JSON.stringify(cfg));
+  return home;
+}
+
+/** Recall until the joined text matches (a pending capture finishes in the background). */
+async function recallUntil(client: CoreClient, query: string, pattern: RegExp, timeoutMs = 8000): Promise<string> {
+  const until = Date.now() + timeoutMs; let text = "";
+  while (Date.now() < until) {
+    const r = await client.call<any>("memory.recall", { caller, agentId: "bernd", query, joined: true });
+    text = r.joined.text;
+    if (pattern.test(text)) return text;
+    await new Promise((res) => setTimeout(res, 100));
+  }
+  return text;
+}
+
+describe("core", () => {
+  const home = newHome();
   const l = layout(home);
+  let slowMs = 0; // passage-embedding delay for the capture-survival tests
   let core: Core; let c: CoreClient;
   before(async () => {
-    const cfg = defaults(); cfg.agents.bernd = {};
-    cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
-    writeFileSync(l.configPath, JSON.stringify(cfg));
-    core = createCore({ home, testInternals: { embeddings: flatEmbedder() } });
+    core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => slowMs }) });
     await core.start();
     c = await connect({ address: core.address, token: core.token });
   });
@@ -42,17 +63,37 @@ describe("core", () => {
     assert.ok(seen.includes("capturing") && seen.includes("recalling") && seen.at(-1) === "idle", seen.join(","));
   });
 
+  it("a capture slower than waitMs answers pending and is still stored (R19)", async () => {
+    slowMs = 800; // only passage embedding (capture) is slowed; recall embeds the query without delay
+    try {
+      const cap = await c.call<any>("memory.capture", { caller, agentId: "bernd", sessionKey: "s3", waitMs: 200, messages: [{ role: "user", content: "Please remember that the dentist appointment is on Monday at nine." }, { role: "assistant", content: "Noted." }] });
+      assert.equal(cap.pending, true, JSON.stringify(cap)); assert.equal(cap.stored, undefined);
+      assert.match(await recallUntil(c, "when is the dentist appointment", /dentist appointment/i), /dentist appointment/i);
+    } finally { slowMs = 0; }
+  });
+
+  it("closing the client right after a wait:true capture does not abort it (R19)", async () => {
+    slowMs = 500;
+    try {
+      const c2 = await connect({ address: core.address, token: core.token });
+      const pending = c2.call("memory.capture", { caller, agentId: "bernd", sessionKey: "s4", messages: [{ role: "user", content: "Please remember that the plumber visit is on Friday at noon." }, { role: "assistant", content: "Noted." }] }).catch((e) => e);
+      await c2.close(); // disconnects while the capture is still embedding
+      await pending;
+      const c3 = await connect({ address: core.address, token: core.token });
+      try { assert.match(await recallUntil(c3, "when is the plumber visit", /plumber visit/i), /plumber visit/i); } finally { await c3.close(); }
+    } finally { slowMs = 0; }
+  });
+
   it("recall for an unregistered agent is E_AGENT_UNKNOWN and creates nothing", async () => {
     await assert.rejects(c.call("memory.recall", { caller, agentId: "ghost", query: "x" }), (e: any) => e.error === "E_AGENT_UNKNOWN");
     assert.equal(existsSync(l.agentDir("ghost")), false);
   });
 
-  it("an invalid caller identity comes back degraded, not as an error", async () => {
-    // The schema admits control characters in userId; the principal mapping (engine INPUT_LIMITS parity) does not.
-    const r = await c.call<any>("memory.recall", { caller: { ...caller, userId: "cyber\u0001blade" }, agentId: "bernd", query: "anything" });
-    assert.equal(r.degraded?.reason, "principal-invalid");
-    // An over-long userId never reaches the core's principal mapping: CallerIdentity.userId maxLength 128 rejects it at the wire.
-    await assert.rejects(c.call("memory.recall", { caller: { ...caller, userId: "u".repeat(129) }, agentId: "bernd", query: "anything" }), (e: any) => e.error === "E_INVALID_PARAMS");
+  it("an invalid caller identity comes back degraded, not as an error (R18)", async () => {
+    const long = await c.call<any>("memory.recall", { caller: { ...caller, userId: "u".repeat(129) }, agentId: "bernd", query: "anything" });
+    assert.equal(long.degraded?.reason, "principal-invalid");
+    const control = await c.call<any>("memory.recall", { caller: { ...caller, userId: "cyber\u0001blade" }, agentId: "bernd", query: "anything" });
+    assert.equal(control.degraded?.reason, "principal-invalid");
   });
 
   it("memory ops answer E_NOT_AVAILABLE engine-pr-E1", async () => {
@@ -73,8 +114,29 @@ describe("core", () => {
     const cp = await c.call<any>("memory.checkpoint", { caller, agentId: "bernd", reason: "manual" }); assert.equal(typeof cp.digest, "string");
   });
 
-  it("a second core on the same home is refused by the lock", async () => {
-    const second = createCore({ home, testInternals: { embeddings: flatEmbedder() } });
+  it("a second core on the same home is refused by the lock; the first keeps answering", async () => {
+    const second = createCore({ home, testInternals: flatTestInternals() });
     await assert.rejects(second.start(), (e: any) => e.error === "E_LOCKED");
+    const s = await c.call<any>("core.status"); assert.equal(s.process.state, "ready");
+    assert.equal(existsSync(l.coreToken), true, "the refused core leaves the first core's token alone");
+  });
+});
+
+describe("core stop", () => {
+  it("completes when the engine's close rejects: lock released, run files removed, stays stopped", async () => {
+    const home = newHome(); const l = layout(home);
+    const core = createCore({ home, testInternals: flatTestInternals({ extra: { closeEngine: async () => { throw new Error("close boom"); } } }) });
+    await core.start();
+    assert.equal(existsSync(l.coreToken), true);
+    const first = core.stop({ budgetMs: 1000 });
+    await first;
+    assert.equal(core.status().process.state, "stopped");
+    assert.equal(existsSync(l.coreToken), false); assert.equal(existsSync(l.corePid), false);
+    const again = core.stop();
+    assert.equal(again, first, "a second stop() returns the same promise");
+    await again; assert.equal(core.status().process.state, "stopped");
+    const next = createCore({ home, testInternals: flatTestInternals() });
+    await next.start();
+    await next.stop({ budgetMs: 5000 });
   });
 });

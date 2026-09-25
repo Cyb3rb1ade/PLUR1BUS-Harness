@@ -15,6 +15,8 @@ import type { Handler } from "./server.ts";
 export interface MethodDeps {
   engine: Engine; config: HarnessConfig; agents: AgentRegistry; activity: ActivityTracker; logger: HarnessLogger;
   status: () => CoreStatusResult; shutdown: (budgetMs?: number) => void; journalBacklog: () => number; clock: () => number;
+  /** R19: the core-owned shutdown signal, the only abort a capture observes. */
+  captureSignal: AbortSignal;
 }
 
 function requireAgent(agents: AgentRegistry, agentId: string): string {
@@ -77,21 +79,30 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       } finally { d.activity.idle(p.agentId); }
     },
 
-    "memory.capture": async (p: MemoryCaptureParams, ctx): Promise<MemoryCaptureResult> => {
+    // R19: a capture is never lost because of the wait. Its signal is the core's shutdown signal only — not the
+    // connection (a client disconnect never aborts it) and not the waitMs timer (which bounds the reply, not the work).
+    "memory.capture": async (p: MemoryCaptureParams): Promise<MemoryCaptureResult> => {
       const { principal } = identity(d, p.caller, p.agentId);
-      const waitMs = p.waitMs ?? d.config.core.capture.waitMs;
       d.activity.set(p.agentId, { state: "capturing" });
       const handle = d.engine.capture({
         agentId: p.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: p.messages, incognito: false, // the engine fails closed on anything but an explicit false
-        signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(waitMs)]),
+        signal: d.captureSignal,
         ...(p.sessionKey ? { sessionKey: p.sessionKey } : {}), ...(p.runId ? { runId: p.runId } : {}),
       });
       const settle = handle.done
         .then((r) => { d.logger.info("capture done", { agentId: p.agentId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason }); return r; })
         .finally(() => d.activity.idle(p.agentId));
-      if (p.wait === false) { settle.catch((e) => d.logger.warn("capture failed", { agentId: p.agentId, err: e })); return { id: handle.id, acceptedAt: handle.acceptedAt, pending: true }; }
-      const r = await settle;
-      return { id: handle.id, acceptedAt: handle.acceptedAt, stored: r.stored, skipped: r.skipped, ...(r.reason ? { reason: r.reason } : {}) };
+      settle.catch((e) => d.logger.warn("capture failed", { agentId: p.agentId, captureId: handle.id, err: e })); // never an unhandled rejection
+      const pending: MemoryCaptureResult = { id: handle.id, acceptedAt: handle.acceptedAt, pending: true };
+      if (p.wait === false) return pending;
+      const waitMs = p.waitMs ?? d.config.core.capture.waitMs;
+      let timer: NodeJS.Timeout | undefined;
+      const timedOut = new Promise<null>((res) => { timer = setTimeout(() => res(null), waitMs); timer.unref(); });
+      try {
+        const r = await Promise.race([settle, timedOut]);
+        if (r === null) return pending; // the capture keeps running; its .finally resets activity and logs the outcome
+        return { id: handle.id, acceptedAt: handle.acceptedAt, stored: r.stored, skipped: r.skipped, ...(r.reason ? { reason: r.reason } : {}) };
+      } finally { clearTimeout(timer); }
     },
 
     "memory.checkpoint": async (p: MemoryCheckpointParams) => {

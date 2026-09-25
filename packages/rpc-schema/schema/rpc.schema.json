@@ -51,8 +51,8 @@
       "required": ["channel", "accountId", "userId"],
       "properties": {
         "channel": { "type": "string", "enum": ["cli"] },
-        "accountId": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "userId": { "type": "string", "minLength": 1, "maxLength": 128 }
+        "accountId": { "type": "string", "minLength": 1 },
+        "userId": { "type": "string", "minLength": 1 }
       }
     },
     "Message": {
