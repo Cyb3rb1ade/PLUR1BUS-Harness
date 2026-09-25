@@ -10,7 +10,7 @@ Sources opened for this document: `/home/claude/refs/openclaw` (`b9421f4`, v2026
 
 ## 1. Scope and principles
 
-> **D28 (2026-09-25):** import is the Mode-A path (the harness replaces the source system). After a confirmed import with backup, the importer disables the PLUR1BUS plugin on that installation, because one store has exactly one engine owner (T7). Mode B (the source system keeps running and uses the harness as its central memory) needs no import at all. No live installation is migrated before `docs/plugin-parity.md` is complete; the owner's VPS stays on the plugin until a test environment has proven both modes.
+> **D28 (2026-09-25):** import is the one-time takeover of a legacy installation's data; it is not an operating mode. After a confirmed import with backup, the importer disables the PLUR1BUS plugin on that installation, because one store has exactly one engine owner (T7). A source system that keeps running and uses the harness as its memory attaches as a client instead and needs no import. No live installation is migrated before `docs/plugin-parity.md` is complete; the owner's VPS stays on the plugin until a test environment has proven the harness standalone and with attached systems.
 
 From auftrag §4.2 (binding per brief §1, "everything not touched by D1–D11 remains binding"):
 
