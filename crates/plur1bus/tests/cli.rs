@@ -86,3 +86,58 @@ fn home_flag_beats_env() {
         "config get creates defaults under --home"
     );
 }
+
+#[test]
+fn agent_create_list_remove_without_a_core() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "Bernd"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("must match"));
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("created agent bernd"));
+    assert!(dir.path().join("agents/bernd/workspace").is_dir());
+    let cfg: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert!(cfg["agents"]["bernd"]["createdAt"]
+        .as_str()
+        .unwrap()
+        .ends_with('Z'));
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .code(1);
+    let out = bin()
+        .args(["--json", "--home", h, "agent", "list"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["agents"][0]["agentId"], "bernd");
+    assert_eq!(v["core"], "unavailable");
+    bin()
+        .args(["--home", h, "agent", "status", "bernd"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("core unavailable"));
+    bin()
+        .args(["--home", h, "agent", "remove", "bernd"])
+        .assert()
+        .success();
+    assert!(
+        dir.path().join("agents/bernd").is_dir(),
+        "data left in place"
+    );
+    bin()
+        .args(["--home", h, "agent", "status", "bernd"])
+        .assert()
+        .code(1);
+}

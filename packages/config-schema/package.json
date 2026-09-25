@@ -8,7 +8,8 @@
   "files": ["dist", "schema"],
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist/index.js",
-    "test": "node ../../scripts/test-package.mjs"
+    "gen": "node --experimental-strip-types src/gen-defaults.mjs",
+    "test": "node --experimental-strip-types src/gen-defaults.mjs && node ../../scripts/test-package.mjs"
   },
   "dependencies": { "ajv": "8.20.0", "ajv-formats": "^3.0.1" }
 }

@@ -1,0 +1,606 @@
+[
+  {
+    "name": "live leaf change (core.recall.softBudgetMs)",
+    "before": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "after": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 250,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "expected": {
+      "changed": [
+        "core.recall.softBudgetMs"
+      ],
+      "restart": {
+        "live": [
+          "core.recall.softBudgetMs"
+        ],
+        "core": false,
+        "modules": []
+      }
+    }
+  },
+  {
+    "name": "core-class change (engine.recallMinScore)",
+    "before": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "after": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {
+        "recallMinScore": 0.5
+      },
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "expected": {
+      "changed": [
+        "engine.recallMinScore"
+      ],
+      "restart": {
+        "live": [],
+        "core": true,
+        "modules": []
+      }
+    }
+  },
+  {
+    "name": "add agents.bernd",
+    "before": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "after": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "expected": {
+      "changed": [
+        "agents.bernd"
+      ],
+      "restart": {
+        "live": [
+          "agents.bernd"
+        ],
+        "core": false,
+        "modules": []
+      }
+    }
+  },
+  {
+    "name": "remove agents.bernd",
+    "before": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "after": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "expected": {
+      "changed": [
+        "agents.bernd"
+      ],
+      "restart": {
+        "live": [
+          "agents.bernd"
+        ],
+        "core": false,
+        "modules": []
+      }
+    }
+  },
+  {
+    "name": "rename bernd->karl",
+    "before": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "after": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "karl": {
+          "createdAt": "2026-09-24T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "expected": {
+      "changed": [
+        "agents.bernd",
+        "agents.karl"
+      ],
+      "restart": {
+        "live": [
+          "agents.bernd",
+          "agents.karl"
+        ],
+        "core": false,
+        "modules": []
+      }
+    }
+  },
+  {
+    "name": "add providers.nvidia to an empty map",
+    "before": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "after": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {
+        "nvidia": {
+          "apiKey": "x"
+        }
+      },
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "expected": {
+      "changed": [
+        "providers.nvidia"
+      ],
+      "restart": {
+        "live": [
+          "providers.nvidia"
+        ],
+        "core": false,
+        "modules": []
+      }
+    }
+  },
+  {
+    "name": "two changes of different classes at once",
+    "before": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "after": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "debug",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "research",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "expected": {
+      "changed": [
+        "core.logLevel",
+        "embedding.useClass"
+      ],
+      "restart": {
+        "live": [
+          "core.logLevel"
+        ],
+        "core": true,
+        "modules": []
+      }
+    }
+  }
+]

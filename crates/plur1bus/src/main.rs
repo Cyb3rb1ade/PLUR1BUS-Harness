@@ -60,13 +60,12 @@ fn main() {
             "OpenClaw/Hermes import (docs/import.md)",
         ),
         Cmd::Uninstall(_) => commands::stubs::milestone(&out, "uninstall", "M8", "uninstaller"),
-        Cmd::Agent { .. } | Cmd::Memory { .. } | Cmd::Dreams { .. } | Cmd::Config { .. } => {
-            commands::stubs::milestone(
-                &out,
-                "this",
-                "H1",
-                "implemented in Tasks 12–15 of this plan",
-            )
-        }
+        Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
+        Cmd::Memory { .. } | Cmd::Dreams { .. } | Cmd::Config { .. } => commands::stubs::milestone(
+            &out,
+            "this",
+            "H1",
+            "implemented in Tasks 12–15 of this plan",
+        ),
     }
 }
