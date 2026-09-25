@@ -62,4 +62,45 @@ describe("config-schema", () => {
       assert.deepEqual((defaults() as any)[ns], {});
     }
   });
+
+  it("removing agents.bernd reports symmetric changed list", () => {
+    const a = defaults();
+    const b = structuredClone(a);
+    b.agents.bernd = { createdAt: "2026-09-24T00:00:00Z" };
+    const c = structuredClone(b);
+    delete c.agents.bernd;
+    const plan = restartPlan(b, c);
+    assert.deepEqual(plan.changed, ["agents.bernd"]);
+    assert.deepEqual(plan.restart, { live: ["agents.bernd"], core: false, modules: [] });
+  });
+
+  it("renaming agent (bernd removed, karl added) reports both at container level", () => {
+    const a = defaults();
+    const b = structuredClone(a);
+    b.agents.bernd = { createdAt: "2026-09-24T00:00:00Z" };
+    const c = structuredClone(b);
+    delete c.agents.bernd;
+    c.agents.karl = { createdAt: "2026-09-25T00:00:00Z" };
+    const plan = restartPlan(b, c);
+    assert.deepEqual(plan.changed.sort(), ["agents.bernd", "agents.karl"]);
+    assert.deepEqual(plan.restart, { live: ["agents.bernd", "agents.karl"], core: false, modules: [] });
+  });
+
+  it("nested leaf change reports exactly that path", () => {
+    const a = defaults();
+    const b = structuredClone(a);
+    b.core.recall.softBudgetMs = 500;
+    const plan = restartPlan(a, b);
+    assert.deepEqual(plan.changed, ["core.recall.softBudgetMs"]);
+    assert.deepEqual(plan.restart, { live: ["core.recall.softBudgetMs"], core: false, modules: [] });
+  });
+
+  it("adding entry to empty open map reports at entry level", () => {
+    const a = defaults();
+    const b = structuredClone(a);
+    (b.providers as any).nvidia = {};
+    const plan = restartPlan(a, b);
+    assert.deepEqual(plan.changed, ["providers.nvidia"]);
+    assert.deepEqual(plan.restart, { live: ["providers.nvidia"], core: false, modules: [] });
+  });
 });

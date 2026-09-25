@@ -54,57 +54,31 @@ export function restartClassOf(keyPath: string): RestartClass {
   return cls;
 }
 
-function flatten(value: unknown, prefix: string[], out: Map<string, unknown>): void {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (prefix.length > 0) {
-      // Record all containers (empty and non-empty)
-      out.set(prefix.join("."), value);
+function diff(a: unknown, b: unknown, path: string[], out: string[]): void {
+  // Check if both are plain objects (non-null, non-array)
+  const aIsObj = a && typeof a === "object" && !Array.isArray(a);
+  const bIsObj = b && typeof b === "object" && !Array.isArray(b);
+
+  if (aIsObj && bIsObj) {
+    // Both are objects, recurse into all keys
+    const allKeys = new Set([...Object.keys(a as Record<string, unknown>), ...Object.keys(b as Record<string, unknown>)]);
+    for (const k of allKeys) {
+      diff((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], [...path, k], out);
     }
-    for (const [k, v] of entries) flatten(v, [...prefix, k], out);
-  } else if (prefix.length > 0) {
-    out.set(prefix.join("."), value);
+  } else {
+    // At least one is not an object, compare values
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      if (path.length > 0) {
+        out.push(path.join("."));
+      }
+    }
   }
 }
 
 export function restartPlan(before: unknown, after: unknown): { changed: string[]; restart: { live: string[]; core: boolean; modules: string[] } } {
-  const a = new Map<string, unknown>(); const b = new Map<string, unknown>();
-  flatten(before, [], a); flatten(after, [], b);
-  let changed = [...new Set([...a.keys(), ...b.keys()])].filter((k) => JSON.stringify(a.get(k)) !== JSON.stringify(b.get(k))).sort();
-
-  // Filter: remove parent containers if a newly-added container exists (keep the new container, not its contents)
-  changed = changed.filter(k => {
-    const children = changed.filter(other => other.startsWith(k + "."));
-    if (children.length === 0) return true; // No children, keep it
-
-    // Check if this is a newly-added container
-    const aVal = a.get(k);
-    const bVal = b.get(k);
-    if ((aVal === undefined || aVal === null) && bVal && typeof bVal === "object" && !Array.isArray(bVal)) {
-      // Newly added container, keep it
-      return true;
-    }
-
-    // Has children but not a new container, remove this parent
-    return false;
-  });
-
-  // Second pass: remove children of newly-added containers
-  changed = changed.filter(k => {
-    const parts = k.split(".");
-    for (let i = 0; i < parts.length - 1; i++) {
-      const parent = parts.slice(0, i + 1).join(".");
-      if (changed.includes(parent)) {
-        const parentAVal = a.get(parent);
-        const parentBVal = b.get(parent);
-        if ((parentAVal === undefined || parentAVal === null) && parentBVal && typeof parentBVal === "object" && !Array.isArray(parentBVal)) {
-          // Parent is a newly added container, remove this child
-          return false;
-        }
-      }
-    }
-    return true;
-  });
+  const changed: string[] = [];
+  diff(before, after, [], changed);
+  changed.sort();
 
   const restart = { live: [] as string[], core: false, modules: [] as string[] };
   for (const key of changed) {
