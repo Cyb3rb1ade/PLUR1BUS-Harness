@@ -15,19 +15,23 @@ if (values["test-internals"]) {
   } else { console.error(`unknown --test-internals ${values["test-internals"]}`); process.exit(2); }
 }
 
-const core = createCore({ ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}) });
+// A core.shutdown RPC takes the same stop-and-exit path as SIGTERM (I1): without it the process outlived the stop.
+const core = createCore({ ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}), onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs) });
 
 // Reused across repeated signals: core.ts's own resolved config isn't exposed on the committed Core surface
 // (start/stop/status/address/token/layout), so this reads config.json once after a successful start rather
 // than editing core.ts to expose it; on any failure to read it back, stop() falls back to its own default.
 let shutdownBudgetMs: number | undefined;
 let stopping = false;
-const stop = (sig: string) => {
-  if (stopping) { console.error(`core: ${sig} ignored, stop already in progress`); return; } // core.stop() is idempotent, but a repeated signal is still just noise here
+/** The one stop path for SIGTERM, SIGINT and a `core.shutdown` RPC: stop the core (engine, server, lock, run
+ *  files, log flush), then exit 0, or 1 when a stop step failed. An RPC's own budgetMs wins over config's. */
+const stop = (why: string, budgetMs?: number) => {
+  if (stopping) { console.error(`core: ${why} ignored, stop already in progress`); return; } // core.stop() is idempotent, but a repeated request is still just noise here
   stopping = true;
-  console.error(`core: ${sig}, stopping`);
-  core.stop(shutdownBudgetMs !== undefined ? { budgetMs: shutdownBudgetMs } : {})
-    .then(() => process.exit(0))
+  console.error(`core: ${why}, stopping`);
+  const budget = budgetMs ?? shutdownBudgetMs;
+  core.stop(budget !== undefined ? { budgetMs: budget } : {})
+    .then(() => process.exit(core.status().process.reason === "stop-step-failed" ? 1 : 0))
     .catch((err) => { console.error("core: stop failed", err); process.exit(1); });
 };
 process.on("SIGTERM", () => stop("SIGTERM")); process.on("SIGINT", () => stop("SIGINT"));

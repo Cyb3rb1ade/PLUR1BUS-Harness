@@ -25,7 +25,14 @@ type State = ProcessState & { since: number };
 
 const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/; // rpc.schema.json $defs/AgentId
 
-export function createCore(o: { home?: string; instanceId?: string; testInternals?: Record<string, unknown>; clock?: () => number; logger?: HarnessLogger }): Core {
+export interface CoreOptions {
+  home?: string; instanceId?: string; testInternals?: Record<string, unknown>; clock?: () => number; logger?: HarnessLogger;
+  /** Called (after the reply is written) when a client sends `core.shutdown`, in place of calling stop() directly.
+   *  bin.ts routes it through the same stop-and-exit path as SIGTERM, so the process exits after an RPC stop too. */
+  onShutdownRequested?: (budgetMs: number | undefined) => void;
+}
+
+export function createCore(o: CoreOptions): Core {
   const home = resolveHome({ ...(o.home ? { home: o.home } : {}) });
   const l = layout(home); const clock = o.clock ?? Date.now;
   const instanceId = o.instanceId ?? randomUUID();
@@ -70,7 +77,9 @@ export function createCore(o: { home?: string; instanceId?: string; testInternal
       const methods = buildMethods({
         engine: eng, config, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         // Deferred so the core.shutdown reply is written before the server closes its connections.
-        shutdown: (budgetMs) => { setImmediate(() => { void stop(budgetMs !== undefined ? { budgetMs } : {}); }); },
+        shutdown: (budgetMs) => {
+          setImmediate(() => { if (o.onShutdownRequested) o.onShutdownRequested(budgetMs); else void stop(budgetMs !== undefined ? { budgetMs } : {}); });
+        },
       });
       server = createRpcServer({ address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid }), methods, logger });
 
