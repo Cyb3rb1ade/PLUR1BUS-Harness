@@ -4,8 +4,15 @@ export class LineTooLong extends Error {
   constructor(bytes: number) { super(`line exceeds ${MAX_LINE_BYTES} bytes (${bytes})`); this.name = "LineTooLong"; }
 }
 
+/** Lone surrogates serialise as `\udXXX` escapes, which strict parsers (serde_json in the Rust CLI) refuse. */
+const SURROGATE_ESCAPE = /\\ud[89a-f]/i;
+
 export function encodeLine(value: unknown): Buffer {
-  const text = JSON.stringify(value);
+  let text = JSON.stringify(value);
+  // Backstop for text the core does not produce itself (engine output): a well-formed pair is emitted raw, so an
+  // escape here means a lone surrogate somewhere (or a literal backslash-u in content). Only then pay for a
+  // replacer pass that turns every lone surrogate into U+FFFD.
+  if (SURROGATE_ESCAPE.test(text)) text = JSON.stringify(value, (_k, v: unknown) => (typeof v === "string" ? v.toWellFormed() : v));
   if (text.includes("\n")) throw new Error("JSON.stringify never emits a raw newline; this is a bug");
   return Buffer.from(`${text}\n`, "utf8");
 }

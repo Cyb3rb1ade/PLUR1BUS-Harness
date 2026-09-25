@@ -21,6 +21,20 @@ describe("joinBlocks", () => {
     assert.equal(r.text, "SSSSS");
     assert.deepEqual(r.deferrals.map((d) => [d.block, d.kind]), [["memories", "dropped"], ["reminder", "dropped"]]);
   });
+  it("I4: never splits a surrogate pair when the cap lands inside an emoji; reports the adjusted length", () => {
+    const text = "abc\u{1F600}def"; // the emoji is 2 UTF-16 units, at indexes 3 and 4
+    const r = joinBlocks([b("memories", text)], 4); // a plain slice(0, 4) would end on the high surrogate
+    assert.equal(r.text, "abc");
+    assert.equal(r.text.isWellFormed(), true);
+    assert.deepEqual(r.deferrals, [{ block: "memories", kind: "clipped", from: text.length, to: 3, reason: "global-cap" }]);
+    assert.equal(joinBlocks([b("memories", text)], 5).text, "abc\u{1F600}", "a cap just past the pair keeps it whole");
+    assert.equal(JSON.stringify(r.text).includes("\\ud"), false);
+  });
+  it("I4: a block that is only one non-BMP character is dropped, not clipped to a lone surrogate", () => {
+    const r = joinBlocks([b("start", "S", false), b("memories", "\u{1F600}")], 4);
+    assert.equal(r.text, "S");
+    assert.deepEqual(r.deferrals.map((d) => [d.block, d.kind]), [["memories", "dropped"]]);
+  });
   it("Infinity cap joins everything", () => {
     assert.equal(joinBlocks([b("a", "x".repeat(50_000))], Number.POSITIVE_INFINITY).text.length, 50_000);
   });

@@ -10,6 +10,11 @@ describe("framing", () => {
     const out = [...d.push(all.subarray(0, 5)), ...d.push(all.subarray(5))];
     assert.deepEqual(out, [{ id: 1 }, { id: 2, s: "ü\n" }]);
   });
+  it("I4 backstop: a lone surrogate goes out as U+FFFD, never a \\udXXX escape; pairs and literal backslashes are untouched", () => {
+    const line = encodeLine({ joined: { text: "abc\ud83d" }, lone: ["\ude00x"], pair: "\u{1F600}", literal: "C:\\ud800" }).toString("utf8");
+    assert.equal(/\\ud[89a-f]/i.test(line.replaceAll("\\\\", "")), false, line);
+    assert.deepEqual(JSON.parse(line), { joined: { text: "abc\uFFFD" }, lone: ["\uFFFDx"], pair: "\u{1F600}", literal: "C:\\ud800" });
+  });
   it("throws LineTooLong past 4 MiB without buffering more", () => {
     const d = new LineDecoder();
     assert.throws(() => d.push(Buffer.alloc(MAX_LINE_BYTES + 1, 0x61)), LineTooLong);
