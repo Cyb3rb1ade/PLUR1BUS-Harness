@@ -13,7 +13,7 @@ export function buildEngineConfig(cfg: HarnessConfig, l: Layout): Record<string,
   const user = { ...cfg.engine } as Record<string, any>;
   const { baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, ...passthrough } = user;
   const embedding = { ...(passthrough.embedding ?? {}), provider: "local-transformers", local: { model: E5_SMALL, dimensions: 384, cacheDir: l.models, ...(passthrough.embedding?.local ?? {}) } };
-  const reranker = { enabled: true, provider: "local-transformers", ...(passthrough.reranker ?? {}), local: { model: BGE_RERANKER, cacheDir: l.models, ...(passthrough.reranker?.local ?? {}) } };
+  const reranker = { ...(passthrough.reranker ?? {}), enabled: true, provider: "local-transformers", local: { model: BGE_RERANKER, cacheDir: l.models, ...(passthrough.reranker?.local ?? {}) } };
   const recall = { ...(passthrough.recall ?? {}), softBudgetMs: cfg.core.recall.softBudgetMs, globalInjectMaxChars: cfg.core.recall.capChars, decisionTrace: { ...(passthrough.recall?.decisionTrace ?? {}), enabled: true } };
   return { ...passthrough, baseDbPath: baseDbPathOverride ?? l.lancedb, autoRecall: false, autoCapture: false, embedding, reranker, recall };
 }

@@ -26,4 +26,9 @@ describe("engine-config", () => {
     const cfg = defaults(); cfg.engine.baseDbPathOverride = "/tmp/db";
     assert.equal((buildEngineConfig(cfg, l) as any).baseDbPath, "/tmp/db");
   });
+  it("a user cannot override reranker.enabled/provider through engine.reranker", () => {
+    const cfg = defaults(); cfg.engine.reranker = { enabled: false, provider: "cohere" };
+    const e = buildEngineConfig(cfg, l) as any;
+    assert.equal(e.reranker.enabled, true); assert.equal(e.reranker.provider, "local-transformers");
+  });
 });
