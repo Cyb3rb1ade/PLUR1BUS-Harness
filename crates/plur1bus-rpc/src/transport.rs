@@ -30,6 +30,8 @@ mod imp {
         }
     }
     /// A missing socket file fails at once (ENOENT) — that is the "core absent" case the CLI answers in < 300 ms.
+    /// A local connect does not wait on a live listener, so the timeout is not needed here; `Client::connect` applies it
+    /// to the `core.auth` handshake, which bounds a core that accepts but never answers.
     pub fn connect(address: &str, _connect_timeout: Duration) -> io::Result<Box<dyn Stream>> {
         Ok(Box::new(S(UnixStream::connect(address)?)))
     }

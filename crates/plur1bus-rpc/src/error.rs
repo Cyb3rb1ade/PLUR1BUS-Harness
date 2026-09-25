@@ -62,6 +62,10 @@ impl std::error::Error for RpcError {}
 
 impl From<std::io::Error> for RpcError {
     fn from(e: std::io::Error) -> Self {
+        // Bytes the core sent that are not valid (e.g. not UTF-8) are a protocol fault, not an unavailable core.
+        if e.kind() == std::io::ErrorKind::InvalidData {
+            return RpcError::Protocol(e.to_string());
+        }
         let reason = match e.kind() {
             std::io::ErrorKind::NotFound => "core-unavailable",
             std::io::ErrorKind::ConnectionRefused => "core-unavailable",

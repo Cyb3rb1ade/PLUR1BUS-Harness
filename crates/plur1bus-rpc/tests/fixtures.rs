@@ -1,15 +1,28 @@
 //! Every fixture in packages/rpc-schema/fixtures must deserialize into the generated Rust types
 //! and serialize back to the same JSON. This is the Rust half of spec criterion 7.
-use plur1bus_rpc::types;
+use plur1bus_rpc::types::{self, ErrorCode};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
+use std::collections::BTreeSet;
 use std::{fs, path::PathBuf};
 
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/rpc-schema/fixtures")
 }
-fn load(rel: &str) -> Value {
-    serde_json::from_str(&fs::read_to_string(fixtures().join(rel)).unwrap()).unwrap()
+/// Every `*.json` file in a fixture directory as (stem, parsed value), sorted by stem.
+fn load_dir(dir: &str) -> Vec<(String, Value)> {
+    let mut out: Vec<(String, Value)> = fs::read_dir(fixtures().join(dir))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .map(|p| {
+            let stem = p.file_stem().unwrap().to_string_lossy().to_string();
+            let v = serde_json::from_str(&fs::read_to_string(&p).unwrap()).unwrap();
+            (stem, v)
+        })
+        .collect();
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
 }
 
 fn round_trip<T: DeserializeOwned + Serialize>(v: &Value, what: &str) {
@@ -18,102 +31,119 @@ fn round_trip<T: DeserializeOwned + Serialize>(v: &Value, what: &str) {
     assert_eq!(&back, v, "{what}: serialize(deserialize(x)) != x");
 }
 
-macro_rules! method {
-    ($file:literal, $p:ty, $r:ty) => {{
-        let f = load(concat!("methods/", $file, ".json"));
-        round_trip::<$p>(&f["params"], concat!($file, " params"));
-        round_trip::<$r>(&f["result"], concat!($file, " result"));
-    }};
+fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: &str, f: &Value) {
+    round_trip::<P>(&f["params"], &format!("{name} params"));
+    round_trip::<R>(&f["result"], &format!("{name} result"));
+}
+
+/// Dispatch by fixture file name; a fixture without an arm fails the test.
+fn method_fixture(name: &str, f: &Value) {
+    use types::*;
+    match name {
+        "core.auth" => pair::<CoreAuthParams, CoreAuthResult>(name, f),
+        "core.status" => pair::<CoreStatusParams, CoreStatusResult>(name, f),
+        "core.shutdown" => pair::<CoreShutdownParams, CoreShutdownResult>(name, f),
+        "memory.recall" => pair::<MemoryRecallParams, MemoryRecallResult>(name, f),
+        "memory.capture" => pair::<MemoryCaptureParams, MemoryCaptureResult>(name, f),
+        "memory.checkpoint" => pair::<MemoryCheckpointParams, MemoryCheckpointResult>(name, f),
+        "memory.list" => pair::<MemoryListParams, MemoryListResult>(name, f),
+        "memory.show" => pair::<MemoryShowParams, MemoryShowResult>(name, f),
+        "memory.forget" => pair::<MemoryForgetParams, MemoryForgetResult>(name, f),
+        "memory.correct" => pair::<MemoryCorrectParams, MemoryCorrectResult>(name, f),
+        "memory.share" => pair::<MemoryShareParams, MemoryShareResult>(name, f),
+        "memory.state" => pair::<MemoryStateParams, MemoryStateResult>(name, f),
+        "agent.list" => pair::<AgentListParams, AgentListResult>(name, f),
+        "agent.open" => pair::<AgentOpenParams, AgentOpenResult>(name, f),
+        "agent.close" => pair::<AgentCloseParams, AgentCloseResult>(name, f),
+        "agent.status" => pair::<AgentStatusParams, AgentStatusResult>(name, f),
+        "jobs.list" => pair::<JobsListParams, JobsListResult>(name, f),
+        "jobs.run" => pair::<JobsRunParams, JobsRunResult>(name, f),
+        "jobs.history" => pair::<JobsHistoryParams, JobsHistoryResult>(name, f),
+        "events.subscribe" => pair::<EventsSubscribeParams, EventsSubscribeResult>(name, f),
+        "events.unsubscribe" => pair::<EventsUnsubscribeParams, EventsUnsubscribeResult>(name, f),
+        other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
+    }
+}
+
+/// Every ErrorCode variant. The exhaustive match makes a new schema code a compile error here.
+fn all_error_codes() -> BTreeSet<ErrorCode> {
+    let all = [
+        ErrorCode::EUnauthorized,
+        ErrorCode::ERpcVersion,
+        ErrorCode::ENotAvailable,
+        ErrorCode::ECoreUnavailable,
+        ErrorCode::EInvalidParams,
+        ErrorCode::EAgentUnknown,
+        ErrorCode::EConfigInvalid,
+        ErrorCode::EModuleUnknown,
+        ErrorCode::EInternal,
+        ErrorCode::ELocked,
+    ];
+    for c in all {
+        match c {
+            ErrorCode::EUnauthorized
+            | ErrorCode::ERpcVersion
+            | ErrorCode::ENotAvailable
+            | ErrorCode::ECoreUnavailable
+            | ErrorCode::EInvalidParams
+            | ErrorCode::EAgentUnknown
+            | ErrorCode::EConfigInvalid
+            | ErrorCode::EModuleUnknown
+            | ErrorCode::EInternal
+            | ErrorCode::ELocked => {}
+        }
+    }
+    all.into_iter().collect()
 }
 
 #[test]
 fn every_method_fixture_round_trips() {
-    method!("core.auth", types::CoreAuthParams, types::CoreAuthResult);
-    method!(
-        "core.status",
-        types::CoreStatusParams,
-        types::CoreStatusResult
-    );
-    method!(
-        "core.shutdown",
-        types::CoreShutdownParams,
-        types::CoreShutdownResult
-    );
-    method!(
-        "memory.recall",
-        types::MemoryRecallParams,
-        types::MemoryRecallResult
-    );
-    method!(
-        "memory.capture",
-        types::MemoryCaptureParams,
-        types::MemoryCaptureResult
-    );
-    method!(
-        "memory.checkpoint",
-        types::MemoryCheckpointParams,
-        types::MemoryCheckpointResult
-    );
-    method!(
-        "memory.list",
-        types::MemoryListParams,
-        types::MemoryListResult
-    );
-    method!("agent.list", types::AgentListParams, types::AgentListResult);
-    method!("agent.open", types::AgentOpenParams, types::AgentOpenResult);
-    method!(
-        "agent.close",
-        types::AgentCloseParams,
-        types::AgentCloseResult
-    );
-    method!(
-        "agent.status",
-        types::AgentStatusParams,
-        types::AgentStatusResult
-    );
-    method!("jobs.list", types::JobsListParams, types::JobsListResult);
-    method!("jobs.run", types::JobsRunParams, types::JobsRunResult);
-    method!(
-        "jobs.history",
-        types::JobsHistoryParams,
-        types::JobsHistoryResult
-    );
-    method!(
-        "events.subscribe",
-        types::EventsSubscribeParams,
-        types::EventsSubscribeResult
-    );
-    method!(
-        "events.unsubscribe",
-        types::EventsUnsubscribeParams,
-        types::EventsUnsubscribeResult
+    let files = load_dir("methods");
+    assert!(!files.is_empty());
+    for (name, f) in &files {
+        method_fixture(name, f);
+    }
+}
+
+#[test]
+fn every_error_fixture_round_trips_and_covers_every_error_code() {
+    let mut seen = BTreeSet::new();
+    for (name, v) in load_dir("errors") {
+        round_trip::<types::Response>(&v, &format!("errors/{name} response"));
+        round_trip::<types::ErrorObject>(&v["error"], &format!("errors/{name} error object"));
+        let resp: types::Response = serde_json::from_value(v.clone()).unwrap();
+        let code = resp
+            .error
+            .expect("error fixture carries an error")
+            .data
+            .expect("error data")
+            .error;
+        assert_eq!(
+            code.to_string(),
+            name,
+            "errors/{name}.json carries code {code}"
+        );
+        seen.insert(code);
+    }
+    assert_eq!(
+        seen,
+        all_error_codes(),
+        "error fixtures must cover every ErrorCode exactly"
     );
 }
 
 #[test]
-fn every_error_fixture_is_a_known_code_and_every_notification_round_trips() {
-    for entry in fs::read_dir(fixtures().join("errors")).unwrap() {
-        let v: Value =
-            serde_json::from_str(&fs::read_to_string(entry.unwrap().path()).unwrap()).unwrap();
-        let code: types::ErrorCode =
-            serde_json::from_value(v["error"]["data"]["error"].clone()).unwrap();
-        assert_eq!(
-            serde_json::to_value(code).unwrap(),
-            v["error"]["data"]["error"]
-        );
+fn every_notification_fixture_round_trips() {
+    let files = load_dir("notifications");
+    assert!(!files.is_empty());
+    for (name, v) in &files {
+        match name.as_str() {
+            "engine.event" => round_trip::<types::EngineEventNotification>(v, name),
+            "agent.activity" => round_trip::<types::AgentActivityNotification>(v, name),
+            "core.state" => round_trip::<types::CoreStateNotification>(v, name),
+            other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
+        }
     }
-    round_trip::<types::EngineEventNotification>(
-        &load("notifications/engine.event.json"),
-        "engine.event",
-    );
-    round_trip::<types::AgentActivityNotification>(
-        &load("notifications/agent.activity.json"),
-        "agent.activity",
-    );
-    round_trip::<types::CoreStateNotification>(
-        &load("notifications/core.state.json"),
-        "core.state",
-    );
 }
 
 #[test]
