@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-One file per decision: `ADR-NNN-<slug>.md`. Status flow: Proposed → Accepted (by the owner, Christian) → Superseded/Deprecated. All eleven Phase 0 ADRs were **Accepted** by the owner on 2026-09-22 (`docs/phase0/decisions-for-owner.md`, "Owner answers 2026-09-22"); ADR-003, ADR-005 and ADR-009 carry owner amendments D14, D12–D13 and D15 respectively.
+One file per decision: `ADR-NNN-<slug>.md`. Status flow: Proposed → Accepted (by the owner, Christian) → Superseded/Deprecated. All eleven Phase 0 ADRs were **Accepted** by the owner on 2026-09-22 (`docs/phase0/decisions-for-owner.md`, "Owner answers 2026-09-22"); ADR-003, ADR-005 and ADR-009 carry owner amendments D14, D12–D13 and D15 respectively. ADR-012 and ADR-013 record the owner decisions of 2026-09-24 for milestone M1b-2a (D1–D20 in `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) together with the implementation rulings of plan H1 (2026-09-25); ADR-012 amends ADR-001.
 
 Rules (from `docs/phase0/brief.md`):
 - Every factual claim about a provider, protocol, SDK, binary or PLUR1BUS internal carries a source: URL with check date, or `file:line @ commit`. Research notes live in `docs/phase0/research/`; cite them by section, and cite the primary source they cite.
@@ -62,6 +62,8 @@ The recommendation, stated in one paragraph, then the details.
 | 009 | Dreaming scheduler | `ADR-009-dreaming-scheduler.md` | Accepted (2026-09-22, amendment D15) |
 | 010 | Latency and caching | `ADR-010-latency-and-caching.md` | Accepted (2026-09-22) |
 | 011 | External coding agents | `ADR-011-external-coding-agents.md` | Accepted (2026-09-22) |
+| 012 | Process model, languages, RPC contract and the core lock (amends ADR-001's single-stack wording) | `ADR-012-process-model-and-languages.md` | Accepted (2026-09-24, D6, D7; H1 record 2026-09-25) |
+| 013 | Configuration and restart classes | `ADR-013-configuration-and-restart-classes.md` | Accepted (2026-09-24, D3, D5; H1 record 2026-09-25) |
 
 ## Open-question numbering
 

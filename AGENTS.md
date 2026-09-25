@@ -21,10 +21,10 @@ committed lockfile (see `packages/core/package.json`'s dependency). Local develo
   export PATH=/home/claude/.node24/bin:$PATH
   node -v   # must print v24.21.0
   ```
-- **pnpm 10** workspaces (`pnpm-workspace.yaml`, `packageManager: pnpm@10.28.0`). `pnpm docs` and a
-  few other script names are pnpm-reserved commands — run them as `pnpm run docs` (or any script
-  name that collides with a built-in pnpm command) to be sure the workspace script runs and not
-  pnpm's own command.
+- **pnpm 10** workspaces (`pnpm-workspace.yaml`, `packageManager: pnpm@10.28.0`). Some names are
+  pnpm built-in commands (`docs` among them), which is why the docs script is called `docs:gen`;
+  if a root script ever collides with a built-in, run it as `pnpm run <name>` so the workspace
+  script runs and not pnpm's own command.
 - **Rust 1.95** (`rust-toolchain.toml`, with `clippy` and `rustfmt`), one Cargo workspace under
   `crates/`.
 - `node scripts/check-toolchain.mjs` (or `pnpm check`) verifies the installed Node/pnpm/cargo meet
@@ -43,7 +43,8 @@ Root scripts (`package.json`), each fanning out to every workspace package with
 | `pnpm test` | Runs every package's `test` script (see below) plus each package's own `gen`/build-adjacent step where its `test` script needs one (e.g. `config-schema` and `rpc-schema` regenerate before testing). |
 | `pnpm typecheck` | `tsc -p tsconfig.base.json --noEmit` across all package sources. |
 | `pnpm lint` | `pnpm typecheck` + `node scripts/lint-hygiene.mjs` (below). |
-| `pnpm docs` | Regenerates `docs/config-engine-keys.md` (via `scripts/gen-engine-keys.mjs`); the CI `docs:check` variant fails the build when the generated file is stale. |
+| `pnpm docs:gen` | Builds the CLI (`cargo build -q -p plur1bus`), then regenerates `docs/config-engine-keys.md` (`scripts/gen-engine-keys.mjs`) and `docs/rpc.md` + `docs/cli.md` (`scripts/gen-docs.mjs`). |
+| `pnpm docs:check` | Builds the CLI, then `scripts/gen-docs.mjs --check`: fails when `docs/rpc.md` or `docs/cli.md` differs from what the schema and the clap tree produce. CI runs it. |
 
 One crate (from the repo root):
 
@@ -94,8 +95,8 @@ Env vars that matter when driving the core directly instead of through the CLI:
 | `packages/core` | TypeScript | `@plur1bus/core` | The core process: engine binding (`engine-config.ts`), RPC server, config load/watch, journal, activity, agent registry, CLI-facing `bin.ts`. |
 | `packages/module-api` | TypeScript | `@plur1bus/module-api` | Manifest schema and client surface for future modules (first- or third-party). |
 | `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key; `pnpm gen` writes `fixtures/defaults.json` and `fixtures/restart-plan-cases.json`. |
-| `docs/` | Markdown | — | `docs/config-engine-keys.md` is generated (`pnpm docs`); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans, ADRs). |
-| `scripts/` | Node | — | Cross-cutting tooling: `check-toolchain.mjs`, `test-package.mjs` (shared by every package's `test` script), `gen-engine-keys.mjs`, `lint-hygiene.mjs`, `copy-dir.mjs`. |
+| `docs/` | Markdown | — | `docs/config-engine-keys.md`, `docs/rpc.md` and `docs/cli.md` are generated (`pnpm docs:gen`); ADRs live in `docs/adr/` (ADR-012 process model/languages/RPC/lock, ADR-013 configuration/restart classes); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans). |
+| `scripts/` | Node | — | Cross-cutting tooling: `check-toolchain.mjs`, `test-package.mjs` (shared by every package's `test` script), `gen-engine-keys.mjs`, `gen-docs.mjs`, `lint-hygiene.mjs`, `copy-dir.mjs`. |
 
 `tests/system` and `skills/plur1bus-harness` are named in the design spec but do not exist yet at
 this point in the build — do not assume they are there.
@@ -165,8 +166,12 @@ module under `packages/` or `modules/` ships its own `README.md` covering, at mi
 
 ## Docs
 
-`pnpm docs` regenerates the generated docs — currently just `docs/config-engine-keys.md`
-(`scripts/gen-engine-keys.mjs`). `docs/rpc.md`, `docs/cli.md` and a combined `scripts/gen-docs.mjs`
-that also checks for staleness (`docs:check`, used by CI) are a later task's work — the `docs:check`
-script in `package.json` does not yet point at a real script. Once it does: regenerate and commit
-the result rather than hand-editing a generated doc; CI fails the build on a diff.
+`pnpm docs:gen` builds the CLI and regenerates every generated doc: `docs/config-engine-keys.md`
+(`scripts/gen-engine-keys.mjs`, from the pinned engine's plugin manifest), `docs/rpc.md` (from
+`packages/rpc-schema/schema/rpc.schema.json`) and `docs/cli.md` (from the clap tree via the hidden
+`plur1bus __markdown` subcommand), the last two by `scripts/gen-docs.mjs`. `pnpm docs:check` runs
+`scripts/gen-docs.mjs --check`, which fails when `docs/rpc.md` or `docs/cli.md` is stale; CI runs it
+on every OS. After touching the RPC schema or any clap definition (help text included), run
+`pnpm docs:gen` and commit the result; never hand-edit a generated doc. The decision records for
+the process model, languages, RPC and lock (ADR-012) and for configuration and restart classes
+(ADR-013) are in `docs/adr/`.

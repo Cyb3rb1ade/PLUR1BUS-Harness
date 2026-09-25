@@ -58,7 +58,7 @@
       }
     },
     "engine": {
-      "description": "Pass-through to the engine's EngineConfig (56 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
+      "description": "Pass-through to the engine's EngineConfig (54 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
       "type": "object", "default": {}, "x-restart": "core",
       "properties": {
         "baseDbPathOverride": { "type": "string", "x-restart": "core", "description": "Testing/advanced only; default <home>/state/lancedb" }
