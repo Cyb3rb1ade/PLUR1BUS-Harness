@@ -159,9 +159,16 @@ pub fn write_atomic(path: &Path, config: &Config) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
+        if let Err(e) = fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600)) {
+            let _ = fs::remove_file(&tmp);
+            return Err(e);
+        }
     }
-    fs::rename(&tmp, path)
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    Ok(())
 }
 
 pub fn restart_class_of(key: &str) -> RestartClass {
@@ -214,10 +221,32 @@ fn module_name(key: &str) -> Option<String> {
         .map(String::from)
 }
 
+/// Value equality matching TS's `JSON.stringify(a) === JSON.stringify(b)` for the leaf comparison
+/// in `diff`: JS has one numeric type, so `1` and `1.0` stringify identically and must compare
+/// equal here too, even though serde_json's derived `PartialEq` treats `Number::from(1)` and
+/// `Number::from_f64(1.0)` as different. Two numbers compare equal when their exact i64/u64
+/// values match (no precision loss for large integers) or, failing that, when their `f64` views
+/// match. Everything else (objects, arrays, strings, bools, null, and any number/non-number pair)
+/// falls back to `PartialEq`, which already matches `JSON.stringify` for those shapes.
+fn json_eq(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => {
+            if let (Some(xi), Some(yi)) = (x.as_i64(), y.as_i64()) {
+                return xi == yi;
+            }
+            if let (Some(xu), Some(yu)) = (x.as_u64(), y.as_u64()) {
+                return xu == yu;
+            }
+            x.as_f64() == y.as_f64()
+        }
+        _ => a == b,
+    }
+}
+
 /// Recursive tree diff between `a` and `b`, identical in shape to
 /// `packages/config-schema/src/index.ts`'s `diff`: at each level, for every key in the union of
 /// both sides, recurse when both values are plain objects (non-null, non-array); otherwise, if the
-/// values differ (deep equality), push the full dotted path. Additions and removals of an
+/// values differ (see `json_eq`), push the full dotted path. Additions and removals of an
 /// open-map entry (e.g. `agents.bernd`) are therefore reported at the entry, symmetrically,
 /// because a missing side is treated as absent rather than as an empty object.
 fn diff(a: &Value, b: &Value, path: &mut Vec<String>, out: &mut Vec<String>) {
@@ -238,7 +267,7 @@ fn diff(a: &Value, b: &Value, path: &mut Vec<String>, out: &mut Vec<String>) {
             );
             path.pop();
         }
-    } else if a != b && !path.is_empty() {
+    } else if !json_eq(a, b) && !path.is_empty() {
         out.push(path.join("."));
     }
 }

@@ -107,6 +107,42 @@ fn write_atomic_round_trips_and_validate_reports_paths() {
     assert!(validate(&json!({ "schemaVersion": 1, "bogus": 1 })).is_err());
 }
 
+/// R10 parity fix round 1: TS compares values via `JSON.stringify`, so `1` and `1.0` are equal
+/// (JS has one numeric type). serde_json's derived `PartialEq` treats `Number::from(400)` and
+/// `Number::from_f64(400.0)` as different, so a value that only changes numeric *representation*
+/// (not numeric *value*) must not be reported as a change. This is a dedicated Rust-only unit test
+/// rather than a JSON fixture case because JS/JSON cannot express `400.0` distinctly from `400` —
+/// `JSON.stringify(400.0) === "400"` — so the TS side has no way to author this case at all.
+#[test]
+fn numeric_representation_only_is_not_a_change() {
+    let before = json!({ "core": { "recall": { "softBudgetMs": 400 } } });
+    let after = json!({ "core": { "recall": { "softBudgetMs": 400.0 } } });
+    let plan = plur1bus_config::restart_plan(&before, &after);
+    assert_eq!(
+        plan.changed,
+        Vec::<String>::new(),
+        "400 vs 400.0 must not be reported as a change"
+    );
+    assert!(!plan.restart.core);
+    assert!(plan.restart.live.is_empty());
+
+    // A real numeric change (int vs int) must still be detected regardless of representation.
+    let after2 = json!({ "core": { "recall": { "softBudgetMs": 401.0 } } });
+    let plan2 = plur1bus_config::restart_plan(&before, &after2);
+    assert_eq!(plan2.changed, vec!["core.recall.softBudgetMs"]);
+
+    // Large integers must compare exactly (no f64 precision loss): 2^53 + 1 is not representable
+    // exactly as f64, so an as_f64()-only comparison would wrongly call this unchanged.
+    let big_before = json!({ "n": 9_007_199_254_740_993_i64 });
+    let big_after = json!({ "n": 9_007_199_254_740_992_i64 });
+    let big_plan = plur1bus_config::restart_plan(&big_before, &big_after);
+    assert_eq!(
+        big_plan.changed,
+        vec!["n"],
+        "large integers must compare exactly, not via f64"
+    );
+}
+
 /// R10 parity: the Rust restart plan must equal the TS `restartPlan` result for every
 /// committed case (live leaf, core-class, add/remove/rename an open-map entry, add to an
 /// empty open map, two changes of different classes at once).
