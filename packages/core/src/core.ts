@@ -57,7 +57,7 @@ export function createCore(o: { home?: string; instanceId?: string; testInternal
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
       const registry = createAgentRegistry({ path: l.configPath }, l, logger); agents = registry;
-      for (const id of registry.list()) registry.scaffold(id);
+      registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       const events = (name: string, payload: unknown) => {
         const agentId = (payload as { agentId?: unknown } | null)?.agentId;

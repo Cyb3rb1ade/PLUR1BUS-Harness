@@ -18,58 +18,82 @@ export function createAgentRegistry(configOrPath: HarnessConfig | { path: string
     let cached = { mtimeMs: 0, config: null as HarnessConfig | null };
     const seenAgents = new Set<string>();
     let lastWarnMtime = -1;
+    let lastMissingWarnMtime = -1;
 
-    const refresh = (): HarnessConfig => {
+    const scaffoldAgent = (id: string) => {
       try {
-        const stat = statSync(pathForm.path);
-        if (stat.mtimeMs !== cached.mtimeMs) {
-          try {
-            const loaded = loadConfig(pathForm.path);
-            cached = { mtimeMs: stat.mtimeMs, config: loaded.config };
-            lastWarnMtime = -1; // reset warn tracking on successful reload
-          } catch (e) {
-            if (e instanceof Error && e.name === "ConfigInvalid" && cached.config) {
-              // Swallow the error, log once per distinct mtime, keep last good config
-              if (lastWarnMtime !== stat.mtimeMs) {
-                logger?.warn("config reload failed, keeping last good config", { err: e, path: pathForm.path });
-                lastWarnMtime = stat.mtimeMs;
-              }
-            } else {
-              throw e;
-            }
-          }
+        mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
+        for (const t of TEMPLATES) {
+          const target = join(l.agentDir(id), t);
+          if (!existsSync(target)) writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", id), { mode: 0o600 });
         }
       } catch (e) {
-        if (e instanceof Error && e.message.includes("ENOENT") && cached.config) {
-          // File doesn't exist but we have a last good config, keep using it
-          logger?.warn("config file not found, keeping last good config", { path: pathForm.path });
+        logger?.warn("scaffold failed, will retry later", { agentId: id, err: e });
+      }
+    };
+
+    const refresh = (): HarnessConfig => {
+      let stat: ReturnType<typeof statSync> | null = null;
+      try {
+        stat = statSync(pathForm.path);
+      } catch (e) {
+        if (e instanceof Error && (e as NodeJS.ErrnoException).code === "ENOENT") {
+          // File doesn't exist
+          if (cached.config) {
+            // We have a last good config, keep using it, warn once
+            if (lastMissingWarnMtime !== -1) {
+              // Already warned about missing file
+            } else {
+              lastMissingWarnMtime = 0; // Mark that we've warned about missing
+              logger?.warn("config file not found, keeping last good config", { path: pathForm.path });
+            }
+            return cached.config;
+          } else {
+            // No cached config yet, this is a failure
+            throw e;
+          }
         } else {
           throw e;
         }
       }
-      return cached.config!;
-    };
 
-    const scaffoldAgent = (id: string) => {
-      mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
-      for (const t of TEMPLATES) {
-        const target = join(l.agentDir(id), t);
-        if (!existsSync(target)) writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", id), { mode: 0o600 });
+      if (stat && stat.mtimeMs !== cached.mtimeMs) {
+        try {
+          const loaded = loadConfig(pathForm.path);
+          cached = { mtimeMs: stat.mtimeMs, config: loaded.config };
+          lastWarnMtime = -1; // reset warn tracking on successful reload
+          lastMissingWarnMtime = -1;
+        } catch (e) {
+          if (e instanceof Error && e.name === "ConfigInvalid" && cached.config) {
+            // Swallow the error, log once per distinct mtime, keep last good config
+            if (lastWarnMtime !== stat.mtimeMs) {
+              logger?.warn("config reload failed, keeping last good config", { err: e, path: pathForm.path });
+              lastWarnMtime = stat.mtimeMs;
+            }
+            // Important: do NOT advance cached.mtimeMs, so we skip reloads until mtime changes
+          } else {
+            throw e;
+          }
+        }
       }
-    };
 
-    return {
-      list: () => {
-        const config = refresh();
-        const agents = Object.keys(config.agents).sort();
-        // Scaffold newly appearing agents lazily
-        for (const id of agents) {
+      // Scaffold newly appearing agents after every refresh
+      if (cached.config) {
+        for (const id of Object.keys(cached.config.agents)) {
           if (!seenAgents.has(id)) {
             scaffoldAgent(id);
             seenAgents.add(id);
           }
         }
-        return agents;
+      }
+
+      return cached.config!;
+    };
+
+    return {
+      list: () => {
+        const config = refresh();
+        return Object.keys(config.agents).sort();
       },
       has: (id) => {
         const config = refresh();
