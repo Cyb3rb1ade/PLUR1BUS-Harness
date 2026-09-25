@@ -4,15 +4,16 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { connect } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { layout } from "../src/paths.ts";
 
-const dist = new URL("../dist/core.js", import.meta.url).pathname;
+const dist = fileURLToPath(new URL("../dist/core.js", import.meta.url));
 // Rebuild when dist is missing or older than any src file, so these tests never run a stale core.
-const srcDir = new URL("../src", import.meta.url).pathname;
+const srcDir = fileURLToPath(new URL("../src", import.meta.url));
 const newestSrc = Math.max(...readdirSync(srcDir, { recursive: true }).map((f) => statSync(join(srcDir, String(f))).mtimeMs));
-if (!existsSync(dist) || statSync(dist).mtimeMs < newestSrc) execFileSync("pnpm", ["build"], { cwd: new URL("..", import.meta.url).pathname, stdio: "inherit" });
+if (!existsSync(dist) || statSync(dist).mtimeMs < newestSrc) execFileSync("pnpm", ["build"], { cwd: fileURLToPath(new URL("..", import.meta.url)), stdio: "inherit", shell: process.platform === "win32" });
 
 function startCore(home: string) {
   const child = spawn(process.execPath, [dist, "--home", home, "--test-internals", "flat-embedder"], { env: { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" }, stdio: ["ignore", "pipe", "pipe"] });

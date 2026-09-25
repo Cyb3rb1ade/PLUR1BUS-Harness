@@ -1,11 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { coreAddress, layout, resolveHome } from "../src/paths.ts";
 
 describe("paths", () => {
   it("prefers --home, then PLUR1BUS_HOME, then the platform default", () => {
-    assert.equal(resolveHome({ home: "/x", env: { PLUR1BUS_HOME: "/y" }, platform: "linux", homedir: "/h" }), "/x");
-    assert.equal(resolveHome({ env: { PLUR1BUS_HOME: "/y" }, platform: "linux", homedir: "/h" }), "/y");
+    assert.equal(resolveHome({ home: "/x", env: { PLUR1BUS_HOME: "/y" }, platform: "linux", homedir: "/h" }), resolve("/x"));
+    assert.equal(resolveHome({ env: { PLUR1BUS_HOME: "/y" }, platform: "linux", homedir: "/h" }), resolve("/y"));
     assert.equal(resolveHome({ env: {}, platform: "darwin", homedir: "/Users/c" }), "/Users/c/.plur1bus");
     assert.equal(resolveHome({ env: {}, platform: "win32", homedir: "C:\\Users\\c", localAppData: "C:\\Users\\c\\AppData\\Local" }), "C:\\Users\\c\\AppData\\Local\\PLUR1BUS");
   });
