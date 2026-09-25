@@ -21,6 +21,7 @@
 | E4 | `status()` with ledger health (last run per job, breaker, host-reported journal backlog, model readiness) + spec Q3 (a replay is never a new LLM session) | 1.8.0 | written after E3 |
 | E5 | `engine-config.schema.json` (54 keys, types, defaults, `readAt`); honour `RecallQuery.budget`; fix the stale "56" comment in `engine.d.ts` | 1.9.0 | written after E4 |
 | E6 | `HostServices` neutral (no `pathOverrides.openclawHome`, `routing?()` → optional `identity`, `HostRuntime` → typed capabilities, `lib/host-paths.js` without a default root; `Engine.commands`/`runCommand` leave the contract) | **2.0** | written after E5 |
+| E7 | conversation setting (D22): `chatKind` from the `Principal` at capture, sensitivity at capture, recall balance by setting, sensitive only in private | 2.1.0 | before M4 |
 | P | publish-on-tag workflow, `7.16.x-engine.N` prerelease on dist-tag `engine` (D2, `NPM_TOKEN` set by the owner); harness pins it exactly | — | with E6 |
 
 The harness side (serving `memory.list|show|forget|correct|share|state` over RPC) is plan 2a-H2's work, after E1 is merged and published or pinned.
