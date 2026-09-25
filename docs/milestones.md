@@ -225,6 +225,8 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 ### M8 — Platform hardening and release v0.1.0
 
+**Host adapters (D28, `docs/host-adapters.md`), scheduled after M3 and ordered by demand:** the client kits `@plur1bus/memory-client` (TS) and `plur1bus-memory-client` (Python) and the memory proxy belong to M3's HTTP API; then the thin OpenClaw plugin (also NemoClaw), the Hermes `MemoryProvider`, the Open WebUI filter, and a ZeroClaw provider once its WASM question is answered. Each adapter ships with a conformance run against the ADR-016 kit.
+
 **Scope.** `install.sh` / `install.ps1` without admin rights (user-writable Node, no system package manager), non-interactive mode with explicit flags, owner bootstrap token printed, import offered, embedding/reranker choice with licence notice; `doctor`, `update` with rollback, `uninstall`; services via launchd user agent, `systemd --user` (+ documented `loginctl enable-linger`), Windows Task Scheduler; optional Docker image (linux/amd64, linux/arm64). Engine PR-12 (four bash scripts → `.mjs`), PR-13 (extract control-UI package with a `tokens` module), PR-14 (publish `@cyb3rb1ade/plur1bus-engine`; the plugin is **not** repointed — per D28 it keeps its own separate memory or becomes a thin client of the harness, at the owner's choice). Backup/restore with dry-run, **stores first** then config, users, sessions, then the dream ledger. Documented degradations: darwin-x64 LanceDB (source build or Rosetta), Linux node-pty source build (toolchain prerequisite check), named-namespace routing POSIX-only, Linux-arm64 SEAs never built in Docker. `platform-matrix.md` §3, §6, §7; original §10.
 
 **Acceptance** (§12 M8 re-cut)
