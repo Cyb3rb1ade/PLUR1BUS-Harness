@@ -56,7 +56,7 @@ export function createCore(o: { home?: string; instanceId?: string; testInternal
     logger = o.logger ?? createLogger({ file: l.logFile("core"), level: config.core.logLevel, role: "core" });
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
-      const registry = createAgentRegistry(config, l); agents = registry;
+      const registry = createAgentRegistry({ path: l.configPath }, l, logger); agents = registry;
       for (const id of registry.list()) registry.scaffold(id);
       const engineConfig = buildEngineConfig(config, l);
       const events = (name: string, payload: unknown) => {

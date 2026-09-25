@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
@@ -20,5 +20,16 @@ describe("agents", () => {
     const before = readFileSync(join(l.agentDir("bernd"), "SOUL.md"), "utf8");
     reg.scaffold("bernd");
     assert.equal(readFileSync(join(l.agentDir("bernd"), "SOUL.md"), "utf8"), before, "idempotent");
+  });
+
+  it("picks up an agent added to config.json without a restart", () => {
+    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const cfg = defaults(); writeFileSync(l.configPath, JSON.stringify(cfg));
+    const reg = createAgentRegistry({ path: l.configPath }, l);
+    assert.deepEqual(reg.list(), []);
+    const later = defaults(); later.agents.bernd = {}; const t = Date.now() + 2000; writeFileSync(l.configPath, JSON.stringify(later)); utimesSync(l.configPath, t / 1000, t / 1000);
+    assert.deepEqual(reg.list(), ["bernd"]);
+    assert.equal(reg.workspaceOf("bernd"), l.workspaceDir("bernd"));
+    assert.ok(existsSync(join(l.agentDir("bernd"), "SOUL.md")), "SOUL.md should exist after list()");
   });
 });
