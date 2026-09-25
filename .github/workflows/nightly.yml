@@ -1,0 +1,42 @@
+name: nightly
+# M1 acceptance 1 with real models: the system test with the real e5-small embedder and the bge-reranker
+# (PLUR1BUS_REAL_MODELS=1 asserts the reranker ran), plus the benchmark gates. The ~600 MB of models are
+# kept in an actions/cache keyed on the model names; the test links each temp home's models/ to it.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+jobs:
+  system-real-models:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      PLUR1BUS_MODELS_CACHE: ${{ github.workspace }}/.models-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@v2
+      - name: engine read access (only if the engine repo is private)
+        if: ${{ env.GH_ENGINE_READ_TOKEN != '' }}
+        run: git config --global url."https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
+        env: { GH_ENGINE_READ_TOKEN: "${{ secrets.GH_ENGINE_READ_TOKEN }}" }
+      - name: model cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ${{ github.workspace }}/.models-cache
+          key: models-${{ runner.os }}-intfloat-multilingual-e5-small-woxpas-ai-bge-reranker-v2-m3-onnx-v1
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      - name: system test (real models)
+        run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_REAL_MODELS: "1" }
+      - run: pnpm bench
