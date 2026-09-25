@@ -95,4 +95,4 @@ export const killCore = (core: RunningCore, signal: NodeJS.Signals): Promise<voi
  *  lib/providers/reranker-chained.js — `reranker primary (<id>) failed: …` (provider error, with or without a fallback). */
 export const RERANK_FAILURE = /recall-pipeline: rerank failed\/timeout, falling back to unreranked|reranker primary \([^)]*\) failed:/;
 
-export const stopCore =(core: RunningCore): Promise<void> => killCore(core, "SIGTERM");
+export const stopCore = (core: RunningCore): Promise<void> => killCore(core, "SIGTERM");

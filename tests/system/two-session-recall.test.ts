@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { REAL, RERANK_FAILURE, cli, home, killCore, startCore, stopCore, type RunningCore } from "./helpers.ts";
 
@@ -42,6 +42,11 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
         t.diagnostic(`CLI warm-up recall ${(performance.now() - t0).toFixed(0)} ms`);
       }
 
+      // Scope the rerank-failure scan to the measured recall: remember where stderr and core.log end now.
+      const logFile = join(h, "logs/core.log");
+      const stderrMark = core.stderr().length;
+      const logMark = existsSync(logFile) ? statSync(logFile).size : 0;
+
       t0 = performance.now();
       const r = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "when is the roadmap review"]);
       const ms = performance.now() - t0;
@@ -54,8 +59,7 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
         // warning. Engine warnings go to the core's log file (logs/core.log), not stderr; both are checked.
         const rerank = (r.timing?.namespacePhases ?? []).filter((p: any) => p.phase === "rerank");
         assert.ok(rerank.length > 0 && rerank.some((p: any) => p.ms >= 5), `reranker ran: ${JSON.stringify(r.timing)}`);
-        const logFile = join(h, "logs/core.log");
-        const logs = `${core.stderr()}\n${existsSync(logFile) ? readFileSync(logFile, "utf8") : ""}`;
+        const logs = `${core.stderr().slice(stderrMark)}\n${existsSync(logFile) ? readFileSync(logFile).subarray(logMark).toString("utf8") : ""}`;
         const failure = logs.split("\n").find((l) => RERANK_FAILURE.test(l));
         assert.equal(failure, undefined, `rerank failed or fell back: ${failure}`);
       }
