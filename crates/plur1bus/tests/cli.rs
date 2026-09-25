@@ -474,3 +474,32 @@ fn journal_lines_validate_against_the_rpc_schema() {
         .collect();
     assert!(errs.is_empty(), "{errs:?}");
 }
+
+#[test]
+fn dreams_without_a_core_says_so_and_validates_args() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    bin()
+        .args(["--home", h, "dreams", "status"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("core unavailable"));
+    bin()
+        .args(["--home", h, "dreams", "run", "gc-run", "--agent", "ghost"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("not registered"));
+    let out = bin()
+        .args(["--json", "--home", h, "dreams", "log", "--agent", "bernd"])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_CORE_UNAVAILABLE");
+}

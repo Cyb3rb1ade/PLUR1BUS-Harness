@@ -64,11 +64,6 @@ fn main() {
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
-        Cmd::Dreams { .. } => commands::stubs::milestone(
-            &out,
-            "this",
-            "H1",
-            "implemented in Tasks 12–15 of this plan",
-        ),
+        Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
     }
 }
