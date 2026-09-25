@@ -16,15 +16,24 @@ if (values["test-internals"]) {
 }
 
 const core = createCore({ ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}) });
+
+// Reused across repeated signals: core.ts's own resolved config isn't exposed on the committed Core surface
+// (start/stop/status/address/token/layout), so this reads config.json once after a successful start rather
+// than editing core.ts to expose it; on any failure to read it back, stop() falls back to its own default.
+let shutdownBudgetMs: number | undefined;
+let stopping = false;
 const stop = (sig: string) => {
+  if (stopping) { console.error(`core: ${sig} ignored, stop already in progress`); return; } // core.stop() is idempotent, but a repeated signal is still just noise here
+  stopping = true;
   console.error(`core: ${sig}, stopping`);
-  let budgetMs: number | undefined;
-  try { budgetMs = loadConfig(core.layout.configPath).config.core.shutdownBudgetMs; } catch { /* best effort: fall back to the core's own default */ }
-  void core.stop(budgetMs !== undefined ? { budgetMs } : {}).then(() => process.exit(0));
+  core.stop(shutdownBudgetMs !== undefined ? { budgetMs: shutdownBudgetMs } : {})
+    .then(() => process.exit(0))
+    .catch((err) => { console.error("core: stop failed", err); process.exit(1); });
 };
 process.on("SIGTERM", () => stop("SIGTERM")); process.on("SIGINT", () => stop("SIGINT"));
 try {
   await core.start();
+  try { shutdownBudgetMs = loadConfig(core.layout.configPath).config.core.shutdownBudgetMs; } catch { /* best effort: fall back to the core's own default */ }
   console.log(JSON.stringify({ ready: true, address: core.address, pid: process.pid }));
 } catch (e) {
   if (e instanceof RpcError && e.error === "E_LOCKED") { console.error(`core: ${e.message} (${e.detail ?? ""})`); process.exit(3); }

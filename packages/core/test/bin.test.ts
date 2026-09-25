@@ -34,4 +34,13 @@ describe("dist/core.js", () => {
     const child = spawn(process.execPath, [dist, "--home", mkdtempSync(join(tmpdir(), "p1b-bin-")), "--test-internals", "flat-embedder"], { stdio: "ignore" });
     assert.equal(await new Promise((r) => child.once("exit", r)), 2);
   });
+  it("R20.5: a second SIGTERM while stopping is ignored, not a crash", async () => {
+    const home = mkdtempSync(join(tmpdir(), "p1b-bin-"));
+    const cfg = defaults(); cfg.agents.bernd = {}; cfg.engine = { reranker: { enabled: false }, dreaming: { enabled: false }, neo: { enabled: false } };
+    writeFileSync(layout(home).configPath, JSON.stringify(cfg));
+    const { child, ready } = startCore(home); await ready;
+    child.kill("SIGTERM"); child.kill("SIGTERM"); // fired back-to-back, before the first stop() settles
+    const exit = await new Promise<number | null>((r) => child.once("exit", r));
+    assert.equal(exit, 0);
+  });
 });
