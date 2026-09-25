@@ -1,11 +1,14 @@
 name: nightly
 # M1 acceptance 1 with real models: the system test with the real e5-small embedder and the bge-reranker
-# (PLUR1BUS_REAL_MODELS=1 asserts the reranker ran), plus the benchmark gates. The ~600 MB of models are
-# kept in an actions/cache keyed on the model names; the test links each temp home's models/ to it.
+# (PLUR1BUS_REAL_MODELS=1 asserts the reranker ran and did not fall back), plus the benchmark gates. The
+# ~600 MB of models live in the core's <home>/models; the test links each temp home's models/ to
+# PLUR1BUS_MODELS_CACHE, which is restored before and saved after the run (even a failed one).
 on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   system-real-models:
     strategy:
@@ -28,15 +31,20 @@ jobs:
         if: ${{ env.GH_ENGINE_READ_TOKEN != '' }}
         run: git config --global url."https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
         env: { GH_ENGINE_READ_TOKEN: "${{ secrets.GH_ENGINE_READ_TOKEN }}" }
-      - name: model cache
-        uses: actions/cache@v4
+      - name: restore model cache
+        id: models
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            ~/.cache/huggingface
-            ${{ github.workspace }}/.models-cache
+          path: ${{ github.workspace }}/.models-cache
           key: models-${{ runner.os }}-intfloat-multilingual-e5-small-woxpas-ai-bge-reranker-v2-m3-onnx-v1
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
       - name: system test (real models)
         run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_REAL_MODELS: "1" }
       - run: pnpm bench
+      - name: save model cache
+        if: ${{ always() && steps.models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/.models-cache
+          key: ${{ steps.models.outputs.cache-primary-key }}

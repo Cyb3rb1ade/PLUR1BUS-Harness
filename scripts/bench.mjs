@@ -31,10 +31,13 @@ const core = spawn(BIN, ["--home", home, "core", "run"], {
   env: { ...process.env, PLUR1BUS_CORE_JS: CORE_JS, PLUR1BUS_NODE: process.execPath, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: "flat-embedder" },
   stdio: ["ignore", "pipe", "inherit"],
 });
-const coreExited = new Promise((r) => core.once("exit", r));
+// A spawn failure (e.g. a missing binary) emits 'error' and never 'exit': settle both waits on it.
+let spawnError = null;
+const coreExited = new Promise((r) => { core.once("exit", r); core.once("error", (e) => { spawnError = e; r(); }); });
 let failed = 0;
 try {
   const ready = await new Promise((res, rej) => {
+    core.once("error", (e) => rej(new Error(`core spawn failed: ${e.message}`)));
     let buf = "";
     const onData = (d) => {
       buf += String(d); const nl = buf.indexOf("\n"); if (nl < 0) return;
@@ -57,7 +60,7 @@ try {
   console.error(`bench: ${e?.stack ?? e}`);
   failed += 1;
 } finally {
-  core.kill("SIGTERM");
+  if (!spawnError && core.exitCode === null && core.signalCode === null) core.kill("SIGTERM");
   await coreExited;
   rmSync(home, { recursive: true, force: true });
 }

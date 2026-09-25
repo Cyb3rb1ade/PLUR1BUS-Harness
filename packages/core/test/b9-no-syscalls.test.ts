@@ -1,9 +1,17 @@
 // B9 / T3 (spec criterion 8, milestones M1 acceptance 10): 0 socket and 0 spawn calls during recall
 // assembly. The cross-platform proxy for a syscall trace: every Node entry point that opens a socket or
 // spawns a process is wrapped with a counter while one `memory.recall` runs through an in-process core.
+//
+// Limits of this proxy (it is not a kernel-level syscall trace):
+// - Only the module-object functions listed in TARGETS are wrapped. `syncBuiltinESMExports()` makes ESM
+//   named imports see the wrappers, but a CJS module that destructured a function before `patch()` ran
+//   (`const { spawn } = require("node:child_process")` at load time) keeps the original and is not counted.
+// - Native addons (e.g. LanceDB, onnxruntime) open sockets or threads below JavaScript and are invisible here.
+// - `fetch`/undici, `http2`, `worker_threads` and `net.Socket#connect` on a pre-built Socket are not wrapped.
+// - The flat-embedder seam is used, so no model loading or download path is exercised.
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { syncBuiltinESMExports } from "node:module";
@@ -43,6 +51,7 @@ describe("B9 — no socket or spawn calls during recall assembly", () => {
   const counts = new Map<string, number>();
   const originals: Array<[Record<string, unknown>, string, unknown]> = [];
   let core: Core; let c: CoreClient;
+  const home = newHome();
 
   function patch(): void {
     for (const [mod, obj, names] of TARGETS) {
@@ -62,7 +71,7 @@ describe("B9 — no socket or spawn calls during recall assembly", () => {
   }
 
   before(async () => {
-    core = createCore({ home: newHome(), testInternals: flatTestInternals() });
+    core = createCore({ home, testInternals: flatTestInternals() });
     await core.start();
     c = await connect({ address: core.address, token: core.token });
     // Seed one fact and warm the store so the measured recall is a steady-state assembly.
@@ -70,7 +79,11 @@ describe("B9 — no socket or spawn calls during recall assembly", () => {
     assert.ok(cap.stored >= 1, JSON.stringify(cap));
     await c.call("memory.recall", { caller, agentId: "bernd", sessionKey: "s0", query: "warm-up", joined: true });
   });
-  after(async () => { restore(); await c?.close(); await core?.stop({ budgetMs: 5000 }); });
+  after(async () => {
+    restore();
+    try { await c?.close(); await core?.stop({ budgetMs: 5000 }); }
+    finally { rmSync(home, { recursive: true, force: true }); }
+  });
 
   it("one memory.recall over an open connection makes 0 socket/spawn calls", async () => {
     patch();

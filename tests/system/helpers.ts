@@ -29,38 +29,70 @@ export function cli(h: string, args: string[], opts: { json?: boolean; allowFail
   }
 }
 
-export interface RunningCore { child: ChildProcess; ready: { ready: boolean; address: string; pid: number }; readyMs: number }
+export interface RunningCore {
+  child: ChildProcess; ready: { ready: boolean; address: string; pid: number }; readyMs: number;
+  /** Everything the core wrote to stderr so far (also tee'd to this process's stderr). */
+  stderr: () => string;
+}
 
-/** `plur1bus core run` (execs node on POSIX); resolves on the core's one-line JSON ready message on stdout. */
+const STARTUP_TIMEOUT_MS = REAL ? 120_000 : 30_000;
+
+/** `plur1bus core run` (execs node on POSIX); resolves on the core's one-line JSON ready message on stdout.
+ *  On a failed start (exit before ready, a bad ready line, a spawn error or the startup timeout) the child
+ *  is killed and awaited before the promise rejects, so nothing leaks. */
 export async function startCore(h: string): Promise<RunningCore> {
   const env: NodeJS.ProcessEnv = {
     ...process.env, PLUR1BUS_CORE_JS: CORE_JS, PLUR1BUS_NODE: process.execPath,
     ...(REAL ? {} : { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: "flat-embedder" }),
   };
   const t0 = performance.now();
-  const child = spawn(BIN, ["--home", h, "core", "run"], { env, stdio: ["ignore", "pipe", "inherit"] });
-  const ready = await new Promise<RunningCore["ready"]>((res, rej) => {
-    let buf = "";
-    const onData = (d: Buffer) => {
-      buf += String(d);
-      const nl = buf.indexOf("\n");
-      if (nl < 0) return;
-      child.stdout!.off("data", onData); child.off("exit", onExit);
-      try { res(JSON.parse(buf.slice(0, nl))); } catch (e) { rej(new Error(`bad ready line: ${buf.slice(0, nl)} (${String(e)})`)); }
-    };
-    const onExit = (c: number | null, s: string | null) => rej(new Error(`core exited before ready: code ${c} signal ${s}`));
-    child.stdout!.on("data", onData); child.once("exit", onExit);
-  });
+  const child = spawn(BIN, ["--home", h, "core", "run"], { env, stdio: ["ignore", "pipe", "pipe"] });
+  let err = "";
+  child.stderr!.on("data", (d: Buffer) => { err += String(d); process.stderr.write(d); });
+  let ready: RunningCore["ready"];
+  try {
+    ready = await new Promise<RunningCore["ready"]>((res, rej) => {
+      let buf = "";
+      const timer = setTimeout(() => done(new Error(`core not ready within ${STARTUP_TIMEOUT_MS} ms`)), STARTUP_TIMEOUT_MS);
+      const done = (e: Error | null, v?: RunningCore["ready"]) => {
+        clearTimeout(timer);
+        child.stdout!.off("data", onData); child.off("exit", onExit); child.off("error", onError);
+        if (e) rej(e); else res(v!);
+      };
+      const onData = (d: Buffer) => {
+        buf += String(d);
+        const nl = buf.indexOf("\n");
+        if (nl < 0) return;
+        const line = buf.slice(0, nl);
+        let v: RunningCore["ready"];
+        try { v = JSON.parse(line); } catch (e) { done(new Error(`bad ready line: ${line} (${String(e)})`)); return; }
+        if (v?.ready !== true || typeof v.address !== "string") { done(new Error(`bad ready line: ${line}`)); return; }
+        done(null, v);
+      };
+      const onExit = (c: number | null, s: string | null) => done(new Error(`core exited before ready: code ${c} signal ${s}`));
+      const onError = (e: Error) => done(new Error(`core spawn failed: ${e.message}`));
+      child.stdout!.on("data", onData); child.once("exit", onExit); child.once("error", onError);
+    });
+  } catch (e) {
+    await killChild(child, "SIGKILL");
+    throw e;
+  }
   child.stdout!.resume(); // keep draining anything written after the ready line
-  return { child, ready, readyMs: performance.now() - t0 };
+  return { child, ready, readyMs: performance.now() - t0, stderr: () => err };
 }
 
-export async function killCore(core: RunningCore, signal: NodeJS.Signals): Promise<void> {
-  const { child } = core;
-  if (child.exitCode !== null || child.signalCode !== null) return;
+async function killChild(child: ChildProcess, signal: NodeJS.Signals): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null || child.pid === undefined) return;
   const exited = new Promise((r) => child.once("exit", r));
   child.kill(signal);
   await exited;
 }
 
-export const stopCore = (core: RunningCore): Promise<void> => killCore(core, "SIGTERM");
+export const killCore = (core: RunningCore, signal: NodeJS.Signals): Promise<void> => killChild(core.child, signal);
+
+/** The engine's own warnings when a rerank did not succeed (verbatim prefixes from the pinned engine):
+ *  lib/recall-pipeline.js — `recall-pipeline: rerank failed/timeout, falling back to unreranked: …` (throw or timeout);
+ *  lib/providers/reranker-chained.js — `reranker primary (<id>) failed: …` (provider error, with or without a fallback). */
+export const RERANK_FAILURE = /recall-pipeline: rerank failed\/timeout, falling back to unreranked|reranker primary \([^)]*\) failed:/;
+
+export const stopCore =(core: RunningCore): Promise<void> => killCore(core, "SIGTERM");
