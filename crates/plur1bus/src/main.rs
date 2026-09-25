@@ -61,7 +61,8 @@ fn main() {
         ),
         Cmd::Uninstall(_) => commands::stubs::milestone(&out, "uninstall", "M8", "uninstaller"),
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
-        Cmd::Memory { .. } | Cmd::Dreams { .. } | Cmd::Config { .. } => commands::stubs::milestone(
+        Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
+        Cmd::Memory { .. } | Cmd::Dreams { .. } => commands::stubs::milestone(
             &out,
             "this",
             "H1",

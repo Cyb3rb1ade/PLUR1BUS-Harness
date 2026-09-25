@@ -61,7 +61,6 @@ fn h2_commands_are_stubs_in_h1() {
 }
 
 #[test]
-#[ignore = "config get lands in Task 13"]
 fn home_flag_beats_env() {
     let dir = tempfile::tempdir().unwrap();
     let out = bin()
@@ -140,4 +139,159 @@ fn agent_create_list_remove_without_a_core() {
         .args(["--home", h, "agent", "status", "bernd"])
         .assert()
         .code(1);
+}
+
+#[test]
+fn config_get_set_dry_run_and_rejection() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "config", "get", "core.recall.softBudgetMs"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("400"));
+    let before = std::fs::read(dir.path().join("config.json")).unwrap();
+    // dry run: plan printed, nothing written
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.recall.softBudgetMs",
+            "250",
+            "--dry-run",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("live"))
+        .stdout(predicate::str::contains("core.recall.softBudgetMs"));
+    assert_eq!(
+        std::fs::read(dir.path().join("config.json")).unwrap(),
+        before
+    );
+    // non-tty without --yes: exit 2, nothing written
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.recall.softBudgetMs",
+            "250",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--yes"));
+    assert_eq!(
+        std::fs::read(dir.path().join("config.json")).unwrap(),
+        before
+    );
+    // apply
+    let out = bin()
+        .args([
+            "--json",
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.recall.softBudgetMs",
+            "250",
+            "--yes",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["applied"], true);
+    assert_eq!(v["restart"]["live"][0], "core.recall.softBudgetMs");
+    assert_eq!(v["restart"]["core"], false);
+    bin()
+        .args(["--home", h, "config", "get", "core.recall.softBudgetMs"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("250"));
+    // a core-class key says so
+    let out = bin()
+        .args([
+            "--json",
+            "--home",
+            h,
+            "config",
+            "set",
+            "engine.recallMinScore",
+            "0.5",
+            "--dry-run",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["restart"]["core"], true);
+    // string value for an enum key
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--yes",
+        ])
+        .assert()
+        .success();
+}
+
+#[test]
+fn rejects_a_wrong_typed_value_and_leaves_the_file_unchanged() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "config", "get"])
+        .assert()
+        .success();
+    let before = std::fs::read(dir.path().join("config.json")).unwrap();
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.recall.softBudgetMs",
+            "abc",
+            "--yes",
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("softBudgetMs").or(predicate::str::contains("integer")));
+    bin()
+        .args(["--home", h, "config", "set", "nope.key", "1", "--yes"])
+        .assert()
+        .code(1);
+    assert_eq!(
+        std::fs::read(dir.path().join("config.json")).unwrap(),
+        before,
+        "byte-for-byte unchanged"
+    );
+}
+
+#[test]
+fn config_schema_prints_the_schema() {
+    let out = bin()
+        .args(["--json", "config", "schema"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(
+        v["properties"]["core"]["properties"]["logLevel"]["x-restart"],
+        "live"
+    );
 }
