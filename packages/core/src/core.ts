@@ -8,7 +8,7 @@ import { loadConfig } from "./config-load.ts";
 import { bindEngine } from "./engine.ts";
 import { buildEngineConfig } from "./engine-config.ts";
 import { createHarnessHost } from "./host.ts";
-import { replayJournal } from "./journal.ts";
+import { drainJournal } from "./journal.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { createLogger, type HarnessLogger } from "./logger.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
@@ -83,15 +83,16 @@ export function createCore(o: CoreOptions): Core {
       });
       server = createRpcServer({ address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid }), methods, logger });
 
-      const replay = await replayJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
-      journalBacklog = replay.kept;
-
       wroteRunFiles = true;
       writeFileSync(l.coreToken, token, { mode: 0o600 });
       writeFileSync(l.corePid, `${process.pid}\n`, { mode: 0o600 });
       await server.listen();
+      // I2: replay once the socket accepts connections, so the CLI's captures go live instead of journaling while
+      // the journal is read; drainJournal re-runs the pass for any line that still arrived during one.
+      const replay = await drainJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
+      journalBacklog = replay.kept;
       setState({ state: "ready", since: clock() });
-      logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept });
+      logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept, replayPasses: replay.passes });
     } catch (e) {
       // Cleanup never replaces the original start error.
       const log = logger;

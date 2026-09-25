@@ -61,6 +61,30 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
   return { replayed, kept };
 }
 
+/** I2: replays at start until no line arrived during the last pass. The core runs this after the RPC server
+ *  listens: a CLI that failed to connect just before that may journal into a fresh `<agent>.jsonl` while a
+ *  pass is running, and a single pass would strand that line until the next restart. After each pass the
+ *  lines still on disk are counted: kept lines are appended back, so anything beyond the pass's own `kept`
+ *  arrived meanwhile and gets another pass. Bounded by `maxPasses`, so a CLI that keeps journaling cannot hold
+ *  the core in `starting`. `kept` is the on-disk count after the last pass, what `journalBacklog` reports. */
+export async function drainJournal(o: JournalOpts, maxPasses = 5): Promise<{ replayed: number; kept: number; passes: number }> {
+  let replayed = 0;
+  for (let passes = 1; ; passes++) {
+    const r = await replayJournal(o);
+    replayed += r.replayed;
+    const onDisk = countJournalLines(o);
+    if (onDisk <= r.kept || passes >= maxPasses) return { replayed, kept: onDisk, passes };
+  }
+}
+
+/** Non-empty lines in every `<agent>.jsonl` and leftover `*.jsonl.replaying-*` under the journal dir. */
+function countJournalLines(o: JournalOpts): number {
+  if (!existsSync(o.dir)) return 0;
+  let n = 0;
+  for (const f of readdirSync(o.dir)) if (f.endsWith(".jsonl") || REPLAYING_SUFFIX.test(f)) n += countLinesBestEffort(o, join(o.dir, f));
+  return n;
+}
+
 /** Never throws: a failure processing an already-renamed file is logged and its lines counted as kept
  *  on a best-effort basis, leaving the `.replaying-*` file in place for the next startup's recovery pass. */
 async function safeProcessReplayingFile(o: JournalOpts, replayingPath: string, agentFile: string): Promise<{ replayed: number; kept: number }> {

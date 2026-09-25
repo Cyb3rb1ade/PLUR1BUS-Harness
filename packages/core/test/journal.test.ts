@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import type { JournalLine } from "@plur1bus/rpc-schema";
 import { createAgentRegistry } from "../src/agents.ts";
-import { appendJournalLine, replayJournal } from "../src/journal.ts";
+import { appendJournalLine, drainJournal, replayJournal } from "../src/journal.ts";
 import { createLogger } from "../src/logger.ts";
 import { layout } from "../src/paths.ts";
 
@@ -222,6 +222,46 @@ describe("journal", () => {
       // bad.jsonl itself is left untouched (never renamed away) so it is retried on the next startup.
       assert.equal(readFileSync(join(l.journal, "bad.jsonl"), "utf8").includes("bad-content"), true);
       assert.equal(existsSync(join(l.journal, "good.jsonl")) && readFileSync(join(l.journal, "good.jsonl"), "utf8").length > 0, false);
+    });
+  });
+
+  describe("I2: drainJournal", () => {
+    it("replays a line appended while a pass is running, without a restart", async () => {
+      const { l, agents, logger } = setup();
+      appendJournalLine(l.journal, line("11111111-1111-4111-8111-111111111111", "first"));
+      const captured: string[] = [];
+      const engine = { capture: (t: any) => {
+        captured.push(t.messages[0].content);
+        // the CLI journals while the first pass is running: bernd.jsonl was already renamed away, so this lands in a fresh file
+        if (captured.length === 1) appendJournalLine(l.journal, line("22222222-2222-4222-8222-222222222222", "during-replay"));
+        return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 1, skipped: 0 }), abort() {} };
+      } } as any;
+      const r = await drainJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      assert.deepEqual(captured, ["first", "during-replay"]);
+      assert.deepEqual(r, { replayed: 2, kept: 0, passes: 2 });
+      assert.equal(existsSync(join(l.journal, "bernd.jsonl")), false);
+    });
+
+    it("stops after one pass when only kept lines remain, and counts them as the backlog", async () => {
+      const { l, agents, logger } = setup();
+      appendJournalLine(l.journal, line("11111111-1111-4111-8111-111111111111", "refused"));
+      let calls = 0;
+      const engine = { capture: () => { calls += 1; return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 0, skipped: 0, reason: "busy" }), abort() {} }; } } as any;
+      const r = await drainJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      assert.deepEqual(r, { replayed: 0, kept: 1, passes: 1 });
+      assert.equal(calls, 1, "a kept line is not retried within the same start unless new lines arrived");
+    });
+
+    it("is bounded by maxPasses when lines keep arriving", async () => {
+      const { l, agents, logger } = setup();
+      appendJournalLine(l.journal, line("11111111-1111-4111-8111-111111111111", "x"));
+      let n = 0;
+      const engine = { capture: () => {
+        n += 1; appendJournalLine(l.journal, line(`${String(n).padStart(8, "0")}-2222-4222-8222-222222222222`, "more"));
+        return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 1, skipped: 0 }), abort() {} };
+      } } as any;
+      const r = await drainJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 }, 3);
+      assert.equal(r.passes, 3); assert.equal(r.replayed, 3); assert.equal(r.kept, 1, "the line appended during the last pass is the backlog");
     });
   });
 });

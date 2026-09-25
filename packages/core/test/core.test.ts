@@ -1,11 +1,12 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore, type Core } from "../src/core.ts";
+import { appendJournalLine } from "../src/journal.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
 
@@ -138,5 +139,28 @@ describe("core stop", () => {
     const next = createCore({ home, testInternals: flatTestInternals() });
     await next.start();
     await next.stop({ budgetMs: 5000 });
+  });
+});
+
+describe("core start journal replay (I2)", () => {
+  it("a line journaled while start() is replaying is captured before ready and counted in journalBacklog", async () => {
+    const home = newHome(); const l = layout(home);
+    const jline = (id: string, content: string) => ({ v: 1 as const, id, at: 1, agentId: "bernd", sessionKey: "s1", caller, messages: [{ role: "user" as const, content }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
+    appendJournalLine(l.journal, jline("11111111-1111-4111-8111-111111111111", "Please remember that the boiler service is on Tuesday at eight."));
+    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 400 }) });
+    const started = core.start();
+    // Wait until replay has renamed bernd.jsonl away (the first capture is embedding), then journal as the CLI would.
+    const until = Date.now() + 10_000;
+    while (!readdirSync(l.journal).some((f) => f.startsWith("bernd.jsonl.replaying-")) && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
+    assert.ok(Date.now() < until, "replay never started");
+    appendJournalLine(l.journal, jline("22222222-2222-4222-8222-222222222222", "Please remember that the chimney sweep comes on Wednesday at noon."));
+    await started;
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      assert.equal((await c.call<any>("core.status")).journalBacklog, 0);
+      assert.equal(existsSync(join(l.journal, "bernd.jsonl")), false, "nothing stranded in the journal");
+      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "chimney sweep", joined: true });
+      assert.match(r.joined.text, /chimney sweep/i);
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 });
