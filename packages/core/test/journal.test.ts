@@ -34,7 +34,8 @@ describe("journal", () => {
     const r = await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
     assert.deepEqual(r, { replayed: 2, kept: 1 });
     assert.deepEqual(captured, ["one", "two"]);
-    assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8"), '{"v":1,"id":"33333333-3333-4333-8333-3');
+    // Round 2 fix: a kept torn tail always gets its own trailing "\n" back, so a later CLI append can never glue onto it.
+    assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8"), '{"v":1,"id":"33333333-3333-4333-8333-3\n');
     assert.ok(warnings.some((w) => /torn|unparseable/.test(w)));
   });
 
@@ -156,7 +157,29 @@ describe("journal", () => {
       const engine = { capture: () => { throw new Error("must not be called"); } } as any;
       const r = await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
       assert.deepEqual(r, { replayed: 0, kept: 1 });
-      assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8"), '{"v":1,"id":"not-json');
+      // Round 2 fix: the torn fragment comes back with a trailing "\n" — a complete, unparseable line, not a
+      // dangling one a future append could glue onto.
+      assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8"), '{"v":1,"id":"not-json\n');
+    });
+
+    it("a torn tail written back does not swallow a later CLI append (round 2)", async () => {
+      const { l, agents, logger } = setup();
+      writeFileSync(join(l.journal, "bernd.jsonl"), '{"v":1,"id":"not-json', { mode: 0o600 }); // no trailing newline: torn
+      const noCapture = { capture: () => { throw new Error("must not be called"); } } as any;
+      const first = await replayJournal({ dir: l.journal, agents, engine: noCapture, logger, clock: () => 1 });
+      assert.deepEqual(first, { replayed: 0, kept: 1 });
+      assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8"), '{"v":1,"id":"not-json\n');
+
+      const fresh = line("22222222-2222-4222-8222-222222222222", "after-torn-tail");
+      appendJournalLine(l.journal, fresh); // the CLI writing a new line after the kept fragment
+      assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8"), `{"v":1,"id":"not-json\n${JSON.stringify(fresh)}\n`, "the new line must be on its own line, not glued to the fragment");
+
+      const captured: string[] = [];
+      const capturing = { capture: (t: any) => { captured.push(t.messages[0].content); return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 1, skipped: 0 }), abort() {} }; } } as any;
+      const second = await replayJournal({ dir: l.journal, agents, engine: capturing, logger, clock: () => 1 });
+      assert.deepEqual(captured, ["after-torn-tail"], "the new line is captured cleanly, not glued to the fragment");
+      assert.deepEqual(second, { replayed: 1, kept: 1 });
+      assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8"), '{"v":1,"id":"not-json\n', "the fragment is still kept, unchanged");
     });
 
     it("strips a trailing \\r before parsing (CRLF line endings)", async () => {
@@ -169,6 +192,36 @@ describe("journal", () => {
       const r = await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
       assert.deepEqual(captured, ["crlf-one", "crlf-two"]);
       assert.deepEqual(r, { replayed: 2, kept: 0 });
+    });
+  });
+
+  // Round 2, finding 1: a per-file rename failure (e.g. Windows EBUSY/EPERM while the CLI holds the file
+  // open) must never abort replay of the other files. Reproduced on Linux by pre-creating a directory at the
+  // exact path `renameSync` would target (`<agent>.jsonl.replaying-<pid>`, using this test process's own
+  // pid, since replay runs in the same process): `renameSync` onto an existing directory fails with EISDIR
+  // — a plain, non-ENOENT error, the same shape a locked-file error would have. This avoids adding a
+  // test-only rename-injection seam to replayJournal's production signature.
+  describe("round 2, finding 1: per-file isolation on a rename failure", () => {
+    it("skips a file whose rename fails and still replays another agent's file", async () => {
+      const l = layout(mkdtempSync(join(tmpdir(), "p1b-journal-"))); mkdirSync(l.journal, { recursive: true });
+      const cfg = defaults(); cfg.agents.bad = {}; cfg.agents.good = {};
+      const agents = createAgentRegistry(cfg, l); agents.scaffold("bad"); agents.scaffold("good");
+      const logger = createLogger({ file: l.logFile("core"), level: "debug", role: "core" });
+      appendJournalLine(l.journal, { ...line("11111111-1111-4111-8111-111111111111", "bad-content"), agentId: "bad" });
+      appendJournalLine(l.journal, { ...line("22222222-2222-4222-8222-222222222222", "good-content"), agentId: "good" });
+      mkdirSync(join(l.journal, `bad.jsonl.replaying-${process.pid}`)); // blocks renameSync onto this exact path with EISDIR
+      const warnings: string[] = [];
+      const origWarn = logger.warn; logger.warn = (m, f) => { warnings.push(m); origWarn(m, f); };
+      const captured: string[] = [];
+      const engine = { capture: (t: any) => { captured.push(t.messages[0].content); return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 1, skipped: 0 }), abort() {} }; } } as any;
+      const r = await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      assert.deepEqual(captured, ["good-content"], "capture was never attempted for the file whose rename failed");
+      assert.equal(r.replayed, 1);
+      assert.ok(r.kept >= 1, "the skipped file's line is counted as kept on a best-effort basis");
+      assert.ok(warnings.some((w) => w === "journal: file skipped this start"));
+      // bad.jsonl itself is left untouched (never renamed away) so it is retried on the next startup.
+      assert.equal(readFileSync(join(l.journal, "bad.jsonl"), "utf8").includes("bad-content"), true);
+      assert.equal(existsSync(join(l.journal, "good.jsonl")) && readFileSync(join(l.journal, "good.jsonl"), "utf8").length > 0, false);
     });
   });
 });

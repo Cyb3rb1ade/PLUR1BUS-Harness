@@ -15,6 +15,7 @@ const REPLAYING_SUFFIX = /\.jsonl\.replaying-\d+$/;
 
 interface KeptLine { text: string; isPhysicalTail: boolean }
 type ReplayEngine = Pick<Engine, "capture">;
+type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number };
 
 /** Replays state/journal/<agentId>.jsonl at core start.
  *
@@ -23,10 +24,14 @@ type ReplayEngine = Pick<Engine, "capture">;
  *  Any reason, zero counts, or a rejected `done` keeps the line (logged with why), and replay continues
  *  with the next line. Concurrent-append safety: each `<agent>.jsonl` is first atomically renamed to
  *  `<agent>.jsonl.replaying-<pid>` before it is read, so a line the CLI appends to `<agent>.jsonl` while
- *  replay is running lands in a fresh file, never the one being processed. Kept lines are appended back
- *  (never overwritten) onto whatever `<agent>.jsonl` holds by the time replay finishes with that file. A
- *  `*.jsonl.replaying-*` left over from a crashed replay is recovered the same way, before the regular scan. */
-export async function replayJournal(o: { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number }): Promise<{ replayed: number; kept: number }> {
+ *  replay is running lands in a fresh file, never the one being processed. Kept lines (including a torn
+ *  or unparseable tail) are always appended back — each followed by its own `\n` — onto whatever
+ *  `<agent>.jsonl` holds by the time replay finishes with that file, never overwritten, so nothing the
+ *  CLI writes afterward can glue onto a kept fragment. A `*.jsonl.replaying-*` left over from a crashed
+ *  replay is recovered the same way, before the regular scan. Round 2: every file is isolated — a rename
+ *  or processing failure on one file (e.g. the CLI still holding it open) is logged and skipped, its lines
+ *  counted as kept on a best-effort basis, and replay continues with the next file. */
+export async function replayJournal(o: JournalOpts): Promise<{ replayed: number; kept: number }> {
   let replayed = 0; let kept = 0;
   if (!existsSync(o.dir)) return { replayed, kept };
 
@@ -34,7 +39,7 @@ export async function replayJournal(o: { dir: string; agents: AgentRegistry; eng
   for (const entry of readdirSync(o.dir).filter((f) => REPLAYING_SUFFIX.test(f))) {
     const replayingPath = join(o.dir, entry);
     const agentFile = entry.replace(/\.replaying-\d+$/, "");
-    const r = await processReplayingFile(o, replayingPath, agentFile);
+    const r = await safeProcessReplayingFile(o, replayingPath, agentFile);
     replayed += r.replayed; kept += r.kept;
   }
 
@@ -42,14 +47,36 @@ export async function replayJournal(o: { dir: string; agents: AgentRegistry; eng
     const path = join(o.dir, file);
     const replayingPath = `${path}.replaying-${process.pid}`;
     try { renameSync(path, replayingPath); }
-    catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") continue; throw e; } // raced away between readdir and rename
-    const r = await processReplayingFile(o, replayingPath, file);
+    catch (e) {
+      const err = e as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") continue; // raced away between readdir and rename: nothing left to do
+      // A file another process still holds open (e.g. Windows EBUSY/EPERM) must never abort the whole replay.
+      o.logger.warn("journal: file skipped this start", { file, err });
+      kept += countLinesBestEffort(o, path);
+      continue;
+    }
+    const r = await safeProcessReplayingFile(o, replayingPath, file);
     replayed += r.replayed; kept += r.kept;
   }
   return { replayed, kept };
 }
 
-async function processReplayingFile(o: { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number }, replayingPath: string, agentFile: string): Promise<{ replayed: number; kept: number }> {
+/** Never throws: a failure processing an already-renamed file is logged and its lines counted as kept
+ *  on a best-effort basis, leaving the `.replaying-*` file in place for the next startup's recovery pass. */
+async function safeProcessReplayingFile(o: JournalOpts, replayingPath: string, agentFile: string): Promise<{ replayed: number; kept: number }> {
+  try { return await processReplayingFile(o, replayingPath, agentFile); }
+  catch (e) {
+    o.logger.warn("journal: file skipped this start", { file: agentFile, err: e });
+    return { replayed: 0, kept: countLinesBestEffort(o, replayingPath) };
+  }
+}
+
+function countLinesBestEffort(o: JournalOpts, path: string): number {
+  try { return readFileSync(path, "utf8").split("\n").filter(Boolean).length; }
+  catch (e) { o.logger.warn("journal: could not count kept lines after skip", { path, err: e }); return 0; }
+}
+
+async function processReplayingFile(o: JournalOpts, replayingPath: string, agentFile: string): Promise<{ replayed: number; kept: number }> {
   let replayed = 0;
   const raw = readFileSync(replayingPath, "utf8");
   const endedWithNewline = raw.endsWith("\n");
@@ -94,8 +121,9 @@ async function processReplayingFile(o: { dir: string; agents: AgentRegistry; eng
 
   const agentPath = join(o.dir, agentFile);
   if (kept.length) {
-    const lastPhysicalTail = kept[kept.length - 1]!.isPhysicalTail;
-    const out = `${kept.map((k) => k.text).join("\n")}${lastPhysicalTail ? "" : "\n"}`;
+    // Round 2 fix: every kept line — including a torn/unparseable tail — gets its own trailing "\n", so a
+    // subsequent appendJournalLine from the CLI can never glue onto it and corrupt that new line.
+    const out = `${kept.map((k) => k.text).join("\n")}\n`;
     // R20.2: append, never overwrite — `agentPath` may have been recreated by a concurrent CLI append while we were replaying.
     appendFileSync(agentPath, out, { mode: 0o600 });
   }
