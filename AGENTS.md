@@ -61,11 +61,20 @@ One package's tests directly (no build step, no `dist/`):
 cd packages/core && node --experimental-strip-types --conditions=source --test test/**/*.test.ts
 ```
 
-That is what `scripts/test-package.mjs` (used by every package's `test` script) actually runs.
-`--conditions=source` matters: every workspace package's `exports` map is
-`{ "source": "./src/index.ts", "types": "./src/index.ts", "default": "./dist/index.js" }`, so with
-that flag a test importing `@plur1bus/config-schema` etc. reads the TypeScript **source**, never a
-possibly-stale `dist/`. `--experimental-strip-types` runs `.ts` directly, no separate transpile step.
+That's the shape of it; `scripts/test-package.mjs` (used by every package's `test` script) actually
+runs `node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test
+--test-concurrency=1 test/**/*.test.ts` — copy that exactly if running a single package's tests by
+hand.
+
+`--conditions=source` matters for the three packages other packages import as dependencies —
+`packages/rpc-schema`, `packages/config-schema`, `packages/module-api` — whose `exports` map is
+`{ "source": "./src/index.ts", "types": "./src/index.ts", "default": "./dist/index.js" }`; with that
+flag, a test importing `@plur1bus/rpc-schema` etc. reads the TypeScript **source**, never a
+possibly-stale `dist/`. `packages/core` is different: it's the process entry point, not a library
+other packages import via `exports` (its `exports` is just `{ ".": "./dist/index.js" }`, and its own
+tests import its `src/*.ts` files directly by relative path, not through the package's own export
+map), so it has no `source` condition to add. `--experimental-strip-types` runs `.ts` directly, no
+separate transpile step.
 
 System (stack-level) test, run against a built release binary — see `.github/workflows/ci.yml`:
 
@@ -112,6 +121,14 @@ this point in the build — do not assume they are there.
   now). A key without `x-restart` is a bug in the schema, not a documentation gap.
 - **Every RPC method's `params` object is closed** — `additionalProperties: false` — in
   `rpc.schema.json`. An RPC method whose params allow unknown properties is a bug.
+- **`--json` output is always the raw RPC value, never a re-serialized typed struct.** Every CLI
+  `--json` path prints the `serde_json::Value` `Client::call` returned (or, for a locally-built
+  error/stub result, a hand-built `json!` object) straight through — it never goes back through a
+  `plur1bus_rpc::types` struct first. `typify`-generated structs are for *reading* fields, not for
+  re-emitting output: they drop unknown keys on a result type whose schema has
+  `additionalProperties: true`, and they drop empty optionals, so re-serializing one would silently
+  narrow what `--json` promises to print (this is ruling R13; recorded in
+  `docs/adr/ADR-012-process-model-and-languages.md`).
 - TypeScript is compiled with `erasableSyntaxOnly` (`tsconfig.base.json`): no `enum`, no parameter
   properties, no non-ASCII-erasable construct — only syntax `node --experimental-strip-types` can
   strip without a real transform.
