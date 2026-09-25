@@ -193,3 +193,42 @@ fn restart_plan_matches_the_typescript_fixture_cases() {
         );
     }
 }
+
+#[test]
+fn date_time_format_matches_the_typescript_validator() {
+    let cases: Value = serde_json::from_str(
+        &fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../packages/config-schema/fixtures/format-cases.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let cases = cases.as_array().unwrap();
+    assert!(cases.len() >= 20);
+    for c in cases {
+        let name = c["name"].as_str().unwrap();
+        let valid = c["valid"].as_bool().unwrap();
+        assert_eq!(validate(&c["config"]).is_ok(), valid, "{name}");
+    }
+}
+
+#[test]
+fn set_rejects_a_created_at_that_is_not_a_date_time() {
+    match set(
+        &defaults(),
+        "agents.bernd",
+        json!({ "createdAt": "yesterday" }),
+    ) {
+        Err(ConfigError::Invalid(errs)) => {
+            assert!(errs.iter().any(|e| e.contains("createdAt")), "{errs:?}")
+        }
+        other => panic!("expected Invalid, got {other:?}"),
+    }
+    assert!(set(
+        &defaults(),
+        "agents.bernd",
+        json!({ "createdAt": "2026-09-24T00:00:00Z" })
+    )
+    .is_ok());
+}

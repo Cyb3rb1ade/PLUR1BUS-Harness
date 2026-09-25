@@ -70,11 +70,113 @@ fn schema() -> &'static Value {
 fn validator() -> &'static jsonschema::Validator {
     static V: std::sync::OnceLock<jsonschema::Validator> = std::sync::OnceLock::new();
     V.get_or_init(|| {
+        // `format` is only an annotation in draft 2020-12 unless enabled; the core's ajv (with ajv-formats)
+        // asserts it, so the CLI must too, or it writes a config the core refuses. `date-time` (the only
+        // format config.schema.json uses) is checked by the ajv-formats "full" rule, not the crate's own.
         jsonschema::options()
             .with_draft(jsonschema::Draft::Draft202012)
+            .should_validate_formats(true)
+            .with_format("date-time", ajv_date_time)
             .build(schema())
             .expect("schema compiles")
     })
+}
+
+/// ajv-formats' full-mode `date-time` (formats.js `getDateTime(true)`), so the CLI accepts exactly what the
+/// core accepts: RFC 3339 date and time split on `T`, `t` or whitespace; a required `Z`/`z` or `+HH`, `+HHMM`
+/// or `+HH:MM` offset; real month lengths; a leap second only at 23:59 UTC.
+pub fn ajv_date_time(s: &str) -> bool {
+    let mut parts = s.split(|c: char| c == 't' || c == 'T' || c.is_whitespace() || c == '\u{feff}');
+    let (Some(date), Some(time), None) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    ajv_date(date) && ajv_time(time)
+}
+
+fn digits(s: &str) -> Option<u32> {
+    (!s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()))
+        .then(|| s.parse().ok())
+        .flatten()
+}
+
+fn ajv_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return false;
+    }
+    let (Some(year), Some(month), Some(day)) = (digits(&s[..4]), digits(&s[5..7]), digits(&s[8..]))
+    else {
+        return false;
+    };
+    const DAYS: [u32; 13] = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    (1..=12).contains(&month)
+        && day >= 1
+        && day
+            <= if month == 2 && leap {
+                29
+            } else {
+                DAYS[month as usize]
+            }
+}
+
+fn ajv_time(s: &str) -> bool {
+    // /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i with the time zone required
+    if !s.is_ascii() || s.len() < 9 || s.as_bytes()[2] != b':' || s.as_bytes()[5] != b':' {
+        return false;
+    }
+    let (Some(hr), Some(min)) = (digits(&s[..2]), digits(&s[3..5])) else {
+        return false;
+    };
+    let rest = &s[6..];
+    let sec_end = rest.find(['z', 'Z', '+', '-']).unwrap_or(rest.len());
+    let (sec_str, tz) = rest.split_at(sec_end);
+    let sec_ok = match sec_str.split_once('.') {
+        Some((whole, frac)) => {
+            whole.len() == 2
+                && digits(whole).is_some()
+                && !frac.is_empty()
+                && frac.bytes().all(|b| b.is_ascii_digit())
+        }
+        None => sec_str.len() == 2 && digits(sec_str).is_some(),
+    };
+    let Some(sec) = sec_ok.then(|| sec_str.parse::<f64>().ok()).flatten() else {
+        return false;
+    };
+    let (sign, tz_h, tz_m): (i64, u32, u32) = if tz.eq_ignore_ascii_case("z") {
+        (1, 0, 0)
+    } else if let Some(off) = tz.strip_prefix('+').or_else(|| tz.strip_prefix('-')) {
+        let sign = if tz.starts_with('-') { -1 } else { 1 };
+        let (h, m) = match off.len() {
+            2 => (off, None),
+            4 => (&off[..2], Some(&off[2..])),
+            5 if off.as_bytes()[2] == b':' => (&off[..2], Some(&off[3..])),
+            _ => return false,
+        };
+        let Some(h) = digits(h).filter(|_| h.len() == 2) else {
+            return false;
+        };
+        let m = match m {
+            Some(m) => match digits(m) {
+                Some(v) if m.len() == 2 => v,
+                _ => return false,
+            },
+            None => 0,
+        };
+        (sign, h, m)
+    } else {
+        return false; // empty (strict time zone) or trailing garbage
+    };
+    if tz_h > 23 || tz_m > 59 {
+        return false;
+    }
+    if hr <= 23 && min <= 59 && sec < 60.0 {
+        return true;
+    }
+    // leap second
+    let utc_min = min as i64 - tz_m as i64 * sign;
+    let utc_hr = hr as i64 - tz_h as i64 * sign - i64::from(utc_min < 0);
+    (utc_hr == 23 || utc_hr == -1) && (utc_min == 59 || utc_min == -1) && sec < 61.0
 }
 
 pub fn validate(v: &Value) -> Result<(), Vec<String>> {

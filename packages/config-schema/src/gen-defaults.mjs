@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaults, restartPlan } from "./index.ts";
+import { defaults, restartPlan, validate } from "./index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "..", "fixtures");
@@ -77,3 +77,26 @@ const cases = [
 const out = cases.map(({ name, before, after }) => ({ name, before, after, expected: restartPlan(before, after) }));
 writeFileSync(join(outDir, "restart-plan-cases.json"), `${JSON.stringify(out, null, 2)}\n`);
 console.log("config-schema: fixtures/restart-plan-cases.json written");
+
+// `format` parity: the Rust validator (crates/plur1bus-config) must accept exactly the date-time values the
+// core's ajv-formats accepts, or the CLI writes a config the core refuses. `valid` is what ajv says.
+const dateTimes = [
+  "2026-09-24T00:00:00Z", "2026-09-24T00:00:00.123+02:00", "2026-09-24t10:20:30z", "2026-09-24 10:20:30Z",
+  "2026-09-24T10:20:30+0200", "2026-09-24T10:20:30+02", "2026-09-24T10:20:30.123456789012345-05:30",
+  "yesterday", "", "2026-09-24", "2026-09-24T10:20:30", "2026-09-24T10:20Z", "2026-9-24T10:20:30Z",
+  "2024-02-29T00:00:00Z", "2026-02-29T00:00:00Z", "2026-04-31T00:00:00Z", "2026-13-01T00:00:00Z",
+  "2026-09-24T24:00:00Z", "2026-09-24T10:60:00Z", "2026-09-24T10:20:30+24:00", "2026-09-24T10:20:30+02:60",
+  "2026-09-24T10:20:30.Z", "2026-09-24T10:20:30Zjunk", "2026-09-24TT10:20:30Z",
+  "2026-12-31T23:59:60Z", "2026-12-31T12:59:60Z", "2026-12-31T23:59:60+01:00", "2027-01-01T00:59:60+01:00", "2026-12-31T23:59:61Z",
+];
+const formatCases = [];
+for (const value of dateTimes) {
+  const c = withAgent(base, "bernd", { createdAt: value });
+  formatCases.push({ name: `agents.bernd.createdAt = ${JSON.stringify(value)}`, config: c, valid: validate(c).ok });
+}
+for (const value of ["2026-09-24T00:00:00Z", "yesterday"]) {
+  const c = structuredClone(base); c.embedding.acceptedNcLicenceAt = value;
+  formatCases.push({ name: `embedding.acceptedNcLicenceAt = ${JSON.stringify(value)}`, config: c, valid: validate(c).ok });
+}
+writeFileSync(join(outDir, "format-cases.json"), `${JSON.stringify(formatCases, null, 2)}\n`);
+console.log("config-schema: fixtures/format-cases.json written");
