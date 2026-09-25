@@ -9,6 +9,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,10 +20,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
       - uses: Swatinem/rust-cache@v2
-      - name: engine read access (only if the engine repo is private)
-        if: ${{ env.GH_ENGINE_READ_TOKEN != '' }}
-        run: git config --global url."https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
-        env: { GH_ENGINE_READ_TOKEN: "${{ secrets.GH_ENGINE_READ_TOKEN }}" }
+      # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
+      # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
+      # job that installs; never echoes the rewritten URL.
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
       - run: pnpm gen
@@ -38,6 +50,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -47,6 +61,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@v2
+      # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
+      # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
+      # job that installs; never echoes the rewritten URL.
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
       - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
         env: { PLUR1BUS_BIN: target/release/plur1bus }
