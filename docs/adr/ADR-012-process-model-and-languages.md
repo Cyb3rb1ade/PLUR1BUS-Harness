@@ -121,12 +121,13 @@ Also H2: the supervisor RPC (`config.*`, `module.*`, `daemon.*`), the `config.ch
 | §6.2 engine events forwarded as notifications named after the event | One `engine.event { name, agentId?, payload }` notification | Keeps the notification set closed in the schema while the engine's event list grows; the payload is still verbatim. |
 | §6.2 notifications `config.changed`, `module.state` | Not in the H1 schema | Supervisor notifications; added with the supervisor methods in H2. |
 | D2 exact npm prerelease | Exact git commit via `git+https` | Prerelease not yet published; `github:` shorthand blocked by the proxy (§9). |
+| §6.3 models warm in the background; `core.status.degraded = { reason: 'models-warming' }` until ready | No warm-up: the core reports `ready` once it listens (and has replayed the journal); the embedder and reranker load lazily on the first recall. Deferred to plan 2a-H2 (background warm-up plus the `models-warming` state). | H1's tests run on the flat embedder (R17), which has no model to warm, so the state could not be exercised here; the real-model nightly makes one explicit warm-up recall before the measured one (`tests/system/two-session-recall.test.ts`). User-visible cost until H2: the first recall after `core run` can be slow or answer degraded while `core.status` says ready. |
 
 ## Consequences
 
 - **Easier:** restarting or replacing a module without touching the core; third-party add-ons with the same shape as first-party ones; a CLI that answers in milliseconds and stays useful when the core is down; one schema edit changes both languages, and the fixtures fail the build on drift; a second core on the same home is impossible, not merely discouraged.
 - **Harder:** two toolchains in CI (Cargo and pnpm) and two failure surfaces; every new method needs a schema edit, `pnpm gen`, fixtures and `pnpm docs:gen`; RAM grows by 30–50 MB per running module process; the supervisor's lifeline/adoption code (H2) is new code in a process that must not fail.
-- **Revisit when:** RAM per module becomes a user complaint (build the in-process module host for trusted modules); the engine publishes the npm prerelease (switch the pin); H2 lands (Windows ACL, supervisor ownership, `config.changed`); a client needs versions on every response (it does not today — they are per connection).
+- **Revisit when:** RAM per module becomes a user complaint (build the in-process module host for trusted modules); the engine publishes the npm prerelease (switch the pin); H2 lands (Windows ACL, supervisor ownership, `config.changed`, model warm-up and `models-warming`); a client needs versions on every response (it does not today — they are per connection).
 
 ## Alternatives considered
 

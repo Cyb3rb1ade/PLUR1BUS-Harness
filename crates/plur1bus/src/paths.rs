@@ -148,7 +148,6 @@ pub fn resolve_home_from_process(cli_home: Option<&Path>) -> PathBuf {
 pub struct Layout {
     pub home: PathBuf,
 }
-#[allow(dead_code)] // the full Layout surface is consumed by the commands added in Tasks 12–15
 impl Layout {
     pub fn new(home: PathBuf) -> Self {
         Self { home }
@@ -177,16 +176,12 @@ impl Layout {
     pub fn core_socket(&self) -> PathBuf {
         self.run().join("core.sock")
     }
-    pub fn core_pid(&self) -> PathBuf {
-        self.run().join("core.pid")
-    }
     pub fn runtime(&self) -> PathBuf {
         self.home.join("runtime")
     }
 }
 
 /// Same rule as packages/core/src/paths.ts coreAddress(): socket path on POSIX, a per-home pipe name on Windows.
-#[allow(dead_code)] // consumed by the RPC-connecting commands added in Tasks 12–15
 pub fn core_address(home: &Path, platform: &str) -> String {
     if platform == "windows" {
         format!(

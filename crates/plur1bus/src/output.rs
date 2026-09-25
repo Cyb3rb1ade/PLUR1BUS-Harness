@@ -6,7 +6,6 @@ pub struct Out {
 }
 
 impl Out {
-    #[allow(dead_code)] // wired up by the commands added in Tasks 12–15
     pub fn ok<T: Serialize>(&self, value: &T, human: impl FnOnce() -> String) {
         if self.json {
             println!("{}", serde_json::to_string(value).unwrap());
@@ -32,7 +31,6 @@ impl Out {
     // `from_*` here is the brief's literal interface name for a "build+emit error
     // from an RpcError" helper, not a `From` conversion, so it legitimately takes `&self`.
     #[allow(clippy::wrong_self_convention)]
-    #[allow(dead_code)] // wired up by the RPC-calling commands added in Tasks 12–15
     pub fn from_rpc_error(&self, e: &plur1bus_rpc::RpcError) -> ! {
         let exit = match e.code_name().as_str() {
             "E_LOCKED" => 3,

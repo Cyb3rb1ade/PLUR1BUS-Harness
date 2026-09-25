@@ -10,7 +10,6 @@ pub struct CallerIdentity {
 }
 
 /// hostname + OS user: the CLI principal (spec §6.2). The core hashes these; the CLI never does.
-#[allow(dead_code)] // wired up by the commands added in Tasks 12–15
 pub fn caller() -> CallerIdentity {
     let host = gethostname::gethostname().to_string_lossy().to_string();
     let user = whoami::username();
