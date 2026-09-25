@@ -1,0 +1,3 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "sessionKey": "s1",
+              "messages": [{ "role": "user", "content": "the roadmap review is on Thursday" }], "wait": true, "waitMs": 60000 },
+  "result": { "id": "cap-fixture", "acceptedAt": 1758700000000, "stored": 1, "skipped": 0 } }

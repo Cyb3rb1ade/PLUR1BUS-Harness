@@ -1,0 +1,19 @@
+{
+  "name": "@plur1bus/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
+  "bin": { "plur1bus-core": "./dist/core.js" },
+  "exports": { ".": "./dist/index.js" },
+  "scripts": {
+    "build": "esbuild src/index.ts src/bin.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist --entry-names=[name] && node -e \"require('fs').renameSync('dist/bin.js','dist/core.js')\" && node ../../scripts/copy-dir.mjs src/agent-templates dist/agent-templates",
+    "test": "node ../../scripts/test-package.mjs"
+  },
+  "dependencies": {
+    "@cyb3rb1ade/plur1bus-memory": "git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#eaaf168fe602dcdb3a02bb84c4c6ba8fb2e88a72",
+    "@plur1bus/config-schema": "workspace:*",
+    "@plur1bus/module-api": "workspace:*",
+    "@plur1bus/rpc-schema": "workspace:*"
+  }
+}

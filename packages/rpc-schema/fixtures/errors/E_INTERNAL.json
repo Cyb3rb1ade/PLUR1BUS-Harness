@@ -1,0 +1,1 @@
+{ "jsonrpc": "2.0", "id": 9, "error": { "code": -32000, "message": "internal error", "data": { "error": "E_INTERNAL" } } }

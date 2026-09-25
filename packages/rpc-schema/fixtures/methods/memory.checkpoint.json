@@ -1,0 +1,2 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "reason": "manual" },
+  "result": { "agentId": "bernd", "reason": "manual", "digest": "digest-fixture", "written": true } }

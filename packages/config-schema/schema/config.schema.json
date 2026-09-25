@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.dev/schema/config/1/config.schema.json",
+  "title": "PLUR1BUS harness config.json (schemaVersion 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "$schema": { "type": "string", "x-restart": "live" },
+    "schemaVersion": { "const": 1, "x-restart": "core" },
+    "core": {
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "logLevel": { "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live" },
+        "recall": {
+          "type": "object", "additionalProperties": false, "default": {},
+          "properties": {
+            "softBudgetMs": { "type": "integer", "minimum": 50, "default": 400, "x-restart": "live" },
+            "hardBudgetMs": { "type": "integer", "minimum": 100, "default": 600, "x-restart": "live" },
+            "capChars": { "type": "integer", "minimum": 1000, "default": 17000, "x-restart": "live" }
+          }
+        },
+        "capture": {
+          "type": "object", "additionalProperties": false, "default": {},
+          "properties": { "waitMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live" } }
+        },
+        "shutdownBudgetMs": { "type": "integer", "minimum": 1000, "default": 30000, "x-restart": "live" }
+      }
+    },
+    "supervisor": {
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "graceMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live" },
+        "healthIntervalMs": { "type": "integer", "minimum": 1000, "default": 5000, "x-restart": "live" }
+      }
+    },
+    "logs": {
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "maxBytes": { "type": "integer", "minimum": 1048576, "default": 20971520, "x-restart": "live" },
+        "keep": { "type": "integer", "minimum": 1, "default": 5, "x-restart": "live" }
+      }
+    },
+    "agents": {
+      "type": "object", "default": {}, "x-restart": "live",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "properties": { "createdAt": { "type": "string", "format": "date-time" }, "displayName": { "type": "string", "maxLength": 128 } }
+      }
+    },
+    "embedding": {
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "useClass": { "enum": ["general", "research", "commercial"], "default": "general", "x-restart": "core" },
+        "acceptedNcLicence": { "type": "boolean", "default": false, "x-restart": "core" },
+        "acceptedNcLicenceAt": { "type": "string", "format": "date-time", "x-restart": "core" }
+      }
+    },
+    "engine": {
+      "description": "Pass-through to the engine's EngineConfig (54 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
+      "type": "object", "default": {}, "x-restart": "core",
+      "properties": {
+        "baseDbPathOverride": { "type": "string", "x-restart": "core", "description": "Testing/advanced only; default <home>/state/lancedb" }
+      },
+      "additionalProperties": true
+    },
+    "providers": { "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D15)", "additionalProperties": true },
+    "oauth":     { "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D16)", "additionalProperties": true },
+    "decision":  { "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D18)", "additionalProperties": true },
+    "modelRoles": {
+      "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D15, D18)",
+      "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision"] },
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

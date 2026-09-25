@@ -1,0 +1,5 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "sessionKey": "s2",
+              "query": "when is the roadmap review", "budget": { "softMs": 400, "hardMs": 600, "capChars": 17000 }, "joined": true },
+  "result": { "blocks": [{ "name": "memories", "text": "- The roadmap review is on Thursday.", "droppable": true, "chars": 36 }],
+              "capChars": 17000, "degraded": null, "timing": { "totalMs": 212, "phases": { "rerank": 40 } }, "deferrals": [],
+              "joined": { "text": "- The roadmap review is on Thursday.", "deferrals": [] } } }

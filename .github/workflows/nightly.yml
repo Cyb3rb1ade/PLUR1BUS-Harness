@@ -1,0 +1,61 @@
+name: nightly
+# M1 acceptance 1 with real models: the system test with the real e5-small embedder and the bge-reranker
+# (PLUR1BUS_REAL_MODELS=1 asserts the reranker ran and did not fall back), plus the benchmark gates. The
+# ~600 MB of models live in the core's <home>/models; the test links each temp home's models/ to
+# PLUR1BUS_MODELS_CACHE, which is restored before and saved after the run (even a failed one).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  system-real-models:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_MODELS_CACHE: ${{ github.workspace }}/.models-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@v2
+      # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
+      # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
+      # job that installs; never echoes the rewritten URL.
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - name: restore model cache
+        id: models
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.models-cache
+          key: models-${{ runner.os }}-intfloat-multilingual-e5-small-woxpas-ai-bge-reranker-v2-m3-onnx-v1
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      - name: system test (real models)
+        run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_REAL_MODELS: "1" }
+      - run: pnpm bench
+      - name: save model cache
+        if: ${{ always() && steps.models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/.models-cache
+          key: ${{ steps.models.outputs.cache-primary-key }}

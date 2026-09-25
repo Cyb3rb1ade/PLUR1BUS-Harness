@@ -1,0 +1,34 @@
+{
+  "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+  "schemaVersion": 1,
+  "core": {
+    "logLevel": "info",
+    "recall": {
+      "softBudgetMs": 400,
+      "hardBudgetMs": 600,
+      "capChars": 17000
+    },
+    "capture": {
+      "waitMs": 60000
+    },
+    "shutdownBudgetMs": 30000
+  },
+  "supervisor": {
+    "graceMs": 60000,
+    "healthIntervalMs": 5000
+  },
+  "logs": {
+    "maxBytes": 20971520,
+    "keep": 5
+  },
+  "agents": {},
+  "embedding": {
+    "useClass": "general",
+    "acceptedNcLicence": false
+  },
+  "engine": {},
+  "providers": {},
+  "oauth": {},
+  "decision": {},
+  "modelRoles": {}
+}

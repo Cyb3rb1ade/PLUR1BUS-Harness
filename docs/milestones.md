@@ -79,6 +79,8 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Exit:** demo guide (two-session recall, kill-the-engine, `dreams run deep`), test report incl. B1–B10 baseline, CI matrix skeleton green on five targets with the three named degradations, open-points list, CHANGELOG, `docs/embedding-identity.md`.
 
+**Status — M1b-2a-H1 (harness foundation) — done 2026-09-25:** acceptance 1 (two-session recall via the CLI with a core SIGKILL and journal replay, `tests/system/two-session-recall.test.ts`; rerank asserted in the nightly real-model run, `.github/workflows/nightly.yml`), spec criteria 6, 7, 8 (B1 `--help` p95 < 100 ms and B11 `core.status` p95 < 5 ms as gates in `pnpm bench`, B8 advisory; B9 in `packages/core/test/b9-no-syscalls.test.ts`), 10 (docs half); H2 carries 2, 3, 4, 5, 9, 11, 12.
+
 ### M2 — Models, providers, auth, caching, budgets
 
 **Goal.** Three chat wire formats, remote embedding/rerank, a data-driven auth engine that ships no `prohibited` profile, and a cache-stable prompt layout that is CI-enforced.

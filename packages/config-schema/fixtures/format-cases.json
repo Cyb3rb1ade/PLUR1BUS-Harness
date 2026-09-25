@@ -1,0 +1,1298 @@
+[
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T00:00:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T00:00:00.123+02:00\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T00:00:00.123+02:00"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24t10:20:30z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24t10:20:30z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24 10:20:30Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24 10:20:30Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30+0200\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30+0200"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30+02\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30+02"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30.123456789012345-05:30\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30.123456789012345-05:30"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"yesterday\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "yesterday"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": ""
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-9-24T10:20:30Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-9-24T10:20:30Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2024-02-29T00:00:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2024-02-29T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-02-29T00:00:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-02-29T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-04-31T00:00:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-04-31T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-13-01T00:00:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-13-01T00:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T24:00:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T24:00:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:60:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:60:00Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30+24:00\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30+24:00"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30+02:60\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30+02:60"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30.Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30.Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24T10:20:30Zjunk\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24T10:20:30Zjunk"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-09-24TT10:20:30Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-09-24TT10:20:30Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-12-31T23:59:60Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-12-31T23:59:60Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-12-31T12:59:60Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-12-31T12:59:60Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-12-31T23:59:60+01:00\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-12-31T23:59:60+01:00"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2027-01-01T00:59:60+01:00\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2027-01-01T00:59:60+01:00"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "agents.bernd.createdAt = \"2026-12-31T23:59:61Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {
+        "bernd": {
+          "createdAt": "2026-12-31T23:59:61Z"
+        }
+      },
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  },
+  {
+    "name": "embedding.acceptedNcLicenceAt = \"2026-09-24T00:00:00Z\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false,
+        "acceptedNcLicenceAt": "2026-09-24T00:00:00Z"
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "embedding.acceptedNcLicenceAt = \"yesterday\"",
+    "config": {
+      "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
+      "schemaVersion": 1,
+      "core": {
+        "logLevel": "info",
+        "recall": {
+          "softBudgetMs": 400,
+          "hardBudgetMs": 600,
+          "capChars": 17000
+        },
+        "capture": {
+          "waitMs": 60000
+        },
+        "shutdownBudgetMs": 30000
+      },
+      "supervisor": {
+        "graceMs": 60000,
+        "healthIntervalMs": 5000
+      },
+      "logs": {
+        "maxBytes": 20971520,
+        "keep": 5
+      },
+      "agents": {},
+      "embedding": {
+        "useClass": "general",
+        "acceptedNcLicence": false,
+        "acceptedNcLicenceAt": "yesterday"
+      },
+      "engine": {},
+      "providers": {},
+      "oauth": {},
+      "decision": {},
+      "modelRoles": {}
+    },
+    "valid": false
+  }
+]

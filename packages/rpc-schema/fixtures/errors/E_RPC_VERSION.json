@@ -1,0 +1,1 @@
+{ "jsonrpc": "2.0", "id": 2, "error": { "code": -32000, "message": "rpc version mismatch", "data": { "error": "E_RPC_VERSION", "reason": "major-mismatch", "detail": "client 2.0.0, server 1.0.0" } } }
