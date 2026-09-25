@@ -35,6 +35,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
   const handlers = new Set<(method: string, params: unknown) => void>();
   const dec = new LineDecoder();
   let nextId = 1; let closed = false;
+  let lastSocketError: { code: string | undefined; message: string } | undefined;
 
   const failAll = (e: Error) => { for (const p of pending.values()) { clearTimeout(p.timer); p.reject(e); } pending.clear(); };
   sock.on("data", (chunk) => {
@@ -48,8 +49,8 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
       else p.resolve(m.result);
     }
   });
-  sock.on("close", () => { closed = true; failAll(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed")); });
-  sock.on("error", () => { /* surfaced through close */ });
+  sock.on("close", () => { closed = true; failAll(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed", lastSocketError ? `${lastSocketError.code || "error"}: ${lastSocketError.message}` : undefined)); });
+  sock.on("error", (e) => { const err = e as NodeJS.ErrnoException; lastSocketError = { code: err.code, message: err.message }; });
 
   function call<T = unknown>(method: string, params: object = {}): Promise<T> {
     if (closed) return Promise.reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed"));
@@ -61,9 +62,15 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
     });
   }
 
-  const hello = await call<Hello>("core.auth", { token: opts.token });
-  const major = Number(hello.rpc.split(".")[0]);
-  if (major !== SUPPORTED_RPC_MAJOR) { sock.destroy(); throw new RpcCallError(-32000, "E_RPC_VERSION", `server rpc ${hello.rpc}, client supports ${SUPPORTED_RPC_MAJOR}.x`, "major-mismatch"); }
+  let hello: Hello;
+  try {
+    hello = await call<Hello>("core.auth", { token: opts.token });
+    const major = Number(hello.rpc.split(".")[0]);
+    if (major !== SUPPORTED_RPC_MAJOR) { sock.destroy(); throw new RpcCallError(-32000, "E_RPC_VERSION", `server rpc ${hello.rpc}, client supports ${SUPPORTED_RPC_MAJOR}.x`, "major-mismatch"); }
+  } catch (e) {
+    sock.destroy();
+    throw e;
+  }
 
   return {
     hello,

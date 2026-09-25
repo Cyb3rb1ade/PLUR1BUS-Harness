@@ -25,7 +25,6 @@ export class LineDecoder {
       start = nl + 1;
       if (line.length === 0) continue;
       // Advance buffer before parse to ensure bad lines are discarded even if parse throws
-      const oldBuf = this.#buf;
       this.#buf = this.#buf.subarray(start);
       try {
         out.push(JSON.parse(line.toString("utf8")));

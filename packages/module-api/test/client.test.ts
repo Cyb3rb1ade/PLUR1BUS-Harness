@@ -13,8 +13,10 @@ function address(): string {
 }
 
 /** Minimal fake core: auth, echo, one notification, slow method. */
-function fakeCore(addr: string) {
+function fakeCore(addr: string): Promise<any> {
+  let liveConnections = 0;
   const server = createServer((sock: Socket) => {
+    liveConnections++;
     const dec = new LineDecoder(); let authed = false;
     sock.on("data", (chunk) => {
       for (const msg of dec.push(chunk) as any[]) {
@@ -28,13 +30,14 @@ function fakeCore(addr: string) {
         fail(-32601, "E_INTERNAL", "method-not-found");
       }
     });
+    sock.on("close", () => { liveConnections--; });
   });
-  return new Promise<typeof server>((res) => server.listen(addr, () => res(server)));
+  return new Promise<any>((res) => server.listen(addr, () => res(Object.assign(server, { getLiveConnections: () => liveConnections }))));
 }
 
 describe("client", () => {
   const addr = address();
-  let server: Awaited<ReturnType<typeof fakeCore>>;
+  let server: any;
   after(() => server?.close());
 
   it("authenticates on connect and exposes hello", async () => {
@@ -69,5 +72,15 @@ describe("client", () => {
     const t0 = performance.now();
     await assert.rejects(connect({ address: address(), token: TOKEN, connectTimeoutMs: 300 }), (e: any) => e instanceof RpcCallError && e.error === "E_CORE_UNAVAILABLE");
     assert.ok(performance.now() - t0 < 300, "fails before the timeout on ENOENT");
+  });
+
+  it("cleans up the socket when auth handshake rejects", async () => {
+    // Allow any pending close events from previous tests to settle
+    await new Promise((r) => setTimeout(r, 50));
+    const liveAtStart = (server as any).getLiveConnections();
+    await assert.rejects(connect({ address: addr, token: "b".repeat(64) }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
+    await new Promise((r) => setTimeout(r, 200));
+    const liveAtEnd = (server as any).getLiveConnections();
+    assert.strictEqual(liveAtEnd, liveAtStart, "socket was not cleaned up after failed auth");
   });
 });
