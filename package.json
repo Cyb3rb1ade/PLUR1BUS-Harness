@@ -11,7 +11,7 @@
     "test": "pnpm -r --workspace-concurrency=1 test",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "lint": "pnpm typecheck && node scripts/lint-hygiene.mjs",
-    "docs": "node scripts/gen-docs.mjs",
+    "docs": "node scripts/gen-engine-keys.mjs",
     "docs:check": "node scripts/gen-docs.mjs --check",
     "bench": "node scripts/bench.mjs"
   },
