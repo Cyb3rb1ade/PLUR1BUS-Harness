@@ -109,6 +109,7 @@ pub enum MemoryCmd {
     Add {
         #[arg(long)]
         agent: String,
+        /// session key; used for capture context only until the session store lands (M1b-2c)
         #[arg(long)]
         session: Option<String>,
         text: Vec<String>,
@@ -116,6 +117,7 @@ pub enum MemoryCmd {
     Recall {
         #[arg(long)]
         agent: String,
+        /// session key; used for capture context only until the session store lands (M1b-2c)
         #[arg(long)]
         session: Option<String>,
         #[arg(long)]

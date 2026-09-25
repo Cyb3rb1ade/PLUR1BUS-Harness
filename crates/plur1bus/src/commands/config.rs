@@ -71,8 +71,20 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
             });
             let describe = || {
                 let mut s = format!("changes: {}\n", plan.changed.join(", "));
-                if !plan.restart.live.is_empty() {
-                    s.push_str(&format!("applies live: {}\n", plan.restart.live.join(", ")));
+                for k in &plan.restart.live {
+                    // H1 has no supervisor: nothing actually re-reads config.json live except
+                    // the agents registry (which the running core polls for change), so this
+                    // must not claim "applies live" for the rest of the live-restart class —
+                    // that arrives with the supervisor in H2.
+                    if k.starts_with("agents.") {
+                        s.push_str(&format!(
+                            "{k}: applied immediately (agents registry reloads on change)\n"
+                        ));
+                    } else {
+                        s.push_str(&format!(
+                            "{k}: live key — H1: re-read at the next core start; live apply arrives with the supervisor (H2)\n"
+                        ));
+                    }
                 }
                 if plan.restart.core {
                     s.push_str(

@@ -208,7 +208,7 @@ Memory: add and recall through the core
 ###### **Options:**
 
 * `--agent <AGENT>`
-* `--session <SESSION>`
+* `--session <SESSION>` — session key; used for capture context only until the session store lands (M1b-2c)
 
 
 
@@ -223,7 +223,7 @@ Memory: add and recall through the core
 ###### **Options:**
 
 * `--agent <AGENT>`
-* `--session <SESSION>`
+* `--session <SESSION>` — session key; used for capture context only until the session store lands (M1b-2c)
 * `--joined`
 
 

@@ -248,6 +248,47 @@ fn config_get_set_dry_run_and_rejection() {
 }
 
 #[test]
+fn config_set_wording_does_not_overclaim_live_apply_in_h1() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    // A plain live-class key: H1 has no supervisor, so nothing re-reads it live — the human
+    // output must say so honestly, not "applies live".
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--dry-run",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "live key — H1: re-read at the next core start; live apply arrives with the supervisor (H2)",
+        ))
+        .stdout(predicate::str::contains("applies live").not());
+    // An agents.* key: the running core's agent registry does reload on change, so this one
+    // really does apply immediately.
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "agents.bernd.displayName",
+            "Bernd",
+            "--dry-run",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "applied immediately (agents registry reloads on change)",
+        ));
+}
+
+#[test]
 fn rejects_a_wrong_typed_value_and_leaves_the_file_unchanged() {
     let dir = tempfile::tempdir().unwrap();
     let h = dir.path().to_str().unwrap();
@@ -294,6 +335,19 @@ fn config_schema_prints_the_schema() {
         v["properties"]["core"]["properties"]["logLevel"]["x-restart"],
         "live"
     );
+}
+
+#[test]
+fn memory_session_flag_help_says_it_is_capture_context_only_until_m1b_2c() {
+    for sub in ["add", "recall"] {
+        bin()
+            .args(["memory", sub, "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "session key; used for capture context only until the session store lands (M1b-2c)",
+            ));
+    }
 }
 
 #[test]

@@ -103,7 +103,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
         }
         MemoryCmd::Recall {
             agent,
-            session: _session,
+            session,
             joined,
             query,
         } => {
@@ -132,17 +132,18 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 eprintln!("! memory unavailable: core-unavailable ({detail})");
                 out.ok(&v, String::new);
             };
+            let params = build_recall_params(
+                &caller,
+                &agent,
+                session.as_deref(),
+                &q,
+                soft,
+                hard,
+                cap,
+                joined,
+            );
             match connect(layout, Duration::from_millis(hard + 400)) {
-                Ok(mut c) => match c.call(
-                    "memory.recall",
-                    json!({
-                        "caller": caller,
-                        "agentId": agent,
-                        "query": q,
-                        "budget": { "softMs": soft, "hardMs": hard, "capChars": cap },
-                        "joined": joined
-                    }),
-                ) {
+                Ok(mut c) => match c.call("memory.recall", params) {
                     Ok(v) => out.ok(&v, || render_recall(&v, joined)),
                     Err(e) if is_unavailable(&e) => unavailable(e.to_string()),
                     Err(e) => out.from_rpc_error(&e),
@@ -170,6 +171,35 @@ fn strip_nulls(mut v: Value) -> Value {
         m.retain(|_, x| !x.is_null());
     }
     v
+}
+
+/// Builds the `memory.recall` params. `sessionKey` is present only when `--session` was given —
+/// the schema allows it, and the core/engine ignore it until the session store lands (M1b-2c) —
+/// so this never sends a `null` for it (unlike `memory.capture`, which strips nulls after the
+/// fact; this builds the object without the key at all, which is equivalent and needs no
+/// `strip_nulls` pass).
+#[allow(clippy::too_many_arguments)]
+fn build_recall_params(
+    caller: &identity::CallerIdentity,
+    agent: &str,
+    session: Option<&str>,
+    query: &str,
+    soft_ms: u64,
+    hard_ms: u64,
+    cap_chars: u64,
+    joined: bool,
+) -> Value {
+    let mut params = json!({
+        "caller": caller,
+        "agentId": agent,
+        "query": query,
+        "budget": { "softMs": soft_ms, "hardMs": hard_ms, "capChars": cap_chars },
+        "joined": joined
+    });
+    if let Some(s) = session {
+        params["sessionKey"] = json!(s);
+    }
+    params
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -254,4 +284,37 @@ fn render_recall(v: &Value, joined: bool) -> String {
     }
     s.push_str(&format!("{} ms", v["timing"]["totalMs"]));
     s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn caller() -> identity::CallerIdentity {
+        identity::CallerIdentity {
+            channel: "cli",
+            account_id: "host".into(),
+            user_id: "user".into(),
+        }
+    }
+
+    #[test]
+    fn recall_params_forward_session_key_only_when_given() {
+        let c = caller();
+        let with_session =
+            build_recall_params(&c, "bernd", Some("s1"), "q", 400, 600, 17_000, false);
+        assert_eq!(with_session["sessionKey"], "s1");
+        assert_eq!(with_session["agentId"], "bernd");
+        assert_eq!(with_session["query"], "q");
+        assert_eq!(with_session["budget"]["softMs"], 400);
+        assert_eq!(with_session["budget"]["hardMs"], 600);
+        assert_eq!(with_session["budget"]["capChars"], 17_000);
+        assert_eq!(with_session["joined"], false);
+
+        let without_session = build_recall_params(&c, "bernd", None, "q", 400, 600, 17_000, false);
+        assert!(
+            without_session.get("sessionKey").is_none(),
+            "sessionKey must be absent, not null, when --session is not given"
+        );
+    }
 }
