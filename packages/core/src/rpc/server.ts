@@ -19,7 +19,7 @@ export interface RpcServer {
   subscriptions(): Subscription[];
 }
 
-interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null }
+interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
 
 export function createRpcServer(o: { address: string; token: string; hello: () => Hello; methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number }): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
@@ -28,7 +28,7 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
   let server: Server | null = null;
 
   function writeToSocket(c: Conn, buf: Buffer): void {
-    if (c.sock.destroyed) return;
+    if (c.sock.destroyed || c.sock.writableEnded) return;
     c.sock.write(buf);
     if (c.sock.writableLength > MAX_PENDING_BYTES) {
       o.logger.warn("client not reading, disconnecting", { connectionId: c.id, pending: c.sock.writableLength });
@@ -37,6 +37,14 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
   }
   const send = (c: Conn, msg: unknown) => writeToSocket(c, encodeLine(msg));
   const errorReply = (c: Conn, id: unknown, e: RpcError) => send(c, { jsonrpc: "2.0", id: id ?? null, error: e.toJSON() });
+  /** Send a final error, then close. destroy() right after write() drops the pending reply on Windows named pipes. */
+  function replyAndClose(c: Conn, id: unknown, e: RpcError): void {
+    if (c.closing) return;
+    errorReply(c, id, e);
+    c.closing = true;
+    c.sock.end();
+    setTimeout(() => c.sock.destroy(), 1000).unref();
+  }
 
   function tokenMatches(t: unknown): boolean {
     if (typeof t !== "string") return false;
@@ -52,8 +60,8 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
 
     if (method === "core.auth") {
       const v = validateParams(method, params);
-      if (!v.ok) { errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); c.sock.destroy(); return; }
-      if (!tokenMatches(params.token)) { errorReply(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); c.sock.destroy(); return; }
+      if (!v.ok) { replyAndClose(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); return; }
+      if (!tokenMatches(params.token)) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); return; }
       c.authed = true;
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
       return send(c, { jsonrpc: "2.0", id, result: o.hello() });
@@ -91,14 +99,15 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
   }
 
   function onConnection(sock: Socket) {
-    const c: Conn = { id: randomUUID(), sock, authed: false, dec: new LineDecoder(), inflight: new Map(), subs: new Map(), authTimer: null };
+    const c: Conn = { id: randomUUID(), sock, authed: false, dec: new LineDecoder(), inflight: new Map(), subs: new Map(), authTimer: null, closing: false };
     conns.set(c.id, c);
     c.authTimer = setTimeout(() => { if (!c.authed) { o.logger.debug("auth idle timeout", { connectionId: c.id }); sock.destroy(); } }, authIdleMs);
     sock.on("data", (chunk) => {
+      if (c.closing) return;
       let msgs: unknown[];
       try { msgs = c.dec.push(chunk); }
       catch (e) {
-        if (e instanceof LineTooLong) { errorReply(c, null, new RpcError("E_INVALID_PARAMS", e.message, { reason: "line-too-long" })); sock.destroy(); }
+        if (e instanceof LineTooLong) replyAndClose(c, null, new RpcError("E_INVALID_PARAMS", e.message, { reason: "line-too-long" }));
         else errorReply(c, null, new RpcError("E_INVALID_PARAMS", "parse error", { reason: "parse-error", jsonrpcCode: -32700 }));
         return;
       }
