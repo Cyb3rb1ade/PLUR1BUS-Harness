@@ -7,7 +7,7 @@
   "bin": { "plur1bus-core": "./dist/core.js" },
   "exports": { ".": "./dist/index.js" },
   "scripts": {
-    "build": "esbuild src/index.ts src/bin.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist --entry-names=[name] && node -e \"require('fs').renameSync('dist/bin.js','dist/core.js')\"",
+    "build": "esbuild src/index.ts src/bin.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist --entry-names=[name] && node -e \"require('fs').renameSync('dist/bin.js','dist/core.js')\" && node ../../scripts/copy-dir.mjs src/agent-templates dist/agent-templates",
     "test": "node ../../scripts/test-package.mjs"
   },
   "dependencies": {
