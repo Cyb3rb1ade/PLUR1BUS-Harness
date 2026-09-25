@@ -295,3 +295,128 @@ fn config_schema_prints_the_schema() {
         "live"
     );
 }
+
+#[test]
+fn memory_add_journals_when_the_core_is_absent_and_recall_degrades_fast() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    let t0 = std::time::Instant::now();
+    let out = bin()
+        .args([
+            "--json",
+            "--home",
+            h,
+            "memory",
+            "add",
+            "--agent",
+            "bernd",
+            "--session",
+            "s1",
+            "the",
+            "roadmap",
+            "review",
+            "is",
+            "on",
+            "Thursday",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert!(t0.elapsed() < std::time::Duration::from_secs(1));
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["journaled"], true);
+    assert_eq!(v["degraded"]["reason"], "core-unavailable");
+    let journal = std::fs::read_to_string(dir.path().join("state/journal/bernd.jsonl")).unwrap();
+    let line: serde_json::Value = serde_json::from_str(journal.trim()).unwrap();
+    assert_eq!(line["v"], 1);
+    assert_eq!(line["agentId"], "bernd");
+    assert_eq!(line["sessionKey"], "s1");
+    assert_eq!(line["caller"]["channel"], "cli");
+    assert_eq!(
+        line["messages"][0]["content"],
+        "the roadmap review is on Thursday"
+    );
+    let t1 = std::time::Instant::now();
+    let out = bin()
+        .args([
+            "--json", "--home", h, "memory", "recall", "--agent", "bernd", "when", "is", "it",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert!(t1.elapsed() < std::time::Duration::from_secs(1));
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["degraded"]["reason"], "core-unavailable");
+    assert_eq!(v["blocks"].as_array().unwrap().len(), 0);
+    bin()
+        .args(["--home", h, "memory", "recall", "--agent", "bernd", "x"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("core-unavailable"));
+}
+
+#[test]
+fn memory_add_for_an_unregistered_agent_fails_before_journaling() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "config", "get"])
+        .assert()
+        .success();
+    bin()
+        .args(["--home", h, "memory", "add", "--agent", "ghost", "x"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("not registered"));
+    assert!(!dir.path().join("state/journal/ghost.jsonl").exists());
+}
+
+#[test]
+fn journal_lines_validate_against_the_rpc_schema() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    bin()
+        .args(["--home", h, "memory", "add", "--agent", "bernd", "hello"])
+        .assert()
+        .success();
+    let schema: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../packages/rpc-schema/schema/rpc.schema.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let doc = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/JournalLine",
+        "$defs": schema["$defs"]
+    });
+    let validator = jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&doc)
+        .unwrap();
+    let line: serde_json::Value = serde_json::from_str(
+        std::fs::read_to_string(dir.path().join("state/journal/bernd.jsonl"))
+            .unwrap()
+            .trim(),
+    )
+    .unwrap();
+    let errs: Vec<String> = validator
+        .iter_errors(&line)
+        .map(|e| e.to_string())
+        .collect();
+    assert!(errs.is_empty(), "{errs:?}");
+}

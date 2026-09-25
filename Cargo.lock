@@ -785,6 +785,7 @@ dependencies = [
  "clap-markdown",
  "gethostname",
  "home",
+ "jsonschema",
  "plur1bus-config",
  "plur1bus-rpc",
  "predicates",
