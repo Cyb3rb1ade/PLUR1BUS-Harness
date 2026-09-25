@@ -7,6 +7,8 @@ import { METHODS, validateParams, validateRequest, validateResult } from "@plur1
 import type { HarnessLogger } from "../logger.ts";
 import { RpcError } from "./errors.ts";
 
+export const MAX_PENDING_BYTES = 16 * 1024 * 1024;
+
 export interface CallContext { requestId: string; connectionId: string; signal: AbortSignal }
 export type Handler = (params: any, ctx: CallContext) => Promise<unknown>;
 export interface Subscription { id: string; connectionId: string; names?: string[]; agentId?: string }
@@ -17,7 +19,7 @@ export interface RpcServer {
   subscriptions(): Subscription[];
 }
 
-interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription> }
+interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null }
 
 export function createRpcServer(o: { address: string; token: string; hello: () => Hello; methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number }): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
@@ -25,7 +27,15 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
   const conns = new Map<string, Conn>();
   let server: Server | null = null;
 
-  const send = (c: Conn, msg: unknown) => { if (!c.sock.destroyed) c.sock.write(encodeLine(msg)); };
+  function writeToSocket(c: Conn, buf: Buffer): void {
+    if (c.sock.destroyed) return;
+    c.sock.write(buf);
+    if (c.sock.writableLength > MAX_PENDING_BYTES) {
+      o.logger.warn("client not reading, disconnecting", { connectionId: c.id, pending: c.sock.writableLength });
+      c.sock.destroy();
+    }
+  }
+  const send = (c: Conn, msg: unknown) => writeToSocket(c, encodeLine(msg));
   const errorReply = (c: Conn, id: unknown, e: RpcError) => send(c, { jsonrpc: "2.0", id: id ?? null, error: e.toJSON() });
 
   function tokenMatches(t: unknown): boolean {
@@ -41,8 +51,12 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
     const log = o.logger.child({ requestId: String(id), connectionId: c.id, method });
 
     if (method === "core.auth") {
+      const v = validateParams(method, params);
+      if (!v.ok) { errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); c.sock.destroy(); return; }
       if (!tokenMatches(params.token)) { errorReply(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); c.sock.destroy(); return; }
-      c.authed = true; return send(c, { jsonrpc: "2.0", id, result: o.hello() });
+      c.authed = true;
+      if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
+      return send(c, { jsonrpc: "2.0", id, result: o.hello() });
     }
     if (!c.authed) return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "authenticate first", { reason: "auth-required" }));
 
@@ -77,9 +91,9 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
   }
 
   function onConnection(sock: Socket) {
-    const c: Conn = { id: randomUUID(), sock, authed: false, dec: new LineDecoder(), inflight: new Map(), subs: new Map() };
+    const c: Conn = { id: randomUUID(), sock, authed: false, dec: new LineDecoder(), inflight: new Map(), subs: new Map(), authTimer: null };
     conns.set(c.id, c);
-    const authTimer = setTimeout(() => { if (!c.authed) { o.logger.debug("auth idle timeout", { connectionId: c.id }); sock.destroy(); } }, authIdleMs);
+    c.authTimer = setTimeout(() => { if (!c.authed) { o.logger.debug("auth idle timeout", { connectionId: c.id }); sock.destroy(); } }, authIdleMs);
     sock.on("data", (chunk) => {
       let msgs: unknown[];
       try { msgs = c.dec.push(chunk); }
@@ -90,7 +104,7 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       }
       for (const m of msgs) void dispatch(c, m);
     });
-    sock.on("close", () => { clearTimeout(authTimer); for (const ac of c.inflight.values()) ac.abort(new Error("connection closed")); conns.delete(c.id); });
+    sock.on("close", () => { if (c.authTimer) clearTimeout(c.authTimer); for (const ac of c.inflight.values()) ac.abort(new Error("connection closed")); conns.delete(c.id); });
     sock.on("error", (e) => o.logger.debug("socket error", { connectionId: c.id, err: e }));
   }
 
@@ -121,7 +135,7 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
         if (sub.names && !sub.names.includes(method)) continue;
         if (sub.agentId && (params as any).agentId !== sub.agentId) continue;
         if (filter && !filter(sub)) continue;
-        if (!c.sock.destroyed) c.sock.write(line); break; // one delivery per connection
+        writeToSocket(c, line); break; // one delivery per connection
       }
     },
     subscriptions: () => [...conns.values()].flatMap((c) => [...c.subs.values()]),
