@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 target/
 packages/*/generated/
+
+# Local agent worktrees (Claude Code)
+.claude/worktrees/
