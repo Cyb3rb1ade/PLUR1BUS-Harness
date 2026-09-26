@@ -5,7 +5,7 @@ import { RPC_VERSION, type CoreStatusResult, type ProcessState } from "@plur1bus
 import { ActivityTracker } from "./activity.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { loadConfig } from "./config-load.ts";
-import { bindEngine } from "./engine.ts";
+import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig } from "./engine-config.ts";
 import { createHarnessHost } from "./host.ts";
 import { drainJournal } from "./journal.ts";
@@ -72,6 +72,7 @@ export function createCore(o: CoreOptions): Core {
       };
       const host = createHarnessHost({ layout: l, logger, config, engineConfig, agents: registry, events, clock });
       const eng = bindEngine(host, engineConfig, o.testInternals); engine = eng;
+      assertEngineContract(eng);
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
       const methods = buildMethods({

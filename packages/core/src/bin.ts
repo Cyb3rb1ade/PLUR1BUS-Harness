@@ -41,6 +41,7 @@ try {
   console.log(JSON.stringify({ ready: true, address: core.address, pid: process.pid }));
 } catch (e) {
   if (e instanceof RpcError && e.error === "E_LOCKED") { console.error(`core: ${e.message} (${e.detail ?? ""})`); process.exit(3); }
+  if (e instanceof RpcError && e.error === "E_RPC_VERSION") { console.error(`core: ${e.message}`); process.exit(4); }
   if (e instanceof ConfigInvalid) { console.error(`core: config invalid: ${e.errors.join("; ")}`); process.exit(2); }
   console.error("core: start failed", e); process.exit(1);
 }
