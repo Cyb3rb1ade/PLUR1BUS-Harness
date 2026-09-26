@@ -7,7 +7,7 @@ export const BIN = resolve(process.env.PLUR1BUS_BIN ?? "target/release/plur1bus"
 export const CORE_JS = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
 /** PLUR1BUS_REAL_MODELS=1: real embedder + reranker (downloads the models); otherwise the R17 flat-embedder seam. */
 export const REAL = process.env.PLUR1BUS_REAL_MODELS === "1";
-/** The flat seam's variant: `flat-embedder` (default) or `flat-embedder-cold` (PLUR1BUS_SYSTEM_INTERNALS; the first 3
+/** The flat seam's variant: `flat-embedder` (default) or `flat-embedder-cold` (PLUR1BUS_SYSTEM_INTERNALS; the first 2
  *  query embeddings of each core process take 350 ms, so a recall that does not wait for the warm-up overruns). */
 export const FLAT_INTERNALS = process.env.PLUR1BUS_SYSTEM_INTERNALS ?? "flat-embedder";
 /** Shared memory needs the engine's stable directory capabilities (fd-backed aliases via /proc/self/fd): Linux only at

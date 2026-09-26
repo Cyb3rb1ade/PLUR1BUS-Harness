@@ -19,10 +19,10 @@ if (values["test-internals"]) {
   const variant = values["test-internals"];
   if (variant === "flat-embedder" || variant === "flat-embedder-cold") {
     const vector = () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)); const one = async () => vector();
-    // flat-embedder-cold (H3-R22): the first 3 embedQuery calls of this process take 350 ms each, one after the other
-    // (a cold model serves one inference at a time) — enough that a recall issued before the warm-up finished queues
+    // flat-embedder-cold (H3-R22): the first 2 embedQuery calls of this process (the warm-up probe and its
+    // memory.list) take 350 ms each, one after the other (a cold model serves one inference at a time) — enough that a recall issued before the warm-up finished queues
     // behind the warm-up's probe and overruns the core's 600 ms hard budget.
-    let coldCalls = variant === "flat-embedder-cold" ? 3 : 0; let coldChain: Promise<void> = Promise.resolve();
+    let coldCalls = variant === "flat-embedder-cold" ? 2 : 0; let coldChain: Promise<void> = Promise.resolve();
     const query = async () => {
       if (coldCalls > 0) { coldCalls--; const mine = coldChain.then(() => new Promise<void>((r) => setTimeout(r, 350))); coldChain = mine; await mine; }
       return vector();
