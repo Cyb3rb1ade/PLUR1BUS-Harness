@@ -891,19 +891,22 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
           "type": [
             "integer",
             "null"
-          ]
+          ],
+          "minimum": 0
         },
         "workspace": {
           "type": [
             "integer",
             "null"
-          ]
+          ],
+          "minimum": 0
         },
         "user": {
           "type": [
             "integer",
             "null"
-          ]
+          ],
+          "minimum": 0
         }
       }
     },
@@ -911,7 +914,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
       "type": [
         "integer",
         "null"
-      ]
+      ],
+      "minimum": 0
     },
     "archiveDir": {
       "type": "string"
@@ -1046,7 +1050,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
       "type": "boolean"
     },
     "unreadable": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
     },
     "degraded": {
       "$ref": "#/$defs/Degraded"

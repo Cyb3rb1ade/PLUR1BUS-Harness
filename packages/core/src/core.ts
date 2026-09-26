@@ -88,6 +88,7 @@ export function createCore(o: CoreOptions): Core {
 
       const methods = buildMethods({
         engine: eng, config, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
+        isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
         shutdown: (budgetMs) => {
           setImmediate(() => { if (o.onShutdownRequested) o.onShutdownRequested(budgetMs); else void stop(budgetMs !== undefined ? { budgetMs } : {}); });

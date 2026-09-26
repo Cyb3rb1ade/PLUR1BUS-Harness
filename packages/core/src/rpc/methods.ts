@@ -8,6 +8,7 @@ import type { ActivityTracker } from "../activity.ts";
 import type { AgentRegistry } from "../agents.ts";
 import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
+import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
@@ -17,12 +18,8 @@ export interface MethodDeps {
   status: () => CoreStatusResult; shutdown: (budgetMs?: number) => void; journalBacklog: () => number; clock: () => number;
   /** R19: the core-owned shutdown signal, the only abort a capture observes. */
   captureSignal: AbortSignal;
-}
-
-function requireAgent(agents: AgentRegistry, agentId: string): string {
-  const ws = agents.workspaceOf(agentId);
-  if (!ws) throw new RpcError("E_AGENT_UNKNOWN", `agent not registered: ${agentId}`, { reason: "not-registered" });
-  return ws;
+  /** G17: true once the core is stopping or stopped; memory ops are refused from then on. */
+  isStopping: () => boolean;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -45,8 +42,6 @@ function serializeRecall(r: RecallResult, joined: boolean, capChars: number): Me
 }
 
 const projectCheckpoint = (c: CheckpointResult): MemoryCheckpointResult => ({ agentId: c.agentId, reason: c.reason, digest: c.digest, written: c.written });
-
-const notAvailable: Handler = async () => { throw new RpcError("E_NOT_AVAILABLE", "memory operations arrive with engine PR E1 (MemoryOps)", { reason: "engine-pr-E1" }); };
 
 export function buildMethods(d: MethodDeps): Record<string, Handler> {
   const openAgents = new Map<string, { close(): Promise<void> }>(); // one map per core
@@ -111,8 +106,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       try { return projectCheckpoint(await d.engine.checkpoint(p.agentId, p.reason)); } finally { d.activity.idle(p.agentId); }
     },
 
-    "memory.list": notAvailable, "memory.show": notAvailable, "memory.forget": notAvailable, "memory.correct": notAvailable, "memory.share": notAvailable, "memory.state": notAvailable,
-    "memory.propose": notAvailable, "memory.proposals.list": notAvailable, "memory.proposals.accept": notAvailable, "memory.proposals.reject": notAvailable,
+    ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {

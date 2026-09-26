@@ -108,17 +108,6 @@ describe("core", () => {
     assert.equal(control.degraded?.reason, "principal-invalid");
   });
 
-  it("memory ops answer E_NOT_AVAILABLE engine-pr-E1", async () => {
-    const extra: Record<string, object> = {
-      "memory.list": { since: 0 }, "memory.show": { id: "m-1" }, "memory.forget": { id: "m-1" }, "memory.correct": { id: "m-1", text: "fixed" },
-      "memory.share": { id: "m-1", target: "workspace" }, "memory.state": {}, "memory.propose": { sharedId: "m-copy", text: "fixed" },
-      "memory.proposals.list": {}, "memory.proposals.accept": { proposalId: "p-1" }, "memory.proposals.reject": { proposalId: "p-1" },
-    };
-    for (const [m, params] of Object.entries(extra)) {
-      await assert.rejects(c.call(m, { caller, agentId: "bernd", ...params }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-pr-E1", m);
-    }
-  });
-
   it("jobs.list has 18 jobs; jobs.run of a skipped job returns a JobRun; history lists it", async () => {
     const { jobs } = await c.call<any>("jobs.list"); assert.equal(jobs.length, 18);
     const run = await c.call<any>("jobs.run", { agentId: "bernd", job: "gc-run" });

@@ -246,7 +246,7 @@
       "memory.state": {
         "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "cards", "tombstones", "archiveDir"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "cards": { "type": "object", "additionalProperties": false, "required": ["agentPrivate", "workspace", "user"], "properties": { "agentPrivate": { "type": ["integer", "null"] }, "workspace": { "type": ["integer", "null"] }, "user": { "type": ["integer", "null"] } } }, "tombstones": { "type": ["integer", "null"] }, "archiveDir": { "type": "string" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "cards", "tombstones", "archiveDir"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "cards": { "type": "object", "additionalProperties": false, "required": ["agentPrivate", "workspace", "user"], "properties": { "agentPrivate": { "type": ["integer", "null"], "minimum": 0 }, "workspace": { "type": ["integer", "null"], "minimum": 0 }, "user": { "type": ["integer", "null"], "minimum": 0 } } }, "tombstones": { "type": ["integer", "null"], "minimum": 0 }, "archiveDir": { "type": "string" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
       },
       "memory.propose": {
         "x-stability": "experimental", "x-since": "1.1.0",
@@ -256,7 +256,7 @@
       "memory.proposals.list": {
         "x-stability": "experimental", "x-since": "1.1.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated", "unreadable"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "items": { "type": "array", "items": { "$ref": "#/$defs/MemoryProposal" } }, "truncated": { "type": "boolean" }, "unreadable": { "type": "integer" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated", "unreadable"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "items": { "type": "array", "items": { "$ref": "#/$defs/MemoryProposal" } }, "truncated": { "type": "boolean" }, "unreadable": { "type": "integer", "minimum": 0 }, "degraded": { "$ref": "#/$defs/Degraded" } } }
       },
       "memory.proposals.accept": {
         "x-stability": "experimental", "x-since": "1.1.0",
