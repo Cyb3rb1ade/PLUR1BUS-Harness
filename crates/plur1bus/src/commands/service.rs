@@ -24,29 +24,41 @@ fn runner(out: &Out) -> Box<dyn Runner> {
     }
 }
 
-/// `KEY=VALUE` pairs from the hidden `--env`.
+/// `KEY=VALUE` pairs from the hidden `--env`. The key must be a portable variable name (`[A-Za-z_][A-Za-z0-9_]*`),
+/// the value must not contain NUL; anything else is a usage error (exit 2).
 fn parse_env(out: &Out, raw: &[String]) -> Vec<(String, String)> {
     raw.iter()
         .map(|kv| match kv.split_once('=') {
-            Some((k, v)) if !k.is_empty() && !k.contains(['\0', '\n']) && !v.contains('\0') => {
-                (k.to_string(), v.to_string())
-            }
+            Some((k, v)) if valid_env_key(k) && !v.contains('\0') => (k.to_string(), v.to_string()),
             _ => out.fail(
                 "E_INVALID_PARAMS",
-                &format!("--env expects KEY=VALUE, got {kv:?}"),
+                &format!(
+                    "--env expects KEY=VALUE with KEY matching [A-Za-z_][A-Za-z0-9_]*, got {kv:?}"
+                ),
                 json!({ "reason": "env-malformed" }),
-                1,
+                2,
             ),
         })
         .collect()
 }
 
+fn valid_env_key(k: &str) -> bool {
+    let mut chars = k.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 fn fail_service(out: &Out, e: &ServiceError) -> ! {
-    let reason = match e {
-        ServiceError::Io { .. } => "unit-file",
-        ServiceError::Spawn { .. } | ServiceError::Command { .. } => "service-manager",
+    let (code, reason) = match e {
+        ServiceError::PathNotUtf8 { .. } => ("E_INVALID_PARAMS", "path-not-utf8"),
+        ServiceError::Io { .. } => ("E_INTERNAL", "unit-file"),
+        ServiceError::Spawn { .. }
+        | ServiceError::Command { .. }
+        | ServiceError::StillLoaded { .. } => ("E_INTERNAL", "service-manager"),
     };
-    out.fail("E_INTERNAL", &e.to_string(), json!({ "reason": reason }), 1)
+    out.fail(code, &e.to_string(), json!({ "reason": reason }), 1)
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: ServiceCmd) {
@@ -72,7 +84,18 @@ pub fn run(out: &Out, layout: &Layout, cmd: ServiceCmd) {
                 )
             });
             let name = service::service_name(layout, &paths::default_home());
-            let unit = service::render(manager, &bin, layout, &name, &env);
+            let unit = service::render(manager, &bin, layout, &name, &env)
+                .unwrap_or_else(|e| fail_service(out, &e));
+            // launchd opens StandardErrorPath there before `supervise` creates the directory itself.
+            if let Err(err) = std::fs::create_dir_all(layout.logs()) {
+                fail_service(
+                    out,
+                    &ServiceError::Io {
+                        path: layout.logs(),
+                        err,
+                    },
+                );
+            }
             let start = !no_start;
             if let Err(e) = service::install(r.as_ref(), &unit, start) {
                 fail_service(out, &e);

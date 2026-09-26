@@ -17,16 +17,15 @@ pub fn current_user() -> String {
 /// The task definition. `RestartOnFailure` (every minute, 999 times) restarts a supervisor whose run failed;
 /// `LeastPrivilege` + `InteractiveToken` runs it as the logged-in user without elevation; `ExecutionTimeLimit PT0S`
 /// lets it run forever; `MultipleInstancesPolicy IgnoreNew` keeps a manual `/Run` from starting a second one.
-pub fn render(bin: &Path, home: &Path, user: &str) -> String {
+pub fn render(bin: &str, home: &str, user: &str) -> String {
     let user = xml_escape(user);
-    let bin = bin.to_string_lossy();
     // Command is the program path; quote it when it has spaces, as the Task Scheduler UI does.
     let command = if bin.contains(' ') {
         format!("\"{bin}\"")
     } else {
         bin.to_string()
     };
-    let arguments = format!("--home {} supervise", quote_arg(&home.to_string_lossy()));
+    let arguments = format!("--home {} supervise", quote_arg(home));
     format!(
         r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -126,6 +125,8 @@ pub fn install(r: &dyn Runner, name: &str, xml: &Path, start: bool) -> Result<()
     ];
     exec_ok(r, "schtasks", &args)?;
     if start {
+        // /End a running instance first so a re-install runs the new definition (it fails when nothing runs).
+        exec(r, "schtasks", &os_args(&["/End", "/TN", name]))?;
         exec_ok(r, "schtasks", &os_args(&["/Run", "/TN", name]))?;
     }
     Ok(())
@@ -208,8 +209,8 @@ mod tests {
     #[test]
     fn task_xml_restarts_on_failure_at_logon_without_admin() {
         let xml = render(
-            Path::new(r"C:\p1b\plur1bus.exe"),
-            Path::new(r"C:\Users\c\AppData\Local\PLUR1BUS"),
+            r"C:\p1b\plur1bus.exe",
+            r"C:\Users\c\AppData\Local\PLUR1BUS",
             r"HOST\c",
         );
         let decoded = decode(&utf16le_with_bom(&xml));
@@ -246,8 +247,8 @@ mod tests {
     fn renders_a_home_with_spaces_and_umlauts() {
         let home = r"C:\Users\Max Mustermann & Co\AppData\Local\PLUR1BUS ü";
         let xml = render(
-            Path::new(r"C:\Program Files\P1B <x>\plur1bus.exe"),
-            Path::new(home),
+            r"C:\Program Files\P1B <x>\plur1bus.exe",
+            home,
             r"HOST\Max & Co",
         );
         assert!(xml.contains("Max Mustermann &amp; Co"), "{xml}");

@@ -78,6 +78,10 @@ impl Runner for FakeRunner {
                 st.registered.insert(unit.to_string());
                 (0, String::new())
             }
+            ("systemctl", ["--user", "restart", unit]) if st.registered.contains(*unit) => {
+                st.running.insert(unit.to_string());
+                (0, String::new())
+            }
             ("systemctl", ["--user", "disable", "--now", unit]) => {
                 st.registered.remove(*unit);
                 st.running.remove(*unit);

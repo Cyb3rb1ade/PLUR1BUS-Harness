@@ -137,31 +137,35 @@ fn install_table(name: &str, path: &Path, start: bool) -> Vec<Value> {
     match host_manager() {
         "systemd" => {
             let unit = format!("{name}.service");
-            let enable = if start {
-                json!(["--user", "enable", "--now", unit])
-            } else {
-                json!(["--user", "enable", unit])
-            };
-            vec![
+            let mut t = vec![
                 json!({ "program": "systemctl", "args": ["--user", "daemon-reload"] }),
-                json!({ "program": "systemctl", "args": enable }),
-            ]
+                json!({ "program": "systemctl", "args": ["--user", "enable", unit] }),
+            ];
+            if start {
+                t.push(json!({ "program": "systemctl", "args": ["--user", "restart", unit] }));
+            }
+            t
         }
         #[cfg(unix)]
         "launchd" => {
-            let mut t = vec![
-                json!({ "program": "launchctl", "args": ["bootout", format!("gui/{}/{name}", uid())] }),
-            ];
+            let target = format!("gui/{}/{name}", uid());
             if start {
-                t.push(json!({ "program": "launchctl", "args": ["bootstrap", format!("gui/{}", uid()), p] }));
+                vec![
+                    json!({ "program": "launchctl", "args": ["bootout", target] }),
+                    json!({ "program": "launchctl", "args": ["print", target] }),
+                    json!({ "program": "launchctl", "args": ["bootstrap", format!("gui/{}", uid()), p] }),
+                ]
+            } else {
+                // A running agent is left alone; the new plist applies at the next login.
+                vec![]
             }
-            t
         }
         _ => {
             let mut t = vec![
                 json!({ "program": "schtasks", "args": ["/Create", "/XML", p, "/TN", name, "/F"] }),
             ];
             if start {
+                t.push(json!({ "program": "schtasks", "args": ["/End", "/TN", name] }));
                 t.push(json!({ "program": "schtasks", "args": ["/Run", "/TN", name] }));
             }
             t
@@ -202,6 +206,17 @@ fn install_runs_the_manager_commands_in_order() {
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["started"], false);
     assert_eq!(calls(&e), install_table(&name, &path, false));
+    // --no-start leaves the running instance alone.
+    assert_eq!(service(&e, &["status"]).1["running"], true);
+
+    // A re-install with start restarts the running instance on the new definition.
+    clear_calls(&e);
+    let (code, v) = service(&e, &["install"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(calls(&e), install_table(&name, &path, true));
+    assert_eq!(service(&e, &["status"]).1["running"], true);
+    // launchd opens StandardErrorPath under logs/ before supervise could create it.
+    assert!(e.home.join("logs").is_dir());
 }
 
 #[test]
@@ -307,9 +322,16 @@ fn hidden_env_reaches_the_unit() {
             "{content}"
         );
     }
-    let (code, v) = service(&e, &["install", "--no-start", "--env", "NOEQUALS"]);
-    assert_eq!(code, 1, "{v}");
-    assert_eq!(v["error"], "E_INVALID_PARAMS");
+    for bad in ["NOEQUALS", "=v", "1A=v", "A-B=v", "A B=v", "Ä=v"] {
+        let (code, v) = service(&e, &["install", "--no-start", "--env", bad]);
+        assert_eq!(code, 2, "{bad}: {v}");
+        assert_eq!(v["error"], "E_INVALID_PARAMS", "{bad}");
+        assert_eq!(v["reason"], "env-malformed", "{bad}");
+    }
+    assert_eq!(
+        service(&e, &["install", "--no-start", "--env", "_A1=x=y"]).0,
+        0
+    );
     assert_eq!(service(&e, &["uninstall"]).0, 0);
 }
 
@@ -337,4 +359,36 @@ fn the_fake_manager_needs_allow_test_internals() {
     assert_eq!(out.status.code(), Some(2));
     assert!(calls(&e).is_empty());
     assert!(!expected_path(&e, &format!("{}-{}", base_name(), suffix(&e.home))).exists());
+}
+
+/// A binary under a non-UTF-8 directory is refused instead of being rendered with U+FFFD (Linux: other file systems
+/// refuse such names).
+#[cfg(target_os = "linux")]
+#[test]
+fn a_non_utf8_binary_path_is_refused() {
+    use std::os::unix::ffi::OsStrExt;
+    let e = env();
+    let dir = e.user.join(std::ffi::OsStr::from_bytes(b"bin-\xff"));
+    std::fs::create_dir_all(&dir).unwrap();
+    let bin = dir.join("plur1bus");
+    std::fs::copy(assert_cmd::cargo::cargo_bin("plur1bus"), &bin).unwrap();
+    let out = {
+        let mut cmd = Command::new(&bin);
+        for (k, v) in base(&e).get_envs() {
+            match v {
+                Some(v) => cmd.env(k, v),
+                None => cmd.env_remove(k),
+            };
+        }
+        cmd.arg("--home")
+            .arg(&e.home)
+            .args(["--json", "service", "install"])
+            .output()
+            .unwrap()
+    };
+    let (code, v) = parse(out);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["error"], "E_INVALID_PARAMS");
+    assert_eq!(v["reason"], "path-not-utf8");
+    assert!(calls(&e).is_empty());
 }

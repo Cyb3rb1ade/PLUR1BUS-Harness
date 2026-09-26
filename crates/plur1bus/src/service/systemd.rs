@@ -15,12 +15,12 @@ pub fn unit_dir() -> PathBuf {
 /// The unit. `Restart=on-failure` restarts a crashed or killed supervisor after `RestartSec=1`; a clean exit
 /// (`daemon stop`) is not restarted. `RestartPreventExitStatus=2 3` keeps a usage error (2) and "another supervisor
 /// owns this home" (3) from looping. `KillMode=process` and `TimeoutStopSec`: see the module docs of `service`.
-pub fn render(bin: &Path, home: &Path, env: &[(String, String)]) -> String {
+pub fn render(bin: &str, home: &str, env: &[(String, String)]) -> String {
     let mut s = String::from("[Unit]\nDescription=PLUR1BUS supervisor\n\n[Service]\nType=simple\n");
     s.push_str(&format!(
         "ExecStart={} --home {} supervise\n",
-        quote_exec(&bin.to_string_lossy()),
-        quote_exec(&home.to_string_lossy())
+        quote_exec(bin),
+        quote_exec(home)
     ));
     for (k, v) in env {
         s.push_str(&format!("Environment={}\n", quote_env(&format!("{k}={v}"))));
@@ -65,18 +65,18 @@ fn unit_name(name: &str) -> String {
     format!("{name}.service")
 }
 
+/// `daemon-reload` picks up the (re)written unit, `enable` registers it for the next login. With `start`, `restart`
+/// starts it now, or restarts a running one so that a re-install's new binary path or `--env` takes effect
+/// (`enable --now` would leave a running instance on the old definition). Without `start` a running instance is left
+/// alone.
 pub fn install(r: &dyn Runner, name: &str, start: bool) -> Result<(), ServiceError> {
     exec_ok(r, "systemctl", &os_args(&["--user", "daemon-reload"]))?;
     let unit = unit_name(name);
+    exec_ok(r, "systemctl", &os_args(&["--user", "enable", &unit]))?;
     if start {
-        exec_ok(
-            r,
-            "systemctl",
-            &os_args(&["--user", "enable", "--now", &unit]),
-        )
-    } else {
-        exec_ok(r, "systemctl", &os_args(&["--user", "enable", &unit]))
+        exec_ok(r, "systemctl", &os_args(&["--user", "restart", &unit]))?;
     }
+    Ok(())
 }
 
 /// Registered means the unit file exists. `disable --now` stops the supervisor (SIGTERM → the `daemon.stop` path).
@@ -113,11 +113,7 @@ mod tests {
 
     #[test]
     fn systemd_unit_runs_supervise_with_restart_on_failure() {
-        let u = render(
-            Path::new("/opt/p1b/bin/plur1bus"),
-            Path::new("/home/u/.plur1bus"),
-            &[],
-        );
+        let u = render("/opt/p1b/bin/plur1bus", "/home/u/.plur1bus", &[]);
         assert!(
             u.contains(
                 "\nExecStart=\"/opt/p1b/bin/plur1bus\" --home \"/home/u/.plur1bus\" supervise\n"
@@ -142,8 +138,8 @@ mod tests {
     #[test]
     fn renders_a_home_with_spaces_and_umlauts() {
         let u = render(
-            Path::new("/opt/p1b 2/plur1bus"),
-            Path::new("/tmp/p1b sys ü \"q\" 100% $HOME\\x"),
+            "/opt/p1b 2/plur1bus",
+            "/tmp/p1b sys ü \"q\" 100% $HOME\\x",
             &[("PLUR1BUS_NODE".into(), "/opt/n ü/node $x 5%".into())],
         );
         assert!(

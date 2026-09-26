@@ -94,6 +94,10 @@ pub enum ServiceError {
         code: Option<i32>,
         stderr: String,
     },
+    /// A path that goes into the unit is not valid UTF-8 (unit files and task XML are UTF-8/UTF-16 text).
+    PathNotUtf8 { path: PathBuf },
+    /// The service manager still has the job loaded after the stop timeout.
+    StillLoaded { name: String, secs: u64 },
 }
 
 impl std::fmt::Display for ServiceError {
@@ -114,6 +118,12 @@ impl std::fmt::Display for ServiceError {
                     args.join(" "),
                     stderr.trim()
                 )
+            }
+            ServiceError::PathNotUtf8 { path } => {
+                write!(f, "{} is not valid UTF-8", path.to_string_lossy())
+            }
+            ServiceError::StillLoaded { name, secs } => {
+                write!(f, "{name} is still loaded after {secs} s")
             }
         }
     }
@@ -142,8 +152,8 @@ pub fn service_name(layout: &Layout, default_home: &Path) -> String {
 }
 
 pub(crate) fn name_for(manager: Manager, layout: &Layout, default_home: &Path) -> String {
-    let home = layout.home.to_string_lossy();
-    let default = default_home.to_string_lossy();
+    let home = trim_trailing_separators(&layout.home.to_string_lossy());
+    let default = trim_trailing_separators(&default_home.to_string_lossy());
     let is_default = if cfg!(windows) {
         home.to_lowercase() == default.to_lowercase()
     } else {
@@ -155,6 +165,17 @@ pub(crate) fn name_for(manager: Manager, layout: &Layout, default_home: &Path) -
         let h = format!("{:x}", Sha256::digest(home.to_lowercase().as_bytes()));
         format!("{}-{}", manager.base_name(), &h[..8])
     }
+}
+
+/// `/home/u/.plur1bus/` → `/home/u/.plur1bus` (and `\` on Windows), keeping a bare root (`/`, `C:\`) intact, so a
+/// trailing separator never changes the service name.
+fn trim_trailing_separators(s: &str) -> String {
+    let is_sep = |c: char| c == '/' || (cfg!(windows) && c == '\\');
+    let mut t = s;
+    while t.len() > 1 && t.ends_with(is_sep) && !(t.len() == 3 && t.as_bytes()[1] == b':') {
+        t = &t[..t.len() - 1];
+    }
+    t.to_string()
 }
 
 /// Where the registration for `name` lives: the systemd user unit directory, `~/Library/LaunchAgents`, or the
@@ -176,29 +197,44 @@ fn user_home() -> PathBuf {
 
 /// Renders the registration that runs `<bin> --home <home> supervise`. `env` becomes systemd `Environment=` or
 /// launchd `EnvironmentVariables`; Task Scheduler has no per-task environment, so the CLI refuses a non-empty `env`
-/// there before rendering (and this ignores it).
+/// there before rendering (and this ignores it). A binary or home path that is not valid UTF-8 is refused
+/// ([`ServiceError::PathNotUtf8`]) rather than rendered lossily.
 pub fn render(
     manager: Manager,
     bin: &Path,
     layout: &Layout,
     name: &str,
     env: &[(String, String)],
-) -> Unit {
-    let content = match manager {
-        Manager::Systemd => systemd::render(bin, &layout.home, env),
-        Manager::Launchd => launchd::render(bin, &layout.home, name, env),
-        Manager::TaskScheduler => schtasks::render(bin, &layout.home, &schtasks::current_user()),
+) -> Result<Unit, ServiceError> {
+    let utf8 = |p: &Path| -> Result<String, ServiceError> {
+        p.to_str()
+            .map(str::to_string)
+            .ok_or_else(|| ServiceError::PathNotUtf8 {
+                path: p.to_path_buf(),
+            })
     };
-    Unit {
+    let bin = utf8(bin)?;
+    let home = utf8(&layout.home)?;
+    let content = match manager {
+        Manager::Systemd => systemd::render(&bin, &home, env),
+        Manager::Launchd => {
+            let stderr = utf8(&layout.logs().join("supervisor.stderr"))?;
+            launchd::render(&bin, &home, name, env, &stderr)
+        }
+        Manager::TaskScheduler => schtasks::render(&bin, &home, &schtasks::current_user()),
+    };
+    Ok(Unit {
         manager,
         name: name.to_string(),
         path: unit_path(manager, layout, name),
         content,
-    }
+    })
 }
 
 /// Writes the unit and registers it; `start` also starts it now (otherwise it starts at the next login).
-/// Re-installing over an existing registration replaces it.
+/// Re-installing over an existing registration replaces it: with `start` a running instance is restarted on the new
+/// definition (systemd `restart`, launchd `bootout` + `bootstrap`, Task Scheduler `/End` + `/Run`); without `start`
+/// a running instance is left alone and the new definition applies from its next start.
 pub fn install(r: &dyn Runner, unit: &Unit, start: bool) -> Result<(), ServiceError> {
     write_unit(unit)?;
     match unit.manager {
@@ -464,7 +500,8 @@ mod tests {
                 true,
                 vec![
                     "systemctl --user daemon-reload".into(),
-                    "systemctl --user enable --now plur1bus-0d0d4b6f.service".into(),
+                    "systemctl --user enable plur1bus-0d0d4b6f.service".into(),
+                    "systemctl --user restart plur1bus-0d0d4b6f.service".into(),
                 ],
             ),
             (
@@ -482,6 +519,7 @@ mod tests {
                 true,
                 vec![
                     format!("launchctl bootout {domain}/dev.plur1bus.supervisor-0d0d4b6f"),
+                    format!("launchctl print {domain}/dev.plur1bus.supervisor-0d0d4b6f"),
                     format!(
                         "launchctl bootstrap {domain} {}",
                         tmp.path()
@@ -494,9 +532,7 @@ mod tests {
                 Manager::Launchd,
                 "dev.plur1bus.supervisor-0d0d4b6f",
                 false,
-                vec![format!(
-                    "launchctl bootout {domain}/dev.plur1bus.supervisor-0d0d4b6f"
-                )],
+                vec![],
             ),
             (
                 Manager::TaskScheduler,
@@ -509,6 +545,7 @@ mod tests {
                             .join("PLUR1BUS Supervisor-0d0d4b6f.xml")
                             .display()
                     ),
+                    "schtasks /End /TN PLUR1BUS Supervisor-0d0d4b6f".into(),
                     "schtasks /Run /TN PLUR1BUS Supervisor-0d0d4b6f".into(),
                 ],
             ),
@@ -525,9 +562,10 @@ mod tests {
             ),
         ];
         for (manager, name, start, want) in cases {
-            // launchctl bootout of a job that is not loaded fails; install tolerates it.
+            // launchctl bootout of a job that is not loaded fails (install tolerates it) and print then no longer
+            // finds it; schtasks /End fails when nothing runs.
             let r = Recording {
-                fail: vec![("bootout", 3)],
+                fail: vec![("bootout", 3), ("print", 113), ("/End", 1)],
                 ..Default::default()
             };
             let u = unit(manager, tmp.path(), name);
@@ -536,6 +574,59 @@ mod tests {
             assert_eq!(got, want, "{manager:?} start={start}");
             assert!(u.path.exists());
         }
+    }
+
+    #[test]
+    fn a_trailing_separator_keeps_the_service_name() {
+        let default = Path::new("/u/.plur1bus");
+        let slash = Layout::new("/u/.plur1bus/".into());
+        assert_eq!(name_for(Manager::Systemd, &slash, default), "plur1bus");
+        assert_eq!(
+            name_for(
+                Manager::Systemd,
+                &Layout::new("/u/.plur1bus".into()),
+                Path::new("/u/.plur1bus//")
+            ),
+            "plur1bus"
+        );
+        assert_eq!(
+            name_for(Manager::Systemd, &Layout::new("/tmp/x/".into()), default),
+            name_for(Manager::Systemd, &Layout::new("/tmp/x".into()), default)
+        );
+        assert_eq!(trim_trailing_separators("/"), "/");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn render_refuses_a_non_utf8_path() {
+        use std::os::unix::ffi::OsStrExt;
+        let bad = PathBuf::from(std::ffi::OsStr::from_bytes(b"/tmp/p1b-\xff"));
+        for manager in [Manager::Systemd, Manager::Launchd, Manager::TaskScheduler] {
+            let home = render(
+                manager,
+                Path::new("/bin/p"),
+                &Layout::new(bad.clone()),
+                "n",
+                &[],
+            );
+            assert!(
+                matches!(&home, Err(ServiceError::PathNotUtf8 { path }) if *path == bad),
+                "{manager:?}: {home:?}"
+            );
+            let bin = render(manager, &bad, &Layout::new("/tmp/h".into()), "n", &[]);
+            assert!(
+                matches!(bin, Err(ServiceError::PathNotUtf8 { .. })),
+                "{manager:?}"
+            );
+        }
+        assert!(render(
+            Manager::Systemd,
+            Path::new("/bin/p"),
+            &Layout::new("/tmp/h".into()),
+            "n",
+            &[]
+        )
+        .is_ok());
     }
 
     #[test]
