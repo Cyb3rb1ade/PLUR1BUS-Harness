@@ -1,16 +1,18 @@
 // A stand-in for dist/core.js in the supervisor's Rust tests (no dependencies). It takes the same flags as core.js,
 // listens on the same address, writes run/core.token and run/core.pid like the real core, and answers core.auth,
-// core.status and core.shutdown. FAKE_CORE_MODE picks its behaviour:
+// core.status, core.shutdown and core.adopt. FAKE_CORE_MODE picks its behaviour:
 //   ok                    serve until core.shutdown or lifeline loss
 //   crash-after:<ms>      serve, then exit 1 after <ms>
 //   exit:<code>           exit with <code> at once, before listening
 //   hang-after:<ms>       serve, then stop answering every request after <ms> (no SIGTERM handler; event `hung`)
 //   no-listen             start (run files not written) but never listen
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
-// Every event (started, hung, shutdown, orphaned, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
-// On lifeline EOF it reports `orphaned` and exits 0 after FAKE_CORE_GRACE_MS (default 1000).
+// Every event (started, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
+// The lifeline (S4) is stdin with --lifeline stdin, then the connection of the last successful core.adopt (whose nonce
+// must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
+// after FAKE_CORE_GRACE_MS (default 1000) unless a core.adopt arrives first.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -54,6 +56,24 @@ let statusCalls = 0;
 let hung = false;
 let stopping = false;
 let state = "ready";
+let lifeline = null; // "stdin" or the adopting socket
+let graceTimer = null;
+
+function lost(source) {
+  if (stopping || lifeline !== source) return;
+  lifeline = null;
+  if (graceTimer) return;
+  state = "orphaned";
+  event("orphaned");
+  graceTimer = setTimeout(() => { removeRunFiles(); exit(0); }, Number(process.env.FAKE_CORE_GRACE_MS ?? 1000));
+}
+
+function adopted(sock, nonce) {
+  lifeline = sock;
+  if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
+  state = "ready";
+  event("adopted", { nonce });
+}
 
 function coreStatus() {
   return {
@@ -80,6 +100,7 @@ const server = net.createServer((sock) => {
   let buf = "";
   let authed = false;
   sock.on("error", () => {});
+  sock.on("close", () => lost(sock));
   const send = (msg) => { if (!sock.destroyed) sock.write(JSON.stringify({ jsonrpc: "2.0", ...msg }) + "\n"); };
   const handle = (msg) => {
     if (hung) return;
@@ -105,6 +126,22 @@ const server = net.createServer((sock) => {
       const reply = () => send({ id, result: coreStatus() });
       if (kind === "slow-status" && statusCalls === Number(a)) setTimeout(reply, Number(b));
       else reply();
+      return;
+    }
+    if (method === "core.adopt") {
+      if (stopping) {
+        send({ id, error: { code: -32000, message: "core is stopping", data: { error: "E_NOT_AVAILABLE", reason: "stopping" } } });
+        return;
+      }
+      let expected = null;
+      try { expected = readFileSync(path.join(run, "supervisor.token"), "utf8").trim().toLowerCase(); } catch { /* refused below */ }
+      const nonce = String(params.nonce ?? "").toLowerCase();
+      if (expected === null || expected.length !== 64 || nonce !== expected) {
+        send({ id, error: { code: -32000, message: "adoption refused", data: { error: "E_UNAUTHORIZED", reason: "adopt-nonce" } } });
+        return;
+      }
+      adopted(sock, nonce);
+      send({ id, result: { status: coreStatus() } });
       return;
     }
     if (method === "core.shutdown") {
@@ -134,12 +171,8 @@ if (kind !== "no-listen") server.listen(address, () => {
 });
 
 if (values.lifeline === "stdin") {
+  lifeline = "stdin";
   process.stdin.on("data", () => {});
-  process.stdin.on("end", () => {
-    if (stopping) return;
-    state = "orphaned";
-    event("orphaned");
-    setTimeout(() => { removeRunFiles(); exit(0); }, Number(process.env.FAKE_CORE_GRACE_MS ?? 1000));
-  });
+  process.stdin.on("end", () => lost("stdin"));
   process.stdin.on("error", () => {});
 }

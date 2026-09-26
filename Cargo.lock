@@ -822,6 +822,7 @@ dependencies = [
 name = "plur1bus-rpc"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "prettyplease",
  "regress 0.10.5",
  "schemars",
@@ -830,6 +831,7 @@ dependencies = [
  "syn 2.0.119",
  "tempfile",
  "typify",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

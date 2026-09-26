@@ -7,6 +7,12 @@
 //! through [`classify_exit`] and [`Backoff`](super::state::Backoff); a scheduled restart is left in
 //! `SupervisorState::restart_at` for the main thread's scheduler, which calls [`Monitor::spawn`]. Every duration below
 //! except the 100 ms readiness poll and the 2 s poll deadline is multiplied by the time scale.
+//!
+//! An adopted core ([`Monitor::adopt`], S4, S19) has no process handle and no stdin: its lifeline is the connection
+//! `core.adopt` succeeded on, and its health runs on that connection. Its exit is seen as that connection failing
+//! (EOF) plus the process being gone ([`Peer::alive`]), and counts as `Retryable { reason: "adopted-exit" }`. A
+//! restart uses the supervisor's own spawn spec.
+use super::adopt::Peer;
 use super::logfile::RotatingFile;
 use super::state::{
     classify_exit, ChildState, CrashReason, ExitClass, Health, LastExit, RestartDecision,
@@ -157,6 +163,15 @@ struct Gen {
     exited: AtomicBool,
     kill_reason: Mutex<Option<CrashReason>>,
     last_ok: Mutex<Instant>,
+    /// `Some` for an adopted core (then `process` and `stdin` are `None`): the pid the OS named as its server.
+    peer: Option<Peer>,
+    /// Adopted core: `control` still holds the lifeline connection.
+    lifeline_in_control: AtomicBool,
+    /// Adopted core: the lifeline failed (EOF, timeout, I/O error), so the waiter checks whether the process is gone.
+    lifeline_lost: AtomicBool,
+    /// Adopted core: the lifeline once it can no longer carry calls. Kept open until the exit, because closing it
+    /// would orphan a core that is still alive.
+    parked: Mutex<Option<Client>>,
 }
 
 impl Gen {
@@ -167,8 +182,13 @@ impl Gen {
             None => Ok(None),
         }
     }
-    /// SIGKILL / TerminateProcess, unless it has already exited.
+    /// SIGKILL / TerminateProcess, unless it has already exited. An adopted core only while the OS still names its
+    /// pid as the core socket's server ([`Peer::kill`]).
     fn kill(&self) {
+        if let Some(p) = &self.peer {
+            p.kill();
+            return;
+        }
         if let Some(c) = relock(&self.process).as_mut() {
             let _ = c.kill();
         }
@@ -177,6 +197,10 @@ impl Gen {
     /// still ours.
     #[cfg(unix)]
     fn terminate(&self) {
+        if let Some(p) = &self.peer {
+            p.terminate();
+            return;
+        }
         if let Some(c) = relock(&self.process).as_mut() {
             if matches!(c.try_wait(), Ok(None)) {
                 // SAFETY: plain kill(2) on our own unreaped child.
@@ -193,7 +217,8 @@ impl Gen {
 pub struct Monitor {
     shared: Arc<Shared>,
     ctx: Arc<Ctx>,
-    spec: ChildSpec,
+    /// `None` after an adoption whose spawn spec could not be built (core.js missing): [`Monitor::spawn`] retries it.
+    spec: Option<ChildSpec>,
     current: Option<Arc<Gen>>,
     spawned: bool,
 }
@@ -201,6 +226,78 @@ pub struct Monitor {
 impl Monitor {
     /// Spawns the child at once. The first process gets the spec's own `--instance`, each later one a fresh id.
     pub fn start(shared: Arc<Shared>, layout: &Layout, spec: ChildSpec) -> Monitor {
+        let mut m = Monitor::new(shared, layout, Some(spec), "core");
+        m.spawn();
+        m
+    }
+
+    /// Supervises a core adopted through `core.adopt` (S4, S19): `lifeline` is the connection the call succeeded on
+    /// and `status` its `CoreStatus`. Nothing is spawned; after the adopted core exits, a restart uses `spec` (or
+    /// builds it then, when it could not be built now).
+    pub fn adopt(
+        shared: Arc<Shared>,
+        layout: &Layout,
+        spec: Option<ChildSpec>,
+        lifeline: Client,
+        status: &Value,
+    ) -> Monitor {
+        let mut m = Monitor::new(shared, layout, spec, "core");
+        m.spawned = true; // the adopted core counts as the first process: a respawn gets a fresh instance id
+        let hello = lifeline.hello().clone();
+        let pid = lifeline
+            .peer_pid()
+            .or_else(|| hello["pid"].as_u64().map(|p| p as u32))
+            .unwrap_or(0);
+        let instance_id = hello["instanceId"].as_str().map(str::to_string);
+        let now = Instant::now();
+        let gen = Arc::new(Gen {
+            role: "core".into(),
+            pid,
+            started: now,
+            process: Mutex::new(None),
+            stdin: Mutex::new(None),
+            control: Mutex::new(Some(lifeline)),
+            requested: AtomicBool::new(false),
+            ready: AtomicBool::new(true),
+            exited: AtomicBool::new(false),
+            kill_reason: Mutex::new(None),
+            last_ok: Mutex::new(now),
+            peer: Some(Peer::open(pid, layout)),
+            lifeline_in_control: AtomicBool::new(true),
+            lifeline_lost: AtomicBool::new(false),
+            parked: Mutex::new(None),
+        });
+        {
+            let mut st = m.shared.lock();
+            st.backoff.on_ready(now);
+            st.child = Some(ChildState {
+                role: "core".into(),
+                health: health_from(&status["process"]).unwrap_or(Health::Starting),
+                since_ms: now_ms(),
+                pid: Some(pid),
+                instance_id: instance_id.clone(),
+                adopted: true,
+                restarts: 0,
+                last_exit: None,
+                next_restart_at_ms: None,
+            });
+            st.lifeline = Lifeline::Connection;
+        }
+        m.shared.log.info(
+            "core adopted",
+            json!({ "child": "core", "pid": pid, "instanceId": instance_id }),
+        );
+        m.current = Some(gen.clone());
+        let (s, c, g) = (m.shared.clone(), m.ctx.clone(), gen.clone());
+        m.start_thread(&format!("core-health-{pid}"), move || {
+            health_loop(&s, &c, &g)
+        });
+        let (s, c, g) = (m.shared.clone(), m.ctx.clone(), gen);
+        m.start_thread(&format!("core-waiter-{pid}"), move || waiter(&s, &c, &g));
+        m
+    }
+
+    fn new(shared: Arc<Shared>, layout: &Layout, spec: Option<ChildSpec>, role: &str) -> Monitor {
         let (timing, max_bytes, keep) = {
             let st = shared.lock();
             (
@@ -209,7 +306,7 @@ impl Monitor {
                 st.config.log_keep,
             )
         };
-        let out_path = layout.out_log(&spec.role);
+        let out_path = layout.out_log(role);
         let out = match RotatingFile::open(&out_path, max_bytes, keep) {
             Ok(f) => Some(f),
             Err(e) => {
@@ -227,15 +324,13 @@ impl Monitor {
             timing,
             out: Arc::new(Mutex::new(out)),
         });
-        let mut m = Monitor {
+        Monitor {
             shared,
             ctx,
             spec,
             current: None,
             spawned: false,
-        };
-        m.spawn();
-        m
+        }
     }
 
     /// Whether a spawned process has not exited yet.
@@ -250,13 +345,22 @@ impl Monitor {
         if self.is_running() {
             return;
         }
-        let instance_id = match (self.spawned, instance_of(&self.spec)) {
+        if self.spec.is_none() {
+            match core_spec(&self.ctx.layout, &uuid::Uuid::new_v4().to_string()) {
+                Ok(spec) => self.spec = Some(spec),
+                Err(e) => return mark_unspawnable(&self.shared, "core", &e),
+            }
+        }
+        let Some(base) = self.spec.as_ref() else {
+            return;
+        };
+        let instance_id = match (self.spawned, instance_of(base)) {
             (false, Some(id)) => id,
             _ => uuid::Uuid::new_v4().to_string(),
         };
         let restart = self.spawned;
         self.spawned = true;
-        let spec = with_instance(&self.spec, &instance_id);
+        let spec = with_instance(base, &instance_id);
         let mut cmd = Command::new(&spec.program);
         cmd.args(&spec.args)
             .envs(spec.env.iter().map(|(k, v)| (k, v)))
@@ -312,6 +416,10 @@ impl Monitor {
             exited: AtomicBool::new(false),
             kill_reason: Mutex::new(None),
             last_ok: Mutex::new(Instant::now()),
+            peer: None,
+            lifeline_in_control: AtomicBool::new(false),
+            lifeline_lost: AtomicBool::new(false),
+            parked: Mutex::new(None),
         });
         {
             let mut st = self.shared.lock();
@@ -565,6 +673,20 @@ fn sleep_while_alive(gen: &Gen, d: Duration) -> bool {
 /// Readiness (connect + `core.auth` every 100 ms), then `core.status` every health interval. It only observes:
 /// the waiter enforces the ready timeout and the hang threshold.
 fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
+    if gen.peer.is_none() {
+        wait_ready(shared, ctx, gen);
+    }
+    poll_loop(shared, ctx, gen);
+    // An adopted core keeps its lifeline until it has exited; closing it now would orphan a core being stopped.
+    let last = relock(&gen.control).take();
+    if gen.lifeline_in_control.swap(false, Ordering::SeqCst) {
+        *relock(&gen.parked) = last;
+    }
+}
+
+/// Readiness of a spawned core: connect + `core.auth` every 100 ms, then one `core.status`; the connection becomes
+/// the control connection.
+fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     let t = ctx.timing;
     let mut client = loop {
         if gen.exited.load(Ordering::SeqCst) || gen.requested.load(Ordering::SeqCst) {
@@ -593,7 +715,11 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
         json!({ "child": gen.role, "pid": gen.pid, "readyMs": gen.started.elapsed().as_millis() as u64 }),
     );
     *relock(&gen.control) = Some(client);
+}
 
+/// `core.status` every health interval, on the control connection (an adopted core's lifeline while it works).
+fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
+    let t = ctx.timing;
     let mut failures: u32 = 0;
     loop {
         if !sleep_while_alive(gen, t.health_interval) || gen.requested.load(Ordering::SeqCst) {
@@ -609,7 +735,13 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 Some(c) => {
                     let r = c.call("core.status", json!({})).map_err(|e| e.to_string());
                     if c.is_poisoned() {
-                        *ctl = None; // reconnect at the next poll
+                        let old = ctl.take(); // reconnect at the next poll
+                        if gen.lifeline_in_control.swap(false, Ordering::SeqCst) {
+                            // The adopted core's lifeline hit EOF or an error: keep it open, poll on fresh
+                            // connections, and let the waiter check whether the core is gone.
+                            *relock(&gen.parked) = old;
+                            gen.lifeline_lost.store(true, Ordering::SeqCst);
+                        }
                     }
                     r
                 }
@@ -646,7 +778,6 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
             }
         }
     }
-    *relock(&gen.control) = None;
 }
 
 /// Reaps the process and enforces the ready timeout and the hang threshold (S8).
@@ -655,16 +786,26 @@ fn waiter(shared: &Arc<Shared>, ctx: &Arc<Ctx>, gen: &Arc<Gen>) {
     let mut hung_since: Option<Instant> = None;
     let (mut terminated, mut killed) = (false, false);
     let status = loop {
-        match gen.try_wait() {
-            Ok(Some(s)) => break Some(s),
-            Ok(None) => {}
-            Err(e) => {
-                shared.log.error(
-                    "cannot wait for the core",
-                    json!({ "pid": gen.pid, "err": e.to_string() }),
-                );
-                gen.kill();
-                break relock(&gen.process).as_mut().and_then(|c| c.wait().ok());
+        if let Some(peer) = &gen.peer {
+            // An adopted core is not our child: its exit is its lifeline failing plus the process being gone. During
+            // a requested stop the health loop no longer polls, so liveness alone decides.
+            let watch =
+                gen.lifeline_lost.load(Ordering::SeqCst) || gen.requested.load(Ordering::SeqCst);
+            if watch && !peer.alive() {
+                break None;
+            }
+        } else {
+            match gen.try_wait() {
+                Ok(Some(s)) => break Some(s),
+                Ok(None) => {}
+                Err(e) => {
+                    shared.log.error(
+                        "cannot wait for the core",
+                        json!({ "pid": gen.pid, "err": e.to_string() }),
+                    );
+                    gen.kill();
+                    break relock(&gen.process).as_mut().and_then(|c| c.wait().ok());
+                }
             }
         }
         if !gen.requested.load(Ordering::SeqCst) {
@@ -728,7 +869,10 @@ fn waiter(shared: &Arc<Shared>, ctx: &Arc<Ctx>, gen: &Arc<Gen>) {
         None => (None, None),
     };
     let requested = gen.requested.load(Ordering::SeqCst);
-    let forced = *relock(&gen.kill_reason);
+    let forced = match gen.peer {
+        Some(_) => Some(CrashReason::AdoptedExit),
+        None => *relock(&gen.kill_reason),
+    };
     record_exit(shared, Some(gen), code, signal, requested, forced);
 }
 
@@ -831,6 +975,7 @@ fn record_exit(
         g.exited.store(true, Ordering::SeqCst);
         relock(&g.stdin).take();
         relock(&g.process).take();
+        relock(&g.parked).take();
     }
     shared.log.info(
         "core exited",

@@ -65,6 +65,17 @@ pub const MAX_LINE: usize = 4 * 1024 * 1024;
 impl Client {
     pub fn connect(address: &str, token: &str, opts: ConnectOptions) -> Result<Client, RpcError> {
         let stream = transport_connect(address, opts.connect_timeout)?;
+        Self::handshake(stream, token, opts)
+    }
+
+    /// Authenticates on a stream that is already connected ([`crate::transport::connect`]): the handshake of
+    /// [`Client::connect`]. Lets a caller read the stream's [`Stream::peer_pid`] first and then talk to exactly that
+    /// server.
+    pub fn handshake(
+        stream: Box<dyn Stream>,
+        token: &str,
+        opts: ConnectOptions,
+    ) -> Result<Client, RpcError> {
         let mut client = Client {
             reader: BufReader::new(stream),
             next_id: 1,
@@ -117,6 +128,11 @@ impl Client {
     /// The handshake result exactly as the server sent it (`core.auth` or `supervisor.auth`).
     pub fn hello(&self) -> &Value {
         &self.hello
+    }
+
+    /// The pid the OS names as the server of this connection (see [`Stream::peer_pid`]).
+    pub fn peer_pid(&self) -> Option<u32> {
+        self.reader.get_ref().peer_pid()
     }
 
     /// The server this client is connected to.

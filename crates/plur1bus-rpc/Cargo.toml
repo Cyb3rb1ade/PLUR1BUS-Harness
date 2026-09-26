@@ -10,6 +10,12 @@ serde.workspace = true
 serde_json.workspace = true
 regress = "0.10"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Pipes"] }
+
 [build-dependencies]
 typify = "0.8"
 schemars = "0.8"

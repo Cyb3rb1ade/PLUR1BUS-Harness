@@ -3,8 +3,10 @@
 //! `state` is the pure state machine (health, backoff, crash classification) with no I/O. `server` is the
 //! supervisor's RPC endpoint, `logfile` the size-rotated log files. [`run`] is `plur1bus supervise`: it claims the
 //! home (single instance), writes `run/supervisor.token` and `run/supervisor.pid`, serves `supervisor.auth` and
-//! `daemon.*`, spawns and monitors the core (`child`), and stops on `daemon.stop` or SIGTERM/SIGINT (the core first).
+//! `daemon.*`, adopts a core that is already running or spawns one (`adopt`, `child`), monitors it, and stops on
+//! `daemon.stop` or SIGTERM/SIGINT (the core first).
 #![allow(dead_code)]
+pub mod adopt;
 pub mod child;
 pub mod logfile;
 pub mod server;
@@ -537,7 +539,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         },
     };
     if !opts.no_core {
-        spawn_core(&mut monitor);
+        start_core(&shared, layout, &token, &mut monitor, spawn_core);
     }
 
     // Main thread: the restart scheduler (a due `restart_at`, `daemon.start`) until a stop.
@@ -585,6 +587,58 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     shared.log.info("supervisor stopped", json!({}));
     drop(lock);
     0
+}
+
+/// The core at start (spec §6.4, S6): probe the address before any spawn. A serving core is adopted with the fresh
+/// token as nonce; a hung or foreign one is terminated by the pid the OS names as its server, then a core is spawned.
+/// So is one when nothing answers, or when the adoption fails (a core that is stopping: the spawn then exits 3 while it
+/// still holds the lock, and backs off).
+fn start_core(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitor: &mut Option<child::Monitor>,
+    spawn_core: impl Fn(&mut Option<child::Monitor>),
+) {
+    let found = adopt::probe_core(layout, adopt::PROBE_TIMEOUT);
+    let (peer_pid, reason) = match &found {
+        adopt::Probe::Absent => (None, None),
+        adopt::Probe::Serving { peer_pid, .. } | adopt::Probe::Hung { peer_pid } => {
+            (Some(*peer_pid), None)
+        }
+        adopt::Probe::Foreign { peer_pid, reason } => (Some(*peer_pid), Some(reason.clone())),
+    };
+    shared.log.info(
+        "core probe",
+        json!({ "result": found.name(), "peerPid": peer_pid, "reason": reason }),
+    );
+    match found {
+        adopt::Probe::Absent => {}
+        adopt::Probe::Serving { .. } => match adopt::adopt(layout, token) {
+            Ok((lifeline, status)) => {
+                let spec = child::core_spec(layout, &uuid::Uuid::new_v4().to_string()).ok();
+                *monitor = Some(child::Monitor::adopt(
+                    shared.clone(),
+                    layout,
+                    spec,
+                    lifeline,
+                    &status,
+                ));
+                return;
+            }
+            Err(e) => shared.log.warn(
+                "adoption failed, spawning a core",
+                json!({ "err": e.to_string() }),
+            ),
+        },
+        adopt::Probe::Hung { peer_pid } | adopt::Probe::Foreign { peer_pid, .. } => {
+            adopt::terminate_found(shared, layout, peer_pid, found.name())
+        }
+    }
+    // A stop that arrived meanwhile is handled by the main loop; no core is spawned for it.
+    if shared.lock().stopping.is_none() {
+        spawn_core(monitor);
+    }
 }
 
 /// Another process holds the lock: it is a supervisor that is running or still starting. Report its pid (from

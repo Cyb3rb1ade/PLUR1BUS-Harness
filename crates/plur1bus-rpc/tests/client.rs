@@ -471,3 +471,60 @@ fn hello_is_the_raw_value_with_unknown_keys_kept() {
     let c = connect(&addr);
     assert_eq!(c.hello(), &hello);
 }
+
+/// Run in a child process by `peer_pid_of_a_unix_socket_is_the_listener_pid` (a no-op otherwise): listens on the
+/// socket named by `P1B_PEER_LISTEN` and answers `core.auth` with its own pid until killed.
+#[test]
+fn peer_pid_listener_helper() {
+    let Ok(path) = std::env::var("P1B_PEER_LISTEN") else {
+        return;
+    };
+    let listener = UnixListener::bind(&path).unwrap();
+    for stream in listener.incoming() {
+        let stream = stream.unwrap();
+        let mut w = stream.try_clone().unwrap();
+        for line in BufReader::new(stream).lines() {
+            let Ok(line) = line else { break };
+            let msg: Value = serde_json::from_str(&line).unwrap();
+            let hello =
+                json!({"contract":"1.7.0","rpc":"1.2.0","instanceId":"i","pid":std::process::id()});
+            reply(
+                &mut w,
+                json!({"jsonrpc":"2.0","id":msg["id"],"result":hello}),
+            );
+        }
+    }
+}
+
+#[test]
+fn peer_pid_of_a_unix_socket_is_the_listener_pid() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("core.sock");
+    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["peer_pid_listener_helper", "--exact", "--nocapture"])
+        .env("P1B_PEER_LISTEN", &path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !path.exists() {
+        assert!(Instant::now() < deadline, "the listener did not start");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let addr = path.to_string_lossy().to_string();
+    let result = std::panic::catch_unwind(|| {
+        let raw = plur1bus_rpc::transport::connect(&addr, Duration::from_secs(2)).unwrap();
+        assert_eq!(raw.peer_pid(), Some(child.id()));
+        drop(raw); // the helper serves one connection at a time
+        let c = connect(&addr);
+        assert_eq!(c.peer_pid(), Some(child.id()));
+        assert_eq!(c.hello()["pid"].as_u64(), Some(u64::from(child.id())));
+        assert_ne!(c.peer_pid(), Some(std::process::id()));
+    });
+    let _ = child.kill();
+    let _ = child.wait();
+    if let Err(p) = result {
+        std::panic::resume_unwind(p);
+    }
+}
