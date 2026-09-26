@@ -30,7 +30,7 @@ Evidence levels: **verified 2026-09-25** (read at the cited source today), **kno
 | Open WebUI | 2 (+ 0, 3) | Filter functions (Python) with `inlet`/`outlet` around every turn; native MCP; a built-in, non-pluggable Memory feature; OpenAI-compatible backends. | knowledge (≤ 2026-06) | Re-check the filter API version before implementing. |
 | LibreChat | 3 or 0 | MCP servers and agents; a built-in memory feature (not pluggable); OpenAI-compatible custom endpoints. | knowledge (≤ 2026-06) | Tier 0 via a custom endpoint. |
 | Jan | 3 or 0 | Local-model desktop app with MCP support; OpenAI-compatible providers. | knowledge (≤ 2026-06) | Tier 0 via provider base URL. |
-| Claude Code, Codex, OpenCode, Gemini CLI, Cursor … | 3 (memory) + ACP (control) | MCP clients; driven as agents over ACP (ADR-011). | ADR-011 | Memory through MCP tools; the harness drives them, not the other way round. |
+| Claude Code, Codex, OpenCode, Gemini CLI (now Antigravity CLI `agy`, D40), Cursor … | 3 (memory) + ACP (control) | MCP clients; driven as agents over ACP (ADR-011). | ADR-011 | Memory through MCP tools; the harness drives them, not the other way round. |
 
 ## Rules for every adapter
 
