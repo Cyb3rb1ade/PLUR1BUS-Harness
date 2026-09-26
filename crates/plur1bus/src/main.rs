@@ -31,9 +31,7 @@ fn main() {
             "2a-H3",
             "installer and service registration (spec §6.5)",
         ),
-        Cmd::FirstAid { .. } => {
-            commands::stubs::milestone(&out, "1staid", "2a-H3", "check and repair (spec §6.6)")
-        }
+        Cmd::FirstAid { sub } => commands::firstaid::run(&out, &layout, sub),
         Cmd::Module(_) => {
             commands::stubs::milestone(&out, "module", "2a-H3", "module lifecycle and graph")
         }

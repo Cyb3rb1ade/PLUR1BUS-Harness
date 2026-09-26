@@ -28,6 +28,9 @@ export interface RpcServer {
    *  A subscription with `agentId` needs that id in `audience` when one is given, otherwise `params.agentId === agentId`. */
   notify(method: string, params: object, opts?: NotifyOptions): void;
   subscriptions(): Subscription[];
+  /** Deprecated methods/notifications used at least once since start (ADR-016 §5, S13), as `method:<name>`/
+   *  `notification:<name>`, sorted; for `core.status.deprecationsUsed` and `1staid check`'s `api.deprecations`. */
+  deprecationsUsed(): string[];
 }
 
 // ADR-016 §5 / G13: the schema's deprecated surface, computed once; each name is warned about once per process.
@@ -220,5 +223,6 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       }
     },
     subscriptions: () => [...conns.values()].flatMap((c) => [...c.subs.values()]),
+    deprecationsUsed: () => [...warnedDeprecated].sort(),
   };
 }

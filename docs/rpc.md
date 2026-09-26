@@ -2784,6 +2784,13 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "journalBacklog": {
       "type": "integer"
+    },
+    "deprecationsUsed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
     }
   }
 }

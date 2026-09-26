@@ -79,6 +79,7 @@ export function createCore(o: CoreOptions): Core {
         ...(storeSchema ? { storeSchema } : {}),
       },
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })), journalBacklog,
+      deprecationsUsed: server?.deprecationsUsed() ?? [],
     };
   }
 

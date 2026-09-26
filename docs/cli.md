@@ -119,14 +119,14 @@ Check and repair the installation — 2a-H3
 
 ###### **Subcommands:**
 
-* `check` — Check the installation for problems — 2a-H3
-* `repair` — Repair a broken installation — 2a-H3
+* `check` — [experimental] Read-only diagnostics over the installation (spec §6.6)
+* `repair` — Repair a broken installation — 2a-H3b
 
 
 
 ## `plur1bus 1staid check`
 
-Check the installation for problems — 2a-H3
+[experimental] Read-only diagnostics over the installation (spec §6.6)
 
 **Usage:** `plur1bus 1staid check`
 
@@ -134,7 +134,7 @@ Check the installation for problems — 2a-H3
 
 ## `plur1bus 1staid repair`
 
-Repair a broken installation — 2a-H3
+Repair a broken installation — 2a-H3b
 
 **Usage:** `plur1bus 1staid repair [OPTIONS]`
 

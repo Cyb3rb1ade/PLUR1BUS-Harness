@@ -3,6 +3,7 @@ pub mod config;
 pub mod core;
 pub mod daemon;
 pub mod dreams;
+pub mod firstaid;
 pub mod memory;
 pub mod memory_ops;
 pub mod service;

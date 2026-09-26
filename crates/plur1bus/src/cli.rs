@@ -113,9 +113,9 @@ pub struct StubArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum FirstAidCmd {
-    /// Check the installation for problems — 2a-H3
+    /// [experimental] Read-only diagnostics over the installation (spec §6.6)
     Check,
-    /// Repair a broken installation — 2a-H3
+    /// Repair a broken installation — 2a-H3b
     Repair {
         #[arg(long)]
         yes: bool,
@@ -388,7 +388,7 @@ mod tests {
     use clap::CommandFactory;
 
     /// Milestone tags a stub command's `about` names (gen-docs.mjs's cli.md intro; G1).
-    const STUB_MILESTONES: &[&str] = &["2a-H3", "M1b-3", "M2", "M3", "M4", "M8"];
+    const STUB_MILESTONES: &[&str] = &["2a-H3", "2a-H3b", "M1b-3", "M2", "M3", "M4", "M8"];
 
     fn collect_leaves(cmd: &clap::Command, prefix: &str, out: &mut Vec<(String, Option<String>)>) {
         let path = if prefix.is_empty() {

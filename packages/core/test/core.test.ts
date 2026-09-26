@@ -70,6 +70,19 @@ describe("core", () => {
     assert.ok(c.hello.capabilities?.features.includes("events.harness"), c.hello.capabilities?.features.join(","));
   });
 
+  // Must run before any other test in this file subscribes to `engine.event`, since `deprecationsUsed` is
+  // per-process state for this core's whole lifetime (ADR-016 §5, S13).
+  it("core.status lists deprecations used since start", async () => {
+    const before = await c.call<any>("core.status");
+    assert.deepEqual(before.deprecationsUsed, []);
+    const s = await connect({ address: core.address, token: core.token });
+    try {
+      await s.call("events.subscribe", { names: ["engine.event"] });
+      const after = await c.call<any>("core.status");
+      assert.deepEqual(after.deprecationsUsed, ["notification:engine.event"]);
+    } finally { await s.close(); }
+  });
+
   it("a subscriber without names gets recall.completed and never engine.event", async () => {
     const s = await connect({ address: core.address, token: core.token });
     try {
