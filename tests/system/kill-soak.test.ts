@@ -103,7 +103,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
     const t0 = performance.now();
     const addMs: number[] = [];
     const recallMs: number[] = [];
-    const counts = { stored: 0, journaled: 0, replayedTwice: 0, coreKills: 0, throttledKills: 0, unavailableRecalls: 0, engineDegradedRecalls: 0 };
+    const counts = { stored: 0, journaled: 0, replayedTwice: 0, coreKills: 0, throttledKills: 0, unavailableRecalls: 0, stoppingRecalls: 0, engineDegradedRecalls: 0 };
     /** Fact index → how its add was answered. */
     const kept = new Map<number, "stored" | "journaled">();
     let outageObserved = false;
@@ -187,6 +187,10 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         const recall = timed(["memory", "recall", "--agent", agent, `soak fact ${i}`], recallMs, RECALL_BUDGET_MS);
         if (recall.degraded?.reason === "core-unavailable") {
           counts.unavailableRecalls++;
+          assert.ok(recall.degraded.detail, `a degraded recall names why: ${JSON.stringify(recall.degraded)}`);
+        } else if (recall.degraded?.reason === "engine-closed") {
+          // The core answered while it was stopping (orphan grace expiry): an outage, visible with its detail.
+          counts.stoppingRecalls++;
           assert.ok(recall.degraded.detail, `a degraded recall names why: ${JSON.stringify(recall.degraded)}`);
         } else if (recall.degraded !== null) {
           // H3-R19: the core answered, but the engine did not finish inside the recall's hard budget: accepted, counted.
