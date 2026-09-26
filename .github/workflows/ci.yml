@@ -81,6 +81,11 @@ jobs:
       # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
       - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts
         env: { PLUR1BUS_BIN: target/release/plur1bus }
+      # Criterion 2 (S16, ruling H3-R19): 200 turns over 2 agents with random core kills and two supervisor kills;
+      # the nightly runs 1 000. The seed is printed; replay a failure with PLUR1BUS_SOAK_SEED.
+      - name: kill soak (200 turns)
+        run: node --experimental-strip-types --test tests/system/kill-soak.test.ts
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "200" }
       - run: pnpm bench
   # OS service registration against the real service manager (Task 8, criterion 9): systemd user instance, launchd
   # GUI domain, Task Scheduler. Every registration uses the temp home's suffixed name (S10) and is removed again.
