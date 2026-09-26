@@ -1,6 +1,6 @@
 # ADR-016: API stability and versioning
 
-**Status:** Accepted (2026-09-25, owner decision D26; implementation record of plan 2a-H2 added 2026-09-26) · **Date:** 2026-09-25 / 2026-09-26 · **Deciders:** Christian (owner) · **Inputs:** `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §2 (D3, D14, D21, D25), §6.2 · ADR-012 (process model, RPC) · ADR-013 (configuration, migrations) · the engine's contract amendment policy (`types/engine.d.ts:23-31` in `openclaw-plur1bus-memory`) · `docs/superpowers/sdd/2026-09-26-m1b-2a-h2-memory-surface-and-api-stability/global-constraints.md` (rulings G1–G3, G6, G10, G11–G15, plan 2a-H2) · Source of record: this repository @ `53acbb3` (`feat/m1b-2a-h2`), engine @ `d32771c5` (contract 1.6.0).
+**Status:** Accepted (2026-09-25, owner decision D26; implementation record of plan 2a-H2 added 2026-09-26) · **Date:** 2026-09-25 / 2026-09-26 · **Deciders:** Christian (owner) · **Inputs:** `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §2 (D3, D14, D21, D25), §6.2 · ADR-012 (process model, RPC) · ADR-013 (configuration, migrations) · the engine's contract amendment policy (`types/engine.d.ts:23-31` in `openclaw-plur1bus-memory`) · `docs/superpowers/plans/2026-09-26-m1b-2a-h2-memory-surface-and-api-stability.md` ("Global Constraints" and rulings G1–G3, G6, G10, G11–G15; lands on `main` via docs PR #3) · Source of record: this repository @ `53acbb3` (`feat/m1b-2a-h2`), engine @ `d32771c5` (contract 1.6.0).
 
 ## Context
 
