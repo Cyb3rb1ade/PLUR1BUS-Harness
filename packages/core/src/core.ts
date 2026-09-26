@@ -21,6 +21,10 @@ import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 
+/** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
+ *  is never cut off (the client would journal the text and the next core would store it a second time). */
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, "memory.capture"] as const;
+
 export interface Core {
   start(): Promise<void>;
   stop(o?: { budgetMs?: number }): Promise<void>;
@@ -230,7 +234,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs }); }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;
-        const r = await server.drain({ methods: MEMORY_OP_METHODS, budgetMs: Math.max(0, budgetMs - (performance.now() - t0)) });
+        const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: Math.max(0, budgetMs - (performance.now() - t0)) });
         if (!r.drained) logger?.warn("memory ops still pending at close", { pending: r.pending });
       }, errors);
       await step(logger, "server close", async () => { await server?.close({ graceMs: 1000 }); }, errors);

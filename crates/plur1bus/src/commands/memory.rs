@@ -155,7 +155,9 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             match connect(layout, Duration::from_millis(hard + 400)) {
                 Ok(mut c) => match c.call("memory.recall", params) {
                     Ok(v) => out.ok("memory.recall/1", &v, || render_recall(&v, joined)),
-                    Err(e) if is_unavailable(&e) => unavailable(unavailable_detail(layout, &e)),
+                    Err(e) if is_unavailable(&e) || refused_as_unavailable(&e) => {
+                        unavailable(unavailable_detail(layout, &e))
+                    }
                     Err(e) => out.from_rpc_error(&e),
                 },
                 Err(e) if is_unavailable(&e) => unavailable(unavailable_detail(layout, &e)),
@@ -202,9 +204,9 @@ fn build_recall_params(
     params
 }
 
-#[allow(clippy::too_many_arguments)]
-/// The core answered but could not take the capture because it is stopping (`E_CORE_UNAVAILABLE`, reason
-/// `core-stopping`): nothing was stored, so the text is journaled exactly as for a core that cannot be reached.
+/// The core answered but could not serve the call because it is stopping (`E_CORE_UNAVAILABLE`, reason
+/// `core-stopping`): nothing was stored or recalled, so a capture is journaled and a recall answers degraded
+/// `core-unavailable`, exactly as for a core that cannot be reached.
 fn refused_as_unavailable(e: &RpcError) -> bool {
     matches!(
         e,
