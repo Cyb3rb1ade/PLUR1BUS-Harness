@@ -18,6 +18,9 @@ fn main() {
         Cmd::Core {
             sub: cli::CoreCmd::Run,
         } => commands::core::run(&out, &layout),
+        Cmd::Supervise { no_core } => {
+            supervisor::run(&layout, supervisor::SuperviseOpts { no_core })
+        }
         Cmd::Markdown => {
             print!("{}", clap_markdown::help_markdown::<Cli>());
         }

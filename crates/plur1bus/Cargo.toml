@@ -20,6 +20,14 @@ uuid = { version = "1", features = ["v4"] }
 home = "0.5"
 clap-markdown = "0.1"
 sha2 = "0.10"
+getrandom = "0.2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+signal-hook = { version = "0.3", default-features = false, features = ["iterator"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Pipes", "Win32_System_IO", "Win32_System_Threading"] }
 
 [dev-dependencies]
 assert_cmd = "2"

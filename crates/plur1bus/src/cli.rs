@@ -90,6 +90,13 @@ pub enum Cmd {
     /// Print the CLI reference as Markdown (used by scripts/gen-docs.mjs)
     #[command(hide = true, name = "__markdown")]
     Markdown,
+    /// Run the supervisor in the foreground (internal: started by the OS service or `daemon start`)
+    #[command(hide = true)]
+    Supervise {
+        /// Test seam: never spawn or adopt a core (needs PLUR1BUS_ALLOW_TEST_INTERNALS=1)
+        #[arg(long, hide = true)]
+        no_core: bool,
+    },
 }
 
 #[derive(Args, Debug)]

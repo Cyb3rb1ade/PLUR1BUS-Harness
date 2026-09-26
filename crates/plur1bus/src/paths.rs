@@ -173,6 +173,34 @@ impl Layout {
     pub fn core_token(&self) -> PathBuf {
         self.run().join("core.token")
     }
+    #[allow(dead_code)] // read by the supervisor's adoption probe (Task 7)
+    pub fn core_pid(&self) -> PathBuf {
+        self.run().join("core.pid")
+    }
+    /// The supervisor's RPC token and the nonce `core.adopt` proves (S3).
+    pub fn supervisor_token(&self) -> PathBuf {
+        self.run().join("supervisor.token")
+    }
+    /// `<pid> <instanceId>\n` of the running supervisor.
+    pub fn supervisor_pid(&self) -> PathBuf {
+        self.run().join("supervisor.pid")
+    }
+    /// Held with an exclusive OS file lock for the supervisor's whole life: the single-instance guard.
+    pub fn supervisor_lock(&self) -> PathBuf {
+        self.run().join("supervisor.lock")
+    }
+    pub fn logs(&self) -> PathBuf {
+        self.home.join("logs")
+    }
+    /// `logs/<role>.log`, the process's own JSON-lines log (S17).
+    pub fn log_file(&self, role: &str) -> PathBuf {
+        self.logs().join(format!("{role}.log"))
+    }
+    /// `logs/<role>.out.log`, a child's captured stdout/stderr (S17).
+    #[allow(dead_code)] // written by the child output pump (Task 6)
+    pub fn out_log(&self, role: &str) -> PathBuf {
+        self.logs().join(format!("{role}.out.log"))
+    }
     pub fn runtime(&self) -> PathBuf {
         self.home.join("runtime")
     }
@@ -180,15 +208,26 @@ impl Layout {
 
 /// Same rule as packages/core/src/paths.ts coreAddress(): socket path on POSIX, a per-home pipe name on Windows.
 pub fn core_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "core")
+}
+
+/// Same rule as packages/core/src/paths.ts supervisorAddress(): `run/supervisor.sock` on POSIX, the per-home
+/// `-supervisor` pipe on Windows.
+pub fn supervisor_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "supervisor")
+}
+
+/// `\\.\pipe\plur1bus-<first 16 hex of sha256(lower-cased home)>-<role>` on Windows, `<home>/run/<role>.sock` elsewhere.
+fn address(home: &Path, platform: &str, role: &str) -> String {
     if platform == "windows" {
         format!(
-            r"\\.\pipe\plur1bus-{}-core",
+            r"\\.\pipe\plur1bus-{}-{role}",
             &sha256_hex(home.to_string_lossy().to_lowercase().as_bytes())[..16]
         )
     } else {
         // Build with '/' explicitly: `platform` decides the format, not the host's path separator.
         format!(
-            "{}/run/core.sock",
+            "{}/run/{role}.sock",
             home.to_string_lossy().trim_end_matches('/')
         )
     }
@@ -257,6 +296,37 @@ mod tests {
         assert_eq!(
             core_address(Path::new(r"C:\Users\c\AppData\Local\PLUR1BUS"), "windows"),
             r"\\.\pipe\plur1bus-741b3e0a44818d49-core"
+        );
+    }
+
+    #[test]
+    fn supervisor_paths_mirror_the_typescript_layout() {
+        let l = Layout::new(PathBuf::from("/h/.plur1bus"));
+        assert_eq!(l.core_pid(), PathBuf::from("/h/.plur1bus/run/core.pid"));
+        assert_eq!(
+            l.supervisor_token(),
+            PathBuf::from("/h/.plur1bus/run/supervisor.token")
+        );
+        assert_eq!(
+            l.supervisor_pid(),
+            PathBuf::from("/h/.plur1bus/run/supervisor.pid")
+        );
+        assert_eq!(
+            l.log_file("supervisor"),
+            PathBuf::from("/h/.plur1bus/logs/supervisor.log")
+        );
+        assert_eq!(
+            l.out_log("core"),
+            PathBuf::from("/h/.plur1bus/logs/core.out.log")
+        );
+        assert_eq!(
+            supervisor_address(Path::new("/h/.plur1bus"), "posix"),
+            "/h/.plur1bus/run/supervisor.sock"
+        );
+        // Same hash as the core pipe above, `-supervisor` suffix (paths.ts pipeName(home, "supervisor")).
+        assert_eq!(
+            supervisor_address(Path::new(r"C:\Users\c\AppData\Local\PLUR1BUS"), "windows"),
+            r"\\.\pipe\plur1bus-741b3e0a44818d49-supervisor"
         );
     }
 
