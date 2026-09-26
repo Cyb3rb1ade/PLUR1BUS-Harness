@@ -143,18 +143,117 @@ pub enum MemoryCmd {
         joined: bool,
         query: Vec<String>,
     },
-    /// [experimental] List captured memory entries (engine PR E1)
-    List(StubArgs),
-    /// [experimental] Show one memory entry (engine PR E1)
-    Show(StubArgs),
-    /// [experimental] Forget (redact) a memory entry (engine PR E1)
-    Forget(StubArgs),
-    /// [experimental] Correct a memory entry (engine PR E1)
-    Correct(StubArgs),
-    /// [experimental] Share a memory entry with another agent (engine PR E1)
-    Share(StubArgs),
-    /// [experimental] Memory subsystem state (engine PR E1)
-    State(StubArgs),
+    /// [experimental] List captured memory entries
+    List {
+        #[arg(long)]
+        agent: String,
+        /// filter by topic (mutually exclusive with --since/--until)
+        #[arg(long, conflicts_with_all = ["since", "until"])]
+        topic: Option<String>,
+        /// epoch milliseconds, or a relative `<n>m|h|d` (e.g. `7d`); defaults to all history
+        #[arg(long)]
+        since: Option<String>,
+        /// epoch milliseconds, or a relative `<n>m|h|d`
+        #[arg(long, requires = "since")]
+        until: Option<String>,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Show one memory entry
+    Show {
+        #[arg(long)]
+        agent: String,
+        id: String,
+    },
+    /// [experimental] Forget (redact) a memory entry
+    Forget {
+        #[arg(long)]
+        agent: String,
+        id: String,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Correct a memory entry
+    Correct {
+        #[arg(long)]
+        agent: String,
+        id: String,
+        #[arg(required = true)]
+        text: Vec<String>,
+    },
+    /// [experimental] Share a memory entry with another agent
+    Share {
+        #[arg(long)]
+        agent: String,
+        id: String,
+        #[arg(long, value_enum)]
+        to: ShareTarget,
+        /// share even if the memory is marked sensitive (otherwise a TTY prompts for it)
+        #[arg(long)]
+        allow_sensitive: bool,
+    },
+    /// [experimental] Memory subsystem state
+    State {
+        #[arg(long)]
+        agent: String,
+    },
+    /// [experimental] Propose a correction to a shared memory
+    Propose {
+        #[arg(long)]
+        agent: String,
+        shared_id: String,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(required = true)]
+        text: Vec<String>,
+    },
+    /// [experimental] List, accept or reject shared-memory correction proposals
+    Proposals {
+        #[command(subcommand)]
+        sub: ProposalsCmd,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ShareTarget {
+    Workspace,
+    User,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ProposalStatus {
+    Pending,
+    Accepted,
+    Rejected,
+    Stale,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ProposalsCmd {
+    /// [experimental] List shared-memory correction proposals
+    List {
+        #[arg(long)]
+        agent: String,
+        #[arg(long, value_enum)]
+        status: Option<ProposalStatus>,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Accept a proposal
+    Accept {
+        #[arg(long)]
+        agent: String,
+        proposal_id: String,
+    },
+    /// [experimental] Reject a proposal
+    Reject {
+        #[arg(long)]
+        agent: String,
+        proposal_id: String,
+        #[arg(long)]
+        note: Option<String>,
+    },
 }
 #[derive(Subcommand, Debug)]
 pub enum DreamsCmd {

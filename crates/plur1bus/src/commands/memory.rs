@@ -10,7 +10,7 @@ use plur1bus_rpc::{is_unavailable, Client, ConnectOptions, RpcError};
 use serde_json::{json, Value};
 use std::time::Duration;
 
-fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client, RpcError> {
+pub(crate) fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client, RpcError> {
     let token = std::fs::read_to_string(layout.core_token()).map_err(RpcError::from)?;
     Client::connect(
         &core_address(
@@ -25,7 +25,7 @@ fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client, RpcError> 
     )
 }
 
-fn require_agent(out: &Out, config: &Value, id: &str) {
+pub(crate) fn require_agent(out: &Out, config: &Value, id: &str) {
     if config["agents"].get(id).is_none() {
         out.fail(
             "E_AGENT_UNKNOWN",
@@ -152,17 +152,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 Err(e) => out.from_rpc_error(&e),
             }
         }
-        MemoryCmd::List(_)
-        | MemoryCmd::Show(_)
-        | MemoryCmd::Forget(_)
-        | MemoryCmd::Correct(_)
-        | MemoryCmd::Share(_)
-        | MemoryCmd::State(_) => out.fail(
-            "E_NOT_AVAILABLE",
-            "memory list/show/forget/correct/share/state arrive with engine PR E1 (MemoryOps)",
-            json!({ "reason": "engine-pr-E1" }),
-            2,
-        ),
+        other => super::memory_ops::run(out, layout, other),
     }
 }
 

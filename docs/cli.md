@@ -31,6 +31,11 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory correct`↴](#plur1bus-memory-correct)
 * [`plur1bus memory share`↴](#plur1bus-memory-share)
 * [`plur1bus memory state`↴](#plur1bus-memory-state)
+* [`plur1bus memory propose`↴](#plur1bus-memory-propose)
+* [`plur1bus memory proposals`↴](#plur1bus-memory-proposals)
+* [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
+* [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
+* [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -202,12 +207,14 @@ Memory: add and recall through the core
 
 * `add` — Capture a memory through the core (stable, ADR-016 §4)
 * `recall` — Recall relevant memory blocks through the core (stable, ADR-016 §4)
-* `list` — [experimental] List captured memory entries (engine PR E1)
-* `show` — [experimental] Show one memory entry (engine PR E1)
-* `forget` — [experimental] Forget (redact) a memory entry (engine PR E1)
-* `correct` — [experimental] Correct a memory entry (engine PR E1)
-* `share` — [experimental] Share a memory entry with another agent (engine PR E1)
-* `state` — [experimental] Memory subsystem state (engine PR E1)
+* `list` — [experimental] List captured memory entries
+* `show` — [experimental] Show one memory entry
+* `forget` — [experimental] Forget (redact) a memory entry
+* `correct` — [experimental] Correct a memory entry
+* `share` — [experimental] Share a memory entry with another agent
+* `state` — [experimental] Memory subsystem state
+* `propose` — [experimental] Propose a correction to a shared memory
+* `proposals` — [experimental] List, accept or reject shared-memory correction proposals
 
 
 
@@ -248,73 +255,182 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 ## `plur1bus memory list`
 
-[experimental] List captured memory entries (engine PR E1)
+[experimental] List captured memory entries
 
-**Usage:** `plur1bus memory list`
+**Usage:** `plur1bus memory list [OPTIONS] --agent <AGENT>`
 
-###### **Arguments:**
+###### **Options:**
 
-* `<REST>`
+* `--agent <AGENT>`
+* `--topic <TOPIC>` — filter by topic (mutually exclusive with --since/--until)
+* `--since <SINCE>` — epoch milliseconds, or a relative `<n>m|h|d` (e.g. `7d`); defaults to all history
+* `--until <UNTIL>` — epoch milliseconds, or a relative `<n>m|h|d`
+* `--limit <LIMIT>`
 
 
 
 ## `plur1bus memory show`
 
-[experimental] Show one memory entry (engine PR E1)
+[experimental] Show one memory entry
 
-**Usage:** `plur1bus memory show`
+**Usage:** `plur1bus memory show --agent <AGENT> <ID>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
 
 
 
 ## `plur1bus memory forget`
 
-[experimental] Forget (redact) a memory entry (engine PR E1)
+[experimental] Forget (redact) a memory entry
 
-**Usage:** `plur1bus memory forget`
+**Usage:** `plur1bus memory forget [OPTIONS] --agent <AGENT> <ID>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--yes` — skip the confirmation prompt (required outside a terminal)
 
 
 
 ## `plur1bus memory correct`
 
-[experimental] Correct a memory entry (engine PR E1)
+[experimental] Correct a memory entry
 
-**Usage:** `plur1bus memory correct`
+**Usage:** `plur1bus memory correct --agent <AGENT> <ID> <TEXT>...`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<ID>`
+* `<TEXT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
 
 
 
 ## `plur1bus memory share`
 
-[experimental] Share a memory entry with another agent (engine PR E1)
+[experimental] Share a memory entry with another agent
 
-**Usage:** `plur1bus memory share`
+**Usage:** `plur1bus memory share [OPTIONS] --agent <AGENT> --to <TO> <ID>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--to <TO>`
+
+  Possible values: `workspace`, `user`
+
+* `--allow-sensitive` — share even if the memory is marked sensitive (otherwise a TTY prompts for it)
 
 
 
 ## `plur1bus memory state`
 
-[experimental] Memory subsystem state (engine PR E1)
+[experimental] Memory subsystem state
 
-**Usage:** `plur1bus memory state`
+**Usage:** `plur1bus memory state --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory propose`
+
+[experimental] Propose a correction to a shared memory
+
+**Usage:** `plur1bus memory propose [OPTIONS] --agent <AGENT> <SHARED_ID> <TEXT>...`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<SHARED_ID>`
+* `<TEXT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--note <NOTE>`
+
+
+
+## `plur1bus memory proposals`
+
+[experimental] List, accept or reject shared-memory correction proposals
+
+**Usage:** `plur1bus memory proposals <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List shared-memory correction proposals
+* `accept` — [experimental] Accept a proposal
+* `reject` — [experimental] Reject a proposal
+
+
+
+## `plur1bus memory proposals list`
+
+[experimental] List shared-memory correction proposals
+
+**Usage:** `plur1bus memory proposals list [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--status <STATUS>`
+
+  Possible values: `pending`, `accepted`, `rejected`, `stale`
+
+* `--limit <LIMIT>`
+
+
+
+## `plur1bus memory proposals accept`
+
+[experimental] Accept a proposal
+
+**Usage:** `plur1bus memory proposals accept --agent <AGENT> <PROPOSAL_ID>`
+
+###### **Arguments:**
+
+* `<PROPOSAL_ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory proposals reject`
+
+[experimental] Reject a proposal
+
+**Usage:** `plur1bus memory proposals reject [OPTIONS] --agent <AGENT> <PROPOSAL_ID>`
+
+###### **Arguments:**
+
+* `<PROPOSAL_ID>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--note <NOTE>`
 
 
 

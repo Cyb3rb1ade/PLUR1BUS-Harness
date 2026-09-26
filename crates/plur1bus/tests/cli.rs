@@ -600,3 +600,325 @@ fn dreams_without_a_core_says_so_and_validates_args() {
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
     assert_eq!(v["error"], "E_CORE_UNAVAILABLE");
 }
+
+/// A minimal fake core for the `plur1bus memory …` tests: writes `run/core.token` and binds
+/// `run/core.sock` under `home` (mirrors `crates/plur1bus-rpc/tests/client.rs`'s
+/// `fake_core_with`), answers `core.auth` with `hello`, and — if given — answers one other
+/// method with a scripted response (its `result` or `error` object, `jsonrpc`/`id` filled in).
+#[cfg(unix)]
+mod fake_core {
+    use serde_json::{json, Value};
+    use std::io::{BufRead, BufReader, Write};
+    use std::os::unix::net::UnixListener;
+    use std::path::Path;
+
+    pub fn spawn(home: &Path, hello: Value, scripted: Option<(&str, Value)>) {
+        let run = home.join("run");
+        std::fs::create_dir_all(&run).unwrap();
+        let token = "d".repeat(64);
+        std::fs::write(run.join("core.token"), &token).unwrap();
+        let listener = UnixListener::bind(run.join("core.sock")).unwrap();
+        let scripted = scripted.map(|(m, a)| (m.to_string(), a));
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(stream) = stream else { return };
+                let mut w = stream.try_clone().unwrap();
+                let r = BufReader::new(stream);
+                let hello = hello.clone();
+                let scripted = scripted.clone();
+                let token = token.clone();
+                std::thread::spawn(move || {
+                    let mut authed = false;
+                    for line in r.lines() {
+                        let Ok(line) = line else { return };
+                        let msg: Value = serde_json::from_str(&line).unwrap();
+                        let id = msg["id"].clone();
+                        let method = msg["method"].as_str().unwrap_or("").to_string();
+                        let reply = if method == "core.auth" {
+                            authed = msg["params"]["token"] == token;
+                            if authed {
+                                json!({"jsonrpc":"2.0","id":id,"result":hello})
+                            } else {
+                                json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":"bad token","data":{"error":"E_UNAUTHORIZED","reason":"bad-token"}}})
+                            }
+                        } else if !authed {
+                            json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":"auth","data":{"error":"E_UNAUTHORIZED","reason":"auth-required"}}})
+                        } else if scripted.as_ref().is_some_and(|(m, _)| *m == method) {
+                            let mut r = json!({"jsonrpc":"2.0","id":id});
+                            let (_, body) = scripted.as_ref().unwrap();
+                            if let (Some(t), Some(b)) = (r.as_object_mut(), body.as_object()) {
+                                for (k, v) in b {
+                                    t.insert(k.clone(), v.clone());
+                                }
+                            }
+                            r
+                        } else {
+                            json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":"nope","data":{"error":"E_INTERNAL","reason":"method-not-found"}}})
+                        };
+                        w.write_all(format!("{}\n", reply).as_bytes()).unwrap();
+                        w.flush().unwrap();
+                    }
+                });
+            }
+        });
+    }
+
+    pub fn hello_with_capabilities(missing_methods: &[&str]) -> Value {
+        let mut methods = serde_json::Map::new();
+        for m in [
+            "memory.list",
+            "memory.show",
+            "memory.forget",
+            "memory.correct",
+            "memory.share",
+            "memory.state",
+            "memory.propose",
+            "memory.proposals.list",
+            "memory.proposals.accept",
+            "memory.proposals.reject",
+        ] {
+            if !missing_methods.contains(&m) {
+                methods.insert(
+                    m.to_string(),
+                    json!({"stability": "experimental", "since": "1.1.0"}),
+                );
+            }
+        }
+        json!({
+            "contract": "1.6.0",
+            "rpc": "1.1.0",
+            "instanceId": "i",
+            "pid": 1,
+            "capabilities": {
+                "methods": methods,
+                "notifications": {},
+                "extensionPoints": {},
+                "features": []
+            }
+        })
+    }
+}
+
+#[test]
+fn memory_help_names_every_subcommand() {
+    let out = bin()
+        .args(["memory", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let s = String::from_utf8(out).unwrap();
+    for sub in [
+        "add",
+        "recall",
+        "list",
+        "show",
+        "forget",
+        "correct",
+        "share",
+        "state",
+        "propose",
+        "proposals",
+    ] {
+        assert!(s.contains(sub), "memory --help does not mention {sub}\n{s}");
+    }
+}
+
+#[test]
+fn memory_forget_without_yes_in_a_pipe_exits_2_and_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    let out = bin()
+        .args([
+            "--json", "--home", h, "memory", "forget", "--agent", "bernd", "m-1",
+        ])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "error/1");
+    assert_eq!(v["applied"], false);
+}
+
+#[test]
+fn memory_list_rejects_topic_with_since() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    bin()
+        .args([
+            "--home", h, "memory", "list", "--agent", "bernd", "--topic", "roadmap", "--since",
+            "1000",
+        ])
+        .assert()
+        .code(2);
+}
+
+#[test]
+fn memory_ops_without_a_core_fail_fast_with_core_unavailable() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    let cases: Vec<Vec<&str>> = vec![
+        vec!["memory", "list", "--agent", "bernd"],
+        vec!["memory", "show", "--agent", "bernd", "m-1"],
+        vec!["memory", "forget", "--agent", "bernd", "m-1", "--yes"],
+        vec![
+            "memory", "correct", "--agent", "bernd", "m-1", "new", "text",
+        ],
+        vec![
+            "memory",
+            "share",
+            "--agent",
+            "bernd",
+            "m-1",
+            "--to",
+            "workspace",
+        ],
+        vec!["memory", "state", "--agent", "bernd"],
+        vec![
+            "memory", "propose", "--agent", "bernd", "m-copy", "new", "text",
+        ],
+        vec!["memory", "proposals", "list", "--agent", "bernd"],
+        vec!["memory", "proposals", "accept", "--agent", "bernd", "p-1"],
+        vec!["memory", "proposals", "reject", "--agent", "bernd", "p-1"],
+    ];
+    for args in cases {
+        let mut full = vec!["--json", "--home", h];
+        full.extend(args.iter());
+        let t0 = std::time::Instant::now();
+        let out = bin()
+            .args(&full)
+            .assert()
+            .code(1)
+            .get_output()
+            .stdout
+            .clone();
+        let elapsed = t0.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_secs(1),
+            "{args:?} took {elapsed:?}"
+        );
+        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(v["error"], "E_CORE_UNAVAILABLE", "{args:?} -> {v}");
+    }
+}
+
+#[test]
+fn memory_ops_for_an_unregistered_agent_fail_before_connecting() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let cases: Vec<Vec<&str>> = vec![
+        vec!["memory", "list", "--agent", "ghost"],
+        vec!["memory", "show", "--agent", "ghost", "m-1"],
+        vec!["memory", "forget", "--agent", "ghost", "m-1", "--yes"],
+        vec![
+            "memory", "correct", "--agent", "ghost", "m-1", "new", "text",
+        ],
+        vec![
+            "memory",
+            "share",
+            "--agent",
+            "ghost",
+            "m-1",
+            "--to",
+            "workspace",
+        ],
+        vec!["memory", "state", "--agent", "ghost"],
+        vec![
+            "memory", "propose", "--agent", "ghost", "m-copy", "new", "text",
+        ],
+        vec!["memory", "proposals", "list", "--agent", "ghost"],
+        vec!["memory", "proposals", "accept", "--agent", "ghost", "p-1"],
+        vec!["memory", "proposals", "reject", "--agent", "ghost", "p-1"],
+    ];
+    for args in cases {
+        let mut full = vec!["--json", "--home", h];
+        full.extend(args.iter());
+        let out = bin()
+            .args(&full)
+            .assert()
+            .code(1)
+            .get_output()
+            .stdout
+            .clone();
+        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(v["error"], "E_AGENT_UNKNOWN", "{args:?} -> {v}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn share_approval_required_in_a_pipe_exits_2_with_hint() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    fake_core::spawn(
+        dir.path(),
+        fake_core::hello_with_capabilities(&[]),
+        Some((
+            "memory.share",
+            serde_json::json!({"error": {"code": -32000, "message": "sensitive", "data": {"error": "E_APPROVAL_REQUIRED", "reason": "sensitive"}}}),
+        )),
+    );
+    bin()
+        .args([
+            "--home",
+            h,
+            "memory",
+            "share",
+            "--agent",
+            "bernd",
+            "m-1",
+            "--to",
+            "workspace",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--allow-sensitive"));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_core_without_the_method_in_capabilities_is_not_available() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    fake_core::spawn(
+        dir.path(),
+        fake_core::hello_with_capabilities(&["memory.propose"]),
+        None,
+    );
+    let out = bin()
+        .args([
+            "--json", "--home", h, "memory", "propose", "--agent", "bernd", "m-copy", "new", "text",
+        ])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["reason"], "core-lacks-method");
+    assert_eq!(v["method"], "memory.propose");
+}
