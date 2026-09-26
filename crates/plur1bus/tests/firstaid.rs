@@ -152,6 +152,86 @@ fn stop_supervisor(home: &Path) {
     });
 }
 
+/// Best-effort teardown of whatever a test started under `home` (final review M1): `daemon.stop` if a supervisor
+/// answers, then a kill of every process `run/supervisor.pid` / `run/core.pid` still names — but only one whose
+/// command line names this home, so a stale pid file never kills an unrelated, recycled pid. Never panics: it runs
+/// from `Drop`, including while a failed assertion unwinds.
+fn teardown(home: &Path) {
+    let run = home.join("run");
+    if let Ok(token) = std::fs::read_to_string(run.join("supervisor.token")) {
+        let quick = ConnectOptions {
+            connect_timeout: Duration::from_millis(500),
+            call_timeout: Duration::from_secs(2),
+            endpoint: Endpoint::Supervisor,
+            expected_server_pid: None,
+        };
+        if let Ok(mut c) = Client::connect(&supervisor_address(home), token.trim(), quick) {
+            let _ = c.call("daemon.stop", json!({ "budgetMs": 500 }));
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while run.join("supervisor.pid").exists() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        }
+    }
+    for name in ["supervisor.pid", "core.pid"] {
+        let pid = std::fs::read_to_string(run.join(name))
+            .ok()
+            .and_then(|t| t.split_whitespace().next()?.parse::<u32>().ok());
+        if let Some(pid) = pid {
+            kill_if_under(pid, home);
+        }
+    }
+}
+
+#[cfg(unix)]
+fn kill_if_under(pid: u32, home: &Path) {
+    let Ok(out) = Command::new("ps")
+        .args(["-ww", "-o", "command=", "-p", &pid.to_string()])
+        .output()
+    else {
+        return;
+    };
+    if String::from_utf8_lossy(&out.stdout).contains(&*home.to_string_lossy()) {
+        // SAFETY: plain kill(2) on a pid whose command line names this test's own temp home.
+        unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+    }
+}
+
+#[cfg(windows)]
+fn kill_if_under(pid: u32, _home: &Path) {
+    // No portable command-line lookup here; the pid was written by this test's own processes moments ago.
+    let _ = Command::new("taskkill")
+        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+/// A process a test spawned itself (`supervise`, `core run`) under `home`: on drop — also when a test panics —
+/// [`teardown`] stops the stack cleanly, then the process is killed and reaped (like `tests/supervisor.rs`'s
+/// `Supervisor`).
+struct Spawned {
+    child: std::process::Child,
+    home: PathBuf,
+}
+
+impl Spawned {
+    fn new(child: std::process::Child, home: &Path) -> Self {
+        Self {
+            child,
+            home: home.to_path_buf(),
+        }
+    }
+}
+
+impl Drop for Spawned {
+    fn drop(&mut self) {
+        teardown(&self.home);
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
 /// A recursive listing of `dir`'s contents, path -> (len, mtime), used to prove `1staid check` never touches the
 /// home directory.
 fn snapshot(dir: &Path) -> BTreeMap<PathBuf, (u64, SystemTime)> {
@@ -250,22 +330,34 @@ fn check_json_validates_the_document_shape() {
     }
 }
 
-/// Review Focus 3: a socket/pid file left behind by a power loss, with no process behind it, is a warning.
+/// Review Focus 3: the run files a SIGKILL or a power loss leaves behind (sockets, pid files and both token files),
+/// with no process behind them, are warnings — `supervisor.state` reads "not running (stale run files)", never
+/// "unresponsive", so `1staid check` still exits 0 after every crash (final review I1).
 #[cfg(unix)]
 #[test]
 fn stale_run_files_are_a_warning() {
     use std::os::unix::fs::PermissionsExt;
     let h = Home::new();
-    std::fs::create_dir_all(h.home.join("run")).unwrap();
-    std::fs::set_permissions(h.home.join("run"), std::fs::Permissions::from_mode(0o700)).unwrap();
-    drop(std::os::unix::net::UnixListener::bind(h.home.join("run/supervisor.sock")).unwrap());
+    let run = h.home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    drop(std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap());
+    drop(std::os::unix::net::UnixListener::bind(run.join("core.sock")).unwrap());
+    // Pids that cannot exist (above every pid_max), so the check sees them as dead.
     std::fs::write(
-        h.home.join("run/supervisor.pid"),
-        "999999 00000000-0000-4000-8000-000000000000\n",
+        run.join("supervisor.pid"),
+        "2147483000 00000000-0000-4000-8000-000000000000\n",
     )
     .unwrap();
-    // No `run/supervisor.token`: this is a stale-files check, not a supervisor.state one, so `supervisor.state`
-    // should read "not running" (warn), not "unresponsive" (fail) — and a warning alone must not fail the check.
+    std::fs::write(
+        run.join("core.pid"),
+        "2147483001 00000000-0000-4000-8000-000000000001\n",
+    )
+    .unwrap();
+    for token in ["supervisor.token", "core.token"] {
+        std::fs::write(run.join(token), "a".repeat(64)).unwrap();
+        std::fs::set_permissions(run.join(token), std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
 
     let out = check_cmd(&h).output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{out:?}");
@@ -278,11 +370,52 @@ fn stale_run_files_are_a_warning() {
         .iter()
         .map(|f| f.as_str().unwrap().to_string())
         .collect();
-    assert!(files.contains(&"supervisor.sock".to_string()), "{files:?}");
-    assert!(files.contains(&"supervisor.pid".to_string()), "{files:?}");
+    for f in ["supervisor.sock", "supervisor.pid", "core.sock", "core.pid"] {
+        assert!(files.contains(&f.to_string()), "{f} missing from {files:?}");
+    }
+    assert_eq!(checks["supervisor.state"]["status"], "warn", "{v}");
+    assert_eq!(
+        checks["supervisor.state"]["summary"], "supervisor is not running (stale run files)",
+        "{v}"
+    );
+    assert_eq!(checks["core.state"]["status"], "warn", "{v}");
     assert_eq!(
         v["ok"], true,
         "a warning alone does not fail the check: {v}"
+    );
+}
+
+/// The one case that stays a failure: something accepts the supervisor connection but never answers.
+#[cfg(unix)]
+#[test]
+fn a_supervisor_that_accepts_but_never_answers_is_a_failure() {
+    use std::os::unix::fs::PermissionsExt;
+    let h = Home::new();
+    let run = h.home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::write(run.join("supervisor.token"), "a".repeat(64)).unwrap();
+    std::fs::set_permissions(
+        run.join("supervisor.token"),
+        std::fs::Permissions::from_mode(0o600),
+    )
+    .unwrap();
+    let listener = std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap();
+    let _bg = std::thread::spawn(move || {
+        let mut held = Vec::new();
+        for s in listener.incoming().flatten() {
+            held.push(s); // keep every connection open; never read or write on it
+        }
+    });
+
+    let out = check_cmd(&h).output().unwrap();
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let v = json_stdout(&out);
+    let checks = checks_by_id(&v);
+    assert_eq!(checks["supervisor.state"]["status"], "fail", "{v}");
+    assert_eq!(
+        checks["supervisor.state"]["summary"], "supervisor is unresponsive",
+        "{v}"
     );
 }
 
@@ -290,7 +423,7 @@ fn stale_run_files_are_a_warning() {
 #[test]
 fn a_crashed_core_is_a_failure_and_exit_1() {
     let h = Home::new();
-    let mut sup = supervise_cmd(&h, "exit:2").spawn().unwrap();
+    let _sup = Spawned::new(supervise_cmd(&h, "exit:2").spawn().unwrap(), &h.home);
     wait_until("the supervisor token", WAIT, || {
         h.home.join("run/supervisor.token").exists()
     });
@@ -311,15 +444,13 @@ fn a_crashed_core_is_a_failure_and_exit_1() {
     );
 
     stop_supervisor(&h.home);
-    let _ = sup.kill();
-    let _ = sup.wait();
 }
 
 /// A fully ready stack: the supervisor and the core both answer and report `ready`.
 #[test]
 fn ready_stack_is_all_ok_except_service() {
     let h = Home::new();
-    let mut sup = supervise_cmd(&h, "ok").spawn().unwrap();
+    let _sup = Spawned::new(supervise_cmd(&h, "ok").spawn().unwrap(), &h.home);
     wait_until("the supervisor token", WAIT, || {
         h.home.join("run/supervisor.token").exists()
     });
@@ -340,8 +471,6 @@ fn ready_stack_is_all_ok_except_service() {
     );
 
     stop_supervisor(&h.home);
-    let _ = sup.kill();
-    let _ = sup.wait();
 }
 
 /// Spec §6.3/S7: a core whose engine reports `models-warming` is a warning, not a failure (the process is ready and
@@ -352,10 +481,13 @@ fn models_warming_is_a_warning() {
     let engine = json!({ "ready": false, "degraded": { "reason": "models-warming", "capability": "embedding" }, "models": {
         "embedder": { "state": "loading", "warming": true, "checkedAt": null, "id": "e5-small" },
         "reranker": { "state": "loading", "warming": true, "checkedAt": null, "id": "local-transformers" } } });
-    let mut sup = supervise_cmd(&h, "ok")
-        .env("FAKE_CORE_ENGINE", engine.to_string())
-        .spawn()
-        .unwrap();
+    let _sup = Spawned::new(
+        supervise_cmd(&h, "ok")
+            .env("FAKE_CORE_ENGINE", engine.to_string())
+            .spawn()
+            .unwrap(),
+        &h.home,
+    );
     wait_until("the supervisor token", WAIT, || {
         h.home.join("run/supervisor.token").exists()
     });
@@ -380,8 +512,6 @@ fn models_warming_is_a_warning() {
     );
 
     stop_supervisor(&h.home);
-    let _ = sup.kill();
-    let _ = sup.wait();
 }
 
 /// Task 14 (E4): a core reporting shared memory as unsupported is a warning, not a failure — agent-private memory
@@ -391,10 +521,13 @@ fn shared_memory_unavailable_is_a_warning_not_a_failure() {
     let h = Home::new();
     let engine = json!({ "ready": true, "degraded": null, "sharedMemory": {
         "supported": false, "mode": "unavailable", "reason": "platform" } });
-    let mut sup = supervise_cmd(&h, "ok")
-        .env("FAKE_CORE_ENGINE", engine.to_string())
-        .spawn()
-        .unwrap();
+    let _sup = Spawned::new(
+        supervise_cmd(&h, "ok")
+            .env("FAKE_CORE_ENGINE", engine.to_string())
+            .spawn()
+            .unwrap(),
+        &h.home,
+    );
     wait_until("the supervisor token", WAIT, || {
         h.home.join("run/supervisor.token").exists()
     });
@@ -441,8 +574,6 @@ fn shared_memory_unavailable_is_a_warning_not_a_failure() {
     );
 
     stop_supervisor(&h.home);
-    let _ = sup.kill();
-    let _ = sup.wait();
 }
 
 /// Task 15 (E4): `jobs.last-runs` reads `core.status.jobs`; an open rem/deep breaker is a warning, not a failure.
@@ -451,10 +582,13 @@ fn an_open_breaker_is_a_warning() {
     let h = Home::new();
     let jobs = json!({ "ledger": "ok", "agents": [{ "agentId": "bernd", "running": [], "breakerOpen": true,
         "unreadableLines": 0, "lastRuns": { "dream-rem": { "outcome": "skipped", "reason": "breaker-open", "finishedAt": 1 } } }] });
-    let mut sup = supervise_cmd(&h, "ok")
-        .env("FAKE_CORE_JOBS", jobs.to_string())
-        .spawn()
-        .unwrap();
+    let _sup = Spawned::new(
+        supervise_cmd(&h, "ok")
+            .env("FAKE_CORE_JOBS", jobs.to_string())
+            .spawn()
+            .unwrap(),
+        &h.home,
+    );
     wait_until("the supervisor token", WAIT, || {
         h.home.join("run/supervisor.token").exists()
     });
@@ -486,8 +620,6 @@ fn an_open_breaker_is_a_warning() {
     );
 
     stop_supervisor(&h.home);
-    let _ = sup.kill();
-    let _ = sup.wait();
 }
 
 /// ADR-016 §5/S13: subscribing to the deprecated `engine.event` notification marks it used, and `1staid check`
@@ -506,7 +638,7 @@ fn deprecations_list_engine_event_with_used_flag() {
     });
     plur1bus_config::write_atomic(&h.home.join("config.json"), &config).unwrap();
 
-    let mut core = Command::new(bin())
+    let core = Command::new(bin())
         .arg("--home")
         .arg(&h.home)
         .args(["core", "run"])
@@ -519,6 +651,7 @@ fn deprecations_list_engine_event_with_used_flag() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
+    let _core = Spawned::new(core, &h.home);
 
     wait_until("the core token", WAIT, || {
         h.home.join("run/core.token").exists()
@@ -557,9 +690,6 @@ fn deprecations_list_engine_event_with_used_flag() {
         .find(|e| e["name"] == "engine.event")
         .unwrap_or_else(|| panic!("engine.event missing from {deps:?}"));
     assert_eq!(entry["used"], true, "{entry}");
-
-    let _ = core.kill();
-    let _ = core.wait();
 }
 
 /// The unix half of `run.permissions`: `run/` wider than 0700 is a failure.

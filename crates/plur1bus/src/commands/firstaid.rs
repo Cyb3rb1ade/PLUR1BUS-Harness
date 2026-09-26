@@ -11,7 +11,7 @@ use crate::cli::FirstAidCmd;
 use crate::output::Out;
 use crate::paths::{core_address, supervisor_address, Layout};
 use crate::service::{self, Runner};
-use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
+use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -147,15 +147,18 @@ impl<'a> Env<'a> {
     }
 }
 
-/// One bounded, authenticated probe of `endpoint`: `None` when there is no token file, the connection is refused, or
-/// the call itself fails or times out.
+/// One bounded, authenticated probe of `endpoint`: `Err` when there is no token file (`Unavailable { reason:
+/// "no-token" }`), the connection is refused, or the handshake or the call itself fails or times out.
 fn probe(
     layout: &Layout,
     endpoint: Endpoint,
     platform: &str,
     method: &str,
-) -> Option<(Value, Client)> {
-    let token = super::read_token_of(layout, endpoint)?;
+) -> Result<(Value, Client), RpcError> {
+    let token = super::read_token_of(layout, endpoint).ok_or_else(|| RpcError::Unavailable {
+        reason: "no-token".into(),
+        detail: String::new(),
+    })?;
     let address = match endpoint {
         Endpoint::Core => core_address(&layout.home, platform),
         Endpoint::Supervisor => supervisor_address(&layout.home, platform),
@@ -166,9 +169,46 @@ fn probe(
         endpoint,
         expected_server_pid: None, // set by connect_recorded
     };
-    let mut client = super::connect_recorded(layout, &address, &token, opts).ok()?;
-    let result = client.call(method, json!({})).ok()?;
-    Some((result, client))
+    let mut client = super::connect_recorded(layout, &address, &token, opts)?;
+    let result = client.call(method, json!({}))?;
+    Ok((result, client))
+}
+
+/// What a bounded probe of the supervisor found, classified like `commands::daemon`'s own probe (final review I1).
+#[derive(Debug)]
+enum SupervisorView {
+    /// No `run/supervisor.token`: nothing was ever started here, or it stopped cleanly.
+    NoToken,
+    /// A token file is left, but nothing listens on the address (refused / no such socket or pipe), or
+    /// `run/supervisor.pid` names a process that no longer exists: a supervisor killed by SIGKILL or a power loss.
+    Stale,
+    /// Something accepts the connection but does not complete the handshake or answer `daemon.status` in time.
+    Unresponsive,
+    /// `daemon.status`'s result.
+    Answered(Value),
+}
+
+fn classify_supervisor(
+    result: Result<Value, RpcError>,
+    recorded_pid_alive: Option<bool>,
+) -> SupervisorView {
+    match result {
+        Ok(v) => SupervisorView::Answered(v),
+        Err(RpcError::Unavailable { reason, .. }) if reason == "no-token" => {
+            SupervisorView::NoToken
+        }
+        Err(RpcError::Unavailable { reason, .. }) if reason == "core-unavailable" => {
+            SupervisorView::Stale
+        }
+        Err(_) if recorded_pid_alive == Some(false) => SupervisorView::Stale,
+        Err(_) => SupervisorView::Unresponsive,
+    }
+}
+
+fn probe_supervisor(layout: &Layout, platform: &str) -> SupervisorView {
+    let result = probe(layout, Endpoint::Supervisor, platform, "daemon.status").map(|(v, _)| v);
+    let recorded_pid_alive = layout.recorded_pid(Endpoint::Supervisor).map(pid_alive);
+    classify_supervisor(result, recorded_pid_alive)
 }
 
 /// Pure orchestration over small readers (ruling H3-R5): produces every [`Check`] in the fixed table order the
@@ -187,14 +227,13 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
 
     // The supervisor's own view: `daemon.status` gives both the supervisor's health and the core child's, exactly
     // as `daemon status` reports them.
-    let sup_token = super::read_token_of(layout, Endpoint::Supervisor);
-    let daemon_status = if sup_token.is_some() {
-        probe(layout, Endpoint::Supervisor, env.platform, "daemon.status").map(|(v, _)| v)
-    } else {
-        None
+    let supervisor = probe_supervisor(layout, env.platform);
+    checks.push(check_supervisor_state(&supervisor));
+    let daemon_status = match &supervisor {
+        SupervisorView::Answered(v) => Some(v),
+        _ => None,
     };
-    checks.push(check_supervisor_state(sup_token.is_some(), &daemon_status));
-    checks.push(check_core_state(sup_token.is_some(), &daemon_status));
+    checks.push(check_core_state(daemon_status));
 
     if out_of_budget(deadline, &mut checks) {
         return checks;
@@ -203,6 +242,10 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     // A direct connection to the core: needed for the checks below that read its own state, not the supervisor's
     // view of it.
     let core_probe = probe(layout, Endpoint::Core, env.platform, "core.status");
+    // Windows (S11/H3-R18): `connect_recorded` refuses a pipe whose server is not the pid in `run/core.pid`; that
+    // refusal is exactly the mismatch `core.lock` reports, not an unreachable core.
+    let core_server_mismatch = matches!(&core_probe, Err(e) if super::is_server_mismatch(e));
+    let core_probe = core_probe.ok();
     let core_peer_pid = core_probe.as_ref().and_then(|(_, c)| c.peer_pid());
     let core_status = core_probe.as_ref().map(|(v, _)| v.clone());
     let mut core_client = core_probe.map(|(_, c)| c);
@@ -213,6 +256,7 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
         layout,
         core_status.is_some(),
         core_peer_pid,
+        core_server_mismatch,
     ));
     checks.push(check_service_registration(layout, env.runner));
 
@@ -499,42 +543,61 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
 
 // ---- supervisor.state / core.state -------------------------------------------------------------
 
-fn check_supervisor_state(has_token: bool, daemon_status: &Option<Value>) -> Check {
+fn check_supervisor_state(view: &SupervisorView) -> Check {
     const ID: &str = "supervisor.state";
-    match daemon_status {
-        Some(_) => Check::ok(ID, "supervisor answers"),
-        None if !has_token => Check::warn(
+    let start_hint = || Some("plur1bus daemon start".to_string());
+    match view {
+        SupervisorView::Answered(_) => Check::ok(ID, "supervisor answers"),
+        SupervisorView::NoToken => Check::warn(ID, "supervisor is not running", None, start_hint()),
+        // Review Focus 3: a crash or power loss leaves `run/supervisor.token` behind; the next `supervise` replaces
+        // it, so this is the same "not running" warning, never a failure.
+        SupervisorView::Stale => Check::warn(
             ID,
-            "supervisor is not running",
+            "supervisor is not running (stale run files)",
             None,
-            Some("plur1bus daemon start".to_string()),
+            start_hint(),
         ),
-        None => Check::fail(ID, "supervisor is unresponsive", None, None),
+        SupervisorView::Unresponsive => Check::fail(
+            ID,
+            "supervisor is unresponsive",
+            None,
+            Some("plur1bus daemon restart".to_string()),
+        ),
     }
 }
 
+/// A crashed child the supervisor will restart (`nextRestartAt` set) is a warning; only a crash it will not retry
+/// on its own — fatal (`config-invalid`, `engine-contract`) or a give-up after repeated crashes, both with
+/// `nextRestartAt: null` until `daemon start` — is a failure (final review M2).
 fn describe_child(child: &Value) -> (Status, String, Option<Value>) {
     let state = child["process"]["state"].as_str().unwrap_or("starting");
     match state {
         "ready" => (Status::Ok, "core is ready".to_string(), None),
         "crashed" => {
             let reason = child["process"]["reason"].as_str().unwrap_or("none");
-            (
-                Status::Fail,
-                format!("core crashed: {reason}"),
-                Some(json!({ "reason": reason })),
-            )
+            let restarts = child["restarts"].as_u64().unwrap_or(0);
+            match child["nextRestartAt"].as_u64() {
+                Some(next) => (
+                    Status::Warn,
+                    format!("core restarting (crashed: {reason}, restart {restarts})"),
+                    Some(json!({ "reason": reason, "restarts": restarts, "nextRestartAt": next })),
+                ),
+                None => (
+                    Status::Fail,
+                    format!("core crashed: {reason}"),
+                    Some(json!({ "reason": reason, "restarts": restarts })),
+                ),
+            }
         }
         other => (Status::Warn, format!("core is {other}"), None),
     }
 }
 
-fn check_core_state(has_token: bool, daemon_status: &Option<Value>) -> Check {
+fn check_core_state(daemon_status: Option<&Value>) -> Check {
     const ID: &str = "core.state";
     let Some(status) = daemon_status else {
-        // No supervisor answered: warn regardless of `has_token`, since either way there is nothing to ask about
-        // the core (a stale token with an unresponsive supervisor is covered by `supervisor.state` already).
-        let _ = has_token;
+        // No supervisor answered: there is nothing to ask about the core (an unresponsive supervisor is already a
+        // failure in `supervisor.state`).
         return Check::warn(ID, "core is not running (no supervisor to ask)", None, None);
     };
     let Some(child) = status["children"].get(0) else {
@@ -632,12 +695,27 @@ fn check_shared_memory(core_status: Option<&Value>) -> Check {
 
 // ---- core.lock ----------------------------------------------------------------------------------
 
-fn check_core_lock(layout: &Layout, core_reachable: bool, core_peer_pid: Option<u32>) -> Check {
+fn check_core_lock(
+    layout: &Layout,
+    core_reachable: bool,
+    core_peer_pid: Option<u32>,
+    server_mismatch: bool,
+) -> Check {
     const ID: &str = "core.lock";
+    let recorded = layout.recorded_pid(Endpoint::Core);
+    if server_mismatch {
+        // Windows: the client refused the core pipe because its server is not the process `run/core.pid` names
+        // (S11, `pipe-server-mismatch`) — the same mismatch as below, seen before any request could be sent.
+        return Check::fail(
+            ID,
+            "run/core.pid does not match the core that is actually serving",
+            Some(json!({ "recorded": recorded, "reason": "pipe-server-mismatch" })),
+            None,
+        );
+    }
     if !core_reachable {
         return Check::skip(ID, "core is not reachable");
     }
-    let recorded = layout.recorded_pid(Endpoint::Core);
     match (recorded, core_peer_pid) {
         (Some(r), Some(p)) if r == p => Check::ok(ID, "run/core.pid matches the serving core"),
         // Ruling H3-R18: the core answers but `run/core.pid` was never recorded (a start-up race, or a core that
@@ -1206,6 +1284,78 @@ mod tests {
         })));
         assert_eq!(s, Status::Warn);
         assert_eq!(summary, "core is orphaned");
+
+        // M2: a crash the supervisor will retry on its own is a warning, not a failure.
+        let (s, summary, detail) = describe_child(&child(json!({
+            "process": { "state": "crashed", "reason": "lock-held" },
+            "restarts": 2,
+            "nextRestartAt": 1_700_000_000_000u64
+        })));
+        assert_eq!(s, Status::Warn);
+        assert_eq!(summary, "core restarting (crashed: lock-held, restart 2)");
+        assert_eq!(detail.unwrap()["nextRestartAt"], 1_700_000_000_000u64);
+
+        // A give-up (repeated crashes) or a fatal crash has `nextRestartAt: null` and stays a failure.
+        let (s, summary, _) = describe_child(&child(json!({
+            "process": { "state": "crashed", "reason": "none" },
+            "restarts": 5,
+            "nextRestartAt": Value::Null
+        })));
+        assert_eq!(s, Status::Fail);
+        assert_eq!(summary, "core crashed: none");
+    }
+
+    fn unavailable(reason: &str) -> RpcError {
+        RpcError::Unavailable {
+            reason: reason.into(),
+            detail: String::new(),
+        }
+    }
+
+    #[test]
+    fn supervisor_probe_results_are_classified_like_daemon_status() {
+        // I1: a refused connection (the stale token of a SIGKILLed supervisor) or a dead recorded pid is "not
+        // running", a warning; only a peer that accepts but never answers is a failure.
+        let classify = |r, alive| format!("{:?}", classify_supervisor(r, alive));
+        assert!(classify(Ok(json!({})), None).starts_with("Answered"));
+        assert_eq!(classify(Err(unavailable("no-token")), None), "NoToken");
+        assert_eq!(
+            classify(Err(unavailable("core-unavailable")), None),
+            "Stale"
+        );
+        assert_eq!(
+            classify(Err(unavailable("core-unavailable")), Some(true)),
+            "Stale"
+        );
+        assert_eq!(
+            classify(Err(unavailable("handshake-timeout")), Some(false)),
+            "Stale"
+        );
+        assert_eq!(
+            classify(Err(unavailable("handshake-timeout")), None),
+            "Unresponsive"
+        );
+        assert_eq!(
+            classify(Err(unavailable("call-timeout")), Some(true)),
+            "Unresponsive"
+        );
+
+        assert_eq!(
+            check_supervisor_state(&SupervisorView::Stale).status,
+            Status::Warn
+        );
+        assert_eq!(
+            check_supervisor_state(&SupervisorView::Stale).summary,
+            "supervisor is not running (stale run files)"
+        );
+        assert_eq!(
+            check_supervisor_state(&SupervisorView::NoToken).status,
+            Status::Warn
+        );
+        assert_eq!(
+            check_supervisor_state(&SupervisorView::Unresponsive).status,
+            Status::Fail
+        );
     }
 
     #[test]
@@ -1266,7 +1416,7 @@ mod tests {
         // core) — a gap, not evidence of a wrong pid.
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
-        let check = check_core_lock(&layout, true, Some(4242));
+        let check = check_core_lock(&layout, true, Some(4242), false);
         assert_eq!(check.status, Status::Warn, "{check:?}");
         assert_eq!(check.detail.unwrap()["serving"], 4242);
     }
@@ -1281,10 +1431,33 @@ mod tests {
             "1111 00000000-0000-4000-8000-000000000000\n",
         )
         .unwrap();
-        let check = check_core_lock(&layout, true, Some(4242));
+        let check = check_core_lock(&layout, true, Some(4242), false);
         assert_eq!(check.status, Status::Fail, "{check:?}");
         assert_eq!(check.detail.as_ref().unwrap()["recorded"], 1111);
         assert_eq!(check.detail.unwrap()["serving"], 4242);
+    }
+
+    #[test]
+    fn core_lock_pipe_server_mismatch_is_a_failure() {
+        // M4 (Windows, H3-R18): `connect_recorded` refuses a core pipe served by another pid than `run/core.pid`, so
+        // the core looks unreachable — the check must still report the mismatch instead of skipping.
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.run()).unwrap();
+        std::fs::write(
+            layout.core_pid(),
+            "1111 00000000-0000-4000-8000-000000000000\n",
+        )
+        .unwrap();
+        let check = check_core_lock(&layout, false, None, true);
+        assert_eq!(check.status, Status::Fail, "{check:?}");
+        let detail = check.detail.unwrap();
+        assert_eq!(detail["recorded"], 1111);
+        assert_eq!(detail["reason"], "pipe-server-mismatch");
+        assert_eq!(
+            check_core_lock(&layout, false, None, false).status,
+            Status::Skip
+        );
     }
 
     #[test]
@@ -1297,7 +1470,7 @@ mod tests {
             "4242 00000000-0000-4000-8000-000000000000\n",
         )
         .unwrap();
-        let check = check_core_lock(&layout, true, Some(4242));
+        let check = check_core_lock(&layout, true, Some(4242), false);
         assert_eq!(check.status, Status::Ok, "{check:?}");
     }
 
