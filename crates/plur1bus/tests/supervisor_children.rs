@@ -54,6 +54,13 @@ impl Home {
             .filter(|e| e["event"] == name)
             .collect()
     }
+    /// `logs/supervisor.log` as JSON records.
+    fn log_records(&self) -> Vec<Value> {
+        self.log("supervisor.log")
+            .lines()
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .collect()
+    }
     fn log(&self, file: &str) -> String {
         std::fs::read_to_string(self.home.join("logs").join(file)).unwrap_or_default()
     }
@@ -86,13 +93,17 @@ impl Supervisor {
 }
 
 fn start(h: &Home, mode: &str, scale: &str) -> Supervisor {
+    start_with(h, mode, scale, &fixture())
+}
+
+fn start_with(h: &Home, mode: &str, scale: &str, core_js: &Path) -> Supervisor {
     let child = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
         .arg("--home")
         .arg(&h.home)
         .arg("supervise")
         .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
         .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", scale)
-        .env("PLUR1BUS_CORE_JS", fixture())
+        .env("PLUR1BUS_CORE_JS", core_js)
         .env("PLUR1BUS_NODE", "node")
         .env_remove("PLUR1BUS_TEST_INTERNALS")
         .env("FAKE_CORE_MODE", mode)
@@ -315,23 +326,36 @@ fn a_hung_core_is_terminated_after_the_hang_threshold() {
     wait_until("a second started event", WAIT, || {
         h.named_events("started").len() >= 2
     });
-    let log = h.log("supervisor.log");
-    assert!(log.contains("core hung, terminating"), "{log}");
-    let killed = log.contains("\"step\":\"kill\"") || log.contains("\"step\":\"terminate\"");
-    let shut = h
-        .named_events("shutdown")
+    let records = h.log_records();
+    let of_first = |msg: &str| -> Vec<Value> {
+        records
+            .iter()
+            .filter(|r| r["msg"] == msg && r["pid"] == first_pid)
+            .cloned()
+            .collect()
+    };
+    let steps: Vec<Value> = of_first("core hung, terminating")
         .iter()
-        .any(|e| e["pid"] == first_pid);
-    assert!(killed || shut, "neither a shutdown nor a kill: {log}");
+        .map(|r| r["step"].clone())
+        .collect();
+    assert_eq!(steps.first(), Some(&json!("shutdown")), "{records:?}");
+    // The first process's exit, as recorded before its restart: a crash with a restart scheduled.
+    let exits = of_first("core exited");
+    assert_eq!(exits.len(), 1, "{records:?}");
+    assert_eq!(exits[0]["state"], "crashed");
+    assert!(exits[0]["nextRestartAt"].is_u64(), "{}", exits[0]);
     #[cfg(unix)]
     {
-        // The fake has no SIGTERM handler, so the SIGTERM step ends it.
-        let child = core_child(&mut c);
-        let exit_signal = child["lastExit"]["signal"].clone();
-        assert!(
-            exit_signal == "SIGTERM" || state(&child) != "crashed",
-            "{child}"
-        );
+        // The fake ignores core.shutdown while hung and has no SIGTERM handler: the SIGTERM step ends it.
+        assert!(steps.contains(&json!("terminate")), "{steps:?}");
+        assert_eq!(exits[0]["signal"], "SIGTERM", "{}", exits[0]);
+        assert!(exits[0]["code"].is_null());
+    }
+    #[cfg(windows)]
+    {
+        // No SIGTERM on Windows: TerminateProcess after the kill threshold.
+        assert!(steps.contains(&json!("kill")), "{steps:?}");
+        assert!(exits[0]["code"].is_i64(), "{}", exits[0]);
     }
 }
 
@@ -420,4 +444,93 @@ fn spawns_under_a_home_with_spaces() {
         Path::new(started[0]["home"].as_str().unwrap()),
         h.home.as_path()
     );
+}
+
+#[test]
+fn a_core_that_never_listens_is_killed_as_ready_timeout_and_restarted() {
+    let h = Home::new();
+    let _s = start(&h, "no-listen", "0.02");
+    let mut c = client(&h.home);
+    // Ready timeout 60 s x 0.02 = 1.2 s.
+    let child = wait_child(&mut c, "a ready-timeout exit", WAIT, |c| {
+        c["lastExit"]["reason"] == "ready-timeout"
+    });
+    assert!(child["restarts"].as_u64().unwrap_or(0) <= 1, "{child}");
+    wait_child(&mut c, "a restart", WAIT, |c| {
+        c["restarts"].as_u64().unwrap_or(0) >= 1
+    });
+    wait_until("a second started event", WAIT, || {
+        h.named_events("started").len() >= 2
+    });
+    let log = h.log("supervisor.log");
+    assert!(log.contains("core not ready in time, killing"), "{log}");
+}
+
+#[test]
+fn daemon_stop_is_bounded_by_the_budget_for_a_hung_core() {
+    let h = Home::new();
+    let mut s = start(&h, "hang-after:300", "0.02");
+    let mut c = client(&h.home);
+    let child = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+    let pid = child["pid"].as_u64().unwrap();
+    wait_until("the core to hang", WAIT, || {
+        !h.named_events("hung").is_empty()
+    });
+    let asked = Instant::now();
+    assert_eq!(
+        c.call("daemon.stop", json!({ "budgetMs": 500 })).unwrap(),
+        json!({ "accepted": true })
+    );
+    let status = s.wait_exit(WAIT);
+    let took = asked.elapsed();
+    assert_eq!(status.code(), Some(0));
+    // budget 500 ms + grace 5 s x 0.02 = 100 ms, plus slack for process start-up and reaping.
+    assert!(
+        took < Duration::from_millis(500 + 100 + 700),
+        "daemon.stop took {took:?}"
+    );
+    let records = h.log_records();
+    let exit = records
+        .iter()
+        .find(|r| r["msg"] == "core exited" && r["pid"] == pid)
+        .unwrap_or_else(|| panic!("no exit for {pid}: {records:?}"));
+    assert_eq!(exit["state"], "stopped", "{exit}");
+    let exiting = h.named_events("exiting");
+    assert!(
+        exiting.iter().all(|e| e["pid"] != pid),
+        "a hung core does not exit by itself"
+    );
+    assert!(
+        h.named_events("started").iter().all(|e| e["pid"] == pid),
+        "no restart during the stop"
+    );
+}
+
+#[test]
+fn missing_core_js_keeps_the_supervisor_up_with_a_fatal_child() {
+    let h = Home::new();
+    let core_js = h.home.join("later").join("core.mjs");
+    let mut s = start_with(&h, "ok", "0.02", &core_js);
+    let mut c = client(&h.home);
+    let child = wait_child(&mut c, "a fatal child", WAIT, |c| state(c) == "crashed");
+    assert_eq!(child["process"]["reason"], "config-invalid", "{child}");
+    assert!(child["nextRestartAt"].is_null());
+    assert!(child["pid"].is_null());
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(
+        s.child.try_wait().unwrap().is_none(),
+        "the supervisor exited"
+    );
+    assert_eq!(state(&core_child(&mut c)), "crashed");
+    assert!(h.log("supervisor.log").contains("core.js not found"));
+    // Once core.js exists, daemon.start spawns it.
+    std::fs::create_dir_all(core_js.parent().unwrap()).unwrap();
+    std::fs::copy(fixture(), &core_js).unwrap();
+    assert_eq!(
+        c.call("daemon.start", json!({})).unwrap(),
+        json!({ "accepted": true, "role": "core" })
+    );
+    let child = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+    assert_eq!(child["pid"].as_u64(), pid_file(&h.home));
+    assert_eq!(h.named_events("started").len(), 1);
 }

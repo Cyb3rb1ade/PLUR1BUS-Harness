@@ -105,6 +105,8 @@ struct Timing {
 
 /// Consecutive failed polls before `degraded("unresponsive")` (S8).
 const UNRESPONSIVE_AFTER: u32 = 3;
+/// How long a stop waits for the waiter to reap a killed process.
+const POST_KILL_WAIT: Duration = Duration::from_secs(1);
 /// How often the waiter checks the process and its watchdogs.
 const WAITER_TICK: Duration = Duration::from_millis(25);
 
@@ -207,7 +209,17 @@ impl Monitor {
                 st.config.log_keep,
             )
         };
-        let out = RotatingFile::open(layout.out_log(&spec.role), max_bytes, keep).ok();
+        let out_path = layout.out_log(&spec.role);
+        let out = match RotatingFile::open(&out_path, max_bytes, keep) {
+            Ok(f) => Some(f),
+            Err(e) => {
+                shared.log.warn(
+                    "cannot open the child's out log, its output is dropped",
+                    json!({ "path": out_path.display().to_string(), "err": e.to_string() }),
+                );
+                None
+            }
+        };
         let platform = if cfg!(windows) { "windows" } else { "posix" };
         let ctx = Arc::new(Ctx {
             layout: layout.clone(),
@@ -358,9 +370,12 @@ impl Monitor {
         }
     }
 
-    /// The stop sequence: `core.shutdown { budgetMs }` on the control connection (or a fresh one), wait `budget` +
-    /// 5 s × scale, then kill. Returns once the process has exited (or could not be made to).
+    /// The stop sequence: `core.shutdown { budgetMs }` on the control connection (or a fresh one), wait until
+    /// `budget` + 5 s × scale after the call, then kill. Returns once the process has exited (or could not be made to).
     pub fn stop(&mut self, budget: Duration) {
+        // A hard limit: everything below, delivery of `core.shutdown` included, fits in budget + grace; only the
+        // reaping after a kill may add up to POST_KILL_WAIT.
+        let deadline = Instant::now() + budget + self.ctx.timing.stop_grace;
         {
             let mut st = self.shared.lock();
             st.restart_at = None;
@@ -400,9 +415,9 @@ impl Monitor {
             }
             let _ = tx.send(sent);
         });
-        let sent = rx
-            .recv_timeout(self.ctx.timing.poll_deadline * 2)
-            .unwrap_or(false);
+        let wait = (self.ctx.timing.poll_deadline * 2)
+            .min(deadline.saturating_duration_since(Instant::now()));
+        let sent = rx.recv_timeout(wait).unwrap_or(false);
         if !sent {
             self.shared
                 .log
@@ -412,13 +427,17 @@ impl Monitor {
             #[cfg(windows)]
             gen.kill();
         }
-        if !wait_exited(&gen, Instant::now() + budget + self.ctx.timing.stop_grace) {
+        if !wait_exited(&gen, deadline) {
             self.shared.log.warn(
                 "core did not stop in time, killing",
                 json!({ "pid": gen.pid }),
             );
             gen.kill();
-            wait_exited(&gen, Instant::now() + Duration::from_secs(5));
+            if !wait_exited(&gen, Instant::now() + POST_KILL_WAIT) {
+                self.shared
+                    .log
+                    .error("core not reaped after the kill", json!({ "pid": gen.pid }));
+            }
         }
     }
 }
@@ -431,6 +450,30 @@ fn wait_exited(gen: &Gen, deadline: Instant) -> bool {
         std::thread::sleep(Duration::from_millis(10));
     }
     true
+}
+
+/// H3-R11: the child cannot be spawned at all (core.js missing). The supervisor stays up and shows the child as
+/// crashed for good (`config-invalid`, no restart scheduled) until `daemon.start` finds it spawnable.
+pub fn mark_unspawnable(shared: &Shared, role: &str, err: &str) {
+    shared.log.error(
+        "cannot spawn the child",
+        json!({ "child": role, "err": err }),
+    );
+    let at = now_ms();
+    let mut st = shared.lock();
+    st.restart_at = None;
+    let c = st.child.get_or_insert_with(|| fresh_child(role));
+    c.health = Health::Crashed {
+        code: None,
+        signal: None,
+        at,
+        reason: Some(CrashReason::ConfigInvalid.to_string()),
+    };
+    c.since_ms = at;
+    c.pid = None;
+    c.instance_id = None;
+    c.next_restart_at_ms = None;
+    st.lifeline = Lifeline::None;
 }
 
 fn fresh_child(role: &str) -> ChildState {
@@ -538,7 +581,8 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
         .call("core.status", json!({}))
         .ok()
         .and_then(|s| health_from(&s["process"]))
-        .unwrap_or(Health::Ready);
+        // Authenticated but no state yet: stay `starting` until a poll reports one.
+        .unwrap_or(Health::Starting);
     let now = Instant::now();
     *relock(&gen.last_ok) = now;
     gen.ready.store(true, Ordering::SeqCst);
@@ -552,7 +596,7 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
 
     let mut failures: u32 = 0;
     loop {
-        if !sleep_while_alive(gen, t.health_interval) {
+        if !sleep_while_alive(gen, t.health_interval) || gen.requested.load(Ordering::SeqCst) {
             break;
         }
         let result = {
@@ -585,7 +629,7 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 }
             }
             Err(e) => {
-                if gen.exited.load(Ordering::SeqCst) {
+                if gen.exited.load(Ordering::SeqCst) || gen.requested.load(Ordering::SeqCst) {
                     break;
                 }
                 failures += 1;

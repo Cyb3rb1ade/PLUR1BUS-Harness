@@ -4,9 +4,10 @@
 //   ok                    serve until core.shutdown or lifeline loss
 //   crash-after:<ms>      serve, then exit 1 after <ms>
 //   exit:<code>           exit with <code> at once, before listening
-//   hang-after:<ms>       serve, then stop answering every request after <ms> (no SIGTERM handler)
+//   hang-after:<ms>       serve, then stop answering every request after <ms> (no SIGTERM handler; event `hung`)
+//   no-listen             start (run files not written) but never listen
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
-// Every event (started, shutdown, orphaned, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
+// Every event (started, hung, shutdown, orphaned, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
 // On lifeline EOF it reports `orphaned` and exits 0 after FAKE_CORE_GRACE_MS (default 1000).
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -39,6 +40,7 @@ process.stderr.write(`fake-core stderr marker pid=${process.pid}\n`);
 
 const [kind, a, b] = mode.split(":");
 if (kind === "exit") exit(Number(a));
+if (kind === "no-listen") setInterval(() => {}, 1000);
 
 const run = path.join(home, "run");
 const address = process.platform === "win32"
@@ -124,11 +126,11 @@ const server = net.createServer((sock) => {
   });
 });
 
-server.listen(address, () => {
+if (kind !== "no-listen") server.listen(address, () => {
   writeFileSync(path.join(run, "core.token"), token, { mode: 0o600 });
   writeFileSync(path.join(run, "core.pid"), `${process.pid} ${instanceId}\n`, { mode: 0o600 });
   if (kind === "crash-after") setTimeout(() => exit(1), Number(a));
-  if (kind === "hang-after") setTimeout(() => { hung = true; }, Number(a));
+  if (kind === "hang-after") setTimeout(() => { hung = true; event("hung"); }, Number(a));
 });
 
 if (values.lifeline === "stdin") {

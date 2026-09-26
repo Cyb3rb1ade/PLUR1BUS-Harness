@@ -262,14 +262,18 @@ fn allow_test_internals() -> bool {
     std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1")
 }
 
+/// Largest accepted `PLUR1BUS_SUPERVISOR_TIME_SCALE`.
+pub const MAX_TIME_SCALE: f64 = 1000.0;
+
 /// Parses `PLUR1BUS_SUPERVISOR_TIME_SCALE`. Unset → 1.0. A value that is not a finite number above 0 is refused,
 /// because every duration is multiplied by it (and `Backoff::new` requires a positive finite scale).
 pub fn parse_time_scale(raw: Option<&str>) -> Result<f64, String> {
     let Some(raw) = raw else { return Ok(1.0) };
     match raw.trim().parse::<f64>() {
-        Ok(v) if v.is_finite() && v > 0.0 => Ok(v),
+        // The upper bound keeps every scaled duration far from Duration::from_secs_f64's overflow panic.
+        Ok(v) if v.is_finite() && v > 0.0 && v <= MAX_TIME_SCALE => Ok(v),
         _ => Err(format!(
-            "PLUR1BUS_SUPERVISOR_TIME_SCALE must be a finite number above 0, got {raw:?}"
+            "PLUR1BUS_SUPERVISOR_TIME_SCALE must be a number above 0 and at most {MAX_TIME_SCALE}, got {raw:?}"
         )),
     }
 }
@@ -522,20 +526,19 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         json!({ "pid": pid, "instanceId": instance_id, "address": address, "noCore": opts.no_core, "timeScale": time_scale }),
     );
 
-    let mut monitor = if opts.no_core {
-        None
-    } else {
-        match child::core_spec(layout, &uuid::Uuid::new_v4().to_string()) {
-            Ok(spec) => Some(child::Monitor::start(shared.clone(), layout, spec)),
-            Err(e) => {
-                shared
-                    .log
-                    .error("cannot spawn the core", json!({ "err": e }));
-                remove_run_files(layout);
-                fail(1, &e);
-            }
-        }
+    // Built lazily: when core.js is missing the supervisor stays up with a fatal child (H3-R11), and `daemon.start`
+    // tries again.
+    let mut monitor: Option<child::Monitor> = None;
+    let spawn_core = |monitor: &mut Option<child::Monitor>| match monitor {
+        Some(m) => m.spawn(),
+        None => match child::core_spec(layout, &uuid::Uuid::new_v4().to_string()) {
+            Ok(spec) => *monitor = Some(child::Monitor::start(shared.clone(), layout, spec)),
+            Err(e) => child::mark_unspawnable(&shared, "core", &e),
+        },
     };
+    if !opts.no_core {
+        spawn_core(&mut monitor);
+    }
 
     // Main thread: the restart scheduler (a due `restart_at`, `daemon.start`) until a stop.
     let stop = loop {
@@ -565,11 +568,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         };
         match spawn {
             Err(stop) => break stop,
-            Ok(()) => {
-                if let Some(m) = monitor.as_mut() {
-                    m.spawn();
-                }
-            }
+            Ok(()) => spawn_core(&mut monitor),
         }
     };
     shared.log.info(
@@ -651,7 +650,10 @@ mod tests {
     fn time_scale_must_be_finite_and_positive() {
         assert_eq!(parse_time_scale(None), Ok(1.0));
         assert_eq!(parse_time_scale(Some("0.02")), Ok(0.02));
-        for bad in ["0", "-1", "NaN", "inf", "-inf", "", "fast"] {
+        assert_eq!(parse_time_scale(Some("1000")), Ok(1000.0));
+        for bad in [
+            "0", "-1", "NaN", "inf", "-inf", "", "fast", "1000.5", "1e300",
+        ] {
             assert!(parse_time_scale(Some(bad)).is_err(), "{bad:?} accepted");
         }
     }
