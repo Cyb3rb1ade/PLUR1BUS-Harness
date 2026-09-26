@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessLogger } from "../src/logger.ts";
-import { projectModels, startWarmup } from "../src/warmup.ts";
+import { WARMUP_QUERY, projectModels, startWarmup } from "../src/warmup.ts";
 
 type Line = [level: string, msg: string, fields: Record<string, unknown> | undefined];
 function recordingLogger(lines: Line[]): HarnessLogger {
@@ -62,54 +62,81 @@ describe("warmup", () => {
     assert.ok(lines.some(([lvl, msg]) => lvl === "debug" && /warm/.test(msg)), JSON.stringify(lines));
   });
 
-  it("after the embedder is ready, runs one recall per agent in turn, logs each, then calls onRecallDone (H3-R22)", async () => {
-    const lines: Line[] = []; const order: string[] = []; const signals: AbortSignal[] = [];
+  it("after the embedder is ready, warms each agent's recall path with memory.list and a rerank, never recall (H3-R23)", async () => {
+    const lines: Line[] = []; const order: string[] = []; const rerankSignals: AbortSignal[] = [];
     const shutdown = new AbortController();
-    const w = startWarmup({
-      engine: fakeEngine(async () => { order.push("warm"); return models("ready", "ready"); }),
-      logger: recordingLogger(lines), signal: shutdown.signal, onDone: () => order.push("onDone"),
-      recall: {
-        agents: () => ["bernd", "anna", "ghost"],
-        recall: async (agentId, signal) => {
-          order.push(`recall:${agentId}`); signals.push(signal);
-          if (agentId === "ghost") throw new Error("synthetic recall failure");
-          return { degraded: agentId === "anna" ? { reason: "timeout" } : null };
+    const engine = {
+      models: { status: () => models("loading", "loading"), warm: async () => { order.push("warm"); return models("ready", "ready"); } },
+      recall: () => assert.fail("the warm-up must never call engine.recall"),
+      memory: {
+        list: async (q: any, p: any, a: any) => {
+          order.push(`list:${p.agentId}:${q.topic}:${q.limit}:${a.origin}`);
+          if (p.agentId === "ghost") throw new Error("synthetic list failure");
+          return { agentId: p.agentId, items: [], truncated: false };
         },
       },
+      embedding: { rerank: async (q: string, docs: string[], o: any) => { order.push(`rerank:${docs.length}:${o.topN}`); rerankSignals.push(o.signal); return []; } },
+    } as unknown as E.Engine;
+    const w = startWarmup({
+      engine, logger: recordingLogger(lines), signal: shutdown.signal, onDone: () => order.push("onDone"),
+      recallPath: { agents: () => ["bernd", "ghost", "nobody"], principal: (agentId) => (agentId === "nobody" ? null : ({ agentId } as unknown as E.Principal)) },
       onRecallDone: () => order.push("onRecallDone"),
     });
     await w.done;
-    assert.deepEqual(order, ["warm", "onDone", "recall:bernd", "recall:anna", "recall:ghost", "onRecallDone"]);
-    const warm = lines.filter(([lvl, msg]) => lvl === "info" && msg === "recall warm");
-    assert.deepEqual(warm.map(([, , f]) => [f!.agentId, f!.degraded, typeof f!.ms]), [["bernd", null, "number"], ["anna", "timeout", "number"]]);
+    assert.deepEqual(order, ["warm", "onDone", `list:bernd:${WARMUP_QUERY}:1:user`, "rerank:2:1", `list:ghost:${WARMUP_QUERY}:1:user`, "onRecallDone"]);
+    const warm = lines.filter(([lvl, msg]) => lvl === "info" && msg === "recall path warm");
+    assert.deepEqual(warm.map(([, , f]) => [f!.agentId, f!.rerank, typeof f!.ms]), [["bernd", true, "number"]]);
     assert.ok(lines.some(([lvl, msg, f]) => lvl === "debug" && msg === "recall warm-up failed" && f!.agentId === "ghost"), JSON.stringify(lines));
-    assert.equal(signals[0]!.aborted, false);
-    shutdown.abort(); // each recall's signal follows the shutdown signal (and its own timeout)
-    assert.equal(signals.every((s) => s.aborted), true);
+    assert.equal(rerankSignals[0]!.aborted, false);
+    shutdown.abort(); // the rerank's signal follows the shutdown signal (and its own timeout)
+    assert.equal(rerankSignals[0]!.aborted, true);
   });
 
-  it("skips the recall pass when the embedder is not ready, and still calls onRecallDone", async () => {
-    const order: string[] = [];
+  it("skips the rerank when the reranker is disabled, and the pass when the embedder is not ready", async () => {
+    for (const [embedder, want] of [["ready", ["list", "onRecallDone"]], ["failed", ["onRecallDone"]]] as const) {
+      const order: string[] = [];
+      const engine = {
+        models: { status: () => models("loading", "loading"), warm: async () => models(embedder, "disabled", embedder === "failed" ? { error: "provider-failed" } : {}) },
+        memory: { list: async () => { order.push("list"); return { items: [], truncated: false }; } },
+        embedding: { rerank: async () => { order.push("rerank"); return []; } },
+      } as unknown as E.Engine;
+      const w = startWarmup({
+        engine, logger: recordingLogger([]), signal: new AbortController().signal, onDone: () => {},
+        recallPath: { agents: () => ["bernd"], principal: (agentId) => ({ agentId } as unknown as E.Principal) },
+        onRecallDone: () => order.push("onRecallDone"),
+      });
+      await w.done;
+      assert.deepEqual(order, want, embedder);
+    }
+  });
+
+  it("a hung memory.list ends at the per-agent timeout; an abort ends the pass; onRecallDone runs either way", async () => {
+    const order: string[] = []; const lines: Line[] = [];
+    const engine = {
+      models: { status: () => models("loading", "loading"), warm: async () => models("ready", "disabled") },
+      memory: { list: (_q: unknown, p: any) => { order.push(p.agentId); return new Promise(() => {}); } },
+    } as unknown as E.Engine;
     const w = startWarmup({
-      engine: fakeEngine(async () => models("failed", "ready", { error: "provider-failed" })),
-      logger: recordingLogger([]), signal: new AbortController().signal, onDone: () => order.push("onDone"),
-      recall: { agents: () => ["bernd"], recall: async () => { order.push("recall"); return null; } },
+      engine, logger: recordingLogger(lines), signal: new AbortController().signal, onDone: () => {}, recallTimeoutMs: 30,
+      recallPath: { agents: () => ["bernd", "anna"], principal: (agentId) => ({ agentId } as unknown as E.Principal) },
       onRecallDone: () => order.push("onRecallDone"),
     });
     await w.done;
-    assert.deepEqual(order, ["onDone", "onRecallDone"]);
-  });
+    assert.deepEqual(order, ["bernd", "anna", "onRecallDone"]);
+    assert.deepEqual(lines.filter(([, msg]) => msg === "recall path warm").map(([, , f]) => f!.timedOut), [true, true]);
 
-  it("an abort during the recall pass ends it without throwing; onRecallDone still runs", async () => {
-    const order: string[] = [];
-    const w = startWarmup({
-      engine: fakeEngine(async () => models("ready", "disabled")),
-      logger: recordingLogger([]), signal: new AbortController().signal, onDone: () => {},
-      recall: { agents: () => ["bernd", "anna"], recall: (agentId) => { order.push(agentId); w.abort(); return new Promise(() => {}); } },
-      onRecallDone: () => order.push("onRecallDone"),
+    const order2: string[] = [];
+    const engine2 = {
+      models: { status: () => models("loading", "loading"), warm: async () => models("ready", "disabled") },
+      memory: { list: (_q: unknown, p: any) => { order2.push(p.agentId); w2.abort(); return new Promise(() => {}); } },
+    } as unknown as E.Engine;
+    const w2 = startWarmup({
+      engine: engine2, logger: recordingLogger([]), signal: new AbortController().signal, onDone: () => {},
+      recallPath: { agents: () => ["bernd", "anna"], principal: (agentId) => ({ agentId } as unknown as E.Principal) },
+      onRecallDone: () => order2.push("onRecallDone"),
     });
-    await w.done;
-    assert.deepEqual(order, ["bernd", "onRecallDone"]);
+    await w2.done;
+    assert.deepEqual(order2, ["bernd", "onRecallDone"]);
   });
 
   it("projectModels rounds a fractional checkedAt and turns a non-finite one into null", () => {

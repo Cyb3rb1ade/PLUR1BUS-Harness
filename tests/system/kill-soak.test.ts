@@ -121,6 +121,40 @@ function firstAid(h: string): any {
   return typeof r.exit === "number" ? JSON.parse(r.stdout) : r;
 }
 
+/** Every JSON line of `logs/core.log` and its rotated files (`core.log.1` … ), unparseable lines skipped. */
+function coreLogRecords(h: string): any[] {
+  const dir = join(h, "logs");
+  const out: any[] = [];
+  for (const f of readdirSync(dir).filter((f) => /^core\.log(\.\d+)?$/.test(f))) {
+    for (const line of readFileSync(join(dir, f), "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      try { out.push(JSON.parse(line)); } catch { /* torn by a SIGKILL */ }
+    }
+  }
+  return out;
+}
+
+/**
+ * Ruling H3-R24: the one duplicate the soak tolerates. A journal line whose replay stored the turn, but whose core was
+ * SIGKILLed before the engine's turn guard recorded it, is replayed again at the next start and stored twice: the
+ * guard records late (engine PR E4.1). It qualifies only when the soak SIGKILLed a core after the line was journaled
+ * and before that core logged `core ready` (its replay runs before ready; core.log is written synchronously, so a
+ * `core ready` the core reached is on disk), and some core later logged `journal: replayed` for the line id. Any
+ * other duplicate stays a hard failure.
+ */
+function killedWhileReplaying(records: any[], kills: Array<{ at: number; instanceId: string | null }>, line: { id: string; at: number }): { at: number; instanceId: string } | null {
+  const readyAt = new Map<string, number>();
+  for (const r of records) if (r.msg === "core ready" && typeof r.instanceId === "string") readyAt.set(r.instanceId, Date.parse(r.at));
+  const replayedAt = records.filter((r) => r.msg === "journal: replayed" && r.id === line.id).map((r) => Date.parse(r.at));
+  for (const k of kills) {
+    if (k.instanceId === null || k.at < line.at) continue;
+    const ready = readyAt.get(k.instanceId);
+    if (ready !== undefined && ready <= k.at) continue; // that core had finished its replay
+    if (replayedAt.some((t) => t > k.at)) return { at: k.at, instanceId: k.instanceId };
+  }
+  return null;
+}
+
 const readyChild = (h: string): any => { const c = coreChild(h); return c?.process?.state === "ready" && c; };
 
 // POSIX signals; the system job is Linux/macOS only.
@@ -136,6 +170,10 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
     const counts = { adoptions: 0, respawns: 0, stored: 0, journaled: 0, replayedTwice: 0, coreKills: 0, throttledKills: 0, unavailableRecalls: 0, engineDegradedRecalls: 0 };
     /** Fact index → how its add was answered. */
     const kept = new Map<number, "stored" | "journaled">();
+    /** H3-R24: fact index → its journal line (id from `memory add --json`, when it was journaled). */
+    const journalLine = new Map<number, { id: string; at: number }>();
+    /** H3-R24: every core the soak SIGKILLed: when, and which core instance (from daemon status). */
+    const sigkills: Array<{ at: number; instanceId: string | null }> = [];
     let outageObserved = false;
     try {
       for (let a = 0; a < AGENTS; a++) cli(h, ["agent", "create", `soak-${a}`]);
@@ -208,9 +246,11 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         if (rand() < KILL_P && restartAt === null && !quiet) {
           const now = performance.now();
           kills = kills.filter((k) => now - k < GIVE_UP_WINDOW_MS);
+          const victim = coreChild(h);
           const pid = corePid(h);
           if (pid !== null && kills.length >= GIVE_UP_EXITS - 1) counts.throttledKills++;
           else if (pid !== null) {
+            sigkills.push({ at: Date.now(), instanceId: victim?.pid === pid && typeof victim?.instanceId === "string" ? victim.instanceId : null });
             await killPid(pid, "SIGKILL");
             kills.push(performance.now());
             counts.coreKills++;
@@ -237,6 +277,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
           assert.equal(add.degraded?.reason, "core-unavailable", JSON.stringify(add));
           assert.ok(add.degraded.detail, `a journaled add names why: ${JSON.stringify(add)}`);
           kept.set(i, "journaled");
+          if (typeof add.id === "string") journalLine.set(i, { id: add.id, at: Date.now() });
           counts.journaled++;
         } else {
           assert.equal(add.stored, 1, `turn ${i}: ${JSON.stringify(add)}`);
@@ -307,7 +348,16 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         twice: replayedTwice.filter((f) => third(f.i) === k).length,
       }));
       t.diagnostic(`journaled facts replayed more than once, per third: ${perThird.map((x, k) => `${["first", "middle", "last"][k]} ${x.twice}/${x.journaled}`).join(", ")}`);
-      assert.deepEqual(replayedTwice, [], `journaled facts not present exactly once: ${JSON.stringify(replayedTwice)}`);
+      // H3-R24: tolerated only for a core SIGKILLed while that line was being replayed (engine PR E4.1: the guard
+      // records late); reported with the line id. Every other duplicate fails.
+      const records = replayedTwice.length > 0 ? coreLogRecords(h) : [];
+      const untolerated = replayedTwice.filter((f) => {
+        const line = journalLine.get(f.i);
+        const kill = line ? killedWhileReplaying(records, sigkills, line) : null;
+        if (kill) t.diagnostic(`todo (engine PR E4.1): fact ${f.i} stored ${f.n}x, journal line ${line!.id}: core ${kill.instanceId} SIGKILLed during its replay at ${new Date(kill.at).toISOString()}`);
+        return kill === null;
+      });
+      assert.deepEqual(untolerated, [], `journaled facts not present exactly once: ${JSON.stringify(untolerated.map((f) => ({ ...f, line: journalLine.get(f.i)?.id ?? null })))}`);
 
       // Exactly one supervisor and one core remain, and only the core holds LanceDB files.
       const status = daemonStatus(h);

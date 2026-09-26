@@ -1,8 +1,8 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { CORE_FEATURES } from "../src/capabilities.ts";
@@ -22,6 +22,20 @@ function newHome(): string {
   cfg.engine.duplicateThreshold = 1.01;
   writeFileSync(layout(home).configPath, JSON.stringify(cfg));
   return home;
+}
+
+/** Every file under `dir` (relative path → "size:mtimeMs"), for before/after comparisons. */
+function snapshot(dir: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (d: string) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else { const st = statSync(p); out[relative(dir, p)] = `${st.size}:${st.mtimeMs}`; }
+    }
+  };
+  walk(dir);
+  return out;
 }
 
 /** Recall until the joined text matches (a pending capture finishes in the background). */
@@ -321,11 +335,13 @@ describe("core run files (S11)", () => {
 });
 
 describe("core model warm-up (E4, S7)", () => {
-  // H3-R22: the models' probes alone leave the first recall cold (its own embeddings, the first table search); a
-  // recall that pays that inside the core's 600 ms hard budget answers `aborted` even though its phases look fast.
-  // The flat embedder stands in for a cold model: its first three embedQuery calls (the warm-up probe and the two a
-  // recall makes) take 350 ms each. The recall warm-up absorbs them, so the first client recall is clean.
-  it("the first memory.recall after engine.ready is not aborted: the recall warm-up absorbs the cold path (H3-R22)", async () => {
+  // H3-R22/R23: the models' probes alone leave the first recall cold (a real query embedding, the first table
+  // search); a recall that pays that inside the core's 600 ms hard budget answers `aborted` even though its phases
+  // look fast. The flat embedder stands in for a cold model: its first three embedQuery calls take 350 ms each (the
+  // warm-up probe, the warm-up's memory.list, and the first of the two a recall makes). The read-only recall-path
+  // warm-up absorbs one of them, which keeps the first client recall inside the budget (without it: 700 ms of
+  // embedding in the first recall, aborted).
+  it("the first memory.recall after engine.ready is not aborted: the recall-path warm-up absorbs the cold path (H3-R22/R23)", async () => {
     const home = newHome(); let calls = 0;
     const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => (++calls <= 3 ? 350 : 0) }) });
     await core.start();
@@ -334,15 +350,15 @@ describe("core model warm-up (E4, S7)", () => {
       let s: any; const until = Date.now() + 8000;
       do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until);
       assert.equal(s.engine.ready, true, JSON.stringify(s.engine));
-      assert.equal(calls >= 3, true, `the warm-up recall ran before engine.ready (embedQuery calls: ${calls})`);
+      assert.equal(calls, 2, `the warm-up's memory.list embedded the query before engine.ready (embedQuery calls: ${calls})`);
       const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "when is the roadmap review", joined: true, budget: { hardMs: 600, softMs: 400 } });
       assert.equal(r.degraded, null, `first recall: ${JSON.stringify(r.degraded)} timing ${JSON.stringify(r.timing)}`);
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 
-  it("engine is models-warming (capability recall) while the recall warm-up runs, and its events are not forwarded", async () => {
+  it("engine is models-warming (capability recall) while the recall-path warm-up runs, and it emits nothing", async () => {
     const home = newHome(); let calls = 0;
-    // Probe fast, then the warm-up recall's first embedQuery takes 400 ms: the models are ready, the recall pass is not.
+    // Probe fast, then the warm-up's memory.list embedding takes 400 ms: the models are ready, the recall path is not.
     const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => (++calls === 2 ? 400 : 0) }) });
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
@@ -354,11 +370,47 @@ describe("core model warm-up (E4, S7)", () => {
       assert.deepEqual(s.engine.degraded, { reason: "models-warming", capability: "recall" });
       assert.equal(s.engine.ready, false);
       assert.equal(s.engine.models.embedder.state, "ready");
-      assert.deepEqual(s.agents.map((a: any) => a.activity.state), ["idle"], "the warm-up recall is not agent activity");
+      assert.deepEqual(s.agents.map((a: any) => a.activity.state), ["idle"], "the warm-up is not agent activity");
       const until2 = Date.now() + 5000;
       do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until2);
       assert.equal(s.engine.ready, true); assert.equal(s.engine.degraded, null);
-      assert.equal(got.some((m) => m.startsWith("recall.") || m === "agent.activity"), false, JSON.stringify(got));
+      assert.equal(got.some((m) => m.startsWith("recall.") || m === "agent.activity" || m === "engine.event"), false, JSON.stringify(got));
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
+  // H3-R23: a user-origin recall presents due reminders, records activity (run-state.json) and writes mood/neo state
+  // into the agent workspace; the warm-up must do none of it. The control (a real recall afterwards) proves the
+  // snapshot sees those writes.
+  it("the warm-up leaves the agent workspace untouched: activity, pending reminders, mood files (H3-R23)", async () => {
+    const home = newHome(); const l = layout(home); let first = true;
+    mkdirSync(l.workspaceDir("bernd"), { recursive: true, mode: 0o700 });
+    const ws = realpathSync(l.workspaceDir("bernd"));
+    // lib/reminder-pending.js: keyed by the workspace path the engine is given (the layout path, not its realpath).
+    const wsKey = l.workspaceDir("bernd").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
+    const pendingFile = join(ws, ".adaptive-learning", "reminders", wsKey, "bernd", "pending-reminders.json");
+    mkdirSync(dirname(pendingFile), { recursive: true });
+    const pending = JSON.stringify({ pending: { "r-1": { id: "r-1", reminderKey: "r-1", text: "water the plants", remindAt: Date.now() - 3_600_000 } } });
+    writeFileSync(pendingFile, pending);
+    // The probe takes 300 ms, so the snapshot below is taken before the warm-up's memory.list runs.
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => { const d = first ? 300 : 0; first = false; return d; } }) });
+    await core.start();
+    const before = snapshot(ws);
+    const c = await connect({ address: core.address, token: core.token });
+    const got: string[] = []; c.onNotification((m) => got.push(m));
+    try {
+      await c.call("events.subscribe", {});
+      let s: any; const until = Date.now() + 8000;
+      do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until);
+      assert.equal(s.engine.ready, true, JSON.stringify(s.engine));
+      const after = snapshot(ws);
+      assert.deepEqual(after, before, "the warm-up changed the agent workspace");
+      assert.equal(readFileSync(pendingFile, "utf8"), pending, "pending reminders unchanged");
+      for (const f of ["run-state.json", ".current-mood.txt", ".emotional-state.json"]) assert.equal(after[f], before[f], f);
+      assert.equal(got.some((m) => m.startsWith("recall.")), false, JSON.stringify(got));
+      // Control: a client recall does write the workspace (activity) and presents the due reminder.
+      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything due today", joined: true });
+      assert.notDeepEqual(snapshot(ws), before, "a real recall writes the workspace (the snapshot would see a warm-up's writes)");
+      assert.match(r.joined.text, /water the plants/);
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 

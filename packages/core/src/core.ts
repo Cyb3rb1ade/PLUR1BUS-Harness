@@ -18,12 +18,12 @@ import { MEMORY_OP_METHODS } from "./memory-ops.ts";
 import { createOrphanWatch, type OrphanWatch } from "./orphan-watch.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
-import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
+import { callerToPrincipal } from "./principal.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
-import { RECALL_WARMUP_TIMEOUT_MS, projectModels, startWarmup, type Warmup } from "./warmup.ts";
+import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time). */
@@ -76,11 +76,8 @@ function projectJobs(jobs: EngineStatus["jobs"] | undefined): JobsStatus | null 
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
-/** H3-R22: the fixed, neutral query of the internal warm-up recall. */
-const WARMUP_QUERY = "plur1bus recall warm-up";
-
-/** The caller the CLI sends (crates/plur1bus/src/identity.rs: host name, OS user), so the warm-up recall takes the
- *  CLI principal's own path. */
+/** The caller the CLI sends (crates/plur1bus/src/identity.rs: host name, OS user), so the recall-path warm-up reads
+ *  as the CLI principal. */
 function cliCaller(): { channel: "cli"; accountId: string; userId: string } {
   let user = "";
   try { user = userInfo().username; } catch { /* no passwd entry */ }
@@ -104,9 +101,8 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
-  // H3-R22: true from the start of the warm-up until its recall pass ends; engine.ready waits for it.
+  // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
   let recallWarmPending = false;
-  const warmingRecall = new Set<string>(); // agents whose internal warm-up recall is in flight: events not forwarded
   let statusClosed = false; // set by stop() and by a failed start: no refresh may re-arm the timer afterwards
   let beforeOrphan: State | null = null; // the state an orphaned core returns to on adoption
   let graceExpiredWhileStarting = false;
@@ -209,11 +205,6 @@ export function createCore(o: CoreOptions): Core {
       const engineConfig = buildEngineConfig(config, l);
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
-        // H3-R22: the internal warm-up recall is not a client's recall: its recall.* events stay inside the core.
-        if (warmingRecall.size > 0 && name.startsWith("recall.")) {
-          const agentId = (payload as { agentId?: unknown } | null)?.agentId;
-          if (typeof agentId === "string" && warmingRecall.has(agentId)) return;
-        }
         // ADR-016 §6: the harness-owned notification, projected onto its schema.
         const m = mapEngineEvent(name, payload);
         if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience } : {});
@@ -270,19 +261,13 @@ export function createCore(o: CoreOptions): Core {
       recallWarmPending = true;
       warmup = startWarmup({
         engine: eng, logger, signal: shutdown.signal, onDone: () => refreshEngineStatus(),
-        // H3-R22: one synthetic recall per agent registered now; agents added later are not warmed (their first
-        // recall pays the cold path). Not agent activity: it bypasses the memory.recall handler.
-        recall: {
+        // H3-R23: a read-only pass per agent registered now (memory.list + rerank, never engine.recall); agents added
+        // later are not warmed (their first recall pays the cold path). Not agent activity, emits no events.
+        recallPath: {
           agents: () => registry.list(),
-          recall: async (agentId, signal) => {
+          principal: (agentId) => {
             const ws = registry.workspaceOf(agentId);
-            if (!ws) return null;
-            const { principal } = callerToPrincipal(cliCaller(), agentId, ws);
-            warmingRecall.add(agentId);
-            try {
-              return await eng.recall({ query: WARMUP_QUERY, principal, agent: AGENT_CONTEXT_CLI, signal,
-                budget: { softMs: RECALL_WARMUP_TIMEOUT_MS, hardMs: RECALL_WARMUP_TIMEOUT_MS, capChars: config.core.recall.capChars } });
-            } finally { warmingRecall.delete(agentId); }
+            return ws ? callerToPrincipal(cliCaller(), agentId, ws).principal : null;
           },
         },
         onRecallDone: () => { recallWarmPending = false; refreshEngineStatus(); },
