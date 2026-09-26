@@ -1,5 +1,5 @@
 #![cfg(unix)]
-use plur1bus_rpc::{Client, ConnectOptions, RpcError};
+use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixListener;
@@ -133,8 +133,9 @@ fn connect(addr: &str) -> Client {
 fn auth_call_and_notification_skipping() {
     let addr = fake_core("1.0.0");
     let mut c = connect(&addr);
-    assert_eq!(c.hello().contract, "1.4.1");
-    assert_eq!(c.hello().instance_id, "i");
+    assert_eq!(c.hello()["contract"], "1.4.1");
+    assert_eq!(c.hello()["instanceId"], "i");
+    assert!(matches!(c.endpoint(), Endpoint::Core));
     assert_eq!(c.call("echo", json!({"x": 1})).unwrap(), json!({"x": 1}));
     match c.call("nope", json!({})) {
         Err(RpcError::Call { reason, .. }) => {
@@ -366,4 +367,107 @@ fn invalid_utf8_from_the_core_is_a_protocol_error() {
         c.call("badutf8", json!({})),
         Err(RpcError::Protocol(_))
     ));
+}
+
+/// A fake server that records the first method of every connection and answers it with `hello`.
+fn recording_server(hello: Value) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+    let (p, listener) = socket_path();
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let seen2 = seen.clone();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let stream = stream.unwrap();
+            let mut w = stream.try_clone().unwrap();
+            let mut r = BufReader::new(stream);
+            let mut line = String::new();
+            if r.read_line(&mut line).unwrap_or(0) == 0 {
+                continue;
+            }
+            let msg: Value = serde_json::from_str(&line).unwrap();
+            seen2
+                .lock()
+                .unwrap()
+                .push(msg["method"].as_str().unwrap().to_string());
+            reply(
+                &mut w,
+                json!({"jsonrpc":"2.0","id":msg["id"],"result":hello.clone()}),
+            );
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    });
+    (p, seen)
+}
+
+#[test]
+fn connect_endpoint_supervisor_uses_supervisor_auth() {
+    let (addr, seen) = recording_server(json!({
+        "rpc": "1.2.0",
+        "instanceId": "s",
+        "pid": 7,
+        "capabilities": {
+            "methods": {"daemon.status": {"stability": "experimental", "since": "1.2.0"}},
+            "notifications": {},
+            "extensionPoints": {},
+            "features": ["adoption"],
+        },
+    }));
+    let c = Client::connect(
+        &addr,
+        TOKEN,
+        ConnectOptions {
+            endpoint: Endpoint::Supervisor,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(*seen.lock().unwrap(), ["supervisor.auth"]);
+    assert!(matches!(c.endpoint(), Endpoint::Supervisor));
+    assert_eq!(c.hello()["pid"], 7);
+    assert!(c.supports("daemon.status"));
+    assert!(!c.supports("memory.recall"));
+    // The default endpoint is the core.
+    let (addr2, seen2) =
+        recording_server(json!({"contract":"1.7.0","rpc":"1.2.0","instanceId":"i","pid":1}));
+    let _c2 = Client::connect(&addr2, TOKEN, ConnectOptions::default()).unwrap();
+    assert_eq!(*seen2.lock().unwrap(), ["core.auth"]);
+}
+
+#[test]
+fn a_supervisor_hello_with_the_wrong_shape_is_a_protocol_error() {
+    let (addr, _) = recording_server(json!({"rpc": "1.2.0", "instanceId": 5, "pid": 7}));
+    let e = Client::connect(
+        &addr,
+        TOKEN,
+        ConnectOptions {
+            endpoint: Endpoint::Supervisor,
+            ..Default::default()
+        },
+    )
+    .err()
+    .expect("a malformed hello must fail");
+    assert!(
+        matches!(&e, RpcError::Protocol(m) if m.starts_with("supervisor.auth result")),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn hello_is_the_raw_value_with_unknown_keys_kept() {
+    let hello = json!({
+        "contract": "1.7.0",
+        "rpc": "1.2.0",
+        "instanceId": "i",
+        "pid": 1,
+        "addedInAFutureMinor": {"x": [1, 2]},
+        "capabilities": {
+            "methods": {"echo": {"stability": "stable", "since": "1.0.0", "futureAnnotation": 1}},
+            "notifications": {},
+            "extensionPoints": {},
+            "features": [],
+            "futureSection": {},
+        },
+    });
+    let addr = fake_core_with(hello.clone());
+    let c = connect(&addr);
+    assert_eq!(c.hello(), &hello);
 }

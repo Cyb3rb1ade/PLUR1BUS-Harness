@@ -27,7 +27,8 @@ export interface Capabilities {
   features: readonly string[];
 }
 
-export interface Hello { contract: string; rpc: string; instanceId: string; pid: number; capabilities?: Capabilities }
+/** The handshake result: `core.auth`'s (with `contract`) or `supervisor.auth`'s (without). */
+export interface Hello { contract?: string; rpc: string; instanceId: string; pid: number; capabilities?: Capabilities }
 export interface CoreClient {
   readonly hello: Hello;
   call<T = unknown>(method: string, params?: object): Promise<T>;
@@ -37,7 +38,8 @@ export interface CoreClient {
    *  `capabilities.methods` names this method. */
   supports(method: string): boolean;
 }
-export interface ConnectOptions { address: string; token: string; connectTimeoutMs?: number; callTimeoutMs?: number }
+/** `endpoint` picks the handshake: `core.auth` (default) or `supervisor.auth` (ruling S2). */
+export interface ConnectOptions { address: string; token: string; endpoint?: "core" | "supervisor"; connectTimeoutMs?: number; callTimeoutMs?: number }
 
 const SUPPORTED_RPC_MAJOR = 1;
 
@@ -84,7 +86,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
 
   let hello: Hello;
   try {
-    hello = await call<Hello>("core.auth", { token: opts.token });
+    hello = await call<Hello>(opts.endpoint === "supervisor" ? "supervisor.auth" : "core.auth", { token: opts.token });
     const major = Number(hello.rpc.split(".")[0]);
     if (major !== SUPPORTED_RPC_MAJOR) { sock.destroy(); throw new RpcCallError(-32000, "E_RPC_VERSION", `server rpc ${hello.rpc}, client supports ${SUPPORTED_RPC_MAJOR}.x`, "major-mismatch"); }
   } catch (e) {

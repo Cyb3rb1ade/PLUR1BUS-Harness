@@ -21,6 +21,7 @@ pub(crate) fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client,
         ConnectOptions {
             connect_timeout: Duration::from_millis(300),
             call_timeout,
+            ..ConnectOptions::default()
         },
     )
 }

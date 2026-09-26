@@ -52,7 +52,7 @@ export function createCore(o: CoreOptions): Core {
   let storeSchema: { current: string | null; expected: string } | null = null;
   // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
   const shutdown = new AbortController();
-  const capabilities = buildCapabilities(CORE_FEATURES);
+  const capabilities = buildCapabilities(CORE_FEATURES, "core");
 
   const setState = (s: State) => { state = s; server?.notify("core.state", { process: s }); };
 

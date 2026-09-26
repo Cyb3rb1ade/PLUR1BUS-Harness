@@ -50,13 +50,20 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.7.0"); assert.equal(s.rpc, "1.1.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.7.0"); assert.equal(s.rpc, "1.2.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 
   it("core.auth carries capabilities built from the schema", () => {
     assert.equal(c.hello.capabilities?.methods["memory.recall"]?.stability, "stable");
     assert.deepEqual(c.hello.capabilities?.features, [...CORE_FEATURES].sort());
+  });
+
+  it("core.auth advertises core methods only and core.adopt answers not-supervised", async () => {
+    assert.ok(c.hello.capabilities?.methods["core.adopt"]);
+    assert.equal(c.hello.capabilities?.methods["daemon.status"], undefined);
+    assert.equal(c.hello.capabilities?.methods["supervisor.auth"], undefined);
+    await assert.rejects(c.call("core.adopt", { nonce: "f".repeat(64) }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "not-supervised");
   });
 
   it("core.auth features include events.harness", () => {

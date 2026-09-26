@@ -32,7 +32,7 @@ export interface RpcServer {
 
 // ADR-016 §5 / G13: the schema's deprecated surface, computed once; each name is warned about once per process.
 const DEPRECATED = (() => {
-  const caps = buildCapabilities([]);
+  const caps = buildCapabilities([], "core");
   const pick = (entries: Record<string, { deprecated?: Deprecation }>) => new Map(Object.entries(entries).flatMap(([name, e]) => (e.deprecated ? [[name, e.deprecated] as const] : [])));
   return { method: pick(caps.methods), notification: pick(caps.notifications) };
 })();

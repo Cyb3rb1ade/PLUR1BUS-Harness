@@ -1,0 +1,23 @@
+{
+  "methods": {
+    "supervisor.auth": {
+      "stability": "experimental",
+      "since": "1.2.0"
+    },
+    "daemon.status": {
+      "stability": "experimental",
+      "since": "1.2.0"
+    },
+    "daemon.start": {
+      "stability": "experimental",
+      "since": "1.2.0"
+    },
+    "daemon.stop": {
+      "stability": "experimental",
+      "since": "1.2.0"
+    }
+  },
+  "notifications": {},
+  "extensionPoints": {},
+  "features": []
+}

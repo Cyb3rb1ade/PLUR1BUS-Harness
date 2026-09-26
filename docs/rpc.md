@@ -1,11 +1,12 @@
-# RPC reference (rpc 1.1.0)
+# RPC reference (rpc 1.2.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
 (Windows). The first call on a connection is `core.auth`; its result carries `contract` (engine contract version) and `rpc`
-(this schema's version). Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
+(this schema's version). Methods served by the supervisor (**Served by:** supervisor) are called on the supervisor's own
+endpoint, whose first call is `supervisor.auth`. Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core or supervisor.
 
 ## Error codes
 
@@ -45,6 +46,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `core.auth`
 
 **Stability:** stable · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -101,6 +104,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** stable · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -115,112 +120,15 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "process",
-    "contract",
-    "rpc",
-    "instanceId",
-    "pid",
-    "uptimeMs",
-    "engine",
-    "agents"
-  ],
-  "properties": {
-    "process": {
-      "$ref": "#/$defs/ProcessState"
-    },
-    "contract": {
-      "type": "string"
-    },
-    "rpc": {
-      "type": "string"
-    },
-    "instanceId": {
-      "type": "string"
-    },
-    "pid": {
-      "type": "integer"
-    },
-    "uptimeMs": {
-      "type": "integer"
-    },
-    "engine": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "ready",
-        "degraded"
-      ],
-      "properties": {
-        "ready": {
-          "type": "boolean"
-        },
-        "degraded": {
-          "oneOf": [
-            {
-              "$ref": "#/$defs/Degraded"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "storeSchema": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "current",
-            "expected"
-          ],
-          "properties": {
-            "current": {
-              "oneOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "expected": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    "agents": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "agentId",
-          "activity"
-        ],
-        "properties": {
-          "agentId": {
-            "$ref": "#/$defs/AgentId"
-          },
-          "activity": {
-            "$ref": "#/$defs/Activity"
-          }
-        }
-      }
-    },
-    "journalBacklog": {
-      "type": "integer"
-    }
-  }
+  "$ref": "#/$defs/CoreStatus"
 }
 ```
 
 ### `core.shutdown`
 
 **Stability:** stable · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -255,9 +163,55 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 }
 ```
 
+### `core.adopt`
+
+**Stability:** experimental · since 1.2.0
+
+**Served by:** core
+
+Called by a supervisor on a running core to adopt it. nonce is the current content of run/supervisor.token; the connection it succeeds on becomes the core's lifeline.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/CoreStatus"
+    }
+  }
+}
+```
+
 ### `memory.recall`
 
 **Stability:** stable · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -387,6 +341,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** stable · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -471,6 +427,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -533,6 +491,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `memory.list`
 
 **Stability:** experimental · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -608,6 +568,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -656,6 +618,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `memory.forget`
 
 **Stability:** experimental · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -718,6 +682,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -773,6 +739,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `memory.share`
 
 **Stability:** experimental · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -840,6 +808,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `memory.state`
 
 **Stability:** experimental · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -931,6 +901,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -994,6 +966,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `memory.proposals.list`
 
 **Stability:** experimental · since 1.1.0
+
+**Served by:** core
 
 **params**
 
@@ -1064,6 +1038,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -1117,6 +1093,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `memory.proposals.reject`
 
 **Stability:** experimental · since 1.1.0
+
+**Served by:** core
 
 **params**
 
@@ -1172,6 +1150,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -1223,6 +1203,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -1265,6 +1247,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -1306,6 +1290,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `agent.status`
 
 **Stability:** experimental · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -1362,6 +1348,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `jobs.list`
 
 **Stability:** experimental · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -1421,6 +1409,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -1456,6 +1446,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 ### `jobs.history`
 
 **Stability:** experimental · since 1.0.0
+
+**Served by:** core
 
 **params**
 
@@ -1509,6 +1501,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** stable · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -1550,6 +1544,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 **Stability:** stable · since 1.0.0
 
+**Served by:** core
+
 **params**
 
 ```json
@@ -1584,6 +1580,212 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 }
 ```
 
+### `supervisor.auth`
+
+**Stability:** experimental · since 1.2.0
+
+**Served by:** supervisor
+
+The first call on a supervisor connection; token is the content of run/supervisor.token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rpc",
+    "instanceId",
+    "pid"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    }
+  }
+}
+```
+
+### `daemon.status`
+
+**Stability:** experimental · since 1.2.0
+
+**Served by:** supervisor
+
+The supervisor's own state and one entry per supervised child.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "supervisor",
+    "children"
+  ],
+  "properties": {
+    "supervisor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "process",
+        "instanceId",
+        "pid",
+        "uptimeMs"
+      ],
+      "properties": {
+        "process": {
+          "$ref": "#/$defs/ProcessState"
+        },
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "uptimeMs": {
+          "type": "integer"
+        }
+      }
+    },
+    "children": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ChildStatus"
+      }
+    }
+  }
+}
+```
+
+### `daemon.start`
+
+**Stability:** experimental · since 1.2.0
+
+**Served by:** supervisor
+
+Clears a crashed or stopped child's backoff and spawns it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "role": {
+      "enum": [
+        "core"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "role"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    },
+    "role": {
+      "enum": [
+        "core"
+      ]
+    }
+  }
+}
+```
+
+### `daemon.stop`
+
+**Stability:** experimental · since 1.2.0
+
+**Served by:** supervisor
+
+Replies first, then shuts every child down within budgetMs, removes the supervisor's run files and exits the supervisor.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
@@ -1592,10 +1794,13 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 **Stability:** stable · since 1.0.0
 
+**Served by:** core
+
 ```json
 {
   "x-stability": "stable",
   "x-since": "1.0.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1613,10 +1818,13 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 **Stability:** experimental · since 1.0.0
 
+**Served by:** core
+
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.0.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1638,12 +1846,15 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 **Stability:** experimental · since 1.0.0 · **deprecated** since 1.1.0, removal not before 2027-03-26; use harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)
 
+**Served by:** core
+
 Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.0.0",
+  "x-server": "core",
   "deprecated": true,
   "x-deprecated": {
     "since": "1.1.0",
@@ -1682,12 +1893,15 @@ Every engine event forwarded verbatim: name is the EngineEventName, payload as e
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 One per recall attempt: total wall time and whether it degraded.
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "One per recall attempt: total wall time and whether it degraded.",
@@ -1721,12 +1935,15 @@ One per recall attempt: total wall time and whether it degraded.
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 A recall exited degraded (timeout, abort, pressure, store error, ...).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "A recall exited degraded (timeout, abort, pressure, store error, ...).",
@@ -1749,12 +1966,15 @@ A recall exited degraded (timeout, abort, pressure, store error, ...).
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 The inject-budget join clipped a context block from `from` to `to` characters.
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "The inject-budget join clipped a context block from `from` to `to` characters.",
@@ -1792,12 +2012,15 @@ The inject-budget join clipped a context block from `from` to `to` characters.
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 The inject-budget join dropped a context block (`to` is 0).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "The inject-budget join dropped a context block (`to` is 0).",
@@ -1835,12 +2058,15 @@ The inject-budget join dropped a context block (`to` is 0).
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 One per finished job run (the ledger row without counts, cost and keys).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "One per finished job run (the ledger row without counts, cost and keys).",
@@ -1909,12 +2135,15 @@ One per finished job run (the ledger row without counts, cost and keys).
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 A change proposal against a shared copy was filed or resolved (D31). agentId is the sharer; delivered to subscriptions filtered to the sharer or the proposer. Agent ids are plain strings: a copy may come from another host's agent.
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "A change proposal against a shared copy was filed or resolved (D31). agentId is the sharer; delivered to subscriptions filtered to the sharer or the proposer. Agent ids are plain strings: a copy may come from another host's agent.",
@@ -1953,12 +2182,15 @@ A change proposal against a shared copy was filed or resolved (D31). agentId is 
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
@@ -1977,12 +2209,15 @@ Declared by the engine contract but not emitted by the pinned engine; no payload
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
@@ -1998,12 +2233,15 @@ Declared by the engine contract but not emitted by the pinned engine; no payload
 
 **Stability:** experimental · since 1.1.0
 
+**Served by:** core
+
 Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.1.0",
+  "x-server": "core",
   "type": "object",
   "additionalProperties": false,
   "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
@@ -2439,6 +2677,209 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "since": {
       "type": "integer"
+    }
+  }
+}
+```
+
+### `CoreStatus`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "process",
+    "contract",
+    "rpc",
+    "instanceId",
+    "pid",
+    "uptimeMs",
+    "engine",
+    "agents"
+  ],
+  "properties": {
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "contract": {
+      "type": "string"
+    },
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "uptimeMs": {
+      "type": "integer"
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ready",
+        "degraded"
+      ],
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "degraded": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Degraded"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "storeSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current",
+            "expected"
+          ],
+          "properties": {
+            "current": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expected": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agentId",
+          "activity"
+        ],
+        "properties": {
+          "agentId": {
+            "$ref": "#/$defs/AgentId"
+          },
+          "activity": {
+            "$ref": "#/$defs/Activity"
+          }
+        }
+      }
+    },
+    "journalBacklog": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `ChildStatus`
+
+```json
+{
+  "description": "One supervised child process as the supervisor sees it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "process",
+    "pid",
+    "instanceId",
+    "adopted",
+    "restarts",
+    "lastExit",
+    "nextRestartAt"
+  ],
+  "properties": {
+    "role": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "instanceId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "adopted": {
+      "type": "boolean",
+      "description": "true when the supervisor adopted a running child instead of spawning it"
+    },
+    "restarts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastExit": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "signal",
+            "at",
+            "reason"
+          ],
+          "properties": {
+            "code": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "signal": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "at": {
+              "type": "integer"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nextRestartAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "epoch ms of the scheduled restart; null when none is scheduled"
     }
   }
 }

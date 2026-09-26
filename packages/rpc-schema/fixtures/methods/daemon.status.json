@@ -1,0 +1,4 @@
+{ "params": {},
+  "result": { "supervisor": { "process": { "state": "ready", "since": 1758700000000 }, "instanceId": "sup-fixture", "pid": 4200, "uptimeMs": 90000 },
+              "children": [{ "role": "core", "process": { "state": "crashed", "reason": "signal", "since": 1758700089000 }, "pid": null, "instanceId": null, "adopted": false, "restarts": 2,
+                             "lastExit": { "code": null, "signal": "SIGKILL", "at": 1758700089000, "reason": null }, "nextRestartAt": 1758700091000 }] } }

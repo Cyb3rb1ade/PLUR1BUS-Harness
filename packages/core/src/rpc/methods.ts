@@ -58,6 +58,8 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
   return {
     "core.status": async () => d.status(),
     "core.shutdown": async (p: CoreShutdownParams) => { d.shutdown(p.budgetMs); return { accepted: true as const }; },
+    // Supervised mode and adoption arrive with plan 2a-H3a Task 3.
+    "core.adopt": async () => { throw new RpcError("E_NOT_AVAILABLE", "this core is not supervised", { reason: "not-supervised" }); },
 
     "memory.recall": async (p: MemoryRecallParams, ctx) => {
       const { principal, degraded } = identity(d, p.caller, p.agentId);

@@ -109,6 +109,34 @@ describe("client", () => {
     } finally { withCaps.close(); }
   });
 
+  it("connect with endpoint supervisor sends supervisor.auth", async () => {
+    const supAddr = address();
+    const firstMethods: string[] = [];
+    const supHello = { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: { methods: { "daemon.status": { stability: "experimental", since: "1.2.0" } }, notifications: {}, extensionPoints: {}, features: ["adoption"] } };
+    const sup = createServer((sock: Socket) => {
+      const dec = new LineDecoder(); let first = true;
+      sock.on("data", (chunk) => {
+        for (const msg of dec.push(chunk) as any[]) {
+          if (first) { firstMethods.push(msg.method); first = false; }
+          if (msg.method === "supervisor.auth" && msg.params?.token === TOKEN) sock.write(encodeLine({ jsonrpc: "2.0", id: msg.id, result: supHello }));
+          else sock.write(encodeLine({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: "auth", data: { error: "E_UNAUTHORIZED", reason: "auth-required" } } }));
+        }
+      });
+    });
+    await new Promise<void>((res) => sup.listen(supAddr, () => res()));
+    try {
+      const c = await connect({ address: supAddr, token: TOKEN, endpoint: "supervisor" });
+      assert.deepEqual(firstMethods, ["supervisor.auth"]);
+      assert.deepEqual(c.hello, supHello);
+      assert.equal(c.supports("daemon.status"), true);
+      assert.equal(c.supports("memory.recall"), false);
+      await c.close();
+      // The default endpoint is still the core: against a supervisor it sends core.auth and is refused.
+      await assert.rejects(connect({ address: supAddr, token: TOKEN }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
+      assert.deepEqual(firstMethods, ["supervisor.auth", "core.auth"]);
+    } finally { sup.close(); }
+  });
+
   it("cleans up the socket when auth handshake rejects", async () => {
     // Allow any pending close events from previous tests to settle
     await new Promise((r) => setTimeout(r, 50));

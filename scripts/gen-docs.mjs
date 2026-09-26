@@ -22,13 +22,16 @@ const stabilityLine = (def) => {
   }
   return line;
 };
+// Ruling S2: one method namespace, two servers; x-server names the process that answers.
+const servedByLine = (def) => `**Served by:** ${def["x-server"]}`;
 
 let rpc = `# RPC reference (rpc ${schema["x-rpc-version"]})
 
 Generated from \`packages/rpc-schema/schema/rpc.schema.json\` by \`scripts/gen-docs.mjs\` — do not edit by hand; run \`pnpm docs:gen\`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on \`run/core.sock\` (POSIX) or the per-home named pipe
 (Windows). The first call on a connection is \`core.auth\`; its result carries \`contract\` (engine contract version) and \`rpc\`
-(this schema's version). Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
+(this schema's version). Methods served by the supervisor (**Served by:** supervisor) are called on the supervisor's own
+endpoint, whose first call is \`supervisor.auth\`. Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
 ${schema.description ? `\n${schema.description}\n` : ""}
 ## Error codes
 
@@ -47,11 +50,11 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 `;
 for (const [name, def] of Object.entries(schema.$defs.methods)) {
   const desc = def.description ?? def.params?.description ?? "";
-  rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${desc ? `${desc}\n\n` : ""}**params**\n\n${fence(def.params)}\n\n**result**\n\n${fence(def.result)}\n`;
+  rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${servedByLine(def)}\n\n${desc ? `${desc}\n\n` : ""}**params**\n\n${fence(def.params)}\n\n**result**\n\n${fence(def.result)}\n`;
 }
 rpc += `\n## Notifications\n\nDelivered on the same connection to clients that called \`events.subscribe\`.\n`;
 for (const [name, def] of Object.entries(schema.$defs.notifications)) {
-  rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${def.description ? `${def.description}\n\n` : ""}${fence(def)}\n`;
+  rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${servedByLine(def)}\n\n${def.description ? `${def.description}\n\n` : ""}${fence(def)}\n`;
 }
 rpc += `\n## Definitions\n\nShared \`$defs\` referenced above as \`#/$defs/<Name>\`.\n`;
 for (const [name, def] of Object.entries(schema.$defs)) {

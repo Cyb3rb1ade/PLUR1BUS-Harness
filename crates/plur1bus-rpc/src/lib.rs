@@ -3,8 +3,10 @@ pub mod types {
 }
 include!(concat!(env!("OUT_DIR"), "/rpc_version.rs"));
 pub const SUPPORTED_RPC_MAJOR: u64 = 1;
+pub mod capabilities;
 pub mod client;
 pub mod error;
 pub mod transport;
-pub use client::{Client, ConnectOptions, Hello};
+pub use capabilities::{capabilities, SCHEMA_JSON};
+pub use client::{Client, ConnectOptions, Endpoint};
 pub use error::{is_unavailable, RpcError};
