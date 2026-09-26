@@ -58,6 +58,9 @@ impl Out {
             println!("{}", document("error/1", v));
         } else {
             eprintln!("plur1bus: {message}");
+            if let Some(line) = ids_line(&extra) {
+                eprintln!("{line}");
+            }
         }
         std::process::exit(exit)
     }
@@ -93,6 +96,26 @@ fn rpc_error_extra(e: &RpcError) -> Value {
         extra["ids"] = json!(ids);
     }
     extra
+}
+
+/// The human `ids: k=v …` line (keys sorted) for an error document's `ids`, so the recovery ids of
+/// e.g. a half-finished shared-copy refresh are not `--json`-only; `None` without ids.
+fn ids_line(extra: &Value) -> Option<String> {
+    let ids = extra.get("ids")?.as_object()?;
+    if ids.is_empty() {
+        return None;
+    }
+    let mut pairs: Vec<(&String, &Value)> = ids.iter().collect();
+    pairs.sort_by(|a, b| a.0.cmp(b.0));
+    let text = pairs
+        .iter()
+        .map(|(k, v)| match v.as_str() {
+            Some(s) => format!("{k}={s}"),
+            None => format!("{k}={v}"),
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    Some(format!("ids: {text}"))
 }
 
 #[cfg(test)]
@@ -163,5 +186,16 @@ mod tests {
         assert_eq!(doc["detail"], "write failed");
         assert_eq!(doc["ids"]["sourceId"], "abc");
         assert_eq!(doc["ids"]["sharedId"], "def");
+    }
+
+    #[test]
+    fn human_errors_print_ids_in_stable_key_order() {
+        let extra = json!({ "reason": "storage", "ids": { "staleSharedId": "c", "sourceId": "a", "sharedId": "b" } });
+        assert_eq!(
+            ids_line(&extra).as_deref(),
+            Some("ids: sharedId=b sourceId=a staleSharedId=c")
+        );
+        assert_eq!(ids_line(&json!({ "reason": "storage" })), None);
+        assert_eq!(ids_line(&json!({ "ids": {} })), None);
     }
 }

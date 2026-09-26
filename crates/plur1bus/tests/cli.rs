@@ -1130,3 +1130,40 @@ fn memory_reads_print_a_degraded_line_in_human_output() {
         );
     }
 }
+
+/// Final review M2: in human mode an RPC error's recovery ids reach stderr, not only `--json`.
+#[cfg(unix)]
+#[test]
+fn human_errors_print_recovery_ids_to_stderr() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    fake_core::spawn(
+        dir.path(),
+        fake_core::hello_with_capabilities(&[]),
+        Some((
+            "memory.correct",
+            serde_json::json!({"error": {"code": -32000, "message": "shared copy refresh failed", "data": {
+                "error": "E_STORAGE", "reason": "storage",
+                "ids": {"staleSharedId": "m-old", "sourceId": "m-src", "sharedId": "m-new"}
+            }}}),
+        )),
+    );
+    let out = bin()
+        .args([
+            "--home", h, "memory", "correct", "--agent", "bernd", "m-src", "new text",
+        ])
+        .assert()
+        .code(1)
+        .get_output()
+        .stderr
+        .clone();
+    let s = String::from_utf8(out).unwrap();
+    assert!(
+        s.contains("ids: sharedId=m-new sourceId=m-src staleSharedId=m-old"),
+        "expected the ids line on stderr, got: {s}"
+    );
+}
