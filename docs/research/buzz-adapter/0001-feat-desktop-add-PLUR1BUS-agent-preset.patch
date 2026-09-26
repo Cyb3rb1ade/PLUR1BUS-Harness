@@ -1,0 +1,188 @@
+From fc16f21494fb4ca4e0b05c0cb277b54d242b7e4c Mon Sep 17 00:00:00 2001
+From: Cyb3rb1ade <84099452+Cyb3rb1ade@users.noreply.github.com>
+Date: Sat, 26 Sep 2026 15:44:02 +0200
+Subject: [PATCH] feat(desktop): add PLUR1BUS agent preset
+
+Add PLUR1BUS as a tier-2 preset ACP harness using its CLI's native ACP
+mode (`plur1bus acp`), with setup guidance linking the PLUR1BUS Harness
+repository, a bundled MIT-licensed mark, and a curated catalog
+description.
+
+`plur1bus acp` is a thin ACP front end to the local PLUR1BUS core
+daemon, so PATH availability does not imply a running daemon (same
+tier-2 semantics as OpenClaw); the buzz-acp README notes this and the
+execution locus of BUZZ_* credentials.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01SxcLhve6hyM9AFm2nU9B3F
+---
+ crates/buzz-acp/README.md                     |  4 +-
+ desktop/public/harness-logos/CREDITS.md       |  1 +
+ desktop/public/harness-logos/plur1bus.svg     |  5 ++
+ .../src/managed_agents/discovery/presets.rs   | 55 +++++++++++++++++++
+ .../features/onboarding/ui/RuntimeIcon.tsx    |  1 +
+ .../settings/ui/harnessCatalogCopy.test.mjs   |  7 +++
+ .../settings/ui/harnessCatalogCopy.ts         |  5 ++
+ 7 files changed, 77 insertions(+), 1 deletion(-)
+ create mode 100644 desktop/public/harness-logos/plur1bus.svg
+
+diff --git a/crates/buzz-acp/README.md b/crates/buzz-acp/README.md
+index 7e7b3e5ff..160411b56 100644
+--- a/crates/buzz-acp/README.md
++++ b/crates/buzz-acp/README.md
+@@ -292,10 +292,12 @@ Buzz Desktop supports registering any ACP-speaking agent tool as a selectable ru
+ 
+ **Tier-1 — compiled-in runtimes** (Goose, Claude Code, Codex, Buzz Agent): have auto-installers, auth probes, and first-class onboarding. Their IDs (`goose`, `claude`, `codex`, `buzz-agent`) are reserved and cannot be overridden.
+ 
+-**Tier-2 — preset catalog** (Cursor, Oh My Pi, Pi, Grok Build, OpenCode, Kimi Code, Amp, Hermes Agent, OpenClaw): static `HarnessDefinition` entries in `desktop/src-tauri/src/managed_agents/discovery/presets.rs` (`PRESET_HARNESSES`). They are always present in the runtime catalog, PATH-probed for availability, not editable or deletable by the user. Displayed with bundled logos; if not installed, a docs link appears instead.
++**Tier-2 — preset catalog** (Cursor, Oh My Pi, Pi, Grok Build, OpenCode, Kimi Code, Amp, Hermes Agent, OpenClaw, PLUR1BUS): static `HarnessDefinition` entries in `desktop/src-tauri/src/managed_agents/discovery/presets.rs` (`PRESET_HARNESSES`). They are always present in the runtime catalog, PATH-probed for availability, not editable or deletable by the user. Displayed with bundled logos; if not installed, a docs link appears instead.
+ 
+ > **Note — OpenClaw:** `openclaw acp` is a Gateway-backed bridge; PATH availability shows "Available" even when the OpenClaw Gateway daemon is not running. This is expected tier-2 semantics (same class as a preset with unconfigured auth). The Gateway URL is configured via `OPENCLAW_GATEWAY_URL` (or the equivalent env var from OpenClaw's docs) — set it in the agent's **env vars** in Edit Agent, not in the definition env (the preset definition carries no env entries). Note that `openclaw acp` executes tools inside the Gateway daemon, not the Desktop process, so Desktop-injected `BUZZ_*` env vars do NOT reach the execution locus unless you also set them on the Gateway's own environment.
+ 
++> **Note — PLUR1BUS:** `plur1bus acp` is a thin ACP front end to the local PLUR1BUS core daemon; PATH availability shows "Available" even when the daemon is not running (same tier-2 semantics as OpenClaw). Turns, memory and tools execute inside the core daemon, not the `plur1bus acp` process, so Desktop-injected `BUZZ_*` env vars reach the harness process but not the core's tool environment unless `plur1bus acp` forwards them for that session.
++
+ **Tier-3 — user custom harnesses**: JSON files in `<app-data>/custom_harnesses/` that the user can create from the Settings UI or drop in directly. Each file describes one harness — no install scripts.
+ 
+ ### Custom harness JSON schema
+diff --git a/desktop/public/harness-logos/CREDITS.md b/desktop/public/harness-logos/CREDITS.md
+index dee5aa257..1183f4839 100644
+--- a/desktop/public/harness-logos/CREDITS.md
++++ b/desktop/public/harness-logos/CREDITS.md
+@@ -16,6 +16,7 @@ license permits redistribution.
+ | `pi.svg` | [earendil-works/pi-website](https://github.com/earendil-works/pi-website) | `2f5e410b97474d0a34ec2500aa1aa58d6c3f992c` | MIT © 2026 Earendil Inc. and contributors | `src/favicon.svg` | None |
+ | `kimi.png` | [MoonshotAI/kimi-cli](https://github.com/MoonshotAI/kimi-cli) | `4a550effdfcb29a25a5d325bf935296cc50cd417` | Apache-2.0; NOTICE: Kimi Code CLI © 2025 Moonshot AI | `web/public/logo.png` | None |
+ | `grok.svg` | [SpaceXAI brand guidelines](https://x.ai/legal/brand-guidelines) | Retrieved 2026-07-25 | xAI Brand Guidelines: marks may be used to accurately refer to xAI or its services; logos must be used exactly as provided | `SpaceXAI_Grok_Assets.zip` → `Grok_Logomark_Dark.svg` | None |
++| `plur1bus.svg` | [Cyb3rb1ade/PLUR1BUS-Harness](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness) | Drawn for this preset | MIT © 2026 Cyb3rb1ade | — (original mark contributed by the PLUR1BUS maintainer) | None |
+ 
+ ## Inline SVG marks (`RUNTIME_MARKS`)
+ 
+diff --git a/desktop/public/harness-logos/plur1bus.svg b/desktop/public/harness-logos/plur1bus.svg
+new file mode 100644
+index 000000000..d1327f2c9
+--- /dev/null
++++ b/desktop/public/harness-logos/plur1bus.svg
+@@ -0,0 +1,5 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
++  <rect width="64" height="64" rx="12" fill="#111827"/>
++  <circle cx="32" cy="32" r="19" stroke="#f9fafb" stroke-width="5"/>
++  <path d="M28 22.5 33.5 19h3v26h-5V25.6l-3.5 2.2Z" fill="#f9fafb"/>
++</svg>
+diff --git a/desktop/src-tauri/src/managed_agents/discovery/presets.rs b/desktop/src-tauri/src/managed_agents/discovery/presets.rs
+index d46145dbd..334756617 100644
+--- a/desktop/src-tauri/src/managed_agents/discovery/presets.rs
++++ b/desktop/src-tauri/src/managed_agents/discovery/presets.rs
+@@ -225,6 +225,17 @@ pub(super) const PRESET_HARNESSES: &[PresetHarness] = &[
+         underlying_cli_install_hint: None,
+         underlying_cli_install_instructions_url: None,
+     },
++    PresetHarness {
++        id: "plur1bus",
++        label: "PLUR1BUS",
++        command: "plur1bus",
++        args: &["acp"],
++        install_instructions_url: "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness",
++        install_hint: "Buzz talks to PLUR1BUS through its CLI's ACP mode (plur1bus acp), which relies on the local PLUR1BUS core daemon. Follow the setup guide to install the harness and start the daemon.",
++        underlying_cli: None,
++        underlying_cli_install_hint: None,
++        underlying_cli_install_instructions_url: None,
++    },
+ ];
+ 
+ /// Return preset definitions for the spawn/readiness registry.
+@@ -396,6 +407,50 @@ mod tests {
+         assert_eq!(entry.source, HarnessSource::Preset);
+     }
+ 
++    #[test]
++    fn plur1bus_preset_uses_native_acp_invocation() {
++        let preset = PRESET_HARNESSES
++            .iter()
++            .find(|preset| preset.id == "plur1bus")
++            .expect("PLUR1BUS preset should be present");
++
++        assert_eq!(preset.label, "PLUR1BUS");
++        assert_eq!(preset.command, "plur1bus");
++        assert_eq!(preset.args, &["acp"]);
++        assert_eq!(preset.underlying_cli, None);
++        assert_eq!(
++            preset.install_instructions_url,
++            "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness"
++        );
++
++        let entry = preset_catalog_entry(preset, |command| {
++            (command == "plur1bus").then(|| PathBuf::from("/usr/local/bin/plur1bus"))
++        });
++        assert_eq!(entry.availability, AcpAvailabilityStatus::Available);
++        assert_eq!(entry.command.as_deref(), Some("plur1bus"));
++        assert_eq!(entry.default_args, vec!["acp"]);
++        assert_eq!(
++            entry.binary_path.as_deref(),
++            Some("/usr/local/bin/plur1bus")
++        );
++        assert!(!entry.requires_external_cli);
++        assert_eq!(entry.auth_status, AuthStatus::NotApplicable);
++        assert_eq!(entry.source, HarnessSource::Preset);
++        assert_eq!(entry.max_parallelism, None);
++
++        let missing_entry = preset_catalog_entry(preset, |_| None);
++        assert_eq!(
++            missing_entry.availability,
++            AcpAvailabilityStatus::NotInstalled
++        );
++        assert!(missing_entry.command.is_none());
++        assert_eq!(missing_entry.default_args, vec!["acp"]);
++        assert_eq!(
++            missing_entry.install_instructions_url,
++            "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness"
++        );
++    }
++
+     #[test]
+     fn pi_preset_uses_zero_arg_adapter_and_reports_missing_component() {
+         let preset = PRESET_HARNESSES
+diff --git a/desktop/src/features/onboarding/ui/RuntimeIcon.tsx b/desktop/src/features/onboarding/ui/RuntimeIcon.tsx
+index 57f1a703d..c6dcf173d 100644
+--- a/desktop/src/features/onboarding/ui/RuntimeIcon.tsx
++++ b/desktop/src/features/onboarding/ui/RuntimeIcon.tsx
+@@ -26,6 +26,7 @@ export const PRESET_LOGOS: Record<string, string> = {
+   amp: "/harness-logos/amp.png",
+   hermes: "/harness-logos/hermes.png",
+   openclaw: "/harness-logos/openclaw.svg",
++  plur1bus: "/harness-logos/plur1bus.svg",
+ };
+ 
+ function isBuzzRuntime(runtime: AcpRuntimeCatalogEntry): boolean {
+diff --git a/desktop/src/features/settings/ui/harnessCatalogCopy.test.mjs b/desktop/src/features/settings/ui/harnessCatalogCopy.test.mjs
+index d1ce150b8..eedb5c854 100644
+--- a/desktop/src/features/settings/ui/harnessCatalogCopy.test.mjs
++++ b/desktop/src/features/settings/ui/harnessCatalogCopy.test.mjs
+@@ -9,3 +9,10 @@ test("Pi catalog entry has its curated product description", () => {
+     "A minimal terminal coding harness, connected through the buzz-pi-acp adapter.",
+   );
+ });
++
++test("PLUR1BUS catalog entry has its curated product description", () => {
++  assert.equal(
++    harnessDescription("plur1bus"),
++    "A self-hosted multi-agent harness built around the PLUR1BUS memory core.",
++  );
++});
+diff --git a/desktop/src/features/settings/ui/harnessCatalogCopy.ts b/desktop/src/features/settings/ui/harnessCatalogCopy.ts
+index ed8299ebe..0a90ef1d5 100644
+--- a/desktop/src/features/settings/ui/harnessCatalogCopy.ts
++++ b/desktop/src/features/settings/ui/harnessCatalogCopy.ts
+@@ -45,6 +45,11 @@ const HARNESS_DESCRIPTIONS: Record<string, string> = {
+   // Sources: https://github.com/openclaw/openclaw,
+   // https://docs.openclaw.ai/start/getting-started
+   openclaw: "A personal AI assistant that runs on your own devices.",
++  // Source: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness — "a self-hosted,
++  // multi-user multi-agent harness built around PLUR1BUS as its fixed memory
++  // core".
++  plur1bus:
++    "A self-hosted multi-agent harness built around the PLUR1BUS memory core.",
+ };
+ 
+ /**
+-- 
+2.43.0
+
