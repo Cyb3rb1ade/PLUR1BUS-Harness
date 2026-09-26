@@ -105,7 +105,7 @@
       "properties": {
         "process": { "$ref": "#/$defs/ProcessState" }, "contract": { "type": "string" }, "rpc": { "type": "string" },
         "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "uptimeMs": { "type": "integer" },
-        "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] }, "models": { "type": "object", "additionalProperties": false, "required": ["embedder", "reranker"], "description": "Per-model readiness (E4, spec §6.3); absent before the engine reports it.", "properties": { "embedder": { "$ref": "#/$defs/ModelStatus" }, "reranker": { "$ref": "#/$defs/ModelStatus" } } }, "storeSchema": { "type": "object", "additionalProperties": false, "required": ["current", "expected"], "properties": { "current": { "oneOf": [{ "type": "string" }, { "type": "null" }] }, "expected": { "type": "string" } } } } },
+        "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] }, "models": { "type": "object", "additionalProperties": false, "required": ["embedder", "reranker"], "description": "Per-model readiness (E4, spec §6.3); absent before the engine reports it.", "properties": { "embedder": { "$ref": "#/$defs/ModelStatus" }, "reranker": { "$ref": "#/$defs/ModelStatus" } } }, "sharedMemory": { "$ref": "#/$defs/SharedMemoryStatus" },"storeSchema": { "type": "object", "additionalProperties": false, "required": ["current", "expected"], "properties": { "current": { "oneOf": [{ "type": "string" }, { "type": "null" }] }, "expected": { "type": "string" } } } } },
         "agents": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } } },
         "journalBacklog": { "type": "integer" },
         "deprecationsUsed": { "type": "array", "items": { "type": "string" }, "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)." }
@@ -121,6 +121,16 @@
         "checkedAt": { "type": ["integer", "null"], "description": "epoch ms of the completed probe that set `state`" },
         "error": { "type": "string" },
         "id": { "type": ["string", "null"] }
+      }
+    },
+    "SharedMemoryStatus": {
+      "description": "Whether explicit shared memory (share/proposals) is available on this platform (E4). \"verified-path\" is reserved for a future fallback mode and is not produced yet.",
+      "type": "object", "additionalProperties": false,
+      "required": ["supported", "mode"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "mode": { "enum": ["fd-capability", "verified-path", "unavailable"] },
+        "reason": { "type": "string" }
       }
     },
     "ChildStatus": {

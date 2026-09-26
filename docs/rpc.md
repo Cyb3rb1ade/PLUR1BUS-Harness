@@ -2755,6 +2755,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
             }
           }
         },
+        "sharedMemory": {
+          "$ref": "#/$defs/SharedMemoryStatus"
+        },
         "storeSchema": {
           "type": "object",
           "additionalProperties": false,
@@ -2853,6 +2856,35 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "string",
         "null"
       ]
+    }
+  }
+}
+```
+
+### `SharedMemoryStatus`
+
+```json
+{
+  "description": "Whether explicit shared memory (share/proposals) is available on this platform (E4). \"verified-path\" is reserved for a future fallback mode and is not produced yet.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "supported",
+    "mode"
+  ],
+  "properties": {
+    "supported": {
+      "type": "boolean"
+    },
+    "mode": {
+      "enum": [
+        "fd-capability",
+        "verified-path",
+        "unavailable"
+      ]
+    },
+    "reason": {
+      "type": "string"
     }
   }
 }

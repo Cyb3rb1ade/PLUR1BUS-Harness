@@ -223,6 +223,7 @@ fn check_json_validates_the_document_shape() {
         "supervisor.state",
         "core.state",
         "models.warm",
+        "memory.shared",
         "core.lock",
         "service.registration",
         "agents.activity",
@@ -376,6 +377,67 @@ fn models_warming_is_a_warning() {
     assert_eq!(
         checks["models.warm"]["detail"]["capability"], "embedding",
         "{v}"
+    );
+
+    stop_supervisor(&h.home);
+    let _ = sup.kill();
+    let _ = sup.wait();
+}
+
+/// Task 14 (E4): a core reporting shared memory as unsupported is a warning, not a failure — agent-private memory
+/// still works. `daemon status`'s and `1staid check`'s hint on it must name the answer callers see.
+#[test]
+fn shared_memory_unavailable_is_a_warning_not_a_failure() {
+    let h = Home::new();
+    let engine = json!({ "ready": true, "degraded": null, "sharedMemory": {
+        "supported": false, "mode": "unavailable", "reason": "platform" } });
+    let mut sup = supervise_cmd(&h, "ok")
+        .env("FAKE_CORE_ENGINE", engine.to_string())
+        .spawn()
+        .unwrap();
+    wait_until("the supervisor token", WAIT, || {
+        h.home.join("run/supervisor.token").exists()
+    });
+    let mut c = supervisor_client(&h.home);
+    wait_until("the core to become ready", WAIT, || {
+        c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"] == "ready"
+    });
+
+    let out = check_cmd(&h).output().unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "a warning alone does not fail the check: {out:?}"
+    );
+    let v = json_stdout(&out);
+    let checks = checks_by_id(&v);
+    assert_eq!(checks["core.state"]["status"], "ok", "{v}");
+    assert_eq!(checks["memory.shared"]["status"], "warn", "{v}");
+    assert!(
+        checks["memory.shared"]["summary"]
+            .as_str()
+            .unwrap()
+            .contains("platform"),
+        "{v}"
+    );
+    assert!(
+        checks["memory.shared"]["hint"]
+            .as_str()
+            .unwrap()
+            .contains("E_NOT_AVAILABLE"),
+        "{v}"
+    );
+
+    let status_out = std::process::Command::new(bin())
+        .args(["daemon", "status", "--home"])
+        .arg(&h.home)
+        .output()
+        .unwrap();
+    assert_eq!(status_out.status.code(), Some(0), "{status_out:?}");
+    let human = String::from_utf8_lossy(&status_out.stdout);
+    assert!(
+        human.contains("shared memory: unavailable (platform)"),
+        "{human}"
     );
 
     stop_supervisor(&h.home);

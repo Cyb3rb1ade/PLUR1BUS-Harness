@@ -2,8 +2,9 @@
 //! never writes, starts or signals anything (S12) and works whether or not the supervisor or the core are running.
 //!
 //! [`gather`] is pure orchestration over small readers, each producing one [`Check`] in the fixed table order
-//! (ruling H3-R5): later tasks insert more checks by name (Task 13 `models.warm` after `core.state`, Task 14 after
-//! `models.warm`), so this file never assumes its list is exhaustive going forward. Every network call the checks
+//! (ruling H3-R5): later tasks insert more checks by name (Task 13 `models.warm` after `core.state`, Task 14
+//! `memory.shared` after `models.warm`), so this file never assumes its list is exhaustive going forward. Every
+//! network call the checks
 //! make is bounded to a 300 ms connect timeout and a 300 ms call timeout, keeping the whole pass under the 3 s
 //! budget the brief sets even when nothing answers.
 use crate::cli::FirstAidCmd;
@@ -30,13 +31,14 @@ const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 13] = [
+const CHECK_IDS: [&str; 14] = [
     "config.valid",
     "run.permissions",
     "run.stale-files",
     "supervisor.state",
     "core.state",
     "models.warm",
+    "memory.shared",
     "core.lock",
     "service.registration",
     "agents.activity",
@@ -206,6 +208,7 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     let mut core_client = core_probe.map(|(_, c)| c);
 
     checks.push(check_models_warm(core_status.as_ref()));
+    checks.push(check_shared_memory(core_status.as_ref()));
     checks.push(check_core_lock(
         layout,
         core_status.is_some(),
@@ -597,6 +600,33 @@ fn check_models_warm(core_status: Option<&Value>) -> Check {
             None,
         ),
     }
+}
+
+// ---- memory.shared ----------------------------------------------------------------------------------
+
+/// Whether explicit shared memory (share/proposals) is available on this platform (E4, `core.status.engine.
+/// sharedMemory`). Unsupported is a **warning**, not a failure: agent-private memory works fully either way (S12).
+/// Absent (an older engine before this field, or the core unreachable) → skip.
+fn check_shared_memory(core_status: Option<&Value>) -> Check {
+    const ID: &str = "memory.shared";
+    let Some(status) = core_status else {
+        return Check::skip(ID, "core is not reachable");
+    };
+    let shared = &status["engine"]["sharedMemory"];
+    if shared.is_null() {
+        return Check::skip(ID, "engine does not report shared-memory support");
+    }
+    let mode = shared["mode"].as_str().unwrap_or("unknown");
+    if shared["supported"].as_bool().unwrap_or(false) {
+        return Check::ok(ID, format!("shared memory available ({mode})"));
+    }
+    let reason = shared["reason"].as_str().unwrap_or("unknown");
+    Check::warn(
+        ID,
+        format!("explicit shared memory unavailable ({reason})"),
+        Some(json!({ "mode": mode, "reason": reason })),
+        Some("share and proposals answer E_NOT_AVAILABLE on this platform".to_string()),
+    )
 }
 
 // ---- core.lock ----------------------------------------------------------------------------------
@@ -998,6 +1028,45 @@ mod tests {
     #[test]
     fn models_warm_is_skipped_without_a_core() {
         assert_eq!(check_models_warm(None).status, Status::Skip);
+    }
+
+    fn shared_memory_status(shared: Value) -> Value {
+        json!({ "engine": { "ready": true, "degraded": Value::Null, "sharedMemory": shared } })
+    }
+
+    #[test]
+    fn shared_memory_supported_is_ok_with_the_mode_in_summary() {
+        let s = shared_memory_status(json!({ "supported": true, "mode": "fd-capability" }));
+        let c = check_shared_memory(Some(&s));
+        assert_eq!(c.status, Status::Ok, "{c:?}");
+        assert!(c.summary.contains("fd-capability"), "{c:?}");
+    }
+
+    #[test]
+    fn shared_memory_unavailable_is_a_warning_not_a_failure() {
+        let s = shared_memory_status(
+            json!({ "supported": false, "mode": "unavailable", "reason": "platform" }),
+        );
+        let c = check_shared_memory(Some(&s));
+        assert_eq!(c.status, Status::Warn, "{c:?}");
+        assert!(c.summary.contains("platform"), "{c:?}");
+        assert_eq!(
+            c.detail,
+            Some(json!({ "mode": "unavailable", "reason": "platform" }))
+        );
+        assert!(
+            c.hint
+                .as_deref()
+                .is_some_and(|h| h.contains("E_NOT_AVAILABLE")),
+            "{c:?}"
+        );
+    }
+
+    #[test]
+    fn shared_memory_is_skipped_when_absent_or_the_core_is_unreachable() {
+        assert_eq!(check_shared_memory(None).status, Status::Skip);
+        let s = json!({ "engine": { "ready": true, "degraded": Value::Null } });
+        assert_eq!(check_shared_memory(Some(&s)).status, Status::Skip);
     }
 
     #[test]

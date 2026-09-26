@@ -262,6 +262,21 @@ describe("core model warm-up (E4, S7)", () => {
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 
+  it("core.status carries engine.sharedMemory (E4)", async () => {
+    const home = newHome();
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      const s = await c.call<any>("core.status"); // sharedMemory is part of the eng.status() cached at start()
+      if (process.platform === "linux") {
+        assert.deepEqual(s.engine.sharedMemory, { supported: true, mode: "fd-capability" }, JSON.stringify(s.engine));
+      } else {
+        assert.deepEqual(s.engine.sharedMemory, { supported: false, mode: "unavailable", reason: "platform" }, JSON.stringify(s.engine));
+      }
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
   it("a failed embedder probe is model-failed and memory.recall still answers", async () => {
     const home = newHome(); const flat = flatEmbedder(); let first = true;
     // The first embedQuery is the warm-up's probe; it fails once, as a broken model load would. Later calls work.

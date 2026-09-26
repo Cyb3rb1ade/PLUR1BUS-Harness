@@ -20,6 +20,7 @@ import { createPlatformCapabilities } from "./platform.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
+import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
@@ -115,12 +116,14 @@ export function createCore(o: CoreOptions): Core {
     let models: ModelsStatus | null = es?.models ?? null;
     try { if (engine && !statusClosed) models = engine.models.status(); } catch { /* keep the cached copy */ }
     const degraded = d ? { reason: d.reason, capability: d.capability, ...(typeof d.detail === "string" ? { detail: d.detail } : {}) } : null;
+    const sharedMemory = sharedMemoryStatus(es);
     return {
       process: state, contract: engine?.contract ?? "", rpc: RPC_VERSION, instanceId, pid: process.pid, uptimeMs: Math.max(0, Math.round(clock() - startedAt)),
       engine: {
         // S7: `process` is the core's own health; the engine is ready only once its models are (degraded === null).
         ready: healthState().state === "ready" && es !== null && degraded === null, degraded,
         ...(models ? { models: projectModels(models) } : {}),
+        ...(sharedMemory ? { sharedMemory } : {}),
         ...(storeSchema ? { storeSchema } : {}),
       },
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })), journalBacklog,

@@ -17,8 +17,9 @@ const badCaller = { ...caller, userId: "u".repeat(129) };
  * Shared memory (workspace/user copies, D31 proposals) needs the engine's stable
  * directory capabilities: fd-backed directory aliases, which only Linux's
  * /proc/self/fd provides (engine lib/directory-capability.js). On macOS and
- * Windows the engine disables explicit shared memory and `share` fails with
- * storage — an engine limitation tracked for the next engine plan.
+ * Windows the engine reports shared memory as unsupported (E4) and `share`/
+ * `proposals.accept` answer E_NOT_AVAILABLE reason unsupported — an engine
+ * limitation tracked for the next engine plan.
  */
 const SHARED_MEMORY = process.platform === "linux";
 const sharedOnly = { skip: !SHARED_MEMORY && "engine: shared memory needs stable directory capabilities (Linux only at the pin)" };
@@ -152,9 +153,9 @@ describe("memory ops (in-process core)", () => {
     await assert.rejects(c.call("memory.proposals.accept", { caller, agentId: "anna", proposalId: pr.proposalId }), rejectsWith("E_NOT_FOUND", "not-found"));
   });
 
-  it("without stable directory capabilities, share fails with E_STORAGE (engine limitation)", { skip: SHARED_MEMORY && "Linux has shared memory" }, async () => {
+  it("without stable directory capabilities, share is E_NOT_AVAILABLE unsupported (engine limitation, E4)", { skip: SHARED_MEMORY && "Linux has shared memory" }, async () => {
     const id = await capture("bernd", "Please remember that the office plants need water on Mondays.");
-    await assert.rejects(c.call("memory.share", { caller, agentId: "bernd", id, target: "user" }), rejectsWith("E_STORAGE", "storage"));
+    await assert.rejects(c.call("memory.share", { caller, agentId: "bernd", id, target: "user" }), rejectsWith("E_NOT_AVAILABLE", "unsupported"));
   });
 
   it("topic with since is E_INVALID_PARAMS topic-xor-since; a whitespace-only correct text is E_INVALID_PARAMS reason invalid-input", async () => {

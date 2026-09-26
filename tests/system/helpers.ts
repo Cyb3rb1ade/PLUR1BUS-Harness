@@ -7,8 +7,19 @@ export const BIN = resolve(process.env.PLUR1BUS_BIN ?? "target/release/plur1bus"
 export const CORE_JS = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
 /** PLUR1BUS_REAL_MODELS=1: real embedder + reranker (downloads the models); otherwise the R17 flat-embedder seam. */
 export const REAL = process.env.PLUR1BUS_REAL_MODELS === "1";
-/** Shared memory needs the engine's stable directory capabilities (fd-backed aliases via /proc/self/fd): Linux only at the pin. */
+/** Shared memory needs the engine's stable directory capabilities (fd-backed aliases via /proc/self/fd): Linux only at
+ *  the pin. Kept as the fallback a test can check before a core exists; once one is running, prefer
+ *  {@link sharedMemorySupported}, which asks the engine itself instead of assuming from the platform name. */
 export const SHARED_MEMORY = process.platform === "linux";
+
+/** Whether the running core at `h` reports explicit shared memory as supported (E4, `core.status.engine.
+ *  sharedMemory.supported`), read through `1staid check --json`'s `memory.shared` row (`ok` iff supported) rather
+ *  than assuming from {@link SHARED_MEMORY}, so a system test gates on what the engine actually answered. */
+export function sharedMemorySupported(h: string): boolean {
+  const doc = cli(h, ["1staid", "check"]);
+  const check = (doc.checks as Array<{ id: string; status: string }>).find((c) => c.id === "memory.shared");
+  return check?.status === "ok";
+}
 
 /** A fresh temp home. With real models and PLUR1BUS_MODELS_CACHE set, `<home>/models` (the core's model
  *  cacheDir) is a symlink to that directory, so a CI cache can keep the ~600 MB download across runs. */

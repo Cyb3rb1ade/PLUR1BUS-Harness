@@ -21,6 +21,7 @@ describe("mapMemoryOpError", () => {
       ["approval-required", "E_APPROVAL_REQUIRED", { id: "m1" }],
       ["conflict", "E_CONFLICT", undefined],
       ["storage", "E_STORAGE", { sourceId: "a", sharedId: "b", staleSharedId: "c" }],
+      ["unsupported", "E_NOT_AVAILABLE", { capability: "shared-memory", reason: "platform" }],
     ];
     for (const [code, rpc, detail] of cases) {
       const r = mapMemoryOpError(opError(code, detail), { stopping: false });

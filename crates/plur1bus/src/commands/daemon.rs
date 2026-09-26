@@ -3,7 +3,7 @@
 //! `E_CORE_UNAVAILABLE`/`degraded` document (`memory add|recall`, the memory-ops surface, `dreams`).
 use crate::cli::DaemonCmd;
 use crate::output::Out;
-use crate::paths::{supervisor_address, Layout};
+use crate::paths::{core_address, supervisor_address, Layout};
 use crate::service::{self, Manager, Runner, ServiceError};
 use crate::supervisor;
 use plur1bus_rpc::{ConnectOptions, Endpoint, RpcError};
@@ -85,6 +85,40 @@ fn probe_status(layout: &Layout) -> Option<Value> {
 /// The core child's `process.state` in a `daemon.status` result, if there is one.
 fn core_state(status: &Value) -> Option<&str> {
     status["children"].get(0)?["process"]["state"].as_str()
+}
+
+/// The core's own `engine.sharedMemory` (E4), read directly from it: the supervisor's `daemon.status` result
+/// (`$defs/ChildStatus`) does not carry engine detail, so `daemon status` probes the core itself, with the same
+/// bounded budget as the supervisor probe. `None` when the core is unreachable or does not report it yet.
+fn core_shared_memory(layout: &Layout) -> Option<Value> {
+    let token = super::read_token_of(layout, Endpoint::Core)?;
+    let address = core_address(&layout.home, platform_str());
+    let opts = ConnectOptions {
+        connect_timeout: PROBE_CONNECT_TIMEOUT,
+        call_timeout: PROBE_CALL_TIMEOUT,
+        endpoint: Endpoint::Core,
+        expected_server_pid: None, // set by connect_recorded
+    };
+    let mut client = super::connect_recorded(layout, &address, &token, opts).ok()?;
+    let status = client.call("core.status", json!({})).ok()?;
+    let shared = status["engine"]["sharedMemory"].clone();
+    if shared.is_null() {
+        None
+    } else {
+        Some(shared)
+    }
+}
+
+/// The `daemon status` human line for shared memory: the mode when supported, else `unavailable (<reason>)`.
+fn describe_shared_memory(shared: &Value) -> String {
+    if shared["supported"].as_bool().unwrap_or(false) {
+        shared["mode"].as_str().unwrap_or("unknown").to_string()
+    } else {
+        format!(
+            "unavailable ({})",
+            shared["reason"].as_str().unwrap_or("unknown")
+        )
+    }
 }
 
 /// The supervisor's view of why the core is unreachable, for every `E_CORE_UNAVAILABLE`/`degraded` document
@@ -437,22 +471,27 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
                     json!({ "process": { "state": "degraded", "reason": "unresponsive" } })
                 }
             };
-            out.ok(
-                "daemon.status/1",
-                &json!({ "supervisor": supervisor, "service": svc }),
-                || {
-                    format!(
-                        "supervisor: {}; service: {} ({})",
-                        supervisor["process"]["state"].as_str().unwrap_or("?"),
-                        if svc.registered {
-                            "registered"
-                        } else {
-                            "not registered"
-                        },
-                        svc.manager.as_str()
-                    )
-                },
-            );
+            let shared_memory = core_shared_memory(layout);
+            let mut doc = json!({ "supervisor": supervisor, "service": svc });
+            if let (Some(obj), Some(s)) = (doc.as_object_mut(), &shared_memory) {
+                obj.insert("sharedMemory".to_string(), s.clone());
+            }
+            out.ok("daemon.status/1", &doc, || {
+                let head = format!(
+                    "supervisor: {}; service: {} ({})",
+                    supervisor["process"]["state"].as_str().unwrap_or("?"),
+                    if svc.registered {
+                        "registered"
+                    } else {
+                        "not registered"
+                    },
+                    svc.manager.as_str()
+                );
+                match &shared_memory {
+                    Some(s) => format!("{head}\nshared memory: {}", describe_shared_memory(s)),
+                    None => head,
+                }
+            });
         }
     }
 }
