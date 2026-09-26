@@ -92,6 +92,10 @@ fn fake_core_with(hello: Value) -> String {
                             &mut w,
                             json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"invalid request","data":{"error":"E_INVALID_PARAMS","reason":"parse"}}}),
                         ),
+                        "forget-extra" => reply(
+                            &mut w,
+                            json!({"jsonrpc":"2.0","id":id,"result":{"id":"m-1","archived":true,"tombstoneId":"t-1","alreadyForgotten":false,"addedInAFutureMinor":{"x":1}}}),
+                        ),
                         "hollow" => reply(&mut w, json!({"jsonrpc":"2.0","id":id})),
                         "storage" => reply(
                             &mut w,
@@ -327,6 +331,31 @@ fn supports_is_true_without_capabilities_and_follows_the_map_with_them() {
     let c2 = connect(&addr2);
     assert!(c2.supports("echo"));
     assert!(!c2.supports("memory.propose"));
+}
+
+/// ADR-016 §2: a client ignores result fields it does not know, so a newer 1.x core can add them.
+#[test]
+fn unknown_result_fields_are_ignored_in_the_hello_and_in_typed_results() {
+    let addr = fake_core_with(json!({
+        "contract": "1.6.0",
+        "rpc": "1.2.0",
+        "instanceId": "i",
+        "pid": 1,
+        "addedInAFutureMinor": true,
+        "capabilities": {
+            "methods": {"echo": {"stability": "stable", "since": "1.0.0", "futureAnnotation": 1}},
+            "notifications": {},
+            "extensionPoints": {},
+            "features": [],
+            "futureSection": {},
+        },
+    }));
+    let mut c = connect(&addr);
+    assert!(c.supports("echo"));
+    assert!(!c.supports("memory.propose"));
+    let r: plur1bus_rpc::types::MemoryForgetResult =
+        c.call_typed("forget-extra", &json!({})).unwrap();
+    assert_eq!(r.tombstone_id.as_deref(), Some("t-1"));
 }
 
 #[test]

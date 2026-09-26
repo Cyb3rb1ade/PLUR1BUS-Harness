@@ -33,6 +33,24 @@ fn rewrite_refs(v: &mut Value) {
     }
 }
 
+/// Removes `additionalProperties: false` from a schema subtree. typify turns it into `#[serde(deny_unknown_fields)]`, which
+/// would make this client reject a result field added by a newer 1.x core; ADR-016 §2 says clients ignore unknown result
+/// fields. Only the params the client *sends* stay closed (the core enforces that side).
+fn open_objects(v: &mut Value) {
+    match v {
+        Value::Object(m) => {
+            if m.get("additionalProperties") == Some(&Value::Bool(false)) {
+                m.remove("additionalProperties");
+            }
+            for (_, x) in m.iter_mut() {
+                open_objects(x);
+            }
+        }
+        Value::Array(a) => a.iter_mut().for_each(open_objects),
+        _ => {}
+    }
+}
+
 fn main() {
     let schema_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .join("../../packages/rpc-schema/schema/rpc.schema.json");
@@ -43,12 +61,18 @@ fn main() {
     let mut defs: Map<String, Value> = root["$defs"].as_object().unwrap().clone();
     let methods = defs.remove("methods").unwrap();
     let notifications = defs.remove("notifications").unwrap();
+    // Shared `$defs` (Capabilities, cards, ErrorObject, …) are read from the core, so they are opened too.
+    defs.values_mut().for_each(open_objects);
     for (m, def) in methods.as_object().unwrap() {
         defs.insert(format!("{}Params", pascal(m)), def["params"].clone());
-        defs.insert(format!("{}Result", pascal(m)), def["result"].clone());
+        let mut result = def["result"].clone();
+        open_objects(&mut result);
+        defs.insert(format!("{}Result", pascal(m)), result);
     }
     for (n, def) in notifications.as_object().unwrap() {
-        defs.insert(format!("{}Notification", pascal(n)), def.clone());
+        let mut notification = def.clone();
+        open_objects(&mut notification);
+        defs.insert(format!("{}Notification", pascal(n)), notification);
     }
     let rpc_version = root["x-rpc-version"].as_str().unwrap().to_string();
     let mut flat = serde_json::json!({ "$schema": "http://json-schema.org/draft-07/schema#", "title": "RpcRoot", "type": "object", "definitions": defs });
