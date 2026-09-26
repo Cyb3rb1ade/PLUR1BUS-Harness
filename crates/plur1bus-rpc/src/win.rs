@@ -22,7 +22,9 @@ use windows_sys::Win32::Security::{
     DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
     SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER,
 };
-use windows_sys::Win32::Storage::FileSystem::{ReadFile, WriteFile, FILE_FLAG_OVERLAPPED};
+use windows_sys::Win32::Storage::FileSystem::{
+    ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, SECURITY_IDENTIFICATION,
+};
 use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows_sys::Win32::System::SystemServices::{ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE};
 use windows_sys::Win32::System::Threading::{
@@ -203,7 +205,11 @@ pub fn pipe_dacl_report(address: &str) -> io::Result<Vec<DaclEntry>> {
     let start = Instant::now();
     let pipe = loop {
         // GENERIC_READ includes READ_CONTROL, which GetSecurityInfo needs, and nothing that could write.
-        match std::fs::OpenOptions::new().read(true).open(address) {
+        match std::fs::OpenOptions::new()
+            .read(true)
+            .security_qos_flags(SECURITY_IDENTIFICATION)
+            .open(address)
+        {
             Ok(f) => break f,
             Err(e)
                 if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32)
@@ -320,7 +326,7 @@ pub fn overlapped_op(
         // SAFETY: `event` is a valid event handle.
         let waited = unsafe { WaitForSingleObject(event, timeout_ms) };
         if waited != WAIT_OBJECT_0 {
-            let failed = io::Error::last_os_error();
+            let wait_failed = io::Error::last_os_error();
             // SAFETY: cancels exactly this operation, then waits for it to finish, so `ov` is not used afterwards.
             let completed = unsafe {
                 CancelIoEx(h, &ov);
@@ -329,11 +335,8 @@ pub fn overlapped_op(
             if completed {
                 return Ok(n);
             }
-            return Err(if waited == WAIT_TIMEOUT {
-                io::Error::new(io::ErrorKind::TimedOut, "pipe deadline passed")
-            } else {
-                failed
-            });
+            let result = io::Error::last_os_error();
+            return Err(after_cancel(waited == WAIT_TIMEOUT, wait_failed, result));
         }
     }
     // SAFETY: the operation has completed (synchronously, or the event is signalled).
@@ -341,6 +344,20 @@ pub fn overlapped_op(
         return Err(io::Error::last_os_error());
     }
     Ok(n)
+}
+
+/// The error of an operation that was cancelled after its wait ended without it. Only a cancellation that took
+/// (`ERROR_OPERATION_ABORTED`) means the deadline decided: a timed-out wait is then `TimedOut`, a failed wait its own
+/// error. Anything else (e.g. `ERROR_BROKEN_PIPE`: the server closed meanwhile) is how the operation really ended.
+fn after_cancel(timed_out: bool, wait_failed: io::Error, result: io::Error) -> io::Error {
+    if result.raw_os_error() != Some(ERROR_OPERATION_ABORTED as i32) {
+        return result;
+    }
+    if timed_out {
+        io::Error::new(io::ErrorKind::TimedOut, "pipe deadline passed")
+    } else {
+        wait_failed
+    }
 }
 
 /// An operation cancelled from another thread ([`OverlappedPipe::cancel_io`]) ends the stream: report it as
@@ -375,7 +392,9 @@ impl OverlappedPipe {
     }
 
     /// Opens the client end of the pipe at `address`, retrying while every server instance is busy
-    /// (`ERROR_PIPE_BUSY`) until `connect_timeout`.
+    /// (`ERROR_PIPE_BUSY`) until `connect_timeout`. The open carries `SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION`
+    /// (the default would be `SecurityImpersonation`): a squatter serving the name can identify this client but never
+    /// act as it, not even before the server-pid check has run.
     pub fn connect(address: &str, connect_timeout: Duration) -> io::Result<Self> {
         let start = Instant::now();
         loop {
@@ -383,6 +402,7 @@ impl OverlappedPipe {
                 .read(true)
                 .write(true)
                 .custom_flags(FILE_FLAG_OVERLAPPED)
+                .security_qos_flags(SECURITY_IDENTIFICATION)
                 .open(address)
             {
                 Ok(f) => return Self::new(OwnedHandle::from(f)),

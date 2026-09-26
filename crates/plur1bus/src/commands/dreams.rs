@@ -2,7 +2,7 @@ use crate::cli::DreamsCmd;
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
 use plur1bus_config as cfg;
-use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
+use plur1bus_rpc::{Client, ConnectOptions};
 use serde_json::{json, Value};
 
 fn connect(out: &Out, layout: &Layout) -> Client {
@@ -21,16 +21,14 @@ fn connect(out: &Out, layout: &Layout) -> Client {
             1,
         )
     });
-    Client::connect(
+    super::connect_recorded(
+        layout,
         &core_address(
             &layout.home,
             if cfg!(windows) { "windows" } else { "posix" },
         ),
         token.trim(),
-        ConnectOptions {
-            expected_server_pid: layout.recorded_pid(Endpoint::Core),
-            ..ConnectOptions::default()
-        },
+        ConnectOptions::default(),
     )
     .unwrap_or_else(|e| {
         let detail = format!("{e} ({})", super::daemon::supervisor_detail(layout));

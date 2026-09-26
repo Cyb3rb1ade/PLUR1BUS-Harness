@@ -95,8 +95,9 @@ fn core_options(timeout: Duration) -> ConnectOptions {
     }
 }
 
-/// Probes the core's address (rule S6): a failed connect → `Absent`; connected, but no token file or no `core.auth`
-/// answer within `timeout` → `Hung`; hello `pid` ≠ the socket's server, or hello `instanceId` ≠ `run/core.pid` →
+/// Probes the core's address (rule S6): a failed connect → `Absent`; a server other than the pid in `run/core.pid` →
+/// `Foreign` before the token is sent (S11); connected, but no token file or no `core.auth` answer within `timeout` →
+/// `Hung`; hello `pid` ≠ the socket's server, or hello `instanceId` ≠ `run/core.pid` →
 /// `Foreign`; otherwise `Serving`. The handshake runs on the very connection whose peer pid was read.
 pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
     let address = core_address(&layout.home, platform());
@@ -110,6 +111,15 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
     };
     // Pinned now, while the connection names it as the server.
     let peer = Peer::open(peer_pid, layout);
+    // S11: a server other than the process run/core.pid names never receives run/core.token.
+    if let Some(recorded) = layout.recorded_pid(plur1bus_rpc::Endpoint::Core) {
+        if recorded != peer_pid {
+            return Probe::Foreign {
+                peer,
+                reason: "server-pid-mismatch".into(),
+            };
+        }
+    }
     let Some(token) = read_core_token(layout) else {
         return Probe::Hung { peer };
     };

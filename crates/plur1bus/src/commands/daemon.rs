@@ -6,7 +6,7 @@ use crate::output::Out;
 use crate::paths::{supervisor_address, Layout};
 use crate::service::{self, Manager, Runner, ServiceError};
 use crate::supervisor;
-use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
+use plur1bus_rpc::{ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -58,9 +58,9 @@ fn probe(layout: &Layout, connect_timeout: Duration, call_timeout: Duration) -> 
         connect_timeout,
         call_timeout,
         endpoint: Endpoint::Supervisor,
-        expected_server_pid: layout.recorded_pid(Endpoint::Supervisor),
+        expected_server_pid: None, // set by connect_recorded
     };
-    let mut client = match Client::connect(&address, &token, opts) {
+    let mut client = match super::connect_recorded(layout, &address, &token, opts) {
         Ok(c) => c,
         Err(RpcError::Unavailable { reason, .. }) if reason == "core-unavailable" => {
             return Probe::NotRunning
@@ -325,10 +325,10 @@ fn call_daemon_start(layout: &Layout) -> Result<Value, ()> {
         connect_timeout: PROBE_CONNECT_TIMEOUT,
         call_timeout: PROBE_CALL_TIMEOUT,
         endpoint: Endpoint::Supervisor,
-        expected_server_pid: layout.recorded_pid(Endpoint::Supervisor),
+        expected_server_pid: None, // set by connect_recorded
     };
     let address = supervisor_address(&layout.home, platform_str());
-    let mut client = Client::connect(&address, &token, opts).map_err(drop)?;
+    let mut client = super::connect_recorded(layout, &address, &token, opts).map_err(drop)?;
     client.call("daemon.start", json!({})).map_err(drop)
 }
 
@@ -354,10 +354,10 @@ pub(crate) fn stop_supervisor(
         connect_timeout: PROBE_CONNECT_TIMEOUT,
         call_timeout: Duration::from_secs(5),
         endpoint: Endpoint::Supervisor,
-        expected_server_pid: layout.recorded_pid(Endpoint::Supervisor),
+        expected_server_pid: None, // set by connect_recorded
     };
     let address = supervisor_address(&layout.home, platform_str());
-    let mut client = Client::connect(&address, &token, opts).ok()?;
+    let mut client = super::connect_recorded(layout, &address, &token, opts).ok()?;
     let params = match budget_ms {
         Some(b) => json!({ "budgetMs": b }),
         None => json!({}),

@@ -156,10 +156,13 @@ fn raw(home: &Path) -> Box<dyn ReadWrite> {
 }
 #[cfg(windows)]
 fn raw(home: &Path) -> Box<dyn ReadWrite> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const SECURITY_IDENTIFICATION: u32 = 0x0001_0000;
     Box::new(
         std::fs::OpenOptions::new()
             .read(true)
             .write(true)
+            .security_qos_flags(SECURITY_IDENTIFICATION)
             .open(address(home))
             .unwrap(),
     )

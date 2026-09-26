@@ -2,7 +2,7 @@ use crate::cli::AgentCmd;
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
 use plur1bus_config as cfg;
-use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
+use plur1bus_rpc::{Client, ConnectOptions};
 use serde_json::{json, Value};
 
 const ID_RE: &str = "^[a-z0-9][a-z0-9_-]{0,63}$";
@@ -22,16 +22,14 @@ fn valid_id(id: &str) -> bool {
 
 fn try_core(layout: &Layout) -> Option<Client> {
     let token = std::fs::read_to_string(layout.core_token()).ok()?;
-    Client::connect(
+    super::connect_recorded(
+        layout,
         &core_address(
             &layout.home,
             if cfg!(windows) { "windows" } else { "posix" },
         ),
         token.trim(),
-        ConnectOptions {
-            expected_server_pid: layout.recorded_pid(Endpoint::Core),
-            ..ConnectOptions::default()
-        },
+        ConnectOptions::default(),
     )
     .ok()
 }

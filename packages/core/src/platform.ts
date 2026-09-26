@@ -13,6 +13,13 @@ export interface PlatformOptions {
   execFile?: ExecFile;
   /** Where a failed ACL grant is reported. */
   logger?: { warn(msg: string, fields?: Record<string, unknown>): void };
+  /** The Windows directory the tools are run from; defaults to `%SystemRoot%`, then `C:\Windows`. */
+  systemRoot?: string;
+}
+
+/** `<SystemRoot>\System32\<exe>`: the tools run by absolute path, never whatever a `PATH` lookup finds first. */
+export function systemTool(exe: string, systemRoot: string | undefined = process.env.SystemRoot): string {
+  return path.win32.join(systemRoot || "C:\\Windows", "System32", exe);
 }
 
 const defaultExec: ExecFile = (file, args) =>
@@ -24,25 +31,28 @@ export function parseWhoamiSid(out: string): string | null {
   return m ? m[1]! : null;
 }
 
-/** The user's SID through the default tool, asked once per process. */
-let processSid: string | undefined;
+/** The user's SID through the default tool, asked once per process; `null` once that failed. */
+let processSid: string | null | undefined;
 
 /**
  * The host's platform capabilities (engine `PlatformCapabilities`). `securePath` restricts a path to the current user:
  * `chmod` on POSIX; on Windows (ruling S11) `icacls <p> /inheritance:r /grant:r *<user SID>:(F) *S-1-5-18:(F)`, with
- * the SID from `whoami /user`, memoised. A failed grant is `{ applied: false, reason: "acl-tool-unavailable" }` plus a
+ * `(OI)(CI)` before `(F)` for a directory (H3-R15) and the SID from `whoami /user`, memoised (a failed lookup too).
+ * Both tools run from `%SystemRoot%\System32` by absolute path. A failed grant is `{ applied: false, reason: "acl-tool-unavailable" }` plus a
  * warning (`reason: "icacls-failed"`): the engine contract's closed unions name the mechanism `"acl"` and have no
  * separate failure reason.
  */
 export function createPlatformCapabilities(o: PlatformOptions = {}): PlatformCapabilities {
   const platform = o.platform ?? process.platform;
   const exec = o.execFile ?? defaultExec;
-  let sid: string | undefined;
-  const userSid = (): string => {
+  const tool = (exe: string) => systemTool(exe, o.systemRoot);
+  // A failed lookup is remembered as null (per process for the default tool): it is not retried on every call.
+  let sid: string | null | undefined;
+  const userSid = (): string | null => {
     if (exec === defaultExec && processSid !== undefined) return processSid;
     if (sid !== undefined) return sid;
-    const found = parseWhoamiSid(exec("whoami", ["/user", "/fo", "csv", "/nh"]));
-    if (found === null) throw new Error("whoami /user named no SID");
+    let found: string | null;
+    try { found = parseWhoamiSid(exec(tool("whoami.exe"), ["/user", "/fo", "csv", "/nh"])); } catch { found = null; }
     sid = found;
     if (exec === defaultExec) processSid = found;
     return found;
@@ -50,14 +60,22 @@ export function createPlatformCapabilities(o: PlatformOptions = {}): PlatformCap
 
   function securePath(p: string, options: { mode?: number } = {}): SecurePathResult {
     if (typeof p !== "string" || !path.isAbsolute(p)) return { applied: false, reason: "not-a-filesystem-path" };
-    try { statSync(p); } catch { return { applied: false, reason: "missing" }; }
+    let isDir: boolean;
+    try { isDir = statSync(p).isDirectory(); } catch { return { applied: false, reason: "missing" }; }
     if (platform === "win32") {
-      try {
-        exec("icacls", [p, "/inheritance:r", "/grant:r", `*${userSid()}:(F)`, "*S-1-5-18:(F)"]);
-        return { applied: true, mechanism: "acl" };
-      } catch (err) {
+      const failed = (err: unknown): SecurePathResult => {
         o.logger?.warn("securePath: icacls grant failed", { path: p, reason: "icacls-failed", err: String((err as Error)?.message ?? err) });
         return { applied: false, reason: "acl-tool-unavailable" };
+      };
+      const user = userSid();
+      if (user === null) return failed(new Error("whoami /user named no SID"));
+      // H3-R15: on a directory the grant is inherited ((OI)(CI)), so files created in it later are owner-only too.
+      const inherit = isDir ? "(OI)(CI)" : "";
+      try {
+        exec(tool("icacls.exe"), [p, "/inheritance:r", "/grant:r", `*${user}:${inherit}(F)`, `*S-1-5-18:${inherit}(F)`]);
+        return { applied: true, mechanism: "acl" };
+      } catch (err) {
+        return failed(err);
       }
     }
     chmodSync(p, options.mode ?? 0o600);

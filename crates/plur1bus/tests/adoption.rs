@@ -470,6 +470,41 @@ fn a_foreign_instance_id_is_terminated() {
     s.stop(&mut c);
 }
 
+/// S11: a core whose socket server is not the pid in run/core.pid is classified foreign before run/core.token is
+/// sent, and replaced.
+#[test]
+fn a_server_other_than_the_recorded_pid_is_foreign_before_the_token_is_sent() {
+    let h = Home::new();
+    let foreign = HandCore::start(&h, "ok");
+    let pid_file = std::fs::read_to_string(h.home.join("run/core.pid")).unwrap();
+    let instance = pid_file.split_whitespace().nth(1).unwrap().to_string();
+    let recorded = foreign.pid + 100_000;
+    std::fs::write(
+        h.home.join("run/core.pid"),
+        format!("{recorded} {instance}\n"),
+    )
+    .unwrap();
+
+    let mut s = start(&h, "300");
+    let mut c = client(&h.home);
+    wait_child(&mut c, "a fresh core", |c| {
+        ready(c) && c["pid"].as_u64() != Some(u64::from(foreign.pid))
+    });
+    wait_until("the foreign core gone", WAIT, || {
+        foreign.exit_status().is_some()
+    });
+    assert_eq!(probe_results(&h), ["foreign"]);
+    let probe = h
+        .log_records()
+        .into_iter()
+        .find(|r| r["msg"] == "core probe")
+        .unwrap();
+    assert_eq!(probe["peerPid"].as_u64(), Some(u64::from(foreign.pid)));
+    assert_eq!(probe["reason"], "server-pid-mismatch");
+    assert!(h.events("adopted").is_empty());
+    s.stop(&mut c);
+}
+
 /// Review round 1, Important 1: the core takes `state/core.lock` seconds before it listens. A supervisor starting in
 /// that window finds nothing on the address, and its own spawn exits 3 (`lock-held`). Every restart after a
 /// `lock-held` exit probes again, so the core is adopted once it serves; lock-held exits never make the backoff give

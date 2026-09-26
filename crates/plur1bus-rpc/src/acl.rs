@@ -11,6 +11,12 @@ pub const OWNER_RIGHTS_SID: &str = "S-1-3-4";
 
 /// `FILE_WRITE_DATA` (for a pipe: write a request).
 pub const FILE_WRITE_DATA: u32 = 0x0000_0002;
+/// `FILE_CREATE_PIPE_INSTANCE` (for a pipe: serve the name too, i.e. take connections meant for the server).
+pub const FILE_CREATE_PIPE_INSTANCE: u32 = 0x0000_0004;
+/// `WRITE_DAC` (rewrite the DACL, then grant oneself anything).
+pub const WRITE_DAC: u32 = 0x0004_0000;
+/// `WRITE_OWNER` (take ownership, then rewrite the DACL).
+pub const WRITE_OWNER: u32 = 0x0008_0000;
 /// `GENERIC_WRITE`.
 pub const GENERIC_WRITE: u32 = 0x4000_0000;
 /// `GENERIC_ALL`.
@@ -24,13 +30,22 @@ pub struct DaclEntry {
     pub allow: bool,
 }
 
-/// The SIDs that may write to the object: allow entries with `FILE_WRITE_DATA`, `GENERIC_WRITE` or `GENERIC_ALL` for
-/// any SID other than `user_sid`, SYSTEM, Administrators and OWNER RIGHTS. Sorted, each once.
+/// Rights that let another account write requests, serve the pipe itself, or give itself either.
+const WRITE_LIKE: u32 = FILE_WRITE_DATA
+    | FILE_CREATE_PIPE_INSTANCE
+    | WRITE_DAC
+    | WRITE_OWNER
+    | GENERIC_WRITE
+    | GENERIC_ALL;
+
+/// The SIDs that may write to the object: allow entries with `FILE_WRITE_DATA`, `FILE_CREATE_PIPE_INSTANCE`,
+/// `WRITE_DAC`, `WRITE_OWNER`, `GENERIC_WRITE` or `GENERIC_ALL` for any SID other than `user_sid`, SYSTEM,
+/// Administrators and OWNER RIGHTS. Sorted, each once.
 pub fn writable_by_others(entries: &[DaclEntry], user_sid: &str) -> Vec<String> {
     let trusted = [user_sid, SYSTEM_SID, ADMINISTRATORS_SID, OWNER_RIGHTS_SID];
     let mut sids: Vec<String> = entries
         .iter()
-        .filter(|e| e.allow && e.mask & (FILE_WRITE_DATA | GENERIC_WRITE | GENERIC_ALL) != 0)
+        .filter(|e| e.allow && e.mask & WRITE_LIKE != 0)
         .filter(|e| !trusted.contains(&e.sid.as_str()))
         .map(|e| e.sid.clone())
         .collect();
@@ -95,6 +110,21 @@ mod tests {
                 mask: GENERIC_ALL,
                 allow: false,
             },
+        ];
+        assert_eq!(
+            writable_by_others(&entries, USER),
+            ["S-1-1-0", "S-1-5-11", "S-1-5-32-545"]
+        );
+    }
+
+    #[test]
+    fn creating_a_pipe_instance_or_rewriting_the_dacl_or_owner_counts_as_writable() {
+        let entries = [
+            allow("S-1-5-32-545", FILE_CREATE_PIPE_INSTANCE),
+            allow("S-1-1-0", WRITE_DAC),
+            allow("S-1-5-11", WRITE_OWNER),
+            allow(USER, FILE_CREATE_PIPE_INSTANCE | WRITE_DAC | WRITE_OWNER),
+            allow(SYSTEM_SID, WRITE_DAC),
         ];
         assert_eq!(
             writable_by_others(&entries, USER),
