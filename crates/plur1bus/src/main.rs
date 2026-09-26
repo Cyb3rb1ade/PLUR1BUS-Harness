@@ -4,6 +4,7 @@ mod identity;
 mod journal;
 mod output;
 mod paths;
+mod supervisor;
 use clap::Parser;
 use cli::{Cli, Cmd};
 use output::Out;
