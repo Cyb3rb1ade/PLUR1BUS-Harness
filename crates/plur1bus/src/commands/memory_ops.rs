@@ -232,7 +232,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 |v| {
                     format!(
                         "forgot {}{}",
-                        v["id"],
+                        v["id"].as_str().unwrap_or("?"),
                         v["tombstoneId"]
                             .as_str()
                             .map(|t| format!(" (tombstone {t})"))
@@ -255,7 +255,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 "memory.correct",
                 params,
                 "memory.correct/1",
-                move |v| format!("corrected {id} -> {}", v["id"]),
+                move |v| format!("corrected {id} -> {}", v["id"].as_str().unwrap_or("?")),
             );
         }
         MemoryCmd::Share {
@@ -282,8 +282,8 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                         out.ok("memory.share/1", &v, || {
                             format!(
                                 "shared {} -> {} ({})",
-                                v["sourceId"],
-                                v["sharedId"],
+                                v["sourceId"].as_str().unwrap_or("?"),
+                                v["sharedId"].as_str().unwrap_or("?"),
                                 v["target"].as_str().unwrap_or(target)
                             )
                         });
@@ -350,7 +350,13 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 "memory.propose",
                 params,
                 "memory.propose/1",
-                |v| format!("proposed {} for {}", v["proposalId"], v["sharedId"]),
+                |v| {
+                    format!(
+                        "proposed {} for {}",
+                        v["proposalId"].as_str().unwrap_or("?"),
+                        v["sharedId"].as_str().unwrap_or("?")
+                    )
+                },
             );
         }
         MemoryCmd::Proposals { sub } => match sub {
@@ -406,7 +412,13 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                     "memory.proposals.accept",
                     params,
                     "memory.proposals.accept/1",
-                    |v| format!("accepted {} -> {}", v["proposalId"], v["id"]),
+                    |v| {
+                        format!(
+                            "accepted {} -> {}",
+                            v["proposalId"].as_str().unwrap_or("?"),
+                            v["id"].as_str().unwrap_or("?")
+                        )
+                    },
                 );
             }
             ProposalsCmd::Reject {
@@ -426,7 +438,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                     "memory.proposals.reject",
                     params,
                     "memory.proposals.reject/1",
-                    |v| format!("rejected {}", v["proposalId"]),
+                    |v| format!("rejected {}", v["proposalId"].as_str().unwrap_or("?")),
                 );
             }
         },

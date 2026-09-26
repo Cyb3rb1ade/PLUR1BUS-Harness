@@ -922,3 +922,81 @@ fn a_core_without_the_method_in_capabilities_is_not_available() {
     assert_eq!(v["reason"], "core-lacks-method");
     assert_eq!(v["method"], "memory.propose");
 }
+
+/// Review finding (Task 9 fix round 1): the human-output closures for `forget`, `correct`,
+/// `share`, `propose`, `proposals accept` and `proposals reject` used to interpolate
+/// `serde_json::Value` directly (e.g. `v["id"]`), which prints ids with their JSON quotes
+/// (`"m-1"`) instead of the bare id `list`/`show`/`state` already print via `.as_str()`. Pins
+/// `forget`'s human line to the bare id.
+#[cfg(unix)]
+#[test]
+fn memory_forget_human_output_prints_bare_id_without_json_quotes() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    fake_core::spawn(
+        dir.path(),
+        fake_core::hello_with_capabilities(&[]),
+        Some((
+            "memory.forget",
+            serde_json::json!({"result": {"id": "m-1", "tombstoneId": "t-1"}}),
+        )),
+    );
+    let out = bin()
+        .args([
+            "--home", h, "memory", "forget", "--agent", "bernd", "m-1", "--yes",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let s = String::from_utf8(out).unwrap();
+    assert!(s.contains("forgot m-1"), "expected bare id, got: {s}");
+    assert!(!s.contains("\"m-1\""), "id printed with JSON quotes: {s}");
+}
+
+/// Same pin for `proposals accept`'s human line (`v["proposalId"]`/`v["id"]`).
+#[cfg(unix)]
+#[test]
+fn memory_proposals_accept_human_output_prints_bare_ids_without_json_quotes() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    fake_core::spawn(
+        dir.path(),
+        fake_core::hello_with_capabilities(&[]),
+        Some((
+            "memory.proposals.accept",
+            serde_json::json!({"result": {"proposalId": "p-1", "id": "m-2"}}),
+        )),
+    );
+    let out = bin()
+        .args([
+            "--home",
+            h,
+            "memory",
+            "proposals",
+            "accept",
+            "--agent",
+            "bernd",
+            "p-1",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let s = String::from_utf8(out).unwrap();
+    assert!(
+        s.contains("accepted p-1 -> m-2"),
+        "expected bare ids, got: {s}"
+    );
+    assert!(!s.contains('"'), "id printed with JSON quotes: {s}");
+}
