@@ -21,25 +21,32 @@ function serializeError(v: unknown): unknown {
 /** A line sink that rotates by size (S17): checked before each write, `<file>.1` newest … `<file>.<keep>` oldest.
  *  Synchronous appends, so a rotation never races a queued write and every line lands in exactly one file. */
 function rotatingSink(file: string, maxBytes: number, keep: number): { write(line: string): void; close(): void } {
-  let fd: number | null = openSync(file, "a", 0o600);
-  let size = fstatSync(fd).size;
+  let closed = false;
+  let fd: number | null = null; let size = 0;
+  const open = () => { fd = openSync(file, "a", 0o600); size = fstatSync(fd).size; };
   function rotate(): void {
-    closeSync(fd!); fd = null;
+    if (fd !== null) { closeSync(fd); fd = null; }
     try {
       rmSync(`${file}.${keep}`, { force: true });
       for (let i = keep - 1; i >= 1; i--) if (existsSync(`${file}.${i}`)) renameSync(`${file}.${i}`, `${file}.${i + 1}`);
       renameSync(file, `${file}.1`);
     } catch { /* e.g. a reader holds a file open on Windows: keep appending, retry at the next write */ }
-    fd = openSync(file, "a", 0o600); size = fstatSync(fd).size;
+    open();
   }
+  open();
   return {
+    // A logger failure never escapes into the caller (timer callbacks, stop steps): the line is dropped, and a
+    // file that could not be reopened is reopened lazily on the next write.
     write(line) {
-      if (fd === null) return; // closed
-      const buf = Buffer.from(line, "utf8");
-      if (size > 0 && size + buf.length > maxBytes) rotate();
-      writeSync(fd!, buf); size += buf.length;
+      if (closed) return;
+      try {
+        if (fd === null) open();
+        const buf = Buffer.from(line, "utf8");
+        if (size > 0 && size + buf.length > maxBytes) rotate();
+        writeSync(fd!, buf); size += buf.length;
+      } catch { /* dropped */ }
     },
-    close() { if (fd !== null) { closeSync(fd); fd = null; } },
+    close() { closed = true; if (fd !== null) { try { closeSync(fd); } catch { /* already gone */ } fd = null; } },
   };
 }
 

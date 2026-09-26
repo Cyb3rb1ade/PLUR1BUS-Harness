@@ -44,7 +44,7 @@ export interface CoreOptions {
   onOrphanGraceExpired?: () => void;
 }
 
-const HEX64 = /^[0-9a-f]{64}$/i;
+const HEX64 = /^[0-9a-f]{64}$/; // both sides are lower-cased before the comparison
 
 export function createCore(o: CoreOptions): Core {
   const home = resolveHome({ ...(o.home ? { home: o.home } : {}) });
@@ -61,6 +61,7 @@ export function createCore(o: CoreOptions): Core {
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
   let beforeOrphan: State | null = null; // the state an orphaned core returns to on adoption
+  let graceExpiredWhileStarting = false;
   // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
   const shutdown = new AbortController();
   const capabilities = buildCapabilities(CORE_FEATURES, "core");
@@ -95,17 +96,24 @@ export function createCore(o: CoreOptions): Core {
         log.warn("lifeline lost, core orphaned", { graceMs: config.supervisor.graceMs });
       },
       onReattached: () => {
+        if (state.state === "starting") { graceExpiredWhileStarting = false; return; } // an adoption before ready is a live lifeline
         if (state.state !== "orphaned") return;
         const back = beforeOrphan ?? { state: "ready" as const, since: clock() }; beforeOrphan = null;
         setState({ ...back, since: clock() });
         log.info("lifeline re-attached", { state: back.state });
       },
       onGraceExpired: () => {
+        if (state.state === "starting") { graceExpiredWhileStarting = true; return; } // acted on once the core is ready
         if (state.state !== "orphaned") return;
-        log.warn("orphan grace expired, stopping", { graceMs: config.supervisor.graceMs });
-        if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
+        graceExpired();
       },
     });
+    const graceExpired = () => {
+      log.warn("orphan grace expired, stopping", { graceMs: config.supervisor.graceMs });
+      if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
+    };
+    // Watched from the start (S4), so an adoption during the journal replay replaces the spawner's stdin, never the reverse.
+    if (o.lifeline) orphans.watchStream(o.lifeline);
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
       const registry = createAgentRegistry({ path: l.configPath }, l, logger); agents = registry;
@@ -156,11 +164,11 @@ export function createCore(o: CoreOptions): Core {
       const replay = await drainJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
       journalBacklog = replay.kept;
       const ready: State = { state: "ready", since: clock() };
-      // An adopting connection that closed during the replay orphaned the core before it was ready.
+      // A lifeline lost during the replay orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
       logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept, replayPasses: replay.passes, supervised: o.lifeline !== undefined });
-      if (o.lifeline) orphans.watchStream(o.lifeline);
+      if (graceExpiredWhileStarting && state.state === "orphaned") graceExpired();
     } catch (e) {
       // Cleanup never replaces the original start error.
       const log = logger;
@@ -179,9 +187,11 @@ export function createCore(o: CoreOptions): Core {
 
   /** `core.adopt` (S3, S4): the nonce must equal the current run/supervisor.token, compared in constant time. */
   function adopt(nonce: string, connectionId: string): CoreStatusResult {
+    if (state.state === "stopping" || state.state === "stopped") throw new RpcError("E_NOT_AVAILABLE", "core is stopping", { reason: "stopping" });
     let expected: string | null = null;
-    try { expected = readFileSync(l.supervisorToken, "utf8").trim(); } catch { /* missing: refused below */ }
-    const ok = expected !== null && HEX64.test(expected) && HEX64.test(nonce) && timingSafeEqual(Buffer.from(nonce, "utf8"), Buffer.from(expected, "utf8"));
+    try { expected = readFileSync(l.supervisorToken, "utf8").trim().toLowerCase(); } catch { /* missing: refused below */ }
+    const given = nonce.toLowerCase();
+    const ok = expected !== null && HEX64.test(expected) && HEX64.test(given) && timingSafeEqual(Buffer.from(given, "utf8"), Buffer.from(expected, "utf8"));
     if (!ok) {
       logger?.warn("adoption refused", { connectionId, tokenFile: expected === null ? "missing" : HEX64.test(expected) ? "present" : "malformed" });
       throw new RpcError("E_UNAUTHORIZED", "adoption refused", { reason: "adopt-nonce" });

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLogger } from "../src/logger.ts";
@@ -40,5 +40,17 @@ describe("logger", () => {
     second.info("b"); second.info("c"); await second.close();
     const all = [`${file}.1`, file].flatMap((f) => readFileSync(f, "utf8").trim().split("\n").map((l) => JSON.parse(l).msg));
     assert.deepEqual(all.slice(-2), ["b", "c"]);
+  });
+
+  it("a rotation that cannot reopen the file never throws and the logger recovers on a later write", async () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "p1b-log-")), "logs"); mkdirSync(dir); const file = join(dir, "core.log");
+    const log = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 2 });
+    log.info("before");
+    rmSync(dir, { recursive: true, force: true });
+    assert.doesNotThrow(() => { for (let i = 0; i < 10; i++) log.info("lost", { i }); });
+    mkdirSync(dir);
+    log.info("after");
+    await log.close();
+    assert.match(readFileSync(file, "utf8"), /"msg":"after"/);
   });
 });

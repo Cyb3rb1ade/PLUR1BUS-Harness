@@ -54,7 +54,7 @@ export function createOrphanWatch(o: OrphanWatchOptions): OrphanWatch {
       const me: Source = { kind: "stream" };
       attach(me);
       const onLost = () => lost(me);
-      s.once("end", onLost); s.once("close", onLost); s.once("error", onLost);
+      s.once("end", onLost); s.once("close", onLost); s.on("error", onLost); // `on`: a second 'error' must not go unhandled
       const r = s as NodeJS.ReadableStream & { readableEnded?: boolean; destroyed?: boolean };
       if (r.readableEnded || r.destroyed) { onLost(); return; }
       s.resume(); // 'end' fires only once the data is consumed; a lifeline carries none worth reading
