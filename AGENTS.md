@@ -221,6 +221,11 @@ For a fast, no-network, no-ONNX-model test loop, run `dist/core.js` directly wit
 PLUR1BUS_ALLOW_TEST_INTERNALS=1 node packages/core/dist/core.js --home /tmp/h --test-internals flat-embedder
 ```
 
+`flat-embedder-cold` is the same seam, but the first 3 query embeddings of each core process take 350 ms
+each, one at a time (a cold model): system tests pick it with `PLUR1BUS_SYSTEM_INTERNALS=flat-embedder-cold`
+(CI runs `two-session-recall` that way), so a recall that does not wait for the model warm-up
+(`waitEngineReady`) overruns the core's 600 ms hard budget and answers `aborted`.
+
 `flat-embedder` swaps in a fixed embedding vector and a null reranker (production config always
 turns the reranker on in `engine-config.ts`, which would otherwise try to download the ONNX
 reranker model in a test run). Because every text gets the same vector, the engine's capture-time

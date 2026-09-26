@@ -16,11 +16,20 @@ if (values.instance !== undefined && !UUID.test(values.instance)) { console.erro
 let testInternals: Record<string, unknown> | undefined;
 if (values["test-internals"]) {
   if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") { console.error("--test-internals requires PLUR1BUS_ALLOW_TEST_INTERNALS=1"); process.exit(2); }
-  if (values["test-internals"] === "flat-embedder") {
+  const variant = values["test-internals"];
+  if (variant === "flat-embedder" || variant === "flat-embedder-cold") {
     const vector = () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)); const one = async () => vector();
+    // flat-embedder-cold (H3-R22): the first 3 embedQuery calls of this process take 350 ms each, one after the other
+    // (a cold model serves one inference at a time) — enough that a recall issued before the warm-up finished queues
+    // behind the warm-up's probe and overruns the core's 600 ms hard budget.
+    let coldCalls = variant === "flat-embedder-cold" ? 3 : 0; let coldChain: Promise<void> = Promise.resolve();
+    const query = async () => {
+      if (coldCalls > 0) { coldCalls--; const mine = coldChain.then(() => new Promise<void>((r) => setTimeout(r, 350))); coldChain = mine; await mine; }
+      return vector();
+    };
     // R17: force the null reranker alongside the flat embedder — production config always turns the reranker
     // on (engine-config.ts), so with >= 2 memories the engine would otherwise download the ONNX model in tests.
-    testInternals = { embeddings: { embed: one, embedQuery: one, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} }, reranker: null };
+    testInternals = { embeddings: { embed: one, embedQuery: query, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} }, reranker: null };
   } else { console.error(`unknown --test-internals ${values["test-internals"]}`); process.exit(2); }
 }
 

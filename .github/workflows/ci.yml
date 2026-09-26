@@ -81,6 +81,11 @@ jobs:
       # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
       - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts
         env: { PLUR1BUS_BIN: target/release/plur1bus }
+      # H3-R22: the same acceptance with a cold flat embedder (the first 3 query embeddings of each core process take
+      # 350 ms, one at a time), so a recall that does not wait for the model warm-up overruns the 600 ms hard budget.
+      - name: two-session recall (cold flat embedder)
+        run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SYSTEM_INTERNALS: flat-embedder-cold }
       # Criterion 2 (S16, ruling H3-R19): 200 turns over 2 agents with random core kills and two supervisor kills;
       # the nightly runs 1 000. The seed is printed; replay a failure with PLUR1BUS_SOAK_SEED.
       - name: kill soak (200 turns)

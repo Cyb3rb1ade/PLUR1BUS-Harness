@@ -84,8 +84,14 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       core = await startCore(h); // replay runs during start, before the ready line
       t.diagnostic(`core ready (restart with replay) ${core.readyMs.toFixed(0)} ms; journal after replay: ${existsSync(journal) ? "present" : "absent"}`);
       assert.ok(journalDrained(journal), `journal drained: ${existsSync(journal) ? readFileSync(journal, "utf8") : "(absent)"}`);
+      // The restarted core is a new process: its models warm again (spec §6.3, S7), and a recall before that may
+      // degrade by design. Wait, as after the first start (H3-R22; PLUR1BUS_SYSTEM_INTERNALS=flat-embedder-cold in CI).
+      const warmMs2 = await waitEngineReady(h, 60_000);
+      t.diagnostic(`models warm after restart ${warmMs2.toFixed(0)} ms after ready`);
 
+      t0 = performance.now();
       const after = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s4", "--joined", "when does Mira visit"]);
+      t.diagnostic(`CLI recall after restart wall ${(performance.now() - t0).toFixed(0)} ms, engine timing.totalMs ${after.timing?.totalMs ?? "n/a"}`);
       assert.equal(after.degraded, null, JSON.stringify(after.degraded));
       assert.match(after.joined.text, /Mira|spring/i);
 
