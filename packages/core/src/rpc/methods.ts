@@ -80,6 +80,10 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     // R19: a capture is never lost because of the wait. Its signal is the core's shutdown signal only — not the
     // connection (a client disconnect never aborts it) and not the waitMs timer (which bounds the reply, not the work).
     "memory.capture": async (p: MemoryCaptureParams): Promise<MemoryCaptureResult> => {
+      // A capture the core cannot take because it is stopping is refused as core-unavailable, never answered as the
+      // engine's "not captured": the client (the CLI's memory add) then journals it for the next core (Task 12 soak).
+      const stopping = () => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
+      if (d.isStopping()) throw stopping();
       const { principal } = identity(d, p.caller, p.agentId);
       d.activity.set(p.agentId, { state: "capturing" });
       const handle = d.engine.capture({
@@ -97,8 +101,11 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       let timer: NodeJS.Timeout | undefined;
       const timedOut = new Promise<null>((res) => { timer = setTimeout(() => res(null), waitMs); timer.unref(); });
       try {
-        const r = await Promise.race([settle, timedOut]);
+        let r: Awaited<typeof settle> | null;
+        try { r = await Promise.race([settle, timedOut]); } catch (e) { if (d.captureSignal.aborted) throw stopping(); throw e; }
         if (r === null) return pending; // the capture keeps running; its .finally resets activity and logs the outcome
+        // The core's stop aborted it before anything was stored: not the engine's verdict on the text.
+        if (d.captureSignal.aborted && r.stored === 0) throw stopping();
         return { id: handle.id, acceptedAt: handle.acceptedAt, stored: r.stored, skipped: r.skipped, ...(r.reason ? { reason: r.reason } : {}) };
       } finally { clearTimeout(timer); }
     },

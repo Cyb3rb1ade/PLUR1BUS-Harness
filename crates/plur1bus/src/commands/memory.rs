@@ -6,6 +6,7 @@ use crate::journal::{self, JournalLine, Message};
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
 use plur1bus_config as cfg;
+use plur1bus_rpc::types::ErrorCode;
 use plur1bus_rpc::{is_unavailable, Client, ConnectOptions, RpcError};
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -86,7 +87,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                                     .unwrap_or_default()
                             )
                         }),
-                        Err(e) if is_unavailable(&e) => journaled(
+                        Err(e) if is_unavailable(&e) || refused_as_unavailable(&e) => journaled(
                             out,
                             layout,
                             &agent,
@@ -202,6 +203,18 @@ fn build_recall_params(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// The core answered but could not take the capture because it is stopping (`E_CORE_UNAVAILABLE`, reason
+/// `core-stopping`): nothing was stored, so the text is journaled exactly as for a core that cannot be reached.
+fn refused_as_unavailable(e: &RpcError) -> bool {
+    matches!(
+        e,
+        RpcError::Call {
+            error: ErrorCode::ECoreUnavailable,
+            ..
+        }
+    )
+}
+
 fn journaled(
     out: &Out,
     layout: &Layout,
@@ -305,6 +318,21 @@ pub(crate) fn degraded_line(v: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_core_stopping_refusal_is_journaled_like_an_unreachable_core() {
+        let call = |error| RpcError::Call {
+            error,
+            jsonrpc: -32000,
+            message: "core is stopping".into(),
+            reason: Some("core-stopping".into()),
+            detail: None,
+            ids: None,
+        };
+        assert!(refused_as_unavailable(&call(ErrorCode::ECoreUnavailable)));
+        assert!(!refused_as_unavailable(&call(ErrorCode::EInvalidParams)));
+        assert!(!refused_as_unavailable(&RpcError::Protocol("x".into())));
+    }
 
     fn caller() -> identity::CallerIdentity {
         identity::CallerIdentity {

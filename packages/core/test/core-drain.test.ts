@@ -89,6 +89,50 @@ describe("core stop drains in-flight memory ops (G17)", () => {
     } finally { await c1.close(); await c2.close(); await core.stop({ budgetMs: BUDGET_MS }); }
   });
 
+  it("a capture that the stop aborts before it stored anything is refused as core-stopping, so the client journals it", async () => {
+    const home = newHome();
+    const hold = embedHold(HOLD_MS);
+    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: hold.delayMs }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      hold.arm();
+      const cap = tracked(c.call<any>("memory.capture", { caller, agentId: "bernd", messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }], wait: true, waitMs: 10_000 }));
+      await hold.entered; await sleep(STOP_AFTER_MS);
+      assert.equal(cap.settled(), false, "premise: the capture is still held in the embedder when stop begins");
+      const stopped = core.stop({ budgetMs: BUDGET_MS });
+      // Before the fix the reply was a success document `{ stored: 0, skipped: 1, reason: "not_captured" }`: the CLI
+      // printed it and the fact was lost, neither stored nor journaled (found by the Task 12 kill soak).
+      await assert.rejects(cap.p, (e: any) => {
+        assert.equal(e.error, "E_CORE_UNAVAILABLE", `${e.error} ${e.reason}: ${e.message}`);
+        assert.equal(e.reason, "core-stopping");
+        return true;
+      });
+      await stopped;
+    } finally { await c.close(); await core.stop({ budgetMs: BUDGET_MS }); }
+  });
+
+  it("a capture sent after stop began answers E_CORE_UNAVAILABLE core-stopping", async () => {
+    const home = newHome();
+    const hold = embedHold(HOLD_MS);
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: hold.delayMs }) });
+    await core.start();
+    const c1 = await connect({ address: core.address, token: core.token });
+    const c2 = await connect({ address: core.address, token: core.token });
+    try {
+      hold.arm();
+      const list = tracked(c1.call<any>("memory.list", { caller, agentId: "bernd", topic: "x" }));
+      await hold.entered; await sleep(STOP_AFTER_MS);
+      const stopped = core.stop({ budgetMs: BUDGET_MS });
+      await assert.rejects(c2.call("memory.capture", { caller, agentId: "bernd", messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }], wait: true, waitMs: 10_000 }), (e: any) => {
+        assert.equal(e.error, "E_CORE_UNAVAILABLE", `${e.error} ${e.reason}: ${e.message}`);
+        assert.equal(e.reason, "core-stopping");
+        return true;
+      });
+      await list.p; await stopped;
+    } finally { await c1.close(); await c2.close(); await core.stop({ budgetMs: BUDGET_MS }); }
+  });
+
   it("a correct in flight when stop begins completes and survives restart", async () => {
     const home = newHome();
     const hold = embedHold(HOLD_MS);
