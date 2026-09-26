@@ -13,6 +13,15 @@ import { flatTestInternals } from "./helpers/flat-embedder.ts";
 
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 const badCaller = { ...caller, userId: "u".repeat(129) };
+/**
+ * Shared memory (workspace/user copies, D31 proposals) needs the engine's stable
+ * directory capabilities: fd-backed directory aliases, which only Linux's
+ * /proc/self/fd provides (engine lib/directory-capability.js). On macOS and
+ * Windows the engine disables explicit shared memory and `share` fails with
+ * storage — an engine limitation tracked for the next engine plan.
+ */
+const SHARED_MEMORY = process.platform === "linux";
+const sharedOnly = { skip: !SHARED_MEMORY && "engine: shared memory needs stable directory capabilities (Linux only at the pin)" };
 
 function newHome(): string {
   const home = mkdtempSync(join(tmpdir(), "p1b-memops-"));
@@ -88,7 +97,7 @@ describe("memory ops (in-process core)", () => {
   });
 
   let sharedId = "";
-  it("bernd shares to user; anna lists the copy with sharedBy bernd; anna's forget and correct of the copy are E_DENIED", async () => {
+  it("bernd shares to user; anna lists the copy with sharedBy bernd; anna's forget and correct of the copy are E_DENIED", sharedOnly, async () => {
     const id = await capture("bernd", "Please remember that the release freeze starts on the fifteenth.");
     const s = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
     assert.equal(s.sourceId, id); assert.equal(s.target, "user"); sharedId = s.sharedId;
@@ -99,7 +108,7 @@ describe("memory ops (in-process core)", () => {
     await assert.rejects(c.call("memory.correct", { caller, agentId: "anna", id: sharedId, text: "The release freeze starts on the tenth." }), rejectsWith("E_DENIED", "denied"));
   });
 
-  it("anna proposes; both list it pending; bernd accepts; anna sees accepted with resultId; a second proposal is rejected with a note", async () => {
+  it("anna proposes; both list it pending; bernd accepts; anna sees accepted with resultId; a second proposal is rejected with a note", sharedOnly, async () => {
     assert.ok(sharedId, "depends on the share test");
     const pr = await c.call<any>("memory.propose", { caller, agentId: "anna", sharedId, text: "The release freeze starts on the twentieth.", note: "moved in the planning call" });
     assert.equal(pr.sharedId, sharedId); assert.equal(pr.sharerAgentId, "bernd");
@@ -122,7 +131,7 @@ describe("memory ops (in-process core)", () => {
     assert.equal(seen2.resolutionNote, "the date is fixed");
   });
 
-  it("memory.proposal reaches a subscriber filtered to the proposer", async () => {
+  it("memory.proposal reaches a subscriber filtered to the proposer", sharedOnly, async () => {
     const id = await capture("bernd", "Please remember that the offsite is in Hamburg.");
     const { sharedId: copy } = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
     const s = await connect({ address: core.address, token: core.token });
@@ -136,11 +145,16 @@ describe("memory ops (in-process core)", () => {
     } finally { await s.close(); }
   });
 
-  it("accept by the proposer is E_NOT_FOUND (anti-oracle)", async () => {
+  it("accept by the proposer is E_NOT_FOUND (anti-oracle)", sharedOnly, async () => {
     const id = await capture("bernd", "Please remember that the demo day is in March.");
     const { sharedId: copy } = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
     const pr = await c.call<any>("memory.propose", { caller, agentId: "anna", sharedId: copy, text: "The demo day is in April." });
     await assert.rejects(c.call("memory.proposals.accept", { caller, agentId: "anna", proposalId: pr.proposalId }), rejectsWith("E_NOT_FOUND", "not-found"));
+  });
+
+  it("without stable directory capabilities, share fails with E_STORAGE (engine limitation)", { skip: SHARED_MEMORY && "Linux has shared memory" }, async () => {
+    const id = await capture("bernd", "Please remember that the office plants need water on Mondays.");
+    await assert.rejects(c.call("memory.share", { caller, agentId: "bernd", id, target: "user" }), rejectsWith("E_STORAGE", "storage"));
   });
 
   it("topic with since is E_INVALID_PARAMS topic-xor-since; a whitespace-only correct text is E_INVALID_PARAMS reason invalid-input", async () => {

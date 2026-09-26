@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { REAL, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { REAL, SHARED_MEMORY, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
 
 /** Every CLI call in this test must answer within this wall time. */
 const CLI_BUDGET_MS = 2000;
@@ -58,43 +58,50 @@ describe("M1b-2a-H2 — memory surface through the CLI", () => {
       assert.equal(state.schema, "memory.state/1");
       assert.equal(state.cards.agentPrivate, 1, JSON.stringify(state));
 
-      const share = run(["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"]);
-      assert.equal(share.schema, "memory.share/1");
-      assert.equal(share.sourceId, corrected.id, JSON.stringify(share));
+      if (!SHARED_MEMORY) {
+        // Engine limitation on macOS/Windows: explicit shared memory is disabled and share fails with storage.
+        const refused = run(["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"], { allowFail: true });
+        assert.equal(refused.exit, 1, JSON.stringify(refused));
+        assert.equal(refused.doc.error, "E_STORAGE", JSON.stringify(refused.doc));
+      } else {
+        const share = run(["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"]);
+        assert.equal(share.schema, "memory.share/1");
+        assert.equal(share.sourceId, corrected.id, JSON.stringify(share));
 
-      const annaList = run(["memory", "list", "--agent", "anna"]);
-      const copy = annaList.items.find((i: any) => i.sharedBy === "bernd");
-      assert.ok(copy, `anna sees bernd's shared card: ${JSON.stringify(annaList)}`);
-      assert.equal(copy.id, share.sharedId);
+        const annaList = run(["memory", "list", "--agent", "anna"]);
+        const copy = annaList.items.find((i: any) => i.sharedBy === "bernd");
+        assert.ok(copy, `anna sees bernd's shared card: ${JSON.stringify(annaList)}`);
+        assert.equal(copy.id, share.sharedId);
 
-      const proposal = run(["memory", "propose", "--agent", "anna", copy.id, "The roadmap review is on Friday at eleven."]);
-      assert.equal(proposal.schema, "memory.propose/1");
-      assert.equal(proposal.sharerAgentId, "bernd");
+        const proposal = run(["memory", "propose", "--agent", "anna", copy.id, "The roadmap review is on Friday at eleven."]);
+        assert.equal(proposal.schema, "memory.propose/1");
+        assert.equal(proposal.sharerAgentId, "bernd");
 
-      const pending = run(["memory", "proposals", "list", "--agent", "bernd"]);
-      assert.equal(pending.schema, "memory.proposals.list/1");
-      assert.equal(pending.items.length, 1, JSON.stringify(pending));
-      assert.equal(pending.items[0].status, "pending");
-      assert.equal(pending.items[0].id, proposal.proposalId);
+        const pending = run(["memory", "proposals", "list", "--agent", "bernd"]);
+        assert.equal(pending.schema, "memory.proposals.list/1");
+        assert.equal(pending.items.length, 1, JSON.stringify(pending));
+        assert.equal(pending.items[0].status, "pending");
+        assert.equal(pending.items[0].id, proposal.proposalId);
 
-      const accepted = run(["memory", "proposals", "accept", "--agent", "bernd", proposal.proposalId]);
-      assert.equal(accepted.schema, "memory.proposals.accept/1");
-      assert.equal(accepted.proposalId, proposal.proposalId);
+        const accepted = run(["memory", "proposals", "accept", "--agent", "bernd", proposal.proposalId]);
+        assert.equal(accepted.schema, "memory.proposals.accept/1");
+        assert.equal(accepted.proposalId, proposal.proposalId);
 
-      const annaAccepted = run(["memory", "proposals", "list", "--agent", "anna", "--status", "accepted"]);
-      assert.equal(annaAccepted.items.length, 1, JSON.stringify(annaAccepted));
-      assert.equal(annaAccepted.items[0].id, proposal.proposalId);
+        const annaAccepted = run(["memory", "proposals", "list", "--agent", "anna", "--status", "accepted"]);
+        assert.equal(annaAccepted.items.length, 1, JSON.stringify(annaAccepted));
+        assert.equal(annaAccepted.items[0].id, proposal.proposalId);
 
-      // Accepting refreshes anna's copy under a new id (the accept result's `id`); the old copy id is gone.
-      const refreshed = run(["memory", "list", "--agent", "anna"]).items.find((i: any) => i.sharedBy === "bernd");
-      assert.equal(refreshed?.id, accepted.id, JSON.stringify(refreshed));
-      assert.match(refreshed.text, /Friday at eleven/);
+        // Accepting refreshes anna's copy under a new id (the accept result's `id`); the old copy id is gone.
+        const refreshed = run(["memory", "list", "--agent", "anna"]).items.find((i: any) => i.sharedBy === "bernd");
+        assert.equal(refreshed?.id, accepted.id, JSON.stringify(refreshed));
+        assert.match(refreshed.text, /Friday at eleven/);
 
-      // Only the sharing agent can retract a shared copy.
-      const denied = run(["memory", "forget", "--agent", "anna", "--yes", refreshed.id], { allowFail: true });
-      assert.equal(denied.exit, 1, JSON.stringify(denied));
-      assert.equal(denied.doc.error, "E_DENIED", JSON.stringify(denied.doc));
-      assert.equal(denied.doc.schema, "error/1");
+        // Only the sharing agent can retract a shared copy.
+        const denied = run(["memory", "forget", "--agent", "anna", "--yes", refreshed.id], { allowFail: true });
+        assert.equal(denied.exit, 1, JSON.stringify(denied));
+        assert.equal(denied.doc.error, "E_DENIED", JSON.stringify(denied.doc));
+        assert.equal(denied.doc.schema, "error/1");
+      }
     } finally {
       if (core) await stopCore(core);
       rmSync(h, { recursive: true, force: true });
