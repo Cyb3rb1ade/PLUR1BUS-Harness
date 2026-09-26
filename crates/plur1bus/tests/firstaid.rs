@@ -692,6 +692,30 @@ fn deprecations_list_engine_event_with_used_flag() {
     assert_eq!(entry["used"], true, "{entry}");
 }
 
+/// The Windows half of `run.permissions`: a `run/` that another account may write to (here BUILTIN\Users, granted
+/// Modify) is a failure. The ready-stack tests show the other side: the fake core secures run/ like the real core.
+#[cfg(windows)]
+#[test]
+fn an_unsecured_run_dir_fails_on_windows() {
+    let h = Home::new();
+    let run = h.home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+    let granted = Command::new(Path::new(&system_root).join(r"System32\icacls.exe"))
+        .arg(&run)
+        .args(["/grant", "*S-1-5-32-545:(OI)(CI)(M)"])
+        .stdout(Stdio::null())
+        .status()
+        .unwrap();
+    assert!(granted.success());
+
+    let out = check_cmd(&h).output().unwrap();
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let v = json_stdout(&out);
+    let checks = checks_by_id(&v);
+    assert_eq!(checks["run.permissions"]["status"], "fail", "{v}");
+}
+
 /// The unix half of `run.permissions`: `run/` wider than 0700 is a failure.
 #[cfg(unix)]
 #[test]

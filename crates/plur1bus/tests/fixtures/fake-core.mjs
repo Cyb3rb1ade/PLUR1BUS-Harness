@@ -1,4 +1,5 @@
-// A stand-in for dist/core.js in the supervisor's Rust tests (no dependencies). It takes the same flags as core.js,
+// A stand-in for dist/core.js in the supervisor's Rust tests (no dependencies; on Windows it borrows the real core's
+// packages/core/src/platform.ts to secure run/). It takes the same flags as core.js,
 // takes state/core.lock the way core.ts does (SQLite EXCLUSIVE, released by the OS when the process dies; held → exit
 // 3), writes run/core.token and run/core.pid and then listens on the same address like the real core, and answers
 // core.auth, core.status, core.shutdown and core.adopt. FAKE_CORE_MODE picks its behaviour:
@@ -16,6 +17,7 @@
 // must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
 // after FAKE_CORE_GRACE_MS (default 1000) unless a core.adopt arrives first.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { execFile } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
@@ -83,6 +85,33 @@ let statusCalls = 0;
 let hung = false;
 let stopping = false;
 let state = "ready";
+// S11 on Windows: run/ and the token and pid files get the owner-only DACL through the real core's own securePath
+// (packages/core/src/platform.ts, imported rather than copied; Node 24 strips the types). The icacls calls take
+// about a second on a CI runner, longer than the supervisor's scaled ready timeout, and a synchronous run would stall
+// the health polls past the scaled hang threshold. So they run in a separate node process after listen, and the core
+// reports `starting` until they are done, the way the real core reports `starting` until its journal replay is done.
+// Elsewhere mkdirSync/writeFileSync modes already match core.ts.
+let secured = process.platform !== "win32";
+function secureRunFiles() {
+  if (secured) return;
+  const script = [
+    "const { createPlatformCapabilities } = await import(process.argv[1]);",
+    "const p = createPlatformCapabilities({ logger: { warn: (m, f) => { process.stderr.write(`${m} ${JSON.stringify(f)}\\n`); process.exitCode = 1; } } });",
+    "p.securePath(process.argv[2], { mode: 0o700 });",
+    "for (const f of process.argv.slice(3)) p.securePath(f);",
+  ].join("\n");
+  const platformTs = new URL("../../../../packages/core/src/platform.ts", import.meta.url).href;
+  const files = [run, path.join(run, "core.token"), path.join(run, "core.pid")];
+  execFile(process.execPath, ["--input-type=module", "-e", script, platformTs, ...files], { windowsHide: true }, (err, _out, stderr) => {
+    secured = true;
+    event("secured", { ok: !err, ...(err ? { stderr: String(stderr) } : {}) });
+    if (err) process.stderr.write(`fake-core: securing run/ failed: ${stderr}\n`);
+  });
+}
+/** The state core.status reports: `starting` while the run files are being secured. */
+function reportedState() {
+  return state === "ready" && !secured ? "starting" : state;
+}
 let lifeline = null; // "stdin" or the adopting socket
 let graceTimer = null;
 
@@ -104,7 +133,7 @@ function adopted(sock, nonce) {
 
 function coreStatus() {
   return {
-    process: { state, since: started }, contract: "1.8.0", rpc: "1.2.0", instanceId, pid: process.pid,
+    process: { state: reportedState(), since: started }, contract: "1.8.0", rpc: "1.2.0", instanceId, pid: process.pid,
     uptimeMs: Date.now() - started, engine: process.env.FAKE_CORE_ENGINE ? JSON.parse(process.env.FAKE_CORE_ENGINE) : { ready: true, degraded: null }, agents: [],
     ...(process.env.FAKE_CORE_JOBS ? { jobs: JSON.parse(process.env.FAKE_CORE_JOBS) } : {}),
   };
@@ -197,6 +226,7 @@ if (kind !== "no-listen") {
   writeFileSync(path.join(run, "core.pid"), `${process.pid} ${instanceId}\n`, { mode: 0o600 });
   const listen = () => server.listen(address, () => {
     event("listening");
+    secureRunFiles();
     if (kind === "crash-after") setTimeout(() => exit(1), Number(a));
     if (kind === "hang-after") setTimeout(() => { hung = true; event("hung"); }, Number(a));
   });
