@@ -62,6 +62,21 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             if content.trim().is_empty() {
                 out.fail("E_INVALID_PARAMS", "text is empty", json!({}), 1);
             }
+            // Q3 (E4): the journal line this capture falls back to is built first, and the live call carries runId
+            // `journal:<its id>`. The core's replay of that line passes the same runId, so a core that stored the turn
+            // but died before replying answers the replay with duplicate-turn instead of storing it twice.
+            let line = JournalLine {
+                v: 1,
+                id: uuid::Uuid::new_v4().to_string(),
+                at: 0, // set when it is journaled
+                agent_id: &agent,
+                session_key: session.as_deref(),
+                caller: &caller,
+                messages: vec![Message {
+                    role: "user",
+                    content: &content,
+                }],
+            };
             let wait_ms = config["core"]["capture"]["waitMs"]
                 .as_u64()
                 .unwrap_or(60_000);
@@ -71,6 +86,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                         "caller": caller,
                         "agentId": agent,
                         "sessionKey": session,
+                        "runId": format!("journal:{}", line.id),
                         "messages": [{ "role": "user", "content": content }],
                         "wait": true,
                         "waitMs": wait_ms
@@ -87,27 +103,15 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                                     .unwrap_or_default()
                             )
                         }),
-                        Err(e) if is_unavailable(&e) || refused_as_unavailable(&e) => journaled(
-                            out,
-                            layout,
-                            &agent,
-                            session.as_deref(),
-                            &caller,
-                            &content,
-                            &unavailable_detail(layout, &e),
-                        ),
+                        Err(e) if is_unavailable(&e) || refused_as_unavailable(&e) => {
+                            journaled(out, layout, line, &unavailable_detail(layout, &e))
+                        }
                         Err(e) => out.from_rpc_error(&e),
                     }
                 }
-                Err(e) if is_unavailable(&e) => journaled(
-                    out,
-                    layout,
-                    &agent,
-                    session.as_deref(),
-                    &caller,
-                    &content,
-                    &unavailable_detail(layout, &e),
-                ),
+                Err(e) if is_unavailable(&e) => {
+                    journaled(out, layout, line, &unavailable_detail(layout, &e))
+                }
                 Err(e) => out.from_rpc_error(&e),
             }
         }
@@ -217,27 +221,9 @@ fn refused_as_unavailable(e: &RpcError) -> bool {
     )
 }
 
-fn journaled(
-    out: &Out,
-    layout: &Layout,
-    agent: &str,
-    session: Option<&str>,
-    caller: &identity::CallerIdentity,
-    content: &str,
-    detail: &str,
-) {
-    let line = JournalLine {
-        v: 1,
-        id: uuid::Uuid::new_v4().to_string(),
-        at: journal::now_ms(),
-        agent_id: agent,
-        session_key: session,
-        caller,
-        messages: vec![Message {
-            role: "user",
-            content,
-        }],
-    };
+/// `line.id` is the one the live capture's runId carried (`journal:<id>`), so the replay's runId matches it.
+fn journaled(out: &Out, layout: &Layout, mut line: JournalLine<'_>, detail: &str) {
+    line.at = journal::now_ms();
     journal::append(layout, &line).unwrap_or_else(|e| {
         out.fail(
             "E_INTERNAL",

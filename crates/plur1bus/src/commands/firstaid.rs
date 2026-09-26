@@ -738,10 +738,22 @@ fn count_journal_lines(layout: &Layout) -> u64 {
             continue;
         }
         if let Ok(text) = std::fs::read_to_string(&path) {
-            n += text.lines().filter(|l| !l.trim().is_empty()).count() as u64;
+            n += complete_lines(&text);
         }
     }
     n
+}
+
+/// Non-blank `\n`-terminated lines, as the core's `journalBacklog` counts them: the bytes after the last `\n` are a
+/// line still being written (or a torn tail), not a backlogged turn.
+fn complete_lines(text: &str) -> u64 {
+    let Some(end) = text.rfind('\n') else {
+        return 0;
+    };
+    text[..end]
+        .split('\n')
+        .filter(|l| !l.trim().is_empty())
+        .count() as u64
 }
 
 fn is_journal_file(name: &str) -> bool {
@@ -823,7 +835,7 @@ fn check_jobs_last_runs(
                 continue;
             }
             let outcome = run["outcome"].as_str().unwrap_or("");
-            if matches!(outcome, "failed" | "abandoned") {
+            if matches!(outcome, "failed" | "abandoned" | "incomplete") {
                 bad.push(json!({
                     "agentId": agent_id,
                     "job": job,
@@ -838,14 +850,17 @@ fn check_jobs_last_runs(
     } else {
         Check::warn(
             ID,
-            format!("{} job(s) last ran failed or abandoned", bad.len()),
+            format!(
+                "{} job(s) last ran failed, abandoned or incomplete",
+                bad.len()
+            ),
             Some(json!({ "jobs": bad })),
             None,
         )
     }
 }
 
-/// `core.status.jobs` (`$defs/JobsStatus`): a failed or abandoned last run, an open rem/deep breaker, or unreadable
+/// `core.status.jobs` (`$defs/JobsStatus`): a failed, abandoned or incomplete last run, an open rem/deep breaker, or unreadable
 /// ledger lines are each a warning; an unavailable ledger is one too (the engine could not read job health at all).
 fn check_jobs_from_status(jobs: &Value) -> Check {
     const ID: &str = "jobs.last-runs";
@@ -861,7 +876,7 @@ fn check_jobs_from_status(jobs: &Value) -> Check {
         if let Some(runs) = a["lastRuns"].as_object() {
             for (job, run) in runs {
                 let outcome = run["outcome"].as_str().unwrap_or("");
-                if matches!(outcome, "failed" | "abandoned") {
+                if matches!(outcome, "failed" | "abandoned" | "incomplete") {
                     bad.push(json!({ "agentId": agent_id, "job": job, "outcome": outcome, "reason": run["reason"] }));
                 }
             }
@@ -883,7 +898,10 @@ fn check_jobs_from_status(jobs: &Value) -> Check {
         parts.push("job ledger unavailable".to_string());
     }
     if !bad.is_empty() {
-        parts.push(format!("{} job(s) last ran failed or abandoned", bad.len()));
+        parts.push(format!(
+            "{} job(s) last ran failed, abandoned or incomplete",
+            bad.len()
+        ));
     }
     if !breakers.is_empty() {
         parts.push(format!(
@@ -1302,7 +1320,8 @@ mod tests {
         let layout = Layout::new(dir.path().to_path_buf());
         std::fs::create_dir_all(layout.journal()).unwrap();
         std::fs::write(layout.journal().join("a.jsonl.replaying-4242"), "{}\n{}\n").unwrap();
-        std::fs::write(layout.journal().join("b.jsonl"), "{}\n").unwrap();
+        // The bytes after the last newline are a line still being written: not counted (as in the core).
+        std::fs::write(layout.journal().join("b.jsonl"), "{}\n\n{\"v\":1,\"id\"").unwrap();
         std::fs::write(layout.journal().join("c.jsonl.replaying-x"), "{}\n").unwrap();
         std::fs::write(layout.journal().join("notes.txt"), "{}\n").unwrap();
         let check = check_journal_backlog(&layout, None);
@@ -1326,6 +1345,12 @@ mod tests {
         assert_eq!(detail["jobs"][0]["job"], "gc-run");
         assert_eq!(detail["breakerOpen"], json!(["bernd"]));
         assert_eq!(detail["unreadableLines"][0]["lines"], 2);
+
+        let incomplete = json!({ "jobs": { "ledger": "ok", "agents": [{ "agentId": "bernd", "running": [], "breakerOpen": false,
+            "unreadableLines": 0, "lastRuns": { "consolidate-daily": { "outcome": "incomplete", "finishedAt": 1 } } }] } });
+        let check = check_jobs_last_runs(Some(&incomplete), None, None, deadline);
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+        assert_eq!(check.detail.unwrap()["jobs"][0]["outcome"], "incomplete");
 
         let no_ledger = json!({ "jobs": { "ledger": "unavailable", "agents": [] } });
         assert_eq!(

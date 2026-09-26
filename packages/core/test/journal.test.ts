@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import type { JournalLine } from "@plur1bus/rpc-schema";
 import { createAgentRegistry } from "../src/agents.ts";
-import { appendJournalLine, drainJournal, journalBacklog, replayJournal } from "../src/journal.ts";
+import { appendJournalLine, drainJournal, JOURNAL_BACKLOG_MAX_BYTES, journalBacklog, replayJournal } from "../src/journal.ts";
 import { createLogger } from "../src/logger.ts";
 import { layout } from "../src/paths.ts";
 
@@ -273,14 +273,28 @@ describe("journal", () => {
 
     it("journalBacklog stops counting at 100 000 lines", () => {
       const { l } = setup();
+      // Short (unparseable, still counted) lines, so the line bound is reached well before the byte bound.
       const one = `${JSON.stringify({ ...line("11111111-1111-4111-8111-111111111111", "x"), at: 7 })}\n`;
-      writeFileSync(join(l.journal, "bernd.jsonl"), one.repeat(60_000));
-      writeFileSync(join(l.journal, "anna.jsonl"), one.repeat(60_000));
+      writeFileSync(join(l.journal, "anna.jsonl"), one + "{}\n".repeat(60_000));
+      writeFileSync(join(l.journal, "bernd.jsonl"), one + "{}\n".repeat(60_000));
+      journalBacklog(l.journal); // warm the page cache
       const t0 = performance.now();
       const b = journalBacklog(l.journal);
+      const ms = performance.now() - t0;
       assert.equal(b.entries, 100_000);
       assert.equal(b.oldestAt, 7);
-      assert.ok(performance.now() - t0 < 2000, "bounded work");
+      assert.ok(ms < 250, `bounded work: ${ms.toFixed(0)} ms`);
+    });
+
+    it("journalBacklog stops reading at 8 MiB and counts only the complete lines before the cut", () => {
+      const { l } = setup();
+      const big = `${JSON.stringify({ ...line("11111111-1111-4111-8111-111111111111", "y".repeat(1000)), at: 9 })}\n`;
+      const lines = Math.ceil((JOURNAL_BACKLOG_MAX_BYTES * 1.5) / big.length);
+      writeFileSync(join(l.journal, "anna.jsonl"), big.repeat(lines));
+      writeFileSync(join(l.journal, "bernd.jsonl"), big.repeat(10)); // after the cut: never read
+      const b = journalBacklog(l.journal);
+      assert.equal(b.entries, Math.floor(JOURNAL_BACKLOG_MAX_BYTES / big.length));
+      assert.equal(b.oldestAt, 9);
     });
   });
 

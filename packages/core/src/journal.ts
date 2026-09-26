@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { validateJournalLine, type JournalLine } from "@plur1bus/rpc-schema";
@@ -13,38 +13,63 @@ export function appendJournalLine(dir: string, line: JournalLine): void {
 
 const REPLAYING_SUFFIX = /\.jsonl\.replaying-\d+$/;
 
-/** `journalBacklog` stops counting here and reports the bound (the engine waits at most 50 ms for it). */
+/** `journalBacklog` stops counting at either bound and reports what it counted up to there (the engine waits at most
+ *  50 ms for it): at most this many lines … */
 export const JOURNAL_BACKLOG_MAX_ENTRIES = 100_000;
+/** … and at most this many bytes read across all journal files. */
+export const JOURNAL_BACKLOG_MAX_BYTES = 8 * 1024 * 1024;
 /** Both writers (the CLI's serde struct and `appendJournalLine`) emit `v`, `id`, `at` first; anything else is parsed. */
 const AT_PREFIX = /^\{"v":1,"id":"[^"\\]*","at":(\d+)[,}]/;
+const AT_PREFIX_BYTES = 128;
+const NL = 0x0a;
 
-function atOf(text: string): number | null {
-  const m = AT_PREFIX.exec(text);
+/** `at` of one complete line (`buf[start, end)`, without its `\n`): the fixed prefix when it matches, else a parse. */
+function atOf(buf: Buffer, start: number, end: number): number | null {
+  const m = AT_PREFIX.exec(buf.toString("utf8", start, Math.min(end, start + AT_PREFIX_BYTES)));
   if (m) return Number(m[1]);
   try {
-    const at = (JSON.parse(text) as { at?: unknown } | null)?.at;
+    const at = (JSON.parse(buf.toString("utf8", start, end)) as { at?: unknown } | null)?.at;
     return typeof at === "number" && Number.isFinite(at) ? at : null;
   } catch { return null; }
 }
 
-/** The host capability `journalBacklog` (E4, HostCapabilities): complete (newline-terminated, non-empty) lines across
+const isBlank = (buf: Buffer, start: number, end: number): boolean => {
+  for (let k = start; k < end; k++) { const b = buf[k]!; if (b !== 0x20 && b !== 0x09 && b !== 0x0d) return false; }
+  return true;
+};
+
+/** Up to `max` bytes from the start of `path`; null when it vanished (a replay renamed or removed it meanwhile). */
+function readHead(path: string, max: number): Buffer | null {
+  let fd: number;
+  try { fd = openSync(path, "r"); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return null; throw e; }
+  try {
+    const buf = Buffer.allocUnsafe(Math.min(max, fstatSync(fd).size));
+    let n = 0;
+    while (n < buf.length) { const r = readSync(fd, buf, n, buf.length - n, n); if (r === 0) break; n += r; }
+    return buf.subarray(0, n);
+  } finally { closeSync(fd); }
+}
+
+/** The host capability `journalBacklog` (E4, HostCapabilities): complete (newline-terminated, non-blank) lines across
  *  every `<agent>.jsonl` and every `*.jsonl.replaying-*` (a replay in progress, or one a killed core left behind), and
- *  the smallest `at` among them. Sync and bounded: stops at JOURNAL_BACKLOG_MAX_ENTRIES and reports that bound. A file
- *  renamed or removed between the listing and the read (a replay starting or finishing) is skipped. */
+ *  the smallest `at` among them. Sync and bounded by JOURNAL_BACKLOG_MAX_ENTRIES lines and JOURNAL_BACKLOG_MAX_BYTES
+ *  read; past either it reports the count up to the bound. A file renamed or removed between the listing and the read
+ *  (a replay starting or finishing) is skipped. */
 export function journalBacklog(dir: string): { entries: number; oldestAt: number | null } {
-  let entries = 0; let oldestAt: number | null = null;
+  let entries = 0; let oldestAt: number | null = null; let budget = JOURNAL_BACKLOG_MAX_BYTES;
   let files: string[];
   try { files = readdirSync(dir); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return { entries, oldestAt }; throw e; }
   for (const f of files.sort()) {
     if (!f.endsWith(".jsonl") && !REPLAYING_SUFFIX.test(f)) continue;
-    let raw: string;
-    try { raw = readFileSync(join(dir, f), "utf8"); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") continue; throw e; }
-    const lines = raw.split("\n"); lines.pop(); // the last piece is "" or a torn tail, never a complete line
-    for (const l of lines) {
-      const text = l.endsWith("\r") ? l.slice(0, -1) : l;
-      if (!text.trim()) continue;
+    if (budget <= 0) break;
+    const buf = readHead(join(dir, f), budget);
+    if (!buf) continue;
+    budget -= buf.length;
+    // Only `\n`-terminated lines count: the bytes after the last one are a torn tail (or the byte budget's cut).
+    for (let start = 0, nl = buf.indexOf(NL); nl !== -1; start = nl + 1, nl = buf.indexOf(NL, start)) {
+      if (isBlank(buf, start, nl)) continue;
       entries += 1;
-      const at = atOf(text);
+      const at = atOf(buf, start, nl);
       if (at !== null && (oldestAt === null || at < oldestAt)) oldestAt = at;
       if (entries >= JOURNAL_BACKLOG_MAX_ENTRIES) return { entries, oldestAt };
     }

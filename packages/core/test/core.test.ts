@@ -279,6 +279,33 @@ describe("core journal backlog (Task 15, E4)", () => {
   });
 });
 
+describe("core live capture then journal replay (Task 15 review, Q3)", () => {
+  it("a live capture with runId journal:X, then a journal line with id X, is one card and the line is dropped", async () => {
+    const home = newHome(); const l = layout(home);
+    const id = "55555555-5555-4555-8555-555555555555";
+    const text = "Please remember that the window cleaner comes on Monday at ten.";
+    const messages = [{ role: "user" as const, content: text }] as [any];
+    // As `plur1bus memory add` does: the live capture carries runId journal:<id>; a core that stores it and dies before
+    // replying makes the CLI journal the same turn under the same id.
+    const first = createCore({ home, testInternals: flatTestInternals() });
+    await first.start();
+    const c1 = await connect({ address: first.address, token: first.token });
+    try {
+      const r = await c1.call<any>("memory.capture", { caller, agentId: "bernd", sessionKey: "s1", runId: `journal:${id}`, messages, wait: true, waitMs: 10_000 });
+      assert.equal(r.stored, 1, JSON.stringify(r));
+    } finally { await c1.close(); await first.stop({ budgetMs: 5000 }); }
+    appendJournalLine(l.journal, { v: 1, id, at: 1000, agentId: "bernd", sessionKey: "s1", caller, messages });
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      assert.deepEqual(readdirSync(l.journal), [], "the replayed line was a duplicate-turn and left the journal");
+      const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
+      assert.equal(items.filter((x: any) => /window cleaner/.test(x.text)).length, 1, JSON.stringify(items.map((x: any) => x.text)));
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+});
+
 describe("core run files (S11)", () => {
   it("start() secures run/ and the token and pid files, even when run/ already existed wider", { skip: process.platform === "win32" }, async () => {
     const home = newHome(); const l = layout(home);
