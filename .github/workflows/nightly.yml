@@ -53,7 +53,10 @@ jobs:
       - name: system test (real models)
         run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
         timeout-minutes: 30
-        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_REAL_MODELS: "1" }
+        # H3-R26: shared CI runners are not reference hardware. The CI recall budget keeps a slow runner from
+        # aborting the recall (degraded must still be null); the 400/600 ms targets are reported as diagnostics and
+        # `::warning::` lines here, and asserted only on reference hardware (AGENTS.md, "Real-model acceptance").
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_REAL_MODELS: "1", PLUR1BUS_CI_RECALL_HARD_MS: "2000" }
       # Criterion 2 at full length (S16, ruling H3-R19): 1 000 turns over 10 agents, flat embedder (the soak is about
       # durability under kills, so it does not need the models).
       - name: kill soak (1 000 turns)

@@ -103,6 +103,21 @@ Env vars that matter when driving the core directly instead of through the CLI:
   in CI, 1000 in the nightly) and its mulberry32 seed (printed as a diagnostic either way, so a
   failing run can be replayed — though replay reproduces only the kill schedule, not timing,
   outages or journal replays).
+- `PLUR1BUS_REAL_MODELS=1` (with optional `PLUR1BUS_MODELS_CACHE=<dir>` for the ~600 MB download) — the
+  real-model acceptance (`tests/system/two-session-recall.test.ts`, criterion 1). `PLUR1BUS_SYSTEM_INTERNALS`
+  picks the flat seam's variant otherwise (`flat-embedder-cold`, see below).
+- `PLUR1BUS_CI_RECALL_HARD_MS=<ms>` — ruling H3-R26, set only by the nightly: shared CI runners are not reference
+  hardware, so the test raises the test home's `core.recall.hardBudgetMs` to this value (a slow runner must not
+  abort the recall; both measured recalls must still answer `degraded: null`) and reports the 400 ms
+  (`timing.totalMs`) / 600 ms (CLI wall time) targets as diagnostics plus a GitHub Actions `::warning::` instead of
+  failing on them. **The strict acceptance runs on reference hardware with it unset**, where the targets are
+  asserted:
+
+  ```bash
+  cargo build --release -p plur1bus && pnpm build
+  PLUR1BUS_BIN=target/release/plur1bus PLUR1BUS_REAL_MODELS=1 PLUR1BUS_MODELS_CACHE=~/.cache/plur1bus-models \
+    node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+  ```
 - `PLUR1BUS_SERVICE_TEST=1` — required, alongside `PLUR1BUS_SERVICE_FAKE` unset, for
   `tests/service_real.rs` to touch a real systemd/launchd/Task Scheduler installation instead of
   being skipped; `PLUR1BUS_SERVICE_FAKE=<dir>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) instead

@@ -4,6 +4,37 @@ import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, type RunningCore } from "./helpers.ts";
 
+/** Spec targets for a CLI recall: the soft budget on the engine's timed phases and the core's hard budget on wall time. */
+const SOFT_TARGET_MS = 400;
+const HARD_TARGET_MS = 600;
+/**
+ * Ruling H3-R26: CI runners are not reference hardware. PLUR1BUS_CI_RECALL_HARD_MS (set by the nightly) raises the
+ * test home's core.recall.hardBudgetMs so a slow shared runner does not abort the recall, and turns the 400/600 ms
+ * targets into diagnostics plus a GitHub Actions `::warning::`. Unset (reference hardware), the targets are asserted.
+ */
+const CI_RECALL_HARD_MS = ((raw) => {
+  if (raw === undefined || raw === "") return null;
+  if (!/^\d+$/.test(raw) || Number(raw) < 100) throw new Error(`PLUR1BUS_CI_RECALL_HARD_MS must be an integer >= 100, got ${JSON.stringify(raw)}`);
+  return Number(raw);
+})(process.env.PLUR1BUS_CI_RECALL_HARD_MS);
+
+/** Real models: the recall's timing against the targets. Strict (reference hardware) asserts them; CI reports them. */
+function checkRecallBudget(t: { diagnostic(m: string): void }, label: string, wallMs: number, timing: any): void {
+  const totalMs = timing?.totalMs;
+  const over: string[] = [];
+  if (timing?.exceededBudget === true) over.push("exceededBudget");
+  if (!(typeof totalMs === "number" && totalMs < SOFT_TARGET_MS)) over.push(`timing.totalMs ${totalMs} >= ${SOFT_TARGET_MS}`);
+  // H3-R22: timing.totalMs counts only the engine's timed phases; the core aborts at the hard budget of wall time.
+  if (!(wallMs < HARD_TARGET_MS)) over.push(`wall ${wallMs.toFixed(0)} ms >= ${HARD_TARGET_MS}`);
+  t.diagnostic(`${label}: wall ${wallMs.toFixed(0)} ms (target < ${HARD_TARGET_MS}), timing.totalMs ${totalMs} (target < ${SOFT_TARGET_MS})${over.length ? ` — over target: ${over.join(", ")}` : ""}`);
+  if (CI_RECALL_HARD_MS === null) {
+    assert.deepEqual(over, [], `${label} over the recall targets: ${JSON.stringify(timing)}`);
+  } else if (over.length > 0) {
+    // A workflow command must start its own stdout line; the test runner passes stdout through verbatim.
+    process.stdout.write(`::warning title=recall budget (CI runner)::${label}: ${over.join(", ")} (CI hard budget ${CI_RECALL_HARD_MS} ms; strict targets apply on reference hardware only)\n`);
+  }
+}
+
 /** R20: a fully successful replay renames `<agent>.jsonl` away and appends nothing back — absent or empty. */
 function journalDrained(path: string): boolean {
   return !existsSync(path) || readFileSync(path, "utf8").trim() === "";
@@ -19,6 +50,10 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       // The flat embedder gives every text the same vector, so the engine's duplicate check (0.95) would
       // skip every fact after the first; above 1 it never matches. Real models keep the default.
       if (!REAL) cli(h, ["config", "set", "engine.duplicateThreshold", "1.01", "--yes"]);
+      if (CI_RECALL_HARD_MS !== null) {
+        cli(h, ["config", "set", "core.recall.hardBudgetMs", String(CI_RECALL_HARD_MS), "--yes"]);
+        t.diagnostic(`CI recall budget: core.recall.hardBudgetMs ${CI_RECALL_HARD_MS} (targets reported, not asserted; H3-R26)`);
+      }
 
       core = await startCore(h);
       t.diagnostic(`core ready (1st start) ${core.readyMs.toFixed(0)} ms${REAL ? " [real models]" : " [flat embedder]"}`);
@@ -49,13 +84,9 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       assert.equal(r.degraded, null, JSON.stringify(r.degraded));
       assert.match(r.joined.text, /roadmap review/i);
       if (REAL) {
-        // The first measured recall after the warm-up is within the 400 ms soft budget (it failed on macOS at 582 ms
+        // The first measured recall after the warm-up is within the 400/600 ms targets (it failed on macOS at 582 ms
         // with `exceededBudget: true` while the models still lazy-loaded on the first recall).
-        assert.notEqual(r.timing?.exceededBudget, true, JSON.stringify(r.timing));
-        assert.ok(typeof r.timing?.totalMs === "number" && r.timing.totalMs < 400, `first recall totalMs: ${JSON.stringify(r.timing)}`);
-        // H3-R22: timing.totalMs counts only the engine's timed phases; the core aborts the recall at 600 ms of wall
-        // time (core.recall.hardBudgetMs), so the CLI's own wall time is the honest check.
-        assert.ok(ms < 600, `first recall CLI wall time ${ms.toFixed(0)} ms (timing.totalMs ${r.timing?.totalMs})`);
+        checkRecallBudget(t, "first recall", ms, r.timing);
         // timing.namespacePhases records a "rerank" phase on every recall, even with no reranker, and its timer
         // also wraps the failure/timeout fallback. So require real cross-encoder time AND no engine rerank-failure
         // warning. Engine warnings go to the core's log file (logs/core.log), not stderr; both are checked.
@@ -91,8 +122,11 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
 
       t0 = performance.now();
       const after = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s4", "--joined", "when does Mira visit"]);
-      t.diagnostic(`CLI recall after restart wall ${(performance.now() - t0).toFixed(0)} ms, engine timing.totalMs ${after.timing?.totalMs ?? "n/a"}`);
+      const afterMs = performance.now() - t0;
+      t.diagnostic(`CLI recall after restart wall ${afterMs.toFixed(0)} ms, engine timing.totalMs ${after.timing?.totalMs ?? "n/a"}`);
       assert.equal(after.degraded, null, JSON.stringify(after.degraded));
+      // Reported against the targets on CI; asserted only for the first recall on reference hardware (as before).
+      if (REAL && CI_RECALL_HARD_MS !== null) checkRecallBudget(t, "recall after restart", afterMs, after.timing);
       assert.match(after.joined.text, /Mira|spring/i);
 
       const run = cli(h, ["dreams", "run", "gc-run", "--agent", "bernd"]);
