@@ -1,1 +1,4 @@
-{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "limit": 20 }, "result": {} }
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "topic": "roadmap review", "limit": 20 },
+  "result": { "agentId": "bernd", "truncated": false,
+              "items": [{ "id": "m-1", "scope": "agent-private", "text": "The roadmap review is on Thursday.", "summary": "Roadmap review on Thursday", "createdAt": 1758000000000, "origin": "user", "epistemicStatus": "observed", "score": 0.82 },
+                        { "id": "m-copy", "scope": "workspace", "text": "The office closes at six.", "summary": "Office closes at six", "createdAt": 1758000100000, "origin": null, "epistemicStatus": null, "score": 0.41, "sharedBy": "Anna.Main", "sourceId": "m-src" }] } }

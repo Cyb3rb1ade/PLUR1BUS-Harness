@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
+import { CORE_FEATURES } from "../src/capabilities.ts";
 import { createCore, type Core } from "../src/core.ts";
 import { appendJournalLine } from "../src/journal.ts";
 import { layout } from "../src/paths.ts";
@@ -49,8 +50,52 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.4.1"); assert.equal(s.rpc, "1.0.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.6.0"); assert.equal(s.rpc, "1.1.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
+  });
+
+  it("core.auth carries capabilities built from the schema", () => {
+    assert.equal(c.hello.capabilities?.methods["memory.recall"]?.stability, "stable");
+    assert.deepEqual(c.hello.capabilities?.features, [...CORE_FEATURES].sort());
+  });
+
+  it("core.auth features include events.harness", () => {
+    assert.ok(c.hello.capabilities?.features.includes("events.harness"), c.hello.capabilities?.features.join(","));
+  });
+
+  it("a subscriber without names gets recall.completed and never engine.event", async () => {
+    const s = await connect({ address: core.address, token: core.token });
+    try {
+      const got: Array<[string, any]> = []; s.onNotification((m, p) => got.push([m, p]));
+      await s.call("events.subscribe", {});
+      await c.call("memory.recall", { caller, agentId: "bernd", query: "anything about lunch" });
+      await new Promise((r) => setTimeout(r, 200));
+      const completed = got.filter(([m]) => m === "recall.completed");
+      assert.equal(completed.length, 1, JSON.stringify(got));
+      assert.equal(completed[0]![1].agentId, "bernd"); assert.equal(typeof completed[0]![1].totalMs, "number");
+      assert.equal("timing" in completed[0]![1], false);
+      assert.equal(got.some(([m]) => m === "engine.event"), false, JSON.stringify(got));
+    } finally { await s.close(); }
+  });
+
+  it("a subscriber naming engine.event still gets it verbatim", async () => {
+    const s = await connect({ address: core.address, token: core.token });
+    try {
+      const got: Array<[string, any]> = []; s.onNotification((m, p) => got.push([m, p]));
+      await s.call("events.subscribe", { names: ["engine.event"] });
+      await c.call("memory.recall", { caller, agentId: "bernd", query: "anything about lunch" });
+      await new Promise((r) => setTimeout(r, 200));
+      assert.ok(got.every(([m]) => m === "engine.event"), JSON.stringify(got));
+      const ev = got.find(([, p]) => p.name === "recall.completed");
+      assert.ok(ev, JSON.stringify(got));
+      assert.equal(ev[1].agentId, "bernd");
+      assert.equal(ev[1].payload.agentId, "bernd"); assert.equal(typeof ev[1].payload.timing.totalMs, "number");
+    } finally { await s.close(); }
+  });
+
+  it("core.status reports the engine store schema", async () => {
+    const s = await c.call<any>("core.status");
+    assert.equal(typeof s.engine.storeSchema.expected, "string");
   });
 
   it("capture then recall in another session finds the fact; activity notifications fire", async () => {
@@ -95,12 +140,6 @@ describe("core", () => {
     assert.equal(long.degraded?.reason, "principal-invalid");
     const control = await c.call<any>("memory.recall", { caller: { ...caller, userId: "cyber\u0001blade" }, agentId: "bernd", query: "anything" });
     assert.equal(control.degraded?.reason, "principal-invalid");
-  });
-
-  it("memory ops answer E_NOT_AVAILABLE engine-pr-E1", async () => {
-    for (const m of ["memory.list", "memory.show", "memory.forget", "memory.correct", "memory.share", "memory.state"]) {
-      await assert.rejects(c.call(m, { caller, agentId: "bernd" }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-pr-E1", m);
-    }
   });
 
   it("jobs.list has 18 jobs; jobs.run of a skipped job returns a JobRun; history lists it", async () => {

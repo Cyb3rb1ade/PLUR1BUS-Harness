@@ -802,6 +802,7 @@ name = "plur1bus-config"
 version = "0.1.0"
 dependencies = [
  "jsonschema",
+ "serde",
  "serde_json",
  "tempfile",
 ]

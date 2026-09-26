@@ -1,0 +1,2 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "proposalId": "p-1" },
+  "result": { "proposalId": "p-1", "id": "m-copy-2", "sourceId": "m-src-2" } }

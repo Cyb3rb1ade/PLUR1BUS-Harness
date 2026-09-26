@@ -22,6 +22,9 @@ export const SCHEMA = schemaJson as Record<string, unknown>;
 const ajv = new Ajv2020({ strict: true, allErrors: true, useDefaults: false, allowUnionTypes: true });
 addFormats(ajv);
 ajv.addKeyword("x-rpc-version");
+ajv.addKeyword("x-stability");
+ajv.addKeyword("x-since");
+ajv.addKeyword("x-deprecated");
 ajv.addSchema(schemaJson);
 const SCHEMA_ID: string = (schemaJson as any).$id;
 
@@ -51,13 +54,41 @@ export function validateNotification(name: string, value: unknown): Validation {
 }
 export function validateJournalLine(value: unknown): Validation { return run(validator("/$defs/JournalLine"), value); }
 export function validateRequest(value: unknown): Validation { return run(validator("/$defs/Request"), value); }
+export function validateErrorObject(value: unknown): Validation { return run(validator("/$defs/ErrorObject"), value); }
 
 export interface Fixtures {
   methods: Record<string, { params: unknown; result: unknown }>;
-  errors: Record<string, { jsonrpc: "2.0"; id: number | string; error: { code: number; message: string; data?: { error: string; reason?: string; detail?: string } } }>;
+  errors: Record<string, { jsonrpc: "2.0"; id: number | string; error: { code: number; message: string; data?: { error: string; reason?: string; detail?: string; ids?: Record<string, string> } } }>;
   notifications: Record<string, unknown>;
 }
 export function loadFixtures(root = join(here, "..", "fixtures")): Fixtures {
   const read = (dir: string) => Object.fromEntries(readdirSync(join(root, dir)).filter((f) => f.endsWith(".json")).map((f) => [f.slice(0, -5), JSON.parse(readFileSync(join(root, dir, f), "utf8"))]));
   return { methods: read("methods"), errors: read("errors"), notifications: read("notifications") } as Fixtures;
+}
+
+export interface Deprecation { since: string; removeAfter: string; replacement: string }
+export interface CapabilityEntry { stability: "experimental" | "stable"; since: string; deprecated?: Deprecation }
+export interface Capabilities {
+  methods: Record<string, CapabilityEntry>;
+  notifications: Record<string, CapabilityEntry>;
+  extensionPoints: Record<string, CapabilityEntry>;
+  features: readonly string[];
+}
+
+/** Builds `Capabilities` from the schema's own x-stability/x-since/x-deprecated annotations (ADR-016 §3): the
+ *  keys and their entries always match what this rpc-schema version actually ships, never a hand-kept list. */
+export function buildCapabilities(features: readonly string[]): Capabilities {
+  const schema = SCHEMA as any;
+  const entry = (def: { "x-stability": "experimental" | "stable"; "x-since": string; "x-deprecated"?: Deprecation }): CapabilityEntry => ({
+    stability: def["x-stability"],
+    since: def["x-since"],
+    ...(def["x-deprecated"] ? { deprecated: def["x-deprecated"] } : {}),
+  });
+  const map = (defs: Record<string, any>): Record<string, CapabilityEntry> => Object.fromEntries(Object.entries(defs).map(([name, def]) => [name, entry(def)]));
+  return {
+    methods: map(schema.$defs.methods),
+    notifications: map(schema.$defs.notifications),
+    extensionPoints: {},
+    features: [...features].sort(),
+  };
 }

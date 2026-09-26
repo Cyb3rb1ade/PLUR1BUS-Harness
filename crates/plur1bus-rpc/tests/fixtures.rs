@@ -52,6 +52,16 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.correct" => pair::<MemoryCorrectParams, MemoryCorrectResult>(name, f),
         "memory.share" => pair::<MemoryShareParams, MemoryShareResult>(name, f),
         "memory.state" => pair::<MemoryStateParams, MemoryStateResult>(name, f),
+        "memory.propose" => pair::<MemoryProposeParams, MemoryProposeResult>(name, f),
+        "memory.proposals.list" => {
+            pair::<MemoryProposalsListParams, MemoryProposalsListResult>(name, f)
+        }
+        "memory.proposals.accept" => {
+            pair::<MemoryProposalsAcceptParams, MemoryProposalsAcceptResult>(name, f)
+        }
+        "memory.proposals.reject" => {
+            pair::<MemoryProposalsRejectParams, MemoryProposalsRejectResult>(name, f)
+        }
         "agent.list" => pair::<AgentListParams, AgentListResult>(name, f),
         "agent.open" => pair::<AgentOpenParams, AgentOpenResult>(name, f),
         "agent.close" => pair::<AgentCloseParams, AgentCloseResult>(name, f),
@@ -78,6 +88,11 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::EModuleUnknown,
         ErrorCode::EInternal,
         ErrorCode::ELocked,
+        ErrorCode::ENotFound,
+        ErrorCode::EDenied,
+        ErrorCode::EApprovalRequired,
+        ErrorCode::EConflict,
+        ErrorCode::EStorage,
     ];
     for c in all {
         match c {
@@ -90,7 +105,12 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::EConfigInvalid
             | ErrorCode::EModuleUnknown
             | ErrorCode::EInternal
-            | ErrorCode::ELocked => {}
+            | ErrorCode::ELocked
+            | ErrorCode::ENotFound
+            | ErrorCode::EDenied
+            | ErrorCode::EApprovalRequired
+            | ErrorCode::EConflict
+            | ErrorCode::EStorage => {}
         }
     }
     all.into_iter().collect()
@@ -141,6 +161,17 @@ fn every_notification_fixture_round_trips() {
             "engine.event" => round_trip::<types::EngineEventNotification>(v, name),
             "agent.activity" => round_trip::<types::AgentActivityNotification>(v, name),
             "core.state" => round_trip::<types::CoreStateNotification>(v, name),
+            "recall.completed" => round_trip::<types::RecallCompletedNotification>(v, name),
+            "recall.degraded" => round_trip::<types::RecallDegradedNotification>(v, name),
+            "recall.block-clipped" => round_trip::<types::RecallBlockClippedNotification>(v, name),
+            "recall.block-dropped" => round_trip::<types::RecallBlockDroppedNotification>(v, name),
+            "job.run" => round_trip::<types::JobRunNotification>(v, name),
+            "memory.proposal" => round_trip::<types::MemoryProposalNotification>(v, name),
+            "dream.completed" => round_trip::<types::DreamCompletedNotification>(v, name),
+            "acl.denied" => round_trip::<types::AclDeniedNotification>(v, name),
+            "embedding.identity.changed" => {
+                round_trip::<types::EmbeddingIdentityChangedNotification>(v, name)
+            }
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

@@ -1,1 +1,2 @@
-{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "mem-1" }, "result": {} }
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "m-1" },
+  "result": { "id": "m-1", "archived": true, "tombstoneId": "t-1", "alreadyForgotten": false } }

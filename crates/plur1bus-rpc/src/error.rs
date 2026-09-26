@@ -1,4 +1,5 @@
 use crate::types::ErrorCode;
+use std::collections::BTreeMap;
 use std::fmt;
 
 #[derive(Debug)]
@@ -9,6 +10,8 @@ pub enum RpcError {
         message: String,
         reason: Option<String>,
         detail: Option<String>,
+        /// `error.data.ids`: non-secret ids a caller needs to recover (e.g. a half-finished shared-copy refresh).
+        ids: Option<BTreeMap<String, String>>,
     },
     Unavailable {
         reason: String,
@@ -84,6 +87,14 @@ pub fn is_unavailable(e: &RpcError) -> bool {
 }
 
 impl RpcError {
+    /// `error.data.ids` of a `Call` error, when the core sent any.
+    pub fn ids(&self) -> Option<&BTreeMap<String, String>> {
+        match self {
+            RpcError::Call { ids, .. } => ids.as_ref(),
+            _ => None,
+        }
+    }
+
     /// The closed error name for `--json` output and exit-code mapping.
     pub fn code_name(&self) -> String {
         match self {

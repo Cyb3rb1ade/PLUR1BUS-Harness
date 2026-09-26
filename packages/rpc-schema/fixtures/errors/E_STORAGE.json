@@ -1,0 +1,1 @@
+{ "jsonrpc": "2.0", "id": 15, "error": { "code": -32000, "message": "shared copy refresh did not complete", "data": { "error": "E_STORAGE", "reason": "storage", "ids": { "sourceId": "m-src", "sharedId": "m-copy" } } } }

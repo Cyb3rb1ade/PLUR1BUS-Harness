@@ -1,0 +1,1 @@
+{ "jsonrpc": "2.0", "id": 13, "error": { "code": -32000, "message": "sharing a sensitive memory needs explicit approval", "data": { "error": "E_APPROVAL_REQUIRED", "reason": "approval-required" } } }

@@ -1,1 +1,2 @@
-{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "mem-1", "target": "workspace" }, "result": {} }
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "m-2", "target": "workspace", "allowSensitive": false },
+  "result": { "sourceId": "m-2", "sharedId": "m-copy", "target": "workspace" } }
