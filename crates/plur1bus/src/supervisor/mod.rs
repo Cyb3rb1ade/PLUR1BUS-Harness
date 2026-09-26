@@ -340,7 +340,7 @@ fn pid_from_file(layout: &Layout) -> Option<u64> {
 /// 32 random bytes as lower-case hex (S3).
 fn fresh_token() -> io::Result<String> {
     let mut b = [0u8; 32];
-    getrandom::getrandom(&mut b).map_err(|e| io::Error::other(e.to_string()))?;
+    getrandom::fill(&mut b).map_err(|e| io::Error::other(e.to_string()))?;
     Ok(b.iter().map(|x| format!("{x:02x}")).collect())
 }
 

@@ -20,7 +20,7 @@ uuid = { version = "1", features = ["v4"] }
 home = "0.5"
 clap-markdown = "0.1"
 sha2 = "0.10"
-getrandom = "0.2"
+getrandom = "0.3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

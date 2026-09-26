@@ -13,10 +13,13 @@ use serde_json::{json, Value};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::sync::mpsc;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// A connection that has not sent a valid `supervisor.auth` by then is closed.
 pub const AUTH_IDLE: Duration = Duration::from_secs(30);
+
+/// At most one "accept failed" warning per this interval; the next one carries the suppressed count.
+const ACCEPT_WARN_EVERY: Duration = Duration::from_secs(10);
 
 /// `daemon.stop { budgetMs }` upper bound, as in the schema (typify does not check integer ranges).
 const MAX_BUDGET_MS: i64 = 120_000;
@@ -74,6 +77,9 @@ impl SupervisorServer {
             shared: shared.clone(),
         });
         let mut next_id: u64 = 0;
+        // Accept failures (e.g. EMFILE) can repeat every few ms; log at most one per ACCEPT_WARN_EVERY.
+        let mut last_warn: Option<Instant> = None;
+        let mut suppressed: u64 = 0;
         loop {
             match self.listener.accept() {
                 Ok(conn) => {
@@ -90,9 +96,16 @@ impl SupervisorServer {
                     }
                 }
                 Err(e) => {
-                    shared
-                        .log
-                        .warn("accept failed", json!({ "err": e.to_string() }));
+                    if last_warn.is_none_or(|t| t.elapsed() >= ACCEPT_WARN_EVERY) {
+                        shared.log.warn(
+                            "accept failed",
+                            json!({ "err": e.to_string(), "suppressed": suppressed }),
+                        );
+                        last_warn = Some(Instant::now());
+                        suppressed = 0;
+                    } else {
+                        suppressed += 1;
+                    }
                     std::thread::sleep(Duration::from_millis(50));
                 }
             }
@@ -172,7 +185,11 @@ fn parse<P: DeserializeOwned>(params: &Value) -> Result<P, String> {
 /// Constant-time equality for equal-length inputs (the length itself is not secret: tokens are always 64 chars).
 fn tokens_match(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
-    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    a.len() == b.len()
+        && a.iter()
+            .zip(b)
+            .fold(0u8, |acc, (x, y)| std::hint::black_box(acc | (x ^ y)))
+            == 0
 }
 
 /// What the connection loop does after a reply.
@@ -227,11 +244,19 @@ impl ConnCtx {
         // Watchdog: closes the connection unless `authed_tx` is dropped (auth succeeded, or the connection ended)
         // within AUTH_IDLE.
         let (authed_tx, authed_rx) = mpsc::channel::<()>();
-        let _ = spawn_guarded(&self.shared, "auth-idle", move || {
+        let watchdog = spawn_guarded(&self.shared, "auth-idle", move || {
             if let Err(mpsc::RecvTimeoutError::Timeout) = authed_rx.recv_timeout(AUTH_IDLE) {
                 closer();
             }
         });
+        if let Err(e) = watchdog {
+            // Without the watchdog nothing would close an idle unauthenticated connection: refuse it instead.
+            self.shared.log.error(
+                "cannot start the auth-idle watchdog, closing the connection",
+                json!({ "err": e.to_string() }),
+            );
+            return;
+        }
         let mut authed_tx = Some(authed_tx);
         let mut reader = BufReader::new(reader);
         loop {
