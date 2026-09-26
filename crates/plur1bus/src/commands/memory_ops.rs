@@ -4,6 +4,7 @@
 //! `memory.proposals.list|accept|reject`). Unlike `memory add`/`memory recall` (`memory.rs`),
 //! these never journal: a core that cannot be reached fails fast with `E_CORE_UNAVAILABLE`.
 use crate::cli::{MemoryCmd, ProposalStatus, ProposalsCmd, ShareTarget};
+use crate::commands::daemon::supervisor_detail;
 use crate::commands::memory::{connect, degraded_line, require_agent};
 use crate::identity;
 use crate::output::Out;
@@ -60,18 +61,21 @@ fn parse_time_or_fail(out: &Out, flag: &str, s: &str) -> u64 {
 fn connect_or_unavailable(out: &Out, layout: &Layout) -> Client {
     match connect(layout, Duration::from_secs(30)) {
         Ok(c) => c,
-        Err(e) if is_unavailable(&e) => out.fail(
-            "E_CORE_UNAVAILABLE",
-            &format!("core unavailable: {e}"),
-            json!({
-                "degraded": {
-                    "reason": "core-unavailable",
-                    "capability": "memory-ops",
-                    "detail": e.to_string()
-                }
-            }),
-            1,
-        ),
+        Err(e) if is_unavailable(&e) => {
+            let detail = format!("{e} ({})", supervisor_detail(layout));
+            out.fail(
+                "E_CORE_UNAVAILABLE",
+                &format!("core unavailable: {e}"),
+                json!({
+                    "degraded": {
+                        "reason": "core-unavailable",
+                        "capability": "memory-ops",
+                        "detail": detail
+                    }
+                }),
+                1,
+            )
+        }
         Err(e) => out.from_rpc_error(&e),
     }
 }

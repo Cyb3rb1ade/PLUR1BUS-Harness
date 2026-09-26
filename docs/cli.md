@@ -46,6 +46,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus config schema`↴](#plur1bus-config-schema)
 * [`plur1bus module`↴](#plur1bus-module)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
+* [`plur1bus daemon start`↴](#plur1bus-daemon-start)
+* [`plur1bus daemon stop`↴](#plur1bus-daemon-stop)
+* [`plur1bus daemon restart`↴](#plur1bus-daemon-restart)
+* [`plur1bus daemon status`↴](#plur1bus-daemon-status)
 * [`plur1bus service`↴](#plur1bus-service)
 * [`plur1bus service install`↴](#plur1bus-service-install)
 * [`plur1bus service uninstall`↴](#plur1bus-service-uninstall)
@@ -76,7 +80,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `dreams` — Dreaming jobs: status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules — 2a-H3
-* `daemon` — Supervisor control — 2a-H3
+* `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
 * `update` — Update check — 2a-H3
@@ -577,13 +581,56 @@ Modules — 2a-H3
 
 ## `plur1bus daemon`
 
-Supervisor control — 2a-H3
+Supervisor control: start, stop, restart, status
 
-**Usage:** `plur1bus daemon`
+**Usage:** `plur1bus daemon <COMMAND>`
 
-###### **Arguments:**
+###### **Subcommands:**
 
-* `<REST>`
+* `start` — [experimental] Start the supervisor (and its core) if it is not already running
+* `stop` — [experimental] Stop the supervisor (and its core)
+* `restart` — [experimental] Stop then start the supervisor
+* `status` — [experimental] Supervisor and core status
+
+
+
+## `plur1bus daemon start`
+
+[experimental] Start the supervisor (and its core) if it is not already running
+
+**Usage:** `plur1bus daemon start [OPTIONS]`
+
+###### **Options:**
+
+* `--no-wait` — return as soon as the supervisor's endpoint answers, without waiting for the core to become ready
+
+
+
+## `plur1bus daemon stop`
+
+[experimental] Stop the supervisor (and its core)
+
+**Usage:** `plur1bus daemon stop [OPTIONS]`
+
+###### **Options:**
+
+* `--budget-ms <BUDGET_MS>` — milliseconds the core gets to shut down before the supervisor kills it (default: 10000)
+
+
+
+## `plur1bus daemon restart`
+
+[experimental] Stop then start the supervisor
+
+**Usage:** `plur1bus daemon restart`
+
+
+
+## `plur1bus daemon status`
+
+[experimental] Supervisor and core status
+
+**Usage:** `plur1bus daemon status`
 
 
 

@@ -37,12 +37,7 @@ fn main() {
         Cmd::Module(_) => {
             commands::stubs::milestone(&out, "module", "2a-H3", "module lifecycle and graph")
         }
-        Cmd::Daemon(_) => commands::stubs::milestone(
-            &out,
-            "daemon",
-            "2a-H3",
-            "supervisor control; in H1 start the core with `plur1bus core run`",
-        ),
+        Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
         Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
         Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3", "manifest check"),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),

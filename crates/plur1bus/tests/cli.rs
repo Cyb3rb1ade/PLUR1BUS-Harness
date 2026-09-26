@@ -50,16 +50,17 @@ fn stubs_exit_2_and_name_their_milestone() {
 
 #[test]
 fn stubs_name_2a_h3() {
+    // `daemon` and `service` are implemented (Tasks 8, 9); the rest are still milestone stubs.
     for cmd in ["setup", "module", "daemon", "service", "update", "1staid"] {
         bin().arg(cmd).arg("--help").assert().success();
     }
     bin()
-        .args(["daemon", "status"])
+        .args(["module", "status"])
         .assert()
         .code(2)
         .stderr(predicate::str::contains("2a-H3"));
     let out = bin()
-        .args(["--json", "daemon", "status"])
+        .args(["--json", "module", "status"])
         .assert()
         .code(2)
         .get_output()

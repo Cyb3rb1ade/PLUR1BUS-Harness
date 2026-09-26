@@ -313,8 +313,9 @@ fn platform() -> &'static str {
     }
 }
 
-/// The token in `run/supervisor.token`, when it is there and well formed.
-fn read_token(layout: &Layout) -> Option<String> {
+/// The token in `run/supervisor.token`, when it is there and well formed. Also read by `commands::daemon` (`daemon
+/// start|stop|status` and `supervisor_detail`), which needs the same "is a supervisor plausibly running" check.
+pub(crate) fn read_token(layout: &Layout) -> Option<String> {
     let t = fs::read_to_string(layout.supervisor_token()).ok()?;
     let t = t.trim().to_string();
     (t.len() == 64 && t.bytes().all(|b| b.is_ascii_hexdigit())).then_some(t)

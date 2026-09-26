@@ -26,6 +26,13 @@ pub(crate) fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client,
     )
 }
 
+/// The `degraded.detail`/error `detail` text for a core-unavailable failure: the RPC error itself, plus the
+/// supervisor's own view of why (Task 9, spec §6.6) — "supervisor not running", "core crashed: config-invalid",
+/// etc. — so the caller learns whether it's the core, the supervisor, or neither that is missing.
+pub(crate) fn unavailable_detail(layout: &Layout, e: &RpcError) -> String {
+    format!("{e} ({})", super::daemon::supervisor_detail(layout))
+}
+
 pub(crate) fn require_agent(out: &Out, config: &Value, id: &str) {
     if config["agents"].get(id).is_none() {
         out.fail(
@@ -85,7 +92,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                             session.as_deref(),
                             &caller,
                             &content,
-                            &e.to_string(),
+                            &unavailable_detail(layout, &e),
                         ),
                         Err(e) => out.from_rpc_error(&e),
                     }
@@ -97,7 +104,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                     session.as_deref(),
                     &caller,
                     &content,
-                    &e.to_string(),
+                    &unavailable_detail(layout, &e),
                 ),
                 Err(e) => out.from_rpc_error(&e),
             }
@@ -146,10 +153,10 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             match connect(layout, Duration::from_millis(hard + 400)) {
                 Ok(mut c) => match c.call("memory.recall", params) {
                     Ok(v) => out.ok("memory.recall/1", &v, || render_recall(&v, joined)),
-                    Err(e) if is_unavailable(&e) => unavailable(e.to_string()),
+                    Err(e) if is_unavailable(&e) => unavailable(unavailable_detail(layout, &e)),
                     Err(e) => out.from_rpc_error(&e),
                 },
-                Err(e) if is_unavailable(&e) => unavailable(e.to_string()),
+                Err(e) if is_unavailable(&e) => unavailable(unavailable_detail(layout, &e)),
                 Err(e) => out.from_rpc_error(&e),
             }
         }

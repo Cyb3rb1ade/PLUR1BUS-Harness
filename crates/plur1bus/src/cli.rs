@@ -62,8 +62,11 @@ pub enum Cmd {
     },
     /// Modules — 2a-H3
     Module(StubArgs),
-    /// Supervisor control — 2a-H3
-    Daemon(StubArgs),
+    /// Supervisor control: start, stop, restart, status
+    Daemon {
+        #[command(subcommand)]
+        sub: DaemonCmd,
+    },
     /// OS service registration of the supervisor (user context, no admin rights)
     Service {
         #[command(subcommand)]
@@ -350,6 +353,26 @@ pub enum ServiceCmd {
     /// [experimental] Stop and unregister the supervisor's OS service
     Uninstall,
     /// [experimental] Show whether the OS service is registered and running
+    Status,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DaemonCmd {
+    /// [experimental] Start the supervisor (and its core) if it is not already running
+    Start {
+        /// return as soon as the supervisor's endpoint answers, without waiting for the core to become ready
+        #[arg(long)]
+        no_wait: bool,
+    },
+    /// [experimental] Stop the supervisor (and its core)
+    Stop {
+        /// milliseconds the core gets to shut down before the supervisor kills it (default: 10000)
+        #[arg(long)]
+        budget_ms: Option<u64>,
+    },
+    /// [experimental] Stop then start the supervisor
+    Restart,
+    /// [experimental] Supervisor and core status
     Status,
 }
 

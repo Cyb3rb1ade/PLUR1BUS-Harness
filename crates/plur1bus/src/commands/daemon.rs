@@ -1,0 +1,477 @@
+//! `plur1bus daemon start|stop|restart|status` (spec §6.4/§6.6): the CLI's control surface over the supervisor,
+//! and [`supervisor_detail`], the supervisor's view that names *why* the core is unreachable in every
+//! `E_CORE_UNAVAILABLE`/`degraded` document (`memory add|recall`, the memory-ops surface, `dreams`).
+use crate::cli::DaemonCmd;
+use crate::output::Out;
+use crate::paths::{supervisor_address, Layout};
+use crate::service::{self, Manager, Runner, ServiceError, SystemRunner};
+use crate::supervisor;
+use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
+use serde_json::{json, Value};
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+fn platform_str() -> &'static str {
+    if cfg!(windows) {
+        "windows"
+    } else {
+        "posix"
+    }
+}
+
+/// Bounds a single probe of the supervisor: [`supervisor_detail`]'s "100 ms timeout and a 150 ms call deadline"
+/// (the brief); reused for `daemon status`'s own probe, which has the same "answer within a second" requirement.
+const PROBE_CONNECT_TIMEOUT: Duration = Duration::from_millis(100);
+const PROBE_CALL_TIMEOUT: Duration = Duration::from_millis(150);
+
+/// How long `daemon start` waits for the supervisor's endpoint to answer (the brief: "wait ≤ 10 s for
+/// `supervisor.auth`").
+const ENDPOINT_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long `daemon start` then waits for the core child to become ready, unless `--no-wait`.
+const READY_TIMEOUT: Duration = Duration::from_secs(30);
+/// How much longer `daemon stop` waits, on top of the stop budget, for `run/supervisor.pid` to disappear.
+const STOP_GRACE: Duration = Duration::from_secs(10);
+/// The default `daemon.stop { budgetMs }` when `--budget-ms` is not given (matches the supervisor's own default).
+const DEFAULT_STOP_BUDGET_MS: u64 = supervisor::DEFAULT_STOP_BUDGET.as_secs() * 1000;
+
+const POLL_INTERVAL: Duration = Duration::from_millis(20);
+
+/// What a bounded probe of the supervisor's endpoint found.
+enum Probe {
+    /// No supervisor answers at all: no token file, or the address refuses/has nothing behind it.
+    NotRunning,
+    /// Something is listening but did not complete the handshake or answer `daemon.status` in time.
+    Unresponsive,
+    /// `daemon.status`'s result.
+    Answered(Value),
+}
+
+/// Connects to the supervisor with a bounded budget and calls `daemon.status`; never blocks longer than
+/// `connect_timeout + call_timeout` (plus scheduling slack).
+fn probe(layout: &Layout, connect_timeout: Duration, call_timeout: Duration) -> Probe {
+    let Some(token) = supervisor::read_token(layout) else {
+        return Probe::NotRunning;
+    };
+    let address = supervisor_address(&layout.home, platform_str());
+    let opts = ConnectOptions {
+        connect_timeout,
+        call_timeout,
+        endpoint: Endpoint::Supervisor,
+    };
+    let mut client = match Client::connect(&address, &token, opts) {
+        Ok(c) => c,
+        Err(RpcError::Unavailable { reason, .. }) if reason == "core-unavailable" => {
+            return Probe::NotRunning
+        }
+        Err(_) => return Probe::Unresponsive,
+    };
+    match client.call("daemon.status", json!({})) {
+        Ok(v) => Probe::Answered(v),
+        Err(_) => Probe::Unresponsive,
+    }
+}
+
+/// A short, bounded probe (used by `daemon status` and [`supervisor_detail`]): `Some` only when the supervisor
+/// actually answered.
+fn probe_status(layout: &Layout) -> Option<Value> {
+    match probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
+        Probe::Answered(v) => Some(v),
+        Probe::NotRunning | Probe::Unresponsive => None,
+    }
+}
+
+/// The core child's `process.state` in a `daemon.status` result, if there is one.
+fn core_state(status: &Value) -> Option<&str> {
+    status["children"].get(0)?["process"]["state"].as_str()
+}
+
+/// The supervisor's view of why the core is unreachable, for every `E_CORE_UNAVAILABLE`/`degraded` document
+/// (`memory add|recall`, the memory-ops surface, `dreams`). Connects with a 100 ms timeout and a 150 ms call
+/// deadline, so a degraded answer stays well under the 1 s the callers are held to.
+pub(crate) fn supervisor_detail(layout: &Layout) -> String {
+    match probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
+        Probe::NotRunning => "supervisor not running".to_string(),
+        Probe::Unresponsive => "supervisor unresponsive".to_string(),
+        Probe::Answered(status) => describe_core(&status),
+    }
+}
+
+fn describe_core(status: &Value) -> String {
+    let Some(child) = status["children"].get(0) else {
+        return "core starting".to_string();
+    };
+    let state = child["process"]["state"].as_str().unwrap_or("starting");
+    if state == "crashed" {
+        if let Some(next_at) = child["nextRestartAt"].as_u64() {
+            let restarts = child["restarts"].as_u64().unwrap_or(0);
+            let remaining = next_at.saturating_sub(supervisor::now_ms());
+            return format!("core restarting (restart {restarts}, next attempt in {remaining} ms)");
+        }
+        let reason = child["process"]["reason"].as_str().unwrap_or("none");
+        return format!("core crashed: {reason}");
+    }
+    format!("core {state}")
+}
+
+/// Starts `<bin> --home <home> supervise` detached from this process: on unix in its own session
+/// (`setsid`, so the terminal's Ctrl-C and hang-up never reach it), on Windows with no console and its own
+/// process group. Inherits this process's environment (the test seams included).
+fn spawn_supervise(bin: &Path, layout: &Layout) -> std::io::Result<std::process::Child> {
+    let mut cmd = Command::new(bin);
+    cmd.arg("--home")
+        .arg(&layout.home)
+        .arg("supervise")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // SAFETY: setsid() is async-signal-safe and touches only the child's own new process.
+        unsafe {
+            cmd.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+    }
+    cmd.spawn()
+}
+
+/// Starts the supervisor through its registered OS service (`systemctl --user start`, `launchctl kickstart
+/// gui/<uid>/<label>`, `schtasks /Run`).
+fn start_via_manager(r: &dyn Runner, manager: Manager, name: &str) -> Result<(), ServiceError> {
+    match manager {
+        Manager::Systemd => service::exec_ok(
+            r,
+            "systemctl",
+            &service::os_args(&["--user", "start", &format!("{name}.service")]),
+        ),
+        Manager::Launchd => {
+            let domain = service::launchd::gui_domain();
+            service::exec_ok(
+                r,
+                "launchctl",
+                &service::os_args(&["kickstart", &format!("{domain}/{name}")]),
+            )
+        }
+        Manager::TaskScheduler => {
+            service::exec_ok(r, "schtasks", &service::os_args(&["/Run", "/TN", name]))
+        }
+    }
+}
+
+fn fail_service(out: &Out, e: &ServiceError) -> ! {
+    out.fail(
+        "E_INTERNAL",
+        &e.to_string(),
+        json!({ "reason": "service-manager" }),
+        1,
+    )
+}
+
+/// Polls `daemon.status` until the core child is `ready` or `deadline` passes; `E_CORE_UNAVAILABLE
+/// reason=not-ready` on timeout, with the last known status in the document (the brief).
+fn wait_for_ready(out: &Out, layout: &Layout, timeout: Duration, mut last: Value) -> Value {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if core_state(&last) == Some("ready") {
+            return last;
+        }
+        if Instant::now() >= deadline {
+            out.fail(
+                "E_CORE_UNAVAILABLE",
+                "the core did not become ready in time",
+                json!({ "reason": "not-ready", "status": last }),
+                1,
+            );
+        }
+        std::thread::sleep(POLL_INTERVAL);
+        if let Some(s) = probe_status(layout) {
+            last = s;
+        }
+    }
+}
+
+/// `daemon start` (the brief, ruling H3-R4): a supervisor that already answers gets `daemon.start` (a no-op
+/// reset unless the core is crashed) and is reported `via: "running"`; otherwise a registered service is
+/// started through its manager (`via: "service"`), or a fresh supervisor is spawned detached (`via: "spawn"`).
+/// A spawn that loses the single-instance race waits for the winner's endpoint instead and answers
+/// `started: false, via: "running"`.
+fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, Value) {
+    if let Probe::Answered(status) = probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
+        let already_ready = core_state(&status) == Some("ready");
+        if !already_ready {
+            // Resets a crashed core's backoff and asks for an immediate spawn; a no-op while the core is
+            // already up (Monitor::spawn is idempotent), so this is safe to call unconditionally here too.
+            let _ = call_daemon_start(layout);
+        }
+        let status = if already_ready || no_wait {
+            status
+        } else {
+            wait_for_ready(out, layout, READY_TIMEOUT, status)
+        };
+        return (!already_ready, "running", status);
+    }
+
+    let svc = service::status(&SystemRunner, layout);
+    let mut via = "spawn";
+    let mut spawned: Option<std::process::Child> = None;
+    if svc.registered {
+        via = "service";
+        if let Err(e) = start_via_manager(&SystemRunner, svc.manager, &svc.name) {
+            fail_service(out, &e);
+        }
+    } else {
+        let bin = std::env::current_exe().unwrap_or_else(|e| {
+            out.fail(
+                "E_INTERNAL",
+                &format!("cannot locate the plur1bus binary: {e}"),
+                json!({}),
+                1,
+            )
+        });
+        spawned = Some(spawn_supervise(&bin, layout).unwrap_or_else(|e| {
+            out.fail(
+                "E_INTERNAL",
+                &format!("cannot spawn the supervisor: {e}"),
+                json!({}),
+                1,
+            )
+        }));
+    }
+
+    let deadline = Instant::now() + ENDPOINT_TIMEOUT;
+    let mut lost_race = false;
+    let status = loop {
+        if let Probe::Answered(s) = probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
+            // H3-R4: the endpoint may be up because *we* won the race, or because a concurrent `daemon
+            // start`/service start won it first — the winner's pid in the answer tells us which.
+            if let Some(child) = spawned.as_ref() {
+                if s["supervisor"]["pid"].as_u64() != Some(child.id() as u64) {
+                    lost_race = true;
+                    via = "running";
+                }
+            }
+            break Some(s);
+        }
+        if let Some(child) = spawned.as_mut() {
+            if let Ok(Some(exit)) = child.try_wait() {
+                if exit.code() == Some(3) {
+                    // Our own spawn lost the single-instance race before the winner's endpoint was even up
+                    // yet. Keep waiting for it (below) and report as if we had merely found it running.
+                    lost_race = true;
+                    via = "running";
+                }
+            }
+        }
+        if Instant::now() >= deadline {
+            break None;
+        }
+        std::thread::sleep(POLL_INTERVAL);
+    };
+    let Some(status) = status else {
+        out.fail(
+            "E_CORE_UNAVAILABLE",
+            "the supervisor did not become reachable in time",
+            json!({ "reason": "not-ready" }),
+            1,
+        );
+    };
+
+    let started = !lost_race;
+    let status = if no_wait || core_state(&status) == Some("ready") {
+        status
+    } else {
+        wait_for_ready(out, layout, READY_TIMEOUT, status)
+    };
+    (started, via, status)
+}
+
+fn call_daemon_start(layout: &Layout) -> Result<Value, ()> {
+    let token = supervisor::read_token(layout).ok_or(())?;
+    let opts = ConnectOptions {
+        connect_timeout: PROBE_CONNECT_TIMEOUT,
+        call_timeout: PROBE_CALL_TIMEOUT,
+        endpoint: Endpoint::Supervisor,
+    };
+    let address = supervisor_address(&layout.home, platform_str());
+    let mut client = Client::connect(&address, &token, opts).map_err(drop)?;
+    client.call("daemon.start", json!({})).map_err(drop)
+}
+
+/// `daemon stop`: `daemon.stop`, then waits up to `budget + 10 s` for `run/supervisor.pid` to disappear. With no
+/// supervisor answering: `{ stopped: false, wasRunning: false }`, exit 0 (the brief).
+fn do_stop(out: &Out, layout: &Layout, budget_ms: Option<u64>) -> (bool, bool) {
+    let token = match supervisor::read_token(layout) {
+        Some(t) => t,
+        None => return (false, false),
+    };
+    let opts = ConnectOptions {
+        connect_timeout: PROBE_CONNECT_TIMEOUT,
+        call_timeout: Duration::from_secs(5),
+        endpoint: Endpoint::Supervisor,
+    };
+    let address = supervisor_address(&layout.home, platform_str());
+    let mut client = match Client::connect(&address, &token, opts) {
+        Ok(c) => c,
+        Err(_) => return (false, false),
+    };
+    let params = match budget_ms {
+        Some(b) => json!({ "budgetMs": b }),
+        None => json!({}),
+    };
+    if let Err(e) = client.call("daemon.stop", params) {
+        out.from_rpc_error(&e);
+    }
+    let budget = Duration::from_millis(budget_ms.unwrap_or(DEFAULT_STOP_BUDGET_MS));
+    let deadline = Instant::now() + budget + STOP_GRACE;
+    let pid_file = layout.supervisor_pid();
+    while pid_file.exists() {
+        if Instant::now() >= deadline {
+            return (false, true);
+        }
+        std::thread::sleep(POLL_INTERVAL);
+    }
+    (true, true)
+}
+
+pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
+    match cmd {
+        DaemonCmd::Start { no_wait } => {
+            let (started, via, status) = do_start(out, layout, no_wait);
+            out.ok(
+                "daemon.start/1",
+                &json!({ "started": started, "via": via, "status": status }),
+                || {
+                    format!(
+                        "{} (via {via})",
+                        if started {
+                            "started"
+                        } else {
+                            "already running"
+                        }
+                    )
+                },
+            );
+        }
+        DaemonCmd::Stop { budget_ms } => {
+            let (stopped, was_running) = do_stop(out, layout, budget_ms);
+            out.ok(
+                "daemon.stop/1",
+                &json!({ "stopped": stopped, "wasRunning": was_running }),
+                || {
+                    if !was_running {
+                        "not running".to_string()
+                    } else if stopped {
+                        "stopped".to_string()
+                    } else {
+                        "stop requested, still shutting down".to_string()
+                    }
+                },
+            );
+        }
+        DaemonCmd::Restart => {
+            let (stopped, was_running) = do_stop(out, layout, None);
+            let (started, via, status) = do_start(out, layout, false);
+            out.ok(
+                "daemon.restart/1",
+                &json!({
+                    "stopped": stopped,
+                    "wasRunning": was_running,
+                    "started": started,
+                    "via": via,
+                    "status": status,
+                }),
+                || format!("restarted (via {via})"),
+            );
+        }
+        DaemonCmd::Status => {
+            let svc = service::status(&SystemRunner, layout);
+            let supervisor = match probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
+                Probe::Answered(v) => v,
+                Probe::NotRunning => json!({ "process": { "state": "stopped" } }),
+                Probe::Unresponsive => {
+                    json!({ "process": { "state": "degraded", "reason": "unresponsive" } })
+                }
+            };
+            out.ok(
+                "daemon.status/1",
+                &json!({ "supervisor": supervisor, "service": svc }),
+                || {
+                    format!(
+                        "supervisor: {}; service: {} ({})",
+                        supervisor["process"]["state"].as_str().unwrap_or("?"),
+                        if svc.registered {
+                            "registered"
+                        } else {
+                            "not registered"
+                        },
+                        svc.manager.as_str()
+                    )
+                },
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn describe_core_names_every_state() {
+        let child = |extra: Value| {
+            let mut v = json!({ "process": { "state": "ready" }, "restarts": 0 });
+            merge(&mut v, extra);
+            json!({ "children": [v] })
+        };
+        fn merge(a: &mut Value, b: Value) {
+            if let (Some(a), Some(b)) = (a.as_object_mut(), b.as_object()) {
+                for (k, v) in b {
+                    a.insert(k.clone(), v.clone());
+                }
+            }
+        }
+        assert_eq!(describe_core(&json!({ "children": [] })), "core starting");
+        assert_eq!(
+            describe_core(&child(json!({ "process": { "state": "ready" } }))),
+            "core ready"
+        );
+        assert_eq!(
+            describe_core(&child(
+                json!({ "process": { "state": "degraded", "reason": "unresponsive" } })
+            )),
+            "core degraded"
+        );
+        assert_eq!(
+            describe_core(&child(json!({
+                "process": { "state": "crashed", "reason": "config-invalid" },
+                "nextRestartAt": Value::Null
+            }))),
+            "core crashed: config-invalid"
+        );
+        let now = supervisor::now_ms();
+        let d = describe_core(&child(json!({
+            "process": { "state": "crashed", "reason": "none" },
+            "restarts": 2,
+            "nextRestartAt": now + 500
+        })));
+        assert!(
+            d.starts_with("core restarting (restart 2, next attempt in "),
+            "{d}"
+        );
+        assert!(d.ends_with(" ms)"), "{d}");
+    }
+}
