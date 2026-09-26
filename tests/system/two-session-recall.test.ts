@@ -45,7 +45,7 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       t0 = performance.now();
       const r = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "when is the roadmap review"]);
       const ms = performance.now() - t0;
-      t.diagnostic(`CLI memory recall ${ms.toFixed(0)} ms; timing ${JSON.stringify(r.timing ?? null)}`);
+      t.diagnostic(`CLI memory recall wall ${ms.toFixed(0)} ms, engine timing.totalMs ${r.timing?.totalMs ?? "n/a"}; timing ${JSON.stringify(r.timing ?? null)}`);
       assert.equal(r.degraded, null, JSON.stringify(r.degraded));
       assert.match(r.joined.text, /roadmap review/i);
       if (REAL) {
@@ -53,6 +53,9 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
         // with `exceededBudget: true` while the models still lazy-loaded on the first recall).
         assert.notEqual(r.timing?.exceededBudget, true, JSON.stringify(r.timing));
         assert.ok(typeof r.timing?.totalMs === "number" && r.timing.totalMs < 400, `first recall totalMs: ${JSON.stringify(r.timing)}`);
+        // H3-R22: timing.totalMs counts only the engine's timed phases; the core aborts the recall at 600 ms of wall
+        // time (core.recall.hardBudgetMs), so the CLI's own wall time is the honest check.
+        assert.ok(ms < 600, `first recall CLI wall time ${ms.toFixed(0)} ms (timing.totalMs ${r.timing?.totalMs})`);
         // timing.namespacePhases records a "rerank" phase on every recall, even with no reranker, and its timer
         // also wraps the failure/timeout fallback. So require real cross-encoder time AND no engine rerank-failure
         // warning. Engine warnings go to the core's log file (logs/core.log), not stderr; both are checked.

@@ -28,16 +28,16 @@ fn main() {
         Cmd::Setup(_) => commands::stubs::milestone(
             &out,
             "setup",
-            "2a-H3",
+            "2a-H3b",
             "installer and service registration (spec §6.5)",
         ),
         Cmd::FirstAid { sub } => commands::firstaid::run(&out, &layout, sub),
         Cmd::Module(_) => {
-            commands::stubs::milestone(&out, "module", "2a-H3", "module lifecycle and graph")
+            commands::stubs::milestone(&out, "module", "2a-H3b", "module lifecycle and graph")
         }
         Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
         Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
-        Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3", "manifest check"),
+        Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3b", "manifest check"),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
         Cmd::Model(_) => commands::stubs::milestone(
             &out,

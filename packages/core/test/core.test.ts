@@ -321,6 +321,47 @@ describe("core run files (S11)", () => {
 });
 
 describe("core model warm-up (E4, S7)", () => {
+  // H3-R22: the models' probes alone leave the first recall cold (its own embeddings, the first table search); a
+  // recall that pays that inside the core's 600 ms hard budget answers `aborted` even though its phases look fast.
+  // The flat embedder stands in for a cold model: its first three embedQuery calls (the warm-up probe and the two a
+  // recall makes) take 350 ms each. The recall warm-up absorbs them, so the first client recall is clean.
+  it("the first memory.recall after engine.ready is not aborted: the recall warm-up absorbs the cold path (H3-R22)", async () => {
+    const home = newHome(); let calls = 0;
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => (++calls <= 3 ? 350 : 0) }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      let s: any; const until = Date.now() + 8000;
+      do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until);
+      assert.equal(s.engine.ready, true, JSON.stringify(s.engine));
+      assert.equal(calls >= 3, true, `the warm-up recall ran before engine.ready (embedQuery calls: ${calls})`);
+      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "when is the roadmap review", joined: true, budget: { hardMs: 600, softMs: 400 } });
+      assert.equal(r.degraded, null, `first recall: ${JSON.stringify(r.degraded)} timing ${JSON.stringify(r.timing)}`);
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
+  it("engine is models-warming (capability recall) while the recall warm-up runs, and its events are not forwarded", async () => {
+    const home = newHome(); let calls = 0;
+    // Probe fast, then the warm-up recall's first embedQuery takes 400 ms: the models are ready, the recall pass is not.
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => (++calls === 2 ? 400 : 0) }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    const got: string[] = []; c.onNotification((m) => got.push(m));
+    try {
+      await c.call("events.subscribe", {});
+      let s: any; const until = Date.now() + 5000;
+      do { s = await c.call<any>("core.status"); if (s.engine.degraded?.capability === "recall") break; await new Promise((r) => setTimeout(r, 20)); } while (Date.now() < until);
+      assert.deepEqual(s.engine.degraded, { reason: "models-warming", capability: "recall" });
+      assert.equal(s.engine.ready, false);
+      assert.equal(s.engine.models.embedder.state, "ready");
+      assert.deepEqual(s.agents.map((a: any) => a.activity.state), ["idle"], "the warm-up recall is not agent activity");
+      const until2 = Date.now() + 5000;
+      do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until2);
+      assert.equal(s.engine.ready, true); assert.equal(s.engine.degraded, null);
+      assert.equal(got.some((m) => m.startsWith("recall.") || m === "agent.activity"), false, JSON.stringify(got));
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
   it("engine is models-warming until warm completes, process stays ready", async () => {
     const home = newHome(); let first = true;
     // The first embedQuery is the warm-up's embedding probe: it takes 300 ms, as a model load would.

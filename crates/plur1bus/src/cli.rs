@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Leaf command paths (space-joined, e.g. `"memory add"`) exempt from the `[experimental]`
 /// stability mark — the only CLI surface ADR-016 §4/G14 calls stable. Every other implemented
 /// leaf command's `about` starts with `[experimental] `; a stub names its milestone instead
-/// (`2a-H3`, `M2`, `M3`, `M4`, `M1b-3` or `M8`) and is exempt for that reason (see the
+/// (`2a-H3b`, `M2`, `M3`, `M4`, `M1b-3` or `M8`) and is exempt for that reason (see the
 /// `leaf_commands_are_stable_or_marked_experimental` test below).
 /// Read by the `leaf_commands_are_stable_or_marked_experimental` test below and by anything else
 /// (docs, a future `plur1bus <cmd> --help` footer) that needs the stable subset; the binary
@@ -32,9 +32,9 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
-    /// Install the harness (runtime, service registration) — 2a-H3
+    /// Install the harness (runtime, service registration) — 2a-H3b
     Setup(StubArgs),
-    /// Check and repair the installation — 2a-H3
+    /// Check and repair the installation (repair — 2a-H3b)
     #[command(name = "1staid")]
     FirstAid {
         #[command(subcommand)]
@@ -60,7 +60,7 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ConfigCmd,
     },
-    /// Modules — 2a-H3
+    /// Modules — 2a-H3b
     Module(StubArgs),
     /// Supervisor control: start, stop, restart, status
     Daemon {
@@ -77,7 +77,7 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// Update check — 2a-H3
+    /// Update check — 2a-H3b
     Update(StubArgs),
     /// Users — M2
     User(StubArgs),
@@ -378,7 +378,7 @@ pub enum DaemonCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum CoreCmd {
-    /// [experimental] Run the core in the foreground (the supervisor's spawn target — 2a-H3)
+    /// [experimental] Run the core in the foreground (the supervisor's spawn target)
     Run,
 }
 
@@ -388,7 +388,7 @@ mod tests {
     use clap::CommandFactory;
 
     /// Milestone tags a stub command's `about` names (gen-docs.mjs's cli.md intro; G1).
-    const STUB_MILESTONES: &[&str] = &["2a-H3", "2a-H3b", "M1b-3", "M2", "M3", "M4", "M8"];
+    const STUB_MILESTONES: &[&str] = &["2a-H3b", "M1b-3", "M2", "M3", "M4", "M8"];
 
     fn collect_leaves(cmd: &clap::Command, prefix: &str, out: &mut Vec<(String, Option<String>)>) {
         let path = if prefix.is_empty() {

@@ -62,6 +62,56 @@ describe("warmup", () => {
     assert.ok(lines.some(([lvl, msg]) => lvl === "debug" && /warm/.test(msg)), JSON.stringify(lines));
   });
 
+  it("after the embedder is ready, runs one recall per agent in turn, logs each, then calls onRecallDone (H3-R22)", async () => {
+    const lines: Line[] = []; const order: string[] = []; const signals: AbortSignal[] = [];
+    const shutdown = new AbortController();
+    const w = startWarmup({
+      engine: fakeEngine(async () => { order.push("warm"); return models("ready", "ready"); }),
+      logger: recordingLogger(lines), signal: shutdown.signal, onDone: () => order.push("onDone"),
+      recall: {
+        agents: () => ["bernd", "anna", "ghost"],
+        recall: async (agentId, signal) => {
+          order.push(`recall:${agentId}`); signals.push(signal);
+          if (agentId === "ghost") throw new Error("synthetic recall failure");
+          return { degraded: agentId === "anna" ? { reason: "timeout" } : null };
+        },
+      },
+      onRecallDone: () => order.push("onRecallDone"),
+    });
+    await w.done;
+    assert.deepEqual(order, ["warm", "onDone", "recall:bernd", "recall:anna", "recall:ghost", "onRecallDone"]);
+    const warm = lines.filter(([lvl, msg]) => lvl === "info" && msg === "recall warm");
+    assert.deepEqual(warm.map(([, , f]) => [f!.agentId, f!.degraded, typeof f!.ms]), [["bernd", null, "number"], ["anna", "timeout", "number"]]);
+    assert.ok(lines.some(([lvl, msg, f]) => lvl === "debug" && msg === "recall warm-up failed" && f!.agentId === "ghost"), JSON.stringify(lines));
+    assert.equal(signals[0]!.aborted, false);
+    shutdown.abort(); // each recall's signal follows the shutdown signal (and its own timeout)
+    assert.equal(signals.every((s) => s.aborted), true);
+  });
+
+  it("skips the recall pass when the embedder is not ready, and still calls onRecallDone", async () => {
+    const order: string[] = [];
+    const w = startWarmup({
+      engine: fakeEngine(async () => models("failed", "ready", { error: "provider-failed" })),
+      logger: recordingLogger([]), signal: new AbortController().signal, onDone: () => order.push("onDone"),
+      recall: { agents: () => ["bernd"], recall: async () => { order.push("recall"); return null; } },
+      onRecallDone: () => order.push("onRecallDone"),
+    });
+    await w.done;
+    assert.deepEqual(order, ["onDone", "onRecallDone"]);
+  });
+
+  it("an abort during the recall pass ends it without throwing; onRecallDone still runs", async () => {
+    const order: string[] = [];
+    const w = startWarmup({
+      engine: fakeEngine(async () => models("ready", "disabled")),
+      logger: recordingLogger([]), signal: new AbortController().signal, onDone: () => {},
+      recall: { agents: () => ["bernd", "anna"], recall: (agentId) => { order.push(agentId); w.abort(); return new Promise(() => {}); } },
+      onRecallDone: () => order.push("onRecallDone"),
+    });
+    await w.done;
+    assert.deepEqual(order, ["bernd", "onRecallDone"]);
+  });
+
   it("projectModels rounds a fractional checkedAt and turns a non-finite one into null", () => {
     const frac = models("ready", "ready"); frac.embedder.checkedAt = 1_000.6; frac.reranker.checkedAt = Number.NaN;
     const p = projectModels(frac);
