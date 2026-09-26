@@ -76,10 +76,11 @@ export function startWarmup(o: WarmupOptions): Warmup {
     }
   })();
 
-  /** Per agent, in turn: memory.list by topic, then one rerank when the reranker is enabled. A failure or a timeout
-   *  is logged and the pass goes on; the shutdown ends it. */
+  /** Per agent, in turn: memory.list by topic; then one rerank for the whole pass when the reranker is enabled (a
+   *  remote reranker bills per call). A failure or a timeout is logged and the pass goes on; the shutdown ends it. */
   async function warmRecallPath(r: RecallPathWarmup, rerank: boolean, shutdown: AbortSignal): Promise<void> {
     const memory = o.engine.memory; const embedding = o.engine.embedding;
+    const deadline = () => AbortSignal.any([shutdown, AbortSignal.timeout(o.recallTimeoutMs ?? RECALL_WARMUP_TIMEOUT_MS)]);
     let ids: string[] = [];
     try { ids = r.agents(); } catch (err) { o.logger.debug("recall warm-up: no agent list", { err }); return; }
     for (const agentId of ids) {
@@ -88,15 +89,25 @@ export function startWarmup(o: WarmupOptions): Warmup {
       try {
         const principal = r.principal(agentId);
         if (!principal || !memory) continue;
-        const signal = AbortSignal.any([shutdown, AbortSignal.timeout(o.recallTimeoutMs ?? RECALL_WARMUP_TIMEOUT_MS)]);
-        const ended = abortedOf(signal); // memory.list takes no signal: the wait, not the read, ends at the deadline
-        await Promise.race([memory.list({ topic: WARMUP_QUERY, limit: 1 }, principal, AGENT_CONTEXT_CLI), ended]);
-        if (rerank && embedding && !signal.aborted) await Promise.race([embedding.rerank(WARMUP_QUERY, [...WARMUP_RERANK_DOCS], { topN: 1, signal }), ended]);
+        const signal = deadline();
+        // memory.list takes no signal: the wait, not the read, ends at the deadline.
+        const res = await Promise.race([memory.list({ topic: WARMUP_QUERY, limit: 1 }, principal, AGENT_CONTEXT_CLI), abortedOf(signal)]);
         if (shutdown.aborted) { o.logger.debug("recall warm-up wait aborted", { agentId }); return; }
-        o.logger.info("recall path warm", { agentId, ms: Math.round(performance.now() - t1), rerank, timedOut: signal.aborted });
+        // An agent without a table yet lists nothing: items 0 (its first capture creates the table).
+        o.logger.info("recall path warm", { agentId, ms: Math.round(performance.now() - t1), items: res ? res.items.length : null, truncated: res ? res.truncated : null, timedOut: res === null });
       } catch (err) {
         o.logger.debug("recall warm-up failed", { agentId, err, ms: Math.round(performance.now() - t1) });
       }
+    }
+    if (!rerank || !embedding || shutdown.aborted) return;
+    const t2 = performance.now();
+    try {
+      const signal = deadline();
+      const hits = await Promise.race([embedding.rerank(WARMUP_QUERY, [...WARMUP_RERANK_DOCS], { topN: 1, signal }), abortedOf(signal)]);
+      if (shutdown.aborted) { o.logger.debug("reranker warm-up wait aborted"); return; }
+      o.logger.info("reranker warm", { ms: Math.round(performance.now() - t2), timedOut: hits === null });
+    } catch (err) {
+      o.logger.debug("reranker warm-up failed", { err, ms: Math.round(performance.now() - t2) });
     }
   }
   return { done, abort: () => own.abort(new Error("warm-up aborted")) };

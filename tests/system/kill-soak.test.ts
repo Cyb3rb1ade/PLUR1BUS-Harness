@@ -121,11 +121,17 @@ function firstAid(h: string): any {
   return typeof r.exit === "number" ? JSON.parse(r.stdout) : r;
 }
 
-/** Every JSON line of `logs/core.log` and its rotated files (`core.log.1` … ), unparseable lines skipped. */
-function coreLogRecords(h: string): any[] {
+/** The soak's `logs.keep`: high enough that its core logs never rotate out (checked, see coreLogRecords). */
+const LOGS_KEEP = 20;
+
+/** Every JSON line of `logs/core.log` and its rotated files (`core.log.1` …), unparseable lines skipped; null when
+ *  the set may be incomplete (the oldest slot `core.log.<LOGS_KEEP>` exists, so older lines may have been dropped). */
+function coreLogRecords(h: string): any[] | null {
   const dir = join(h, "logs");
+  const files = readdirSync(dir).filter((f) => /^core\.log(\.\d+)?$/.test(f));
+  if (files.includes(`core.log.${LOGS_KEEP}`)) return null;
   const out: any[] = [];
-  for (const f of readdirSync(dir).filter((f) => /^core\.log(\.\d+)?$/.test(f))) {
+  for (const f of files) {
     for (const line of readFileSync(join(dir, f), "utf8").split("\n")) {
       if (!line.trim()) continue;
       try { out.push(JSON.parse(line)); } catch { /* torn by a SIGKILL */ }
@@ -135,24 +141,23 @@ function coreLogRecords(h: string): any[] {
 }
 
 /**
- * Ruling H3-R24: the one duplicate the soak tolerates. A journal line whose replay stored the turn, but whose core was
- * SIGKILLed before the engine's turn guard recorded it, is replayed again at the next start and stored twice: the
- * guard records late (engine PR E4.1). It qualifies only when the soak SIGKILLed a core after the line was journaled
- * and before that core logged `core ready` (its replay runs before ready; core.log is written synchronously, so a
- * `core ready` the core reached is on disk), and some core later logged `journal: replayed` for the line id. Any
- * other duplicate stays a hard failure.
+ * Ruling H3-R24: the one duplicate the soak tolerates. A journal line whose replayed capture stored the turn, but whose
+ * core was SIGKILLed before the engine's turn guard recorded it, is replayed again at the next start and stored twice:
+ * the guard records late (engine PR E4.1). A SIGKILL qualifies for a line when the killed core (by pid) logged
+ * `journal: replay start` for that line id before the kill and never logged `journal: replayed` for it (core.log is
+ * written with synchronous fd writes, so what the core logged before the kill is on disk). Returns the qualifying
+ * kills; each can add at most one extra copy.
  */
-function killedWhileReplaying(records: any[], kills: Array<{ at: number; instanceId: string | null }>, line: { id: string; at: number }): { at: number; instanceId: string } | null {
-  const readyAt = new Map<string, number>();
-  for (const r of records) if (r.msg === "core ready" && typeof r.instanceId === "string") readyAt.set(r.instanceId, Date.parse(r.at));
-  const replayedAt = records.filter((r) => r.msg === "journal: replayed" && r.id === line.id).map((r) => Date.parse(r.at));
+function killsDuringReplay(records: any[], kills: Array<{ at: number; pid: number }>, lineId: string): Array<{ at: number; pid: number; startAt: number }> {
+  const mine = records.filter((r) => r.id === lineId && typeof r.pid === "number");
+  const out: Array<{ at: number; pid: number; startAt: number }> = [];
   for (const k of kills) {
-    if (k.instanceId === null || k.at < line.at) continue;
-    const ready = readyAt.get(k.instanceId);
-    if (ready !== undefined && ready <= k.at) continue; // that core had finished its replay
-    if (replayedAt.some((t) => t > k.at)) return { at: k.at, instanceId: k.instanceId };
+    const start = mine.find((r) => r.msg === "journal: replay start" && r.pid === k.pid && Date.parse(r.at) <= k.at);
+    if (!start) continue;
+    if (mine.some((r) => r.msg === "journal: replayed" && r.pid === k.pid)) continue;
+    out.push({ at: k.at, pid: k.pid, startAt: Date.parse(start.at) });
   }
-  return null;
+  return out;
 }
 
 const readyChild = (h: string): any => { const c = coreChild(h); return c?.process?.state === "ready" && c; };
@@ -172,8 +177,8 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
     const kept = new Map<number, "stored" | "journaled">();
     /** H3-R24: fact index → its journal line (id from `memory add --json`, when it was journaled). */
     const journalLine = new Map<number, { id: string; at: number }>();
-    /** H3-R24: every core the soak SIGKILLed: when, and which core instance (from daemon status). */
-    const sigkills: Array<{ at: number; instanceId: string | null }> = [];
+    /** H3-R24: every core the soak SIGKILLed: when, and its pid. */
+    const sigkills: Array<{ at: number; pid: number }> = [];
     let outageObserved = false;
     try {
       for (let a = 0; a < AGENTS; a++) cli(h, ["agent", "create", `soak-${a}`]);
@@ -181,6 +186,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       cli(h, ["config", "set", "engine.duplicateThreshold", "1.01", "--yes"]);
       cli(h, ["config", "set", "supervisor.graceMs", "3000", "--yes"]);
       cli(h, ["config", "set", "supervisor.healthIntervalMs", "1000", "--yes"]);
+      cli(h, ["config", "set", "logs.keep", String(LOGS_KEEP), "--yes"]); // H3-R24 reads every core log line
       startDaemon(h, env);
 
       /** The OS service manager's pending restart of a SIGKILLed supervisor (performance.now() deadline). */
@@ -246,11 +252,10 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         if (rand() < KILL_P && restartAt === null && !quiet) {
           const now = performance.now();
           kills = kills.filter((k) => now - k < GIVE_UP_WINDOW_MS);
-          const victim = coreChild(h);
           const pid = corePid(h);
           if (pid !== null && kills.length >= GIVE_UP_EXITS - 1) counts.throttledKills++;
           else if (pid !== null) {
-            sigkills.push({ at: Date.now(), instanceId: victim?.pid === pid && typeof victim?.instanceId === "string" ? victim.instanceId : null });
+            sigkills.push({ at: Date.now(), pid });
             await killPid(pid, "SIGKILL");
             kills.push(performance.now());
             counts.coreKills++;
@@ -350,12 +355,18 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       t.diagnostic(`journaled facts replayed more than once, per third: ${perThird.map((x, k) => `${["first", "middle", "last"][k]} ${x.twice}/${x.journaled}`).join(", ")}`);
       // H3-R24: tolerated only for a core SIGKILLed while that line was being replayed (engine PR E4.1: the guard
       // records late); reported with the line id. Every other duplicate fails.
+      // At most one extra copy per qualifying kill; with an incomplete log set nothing is tolerated.
       const records = replayedTwice.length > 0 ? coreLogRecords(h) : [];
+      if (records === null) t.diagnostic(`core logs rotated past logs.keep ${LOGS_KEEP}: no duplicate is tolerated`);
       const untolerated = replayedTwice.filter((f) => {
         const line = journalLine.get(f.i);
-        const kill = line ? killedWhileReplaying(records, sigkills, line) : null;
-        if (kill) t.diagnostic(`todo (engine PR E4.1): fact ${f.i} stored ${f.n}x, journal line ${line!.id}: core ${kill.instanceId} SIGKILLed during its replay at ${new Date(kill.at).toISOString()}`);
-        return kill === null;
+        const qualifying = line && records ? killsDuringReplay(records, sigkills, line.id) : [];
+        const ok = f.n >= 2 && f.n - 1 <= qualifying.length;
+        if (ok) {
+          const ev = qualifying.map((k) => `pid ${k.pid} logged replay start at ${new Date(k.startAt).toISOString()}, SIGKILLed at ${new Date(k.at).toISOString()}, no replayed`).join("; ");
+          t.diagnostic(`todo (engine PR E4.1): fact ${f.i} stored ${f.n}x, journal line ${line!.id}: ${ev}`);
+        }
+        return !ok;
       });
       assert.deepEqual(untolerated, [], `journaled facts not present exactly once: ${JSON.stringify(untolerated.map((f) => ({ ...f, line: journalLine.get(f.i)?.id ?? null })))}`);
 

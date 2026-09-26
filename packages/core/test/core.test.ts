@@ -24,13 +24,14 @@ function newHome(): string {
   return home;
 }
 
-/** Every file under `dir` (relative path → "size:mtimeMs"), for before/after comparisons. */
-function snapshot(dir: string): Record<string, string> {
+/** Every file under `dir` (relative path → "size:mtimeMs"), for before/after comparisons; `skip` lists relative
+ *  directory paths left out. */
+function snapshot(dir: string, skip: readonly string[] = []): Record<string, string> {
   const out: Record<string, string> = {};
   const walk = (d: string) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const p = join(d, e.name);
-      if (e.isDirectory()) walk(p);
+      if (e.isDirectory()) { if (!skip.includes(relative(dir, p))) walk(p); }
       else { const st = statSync(p); out[relative(dir, p)] = `${st.size}:${st.mtimeMs}`; }
     }
   };
@@ -381,7 +382,7 @@ describe("core model warm-up (E4, S7)", () => {
   // H3-R23: a user-origin recall presents due reminders, records activity (run-state.json) and writes mood/neo state
   // into the agent workspace; the warm-up must do none of it. The control (a real recall afterwards) proves the
   // snapshot sees those writes.
-  it("the warm-up leaves the agent workspace untouched: activity, pending reminders, mood files (H3-R23)", async () => {
+  it("the warm-up leaves the home untouched: activity, pending reminders, mood files, no events (H3-R23)", async () => {
     const home = newHome(); const l = layout(home); let first = true;
     mkdirSync(l.workspaceDir("bernd"), { recursive: true, mode: 0o700 });
     const ws = realpathSync(l.workspaceDir("bernd"));
@@ -394,7 +395,11 @@ describe("core model warm-up (E4, S7)", () => {
     // The probe takes 300 ms, so the snapshot below is taken before the warm-up's memory.list runs.
     const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => { const d = first ? 300 : 0; first = false; return d; } }) });
     await core.start();
-    const before = snapshot(ws);
+    // The whole home, except what a running core writes on its own (logs, run files) and the LanceDB data files.
+    const SKIP = ["logs", "run", join("state", "lancedb")];
+    const rel = (f: string) => relative(realpathSync(home), join(ws, f));
+    const homeNow = () => snapshot(realpathSync(home), SKIP);
+    const before = homeNow();
     const c = await connect({ address: core.address, token: core.token });
     const got: string[] = []; c.onNotification((m) => got.push(m));
     try {
@@ -402,14 +407,14 @@ describe("core model warm-up (E4, S7)", () => {
       let s: any; const until = Date.now() + 8000;
       do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until);
       assert.equal(s.engine.ready, true, JSON.stringify(s.engine));
-      const after = snapshot(ws);
-      assert.deepEqual(after, before, "the warm-up changed the agent workspace");
+      const after = homeNow();
+      assert.deepEqual(after, before, "the warm-up changed the home");
       assert.equal(readFileSync(pendingFile, "utf8"), pending, "pending reminders unchanged");
-      for (const f of ["run-state.json", ".current-mood.txt", ".emotional-state.json"]) assert.equal(after[f], before[f], f);
+      for (const f of ["run-state.json", ".current-mood.txt", ".emotional-state.json"]) assert.equal(after[rel(f)], before[rel(f)], f);
       assert.equal(got.some((m) => m.startsWith("recall.")), false, JSON.stringify(got));
       // Control: a client recall does write the workspace (activity) and presents the due reminder.
       const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything due today", joined: true });
-      assert.notDeepEqual(snapshot(ws), before, "a real recall writes the workspace (the snapshot would see a warm-up's writes)");
+      assert.notDeepEqual(homeNow(), before, "a real recall writes the home (the snapshot would see a warm-up's writes)");
       assert.match(r.joined.text, /water the plants/);
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });

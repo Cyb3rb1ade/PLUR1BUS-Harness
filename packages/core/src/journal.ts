@@ -196,12 +196,15 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
 
     const { principal } = callerToPrincipal(line.caller, line.agentId, ws);
     try {
+      // H3-R24: marks the window in which a SIGKILL can store a line twice (engine PR E4.1: the turn guard records
+      // late); the kill soak matches it with the victim's pid.
+      o.logger.info("journal: replay start", { id: line.id, pid: process.pid });
       const handle = o.engine.capture({ agentId: line.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: line.messages, incognito: false, signal: AbortSignal.timeout(60_000), ...(line.sessionKey ? { sessionKey: line.sessionKey } : {}), runId: `journal:${line.id}` });
       const r = await handle.done;
       // E4 (1.8.0): `duplicate-turn` means this line's runId was already captured (a core killed mid-replay
       // replays it again), so the turn is stored and the line is done.
       const handled = (r.reason == null && r.stored + r.skipped > 0) || r.reason === "duplicate-turn";
-      if (handled) { replayed += 1; o.logger.info("journal: replayed", { file: agentFile, id: line.id, stored: r.stored, skipped: r.skipped }); }
+      if (handled) { replayed += 1; o.logger.info("journal: replayed", { file: agentFile, id: line.id, pid: process.pid, stored: r.stored, skipped: r.skipped }); }
       else { o.logger.warn("journal: capture not handled, line kept", { file: agentFile, id: line.id, reason: r.reason, stored: r.stored, skipped: r.skipped }); kept.push({ text, isPhysicalTail }); }
     } catch (e) {
       // R20.1: a rejected `done` keeps the line and replay continues with the next line/file.

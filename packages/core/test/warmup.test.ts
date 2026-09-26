@@ -62,7 +62,7 @@ describe("warmup", () => {
     assert.ok(lines.some(([lvl, msg]) => lvl === "debug" && /warm/.test(msg)), JSON.stringify(lines));
   });
 
-  it("after the embedder is ready, warms each agent's recall path with memory.list and a rerank, never recall (H3-R23)", async () => {
+  it("after the embedder is ready, warms each agent's recall path with memory.list and the reranker once, never recall (H3-R23)", async () => {
     const lines: Line[] = []; const order: string[] = []; const rerankSignals: AbortSignal[] = [];
     const shutdown = new AbortController();
     const engine = {
@@ -72,20 +72,22 @@ describe("warmup", () => {
         list: async (q: any, p: any, a: any) => {
           order.push(`list:${p.agentId}:${q.topic}:${q.limit}:${a.origin}`);
           if (p.agentId === "ghost") throw new Error("synthetic list failure");
-          return { agentId: p.agentId, items: [], truncated: false };
+          return { agentId: p.agentId, items: [{ id: "m-1" }], truncated: true };
         },
       },
       embedding: { rerank: async (q: string, docs: string[], o: any) => { order.push(`rerank:${docs.length}:${o.topN}`); rerankSignals.push(o.signal); return []; } },
     } as unknown as E.Engine;
     const w = startWarmup({
       engine, logger: recordingLogger(lines), signal: shutdown.signal, onDone: () => order.push("onDone"),
-      recallPath: { agents: () => ["bernd", "ghost", "nobody"], principal: (agentId) => (agentId === "nobody" ? null : ({ agentId } as unknown as E.Principal)) },
+      recallPath: { agents: () => ["bernd", "ghost", "nobody", "anna"], principal: (agentId) => (agentId === "nobody" ? null : ({ agentId } as unknown as E.Principal)) },
       onRecallDone: () => order.push("onRecallDone"),
     });
     await w.done;
-    assert.deepEqual(order, ["warm", "onDone", `list:bernd:${WARMUP_QUERY}:1:user`, "rerank:2:1", `list:ghost:${WARMUP_QUERY}:1:user`, "onRecallDone"]);
+    // One rerank for the whole pass (a remote reranker bills per call), after the agents' lists.
+    assert.deepEqual(order, ["warm", "onDone", `list:bernd:${WARMUP_QUERY}:1:user`, `list:ghost:${WARMUP_QUERY}:1:user`, `list:anna:${WARMUP_QUERY}:1:user`, "rerank:2:1", "onRecallDone"]);
     const warm = lines.filter(([lvl, msg]) => lvl === "info" && msg === "recall path warm");
-    assert.deepEqual(warm.map(([, , f]) => [f!.agentId, f!.rerank, typeof f!.ms]), [["bernd", true, "number"]]);
+    assert.deepEqual(warm.map(([, , f]) => [f!.agentId, f!.items, f!.truncated, f!.timedOut, typeof f!.ms]), [["bernd", 1, true, false, "number"], ["anna", 1, true, false, "number"]]);
+    assert.equal(lines.filter(([lvl, msg]) => lvl === "info" && msg === "reranker warm").length, 1);
     assert.ok(lines.some(([lvl, msg, f]) => lvl === "debug" && msg === "recall warm-up failed" && f!.agentId === "ghost"), JSON.stringify(lines));
     assert.equal(rerankSignals[0]!.aborted, false);
     shutdown.abort(); // the rerank's signal follows the shutdown signal (and its own timeout)

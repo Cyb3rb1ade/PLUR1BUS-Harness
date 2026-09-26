@@ -75,14 +75,14 @@ function projectJobs(jobs: EngineStatus["jobs"] | undefined): JobsStatus | null 
   };
 }
 
-const HEX64 = /^[0-9a-f]{64}$/;
+const HEX64 = /^[0-9a-f]{64}$/; // both sides are lower-cased before the comparison
 /** The caller the CLI sends (crates/plur1bus/src/identity.rs: host name, OS user), so the recall-path warm-up reads
  *  as the CLI principal. */
 function cliCaller(): { channel: "cli"; accountId: string; userId: string } {
   let user = "";
   try { user = userInfo().username; } catch { /* no passwd entry */ }
   return { channel: "cli", accountId: hostname() || "localhost", userId: user || "user" };
-} // both sides are lower-cased before the comparison
+}
 
 export function createCore(o: CoreOptions): Core {
   const home = resolveHome({ ...(o.home ? { home: o.home } : {}) });
