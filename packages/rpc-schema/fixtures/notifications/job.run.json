@@ -1,0 +1,1 @@
+{ "agentId": "bernd", "runId": "run-1", "job": "dream-light", "phase": "light", "trigger": "cron", "outcome": "skipped", "reason": "already_processed", "startedAt": 1700000000000, "finishedAt": 1700000000250, "durationMs": 250, "attempt": 1 }

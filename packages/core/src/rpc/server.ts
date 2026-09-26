@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { dirname } from "node:path";
 import { LineDecoder, LineTooLong, encodeLine } from "@plur1bus/module-api";
-import { METHODS, validateParams, validateRequest, validateResult, type Capabilities } from "@plur1bus/rpc-schema";
+import { METHODS, buildCapabilities, validateParams, validateRequest, validateResult, type Capabilities, type Deprecation } from "@plur1bus/rpc-schema";
 import type { HarnessLogger } from "../logger.ts";
 import { RpcError } from "./errors.ts";
 
@@ -14,6 +14,7 @@ export type Handler = (params: any, ctx: CallContext) => Promise<unknown>;
 export interface Subscription { id: string; connectionId: string; names?: string[]; agentId?: string }
 export interface Hello { contract: string; rpc: string; instanceId: string; pid: number; capabilities?: Capabilities }
 export interface DrainResult { drained: boolean; pending: number }
+export interface NotifyOptions { audience?: readonly string[]; optIn?: boolean }
 export interface RpcServer {
   listen(): Promise<void>;
   /** Resolves once every dispatch of a listed method that started before the call has written its reply (success or
@@ -22,8 +23,26 @@ export interface RpcServer {
   /** Ends every socket (a queued reply is still flushed), destroys the ones still open after `graceMs` (default 1000),
    *  closes the listener and removes the POSIX socket file. Idempotent. */
   close(o?: { graceMs?: number }): Promise<void>;
-  notify(method: string, params: object, filter?: (sub: Subscription) => boolean): void;
+  /** Sends a notification to every subscription it matches, at most once per connection. A subscription with `names`
+   *  gets only those; `optIn` delivers only to subscriptions whose `names` include `method` (never to a no-names one).
+   *  A subscription with `agentId` needs that id in `audience` when one is given, otherwise `params.agentId === agentId`. */
+  notify(method: string, params: object, opts?: NotifyOptions): void;
   subscriptions(): Subscription[];
+}
+
+// ADR-016 §5 / G13: the schema's deprecated surface, computed once; each name is warned about once per process.
+const DEPRECATED = (() => {
+  const caps = buildCapabilities([]);
+  const pick = (entries: Record<string, { deprecated?: Deprecation }>) => new Map(Object.entries(entries).flatMap(([name, e]) => (e.deprecated ? [[name, e.deprecated] as const] : [])));
+  return { method: pick(caps.methods), notification: pick(caps.notifications) };
+})();
+const warnedDeprecated = new Set<string>();
+function warnIfDeprecated(logger: HarnessLogger, kind: "method" | "notification", name: string): void {
+  const d = DEPRECATED[kind].get(name);
+  const key = `${kind}:${name}`;
+  if (!d || warnedDeprecated.has(key)) return;
+  warnedDeprecated.add(key);
+  logger.warn("deprecated surface used", { kind, name, since: d.since, removeAfter: d.removeAfter, replacement: d.replacement });
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
@@ -77,9 +96,11 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       return send(c, { jsonrpc: "2.0", id, result: o.hello() });
     }
     if (!c.authed) return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "authenticate first", { reason: "auth-required" }));
+    warnIfDeprecated(o.logger, "method", method);
 
     if (method === "events.subscribe") {
       const v = validateParams(method, params); if (!v.ok) return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") }));
+      for (const name of new Set<string>(params.names ?? [])) warnIfDeprecated(o.logger, "notification", name);
       const sub: Subscription = { id: randomUUID(), connectionId: c.id, ...(params.names ? { names: params.names } : {}), ...(params.agentId ? { agentId: params.agentId } : {}) };
       c.subs.set(sub.id, sub); return send(c, { jsonrpc: "2.0", id, result: { subscriptionId: sub.id } });
     }
@@ -179,12 +200,11 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       })();
       return closing;
     },
-    notify(method, params, filter) {
+    notify(method, params, opts = {}) {
       const line = encodeLine({ jsonrpc: "2.0", method, params });
       for (const c of conns.values()) for (const sub of c.subs.values()) {
-        if (sub.names && !sub.names.includes(method)) continue;
-        if (sub.agentId && (params as any).agentId !== sub.agentId) continue;
-        if (filter && !filter(sub)) continue;
+        if (opts.optIn ? !sub.names?.includes(method) : sub.names && !sub.names.includes(method)) continue;
+        if (sub.agentId && !(opts.audience ? opts.audience.includes(sub.agentId) : (params as { agentId?: unknown }).agentId === sub.agentId)) continue;
         writeToSocket(c, line); break; // one delivery per connection
       }
     },

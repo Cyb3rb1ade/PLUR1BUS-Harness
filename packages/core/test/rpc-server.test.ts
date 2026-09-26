@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createConnection } from "node:net";
@@ -93,6 +93,48 @@ describe("rpc server", () => {
     await new Promise((r) => setTimeout(r, 30));
     assert.equal(got.length, 1);
     await c.close();
+  });
+
+  it("an optIn notification reaches only subscriptions that name it", async () => {
+    const all = await connect({ address, token: TOKEN }); const named = await connect({ address, token: TOKEN });
+    const gotAll: unknown[] = []; all.onNotification((m, p) => gotAll.push([m, p]));
+    const gotNamed: unknown[] = []; named.onNotification((m, p) => gotNamed.push([m, p]));
+    await all.call("events.subscribe", {});
+    await named.call("events.subscribe", { names: ["engine.event"] });
+    const ev = { name: "recall.completed", agentId: "bernd", payload: { agentId: "bernd" } };
+    server.notify("engine.event", ev, { optIn: true });
+    server.notify("core.state", { process: { state: "ready" } });
+    await new Promise((r) => setTimeout(r, 30));
+    assert.deepEqual(gotAll, [["core.state", { process: { state: "ready" } }]]);
+    assert.deepEqual(gotNamed, [["engine.event", ev]]);
+    await all.close(); await named.close();
+  });
+
+  it("an audience lets a subscription filtered to either agent receive it", async () => {
+    const clients = await Promise.all(["bernd", "anna", "ghost"].map(() => connect({ address, token: TOKEN })));
+    const got: string[][] = [[], [], []];
+    clients.forEach((c, i) => c.onNotification((m) => got[i]!.push(m)));
+    await Promise.all(["bernd", "anna", "ghost"].map((agentId, i) => clients[i]!.call("events.subscribe", { agentId })));
+    server.notify("memory.proposal", { agentId: "bernd", proposalId: "p-1", status: "pending", sharerAgentId: "bernd", proposerAgentId: "anna", sharedId: "m-1" }, { audience: ["bernd", "anna"] });
+    await new Promise((r) => setTimeout(r, 30));
+    assert.deepEqual(got, [["memory.proposal"], ["memory.proposal"], []]);
+    await Promise.all(clients.map((c) => c.close()));
+  });
+
+  it("subscribing to a deprecated notification logs one warning per process", async () => {
+    const c = await connect({ address, token: TOKEN });
+    await c.call("events.subscribe", { names: ["engine.event"] });
+    await c.call("events.subscribe", { names: ["engine.event", "core.state"] });
+    await c.call("events.subscribe", { names: ["core.state"] });
+    await c.close();
+    await new Promise((r) => setTimeout(r, 50)); // let the log stream flush
+    const warnings = readFileSync(join(dir, "core.log"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l))
+      .filter((r) => r.msg === "deprecated surface used");
+    assert.equal(warnings.length, 1, JSON.stringify(warnings));
+    assert.equal(warnings[0].level, "warn");
+    assert.equal(warnings[0].kind, "notification"); assert.equal(warnings[0].name, "engine.event");
+    assert.equal(warnings[0].since, "1.1.0"); assert.equal(warnings[0].removeAfter, "2027-03-26");
+    assert.match(warnings[0].replacement, /recall\.completed/);
   });
 
   it("rejects core.auth params that fail schema validation and closes the connection", async () => {

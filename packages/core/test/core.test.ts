@@ -59,6 +59,40 @@ describe("core", () => {
     assert.deepEqual(c.hello.capabilities?.features, [...CORE_FEATURES].sort());
   });
 
+  it("core.auth features include events.harness", () => {
+    assert.ok(c.hello.capabilities?.features.includes("events.harness"), c.hello.capabilities?.features.join(","));
+  });
+
+  it("a subscriber without names gets recall.completed and never engine.event", async () => {
+    const s = await connect({ address: core.address, token: core.token });
+    try {
+      const got: Array<[string, any]> = []; s.onNotification((m, p) => got.push([m, p]));
+      await s.call("events.subscribe", {});
+      await c.call("memory.recall", { caller, agentId: "bernd", query: "anything about lunch" });
+      await new Promise((r) => setTimeout(r, 200));
+      const completed = got.filter(([m]) => m === "recall.completed");
+      assert.equal(completed.length, 1, JSON.stringify(got));
+      assert.equal(completed[0]![1].agentId, "bernd"); assert.equal(typeof completed[0]![1].totalMs, "number");
+      assert.equal("timing" in completed[0]![1], false);
+      assert.equal(got.some(([m]) => m === "engine.event"), false, JSON.stringify(got));
+    } finally { await s.close(); }
+  });
+
+  it("a subscriber naming engine.event still gets it verbatim", async () => {
+    const s = await connect({ address: core.address, token: core.token });
+    try {
+      const got: Array<[string, any]> = []; s.onNotification((m, p) => got.push([m, p]));
+      await s.call("events.subscribe", { names: ["engine.event"] });
+      await c.call("memory.recall", { caller, agentId: "bernd", query: "anything about lunch" });
+      await new Promise((r) => setTimeout(r, 200));
+      assert.ok(got.every(([m]) => m === "engine.event"), JSON.stringify(got));
+      const ev = got.find(([, p]) => p.name === "recall.completed");
+      assert.ok(ev, JSON.stringify(got));
+      assert.equal(ev[1].agentId, "bernd");
+      assert.equal(ev[1].payload.agentId, "bernd"); assert.equal(typeof ev[1].payload.timing.totalMs, "number");
+    } finally { await s.close(); }
+  });
+
   it("core.status reports the engine store schema", async () => {
     const s = await c.call<any>("core.status");
     assert.equal(typeof s.engine.storeSchema.expected, "string");

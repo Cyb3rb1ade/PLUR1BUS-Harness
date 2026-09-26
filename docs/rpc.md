@@ -1636,15 +1636,21 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `engine.event`
 
-**Stability:** experimental · since 1.0.0
+**Stability:** experimental · since 1.0.0 · **deprecated** since 1.1.0, removal not before 2027-03-26; use harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)
 
-Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.
+Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.0.0",
-  "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.",
+  "deprecated": true,
+  "x-deprecated": {
+    "since": "1.1.0",
+    "removeAfter": "2027-03-26",
+    "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)"
+  },
+  "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1668,6 +1674,343 @@ Every engine event forwarded verbatim: name is the EngineEventName, payload as e
       "$ref": "#/$defs/AgentId"
     },
     "payload": {}
+  }
+}
+```
+
+### `recall.completed`
+
+**Stability:** experimental · since 1.1.0
+
+One per recall attempt: total wall time and whether it degraded.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "One per recall attempt: total wall time and whether it degraded.",
+  "required": [
+    "agentId",
+    "totalMs",
+    "degraded"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "totalMs": {
+      "type": "number"
+    },
+    "degraded": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Degraded"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+### `recall.degraded`
+
+**Stability:** experimental · since 1.1.0
+
+A recall exited degraded (timeout, abort, pressure, store error, ...).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "A recall exited degraded (timeout, abort, pressure, store error, ...).",
+  "required": [
+    "agentId",
+    "degraded"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
+}
+```
+
+### `recall.block-clipped`
+
+**Stability:** experimental · since 1.1.0
+
+The inject-budget join clipped a context block from `from` to `to` characters.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "The inject-budget join clipped a context block from `from` to `to` characters.",
+  "required": [
+    "agentId",
+    "block",
+    "from",
+    "to",
+    "reason"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "block": {
+      "type": "string"
+    },
+    "from": {
+      "type": "integer"
+    },
+    "to": {
+      "type": "integer"
+    },
+    "reason": {
+      "enum": [
+        "global-cap",
+        "memories-cap"
+      ]
+    }
+  }
+}
+```
+
+### `recall.block-dropped`
+
+**Stability:** experimental · since 1.1.0
+
+The inject-budget join dropped a context block (`to` is 0).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "The inject-budget join dropped a context block (`to` is 0).",
+  "required": [
+    "agentId",
+    "block",
+    "from",
+    "to",
+    "reason"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "block": {
+      "type": "string"
+    },
+    "from": {
+      "type": "integer"
+    },
+    "to": {
+      "type": "integer"
+    },
+    "reason": {
+      "enum": [
+        "global-cap",
+        "memories-cap"
+      ]
+    }
+  }
+}
+```
+
+### `job.run`
+
+**Stability:** experimental · since 1.1.0
+
+One per finished job run (the ledger row without counts, cost and keys).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "One per finished job run (the ledger row without counts, cost and keys).",
+  "required": [
+    "agentId",
+    "runId",
+    "job",
+    "phase",
+    "trigger",
+    "outcome",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "attempt"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "job": {
+      "type": "string"
+    },
+    "phase": {
+      "oneOf": [
+        {
+          "enum": [
+            "light",
+            "rem",
+            "deep"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "trigger": {
+      "$ref": "#/$defs/JobTrigger"
+    },
+    "outcome": {
+      "$ref": "#/$defs/JobOutcome"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": "integer"
+    },
+    "finishedAt": {
+      "type": "integer"
+    },
+    "durationMs": {
+      "type": "integer"
+    },
+    "attempt": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `memory.proposal`
+
+**Stability:** experimental · since 1.1.0
+
+A change proposal against a shared copy was filed or resolved (D31). agentId is the sharer; delivered to subscriptions filtered to the sharer or the proposer. Agent ids are plain strings: a copy may come from another host's agent.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "A change proposal against a shared copy was filed or resolved (D31). agentId is the sharer; delivered to subscriptions filtered to the sharer or the proposer. Agent ids are plain strings: a copy may come from another host's agent.",
+  "required": [
+    "agentId",
+    "proposalId",
+    "status",
+    "sharerAgentId",
+    "proposerAgentId",
+    "sharedId"
+  ],
+  "properties": {
+    "agentId": {
+      "type": "string"
+    },
+    "proposalId": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryProposalStatus"
+    },
+    "sharerAgentId": {
+      "type": "string"
+    },
+    "proposerAgentId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `dream.completed`
+
+**Stability:** experimental · since 1.1.0
+
+Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+### `acl.denied`
+
+**Stability:** experimental · since 1.1.0
+
+Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+### `embedding.identity.changed`
+
+**Stability:** experimental · since 1.1.0
+
+Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
   }
 }
 ```
@@ -2101,6 +2444,34 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `JobTrigger`
+
+```json
+{
+  "enum": [
+    "cron",
+    "manual",
+    "harness",
+    "capture",
+    "unknown"
+  ]
+}
+```
+
+### `JobOutcome`
+
+```json
+{
+  "enum": [
+    "completed",
+    "skipped",
+    "incomplete",
+    "failed",
+    "abandoned"
+  ]
+}
+```
+
 ### `JobRun`
 
 ```json
@@ -2129,13 +2500,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "$ref": "#/$defs/AgentId"
     },
     "trigger": {
-      "enum": [
-        "cron",
-        "manual",
-        "harness",
-        "capture",
-        "unknown"
-      ]
+      "$ref": "#/$defs/JobTrigger"
     },
     "startedAt": {
       "type": "integer"
@@ -2147,13 +2512,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "integer"
     },
     "outcome": {
-      "enum": [
-        "completed",
-        "skipped",
-        "incomplete",
-        "failed",
-        "abandoned"
-      ]
+      "$ref": "#/$defs/JobOutcome"
     },
     "reason": {
       "type": "string"

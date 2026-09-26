@@ -122,6 +122,20 @@ describe("memory ops (in-process core)", () => {
     assert.equal(seen2.resolutionNote, "the date is fixed");
   });
 
+  it("memory.proposal reaches a subscriber filtered to the proposer", async () => {
+    const id = await capture("bernd", "Please remember that the offsite is in Hamburg.");
+    const { sharedId: copy } = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
+    const s = await connect({ address: core.address, token: core.token });
+    try {
+      const got: any[] = [];
+      const arrived = new Promise<void>((res) => s.onNotification((m, p) => { if (m === "memory.proposal") { got.push(p); res(); } }));
+      await s.call("events.subscribe", { agentId: "anna" });
+      const pr = await c.call<any>("memory.propose", { caller, agentId: "anna", sharedId: copy, text: "The offsite is in Berlin." });
+      await Promise.race([arrived, new Promise((_, rej) => setTimeout(() => rej(new Error("no memory.proposal notification")), 2000))]);
+      assert.deepEqual(got[0], { agentId: "bernd", proposalId: pr.proposalId, status: "pending", sharerAgentId: "bernd", proposerAgentId: "anna", sharedId: copy });
+    } finally { await s.close(); }
+  });
+
   it("accept by the proposer is E_NOT_FOUND (anti-oracle)", async () => {
     const id = await capture("bernd", "Please remember that the demo day is in March.");
     const { sharedId: copy } = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });

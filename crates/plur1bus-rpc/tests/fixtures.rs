@@ -161,6 +161,17 @@ fn every_notification_fixture_round_trips() {
             "engine.event" => round_trip::<types::EngineEventNotification>(v, name),
             "agent.activity" => round_trip::<types::AgentActivityNotification>(v, name),
             "core.state" => round_trip::<types::CoreStateNotification>(v, name),
+            "recall.completed" => round_trip::<types::RecallCompletedNotification>(v, name),
+            "recall.degraded" => round_trip::<types::RecallDegradedNotification>(v, name),
+            "recall.block-clipped" => round_trip::<types::RecallBlockClippedNotification>(v, name),
+            "recall.block-dropped" => round_trip::<types::RecallBlockDroppedNotification>(v, name),
+            "job.run" => round_trip::<types::JobRunNotification>(v, name),
+            "memory.proposal" => round_trip::<types::MemoryProposalNotification>(v, name),
+            "dream.completed" => round_trip::<types::DreamCompletedNotification>(v, name),
+            "acl.denied" => round_trip::<types::AclDeniedNotification>(v, name),
+            "embedding.identity.changed" => {
+                round_trip::<types::EmbeddingIdentityChangedNotification>(v, name)
+            }
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

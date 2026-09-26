@@ -1,13 +1,14 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import { RPC_VERSION, buildCapabilities, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
+import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { loadConfig } from "./config-load.ts";
 import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig } from "./engine-config.ts";
+import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { drainJournal } from "./journal.ts";
 import { acquireCoreLock } from "./lock.ts";
@@ -26,6 +27,8 @@ export interface Core {
 type State = ProcessState & { since: number };
 
 const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/; // rpc.schema.json $defs/AgentId
+// engine.event's own name enum (rpc.schema.json): the deprecated verbatim forward never carries memory.proposal (G13).
+const ENGINE_EVENT_NAMES: readonly string[] = (SCHEMA as any).$defs.notifications["engine.event"].properties.name.enum;
 
 export interface CoreOptions {
   home?: string; instanceId?: string; testInternals?: Record<string, unknown>; clock?: () => number; logger?: HarnessLogger;
@@ -73,9 +76,17 @@ export function createCore(o: CoreOptions): Core {
       const registry = createAgentRegistry({ path: l.configPath }, l, logger); agents = registry;
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
+      const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
-        const agentId = (payload as { agentId?: unknown } | null)?.agentId;
-        server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload });
+        // ADR-016 §6: the harness-owned notification, projected onto its schema.
+        const m = mapEngineEvent(name, payload);
+        if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience } : {});
+        else if (!unmapped.has(name)) { unmapped.add(name); logger?.debug("unmapped engine event", { name }); }
+        // G13: the deprecated verbatim forward, only to subscriptions that name engine.event.
+        if (ENGINE_EVENT_NAMES.includes(name)) {
+          const agentId = (payload as { agentId?: unknown } | null)?.agentId;
+          server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload }, { optIn: true });
+        }
       };
       const host = createHarnessHost({ layout: l, logger, config, engineConfig, agents: registry, events, clock });
       const eng = bindEngine(host, engineConfig, o.testInternals); engine = eng;
