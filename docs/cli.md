@@ -47,6 +47,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus module`↴](#plur1bus-module)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
 * [`plur1bus service`↴](#plur1bus-service)
+* [`plur1bus service install`↴](#plur1bus-service-install)
+* [`plur1bus service uninstall`↴](#plur1bus-service-uninstall)
+* [`plur1bus service status`↴](#plur1bus-service-status)
 * [`plur1bus core`↴](#plur1bus-core)
 * [`plur1bus core run`↴](#plur1bus-core-run)
 * [`plur1bus update`↴](#plur1bus-update)
@@ -74,7 +77,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `config` — Configuration: get, set, schema
 * `module` — Modules — 2a-H3
 * `daemon` — Supervisor control — 2a-H3
-* `service` — OS service registration — 2a-H3
+* `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
 * `update` — Update check — 2a-H3
 * `user` — Users — M2
@@ -586,13 +589,43 @@ Supervisor control — 2a-H3
 
 ## `plur1bus service`
 
-OS service registration — 2a-H3
+OS service registration of the supervisor (user context, no admin rights)
 
-**Usage:** `plur1bus service`
+**Usage:** `plur1bus service <COMMAND>`
 
-###### **Arguments:**
+###### **Subcommands:**
 
-* `<REST>`
+* `install` — [experimental] Register the supervisor with the OS service manager and start it
+* `uninstall` — [experimental] Stop and unregister the supervisor's OS service
+* `status` — [experimental] Show whether the OS service is registered and running
+
+
+
+## `plur1bus service install`
+
+[experimental] Register the supervisor with the OS service manager and start it
+
+**Usage:** `plur1bus service install [OPTIONS]`
+
+###### **Options:**
+
+* `--no-start` — register only; the service starts at the next login
+
+
+
+## `plur1bus service uninstall`
+
+[experimental] Stop and unregister the supervisor's OS service
+
+**Usage:** `plur1bus service uninstall`
+
+
+
+## `plur1bus service status`
+
+[experimental] Show whether the OS service is registered and running
+
+**Usage:** `plur1bus service status`
 
 
 

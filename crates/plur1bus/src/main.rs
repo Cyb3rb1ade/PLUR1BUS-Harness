@@ -4,6 +4,7 @@ mod identity;
 mod journal;
 mod output;
 mod paths;
+mod service;
 mod supervisor;
 use clap::Parser;
 use cli::{Cli, Cmd};
@@ -42,9 +43,7 @@ fn main() {
             "2a-H3",
             "supervisor control; in H1 start the core with `plur1bus core run`",
         ),
-        Cmd::Service(_) => {
-            commands::stubs::milestone(&out, "service", "2a-H3", "OS service registration")
-        }
+        Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
         Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3", "manifest check"),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
         Cmd::Model(_) => commands::stubs::milestone(

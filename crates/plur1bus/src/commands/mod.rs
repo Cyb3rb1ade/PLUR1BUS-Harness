@@ -4,4 +4,5 @@ pub mod core;
 pub mod dreams;
 pub mod memory;
 pub mod memory_ops;
+pub mod service;
 pub mod stubs;

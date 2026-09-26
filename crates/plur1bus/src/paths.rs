@@ -144,6 +144,17 @@ pub fn resolve_home_from_process(cli_home: Option<&Path>) -> PathBuf {
     resolve_home(cli_home, &env, platform, &home_dir, None, &cwd)
 }
 
+/// The platform default home (`~/.plur1bus` or `%LOCALAPPDATA%\PLUR1BUS`), ignoring `--home` and `$PLUR1BUS_HOME`:
+/// the home whose OS service keeps the plain name (S10).
+pub fn default_home() -> PathBuf {
+    let mut env: HashMap<String, String> = std::env::vars().collect();
+    env.remove("PLUR1BUS_HOME");
+    let platform = if cfg!(windows) { "windows" } else { "posix" };
+    let home_dir = home::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    resolve_home(None, &env, platform, &home_dir, None, &cwd)
+}
+
 #[derive(Debug, Clone)]
 pub struct Layout {
     pub home: PathBuf,

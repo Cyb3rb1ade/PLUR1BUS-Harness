@@ -64,8 +64,11 @@ pub enum Cmd {
     Module(StubArgs),
     /// Supervisor control — 2a-H3
     Daemon(StubArgs),
-    /// OS service registration — 2a-H3
-    Service(StubArgs),
+    /// OS service registration of the supervisor (user context, no admin rights)
+    Service {
+        #[command(subcommand)]
+        sub: ServiceCmd,
+    },
     /// Core process (internal)
     Core {
         #[command(subcommand)]
@@ -333,6 +336,23 @@ pub enum TierFilter {
     Basic,
     Advanced,
 }
+#[derive(Subcommand, Debug)]
+pub enum ServiceCmd {
+    /// [experimental] Register the supervisor with the OS service manager and start it
+    Install {
+        /// register only; the service starts at the next login
+        #[arg(long)]
+        no_start: bool,
+        /// Extra environment for the service, KEY=VALUE (internal; not supported on Windows)
+        #[arg(long = "env", hide = true, value_name = "KEY=VALUE")]
+        env: Vec<String>,
+    },
+    /// [experimental] Stop and unregister the supervisor's OS service
+    Uninstall,
+    /// [experimental] Show whether the OS service is registered and running
+    Status,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum CoreCmd {
     /// [experimental] Run the core in the foreground (the supervisor's spawn target — 2a-H3)
