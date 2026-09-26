@@ -7,6 +7,8 @@ export const BIN = resolve(process.env.PLUR1BUS_BIN ?? "target/release/plur1bus"
 export const CORE_JS = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
 /** PLUR1BUS_REAL_MODELS=1: real embedder + reranker (downloads the models); otherwise the R17 flat-embedder seam. */
 export const REAL = process.env.PLUR1BUS_REAL_MODELS === "1";
+/** Shared memory needs the engine's stable directory capabilities (fd-backed aliases via /proc/self/fd): Linux only at the pin. */
+export const SHARED_MEMORY = process.platform === "linux";
 
 /** A fresh temp home. With real models and PLUR1BUS_MODELS_CACHE set, `<home>/models` (the core's model
  *  cacheDir) is a symlink to that directory, so a CI cache can keep the ~600 MB download across runs. */
