@@ -132,21 +132,26 @@ pub(crate) fn supervisor_detail(layout: &Layout) -> String {
     }
 }
 
+/// `core <state>[: reason][; restart in N ms]` for the core child of a `daemon.status` result (ruling H3-R25): the
+/// wording of every core-unavailable document and, without the `core ` prefix, of `daemon status`'s `core:` line.
 fn describe_core(status: &Value) -> String {
     let Some(child) = status["children"].get(0) else {
         return "core starting".to_string();
     };
     let state = child["process"]["state"].as_str().unwrap_or("starting");
+    let mut text = format!("core {state}");
+    if let Some(reason) = child["process"]["reason"].as_str() {
+        text.push_str(&format!(": {reason}"));
+    } else if state == "crashed" {
+        text.push_str(": none");
+    }
     if state == "crashed" {
         if let Some(next_at) = child["nextRestartAt"].as_u64() {
-            let restarts = child["restarts"].as_u64().unwrap_or(0);
             let remaining = next_at.saturating_sub(supervisor::now_ms());
-            return format!("core restarting (restart {restarts}, next attempt in {remaining} ms)");
+            text.push_str(&format!("; restart in {remaining} ms"));
         }
-        let reason = child["process"]["reason"].as_str().unwrap_or("none");
-        return format!("core crashed: {reason}");
     }
-    format!("core {state}")
+    text
 }
 
 /// Starts `<bin> --home <home> supervise` detached from this process: on unix in its own session
@@ -216,13 +221,39 @@ fn fail_service(out: &Out, e: &ServiceError) -> ! {
     )
 }
 
+/// The core child's `process` (`{ state: "crashed", reason, since }`) when it crashed in a way the supervisor will
+/// not retry on its own: `nextRestartAt: null` (`config-invalid`, `engine-contract`, or a give-up).
+fn fatal_crash(status: &Value) -> Option<&Value> {
+    let child = status["children"].get(0)?;
+    let process = &child["process"];
+    (process["state"] == "crashed" && child["nextRestartAt"].is_null()).then_some(process)
+}
+
 /// Polls `daemon.status` until the core child is `ready` or `deadline` passes; `E_CORE_UNAVAILABLE
-/// reason=not-ready` on timeout, with the last known status in the document (the brief).
-fn wait_for_ready(out: &Out, layout: &Layout, timeout: Duration, mut last: Value) -> Value {
+/// reason=not-ready` on timeout, with the last known status in the document (the brief). A crash the supervisor will
+/// not retry fails at once with `reason=core-crashed` and the crash reason (final review M3) instead of waiting out
+/// the timeout — except the crash `reset` names (its `process`, `since` included): the one `daemon.start` has just
+/// reset, which the supervisor still reports until its scheduler has respawned the core.
+fn wait_for_ready(
+    out: &Out,
+    layout: &Layout,
+    timeout: Duration,
+    mut last: Value,
+    reset: Option<Value>,
+) -> Value {
     let deadline = Instant::now() + timeout;
     loop {
         if core_state(&last) == Some("ready") {
             return last;
+        }
+        if let Some(process) = fatal_crash(&last).filter(|p| Some(*p) != reset.as_ref()) {
+            let reason = process["reason"].as_str().unwrap_or("none").to_string();
+            out.fail(
+                "E_CORE_UNAVAILABLE",
+                &format!("the core crashed: {reason}"),
+                json!({ "reason": "core-crashed", "detail": reason, "status": last }),
+                1,
+            );
         }
         if Instant::now() >= deadline {
             out.fail(
@@ -247,6 +278,8 @@ fn wait_for_ready(out: &Out, layout: &Layout, timeout: Duration, mut last: Value
 fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, Value) {
     if let Probe::Answered(status) = probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
         let already_ready = core_state(&status) == Some("ready");
+        // A fatal crash reported before the reset below is the one being reset, not a new one.
+        let reset = fatal_crash(&status).cloned();
         if !already_ready {
             // Resets a crashed core's backoff and asks for an immediate spawn; a no-op while the core is
             // already up (Monitor::spawn is idempotent), so this is safe to call unconditionally here too.
@@ -255,7 +288,7 @@ fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, V
         let status = if already_ready || no_wait {
             status
         } else {
-            wait_for_ready(out, layout, READY_TIMEOUT, status)
+            wait_for_ready(out, layout, READY_TIMEOUT, status, reset)
         };
         return (!already_ready, "running", status);
     }
@@ -348,7 +381,7 @@ fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, V
     let status = if no_wait || core_state(&status) == Some("ready") {
         status
     } else {
-        wait_for_ready(out, layout, READY_TIMEOUT, status)
+        wait_for_ready(out, layout, READY_TIMEOUT, status, None)
     };
     (started, via, status)
 }
@@ -464,36 +497,68 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
         DaemonCmd::Status => {
             let runner = super::service::runner(out);
             let svc = service::status(runner.as_ref(), layout);
-            let supervisor = match probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
-                Probe::Answered(v) => v,
-                Probe::NotRunning => json!({ "process": { "state": "stopped" } }),
-                Probe::Unresponsive => {
-                    json!({ "process": { "state": "degraded", "reason": "unresponsive" } })
-                }
-            };
+            let (supervisor, children) =
+                status_parts(probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT));
             let shared_memory = core_shared_memory(layout);
-            let mut doc = json!({ "supervisor": supervisor, "service": svc });
+            let mut doc = json!({ "supervisor": supervisor, "children": children, "service": svc });
             if let (Some(obj), Some(s)) = (doc.as_object_mut(), &shared_memory) {
                 obj.insert("sharedMemory".to_string(), s.clone());
             }
             out.ok("daemon.status/1", &doc, || {
-                let head = format!(
-                    "supervisor: {}; service: {} ({})",
-                    supervisor["process"]["state"].as_str().unwrap_or("?"),
-                    if svc.registered {
-                        "registered"
-                    } else {
-                        "not registered"
-                    },
-                    svc.manager.as_str()
-                );
-                match &shared_memory {
-                    Some(s) => format!("{head}\nshared memory: {}", describe_shared_memory(s)),
-                    None => head,
+                let mut lines = vec![
+                    format!(
+                        "supervisor: {}",
+                        supervisor["process"]["state"].as_str().unwrap_or("unknown")
+                    ),
+                    format!("core: {}", core_line(&supervisor, &children)),
+                    format!(
+                        "service: {} ({})",
+                        if svc.registered {
+                            "registered"
+                        } else {
+                            "not registered"
+                        },
+                        svc.manager.as_str()
+                    ),
+                ];
+                if let Some(s) = &shared_memory {
+                    lines.push(format!("shared memory: {}", describe_shared_memory(s)));
                 }
+                lines.join("\n")
             });
         }
     }
+}
+
+/// `daemon status --json` (ruling H3-R25): the supervisor's own entry always sits at `supervisor` (`{ process: {
+/// state, … }, instanceId?, pid?, uptimeMs? }`) and the children always at `children`, whether the supervisor
+/// answered, is not running or is unresponsive — never the nested `daemon.status` result.
+fn status_parts(probe: Probe) -> (Value, Value) {
+    match probe {
+        Probe::Answered(mut v) => {
+            let children = match v["children"].take() {
+                Value::Null => json!([]),
+                c => c,
+            };
+            (v["supervisor"].take(), children)
+        }
+        Probe::NotRunning => (json!({ "process": { "state": "stopped" } }), json!([])),
+        Probe::Unresponsive => (
+            json!({ "process": { "state": "degraded", "reason": "unresponsive" } }),
+            json!([]),
+        ),
+    }
+}
+
+/// The `core:` line of `daemon status`: `<state>[: reason][; restart in …]`, the same wording [`describe_core`]
+/// gives every core-unavailable document, minus its `core ` prefix. `unknown` while no supervisor answers.
+fn core_line(supervisor: &Value, children: &Value) -> String {
+    let answered = supervisor.get("pid").is_some();
+    if !answered {
+        return "unknown (the supervisor is not answering)".to_string();
+    }
+    let text = describe_core(&json!({ "children": children }));
+    text.strip_prefix("core ").unwrap_or(&text).to_string()
 }
 
 #[cfg(test)]
@@ -523,7 +588,7 @@ mod tests {
             describe_core(&child(
                 json!({ "process": { "state": "degraded", "reason": "unresponsive" } })
             )),
-            "core degraded"
+            "core degraded: unresponsive"
         );
         assert_eq!(
             describe_core(&child(json!({
@@ -534,14 +599,35 @@ mod tests {
         );
         let now = supervisor::now_ms();
         let d = describe_core(&child(json!({
-            "process": { "state": "crashed", "reason": "none" },
+            "process": { "state": "crashed", "reason": "lock-held" },
             "restarts": 2,
             "nextRestartAt": now + 500
         })));
-        assert!(
-            d.starts_with("core restarting (restart 2, next attempt in "),
-            "{d}"
-        );
-        assert!(d.ends_with(" ms)"), "{d}");
+        assert!(d.starts_with("core crashed: lock-held; restart in "), "{d}");
+        assert!(d.ends_with(" ms"), "{d}");
+    }
+
+    #[test]
+    fn status_parts_keep_the_same_paths_in_every_case() {
+        // Ruling H3-R25: `supervisor.process.state` and `children` sit at the same path whatever the probe found.
+        let answered = json!({
+            "supervisor": { "process": { "state": "ready", "since": 1 }, "instanceId": "i", "pid": 7, "uptimeMs": 5 },
+            "children": [{ "role": "core", "process": { "state": "ready" } }]
+        });
+        let (sup, children) = status_parts(Probe::Answered(answered));
+        assert_eq!(sup["process"]["state"], "ready");
+        assert_eq!(sup["pid"], 7);
+        assert_eq!(children[0]["role"], "core");
+        assert_eq!(core_line(&sup, &children), "ready");
+
+        let (sup, children) = status_parts(Probe::NotRunning);
+        assert_eq!(sup["process"]["state"], "stopped");
+        assert_eq!(children, json!([]));
+        assert!(core_line(&sup, &children).starts_with("unknown"));
+
+        let (sup, children) = status_parts(Probe::Unresponsive);
+        assert_eq!(sup["process"]["state"], "degraded");
+        assert_eq!(sup["process"]["reason"], "unresponsive");
+        assert_eq!(children, json!([]));
     }
 }

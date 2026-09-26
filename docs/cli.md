@@ -630,6 +630,8 @@ Supervisor control: start, stop, restart, status
 
 [experimental] Supervisor and core status
 
+Prints `supervisor: <state>`, `core: <state>[: reason][; restart in N ms]` and the OS service registration. With `--json` (`daemon.status/1`), `supervisor` is always the supervisor's own entry (`process.state`, plus `instanceId`, `pid` and `uptimeMs` while it answers; `stopped` when nothing runs, `degraded` with reason `unresponsive` when it does not answer), `children` the supervised children beside it (empty unless it answers), `service` the registration, and `sharedMemory` the core's shared-memory support when the core answers.
+
 **Usage:** `plur1bus daemon status`
 
 

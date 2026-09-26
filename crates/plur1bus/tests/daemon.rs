@@ -46,6 +46,12 @@ impl Home {
     }
 }
 
+impl Drop for Home {
+    fn drop(&mut self) {
+        teardown(&self.home);
+    }
+}
+
 /// A `plur1bus --json --home <home> <args>` invocation with the fake-core test seams set, run to completion.
 fn daemon_cmd(h: &Home, mode: &str, scale: &str, args: &[&str]) -> Command {
     let mut c = Command::new(bin());
@@ -137,6 +143,86 @@ fn stop_supervisor(home: &Path) {
     }
 }
 
+/// Best-effort teardown of whatever a test started under `home` (final review M1): `daemon.stop` if a supervisor
+/// answers, then a kill of every process `run/supervisor.pid` / `run/core.pid` still names — but only one whose
+/// command line names this home, so a stale pid file never kills an unrelated, recycled pid. Never panics: it runs
+/// from `Drop`, including while a failed assertion unwinds.
+fn teardown(home: &Path) {
+    let run = home.join("run");
+    if let Ok(token) = std::fs::read_to_string(run.join("supervisor.token")) {
+        let quick = ConnectOptions {
+            connect_timeout: Duration::from_millis(500),
+            call_timeout: Duration::from_secs(2),
+            endpoint: Endpoint::Supervisor,
+            expected_server_pid: None,
+        };
+        if let Ok(mut c) = Client::connect(&supervisor_address(home), token.trim(), quick) {
+            let _ = c.call("daemon.stop", json!({ "budgetMs": 500 }));
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while run.join("supervisor.pid").exists() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        }
+    }
+    for name in ["supervisor.pid", "core.pid"] {
+        let pid = std::fs::read_to_string(run.join(name))
+            .ok()
+            .and_then(|t| t.split_whitespace().next()?.parse::<u32>().ok());
+        if let Some(pid) = pid {
+            kill_if_under(pid, home);
+        }
+    }
+}
+
+#[cfg(unix)]
+fn kill_if_under(pid: u32, home: &Path) {
+    let Ok(out) = Command::new("ps")
+        .args(["-ww", "-o", "command=", "-p", &pid.to_string()])
+        .output()
+    else {
+        return;
+    };
+    if String::from_utf8_lossy(&out.stdout).contains(&*home.to_string_lossy()) {
+        // SAFETY: plain kill(2) on a pid whose command line names this test's own temp home.
+        unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+    }
+}
+
+#[cfg(windows)]
+fn kill_if_under(pid: u32, _home: &Path) {
+    // No portable command-line lookup here; the pid was written by this test's own processes moments ago.
+    let _ = Command::new("taskkill")
+        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+/// A process a test spawned itself (`supervise`, `core run`) under `home`: on drop — also when a test panics —
+/// [`teardown`] stops the stack cleanly, then the process is killed and reaped (like `tests/supervisor.rs`'s
+/// `Supervisor`).
+struct Spawned {
+    child: std::process::Child,
+    home: PathBuf,
+}
+
+impl Spawned {
+    fn new(child: std::process::Child, home: &Path) -> Self {
+        Self {
+            child,
+            home: home.to_path_buf(),
+        }
+    }
+}
+
+impl Drop for Spawned {
+    fn drop(&mut self) {
+        teardown(&self.home);
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
 /// A temp home plus a fake service-manager directory (`PLUR1BUS_SERVICE_FAKE`) and a stand-in user home, for the
 /// "start via the registered service" branch — mirrors `tests/service.rs`'s `Env`/`base`, so this never touches a
 /// real systemd/launchd/Task Scheduler.
@@ -145,6 +231,12 @@ struct ServiceEnv {
     home: PathBuf,
     user: PathBuf,
     fake: PathBuf,
+}
+
+impl Drop for ServiceEnv {
+    fn drop(&mut self) {
+        teardown(&self.home);
+    }
 }
 
 fn service_env() -> ServiceEnv {
@@ -369,6 +461,79 @@ fn daemon_status_without_supervisor_reports_stopped_and_the_service_state() {
     assert_eq!(v["service"]["registered"], false, "{v}");
 }
 
+/// Ruling H3-R25: with a running supervisor, `daemon status --json` has the supervisor's own entry at `supervisor`
+/// (not the nested `daemon.status` result) and the children beside it; the human output names both states.
+#[test]
+fn daemon_status_with_a_running_supervisor_is_flat_and_names_the_core() {
+    let h = Home::new();
+    let start = daemon_cmd(&h, "ok", "0.02", &["daemon", "start"])
+        .output()
+        .unwrap();
+    assert_eq!(start.status.code(), Some(0), "{start:?}");
+
+    let out = plain_cmd(&h, &["daemon", "status"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let v = json_stdout(&out);
+    assert_eq!(v["schema"], "daemon.status/1", "{v}");
+    assert_eq!(v["supervisor"]["process"]["state"], "ready", "{v}");
+    assert!(v["supervisor"]["pid"].is_u64(), "{v}");
+    assert!(v["supervisor"]["instanceId"].is_string(), "{v}");
+    assert!(v["supervisor"].get("supervisor").is_none(), "{v}");
+    assert_eq!(v["children"][0]["role"], "core", "{v}");
+    assert_eq!(v["children"][0]["process"]["state"], "ready", "{v}");
+    assert_eq!(v["service"]["registered"], false, "{v}");
+
+    let human = Command::new(bin())
+        .arg("--home")
+        .arg(&h.home)
+        .args(["daemon", "status"])
+        .output()
+        .unwrap();
+    assert_eq!(human.status.code(), Some(0), "{human:?}");
+    let text = String::from_utf8_lossy(&human.stdout);
+    assert!(text.contains("supervisor: ready"), "{text}");
+    assert!(text.contains("core: ready"), "{text}");
+
+    stop_supervisor(&h.home);
+}
+
+/// Final review M3: a core that crashes fatally (exit 2 → `config-invalid`, never retried) fails `daemon start` at
+/// once with the crash reason instead of waiting out the 30 s readiness timeout — also when the supervisor was
+/// already running with that crash, where `daemon.start` resets it and only the *next* crash may end the wait.
+#[test]
+fn daemon_start_fails_fast_on_a_fatal_crash() {
+    let h = Home::new();
+    let started = Instant::now();
+    let out = daemon_cmd(&h, "exit:2", "0.02", &["daemon", "start"])
+        .output()
+        .unwrap();
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "took {:?}",
+        started.elapsed()
+    );
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let v = json_stdout(&out);
+    assert_eq!(v["error"], "E_CORE_UNAVAILABLE", "{v}");
+    assert_eq!(v["reason"], "core-crashed", "{v}");
+    assert_eq!(v["detail"], "config-invalid", "{v}");
+    let spawns_before = h.named_events("started").len();
+    assert!(spawns_before >= 1);
+
+    let out = daemon_cmd(&h, "exit:2", "0.02", &["daemon", "start"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let v = json_stdout(&out);
+    assert_eq!(v["reason"], "core-crashed", "{v}");
+    assert!(
+        h.named_events("started").len() > spawns_before,
+        "the second start must end only after the reset core crashed again: {v}"
+    );
+
+    stop_supervisor(&h.home);
+}
+
 #[cfg(unix)]
 #[test]
 fn daemon_status_with_a_hung_supervisor_answers_within_a_second() {
@@ -482,7 +647,7 @@ fn daemon_restart_gives_new_supervisor_and_core_pids() {
 fn recall_with_core_down_names_the_supervisor_state() {
     let h = Home::new();
     // Start a supervisor whose core exits 2 (config-invalid): fatal, no retry (H3-R11/S9).
-    let mut child = Command::new(bin())
+    let child = Command::new(bin())
         .arg("--home")
         .arg(&h.home)
         .arg("supervise")
@@ -499,6 +664,7 @@ fn recall_with_core_down_names_the_supervisor_state() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
+    let _supervise = Spawned::new(child, &h.home);
     wait_until("the supervisor token", WAIT, || {
         h.home.join("run/supervisor.token").exists()
     });
@@ -534,9 +700,6 @@ fn recall_with_core_down_names_the_supervisor_state() {
         detail.contains("crashed: config-invalid"),
         "detail did not name the supervisor's state: {detail:?}"
     );
-
-    let _ = child.kill();
-    let _ = child.wait();
 }
 
 /// Follow-up 1: `daemon start` prefers a registered OS service over spawning, and does so through the same
@@ -568,7 +731,7 @@ fn daemon_start_uses_a_registered_service_instead_of_spawning() {
         fake_calls(&e).contains(&expected_start_call(&name))
     });
     // Stand in for the OS actually launching the registered process (the fake only records the command).
-    let mut supervise = Command::new(bin())
+    let supervise = Command::new(bin())
         .arg("--home")
         .arg(&e.home)
         .arg("supervise")
@@ -584,6 +747,7 @@ fn daemon_start_uses_a_registered_service_instead_of_spawning() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
+    let _supervise = Spawned::new(supervise, &e.home);
 
     let out = start.wait_with_output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{out:?}");
@@ -597,9 +761,6 @@ fn daemon_start_uses_a_registered_service_instead_of_spawning() {
     // Nothing but the fake recorded a command; the assertion above is that the fake's calls, not a real
     // systemctl/launchctl/schtasks, are what `daemon start` drove.
     assert!(fake_calls(&e).contains(&expected_start_call(&name)));
-
-    let _ = supervise.kill();
-    let _ = supervise.wait();
 }
 
 /// Follow-up 2: a spawned `supervise` that exits for any reason other than losing the single-instance race (3)

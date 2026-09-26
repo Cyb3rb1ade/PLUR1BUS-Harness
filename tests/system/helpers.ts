@@ -158,17 +158,17 @@ export const startDaemon = (h: string, extra: NodeJS.ProcessEnv = {}): any => cl
 /** `daemon stop`; throws unless it exits 0. */
 export const stopDaemon = (h: string): any => cli(h, ["daemon", "stop"]);
 
-/** `daemon status --json`: `{ supervisor: <daemon.status> | { process: { state } }, service }`. */
+/** `daemon status --json` (H3-R25): `{ supervisor: { process, instanceId?, pid?, uptimeMs? }, children: ChildStatus[], service }`. */
 export const daemonStatus = (h: string): any => cli(h, ["daemon", "status"]);
 
 /** The answering supervisor's pid, or null when none answers. */
 export function supervisorPid(h: string): number | null {
-  return daemonStatus(h).supervisor?.supervisor?.pid ?? null;
+  return daemonStatus(h).supervisor?.pid ?? null;
 }
 
 /** The supervised core's status entry (`$defs/ChildStatus`), or null when no supervisor answers. */
 export function coreChild(h: string): any | null {
-  return daemonStatus(h).supervisor?.children?.[0] ?? null;
+  return daemonStatus(h).children?.[0] ?? null;
 }
 
 /** The supervised core's pid as the supervisor reports it, or null (no supervisor, or no core process right now). */

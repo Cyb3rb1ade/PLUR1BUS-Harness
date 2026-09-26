@@ -372,9 +372,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
 
       // Exactly one supervisor and one core remain, and only the core holds LanceDB files.
       const status = daemonStatus(h);
-      assert.equal(status.supervisor.children.length, 1, JSON.stringify(status));
+      assert.equal(status.children.length, 1, JSON.stringify(status));
       const pids = homePids(h).sort();
-      assert.deepEqual(pids, [status.supervisor.supervisor.pid, ready.pid].sort(), `pgrep -f -- "--home ${h}"`);
+      assert.deepEqual(pids, [status.supervisor.pid, ready.pid].sort(), `pgrep -f -- "--home ${h}"`);
       if (process.platform === "linux") {
         const lancedb = `${realpathSync(h)}/state/lancedb`;
         const owners = pids.filter((pid) => readdirSync(`/proc/${pid}/fd`).some((fd) => {
