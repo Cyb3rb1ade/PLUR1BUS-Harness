@@ -34,13 +34,16 @@ const FORCED = new Map([
   ],
 ]);
 
+// Every engine key inherits x-tier from the "engine" node in config.schema.json (advanced, per
+// G16 — the engine node declares its own x-tier and nothing under it overrides it), so this
+// column is "advanced" on every row rather than derived per-key.
 const rows = Object.entries(props)
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([k, s]) => {
     const type = Array.isArray(s.type) ? s.type.join("|") : (s.type ?? (s.enum ? "enum" : "any"));
     const def = s.default !== undefined ? `\`${JSON.stringify(s.default)}\`` : "";
     const forced = FORCED.get(k);
-    return `| \`engine.${k}\` | ${type} | ${def} | core | ${forced ? `**harness-owned**: ${forced}` : ""} |`;
+    return `| \`engine.${k}\` | ${type} | ${def} | core | advanced | ${forced ? `**harness-owned**: ${forced}` : ""} |`;
   });
 
 // Verified count at engine SHA d32771c5 (contract 1.6.0): openclaw.plugin.json
@@ -74,8 +77,8 @@ Keys marked **harness-owned** below are forced (in whole or in part) by \`engine
 cannot be fully controlled through \`engine.<key>\` in \`config.json\`; see the Notes column for what
 is forced and what still passes through from the user's config.
 
-| Key | Type | Default | Restart | Notes |
-|---|---|---|---|---|
+| Key | Type | Default | Restart | Tier | Notes |
+|---|---|---|---|---|---|
 ${rows.join("\n")}
 `;
 

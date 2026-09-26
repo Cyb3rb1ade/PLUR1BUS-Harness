@@ -1,4 +1,4 @@
-use crate::cli::ConfigCmd;
+use crate::cli::{ConfigCmd, TierFilter};
 use crate::output::Out;
 use crate::paths::Layout;
 use plur1bus_config as cfg;
@@ -17,36 +17,69 @@ fn class_name(k: &str) -> String {
     }
 }
 
+fn tier_name(t: cfg::Tier) -> &'static str {
+    match t {
+        cfg::Tier::Basic => "basic",
+        cfg::Tier::Advanced => "advanced",
+    }
+}
+
 pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
     match cmd {
-        ConfigCmd::Schema => {
+        ConfigCmd::Schema { tier } => {
             let s: Value = serde_json::from_str(cfg::SCHEMA_JSON)
                 .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
             // G15: a JSON Schema must not carry a foreign top-level key, so the schema itself is
             // wrapped under `jsonSchema` rather than getting `schema` inserted directly into it.
-            // (`--tier` and its `tier` field arrive with Task 11.)
-            out.ok("config.schema/1", &json!({ "jsonSchema": s }), || {
-                serde_json::to_string_pretty(&s).unwrap()
-            });
+            let (tier_str, filtered) = match tier {
+                TierFilter::All => ("all", s.clone()),
+                TierFilter::Basic => ("basic", cfg::filter_schema_by_tier(&s, cfg::Tier::Basic)),
+                TierFilter::Advanced => (
+                    "advanced",
+                    cfg::filter_schema_by_tier(&s, cfg::Tier::Advanced),
+                ),
+            };
+            out.ok(
+                "config.schema/1",
+                &json!({ "tier": tier_str, "jsonSchema": filtered }),
+                || serde_json::to_string_pretty(&filtered).unwrap(),
+            );
         }
-        ConfigCmd::Get { key } => {
+        ConfigCmd::Get { key, tier } => {
             let loaded = cfg::load(&layout.config_path())
                 .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+            // `tier` and `key` are clap-conflicting, so `tier` here means `key` is None.
+            if let Some(t) = tier {
+                let cfg_tier: cfg::Tier = t.into();
+                let filtered = cfg::filter_config_by_tier(&loaded.config, cfg_tier);
+                out.ok(
+                    "config.get/1",
+                    &json!({ "key": Value::Null, "tier": tier_name(cfg_tier), "value": filtered }),
+                    || serde_json::to_string_pretty(&filtered).unwrap(),
+                );
+                return;
+            }
             match cfg::get(&loaded.config, key.as_deref()) {
                 Some(v) => {
                     let k = key.clone().unwrap_or_default();
+                    let key_tier = key.as_deref().map(cfg::tier_of);
                     out.ok(
                         "config.get/1",
                         &json!({
                             "key": key,
                             "value": v,
-                            "restart": key.as_deref().map(class_name)
+                            "restart": key.as_deref().map(class_name),
+                            "tier": key_tier.map(tier_name)
                         }),
                         || {
                             if k.is_empty() {
                                 serde_json::to_string_pretty(&v).unwrap()
                             } else {
-                                format!("{k} = {v}  [{}]", class_name(&k))
+                                format!(
+                                    "{k} = {v}  [{}, {}]",
+                                    class_name(&k),
+                                    tier_name(key_tier.unwrap())
+                                )
                             }
                         },
                     );

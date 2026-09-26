@@ -510,11 +510,18 @@ Configuration: get, set, schema
 
 Get a config value (stable, ADR-016 §4)
 
-**Usage:** `plur1bus config get [KEY]`
+**Usage:** `plur1bus config get [OPTIONS] [KEY]`
 
 ###### **Arguments:**
 
 * `<KEY>`
+
+###### **Options:**
+
+* `--tier <TIER>` — print only the keys in this tier (D29); mutually exclusive with KEY
+
+  Possible values: `basic`, `advanced`
+
 
 
 
@@ -540,7 +547,16 @@ Set a config value (stable, ADR-016 §4)
 
 [experimental] Print the config JSON Schema
 
-**Usage:** `plur1bus config schema`
+**Usage:** `plur1bus config schema [OPTIONS]`
+
+###### **Options:**
+
+* `--tier <TIER>` — filter the schema to one tier (D29)
+
+  Default value: `all`
+
+  Possible values: `all`, `basic`, `advanced`
+
 
 
 

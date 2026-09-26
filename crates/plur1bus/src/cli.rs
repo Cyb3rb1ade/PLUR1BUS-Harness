@@ -281,7 +281,13 @@ pub enum DreamsCmd {
 #[derive(Subcommand, Debug)]
 pub enum ConfigCmd {
     /// Get a config value (stable, ADR-016 §4)
-    Get { key: Option<String> },
+    Get {
+        #[arg(conflicts_with = "tier")]
+        key: Option<String>,
+        /// print only the keys in this tier (D29); mutually exclusive with KEY
+        #[arg(long, value_enum, conflicts_with = "key")]
+        tier: Option<TierArg>,
+    },
     /// Set a config value (stable, ADR-016 §4)
     Set {
         key: String,
@@ -292,7 +298,33 @@ pub enum ConfigCmd {
         dry_run: bool,
     },
     /// [experimental] Print the config JSON Schema
-    Schema,
+    Schema {
+        /// filter the schema to one tier (D29)
+        #[arg(long, value_enum, default_value = "all")]
+        tier: TierFilter,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum TierArg {
+    Basic,
+    Advanced,
+}
+
+impl From<TierArg> for plur1bus_config::Tier {
+    fn from(t: TierArg) -> Self {
+        match t {
+            TierArg::Basic => plur1bus_config::Tier::Basic,
+            TierArg::Advanced => plur1bus_config::Tier::Advanced,
+        }
+    }
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum TierFilter {
+    All,
+    Basic,
+    Advanced,
 }
 #[derive(Subcommand, Debug)]
 pub enum CoreCmd {

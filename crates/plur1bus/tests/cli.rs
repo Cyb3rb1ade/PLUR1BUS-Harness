@@ -348,6 +348,76 @@ fn config_schema_prints_the_schema() {
 }
 
 #[test]
+fn config_schema_tier_basic_filters() {
+    let out = bin()
+        .args(["--json", "config", "schema", "--tier", "basic"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "config.schema/1");
+    assert_eq!(v["tier"], "basic");
+    let mut keys: Vec<&str> = v["jsonSchema"]["properties"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort();
+    assert_eq!(keys, ["agents", "embedding", "modelRoles", "providers"]);
+
+    // default (no --tier) is unfiltered and tagged "all"
+    let out = bin()
+        .args(["--json", "config", "schema"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["tier"], "all");
+    assert!(v["jsonSchema"]["properties"]["core"].is_object());
+}
+
+#[test]
+fn config_get_key_shows_restart_and_tier() {
+    let out = bin()
+        .args(["--json", "config", "get", "embedding.useClass"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "config.get/1");
+    assert_eq!(v["tier"], "basic");
+    assert_eq!(v["restart"], "core");
+}
+
+#[test]
+fn config_get_tier_filters_without_key_and_conflicts_with_key() {
+    let out = bin()
+        .args(["--json", "config", "get", "--tier", "advanced"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "config.get/1");
+    assert_eq!(v["tier"], "advanced");
+    assert!(v["value"]["core"].is_object());
+    assert!(v["value"].get("agents").is_none());
+
+    bin()
+        .args(["config", "get", "core.logLevel", "--tier", "basic"])
+        .assert()
+        .code(2);
+}
+
+#[test]
 fn config_schema_json_wraps_the_schema() {
     let out = bin()
         .args(["--json", "config", "schema"])

@@ -21,60 +21,60 @@ Keys marked **harness-owned** below are forced (in whole or in part) by `engine-
 cannot be fully controlled through `engine.<key>` in `config.json`; see the Notes column for what
 is forced and what still passes through from the user's config.
 
-| Key | Type | Default | Restart | Notes |
-|---|---|---|---|---|
-| `engine.afterthought` | object |  | core |  |
-| `engine.autoCapture` | boolean | `true` | core | **harness-owned**: forced `false` (harness calls capture explicitly) |
-| `engine.autoRecall` | boolean | `true` | core | **harness-owned**: forced `false` (harness calls recall explicitly) |
-| `engine.autoRecallMinScore` | number | `0.2` | core |  |
-| `engine.baseDbPath` | string |  | core | **harness-owned**: forced to `<home>/state/lancedb` (override via `engine.baseDbPathOverride`, not this key) |
-| `engine.captureChunking` | boolean | `true` | core |  |
-| `engine.captureChunkingMode` | string | `"beides"` | core |  |
-| `engine.captureMaxChars` | number |  | core |  |
-| `engine.chatModels` | object |  | core |  |
-| `engine.continuityEngine` | object |  | core |  |
-| `engine.contradictionDisclosure` | object |  | core |  |
-| `engine.controlUi` | object |  | core |  |
-| `engine.conversationReactivationRecall` | object |  | core |  |
-| `engine.criticalPush` | object |  | core |  |
-| `engine.dailyConsolidation` | object |  | core |  |
-| `engine.dreamEcho` | object |  | core |  |
-| `engine.dreaming` | object |  | core |  |
-| `engine.duplicateThreshold` | number | `0.95` | core |  |
-| `engine.embedding` | object |  | core | **harness-owned**: `provider` forced `local-transformers`; `local.model`/`dimensions`/`cacheDir` defaulted (`intfloat/multilingual-e5-small`, 384, `<home>/models`) but user `embedding.local.*` overrides win |
-| `engine.embeddingBatchSize` | number | `8` | core |  |
-| `engine.emotion` | object |  | core |  |
-| `engine.eveningReview` | object |  | core |  |
-| `engine.featureCronSetup` | object |  | core |  |
-| `engine.featuresConfirmedAt` | string|null | `null` | core |  |
-| `engine.forgetThreshold` | number | `0.3` | core |  |
-| `engine.gc` | object |  | core |  |
-| `engine.language` | string | `"de"` | core |  |
-| `engine.llmRouter` | object |  | core |  |
-| `engine.memoryDynamics` | object |  | core |  |
-| `engine.merging` | object |  | core |  |
-| `engine.metaCognition` | object |  | core |  |
-| `engine.modelPreparation` | object |  | core |  |
-| `engine.morningReview` | object |  | core |  |
-| `engine.namespaces` | object |  | core |  |
-| `engine.neo` | object |  | core |  |
-| `engine.obsidianBridge` | object |  | core |  |
-| `engine.personaVoice` | object |  | core |  |
-| `engine.reactionNudge` | object |  | core |  |
-| `engine.recall` | object |  | core | **harness-owned**: `softBudgetMs`/`globalInjectMaxChars` forced from `core.recall.softBudgetMs`/`core.recall.capChars`; `decisionTrace.enabled` forced `true` |
-| `engine.recallHedging` | object |  | core |  |
-| `engine.recallMinScore` | number | `0.15` | core |  |
-| `engine.reembedding` | object |  | core |  |
-| `engine.reminders` | object |  | core |  |
-| `engine.replyOutcomeTracking` | object |  | core |  |
-| `engine.reranker` | object |  | core | **harness-owned**: `enabled` and `provider` forced (`true`, `local-transformers`); `local.model`/`cacheDir` defaulted (`woxpas-ai/bge-reranker-v2-m3-onnx`, `<home>/models`) but user `reranker.local.*` overrides win |
-| `engine.runtime` | object |  | core |  |
-| `engine.schicht15` | object |  | core |  |
-| `engine.security` | object |  | core |  |
-| `engine.semanticLens` | object |  | core |  |
-| `engine.setupProfile` | string |  | core |  |
-| `engine.skillMiner` | object |  | core |  |
-| `engine.styleDirective` | object |  | core |  |
-| `engine.summaryMaxWords` | number | `150` | core |  |
-| `engine.temporalContext` | object |  | core |  |
-| `engine.timezone` | string|null | `null` | core |  |
+| Key | Type | Default | Restart | Tier | Notes |
+|---|---|---|---|---|---|
+| `engine.afterthought` | object |  | core | advanced |  |
+| `engine.autoCapture` | boolean | `true` | core | advanced | **harness-owned**: forced `false` (harness calls capture explicitly) |
+| `engine.autoRecall` | boolean | `true` | core | advanced | **harness-owned**: forced `false` (harness calls recall explicitly) |
+| `engine.autoRecallMinScore` | number | `0.2` | core | advanced |  |
+| `engine.baseDbPath` | string |  | core | advanced | **harness-owned**: forced to `<home>/state/lancedb` (override via `engine.baseDbPathOverride`, not this key) |
+| `engine.captureChunking` | boolean | `true` | core | advanced |  |
+| `engine.captureChunkingMode` | string | `"beides"` | core | advanced |  |
+| `engine.captureMaxChars` | number |  | core | advanced |  |
+| `engine.chatModels` | object |  | core | advanced |  |
+| `engine.continuityEngine` | object |  | core | advanced |  |
+| `engine.contradictionDisclosure` | object |  | core | advanced |  |
+| `engine.controlUi` | object |  | core | advanced |  |
+| `engine.conversationReactivationRecall` | object |  | core | advanced |  |
+| `engine.criticalPush` | object |  | core | advanced |  |
+| `engine.dailyConsolidation` | object |  | core | advanced |  |
+| `engine.dreamEcho` | object |  | core | advanced |  |
+| `engine.dreaming` | object |  | core | advanced |  |
+| `engine.duplicateThreshold` | number | `0.95` | core | advanced |  |
+| `engine.embedding` | object |  | core | advanced | **harness-owned**: `provider` forced `local-transformers`; `local.model`/`dimensions`/`cacheDir` defaulted (`intfloat/multilingual-e5-small`, 384, `<home>/models`) but user `embedding.local.*` overrides win |
+| `engine.embeddingBatchSize` | number | `8` | core | advanced |  |
+| `engine.emotion` | object |  | core | advanced |  |
+| `engine.eveningReview` | object |  | core | advanced |  |
+| `engine.featureCronSetup` | object |  | core | advanced |  |
+| `engine.featuresConfirmedAt` | string|null | `null` | core | advanced |  |
+| `engine.forgetThreshold` | number | `0.3` | core | advanced |  |
+| `engine.gc` | object |  | core | advanced |  |
+| `engine.language` | string | `"de"` | core | advanced |  |
+| `engine.llmRouter` | object |  | core | advanced |  |
+| `engine.memoryDynamics` | object |  | core | advanced |  |
+| `engine.merging` | object |  | core | advanced |  |
+| `engine.metaCognition` | object |  | core | advanced |  |
+| `engine.modelPreparation` | object |  | core | advanced |  |
+| `engine.morningReview` | object |  | core | advanced |  |
+| `engine.namespaces` | object |  | core | advanced |  |
+| `engine.neo` | object |  | core | advanced |  |
+| `engine.obsidianBridge` | object |  | core | advanced |  |
+| `engine.personaVoice` | object |  | core | advanced |  |
+| `engine.reactionNudge` | object |  | core | advanced |  |
+| `engine.recall` | object |  | core | advanced | **harness-owned**: `softBudgetMs`/`globalInjectMaxChars` forced from `core.recall.softBudgetMs`/`core.recall.capChars`; `decisionTrace.enabled` forced `true` |
+| `engine.recallHedging` | object |  | core | advanced |  |
+| `engine.recallMinScore` | number | `0.15` | core | advanced |  |
+| `engine.reembedding` | object |  | core | advanced |  |
+| `engine.reminders` | object |  | core | advanced |  |
+| `engine.replyOutcomeTracking` | object |  | core | advanced |  |
+| `engine.reranker` | object |  | core | advanced | **harness-owned**: `enabled` and `provider` forced (`true`, `local-transformers`); `local.model`/`cacheDir` defaulted (`woxpas-ai/bge-reranker-v2-m3-onnx`, `<home>/models`) but user `reranker.local.*` overrides win |
+| `engine.runtime` | object |  | core | advanced |  |
+| `engine.schicht15` | object |  | core | advanced |  |
+| `engine.security` | object |  | core | advanced |  |
+| `engine.semanticLens` | object |  | core | advanced |  |
+| `engine.setupProfile` | string |  | core | advanced |  |
+| `engine.skillMiner` | object |  | core | advanced |  |
+| `engine.styleDirective` | object |  | core | advanced |  |
+| `engine.summaryMaxWords` | number | `150` | core | advanced |  |
+| `engine.temporalContext` | object |  | core | advanced |  |
+| `engine.timezone` | string|null | `null` | core | advanced |  |
