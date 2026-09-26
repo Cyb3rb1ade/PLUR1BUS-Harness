@@ -147,7 +147,7 @@ Mindestumfang der mitgelieferten Profile; Details in `docs/provider-matrix.md` (
 | | Anthropic API | API-Key |
 | | Anthropic Claude-Abo | nur gemäß Auth-Policy (6.3) |
 | | Google AI = Gemini API über AI Studio | API-Key |
-| | Google-Gemini-Abo-Logins (Gemini CLI / Code Assist / Antigravity) | nur gemäß Auth-Policy (6.3) |
+| | Google-Gemini-Abo-Logins (Gemini CLI (now Antigravity CLI `agy`, D40) / Code Assist / Antigravity) | nur gemäß Auth-Policy (6.3) |
 | | xAI API | API-Key |
 | | xAI Grok-Abo (SuperGrok / X Premium+) | Device-Code; bei 403-Tier-Gating Hinweis + Fallback API-Key |
 | Aggregatoren | OpenRouter | API-Key (+ OAuth-PKCE-Key-Bezug, falls verfügbar) |
@@ -227,7 +227,7 @@ Qualitätssicherung: Retrieval-Benchmark (vorhandenes `bench/` prüfen und ausba
 **Protokolle (ADR-008) — MCP, ACP und A2A sind Pflicht:**
 
 - **MCP:** Client (stdio und Streamable HTTP, OAuth für Remote-Server, Allowlist und Tool-Approval pro Agent, Verwaltung in der UI) und Server (Harness-Funktionen und PLUR1BUS-Memory-Tools für fremde MCP-Hosts, Auth und Scope über Harness-Benutzer bzw. API-Token).
-- **ACP = Agent Client Protocol** (JSON-RPC über stdio), in beide Richtungen: als ACP-Agent (Zed, JetBrains, VS Code, `buzz-acp` steuern den Harness) und als ACP-Client (Claude Code, Codex, Gemini CLI, Goose als externe Teammitglieder).
+- **ACP = Agent Client Protocol** (JSON-RPC über stdio), in beide Richtungen: als ACP-Agent (Zed, JetBrains, VS Code, `buzz-acp` steuern den Harness) und als ACP-Client (Claude Code, Codex, Gemini CLI (now Antigravity CLI `agy`, D40), Goose als externe Teammitglieder).
 - **A2A = Agent2Agent** (Linux-Foundation-Projekt; deckt auch das darin aufgegangene „Agent Communication Protocol" ab), in beide Richtungen. Server: pro Agent per Opt-in, Agent Card unter `/.well-known/agent-card.json` (je Agent eigener Basis-Pfad oder Tenant), JSON-RPC-Binding Pflicht, HTTP+JSON und gRPC optional, SSE-Streaming, Push-Notifications optional, Task-Lebenszyklus auf Harness-Sessions/Aufgaben abgebildet, Spec v1.0 mit 0.3-Kompatibilität, sofern das offizielle SDK sie bietet. Client: entfernte Agenten per URL/Card registrieren, Vertrauensstufe, Allowlist pro Agent, Budget; nutzbar in `consult_agent`/`delegate_task`. Sicherheit: standardmäßig aus; nur über die Harness-API mit TLS, Auth nach den Security-Schemes der Card (auf Harness-Benutzer/API-Tokens und RBAC abgebildet), Rate-Limits; Agent Card und Skills verraten keine Memory-Inhalte; Inhalte entfernter Agenten sind Daten.
 
 **Skills:** `SKILL.md` nach agentskills.io, pro Agent aktivierbar, Installation aus Hub/Git/lokal, Versionierung, Vorschau vor Aktivierung. PLUR1BUS-Skill-Vorschläge (`/plur1bus skills …`) landen in derselben Freigabe-Queue.

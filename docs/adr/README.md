@@ -64,6 +64,7 @@ The recommendation, stated in one paragraph, then the details.
 | 011 | External coding agents | `ADR-011-external-coding-agents.md` | Accepted (2026-09-22) |
 | 012 | Process model, languages, RPC contract and the core lock (amends ADR-001's single-stack wording) | `ADR-012-process-model-and-languages.md` | Accepted (2026-09-24, D6, D7; H1 record 2026-09-25) |
 | 013 | Configuration and restart classes | `ADR-013-configuration-and-restart-classes.md` | Accepted (2026-09-24, D3, D5; H1 record 2026-09-25) |
+| 016 | API stability and versioning | `ADR-016-api-stability-and-versioning.md` | Accepted (2026-09-25, D26) |
 
 ## Open-question numbering
 
