@@ -183,6 +183,40 @@ enum After {
 }
 
 impl ConnCtx {
+    /// `daemon.start`: reset the core's backoff and ask the main thread for an immediate spawn (a no-op while the
+    /// core runs). Under `--no-core` there is never a child.
+    fn daemon_start(&self, id: &Value) -> Value {
+        let mut st = self.shared.lock();
+        if st.no_core {
+            return error_reply(
+                id,
+                "E_NOT_AVAILABLE",
+                "this supervisor has no children to start",
+                Some("no-children"),
+                None,
+                None,
+            );
+        }
+        if st.stopping.is_some() {
+            return error_reply(
+                id,
+                "E_NOT_AVAILABLE",
+                "the supervisor is stopping",
+                Some("stopping"),
+                None,
+                None,
+            );
+        }
+        st.backoff.reset();
+        st.start_requested = true;
+        self.shared.wake.notify_all();
+        drop(st);
+        self.shared
+            .log
+            .info("daemon.start", json!({ "child": "core" }));
+        result_reply(id, json!({ "accepted": true, "role": "core" }))
+    }
+
     fn handle(&self, conn: Accepted) {
         let Accepted {
             reader,
@@ -333,18 +367,7 @@ impl ConnCtx {
             },
             "daemon.start" => match parse::<DaemonStartParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
-                // Task 6 spawns the core here; under --no-core there is never a child.
-                Ok(_) => (
-                    error_reply(
-                        &id,
-                        "E_NOT_AVAILABLE",
-                        "this supervisor has no children to start",
-                        Some("no-children"),
-                        None,
-                        None,
-                    ),
-                    After::Continue,
-                ),
+                Ok(_) => (self.daemon_start(&id), After::Continue),
             },
             "daemon.stop" => match parse::<DaemonStopParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),

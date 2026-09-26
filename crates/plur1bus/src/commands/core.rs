@@ -4,11 +4,10 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::process::Command;
 
-/// Locates the Node runtime and dist/core.js and runs the core in the foreground.
-/// Order: $PLUR1BUS_NODE, <home>/runtime/node-*/bin/node (installed by setup, H2), `node` on PATH.
-/// core.js: $PLUR1BUS_CORE_JS, then <home>/runtime/core/core.js (installed by setup, H2).
-pub fn run(out: &Out, layout: &Layout) -> ! {
-    let node = std::env::var_os("PLUR1BUS_NODE")
+/// The Node runtime: $PLUR1BUS_NODE, then <home>/runtime/node-*/bin/node (installed by setup, H2), then `node` on
+/// PATH. Shared by `core run` and the supervisor.
+pub(crate) fn locate_node(layout: &Layout) -> PathBuf {
+    std::env::var_os("PLUR1BUS_NODE")
         .map(PathBuf::from)
         .or_else(|| {
             std::fs::read_dir(layout.runtime())
@@ -25,10 +24,22 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
                         .join(if cfg!(windows) { "node.exe" } else { "node" })
                 })
         })
-        .unwrap_or_else(|| PathBuf::from("node"));
-    let core_js = std::env::var_os("PLUR1BUS_CORE_JS")
+        .unwrap_or_else(|| PathBuf::from("node"))
+}
+
+/// dist/core.js: $PLUR1BUS_CORE_JS, then <home>/runtime/core/core.js (installed by setup, H2). Not checked for
+/// existence here.
+pub(crate) fn locate_core_js(layout: &Layout) -> PathBuf {
+    std::env::var_os("PLUR1BUS_CORE_JS")
         .map(PathBuf::from)
-        .unwrap_or_else(|| layout.runtime().join("core").join("core.js"));
+        .unwrap_or_else(|| layout.runtime().join("core").join("core.js"))
+}
+
+/// Locates the Node runtime ([`locate_node`]) and dist/core.js ([`locate_core_js`]) and runs the core in the
+/// foreground.
+pub fn run(out: &Out, layout: &Layout) -> ! {
+    let node = locate_node(layout);
+    let core_js = locate_core_js(layout);
     if !core_js.exists() {
         out.fail(
             "E_CORE_UNAVAILABLE",

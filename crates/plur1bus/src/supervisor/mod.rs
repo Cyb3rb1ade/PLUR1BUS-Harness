@@ -3,9 +3,9 @@
 //! `state` is the pure state machine (health, backoff, crash classification) with no I/O. `server` is the
 //! supervisor's RPC endpoint, `logfile` the size-rotated log files. [`run`] is `plur1bus supervise`: it claims the
 //! home (single instance), writes `run/supervisor.token` and `run/supervisor.pid`, serves `supervisor.auth` and
-//! `daemon.*`, and stops on `daemon.stop` or SIGTERM/SIGINT. Spawning and monitoring children lands in Task 6, and
-//! parts of the state below have no reader until then.
+//! `daemon.*`, spawns and monitors the core (`child`), and stops on `daemon.stop` or SIGTERM/SIGINT (the core first).
 #![allow(dead_code)]
+pub mod child;
 pub mod logfile;
 pub mod server;
 pub mod state;
@@ -14,7 +14,7 @@ use crate::paths::{supervisor_address, Layout};
 use logfile::RotatingFile;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
-use state::ChildState;
+use state::{Backoff, ChildState};
 use std::fs;
 use std::io::{self, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -96,6 +96,12 @@ pub struct SupervisorState {
     pub lifeline: Lifeline,
     /// Set by `daemon.stop` or a signal; the main thread then stops the children and exits 0.
     pub stopping: Option<StopRequest>,
+    /// The core's restart backoff (spec §6.4); `daemon.start` resets it.
+    pub backoff: Backoff,
+    /// When the main thread's scheduler respawns the core; set by an exit that the backoff allows to retry.
+    pub restart_at: Option<Instant>,
+    /// `daemon.start` asked for an immediate spawn (a no-op while the core is running).
+    pub start_requested: bool,
 }
 
 impl SupervisorState {
@@ -117,8 +123,8 @@ impl SupervisorState {
     }
 }
 
-/// State shared by every supervisor thread (S14): one mutex, one condvar that wakes the main thread (a stop now,
-/// the restart scheduler in Task 6), and the log.
+/// State shared by every supervisor thread (S14): one mutex, one condvar that wakes the main thread (a stop, a
+/// scheduled restart, `daemon.start`), and the log.
 pub struct Shared {
     pub state: Mutex<SupervisorState>,
     pub wake: Condvar,
@@ -484,6 +490,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             child: None,
             lifeline: Lifeline::None,
             stopping: None,
+            backoff: Backoff::new(time_scale),
+            restart_at: None,
+            start_requested: false,
         }),
         wake: Condvar::new(),
         log,
@@ -513,14 +522,54 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         json!({ "pid": pid, "instanceId": instance_id, "address": address, "noCore": opts.no_core, "timeScale": time_scale }),
     );
 
-    // Main thread: wait for a stop. (Task 6 adds the restart scheduler to this loop.)
-    let stop = {
-        let mut st = shared.lock();
-        loop {
-            if let Some(stop) = st.stopping {
-                break stop;
+    let mut monitor = if opts.no_core {
+        None
+    } else {
+        match child::core_spec(layout, &uuid::Uuid::new_v4().to_string()) {
+            Ok(spec) => Some(child::Monitor::start(shared.clone(), layout, spec)),
+            Err(e) => {
+                shared
+                    .log
+                    .error("cannot spawn the core", json!({ "err": e }));
+                remove_run_files(layout);
+                fail(1, &e);
             }
-            st = shared.wake.wait(st).unwrap_or_else(|e| e.into_inner());
+        }
+    };
+
+    // Main thread: the restart scheduler (a due `restart_at`, `daemon.start`) until a stop.
+    let stop = loop {
+        let spawn = {
+            let mut st = shared.lock();
+            loop {
+                if let Some(stop) = st.stopping {
+                    break Err(stop);
+                }
+                if std::mem::take(&mut st.start_requested) {
+                    st.restart_at = None;
+                    break Ok(());
+                }
+                let now = Instant::now();
+                st = match st.restart_at {
+                    Some(at) if at <= now => {
+                        st.restart_at = None;
+                        break Ok(());
+                    }
+                    Some(at) => match shared.wake.wait_timeout(st, at - now) {
+                        Ok((g, _)) => g,
+                        Err(e) => e.into_inner().0,
+                    },
+                    None => shared.wake.wait(st).unwrap_or_else(|e| e.into_inner()),
+                };
+            }
+        };
+        match spawn {
+            Err(stop) => break stop,
+            Ok(()) => {
+                if let Some(m) = monitor.as_mut() {
+                    m.spawn();
+                }
+            }
         }
     };
     shared.log.info(
@@ -530,7 +579,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             StopSource::Signal(n) => format!("signal {n}"),
         } }),
     );
-    // Children are stopped here within `stop.budget` (Task 6).
+    if let Some(m) = monitor.as_mut() {
+        m.stop(stop.budget);
+    }
     remove_run_files(layout);
     shared.log.info("supervisor stopped", json!({}));
     drop(lock);
@@ -636,6 +687,9 @@ mod tests {
             child: None,
             lifeline: Lifeline::None,
             stopping: None,
+            backoff: Backoff::new(1.0),
+            restart_at: None,
+            start_requested: false,
         };
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {

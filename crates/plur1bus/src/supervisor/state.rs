@@ -150,6 +150,7 @@ pub enum RestartDecision {
 /// at least `10 min * scale` later). Five exits within a trailing `10 min * scale` window give up
 /// permanently, sticky until `reset()` — even a later exit long after the fifth one stays a
 /// `GiveUp` until the caller resets it (daemon start / `daemon.start`).
+#[derive(Debug)]
 pub struct Backoff {
     scale: f64,
     window: Duration,
