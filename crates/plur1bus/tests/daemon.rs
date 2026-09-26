@@ -191,7 +191,8 @@ fn kill_if_under(pid: u32, home: &Path) {
 #[cfg(windows)]
 fn kill_if_under(pid: u32, _home: &Path) {
     // No portable command-line lookup here; the pid was written by this test's own processes moments ago.
-    let _ = Command::new("taskkill")
+    let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+    let _ = Command::new(Path::new(&system_root).join(r"System32\taskkill.exe"))
         .args(["/F", "/T", "/PID", &pid.to_string()])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -351,6 +352,29 @@ fn daemon_start_spawns_a_detached_supervisor_and_waits_for_ready() {
         c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"],
         "ready"
     );
+    stop_supervisor(&h.home);
+}
+
+/// CI round 2: the detached supervisor must not inherit the CLI's stdout/stderr pipes (on Windows every inheritable
+/// handle is passed on unless it is marked private). If it did, a caller reading `daemon start`'s output to the end
+/// would wait for as long as the supervisor runs. Bounded here, so a regression fails instead of hanging the run.
+#[test]
+fn daemon_start_returns_while_the_supervisor_keeps_running() {
+    let h = Home::new();
+    let mut cmd = daemon_cmd(&h, "ok", "0.02", &["daemon", "start"]);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(cmd.output());
+    });
+    let out = rx
+        .recv_timeout(Duration::from_secs(60))
+        .expect("daemon start's output never reached EOF: the supervisor holds the caller's pipe")
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert_eq!(json_stdout(&out)["started"], true);
+    // The supervisor is still up after the caller has read everything.
+    let mut c = client(&h.home);
+    assert!(c.call("daemon.status", json!({})).is_ok());
     stop_supervisor(&h.home);
 }
 

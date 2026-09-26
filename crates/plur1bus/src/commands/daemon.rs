@@ -186,6 +186,9 @@ fn spawn_supervise(bin: &Path, layout: &Layout) -> std::io::Result<std::process:
         const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+        // The detached supervisor outlives this CLI: it must not inherit the CLI's stdout/stderr (a pipe to the
+        // caller), or the caller waits for EOF for as long as the supervisor runs.
+        crate::supervisor::keep_std_handles_private();
     }
     cmd.spawn()
 }

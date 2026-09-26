@@ -9,7 +9,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # A hang fails fast: the job has a ceiling, and each long test step its own, below it.
+    timeout-minutes: 45
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
@@ -41,9 +42,11 @@ jobs:
       - run: pnpm build
       - run: pnpm lint
       - run: pnpm test
+        timeout-minutes: 15
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --no-fail-fast
+        timeout-minutes: 20
       - run: pnpm docs:check
   system:
     needs: unit
@@ -80,16 +83,19 @@ jobs:
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
       # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
       - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts
+        timeout-minutes: 10
         env: { PLUR1BUS_BIN: target/release/plur1bus }
       # H3-R22: the same acceptance with a cold flat embedder (the first 2 query embeddings of each core process take
       # 350 ms, one at a time), so a recall that does not wait for the model warm-up overruns the 600 ms hard budget.
       - name: two-session recall (cold flat embedder)
         run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+        timeout-minutes: 5
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SYSTEM_INTERNALS: flat-embedder-cold }
       # Criterion 2 (S16, ruling H3-R19): 200 turns over 2 agents with random core kills and two supervisor kills;
       # the nightly runs 1 000. The seed is printed; replay a failure with PLUR1BUS_SOAK_SEED.
       - name: kill soak (200 turns)
         run: node --experimental-strip-types --test tests/system/kill-soak.test.ts
+        timeout-minutes: 15
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "200" }
       - run: pnpm bench
   # OS service registration against the real service manager (Task 8, criterion 9): systemd user instance, launchd
@@ -103,7 +109,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -113,6 +119,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p plur1bus
       - run: cargo test --release -p plur1bus --test service
+        timeout-minutes: 5
       - name: user service manager
         id: manager
         shell: bash
@@ -131,4 +138,5 @@ jobs:
           fi
       - if: steps.manager.outputs.real == 'true'
         run: cargo test --release -p plur1bus --test service_real -- --test-threads=1
+        timeout-minutes: 10
         env: { PLUR1BUS_SERVICE_TEST: "1" }

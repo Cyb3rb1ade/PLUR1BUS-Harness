@@ -403,6 +403,32 @@ fn create_private_dir(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Makes this process's own stdin/stdout/stderr handles non-inheritable. Rust's `Command` on Windows calls
+/// `CreateProcessW` with `bInheritHandles = TRUE`, so a child inherits every inheritable handle of its parent, not only
+/// the three it is given. The std handles a process received are inheritable, so without this a long-lived child
+/// (the detached supervisor `daemon start` spawns, the core the supervisor spawns) keeps the caller's pipes open:
+/// `plur1bus daemon start | …`, or a test's `Command::output()`, would wait for EOF until the child exits. A child
+/// that should inherit a std handle still gets it: `Stdio::inherit()` duplicates the handle as inheritable.
+#[cfg(windows)]
+pub(crate) fn keep_std_handles_private() {
+    use windows_sys::Win32::Foundation::{
+        SetHandleInformation, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE,
+    };
+    use windows_sys::Win32::System::Console::{
+        GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+    };
+    for which in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: GetStdHandle only reads the process parameters; a null or invalid result is skipped, and clearing
+        // the inherit flag on a valid handle changes nothing but who inherits it.
+        unsafe {
+            let h = GetStdHandle(which);
+            if !h.is_null() && h != INVALID_HANDLE_VALUE {
+                SetHandleInformation(h, HANDLE_FLAG_INHERIT, 0);
+            }
+        }
+    }
+}
+
 /// Task Scheduler starts the supervisor (a console program) at logon with a console window of its own. A console no
 /// other process shares is released, so that window closes; the terminal of a user who ran `supervise` by hand is
 /// shared with the shell and kept. Redirected stdio (pipes, files) is unaffected.
@@ -449,7 +475,11 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         1.0
     };
     #[cfg(windows)]
-    release_own_console();
+    {
+        release_own_console();
+        // Before any spawn: the core must inherit only its own stdio (the stdin lifeline, the output pipes).
+        keep_std_handles_private();
+    }
 
     if let Err(e) =
         create_private_dir(&layout.run()).and_then(|_| fs::create_dir_all(layout.logs()))
