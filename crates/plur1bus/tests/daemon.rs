@@ -137,6 +137,102 @@ fn stop_supervisor(home: &Path) {
     }
 }
 
+/// A temp home plus a fake service-manager directory (`PLUR1BUS_SERVICE_FAKE`) and a stand-in user home, for the
+/// "start via the registered service" branch — mirrors `tests/service.rs`'s `Env`/`base`, so this never touches a
+/// real systemd/launchd/Task Scheduler.
+struct ServiceEnv {
+    _tmp: tempfile::TempDir,
+    home: PathBuf,
+    user: PathBuf,
+    fake: PathBuf,
+}
+
+fn service_env() -> ServiceEnv {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().to_path_buf();
+    let home = root.join("p1b home");
+    let user = root.join("user");
+    let fake = root.join("fake");
+    for d in [&home, &user, &fake] {
+        std::fs::create_dir_all(d).unwrap();
+    }
+    ServiceEnv {
+        _tmp: tmp,
+        home,
+        user,
+        fake,
+    }
+}
+
+fn service_cmd(e: &ServiceEnv, args: &[&str]) -> Command {
+    let mut c = Command::new(bin());
+    c.env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SERVICE_FAKE", &e.fake)
+        .env("HOME", &e.user)
+        .env("USERPROFILE", &e.user)
+        .env("LOCALAPPDATA", e.user.join("AppData").join("Local"))
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("PLUR1BUS_HOME")
+        .arg("--home")
+        .arg(&e.home)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    c
+}
+
+fn fake_calls(e: &ServiceEnv) -> Vec<Value> {
+    std::fs::read_to_string(e.fake.join("calls.jsonl"))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
+}
+
+fn host_manager() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "launchd"
+    } else if cfg!(windows) {
+        "task-scheduler"
+    } else {
+        "systemd"
+    }
+}
+
+fn base_name() -> &'static str {
+    match host_manager() {
+        "launchd" => "dev.plur1bus.supervisor",
+        "task-scheduler" => "PLUR1BUS Supervisor",
+        _ => "plur1bus",
+    }
+}
+
+fn suffix(home: &Path) -> String {
+    use sha2::{Digest, Sha256};
+    let h = format!(
+        "{:x}",
+        Sha256::digest(home.to_string_lossy().to_lowercase().as_bytes())
+    );
+    h[..8].to_string()
+}
+
+/// The manager command `daemon start` issues to start an already-registered service (the same shape
+/// `commands::daemon::start_via_manager` builds).
+fn expected_start_call(name: &str) -> Value {
+    match host_manager() {
+        "systemd" => {
+            json!({ "program": "systemctl", "args": ["--user", "start", format!("{name}.service")] })
+        }
+        #[cfg(unix)]
+        "launchd" => {
+            let uid = unsafe { libc::getuid() };
+            json!({ "program": "launchctl", "args": ["kickstart", format!("gui/{uid}/{name}")] })
+        }
+        _ => json!({ "program": "schtasks", "args": ["/Run", "/TN", name] }),
+    }
+}
+
 fn wait_until(what: &str, within: Duration, mut f: impl FnMut() -> bool) {
     let deadline = Instant::now() + within;
     while !f() {
@@ -441,4 +537,104 @@ fn recall_with_core_down_names_the_supervisor_state() {
 
     let _ = child.kill();
     let _ = child.wait();
+}
+
+/// Follow-up 1: `daemon start` prefers a registered OS service over spawning, and does so through the same
+/// `PLUR1BUS_SERVICE_FAKE` recording fake `service install|status` use — never a real systemd/launchd/Task
+/// Scheduler. The fake only *records* the "start" command (it does not really launch anything), so once it has
+/// been recorded — exactly as the real service manager would then have started the process — this test starts a
+/// real `supervise` by hand to stand in for that, and checks `daemon start` still reports `via: "service"`.
+#[test]
+fn daemon_start_uses_a_registered_service_instead_of_spawning() {
+    let e = service_env();
+    let install = service_cmd(&e, &["--json", "service", "install", "--no-start"])
+        .output()
+        .unwrap();
+    assert_eq!(install.status.code(), Some(0), "{install:?}");
+    assert_eq!(
+        service_cmd(&e, &["--json", "service", "status"])
+            .output()
+            .map(|o| json_stdout(&o))
+            .unwrap()["registered"],
+        true
+    );
+    let name = format!("{}-{}", base_name(), suffix(&e.home));
+
+    let start = service_cmd(&e, &["--json", "daemon", "start"])
+        .spawn()
+        .unwrap();
+
+    wait_until("the fake manager's start command", WAIT, || {
+        fake_calls(&e).contains(&expected_start_call(&name))
+    });
+    // Stand in for the OS actually launching the registered process (the fake only records the command).
+    let mut supervise = Command::new(bin())
+        .arg("--home")
+        .arg(&e.home)
+        .arg("supervise")
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0.02")
+        .env("PLUR1BUS_CORE_JS", fixture())
+        .env("PLUR1BUS_NODE", "node")
+        .env("FAKE_CORE_MODE", "ok")
+        .env("FAKE_CORE_EVENTS", e.fake.join("events.jsonl"))
+        .env("FAKE_CORE_GRACE_MS", "300")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+
+    let out = start.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let v = json_stdout(&out);
+    assert_eq!(v["via"], "service", "{v}");
+    assert_eq!(v["started"], true, "{v}");
+    assert_eq!(
+        v["status"]["children"][0]["process"]["state"], "ready",
+        "{v}"
+    );
+    // Nothing but the fake recorded a command; the assertion above is that the fake's calls, not a real
+    // systemctl/launchctl/schtasks, are what `daemon start` drove.
+    assert!(fake_calls(&e).contains(&expected_start_call(&name)));
+
+    let _ = supervise.kill();
+    let _ = supervise.wait();
+}
+
+/// Follow-up 2: a spawned `supervise` that exits for any reason other than losing the single-instance race (3)
+/// is a genuine failure to start, surfaced at once instead of waiting out the full endpoint timeout.
+#[test]
+fn daemon_start_surfaces_a_spawn_that_exits_immediately() {
+    let h = Home::new();
+    let started = Instant::now();
+    let out = Command::new(bin())
+        .arg("--json")
+        .arg("--home")
+        .arg(&h.home)
+        .args(["daemon", "start"])
+        // An invalid time scale makes the freshly spawned `supervise` exit(2) almost immediately, well before
+        // it ever binds an endpoint (see `supervisor::tests::time_scale_must_be_finite_and_positive`).
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "took {elapsed:?} (should fail almost immediately, not wait out the 10 s endpoint timeout)"
+    );
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let v = json_stdout(&out);
+    assert_eq!(v["error"], "E_CORE_UNAVAILABLE", "{v}");
+    assert_eq!(v["reason"], "supervisor-exited", "{v}");
+    let detail = v["detail"].as_str().unwrap_or_default();
+    assert!(
+        detail.contains('2'),
+        "detail did not name the exit code: {detail:?}"
+    );
+    assert!(!h.home.join("run/supervisor.token").exists());
 }

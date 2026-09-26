@@ -82,6 +82,10 @@ impl Runner for FakeRunner {
                 st.running.insert(unit.to_string());
                 (0, String::new())
             }
+            ("systemctl", ["--user", "start", unit]) if st.registered.contains(*unit) => {
+                st.running.insert(unit.to_string());
+                (0, String::new())
+            }
             ("systemctl", ["--user", "disable", "--now", unit]) => {
                 st.registered.remove(*unit);
                 st.running.remove(*unit);
@@ -105,6 +109,15 @@ impl Runner for FakeRunner {
                     st.registered.insert(label.clone());
                     st.running.insert(label);
                     (0, String::new())
+                }
+            }
+            ("launchctl", ["kickstart", target]) => {
+                let label = target.rsplit('/').next().unwrap_or("").to_string();
+                if st.registered.contains(&label) {
+                    st.running.insert(label);
+                    (0, String::new())
+                } else {
+                    (3, String::new())
                 }
             }
             ("launchctl", ["bootout", target]) => {

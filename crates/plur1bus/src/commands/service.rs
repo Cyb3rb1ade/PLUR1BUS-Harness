@@ -7,7 +7,9 @@ use serde_json::json;
 
 /// The real service manager, or the recording fake when the test seam asks for it. `PLUR1BUS_SERVICE_FAKE` without
 /// `PLUR1BUS_ALLOW_TEST_INTERNALS=1` is a usage error rather than silently falling through to the real manager.
-fn runner(out: &Out) -> Box<dyn Runner> {
+/// Also used by `commands::daemon` (`daemon start`'s "start via the registered service" branch and `daemon
+/// status`), so a test never has either command touch a real systemd/launchd/Task Scheduler.
+pub(crate) fn runner(out: &Out) -> Box<dyn Runner> {
     match std::env::var_os("PLUR1BUS_SERVICE_FAKE") {
         None => Box::new(SystemRunner),
         Some(dir) => {

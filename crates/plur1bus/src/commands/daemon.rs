@@ -4,7 +4,7 @@
 use crate::cli::DaemonCmd;
 use crate::output::Out;
 use crate::paths::{supervisor_address, Layout};
-use crate::service::{self, Manager, Runner, ServiceError, SystemRunner};
+use crate::service::{self, Manager, Runner, ServiceError};
 use crate::supervisor;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
@@ -226,12 +226,13 @@ fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, V
         return (!already_ready, "running", status);
     }
 
-    let svc = service::status(&SystemRunner, layout);
+    let runner = super::service::runner(out);
+    let svc = service::status(runner.as_ref(), layout);
     let mut via = "spawn";
     let mut spawned: Option<std::process::Child> = None;
     if svc.registered {
         via = "service";
-        if let Err(e) = start_via_manager(&SystemRunner, svc.manager, &svc.name) {
+        if let Err(e) = start_via_manager(runner.as_ref(), svc.manager, &svc.name) {
             fail_service(out, &e);
         }
     } else {
@@ -269,11 +270,29 @@ fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, V
         }
         if let Some(child) = spawned.as_mut() {
             if let Ok(Some(exit)) = child.try_wait() {
-                if exit.code() == Some(3) {
-                    // Our own spawn lost the single-instance race before the winner's endpoint was even up
-                    // yet. Keep waiting for it (below) and report as if we had merely found it running.
-                    lost_race = true;
-                    via = "running";
+                match exit.code() {
+                    Some(3) => {
+                        // Our own spawn lost the single-instance race before the winner's endpoint was even
+                        // up yet. Keep waiting for it (below) and report as if we had merely found it
+                        // running.
+                        lost_race = true;
+                        via = "running";
+                    }
+                    other => {
+                        // Any other exit (a usage error, a set-up failure, a panic) means this spawn is not
+                        // going to become the supervisor: say so now instead of waiting out the full
+                        // endpoint timeout on an already-dead process.
+                        let detail = match other {
+                            Some(code) => format!("supervise exited with code {code}"),
+                            None => "supervise exited via a signal".to_string(),
+                        };
+                        out.fail(
+                            "E_CORE_UNAVAILABLE",
+                            &format!("the spawned supervisor did not start: {detail}"),
+                            json!({ "reason": "supervisor-exited", "detail": detail }),
+                            1,
+                        );
+                    }
                 }
             }
         }
@@ -409,7 +428,8 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
             );
         }
         DaemonCmd::Status => {
-            let svc = service::status(&SystemRunner, layout);
+            let runner = super::service::runner(out);
+            let svc = service::status(runner.as_ref(), layout);
             let supervisor = match probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
                 Probe::Answered(v) => v,
                 Probe::NotRunning => json!({ "process": { "state": "stopped" } }),
