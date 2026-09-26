@@ -1,9 +1,7 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
@@ -12,6 +10,7 @@ import { appendJournalLine } from "../src/journal.ts";
 import { acquireCoreLock } from "../src/lock.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 // The schema's minimum for supervisor.graceMs; every wait below is derived from it.
@@ -19,7 +18,7 @@ const GRACE_MS = 1000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function newHome(): string {
-  const home = mkdtempSync(join(tmpdir(), "p1b-sup-"));
+  const home = tempDir("p1b-sup-");
   const cfg = defaults(); cfg.agents.bernd = {}; cfg.supervisor.graceMs = GRACE_MS;
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false } };
   writeFileSync(layout(home).configPath, JSON.stringify(cfg));

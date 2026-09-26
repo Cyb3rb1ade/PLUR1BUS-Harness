@@ -1,13 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createLogger } from "../src/logger.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 describe("logger", () => {
   it("writes JSON lines with level, role, fields and honours the level", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "p1b-log-")), "core.log");
+    const file = join(tempDir("p1b-log-"), "core.log");
     const log = createLogger({ file, level: "info", role: "core" });
     log.debug("hidden"); log.info("hello", { agentId: "bernd" });
     log.child({ requestId: "r1" }).warn("child");
@@ -19,7 +19,7 @@ describe("logger", () => {
   });
 
   it("rotates at maxBytes and keeps at most keep files", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "p1b-log-")); const file = join(dir, "core.log");
+    const dir = tempDir("p1b-log-"); const file = join(dir, "core.log");
     const log = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 2 });
     for (let i = 0; i < 50; i++) log.info("line", { i });
     await log.close();
@@ -33,7 +33,7 @@ describe("logger", () => {
   });
 
   it("appends to an existing file and rotates it when it is already full", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "p1b-log-")); const file = join(dir, "core.log");
+    const dir = tempDir("p1b-log-"); const file = join(dir, "core.log");
     const first = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 1 });
     first.info("a"); await first.close();
     const second = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 1 });
@@ -43,7 +43,7 @@ describe("logger", () => {
   });
 
   it("a rotation that cannot reopen the file never throws and the logger recovers on a later write", async () => {
-    const dir = join(mkdtempSync(join(tmpdir(), "p1b-log-")), "logs"); mkdirSync(dir); const file = join(dir, "core.log");
+    const dir = join(tempDir("p1b-log-"), "logs"); mkdirSync(dir); const file = join(dir, "core.log");
     const log = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 2 });
     log.info("before");
     rmSync(dir, { recursive: true, force: true });

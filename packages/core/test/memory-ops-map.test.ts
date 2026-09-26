@@ -1,13 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+
 import { validateResult } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../src/agents.ts";
 import type { HarnessLogger } from "../src/logger.ts";
 import { buildMemoryOpMethods, mapMemoryOpError, projectCard, projectProposal, type MemoryOpDeps } from "../src/memory-ops.ts";
 import { AGENT_CONTEXT_CLI } from "../src/principal.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 const opError = (code: string, detail?: Record<string, string>) =>
   Object.assign(new Error(`engine says ${code}`), { name: "MemoryOpError", code, ...(detail ? { detail } : {}) });
@@ -101,7 +100,7 @@ describe("projections", () => {
 
 describe("buildMemoryOpMethods (fake engine)", () => {
   const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
-  const workspace = mkdtempSync(join(tmpdir(), "p1b-memops-map-"));
+  const workspace = tempDir("p1b-memops-map-");
   const agents: AgentRegistry = { list: () => ["bernd"], has: (id) => id === "bernd", scaffold: () => {}, workspaceOf: (id) => (id === "bernd" ? workspace : undefined) };
   const logger = { debug() {}, info() {}, warn() {}, error() {}, child() { return logger; }, setLevel() {}, close: async () => {} } as HarnessLogger;
   const ctx = { signal: new AbortController().signal } as any;

@@ -1,7 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createConnection } from "node:net";
 import { connect, RpcCallError, encodeLine, LineDecoder } from "@plur1bus/module-api";
@@ -9,9 +8,10 @@ import { loadFixtures } from "@plur1bus/rpc-schema";
 import { createLogger } from "../src/logger.ts";
 import { RpcError } from "../src/rpc/errors.ts";
 import { createRpcServer, MAX_PENDING_BYTES, type RpcServer } from "../src/rpc/server.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 const TOKEN = "c".repeat(64);
-const dir = mkdtempSync(join(tmpdir(), "p1b-rpc-"));
+const dir = tempDir("p1b-rpc-");
 const address = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-${process.pid}` : join(dir, "core.sock");
 const hello = () => ({ contract: "1.4.1", rpc: "1.0.0", instanceId: "inst-test", pid: process.pid });
 const log = createLogger({ file: join(dir, "core.log"), level: "debug", role: "core" });
@@ -259,7 +259,7 @@ describe("rpc server", () => {
 });
 
 describe("rpc server close", () => {
-  const closeDir = mkdtempSync(join(tmpdir(), "p1b-rpc-close-"));
+  const closeDir = tempDir("p1b-rpc-close-");
   const closeAddress = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-close-${process.pid}` : join(closeDir, "core.sock");
   const closeLog = createLogger({ file: join(closeDir, "core.log"), level: "debug", role: "core" });
   after(async () => { await closeLog.close(); });

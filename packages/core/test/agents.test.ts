@@ -1,16 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, utimesSync, chmodSync, rmSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, writeFileSync, utimesSync, chmodSync, rmSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { createAgentRegistry } from "../src/agents.ts";
 import { layout } from "../src/paths.ts";
 import { createLogger, type HarnessLogger } from "../src/logger.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 describe("agents", () => {
   it("lists config.agents, scaffolds the persona files once, and knows unregistered ids", () => {
-    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const l = layout(tempDir("p1b-agents-"));
     const cfg = defaults(); cfg.agents.bernd = { createdAt: "2026-09-24T00:00:00Z" };
     const reg = createAgentRegistry(cfg, l);
     assert.deepEqual(reg.list(), ["bernd"]); assert.equal(reg.has("nobody"), false);
@@ -24,7 +24,7 @@ describe("agents", () => {
   });
 
   it("picks up an agent added to config.json without a restart", () => {
-    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const l = layout(tempDir("p1b-agents-"));
     const cfg = defaults(); writeFileSync(l.configPath, JSON.stringify(cfg));
     const reg = createAgentRegistry({ path: l.configPath }, l);
     assert.deepEqual(reg.list(), []);
@@ -35,7 +35,7 @@ describe("agents", () => {
   });
 
   it("scaffolds a live-added agent on workspaceOf() call (recall path)", () => {
-    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const l = layout(tempDir("p1b-agents-"));
     const cfg = defaults(); writeFileSync(l.configPath, JSON.stringify(cfg));
     const reg = createAgentRegistry({ path: l.configPath }, l);
     const later = defaults(); later.agents.bernd = {}; const t = Date.now() + 2000; writeFileSync(l.configPath, JSON.stringify(later)); utimesSync(l.configPath, t / 1000, t / 1000);
@@ -45,7 +45,7 @@ describe("agents", () => {
   });
 
   it("dedupes missing-file warnings", () => {
-    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const l = layout(tempDir("p1b-agents-"));
     const cfg = defaults(); writeFileSync(l.configPath, JSON.stringify(cfg));
     const warns: string[] = [];
     const logger: HarnessLogger = {
@@ -66,7 +66,7 @@ describe("agents", () => {
   });
 
   it("caches invalid config and skips reloads until file changes", () => {
-    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const l = layout(tempDir("p1b-agents-"));
     const cfg = defaults(); writeFileSync(l.configPath, JSON.stringify(cfg));
     let reloadCount = 0;
     const warns: string[] = [];
@@ -97,7 +97,7 @@ describe("agents", () => {
   });
 
   it("returns undefined for removed agents", () => {
-    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const l = layout(tempDir("p1b-agents-"));
     const cfg = defaults(); cfg.agents.bernd = {}; writeFileSync(l.configPath, JSON.stringify(cfg));
     const reg = createAgentRegistry({ path: l.configPath }, l);
     assert.ok(reg.workspaceOf("bernd"), "agent should exist initially");
@@ -112,7 +112,7 @@ describe("agents", () => {
     // Skip on win32 or if running as root (root ignores permissions)
     if (process.platform === "win32" || process.getuid?.() === 0) return;
 
-    const l = layout(mkdtempSync(join(tmpdir(), "p1b-agents-")));
+    const l = layout(tempDir("p1b-agents-"));
     const cfg = defaults(); cfg.agents.bernd = {}; writeFileSync(l.configPath, JSON.stringify(cfg));
     const warns: string[] = [];
     const logger: HarnessLogger = {

@@ -1,13 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { writeFileSync } from "node:fs";
 import { connect } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore } from "../src/core.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 // G17: shutdown drains in-flight memory ops before it closes the sockets. Windows-safe: every stop is an in-process
 // core.stop(), never a signal. The embedder delay holds the op inside the engine; stop() begins while it is held.
@@ -18,7 +17,7 @@ const HOLD_MS = 600;
 const STOP_AFTER_MS = 50;
 
 function newHome(): string {
-  const home = mkdtempSync(join(tmpdir(), "p1b-drain-"));
+  const home = tempDir("p1b-drain-");
   const cfg = defaults(); cfg.agents.bernd = {};
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
   cfg.engine.duplicateThreshold = 1.01;

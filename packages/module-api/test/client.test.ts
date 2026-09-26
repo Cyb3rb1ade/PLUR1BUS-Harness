@@ -1,15 +1,23 @@
 import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Socket } from "node:net";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LineDecoder, encodeLine } from "../src/framing.ts";
 import { RpcCallError, connect } from "../src/client.ts";
 
+const tempDirs: string[] = [];
+function tempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "p1b-client-"));
+  tempDirs.push(dir);
+  return dir;
+}
+after(() => { for (const d of tempDirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
+
 const TOKEN = "a".repeat(64);
 function address(): string {
-  return process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-${process.pid}-${Math.random().toString(36).slice(2)}` : join(mkdtempSync(join(tmpdir(), "p1b-client-")), "core.sock");
+  return process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-${process.pid}-${Math.random().toString(36).slice(2)}` : join(tempDir(), "core.sock");
 }
 
 /** Minimal fake core: auth, echo, one notification, slow method. */

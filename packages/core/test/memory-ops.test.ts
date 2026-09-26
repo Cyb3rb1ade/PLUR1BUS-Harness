@@ -1,7 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
@@ -10,6 +9,7 @@ import { createCore, type Core } from "../src/core.ts";
 import { MEMORY_OP_METHODS } from "../src/memory-ops.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 const badCaller = { ...caller, userId: "u".repeat(129) };
@@ -25,7 +25,7 @@ const SHARED_MEMORY = process.platform === "linux";
 const sharedOnly = { skip: !SHARED_MEMORY && "engine: shared memory needs stable directory capabilities (Linux only at the pin)" };
 
 function newHome(): string {
-  const home = mkdtempSync(join(tmpdir(), "p1b-memops-"));
+  const home = tempDir("p1b-memops-");
   const cfg = defaults(); cfg.agents.bernd = {}; cfg.agents.anna = {};
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
   // Several distinct facts with the flat embedder: disable capture dedup (see core.test.ts).
