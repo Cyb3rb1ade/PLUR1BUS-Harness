@@ -8,6 +8,7 @@ use crate::service::{self, Manager, Runner, ServiceError};
 use crate::supervisor;
 use plur1bus_rpc::{ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
+use std::ffi::OsString;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -189,26 +190,48 @@ fn spawn_supervise(bin: &Path, layout: &Layout) -> std::io::Result<std::process:
     cmd.spawn()
 }
 
-/// Starts the supervisor through its registered OS service (`systemctl --user start`, `launchctl kickstart
-/// gui/<uid>/<label>`, `schtasks /Run`).
-fn start_via_manager(r: &dyn Runner, manager: Manager, name: &str) -> Result<(), ServiceError> {
+/// Starts the supervisor through its registered OS service (`systemctl --user start`, `launchctl kickstart`
+/// (falling back to `bootstrap`, see [`start_launchd`]), `schtasks /Run`).
+fn start_via_manager(
+    r: &dyn Runner,
+    manager: Manager,
+    name: &str,
+    path: &Path,
+) -> Result<(), ServiceError> {
     match manager {
         Manager::Systemd => service::exec_ok(
             r,
             "systemctl",
             &service::os_args(&["--user", "start", &format!("{name}.service")]),
         ),
-        Manager::Launchd => {
-            let domain = service::launchd::gui_domain();
-            service::exec_ok(
-                r,
-                "launchctl",
-                &service::os_args(&["kickstart", &format!("{domain}/{name}")]),
-            )
-        }
+        Manager::Launchd => start_launchd(r, name, path),
         Manager::TaskScheduler => {
             service::exec_ok(r, "schtasks", &service::os_args(&["/Run", "/TN", name]))
         }
+    }
+}
+
+/// `launchctl kickstart gui/<uid>/<label>` starts an *already-loaded* agent. `service install --no-start` writes
+/// the plist (so `service status` reports it `registered`) but never loads it into launchd — real launchd only
+/// picks it up at the next login — so `kickstart` on such a service fails with ESRCH (3, "not loaded"), not
+/// success. Falling back to `bootstrap`ing the plist directly in that case loads *and* starts it at once
+/// (`RunAtLoad`), matching what `service install` (without `--no-start`) itself does.
+fn start_launchd(r: &dyn Runner, name: &str, path: &Path) -> Result<(), ServiceError> {
+    let domain = service::launchd::gui_domain();
+    match service::exec_ok(
+        r,
+        "launchctl",
+        &service::os_args(&["kickstart", &format!("{domain}/{name}")]),
+    ) {
+        Err(ServiceError::Command { code: Some(3), .. }) => {
+            let args = vec![
+                OsString::from("bootstrap"),
+                OsString::from(&domain),
+                path.as_os_str().to_os_string(),
+            ];
+            service::exec_ok(r, "launchctl", &args)
+        }
+        other => other,
     }
 }
 
@@ -299,7 +322,7 @@ fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, V
     let mut spawned: Option<std::process::Child> = None;
     if svc.registered {
         via = "service";
-        if let Err(e) = start_via_manager(runner.as_ref(), svc.manager, &svc.name) {
+        if let Err(e) = start_via_manager(runner.as_ref(), svc.manager, &svc.name, &svc.path) {
             fail_service(out, &e);
         }
     } else {
@@ -629,5 +652,99 @@ mod tests {
         assert_eq!(sup["process"]["state"], "degraded");
         assert_eq!(sup["process"]["reason"], "unresponsive");
         assert_eq!(children, json!([]));
+    }
+
+    /// A recorded call as `service::fake::FakeRunner`'s `calls.jsonl` stores it.
+    fn calls(dir: &Path) -> Vec<Value> {
+        std::fs::read_to_string(dir.join("calls.jsonl"))
+            .unwrap_or_default()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
+    }
+
+    fn verbs(dir: &Path) -> Vec<String> {
+        calls(dir)
+            .iter()
+            .map(|c| c["args"][0].as_str().unwrap_or_default().to_string())
+            .collect()
+    }
+
+    /// `start_via_manager`/`start_launchd` against `FakeRunner` directly (not a subprocess), so this runs
+    /// identically on Linux, macOS and Windows CI regardless of which manager the *host* actually has — unlike
+    /// `tests/daemon.rs`'s `daemon_start_uses_a_registered_service_instead_of_spawning`, which only ever exercises
+    /// the current host's own manager.
+    #[test]
+    fn start_launchd_falls_back_to_bootstrap_for_a_service_installed_without_start() {
+        use crate::service::fake::FakeRunner;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let fake = FakeRunner::new(tmp.path().to_path_buf());
+        let name = "dev.plur1bus.supervisor-test";
+        let plist = tmp.path().join(format!("{name}.plist"));
+        std::fs::write(&plist, "x").unwrap();
+
+        // Mirrors `service install --no-start`: the plist exists (so `service::status` reports the service
+        // `registered`) but was never loaded into launchd (`launchd::install` only runs `bootout`/`bootstrap`
+        // when `start` is true) — a real `launchctl kickstart` on it fails with ESRCH (3, "not loaded").
+        assert_eq!(service::launchd::status(&fake, name, &plist), (true, false));
+
+        let before = verbs(tmp.path()).len();
+        start_launchd(&fake, name, &plist).unwrap();
+
+        assert_eq!(&verbs(tmp.path())[before..], ["kickstart", "bootstrap"]);
+        assert_eq!(service::launchd::status(&fake, name, &plist), (true, true));
+    }
+
+    #[test]
+    fn start_launchd_kickstarts_an_already_loaded_service_without_a_fallback() {
+        use crate::service::fake::FakeRunner;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let fake = FakeRunner::new(tmp.path().to_path_buf());
+        let name = "dev.plur1bus.supervisor-test";
+        let plist = tmp.path().join(format!("{name}.plist"));
+        std::fs::write(&plist, "x").unwrap();
+        service::launchd::install(&fake, name, &plist, true).unwrap();
+        assert_eq!(service::launchd::status(&fake, name, &plist), (true, true));
+
+        let before = verbs(tmp.path()).len();
+        start_launchd(&fake, name, &plist).unwrap();
+
+        // No `bootstrap` fallback needed: `kickstart` alone succeeded on an already-loaded agent.
+        assert_eq!(&verbs(tmp.path())[before..], ["kickstart"]);
+    }
+
+    #[test]
+    fn start_via_manager_issues_the_expected_command_per_manager() {
+        use crate::service::fake::FakeRunner;
+
+        let systemd_tmp = tempfile::tempdir().unwrap();
+        let fake = FakeRunner::new(systemd_tmp.path().to_path_buf());
+        fake.run(
+            "systemctl",
+            &service::os_args(&["--user", "enable", "p1b.service"]),
+        )
+        .unwrap();
+        let path = systemd_tmp.path().join("p1b.service");
+        start_via_manager(&fake, Manager::Systemd, "p1b", &path).unwrap();
+        assert_eq!(
+            calls(systemd_tmp.path()).last().unwrap(),
+            &json!({ "program": "systemctl", "args": ["--user", "start", "p1b.service"] })
+        );
+
+        let schtasks_tmp = tempfile::tempdir().unwrap();
+        let fake = FakeRunner::new(schtasks_tmp.path().to_path_buf());
+        fake.run(
+            "schtasks",
+            &service::os_args(&["/Create", "/XML", "x.xml", "/TN", "p1b", "/F"]),
+        )
+        .unwrap();
+        let path = schtasks_tmp.path().join("p1b.xml");
+        start_via_manager(&fake, Manager::TaskScheduler, "p1b", &path).unwrap();
+        assert_eq!(
+            calls(schtasks_tmp.path()).last().unwrap(),
+            &json!({ "program": "schtasks", "args": ["/Run", "/TN", "p1b"] })
+        );
     }
 }
