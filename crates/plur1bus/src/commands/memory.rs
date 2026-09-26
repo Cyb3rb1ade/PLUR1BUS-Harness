@@ -262,19 +262,35 @@ fn render_recall(v: &Value, joined: bool) -> String {
             d["block"], d["kind"], d["from"], d["to"], d["reason"]
         ));
     }
-    if !v["degraded"].is_null() {
-        s.push_str(&format!(
-            "degraded: {} ({}){}\n",
-            v["degraded"]["reason"],
-            v["degraded"]["capability"],
-            v["degraded"]["detail"]
-                .as_str()
-                .map(|d| format!(": {d}"))
-                .unwrap_or_default()
-        ));
+    if let Some(line) = degraded_line(v) {
+        s.push_str(&line);
+        s.push('\n');
     }
     s.push_str(&format!("{} ms", v["timing"]["totalMs"]));
     s
+}
+
+/// The human `degraded: <reason> (<capability>): <detail>` line for a result carrying `degraded`
+/// (shared by `memory recall` and the memory-ops reads); `None` when the result is not degraded.
+pub(crate) fn degraded_line(v: &Value) -> Option<String> {
+    let d = &v["degraded"];
+    if d.is_null() {
+        return None;
+    }
+    let text = |x: &Value| {
+        x.as_str()
+            .map(String::from)
+            .unwrap_or_else(|| x.to_string())
+    };
+    Some(format!(
+        "degraded: {} ({}){}",
+        text(&d["reason"]),
+        text(&d["capability"]),
+        d["detail"]
+            .as_str()
+            .map(|t| format!(": {t}"))
+            .unwrap_or_default()
+    ))
 }
 
 #[cfg(test)]

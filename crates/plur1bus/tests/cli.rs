@@ -1070,3 +1070,63 @@ fn memory_proposals_accept_human_output_prints_bare_ids_without_json_quotes() {
     );
     assert!(!s.contains('"'), "id printed with JSON quotes: {s}");
 }
+
+/// Final review I2: a degraded read (G8, e.g. an invalid caller identity) must be visible in
+/// human output, with the same `degraded:` line `memory recall` prints.
+#[cfg(unix)]
+#[test]
+fn memory_reads_print_a_degraded_line_in_human_output() {
+    let degraded = serde_json::json!({
+        "reason": "principal-invalid",
+        "capability": "identity",
+        "detail": "accountId too long"
+    });
+    let cases: [(&str, &[&str], serde_json::Value); 4] = [
+        (
+            "memory.list",
+            &["memory", "list", "--agent", "bernd"],
+            serde_json::json!({"items": [], "degraded": degraded}),
+        ),
+        (
+            "memory.show",
+            &["memory", "show", "--agent", "bernd", "m-1"],
+            serde_json::json!({"card": {"id": "m-1", "summary": "synthetic"}, "degraded": degraded}),
+        ),
+        (
+            "memory.state",
+            &["memory", "state", "--agent", "bernd"],
+            serde_json::json!({"degraded": degraded}),
+        ),
+        (
+            "memory.proposals.list",
+            &["memory", "proposals", "list", "--agent", "bernd"],
+            serde_json::json!({"items": [], "degraded": degraded}),
+        ),
+    ];
+    for (method, args, result) in cases {
+        let dir = tempfile::tempdir().unwrap();
+        let h = dir.path().to_str().unwrap();
+        bin()
+            .args(["--home", h, "agent", "create", "bernd"])
+            .assert()
+            .success();
+        fake_core::spawn(
+            dir.path(),
+            fake_core::hello_with_capabilities(&[]),
+            Some((method, serde_json::json!({ "result": result }))),
+        );
+        let out = bin()
+            .args(["--home", h])
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let s = String::from_utf8(out).unwrap();
+        assert!(
+            s.contains("degraded: principal-invalid (identity): accountId too long"),
+            "{method}: expected a degraded line, got: {s}"
+        );
+    }
+}

@@ -4,7 +4,7 @@
 //! `memory.proposals.list|accept|reject`). Unlike `memory add`/`memory recall` (`memory.rs`),
 //! these never journal: a core that cannot be reached fails fast with `E_CORE_UNAVAILABLE`.
 use crate::cli::{MemoryCmd, ProposalStatus, ProposalsCmd, ShareTarget};
-use crate::commands::memory::{connect, require_agent};
+use crate::commands::memory::{connect, degraded_line, require_agent};
 use crate::identity;
 use crate::output::Out;
 use crate::paths::Layout;
@@ -103,8 +103,18 @@ fn call(
     let mut c = connect_or_unavailable(out, layout);
     require_supports(out, &c, method);
     match c.call(method, params) {
-        Ok(v) => out.ok(schema, &v, || human(&v)),
+        Ok(v) => out.ok(schema, &v, || with_degraded(human(&v), &v)),
         Err(e) => out.from_rpc_error(&e),
+    }
+}
+
+/// Appends the `degraded:` line (G8 reads under an invalid identity) so a degraded read is
+/// visible in human output, not only in `--json`.
+fn with_degraded(human: String, v: &Value) -> String {
+    match degraded_line(v) {
+        Some(line) if human.is_empty() => line,
+        Some(line) => format!("{human}\n{line}"),
+        None => human,
     }
 }
 
