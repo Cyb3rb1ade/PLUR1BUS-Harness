@@ -7,8 +7,10 @@
 //! spawned.
 //!
 //! The only pid the supervisor ever signals is one the OS names as the socket's server ([`Stream::peer_pid`]:
-//! `SO_PEERCRED`, `LOCAL_PEERPID`, `GetNamedPipeServerProcessId`), re-checked right before each signal ([`Peer`]).
-//! `run/core.pid` only serves to recognise a foreign core.
+//! `SO_PEERCRED`, `LOCAL_PEERPID`, `GetNamedPipeServerProcessId`). [`Peer`] pins that process while the pid is known to
+//! be the server: a pidfd on Linux, a process handle on Windows, so a recycled pid is never signalled. macOS has no
+//! such handle; there the pid is re-checked as the socket's server right before each signal. `run/core.pid` only
+//! serves to recognise a foreign core.
 use super::{spawn_guarded, Shared};
 use crate::paths::{core_address, Layout};
 use plur1bus_rpc::transport::{self, Stream};
@@ -24,18 +26,21 @@ const POST_KILL_WAIT: Duration = Duration::from_secs(1);
 /// How often a termination checks whether the process is gone.
 const GONE_TICK: Duration = Duration::from_millis(25);
 
-/// What answers on the core's address.
-#[derive(Debug, Clone, PartialEq)]
+/// What answers on the core's address. `peer` is the socket's server as the OS names it, pinned at the probe.
 pub enum Probe {
     /// Nothing listens (no socket or pipe, or a stale socket file that refuses connections).
     Absent,
     /// A core that authenticated with `run/core.token`, whose hello `pid` is the socket's server and whose
-    /// `instanceId` is the one in `run/core.pid`.
-    Serving { peer_pid: u32, hello: Value },
+    /// `instanceId` is the one in `run/core.pid`. `client` is that authenticated connection: [`adopt`] runs on it.
+    Serving {
+        peer: Peer,
+        hello: Value,
+        client: Client,
+    },
     /// It accepts connections but `core.auth` got no answer in time, or there is no `run/core.token` to try.
-    Hung { peer_pid: u32 },
+    Hung { peer: Peer },
     /// It answers, but not as the core `run/core.pid` names (or the handshake failed outright).
-    Foreign { peer_pid: u32, reason: String },
+    Foreign { peer: Peer, reason: String },
 }
 
 impl Probe {
@@ -46,6 +51,16 @@ impl Probe {
             Probe::Serving { .. } => "serving",
             Probe::Hung { .. } => "hung",
             Probe::Foreign { .. } => "foreign",
+        }
+    }
+
+    /// The server's pid, when something serves.
+    pub fn peer_pid(&self) -> Option<u32> {
+        match self {
+            Probe::Absent => None,
+            Probe::Serving { peer, .. } | Probe::Hung { peer } | Probe::Foreign { peer, .. } => {
+                Some(peer.pid)
+            }
         }
     }
 }
@@ -91,18 +106,20 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
     let Some(peer_pid) = stream.peer_pid() else {
         return Probe::Absent;
     };
+    // Pinned now, while the connection names it as the server.
+    let peer = Peer::open(peer_pid, layout);
     let Some(token) = read_core_token(layout) else {
-        return Probe::Hung { peer_pid };
+        return Probe::Hung { peer };
     };
     let client = match handshake_bounded(stream, token, timeout) {
         Some(Ok(c)) => c,
-        None => return Probe::Hung { peer_pid },
+        None => return Probe::Hung { peer },
         Some(Err(RpcError::Unavailable { reason, .. })) if reason == "handshake-timeout" => {
-            return Probe::Hung { peer_pid }
+            return Probe::Hung { peer }
         }
         Some(Err(e)) => {
             return Probe::Foreign {
-                peer_pid,
+                peer,
                 reason: format!("handshake-failed: {e}"),
             }
         }
@@ -110,20 +127,24 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
     let hello = client.hello().clone();
     if hello["pid"].as_u64() != Some(u64::from(peer_pid)) {
         return Probe::Foreign {
-            peer_pid,
+            peer,
             reason: "pid-mismatch".into(),
         };
     }
     match pid_file_instance(layout) {
         None => Probe::Foreign {
-            peer_pid,
+            peer,
             reason: "no-pid-file".into(),
         },
         Some(id) if hello["instanceId"].as_str() != Some(id.as_str()) => Probe::Foreign {
-            peer_pid,
+            peer,
             reason: "instance-mismatch".into(),
         },
-        Some(_) => Probe::Serving { peer_pid, hello },
+        Some(_) => Probe::Serving {
+            peer,
+            hello,
+            client,
+        },
     }
 }
 
@@ -146,21 +167,18 @@ fn handshake_bounded(
     rx.recv_timeout(timeout + Duration::from_millis(500)).ok()
 }
 
-/// Adopts the running core: `core.auth` with `run/core.token`, then `core.adopt { nonce: supervisor_token }`. Returns
-/// the connection, which is now the core's lifeline and must stay open for as long as the core is supervised, and
-/// the core's `CoreStatus`. A core whose hello `pid` is not the socket's server is refused.
-pub fn adopt(layout: &Layout, supervisor_token: &str) -> Result<(Client, Value), RpcError> {
-    let address = core_address(&layout.home, platform());
-    let token = read_core_token(layout).ok_or_else(|| RpcError::Unavailable {
-        reason: "no-core-token".into(),
-        detail: format!("{} is missing", layout.core_token().display()),
+/// Adopts the core `client` is authenticated with (the probe's own connection, so no other process can slip in
+/// between probe and adoption): `core.adopt { nonce: supervisor_token }`. Returns the connection, which is now the
+/// core's lifeline and must stay open for as long as the core is supervised, and the core's `CoreStatus`. Refused when
+/// the OS does not name the socket's server, or names another pid than the hello.
+pub fn adopt(mut client: Client, supervisor_token: &str) -> Result<(Client, Value), RpcError> {
+    let peer_pid = client.peer_pid().ok_or_else(|| {
+        RpcError::Protocol("the OS does not name the core socket's server".into())
     })?;
-    let mut client = Client::connect(&address, &token, core_options(PROBE_TIMEOUT))?;
     let hello_pid = client.hello()["pid"].as_u64();
-    if client.peer_pid().map(u64::from) != hello_pid {
+    if hello_pid != Some(u64::from(peer_pid)) {
         return Err(RpcError::Protocol(format!(
-            "the core's hello pid {hello_pid:?} is not the socket's server {:?}",
-            client.peer_pid()
+            "the core's hello pid {hello_pid:?} is not the socket's server {peer_pid}"
         )));
     }
     let result = client.call("core.adopt", json!({ "nonce": supervisor_token }))?;
@@ -171,28 +189,45 @@ pub fn adopt(layout: &Layout, supervisor_token: &str) -> Result<(Client, Value),
     Ok((client, status))
 }
 
-/// A core process the supervisor did not spawn, identified by the pid the OS named as its socket's server. On
-/// Windows it also holds a process handle opened while that was true, so the pid cannot be recycled under it.
+/// A core process the supervisor did not spawn, identified by the pid the OS named as its socket's server and pinned
+/// while that was true: a pidfd on Linux (kernel >= 5.3), a process handle on Windows. Signals go through the pin, so a
+/// recycled pid is never hit. Without a pin (macOS, or when pinning failed) a signal is sent only while a fresh
+/// connect still names `pid` as the core socket's server; a core that has closed its listener is then not signalled
+/// (its own orphan grace ends it).
 pub struct Peer {
     pub pid: u32,
-    /// The core's address: on unix a signal is sent only while the OS still names `pid` as its server.
-    #[cfg_attr(windows, allow(dead_code))]
+    /// The core's address, for the unpinned fallback.
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     address: String,
+    #[cfg(target_os = "linux")]
+    pidfd: Option<std::os::fd::OwnedFd>,
     #[cfg(windows)]
     handle: isize,
 }
 
 impl Peer {
-    /// Call this while the pid is known to be the server (right after the probe, or with the lifeline open).
+    /// Call this while the pid is known to be the server (right after the probe read it from the connection).
     pub fn open(pid: u32, layout: &Layout) -> Peer {
         let address = core_address(&layout.home, platform());
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::fd::FromRawFd;
+            // SAFETY: pidfd_open(2) with no flags; a non-negative result is a new fd this struct then owns.
+            let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid as libc::pid_t, 0) };
+            let pidfd = (fd >= 0).then(|| unsafe { std::os::fd::OwnedFd::from_raw_fd(fd as i32) });
+            Peer {
+                pid,
+                address,
+                pidfd,
+            }
+        }
         #[cfg(windows)]
         {
             use windows_sys::Win32::System::Threading::{
                 OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
                 PROCESS_TERMINATE,
             };
-            // SAFETY: plain OpenProcess; a null handle means the process is gone (or not ours to open).
+            // SAFETY: plain OpenProcess; a null handle means it could not be opened (see `pin_failed`).
             let handle = unsafe {
                 OpenProcess(
                     PROCESS_TERMINATE | PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
@@ -206,12 +241,45 @@ impl Peer {
                 handle,
             }
         }
-        #[cfg(not(windows))]
+        #[cfg(not(any(target_os = "linux", windows)))]
         Peer { pid, address }
     }
 
-    /// Whether the process still exists: `kill(pid, 0)` (a zombie counts as gone), or the Windows handle not signalled.
+    /// Pinning was possible on this OS but failed (no pidfd, no process handle): liveness and signals fall back to
+    /// the socket.
+    pub fn pin_failed(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            self.pidfd.is_none()
+        }
+        #[cfg(windows)]
+        {
+            self.handle == 0
+        }
+        #[cfg(not(any(target_os = "linux", windows)))]
+        {
+            false
+        }
+    }
+
+    /// Whether the process still exists. Linux: the pidfd is not readable (it becomes readable when the process
+    /// exits, zombie included). Windows: the handle is not signalled; without a handle "cannot tell" counts as alive
+    /// while the core's pipe still exists. Otherwise `kill(pid, 0)`, with a Linux zombie counted as gone.
     pub fn alive(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        if let Some(fd) = &self.pidfd {
+            use std::os::fd::AsRawFd;
+            let mut p = libc::pollfd {
+                fd: fd.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            // SAFETY: one pollfd on a live local, zero timeout.
+            let r = unsafe { libc::poll(&mut p, 1, 0) };
+            if r >= 0 {
+                return !(r > 0 && p.revents & libc::POLLIN != 0);
+            }
+        }
         #[cfg(unix)]
         {
             // SAFETY: signal 0 only checks that the pid exists.
@@ -225,14 +293,18 @@ impl Peer {
             use windows_sys::Win32::Foundation::WAIT_TIMEOUT;
             use windows_sys::Win32::System::Threading::WaitForSingleObject;
             if self.handle == 0 {
-                return false;
+                // Cannot tell from the process: alive while its pipe is there (231 = every instance busy).
+                return match transport::connect(&self.address, Duration::from_millis(300)) {
+                    Ok(s) => s.peer_pid().is_none_or(|p| p == self.pid),
+                    Err(e) => e.raw_os_error() == Some(231),
+                };
             }
             // SAFETY: a handle this struct owns.
             unsafe { WaitForSingleObject(self.handle as _, 0) == WAIT_TIMEOUT }
         }
     }
 
-    /// Whether the OS names `pid` as the server of the core's socket right now.
+    /// Whether the OS names `pid` as the server of the core's socket right now (the unpinned fallback).
     #[cfg(unix)]
     fn still_serves(&self) -> bool {
         transport::connect(&self.address, Duration::from_millis(300))
@@ -243,7 +315,25 @@ impl Peer {
 
     #[cfg(unix)]
     fn signal(&self, sig: libc::c_int) -> bool {
-        if !(self.alive() && self.still_serves()) {
+        if !self.alive() {
+            return false;
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(fd) = &self.pidfd {
+            use std::os::fd::AsRawFd;
+            // SAFETY: pidfd_send_signal(2) on the pinned process; null info, no flags.
+            let r = unsafe {
+                libc::syscall(
+                    libc::SYS_pidfd_send_signal,
+                    fd.as_raw_fd(),
+                    sig,
+                    std::ptr::null::<libc::siginfo_t>(),
+                    0,
+                )
+            };
+            return r == 0;
+        }
+        if !self.still_serves() {
             return false;
         }
         // SAFETY: kill(2) on the pid the OS has just named as the core socket's server.
@@ -262,7 +352,7 @@ impl Peer {
         }
     }
 
-    /// SIGKILL / TerminateProcess. Returns whether it was sent.
+    /// SIGKILL / TerminateProcess. Returns whether it was sent (never without a Windows handle).
     pub fn kill(&self) -> bool {
         #[cfg(unix)]
         {
@@ -272,7 +362,9 @@ impl Peer {
         {
             use windows_sys::Win32::System::Threading::TerminateProcess;
             // SAFETY: a handle this struct owns, opened with PROCESS_TERMINATE.
-            self.alive() && unsafe { TerminateProcess(self.handle as _, 1) != 0 }
+            self.handle != 0
+                && self.alive()
+                && unsafe { TerminateProcess(self.handle as _, 1) != 0 }
         }
     }
 }
@@ -307,10 +399,10 @@ fn is_zombie(_pid: u32) -> bool {
 /// Terminates a hung or foreign core found at start (S6, S8): `core.shutdown` on a fresh connection to that same
 /// server, SIGTERM (unix) after 2 s, SIGKILL / TerminateProcess 10 s later (both × the time scale). Returns once the
 /// process is gone, or after the kill plus a short wait.
-pub fn terminate_found(shared: &Arc<Shared>, layout: &Layout, pid: u32, probe: &str) {
+pub fn terminate_found(shared: &Arc<Shared>, layout: &Layout, peer: Peer, probe: &str) {
     let scale = shared.lock().time_scale;
     let s = |ms: u64| Duration::from_secs_f64(ms as f64 / 1000.0 * scale);
-    let peer = Peer::open(pid, layout);
+    let pid = peer.pid;
     let t0 = Instant::now();
     let log = |step: &str| {
         shared.log.warn(
@@ -385,7 +477,7 @@ mod tests {
     fn nothing_listening_probes_absent() {
         let dir = std::env::temp_dir().join(format!("p1b-probe-{}", std::process::id()));
         let layout = Layout::new(dir.clone());
-        assert_eq!(probe_core(&layout, PROBE_TIMEOUT), Probe::Absent);
+        assert!(matches!(probe_core(&layout, PROBE_TIMEOUT), Probe::Absent));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -397,12 +489,9 @@ mod tests {
         std::fs::create_dir_all(layout.run()).unwrap();
         let address = core_address(&layout.home, "posix");
         let _listener = std::os::unix::net::UnixListener::bind(&address).unwrap();
-        assert_eq!(
-            probe_core(&layout, PROBE_TIMEOUT),
-            Probe::Hung {
-                peer_pid: std::process::id()
-            }
-        );
+        let found = probe_core(&layout, PROBE_TIMEOUT);
+        assert_eq!(found.name(), "hung");
+        assert_eq!(found.peer_pid(), Some(std::process::id()));
     }
 
     #[cfg(unix)]
@@ -424,7 +513,43 @@ mod tests {
         }
         child.wait().unwrap();
         assert!(!Peer::open(pid, &layout).alive());
-        // A pid that serves no socket is never signalled.
-        assert!(!Peer::open(std::process::id(), &layout).terminate());
+    }
+
+    /// Linux (M4): the pin is taken at open; the signal goes through the pidfd, and once the process is gone the
+    /// pin refuses to signal anything, whatever process the pid may name by then.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_pinned_peer_is_signalled_through_its_pidfd_and_never_after_its_exit() {
+        use std::os::unix::process::ExitStatusExt;
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        let peer = Peer::open(child.id(), &layout);
+        assert!(!peer.pin_failed());
+        assert!(peer.alive());
+        assert!(peer.kill(), "no socket is needed with a pin");
+        assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGKILL));
+        assert!(!peer.alive());
+        assert!(!peer.kill() && !peer.terminate());
+    }
+
+    /// Without a pin (macOS): a pid that does not serve the core socket is never signalled.
+    #[cfg(all(unix, not(target_os = "linux")))]
+    #[test]
+    fn an_unpinned_peer_that_serves_no_socket_is_not_signalled() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        let peer = Peer::open(child.id(), &layout);
+        assert!(peer.alive());
+        assert!(!peer.terminate() && !peer.kill());
+        child.kill().unwrap();
+        child.wait().unwrap();
     }
 }

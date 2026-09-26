@@ -1,13 +1,15 @@
 // A stand-in for dist/core.js in the supervisor's Rust tests (no dependencies). It takes the same flags as core.js,
-// listens on the same address, writes run/core.token and run/core.pid like the real core, and answers core.auth,
-// core.status, core.shutdown and core.adopt. FAKE_CORE_MODE picks its behaviour:
+// takes state/core.lock the way core.ts does (SQLite EXCLUSIVE, released by the OS when the process dies; held → exit
+// 3), writes run/core.token and run/core.pid and then listens on the same address like the real core, and answers
+// core.auth, core.status, core.shutdown and core.adopt. FAKE_CORE_MODE picks its behaviour:
 //   ok                    serve until core.shutdown or lifeline loss
 //   crash-after:<ms>      serve, then exit 1 after <ms>
-//   exit:<code>           exit with <code> at once, before listening
+//   exit:<code>           exit with <code> at once, before the lock
+//   listen-after:<ms>     hold the lock and write the run files, but listen only after <ms> (a core still starting)
 //   hang-after:<ms>       serve, then stop answering every request after <ms> (no SIGTERM handler; event `hung`)
 //   no-listen             start (run files not written) but never listen
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
-// Every event (started, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
+// Every event (started, listening, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
 // The lifeline (S4) is stdin with --lifeline stdin, then the connection of the last successful core.adopt (whose nonce
 // must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
 // after FAKE_CORE_GRACE_MS (default 1000) unless a core.adopt arrives first.
@@ -15,6 +17,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { parseArgs } from "node:util";
 
 const { values } = parseArgs({
@@ -42,6 +45,21 @@ process.stderr.write(`fake-core stderr marker pid=${process.pid}\n`);
 
 const [kind, a, b] = mode.split(":");
 if (kind === "exit") exit(Number(a));
+
+// Like packages/core/src/lock.ts, before anything touches run/: a second core must not remove the first one's socket.
+const stateDir = path.join(home, "state");
+mkdirSync(stateDir, { recursive: true });
+const lock = new DatabaseSync(path.join(stateDir, "core.lock"));
+try {
+  lock.exec("PRAGMA busy_timeout=0; PRAGMA locking_mode=EXCLUSIVE;");
+  lock.exec("CREATE TABLE IF NOT EXISTS holder(pid INTEGER NOT NULL)");
+  lock.exec("BEGIN EXCLUSIVE");
+} catch {
+  lock.close();
+  event("locked");
+  exit(3);
+}
+
 if (kind === "no-listen") setInterval(() => {}, 1000);
 
 const run = path.join(home, "run");
@@ -163,12 +181,18 @@ const server = net.createServer((sock) => {
   });
 });
 
-if (kind !== "no-listen") server.listen(address, () => {
+if (kind !== "no-listen") {
+  // Before listen, as core.ts does.
   writeFileSync(path.join(run, "core.token"), token, { mode: 0o600 });
   writeFileSync(path.join(run, "core.pid"), `${process.pid} ${instanceId}\n`, { mode: 0o600 });
-  if (kind === "crash-after") setTimeout(() => exit(1), Number(a));
-  if (kind === "hang-after") setTimeout(() => { hung = true; event("hung"); }, Number(a));
-});
+  const listen = () => server.listen(address, () => {
+    event("listening");
+    if (kind === "crash-after") setTimeout(() => exit(1), Number(a));
+    if (kind === "hang-after") setTimeout(() => { hung = true; event("hung"); }, Number(a));
+  });
+  if (kind === "listen-after") setTimeout(listen, Number(a));
+  else listen();
+}
 
 if (values.lifeline === "stdin") {
   lifeline = "stdin";

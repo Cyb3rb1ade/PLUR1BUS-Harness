@@ -231,25 +231,37 @@ impl Monitor {
         m
     }
 
-    /// Supervises a core adopted through `core.adopt` (S4, S19): `lifeline` is the connection the call succeeded on
-    /// and `status` its `CoreStatus`. Nothing is spawned; after the adopted core exits, a restart uses `spec` (or
-    /// builds it then, when it could not be built now).
+    /// Supervises a core adopted through `core.adopt` (S4, S19): `peer` is the socket's server as the probe pinned
+    /// it, `lifeline` the connection the call succeeded on and `status` its `CoreStatus`. Nothing is spawned; after
+    /// the adopted core exits, a restart uses `spec` (or builds it then, when it could not be built now).
     pub fn adopt(
         shared: Arc<Shared>,
         layout: &Layout,
         spec: Option<ChildSpec>,
+        peer: Peer,
         lifeline: Client,
         status: &Value,
     ) -> Monitor {
         let mut m = Monitor::new(shared, layout, spec, "core");
-        m.spawned = true; // the adopted core counts as the first process: a respawn gets a fresh instance id
+        m.attach_adopted(peer, lifeline, status);
+        m
+    }
+
+    /// Makes an adopted core the current process of this monitor (at start, or instead of a restart whose last exit
+    /// was `lock-held`). The child keeps its `restarts` and `lastExit`. Call only while no process is running.
+    pub fn attach_adopted(&mut self, peer: Peer, lifeline: Client, status: &Value) {
+        self.spawned = true; // the adopted core counts as a process: a respawn gets a fresh instance id
         let hello = lifeline.hello().clone();
-        let pid = lifeline
-            .peer_pid()
-            .or_else(|| hello["pid"].as_u64().map(|p| p as u32))
-            .unwrap_or(0);
+        let pid = peer.pid;
+        if peer.pin_failed() {
+            self.shared.log.warn(
+                "cannot pin the adopted core's process; liveness and signals fall back to its socket",
+                json!({ "pid": pid }),
+            );
+        }
         let instance_id = hello["instanceId"].as_str().map(str::to_string);
         let now = Instant::now();
+        let m = self;
         let gen = Arc::new(Gen {
             role: "core".into(),
             pid,
@@ -262,7 +274,7 @@ impl Monitor {
             exited: AtomicBool::new(false),
             kill_reason: Mutex::new(None),
             last_ok: Mutex::new(now),
-            peer: Some(Peer::open(pid, layout)),
+            peer: Some(peer),
             lifeline_in_control: AtomicBool::new(true),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),
@@ -270,6 +282,8 @@ impl Monitor {
         {
             let mut st = m.shared.lock();
             st.backoff.on_ready(now);
+            st.restart_at = None;
+            let prev = st.child.take();
             st.child = Some(ChildState {
                 role: "core".into(),
                 health: health_from(&status["process"]).unwrap_or(Health::Starting),
@@ -277,8 +291,8 @@ impl Monitor {
                 pid: Some(pid),
                 instance_id: instance_id.clone(),
                 adopted: true,
-                restarts: 0,
-                last_exit: None,
+                restarts: prev.as_ref().map_or(0, |c| c.restarts),
+                last_exit: prev.and_then(|c| c.last_exit),
                 next_restart_at_ms: None,
             });
             st.lifeline = Lifeline::Connection;
@@ -294,7 +308,6 @@ impl Monitor {
         });
         let (s, c, g) = (m.shared.clone(), m.ctx.clone(), gen);
         m.start_thread(&format!("core-waiter-{pid}"), move || waiter(&s, &c, &g));
-        m
     }
 
     fn new(shared: Arc<Shared>, layout: &Layout, spec: Option<ChildSpec>, role: &str) -> Monitor {
@@ -869,9 +882,10 @@ fn waiter(shared: &Arc<Shared>, ctx: &Arc<Ctx>, gen: &Arc<Gen>) {
         None => (None, None),
     };
     let requested = gen.requested.load(Ordering::SeqCst);
+    let killed_for = *relock(&gen.kill_reason);
     let forced = match gen.peer {
-        Some(_) => Some(CrashReason::AdoptedExit),
-        None => *relock(&gen.kill_reason),
+        Some(_) => killed_for.or(Some(CrashReason::AdoptedExit)),
+        None => killed_for,
     };
     record_exit(shared, Some(gen), code, signal, requested, forced);
 }
@@ -945,8 +959,14 @@ fn record_exit(
             (crashed(&reason), reason, None)
         }
         ExitClass::Retryable { reason } => {
+            let lock_held = reason.as_deref() == Some(CrashReason::LockHeld.as_str());
             let reason = forced.map(|r| r.to_string()).or(reason);
-            let next = match st.backoff.on_exit(now) {
+            let decision = if lock_held {
+                st.backoff.on_lock_held_exit(now)
+            } else {
+                st.backoff.on_exit(now)
+            };
+            let next = match decision {
                 RestartDecision::After(d) => {
                     st.restart_at = Some(now + d);
                     Some(at + d.as_millis() as u64)

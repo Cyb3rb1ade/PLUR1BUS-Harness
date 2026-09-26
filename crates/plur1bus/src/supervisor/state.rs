@@ -208,6 +208,29 @@ impl Backoff {
         RestartDecision::After(delay)
     }
 
+    /// Record an exit 3 (`lock-held`: another core holds `state/core.lock`) at `now`. It is delayed like any exit,
+    /// but never counts toward GiveUp: the lock holder is a core that is still starting, and the next attempt probes
+    /// for it and adopts it once it serves (Task 7 review). A GiveUp reached through other exits stays sticky.
+    pub fn on_lock_held_exit(&mut self, now: Instant) -> RestartDecision {
+        if self.given_up {
+            return RestartDecision::GiveUp;
+        }
+        if let Some(ready_since) = self.ready_since {
+            if now.saturating_duration_since(ready_since) >= self.window {
+                self.delay_index = 0;
+            }
+        }
+        self.ready_since = None;
+        let delay = Duration::from_secs_f64(base_delay_secs(self.delay_index) * self.scale);
+        self.delay_index += 1;
+        RestartDecision::After(delay)
+    }
+
+    /// Whether the backoff has given up (sticky until `reset()`).
+    pub fn given_up(&self) -> bool {
+        self.given_up
+    }
+
     /// Clear all history (daemon start / `daemon.start`, ruling S9's "no retry until daemon
     /// start" and spec §6.4).
     pub fn reset(&mut self) {
@@ -300,6 +323,38 @@ mod tests {
                 "exit {i}"
             );
         }
+    }
+
+    #[test]
+    fn lock_held_exits_back_off_but_never_give_up() {
+        let mut backoff = Backoff::new(1.0);
+        let start = Instant::now();
+        let expected = [1u64, 2, 4, 8, 16, 32, 60, 60, 60, 60, 60, 60];
+        for (i, s) in expected.iter().enumerate() {
+            let now = start + Duration::from_secs(i as u64);
+            assert_eq!(
+                backoff.on_lock_held_exit(now),
+                RestartDecision::After(secs(*s)),
+                "lock-held exit {i}"
+            );
+        }
+        assert!(!backoff.given_up());
+        // Real crashes still give up on the fifth in the window, however many lock-held exits came between.
+        let t = start + Duration::from_secs(20);
+        for i in 0..4u64 {
+            assert_ne!(
+                backoff.on_exit(t + secs(i)),
+                RestartDecision::GiveUp,
+                "crash {i}"
+            );
+            let _ = backoff.on_lock_held_exit(t + secs(i) + Duration::from_millis(500));
+        }
+        assert_eq!(backoff.on_exit(t + secs(4)), RestartDecision::GiveUp);
+        assert!(backoff.given_up());
+        assert_eq!(
+            backoff.on_lock_held_exit(t + secs(5)),
+            RestartDecision::GiveUp
+        );
     }
 
     #[test]

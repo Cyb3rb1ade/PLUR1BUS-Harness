@@ -152,6 +152,15 @@ impl HandCore {
         wait_until("the hand-started core's pid file", WAIT, || {
             pid_file(&h.home).is_some_and(|(p, _)| p == u64::from(pid))
         });
+        // The run files come before listen, as in core.ts; wait for the socket too, except for a core that
+        // listens late on purpose.
+        if !mode.starts_with("listen-after") {
+            wait_until("the hand-started core listening", WAIT, || {
+                h.events("listening")
+                    .iter()
+                    .any(|e| e["pid"].as_u64() == Some(u64::from(pid)))
+            });
+        }
         Self { child, status, pid }
     }
     fn exit_status(&self) -> Option<ExitStatus> {
@@ -456,6 +465,40 @@ fn a_foreign_instance_id_is_terminated() {
     assert_eq!(probe["peerPid"].as_u64(), Some(u64::from(foreign.pid)));
     assert_eq!(probe["reason"], "instance-mismatch");
     s.stop(&mut c);
+}
+
+/// Review round 1, Important 1: the core takes `state/core.lock` seconds before it listens. A supervisor starting in
+/// that window finds nothing on the address, and its own spawn exits 3 (`lock-held`). Every restart after a
+/// `lock-held` exit probes again, so the core is adopted once it serves; lock-held exits never make the backoff give
+/// up (the core here listens after enough of them to have given up five times over at this scale).
+#[test]
+fn a_core_still_starting_is_adopted_once_it_listens() {
+    let h = Home::new();
+    let starting = HandCore::start(&h, "listen-after:2500");
+    let mut s = start(&h, "300");
+    let mut c = client(&h.home);
+    let child = wait_child(&mut c, "the starting core adopted", |c| {
+        ready(c) && c["adopted"] == true
+    });
+    assert_eq!(child["pid"].as_u64(), Some(u64::from(starting.pid)));
+    assert_eq!(child["lastExit"]["reason"], "lock-held", "{child}");
+    let locked = h.events("locked").len();
+    assert!(
+        locked >= 5,
+        "only {locked} lock-held exits before the adoption"
+    );
+    let probes = probe_results(&h);
+    assert_eq!(probes.first().map(String::as_str), Some("absent"));
+    assert_eq!(probes.last().map(String::as_str), Some("serving"));
+    assert_eq!(h.events("adopted").len(), 1);
+    // Nothing is spawned afterwards.
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(h.events("locked").len(), locked);
+    assert!(starting.exit_status().is_none());
+    s.stop(&mut c);
+    wait_until("the adopted core stopped", WAIT, || {
+        starting.exit_status().is_some()
+    });
 }
 
 /// Review Focus 3: after a power loss `run/core.sock`, `run/core.pid` and `run/core.token` are left with no process.

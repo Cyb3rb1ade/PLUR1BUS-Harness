@@ -570,7 +570,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         };
         match spawn {
             Err(stop) => break stop,
-            Ok(()) => spawn_core(&mut monitor),
+            Ok(()) => restart_core(&shared, layout, &token, &mut monitor, spawn_core),
         }
     };
     shared.log.info(
@@ -589,10 +589,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     0
 }
 
-/// The core at start (spec §6.4, S6): probe the address before any spawn. A serving core is adopted with the fresh
-/// token as nonce; a hung or foreign one is terminated by the pid the OS names as its server, then a core is spawned.
-/// So is one when nothing answers, or when the adoption fails (a core that is stopping: the spawn then exits 3 while it
-/// still holds the lock, and backs off).
+/// The core at start (spec §6.4, S6): probe the address before any spawn ([`probe_and_adopt`]), and spawn only when
+/// no core was adopted.
 fn start_core(
     shared: &Arc<Shared>,
     layout: &Layout,
@@ -600,44 +598,91 @@ fn start_core(
     monitor: &mut Option<child::Monitor>,
     spawn_core: impl Fn(&mut Option<child::Monitor>),
 ) {
+    if !probe_and_adopt(shared, layout, token, monitor) && shared.lock().stopping.is_none() {
+        spawn_core(monitor);
+    }
+}
+
+/// A due restart or `daemon.start`. When the last exit was `lock-held`, another core holds `state/core.lock`: most
+/// likely one still starting (the core takes the lock seconds before it listens). So the address is probed again
+/// first, and a core that now serves is adopted instead of spawning yet another one that would exit 3.
+fn restart_core(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitor: &mut Option<child::Monitor>,
+    spawn_core: impl Fn(&mut Option<child::Monitor>),
+) {
+    let running = monitor.as_ref().is_some_and(child::Monitor::is_running);
+    let lock_held = {
+        let st = shared.lock();
+        st.child
+            .as_ref()
+            .and_then(|c| c.last_exit.as_ref())
+            .and_then(|e| e.reason.as_deref())
+            == Some(state::CrashReason::LockHeld.as_str())
+    };
+    if !running
+        && lock_held
+        && (probe_and_adopt(shared, layout, token, monitor) || shared.lock().stopping.is_some())
+    {
+        return;
+    }
+    spawn_core(monitor);
+}
+
+/// Probes the core's address (S6). A serving core is adopted on the probe's own connection with the current token
+/// as nonce, and becomes the monitor's process; a hung or foreign one is terminated through the pin the probe took
+/// on the socket's server. Returns whether a core was adopted. A failed adoption (a core that is stopping) returns
+/// false: the spawn that follows exits 3 while it still holds the lock, and backs off.
+fn probe_and_adopt(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitor: &mut Option<child::Monitor>,
+) -> bool {
     let found = adopt::probe_core(layout, adopt::PROBE_TIMEOUT);
-    let (peer_pid, reason) = match &found {
-        adopt::Probe::Absent => (None, None),
-        adopt::Probe::Serving { peer_pid, .. } | adopt::Probe::Hung { peer_pid } => {
-            (Some(*peer_pid), None)
-        }
-        adopt::Probe::Foreign { peer_pid, reason } => (Some(*peer_pid), Some(reason.clone())),
+    let name = found.name();
+    let reason = match &found {
+        adopt::Probe::Foreign { reason, .. } => Some(reason.clone()),
+        _ => None,
     };
     shared.log.info(
         "core probe",
-        json!({ "result": found.name(), "peerPid": peer_pid, "reason": reason }),
+        json!({ "result": name, "peerPid": found.peer_pid(), "reason": reason }),
     );
     match found {
-        adopt::Probe::Absent => {}
-        adopt::Probe::Serving { .. } => match adopt::adopt(layout, token) {
+        adopt::Probe::Absent => false,
+        adopt::Probe::Serving { peer, client, .. } => match adopt::adopt(client, token) {
             Ok((lifeline, status)) => {
-                let spec = child::core_spec(layout, &uuid::Uuid::new_v4().to_string()).ok();
-                *monitor = Some(child::Monitor::adopt(
-                    shared.clone(),
-                    layout,
-                    spec,
-                    lifeline,
-                    &status,
-                ));
-                return;
+                match monitor {
+                    Some(m) => m.attach_adopted(peer, lifeline, &status),
+                    None => {
+                        let spec = child::core_spec(layout, &uuid::Uuid::new_v4().to_string()).ok();
+                        *monitor = Some(child::Monitor::adopt(
+                            shared.clone(),
+                            layout,
+                            spec,
+                            peer,
+                            lifeline,
+                            &status,
+                        ));
+                    }
+                }
+                true
             }
-            Err(e) => shared.log.warn(
-                "adoption failed, spawning a core",
-                json!({ "err": e.to_string() }),
-            ),
+            Err(e) => {
+                shared.log.warn(
+                    "adoption failed, spawning a core",
+                    json!({ "err": e.to_string() }),
+                );
+                false
+            }
         },
-        adopt::Probe::Hung { peer_pid } | adopt::Probe::Foreign { peer_pid, .. } => {
-            adopt::terminate_found(shared, layout, peer_pid, found.name())
+        adopt::Probe::Hung { peer } | adopt::Probe::Foreign { peer, .. } => {
+            adopt::terminate_found(shared, layout, peer, name);
+            false
         }
-    }
-    // A stop that arrived meanwhile is handled by the main loop; no core is spawned for it.
-    if shared.lock().stopping.is_none() {
-        spawn_core(monitor);
     }
 }
 
