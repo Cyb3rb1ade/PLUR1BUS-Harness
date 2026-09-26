@@ -59,6 +59,13 @@ try {
   event("locked");
   exit(3);
 }
+// Held for the process lifetime: an unreferenced DatabaseSync is garbage-collected, and its finalizer unlocks and
+// closes the file (a second core would then get the lock). The exit handler keeps it reachable and releases it.
+globalThis.fakeCoreLock = lock;
+process.on("exit", () => { try { globalThis.fakeCoreLock.close(); } catch { /* already closed */ } });
+// Started with --expose-gc (the tests' hand-started cores): collect garbage often, so a lock that is only weakly
+// held is lost at once instead of whenever V8 gets to it.
+if (typeof globalThis.gc === "function") setInterval(() => globalThis.gc(), 50).unref();
 
 if (kind === "no-listen") setInterval(() => {}, 1000);
 

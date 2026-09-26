@@ -127,7 +127,9 @@ struct HandCore {
 }
 impl HandCore {
     fn start(h: &Home, mode: &str) -> Self {
+        // --expose-gc: the fixture then collects garbage every 50 ms (pins that it holds its lock for good).
         let child = Command::new("node")
+            .arg("--expose-gc")
             .arg(fixture())
             .arg("--home")
             .arg(&h.home)
