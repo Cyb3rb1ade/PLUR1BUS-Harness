@@ -1,5 +1,5 @@
-import { randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
@@ -14,7 +14,9 @@ import { drainJournal } from "./journal.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { createLogger, type HarnessLogger } from "./logger.ts";
 import { MEMORY_OP_METHODS } from "./memory-ops.ts";
+import { createOrphanWatch, type OrphanWatch } from "./orphan-watch.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
+import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 
@@ -35,7 +37,14 @@ export interface CoreOptions {
   /** Called (after the reply is written) when a client sends `core.shutdown`, in place of calling stop() directly.
    *  bin.ts routes it through the same stop-and-exit path as SIGTERM, so the process exits after an RPC stop too. */
   onShutdownRequested?: (budgetMs: number | undefined) => void;
+  /** Supervised mode (S4): the spawner's end of this stream is the core's lifeline, watched once the core is ready.
+   *  bin.ts passes process.stdin for `--lifeline stdin`. */
+  lifeline?: NodeJS.ReadableStream;
+  /** Called when the core has been orphaned for `supervisor.graceMs`, in place of calling stop() directly. */
+  onOrphanGraceExpired?: () => void;
 }
+
+const HEX64 = /^[0-9a-f]{64}$/i;
 
 export function createCore(o: CoreOptions): Core {
   const home = resolveHome({ ...(o.home ? { home: o.home } : {}) });
@@ -50,17 +59,21 @@ export function createCore(o: CoreOptions): Core {
   let engine: Engine | null = null; let logger: HarnessLogger | null = null; let agents: AgentRegistry | null = null;
   let journalBacklog = 0; let stopping: Promise<void> | null = null; let wroteRunFiles = false;
   let storeSchema: { current: string | null; expected: string } | null = null;
+  let orphans: OrphanWatch | null = null;
+  let beforeOrphan: State | null = null; // the state an orphaned core returns to on adoption
   // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
   const shutdown = new AbortController();
   const capabilities = buildCapabilities(CORE_FEATURES, "core");
 
   const setState = (s: State) => { state = s; server?.notify("core.state", { process: s }); };
+  /** The state behind an `orphaned`: orphaned is about the lifeline, not the engine's health. */
+  const healthState = (): State => (state.state === "orphaned" && beforeOrphan ? beforeOrphan : state);
 
   function status(): CoreStatusResult {
     return {
       process: state, contract: engine?.contract ?? "", rpc: RPC_VERSION, instanceId, pid: process.pid, uptimeMs: Math.max(0, Math.round(clock() - startedAt)),
       engine: {
-        ready: state.state === "ready", degraded: state.state === "degraded" ? { reason: state.reason ?? "unknown", capability: "core" } : null,
+        ready: healthState().state === "ready", degraded: healthState().state === "degraded" ? { reason: healthState().reason ?? "unknown", capability: "core" } : null,
         ...(storeSchema ? { storeSchema } : {}),
       },
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })), journalBacklog,
@@ -70,7 +83,29 @@ export function createCore(o: CoreOptions): Core {
   async function start(): Promise<void> {
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal]) mkdirSync(d, { recursive: true, mode: 0o700 });
     const { config } = loadConfig(l.configPath);
-    logger = o.logger ?? createLogger({ file: l.logFile("core"), level: config.core.logLevel, role: "core" });
+    logger = o.logger ?? createLogger({ file: l.logFile("core"), level: config.core.logLevel, role: "core", maxBytes: config.logs.maxBytes, keep: config.logs.keep });
+    const log = logger;
+    orphans = createOrphanWatch({
+      graceMs: config.supervisor.graceMs, clock,
+      onOrphaned: (since) => {
+        // A lifeline lost while starting is applied once the core is ready; one lost while stopping is irrelevant.
+        if (state.state !== "ready" && state.state !== "degraded") return;
+        beforeOrphan = state;
+        setState({ state: "orphaned", since });
+        log.warn("lifeline lost, core orphaned", { graceMs: config.supervisor.graceMs });
+      },
+      onReattached: () => {
+        if (state.state !== "orphaned") return;
+        const back = beforeOrphan ?? { state: "ready" as const, since: clock() }; beforeOrphan = null;
+        setState({ ...back, since: clock() });
+        log.info("lifeline re-attached", { state: back.state });
+      },
+      onGraceExpired: () => {
+        if (state.state !== "orphaned") return;
+        log.warn("orphan grace expired, stopping", { graceMs: config.supervisor.graceMs });
+        if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
+      },
+    });
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
       const registry = createAgentRegistry({ path: l.configPath }, l, logger); agents = registry;
@@ -105,24 +140,33 @@ export function createCore(o: CoreOptions): Core {
         shutdown: (budgetMs) => {
           setImmediate(() => { if (o.onShutdownRequested) o.onShutdownRequested(budgetMs); else void stop(budgetMs !== undefined ? { budgetMs } : {}); });
         },
+        adopt,
       });
-      server = createRpcServer({ address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger });
+      server = createRpcServer({
+        address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
+        onConnectionClosed: (id) => orphans?.connectionClosed(id),
+      });
 
       wroteRunFiles = true;
       writeFileSync(l.coreToken, token, { mode: 0o600 });
-      writeFileSync(l.corePid, `${process.pid}\n`, { mode: 0o600 });
+      writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       await server.listen();
       // I2: replay once the socket accepts connections, so the CLI's captures go live instead of journaling while
       // the journal is read; drainJournal re-runs the pass for any line that still arrived during one.
       const replay = await drainJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
       journalBacklog = replay.kept;
-      setState({ state: "ready", since: clock() });
-      logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept, replayPasses: replay.passes });
+      const ready: State = { state: "ready", since: clock() };
+      // An adopting connection that closed during the replay orphaned the core before it was ready.
+      if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
+      else setState(ready);
+      logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept, replayPasses: replay.passes, supervised: o.lifeline !== undefined });
+      if (o.lifeline) orphans.watchStream(o.lifeline);
     } catch (e) {
       // Cleanup never replaces the original start error.
       const log = logger;
       log.error("core start failed", { err: e });
       shutdown.abort(new Error("core start failed"));
+      orphans?.dispose();
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -131,6 +175,20 @@ export function createCore(o: CoreOptions): Core {
       if (!o.logger) await step(null, "logger close", () => log.close());
       throw e;
     }
+  }
+
+  /** `core.adopt` (S3, S4): the nonce must equal the current run/supervisor.token, compared in constant time. */
+  function adopt(nonce: string, connectionId: string): CoreStatusResult {
+    let expected: string | null = null;
+    try { expected = readFileSync(l.supervisorToken, "utf8").trim(); } catch { /* missing: refused below */ }
+    const ok = expected !== null && HEX64.test(expected) && HEX64.test(nonce) && timingSafeEqual(Buffer.from(nonce, "utf8"), Buffer.from(expected, "utf8"));
+    if (!ok) {
+      logger?.warn("adoption refused", { connectionId, tokenFile: expected === null ? "missing" : HEX64.test(expected) ? "present" : "malformed" });
+      throw new RpcError("E_UNAUTHORIZED", "adoption refused", { reason: "adopt-nonce" });
+    }
+    orphans?.watchConnection(connectionId);
+    logger?.info("adopted", { connectionId, state: state.state });
+    return status();
   }
 
   function removeRunFiles(): void {
@@ -151,6 +209,7 @@ export function createCore(o: CoreOptions): Core {
       // what is left of the budget) for those replies to be written before it ends the sockets.
       setState({ state: "stopping", since: clock() });
       shutdown.abort(new Error("core stopping"));
+      orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs }); }, errors);
       await step(logger, "rpc drain", async () => {

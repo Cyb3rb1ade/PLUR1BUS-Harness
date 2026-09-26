@@ -3,7 +3,11 @@ import { ConfigInvalid, loadConfig } from "./config-load.ts";
 import { createCore } from "./core.ts";
 import { RpcError } from "./rpc/errors.ts";
 
-const { values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" } }, strict: true });
+const { values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" }, lifeline: { type: "string" }, instance: { type: "string" } }, strict: true });
+// Supervised mode (S4): the supervisor spawns the core with `--lifeline stdin --instance <uuid>` and holds stdin's write end.
+if (values.lifeline !== undefined && values.lifeline !== "stdin") { console.error(`--lifeline accepts only stdin, got ${values.lifeline}`); process.exit(2); }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (values.instance !== undefined && !UUID.test(values.instance)) { console.error(`--instance must be a UUID, got ${values.instance}`); process.exit(2); }
 let testInternals: Record<string, unknown> | undefined;
 if (values["test-internals"]) {
   if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") { console.error("--test-internals requires PLUR1BUS_ALLOW_TEST_INTERNALS=1"); process.exit(2); }
@@ -16,7 +20,12 @@ if (values["test-internals"]) {
 }
 
 // A core.shutdown RPC takes the same stop-and-exit path as SIGTERM (I1): without it the process outlived the stop.
-const core = createCore({ ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}), onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs) });
+const core = createCore({
+  ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}),
+  ...(values.instance ? { instanceId: values.instance.toLowerCase() } : {}), ...(values.lifeline === "stdin" ? { lifeline: process.stdin } : {}),
+  onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs),
+  onOrphanGraceExpired: () => stop("lifeline grace expired"),
+});
 
 // Reused across repeated signals: core.ts's own resolved config isn't exposed on the committed Core surface
 // (start/stop/status/address/token/layout), so this reads config.json once after a successful start rather

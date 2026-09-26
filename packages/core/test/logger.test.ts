@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLogger } from "../src/logger.ts";
@@ -16,5 +16,29 @@ describe("logger", () => {
     assert.equal(lines.length, 2);
     assert.deepEqual({ level: lines[0].level, role: lines[0].role, msg: lines[0].msg, agentId: lines[0].agentId }, { level: "info", role: "core", msg: "hello", agentId: "bernd" });
     assert.equal(lines[1].requestId, "r1"); assert.match(lines[1].at, /^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("rotates at maxBytes and keeps at most keep files", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "p1b-log-")); const file = join(dir, "core.log");
+    const log = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 2 });
+    for (let i = 0; i < 50; i++) log.info("line", { i });
+    await log.close();
+    assert.ok(existsSync(file) && existsSync(`${file}.1`) && existsSync(`${file}.2`), "core.log, .1 and .2 exist");
+    assert.equal(existsSync(`${file}.3`), false, "no .3 with keep 2");
+    for (const f of [file, `${file}.1`, `${file}.2`]) assert.ok(statSync(f).size <= 200, `${f} is at most maxBytes`);
+    // Oldest first: .2, .1, core.log. What survives is a gap-free run of lines ending with the last one written.
+    const seq = [`${file}.2`, `${file}.1`, file].flatMap((f) => readFileSync(f, "utf8").trim().split("\n").map((l) => JSON.parse(l).i as number));
+    assert.equal(seq.at(-1), 49);
+    seq.forEach((v, k) => { if (k > 0) assert.equal(v, seq[k - 1]! + 1, `line ${seq[k - 1]! + 1} is lost`); });
+  });
+
+  it("appends to an existing file and rotates it when it is already full", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "p1b-log-")); const file = join(dir, "core.log");
+    const first = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 1 });
+    first.info("a"); await first.close();
+    const second = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 1 });
+    second.info("b"); second.info("c"); await second.close();
+    const all = [`${file}.1`, file].flatMap((f) => readFileSync(f, "utf8").trim().split("\n").map((l) => JSON.parse(l).msg));
+    assert.deepEqual(all.slice(-2), ["b", "c"]);
   });
 });

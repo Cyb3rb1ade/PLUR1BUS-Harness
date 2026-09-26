@@ -48,7 +48,13 @@ function warnIfDeprecated(logger: HarnessLogger, kind: "method" | "notification"
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
 interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
 
-export function createRpcServer(o: { address: string; token: string; hello: () => Hello; methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number }): RpcServer {
+export interface RpcServerOptions {
+  address: string; token: string; hello: () => Hello; methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number;
+  /** Called once per connection after its socket has closed (the core's adopted lifeline, S4). */
+  onConnectionClosed?: (connectionId: string) => void;
+}
+
+export function createRpcServer(o: RpcServerOptions): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
   const conns = new Map<string, Conn>();
@@ -150,7 +156,12 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       }
       for (const m of msgs) void dispatch(c, m);
     });
-    sock.on("close", () => { if (c.authTimer) clearTimeout(c.authTimer); for (const ac of c.inflight.values()) ac.abort(new Error("connection closed")); conns.delete(c.id); });
+    sock.on("close", () => {
+      if (c.authTimer) clearTimeout(c.authTimer);
+      for (const ac of c.inflight.values()) ac.abort(new Error("connection closed"));
+      conns.delete(c.id);
+      try { o.onConnectionClosed?.(c.id); } catch (err) { o.logger.error("onConnectionClosed failed", { connectionId: c.id, err }); }
+    });
     sock.on("error", (e) => o.logger.debug("socket error", { connectionId: c.id, err: e }));
   }
 

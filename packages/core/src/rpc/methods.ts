@@ -1,7 +1,7 @@
 import type { CheckpointResult, Deferral, Degraded, Engine, JobName, JobRun, Principal, RecallResult } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type {
-  AgentCloseParams, AgentOpenParams, AgentStatusParams, CallerIdentity, CoreShutdownParams, CoreStatusResult, JobsHistoryParams, JobsRunParams,
+  AgentCloseParams, AgentOpenParams, AgentStatusParams, CallerIdentity, CoreAdoptParams, CoreShutdownParams, CoreStatusResult, JobsHistoryParams, JobsRunParams,
   MemoryCaptureParams, MemoryCaptureResult, MemoryCheckpointParams, MemoryCheckpointResult, MemoryRecallParams, MemoryRecallResult,
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
@@ -20,6 +20,8 @@ export interface MethodDeps {
   captureSignal: AbortSignal;
   /** G17: true once the core is stopping or stopped; memory ops are refused from then on. */
   isStopping: () => boolean;
+  /** S3/S4: verifies the nonce against run/supervisor.token and makes the connection the lifeline; throws E_UNAUTHORIZED. */
+  adopt: (nonce: string, connectionId: string) => CoreStatusResult;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -58,8 +60,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
   return {
     "core.status": async () => d.status(),
     "core.shutdown": async (p: CoreShutdownParams) => { d.shutdown(p.budgetMs); return { accepted: true as const }; },
-    // Supervised mode and adoption arrive with plan 2a-H3a Task 3.
-    "core.adopt": async () => { throw new RpcError("E_NOT_AVAILABLE", "this core is not supervised", { reason: "not-supervised" }); },
+    "core.adopt": async (p: CoreAdoptParams, ctx) => ({ status: d.adopt(p.nonce, ctx.connectionId) }),
 
     "memory.recall": async (p: MemoryRecallParams, ctx) => {
       const { principal, degraded } = identity(d, p.caller, p.agentId);

@@ -76,4 +76,34 @@ describe("dist/core.js", () => {
     const exit = await new Promise<number | null>((r) => child.once("exit", r));
     assert.equal(exit, 0);
   });
+  it("--lifeline other than stdin exits 2", async () => {
+    const child = spawn(process.execPath, [dist, "--home", mkdtempSync(join(tmpdir(), "p1b-bin-")), "--lifeline", "fd3"], { stdio: "ignore" });
+    assert.equal(await new Promise((r) => child.once("exit", r)), 2);
+  });
+  it("--instance not a uuid exits 2", async () => {
+    const child = spawn(process.execPath, [dist, "--home", mkdtempSync(join(tmpdir(), "p1b-bin-")), "--instance", "not-a-uuid"], { stdio: "ignore" });
+    assert.equal(await new Promise((r) => child.once("exit", r)), 2);
+  });
+  it("--lifeline stdin: stdin EOF orphans the core and it exits 0 after the grace; core.pid names --instance", async () => {
+    const home = mkdtempSync(join(tmpdir(), "p1b-bin-")); const l = layout(home);
+    const cfg = defaults(); cfg.agents.bernd = {}; cfg.supervisor.graceMs = 1000; cfg.engine = { reranker: { enabled: false }, dreaming: { enabled: false }, neo: { enabled: false } };
+    writeFileSync(l.configPath, JSON.stringify(cfg));
+    const instance = "0b6f3c2e-6d7a-4c1e-9f3b-2a5d8e7c1f40";
+    const child = spawn(process.execPath, [dist, "--home", home, "--test-internals", "flat-embedder", "--lifeline", "stdin", "--instance", instance],
+      { env: { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" }, stdio: ["pipe", "pipe", "pipe"] });
+    const exited = new Promise<number | null>((r) => child.once("exit", r));
+    const { address } = await new Promise<{ address: string }>((res, rej) => { child.stdout.once("data", (d) => res(JSON.parse(String(d)))); child.once("exit", (c) => rej(new Error(`exited ${c}`))); });
+    assert.equal(readFileSync(l.corePid, "utf8"), `${child.pid} ${instance}\n`);
+    child.stdin.end();
+    const c = await connect({ address, token: readFileSync(l.coreToken, "utf8") });
+    const t0 = Date.now(); let state = "";
+    while (Date.now() - t0 < 3000 && state !== "orphaned") { state = (await c.call<any>("core.status")).process.state; if (state !== "orphaned") await new Promise((r) => setTimeout(r, 50)); }
+    assert.equal(state, "orphaned");
+    let timer: NodeJS.Timeout | undefined;
+    const code = await Promise.race([exited, new Promise<"timeout">((r) => { timer = setTimeout(() => r("timeout"), 8000); })]);
+    clearTimeout(timer); await c.close();
+    if (code === "timeout") child.kill("SIGKILL");
+    assert.equal(code, 0, "exits 0 once the grace expires");
+    assert.equal(existsSync(l.corePid), false, "run files removed");
+  });
 });

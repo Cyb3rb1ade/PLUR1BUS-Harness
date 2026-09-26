@@ -59,11 +59,11 @@ describe("core", () => {
     assert.deepEqual(c.hello.capabilities?.features, [...CORE_FEATURES].sort());
   });
 
-  it("core.auth advertises core methods only and core.adopt answers not-supervised", async () => {
+  it("core.auth advertises core methods only and core.adopt without a supervisor token is refused", async () => {
     assert.ok(c.hello.capabilities?.methods["core.adopt"]);
     assert.equal(c.hello.capabilities?.methods["daemon.status"], undefined);
     assert.equal(c.hello.capabilities?.methods["supervisor.auth"], undefined);
-    await assert.rejects(c.call("core.adopt", { nonce: "f".repeat(64) }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "not-supervised");
+    await assert.rejects(c.call("core.adopt", { nonce: "f".repeat(64) }), (e: any) => e.error === "E_UNAUTHORIZED" && e.reason === "adopt-nonce");
   });
 
   it("core.auth features include events.harness", () => {
