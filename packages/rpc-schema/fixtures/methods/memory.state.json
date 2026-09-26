@@ -1,1 +1,3 @@
-{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd" }, "result": {} }
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd" },
+  "result": { "agentId": "bernd", "cards": { "agentPrivate": 12, "workspace": 3, "user": null }, "tombstones": 1, "archiveDir": "/srv/plur1bus-home/state/memory/_archive",
+              "degraded": { "reason": "principal-invalid", "capability": "identity" } } }

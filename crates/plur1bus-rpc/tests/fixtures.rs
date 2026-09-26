@@ -52,6 +52,16 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.correct" => pair::<MemoryCorrectParams, MemoryCorrectResult>(name, f),
         "memory.share" => pair::<MemoryShareParams, MemoryShareResult>(name, f),
         "memory.state" => pair::<MemoryStateParams, MemoryStateResult>(name, f),
+        "memory.propose" => pair::<MemoryProposeParams, MemoryProposeResult>(name, f),
+        "memory.proposals.list" => {
+            pair::<MemoryProposalsListParams, MemoryProposalsListResult>(name, f)
+        }
+        "memory.proposals.accept" => {
+            pair::<MemoryProposalsAcceptParams, MemoryProposalsAcceptResult>(name, f)
+        }
+        "memory.proposals.reject" => {
+            pair::<MemoryProposalsRejectParams, MemoryProposalsRejectResult>(name, f)
+        }
         "agent.list" => pair::<AgentListParams, AgentListResult>(name, f),
         "agent.open" => pair::<AgentOpenParams, AgentOpenResult>(name, f),
         "agent.close" => pair::<AgentCloseParams, AgentCloseResult>(name, f),
@@ -78,6 +88,11 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::EModuleUnknown,
         ErrorCode::EInternal,
         ErrorCode::ELocked,
+        ErrorCode::ENotFound,
+        ErrorCode::EDenied,
+        ErrorCode::EApprovalRequired,
+        ErrorCode::EConflict,
+        ErrorCode::EStorage,
     ];
     for c in all {
         match c {
@@ -90,7 +105,12 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::EConfigInvalid
             | ErrorCode::EModuleUnknown
             | ErrorCode::EInternal
-            | ErrorCode::ELocked => {}
+            | ErrorCode::ELocked
+            | ErrorCode::ENotFound
+            | ErrorCode::EDenied
+            | ErrorCode::EApprovalRequired
+            | ErrorCode::EConflict
+            | ErrorCode::EStorage => {}
         }
     }
     all.into_iter().collect()

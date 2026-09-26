@@ -9,7 +9,7 @@ JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $d
 
 ## Error codes
 
-A closed enum; the core puts the code into every error response as `error.data.error`, with optional `reason` and `detail`.
+A closed enum; the core puts the code into every error response as `error.data.error`, with optional `reason`, `detail` and `ids` (a map of non-secret ids a caller needs to recover, e.g. after a half-finished shared-copy refresh).
 
 - `E_UNAUTHORIZED`
 - `E_RPC_VERSION`
@@ -21,6 +21,11 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_MODULE_UNKNOWN`
 - `E_INTERNAL`
 - `E_LOCKED`
+- `E_NOT_FOUND`
+- `E_DENIED`
+- `E_APPROVAL_REQUIRED`
+- `E_CONFLICT`
+- `E_STORAGE`
 
 ## Stability
 
@@ -533,7 +538,38 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "topic": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "since": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "until": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
 }
 ```
 
@@ -541,7 +577,30 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryCard"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
 }
 ```
 
@@ -553,7 +612,24 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    }
+  }
 }
 ```
 
@@ -561,7 +637,19 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "card"
+  ],
+  "properties": {
+    "card": {
+      "$ref": "#/$defs/MemoryCard"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
 }
 ```
 
@@ -573,7 +661,24 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    }
+  }
 }
 ```
 
@@ -581,7 +686,31 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "archived",
+    "tombstoneId",
+    "alreadyForgotten"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "tombstoneId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "alreadyForgotten": {
+      "type": "boolean"
+    }
+  }
 }
 ```
 
@@ -593,7 +722,30 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id",
+    "text"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    }
+  }
 }
 ```
 
@@ -601,7 +753,20 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "archived"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "archived": {
+      "const": true
+    }
+  }
 }
 ```
 
@@ -613,7 +778,34 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id",
+    "target"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "target": {
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    },
+    "allowSensitive": {
+      "type": "boolean"
+    }
+  }
 }
 ```
 
@@ -621,7 +813,27 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sourceId",
+    "sharedId",
+    "target"
+  ],
+  "properties": {
+    "sourceId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "target": {
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    }
+  }
 }
 ```
 
@@ -633,7 +845,20 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
 }
 ```
 
@@ -641,7 +866,300 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "cards",
+    "tombstones",
+    "archiveDir"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "cards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agentPrivate",
+        "workspace",
+        "user"
+      ],
+      "properties": {
+        "agentPrivate": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "workspace": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "user": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "tombstones": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "archiveDir": {
+      "type": "string"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
+}
+```
+
+### `memory.propose`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "sharedId",
+    "text"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "sharedId": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "sharedId",
+    "sharerAgentId"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "sharerAgentId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `memory.proposals.list`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryProposalStatus"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "items",
+    "truncated",
+    "unreadable"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryProposal"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "unreadable": {
+      "type": "integer"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
+}
+```
+
+### `memory.proposals.accept`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "proposalId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "proposalId": {
+      "$ref": "#/$defs/MemoryId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "id",
+    "sourceId"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "sourceId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `memory.proposals.reject`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "proposalId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "proposalId": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "status"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "status": {
+      "const": "rejected"
+    }
+  }
 }
 ```
 
@@ -1168,7 +1686,12 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_CONFIG_INVALID",
     "E_MODULE_UNKNOWN",
     "E_INTERNAL",
-    "E_LOCKED"
+    "E_LOCKED",
+    "E_NOT_FOUND",
+    "E_DENIED",
+    "E_APPROVAL_REQUIRED",
+    "E_CONFLICT",
+    "E_STORAGE"
   ]
 }
 ```
@@ -1206,6 +1729,13 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "detail": {
           "type": "string"
+        },
+        "ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Non-secret ids a caller needs to recover, e.g. the source and shared copy of a half-finished shared-copy refresh"
         }
       }
     }
@@ -1780,27 +2310,125 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
-### `MemoryOpsParams`
+### `MemoryId`
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}
+```
+
+### `MemoryCard`
 
 ```json
 {
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "agentId"
+    "id",
+    "scope",
+    "text",
+    "summary",
+    "createdAt",
+    "origin",
+    "epistemicStatus"
   ],
   "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "agentId": {
-      "$ref": "#/$defs/AgentId"
-    },
     "id": {
       "type": "string"
     },
+    "scope": {
+      "enum": [
+        "agent-private",
+        "workspace",
+        "user"
+      ]
+    },
     "text": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "origin": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "epistemicStatus": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "score": {
+      "type": "number",
+      "description": "present on a topic listing, absent on show"
+    },
+    "sharedBy": {
+      "type": "string",
+      "description": "workspace/user copies only: the sharing agent, possibly another host's (never constrained to AgentId)"
+    },
+    "sourceId": {
+      "type": "string",
+      "description": "workspace/user copies only: the sharer's original card"
+    }
+  }
+}
+```
+
+### `MemoryProposalStatus`
+
+```json
+{
+  "enum": [
+    "pending",
+    "accepted",
+    "rejected",
+    "stale"
+  ]
+}
+```
+
+### `MemoryProposal`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sharedId",
+    "sourceId",
+    "target",
+    "sharerAgentId",
+    "proposerAgentId",
+    "oldText",
+    "newText",
+    "note",
+    "createdAt",
+    "status",
+    "resolvedAt",
+    "resultId",
+    "resolutionNote"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "sourceId": {
       "type": "string"
     },
     "target": {
@@ -1809,20 +2437,49 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "user"
       ]
     },
-    "limit": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 500
+    "sharerAgentId": {
+      "type": "string"
+    },
+    "proposerAgentId": {
+      "type": "string"
+    },
+    "oldText": {
+      "type": "string"
+    },
+    "newText": {
+      "type": "string"
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryProposalStatus"
+    },
+    "resolvedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "resultId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "accepted: the id of the refreshed shared copy"
+    },
+    "resolutionNote": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
-}
-```
-
-### `MemoryOpsResult`
-
-```json
-{
-  "type": "object",
-  "description": "Shape fixed by engine PR E1 (MemoryOps). Until E1 every call answers E_NOT_AVAILABLE reason engine-pr-E1."
 }
 ```

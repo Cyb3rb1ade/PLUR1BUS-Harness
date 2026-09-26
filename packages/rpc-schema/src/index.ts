@@ -54,10 +54,11 @@ export function validateNotification(name: string, value: unknown): Validation {
 }
 export function validateJournalLine(value: unknown): Validation { return run(validator("/$defs/JournalLine"), value); }
 export function validateRequest(value: unknown): Validation { return run(validator("/$defs/Request"), value); }
+export function validateErrorObject(value: unknown): Validation { return run(validator("/$defs/ErrorObject"), value); }
 
 export interface Fixtures {
   methods: Record<string, { params: unknown; result: unknown }>;
-  errors: Record<string, { jsonrpc: "2.0"; id: number | string; error: { code: number; message: string; data?: { error: string; reason?: string; detail?: string } } }>;
+  errors: Record<string, { jsonrpc: "2.0"; id: number | string; error: { code: number; message: string; data?: { error: string; reason?: string; detail?: string; ids?: Record<string, string> } } }>;
   notifications: Record<string, unknown>;
 }
 export function loadFixtures(root = join(here, "..", "fixtures")): Fixtures {

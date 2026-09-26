@@ -2,12 +2,20 @@ import { createConnection, type Socket } from "node:net";
 import { LineDecoder, LineTooLong, encodeLine } from "./framing.ts";
 
 export class RpcCallError extends Error {
-  code: number; error: string; reason?: string; detail?: string;
-  constructor(code: number, error: string, message: string, reason?: string, detail?: string) {
+  code: number; error: string; reason?: string; detail?: string; ids?: Record<string, string>;
+  constructor(code: number, error: string, message: string, reason?: string, detail?: string, ids?: Record<string, string>) {
     super(message); this.name = "RpcCallError"; this.code = code; this.error = error;
     if (reason !== undefined) this.reason = reason;
     if (detail !== undefined) this.detail = detail;
+    if (ids !== undefined) this.ids = ids;
   }
+}
+
+/** `error.data.ids` as sent, when it is a non-empty map of strings; anything else is dropped. */
+function stringMap(v: unknown): Record<string, string> | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const entries = Object.entries(v).filter(([, x]) => typeof x === "string") as [string, string][];
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
 export interface Deprecation { since: string; removeAfter: string; replacement: string }
@@ -57,7 +65,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
       if (m.id === undefined && typeof m.method === "string") { for (const h of handlers) h(m.method, m.params); continue; }
       const p = pending.get(m.id); if (!p) continue;
       pending.delete(m.id); clearTimeout(p.timer);
-      if (m.error) p.reject(new RpcCallError(m.error.code, m.error.data?.error ?? "E_INTERNAL", m.error.message, m.error.data?.reason, m.error.data?.detail));
+      if (m.error) p.reject(new RpcCallError(m.error.code, m.error.data?.error ?? "E_INTERNAL", m.error.message, m.error.data?.reason, m.error.data?.detail, stringMap(m.error.data?.ids)));
       else p.resolve(m.result);
     }
   });

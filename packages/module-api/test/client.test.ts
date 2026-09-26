@@ -27,6 +27,7 @@ function fakeCore(addr: string, hello: unknown = { contract: "1.4.1", rpc: "1.0.
         if (msg.method === "echo") return reply(msg.params);
         if (msg.method === "notify") { sock.write(encodeLine({ jsonrpc: "2.0", method: "agent.activity", params: { agentId: "a", activity: { state: "idle", since: 1 } } })); return reply({}); }
         if (msg.method === "slow") return setTimeout(() => reply({}), 500);
+        if (msg.method === "storage") return sock.write(encodeLine({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: "refresh failed", data: { error: "E_STORAGE", reason: "storage", detail: "refresh", ids: { sourceId: "m-src", sharedId: "m-copy" } } } }));
         fail(-32601, "E_INTERNAL", "method-not-found");
       }
     });
@@ -51,6 +52,18 @@ describe("client", () => {
   it("maps a JSON-RPC error to RpcCallError with the closed code", async () => {
     const c = await connect({ address: addr, token: TOKEN });
     await assert.rejects(c.call("nope"), (e: any) => e instanceof RpcCallError && e.error === "E_INTERNAL" && e.reason === "method-not-found");
+    await c.close();
+  });
+
+  it("a call error keeps reason, detail and ids", async () => {
+    const c = await connect({ address: addr, token: TOKEN });
+    await assert.rejects(c.call("storage"), (e: any) => {
+      assert.ok(e instanceof RpcCallError);
+      assert.equal(e.error, "E_STORAGE"); assert.equal(e.reason, "storage"); assert.equal(e.detail, "refresh");
+      assert.deepEqual(e.ids, { sourceId: "m-src", sharedId: "m-copy" });
+      return true;
+    });
+    await assert.rejects(c.call("nope"), (e: any) => e instanceof RpcCallError && e.ids === undefined);
     await c.close();
   });
 

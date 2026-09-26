@@ -7,7 +7,7 @@
   "$defs": {
     "ErrorCode": {
       "type": "string",
-      "enum": ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED"]
+      "enum": ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE"]
     },
     "ErrorObject": {
       "type": "object", "additionalProperties": false,
@@ -21,7 +21,8 @@
           "properties": {
             "error": { "$ref": "#/$defs/ErrorCode" },
             "reason": { "type": "string" },
-            "detail": { "type": "string" }
+            "detail": { "type": "string" },
+            "ids": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Non-secret ids a caller needs to recover, e.g. the source and shared copy of a half-finished shared-copy refresh" }
           }
         }
       }
@@ -217,12 +218,56 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "reason"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "reason": { "enum": ["compaction", "session-end", "shutdown", "manual"] } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "reason", "digest", "written"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "reason": { "type": "string" }, "digest": { "type": "string" }, "written": { "type": "boolean" } } }
       },
-      "memory.list":    { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.show":    { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.forget":  { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.correct": { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.share":   { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.state":   { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.list": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "topic": { "type": "string", "minLength": 1, "maxLength": 2000 }, "since": { "type": "integer", "minimum": 0 }, "until": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "items": { "type": "array", "items": { "$ref": "#/$defs/MemoryCard" } }, "truncated": { "type": "boolean" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.show": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["card"], "properties": { "card": { "$ref": "#/$defs/MemoryCard" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.forget": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["id", "archived", "tombstoneId", "alreadyForgotten"], "properties": { "id": { "type": "string" }, "archived": { "type": "boolean" }, "tombstoneId": { "type": ["string", "null"] }, "alreadyForgotten": { "type": "boolean" } } }
+      },
+      "memory.correct": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id", "text"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" }, "text": { "type": "string", "minLength": 1, "maxLength": 8000 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["id", "archived"], "properties": { "id": { "type": "string" }, "archived": { "const": true } } }
+      },
+      "memory.share": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id", "target"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" }, "target": { "enum": ["workspace", "user"] }, "allowSensitive": { "type": "boolean" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["sourceId", "sharedId", "target"], "properties": { "sourceId": { "type": "string" }, "sharedId": { "type": "string" }, "target": { "enum": ["workspace", "user"] } } }
+      },
+      "memory.state": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "cards", "tombstones", "archiveDir"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "cards": { "type": "object", "additionalProperties": false, "required": ["agentPrivate", "workspace", "user"], "properties": { "agentPrivate": { "type": ["integer", "null"] }, "workspace": { "type": ["integer", "null"] }, "user": { "type": ["integer", "null"] } } }, "tombstones": { "type": ["integer", "null"] }, "archiveDir": { "type": "string" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.propose": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "sharedId", "text"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "sharedId": { "$ref": "#/$defs/MemoryId" }, "text": { "type": "string", "minLength": 1, "maxLength": 8000 }, "note": { "type": "string", "maxLength": 500 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "sharedId", "sharerAgentId"], "properties": { "proposalId": { "type": "string" }, "sharedId": { "type": "string" }, "sharerAgentId": { "type": "string" } } }
+      },
+      "memory.proposals.list": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated", "unreadable"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "items": { "type": "array", "items": { "$ref": "#/$defs/MemoryProposal" } }, "truncated": { "type": "boolean" }, "unreadable": { "type": "integer" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.proposals.accept": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "id", "sourceId"], "properties": { "proposalId": { "type": "string" }, "id": { "type": "string" }, "sourceId": { "type": "string" } } }
+      },
+      "memory.proposals.reject": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" }, "note": { "type": "string", "maxLength": 500 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "status"], "properties": { "proposalId": { "type": "string" }, "status": { "const": "rejected" } } }
+      },
       "agent.list": {
         "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
@@ -269,12 +314,30 @@
         "result": { "type": "object", "additionalProperties": false, "required": ["removed"], "properties": { "removed": { "type": "boolean" } } }
       }
     },
-    "MemoryOpsParams": {
+    "MemoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "MemoryCard": {
       "type": "object", "additionalProperties": false,
-      "required": ["caller", "agentId"],
-      "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "type": "string" }, "text": { "type": "string" }, "target": { "enum": ["workspace", "user"] }, "limit": { "type": "integer", "minimum": 1, "maximum": 500 } }
+      "required": ["id", "scope", "text", "summary", "createdAt", "origin", "epistemicStatus"],
+      "properties": {
+        "id": { "type": "string" }, "scope": { "enum": ["agent-private", "workspace", "user"] }, "text": { "type": "string" }, "summary": { "type": "string" },
+        "createdAt": { "type": ["integer", "null"] }, "origin": { "type": ["string", "null"] }, "epistemicStatus": { "type": ["string", "null"] },
+        "score": { "type": "number", "description": "present on a topic listing, absent on show" },
+        "sharedBy": { "type": "string", "description": "workspace/user copies only: the sharing agent, possibly another host's (never constrained to AgentId)" },
+        "sourceId": { "type": "string", "description": "workspace/user copies only: the sharer's original card" }
+      }
     },
-    "MemoryOpsResult": { "type": "object", "description": "Shape fixed by engine PR E1 (MemoryOps). Until E1 every call answers E_NOT_AVAILABLE reason engine-pr-E1." },
+    "MemoryProposalStatus": { "enum": ["pending", "accepted", "rejected", "stale"] },
+    "MemoryProposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sharedId", "sourceId", "target", "sharerAgentId", "proposerAgentId", "oldText", "newText", "note", "createdAt", "status", "resolvedAt", "resultId", "resolutionNote"],
+      "properties": {
+        "id": { "type": "string" }, "sharedId": { "type": "string" }, "sourceId": { "type": "string" }, "target": { "enum": ["workspace", "user"] },
+        "sharerAgentId": { "type": "string" }, "proposerAgentId": { "type": "string" },
+        "oldText": { "type": "string" }, "newText": { "type": "string" }, "note": { "type": ["string", "null"] }, "createdAt": { "type": "integer" },
+        "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "resolvedAt": { "type": ["integer", "null"] },
+        "resultId": { "type": ["string", "null"], "description": "accepted: the id of the refreshed shared copy" }, "resolutionNote": { "type": ["string", "null"] }
+      }
+    },
 
     "notifications": {
       "core.state": { "x-stability": "stable", "x-since": "1.0.0", "type": "object", "additionalProperties": false, "required": ["process"], "properties": { "process": { "$ref": "#/$defs/ProcessState" } } },

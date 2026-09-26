@@ -93,6 +93,10 @@ fn fake_core_with(hello: Value) -> String {
                             json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"invalid request","data":{"error":"E_INVALID_PARAMS","reason":"parse"}}}),
                         ),
                         "hollow" => reply(&mut w, json!({"jsonrpc":"2.0","id":id})),
+                        "storage" => reply(
+                            &mut w,
+                            json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":"shared copy refresh failed","data":{"error":"E_STORAGE","reason":"storage","detail":"refresh","ids":{"sourceId":"m-src","sharedId":"m-copy"}}}}),
+                        ),
                         "badutf8" => {
                             let mut line =
                                 format!("{{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":\"")
@@ -225,6 +229,31 @@ fn a_line_of_exactly_4_mib_is_accepted_and_a_longer_one_is_a_protocol_error_that
     }
     match c.call("echo", json!({})) {
         Err(RpcError::Unavailable { reason, .. }) => assert_eq!(reason, "poisoned"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_call_error_keeps_reason_detail_and_ids() {
+    let addr = fake_core("1.0.0");
+    let mut c = connect(&addr);
+    match c.call("storage", json!({})) {
+        Err(e @ RpcError::Call { .. }) => {
+            assert_eq!(e.code_name(), "E_STORAGE");
+            let ids = e.ids().expect("ids survive");
+            assert_eq!(ids.get("sourceId").map(String::as_str), Some("m-src"));
+            assert_eq!(ids.get("sharedId").map(String::as_str), Some("m-copy"));
+            let RpcError::Call { reason, detail, .. } = &e else {
+                unreachable!()
+            };
+            assert_eq!(reason.as_deref(), Some("storage"));
+            assert_eq!(detail.as_deref(), Some("refresh"));
+        }
+        other => panic!("{other:?}"),
+    }
+    // An error without ids has none.
+    match c.call("nope", json!({})) {
+        Err(e @ RpcError::Call { .. }) => assert!(e.ids().is_none()),
         other => panic!("{other:?}"),
     }
 }

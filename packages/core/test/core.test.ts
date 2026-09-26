@@ -109,8 +109,13 @@ describe("core", () => {
   });
 
   it("memory ops answer E_NOT_AVAILABLE engine-pr-E1", async () => {
-    for (const m of ["memory.list", "memory.show", "memory.forget", "memory.correct", "memory.share", "memory.state"]) {
-      await assert.rejects(c.call(m, { caller, agentId: "bernd" }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-pr-E1", m);
+    const extra: Record<string, object> = {
+      "memory.list": { since: 0 }, "memory.show": { id: "m-1" }, "memory.forget": { id: "m-1" }, "memory.correct": { id: "m-1", text: "fixed" },
+      "memory.share": { id: "m-1", target: "workspace" }, "memory.state": {}, "memory.propose": { sharedId: "m-copy", text: "fixed" },
+      "memory.proposals.list": {}, "memory.proposals.accept": { proposalId: "p-1" }, "memory.proposals.reject": { proposalId: "p-1" },
+    };
+    for (const [m, params] of Object.entries(extra)) {
+      await assert.rejects(c.call(m, { caller, agentId: "bernd", ...params }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-pr-E1", m);
     }
   });
 

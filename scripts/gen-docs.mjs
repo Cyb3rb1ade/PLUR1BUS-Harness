@@ -31,7 +31,7 @@ JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on \`run/cor
 ${schema.description ? `\n${schema.description}\n` : ""}
 ## Error codes
 
-A closed enum; the core puts the code into every error response as \`error.data.error\`, with optional \`reason\` and \`detail\`.
+A closed enum; the core puts the code into every error response as \`error.data.error\`, with optional \`reason\`, \`detail\` and \`ids\` (a map of non-secret ids a caller needs to recover, e.g. after a half-finished shared-copy refresh).
 
 ${schema.$defs.ErrorCode.enum.map((e) => `- \`${e}\``).join("\n")}
 

@@ -232,5 +232,12 @@ fn call_error(err: &Value) -> RpcError {
         message: err["message"].as_str().unwrap_or("").to_string(),
         reason: err["data"]["reason"].as_str().map(String::from),
         detail: err["data"]["detail"].as_str().map(String::from),
+        ids: err["data"]["ids"].as_object().and_then(|m| {
+            let ids: std::collections::BTreeMap<String, String> = m
+                .iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect();
+            (!ids.is_empty()).then_some(ids)
+        }),
     }
 }

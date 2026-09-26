@@ -1,0 +1,5 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "status": "pending", "limit": 20 },
+  "result": { "agentId": "bernd", "truncated": false, "unreadable": 0,
+              "items": [{ "id": "p-1", "sharedId": "m-copy", "sourceId": "m-src", "target": "workspace", "sharerAgentId": "Anna.Main", "proposerAgentId": "bernd",
+                          "oldText": "The office closes at six.", "newText": "The office closes at seven.", "note": "Hours changed in spring.", "createdAt": 1758000200000,
+                          "status": "pending", "resolvedAt": null, "resultId": null, "resolutionNote": null }] } }

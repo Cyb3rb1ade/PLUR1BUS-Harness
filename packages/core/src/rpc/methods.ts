@@ -112,6 +112,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     },
 
     "memory.list": notAvailable, "memory.show": notAvailable, "memory.forget": notAvailable, "memory.correct": notAvailable, "memory.share": notAvailable, "memory.state": notAvailable,
+    "memory.propose": notAvailable, "memory.proposals.list": notAvailable, "memory.proposals.accept": notAvailable, "memory.proposals.reject": notAvailable,
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {
