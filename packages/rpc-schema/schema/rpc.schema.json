@@ -105,10 +105,22 @@
       "properties": {
         "process": { "$ref": "#/$defs/ProcessState" }, "contract": { "type": "string" }, "rpc": { "type": "string" },
         "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "uptimeMs": { "type": "integer" },
-        "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] }, "storeSchema": { "type": "object", "additionalProperties": false, "required": ["current", "expected"], "properties": { "current": { "oneOf": [{ "type": "string" }, { "type": "null" }] }, "expected": { "type": "string" } } } } },
+        "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] }, "models": { "type": "object", "additionalProperties": false, "required": ["embedder", "reranker"], "description": "Per-model readiness (E4, spec §6.3); absent before the engine reports it.", "properties": { "embedder": { "$ref": "#/$defs/ModelStatus" }, "reranker": { "$ref": "#/$defs/ModelStatus" } } }, "storeSchema": { "type": "object", "additionalProperties": false, "required": ["current", "expected"], "properties": { "current": { "oneOf": [{ "type": "string" }, { "type": "null" }] }, "expected": { "type": "string" } } } } },
         "agents": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } } },
         "journalBacklog": { "type": "integer" },
         "deprecationsUsed": { "type": "array", "items": { "type": "string" }, "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)." }
+      }
+    },
+    "ModelStatus": {
+      "description": "One model's readiness as the engine reports it (E4). `loading` has `checkedAt: null`; after a completed probe the state stays `ready`/`failed` and a running re-probe shows `warming: true`. `error` only when `failed`. `id`: the embedder's model name or the reranker's provider; null when unknown.",
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "warming", "checkedAt", "id"],
+      "properties": {
+        "state": { "enum": ["loading", "ready", "failed", "disabled"] },
+        "warming": { "type": "boolean" },
+        "checkedAt": { "type": ["integer", "null"], "description": "epoch ms of the completed probe that set `state`" },
+        "error": { "type": "string" },
+        "id": { "type": ["string", "null"] }
       }
     },
     "ChildStatus": {

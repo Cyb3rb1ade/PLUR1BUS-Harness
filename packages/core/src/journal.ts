@@ -20,8 +20,8 @@ type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; l
 /** Replays state/journal/<agentId>.jsonl at core start.
  *
  *  R20: a line leaves the journal only when `capture(...).done` resolves with NO `reason` and
- *  `stored + skipped > 0` (the engine's ok path — a dedup skip with no reason still counts as handled).
- *  Any reason, zero counts, or a rejected `done` keeps the line (logged with why), and replay continues
+ *  `stored + skipped > 0` (the engine's ok path — a dedup skip with no reason still counts as handled),
+ *  or with reason `duplicate-turn` (E4: the line's runId was already captured). Any other reason, zero counts, or a rejected `done` keeps the line (logged with why), and replay continues
  *  with the next line. Concurrent-append safety: each `<agent>.jsonl` is first atomically renamed to
  *  `<agent>.jsonl.replaying-<pid>` before it is read, so a line the CLI appends to `<agent>.jsonl` while
  *  replay is running lands in a fresh file, never the one being processed. Kept lines (including a torn
@@ -133,7 +133,9 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
     try {
       const handle = o.engine.capture({ agentId: line.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: line.messages, incognito: false, signal: AbortSignal.timeout(60_000), ...(line.sessionKey ? { sessionKey: line.sessionKey } : {}), runId: `journal:${line.id}` });
       const r = await handle.done;
-      const handled = r.reason == null && r.stored + r.skipped > 0;
+      // E4 (1.8.0): `duplicate-turn` means this line's runId was already captured (a core killed mid-replay
+      // replays it again), so the turn is stored and the line is done.
+      const handled = (r.reason == null && r.stored + r.skipped > 0) || r.reason === "duplicate-turn";
       if (handled) { replayed += 1; o.logger.info("journal: replayed", { file: agentFile, id: line.id, stored: r.stored, skipped: r.skipped }); }
       else { o.logger.warn("journal: capture not handled, line kept", { file: agentFile, id: line.id, reason: r.reason, stored: r.stored, skipped: r.skipped }); kept.push({ text, isPhysicalTail }); }
     } catch (e) {

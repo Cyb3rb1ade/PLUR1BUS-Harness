@@ -9,7 +9,7 @@ import { CORE_FEATURES } from "../src/capabilities.ts";
 import { createCore, type Core } from "../src/core.ts";
 import { appendJournalLine } from "../src/journal.ts";
 import { layout } from "../src/paths.ts";
-import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { flatEmbedder, flatTestInternals } from "./helpers/flat-embedder.ts";
 
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 
@@ -50,7 +50,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.7.0"); assert.equal(s.rpc, "1.2.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.8.0"); assert.equal(s.rpc, "1.2.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 
@@ -235,5 +235,50 @@ describe("core run files (S11)", () => {
       assert.equal(statSync(l.coreToken).mode & 0o777, 0o600);
       assert.equal(statSync(l.corePid).mode & 0o777, 0o600);
     } finally { await core.stop({ budgetMs: 5000 }); }
+  });
+});
+
+describe("core model warm-up (E4, S7)", () => {
+  it("engine is models-warming until warm completes, process stays ready", async () => {
+    const home = newHome(); let first = true;
+    // The first embedQuery is the warm-up's embedding probe: it takes 300 ms, as a model load would.
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => { const d = first ? 300 : 0; first = false; return d; } }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      const s0 = await c.call<any>("core.status");
+      assert.equal(s0.process.state, "ready");
+      assert.equal(s0.engine.ready, false);
+      assert.equal(s0.engine.degraded?.reason, "models-warming", JSON.stringify(s0.engine));
+      await new Promise((r) => setTimeout(r, 600));
+      const s1 = await c.call<any>("core.status");
+      assert.equal(s1.process.state, "ready");
+      assert.equal(s1.engine.ready, true, JSON.stringify(s1.engine));
+      assert.equal(s1.engine.degraded, null);
+      assert.equal(s1.engine.models.embedder.state, "ready");
+      assert.equal(s1.engine.models.embedder.warming, false);
+      assert.equal(typeof s1.engine.models.embedder.checkedAt, "number");
+      assert.equal(s1.engine.models.reranker.state, "disabled"); // the flat seam has no reranker
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
+  it("a failed embedder probe is model-failed and memory.recall still answers", async () => {
+    const home = newHome(); const flat = flatEmbedder(); let first = true;
+    // The first embedQuery is the warm-up's probe; it fails once, as a broken model load would. Later calls work.
+    const embeddings = { ...flat, embedQuery: async () => { if (first) { first = false; throw new Error("synthetic model load failure"); } return flat.embedQuery(); } };
+    const core = createCore({ home, testInternals: flatTestInternals({ extra: { embeddings } }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      let s: any; const until = Date.now() + 5000;
+      do { s = await c.call<any>("core.status"); if (s.engine.degraded?.reason === "model-failed") break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until);
+      assert.equal(s.process.state, "ready");
+      assert.equal(s.engine.ready, false);
+      assert.deepEqual(s.engine.degraded, { reason: "model-failed", capability: "embedding" });
+      assert.equal(s.engine.models.embedder.state, "failed");
+      assert.equal(s.engine.models.embedder.error, "provider-failed");
+      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything about lunch", joined: true });
+      assert.equal(typeof r.joined.text, "string");
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 });

@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { Engine, EngineStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
@@ -20,10 +20,15 @@ import { createPlatformCapabilities } from "./platform.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
+import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time). */
 const DRAINED_METHODS = [...MEMORY_OP_METHODS, "memory.capture"] as const;
+/** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not: the core serves a cached copy, refreshed on
+ *  demand when older than this, and every WARMING_REFRESH_MS while a model probe runs (spec §6.3, S7). */
+const STATUS_CACHE_MS = 1000;
+const WARMING_REFRESH_MS = 250;
 
 export interface Core {
   start(): Promise<void>;
@@ -65,6 +70,9 @@ export function createCore(o: CoreOptions): Core {
   let journalBacklog = 0; let stopping: Promise<void> | null = null; let wroteRunFiles = false;
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
+  let warmup: Warmup | null = null;
+  let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
+  let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   let beforeOrphan: State | null = null; // the state an orphaned core returns to on adoption
   let graceExpiredWhileStarting = false;
   // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
@@ -75,11 +83,37 @@ export function createCore(o: CoreOptions): Core {
   /** The state behind an `orphaned`: orphaned is about the lifeline, not the engine's health. */
   const healthState = (): State => (state.state === "orphaned" && beforeOrphan ? beforeOrphan : state);
 
+  const warmingNow = (s: EngineStatus) => s.models.embedder.warming || s.models.reranker.warming;
+  function cacheEngineStatus(s: EngineStatus): void {
+    engineStatus = s; engineStatusAt = performance.now();
+    if (warmingTimer || stopping) return;
+    // Polled while a probe runs, or until the first warm-up answered, so `models-warming` → null shows promptly.
+    if (warmingNow(s) || (warmup !== null && s.degraded?.reason === "models-warming")) {
+      warmingTimer = setTimeout(() => { warmingTimer = null; refreshEngineStatus(); }, WARMING_REFRESH_MS);
+      warmingTimer.unref();
+    }
+  }
+  /** One engine.status() at a time; engine.status() never rejects, a closed engine is left to the stop path. */
+  function refreshEngineStatus(): void {
+    const eng = engine;
+    if (!eng || statusRefresh || stopping) return;
+    statusRefresh = eng.status()
+      .then((s) => { if (!stopping) cacheEngineStatus(s); })
+      .catch((err: unknown) => { logger?.debug("engine status refresh failed", { err }); })
+      .finally(() => { statusRefresh = null; });
+  }
+
   function status(): CoreStatusResult {
+    if (engineStatus && performance.now() - engineStatusAt > STATUS_CACHE_MS) refreshEngineStatus();
+    const es = engineStatus;
+    const d = es?.degraded ?? null;
+    const degraded = d ? { reason: d.reason, capability: d.capability, ...(typeof d.detail === "string" ? { detail: d.detail } : {}) } : null;
     return {
       process: state, contract: engine?.contract ?? "", rpc: RPC_VERSION, instanceId, pid: process.pid, uptimeMs: Math.max(0, Math.round(clock() - startedAt)),
       engine: {
-        ready: healthState().state === "ready", degraded: healthState().state === "degraded" ? { reason: healthState().reason ?? "unknown", capability: "core" } : null,
+        // S7: `process` is the core's own health; the engine is ready only once its models are (degraded === null).
+        ready: healthState().state === "ready" && es !== null && degraded === null, degraded,
+        ...(es ? { models: projectModels(es.models) } : {}),
         ...(storeSchema ? { storeSchema } : {}),
       },
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })), journalBacklog,
@@ -144,6 +178,7 @@ export function createCore(o: CoreOptions): Core {
       const eng = bindEngine(host, engineConfig, o.testInternals); engine = eng;
       assertEngineContract(eng);
       const es = await eng.status();
+      cacheEngineStatus(es);
       storeSchema = es.storeSchema;
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
         logger.warn("store schema differs from the engine's expected version; migration arrives with 2a-H3", { current: storeSchema.current, expected: storeSchema.expected });
@@ -178,12 +213,16 @@ export function createCore(o: CoreOptions): Core {
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
       logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept, replayPasses: replay.passes, supervised: o.lifeline !== undefined });
+      // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
+      warmup = startWarmup({ engine: eng, logger, signal: shutdown.signal, onDone: () => refreshEngineStatus() });
+      refreshEngineStatus(); // the probes now run: `warming` starts the WARMING_REFRESH_MS poll
       if (graceExpiredWhileStarting && state.state === "orphaned") graceExpired();
     } catch (e) {
       // Cleanup never replaces the original start error.
       const log = logger;
       log.error("core start failed", { err: e });
       shutdown.abort(new Error("core start failed"));
+      warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
@@ -228,6 +267,8 @@ export function createCore(o: CoreOptions): Core {
       // G17: from here on isStopping() refuses new memory ops; the engine drains its side, then the server waits (in
       // what is left of the budget) for those replies to be written before it ends the sockets.
       setState({ state: "stopping", since: clock() });
+      warmup?.abort(); // first: the warm-up's wait ends before the engine closes under it
+      if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       shutdown.abort(new Error("core stopping"));
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];

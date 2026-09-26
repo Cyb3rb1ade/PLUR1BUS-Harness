@@ -2,8 +2,8 @@
 //! never writes, starts or signals anything (S12) and works whether or not the supervisor or the core are running.
 //!
 //! [`gather`] is pure orchestration over small readers, each producing one [`Check`] in the fixed table order
-//! (ruling H3-R5): a later task inserts more checks by name (Task 13 "after models.warm", Task 14 "after
-//! core.state"), so this file never assumes its list is exhaustive going forward. Every network call the checks
+//! (ruling H3-R5): later tasks insert more checks by name (Task 13 `models.warm` after `core.state`, Task 14 after
+//! `models.warm`), so this file never assumes its list is exhaustive going forward. Every network call the checks
 //! make is bounded to a 300 ms connect timeout and a 300 ms call timeout, keeping the whole pass under the 3 s
 //! budget the brief sets even when nothing answers.
 use crate::cli::FirstAidCmd;
@@ -30,12 +30,13 @@ const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 12] = [
+const CHECK_IDS: [&str; 13] = [
     "config.valid",
     "run.permissions",
     "run.stale-files",
     "supervisor.state",
     "core.state",
+    "models.warm",
     "core.lock",
     "service.registration",
     "agents.activity",
@@ -204,6 +205,7 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     let core_status = core_probe.as_ref().map(|(v, _)| v.clone());
     let mut core_client = core_probe.map(|(_, c)| c);
 
+    checks.push(check_models_warm(core_status.as_ref()));
     checks.push(check_core_lock(
         layout,
         core_status.is_some(),
@@ -541,6 +543,56 @@ fn check_core_state(has_token: bool, daemon_status: &Option<Value>) -> Check {
         summary,
         detail,
         hint: None,
+    }
+}
+
+// ---- models.warm ----------------------------------------------------------------------------------
+
+/// Spec §6.3 / ruling S7: `core.status.engine.degraded` carries the engine's model-derived state (E4). `null` → ok;
+/// `models-warming` → warn (the models load in the background, recall falls back meanwhile); `model-failed` → fail
+/// with the failed capability and the model's error. Core absent → skip.
+fn check_models_warm(core_status: Option<&Value>) -> Check {
+    const ID: &str = "models.warm";
+    let Some(status) = core_status else {
+        return Check::skip(ID, "core is not reachable");
+    };
+    let engine = &status["engine"];
+    let degraded = &engine["degraded"];
+    if degraded.is_null() {
+        return Check::ok(ID, "models are ready");
+    }
+    let capability = degraded["capability"].as_str().unwrap_or("unknown");
+    // The engine's capability names the model: "embedding" → the embedder, "reranker" → the reranker.
+    let model = if capability == "embedding" {
+        "embedder"
+    } else {
+        capability
+    };
+    match degraded["reason"].as_str().unwrap_or("unknown") {
+        "models-warming" => Check::warn(
+            ID,
+            format!("models are warming up ({model})"),
+            Some(json!({ "capability": capability })),
+            Some("recall falls back until the models are loaded".to_string()),
+        ),
+        "model-failed" => {
+            let error = engine["models"][model]["error"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string();
+            Check::fail(
+                ID,
+                format!("the {model} failed to load: {error}"),
+                Some(json!({ "capability": capability, "error": error })),
+                None,
+            )
+        }
+        other => Check::warn(
+            ID,
+            format!("engine is degraded: {other}"),
+            Some(json!({ "capability": capability, "reason": other })),
+            None,
+        ),
     }
 }
 
@@ -891,6 +943,53 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn warm_status(degraded: Value, embedder_error: Option<&str>) -> Value {
+        let mut embedder =
+            json!({ "state": "failed", "warming": false, "checkedAt": 1, "id": "e5" });
+        if let Some(e) = embedder_error {
+            embedder["error"] = json!(e);
+        }
+        json!({ "engine": { "ready": degraded.is_null(), "degraded": degraded, "models": {
+            "embedder": embedder,
+            "reranker": { "state": "ready", "warming": false, "checkedAt": 1, "id": "local-transformers" } } } })
+    }
+
+    #[test]
+    fn models_warm_is_ok_when_nothing_is_degraded() {
+        let c = check_models_warm(Some(&warm_status(Value::Null, None)));
+        assert_eq!(c.status, Status::Ok, "{c:?}");
+    }
+
+    #[test]
+    fn models_warming_is_a_warning() {
+        let s = warm_status(
+            json!({ "reason": "models-warming", "capability": "reranker" }),
+            None,
+        );
+        let c = check_models_warm(Some(&s));
+        assert_eq!(c.status, Status::Warn, "{c:?}");
+        assert_eq!(c.detail, Some(json!({ "capability": "reranker" })));
+    }
+
+    #[test]
+    fn a_failed_model_is_a_failure_with_capability_and_error() {
+        let s = warm_status(
+            json!({ "reason": "model-failed", "capability": "embedding" }),
+            Some("provider-failed"),
+        );
+        let c = check_models_warm(Some(&s));
+        assert_eq!(c.status, Status::Fail, "{c:?}");
+        assert_eq!(
+            c.detail,
+            Some(json!({ "capability": "embedding", "error": "provider-failed" }))
+        );
+    }
+
+    #[test]
+    fn models_warm_is_skipped_without_a_core() {
+        assert_eq!(check_models_warm(None).status, Status::Skip);
+    }
 
     #[test]
     fn describe_child_names_every_state() {

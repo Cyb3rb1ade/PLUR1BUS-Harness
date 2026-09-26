@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { assertEngineContract } from "../src/engine.ts";
 import { RpcError } from "../src/rpc/errors.ts";
 
-// The engine's own `ContractVersion` type is pinned to the literal `"1.6.0"` at the current pin,
+// The engine's own `ContractVersion` type is pinned to the literal `"1.8.0"` at the current pin,
 // so these fixtures (deliberately mismatched or malformed) are widened to plain strings — exactly
 // what `assertEngineContract` must guard against at runtime, where the engine's declared type is
 // no guarantee against a differently-pinned build.
@@ -12,8 +12,8 @@ function fixture(contract: string): Parameters<typeof assertEngineContract>[0] {
 }
 
 describe("assertEngineContract", () => {
-  it("accepts 1.6.0 and 1.99.0", () => {
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.6.0")));
+  it("accepts 1.8.0 and 1.99.0", () => {
+    assert.doesNotThrow(() => assertEngineContract(fixture("1.8.0")));
     assert.doesNotThrow(() => assertEngineContract(fixture("1.99.0")));
   });
 
@@ -27,6 +27,19 @@ describe("assertEngineContract", () => {
       assert.equal(err.error, "E_RPC_VERSION");
       assert.equal(err.reason, "engine-contract-major");
       assert.equal(err.detail, "2.0.0");
+    }
+  });
+
+  it("refuses a 1.x contract older than 1.8.0 with E_RPC_VERSION engine-contract-minor (S18)", () => {
+    try {
+      assertEngineContract(fixture("1.7.0"));
+      assert.fail("expected assertEngineContract to throw");
+    } catch (e) {
+      assert.ok(e instanceof RpcError);
+      const err = e as RpcError;
+      assert.equal(err.error, "E_RPC_VERSION");
+      assert.equal(err.reason, "engine-contract-minor");
+      assert.equal(err.detail, "1.7.0");
     }
   });
 

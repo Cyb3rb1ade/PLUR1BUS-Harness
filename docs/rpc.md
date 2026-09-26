@@ -2738,6 +2738,23 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
             }
           ]
         },
+        "models": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "embedder",
+            "reranker"
+          ],
+          "description": "Per-model readiness (E4, spec §6.3); absent before the engine reports it.",
+          "properties": {
+            "embedder": {
+              "$ref": "#/$defs/ModelStatus"
+            },
+            "reranker": {
+              "$ref": "#/$defs/ModelStatus"
+            }
+          }
+        },
         "storeSchema": {
           "type": "object",
           "additionalProperties": false,
@@ -2791,6 +2808,51 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    }
+  }
+}
+```
+
+### `ModelStatus`
+
+```json
+{
+  "description": "One model's readiness as the engine reports it (E4). `loading` has `checkedAt: null`; after a completed probe the state stays `ready`/`failed` and a running re-probe shows `warming: true`. `error` only when `failed`. `id`: the embedder's model name or the reranker's provider; null when unknown.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "state",
+    "warming",
+    "checkedAt",
+    "id"
+  ],
+  "properties": {
+    "state": {
+      "enum": [
+        "loading",
+        "ready",
+        "failed",
+        "disabled"
+      ]
+    },
+    "warming": {
+      "type": "boolean"
+    },
+    "checkedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "epoch ms of the completed probe that set `state`"
+    },
+    "error": {
+      "type": "string"
+    },
+    "id": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

@@ -9,6 +9,7 @@
 //   hang-after:<ms>       serve, then stop answering every request after <ms> (no SIGTERM handler; event `hung`)
 //   no-listen             start (run files not written) but never listen
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
+// FAKE_CORE_ENGINE (JSON) replaces core.status's `engine` object (default: ready, not degraded).
 // Every event (started, listening, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
 // The lifeline (S4) is stdin with --lifeline stdin, then the connection of the last successful core.adopt (whose nonce
 // must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
@@ -102,8 +103,8 @@ function adopted(sock, nonce) {
 
 function coreStatus() {
   return {
-    process: { state, since: started }, contract: "1.7.0", rpc: "1.2.0", instanceId, pid: process.pid,
-    uptimeMs: Date.now() - started, engine: { ready: true, degraded: null }, agents: [],
+    process: { state, since: started }, contract: "1.8.0", rpc: "1.2.0", instanceId, pid: process.pid,
+    uptimeMs: Date.now() - started, engine: process.env.FAKE_CORE_ENGINE ? JSON.parse(process.env.FAKE_CORE_ENGINE) : { ready: true, degraded: null }, agents: [],
   };
 }
 
@@ -139,7 +140,7 @@ const server = net.createServer((sock) => {
         return;
       }
       authed = true;
-      send({ id, result: { contract: "1.7.0", rpc: "1.2.0", instanceId, pid: process.pid } });
+      send({ id, result: { contract: "1.8.0", rpc: "1.2.0", instanceId, pid: process.pid } });
       return;
     }
     if (!authed) {

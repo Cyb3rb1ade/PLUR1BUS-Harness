@@ -222,6 +222,7 @@ fn check_json_validates_the_document_shape() {
         "run.stale-files",
         "supervisor.state",
         "core.state",
+        "models.warm",
         "core.lock",
         "service.registration",
         "agents.activity",
@@ -335,6 +336,46 @@ fn ready_stack_is_all_ok_except_service() {
     assert_eq!(
         checks["service.registration"]["status"], "warn",
         "no service was installed: {v}"
+    );
+
+    stop_supervisor(&h.home);
+    let _ = sup.kill();
+    let _ = sup.wait();
+}
+
+/// Spec §6.3/S7: a core whose engine reports `models-warming` is a warning, not a failure (the process is ready and
+/// recall falls back while the models load).
+#[test]
+fn models_warming_is_a_warning() {
+    let h = Home::new();
+    let engine = json!({ "ready": false, "degraded": { "reason": "models-warming", "capability": "embedding" }, "models": {
+        "embedder": { "state": "loading", "warming": true, "checkedAt": null, "id": "e5-small" },
+        "reranker": { "state": "loading", "warming": true, "checkedAt": null, "id": "local-transformers" } } });
+    let mut sup = supervise_cmd(&h, "ok")
+        .env("FAKE_CORE_ENGINE", engine.to_string())
+        .spawn()
+        .unwrap();
+    wait_until("the supervisor token", WAIT, || {
+        h.home.join("run/supervisor.token").exists()
+    });
+    let mut c = supervisor_client(&h.home);
+    wait_until("the core to become ready", WAIT, || {
+        c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"] == "ready"
+    });
+
+    let out = check_cmd(&h).output().unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "a warning alone does not fail the check: {out:?}"
+    );
+    let v = json_stdout(&out);
+    let checks = checks_by_id(&v);
+    assert_eq!(checks["core.state"]["status"], "ok", "{v}");
+    assert_eq!(checks["models.warm"]["status"], "warn", "{v}");
+    assert_eq!(
+        checks["models.warm"]["detail"]["capability"], "embedding",
+        "{v}"
     );
 
     stop_supervisor(&h.home);

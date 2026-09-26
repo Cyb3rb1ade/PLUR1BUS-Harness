@@ -79,6 +79,15 @@ describe("journal", () => {
       assert.equal(existsSync(join(l.journal, "bernd.jsonl")) && readFileSync(join(l.journal, "bernd.jsonl"), "utf8").length > 0, false);
     });
 
+    it("removes a line whose capture resolves reason duplicate-turn (E4: the same runId was already stored)", async () => {
+      const { l, agents, logger } = setup();
+      appendJournalLine(l.journal, line("11111111-1111-4111-8111-111111111111", "replayed twice"));
+      const engine = { capture: () => ({ id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 0, skipped: 1, reason: "duplicate-turn" }), abort() {} }) } as any;
+      const r = await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      assert.deepEqual(r, { replayed: 1, kept: 0 });
+      assert.equal(existsSync(join(l.journal, "bernd.jsonl")) && readFileSync(join(l.journal, "bernd.jsonl"), "utf8").length > 0, false);
+    });
+
     it("keeps a line whose capture's done rejects, and replay continues with the next line and the next file", async () => {
       const { l, agents, logger } = setup();
       appendJournalLine(l.journal, line("11111111-1111-4111-8111-111111111111", "boom"));

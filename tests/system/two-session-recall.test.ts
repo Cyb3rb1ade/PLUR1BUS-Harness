@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, type RunningCore } from "./helpers.ts";
 
 /** R20: a fully successful replay renames `<agent>.jsonl` away and appends nothing back — absent or empty. */
 function journalDrained(path: string): boolean {
@@ -22,6 +22,9 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
 
       core = await startCore(h);
       t.diagnostic(`core ready (1st start) ${core.readyMs.toFixed(0)} ms${REAL ? " [real models]" : " [flat embedder]"}`);
+      // Spec §6.3: the core is ready before its models are; the background warm-up loads them (B8 readyMs, warmMs).
+      const warmMs = await waitEngineReady(h, 60_000);
+      t.diagnostic(`models warm ${warmMs.toFixed(0)} ms after ready`);
 
       const status = cli(h, ["dreams", "status"]);
       assert.equal(status.jobs.length, 18, JSON.stringify(status));
@@ -33,14 +36,6 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       // A second, unrelated fact: the engine only calls the reranker with more than one candidate.
       const other = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the quarterly budget draft is due in March."]);
       assert.ok(other.stored >= 1, JSON.stringify(other));
-
-      if (REAL) {
-        // Unasserted warm-up: the first real-model recall lazy-loads the embedder and the reranker, which can
-        // exceed the CLI recall's 400 ms soft budget (the engine then answers before the rerank phase).
-        t0 = performance.now();
-        cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s0", "--joined", "warm-up"]);
-        t.diagnostic(`CLI warm-up recall ${(performance.now() - t0).toFixed(0)} ms`);
-      }
 
       // Scope the rerank-failure scan to the measured recall: remember where stderr and core.log end now.
       const logFile = join(h, "logs/core.log");
@@ -54,6 +49,10 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       assert.equal(r.degraded, null, JSON.stringify(r.degraded));
       assert.match(r.joined.text, /roadmap review/i);
       if (REAL) {
+        // The first measured recall after the warm-up is within the 400 ms soft budget (it failed on macOS at 582 ms
+        // with `exceededBudget: true` while the models still lazy-loaded on the first recall).
+        assert.notEqual(r.timing?.exceededBudget, true, JSON.stringify(r.timing));
+        assert.ok(typeof r.timing?.totalMs === "number" && r.timing.totalMs < 400, `first recall totalMs: ${JSON.stringify(r.timing)}`);
         // timing.namespacePhases records a "rerank" phase on every recall, even with no reranker, and its timer
         // also wraps the failure/timeout fallback. So require real cross-encoder time AND no engine rerank-failure
         // warning. Engine warnings go to the core's log file (logs/core.log), not stderr; both are checked.

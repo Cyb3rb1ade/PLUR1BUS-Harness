@@ -123,6 +123,24 @@ export async function waitFor<T>(what: string, probe: () => T | undefined | fals
   }
 }
 
+/** Spec §6.3: polls `1staid check --json` every 250 ms until its `models.warm` check is `ok` (the engine's models
+ *  are loaded, `core.status.engine.degraded === null`). Throws when the check is `fail` (a model failed to load) or
+ *  after `timeoutMs`. Resolves with the time waited, in ms. */
+export async function waitEngineReady(h: string, timeoutMs: number): Promise<number> {
+  const t0 = performance.now(); let last: unknown = null;
+  for (;;) {
+    const r = cli(h, ["1staid", "check"], { allowFail: true });
+    // `1staid check` exits 1 when any check fails; its JSON document is on stdout either way.
+    const doc = "exit" in r ? JSON.parse(r.stdout) : r;
+    const check = (doc.checks as Array<{ id: string; status: string }>).find((c) => c.id === "models.warm");
+    last = check;
+    if (check?.status === "ok") return performance.now() - t0;
+    if (check?.status === "fail") throw new Error(`models failed to warm: ${JSON.stringify(check)}`);
+    if (performance.now() - t0 > timeoutMs) throw new Error(`models not warm within ${timeoutMs} ms: ${JSON.stringify(last)}`);
+    await sleep(250);
+  }
+}
+
 /** `daemon start` (spawns `supervise` detached, waits for the core to be ready) with `coreEnv(extra)`. */
 export const startDaemon = (h: string, extra: NodeJS.ProcessEnv = {}): any => cli(h, ["daemon", "start"], { env: coreEnv(extra) });
 
