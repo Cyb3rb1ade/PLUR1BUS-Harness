@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, constants, existsSync, mkdtempSync, openSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,5 +105,37 @@ describe("dist/core.js", () => {
     if (code === "timeout") child.kill("SIGKILL");
     assert.equal(code, 0, "exits 0 once the grace expires");
     assert.equal(existsSync(l.corePid), false, "run files removed");
+  });
+
+  it("--lifeline stdin: a dead supervisor's stdout/stderr pipes (EPIPE) do not crash the grace-expiry stop", { skip: process.platform === "win32" && "EPIPE on a closed pipe reader is POSIX; Windows reports a broken pipe differently" }, async () => {
+    const home = mkdtempSync(join(tmpdir(), "p1b-bin-")); const l = layout(home);
+    const cfg = defaults(); cfg.agents.bernd = {}; cfg.supervisor.graceMs = 1000;
+    writeFileSync(l.configPath, JSON.stringify(cfg));
+    // The supervisor gives the core real OS pipes (a Node parent would give socketpairs, whose closed peer does not
+    // fail a write the same way): a FIFO whose only reader this test closes is exactly the pipe a SIGKILLed supervisor leaves.
+    const fifo = join(home, "out.fifo"); execFileSync("mkfifo", [fifo]);
+    const reader = openSync(fifo, constants.O_RDONLY | constants.O_NONBLOCK); const writer = openSync(fifo, constants.O_WRONLY);
+    const child = spawn(process.execPath, [dist, "--home", home, "--test-internals", "flat-embedder", "--lifeline", "stdin"],
+      { env: { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" }, stdio: ["pipe", writer, writer] });
+    closeSync(writer);
+    const exited = new Promise<number | null>((r) => child.once("exit", r));
+    const t0 = Date.now();
+    while (!existsSync(l.corePid) && child.exitCode === null && Date.now() - t0 < 10_000) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(existsSync(l.corePid), "the core became ready");
+    // Exercise the engine (default engine config, one capture) the way a real session does before its supervisor dies.
+    const c = await connect({ address: join(home, "run", "core.sock"), token: readFileSync(l.coreToken, "utf8") });
+    const cap = await c.call<any>("memory.capture", { caller: { channel: "cli", accountId: "a1", userId: "u1" }, agentId: "bernd", sessionKey: "s1", wait: true, waitMs: 10_000,
+      messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }] });
+    assert.equal(cap.stored, 1, JSON.stringify(cap));
+    await c.close();
+    // Nobody reads the core's stdout/stderr any more, and its stdin lifeline is at EOF.
+    closeSync(reader); child.stdin!.end();
+    let timer: NodeJS.Timeout | undefined;
+    const code = await Promise.race([exited, new Promise<"timeout">((r) => { timer = setTimeout(() => r("timeout"), 8000); })]);
+    clearTimeout(timer);
+    if (code === "timeout") child.kill("SIGKILL");
+    assert.equal(code, 0, "the stop after the grace completes and exits 0");
+    assert.equal(existsSync(l.corePid), false, "run files removed");
+    assert.equal(existsSync(join(home, "run", "core.sock")), false, "socket removed");
   });
 });

@@ -3,6 +3,11 @@ import { ConfigInvalid, loadConfig } from "./config-load.ts";
 import { createCore } from "./core.ts";
 import { RpcError } from "./rpc/errors.ts";
 
+// Under a supervisor, stdout and stderr are pipes that the supervisor reads. A SIGKILLed supervisor leaves them without
+// a reader while the core lives on through its lifeline grace (S5, C1), so every later write fails with EPIPE. The
+// core's own log file is the record: a lost stdio sink must never crash the core (e.g. midway through the grace-expiry stop).
+for (const stream of [process.stdout, process.stderr]) stream.on("error", () => {});
+
 const { values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" }, lifeline: { type: "string" }, instance: { type: "string" } }, strict: true });
 // Supervised mode (S4): the supervisor spawns the core with `--lifeline stdin --instance <uuid>` and holds stdin's write end.
 if (values.lifeline !== undefined && values.lifeline !== "stdin") { console.error(`--lifeline accepts only stdin, got ${values.lifeline}`); process.exit(2); }
