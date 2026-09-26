@@ -42,6 +42,13 @@ describe("mapMemoryOpError", () => {
     const r = mapMemoryOpError(opError("storage"), { stopping: true });
     assert.equal(r?.error, "E_CORE_UNAVAILABLE");
     assert.equal(r?.reason, "core-stopping");
+    assert.equal(r?.ids, undefined);
+    // A half-finished refresh keeps its recovery ids on the shutdown path too (final review M1).
+    const ids = { sourceId: "a", sharedId: "b", staleSharedId: "c" };
+    const withIds = mapMemoryOpError(opError("storage", ids), { stopping: true });
+    assert.equal(withIds?.error, "E_CORE_UNAVAILABLE");
+    assert.equal(withIds?.reason, "core-stopping");
+    assert.deepEqual(withIds?.toJSON().data.ids, ids);
     // Any other code keeps its own mapping while stopping.
     assert.equal(mapMemoryOpError(opError("denied"), { stopping: true })?.error, "E_DENIED");
   });

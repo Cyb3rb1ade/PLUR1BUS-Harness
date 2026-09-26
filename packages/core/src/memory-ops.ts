@@ -27,18 +27,20 @@ const ERROR_MAP: Readonly<Record<E.MemoryOpErrorCode, ErrorCode>> = Object.freez
   "not-found": "E_NOT_FOUND", denied: "E_DENIED", "invalid-input": "E_INVALID_PARAMS", "approval-required": "E_APPROVAL_REQUIRED", conflict: "E_CONFLICT", storage: "E_STORAGE",
 });
 
-const coreStopping = () => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
+const coreStopping = (ids?: Record<string, string>) =>
+  new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping", ...(ids && Object.keys(ids).length > 0 ? { ids } : {}) });
 
 /** A MemoryOpError (recognised by name and a known code, never by importing an engine internal) as an RpcError; null for anything else. */
 export function mapMemoryOpError(e: unknown, o: { stopping: boolean }): RpcError | null {
   if (!(e instanceof Error) || e.name !== "MemoryOpError") return null;
   const code = (e as { code?: unknown }).code;
   if (typeof code !== "string" || !Object.hasOwn(ERROR_MAP, code)) return null;
-  // The engine closes on shutdown and then answers `storage` ("engine is closed"): that is the core going away, not a storage fault.
-  if (code === "storage" && o.stopping) return coreStopping();
   const detail = (e as { detail?: unknown }).detail;
   const ids: Record<string, string> = {};
   if (detail && typeof detail === "object") for (const [k, v] of Object.entries(detail)) if (typeof v === "string") ids[k] = v;
+  // The engine closes on shutdown and then answers `storage` ("engine is closed"): that is the core going away, not a storage fault.
+  // A refresh cut short by the shutdown still hands back its recovery ids.
+  if (code === "storage" && o.stopping) return coreStopping(ids);
   return new RpcError(ERROR_MAP[code as E.MemoryOpErrorCode], e.message, { reason: code, ...(Object.keys(ids).length > 0 ? { ids } : {}) });
 }
 
