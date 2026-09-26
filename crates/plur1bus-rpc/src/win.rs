@@ -1,7 +1,7 @@
 //! Windows access checks and pipe I/O for the RPC endpoints (ruling S11): the current user's SID, the server of a
 //! pipe, a pipe's DACL, the user-and-SYSTEM security descriptor, and overlapped pipe I/O with real deadlines.
 //! The platform-neutral parts (the DACL entry, the "writable by others" rule, the SDDL) are in [`crate::acl`].
-pub use crate::acl::{user_and_system_sddl, writable_by_others, DaclEntry};
+pub use crate::acl::{run_writable_by_others, user_and_system_sddl, writable_by_others, DaclEntry};
 use std::ffi::c_void;
 use std::io;
 use std::os::windows::fs::OpenOptionsExt;
@@ -13,8 +13,9 @@ use windows_sys::Win32::Foundation::{
     ERROR_PIPE_NOT_CONNECTED, HANDLE, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 use windows_sys::Win32::Security::Authorization::{
-    ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, GetSecurityInfo,
-    SetSecurityInfo, SDDL_REVISION_1, SE_FILE_OBJECT, SE_KERNEL_OBJECT,
+    ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
+    GetNamedSecurityInfoW, GetSecurityInfo, SetSecurityInfo, SDDL_REVISION_1, SE_FILE_OBJECT,
+    SE_KERNEL_OBJECT,
 };
 use windows_sys::Win32::Security::{
     AclSizeInformation, GetAce, GetAclInformation, GetSecurityDescriptorDacl, GetTokenInformation,
@@ -244,6 +245,40 @@ fn dacl_of(h: HANDLE) -> io::Result<Vec<DaclEntry>> {
         return Err(io::Error::from_raw_os_error(r as i32));
     }
     let _free = Local(sd);
+    dacl_entries_from(dacl)
+}
+
+/// The DACL of the file or directory at `path` (`GetNamedSecurityInfoW`, `SE_FILE_OBJECT`) — used for `run/` and its
+/// token/pid files (ruling S11/H3-R17), as opposed to [`dacl_of`], which reads an already-open kernel object such as
+/// a pipe. A NULL DACL (everyone may do anything) is reported as one `GENERIC_ALL` entry for Everyone (`S-1-1-0`).
+pub fn file_dacl_report(path: &std::path::Path) -> io::Result<Vec<DaclEntry>> {
+    let text = wide(&path.to_string_lossy());
+    let mut dacl: *mut ACL = std::ptr::null_mut();
+    let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+    // SAFETY: `text` is NUL-terminated; on success `sd` is LocalAlloc'd memory we own through `Local`; `dacl` points
+    // into it.
+    let r = unsafe {
+        GetNamedSecurityInfoW(
+            text.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut dacl,
+            std::ptr::null_mut(),
+            &mut sd,
+        )
+    };
+    if r != 0 {
+        return Err(io::Error::from_raw_os_error(r as i32));
+    }
+    let _free = Local(sd);
+    dacl_entries_from(dacl)
+}
+
+/// Walks a DACL's ACEs into platform-neutral [`DaclEntry`] values, shared by [`dacl_of`] (an open kernel object) and
+/// [`file_dacl_report`] (a path).
+fn dacl_entries_from(dacl: *mut ACL) -> io::Result<Vec<DaclEntry>> {
     if dacl.is_null() {
         return Ok(vec![DaclEntry {
             sid: "S-1-1-0".into(),
@@ -278,7 +313,7 @@ fn dacl_of(h: HANDLE) -> io::Result<Vec<DaclEntry>> {
         // SAFETY: every ACE starts with an ACE_HEADER.
         let kind = u32::from(unsafe { &*(ace as *const ACE_HEADER) }.AceType);
         if kind != ACCESS_ALLOWED_ACE_TYPE && kind != ACCESS_DENIED_ACE_TYPE {
-            continue; // object and callback ACEs do not occur on pipes
+            continue; // object and callback ACEs do not occur on pipes or on run/'s files
         }
         // SAFETY: allowed and denied ACEs share the ACCESS_ALLOWED_ACE layout; the SID starts at `SidStart`.
         let a = unsafe { &*(ace as *const ACCESS_ALLOWED_ACE) };

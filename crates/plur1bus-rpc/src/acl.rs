@@ -60,6 +60,23 @@ pub fn user_and_system_sddl(user_sid: &str) -> String {
     format!("D:P(A;;GA;;;{user_sid})(A;;GA;;;SY)")
 }
 
+/// The SIDs that may write to `run/` or one of its token/pid files: the same write-like rights as
+/// [`writable_by_others`], but trusting only `user_sid` and SYSTEM — unlike a pipe's default DACL, `run/`'s ACL
+/// (ruling S11: `icacls <p> /inheritance:r /grant:r *<user SID>:(F) *S-1-5-18:(F)`) never names Administrators or
+/// OWNER RIGHTS, so an entry for either here is itself unexpected and reported. Sorted, each once.
+pub fn run_writable_by_others(entries: &[DaclEntry], user_sid: &str) -> Vec<String> {
+    let trusted = [user_sid, SYSTEM_SID];
+    let mut sids: Vec<String> = entries
+        .iter()
+        .filter(|e| e.allow && e.mask & WRITE_LIKE != 0)
+        .filter(|e| !trusted.contains(&e.sid.as_str()))
+        .map(|e| e.sid.clone())
+        .collect();
+    sids.sort();
+    sids.dedup();
+    sids
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,6 +130,45 @@ mod tests {
         ];
         assert_eq!(
             writable_by_others(&entries, USER),
+            ["S-1-1-0", "S-1-5-11", "S-1-5-32-545"]
+        );
+    }
+
+    #[test]
+    fn run_dacl_with_only_the_user_and_system_is_not_writable_by_others() {
+        // S11's `run/` ACL: `icacls <p> /inheritance:r /grant:r *<user SID>:(F) *S-1-5-18:(F)` — user and SYSTEM
+        // only, full control, nothing inherited.
+        let entries = [allow(USER, 0x001F_01FF), allow(SYSTEM_SID, 0x001F_01FF)];
+        assert!(run_writable_by_others(&entries, USER).is_empty());
+    }
+
+    #[test]
+    fn run_dacl_trusts_neither_administrators_nor_owner_rights_unlike_a_pipe() {
+        // Unlike `writable_by_others` (a pipe's default DACL, which legitimately includes Administrators and OWNER
+        // RIGHTS), `run/`'s ACL never names either, so their presence here is itself reported (ruling H3-R17).
+        let entries = [
+            allow(USER, 0x001F_01FF),
+            allow(SYSTEM_SID, 0x001F_01FF),
+            allow(ADMINISTRATORS_SID, 0x001F_01FF),
+            allow(OWNER_RIGHTS_SID, 0x001F_01FF),
+        ];
+        assert_eq!(
+            run_writable_by_others(&entries, USER),
+            [OWNER_RIGHTS_SID, ADMINISTRATORS_SID]
+        );
+    }
+
+    #[test]
+    fn run_dacl_flags_everyone_users_or_authenticated_users_with_write_like_rights() {
+        let entries = [
+            allow(USER, 0x001F_01FF),
+            allow(SYSTEM_SID, 0x001F_01FF),
+            allow("S-1-1-0", FILE_WRITE_DATA),    // Everyone
+            allow("S-1-5-32-545", GENERIC_WRITE), // Users
+            allow("S-1-5-11", GENERIC_ALL),       // Authenticated Users
+        ];
+        assert_eq!(
+            run_writable_by_others(&entries, USER),
             ["S-1-1-0", "S-1-5-11", "S-1-5-32-545"]
         );
     }

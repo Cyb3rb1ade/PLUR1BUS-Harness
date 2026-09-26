@@ -16,11 +16,46 @@ use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::io;
 use std::path::Path;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Bounds every probe this check makes (the brief: "connections use the 300 ms connect timeout"; the whole check
 /// budget is < 3 s, so a call deadline of the same order keeps a single unresponsive peer from dominating it).
 const CHECK_TIMEOUT: Duration = Duration::from_millis(300);
+
+/// The overall deadline for one `gather()` pass (Minor 4 of the review): bounds every probe together, including the
+/// per-agent `jobs.history` calls, so a large or slow agent roster cannot make the whole check run long past what a
+/// human waiting on it would expect. Whatever has not run by then is reported `warn` ("time budget exhausted")
+/// rather than left to overrun.
+const GATHER_BUDGET: Duration = Duration::from_secs(3);
+
+/// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
+/// never got to.
+const CHECK_IDS: [&str; 12] = [
+    "config.valid",
+    "run.permissions",
+    "run.stale-files",
+    "supervisor.state",
+    "core.state",
+    "core.lock",
+    "service.registration",
+    "agents.activity",
+    "journal.backlog",
+    "jobs.last-runs",
+    "api.deprecations",
+    "windows.pipe-acl",
+];
+
+/// `true` (after filling `checks` up to [`CHECK_IDS`]'s length with a "time budget exhausted" warning each) once
+/// `deadline` has passed; `checks` must already hold exactly the ids `CHECK_IDS` names, in order, up to this point.
+fn out_of_budget(deadline: Instant, checks: &mut Vec<Check>) -> bool {
+    if Instant::now() < deadline {
+        return false;
+    }
+    for id in &CHECK_IDS[checks.len()..] {
+        checks.push(Check::warn(id, "time budget exhausted", None, None));
+    }
+    true
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -137,10 +172,15 @@ fn probe(
 /// brief specifies, so a later task can insert a row "after core.state" or "after models.warm" by name. Never
 /// writes, starts or signals anything.
 pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
-    let mut checks = Vec::with_capacity(12);
+    let deadline = Instant::now() + GATHER_BUDGET;
+    let mut checks = Vec::with_capacity(CHECK_IDS.len());
     checks.push(check_config_valid(layout));
     checks.push(check_run_permissions(layout));
     checks.push(check_run_stale_files(layout, env.platform));
+
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
 
     // The supervisor's own view: `daemon.status` gives both the supervisor's health and the core child's, exactly
     // as `daemon status` reports them.
@@ -152,6 +192,10 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     };
     checks.push(check_supervisor_state(sup_token.is_some(), &daemon_status));
     checks.push(check_core_state(sup_token.is_some(), &daemon_status));
+
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
 
     // A direct connection to the core: needed for the checks below that read its own state, not the supervisor's
     // view of it.
@@ -167,11 +211,28 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     ));
     checks.push(check_service_registration(layout, env.runner));
 
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+
     let agents = core_status.as_ref().map(|s| s["agents"].clone());
     checks.push(check_agents_activity(env.now, agents.as_ref()));
     checks.push(check_journal_backlog(layout, core_status.as_ref()));
-    checks.push(check_jobs_last_runs(core_client.as_mut(), agents.as_ref()));
+
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+
+    checks.push(check_jobs_last_runs(
+        core_client.as_mut(),
+        agents.as_ref(),
+        deadline,
+    ));
     checks.push(check_api_deprecations(core_status.as_ref()));
+
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
 
     checks.push(check_windows_pipe_acl(layout));
     checks
@@ -325,40 +386,18 @@ fn check_run_permissions(layout: &Layout) -> Check {
     )
 }
 
-/// `icacls <path>`'s listing names only the current user and `NT AUTHORITY\SYSTEM` (S11's rule for `run/`, applied
-/// here to the whole directory rather than a single pipe, so this stays out of `crates/plur1bus-rpc/src/win.rs`).
+/// Reads `path`'s DACL through the Win32 API (`GetNamedSecurityInfoW`, [`plur1bus_rpc::win::file_dacl_report`]) and
+/// checks it the same way `windows.pipe-acl` checks a pipe's — [`plur1bus_rpc::acl::run_writable_by_others`] — except
+/// that `run/`'s own ACL (ruling S11: `icacls <p> /inheritance:r /grant:r *<user SID>:(F) *S-1-5-18:(F)`) never names
+/// Administrators, so unlike a pipe's default DACL, an Administrators entry here is itself reported (ruling H3-R17).
+/// Replaces an earlier `icacls` text-output parse, which mis-split localized/multi-word account names such as
+/// `NT AUTHORITY\SYSTEM` and so failed on every normal install; the SID comparison this delegates to is
+/// platform-neutral and unit-tested on Linux in `crates/plur1bus-rpc/src/acl.rs`.
 #[cfg(windows)]
 fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
-    let out = std::process::Command::new("icacls").arg(path).output()?;
-    if !out.status.success() {
-        return Err(io::Error::other(
-            String::from_utf8_lossy(&out.stderr).into_owned(),
-        ));
-    }
-    let text = String::from_utf8_lossy(&out.stdout);
-    let user = std::env::var("USERNAME").unwrap_or_default().to_lowercase();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with("Successfully processed") {
-            continue;
-        }
-        let Some(colon) = line.find(":(") else {
-            continue;
-        };
-        let before = &line[..colon];
-        let account = before
-            .rsplit(char::is_whitespace)
-            .next()
-            .unwrap_or(before)
-            .to_lowercase();
-        let is_system = account == r"nt authority\system";
-        let is_user =
-            !user.is_empty() && (account == user || account.ends_with(&format!(r"\{user}")));
-        if !is_system && !is_user {
-            return Ok(false);
-        }
-    }
-    Ok(true)
+    let user_sid = plur1bus_rpc::win::user_sid()?;
+    let entries = plur1bus_rpc::win::file_dacl_report(path)?;
+    Ok(plur1bus_rpc::acl::run_writable_by_others(&entries, &user_sid).is_empty())
 }
 
 // ---- run.stale-files --------------------------------------------------------------------------
@@ -515,6 +554,15 @@ fn check_core_lock(layout: &Layout, core_reachable: bool, core_peer_pid: Option<
     let recorded = layout.recorded_pid(Endpoint::Core);
     match (recorded, core_peer_pid) {
         (Some(r), Some(p)) if r == p => Check::ok(ID, "run/core.pid matches the serving core"),
+        // Ruling H3-R18: the core answers but `run/core.pid` was never recorded (a start-up race, or a core that
+        // never wrote it) — this is a gap, not evidence of a wrong pid, so it only warns.
+        (None, Some(_)) => Check::warn(
+            ID,
+            "core is serving but run/core.pid is missing",
+            Some(json!({ "recorded": recorded, "serving": core_peer_pid })),
+            None,
+        ),
+        // A pid file that names a different core than the one actually serving is a real mismatch.
         _ => Check::fail(
             ID,
             "run/core.pid does not match the core that is actually serving",
@@ -629,13 +677,23 @@ fn check_journal_backlog(layout: &Layout, core_status: Option<&Value>) -> Check 
 
 // ---- jobs.last-runs -----------------------------------------------------------------------------
 
-fn check_jobs_last_runs(core_client: Option<&mut Client>, agents: Option<&Value>) -> Check {
+/// `deadline` bounds the whole loop (Minor 4 of the review): a large agent roster, or one whose `jobs.history` calls
+/// are each slow, stops at the deadline rather than running past it — reported as "time budget exhausted" rather
+/// than a partial, silently-incomplete result.
+fn check_jobs_last_runs(
+    core_client: Option<&mut Client>,
+    agents: Option<&Value>,
+    deadline: Instant,
+) -> Check {
     const ID: &str = "jobs.last-runs";
     let (Some(client), Some(agents)) = (core_client, agents.and_then(Value::as_array)) else {
         return Check::skip(ID, "core is not reachable");
     };
     let mut bad = Vec::new();
     for a in agents {
+        if Instant::now() >= deadline {
+            return Check::warn(ID, "time budget exhausted", None, None);
+        }
         let Some(agent_id) = a["agentId"].as_str() else {
             continue;
         };
@@ -717,19 +775,27 @@ fn check_api_deprecations(core_status: Option<&Value>) -> Check {
     entries.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
 
     if entries.is_empty() {
-        Check::ok(ID, "no deprecated API surface")
+        return Check::ok(ID, "no deprecated API surface");
+    }
+    let used_count = entries.iter().filter(|e| e["used"] == json!(true)).count();
+    let summary = format!(
+        "{} deprecated entr{} ({used_count} used)",
+        entries.len(),
+        if entries.len() == 1 { "y" } else { "ies" }
+    );
+    let detail = Some(json!({ "deprecations": entries }));
+    if used_count == 0 {
+        // Ruling H3-R16: a deprecated surface existing is not itself a problem — only warn once something actually
+        // called it. The full list is still shown so an install can see what to watch for.
+        Check {
+            id: ID,
+            status: Status::Ok,
+            summary,
+            detail,
+            hint: None,
+        }
     } else {
-        let used_count = entries.iter().filter(|e| e["used"] == json!(true)).count();
-        Check::warn(
-            ID,
-            format!(
-                "{} deprecated entr{} ({used_count} used)",
-                entries.len(),
-                if entries.len() == 1 { "y" } else { "ies" }
-            ),
-            Some(json!({ "deprecations": entries })),
-            None,
-        )
+        Check::warn(ID, summary, detail, None)
     }
 }
 
@@ -868,8 +934,10 @@ mod tests {
 
     #[test]
     fn api_deprecations_lists_engine_event_unused_by_default() {
+        // Ruling H3-R16: a deprecated entry existing is not itself a warning — only ok, with the list still shown,
+        // until something has actually used one.
         let check = check_api_deprecations(None);
-        assert_eq!(check.status, Status::Warn);
+        assert_eq!(check.status, Status::Ok);
         let deps = check.detail.unwrap()["deprecations"].clone();
         let entry = deps
             .as_array()
@@ -895,6 +963,58 @@ mod tests {
     }
 
     #[test]
+    fn api_deprecations_warns_only_once_some_entry_is_used() {
+        // Ruling H3-R16.
+        let unused = check_api_deprecations(None);
+        assert_eq!(unused.status, Status::Ok);
+
+        let status = json!({ "deprecationsUsed": ["notification:engine.event"] });
+        let used = check_api_deprecations(Some(&status));
+        assert_eq!(used.status, Status::Warn);
+    }
+
+    #[test]
+    fn core_lock_missing_pid_file_is_a_warning_not_a_failure() {
+        // Ruling H3-R18: the core answers but `run/core.pid` was never recorded (start-up race, or an unrecorded
+        // core) — a gap, not evidence of a wrong pid.
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let check = check_core_lock(&layout, true, Some(4242));
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+        assert_eq!(check.detail.unwrap()["serving"], 4242);
+    }
+
+    #[test]
+    fn core_lock_pid_file_naming_a_different_core_is_a_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.run()).unwrap();
+        std::fs::write(
+            layout.core_pid(),
+            "1111 00000000-0000-4000-8000-000000000000\n",
+        )
+        .unwrap();
+        let check = check_core_lock(&layout, true, Some(4242));
+        assert_eq!(check.status, Status::Fail, "{check:?}");
+        assert_eq!(check.detail.as_ref().unwrap()["recorded"], 1111);
+        assert_eq!(check.detail.unwrap()["serving"], 4242);
+    }
+
+    #[test]
+    fn core_lock_matching_pid_is_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.run()).unwrap();
+        std::fs::write(
+            layout.core_pid(),
+            "4242 00000000-0000-4000-8000-000000000000\n",
+        )
+        .unwrap();
+        let check = check_core_lock(&layout, true, Some(4242));
+        assert_eq!(check.status, Status::Ok, "{check:?}");
+    }
+
+    #[test]
     fn journal_backlog_takes_the_larger_of_core_status_and_the_files_on_disk() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
@@ -904,6 +1024,33 @@ mod tests {
         let check = check_journal_backlog(&layout, None);
         assert_eq!(check.status, Status::Warn);
         assert_eq!(check.detail.unwrap()["count"], 2);
+    }
+
+    #[test]
+    fn out_of_budget_fills_every_remaining_id_with_a_time_budget_warning() {
+        // Minor 4 of the review.
+        let mut checks = vec![
+            check_config_valid(&Layout::new(
+                tempfile::tempdir().unwrap().path().to_path_buf(),
+            )),
+            Check::ok("run.permissions", "x"),
+            Check::ok("run.stale-files", "x"),
+        ];
+        let past = Instant::now() - Duration::from_millis(1);
+        assert!(out_of_budget(past, &mut checks));
+        let ids: Vec<&str> = checks.iter().map(|c| c.id).collect();
+        assert_eq!(ids, CHECK_IDS);
+        for c in &checks[3..] {
+            assert_eq!(c.status, Status::Warn, "{c:?}");
+            assert_eq!(c.summary, "time budget exhausted");
+        }
+        // Not yet exhausted: leaves `checks` untouched.
+        let mut untouched = vec![Check::ok("config.valid", "x")];
+        assert!(!out_of_budget(
+            Instant::now() + Duration::from_secs(60),
+            &mut untouched
+        ));
+        assert_eq!(untouched.len(), 1);
     }
 
     #[test]
