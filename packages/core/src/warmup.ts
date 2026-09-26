@@ -46,8 +46,14 @@ export function startWarmup(o: WarmupOptions): Warmup {
   return { done, abort: () => own.abort(new Error("warm-up aborted")) };
 }
 
+/** `checkedAt` is the engine's clock time; the wire wants an integer, so a fractional clock is rounded and anything
+ *  non-finite becomes null (an invalid value would make core.status fail its own schema). */
+function wireCheckedAt(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null;
+}
+
 function projectOne(m: E.ModelReadiness, id: string | null): ModelStatus {
-  return { state: m.state, warming: m.warming, checkedAt: m.checkedAt, ...(typeof m.error === "string" ? { error: m.error } : {}), id };
+  return { state: m.state, warming: m.warming, checkedAt: wireCheckedAt(m.checkedAt), ...(typeof m.error === "string" ? { error: m.error } : {}), id };
 }
 
 /** The closed `$defs/ModelStatus` wire shape: `id` is the embedder's model name or the reranker's provider. */

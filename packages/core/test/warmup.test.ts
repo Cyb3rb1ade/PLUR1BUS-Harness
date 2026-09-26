@@ -62,6 +62,15 @@ describe("warmup", () => {
     assert.ok(lines.some(([lvl, msg]) => lvl === "debug" && /warm/.test(msg)), JSON.stringify(lines));
   });
 
+  it("projectModels rounds a fractional checkedAt and turns a non-finite one into null", () => {
+    const frac = models("ready", "ready"); frac.embedder.checkedAt = 1_000.6; frac.reranker.checkedAt = Number.NaN;
+    const p = projectModels(frac);
+    assert.equal(p.embedder.checkedAt, 1_001);
+    assert.equal(p.reranker.checkedAt, null);
+    const inf = models("failed", "ready", { error: "aborted" }); inf.embedder.checkedAt = Number.POSITIVE_INFINITY;
+    assert.equal(projectModels(inf).embedder.checkedAt, null);
+  });
+
   it("projectModels maps identity.model and reranker provider to id and drops unknown fields", () => {
     const m = models("failed", "disabled", { error: "provider-failed" }) as E.ModelsStatus & { extra?: unknown };
     (m.embedder as unknown as Record<string, unknown>).futureField = 1;
@@ -71,6 +80,7 @@ describe("warmup", () => {
       reranker: { state: "disabled", warming: false, checkedAt: null, id: null },
     });
     const ready = projectModels(models("ready", "ready"));
+    assert.equal(ready.embedder.checkedAt, 1_000);
     assert.equal(ready.reranker.id, "local-transformers");
     assert.equal("error" in ready.embedder, false);
   });

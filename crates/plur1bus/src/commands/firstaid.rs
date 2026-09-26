@@ -584,7 +584,10 @@ fn check_models_warm(core_status: Option<&Value>) -> Check {
                 ID,
                 format!("the {model} failed to load: {error}"),
                 Some(json!({ "capability": capability, "error": error })),
-                None,
+                Some(
+                    "see logs/core.log; check the model download or the provider credentials"
+                        .to_string(),
+                ),
             )
         }
         other => Check::warn(
@@ -983,6 +986,12 @@ mod tests {
         assert_eq!(
             c.detail,
             Some(json!({ "capability": "embedding", "error": "provider-failed" }))
+        );
+        assert!(
+            c.hint
+                .as_deref()
+                .is_some_and(|h| h.contains("logs/core.log")),
+            "{c:?}"
         );
     }
 

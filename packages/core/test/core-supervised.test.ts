@@ -60,7 +60,9 @@ describe("core supervised mode", () => {
     const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything about lunch" });
     assert.equal(r.degraded, null);
     assert.equal((await c.call<any>("core.status")).process.state, "orphaned");
-    assert.equal(s.core.status().engine.ready, true, "orphaned is a process state; the engine is still ready");
+    // The models warm in the background (S7): wait for them, then orphaned must not have taken engine.ready away.
+    await until(() => s.core.status().engine.ready === true);
+    assert.equal(s.core.status().process.state, "orphaned", "orphaned is a process state; the engine is still ready");
   });
 
   it("grace expiry calls onOrphanGraceExpired; stop leaves no lock, socket or run files", async () => {
