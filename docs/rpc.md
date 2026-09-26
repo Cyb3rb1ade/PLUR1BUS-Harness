@@ -84,6 +84,9 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
     },
     "pid": {
       "type": "integer"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
     }
   }
 }
@@ -158,6 +161,29 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
               "type": "null"
             }
           ]
+        },
+        "storeSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current",
+            "expected"
+          ],
+          "properties": {
+            "current": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expected": {
+              "type": "string"
+            }
+          }
         }
       }
     },
@@ -1599,6 +1625,110 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "attempt": {
       "type": "integer"
+    }
+  }
+}
+```
+
+### `Stability`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "experimental",
+    "stable"
+  ]
+}
+```
+
+### `Deprecation`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "since",
+    "removeAfter",
+    "replacement"
+  ],
+  "properties": {
+    "since": {
+      "type": "string"
+    },
+    "removeAfter": {
+      "type": "string",
+      "format": "date"
+    },
+    "replacement": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `CapabilityEntry`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stability",
+    "since"
+  ],
+  "properties": {
+    "stability": {
+      "$ref": "#/$defs/Stability"
+    },
+    "since": {
+      "type": "string"
+    },
+    "deprecated": {
+      "$ref": "#/$defs/Deprecation"
+    }
+  }
+}
+```
+
+### `Capabilities`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "methods",
+    "notifications",
+    "extensionPoints",
+    "features"
+  ],
+  "properties": {
+    "methods": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CapabilityEntry"
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CapabilityEntry"
+      }
+    },
+    "extensionPoints": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CapabilityEntry"
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
     }
   }
 }

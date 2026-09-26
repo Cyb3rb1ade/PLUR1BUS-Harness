@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
+import { CORE_FEATURES } from "../src/capabilities.ts";
 import { createCore, type Core } from "../src/core.ts";
 import { appendJournalLine } from "../src/journal.ts";
 import { layout } from "../src/paths.ts";
@@ -51,6 +52,16 @@ describe("core", () => {
     const s = await c.call<any>("core.status");
     assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.6.0"); assert.equal(s.rpc, "1.1.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
+  });
+
+  it("core.auth carries capabilities built from the schema", () => {
+    assert.equal(c.hello.capabilities?.methods["memory.recall"]?.stability, "stable");
+    assert.deepEqual(c.hello.capabilities?.features, [...CORE_FEATURES].sort());
+  });
+
+  it("core.status reports the engine store schema", async () => {
+    const s = await c.call<any>("core.status");
+    assert.equal(typeof s.engine.storeSchema.expected, "string");
   });
 
   it("capture then recall in another session finds the fact; activity notifications fire", async () => {

@@ -275,6 +275,32 @@ fn a_timeout_poisons_the_client() {
 }
 
 #[test]
+fn supports_is_true_without_capabilities_and_follows_the_map_with_them() {
+    let addr = fake_core("1.0.0");
+    let c = connect(&addr);
+    assert!(
+        c.supports("memory.propose"),
+        "an older core with no capabilities answers for itself"
+    );
+
+    let addr2 = fake_core_with(json!({
+        "contract": "1.6.0",
+        "rpc": "1.1.0",
+        "instanceId": "i",
+        "pid": 1,
+        "capabilities": {
+            "methods": {"echo": {"stability": "stable", "since": "1.0.0"}},
+            "notifications": {},
+            "extensionPoints": {},
+            "features": [],
+        },
+    }));
+    let c2 = connect(&addr2);
+    assert!(c2.supports("echo"));
+    assert!(!c2.supports("memory.propose"));
+}
+
+#[test]
 fn invalid_utf8_from_the_core_is_a_protocol_error() {
     let addr = fake_core("1.0.0");
     let mut c = connect(&addr);

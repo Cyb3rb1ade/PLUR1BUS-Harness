@@ -1,9 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import { RPC_VERSION, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
+import { RPC_VERSION, buildCapabilities, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
+import { CORE_FEATURES } from "./capabilities.ts";
 import { loadConfig } from "./config-load.ts";
 import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig } from "./engine-config.ts";
@@ -44,15 +45,20 @@ export function createCore(o: CoreOptions): Core {
   let server: RpcServer | null = null; let lock: { release(): void } | null = null;
   let engine: Engine | null = null; let logger: HarnessLogger | null = null; let agents: AgentRegistry | null = null;
   let journalBacklog = 0; let stopping: Promise<void> | null = null; let wroteRunFiles = false;
+  let storeSchema: { current: string | null; expected: string } | null = null;
   // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
   const shutdown = new AbortController();
+  const capabilities = buildCapabilities(CORE_FEATURES);
 
   const setState = (s: State) => { state = s; server?.notify("core.state", { process: s }); };
 
   function status(): CoreStatusResult {
     return {
       process: state, contract: engine?.contract ?? "", rpc: RPC_VERSION, instanceId, pid: process.pid, uptimeMs: Math.max(0, Math.round(clock() - startedAt)),
-      engine: { ready: state.state === "ready", degraded: state.state === "degraded" ? { reason: state.reason ?? "unknown", capability: "core" } : null },
+      engine: {
+        ready: state.state === "ready", degraded: state.state === "degraded" ? { reason: state.reason ?? "unknown", capability: "core" } : null,
+        ...(storeSchema ? { storeSchema } : {}),
+      },
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })), journalBacklog,
     };
   }
@@ -73,6 +79,11 @@ export function createCore(o: CoreOptions): Core {
       const host = createHarnessHost({ layout: l, logger, config, engineConfig, agents: registry, events, clock });
       const eng = bindEngine(host, engineConfig, o.testInternals); engine = eng;
       assertEngineContract(eng);
+      const es = await eng.status();
+      storeSchema = es.storeSchema;
+      if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
+        logger.warn("store schema differs from the engine's expected version; migration arrives with 2a-H3", { current: storeSchema.current, expected: storeSchema.expected });
+      }
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
       const methods = buildMethods({
@@ -82,7 +93,7 @@ export function createCore(o: CoreOptions): Core {
           setImmediate(() => { if (o.onShutdownRequested) o.onShutdownRequested(budgetMs); else void stop(budgetMs !== undefined ? { budgetMs } : {}); });
         },
       });
-      server = createRpcServer({ address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid }), methods, logger });
+      server = createRpcServer({ address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger });
 
       wroteRunFiles = true;
       writeFileSync(l.coreToken, token, { mode: 0o600 });

@@ -10,12 +10,24 @@ export class RpcCallError extends Error {
   }
 }
 
-export interface Hello { contract: string; rpc: string; instanceId: string; pid: number }
+export interface Deprecation { since: string; removeAfter: string; replacement: string }
+export interface CapabilityEntry { stability: "experimental" | "stable"; since: string; deprecated?: Deprecation }
+export interface Capabilities {
+  methods: Record<string, CapabilityEntry>;
+  notifications: Record<string, CapabilityEntry>;
+  extensionPoints: Record<string, CapabilityEntry>;
+  features: readonly string[];
+}
+
+export interface Hello { contract: string; rpc: string; instanceId: string; pid: number; capabilities?: Capabilities }
 export interface CoreClient {
   readonly hello: Hello;
   call<T = unknown>(method: string, params?: object): Promise<T>;
   onNotification(handler: (method: string, params: unknown) => void): () => void;
   close(): Promise<void>;
+  /** true when the connected core lacks `capabilities` (an older core answers for itself) or when
+   *  `capabilities.methods` names this method. */
+  supports(method: string): boolean;
 }
 export interface ConnectOptions { address: string; token: string; connectTimeoutMs?: number; callTimeoutMs?: number }
 
@@ -77,5 +89,6 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
     call,
     onNotification(h) { handlers.add(h); return () => handlers.delete(h); },
     close: () => new Promise<void>((res) => { if (closed) return res(); sock.end(() => { sock.destroy(); res(); }); }),
+    supports: (method) => !hello.capabilities || Object.hasOwn(hello.capabilities.methods, method),
   };
 }

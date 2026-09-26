@@ -91,6 +91,15 @@ impl Client {
             .expect("a connected client always holds the core.auth result")
     }
 
+    /// True when the hello has no `capabilities` (an older core answers for itself), else whether
+    /// `capabilities.methods` names `method`.
+    pub fn supports(&self, method: &str) -> bool {
+        match &self.hello().capabilities {
+            None => true,
+            Some(capabilities) => capabilities.methods.contains_key(method),
+        }
+    }
+
     /// Whether an earlier failure left the stream unusable (see the type docs).
     pub fn is_poisoned(&self) -> bool {
         self.poisoned

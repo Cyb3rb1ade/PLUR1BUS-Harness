@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { SCHEMA } from "../src/index.ts";
+import { METHODS, NOTIFICATIONS, SCHEMA, buildCapabilities, validateResult } from "../src/index.ts";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -34,5 +34,16 @@ describe("rpc-schema stability annotations", () => {
       "memory.capture", "memory.recall",
     ]);
     assert.deepEqual(stableNotifications, ["core.state"]);
+  });
+
+  it("buildCapabilities lists every method and notification with stability and since", () => {
+    const capabilities = buildCapabilities([]);
+    assert.deepEqual(Object.keys(capabilities.methods).sort(), [...METHODS].sort());
+    assert.deepEqual(Object.keys(capabilities.notifications).sort(), [...NOTIFICATIONS].sort());
+    assert.equal(capabilities.methods["core.auth"]!.stability, "stable");
+    assert.deepEqual(
+      validateResult("core.auth", { contract: "1.6.0", rpc: "1.1.0", instanceId: "i", pid: 1, capabilities }),
+      { ok: true },
+    );
   });
 });

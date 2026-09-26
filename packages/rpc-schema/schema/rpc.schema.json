@@ -109,6 +109,27 @@
         "reason": { "type": "string" }, "attempt": { "type": "integer" }
       }
     },
+    "Stability": { "type": "string", "enum": ["experimental", "stable"] },
+    "Deprecation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["since", "removeAfter", "replacement"],
+      "properties": { "since": { "type": "string" }, "removeAfter": { "type": "string", "format": "date" }, "replacement": { "type": "string" } }
+    },
+    "CapabilityEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stability", "since"],
+      "properties": { "stability": { "$ref": "#/$defs/Stability" }, "since": { "type": "string" }, "deprecated": { "$ref": "#/$defs/Deprecation" } }
+    },
+    "Capabilities": {
+      "type": "object", "additionalProperties": false,
+      "required": ["methods", "notifications", "extensionPoints", "features"],
+      "properties": {
+        "methods": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
+        "notifications": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
+        "extensionPoints": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
+        "features": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
     "JournalLine": {
       "description": "One line of state/journal/<agentId>.jsonl, written by the CLI when the core is unavailable, replayed by the core at start.",
       "type": "object", "additionalProperties": false,
@@ -125,7 +146,7 @@
       "core.auth": {
         "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" } } }
+        "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "capabilities": { "$ref": "#/$defs/Capabilities" } } }
       },
       "core.status": {
         "x-stability": "stable", "x-since": "1.0.0",
@@ -136,7 +157,7 @@
           "properties": {
             "process": { "$ref": "#/$defs/ProcessState" }, "contract": { "type": "string" }, "rpc": { "type": "string" },
             "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "uptimeMs": { "type": "integer" },
-            "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] } } },
+            "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] }, "storeSchema": { "type": "object", "additionalProperties": false, "required": ["current", "expected"], "properties": { "current": { "oneOf": [{ "type": "string" }, { "type": "null" }] }, "expected": { "type": "string" } } } } },
             "agents": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } } },
             "journalBacklog": { "type": "integer" }
           }

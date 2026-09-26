@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { dirname } from "node:path";
 import { LineDecoder, LineTooLong, encodeLine } from "@plur1bus/module-api";
-import { METHODS, validateParams, validateRequest, validateResult } from "@plur1bus/rpc-schema";
+import { METHODS, validateParams, validateRequest, validateResult, type Capabilities } from "@plur1bus/rpc-schema";
 import type { HarnessLogger } from "../logger.ts";
 import { RpcError } from "./errors.ts";
 
@@ -12,7 +12,7 @@ export const MAX_PENDING_BYTES = 16 * 1024 * 1024;
 export interface CallContext { requestId: string; connectionId: string; signal: AbortSignal }
 export type Handler = (params: any, ctx: CallContext) => Promise<unknown>;
 export interface Subscription { id: string; connectionId: string; names?: string[]; agentId?: string }
-export interface Hello { contract: string; rpc: string; instanceId: string; pid: number }
+export interface Hello { contract: string; rpc: string; instanceId: string; pid: number; capabilities?: Capabilities }
 export interface RpcServer {
   listen(): Promise<void>; close(): Promise<void>;
   notify(method: string, params: object, filter?: (sub: Subscription) => boolean): void;

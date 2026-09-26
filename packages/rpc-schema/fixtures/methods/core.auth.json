@@ -1,2 +1,3 @@
 { "params": { "token": "0000000000000000000000000000000000000000000000000000000000000000" },
-  "result": { "contract": "1.4.1", "rpc": "1.0.0", "instanceId": "inst-fixture", "pid": 4242 } }
+  "result": { "contract": "1.4.1", "rpc": "1.0.0", "instanceId": "inst-fixture", "pid": 4242,
+              "capabilities": { "methods": { "core.auth": { "stability": "stable", "since": "1.0.0" } }, "notifications": { "core.state": { "stability": "stable", "since": "1.0.0" } }, "extensionPoints": {}, "features": [] } } }
