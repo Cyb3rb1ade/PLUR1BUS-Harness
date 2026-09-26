@@ -132,7 +132,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                 per_agent.push(json!({ "agentId": a, "breaker": { "llmSessionsToday": llm_today, "limit": 3, "open": llm_today >= 3 }, "jobs": last }));
             }
             let v = json!({ "jobs": jobs["jobs"], "agents": per_agent });
-            out.ok(&v, || {
+            out.ok("dreams.status/1", &v, || {
                 per_agent
                     .iter()
                     .map(|a| {
@@ -169,7 +169,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                 .call("jobs.run", json!({ "agentId": agent, "job": job }))
                 .unwrap_or_else(|e| out.from_rpc_error(&e));
             let outcome = v["outcome"].as_str().unwrap_or("?").to_string();
-            out.ok(&v, || {
+            out.ok("dreams.run/1", &v, || {
                 format!(
                     "{job}: {outcome}{} in {} ms (run {})",
                     v["reason"]
@@ -196,7 +196,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                 .unwrap_or_else(|e| out.from_rpc_error(&e));
             let mut runs = v["runs"].as_array().cloned().unwrap_or_default();
             runs.sort_by_key(|r| std::cmp::Reverse(r["startedAt"].as_u64().unwrap_or(0)));
-            out.ok(&json!({ "runs": runs }), || {
+            out.ok("dreams.log/1", &json!({ "runs": runs }), || {
                 runs.iter()
                     .map(|r| {
                         format!(

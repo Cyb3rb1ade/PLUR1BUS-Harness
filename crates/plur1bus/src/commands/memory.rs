@@ -66,7 +66,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                         "waitMs": wait_ms
                     });
                     match c.call("memory.capture", strip_nulls(params)) {
-                        Ok(v) => out.ok(&v, || {
+                        Ok(v) => out.ok("memory.add/1", &v, || {
                             format!(
                                 "stored {} / skipped {}{}",
                                 v["stored"],
@@ -130,7 +130,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                     "deferrals": []
                 });
                 eprintln!("! memory unavailable: core-unavailable ({detail})");
-                out.ok(&v, String::new);
+                out.ok("memory.recall/1", &v, String::new);
             };
             let params = build_recall_params(
                 &caller,
@@ -144,7 +144,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             );
             match connect(layout, Duration::from_millis(hard + 400)) {
                 Ok(mut c) => match c.call("memory.recall", params) {
-                    Ok(v) => out.ok(&v, || render_recall(&v, joined)),
+                    Ok(v) => out.ok("memory.recall/1", &v, || render_recall(&v, joined)),
                     Err(e) if is_unavailable(&e) => unavailable(e.to_string()),
                     Err(e) => out.from_rpc_error(&e),
                 },
@@ -234,6 +234,7 @@ fn journaled(
     });
     eprintln!("! core unavailable ({detail}); journaled for replay");
     out.ok(
+        "memory.add/1",
         &json!({
             "journaled": true,
             "id": line.id,

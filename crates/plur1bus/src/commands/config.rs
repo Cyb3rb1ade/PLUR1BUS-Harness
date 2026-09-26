@@ -22,7 +22,12 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
         ConfigCmd::Schema => {
             let s: Value = serde_json::from_str(cfg::SCHEMA_JSON)
                 .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
-            out.ok(&s, || serde_json::to_string_pretty(&s).unwrap());
+            // G15: a JSON Schema must not carry a foreign top-level key, so the schema itself is
+            // wrapped under `jsonSchema` rather than getting `schema` inserted directly into it.
+            // (`--tier` and its `tier` field arrive with Task 11.)
+            out.ok("config.schema/1", &json!({ "jsonSchema": s }), || {
+                serde_json::to_string_pretty(&s).unwrap()
+            });
         }
         ConfigCmd::Get { key } => {
             let loaded = cfg::load(&layout.config_path())
@@ -31,6 +36,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
                 Some(v) => {
                     let k = key.clone().unwrap_or_default();
                     out.ok(
+                        "config.get/1",
                         &json!({
                             "key": key,
                             "value": v,
@@ -98,6 +104,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
             };
             if dry_run {
                 out.ok(
+                    "config.set/1",
                     &json!({
                         "dryRun": true,
                         "changed": plan.changed,
@@ -138,6 +145,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
             cfg::write_atomic(&layout.config_path(), &plan.after)
                 .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
             out.ok(
+                "config.set/1",
                 &json!({
                     "applied": true,
                     "changed": plan.changed,

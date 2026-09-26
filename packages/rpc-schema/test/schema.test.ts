@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, loadFixtures, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
+import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, SCHEMA, loadFixtures, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
 
 describe("rpc-schema", () => {
   const fx = loadFixtures();
@@ -88,5 +88,15 @@ describe("rpc-schema", () => {
     const ok = { code: -32000, message: "storage", data: { error: "E_STORAGE", reason: "storage", ids: { sourceId: "m-src", sharedId: "m-copy" } } };
     assert.deepEqual(validateErrorObject(ok), { ok: true });
     assert.equal(validateErrorObject({ ...ok, data: { ...ok.data, ids: { sourceId: 7 } } }).ok, false);
+  });
+
+  it("no method result declares a top-level schema property", () => {
+    // The CLI's `--json` document builder (ADR-016 §8) owns the top-level `schema` key; an RPC
+    // result that already had one would collide when the CLI inserts it (see plur1bus/src/output.rs).
+    const methods = (SCHEMA as any).$defs.methods as Record<string, { result?: { properties?: Record<string, unknown> } }>;
+    for (const [name, def] of Object.entries(methods)) {
+      const props = def.result?.properties ?? {};
+      assert.ok(!("schema" in props), `${name}'s result must not declare a top-level "schema" property`);
+    }
   });
 });

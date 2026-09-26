@@ -49,7 +49,7 @@ fn stubs_exit_2_and_name_their_milestone() {
 }
 
 #[test]
-fn h2_commands_are_stubs_in_h1() {
+fn stubs_name_2a_h3() {
     for cmd in ["setup", "module", "daemon", "service", "update", "1staid"] {
         bin().arg(cmd).arg("--help").assert().success();
     }
@@ -57,7 +57,16 @@ fn h2_commands_are_stubs_in_h1() {
         .args(["daemon", "status"])
         .assert()
         .code(2)
-        .stderr(predicate::str::contains("H2"));
+        .stderr(predicate::str::contains("2a-H3"));
+    let out = bin()
+        .args(["--json", "daemon", "status"])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["milestone"], "2a-H3");
 }
 
 #[test]
@@ -331,9 +340,31 @@ fn config_schema_prints_the_schema() {
         .stdout
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "config.schema/1");
     assert_eq!(
-        v["properties"]["core"]["properties"]["logLevel"]["x-restart"],
+        v["jsonSchema"]["properties"]["core"]["properties"]["logLevel"]["x-restart"],
         "live"
+    );
+}
+
+#[test]
+fn config_schema_json_wraps_the_schema() {
+    let out = bin()
+        .args(["--json", "config", "schema"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "config.schema/1");
+    assert_eq!(
+        v["jsonSchema"]["$id"],
+        "https://plur1bus.dev/schema/config/1/config.schema.json"
+    );
+    assert!(
+        v.as_object().unwrap().get("$schema").is_none(),
+        "no top-level `$schema` key next to `schema` — that belongs inside jsonSchema"
     );
 }
 
@@ -473,6 +504,72 @@ fn journal_lines_validate_against_the_rpc_schema() {
         .map(|e| e.to_string())
         .collect();
     assert!(errs.is_empty(), "{errs:?}");
+}
+
+/// Matches `^[a-z0-9]+(\.[a-z0-9-]+)*/\d+$` (no `regex` dependency for one call site): one or
+/// more dot-separated lowercase-alphanumeric/hyphen segments, a `/`, then a decimal major.
+fn is_schema_id(s: &str) -> bool {
+    let Some((path, major)) = s.rsplit_once('/') else {
+        return false;
+    };
+    if major.is_empty() || !major.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    let seg_ok = |seg: &str, allow_hyphen: bool| {
+        !seg.is_empty()
+            && seg.bytes().all(|b| {
+                b.is_ascii_lowercase() || b.is_ascii_digit() || (allow_hyphen && b == b'-')
+            })
+    };
+    let mut segs = path.split('.');
+    match segs.next() {
+        Some(first) if seg_ok(first, false) => {}
+        _ => return false,
+    }
+    segs.all(|seg| seg_ok(seg, true))
+}
+
+#[test]
+fn every_json_document_carries_a_schema_id() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+
+    let cases: Vec<(Vec<&str>, i32)> = vec![
+        (vec!["--json", "--home", h, "agent", "list"], 0),
+        (
+            vec!["--json", "--home", h, "config", "get", "core.logLevel"],
+            0,
+        ),
+        (vec!["--json", "--home", h, "config", "schema"], 0),
+        (
+            vec![
+                "--json", "--home", h, "memory", "recall", "--agent", "bernd", "q",
+            ],
+            0,
+        ),
+        (vec!["--json", "setup"], 2),
+    ];
+    for (args, code) in cases {
+        let assert = bin().args(&args).assert();
+        let assert = if code == 0 {
+            assert.success()
+        } else {
+            assert.code(code)
+        };
+        let out = assert.get_output().stdout.clone();
+        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        let schema = v["schema"]
+            .as_str()
+            .unwrap_or_else(|| panic!("no `schema` key in {args:?} -> {v}"));
+        assert!(
+            schema == "error/1" || is_schema_id(schema),
+            "{args:?} -> schema {schema:?} does not match ^[a-z0-9]+(\\.[a-z0-9-]+)*/\\d+$ nor equal error/1"
+        );
+    }
 }
 
 #[test]
