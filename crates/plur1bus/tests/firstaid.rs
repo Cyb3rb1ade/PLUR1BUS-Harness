@@ -445,6 +445,51 @@ fn shared_memory_unavailable_is_a_warning_not_a_failure() {
     let _ = sup.wait();
 }
 
+/// Task 15 (E4): `jobs.last-runs` reads `core.status.jobs`; an open rem/deep breaker is a warning, not a failure.
+#[test]
+fn an_open_breaker_is_a_warning() {
+    let h = Home::new();
+    let jobs = json!({ "ledger": "ok", "agents": [{ "agentId": "bernd", "running": [], "breakerOpen": true,
+        "unreadableLines": 0, "lastRuns": { "dream-rem": { "outcome": "skipped", "reason": "breaker-open", "finishedAt": 1 } } }] });
+    let mut sup = supervise_cmd(&h, "ok")
+        .env("FAKE_CORE_JOBS", jobs.to_string())
+        .spawn()
+        .unwrap();
+    wait_until("the supervisor token", WAIT, || {
+        h.home.join("run/supervisor.token").exists()
+    });
+    let mut c = supervisor_client(&h.home);
+    wait_until("the core to become ready", WAIT, || {
+        c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"] == "ready"
+    });
+
+    let out = check_cmd(&h).output().unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "a warning alone does not fail the check: {out:?}"
+    );
+    let v = json_stdout(&out);
+    let checks = checks_by_id(&v);
+    assert_eq!(checks["jobs.last-runs"]["status"], "warn", "{v}");
+    assert_eq!(
+        checks["jobs.last-runs"]["detail"]["breakerOpen"],
+        json!(["bernd"]),
+        "{v}"
+    );
+    assert!(
+        checks["jobs.last-runs"]["summary"]
+            .as_str()
+            .unwrap()
+            .contains("breaker"),
+        "{v}"
+    );
+
+    stop_supervisor(&h.home);
+    let _ = sup.kill();
+    let _ = sup.wait();
+}
+
 /// ADR-016 §5/S13: subscribing to the deprecated `engine.event` notification marks it used, and `1staid check`
 /// lists it with `used: true`. This needs the real core (the fake core does not implement `deprecationsUsed`).
 #[test]

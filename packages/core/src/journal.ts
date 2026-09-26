@@ -13,6 +13,45 @@ export function appendJournalLine(dir: string, line: JournalLine): void {
 
 const REPLAYING_SUFFIX = /\.jsonl\.replaying-\d+$/;
 
+/** `journalBacklog` stops counting here and reports the bound (the engine waits at most 50 ms for it). */
+export const JOURNAL_BACKLOG_MAX_ENTRIES = 100_000;
+/** Both writers (the CLI's serde struct and `appendJournalLine`) emit `v`, `id`, `at` first; anything else is parsed. */
+const AT_PREFIX = /^\{"v":1,"id":"[^"\\]*","at":(\d+)[,}]/;
+
+function atOf(text: string): number | null {
+  const m = AT_PREFIX.exec(text);
+  if (m) return Number(m[1]);
+  try {
+    const at = (JSON.parse(text) as { at?: unknown } | null)?.at;
+    return typeof at === "number" && Number.isFinite(at) ? at : null;
+  } catch { return null; }
+}
+
+/** The host capability `journalBacklog` (E4, HostCapabilities): complete (newline-terminated, non-empty) lines across
+ *  every `<agent>.jsonl` and every `*.jsonl.replaying-*` (a replay in progress, or one a killed core left behind), and
+ *  the smallest `at` among them. Sync and bounded: stops at JOURNAL_BACKLOG_MAX_ENTRIES and reports that bound. A file
+ *  renamed or removed between the listing and the read (a replay starting or finishing) is skipped. */
+export function journalBacklog(dir: string): { entries: number; oldestAt: number | null } {
+  let entries = 0; let oldestAt: number | null = null;
+  let files: string[];
+  try { files = readdirSync(dir); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return { entries, oldestAt }; throw e; }
+  for (const f of files.sort()) {
+    if (!f.endsWith(".jsonl") && !REPLAYING_SUFFIX.test(f)) continue;
+    let raw: string;
+    try { raw = readFileSync(join(dir, f), "utf8"); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") continue; throw e; }
+    const lines = raw.split("\n"); lines.pop(); // the last piece is "" or a torn tail, never a complete line
+    for (const l of lines) {
+      const text = l.endsWith("\r") ? l.slice(0, -1) : l;
+      if (!text.trim()) continue;
+      entries += 1;
+      const at = atOf(text);
+      if (at !== null && (oldestAt === null || at < oldestAt)) oldestAt = at;
+      if (entries >= JOURNAL_BACKLOG_MAX_ENTRIES) return { entries, oldestAt };
+    }
+  }
+  return { entries, oldestAt };
+}
+
 interface KeptLine { text: string; isPhysicalTail: boolean }
 type ReplayEngine = Pick<Engine, "capture">;
 type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number };
@@ -21,7 +60,8 @@ type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; l
  *
  *  R20: a line leaves the journal only when `capture(...).done` resolves with NO `reason` and
  *  `stored + skipped > 0` (the engine's ok path — a dedup skip with no reason still counts as handled),
- *  or with reason `duplicate-turn` (E4: the line's runId was already captured). Any other reason, zero counts, or a rejected `done` keeps the line (logged with why), and replay continues
+ *  or with reason `duplicate-turn` (E4, Q3: the engine already captured this turn; the runId is `journal:<line id>`,
+ *  so it is the same at every start and for a line recovered from a leftover `.replaying-*` file). Any other reason, zero counts, or a rejected `done` keeps the line (logged with why), and replay continues
  *  with the next line. Concurrent-append safety: each `<agent>.jsonl` is first atomically renamed to
  *  `<agent>.jsonl.replaying-<pid>` before it is read, so a line the CLI appends to `<agent>.jsonl` while
  *  replay is running lands in a fresh file, never the one being processed. Kept lines (including a torn
@@ -66,7 +106,7 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
  *  pass is running, and a single pass would strand that line until the next restart. After each pass the
  *  lines still on disk are counted: kept lines are appended back, so anything beyond the pass's own `kept`
  *  arrived meanwhile and gets another pass. Bounded by `maxPasses`, so a CLI that keeps journaling cannot hold
- *  the core in `starting`. `kept` is the on-disk count after the last pass, what `journalBacklog` reports. */
+ *  the core in `starting`. `kept` is the on-disk count after the last pass: `core.status.journalBacklog` when the engine reports no journal. */
 export async function drainJournal(o: JournalOpts, maxPasses = 5): Promise<{ replayed: number; kept: number; passes: number }> {
   let replayed = 0;
   for (let passes = 1; ; passes++) {

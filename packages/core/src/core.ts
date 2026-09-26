@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { Engine, EngineStatus, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type ProcessState } from "@plur1bus/rpc-schema";
+import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
@@ -56,6 +56,21 @@ export interface CoreOptions {
   lifeline?: NodeJS.ReadableStream;
   /** Called when the core has been orphaned for `supervisor.graceMs`, in place of calling stop() directly. */
   onOrphanGraceExpired?: () => void;
+}
+
+/** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
+ *  breaker becomes `breakerOpen`, a last run keeps `outcome`, `reason` and `finishedAt`. */
+function projectJobs(jobs: EngineStatus["jobs"] | undefined): JobsStatus | null {
+  if (!jobs || !Array.isArray(jobs.agents)) return null;
+  return {
+    ledger: jobs.ledger === "ok" ? "ok" : "unavailable",
+    agents: jobs.agents.map((a) => ({
+      agentId: a.agentId, running: [...a.running], breakerOpen: a.breaker?.open === true, unreadableLines: a.unreadableLines,
+      lastRuns: Object.fromEntries(Object.entries(a.lastRuns).flatMap(([job, r]) => (r
+        ? [[job, { outcome: r.outcome, ...(typeof r.reason === "string" ? { reason: r.reason } : {}), finishedAt: Math.round(r.finishedAt) }]]
+        : []))),
+    })),
+  };
 }
 
 const HEX64 = /^[0-9a-f]{64}$/; // both sides are lower-cased before the comparison
@@ -117,6 +132,7 @@ export function createCore(o: CoreOptions): Core {
     try { if (engine && !statusClosed) models = engine.models.status(); } catch { /* keep the cached copy */ }
     const degraded = d ? { reason: d.reason, capability: d.capability, ...(typeof d.detail === "string" ? { detail: d.detail } : {}) } : null;
     const sharedMemory = sharedMemoryStatus(es);
+    const jobs = projectJobs(es?.jobs);
     return {
       process: state, contract: engine?.contract ?? "", rpc: RPC_VERSION, instanceId, pid: process.pid, uptimeMs: Math.max(0, Math.round(clock() - startedAt)),
       engine: {
@@ -126,7 +142,10 @@ export function createCore(o: CoreOptions): Core {
         ...(sharedMemory ? { sharedMemory } : {}),
         ...(storeSchema ? { storeSchema } : {}),
       },
-      agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })), journalBacklog,
+      agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })),
+      // E4: the engine reads the journal through the host capability; the replay's count when it reports none.
+      journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
+      ...(jobs ? { jobs } : {}),
       deprecationsUsed: server?.deprecationsUsed() ?? [],
     };
   }
@@ -218,6 +237,9 @@ export function createCore(o: CoreOptions): Core {
       // the journal is read; drainJournal re-runs the pass for any line that still arrived during one.
       const replay = await drainJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
       journalBacklog = replay.kept;
+      // The cached engine status predates the replay (its journal count included the lines just replayed): the first
+      // core.status after ready must not report them.
+      cacheEngineStatus(await eng.status());
       const ready: State = { state: "ready", since: clock() };
       // A lifeline lost during the replay orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }

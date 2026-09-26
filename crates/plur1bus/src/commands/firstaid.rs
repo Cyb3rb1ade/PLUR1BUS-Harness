@@ -229,6 +229,7 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     }
 
     checks.push(check_jobs_last_runs(
+        core_status.as_ref(),
         core_client.as_mut(),
         agents.as_ref(),
         deadline,
@@ -731,7 +732,9 @@ fn count_journal_lines(layout: &Layout) -> u64 {
     let mut n = 0u64;
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+        // A replay in progress (or one a killed core left behind) has renamed `<agent>.jsonl` to
+        // `<agent>.jsonl.replaying-<pid>`: those lines are still backlog.
+        if !is_journal_file(&entry.file_name().to_string_lossy()) {
             continue;
         }
         if let Ok(text) = std::fs::read_to_string(&path) {
@@ -739,6 +742,18 @@ fn count_journal_lines(layout: &Layout) -> u64 {
         }
     }
     n
+}
+
+fn is_journal_file(name: &str) -> bool {
+    if name.ends_with(".jsonl") {
+        return true;
+    }
+    match name.rsplit_once(".jsonl.replaying-") {
+        Some((stem, pid)) => {
+            !stem.is_empty() && !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit())
+        }
+        None => false,
+    }
 }
 
 fn check_journal_backlog(layout: &Layout, core_status: Option<&Value>) -> Check {
@@ -766,11 +781,19 @@ fn check_journal_backlog(layout: &Layout, core_status: Option<&Value>) -> Check 
 /// are each slow, stops at the deadline rather than running past it — reported as "time budget exhausted" rather
 /// than a partial, silently-incomplete result.
 fn check_jobs_last_runs(
+    core_status: Option<&Value>,
     core_client: Option<&mut Client>,
     agents: Option<&Value>,
     deadline: Instant,
 ) -> Check {
     const ID: &str = "jobs.last-runs";
+    // E4 (Task 15): the core reports job health itself; `jobs.history` per agent is the fallback for a core without it.
+    if let Some(jobs) = core_status
+        .and_then(|s| s.get("jobs"))
+        .filter(|j| j.is_object())
+    {
+        return check_jobs_from_status(jobs);
+    }
     let (Some(client), Some(agents)) = (core_client, agents.and_then(Value::as_array)) else {
         return Check::skip(ID, "core is not reachable");
     };
@@ -820,6 +843,75 @@ fn check_jobs_last_runs(
             None,
         )
     }
+}
+
+/// `core.status.jobs` (`$defs/JobsStatus`): a failed or abandoned last run, an open rem/deep breaker, or unreadable
+/// ledger lines are each a warning; an unavailable ledger is one too (the engine could not read job health at all).
+fn check_jobs_from_status(jobs: &Value) -> Check {
+    const ID: &str = "jobs.last-runs";
+    let mut bad = Vec::new();
+    let mut breakers = Vec::new();
+    let mut unreadable = Vec::new();
+    for a in jobs["agents"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
+        let agent_id = &a["agentId"];
+        if let Some(runs) = a["lastRuns"].as_object() {
+            for (job, run) in runs {
+                let outcome = run["outcome"].as_str().unwrap_or("");
+                if matches!(outcome, "failed" | "abandoned") {
+                    bad.push(json!({ "agentId": agent_id, "job": job, "outcome": outcome, "reason": run["reason"] }));
+                }
+            }
+        }
+        if a["breakerOpen"] == json!(true) {
+            breakers.push(agent_id.clone());
+        }
+        let lines = a["unreadableLines"].as_u64().unwrap_or(0);
+        if lines > 0 {
+            unreadable.push(json!({ "agentId": agent_id, "lines": lines }));
+        }
+    }
+    let ledger_ok = jobs["ledger"] == json!("ok");
+    if bad.is_empty() && breakers.is_empty() && unreadable.is_empty() && ledger_ok {
+        return Check::ok(ID, "every job's last run succeeded or was skipped");
+    }
+    let mut parts = Vec::new();
+    if !ledger_ok {
+        parts.push("job ledger unavailable".to_string());
+    }
+    if !bad.is_empty() {
+        parts.push(format!("{} job(s) last ran failed or abandoned", bad.len()));
+    }
+    if !breakers.is_empty() {
+        parts.push(format!(
+            "rem/deep session breaker open for {} agent(s)",
+            breakers.len()
+        ));
+    }
+    if !unreadable.is_empty() {
+        parts.push(format!(
+            "unreadable job ledger lines for {} agent(s)",
+            unreadable.len()
+        ));
+    }
+    let mut detail = json!({ "jobs": bad });
+    if !breakers.is_empty() {
+        detail["breakerOpen"] = json!(breakers);
+    }
+    if !unreadable.is_empty() {
+        detail["unreadableLines"] = json!(unreadable);
+    }
+    if !ledger_ok {
+        detail["ledger"] = jobs["ledger"].clone();
+    }
+    let hint = (!breakers.is_empty()).then(|| {
+        "the rem/deep LLM-session limit for the current UTC sweep is reached; those runs skip until the next sweep"
+            .to_string()
+    });
+    Check::warn(ID, parts.join("; "), Some(detail), hint)
 }
 
 // ---- api.deprecations ---------------------------------------------------------------------------
@@ -1201,6 +1293,51 @@ mod tests {
         let check = check_journal_backlog(&layout, None);
         assert_eq!(check.status, Status::Warn);
         assert_eq!(check.detail.unwrap()["count"], 2);
+    }
+
+    #[test]
+    fn journal_backlog_counts_a_replay_in_progress() {
+        // Carry-over of Task 12: while a replay runs, `<agent>.jsonl` is `<agent>.jsonl.replaying-<pid>`.
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.journal()).unwrap();
+        std::fs::write(layout.journal().join("a.jsonl.replaying-4242"), "{}\n{}\n").unwrap();
+        std::fs::write(layout.journal().join("b.jsonl"), "{}\n").unwrap();
+        std::fs::write(layout.journal().join("c.jsonl.replaying-x"), "{}\n").unwrap();
+        std::fs::write(layout.journal().join("notes.txt"), "{}\n").unwrap();
+        let check = check_journal_backlog(&layout, None);
+        assert_eq!(check.status, Status::Warn);
+        assert_eq!(check.detail.unwrap()["count"], 3);
+    }
+
+    #[test]
+    fn jobs_from_core_status_warn_on_failures_breaker_and_unreadable_lines() {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let healthy = json!({ "jobs": { "ledger": "ok", "agents": [{ "agentId": "bernd", "running": [], "breakerOpen": false,
+            "unreadableLines": 0, "lastRuns": { "gc-run": { "outcome": "skipped", "finishedAt": 1 } } }] } });
+        let check = check_jobs_last_runs(Some(&healthy), None, None, deadline);
+        assert_eq!(check.status, Status::Ok, "{check:?}");
+
+        let sick = json!({ "jobs": { "ledger": "ok", "agents": [{ "agentId": "bernd", "running": ["dream-rem"], "breakerOpen": true,
+            "unreadableLines": 2, "lastRuns": { "gc-run": { "outcome": "failed", "reason": "boom", "finishedAt": 1 } } }] } });
+        let check = check_jobs_last_runs(Some(&sick), None, None, deadline);
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+        let detail = check.detail.unwrap();
+        assert_eq!(detail["jobs"][0]["job"], "gc-run");
+        assert_eq!(detail["breakerOpen"], json!(["bernd"]));
+        assert_eq!(detail["unreadableLines"][0]["lines"], 2);
+
+        let no_ledger = json!({ "jobs": { "ledger": "unavailable", "agents": [] } });
+        assert_eq!(
+            check_jobs_last_runs(Some(&no_ledger), None, None, deadline).status,
+            Status::Warn
+        );
+
+        // Without `jobs` (an older core) and without a client, the `jobs.history` fallback has nothing to ask.
+        assert_eq!(
+            check_jobs_last_runs(Some(&json!({})), None, None, deadline).status,
+            Status::Skip
+        );
     }
 
     #[test]

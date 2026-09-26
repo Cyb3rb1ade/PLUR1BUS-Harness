@@ -2803,7 +2803,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       }
     },
     "journalBacklog": {
-      "type": "integer"
+      "type": "integer",
+      "description": "Complete lines still in state/journal (live and `.replaying-*` files) as the engine's journal status reports them (E4), or the start replay's kept count when the engine reports none."
+    },
+    "jobs": {
+      "$ref": "#/$defs/JobsStatus"
     },
     "deprecationsUsed": {
       "type": "array",
@@ -2811,6 +2815,86 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    }
+  }
+}
+```
+
+### `JobsStatus`
+
+```json
+{
+  "description": "Experimental (1.2.0). Job health as the engine reports it (E4 `EngineStatus.jobs`), flattened on purpose (ruling H3-R6): of the engine's breaker only `open` is kept (as `breakerOpen`; its sweep, session count and limit are dropped), and of each last run only `outcome`, `reason` and `finishedAt` (its runId, trigger, startedAt and attempt are dropped; `jobs.history` has them). Absent before the engine reports it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ledger",
+    "agents"
+  ],
+  "properties": {
+    "ledger": {
+      "enum": [
+        "ok",
+        "unavailable"
+      ]
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agentId",
+          "running",
+          "breakerOpen",
+          "unreadableLines",
+          "lastRuns"
+        ],
+        "properties": {
+          "agentId": {
+            "$ref": "#/$defs/AgentId"
+          },
+          "running": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "jobs with a run in flight in this process, sorted"
+          },
+          "breakerOpen": {
+            "type": "boolean",
+            "description": "the rem/deep LLM-session breaker is open for the current UTC sweep"
+          },
+          "unreadableLines": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "job ledger lines that could not be parsed"
+          },
+          "lastRuns": {
+            "type": "object",
+            "description": "latest finished run per job name; jobs that never ran are absent",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "outcome",
+                "finishedAt"
+              ],
+              "properties": {
+                "outcome": {
+                  "$ref": "#/$defs/JobOutcome"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

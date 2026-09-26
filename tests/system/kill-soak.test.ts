@@ -275,8 +275,8 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       // The journal drains within a budget sized to what was still journaled after the last turn.
       const drainBudgetMs = DRAIN_BASE_MS + DRAIN_PER_LINE_MS * backlogAtEnd + restartWaitMs + backoffMs;
       // Drained: no line left in any journal file (a replay in progress renames `<agent>.jsonl` to
-      // `<agent>.jsonl.replaying-<pid>`, which `1staid check` does not count yet), the core ready (it is ready only
-      // once its replay is done), and `1staid check` agrees.
+      // `<agent>.jsonl.replaying-<pid>`, which `1staid check` counts too), the core ready (it is ready only once its
+      // replay is done), and `1staid check` agrees.
       await waitFor(`the journal to drain (${backlogAtEnd} line(s))`,
         () => journalLines(h) === 0 && readyChild(h) && firstAid(h).checks.find((c: any) => c.id === "journal.backlog")?.status === "ok",
         Math.max(0, drainBudgetMs - (performance.now() - lastTurnAt)), 100);
@@ -296,9 +296,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       const unknown = [...seen.keys()].filter((k) => !facts.some((f) => `${f.i % AGENTS}:${factText(f.i)}` === k));
       assert.deepEqual(unknown, [], "no card the soak did not write");
       // A core killed while it replays the journal replays the same lines again at its next start: the at-least-once
-      // gap ADR-012 §7 names, normally absorbed by the engine's vector dedup, which this soak switches off
-      // (duplicateThreshold 1.01). Task 15 closes it (replay passes the line id as runId; the engine answers
-      // duplicate-turn), and then this subtest must pass: remove its `todo` there.
+      // gap ADR-012 §7 names. The engine's vector dedup cannot absorb it here (duplicateThreshold 1.01); the turn
+      // guard does (Task 15, E4 Q3): replay passes `journal:<line id>` as runId, the same at every start, and the
+      // engine answers a turn it already captured with duplicate-turn, which removes the line.
       const replayedTwice = facts.filter((f) => f.how === "journaled" && f.n !== 1);
       counts.replayedTwice = replayedTwice.length;
       const third = (i: number): number => Math.min(2, Math.floor((3 * i) / N));
@@ -306,10 +306,8 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         journaled: facts.filter((f) => f.how === "journaled" && third(f.i) === k).length,
         twice: replayedTwice.filter((f) => third(f.i) === k).length,
       }));
-      t.diagnostic(`journaled facts replayed more than once (Task 15 todo), per third: ${perThird.map((x, k) => `${["first", "middle", "last"][k]} ${x.twice}/${x.journaled}`).join(", ")}`);
-      await t.test("journal replay leaves every journaled fact exactly once", { todo: "Task 15: replay runId + duplicate-turn (E4)" }, () => {
-        assert.deepEqual(replayedTwice, [], `journaled facts replayed more than once: ${JSON.stringify(replayedTwice)}`);
-      });
+      t.diagnostic(`journaled facts replayed more than once, per third: ${perThird.map((x, k) => `${["first", "middle", "last"][k]} ${x.twice}/${x.journaled}`).join(", ")}`);
+      assert.deepEqual(replayedTwice, [], `journaled facts not present exactly once: ${JSON.stringify(replayedTwice)}`);
 
       // Exactly one supervisor and one core remain, and only the core holds LanceDB files.
       const status = daemonStatus(h);

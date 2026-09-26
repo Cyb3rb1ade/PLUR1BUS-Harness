@@ -169,6 +169,19 @@ describe("core", () => {
     const { runs } = await c.call<any>("jobs.history", { agentId: "bernd" }); assert.ok(runs.some((x: any) => x.runId === run.runId));
   });
 
+  it("core.status.jobs lists last runs after a job run (E4)", async () => {
+    await c.call<any>("jobs.run", { agentId: "bernd", job: "gc-run" });
+    // core.status serves the engine's status stale-while-revalidate (STATUS_CACHE_MS): poll until the run shows.
+    let s: any; const until = Date.now() + 5000;
+    do { s = await c.call<any>("core.status"); if (s.jobs?.agents?.[0]?.lastRuns?.["gc-run"]) break; await new Promise((r) => setTimeout(r, 100)); } while (Date.now() < until);
+    assert.equal(s.jobs.ledger, "ok", JSON.stringify(s.jobs));
+    const a = s.jobs.agents.find((x: any) => x.agentId === "bernd");
+    assert.ok(a, JSON.stringify(s.jobs));
+    assert.ok(["completed", "skipped"].includes(a.lastRuns["gc-run"].outcome), JSON.stringify(a));
+    assert.equal(typeof a.lastRuns["gc-run"].finishedAt, "number");
+    assert.equal(a.breakerOpen, false); assert.equal(a.unreadableLines, 0); assert.ok(Array.isArray(a.running));
+  });
+
   it("agent.status reports the workspace; checkpoint returns a digest", async () => {
     const s = await c.call<any>("agent.status", { agentId: "bernd" }); assert.equal(s.workspace, l.workspaceDir("bernd"));
     const cp = await c.call<any>("memory.checkpoint", { caller, agentId: "bernd", reason: "manual" }); assert.equal(typeof cp.digest, "string");
@@ -220,6 +233,48 @@ describe("core start journal replay (I2)", () => {
       assert.equal(existsSync(join(l.journal, "bernd.jsonl")), false, "nothing stranded in the journal");
       const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "chimney sweep", joined: true });
       assert.match(r.joined.text, /chimney sweep/i);
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+});
+
+describe("core journal backlog (Task 15, E4)", () => {
+  const jline = (id: string, content: string, agentId = "bernd") => ({ v: 1 as const, id, at: 1000, agentId, sessionKey: "s1", caller, messages: [{ role: "user" as const, content }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
+
+  it("core.status journalBacklog comes from the engine's journal status", async () => {
+    const home = newHome(); const l = layout(home);
+    // An unregistered agent's lines are kept by the replay.
+    appendJournalLine(l.journal, jline("11111111-1111-4111-8111-111111111111", "one", "ghost"));
+    appendJournalLine(l.journal, jline("22222222-2222-4222-8222-222222222222", "two", "ghost"));
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      assert.equal((await c.call<any>("core.status")).journalBacklog, 2);
+      // A line that arrives after the replay is not in the replay's count; the engine's capability sees it.
+      appendJournalLine(l.journal, jline("33333333-3333-4333-8333-333333333333", "three", "ghost"));
+      let n = 0; const until = Date.now() + 5000;
+      while (Date.now() < until) { n = (await c.call<any>("core.status")).journalBacklog; if (n === 3) break; await new Promise((r) => setTimeout(r, 100)); }
+      assert.equal(n, 3);
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
+  it("a line replayed again after a crash between append-back and delete is a duplicate-turn, stored once", async () => {
+    const home = newHome(); const l = layout(home);
+    const text = "Please remember that the gutter cleaning is on Friday at nine.";
+    const once = jline("44444444-4444-4444-8444-444444444444", text);
+    appendJournalLine(l.journal, once);
+    const first = createCore({ home, testInternals: flatTestInternals() });
+    await first.start(); await first.stop({ budgetMs: 5000 });
+    // The previous replay died after capturing: its `.replaying-<pid>` file survived with the same line.
+    writeFileSync(join(l.journal, "bernd.jsonl.replaying-4242"), `${JSON.stringify(once)}\n`);
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      assert.equal((await c.call<any>("core.status")).journalBacklog, 0);
+      assert.deepEqual(readdirSync(l.journal), [], "the duplicate line left the journal");
+      const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
+      assert.equal(items.filter((x: any) => /gutter cleaning/.test(x.text)).length, 1, JSON.stringify(items.map((x: any) => x.text)));
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 });
