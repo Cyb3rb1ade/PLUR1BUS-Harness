@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
-  REAL, alive, cli, coreChild, corePid, home, killPid, restartSupervisor, sleep, startCore, startDaemon, stopCore, stopDaemon,
+  REAL, alive, cli, coreChild, corePid, home, killPid, reapHome, restartSupervisor, sleep, startCore, startDaemon, stopCore, stopDaemon,
   supervisorPid, waitFor,
 } from "./helpers.ts";
 
@@ -61,6 +61,7 @@ describe("M1b-2a-H3 acceptance 3 — the core survives a supervisor crash", { sk
       stopDaemon(h);
     } finally {
       try { cli(h, ["daemon", "stop"], { allowFail: true }); } catch { /* best effort */ }
+      await reapHome(h);
       rmSync(h, { recursive: true, force: true });
     }
   });

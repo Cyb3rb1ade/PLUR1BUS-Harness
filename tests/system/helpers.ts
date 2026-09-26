@@ -19,11 +19,14 @@ export function home(): string {
   return h;
 }
 
+/** No single CLI call in a system test may hang the run: it is killed after this long (and then fails). */
+const CLI_TIMEOUT_MS = 30_000;
+
 /** Runs the CLI against `h`; parses stdout as JSON unless `json: false`. Throws with stderr on a non-zero exit. */
 export function cli(h: string, args: string[], opts: { json?: boolean; allowFail?: boolean; env?: NodeJS.ProcessEnv } = {}): any {
   const all = [...(opts.json === false ? [] : ["--json"]), "--home", h, ...args];
   try {
-    const out = execFileSync(BIN, all, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...(opts.env ? { env: opts.env } : {}) });
+    const out = execFileSync(BIN, all, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: CLI_TIMEOUT_MS, ...(opts.env ? { env: opts.env } : {}) });
     return opts.json === false ? out : JSON.parse(out);
   } catch (e: any) {
     if (!opts.allowFail) throw new Error(`${all.join(" ")}: exit ${e.status}\n${e.stderr}`);
@@ -166,5 +169,26 @@ export async function restartSupervisor(h: string, extra: NodeJS.ProcessEnv = {}
   child.unref();
   const pid = child.pid;
   if (pid === undefined) throw new Error("supervise did not spawn");
-  return waitFor(`supervisor ${pid} to answer`, () => supervisorPid(h) === pid && pid, 10_000);
+  try {
+    return await waitFor(`supervisor ${pid} to answer`, () => supervisorPid(h) === pid && pid, 10_000);
+  } catch (e) {
+    try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
+    throw e;
+  }
+}
+
+/** Every process whose command line names `--home <h>` (supervisor, cores, stray CLI calls). */
+export function homePids(h: string): number[] {
+  try {
+    return execFileSync("pgrep", ["-f", "--", `--home ${h}`], { encoding: "utf8" }).trim().split("\n").filter(Boolean).map(Number);
+  } catch { return []; } // pgrep exits 1 when nothing matches
+}
+
+/** Cleanup for a test's `finally`: SIGKILLs whatever still runs against `h`, so a failed test never leaves a
+ *  supervisor or core behind (POSIX; a no-op on Windows, where the system tests do not run). */
+export async function reapHome(h: string): Promise<void> {
+  if (process.platform === "win32") return;
+  const left = homePids(h);
+  for (const pid of left) { try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
+  for (const pid of left) { try { await waitFor(`pid ${pid} to exit`, () => !alive(pid), 5000, 20); } catch { /* reported by the test itself */ } }
 }

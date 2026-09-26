@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { REAL, RERANK_FAILURE, cli, home, killCore, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, type RunningCore } from "./helpers.ts";
 
 /** R20: a fully successful replay renames `<agent>.jsonl` away and appends nothing back — absent or empty. */
 function journalDrained(path: string): boolean {
@@ -92,6 +92,7 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
     } finally {
       // `core` is the restarted core once the restart succeeded; a failed start kills its own child first.
       if (core) await stopCore(core);
+      await reapHome(h);
       rmSync(h, { recursive: true, force: true }); // removes a models/ symlink, never the cache it points to
     }
   });

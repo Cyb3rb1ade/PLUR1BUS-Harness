@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { REAL, SHARED_MEMORY, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { REAL, SHARED_MEMORY, cli, home, reapHome, startCore, stopCore, type RunningCore } from "./helpers.ts";
 
 /** Every CLI call in this test must answer within this wall time. */
 const CLI_BUDGET_MS = 2000;
@@ -104,6 +104,7 @@ describe("M1b-2a-H2 — memory surface through the CLI", () => {
       }
     } finally {
       if (core) await stopCore(core);
+      await reapHome(h);
       rmSync(h, { recursive: true, force: true });
     }
   });

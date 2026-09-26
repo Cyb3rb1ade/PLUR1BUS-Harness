@@ -56,6 +56,8 @@ jobs:
       # Criterion 2 at full length (S16, ruling H3-R19): 1 000 turns over 10 agents, flat embedder (the soak is about
       # durability under kills, so it does not need the models).
       - name: kill soak (1 000 turns)
+        # Runs even when the real-model system test failed: the two acceptances are independent.
+        if: ${{ !cancelled() }}
         run: node --experimental-strip-types --test tests/system/kill-soak.test.ts
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "1000" }
       - run: pnpm bench

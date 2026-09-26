@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { readdirSync, readlinkSync, realpathSync, rmSync } from "node:fs";
+import { readdirSync, readFileSync, readlinkSync, realpathSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import {
-  REAL, cli, coreChild, corePid, daemonStatus, home, killPid, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
+  REAL, cli, coreChild, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
 } from "./helpers.ts";
 
 /** S16: 200 turns in the PR system job, 1 000 in the nightly (same file). */
@@ -15,7 +15,11 @@ const N = Number(process.env.PLUR1BUS_SOAK_TURNS ?? 200);
  * (an engine follow-up; the per-third percentiles below keep it visible).
  */
 const AGENTS = Number(process.env.PLUR1BUS_SOAK_AGENTS ?? Math.max(1, Math.ceil(N / 100)));
-const SEED = Number(process.env.PLUR1BUS_SOAK_SEED ?? Date.now()) >>> 0;
+const SEED = ((raw) => {
+  if (raw === undefined) return Date.now() >>> 0;
+  if (!/^\d+$/.test(raw)) throw new Error(`PLUR1BUS_SOAK_SEED must be a non-negative integer, got ${JSON.stringify(raw)}`);
+  return Number(raw) >>> 0;
+})(process.env.PLUR1BUS_SOAK_SEED);
 /** H3-R19: per `memory add`. */
 const ADD_BUDGET_MS = 5000;
 /** Per `memory recall` (criterion 2); the core's own hard recall budget (600 ms) bounds it. */
@@ -37,6 +41,20 @@ const TIME_SCALE = 0.1;
  */
 const GIVE_UP_WINDOW_MS = 600_000 * TIME_SCALE * 1.2;
 const GIVE_UP_EXITS = 5;
+/** Random core kills pause this many turns before each supervisor kill, so that phase starts from a ready core. */
+const QUIET_TURNS = 3;
+/** How long a core may take to be ready (journal replay included) before a supervisor-kill phase. */
+const READY_BUDGET_MS = 60_000;
+/**
+ * Journal drain budget after the last turn: 2 s (supervisor restart, core start) + 1 s per line still journaled, plus
+ * any restart backoff or supervisor restart still pending then. A replayed line is one engine capture, and captures
+ * slow down as the agents' tables grow (see the add p50/p95 per third). Measured in the Task 12 fix-round runs, from
+ * the last turn to "no journal line left and the core ready": 36 lines in 13.1 s, 29 in 12.4 s, 33 in 8.0 s, i.e.
+ * 240–430 ms per line with the core start included (the reviewer measured about 310 ms per line). End-of-run captures
+ * reach p95 800–900 ms, so 1 s per line keeps the budget above the slowest replays seen, not only the average.
+ */
+const DRAIN_BASE_MS = 2000;
+const DRAIN_PER_LINE_MS = 1000;
 
 /** mulberry32: a tiny seeded PRNG, so a failing run can be replayed with PLUR1BUS_SOAK_SEED. */
 function mulberry32(seed: number): () => number {
@@ -85,6 +103,18 @@ function allCards(h: string, agent: string): any[] {
   }
 }
 
+/** Complete lines in every journal file of `h`, including a replay in progress (`*.jsonl.replaying-*`). */
+function journalLines(h: string): number {
+  const dir = join(h, "state", "journal");
+  let n = 0;
+  let entries: string[] = [];
+  try { entries = readdirSync(dir); } catch { return 0; }
+  for (const f of entries.filter((e) => /\.jsonl(\.replaying-\d+)?$/.test(e))) {
+    try { n += readFileSync(join(dir, f), "utf8").split("\n").filter((l) => l.trim() !== "").length; } catch { /* renamed or removed meanwhile */ }
+  }
+  return n;
+}
+
 /** A `1staid check --json` document (it exits 1 when a check fails). */
 function firstAid(h: string): any {
   const r = cli(h, ["1staid", "check"], { allowFail: true });
@@ -96,14 +126,14 @@ const readyChild = (h: string): any => { const c = coreChild(h); return c?.proce
 // POSIX signals; the system job is Linux/macOS only.
 describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "win32" && "POSIX signals") || (REAL && "flat embedder only") }, () => {
   it("criterion 2: kill soak", async (t) => {
-    t.diagnostic(`turns ${N} over ${AGENTS} agent(s), seed ${SEED} (replay with PLUR1BUS_SOAK_SEED=${SEED}), supervisor time scale ${TIME_SCALE}`);
+    t.diagnostic(`turns ${N} over ${AGENTS} agent(s), seed ${SEED} (PLUR1BUS_SOAK_SEED=${SEED} replays the kill schedule only; timing, outages and replays differ), supervisor time scale ${TIME_SCALE}`);
     const rand = mulberry32(SEED);
     const h = home();
     const env = { PLUR1BUS_SUPERVISOR_TIME_SCALE: String(TIME_SCALE) };
     const t0 = performance.now();
     const addMs: number[] = [];
     const recallMs: number[] = [];
-    const counts = { stored: 0, journaled: 0, replayedTwice: 0, coreKills: 0, throttledKills: 0, unavailableRecalls: 0, stoppingRecalls: 0, engineDegradedRecalls: 0 };
+    const counts = { adoptions: 0, respawns: 0, stored: 0, journaled: 0, replayedTwice: 0, coreKills: 0, throttledKills: 0, unavailableRecalls: 0, engineDegradedRecalls: 0 };
     /** Fact index → how its add was answered. */
     const kept = new Map<number, "stored" | "journaled">();
     let outageObserved = false;
@@ -117,19 +147,45 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
 
       /** The OS service manager's pending restart of a SIGKILLed supervisor (performance.now() deadline). */
       let restartAt: number | null = null;
-      /** Core exits this test caused during the current supervisor's lifetime (its give-up window counts only its own). */
+      /** Core exits this test caused during the current supervisor's lifetime (its give-up window counts only its own).
+       *  Only the test's own kills are counted: the throttle assumes the supervisor sees no other exit, which the
+       *  never-gives-up assertion below would expose if it were wrong. */
       let kills: number[] = [];
+      /** The supervisor-kill phase whose restart is pending: its core pid, and whether that core must be adopted. */
+      let phase: { core: number; adopt: boolean } | null = null;
+      /** ms spent waiting for a pending supervisor restart after the last turn (added to the drain budget). */
+      let restartWaitMs = 0;
       const restartDue = async (): Promise<void> => {
         if (restartAt === null) return;
-        await sleep(Math.max(0, restartAt - performance.now()));
+        const wait = Math.max(0, restartAt - performance.now());
+        await sleep(wait);
+        restartWaitMs = wait;
         await restartSupervisor(h, env);
         restartAt = null;
         kills = [];
+        const p = phase!;
+        phase = null;
+        if (p.adopt) {
+          // < grace: the running core is adopted, not respawned.
+          const c = await waitFor("the core to be adopted", () => { const c = coreChild(h); return c?.adopted === true && c; }, 10_000);
+          assert.equal(c.pid, p.core, `the adopted core is the same process: ${JSON.stringify(c)}`);
+          counts.adoptions++;
+        } else {
+          // > grace: the orphaned core stopped on its own, and the new supervisor spawns a new one.
+          const c = await waitFor("a new core process", () => { const c = coreChild(h); return c?.pid != null && c; }, 10_000);
+          assert.notEqual(c.pid, p.core, `a new core after the grace: ${JSON.stringify(c)}`);
+          assert.equal(c.adopted, false, JSON.stringify(c));
+          const logs = readdirSync(join(h, "logs")).filter((f) => /^core\.log(\.\d+)?$/.test(f));
+          assert.ok(logs.some((f) => readFileSync(join(h, "logs", f), "utf8").includes("orphan grace expired")), `core.log records the grace expiry (${logs.join(", ")})`);
+          counts.respawns++;
+        }
       };
-      const killSupervisor = async (afterMs: number): Promise<void> => {
+      const killSupervisor = async (afterMs: number, adopt: boolean): Promise<void> => {
         await restartDue();
+        const ready = await waitFor("a ready core before the supervisor kill", () => readyChild(h), READY_BUDGET_MS);
         await killPid(supervisorPid(h)!, "SIGKILL");
         restartAt = performance.now() + afterMs;
+        phase = { core: ready.pid, adopt };
       };
       const timed = (args: string[], into: number[], budgetMs: number): any => {
         const s = performance.now();
@@ -142,11 +198,14 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
 
       for (let i = 0; i < N; i++) {
         if (restartAt !== null && performance.now() >= restartAt) await restartDue();
-        if (i === Math.floor(N / 3)) await killSupervisor(1000); // < grace: the core is adopted
-        if (i === Math.floor((2 * N) / 3)) await killSupervisor(5000); // > grace: the core stops, a new one is spawned
+        const phaseTurns = [Math.floor(N / 3), Math.floor((2 * N) / 3)];
+        if (i === phaseTurns[0]) await killSupervisor(1000, true); // < grace: the core is adopted
+        if (i === phaseTurns[1]) await killSupervisor(5000, false); // > grace: the core stops, a new one is spawned
+        const quiet = phaseTurns.some((p) => i >= p - QUIET_TURNS && i < p);
 
         let killedThisTurn = false;
-        if (rand() < KILL_P && restartAt === null) {
+        // rand() is drawn on every turn, so a seed keeps the same schedule whatever is skipped.
+        if (rand() < KILL_P && restartAt === null && !quiet) {
           const now = performance.now();
           kills = kills.filter((k) => now - k < GIVE_UP_WINDOW_MS);
           const pid = corePid(h);
@@ -188,10 +247,6 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         if (recall.degraded?.reason === "core-unavailable") {
           counts.unavailableRecalls++;
           assert.ok(recall.degraded.detail, `a degraded recall names why: ${JSON.stringify(recall.degraded)}`);
-        } else if (recall.degraded?.reason === "engine-closed") {
-          // The core answered while it was stopping (orphan grace expiry): an outage, visible with its detail.
-          counts.stoppingRecalls++;
-          assert.ok(recall.degraded.detail, `a degraded recall names why: ${JSON.stringify(recall.degraded)}`);
         } else if (recall.degraded !== null) {
           // H3-R19: the core answered, but the engine did not finish inside the recall's hard budget: accepted, counted.
           assert.ok(["aborted", "timeout"].includes(recall.degraded.reason), `turn ${i}: ${JSON.stringify(recall.degraded)}`);
@@ -205,13 +260,30 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         const child = restartAt === null ? coreChild(h) : null;
         assert.ok(!(child?.process?.state === "crashed" && child.nextRestartAt === null), `turn ${i}: the supervisor gave up: ${JSON.stringify(child)}`);
       }
+      const lastTurnAt = performance.now();
+      const backlogAtEnd = journalLines(h);
+      // A core killed in the last turns may still be in its restart backoff (up to 60 s × scale): that wait is the
+      // supervisor's, not the replay's, so it is added to both budgets below as reported.
+      const endChild = restartAt === null ? coreChild(h) : null;
+      const backoffMs = endChild?.nextRestartAt ? Math.max(0, endChild.nextRestartAt - Date.now()) : 0;
       await restartDue();
       assert.ok(outageObserved, "one outage was seen in daemon status and 1staid check");
       assert.ok(counts.coreKills > 0 || N < 20, `no core kill in ${N} turns (seed ${SEED})`);
 
-      const ready = await waitFor("the core to be ready", () => readyChild(h), 60_000);
-      // The journal drains within 30 s.
-      await waitFor("the journal to drain", () => firstAid(h).checks.find((c: any) => c.id === "journal.backlog")?.status === "ok", 30_000, 250);
+      assert.equal(counts.adoptions, 1, "the 1 s supervisor outage ended in an adoption");
+      assert.equal(counts.respawns, 1, "the 5 s supervisor outage ended in a new core");
+      // The journal drains within a budget sized to what was still journaled after the last turn.
+      const drainBudgetMs = DRAIN_BASE_MS + DRAIN_PER_LINE_MS * backlogAtEnd + restartWaitMs + backoffMs;
+      // Drained: no line left in any journal file (a replay in progress renames `<agent>.jsonl` to
+      // `<agent>.jsonl.replaying-<pid>`, which `1staid check` does not count yet), the core ready (it is ready only
+      // once its replay is done), and `1staid check` agrees.
+      await waitFor(`the journal to drain (${backlogAtEnd} line(s))`,
+        () => journalLines(h) === 0 && readyChild(h) && firstAid(h).checks.find((c: any) => c.id === "journal.backlog")?.status === "ok",
+        Math.max(0, drainBudgetMs - (performance.now() - lastTurnAt)), 100);
+      const drainMs = performance.now() - lastTurnAt;
+      t.diagnostic(`journal drained ${drainMs.toFixed(0)} ms after the last turn: ${backlogAtEnd} line(s) backlogged, budget ${drainBudgetMs.toFixed(0)} ms (restart backoff ${backoffMs.toFixed(0)} ms, supervisor restart ${restartWaitMs.toFixed(0)} ms)`);
+      const ready = readyChild(h);
+      assert.ok(ready, "the core is ready");
 
       // No journal line is lost and none is replayed twice: every stored or journaled fact is exactly one live card.
       const seen = new Map<string, number>();
@@ -229,6 +301,12 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       // duplicate-turn), and then this subtest must pass: remove its `todo` there.
       const replayedTwice = facts.filter((f) => f.how === "journaled" && f.n !== 1);
       counts.replayedTwice = replayedTwice.length;
+      const third = (i: number): number => Math.min(2, Math.floor((3 * i) / N));
+      const perThird = [0, 1, 2].map((k) => ({
+        journaled: facts.filter((f) => f.how === "journaled" && third(f.i) === k).length,
+        twice: replayedTwice.filter((f) => third(f.i) === k).length,
+      }));
+      t.diagnostic(`journaled facts replayed more than once (Task 15 todo), per third: ${perThird.map((x, k) => `${["first", "middle", "last"][k]} ${x.twice}/${x.journaled}`).join(", ")}`);
       await t.test("journal replay leaves every journaled fact exactly once", { todo: "Task 15: replay runId + duplicate-turn (E4)" }, () => {
         assert.deepEqual(replayedTwice, [], `journaled facts replayed more than once: ${JSON.stringify(replayedTwice)}`);
       });
@@ -236,7 +314,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       // Exactly one supervisor and one core remain, and only the core holds LanceDB files.
       const status = daemonStatus(h);
       assert.equal(status.supervisor.children.length, 1, JSON.stringify(status));
-      const pids = execFileSync("pgrep", ["-f", "--", `--home ${h}`], { encoding: "utf8" }).trim().split("\n").map(Number).sort();
+      const pids = homePids(h).sort();
       assert.deepEqual(pids, [status.supervisor.supervisor.pid, ready.pid].sort(), `pgrep -f -- "--home ${h}"`);
       if (process.platform === "linux") {
         const lancedb = `${realpathSync(h)}/state/lancedb`;
@@ -252,6 +330,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       t.diagnostic(`memory recall: ${thirds(recallMs)}`);
     } finally {
       try { cli(h, ["daemon", "stop"], { allowFail: true }); } catch { /* best effort */ }
+      await reapHome(h);
       rmSync(h, { recursive: true, force: true });
     }
   });
@@ -292,6 +371,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       stopDaemon(h);
     } finally {
       try { cli(h, ["daemon", "stop"], { allowFail: true }); } catch { /* best effort */ }
+      await reapHome(h);
       rmSync(h, { recursive: true, force: true });
     }
   });

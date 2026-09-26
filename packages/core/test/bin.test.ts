@@ -114,28 +114,34 @@ describe("dist/core.js", () => {
     // The supervisor gives the core real OS pipes (a Node parent would give socketpairs, whose closed peer does not
     // fail a write the same way): a FIFO whose only reader this test closes is exactly the pipe a SIGKILLed supervisor leaves.
     const fifo = join(home, "out.fifo"); execFileSync("mkfifo", [fifo]);
-    const reader = openSync(fifo, constants.O_RDONLY | constants.O_NONBLOCK); const writer = openSync(fifo, constants.O_WRONLY);
+    let reader: number | null = openSync(fifo, constants.O_RDONLY | constants.O_NONBLOCK); const writer = openSync(fifo, constants.O_WRONLY);
     const child = spawn(process.execPath, [dist, "--home", home, "--test-internals", "flat-embedder", "--lifeline", "stdin"],
       { env: { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" }, stdio: ["pipe", writer, writer] });
     closeSync(writer);
     const exited = new Promise<number | null>((r) => child.once("exit", r));
-    const t0 = Date.now();
-    while (!existsSync(l.corePid) && child.exitCode === null && Date.now() - t0 < 10_000) await new Promise((r) => setTimeout(r, 50));
-    assert.ok(existsSync(l.corePid), "the core became ready");
-    // Exercise the engine (default engine config, one capture) the way a real session does before its supervisor dies.
-    const c = await connect({ address: join(home, "run", "core.sock"), token: readFileSync(l.coreToken, "utf8") });
-    const cap = await c.call<any>("memory.capture", { caller: { channel: "cli", accountId: "a1", userId: "u1" }, agentId: "bernd", sessionKey: "s1", wait: true, waitMs: 10_000,
-      messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }] });
-    assert.equal(cap.stored, 1, JSON.stringify(cap));
-    await c.close();
-    // Nobody reads the core's stdout/stderr any more, and its stdin lifeline is at EOF.
-    closeSync(reader); child.stdin!.end();
-    let timer: NodeJS.Timeout | undefined;
-    const code = await Promise.race([exited, new Promise<"timeout">((r) => { timer = setTimeout(() => r("timeout"), 8000); })]);
-    clearTimeout(timer);
-    if (code === "timeout") child.kill("SIGKILL");
-    assert.equal(code, 0, "the stop after the grace completes and exits 0");
-    assert.equal(existsSync(l.corePid), false, "run files removed");
-    assert.equal(existsSync(join(home, "run", "core.sock")), false, "socket removed");
+    try {
+      const t0 = Date.now();
+      while (!existsSync(l.corePid) && child.exitCode === null && Date.now() - t0 < 10_000) await new Promise((r) => setTimeout(r, 50));
+      assert.ok(existsSync(l.corePid), "the core became ready");
+      // Exercise the engine (default engine config, one capture) the way a real session does before its supervisor dies.
+      const c = await connect({ address: join(home, "run", "core.sock"), token: readFileSync(l.coreToken, "utf8") });
+      try {
+        const cap = await c.call<any>("memory.capture", { caller: { channel: "cli", accountId: "a1", userId: "u1" }, agentId: "bernd", sessionKey: "s1", wait: true, waitMs: 10_000,
+          messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }] });
+        assert.equal(cap.stored, 1, JSON.stringify(cap));
+      } finally { await c.close(); }
+      // Nobody reads the core's stdout/stderr any more, and its stdin lifeline is at EOF.
+      closeSync(reader); reader = null; child.stdin!.end();
+      let timer: NodeJS.Timeout | undefined;
+      const code = await Promise.race([exited, new Promise<"timeout">((r) => { timer = setTimeout(() => r("timeout"), 8000); })]);
+      clearTimeout(timer);
+      assert.equal(code, 0, "the stop after the grace completes and exits 0");
+      assert.equal(existsSync(l.corePid), false, "run files removed");
+      assert.equal(existsSync(join(home, "run", "core.sock")), false, "socket removed");
+    } finally {
+      // An early failure must not leave the core running or the FIFO's read end open.
+      if (child.exitCode === null && child.signalCode === null) { child.kill("SIGKILL"); await exited; }
+      if (reader !== null) closeSync(reader);
+    }
   });
 });
