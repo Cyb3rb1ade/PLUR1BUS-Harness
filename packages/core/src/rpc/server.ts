@@ -13,19 +13,29 @@ export interface CallContext { requestId: string; connectionId: string; signal: 
 export type Handler = (params: any, ctx: CallContext) => Promise<unknown>;
 export interface Subscription { id: string; connectionId: string; names?: string[]; agentId?: string }
 export interface Hello { contract: string; rpc: string; instanceId: string; pid: number; capabilities?: Capabilities }
+export interface DrainResult { drained: boolean; pending: number }
 export interface RpcServer {
-  listen(): Promise<void>; close(): Promise<void>;
+  listen(): Promise<void>;
+  /** Resolves once every dispatch of a listed method that started before the call has written its reply (success or
+   *  error), or after `budgetMs` with `drained: false` and the number still pending. */
+  drain(o: { methods: readonly string[]; budgetMs: number }): Promise<DrainResult>;
+  /** Ends every socket (a queued reply is still flushed), destroys the ones still open after `graceMs` (default 1000),
+   *  closes the listener and removes the POSIX socket file. Idempotent. */
+  close(o?: { graceMs?: number }): Promise<void>;
   notify(method: string, params: object, filter?: (sub: Subscription) => boolean): void;
   subscriptions(): Subscription[];
 }
 
+interface Dispatch { method: string; done: Promise<void>; settled: boolean }
 interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
 
 export function createRpcServer(o: { address: string; token: string; hello: () => Hello; methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number }): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
   const conns = new Map<string, Conn>();
+  const dispatches = new Set<Dispatch>(); // handler calls whose reply is not written yet (drain() waits on these)
   let server: Server | null = null;
+  let closing: Promise<void> | null = null;
 
   function writeToSocket(c: Conn, buf: Buffer): void {
     if (c.sock.destroyed || c.sock.writableEnded) return;
@@ -84,6 +94,9 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
     if (!v.ok) return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") }));
 
     const ac = new AbortController(); c.inflight.set(id, ac);
+    let markWritten!: () => void;
+    const d: Dispatch = { method, done: new Promise<void>((res) => { markWritten = res; }), settled: false };
+    dispatches.add(d);
     const t0 = performance.now();
     try {
       const result = await handler(params, { requestId: String(id), connectionId: c.id, signal: ac.signal });
@@ -95,7 +108,10 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       if (e instanceof RpcError) { log.info("rpc error", { error: e.error, reason: e.reason }); return errorReply(c, id, e); }
       log.error("handler failed", { err: e });
       errorReply(c, id, new RpcError("E_INTERNAL", "internal error", { reason: "handler-threw" }));
-    } finally { c.inflight.delete(id); }
+    } finally {
+      c.inflight.delete(id);
+      d.settled = true; dispatches.delete(d); markWritten(); // the reply (result or error) has been written above
+    }
   }
 
   function onConnection(sock: Socket) {
@@ -133,10 +149,35 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       if (process.platform !== "win32") chmodSync(o.address, 0o600);
       o.logger.info("rpc listening", { address: o.address });
     },
-    async close() {
-      for (const c of conns.values()) c.sock.destroy();
-      await new Promise<void>((res) => (server ? server.close(() => res()) : res()));
-      if (process.platform !== "win32" && existsSync(o.address)) unlinkSync(o.address);
+    async drain({ methods, budgetMs }) {
+      const waiting = [...dispatches].filter((d) => methods.includes(d.method));
+      if (waiting.length === 0) return { drained: true, pending: 0 };
+      let timer: NodeJS.Timeout | undefined;
+      // Not unref'ed: a stop() awaiting the drain must keep the process alive for the budget it granted.
+      const expired = new Promise<false>((res) => { timer = setTimeout(() => res(false), Math.max(0, budgetMs)); });
+      const drained = await Promise.race([Promise.all(waiting.map((d) => d.done)).then(() => true as const), expired]);
+      clearTimeout(timer);
+      return { drained, pending: waiting.filter((d) => !d.settled).length };
+    },
+    close({ graceMs = 1000 } = {}) {
+      if (closing) return closing;
+      closing = (async () => {
+        const listener = server; server = null;
+        // Stop accepting first; the callback fires once every connection below has closed.
+        const listenerClosed = new Promise<void>((res) => (listener ? listener.close(() => res()) : res()));
+        // end(), never destroy() right away: destroy() drops a reply still queued for the socket (always on Windows
+        // named pipes, and anywhere for a reply larger than the socket buffer). A peer that never closes its side is
+        // destroyed after the grace period.
+        for (const c of conns.values()) {
+          c.closing = true;
+          if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
+          c.sock.end();
+          setTimeout(() => c.sock.destroy(), graceMs).unref();
+        }
+        await listenerClosed;
+        if (process.platform !== "win32" && existsSync(o.address)) unlinkSync(o.address);
+      })();
+      return closing;
     },
     notify(method, params, filter) {
       const line = encodeLine({ jsonrpc: "2.0", method, params });

@@ -18,6 +18,9 @@ const log = createLogger({ file: join(dir, "core.log"), level: "debug", role: "c
 // noUncheckedIndexedAccess makes Fixtures["methods"][x] possibly undefined; these fixtures always exist.
 const fx = (method: string): { params: any; result: any } => (loadFixtures().methods as any)[method];
 let onCheckpointAbort: (() => void) | null = null;
+let onCheckpointStart: (() => void) | null = null;
+let onStateStart: (() => void) | null = null;
+let releaseState: (() => void) | null = null;
 
 describe("rpc server", () => {
   let server: RpcServer;
@@ -30,7 +33,10 @@ describe("rpc server", () => {
         "core.shutdown": async () => ({ accepted: true }),
         "memory.checkpoint": (_p, ctx) => new Promise((_resolve, reject) => {
           ctx.signal.addEventListener("abort", () => { onCheckpointAbort?.(); reject(new Error("aborted")); });
+          onCheckpointStart?.();
         }),
+        // Held until the test calls releaseState(): a listed method whose reply drain() must wait for.
+        "memory.state": () => new Promise((resolve) => { releaseState = () => resolve(fx("memory.state").result); onStateStart?.(); }),
       },
     });
     await server.listen();
@@ -167,8 +173,76 @@ describe("rpc server", () => {
     await callPromise;
   });
 
+  it("drain resolves drained false after budgetMs when a handler never settles", async () => {
+    const c = await connect({ address, token: TOKEN });
+    const started = new Promise<void>((res) => { onCheckpointStart = res; });
+    const call = c.call("memory.checkpoint", fx("memory.checkpoint").params).catch(() => {});
+    await started;
+    const t0 = performance.now();
+    const r = await server.drain({ methods: ["memory.checkpoint"], budgetMs: 200 });
+    assert.deepEqual(r, { drained: false, pending: 1 });
+    assert.ok(performance.now() - t0 >= 150, "drain returned before its budget");
+    await c.close(); await call;
+  });
+
+  it("drain ignores methods it was not asked for", async () => {
+    const c = await connect({ address, token: TOKEN });
+    const started = new Promise<void>((res) => { onCheckpointStart = res; });
+    const call = c.call("memory.checkpoint", fx("memory.checkpoint").params).catch(() => {});
+    await started;
+    // A never-settling memory.checkpoint is in flight; waiting on it would take the whole budget and answer false.
+    assert.deepEqual(await server.drain({ methods: ["memory.recall", "memory.state"], budgetMs: 10_000 }), { drained: true, pending: 0 });
+    await c.close(); await call;
+  });
+
+  it("drain waits until a listed dispatch has written its reply", async () => {
+    const c = await connect({ address, token: TOKEN });
+    const started = new Promise<void>((res) => { onStateStart = res; });
+    const call = c.call<any>("memory.state", fx("memory.state").params);
+    await started;
+    let settled = false;
+    const d = server.drain({ methods: ["memory.state"], budgetMs: 10_000 }).then((r) => { settled = true; return r; });
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(settled, false, "drain resolved while the handler was still running");
+    releaseState!();
+    assert.deepEqual(await d, { drained: true, pending: 0 });
+    assert.equal((await call).agentId, "bernd");
+    await c.close();
+  });
+
   it("a second listen on the same address fails, and close removes the socket", { skip: process.platform === "win32" }, async () => {
     const other = createRpcServer({ address, token: TOKEN, hello, logger: log, methods: {} });
     await assert.rejects(other.listen(), /EADDRINUSE|in use/);
+  });
+});
+
+describe("rpc server close", () => {
+  const closeDir = mkdtempSync(join(tmpdir(), "p1b-rpc-close-"));
+  const closeAddress = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-close-${process.pid}` : join(closeDir, "core.sock");
+  const closeLog = createLogger({ file: join(closeDir, "core.log"), level: "debug", role: "core" });
+  after(async () => { await closeLog.close(); });
+
+  it("close() ends sockets so a reply written just before close is received", async () => {
+    // A reply larger than the socket buffer is still partly queued in user space when close() runs: destroy() would drop
+    // that tail (and the client would see "connection closed"); end() flushes it first.
+    const big = "x".repeat(2 * 1024 * 1024);
+    let server: RpcServer | null = null;
+    server = createRpcServer({
+      address: closeAddress, token: TOKEN, hello, logger: closeLog,
+      methods: {
+        "memory.recall": async () => {
+          // setImmediate runs after the microtasks in which the server validates and writes this handler's result.
+          setImmediate(() => { void server!.close(); });
+          const { joined: _j, ...rest } = fx("memory.recall").result;
+          return { ...rest, blocks: [{ name: "memories", text: big, droppable: true, chars: big.length }] };
+        },
+      },
+    });
+    await server.listen();
+    const c = await connect({ address: closeAddress, token: TOKEN });
+    const r = await c.call<any>("memory.recall", fx("memory.recall").params);
+    assert.equal(r.blocks[0].text.length, big.length);
+    await c.close();
+    await server.close();
   });
 });

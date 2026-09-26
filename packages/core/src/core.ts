@@ -12,6 +12,7 @@ import { createHarnessHost } from "./host.ts";
 import { drainJournal } from "./journal.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { createLogger, type HarnessLogger } from "./logger.ts";
+import { MEMORY_OP_METHODS } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
@@ -112,7 +113,7 @@ export function createCore(o: CoreOptions): Core {
       log.error("core start failed", { err: e });
       shutdown.abort(new Error("core start failed"));
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
-      await step(log, "server close", async () => { await server?.close(); }); server = null;
+      await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
       await step(log, "run files", () => removeRunFiles());
       state = { state: "stopped", since: clock(), reason: "start-failed" };
@@ -134,11 +135,19 @@ export function createCore(o: CoreOptions): Core {
   function stop(so: { budgetMs?: number } = {}): Promise<void> { // not async: every call returns the one settled promise
     if (stopping) return stopping;
     stopping = (async () => {
+      const t0 = performance.now(); const budgetMs = so.budgetMs ?? 30_000;
+      // G17: from here on isStopping() refuses new memory ops; the engine drains its side, then the server waits (in
+      // what is left of the budget) for those replies to be written before it ends the sockets.
       setState({ state: "stopping", since: clock() });
       shutdown.abort(new Error("core stopping"));
       const errors: unknown[] = [];
-      await step(logger, "engine close", async () => { await engine?.close({ budgetMs: so.budgetMs ?? 30_000 }); }, errors);
-      await step(logger, "server close", async () => { await server?.close(); }, errors);
+      await step(logger, "engine close", async () => { await engine?.close({ budgetMs }); }, errors);
+      await step(logger, "rpc drain", async () => {
+        if (!server) return;
+        const r = await server.drain({ methods: MEMORY_OP_METHODS, budgetMs: Math.max(0, budgetMs - (performance.now() - t0)) });
+        if (!r.drained) logger?.warn("memory ops still pending at close", { pending: r.pending });
+      }, errors);
+      await step(logger, "server close", async () => { await server?.close({ graceMs: 1000 }); }, errors);
       await step(logger, "lock release", () => { lock?.release(); lock = null; }, errors);
       await step(logger, "run files", () => removeRunFiles(), errors);
       setState({ state: "stopped", since: clock(), ...(errors.length ? { reason: "stop-step-failed" } : {}) });
