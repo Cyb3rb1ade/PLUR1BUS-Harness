@@ -63,6 +63,15 @@ importers:
         specifier: 16.0.0
         version: 16.0.0
 
+  packages/webmcp:
+    devDependencies:
+      '@plur1bus/rpc-schema':
+        specifier: workspace:*
+        version: link:../rpc-schema
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+
 packages:
 
   '@apidevtools/json-schema-ref-parser@11.9.3':

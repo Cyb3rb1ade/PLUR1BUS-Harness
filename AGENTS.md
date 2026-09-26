@@ -8,7 +8,7 @@ The harness edition of "how does an agent build, test and find things here." (Th
 `PLUR1BUS-Harness` is the harness: a Rust CLI + supervisor (`crates/plur1bus`), a TypeScript core
 process that binds the engine to a JSON-RPC surface (`packages/core`), the schemas that generate
 both sides' types (`packages/rpc-schema`, `packages/config-schema`), and a module API for future
-first- and third-party modules (`packages/module-api`). The memory engine itself lives in a
+first- and third-party modules (`packages/module-api`), and the WebMCP mapping (`packages/webmcp`). The memory engine itself lives in a
 separate repository, `openclaw-plur1bus-memory` (published as `@cyb3rb1ade/plur1bus-memory`), and
 is consumed here **pinned to an exact commit** — never a `^`/`~` range, never `link:`, in any
 committed lockfile (see `packages/core/package.json`'s dependency). Local development may use
@@ -66,8 +66,8 @@ runs `node --experimental-strip-types --conditions=source --no-warnings=Experime
 --test-concurrency=1 test/**/*.test.ts` — copy that exactly if running a single package's tests by
 hand.
 
-`--conditions=source` matters for the three packages other packages import as dependencies —
-`packages/rpc-schema`, `packages/config-schema`, `packages/module-api` — whose `exports` map is
+`--conditions=source` matters for the packages other packages import as dependencies —
+`packages/rpc-schema`, `packages/config-schema`, `packages/module-api`, `packages/webmcp` — whose `exports` map is
 `{ "source": "./src/index.ts", "types": "./src/index.ts", "default": "./dist/index.js" }`; with that
 flag, a test importing `@plur1bus/rpc-schema` etc. reads the TypeScript **source**, never a
 possibly-stale `dist/`. `packages/core` is different: it's the process entry point, not a library
@@ -103,6 +103,7 @@ Env vars that matter when driving the core directly instead of through the CLI:
 | `packages/rpc-schema` | JSON Schema + codegen | `@plur1bus/rpc-schema` | The single source for RPC methods/params/results/notifications/errors. `pnpm gen` writes `generated/types.ts` and `generated/names.json`; never edit `generated/` by hand. |
 | `packages/core` | TypeScript | `@plur1bus/core` | The core process: engine binding (`engine-config.ts`), RPC server, config load/watch, journal, activity, agent registry, CLI-facing `bin.ts`. |
 | `packages/module-api` | TypeScript | `@plur1bus/module-api` | Manifest schema and client surface for future modules (first- or third-party). |
+| `packages/webmcp` | TypeScript | `@plur1bus/webmcp` | WebMCP mapping in both directions (D55): core capabilities + RPC schema → WebMCP tools for the M3 GUI (`buildWebMcpTools`, `registerPlur1busTools`), and page tools → `webmcp:<origin>/<tool>` MCP descriptors plus the origin allowlist for the browser bridge. Platform-neutral (no Node/DOM imports); WebMCP draft differences live in `src/adapter.ts`. |
 | `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key; `pnpm gen` writes `fixtures/defaults.json` and `fixtures/restart-plan-cases.json`. |
 | `docs/` | Markdown | — | `docs/config-engine-keys.md`, `docs/config.md`, `docs/rpc.md` and `docs/cli.md` are generated (`pnpm docs:gen`); ADRs live in `docs/adr/` (ADR-012 process model/languages/RPC/lock, ADR-013 configuration/restart classes, ADR-016 API stability and versioning); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans). |
 | `scripts/` | Node | — | Cross-cutting tooling: `check-toolchain.mjs`, `test-package.mjs` (shared by every package's `test` script), `gen-engine-keys.mjs`, `gen-docs.mjs`, `lint-hygiene.mjs`, `copy-dir.mjs`. |
