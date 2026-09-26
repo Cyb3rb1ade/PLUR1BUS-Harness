@@ -96,6 +96,9 @@ pub enum ServiceError {
     },
     /// A path that goes into the unit is not valid UTF-8 (unit files and task XML are UTF-8/UTF-16 text).
     PathNotUtf8 { path: PathBuf },
+    /// Task Scheduler expands `%VAR%` in a task's command and arguments and has no escape for a literal `%`, so a
+    /// path with one would run something else.
+    PathHasPercent { path: PathBuf },
     /// The service manager still has the job loaded after the stop timeout.
     StillLoaded { name: String, secs: u64 },
 }
@@ -122,6 +125,11 @@ impl std::fmt::Display for ServiceError {
             ServiceError::PathNotUtf8 { path } => {
                 write!(f, "{} is not valid UTF-8", path.to_string_lossy())
             }
+            ServiceError::PathHasPercent { path } => write!(
+                f,
+                "{} contains %, which Task Scheduler would expand as an environment variable",
+                path.display()
+            ),
             ServiceError::StillLoaded { name, secs } => {
                 write!(f, "{name} is still loaded after {secs} s")
             }
@@ -213,6 +221,7 @@ pub fn render(
                 path: p.to_path_buf(),
             })
     };
+    let bin_path = bin;
     let bin = utf8(bin)?;
     let home = utf8(&layout.home)?;
     let content = match manager {
@@ -221,7 +230,16 @@ pub fn render(
             let stderr = utf8(&layout.logs().join("supervisor.stderr"))?;
             launchd::render(&bin, &home, name, env, &stderr)
         }
-        Manager::TaskScheduler => schtasks::render(&bin, &home, &schtasks::current_user()),
+        Manager::TaskScheduler => {
+            for (text, path) in [(&bin, bin_path), (&home, &layout.home)] {
+                if text.contains('%') {
+                    return Err(ServiceError::PathHasPercent {
+                        path: path.to_path_buf(),
+                    });
+                }
+            }
+            schtasks::render(&bin, &home, &schtasks::current_user())
+        }
     };
     Ok(Unit {
         manager,
@@ -627,6 +645,39 @@ mod tests {
             &[]
         )
         .is_ok());
+    }
+
+    #[test]
+    fn task_scheduler_refuses_a_percent_in_a_path() {
+        // Task Scheduler expands %VAR% in Command and Arguments; a literal % cannot be escaped there.
+        let home = Layout::new(PathBuf::from(r"C:\Users\p\100%DATA%\PLUR1BUS"));
+        let r = render(
+            Manager::TaskScheduler,
+            Path::new(r"C:\p1b\plur1bus.exe"),
+            &home,
+            "n",
+            &[],
+        );
+        assert!(
+            matches!(&r, Err(ServiceError::PathHasPercent { path }) if *path == home.home),
+            "{r:?}"
+        );
+        let bin = PathBuf::from(r"C:\100%\plur1bus.exe");
+        let r = render(
+            Manager::TaskScheduler,
+            &bin,
+            &Layout::new(PathBuf::from(r"C:\h")),
+            "n",
+            &[],
+        );
+        assert!(
+            matches!(&r, Err(ServiceError::PathHasPercent { path }) if *path == bin),
+            "{r:?}"
+        );
+        // systemd escapes it as %%, launchd has no expansion.
+        for manager in [Manager::Systemd, Manager::Launchd] {
+            assert!(render(manager, Path::new("/bin/p"), &home, "n", &[]).is_ok());
+        }
     }
 
     #[test]

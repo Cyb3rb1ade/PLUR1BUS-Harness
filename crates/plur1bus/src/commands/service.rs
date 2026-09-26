@@ -53,6 +53,7 @@ fn valid_env_key(k: &str) -> bool {
 fn fail_service(out: &Out, e: &ServiceError) -> ! {
     let (code, reason) = match e {
         ServiceError::PathNotUtf8 { .. } => ("E_INVALID_PARAMS", "path-not-utf8"),
+        ServiceError::PathHasPercent { .. } => ("E_INVALID_PARAMS", "path-percent"),
         ServiceError::Io { .. } => ("E_INTERNAL", "unit-file"),
         ServiceError::Spawn { .. }
         | ServiceError::Command { .. }
@@ -127,6 +128,11 @@ pub fn run(out: &Out, layout: &Layout, cmd: ServiceCmd) {
         ServiceCmd::Uninstall => {
             let r = runner(out);
             let name = service::service_name(layout, &paths::default_home());
+            if manager == Manager::TaskScheduler {
+                // `/End` can only terminate the supervisor (and leaves its core to the grace timer): ask for a clean
+                // stop first, so the core is shut down too; `/End` then only catches a supervisor that did not answer.
+                let _ = super::daemon::stop_supervisor(layout, None);
+            }
             let removed =
                 service::uninstall(r.as_ref(), layout).unwrap_or_else(|e| fail_service(out, &e));
             out.ok(

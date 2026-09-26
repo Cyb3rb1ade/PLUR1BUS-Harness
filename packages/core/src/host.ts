@@ -3,7 +3,7 @@ import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { AgentRegistry } from "./agents.ts";
 import { engineLoggerFrom, type HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
-import { platformCapabilities } from "./platform.ts";
+import { createPlatformCapabilities } from "./platform.ts";
 
 export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; config: HarnessConfig; engineConfig: Record<string, unknown>; agents: AgentRegistry; events: (name: string, payload: unknown) => void; clock?: () => number }): HostServices {
   return {
@@ -16,7 +16,7 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
     // mutateConfig: absent in H1 (H2 forwards to the supervisor's config.set)
     events: { emit: (name, payload) => o.events(name, payload) },
     clock: o.clock ?? Date.now,
-    platform: platformCapabilities,
+    platform: createPlatformCapabilities({ logger: o.logger }),
     runtime: null,
   };
 }

@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
@@ -208,5 +208,19 @@ describe("core start journal replay (I2)", () => {
       const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "chimney sweep", joined: true });
       assert.match(r.joined.text, /chimney sweep/i);
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+});
+
+describe("core run files (S11)", () => {
+  it("start() secures run/ and the token and pid files, even when run/ already existed wider", { skip: process.platform === "win32" }, async () => {
+    const home = newHome(); const l = layout(home);
+    mkdirSync(l.run, { recursive: true }); chmodSync(l.run, 0o755);
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    try {
+      assert.equal(statSync(l.run).mode & 0o777, 0o700);
+      assert.equal(statSync(l.coreToken).mode & 0o777, 0o600);
+      assert.equal(statSync(l.corePid).mode & 0o777, 0o600);
+    } finally { await core.stop({ budgetMs: 5000 }); }
   });
 });

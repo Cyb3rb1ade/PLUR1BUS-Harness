@@ -2,7 +2,7 @@ use crate::cli::AgentCmd;
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
 use plur1bus_config as cfg;
-use plur1bus_rpc::{Client, ConnectOptions};
+use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 
 const ID_RE: &str = "^[a-z0-9][a-z0-9_-]{0,63}$";
@@ -28,7 +28,10 @@ fn try_core(layout: &Layout) -> Option<Client> {
             if cfg!(windows) { "windows" } else { "posix" },
         ),
         token.trim(),
-        ConnectOptions::default(),
+        ConnectOptions {
+            expected_server_pid: layout.recorded_pid(Endpoint::Core),
+            ..ConnectOptions::default()
+        },
     )
     .ok()
 }

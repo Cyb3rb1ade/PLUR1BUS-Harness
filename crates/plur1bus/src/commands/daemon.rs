@@ -58,6 +58,7 @@ fn probe(layout: &Layout, connect_timeout: Duration, call_timeout: Duration) -> 
         connect_timeout,
         call_timeout,
         endpoint: Endpoint::Supervisor,
+        expected_server_pid: layout.recorded_pid(Endpoint::Supervisor),
     };
     let mut client = match Client::connect(&address, &token, opts) {
         Ok(c) => c,
@@ -305,6 +306,7 @@ fn call_daemon_start(layout: &Layout) -> Result<Value, ()> {
         connect_timeout: PROBE_CONNECT_TIMEOUT,
         call_timeout: PROBE_CALL_TIMEOUT,
         endpoint: Endpoint::Supervisor,
+        expected_server_pid: layout.recorded_pid(Endpoint::Supervisor),
     };
     let address = supervisor_address(&layout.home, platform_str());
     let mut client = Client::connect(&address, &token, opts).map_err(drop)?;
@@ -314,37 +316,46 @@ fn call_daemon_start(layout: &Layout) -> Result<Value, ()> {
 /// `daemon stop`: `daemon.stop`, then waits up to `budget + 10 s` for `run/supervisor.pid` to disappear. With no
 /// supervisor answering: `{ stopped: false, wasRunning: false }`, exit 0 (the brief).
 fn do_stop(out: &Out, layout: &Layout, budget_ms: Option<u64>) -> (bool, bool) {
-    let token = match supervisor::read_token(layout) {
-        Some(t) => t,
-        None => return (false, false),
-    };
+    match stop_supervisor(layout, budget_ms) {
+        None => (false, false),
+        Some(Err(e)) => out.from_rpc_error(&e),
+        Some(Ok(stopped)) => (stopped, true),
+    }
+}
+
+/// Asks the running supervisor to stop (`daemon.stop`) and waits up to `budget + 10 s` for `run/supervisor.pid` to
+/// disappear. `None`: no supervisor answered; `Some(Err)`: it refused; `Some(Ok(stopped))`: whether it is gone.
+/// Also used by `service uninstall` on Windows, where Task Scheduler's own `/End` can only terminate the process.
+pub(crate) fn stop_supervisor(
+    layout: &Layout,
+    budget_ms: Option<u64>,
+) -> Option<Result<bool, RpcError>> {
+    let token = supervisor::read_token(layout)?;
     let opts = ConnectOptions {
         connect_timeout: PROBE_CONNECT_TIMEOUT,
         call_timeout: Duration::from_secs(5),
         endpoint: Endpoint::Supervisor,
+        expected_server_pid: layout.recorded_pid(Endpoint::Supervisor),
     };
     let address = supervisor_address(&layout.home, platform_str());
-    let mut client = match Client::connect(&address, &token, opts) {
-        Ok(c) => c,
-        Err(_) => return (false, false),
-    };
+    let mut client = Client::connect(&address, &token, opts).ok()?;
     let params = match budget_ms {
         Some(b) => json!({ "budgetMs": b }),
         None => json!({}),
     };
     if let Err(e) = client.call("daemon.stop", params) {
-        out.from_rpc_error(&e);
+        return Some(Err(e));
     }
     let budget = Duration::from_millis(budget_ms.unwrap_or(DEFAULT_STOP_BUDGET_MS));
     let deadline = Instant::now() + budget + STOP_GRACE;
     let pid_file = layout.supervisor_pid();
     while pid_file.exists() {
         if Instant::now() >= deadline {
-            return (false, true);
+            return Some(Ok(false));
         }
         std::thread::sleep(POLL_INTERVAL);
     }
-    (true, true)
+    Some(Ok(true))
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {

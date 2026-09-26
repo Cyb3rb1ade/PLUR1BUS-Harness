@@ -6,7 +6,7 @@ use crate::journal::{self, JournalLine, Message};
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
 use plur1bus_config as cfg;
-use plur1bus_rpc::{is_unavailable, Client, ConnectOptions, RpcError};
+use plur1bus_rpc::{is_unavailable, Client, ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -21,6 +21,7 @@ pub(crate) fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client,
         ConnectOptions {
             connect_timeout: Duration::from_millis(300),
             call_timeout,
+            expected_server_pid: layout.recorded_pid(Endpoint::Core),
             ..ConnectOptions::default()
         },
     )

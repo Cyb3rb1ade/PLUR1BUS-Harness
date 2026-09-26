@@ -517,8 +517,8 @@ impl Monitor {
             "stopping core",
             json!({ "pid": gen.pid, "budgetMs": budget_ms }),
         );
-        // On a helper thread, bounded here: a Windows read has no deadline yet, and a hung core must not block the
-        // stop (it is killed below instead).
+        // On a helper thread, bounded here: the calls have their own read deadlines, but the stop must stay within its
+        // budget whatever they add up to; a hung core is killed below instead.
         let (tx, rx) = std::sync::mpsc::channel();
         let (c, g) = (self.ctx.clone(), gen.clone());
         self.start_thread(&format!("{}-shutdown-{}", gen.role, gen.pid), move || {
@@ -633,6 +633,7 @@ fn connect(ctx: &Ctx, pid: u32) -> Option<Client> {
         connect_timeout: ctx.timing.poll_deadline,
         call_timeout: ctx.timing.poll_deadline,
         endpoint: Endpoint::Core,
+        expected_server_pid: Some(pid),
     };
     let client = Client::connect(&ctx.address, token.trim(), opts).ok()?;
     (client.hello()["pid"].as_u64() == Some(u64::from(pid))).then_some(client)

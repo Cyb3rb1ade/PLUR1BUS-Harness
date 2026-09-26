@@ -147,6 +147,7 @@ fn client(home: &Path) -> Client {
         connect_timeout: Duration::from_secs(2),
         call_timeout: Duration::from_secs(5),
         endpoint: Endpoint::Supervisor,
+        expected_server_pid: None,
     };
     let deadline = Instant::now() + WAIT;
     loop {
@@ -377,8 +378,7 @@ fn one_late_health_reply_does_not_degrade_or_kill() {
     }
     assert_eq!(h.named_events("started").len(), 1);
     let log = h.log("supervisor.log");
-    // Windows reads have no deadline yet (Task 10), so there the late reply simply arrives late.
-    #[cfg(unix)]
+    // The 2 s poll deadline passes before the 3 s reply on every OS (Windows: overlapped reads with a deadline).
     assert!(
         log.contains("health poll failed"),
         "the slow reply was not a failed poll: {log}"

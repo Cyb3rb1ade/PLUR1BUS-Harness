@@ -179,6 +179,7 @@ fn the_os_restarts_a_killed_supervisor() {
         connect_timeout: Duration::from_secs(2),
         call_timeout: Duration::from_secs(5),
         endpoint: Endpoint::Supervisor,
+        expected_server_pid: None,
     };
     wait_until(
         Duration::from_secs(15),

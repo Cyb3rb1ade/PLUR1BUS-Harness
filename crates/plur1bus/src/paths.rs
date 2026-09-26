@@ -184,7 +184,6 @@ impl Layout {
     pub fn core_token(&self) -> PathBuf {
         self.run().join("core.token")
     }
-    #[allow(dead_code)] // read by the supervisor's adoption probe (Task 7)
     pub fn core_pid(&self) -> PathBuf {
         self.run().join("core.pid")
     }
@@ -195,6 +194,20 @@ impl Layout {
     /// `<pid> <instanceId>\n` of the running supervisor.
     pub fn supervisor_pid(&self) -> PathBuf {
         self.run().join("supervisor.pid")
+    }
+    /// The pid recorded in `run/core.pid` (`Endpoint::Core`) or `run/supervisor.pid` (`Endpoint::Supervisor`), the
+    /// first field of `<pid> <instanceId>`. Clients pass it as `ConnectOptions::expected_server_pid` (ruling S11).
+    pub fn recorded_pid(&self, endpoint: plur1bus_rpc::Endpoint) -> Option<u32> {
+        let file = match endpoint {
+            plur1bus_rpc::Endpoint::Core => self.core_pid(),
+            plur1bus_rpc::Endpoint::Supervisor => self.supervisor_pid(),
+        };
+        std::fs::read_to_string(file)
+            .ok()?
+            .split_whitespace()
+            .next()?
+            .parse()
+            .ok()
     }
     /// Held with an exclusive OS file lock for the supervisor's whole life: the single-instance guard.
     pub fn supervisor_lock(&self) -> PathBuf {
@@ -405,5 +418,24 @@ mod tests {
             ),
             PathBuf::from(r"C:\a\b")
         );
+    }
+
+    #[test]
+    fn recorded_pid_reads_the_first_field_of_each_pid_file() {
+        use plur1bus_rpc::Endpoint;
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        assert_eq!(layout.recorded_pid(Endpoint::Core), None);
+        std::fs::create_dir_all(layout.run()).unwrap();
+        std::fs::write(
+            layout.core_pid(),
+            "4242 11111111-2222-4333-8444-555555555555\n",
+        )
+        .unwrap();
+        std::fs::write(layout.supervisor_pid(), "77 x\n").unwrap();
+        assert_eq!(layout.recorded_pid(Endpoint::Core), Some(4242));
+        assert_eq!(layout.recorded_pid(Endpoint::Supervisor), Some(77));
+        std::fs::write(layout.core_pid(), "not-a-pid\n").unwrap();
+        assert_eq!(layout.recorded_pid(Endpoint::Core), None);
     }
 }

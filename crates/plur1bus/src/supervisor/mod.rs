@@ -9,6 +9,8 @@
 pub mod adopt;
 pub mod child;
 pub mod logfile;
+#[cfg(windows)]
+pub mod pipe_windows;
 pub mod server;
 pub mod state;
 
@@ -329,6 +331,8 @@ fn probe(layout: &Layout, address: &str) -> Option<u64> {
         connect_timeout: Duration::from_millis(300),
         call_timeout: Duration::from_millis(300),
         endpoint: Endpoint::Supervisor,
+        // A squatter's pipe is refused before the token is sent (S11); a dead supervisor's pid never serves.
+        expected_server_pid: layout.recorded_pid(Endpoint::Supervisor),
     };
     let client = Client::connect(address, &token, opts).ok()?;
     client.hello()["pid"].as_u64()
@@ -352,7 +356,8 @@ fn fresh_token() -> io::Result<String> {
 }
 
 /// Writes `content` to `path` through a temporary file and a rename, so a reader (the core's `core.adopt`) never
-/// sees a half-written file. Mode `0600` on unix; the Windows ACL comes with Task 10.
+/// sees a half-written file. Mode `0600` on unix; on Windows a protected DACL for the user and SYSTEM only (S3, S11),
+/// set before any content is written. The rename keeps it.
 fn write_private(path: &Path, content: &str) -> io::Result<()> {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
@@ -364,11 +369,23 @@ fn write_private(path: &Path, content: &str) -> io::Result<()> {
         use std::os::unix::fs::OpenOptionsExt;
         o.mode(0o600);
     }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Foundation::GENERIC_WRITE;
+        use windows_sys::Win32::Storage::FileSystem::WRITE_DAC;
+        o.access_mode(GENERIC_WRITE | WRITE_DAC);
+    }
     let mut f = o.open(&tmp)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         f.set_permissions(fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        plur1bus_rpc::win::restrict_to_user(f.as_raw_handle())?;
     }
     f.write_all(content.as_bytes())?;
     f.sync_all()?;
@@ -384,6 +401,21 @@ fn create_private_dir(dir: &Path) -> io::Result<()> {
         fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
     }
     Ok(())
+}
+
+/// Task Scheduler starts the supervisor (a console program) at logon with a console window of its own. A console no
+/// other process shares is released, so that window closes; the terminal of a user who ran `supervise` by hand is
+/// shared with the shell and kept. Redirected stdio (pipes, files) is unaffected.
+#[cfg(windows)]
+fn release_own_console() {
+    use windows_sys::Win32::System::Console::{FreeConsole, GetConsoleProcessList};
+    let mut pids = [0u32; 2];
+    // SAFETY: a buffer of two entries; the result is how many processes share this console (0 without one).
+    let sharing = unsafe { GetConsoleProcessList(pids.as_mut_ptr(), pids.len() as u32) };
+    if sharing == 1 {
+        // SAFETY: detaches this process from its console; nothing here holds a console handle.
+        unsafe { FreeConsole() };
+    }
 }
 
 fn fail(code: i32, msg: &str) -> ! {
@@ -416,6 +448,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     } else {
         1.0
     };
+    #[cfg(windows)]
+    release_own_console();
 
     if let Err(e) =
         create_private_dir(&layout.run()).and_then(|_| fs::create_dir_all(layout.logs()))

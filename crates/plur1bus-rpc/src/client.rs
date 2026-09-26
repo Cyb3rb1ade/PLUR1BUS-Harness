@@ -33,6 +33,12 @@ pub struct ConnectOptions {
     pub call_timeout: Duration,
     /// Which server `address` belongs to (default: the core).
     pub endpoint: Endpoint,
+    /// The pid the caller expects to serve `address` (the one in `run/core.pid` or `run/supervisor.pid`). On Windows,
+    /// where any account can create a pipe of a free name, a pipe whose `GetNamedPipeServerProcessId` differs is
+    /// refused before the token is sent (`E_UNAUTHORIZED`, reason `pipe-server-mismatch`, ruling S11). `None` skips
+    /// the check. Unix sockets live in the `0700` `run/` directory, where nobody else can bind, so it is not checked
+    /// there.
+    pub expected_server_pid: Option<u32>,
 }
 impl Default for ConnectOptions {
     fn default() -> Self {
@@ -40,6 +46,7 @@ impl Default for ConnectOptions {
             connect_timeout: Duration::from_millis(300),
             call_timeout: Duration::from_secs(30),
             endpoint: Endpoint::Core,
+            expected_server_pid: None,
         }
     }
 }
@@ -83,6 +90,9 @@ impl Client {
             endpoint: opts.endpoint,
             poisoned: false,
         };
+        if cfg!(windows) {
+            check_server_pid(opts.expected_server_pid, client.peer_pid())?;
+        }
         let method = opts.endpoint.auth_method();
         // The handshake runs under the connect timeout: a server that owns the socket but never answers must fail fast.
         client
@@ -266,6 +276,27 @@ enum Line {
     Closed,
 }
 
+/// Ruling S11: with an expectation, the OS must name exactly that pid as the server, or the token stays unsent.
+fn check_server_pid(expected: Option<u32>, actual: Option<u32>) -> Result<(), RpcError> {
+    let Some(expected) = expected else {
+        return Ok(());
+    };
+    if actual == Some(expected) {
+        return Ok(());
+    }
+    Err(RpcError::Call {
+        error: ErrorCode::EUnauthorized,
+        jsonrpc: -32000,
+        message: "the pipe is not served by the expected process".into(),
+        reason: Some("pipe-server-mismatch".into()),
+        detail: Some(match actual {
+            Some(pid) => format!("served by pid {pid}, expected pid {expected}"),
+            None => format!("the OS does not name the server, expected pid {expected}"),
+        }),
+        ids: None,
+    })
+}
+
 /// Errors after which the stream position is unknown (timeouts, I/O errors, close). The over-long line case poisons
 /// itself in `call_inner`, since a `Protocol` error on a complete line leaves the stream at a clean boundary.
 fn poisons(e: &RpcError) -> bool {
@@ -288,5 +319,40 @@ fn call_error(err: &Value) -> RpcError {
                 .collect();
             (!ids.is_empty()).then_some(ids)
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reason(r: Result<(), RpcError>) -> Option<String> {
+        match r {
+            Err(RpcError::Call {
+                error: ErrorCode::EUnauthorized,
+                reason,
+                ..
+            }) => reason,
+            other => panic!("expected E_UNAUTHORIZED, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_server_pid_check_passes_on_a_match_or_without_an_expectation() {
+        assert!(check_server_pid(Some(42), Some(42)).is_ok());
+        assert!(check_server_pid(None, Some(42)).is_ok());
+        assert!(check_server_pid(None, None).is_ok());
+    }
+
+    #[test]
+    fn a_mismatched_or_unnamed_server_is_refused_as_pipe_server_mismatch() {
+        assert_eq!(
+            reason(check_server_pid(Some(1), Some(42))).as_deref(),
+            Some("pipe-server-mismatch")
+        );
+        assert_eq!(
+            reason(check_server_pid(Some(1), None)).as_deref(),
+            Some("pipe-server-mismatch")
+        );
     }
 }

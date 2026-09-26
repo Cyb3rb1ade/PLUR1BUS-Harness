@@ -16,6 +16,7 @@ import { createLogger, type HarnessLogger } from "./logger.ts";
 import { MEMORY_OP_METHODS } from "./memory-ops.ts";
 import { createOrphanWatch, type OrphanWatch } from "./orphan-watch.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
+import { createPlatformCapabilities } from "./platform.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
@@ -86,6 +87,9 @@ export function createCore(o: CoreOptions): Core {
     const { config } = loadConfig(l.configPath);
     logger = o.logger ?? createLogger({ file: l.logFile("core"), level: config.core.logLevel, role: "core", maxBytes: config.logs.maxBytes, keep: config.logs.keep });
     const log = logger;
+    // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
+    const platform = createPlatformCapabilities({ logger: log });
+    platform.securePath(l.run, { mode: 0o700 });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
@@ -158,6 +162,7 @@ export function createCore(o: CoreOptions): Core {
       wroteRunFiles = true;
       writeFileSync(l.coreToken, token, { mode: 0o600 });
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
+      platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
       // I2: replay once the socket accepts connections, so the CLI's captures go live instead of journaling while
       // the journal is read; drainJournal re-runs the pass for any line that still arrived during one.

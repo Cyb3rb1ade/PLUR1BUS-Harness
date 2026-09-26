@@ -102,6 +102,7 @@ fn opts() -> ConnectOptions {
         connect_timeout: Duration::from_secs(2),
         call_timeout: Duration::from_secs(5),
         endpoint: Endpoint::Supervisor,
+        expected_server_pid: None,
     }
 }
 

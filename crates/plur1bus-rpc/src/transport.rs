@@ -96,10 +96,12 @@ mod imp {
 
 #[cfg(windows)]
 mod imp {
+    //! The pipe is opened with `FILE_FLAG_OVERLAPPED`; every read is `ReadFile` + `WaitForSingleObject(event,
+    //! deadline)` + `CancelIoEx` on timeout ([`crate::win::overlapped_op`]), so a read deadline works as on unix: the
+    //! timeout surfaces as `call-timeout` and poisons the client.
     use super::*;
-    use std::fs::{File, OpenOptions};
-    use std::time::Instant;
-    pub struct S(File);
+    use crate::win::{pipe_server_pid, OverlappedPipe};
+    pub struct S(OverlappedPipe);
     impl Read for S {
         fn read(&mut self, b: &mut [u8]) -> io::Result<usize> {
             self.0.read(b)
@@ -110,39 +112,25 @@ mod imp {
             self.0.write(b)
         }
         fn flush(&mut self) -> io::Result<()> {
-            self.0.flush()
+            Ok(())
         }
     }
-    // H2: overlapped I/O with timeouts; until then a Windows read blocks without a deadline.
     impl Stream for S {
-        fn set_read_timeout(&self, _d: Option<Duration>) -> io::Result<()> {
+        /// Also bounds each write, which on a pipe can block while the server does not read.
+        fn set_read_timeout(&self, d: Option<Duration>) -> io::Result<()> {
+            self.0.set_timeout(d);
             Ok(())
         }
         fn peer_pid(&self) -> Option<u32> {
-            use std::os::windows::io::AsRawHandle;
-            let mut pid: u32 = 0;
-            // SAFETY: the handle is the open pipe client this `File` owns; `pid` is a live local.
-            let ok = unsafe {
-                windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId(
-                    self.0.as_raw_handle() as windows_sys::Win32::Foundation::HANDLE,
-                    &mut pid,
-                )
-            };
-            (ok != 0 && pid != 0).then_some(pid)
+            pipe_server_pid(self.0.handle())
         }
     }
+    /// Retries while every server instance is busy (`ERROR_PIPE_BUSY`) until the connect timeout.
     pub fn connect(address: &str, connect_timeout: Duration) -> io::Result<Box<dyn Stream>> {
-        let start = Instant::now();
-        loop {
-            match OpenOptions::new().read(true).write(true).open(address) {
-                Ok(f) => return Ok(Box::new(S(f))),
-                // 231 = ERROR_PIPE_BUSY: every server instance is taken; retry until the connect timeout.
-                Err(e) if e.raw_os_error() == Some(231) && start.elapsed() < connect_timeout => {
-                    std::thread::sleep(Duration::from_millis(10))
-                }
-                Err(e) => return Err(e),
-            }
-        }
+        Ok(Box::new(S(OverlappedPipe::connect(
+            address,
+            connect_timeout,
+        )?)))
     }
 }
 

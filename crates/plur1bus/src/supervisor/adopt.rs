@@ -90,6 +90,8 @@ fn core_options(timeout: Duration) -> ConnectOptions {
         connect_timeout: timeout,
         call_timeout: timeout,
         endpoint: Endpoint::Core,
+        // The probe reads the server's pid itself and classifies a mismatch (`Foreign`); callers check it first.
+        expected_server_pid: None,
     }
 }
 
@@ -148,8 +150,9 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
     }
 }
 
-/// `core.auth` on `stream`, bounded by `timeout` plus a margin even where a read has no deadline yet (Windows until
-/// Task 10): `None` when the bound expires. A thread left behind ends when the core answers or goes away.
+/// `core.auth` on `stream`, bounded by `timeout` plus a margin on top of the read deadline the client sets itself
+/// (every OS has one now, Windows through overlapped reads): `None` when the bound expires. A thread left behind ends
+/// with its read deadline.
 fn handshake_bounded(
     stream: Box<dyn Stream>,
     token: String,
