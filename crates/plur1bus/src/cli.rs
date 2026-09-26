@@ -1,6 +1,17 @@
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
+/// Leaf command paths (space-joined, e.g. `"memory add"`) exempt from the `[experimental]`
+/// stability mark — the only CLI surface ADR-016 §4/G14 calls stable. Every other implemented
+/// leaf command's `about` starts with `[experimental] `; a stub names its milestone instead
+/// (`2a-H3`, `M2`, `M3`, `M4`, `M1b-3` or `M8`) and is exempt for that reason (see the
+/// `leaf_commands_are_stable_or_marked_experimental` test below).
+/// Read by the `leaf_commands_are_stable_or_marked_experimental` test below and by anything else
+/// (docs, a future `plur1bus <cmd> --help` footer) that needs the stable subset; the binary
+/// itself has no other reason to reference it, hence the allow.
+#[allow(dead_code)]
+pub const STABLE_COMMANDS: &[&str] = &["memory add", "memory recall", "config get", "config set"];
+
 #[derive(Parser, Debug)]
 #[command(
     name = "plur1bus",
@@ -21,9 +32,9 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
-    /// Install the harness (runtime, service registration) — H2
+    /// Install the harness (runtime, service registration) — 2a-H3
     Setup(StubArgs),
-    /// Check and repair the installation — H2
+    /// Check and repair the installation — 2a-H3
     #[command(name = "1staid")]
     FirstAid {
         #[command(subcommand)]
@@ -49,18 +60,18 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ConfigCmd,
     },
-    /// Modules — H2
+    /// Modules — 2a-H3
     Module(StubArgs),
-    /// Supervisor control — H2
+    /// Supervisor control — 2a-H3
     Daemon(StubArgs),
-    /// OS service registration — H2
+    /// OS service registration — 2a-H3
     Service(StubArgs),
     /// Core process (internal)
     Core {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// Update check — H2
+    /// Update check — 2a-H3
     Update(StubArgs),
     /// Users — M2
     User(StubArgs),
@@ -89,7 +100,9 @@ pub struct StubArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum FirstAidCmd {
+    /// Check the installation for problems — 2a-H3
     Check,
+    /// Repair a broken installation — 2a-H3
     Repair {
         #[arg(long)]
         yes: bool,
@@ -99,13 +112,18 @@ pub enum FirstAidCmd {
 }
 #[derive(Subcommand, Debug)]
 pub enum AgentCmd {
+    /// [experimental] List registered agents
     List,
+    /// [experimental] Register a new agent
     Create { id: String },
+    /// [experimental] Remove an agent from the registry (data is kept)
     Remove { id: String },
+    /// [experimental] Show an agent's activity and workspace
     Status { id: String },
 }
 #[derive(Subcommand, Debug)]
 pub enum MemoryCmd {
+    /// Capture a memory through the core (stable, ADR-016 §4)
     Add {
         #[arg(long)]
         agent: String,
@@ -114,6 +132,7 @@ pub enum MemoryCmd {
         session: Option<String>,
         text: Vec<String>,
     },
+    /// Recall relevant memory blocks through the core (stable, ADR-016 §4)
     Recall {
         #[arg(long)]
         agent: String,
@@ -124,24 +143,132 @@ pub enum MemoryCmd {
         joined: bool,
         query: Vec<String>,
     },
-    List(StubArgs),
-    Show(StubArgs),
-    Forget(StubArgs),
-    Correct(StubArgs),
-    Share(StubArgs),
-    State(StubArgs),
+    /// [experimental] List captured memory entries
+    List {
+        #[arg(long)]
+        agent: String,
+        /// filter by topic (mutually exclusive with --since/--until)
+        #[arg(long, conflicts_with_all = ["since", "until"])]
+        topic: Option<String>,
+        /// epoch milliseconds, or a relative `<n>m|h|d` (e.g. `7d`); defaults to all history
+        #[arg(long)]
+        since: Option<String>,
+        /// epoch milliseconds, or a relative `<n>m|h|d`
+        #[arg(long, requires = "since")]
+        until: Option<String>,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Show one memory entry
+    Show {
+        #[arg(long)]
+        agent: String,
+        id: String,
+    },
+    /// [experimental] Forget (redact) a memory entry
+    Forget {
+        #[arg(long)]
+        agent: String,
+        id: String,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Correct a memory entry
+    Correct {
+        #[arg(long)]
+        agent: String,
+        id: String,
+        #[arg(required = true)]
+        text: Vec<String>,
+    },
+    /// [experimental] Share a memory entry with another agent
+    Share {
+        #[arg(long)]
+        agent: String,
+        id: String,
+        #[arg(long, value_enum)]
+        to: ShareTarget,
+        /// share even if the memory is marked sensitive (otherwise a TTY prompts for it)
+        #[arg(long)]
+        allow_sensitive: bool,
+    },
+    /// [experimental] Memory subsystem state
+    State {
+        #[arg(long)]
+        agent: String,
+    },
+    /// [experimental] Propose a correction to a shared memory
+    Propose {
+        #[arg(long)]
+        agent: String,
+        shared_id: String,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(required = true)]
+        text: Vec<String>,
+    },
+    /// [experimental] List, accept or reject shared-memory correction proposals
+    Proposals {
+        #[command(subcommand)]
+        sub: ProposalsCmd,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ShareTarget {
+    Workspace,
+    User,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ProposalStatus {
+    Pending,
+    Accepted,
+    Rejected,
+    Stale,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ProposalsCmd {
+    /// [experimental] List shared-memory correction proposals
+    List {
+        #[arg(long)]
+        agent: String,
+        #[arg(long, value_enum)]
+        status: Option<ProposalStatus>,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Accept a proposal
+    Accept {
+        #[arg(long)]
+        agent: String,
+        proposal_id: String,
+    },
+    /// [experimental] Reject a proposal
+    Reject {
+        #[arg(long)]
+        agent: String,
+        proposal_id: String,
+        #[arg(long)]
+        note: Option<String>,
+    },
 }
 #[derive(Subcommand, Debug)]
 pub enum DreamsCmd {
+    /// [experimental] Dreaming job status and breaker state
     Status {
         #[arg(long)]
         agent: Option<String>,
     },
+    /// [experimental] Run a dreaming job now
     Run {
         job: String,
         #[arg(long)]
         agent: String,
     },
+    /// [experimental] Dreaming job run history
     Log {
         #[arg(long)]
         agent: String,
@@ -153,9 +280,15 @@ pub enum DreamsCmd {
 }
 #[derive(Subcommand, Debug)]
 pub enum ConfigCmd {
+    /// Get a config value (stable, ADR-016 §4)
     Get {
+        #[arg(conflicts_with = "tier")]
         key: Option<String>,
+        /// print only the keys in this tier (D29); mutually exclusive with KEY
+        #[arg(long, value_enum, conflicts_with = "key")]
+        tier: Option<TierArg>,
     },
+    /// Set a config value (stable, ADR-016 §4)
     Set {
         key: String,
         value: String,
@@ -164,10 +297,85 @@ pub enum ConfigCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    Schema,
+    /// [experimental] Print the config JSON Schema
+    Schema {
+        /// filter the schema to one tier (D29)
+        #[arg(long, value_enum, default_value = "all")]
+        tier: TierFilter,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum TierArg {
+    Basic,
+    Advanced,
+}
+
+impl From<TierArg> for plur1bus_config::Tier {
+    fn from(t: TierArg) -> Self {
+        match t {
+            TierArg::Basic => plur1bus_config::Tier::Basic,
+            TierArg::Advanced => plur1bus_config::Tier::Advanced,
+        }
+    }
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum TierFilter {
+    All,
+    Basic,
+    Advanced,
 }
 #[derive(Subcommand, Debug)]
 pub enum CoreCmd {
-    /// Run the core in the foreground (the supervisor's spawn target in H2)
+    /// [experimental] Run the core in the foreground (the supervisor's spawn target — 2a-H3)
     Run,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    /// Milestone tags a stub command's `about` names (gen-docs.mjs's cli.md intro; G1).
+    const STUB_MILESTONES: &[&str] = &["2a-H3", "M1b-3", "M2", "M3", "M4", "M8"];
+
+    fn collect_leaves(cmd: &clap::Command, prefix: &str, out: &mut Vec<(String, Option<String>)>) {
+        let path = if prefix.is_empty() {
+            cmd.get_name().to_string()
+        } else {
+            format!("{prefix} {}", cmd.get_name())
+        };
+        let children: Vec<&clap::Command> =
+            cmd.get_subcommands().filter(|s| !s.is_hide_set()).collect();
+        if children.is_empty() {
+            out.push((path, cmd.get_about().map(|s| s.to_string())));
+        } else {
+            for c in children {
+                collect_leaves(c, &path, out);
+            }
+        }
+    }
+
+    /// Every visible leaf command is either in `STABLE_COMMANDS`, a milestone stub (its `about`
+    /// names the milestone that delivers it), or explicitly marked `[experimental]` (ADR-016 §4).
+    #[test]
+    fn leaf_commands_are_stable_or_marked_experimental() {
+        let root = Cli::command();
+        let mut leaves = Vec::new();
+        for top in root.get_subcommands().filter(|s| !s.is_hide_set()) {
+            collect_leaves(top, "", &mut leaves);
+        }
+        assert!(leaves.len() > 10, "sanity: expected many leaf commands");
+        for (path, about) in leaves {
+            let about = about.unwrap_or_default();
+            let stable = STABLE_COMMANDS.contains(&path.as_str());
+            let experimental = about.starts_with("[experimental]");
+            let stub = STUB_MILESTONES.iter().any(|m| about.contains(m));
+            assert!(
+                stable || experimental || stub,
+                "leaf `{path}` is neither stable, marked [experimental], nor a milestone stub (about: {about:?})"
+            );
+        }
+    }
 }

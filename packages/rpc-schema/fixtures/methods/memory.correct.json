@@ -1,1 +1,2 @@
-{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "mem-1", "text": "corrected text" }, "result": {} }
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "m-1", "text": "The roadmap review is on Friday." },
+  "result": { "id": "m-2", "archived": true } }

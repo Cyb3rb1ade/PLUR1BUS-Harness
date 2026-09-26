@@ -1,0 +1,1 @@
+{ "jsonrpc": "2.0", "id": 14, "error": { "code": -32000, "message": "the proposal is no longer pending", "data": { "error": "E_CONFLICT", "reason": "conflict" } } }

@@ -10,7 +10,7 @@ use plur1bus_rpc::{is_unavailable, Client, ConnectOptions, RpcError};
 use serde_json::{json, Value};
 use std::time::Duration;
 
-fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client, RpcError> {
+pub(crate) fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client, RpcError> {
     let token = std::fs::read_to_string(layout.core_token()).map_err(RpcError::from)?;
     Client::connect(
         &core_address(
@@ -25,7 +25,7 @@ fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client, RpcError> 
     )
 }
 
-fn require_agent(out: &Out, config: &Value, id: &str) {
+pub(crate) fn require_agent(out: &Out, config: &Value, id: &str) {
     if config["agents"].get(id).is_none() {
         out.fail(
             "E_AGENT_UNKNOWN",
@@ -66,7 +66,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                         "waitMs": wait_ms
                     });
                     match c.call("memory.capture", strip_nulls(params)) {
-                        Ok(v) => out.ok(&v, || {
+                        Ok(v) => out.ok("memory.add/1", &v, || {
                             format!(
                                 "stored {} / skipped {}{}",
                                 v["stored"],
@@ -130,7 +130,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                     "deferrals": []
                 });
                 eprintln!("! memory unavailable: core-unavailable ({detail})");
-                out.ok(&v, String::new);
+                out.ok("memory.recall/1", &v, String::new);
             };
             let params = build_recall_params(
                 &caller,
@@ -144,7 +144,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             );
             match connect(layout, Duration::from_millis(hard + 400)) {
                 Ok(mut c) => match c.call("memory.recall", params) {
-                    Ok(v) => out.ok(&v, || render_recall(&v, joined)),
+                    Ok(v) => out.ok("memory.recall/1", &v, || render_recall(&v, joined)),
                     Err(e) if is_unavailable(&e) => unavailable(e.to_string()),
                     Err(e) => out.from_rpc_error(&e),
                 },
@@ -152,17 +152,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 Err(e) => out.from_rpc_error(&e),
             }
         }
-        MemoryCmd::List(_)
-        | MemoryCmd::Show(_)
-        | MemoryCmd::Forget(_)
-        | MemoryCmd::Correct(_)
-        | MemoryCmd::Share(_)
-        | MemoryCmd::State(_) => out.fail(
-            "E_NOT_AVAILABLE",
-            "memory list/show/forget/correct/share/state arrive with engine PR E1 (MemoryOps)",
-            json!({ "reason": "engine-pr-E1" }),
-            2,
-        ),
+        other => super::memory_ops::run(out, layout, other),
     }
 }
 
@@ -234,6 +224,7 @@ fn journaled(
     });
     eprintln!("! core unavailable ({detail}); journaled for replay");
     out.ok(
+        "memory.add/1",
         &json!({
             "journaled": true,
             "id": line.id,
@@ -271,19 +262,35 @@ fn render_recall(v: &Value, joined: bool) -> String {
             d["block"], d["kind"], d["from"], d["to"], d["reason"]
         ));
     }
-    if !v["degraded"].is_null() {
-        s.push_str(&format!(
-            "degraded: {} ({}){}\n",
-            v["degraded"]["reason"],
-            v["degraded"]["capability"],
-            v["degraded"]["detail"]
-                .as_str()
-                .map(|d| format!(": {d}"))
-                .unwrap_or_default()
-        ));
+    if let Some(line) = degraded_line(v) {
+        s.push_str(&line);
+        s.push('\n');
     }
     s.push_str(&format!("{} ms", v["timing"]["totalMs"]));
     s
+}
+
+/// The human `degraded: <reason> (<capability>): <detail>` line for a result carrying `degraded`
+/// (shared by `memory recall` and the memory-ops reads); `None` when the result is not degraded.
+pub(crate) fn degraded_line(v: &Value) -> Option<String> {
+    let d = &v["degraded"];
+    if d.is_null() {
+        return None;
+    }
+    let text = |x: &Value| {
+        x.as_str()
+            .map(String::from)
+            .unwrap_or_else(|| x.to_string())
+    };
+    Some(format!(
+        "degraded: {} ({}){}",
+        text(&d["reason"]),
+        text(&d["capability"]),
+        d["detail"]
+            .as_str()
+            .map(|t| format!(": {t}"))
+            .unwrap_or_default()
+    ))
 }
 
 #[cfg(test)]

@@ -18,7 +18,10 @@ export function userPrincipalHash(c: CallerIdentity): UserPrincipal {
 }
 
 export function callerToPrincipal(c: CallerIdentity, agentId: string, workspaceDir: string): { principal: Principal; degraded: Degraded | null } {
-  const workspace = `workspace-dir:v1:${realpathSync.native(workspaceDir)}` as const;
+  // Must canonicalize exactly like the engine (lib/memory-request-context.js uses fs.realpathSync, the JS
+  // variant). realpathSync.native differs on Windows (C:\Windows\Temp vs C:\WINDOWS\TEMP, 8.3 names), and the
+  // engine then rejects every capture with "conflicting workspace identity".
+  const workspace = `workspace-dir:v1:${realpathSync(workspaceDir)}` as const;
   const problems: string[] = [];
   if (c.channel !== "cli") problems.push("channel");
   if (!validIdentity(c.accountId)) problems.push("accountId");

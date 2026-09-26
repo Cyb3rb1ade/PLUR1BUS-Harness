@@ -1,5 +1,6 @@
 use plur1bus_config::{
-    defaults, load, restart_class_of, set, validate, write_atomic, ConfigError, RestartClass,
+    defaults, filter_config_by_tier, filter_schema_by_tier, load, restart_class_of, set, tier_of,
+    validate, write_atomic, ConfigError, RestartClass, Tier,
 };
 use serde_json::{json, Value};
 use std::fs;
@@ -20,6 +21,17 @@ fn ts_restart_plan_cases() -> Value {
         &fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../packages/config-schema/fixtures/restart-plan-cases.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap()
+}
+
+fn ts_tier_cases() -> Value {
+    serde_json::from_str(
+        &fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../packages/config-schema/fixtures/tier-cases.json"
         ))
         .unwrap(),
     )
@@ -231,4 +243,42 @@ fn set_rejects_a_created_at_that_is_not_a_date_time() {
         json!({ "createdAt": "2026-09-24T00:00:00Z" })
     )
     .is_ok());
+}
+
+#[test]
+fn tier_cases_match_the_typescript_fixture() {
+    let fixture = ts_tier_cases();
+    for case in fixture["cases"].as_array().unwrap() {
+        let key = case["key"].as_str().unwrap();
+        let expected = match case["tier"].as_str().unwrap() {
+            "basic" => Tier::Basic,
+            "advanced" => Tier::Advanced,
+            other => panic!("unknown tier {other}"),
+        };
+        assert_eq!(tier_of(key), expected, "{key}");
+    }
+}
+
+#[test]
+fn filtered_schemas_match_the_typescript_fixture() {
+    let fixture = ts_tier_cases();
+    let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).unwrap();
+    assert_eq!(
+        filter_schema_by_tier(&schema, Tier::Basic),
+        fixture["filtered"]["basic"]
+    );
+    assert_eq!(
+        filter_schema_by_tier(&schema, Tier::Advanced),
+        fixture["filtered"]["advanced"]
+    );
+}
+
+#[test]
+fn filter_config_by_tier_matches_ts_semantics() {
+    let d = defaults();
+    let advanced = filter_config_by_tier(&d, Tier::Advanced);
+    assert!(advanced.get("agents").is_none());
+    let basic = filter_config_by_tier(&d, Tier::Basic);
+    assert!(basic.get("core").is_none());
+    assert!(basic.get("agents").is_some());
 }

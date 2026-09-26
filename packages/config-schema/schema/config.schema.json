@@ -6,43 +6,43 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
-    "$schema": { "type": "string", "x-restart": "live" },
-    "schemaVersion": { "const": 1, "x-restart": "core" },
+    "$schema": { "type": "string", "x-restart": "live", "x-tier": "advanced" },
+    "schemaVersion": { "const": 1, "x-restart": "core", "x-tier": "advanced" },
     "core": {
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "logLevel": { "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live" },
+        "logLevel": { "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live", "x-tier": "advanced" },
         "recall": {
           "type": "object", "additionalProperties": false, "default": {},
           "properties": {
-            "softBudgetMs": { "type": "integer", "minimum": 50, "default": 400, "x-restart": "live" },
-            "hardBudgetMs": { "type": "integer", "minimum": 100, "default": 600, "x-restart": "live" },
-            "capChars": { "type": "integer", "minimum": 1000, "default": 17000, "x-restart": "live" }
+            "softBudgetMs": { "type": "integer", "minimum": 50, "default": 400, "x-restart": "live", "x-tier": "advanced" },
+            "hardBudgetMs": { "type": "integer", "minimum": 100, "default": 600, "x-restart": "live", "x-tier": "advanced" },
+            "capChars": { "type": "integer", "minimum": 1000, "default": 17000, "x-restart": "live", "x-tier": "advanced" }
           }
         },
         "capture": {
           "type": "object", "additionalProperties": false, "default": {},
-          "properties": { "waitMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live" } }
+          "properties": { "waitMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live", "x-tier": "advanced" } }
         },
-        "shutdownBudgetMs": { "type": "integer", "minimum": 1000, "default": 30000, "x-restart": "live" }
+        "shutdownBudgetMs": { "type": "integer", "minimum": 1000, "default": 30000, "x-restart": "live", "x-tier": "advanced" }
       }
     },
     "supervisor": {
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "graceMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live" },
-        "healthIntervalMs": { "type": "integer", "minimum": 1000, "default": 5000, "x-restart": "live" }
+        "graceMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live", "x-tier": "advanced" },
+        "healthIntervalMs": { "type": "integer", "minimum": 1000, "default": 5000, "x-restart": "live", "x-tier": "advanced" }
       }
     },
     "logs": {
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "maxBytes": { "type": "integer", "minimum": 1048576, "default": 20971520, "x-restart": "live" },
-        "keep": { "type": "integer", "minimum": 1, "default": 5, "x-restart": "live" }
+        "maxBytes": { "type": "integer", "minimum": 1048576, "default": 20971520, "x-restart": "live", "x-tier": "advanced" },
+        "keep": { "type": "integer", "minimum": 1, "default": 5, "x-restart": "live", "x-tier": "advanced" }
       }
     },
     "agents": {
-      "type": "object", "default": {}, "x-restart": "live",
+      "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic",
       "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
       "additionalProperties": {
         "type": "object", "additionalProperties": false,
@@ -52,24 +52,24 @@
     "embedding": {
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "useClass": { "enum": ["general", "research", "commercial"], "default": "general", "x-restart": "core" },
-        "acceptedNcLicence": { "type": "boolean", "default": false, "x-restart": "core" },
-        "acceptedNcLicenceAt": { "type": "string", "format": "date-time", "x-restart": "core" }
+        "useClass": { "enum": ["general", "research", "commercial"], "default": "general", "x-restart": "core", "x-tier": "basic" },
+        "acceptedNcLicence": { "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced" },
+        "acceptedNcLicenceAt": { "type": "string", "format": "date-time", "x-restart": "core", "x-tier": "advanced" }
       }
     },
     "engine": {
-      "description": "Pass-through to the engine's EngineConfig (54 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
-      "type": "object", "default": {}, "x-restart": "core",
+      "description": "Pass-through to the engine's EngineConfig (55 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
+      "type": "object", "default": {}, "x-restart": "core", "x-tier": "advanced",
       "properties": {
-        "baseDbPathOverride": { "type": "string", "x-restart": "core", "description": "Testing/advanced only; default <home>/state/lancedb" }
+        "baseDbPathOverride": { "type": "string", "x-restart": "core", "x-tier": "advanced", "description": "Testing/advanced only; default <home>/state/lancedb" }
       },
       "additionalProperties": true
     },
-    "providers": { "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D15)", "additionalProperties": true },
-    "oauth":     { "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D16)", "additionalProperties": true },
-    "decision":  { "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D18)", "additionalProperties": true },
+    "providers": { "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15)", "additionalProperties": true },
+    "oauth":     { "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D16)", "additionalProperties": true },
+    "decision":  { "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D18)", "additionalProperties": true },
     "modelRoles": {
-      "type": "object", "default": {}, "x-restart": "live", "x-reserved": "M2 (D15, D18)",
+      "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15, D18)",
       "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision"] },
       "additionalProperties": { "type": "string" }
     }

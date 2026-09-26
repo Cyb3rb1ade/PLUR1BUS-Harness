@@ -9,6 +9,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
@@ -42,7 +43,7 @@ jobs:
       - run: pnpm test
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      - run: cargo test --workspace --no-fail-fast
       - run: pnpm docs:check
   system:
     needs: unit
@@ -50,6 +51,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
@@ -76,6 +78,7 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
-      - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+      # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
+      - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts
         env: { PLUR1BUS_BIN: target/release/plur1bus }
       - run: pnpm bench

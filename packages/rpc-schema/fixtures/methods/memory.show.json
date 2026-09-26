@@ -1,1 +1,2 @@
-{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "mem-1" }, "result": {} }
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "id": "m-1" },
+  "result": { "card": { "id": "m-1", "scope": "agent-private", "text": "The roadmap review is on Thursday.", "summary": "Roadmap review on Thursday", "createdAt": 1758000000000, "origin": "user", "epistemicStatus": "observed" } } }

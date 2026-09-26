@@ -173,9 +173,6 @@ impl Layout {
     pub fn core_token(&self) -> PathBuf {
         self.run().join("core.token")
     }
-    pub fn core_socket(&self) -> PathBuf {
-        self.run().join("core.sock")
-    }
     pub fn runtime(&self) -> PathBuf {
         self.home.join("runtime")
     }
@@ -189,10 +186,11 @@ pub fn core_address(home: &Path, platform: &str) -> String {
             &sha256_hex(home.to_string_lossy().to_lowercase().as_bytes())[..16]
         )
     } else {
-        Layout::new(home.to_path_buf())
-            .core_socket()
-            .to_string_lossy()
-            .to_string()
+        // Build with '/' explicitly: `platform` decides the format, not the host's path separator.
+        format!(
+            "{}/run/core.sock",
+            home.to_string_lossy().trim_end_matches('/')
+        )
     }
 }
 

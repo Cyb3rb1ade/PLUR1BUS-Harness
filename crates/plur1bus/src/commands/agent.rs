@@ -59,7 +59,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     })
                 })
                 .collect();
-            out.ok(&json!({ "agents": rows, "core": if live.is_some() { "ready" } else { "unavailable" } }), || {
+            out.ok("agent.list/1", &json!({ "agents": rows, "core": if live.is_some() { "ready" } else { "unavailable" } }), || {
                 if rows.is_empty() {
                     "no agents (create one with `plur1bus agent create <id>`)".into()
                 } else {
@@ -111,6 +111,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                 .and_then(|mut c| c.call("agent.open", json!({ "agentId": id })).ok())
                 .is_some();
             out.ok(
+                "agent.create/1",
                 &json!({ "agentId": id, "created": true, "opened": opened }),
                 || {
                     format!(
@@ -141,7 +142,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                 .and_then(|mut c| c.call("agent.close", json!({ "agentId": id })).ok());
             cfg::write_atomic(&layout.config_path(), &after)
                 .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
-            out.ok(&json!({ "agentId": id, "removed": true, "dataKept": true }), || {
+            out.ok("agent.remove/1", &json!({ "agentId": id, "removed": true, "dataKept": true }), || {
                 format!("removed agent {id} from the registry; data left in place under agents/{id} (purge arrives in M2)")
             });
         }
@@ -156,7 +157,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
             }
             match try_core(layout) {
                 Some(mut c) => match c.call("agent.status", json!({ "agentId": id })) {
-                    Ok(v) => out.ok(&v, || {
+                    Ok(v) => out.ok("agent.status/1", &v, || {
                         format!(
                             "{id}: {} since {} — workspace {}",
                             v["activity"]["state"], v["activity"]["since"], v["workspace"]
@@ -165,6 +166,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     Err(e) => out.from_rpc_error(&e),
                 },
                 None => out.ok(
+                    "agent.status/1",
                     &json!({ "agentId": id, "core": "unavailable", "workspace": layout.workspace_dir(&id) }),
                     || format!("{id}: core unavailable; workspace {}", layout.workspace_dir(&id).display()),
                 ),

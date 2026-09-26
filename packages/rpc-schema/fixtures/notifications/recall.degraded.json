@@ -1,0 +1,1 @@
+{ "agentId": "bernd", "degraded": { "reason": "timeout", "capability": "recall", "detail": "scheduler budget exceeded" } }

@@ -23,25 +23,25 @@ fn main() {
         Cmd::Setup(_) => commands::stubs::milestone(
             &out,
             "setup",
-            "H2",
+            "2a-H3",
             "installer and service registration (spec §6.5)",
         ),
         Cmd::FirstAid { .. } => {
-            commands::stubs::milestone(&out, "1staid", "H2", "check and repair (spec §6.6)")
+            commands::stubs::milestone(&out, "1staid", "2a-H3", "check and repair (spec §6.6)")
         }
         Cmd::Module(_) => {
-            commands::stubs::milestone(&out, "module", "H2", "module lifecycle and graph")
+            commands::stubs::milestone(&out, "module", "2a-H3", "module lifecycle and graph")
         }
         Cmd::Daemon(_) => commands::stubs::milestone(
             &out,
             "daemon",
-            "H2",
+            "2a-H3",
             "supervisor control; in H1 start the core with `plur1bus core run`",
         ),
         Cmd::Service(_) => {
-            commands::stubs::milestone(&out, "service", "H2", "OS service registration")
+            commands::stubs::milestone(&out, "service", "2a-H3", "OS service registration")
         }
-        Cmd::Update(_) => commands::stubs::milestone(&out, "update", "H2", "manifest check"),
+        Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3", "manifest check"),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
         Cmd::Model(_) => commands::stubs::milestone(
             &out,

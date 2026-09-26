@@ -1,4 +1,4 @@
 { "params": {},
   "result": { "process": { "state": "ready", "since": 1758700000000 }, "contract": "1.4.1", "rpc": "1.0.0", "instanceId": "inst-fixture", "pid": 4242, "uptimeMs": 1500,
-              "engine": { "ready": true, "degraded": null },
+              "engine": { "ready": true, "degraded": null, "storeSchema": { "current": "1.0.0", "expected": "1.0.0" } },
               "agents": [{ "agentId": "bernd", "activity": { "state": "idle", "since": 1758700000000 } }], "journalBacklog": 0 } }

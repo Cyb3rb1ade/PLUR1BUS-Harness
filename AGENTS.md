@@ -43,8 +43,8 @@ Root scripts (`package.json`), each fanning out to every workspace package with
 | `pnpm test` | Runs every package's `test` script (see below) plus each package's own `gen`/build-adjacent step where its `test` script needs one (e.g. `config-schema` and `rpc-schema` regenerate before testing). |
 | `pnpm typecheck` | `tsc -p tsconfig.base.json --noEmit` across all package sources. |
 | `pnpm lint` | `pnpm typecheck` + `node scripts/lint-hygiene.mjs` (below). |
-| `pnpm docs:gen` | Builds the CLI (`cargo build -q -p plur1bus`), then regenerates `docs/config-engine-keys.md` (`scripts/gen-engine-keys.mjs`) and `docs/rpc.md` + `docs/cli.md` (`scripts/gen-docs.mjs`). |
-| `pnpm docs:check` | Builds the CLI, then `scripts/gen-docs.mjs --check`: fails when `docs/rpc.md` or `docs/cli.md` differs from what the schema and the clap tree produce. CI runs it. |
+| `pnpm docs:gen` | Builds the CLI (`cargo build -q -p plur1bus`), then regenerates `docs/config-engine-keys.md` (`scripts/gen-engine-keys.mjs`) and `docs/rpc.md` + `docs/cli.md` + `docs/config.md` (`scripts/gen-docs.mjs`). |
+| `pnpm docs:check` | Builds the CLI, then `scripts/gen-docs.mjs --check`: fails when `docs/rpc.md`, `docs/cli.md` or `docs/config.md` differs from what the schema and the clap tree produce. CI runs it. |
 
 One crate (from the repo root):
 
@@ -97,14 +97,14 @@ Env vars that matter when driving the core directly instead of through the CLI:
 
 | Path | Language | Package | Purpose |
 |---|---|---|---|
-| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor skeleton: `agent`, `memory`, `dreams`, `config`, `core` (internal), plus stubbed `setup`, `1staid`, `module`, `daemon`, `service`, `update`, `user`, `model`, `login`, `channel`, `project`, `import`, `uninstall`. Every command supports `--json`. |
+| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor skeleton: `agent`, `memory` (including `memory list/show/forget/correct/share/state/propose/proposals list\|accept\|reject`, the MemoryOps surface, `crates/plur1bus/src/commands/memory_ops.rs`), `dreams`, `config` (`get`/`set`/`schema`, each with `--tier basic\|advanced`), `core` (internal), plus stubbed `setup`, `1staid`, `module`, `daemon`, `service`, `update`, `user`, `model`, `login`, `channel`, `project`, `import`, `uninstall` (relabelled `2a-H3` in their help text and `--json` `milestone` field). Every command supports `--json`, and every `--json` document carries a top-level `schema` id (see Conventions). |
 | `crates/plur1bus-rpc` | Rust | lib | JSON-RPC client types and transport for the core's RPC surface. |
 | `crates/plur1bus-config` | Rust | lib | `config.json` load/validate/write against the same schema TypeScript uses (`packages/config-schema/schema/config.schema.json`, included via `include_str!`). |
 | `packages/rpc-schema` | JSON Schema + codegen | `@plur1bus/rpc-schema` | The single source for RPC methods/params/results/notifications/errors. `pnpm gen` writes `generated/types.ts` and `generated/names.json`; never edit `generated/` by hand. |
 | `packages/core` | TypeScript | `@plur1bus/core` | The core process: engine binding (`engine-config.ts`), RPC server, config load/watch, journal, activity, agent registry, CLI-facing `bin.ts`. |
 | `packages/module-api` | TypeScript | `@plur1bus/module-api` | Manifest schema and client surface for future modules (first- or third-party). |
 | `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key; `pnpm gen` writes `fixtures/defaults.json` and `fixtures/restart-plan-cases.json`. |
-| `docs/` | Markdown | — | `docs/config-engine-keys.md`, `docs/rpc.md` and `docs/cli.md` are generated (`pnpm docs:gen`); ADRs live in `docs/adr/` (ADR-012 process model/languages/RPC/lock, ADR-013 configuration/restart classes); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans). |
+| `docs/` | Markdown | — | `docs/config-engine-keys.md`, `docs/config.md`, `docs/rpc.md` and `docs/cli.md` are generated (`pnpm docs:gen`); ADRs live in `docs/adr/` (ADR-012 process model/languages/RPC/lock, ADR-013 configuration/restart classes, ADR-016 API stability and versioning); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans). |
 | `scripts/` | Node | — | Cross-cutting tooling: `check-toolchain.mjs`, `test-package.mjs` (shared by every package's `test` script), `gen-engine-keys.mjs`, `gen-docs.mjs`, `lint-hygiene.mjs`, `copy-dir.mjs`. |
 
 `tests/system` and `skills/plur1bus-harness` are named in the design spec but do not exist yet at
@@ -118,7 +118,16 @@ this point in the build — do not assume they are there.
   overwritten on the next `gen`.
 - **Every config key carries `x-restart`** (`"core"` or `"live"`) in `config.schema.json`, including
   every engine pass-through key (see `docs/config-engine-keys.md` for why those are all `core` for
-  now). A key without `x-restart` is a bug in the schema, not a documentation gap.
+  now). A key without `x-restart` is a bug in the schema, not a documentation gap. **Every key that
+  carries `x-restart` also carries `x-tier`** (`"basic"` or `"advanced"`, D29/ADR-013 §2a), resolved
+  the same nearest-ancestor way as `x-restart` (`tierOf`/`tier_of`, `filterSchemaByTier`/
+  `filter_schema_by_tier`, `filterConfigByTier`/`filter_config_by_tier`); `config schema|get --tier
+  basic|advanced` and the generated `docs/config.md` both filter on it.
+- **Every RPC method and notification carries `x-stability` (`"experimental"` or `"stable"`) and
+  `x-since`** in `rpc.schema.json`, and a deprecated one also carries `x-deprecated: { since,
+  removeAfter, replacement }` (ADR-016 §4/§5/§10). `buildCapabilities` derives `core.auth`'s
+  `capabilities` entirely from these annotations — never a hand-kept list — so a method's stability
+  can't drift from what `docs/rpc.md`'s generated `## Stability` section and `core.auth` both show.
 - **Every RPC method's `params` object is closed** — `additionalProperties: false` — in
   `rpc.schema.json`. An RPC method whose params allow unknown properties is a bug.
 - **`--json` output is always the raw RPC value, never a re-serialized typed struct.** Every CLI
@@ -128,7 +137,12 @@ this point in the build — do not assume they are there.
   re-emitting output: they drop unknown keys on a result type whose schema has
   `additionalProperties: true`, and they drop empty optionals, so re-serializing one would silently
   narrow what `--json` promises to print (this is ruling R13; recorded in
-  `docs/adr/ADR-012-process-model-and-languages.md`).
+  `docs/adr/ADR-012-process-model-and-languages.md`). **Every `--json` document also carries a
+  top-level `"schema": "<command>/<major>"` key** (a dotted command path, e.g. `memory.list/1`;
+  every failure document is `error/1`), inserted once by `crates/plur1bus/src/output.rs`'s
+  `document()` helper (ADR-016 §8, ruling G15) — no RPC method result may declare a top-level
+  `schema` property of its own, so the two can never collide; `config schema --json`'s id sits
+  beside the JSON Schema value (`{ schema, tier, jsonSchema }`), never spliced into it.
 - TypeScript is compiled with `erasableSyntaxOnly` (`tsconfig.base.json`): no `enum`, no parameter
   properties, no non-ASCII-erasable construct — only syntax `node --experimental-strip-types` can
   strip without a real transform.
@@ -172,7 +186,7 @@ past 1.0 in its config, e.g. `cfg.engine.duplicateThreshold = 1.01`.
 
 ## Module README convention (D14)
 
-Not yet exercised in this repo — H2 adds the first module — but the convention is fixed: every
+Not yet exercised in this repo — 2a-H3 adds the first module — but the convention is fixed: every
 module under `packages/` or `modules/` ships its own `README.md` covering, at minimum:
 
 1. Purpose — what the module does and why it exists.
@@ -184,11 +198,16 @@ module under `packages/` or `modules/` ships its own `README.md` covering, at mi
 ## Docs
 
 `pnpm docs:gen` builds the CLI and regenerates every generated doc: `docs/config-engine-keys.md`
-(`scripts/gen-engine-keys.mjs`, from the pinned engine's plugin manifest), `docs/rpc.md` (from
-`packages/rpc-schema/schema/rpc.schema.json`) and `docs/cli.md` (from the clap tree via the hidden
-`plur1bus __markdown` subcommand), the last two by `scripts/gen-docs.mjs`. `pnpm docs:check` runs
-`scripts/gen-docs.mjs --check`, which fails when `docs/rpc.md` or `docs/cli.md` is stale; CI runs it
-on every OS. After touching the RPC schema or any clap definition (help text included), run
-`pnpm docs:gen` and commit the result; never hand-edit a generated doc. The decision records for
-the process model, languages, RPC and lock (ADR-012) and for configuration and restart classes
-(ADR-013) are in `docs/adr/`.
+(`scripts/gen-engine-keys.mjs`, from the pinned engine's plugin manifest — now with a `Tier` column,
+D29), `docs/rpc.md` (from `packages/rpc-schema/schema/rpc.schema.json`, including each method's and
+notification's stability/since/deprecated line and a `## Stability` section), `docs/cli.md` (from
+the clap tree via the hidden `plur1bus __markdown` subcommand) and `docs/config.md` (from
+`config.schema.json`'s `x-tier` annotations, one row per tiered node, mirroring `config schema
+--tier`), the last three by `scripts/gen-docs.mjs`. `pnpm docs:check` runs `scripts/gen-docs.mjs
+--check`, which fails when any of `docs/rpc.md`, `docs/cli.md` or `docs/config.md` is stale; CI runs
+it on every OS. After touching the RPC schema, the config schema or any clap definition (help text
+included), run `pnpm docs:gen` and commit the result; never hand-edit a generated doc. The decision
+records for the process model, languages, RPC and lock (ADR-012), for configuration and restart
+classes (ADR-013) and for API stability and versioning (ADR-016) are in `docs/adr/`. Every CLI stub
+that used to say "H2" now says "2a-H3" (ruling G1, plan 2a-H2): the supervisor, installer, `1staid`,
+soak testing, the Windows named-pipe ACL and model warm-up all moved to that next harness plan.

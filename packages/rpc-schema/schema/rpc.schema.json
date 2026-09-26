@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.0.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.0.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.1.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.1.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>.",
-  "x-rpc-version": "1.0.0",
+  "x-rpc-version": "1.1.0",
   "$defs": {
     "ErrorCode": {
       "type": "string",
-      "enum": ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED"]
+      "enum": ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE"]
     },
     "ErrorObject": {
       "type": "object", "additionalProperties": false,
@@ -21,7 +21,8 @@
           "properties": {
             "error": { "$ref": "#/$defs/ErrorCode" },
             "reason": { "type": "string" },
-            "detail": { "type": "string" }
+            "detail": { "type": "string" },
+            "ids": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Non-secret ids a caller needs to recover, e.g. the source and shared copy of a half-finished shared-copy refresh" }
           }
         }
       }
@@ -98,15 +99,38 @@
         "reason": { "type": "string" }, "since": { "type": "integer" }
       }
     },
+    "JobTrigger": { "enum": ["cron", "manual", "harness", "capture", "unknown"] },
+    "JobOutcome": { "enum": ["completed", "skipped", "incomplete", "failed", "abandoned"] },
     "JobRun": {
       "type": "object", "additionalProperties": true,
       "required": ["runId", "job", "agentId", "trigger", "startedAt", "finishedAt", "durationMs", "outcome", "attempt"],
       "properties": {
         "runId": { "type": "string" }, "job": { "type": "string" }, "agentId": { "$ref": "#/$defs/AgentId" },
-        "trigger": { "enum": ["cron", "manual", "harness", "capture", "unknown"] },
+        "trigger": { "$ref": "#/$defs/JobTrigger" },
         "startedAt": { "type": "integer" }, "finishedAt": { "type": "integer" }, "durationMs": { "type": "integer" },
-        "outcome": { "enum": ["completed", "skipped", "incomplete", "failed", "abandoned"] },
+        "outcome": { "$ref": "#/$defs/JobOutcome" },
         "reason": { "type": "string" }, "attempt": { "type": "integer" }
+      }
+    },
+    "Stability": { "type": "string", "enum": ["experimental", "stable"] },
+    "Deprecation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["since", "removeAfter", "replacement"],
+      "properties": { "since": { "type": "string" }, "removeAfter": { "type": "string", "format": "date" }, "replacement": { "type": "string" } }
+    },
+    "CapabilityEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stability", "since"],
+      "properties": { "stability": { "$ref": "#/$defs/Stability" }, "since": { "type": "string" }, "deprecated": { "$ref": "#/$defs/Deprecation" } }
+    },
+    "Capabilities": {
+      "type": "object", "additionalProperties": false,
+      "required": ["methods", "notifications", "extensionPoints", "features"],
+      "properties": {
+        "methods": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
+        "notifications": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
+        "extensionPoints": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
+        "features": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       }
     },
     "JournalLine": {
@@ -123,10 +147,12 @@
 
     "methods": {
       "core.auth": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" } } }
+        "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "capabilities": { "$ref": "#/$defs/Capabilities" } } }
       },
       "core.status": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": {
           "type": "object", "additionalProperties": false,
@@ -134,17 +160,19 @@
           "properties": {
             "process": { "$ref": "#/$defs/ProcessState" }, "contract": { "type": "string" }, "rpc": { "type": "string" },
             "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "uptimeMs": { "type": "integer" },
-            "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] } } },
+            "engine": { "type": "object", "additionalProperties": false, "required": ["ready", "degraded"], "properties": { "ready": { "type": "boolean" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] }, "storeSchema": { "type": "object", "additionalProperties": false, "required": ["current", "expected"], "properties": { "current": { "oneOf": [{ "type": "string" }, { "type": "null" }] }, "expected": { "type": "string" } } } } },
             "agents": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } } },
             "journalBacklog": { "type": "integer" }
           }
         }
       },
       "core.shutdown": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": { "budgetMs": { "type": "integer", "minimum": 0, "maximum": 120000 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["accepted"], "properties": { "accepted": { "const": true } } }
       },
       "memory.recall": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": {
           "type": "object", "additionalProperties": false,
           "required": ["caller", "agentId", "query"],
@@ -169,6 +197,7 @@
         }
       },
       "memory.capture": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": {
           "type": "object", "additionalProperties": false,
           "required": ["caller", "agentId", "messages"],
@@ -187,66 +216,201 @@
         }
       },
       "memory.checkpoint": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "reason"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "reason": { "enum": ["compaction", "session-end", "shutdown", "manual"] } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "reason", "digest", "written"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "reason": { "type": "string" }, "digest": { "type": "string" }, "written": { "type": "boolean" } } }
       },
-      "memory.list":    { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.show":    { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.forget":  { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.correct": { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.share":   { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.state":   { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.list": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "topic": { "type": "string", "minLength": 1, "maxLength": 2000 }, "since": { "type": "integer", "minimum": 0 }, "until": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "items": { "type": "array", "items": { "$ref": "#/$defs/MemoryCard" } }, "truncated": { "type": "boolean" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.show": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["card"], "properties": { "card": { "$ref": "#/$defs/MemoryCard" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.forget": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["id", "archived", "tombstoneId", "alreadyForgotten"], "properties": { "id": { "type": "string" }, "archived": { "type": "boolean" }, "tombstoneId": { "type": ["string", "null"] }, "alreadyForgotten": { "type": "boolean" } } }
+      },
+      "memory.correct": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id", "text"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" }, "text": { "type": "string", "minLength": 1, "maxLength": 8000 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["id", "archived"], "properties": { "id": { "type": "string" }, "archived": { "const": true } } }
+      },
+      "memory.share": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id", "target"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" }, "target": { "enum": ["workspace", "user"] }, "allowSensitive": { "type": "boolean" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["sourceId", "sharedId", "target"], "properties": { "sourceId": { "type": "string" }, "sharedId": { "type": "string" }, "target": { "enum": ["workspace", "user"] } } }
+      },
+      "memory.state": {
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "cards", "tombstones", "archiveDir"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "cards": { "type": "object", "additionalProperties": false, "required": ["agentPrivate", "workspace", "user"], "properties": { "agentPrivate": { "type": ["integer", "null"], "minimum": 0 }, "workspace": { "type": ["integer", "null"], "minimum": 0 }, "user": { "type": ["integer", "null"], "minimum": 0 } } }, "tombstones": { "type": ["integer", "null"], "minimum": 0 }, "archiveDir": { "type": "string" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.propose": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "sharedId", "text"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "sharedId": { "$ref": "#/$defs/MemoryId" }, "text": { "type": "string", "minLength": 1, "maxLength": 8000 }, "note": { "type": "string", "maxLength": 500 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "sharedId", "sharerAgentId"], "properties": { "proposalId": { "type": "string" }, "sharedId": { "type": "string" }, "sharerAgentId": { "type": "string" } } }
+      },
+      "memory.proposals.list": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated", "unreadable"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "items": { "type": "array", "items": { "$ref": "#/$defs/MemoryProposal" } }, "truncated": { "type": "boolean" }, "unreadable": { "type": "integer", "minimum": 0 }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+      },
+      "memory.proposals.accept": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "id", "sourceId"], "properties": { "proposalId": { "type": "string" }, "id": { "type": "string" }, "sourceId": { "type": "string" } } }
+      },
+      "memory.proposals.reject": {
+        "x-stability": "experimental", "x-since": "1.1.0",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" }, "note": { "type": "string", "maxLength": 500 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "status"], "properties": { "proposalId": { "type": "string" }, "status": { "const": "rejected" } } }
+      },
       "agent.list": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": { "type": "object", "additionalProperties": false, "required": ["agents"], "properties": { "agents": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["agentId", "open", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "type": "boolean" }, "activity": { "$ref": "#/$defs/Activity" } } } } } }
       },
       "agent.open": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "const": true } } }
       },
       "agent.close": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "const": false } } }
       },
       "agent.status": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open", "activity", "workspace"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "type": "boolean" }, "activity": { "$ref": "#/$defs/Activity" }, "workspace": { "type": "string" }, "lastJobs": { "type": "array", "items": { "$ref": "#/$defs/JobRun" } } } }
       },
       "jobs.list": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": { "type": "object", "additionalProperties": false, "required": ["jobs"], "properties": { "jobs": { "type": "array", "items": { "type": "object", "additionalProperties": true, "required": ["name", "needsLlm", "singleton"], "properties": { "name": { "type": "string" }, "needsLlm": { "type": "boolean" }, "singleton": { "type": "boolean" }, "phase": { "enum": ["light", "rem", "deep"] } } } } } }
       },
       "jobs.run": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId", "job"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "job": { "type": "string" }, "dryRun": { "type": "boolean" } } },
         "result": { "$ref": "#/$defs/JobRun" }
       },
       "jobs.history": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "job": { "type": "string" }, "since": { "type": "integer" }, "limit": { "type": "integer", "minimum": 1, "maximum": 1000 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["runs"], "properties": { "runs": { "type": "array", "items": { "$ref": "#/$defs/JobRun" } } } }
       },
       "events.subscribe": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": { "names": { "type": "array", "items": { "type": "string" } }, "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["subscriptionId"], "properties": { "subscriptionId": { "type": "string" } } }
       },
       "events.unsubscribe": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["subscriptionId"], "properties": { "subscriptionId": { "type": "string" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["removed"], "properties": { "removed": { "type": "boolean" } } }
       }
     },
-    "MemoryOpsParams": {
+    "MemoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "MemoryCard": {
       "type": "object", "additionalProperties": false,
-      "required": ["caller", "agentId"],
-      "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "type": "string" }, "text": { "type": "string" }, "target": { "enum": ["workspace", "user"] }, "limit": { "type": "integer", "minimum": 1, "maximum": 500 } }
+      "required": ["id", "scope", "text", "summary", "createdAt", "origin", "epistemicStatus"],
+      "properties": {
+        "id": { "type": "string" }, "scope": { "enum": ["agent-private", "workspace", "user"] }, "text": { "type": "string" }, "summary": { "type": "string" },
+        "createdAt": { "type": ["integer", "null"] }, "origin": { "type": ["string", "null"] }, "epistemicStatus": { "type": ["string", "null"] },
+        "score": { "type": "number", "description": "present on a topic listing, absent on show" },
+        "sharedBy": { "type": "string", "description": "workspace/user copies only: the sharing agent, possibly another host's (never constrained to AgentId)" },
+        "sourceId": { "type": "string", "description": "workspace/user copies only: the sharer's original card" }
+      }
     },
-    "MemoryOpsResult": { "type": "object", "description": "Shape fixed by engine PR E1 (MemoryOps). Until E1 every call answers E_NOT_AVAILABLE reason engine-pr-E1." },
+    "MemoryProposalStatus": { "enum": ["pending", "accepted", "rejected", "stale"] },
+    "MemoryProposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sharedId", "sourceId", "target", "sharerAgentId", "proposerAgentId", "oldText", "newText", "note", "createdAt", "status", "resolvedAt", "resultId", "resolutionNote"],
+      "properties": {
+        "id": { "type": "string" }, "sharedId": { "type": "string" }, "sourceId": { "type": "string" }, "target": { "enum": ["workspace", "user"] },
+        "sharerAgentId": { "type": "string" }, "proposerAgentId": { "type": "string" },
+        "oldText": { "type": "string" }, "newText": { "type": "string" }, "note": { "type": ["string", "null"] }, "createdAt": { "type": "integer" },
+        "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "resolvedAt": { "type": ["integer", "null"] },
+        "resultId": { "type": ["string", "null"], "description": "accepted: the id of the refreshed shared copy" }, "resolutionNote": { "type": ["string", "null"] }
+      }
+    },
 
     "notifications": {
-      "core.state": { "type": "object", "additionalProperties": false, "required": ["process"], "properties": { "process": { "$ref": "#/$defs/ProcessState" } } },
-      "agent.activity": { "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } },
+      "core.state": { "x-stability": "stable", "x-since": "1.0.0", "type": "object", "additionalProperties": false, "required": ["process"], "properties": { "process": { "$ref": "#/$defs/ProcessState" } } },
+      "agent.activity": { "x-stability": "experimental", "x-since": "1.0.0", "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } },
       "engine.event": {
-        "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.",
+        "x-stability": "experimental", "x-since": "1.0.0",
+        "deprecated": true,
+        "x-deprecated": { "since": "1.1.0", "removeAfter": "2027-03-26", "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)" },
+        "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).",
         "type": "object", "additionalProperties": false, "required": ["name", "payload"],
         "properties": { "name": { "enum": ["dream.completed", "job.run", "acl.denied", "recall.degraded", "embedding.identity.changed", "recall.block-clipped", "recall.block-dropped", "recall.completed"] }, "agentId": { "$ref": "#/$defs/AgentId" }, "payload": {} }
+      },
+      "recall.completed": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "One per recall attempt: total wall time and whether it degraded.",
+        "required": ["agentId", "totalMs", "degraded"],
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "totalMs": { "type": "number" }, "degraded": { "oneOf": [{ "$ref": "#/$defs/Degraded" }, { "type": "null" }] } }
+      },
+      "recall.degraded": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "A recall exited degraded (timeout, abort, pressure, store error, ...).",
+        "required": ["agentId", "degraded"],
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "degraded": { "$ref": "#/$defs/Degraded" } }
+      },
+      "recall.block-clipped": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "The inject-budget join clipped a context block from `from` to `to` characters.",
+        "required": ["agentId", "block", "from", "to", "reason"],
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "block": { "type": "string" }, "from": { "type": "integer" }, "to": { "type": "integer" }, "reason": { "enum": ["global-cap", "memories-cap"] } }
+      },
+      "recall.block-dropped": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "The inject-budget join dropped a context block (`to` is 0).",
+        "required": ["agentId", "block", "from", "to", "reason"],
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "block": { "type": "string" }, "from": { "type": "integer" }, "to": { "type": "integer" }, "reason": { "enum": ["global-cap", "memories-cap"] } }
+      },
+      "job.run": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "One per finished job run (the ledger row without counts, cost and keys).",
+        "required": ["agentId", "runId", "job", "phase", "trigger", "outcome", "startedAt", "finishedAt", "durationMs", "attempt"],
+        "properties": {
+          "agentId": { "$ref": "#/$defs/AgentId" }, "runId": { "type": "string" }, "job": { "type": "string" },
+          "phase": { "oneOf": [{ "enum": ["light", "rem", "deep"] }, { "type": "null" }] },
+          "trigger": { "$ref": "#/$defs/JobTrigger" }, "outcome": { "$ref": "#/$defs/JobOutcome" }, "reason": { "type": "string" },
+          "startedAt": { "type": "integer" }, "finishedAt": { "type": "integer" }, "durationMs": { "type": "integer" }, "attempt": { "type": "integer" }
+        }
+      },
+      "memory.proposal": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "A change proposal against a shared copy was filed or resolved (D31). agentId is the sharer; delivered to subscriptions filtered to the sharer or the proposer. Agent ids are plain strings: a copy may come from another host's agent.",
+        "required": ["agentId", "proposalId", "status", "sharerAgentId", "proposerAgentId", "sharedId"],
+        "properties": {
+          "agentId": { "type": "string" }, "proposalId": { "type": "string" }, "status": { "$ref": "#/$defs/MemoryProposalStatus" },
+          "sharerAgentId": { "type": "string" }, "proposerAgentId": { "type": "string" }, "sharedId": { "type": "string" }
+        }
+      },
+      "dream.completed": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+        "required": ["agentId"],
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" } }
+      },
+      "acl.denied": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" } }
+      },
+      "embedding.identity.changed": {
+        "x-stability": "experimental", "x-since": "1.1.0", "type": "object", "additionalProperties": false,
+        "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" } }
       }
     }
   }

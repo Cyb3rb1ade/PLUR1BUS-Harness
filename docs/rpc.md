@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.0.0)
+# RPC reference (rpc 1.1.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -9,7 +9,7 @@ JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $d
 
 ## Error codes
 
-A closed enum; the core puts the code into every error response as `error.data.error`, with optional `reason` and `detail`.
+A closed enum; the core puts the code into every error response as `error.data.error`, with optional `reason`, `detail` and `ids` (a map of non-secret ids a caller needs to recover, e.g. after a half-finished shared-copy refresh).
 
 - `E_UNAUTHORIZED`
 - `E_RPC_VERSION`
@@ -21,10 +21,30 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_MODULE_UNKNOWN`
 - `E_INTERNAL`
 - `E_LOCKED`
+- `E_NOT_FOUND`
+- `E_DENIED`
+- `E_APPROVAL_REQUIRED`
+- `E_CONFLICT`
+- `E_STORAGE`
+
+## Stability
+
+- `core.auth`
+- `core.status`
+- `core.shutdown`
+- `memory.recall`
+- `memory.capture`
+- `events.subscribe`
+- `events.unsubscribe`
+- `core.state` (notification)
+
+Everything else is experimental and may change in any minor release (ADR-016 §4).
 
 ## Methods
 
 ### `core.auth`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -69,12 +89,17 @@ A closed enum; the core puts the code into every error response as `error.data.e
     },
     "pid": {
       "type": "integer"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
     }
   }
 }
 ```
 
 ### `core.status`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -141,6 +166,29 @@ A closed enum; the core puts the code into every error response as `error.data.e
               "type": "null"
             }
           ]
+        },
+        "storeSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current",
+            "expected"
+          ],
+          "properties": {
+            "current": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expected": {
+              "type": "string"
+            }
+          }
         }
       }
     },
@@ -171,6 +219,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `core.shutdown`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -206,6 +256,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `memory.recall`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -333,6 +385,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.capture`
 
+**Stability:** stable · since 1.0.0
+
 **params**
 
 ```json
@@ -415,6 +469,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.checkpoint`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -476,11 +532,44 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.list`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "topic": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "since": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "until": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
 }
 ```
 
@@ -488,17 +577,59 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "items",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryCard"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
 }
 ```
 
 ### `memory.show`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    }
+  }
 }
 ```
 
@@ -506,17 +637,48 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "card"
+  ],
+  "properties": {
+    "card": {
+      "$ref": "#/$defs/MemoryCard"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
 }
 ```
 
 ### `memory.forget`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    }
+  }
 }
 ```
 
@@ -524,17 +686,66 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "archived",
+    "tombstoneId",
+    "alreadyForgotten"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "tombstoneId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "alreadyForgotten": {
+      "type": "boolean"
+    }
+  }
 }
 ```
 
 ### `memory.correct`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id",
+    "text"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    }
+  }
 }
 ```
 
@@ -542,17 +753,59 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "archived"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "archived": {
+      "const": true
+    }
+  }
 }
 ```
 
 ### `memory.share`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "id",
+    "target"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "target": {
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    },
+    "allowSensitive": {
+      "type": "boolean"
+    }
+  }
 }
 ```
 
@@ -560,17 +813,52 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sourceId",
+    "sharedId",
+    "target"
+  ],
+  "properties": {
+    "sourceId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "target": {
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    }
+  }
 }
 ```
 
 ### `memory.state`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsParams"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
 }
 ```
 
@@ -578,11 +866,311 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ```json
 {
-  "$ref": "#/$defs/MemoryOpsResult"
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "cards",
+    "tombstones",
+    "archiveDir"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "cards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agentPrivate",
+        "workspace",
+        "user"
+      ],
+      "properties": {
+        "agentPrivate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "workspace": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "user": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "tombstones": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "archiveDir": {
+      "type": "string"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
+}
+```
+
+### `memory.propose`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "sharedId",
+    "text"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "sharedId": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "sharedId",
+    "sharerAgentId"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "sharerAgentId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `memory.proposals.list`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryProposalStatus"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "items",
+    "truncated",
+    "unreadable"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryProposal"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "unreadable": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
+}
+```
+
+### `memory.proposals.accept`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "proposalId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "proposalId": {
+      "$ref": "#/$defs/MemoryId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "id",
+    "sourceId"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "sourceId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `memory.proposals.reject`
+
+**Stability:** experimental · since 1.1.0
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "proposalId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "proposalId": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "status"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "status": {
+      "const": "rejected"
+    }
+  }
 }
 ```
 
 ### `agent.list`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -633,6 +1221,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `agent.open`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -673,6 +1263,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `agent.close`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -712,6 +1304,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `agent.status`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -766,6 +1360,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `jobs.list`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -823,6 +1419,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `jobs.run`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -856,6 +1454,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `jobs.history`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -907,6 +1507,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `events.subscribe`
 
+**Stability:** stable · since 1.0.0
+
 **params**
 
 ```json
@@ -945,6 +1547,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `events.unsubscribe`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -986,8 +1590,12 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `core.state`
 
+**Stability:** stable · since 1.0.0
+
 ```json
 {
+  "x-stability": "stable",
+  "x-since": "1.0.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1003,8 +1611,12 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `agent.activity`
 
+**Stability:** experimental · since 1.0.0
+
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.0.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1024,11 +1636,21 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `engine.event`
 
-Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.
+**Stability:** experimental · since 1.0.0 · **deprecated** since 1.1.0, removal not before 2027-03-26; use harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)
+
+Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).
 
 ```json
 {
-  "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.",
+  "x-stability": "experimental",
+  "x-since": "1.0.0",
+  "deprecated": true,
+  "x-deprecated": {
+    "since": "1.1.0",
+    "removeAfter": "2027-03-26",
+    "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)"
+  },
+  "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1056,6 +1678,343 @@ Every engine event forwarded verbatim: name is the EngineEventName, payload as e
 }
 ```
 
+### `recall.completed`
+
+**Stability:** experimental · since 1.1.0
+
+One per recall attempt: total wall time and whether it degraded.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "One per recall attempt: total wall time and whether it degraded.",
+  "required": [
+    "agentId",
+    "totalMs",
+    "degraded"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "totalMs": {
+      "type": "number"
+    },
+    "degraded": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Degraded"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+### `recall.degraded`
+
+**Stability:** experimental · since 1.1.0
+
+A recall exited degraded (timeout, abort, pressure, store error, ...).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "A recall exited degraded (timeout, abort, pressure, store error, ...).",
+  "required": [
+    "agentId",
+    "degraded"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "degraded": {
+      "$ref": "#/$defs/Degraded"
+    }
+  }
+}
+```
+
+### `recall.block-clipped`
+
+**Stability:** experimental · since 1.1.0
+
+The inject-budget join clipped a context block from `from` to `to` characters.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "The inject-budget join clipped a context block from `from` to `to` characters.",
+  "required": [
+    "agentId",
+    "block",
+    "from",
+    "to",
+    "reason"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "block": {
+      "type": "string"
+    },
+    "from": {
+      "type": "integer"
+    },
+    "to": {
+      "type": "integer"
+    },
+    "reason": {
+      "enum": [
+        "global-cap",
+        "memories-cap"
+      ]
+    }
+  }
+}
+```
+
+### `recall.block-dropped`
+
+**Stability:** experimental · since 1.1.0
+
+The inject-budget join dropped a context block (`to` is 0).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "The inject-budget join dropped a context block (`to` is 0).",
+  "required": [
+    "agentId",
+    "block",
+    "from",
+    "to",
+    "reason"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "block": {
+      "type": "string"
+    },
+    "from": {
+      "type": "integer"
+    },
+    "to": {
+      "type": "integer"
+    },
+    "reason": {
+      "enum": [
+        "global-cap",
+        "memories-cap"
+      ]
+    }
+  }
+}
+```
+
+### `job.run`
+
+**Stability:** experimental · since 1.1.0
+
+One per finished job run (the ledger row without counts, cost and keys).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "One per finished job run (the ledger row without counts, cost and keys).",
+  "required": [
+    "agentId",
+    "runId",
+    "job",
+    "phase",
+    "trigger",
+    "outcome",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "attempt"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "job": {
+      "type": "string"
+    },
+    "phase": {
+      "oneOf": [
+        {
+          "enum": [
+            "light",
+            "rem",
+            "deep"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "trigger": {
+      "$ref": "#/$defs/JobTrigger"
+    },
+    "outcome": {
+      "$ref": "#/$defs/JobOutcome"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": "integer"
+    },
+    "finishedAt": {
+      "type": "integer"
+    },
+    "durationMs": {
+      "type": "integer"
+    },
+    "attempt": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `memory.proposal`
+
+**Stability:** experimental · since 1.1.0
+
+A change proposal against a shared copy was filed or resolved (D31). agentId is the sharer; delivered to subscriptions filtered to the sharer or the proposer. Agent ids are plain strings: a copy may come from another host's agent.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "A change proposal against a shared copy was filed or resolved (D31). agentId is the sharer; delivered to subscriptions filtered to the sharer or the proposer. Agent ids are plain strings: a copy may come from another host's agent.",
+  "required": [
+    "agentId",
+    "proposalId",
+    "status",
+    "sharerAgentId",
+    "proposerAgentId",
+    "sharedId"
+  ],
+  "properties": {
+    "agentId": {
+      "type": "string"
+    },
+    "proposalId": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryProposalStatus"
+    },
+    "sharerAgentId": {
+      "type": "string"
+    },
+    "proposerAgentId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `dream.completed`
+
+**Stability:** experimental · since 1.1.0
+
+Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+### `acl.denied`
+
+**Stability:** experimental · since 1.1.0
+
+Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+### `embedding.identity.changed`
+
+**Stability:** experimental · since 1.1.0
+
+Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Declared by the engine contract but not emitted by the pinned engine; no payload fields beyond agentId (G11).",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
 ## Definitions
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
@@ -1075,7 +2034,12 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_CONFIG_INVALID",
     "E_MODULE_UNKNOWN",
     "E_INTERNAL",
-    "E_LOCKED"
+    "E_LOCKED",
+    "E_NOT_FOUND",
+    "E_DENIED",
+    "E_APPROVAL_REQUIRED",
+    "E_CONFLICT",
+    "E_STORAGE"
   ]
 }
 ```
@@ -1113,6 +2077,13 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "detail": {
           "type": "string"
+        },
+        "ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Non-secret ids a caller needs to recover, e.g. the source and shared copy of a half-finished shared-copy refresh"
         }
       }
     }
@@ -1473,6 +2444,34 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `JobTrigger`
+
+```json
+{
+  "enum": [
+    "cron",
+    "manual",
+    "harness",
+    "capture",
+    "unknown"
+  ]
+}
+```
+
+### `JobOutcome`
+
+```json
+{
+  "enum": [
+    "completed",
+    "skipped",
+    "incomplete",
+    "failed",
+    "abandoned"
+  ]
+}
+```
+
 ### `JobRun`
 
 ```json
@@ -1501,13 +2500,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "$ref": "#/$defs/AgentId"
     },
     "trigger": {
-      "enum": [
-        "cron",
-        "manual",
-        "harness",
-        "capture",
-        "unknown"
-      ]
+      "$ref": "#/$defs/JobTrigger"
     },
     "startedAt": {
       "type": "integer"
@@ -1519,19 +2512,117 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "integer"
     },
     "outcome": {
-      "enum": [
-        "completed",
-        "skipped",
-        "incomplete",
-        "failed",
-        "abandoned"
-      ]
+      "$ref": "#/$defs/JobOutcome"
     },
     "reason": {
       "type": "string"
     },
     "attempt": {
       "type": "integer"
+    }
+  }
+}
+```
+
+### `Stability`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "experimental",
+    "stable"
+  ]
+}
+```
+
+### `Deprecation`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "since",
+    "removeAfter",
+    "replacement"
+  ],
+  "properties": {
+    "since": {
+      "type": "string"
+    },
+    "removeAfter": {
+      "type": "string",
+      "format": "date"
+    },
+    "replacement": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `CapabilityEntry`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stability",
+    "since"
+  ],
+  "properties": {
+    "stability": {
+      "$ref": "#/$defs/Stability"
+    },
+    "since": {
+      "type": "string"
+    },
+    "deprecated": {
+      "$ref": "#/$defs/Deprecation"
+    }
+  }
+}
+```
+
+### `Capabilities`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "methods",
+    "notifications",
+    "extensionPoints",
+    "features"
+  ],
+  "properties": {
+    "methods": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CapabilityEntry"
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CapabilityEntry"
+      }
+    },
+    "extensionPoints": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CapabilityEntry"
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
     }
   }
 }
@@ -1583,27 +2674,125 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
-### `MemoryOpsParams`
+### `MemoryId`
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}
+```
+
+### `MemoryCard`
 
 ```json
 {
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "agentId"
+    "id",
+    "scope",
+    "text",
+    "summary",
+    "createdAt",
+    "origin",
+    "epistemicStatus"
   ],
   "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "agentId": {
-      "$ref": "#/$defs/AgentId"
-    },
     "id": {
       "type": "string"
     },
+    "scope": {
+      "enum": [
+        "agent-private",
+        "workspace",
+        "user"
+      ]
+    },
     "text": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "origin": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "epistemicStatus": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "score": {
+      "type": "number",
+      "description": "present on a topic listing, absent on show"
+    },
+    "sharedBy": {
+      "type": "string",
+      "description": "workspace/user copies only: the sharing agent, possibly another host's (never constrained to AgentId)"
+    },
+    "sourceId": {
+      "type": "string",
+      "description": "workspace/user copies only: the sharer's original card"
+    }
+  }
+}
+```
+
+### `MemoryProposalStatus`
+
+```json
+{
+  "enum": [
+    "pending",
+    "accepted",
+    "rejected",
+    "stale"
+  ]
+}
+```
+
+### `MemoryProposal`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sharedId",
+    "sourceId",
+    "target",
+    "sharerAgentId",
+    "proposerAgentId",
+    "oldText",
+    "newText",
+    "note",
+    "createdAt",
+    "status",
+    "resolvedAt",
+    "resultId",
+    "resolutionNote"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "sourceId": {
       "type": "string"
     },
     "target": {
@@ -1612,20 +2801,49 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "user"
       ]
     },
-    "limit": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 500
+    "sharerAgentId": {
+      "type": "string"
+    },
+    "proposerAgentId": {
+      "type": "string"
+    },
+    "oldText": {
+      "type": "string"
+    },
+    "newText": {
+      "type": "string"
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryProposalStatus"
+    },
+    "resolvedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "resultId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "accepted: the id of the refreshed shared copy"
+    },
+    "resolutionNote": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
-}
-```
-
-### `MemoryOpsResult`
-
-```json
-{
-  "type": "object",
-  "description": "Shape fixed by engine PR E1 (MemoryOps). Until E1 every call answers E_NOT_AVAILABLE reason engine-pr-E1."
 }
 ```

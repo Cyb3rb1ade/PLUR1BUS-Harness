@@ -17,7 +17,7 @@ describe("principal", () => {
     const { principal, degraded } = callerToPrincipal(caller, "bernd", ws);
     assert.equal(degraded, null);
     assert.equal(principal.user, lib.userPrincipal);
-    assert.equal(principal.workspace, `workspace-dir:v1:${realpathSync.native(ws)}`);
+    assert.equal(principal.workspace, `workspace-dir:v1:${realpathSync(ws)}`);
     assert.equal(principal.workspace, lib.workspaceIdentity);
     assert.deepEqual({ trust: principal.trust, channel: principal.channel, accountId: principal.accountId, chat: principal.chat }, { trust: "proved", channel: "cli", accountId: "macbooker", chat: { id: "cli:cyberblade", kind: "direct" } });
     assert.deepEqual(AGENT_CONTEXT_CLI, { origin: "user", background: false });

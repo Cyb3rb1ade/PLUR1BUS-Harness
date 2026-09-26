@@ -10,11 +10,12 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defaults } from "@plur1bus/config-schema";
 import { layout } from "../src/paths.ts";
 
-const dist = new URL("../dist/core.js", import.meta.url).pathname;
-if (!existsSync(dist)) execFileSync("pnpm", ["build"], { cwd: new URL("..", import.meta.url).pathname, stdio: "inherit" });
+const dist = fileURLToPath(new URL("../dist/core.js", import.meta.url));
+if (!existsSync(dist)) execFileSync("pnpm", ["build"], { cwd: fileURLToPath(new URL("..", import.meta.url)), stdio: "inherit", shell: process.platform === "win32" });
 
 /** Spawns `target` with the trace hook `--import`ed, returns the trace file's resolved URLs after the first stdout line. */
 async function traceFirstStdoutLine(target: string, args: string[], env: NodeJS.ProcessEnv): Promise<{ urls: string[]; firstLine: string }> {
@@ -23,7 +24,7 @@ async function traceFirstStdoutLine(target: string, args: string[], env: NodeJS.
   writeFileSync(trace, "");
   const child = spawn(
     process.execPath,
-    ["--import", new URL("./helpers/trace-loader.mjs", import.meta.url).pathname, target, ...args],
+    ["--import", new URL("./helpers/trace-loader.mjs", import.meta.url).href, target, ...args],
     { env: { ...env, PLUR1BUS_TRACE_FILE: trace }, stdio: ["ignore", "pipe", "inherit"] },
   );
   const firstLine = await new Promise<string>((resolve) => child.stdout.once("data", (d) => resolve(d.toString())));
@@ -72,7 +73,7 @@ it("the trace hook also sees a CommonJS require(), not just import() (the gap re
   // through `import`), so this assertion is a direct, minimal proof of the fix: with the old
   // `register()`-based hook this fixture's URL never appears in the trace (verified manually
   // while making this change — see the task report); with `registerHooks()` it does.
-  const target = new URL("./helpers/cjs-only-target.mjs", import.meta.url).pathname;
+  const target = fileURLToPath(new URL("./helpers/cjs-only-target.mjs", import.meta.url));
   const { urls } = await traceFirstStdoutLine(target, [], process.env);
   assert.ok(
     urls.some((u) => u.endsWith("cjs-only-fixture.cjs")),

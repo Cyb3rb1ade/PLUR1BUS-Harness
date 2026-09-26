@@ -16,6 +16,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_MODELS_CACHE: ${{ github.workspace }}/.models-cache
