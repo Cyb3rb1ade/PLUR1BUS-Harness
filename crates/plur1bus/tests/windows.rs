@@ -2,7 +2,9 @@
 //! the run files' DACL, and the core pipe's default DACL (Node's `net`, checked with `pipe_dacl_report`). The core is
 //! `tests/fixtures/fake-core.mjs` run by `node`. Every test uses its own temp home.
 #![cfg(windows)]
-use plur1bus_rpc::win::{pipe_dacl_report, user_sid, writable_by_others, DaclEntry};
+use plur1bus_rpc::win::{
+    file_dacl_report, pipe_dacl_report, user_sid, writable_by_others, DaclEntry,
+};
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -119,14 +121,17 @@ fn sids(entries: &[DaclEntry]) -> BTreeSet<String> {
     entries.iter().map(|e| e.sid.clone()).collect()
 }
 
-/// The DACL of a file as SDDL, through `icacls /save` (UTF-16LE): SIDs and well-known aliases, independent of the
-/// display language.
+/// The DACL of a file as SDDL, through `icacls /save` (UTF-16LE). Only its control flags are read (`D:P`): SDDL writes
+/// well-known accounts as aliases (the CI runner's built-in Administrator is `LA`, not its SID), so the entries are
+/// compared through [`file_dacl_report`], which names every trustee by its full SID.
 fn file_sddl(file: &Path, scratch: &Path) -> String {
     let saved = scratch.join(format!(
         "{}.acl",
         file.file_name().unwrap().to_string_lossy()
     ));
-    let ok = Command::new("icacls")
+    let icacls = Path::new(&std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()))
+        .join(r"System32\icacls.exe");
+    let ok = Command::new(icacls)
         .arg(file)
         .arg("/save")
         .arg(&saved)
@@ -201,11 +206,17 @@ fn supervisor_run_files_grant_only_user_and_system() {
     let _sup = start_supervisor(dir.path());
     let user = user_sid().unwrap();
     for f in ["supervisor.token", "supervisor.pid"] {
-        let sddl = file_sddl(&dir.path().join("run").join(f), scratch.path());
+        let path = dir.path().join("run").join(f);
+        let sddl = file_sddl(&path, scratch.path());
         assert!(sddl.contains("D:P"), "{f}: inherited entries kept: {sddl}");
-        assert!(sddl.contains(&format!(";;;{user})")), "{f}: {sddl}");
-        assert!(sddl.contains(";;;SY)"), "{f}: {sddl}");
-        assert_eq!(sddl.matches("(A;").count(), 2, "{f}: {sddl}");
+        let entries = file_dacl_report(&path).unwrap();
+        assert_eq!(
+            sids(&entries),
+            BTreeSet::from([user.clone(), "S-1-5-18".to_string()]),
+            "{f}: {entries:?}"
+        );
+        assert_eq!(entries.len(), 2, "{f}: {entries:?}");
+        assert!(entries.iter().all(|e| e.allow), "{f}: {entries:?}");
     }
 }
 

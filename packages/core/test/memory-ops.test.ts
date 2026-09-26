@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
@@ -52,10 +53,13 @@ describe("memory ops (in-process core)", () => {
 
   const list = async (agentId: string, who = caller) => c.call<any>("memory.list", { caller: who, agentId, since: 0 });
   const ids = async (agentId: string) => new Set<string>((await list(agentId)).items.map((x: any) => x.id));
-  /** Captures one fact for the agent and returns the id of the card it added. */
+  /**
+   * Captures one fact for the agent and returns the id of the card it added. Every call is its own run (a fresh
+   * runId), so the engine's replay guard (agent, runId, sessionKey, messages) never takes it for a repeated turn.
+   */
   async function capture(agentId: string, content: string): Promise<string> {
     const before = await ids(agentId);
-    const r = await c.call<any>("memory.capture", { caller, agentId, messages: [{ role: "user", content }, { role: "assistant", content: "Noted." }], wait: true, waitMs: 10_000 });
+    const r = await c.call<any>("memory.capture", { caller, agentId, runId: randomUUID(), messages: [{ role: "user", content }, { role: "assistant", content: "Noted." }], wait: true, waitMs: 10_000 });
     assert.ok(r.stored >= 1, JSON.stringify(r));
     const added = [...(await ids(agentId))].filter((id) => !before.has(id));
     assert.equal(added.length, 1, `expected one new card, got ${added.length}`);
@@ -154,7 +158,7 @@ describe("memory ops (in-process core)", () => {
   });
 
   it("without stable directory capabilities, share is E_NOT_AVAILABLE unsupported (engine limitation, E4)", { skip: SHARED_MEMORY && "Linux has shared memory" }, async () => {
-    const id = await capture("bernd", "Please remember that the office plants need water on Mondays.");
+    const id = await capture("bernd", "Please remember that the server room key is at the front desk.");
     await assert.rejects(c.call("memory.share", { caller, agentId: "bernd", id, target: "user" }), rejectsWith("E_NOT_AVAILABLE", "unsupported"));
   });
 
