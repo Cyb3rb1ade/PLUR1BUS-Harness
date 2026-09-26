@@ -400,6 +400,164 @@ pub fn restart_plan(before: &Value, after: &Value) -> ChangePlan {
     ChangePlan { changed, restart }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tier {
+    Basic,
+    Advanced,
+}
+
+/// The `restart_class_of` walk, but resolving `x-tier` instead: nearest ancestor declaring
+/// `x-tier` wins, root default `Advanced` (the conservative class — more settings hidden, not
+/// fewer). Mirrors `packages/config-schema/src/index.ts`'s `tierOf`.
+pub fn tier_of(key: &str) -> Tier {
+    let mut node = schema();
+    let mut tier = match node.get("x-tier").and_then(Value::as_str) {
+        Some("basic") => Tier::Basic,
+        _ => Tier::Advanced,
+    };
+    for part in key.split('.') {
+        let next = node
+            .get("properties")
+            .and_then(|p| p.get(part))
+            .or_else(|| node.get("additionalProperties").filter(|a| a.is_object()));
+        match next {
+            Some(n) => {
+                node = n;
+                if let Some(t) = n.get("x-tier").and_then(Value::as_str) {
+                    tier = if t == "basic" {
+                        Tier::Basic
+                    } else {
+                        Tier::Advanced
+                    };
+                }
+            }
+            None => break,
+        }
+    }
+    tier
+}
+
+fn node_tier(node: &Value) -> Option<Tier> {
+    node.get("x-tier").and_then(Value::as_str).map(|t| {
+        if t == "basic" {
+            Tier::Basic
+        } else {
+            Tier::Advanced
+        }
+    })
+}
+
+/// An annotated node (declares `x-tier`) is kept whole iff its tier equals `tier`; an unannotated
+/// container is recursed through `properties` and kept iff at least one child is kept, with
+/// `properties` reduced and `required` filtered to the kept keys. Returns `None` when the whole
+/// node is dropped. Mirrors `packages/config-schema/src/index.ts`'s `filterSchemaNode`.
+fn filter_schema_node(node: &Value, tier: Tier) -> Option<Value> {
+    if let Some(t) = node_tier(node) {
+        return (t == tier).then(|| node.clone());
+    }
+    let props = node.get("properties")?.as_object()?;
+    let mut kept_props = Map::new();
+    for (k, v) in props {
+        if let Some(kept) = filter_schema_node(v, tier) {
+            kept_props.insert(k.clone(), kept);
+        }
+    }
+    if kept_props.is_empty() {
+        return None;
+    }
+    let mut out = node.as_object()?.clone();
+    if let Some(req) = node.get("required").and_then(Value::as_array) {
+        let filtered: Vec<Value> = req
+            .iter()
+            .filter(|k| k.as_str().is_some_and(|k| kept_props.contains_key(k)))
+            .cloned()
+            .collect();
+        out.insert("required".to_string(), Value::Array(filtered));
+    } else {
+        out.remove("required");
+    }
+    out.insert("properties".to_string(), Value::Object(kept_props));
+    Some(Value::Object(out))
+}
+
+/// The root keeps `$schema`, `$id`, `title`, `type`, `additionalProperties` and its filtered
+/// `properties`/`required` (see `filter_schema_node`). Mirrors `filterSchemaByTier`.
+pub fn filter_schema_by_tier(schema: &Value, tier: Tier) -> Value {
+    let mut kept_props = Map::new();
+    if let Some(props) = schema.get("properties").and_then(Value::as_object) {
+        for (k, v) in props {
+            if let Some(kept) = filter_schema_node(v, tier) {
+                kept_props.insert(k.clone(), kept);
+            }
+        }
+    }
+    let mut out = Map::new();
+    for k in ["$schema", "$id", "title", "type", "additionalProperties"] {
+        if let Some(v) = schema.get(k) {
+            out.insert(k.to_string(), v.clone());
+        }
+    }
+    let required = schema
+        .get("required")
+        .and_then(Value::as_array)
+        .map(|req| {
+            req.iter()
+                .filter(|k| k.as_str().is_some_and(|k| kept_props.contains_key(k)))
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+    out.insert("properties".to_string(), Value::Object(kept_props));
+    out.insert("required".to_string(), Value::Array(required));
+    Value::Object(out)
+}
+
+/// Walks the config value tree with the same schema decisions as `filter_schema_node`: an
+/// annotated schema node keeps the value iff its tier matches `tier`; an unannotated container
+/// recurses; a key the schema does not describe (or whose schema node is neither annotated nor a
+/// container) is dropped. Returns `None` when nothing under this node survives. Mirrors
+/// `filterConfigNode`.
+fn filter_config_node(schema_node: &Value, value: &Value, tier: Tier) -> Option<Value> {
+    if let Some(t) = node_tier(schema_node) {
+        return (t == tier).then(|| value.clone());
+    }
+    let props = schema_node.get("properties")?.as_object()?;
+    let value_obj = value.as_object()?;
+    let mut out = Map::new();
+    for (k, v) in props {
+        let Some(child) = value_obj.get(k) else {
+            continue;
+        };
+        if let Some(kept) = filter_config_node(v, child, tier) {
+            out.insert(k.clone(), kept);
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(Value::Object(out))
+    }
+}
+
+pub fn filter_config_by_tier(config: &Value, tier: Tier) -> Value {
+    let mut out = Map::new();
+    if let (Some(props), Some(config_obj)) = (
+        schema().get("properties").and_then(Value::as_object),
+        config.as_object(),
+    ) {
+        for (k, v) in props {
+            let Some(child) = config_obj.get(k) else {
+                continue;
+            };
+            if let Some(kept) = filter_config_node(v, child, tier) {
+                out.insert(k.clone(), kept);
+            }
+        }
+    }
+    Value::Object(out)
+}
+
 pub fn get(config: &Config, key: Option<&str>) -> Option<Value> {
     match key {
         None => Some(config.clone()),

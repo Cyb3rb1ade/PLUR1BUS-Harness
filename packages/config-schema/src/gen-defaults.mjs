@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaults, restartPlan, validate } from "./index.ts";
+import { CONFIG_SCHEMA, defaults, filterConfigByTier, filterSchemaByTier, restartPlan, tierOf, validate } from "./index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "..", "fixtures");
@@ -100,3 +100,16 @@ for (const value of ["2026-09-24T00:00:00Z", "yesterday"]) {
 }
 writeFileSync(join(outDir, "format-cases.json"), `${JSON.stringify(formatCases, null, 2)}\n`);
 console.log("config-schema: fixtures/format-cases.json written");
+
+const tierKeys = [
+  "$schema", "schemaVersion", "core.logLevel", "core.recall.capChars", "supervisor.graceMs",
+  "logs.keep", "agents", "agents.bernd", "agents.bernd.displayName", "embedding.useClass",
+  "embedding.acceptedNcLicence", "engine", "engine.chatModels", "engine.recall.softBudgetMs",
+  "providers.x", "oauth", "decision", "modelRoles.chat", "nope.nothing",
+];
+const tierOut = {
+  cases: tierKeys.map((key) => ({ key, tier: tierOf(key) })),
+  filtered: { basic: filterSchemaByTier(CONFIG_SCHEMA, "basic"), advanced: filterSchemaByTier(CONFIG_SCHEMA, "advanced") },
+};
+writeFileSync(join(outDir, "tier-cases.json"), `${JSON.stringify(tierOut, null, 2)}\n`);
+console.log("config-schema: fixtures/tier-cases.json written");
