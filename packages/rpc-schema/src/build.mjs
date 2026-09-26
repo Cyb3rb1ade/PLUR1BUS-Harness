@@ -14,6 +14,9 @@ const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const ajv = new Ajv2020({ strict: true, allErrors: true, allowUnionTypes: true });
 addFormats(ajv);
 ajv.addKeyword("x-rpc-version");
+ajv.addKeyword("x-stability");
+ajv.addKeyword("x-since");
+ajv.addKeyword("x-deprecated");
 if (!ajv.validateSchema(schema)) throw new Error(`rpc.schema.json is not a valid schema: ${ajv.errorsText()}`);
 
 // 2. Method and notification names come from the schema, never from a hand list.

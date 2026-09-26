@@ -22,6 +22,9 @@ export const SCHEMA = schemaJson as Record<string, unknown>;
 const ajv = new Ajv2020({ strict: true, allErrors: true, useDefaults: false, allowUnionTypes: true });
 addFormats(ajv);
 ajv.addKeyword("x-rpc-version");
+ajv.addKeyword("x-stability");
+ajv.addKeyword("x-since");
+ajv.addKeyword("x-deprecated");
 ajv.addSchema(schemaJson);
 const SCHEMA_ID: string = (schemaJson as any).$id;
 

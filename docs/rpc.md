@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.0.0)
+# RPC reference (rpc 1.1.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -22,9 +22,24 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_INTERNAL`
 - `E_LOCKED`
 
+## Stability
+
+- `core.auth`
+- `core.status`
+- `core.shutdown`
+- `memory.recall`
+- `memory.capture`
+- `events.subscribe`
+- `events.unsubscribe`
+- `core.state` (notification)
+
+Everything else is experimental and may change in any minor release (ADR-016 §4).
+
 ## Methods
 
 ### `core.auth`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -75,6 +90,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `core.status`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -172,6 +189,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `core.shutdown`
 
+**Stability:** stable · since 1.0.0
+
 **params**
 
 ```json
@@ -206,6 +225,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `memory.recall`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -333,6 +354,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.capture`
 
+**Stability:** stable · since 1.0.0
+
 **params**
 
 ```json
@@ -415,6 +438,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.checkpoint`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -476,6 +501,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.list`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -493,6 +520,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `memory.show`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -512,6 +541,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.forget`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -529,6 +560,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `memory.correct`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -548,6 +581,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.share`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -566,6 +601,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `memory.state`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -583,6 +620,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `agent.list`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -633,6 +672,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `agent.open`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -673,6 +714,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `agent.close`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -712,6 +755,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `agent.status`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -766,6 +811,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `jobs.list`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -823,6 +870,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `jobs.run`
 
+**Stability:** experimental · since 1.0.0
+
 **params**
 
 ```json
@@ -856,6 +905,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `jobs.history`
+
+**Stability:** experimental · since 1.0.0
 
 **params**
 
@@ -907,6 +958,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 ### `events.subscribe`
 
+**Stability:** stable · since 1.0.0
+
 **params**
 
 ```json
@@ -945,6 +998,8 @@ A closed enum; the core puts the code into every error response as `error.data.e
 ```
 
 ### `events.unsubscribe`
+
+**Stability:** stable · since 1.0.0
 
 **params**
 
@@ -986,8 +1041,12 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `core.state`
 
+**Stability:** stable · since 1.0.0
+
 ```json
 {
+  "x-stability": "stable",
+  "x-since": "1.0.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1003,8 +1062,12 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `agent.activity`
 
+**Stability:** experimental · since 1.0.0
+
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.0.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1024,10 +1087,14 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `engine.event`
 
+**Stability:** experimental · since 1.0.0
+
 Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.0.0",
   "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.",
   "type": "object",
   "additionalProperties": false,

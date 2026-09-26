@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.0.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.0.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.1.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.1.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>.",
-  "x-rpc-version": "1.0.0",
+  "x-rpc-version": "1.1.0",
   "$defs": {
     "ErrorCode": {
       "type": "string",
@@ -123,10 +123,12 @@
 
     "methods": {
       "core.auth": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" } } }
       },
       "core.status": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": {
           "type": "object", "additionalProperties": false,
@@ -141,10 +143,12 @@
         }
       },
       "core.shutdown": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": { "budgetMs": { "type": "integer", "minimum": 0, "maximum": 120000 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["accepted"], "properties": { "accepted": { "const": true } } }
       },
       "memory.recall": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": {
           "type": "object", "additionalProperties": false,
           "required": ["caller", "agentId", "query"],
@@ -169,6 +173,7 @@
         }
       },
       "memory.capture": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": {
           "type": "object", "additionalProperties": false,
           "required": ["caller", "agentId", "messages"],
@@ -187,48 +192,58 @@
         }
       },
       "memory.checkpoint": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "reason"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "reason": { "enum": ["compaction", "session-end", "shutdown", "manual"] } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "reason", "digest", "written"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "reason": { "type": "string" }, "digest": { "type": "string" }, "written": { "type": "boolean" } } }
       },
-      "memory.list":    { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.show":    { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.forget":  { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.correct": { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.share":   { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
-      "memory.state":   { "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.list":    { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.show":    { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.forget":  { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.correct": { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.share":   { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
+      "memory.state":   { "x-stability": "experimental", "x-since": "1.0.0", "params": { "$ref": "#/$defs/MemoryOpsParams" }, "result": { "$ref": "#/$defs/MemoryOpsResult" } },
       "agent.list": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": { "type": "object", "additionalProperties": false, "required": ["agents"], "properties": { "agents": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["agentId", "open", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "type": "boolean" }, "activity": { "$ref": "#/$defs/Activity" } } } } } }
       },
       "agent.open": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "const": true } } }
       },
       "agent.close": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "const": false } } }
       },
       "agent.status": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open", "activity", "workspace"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "type": "boolean" }, "activity": { "$ref": "#/$defs/Activity" }, "workspace": { "type": "string" }, "lastJobs": { "type": "array", "items": { "$ref": "#/$defs/JobRun" } } } }
       },
       "jobs.list": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": { "type": "object", "additionalProperties": false, "required": ["jobs"], "properties": { "jobs": { "type": "array", "items": { "type": "object", "additionalProperties": true, "required": ["name", "needsLlm", "singleton"], "properties": { "name": { "type": "string" }, "needsLlm": { "type": "boolean" }, "singleton": { "type": "boolean" }, "phase": { "enum": ["light", "rem", "deep"] } } } } } }
       },
       "jobs.run": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId", "job"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "job": { "type": "string" }, "dryRun": { "type": "boolean" } } },
         "result": { "$ref": "#/$defs/JobRun" }
       },
       "jobs.history": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "job": { "type": "string" }, "since": { "type": "integer" }, "limit": { "type": "integer", "minimum": 1, "maximum": 1000 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["runs"], "properties": { "runs": { "type": "array", "items": { "$ref": "#/$defs/JobRun" } } } }
       },
       "events.subscribe": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "properties": { "names": { "type": "array", "items": { "type": "string" } }, "agentId": { "$ref": "#/$defs/AgentId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["subscriptionId"], "properties": { "subscriptionId": { "type": "string" } } }
       },
       "events.unsubscribe": {
+        "x-stability": "stable", "x-since": "1.0.0",
         "params": { "type": "object", "additionalProperties": false, "required": ["subscriptionId"], "properties": { "subscriptionId": { "type": "string" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["removed"], "properties": { "removed": { "type": "boolean" } } }
       }
@@ -241,9 +256,10 @@
     "MemoryOpsResult": { "type": "object", "description": "Shape fixed by engine PR E1 (MemoryOps). Until E1 every call answers E_NOT_AVAILABLE reason engine-pr-E1." },
 
     "notifications": {
-      "core.state": { "type": "object", "additionalProperties": false, "required": ["process"], "properties": { "process": { "$ref": "#/$defs/ProcessState" } } },
-      "agent.activity": { "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } },
+      "core.state": { "x-stability": "stable", "x-since": "1.0.0", "type": "object", "additionalProperties": false, "required": ["process"], "properties": { "process": { "$ref": "#/$defs/ProcessState" } } },
+      "agent.activity": { "x-stability": "experimental", "x-since": "1.0.0", "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } },
       "engine.event": {
+        "x-stability": "experimental", "x-since": "1.0.0",
         "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one.",
         "type": "object", "additionalProperties": false, "required": ["name", "payload"],
         "properties": { "name": { "enum": ["dream.completed", "job.run", "acl.denied", "recall.degraded", "embedding.identity.changed", "recall.block-clipped", "recall.block-dropped", "recall.completed"] }, "agentId": { "$ref": "#/$defs/AgentId" }, "payload": {} }

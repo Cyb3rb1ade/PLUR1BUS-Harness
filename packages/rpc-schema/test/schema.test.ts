@@ -5,8 +5,8 @@ import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, loadFixtures, validat
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.0.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.0.0");
+  it("declares rpc 1.1.0 and the closed error enum", () => {
+    assert.equal(RPC_VERSION, "1.1.0");
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",

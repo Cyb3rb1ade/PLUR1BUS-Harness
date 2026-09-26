@@ -23,6 +23,7 @@ fn rewrite_refs(v: &mut Value) {
                 *r = r.replace("#/$defs/", "#/definitions/");
             }
             m.remove("format"); // uuid/date-time stay plain strings in Rust
+            m.retain(|k, _| !k.starts_with("x-")); // stability annotations etc. are not JSON Schema
             for (_, x) in m.iter_mut() {
                 rewrite_refs(x);
             }

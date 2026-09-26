@@ -13,6 +13,14 @@ const root = new URL("../", import.meta.url);
 const check = process.argv.includes("--check");
 const schema = JSON.parse(readFileSync(new URL("packages/rpc-schema/schema/rpc.schema.json", root), "utf8"));
 const fence = (v) => "```json\n" + JSON.stringify(v, null, 2) + "\n```";
+const stabilityLine = (def) => {
+  let line = `**Stability:** ${def["x-stability"]} · since ${def["x-since"]}`;
+  if (def["x-deprecated"]) {
+    const { since, removeAfter, replacement } = def["x-deprecated"];
+    line += ` · **deprecated** since ${since}, removal not before ${removeAfter}; use ${replacement}`;
+  }
+  return line;
+};
 
 let rpc = `# RPC reference (rpc ${schema["x-rpc-version"]})
 
@@ -27,15 +35,22 @@ A closed enum; the core puts the code into every error response as \`error.data.
 
 ${schema.$defs.ErrorCode.enum.map((e) => `- \`${e}\``).join("\n")}
 
+## Stability
+
+${Object.entries(schema.$defs.methods).filter(([, d]) => d["x-stability"] === "stable").map(([n]) => `- \`${n}\``).join("\n")}
+${Object.entries(schema.$defs.notifications).filter(([, d]) => d["x-stability"] === "stable").map(([n]) => `- \`${n}\` (notification)`).join("\n")}
+
+Everything else is experimental and may change in any minor release (ADR-016 §4).
+
 ## Methods
 `;
 for (const [name, def] of Object.entries(schema.$defs.methods)) {
   const desc = def.description ?? def.params?.description ?? "";
-  rpc += `\n### \`${name}\`\n\n${desc ? `${desc}\n\n` : ""}**params**\n\n${fence(def.params)}\n\n**result**\n\n${fence(def.result)}\n`;
+  rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${desc ? `${desc}\n\n` : ""}**params**\n\n${fence(def.params)}\n\n**result**\n\n${fence(def.result)}\n`;
 }
 rpc += `\n## Notifications\n\nDelivered on the same connection to clients that called \`events.subscribe\`.\n`;
 for (const [name, def] of Object.entries(schema.$defs.notifications)) {
-  rpc += `\n### \`${name}\`\n\n${def.description ? `${def.description}\n\n` : ""}${fence(def)}\n`;
+  rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${def.description ? `${def.description}\n\n` : ""}${fence(def)}\n`;
 }
 rpc += `\n## Definitions\n\nShared \`$defs\` referenced above as \`#/$defs/<Name>\`.\n`;
 for (const [name, def] of Object.entries(schema.$defs)) {
