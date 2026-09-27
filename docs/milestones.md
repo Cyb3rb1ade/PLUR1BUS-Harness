@@ -1,6 +1,6 @@
 # Milestones — PLUR1BUS Harness (Variant B)
 
-**Status:** Phase 0 deliverable, awaiting owner approval; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7) · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
+**Status:** Phase 0 deliverable, awaiting owner approval; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7); **amended 2026-09-27 for the extensions ecosystem (core spec D79–D85): track X in §2, M6 scope and effort, §3** · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
 **Re-cut of** `docs/phase0/auftrag-original-2026-09-21.md` §12 (M0–M8) for **Variant B** per `docs/phase0/brief.md` D1–D11 and ADR-001 (K4 tripped, K3 red on Windows arm64). Every §12 acceptance criterion reappears below, re-cut; the 16 operational criteria of `docs/learnings-hermes-openclaw.md` §3 are mapped as **L1–L16**; ADR-001's targets T1–T7, ADR-009's A1–A8 and ADR-010's B1–B10 are milestone exit criteria. Engine work is PRs in the **PLUR1BUS repo** (`docs/engine-extraction.md` §c, PR-01…PR-15; ADR-002's P0–P10 is the same plan at coarser grain).
 
 ---
@@ -34,12 +34,14 @@
 | M3 | Harness API · users/roles · agents · web UI skeleton | PR-06 follow-up (`subject`/v2) | **32–48** | Q5; ADR-004 Q1–Q5; ADR-007 Q1–Q6 |
 | M4 | Channels: Telegram, Discord, Matrix, Buzz | PR-06 channel vocabulary (**M4 blocker**) | **22–34** | Q4; ADR-003 Q1–Q3 |
 | M5 | Collaboration: projects, consult/delegate, guardrails, trace | — | **18–28** | ADR-003 Q4/Q5 |
-| M6 | MCP/ACP/A2A · external coding agents · skills · plugins | — | **30–44** | Q7; ADR-008 Q1–Q6; ADR-011 Q1–Q6 |
+| M6 | MCP/ACP/A2A · external coding agents · skills · plugins | — | **26–38** (skills/plugins UI moved to X3) | Q7; ADR-008 Q1–Q6; ADR-011 Q1–Q6 |
 | M7 | Importers: OpenClaw, Hermes | PR-10 (identity migration path) | **14–22** | ADR-007 Q4 |
 | M8 | Platform hardening · installers · services · release v0.1.0 | PR-12, PR-13, PR-14 | **20–32** | Q2; ADR-001 Q3/Q5 |
 | D1 | **Part of v0.1.0** (desktop spec §11 Q5, decided 2026-09-27): container bundle + thin shell, after M3 | M3; M2 | **20–30** (in the total) |
 | D2–D4 | Track D remainder: native integration + OS-signed releases, browser container/CEF panel, computer use + WebMCP — after D1, beside M4–M8 | D1 | **26–40** (not in the total) | — |
-| | **Total** | | **231–354** | |
+| X1–X3 | **Extensions, part of v0.1.0** (D79–D85): file install, enable/disable, uninstall for skills and plugins (X1, after 2a-H3b-b), MCP servers and bundles (X2, with 2b), web UI + D1 hooks (X3, with M3) | 2a-H3b-b; 2b; M3 | **15–22** (in the total; 4–6 of X3 moved from M6) | extensions spec §13 Q1–Q17 |
+| X4–X5 | Extensions remainder: signed web catalogue + per-item updates + revocation (X4, target v0.2), publishing tooling + first packages (X5) | X1–X3 | **8–13** (not in the total) | extensions spec §13 Q2–Q4, Q11–Q13 |
+| | **Total** | | **242–370** | |
 
 ### M0 — Phase 0 (done, awaiting approval)
 
@@ -185,7 +187,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 ### M6 — MCP / ACP / A2A, external coding agents, skills, plugins
 
-**Scope.** Official TS SDKs, pinned: `@modelcontextprotocol/sdk ^1.30` (spec 2026-07-28), `@agentclientprotocol/sdk 1.5.0` (**schema v1 only**, v2 alpha excluded), `@a2a-js/sdk 1.2.0` (spec 1.0.0, **JSON-RPC+SSE as the single declared interface**, server off by default, push notifications off, card JWS/JCS-signed and content-free). **Never** MCP Sampling, Roots, Logging or Dynamic Client Registration. MCP client with per-agent allowlist, per-tool approval, lazy connect and a **visible per-server token cost** (13.7k–18k tokens/server); MCP server with deny-by-default exposure behind `authorize()`. ACP agent side (`plur1bus-harness acp`, stdout is JSON-RPC only) and client side. **External coding agents** as three tiers: Tier 1 ACP (M6 set: Claude Code, Codex, Goose gated; Gemini CLI (now Antigravity CLI `agy`, D40) best-effort), Tier 2 headless JSON (`claude -p --output-format stream-json`, `codex exec --json`), Tier 3 PTY opt-in and labelled unsupported. Discovery probes **existence only** of credential paths — never reads, copies, parses, logs or forwards their contents. Skills (install, preview before activation, versions, proposal queue) and plugins (source/version pinning, permission display, per-agent disable) in the UI. ADR-008; ADR-011; original §8.
+**Scope.** Official TS SDKs, pinned: `@modelcontextprotocol/sdk ^1.30` (spec 2026-07-28), `@agentclientprotocol/sdk 1.5.0` (**schema v1 only**, v2 alpha excluded), `@a2a-js/sdk 1.2.0` (spec 1.0.0, **JSON-RPC+SSE as the single declared interface**, server off by default, push notifications off, card JWS/JCS-signed and content-free). **Never** MCP Sampling, Roots, Logging or Dynamic Client Registration. MCP client with per-agent allowlist, per-tool approval, lazy connect and a **visible per-server token cost** (13.7k–18k tokens/server); MCP server with deny-by-default exposure behind `authorize()`. ACP agent side (`plur1bus-harness acp`, stdout is JSON-RPC only) and client side. **External coding agents** as three tiers: Tier 1 ACP (M6 set: Claude Code, Codex, Goose gated; Gemini CLI (now Antigravity CLI `agy`, D40) best-effort), Tier 2 headless JSON (`claude -p --output-format stream-json`, `codex exec --json`), Tier 3 PTY opt-in and labelled unsupported. Discovery probes **existence only** of credential paths — never reads, copies, parses, logs or forwards their contents. Skills (install, preview before activation, versions, proposal queue) and plugins (source/version pinning, permission display, per-agent disable) in the UI — **now delivered by track X** (X1 core and CLI, X2 MCP servers and bundles, X3 UI; D79–D85, `docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md`); M6 keeps the protocol work and consumes X's install path. ADR-008; ADR-011; original §8.
 
 **Acceptance** (§12 M6 re-cut)
 1. **Add an MCP server through the UI and use it** (§12 M6).
@@ -202,7 +204,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Blocking questions:** Q7 (minimum CLI set), ADR-008 Q1 (drop A2A 0.3), Q2 (push notifications off), Q3 (MCP default exposure), Q4 (memory tools read-only), Q5 (ACP v2), ADR-011 Q1–Q6. Prerequisite spikes: ADR-008 action 10 (0.5 d) and action 11 (Windows stdio audit), ADR-011 spikes 1–11 (≈10 ad, counted below).
 
-**Effort 30–44 ad.** MCP client+server 6–9, ACP both directions 5–7, A2A server+client+TCK 6–9, external-agent tiers + descriptors + nightly matrix 8–12, skills + plugins UI 4–6, spikes 1–2 (rest absorbed).
+**Effort 26–38 ad.** MCP client+server 6–9, ACP both directions 5–7, A2A server+client+TCK 6–9, external-agent tiers + descriptors + nightly matrix 8–12, spikes 1–2 (rest absorbed). The former "skills + plugins UI 4–6" line moved to track X3 (D85).
 
 **Exit:** demo guide (Zed, foreign A2A client, four CLIs), test report incl. TCK/ITK results, nightly per-CLI integration matrix live with the auto-degrade rule.
 
@@ -259,6 +261,20 @@ The desktop app (Tauri) ships the harness as containers: one `plur1bus-harness` 
 | D3 | Browser container, CEF panel, egress (Windows keeps the D1 container-browser panel until this gate — desktop spec DS35, §11 Q4, decided) | D2; Tauri 3 gate; D72–D74 | 12–18 |
 | D4 | Computer use + WebMCP bridge; the D1 Flatpak's CEF sandbox work | D3; D62 | 6–10 |
 
+### Track X — Extensions: skills and plugins (D79–D85; X1–X3 in v0.1.0, X4–X5 after)
+
+One package format (`.p1x`: ZIP + `p1x.json` manifest with per-file SHA-256 + optional minisign signature) for skills and every plugin kind (D14 module, channel, MCP server, bundle); install, enable/disable and uninstall buttons first from a file, then from the signed catalogue at `https://extensions.plur1bus.app/v1/index.json` whose packages live on GitHub Releases; a first-party extension key separate from the updater keys; per-item updates with the D78 model, independent of the harness version (conflict C6, add-on half). Spec: `docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md` (§12 has the X1 acceptance list, §13 the owner decisions).
+
+| M | Content | Depends on | Effort (ad) |
+|---|---|---|---|
+| **X1** (v0.1.0) — directly after 2a-H3b-b, before 2b | `crates/plur1bus-ext` (strict ZIP parser, verifier, minisign trust store, script derivation, fuzzed); `p1x`/`state.json` schemas; `ext.*` RPC (supervisor) + `ext.changed`; CLI `skill`/`plugin`/`ext` incl. offline mode; skills (folder, `.zip`, `.skill`, `.p1x`; the `feat/import-detect` `skills/index.json` contract adopted); module and channel packages over D14 install; hot enable/disable; uninstall/purge/restore with trash; `ext pack`/`verify`/`lint`; `1staid` checks `extensions.integrity`, `extensions.consistency`, `extensions.revoked` | 2a-H3b-b | 7–10 |
+| **X2** (v0.1.0) — with 2b | `mcp-server` kind (local MCPB tree incl. `.mcpb`/`.dxt`, D46 folded in; remote with D67 auth), tool-effect approval defaults, `bundle` kind and Claude Code plugin import, per-agent MCP enable lists | X1; 2b (D38) | 3–5 |
+| **X3** (v0.1.0) — with M3 | Web UI on `V2SkillsLibrary`, `V2Plugins` (generic install panel), `V2Modules` (product update vs per-add-on updates), catalogue view; upload endpoint and confirm route; WebMCP deny list for the mutations; D1 `.p1x` file association and `plur1bus://install` (catalogue ids only) | X1, X2; M3; D1 | 5–7 (4–6 moved from M6) |
+| X4 — after M3, target v0.2 | Signed catalogue client (serial, expires, host allow-list, egress, mirrors), search, install from catalogue, per-item updates with snapshot, health gate and rollback, pin/skip/auto-patch, revocation, extension check in the D78 harness pre-flight, key rotation | X1–X3; D78 pre-flight | 5–8 |
+| X5 — after X1 freezes the format, before X4 ships | `Cyb3rb1ade/plur1bus-extensions` repository, lint/release/catalog/re-sign workflows, `REVIEW.md`, GitHub Pages + DNS for `extensions.plur1bus.app` (owner), first 1–3 packages | X1; owner keys and DNS | 3–5 (+0.5–2 per package) |
+
+M4's channel modules (D60) and M7's importer use X1's install path; M7 needs no skill writer beyond the `feat/import-detect` contract.
+
 ## 3. Dependency graph
 
 ```mermaid
@@ -280,6 +296,10 @@ graph LR
   M3 & M5 --> M6
   M1 & M3 --> M7
   M5 & M6 & M7 & P14 & P12 --> M8
+  M1 --> X1[X1 extensions: file install] --> X2[X2 MCP servers, bundles] --> X3[X3 extensions UI]
+  M3 --> X3 --> X4[X4 catalogue, updates]
+  X1 --> X5[X5 publishing] --> X4
+  X3 --> M8
 ```
 
 | Can run in parallel | Condition |
@@ -288,6 +308,7 @@ graph LR
 | Core daemon + CLI skeleton ‖ engine PR-04…PR-09 | harness consumes `0.x-<sha>` prereleases (P2) |
 | M2 provider adapters ‖ M2 auth engine ‖ M2 prompt builder | three independent packages |
 | **M7 ‖ M5 and M6** | M7 needs only M1 (stores) + M3 (wizard); it is off the critical path |
+| **X5 ‖ everything after X1** | the publishing repository and first packages need only X1's frozen format and the owner's keys and DNS |
 | M4 Telegram/Discord ‖ Matrix ‖ Buzz | one adapter interface, three workstreams |
 | Docs, CI matrix hardening, benchmark upkeep | continuous from M1, consolidated in M8 |
 
