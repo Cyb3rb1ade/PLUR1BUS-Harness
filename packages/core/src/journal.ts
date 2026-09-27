@@ -213,8 +213,7 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
     const { principal } = callerToPrincipal(line.caller, line.agentId, ws);
     let handled = false;
     try {
-      // H3-R24: marks the window in which a SIGKILL can store a line twice (engine PR E4.1: the turn guard records
-      // late); the kill soak matches it with the victim's pid.
+      // Diagnostic, paired with "journal: replayed" below: which line a replay is capturing, and by which core pid.
       o.logger.info("journal: replay start", { id: line.id, pid: process.pid });
       const handle = o.engine.capture({ agentId: line.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: line.messages, incognito: false, signal: AbortSignal.timeout(60_000), ...(line.sessionKey ? { sessionKey: line.sessionKey } : {}), runId: `journal:${line.id}` });
       const r = await handle.done;
