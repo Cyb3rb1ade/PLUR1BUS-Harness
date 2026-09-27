@@ -162,7 +162,7 @@ impl Listener {
         Ok(Accepted {
             reader: Box::new(Pipe(pipe.clone())),
             writer: Box::new(Pipe(pipe)),
-            closer: Box::new(move || {
+            closer: Arc::new(move || {
                 // Cancel the blocked read first, then disconnect: never disconnect behind a pending read.
                 closer.cancel_io();
                 // SAFETY: `closer` keeps the handle open for the call.

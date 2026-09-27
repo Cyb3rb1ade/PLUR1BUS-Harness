@@ -32,6 +32,13 @@ impl RotatingFile {
         })
     }
 
+    /// New limits (`logs.maxBytes` / `logs.keep` changed live); they apply from the next write on. Rotated files
+    /// beyond a smaller `keep` are left alone until the next rotation drops `<file>.<keep>`.
+    pub fn set_limits(&mut self, max_bytes: u64, keep: u32) {
+        self.max_bytes = max_bytes;
+        self.keep = keep.max(1);
+    }
+
     fn rotated(&self, n: u32) -> PathBuf {
         let mut s = self.path.clone().into_os_string();
         s.push(format!(".{n}"));
@@ -125,5 +132,24 @@ mod tests {
             .unwrap()
             .len();
         assert!(after == before + 2 || after == 2);
+    }
+
+    #[test]
+    fn set_limits_applies_from_the_next_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("supervisor.log");
+        let mut f = RotatingFile::open(&path, 1_000_000, 5).unwrap();
+        for _ in 0..20 {
+            f.write_all(b"0123456789012345678\n").unwrap();
+        }
+        assert!(!dir.path().join("supervisor.log.1").exists());
+        f.set_limits(100, 1);
+        for _ in 0..20 {
+            f.write_all(b"0123456789012345678\n").unwrap();
+        }
+        f.flush().unwrap();
+        assert!(dir.path().join("supervisor.log.1").exists());
+        assert!(!dir.path().join("supervisor.log.2").exists(), "keep = 1");
+        assert!(fs::metadata(&path).unwrap().len() <= 100);
     }
 }

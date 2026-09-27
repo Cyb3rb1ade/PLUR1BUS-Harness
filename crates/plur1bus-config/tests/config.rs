@@ -1,6 +1,7 @@
 use plur1bus_config::{
-    defaults, filter_config_by_tier, filter_schema_by_tier, load, restart_class_of, set, tier_of,
-    validate, write_atomic, ConfigError, RestartClass, Tier,
+    defaults, filter_config_by_tier, filter_schema_by_tier, load, restart_class_name,
+    restart_class_of, revision, serialize, set, set_many, tier_of, validate, write_atomic,
+    ConfigError, RestartClass, Tier,
 };
 use serde_json::{json, Value};
 use std::fs;
@@ -281,4 +282,92 @@ fn filter_config_by_tier_matches_ts_semantics() {
     let basic = filter_config_by_tier(&d, Tier::Basic);
     assert!(basic.get("core").is_none());
     assert!(basic.get("agents").is_some());
+}
+
+#[test]
+fn revision_is_independent_of_key_order() {
+    let a: Value = serde_json::from_str(
+        r#"{"schemaVersion":1,"core":{"logLevel":"info","shutdownBudgetMs":30000}}"#,
+    )
+    .unwrap();
+    let b: Value = serde_json::from_str(
+        r#"{"core":{"shutdownBudgetMs":30000,"logLevel":"info"},"schemaVersion":1}"#,
+    )
+    .unwrap();
+    let r = revision(&a);
+    assert_eq!(r, revision(&b));
+    assert_eq!(r.len(), 16);
+    assert!(
+        r.bytes()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+        "{r}"
+    );
+    let c: Value = serde_json::from_str(
+        r#"{"schemaVersion":1,"core":{"logLevel":"debug","shutdownBudgetMs":30000}}"#,
+    )
+    .unwrap();
+    assert_ne!(r, revision(&c));
+    // What write_atomic writes is exactly `serialize` (the supervisor hashes it to recognise its own writes).
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("config.json");
+    write_atomic(&p, &a).unwrap();
+    assert_eq!(fs::read_to_string(&p).unwrap(), serialize(&a));
+}
+
+#[test]
+fn set_many_applies_all_changes_or_none() {
+    let c = defaults();
+    let plan = set_many(
+        &c,
+        &[
+            ("core.logLevel".to_string(), json!("debug")),
+            ("engine.recallMinScore".to_string(), json!(0.5)),
+        ],
+    )
+    .unwrap();
+    assert_eq!(plan.changed, vec!["core.logLevel", "engine.recallMinScore"]);
+    assert_eq!(plan.restart.live, vec!["core.logLevel"]);
+    assert!(plan.restart.core);
+    assert_eq!(plan.after["core"]["logLevel"], "debug");
+    assert_eq!(plan.before, c);
+    // One bad change refuses the whole batch; the input is untouched.
+    match set_many(
+        &c,
+        &[
+            ("core.logLevel".to_string(), json!("debug")),
+            ("core.recall.softBudgetMs".to_string(), json!("abc")),
+        ],
+    ) {
+        Err(ConfigError::Invalid(e)) => {
+            assert!(e.iter().any(|s| s.contains("softBudgetMs")), "{e:?}")
+        }
+        o => panic!("{o:?}"),
+    }
+    assert_eq!(c, defaults());
+    // A later change to the same key wins; an empty batch changes nothing.
+    let plan = set_many(
+        &c,
+        &[
+            ("core.logLevel".to_string(), json!("debug")),
+            ("core.logLevel".to_string(), json!("warn")),
+        ],
+    )
+    .unwrap();
+    assert_eq!(plan.after["core"]["logLevel"], "warn");
+    assert!(set_many(&c, &[]).unwrap().changed.is_empty());
+    // `set` is `set_many` with one change.
+    let one = set(&c, "core.logLevel", json!("debug")).unwrap();
+    assert_eq!(
+        one.after,
+        set_many(&c, &[("core.logLevel".into(), json!("debug"))])
+            .unwrap()
+            .after
+    );
+}
+
+#[test]
+fn restart_class_names_carry_the_module() {
+    assert_eq!(restart_class_name("core.logLevel"), "live");
+    assert_eq!(restart_class_name("engine.recallMinScore"), "core");
+    assert_eq!(restart_class_name("agents.bernd"), "live");
 }

@@ -12,6 +12,8 @@
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
 // FAKE_CORE_ENGINE (JSON) replaces core.status's `engine` object (default: ready, not degraded).
 // FAKE_CORE_JOBS (JSON) is core.status's `jobs` object (default: absent, as from a core without job health).
+// FAKE_CORE_CONFIG_CHECK=1: exit 2 at start when <home>/config.json exists but is not JSON (core.js exits 2 on an
+// invalid config.json).
 // Every event (started, listening, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
 // The lifeline (S4) is stdin with --lifeline stdin, then the connection of the last successful core.adopt (whose nonce
 // must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
@@ -49,6 +51,13 @@ process.stderr.write(`fake-core stderr marker pid=${process.pid}\n`);
 
 const [kind, a, b] = mode.split(":");
 if (kind === "exit") exit(Number(a));
+if (process.env.FAKE_CORE_CONFIG_CHECK === "1") {
+  try {
+    JSON.parse(readFileSync(path.join(home, "config.json"), "utf8"));
+  } catch (e) {
+    if (e.code !== "ENOENT") exit(2);
+  }
+}
 
 // Like packages/core/src/lock.ts, before anything touches run/: a second core must not remove the first one's socket.
 const stateDir = path.join(home, "state");

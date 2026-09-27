@@ -28,13 +28,19 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
     assert_eq!(
         methods,
         [
+            "config.get",
+            "config.set",
+            "config.watch",
             "daemon.start",
             "daemon.status",
             "daemon.stop",
             "supervisor.auth"
         ]
     );
-    assert_eq!(caps["notifications"], json!({}));
+    assert_eq!(
+        caps["notifications"],
+        json!({ "config.changed": { "stability": "experimental", "since": "1.3.0" } })
+    );
     assert_eq!(caps["extensionPoints"], json!({}));
     assert_eq!(caps["features"], json!(["adoption", "lifelines"]));
     assert_eq!(
@@ -45,4 +51,6 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
     assert!(core["methods"].get("core.adopt").is_some());
     assert!(core["methods"].get("daemon.status").is_none());
     assert!(core["notifications"]["engine.event"]["deprecated"].is_object());
+    assert!(core["methods"].get("config.set").is_none());
+    assert!(core["notifications"].get("config.changed").is_none());
 }

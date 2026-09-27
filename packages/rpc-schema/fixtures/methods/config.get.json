@@ -1,0 +1,2 @@
+{ "params": { "key": "core.logLevel" },
+  "result": { "key": "core.logLevel", "tier": "advanced", "value": "info", "restartClass": "live", "restart": "live", "revision": "0123456789abcdef" } }

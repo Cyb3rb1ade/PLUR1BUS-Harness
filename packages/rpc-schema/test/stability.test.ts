@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { METHODS, METHODS_BY_SERVER, NOTIFICATIONS, RPC_VERSION, SCHEMA, buildCapabilities, validateResult } from "../src/index.ts";
+import { METHODS, METHODS_BY_SERVER, NOTIFICATIONS, NOTIFICATIONS_BY_SERVER, RPC_VERSION, SCHEMA, buildCapabilities, validateResult } from "../src/index.ts";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -37,19 +37,21 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(stableNotifications, ["core.state"]);
   });
 
-  it("every method declares x-server core or supervisor, and every notification x-server core", () => {
+  it("every method and every notification declares x-server core or supervisor", () => {
     for (const [name, def] of Object.entries(methods) as [string, { "x-server"?: string }][]) {
       assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor", `${name} x-server`);
     }
     for (const [name, def] of Object.entries(notifications) as [string, { "x-server"?: string }][]) {
-      assert.equal(def["x-server"], "core", `${name} x-server`);
+      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor", `${name} x-server`);
     }
+    assert.deepEqual([...NOTIFICATIONS_BY_SERVER.supervisor], ["config.changed"]);
+    assert.deepEqual([...NOTIFICATIONS_BY_SERVER.core, ...NOTIFICATIONS_BY_SERVER.supervisor].sort(), [...NOTIFICATIONS].sort());
   });
 
   it("buildCapabilities lists every core method and notification with stability and since", () => {
     const capabilities = buildCapabilities([]);
     assert.deepEqual(Object.keys(capabilities.methods).sort(), [...METHODS_BY_SERVER.core].sort());
-    assert.deepEqual(Object.keys(capabilities.notifications).sort(), [...NOTIFICATIONS].sort());
+    assert.deepEqual(Object.keys(capabilities.notifications).sort(), [...NOTIFICATIONS_BY_SERVER.core].sort());
     assert.equal(capabilities.methods["core.auth"]!.stability, "stable");
     assert.deepEqual(
       validateResult("core.auth", { contract: "1.6.0", rpc: "1.2.0", instanceId: "i", pid: 1, capabilities }),
@@ -63,10 +65,11 @@ describe("rpc-schema stability annotations", () => {
     assert.ok(core.methods["core.adopt"]);
     assert.equal(core.methods["daemon.status"], undefined);
     const supervisor = buildCapabilities(["lifelines", "adoption"], "supervisor");
-    assert.deepEqual(Object.keys(supervisor.methods).sort(), ["daemon.start", "daemon.status", "daemon.stop", "supervisor.auth"]);
-    assert.deepEqual(supervisor.notifications, {});
+    const supervisorMethods = ["config.get", "config.set", "config.watch", "daemon.start", "daemon.status", "daemon.stop", "supervisor.auth"];
+    assert.deepEqual(Object.keys(supervisor.methods).sort(), supervisorMethods);
+    assert.deepEqual(Object.keys(supervisor.notifications), ["config.changed"]);
     assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);
-    assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), ["daemon.start", "daemon.status", "daemon.stop", "supervisor.auth"]);
+    assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), supervisorMethods);
     assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor].sort(), [...METHODS].sort());
     assert.deepEqual(validateResult("supervisor.auth", { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: supervisor }), { ok: true });
   });

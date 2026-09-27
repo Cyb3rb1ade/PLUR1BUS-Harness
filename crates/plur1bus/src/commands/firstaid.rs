@@ -217,7 +217,17 @@ fn probe_supervisor(layout: &Layout, platform: &str) -> SupervisorView {
 pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     let deadline = Instant::now() + GATHER_BUDGET;
     let mut checks = Vec::with_capacity(CHECK_IDS.len());
-    checks.push(check_config_valid(layout));
+    // The supervisor's own view: `daemon.status` gives the supervisor's health, the core child's (exactly as `daemon
+    // status` reports them) and the configuration it runs, which `config.valid` needs first.
+    let supervisor = probe_supervisor(layout, env.platform);
+    let daemon_status = match &supervisor {
+        SupervisorView::Answered(v) => Some(v),
+        _ => None,
+    };
+    checks.push(check_config_valid(
+        layout,
+        daemon_status.map(|s| &s["config"]),
+    ));
     checks.push(check_run_permissions(layout));
     checks.push(check_run_stale_files(layout, env.platform));
 
@@ -225,14 +235,7 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
         return checks;
     }
 
-    // The supervisor's own view: `daemon.status` gives both the supervisor's health and the core child's, exactly
-    // as `daemon status` reports them.
-    let supervisor = probe_supervisor(layout, env.platform);
     checks.push(check_supervisor_state(&supervisor));
-    let daemon_status = match &supervisor {
-        SupervisorView::Answered(v) => Some(v),
-        _ => None,
-    };
     checks.push(check_core_state(daemon_status));
 
     if out_of_budget(deadline, &mut checks) {
@@ -293,9 +296,24 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
 const CURRENT_CONFIG_SCHEMA_VERSION: u64 = 1;
 
 /// Reads and validates `config.json` without ever writing it — unlike [`plur1bus_config::load`], which creates a
-/// default file when one is missing (a side effect this read-only check must not have).
-fn check_config_valid(layout: &Layout) -> Check {
+/// default file when one is missing (a side effect this read-only check must not have). `supervisor` is the running
+/// supervisor's `daemon.status.config`: a hand edit it rejected fails the check with its errors (B4); while no valid
+/// configuration runs (B18) the hint does not offer `config set`, which then has nothing to apply against.
+fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
     const ID: &str = "config.valid";
+    if let Some(rejected) = supervisor.map(|c| &c["rejected"]).filter(|r| r.is_object()) {
+        let hint = if supervisor.is_some_and(|c| c["revision"].is_string()) {
+            "the supervisor runs the last valid configuration; fix config.json or use plur1bus config set"
+        } else {
+            "no valid configuration runs, so the core cannot start; fix config.json"
+        };
+        return Check::fail(
+            ID,
+            "the supervisor rejected config.json",
+            Some(json!({ "errors": rejected["errors"], "at": rejected["at"] })),
+            Some(hint.to_string()),
+        );
+    }
     let path = layout.config_path();
     let text = match std::fs::read_to_string(&path) {
         Ok(t) => t,
@@ -452,7 +470,8 @@ fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
 
 // ---- run.stale-files --------------------------------------------------------------------------
 
-fn pid_alive(pid: u32) -> bool {
+/// Whether `pid` names a live process (`kill(pid, 0)` / `OpenProcess`). Also used by `config` routing (B6).
+pub(crate) fn pid_alive(pid: u32) -> bool {
     #[cfg(unix)]
     {
         // SAFETY: signal 0 only checks that the pid exists; no signal is actually delivered.
@@ -1597,9 +1616,10 @@ mod tests {
     fn out_of_budget_fills_every_remaining_id_with_a_time_budget_warning() {
         // Minor 4 of the review.
         let mut checks = vec![
-            check_config_valid(&Layout::new(
-                tempfile::tempdir().unwrap().path().to_path_buf(),
-            )),
+            check_config_valid(
+                &Layout::new(tempfile::tempdir().unwrap().path().to_path_buf()),
+                None,
+            ),
             Check::ok("run.permissions", "x"),
             Check::ok("run.stale-files", "x"),
         ];
@@ -1624,8 +1644,33 @@ mod tests {
     fn config_valid_reports_ok_when_config_json_is_absent_without_creating_it() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
-        let check = check_config_valid(&layout);
+        let check = check_config_valid(&layout, None);
         assert_eq!(check.status, Status::Ok);
         assert!(!layout.config_path().exists());
+    }
+
+    #[test]
+    fn config_valid_fails_when_the_supervisor_rejected_an_edit() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let errors = json!(["/core/logLevel \"loud\" is not one of the allowed values"]);
+        // A valid configuration still runs: the hint offers both ways out.
+        let running =
+            json!({ "revision": "0123456789abcdef", "rejected": { "at": 5, "errors": errors } });
+        let c = check_config_valid(&layout, Some(&running));
+        assert_eq!(c.status, Status::Fail, "{c:?}");
+        assert_eq!(c.detail.as_ref().unwrap()["errors"], errors);
+        assert_eq!(
+            c.hint.as_deref(),
+            Some("the supervisor runs the last valid configuration; fix config.json or use plur1bus config set")
+        );
+        // Nothing runs (invalid at start, B18): `config set` has nothing to apply against, so it is not offered.
+        let none = json!({ "revision": null, "rejected": { "at": 5, "errors": errors } });
+        let c = check_config_valid(&layout, Some(&none));
+        assert_eq!(c.status, Status::Fail);
+        assert!(!c.hint.as_deref().unwrap().contains("config set"), "{c:?}");
+        // No rejection: the file decides, as without a supervisor.
+        let clean = json!({ "revision": "0123456789abcdef", "rejected": null });
+        assert_eq!(check_config_valid(&layout, Some(&clean)).status, Status::Ok);
     }
 }

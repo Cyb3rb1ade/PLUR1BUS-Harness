@@ -1693,6 +1693,50 @@ The supervisor's own state and one entry per supervised child.
       "items": {
         "$ref": "#/$defs/ChildStatus"
       }
+    },
+    "config": {
+      "description": "Experimental (1.3.0). The configuration the supervisor runs (B4): `revision` of the running configuration (null when no valid configuration runs, e.g. config.json was invalid at start) and the last hand edit of config.json it rejected (null once a valid file or a config.set replaced it).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "rejected"
+      ],
+      "properties": {
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rejected": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "at",
+                "errors"
+              ],
+              "properties": {
+                "at": {
+                  "type": "integer",
+                  "description": "Wall time (ms) of the rejection."
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
     }
   }
 }
@@ -1781,6 +1825,248 @@ Replies first, then shuts every child down within budgetMs, removes the supervis
   "properties": {
     "accepted": {
       "const": true
+    }
+  }
+}
+```
+
+### `config.get`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+The running configuration (spec §6.1, B5): the whole value, one key (dotted path) or one tier (key and tier are exclusive). `restartClass` is `live`, `core` or `module:<name>` for a key, else null; `restart` is the same class without the module name (the CLI's `config.get/1` field). `revision` identifies the running configuration (config.set's ifRevision). E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "enum": [
+        "basic",
+        "advanced"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "tier",
+    "value",
+    "restartClass",
+    "restart",
+    "revision"
+  ],
+  "properties": {
+    "key": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tier": {
+      "oneOf": [
+        {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "value": {},
+    "restartClass": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "restart": {
+      "oneOf": [
+        {
+          "enum": [
+            "live",
+            "core",
+            "module"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revision": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `config.set`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "changes"
+  ],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {}
+        }
+      }
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "ifRevision": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "applied",
+    "dryRun",
+    "changed",
+    "restart",
+    "revision",
+    "restarted",
+    "durationMs"
+  ],
+  "properties": {
+    "applied": {
+      "type": "boolean"
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "restart": {
+      "$ref": "#/$defs/RestartPlan"
+    },
+    "revision": {
+      "type": "string",
+      "description": "After an apply the new revision; on a dry run the current one."
+    },
+    "restarted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "estimates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "description": "Estimated restart time (ms) per unit, null when unknown."
+    }
+  }
+}
+```
+
+### `config.watch`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Returns the running configuration and subscribes this connection to config.changed (B3). E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subscriptionId",
+    "config",
+    "revision"
+  ],
+  "properties": {
+    "subscriptionId": {
+      "type": "string"
+    },
+    "config": {
+      "type": "object"
+    },
+    "revision": {
+      "type": "string"
     }
   }
 }
@@ -2248,6 +2534,62 @@ Declared by the engine contract but not emitted by the pinned engine; no payload
   "properties": {
     "agentId": {
       "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+### `config.changed`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+The running configuration changed (B3), sent on connections that called config.watch. `config` is the full new configuration; `source` is `set` (config.set) or `file` (a hand edit of config.json the watcher applied). `previousRevision` is null when no valid configuration ran before.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "x-server": "supervisor",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "The running configuration changed (B3), sent on connections that called config.watch. `config` is the full new configuration; `source` is `set` (config.set) or `file` (a hand edit of config.json the watcher applied). `previousRevision` is null when no valid configuration ran before.",
+  "required": [
+    "revision",
+    "previousRevision",
+    "changed",
+    "restart",
+    "config",
+    "source"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string"
+    },
+    "previousRevision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "restart": {
+      "$ref": "#/$defs/RestartPlan"
+    },
+    "config": {
+      "type": "object"
+    },
+    "source": {
+      "enum": [
+        "set",
+        "file"
+      ]
     }
   }
 }
@@ -3356,6 +3698,40 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/Message"
+      }
+    }
+  }
+}
+```
+
+### `RestartPlan`
+
+```json
+{
+  "description": "Experimental (1.3.0). A restart plan (ADR-013 §3): the changed live keys, whether the core restarts, and the modules that restart.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "live",
+    "core",
+    "modules"
+  ],
+  "properties": {
+    "live": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "core": {
+      "type": "boolean"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     }
   }

@@ -1,0 +1,3 @@
+{ "params": { "changes": [{ "key": "core.logLevel", "value": "debug" }], "dryRun": false, "ifRevision": "0123456789abcdef" },
+  "result": { "applied": true, "dryRun": false, "changed": ["core.logLevel"], "restart": { "live": ["core.logLevel"], "core": false, "modules": [] },
+              "revision": "fedcba9876543210", "restarted": [], "durationMs": 3 } }

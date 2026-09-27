@@ -1,18 +1,22 @@
 //! The supervisor's RPC endpoint: NDJSON JSON-RPC 2.0 on `run/supervisor.sock` (unix) or the per-home
 //! `-supervisor` pipe (Windows). One accept loop, one thread per connection (S14). `supervisor.auth` must come first
 //! (constant-time token compare); a connection that has not authenticated within [`AUTH_IDLE`] is closed. Params are
-//! deserialised into the generated closed structs, so an unknown key is `E_INVALID_PARAMS`.
-use super::{spawn_guarded, Shared, StopSource, DEFAULT_STOP_BUDGET, SUPERVISOR_FEATURES};
+//! deserialised into the generated closed structs, so an unknown key is `E_INVALID_PARAMS`. A connection's writer is
+//! a [`SharedWriter`]: its replies and the notifications of its `config.watch` subscription share it.
+use super::config::{self, SetError};
+use super::subscribers::{SharedWriter, Topic};
+use super::{relock, spawn_guarded, Shared, StopSource, DEFAULT_STOP_BUDGET, SUPERVISOR_FEATURES};
 use crate::paths::{supervisor_address, Layout};
 use plur1bus_rpc::client::MAX_LINE;
 use plur1bus_rpc::types::{
-    DaemonStartParams, DaemonStatusParams, DaemonStopParams, SupervisorAuthParams,
+    ConfigGetParams, ConfigGetParamsTier, ConfigSetParams, ConfigWatchParams, DaemonStartParams,
+    DaemonStatusParams, DaemonStopParams, SupervisorAuthParams,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::sync::mpsc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// A connection that has not sent a valid `supervisor.auth` by then is closed.
@@ -24,12 +28,16 @@ const ACCEPT_WARN_EVERY: Duration = Duration::from_secs(10);
 /// `daemon.stop { budgetMs }` upper bound, as in the schema (typify does not check integer ranges).
 const MAX_BUDGET_MS: i64 = 120_000;
 
+/// `config.set { changes }` bounds, as in the schema (typify does not check array lengths).
+const MAX_CHANGES: usize = 64;
+
 /// One accepted connection, split so the connection thread can read and write while a watchdog closes it.
 pub(crate) struct Accepted {
     pub reader: Box<dyn Read + Send>,
     pub writer: Box<dyn Write + Send>,
-    /// Ends the connection from another thread; a blocked read then returns.
-    pub closer: Box<dyn FnOnce() + Send>,
+    /// Ends the connection from another thread; a blocked read (and write) then returns. Callable more than once:
+    /// the auth-idle watchdog and a dropped subscription both use it.
+    pub closer: Arc<dyn Fn() + Send + Sync>,
     /// Makes sure everything written reaches the peer before the connection is dropped.
     pub drain: Box<dyn FnMut() + Send>,
 }
@@ -61,7 +69,7 @@ impl SupervisorServer {
     }
 
     /// Accepts connections until the process exits, each on its own guarded thread.
-    pub fn serve(self, shared: Arc<Shared>) {
+    pub fn serve(self, shared: Arc<Shared>, layout: Layout) {
         let hello_base = {
             let st = shared.lock();
             json!({
@@ -75,6 +83,7 @@ impl SupervisorServer {
             token: self.token,
             hello: hello_base,
             shared: shared.clone(),
+            layout,
         });
         let mut next_id: u64 = 0;
         // Accept failures (e.g. EMFILE) can repeat every few ms; log at most one per ACCEPT_WARN_EVERY.
@@ -117,6 +126,15 @@ struct ConnCtx {
     token: String,
     hello: Value,
     shared: Arc<Shared>,
+    layout: Layout,
+}
+
+/// One connection's output side, as the handlers need it.
+struct Conn {
+    writer: SharedWriter,
+    closer: Arc<dyn Fn() + Send + Sync>,
+    /// Subscriptions made on this connection; removed when it ends.
+    subscriptions: Vec<String>,
 }
 
 enum Line {
@@ -167,6 +185,52 @@ fn result_reply(id: &Value, result: Value) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "result": result })
 }
 
+/// `config.*` answers `E_NOT_AVAILABLE reason=config-unavailable` while no valid configuration runs (B18).
+fn config_unavailable(id: &Value) -> Value {
+    error_reply(
+        id,
+        "E_NOT_AVAILABLE",
+        "no valid configuration runs; fix config.json",
+        Some("config-unavailable"),
+        None,
+        None,
+    )
+}
+
+fn set_error_reply(id: &Value, e: SetError) -> Value {
+    match e {
+        SetError::Invalid(errors) => error_reply(
+            id,
+            "E_CONFIG_INVALID",
+            "the configuration would be invalid",
+            None,
+            Some(errors.join("; ")),
+            None,
+        ),
+        SetError::Conflict { current } => {
+            let mut r = error_reply(
+                id,
+                "E_CONFLICT",
+                "config.json changed since the given revision",
+                Some("config-changed"),
+                None,
+                None,
+            );
+            r["error"]["data"]["ids"] = json!({ "currentRevision": current });
+            r
+        }
+        SetError::Unavailable => config_unavailable(id),
+        SetError::Io(detail) => error_reply(
+            id,
+            "E_INTERNAL",
+            "cannot write config.json",
+            None,
+            Some(detail),
+            None,
+        ),
+    }
+}
+
 fn invalid_params(id: &Value, detail: String) -> Value {
     error_reply(
         id,
@@ -197,6 +261,8 @@ enum After {
     Continue,
     Close,
     Stop(Duration),
+    /// The reply is already queued on the connection's subscription (`config.watch`); nothing to write.
+    Queued,
 }
 
 impl ConnCtx {
@@ -237,10 +303,15 @@ impl ConnCtx {
     fn handle(&self, conn: Accepted) {
         let Accepted {
             reader,
-            mut writer,
+            writer,
             closer,
             mut drain,
         } = conn;
+        let mut conn = Conn {
+            writer: Arc::new(Mutex::new(writer)),
+            closer: closer.clone(),
+            subscriptions: Vec::new(),
+        };
         // Watchdog: closes the connection unless `authed_tx` is dropped (auth succeeded, or the connection ended)
         // within AUTH_IDLE.
         let (authed_tx, authed_rx) = mpsc::channel::<()>();
@@ -286,7 +357,7 @@ impl ConnCtx {
                         ),
                         After::Continue,
                     ),
-                    Ok(msg) => match self.dispatch(&msg, authed_tx.is_none()) {
+                    Ok(msg) => match self.dispatch(&msg, authed_tx.is_none(), &mut conn) {
                         None => continue, // a notification: no reply
                         Some((reply, after, authed)) => {
                             if authed {
@@ -297,17 +368,27 @@ impl ConnCtx {
                     },
                 },
             };
-            let mut line = reply.to_string();
-            line.push('\n');
-            if writer
-                .write_all(line.as_bytes())
-                .and_then(|_| writer.flush())
-                .is_err()
-            {
-                break;
+            if !matches!(after, After::Queued) {
+                let mut line = reply.to_string();
+                line.push('\n');
+                // Once the connection is subscribed, its replies take the subscription's queue too: a reply written
+                // directly could overtake the queued `config.watch` reply or a notification sent before it.
+                if let Some(sub) = conn.subscriptions.first() {
+                    if !self.shared.subscribers.send_to(sub, line) {
+                        break; // dropped for not reading: its connection is being closed
+                    }
+                } else {
+                    let mut w = relock(&conn.writer);
+                    if w.write_all(line.as_bytes())
+                        .and_then(|_| w.flush())
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
             }
             match after {
-                After::Continue => {}
+                After::Continue | After::Queued => {}
                 After::Close => {
                     drain();
                     break;
@@ -320,11 +401,109 @@ impl ConnCtx {
             }
         }
         drop(authed_tx);
+        for id in &conn.subscriptions {
+            self.shared.subscribers.remove(id);
+        }
+    }
+
+    /// `config.watch`: under the config lock (so no `config.changed` can come in between), subscribe the connection
+    /// and queue the reply as the subscription's first line, so the peer reads the reply before any notification.
+    fn config_watch(&self, id: &Value, conn: &mut Conn) -> (Value, After) {
+        let st = relock(&self.shared.config);
+        let (Some(running), Some(revision)) = (st.running.as_ref(), st.revision.as_ref()) else {
+            return (config_unavailable(id), After::Continue);
+        };
+        let closer = conn.closer.clone();
+        let sub = self.shared.subscribers.add(
+            Topic::Config,
+            conn.writer.clone(),
+            Box::new(move || closer()),
+        );
+        let mut line = result_reply(
+            id,
+            json!({ "subscriptionId": sub, "config": running, "revision": revision }),
+        )
+        .to_string();
+        line.push('\n');
+        if !self.shared.subscribers.send_to(&sub, line) {
+            self.shared.subscribers.remove(&sub);
+            let reply = error_reply(
+                id,
+                "E_INTERNAL",
+                "cannot start the subscription",
+                None,
+                None,
+                None,
+            );
+            return (reply, After::Continue);
+        }
+        conn.subscriptions.push(sub);
+        (Value::Null, After::Queued)
+    }
+
+    fn config_get(&self, id: &Value, p: ConfigGetParams) -> Value {
+        if p.key.is_some() && p.tier.is_some() {
+            return invalid_params(id, "key and tier are exclusive".into());
+        }
+        let tier = p.tier.map(|t| match t {
+            ConfigGetParamsTier::Basic => plur1bus_config::Tier::Basic,
+            ConfigGetParamsTier::Advanced => plur1bus_config::Tier::Advanced,
+        });
+        let key = p.key.as_deref().map(String::as_str);
+        let st = relock(&self.shared.config);
+        let (Some(running), Some(revision)) = (st.running.as_ref(), st.revision.as_ref()) else {
+            return config_unavailable(id);
+        };
+        match config::get_result(running, revision, key, tier) {
+            Some(v) => result_reply(id, v),
+            None => error_reply(
+                id,
+                "E_INVALID_PARAMS",
+                &format!("no such key: {}", key.unwrap_or_default()),
+                Some("unknown-key"),
+                None,
+                None,
+            ),
+        }
+    }
+
+    fn config_set(&self, id: &Value, params: &Value) -> Value {
+        let p: ConfigSetParams = match parse(params) {
+            Ok(p) => p,
+            Err(d) => return invalid_params(id, d),
+        };
+        if p.changes.is_empty() || p.changes.len() > MAX_CHANGES {
+            return invalid_params(id, format!("changes must hold 1 to {MAX_CHANGES} items"));
+        }
+        // A change without `value` deserialises as null; the schema requires the key.
+        let raw = params["changes"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        if raw.iter().any(|c| c.get("value").is_none()) {
+            return invalid_params(id, "every change needs a value".into());
+        }
+        let changes = p
+            .changes
+            .into_iter()
+            .map(|c| (String::from(c.key), c.value))
+            .collect();
+        let if_revision = p.if_revision.as_deref().map(String::as_str);
+        match config::set(
+            &self.shared,
+            &self.layout,
+            changes,
+            if_revision,
+            p.dry_run.unwrap_or(false),
+        ) {
+            Ok(v) => result_reply(id, v),
+            Err(e) => set_error_reply(id, e),
+        }
     }
 
     /// Returns the reply, what to do next, and whether the connection is now authenticated; `None` for a message
     /// without an `id` (a notification), which gets no reply.
-    fn dispatch(&self, msg: &Value, authed: bool) -> Option<(Value, After, bool)> {
+    fn dispatch(&self, msg: &Value, authed: bool, conn: &mut Conn) -> Option<(Value, After, bool)> {
         let id = msg.get("id").cloned();
         let valid = msg.is_object()
             && msg["jsonrpc"] == "2.0"
@@ -385,10 +564,22 @@ impl ConnCtx {
         let reply = match method {
             "daemon.status" => match parse::<DaemonStatusParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
-                Ok(_) => (
-                    result_reply(&id, self.shared.lock().status_json()),
-                    After::Continue,
-                ),
+                Ok(_) => {
+                    // Config first, then state (the lock order in `config`).
+                    let cfg = config::status_json(&relock(&self.shared.config));
+                    let mut status = self.shared.lock().status_json();
+                    status["config"] = cfg;
+                    (result_reply(&id, status), After::Continue)
+                }
+            },
+            "config.get" => match parse::<ConfigGetParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(p) => (self.config_get(&id, p), After::Continue),
+            },
+            "config.set" => (self.config_set(&id, &params), After::Continue),
+            "config.watch" => match parse::<ConfigWatchParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => self.config_watch(&id, conn),
             },
             "daemon.start" => match parse::<DaemonStartParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
@@ -458,7 +649,7 @@ mod imp {
             Ok(Accepted {
                 reader: Box::new(reader),
                 writer: Box::new(s),
-                closer: Box::new(move || {
+                closer: std::sync::Arc::new(move || {
                     let _ = closer.shutdown(Shutdown::Both);
                 }),
                 // The kernel delivers what was written before the close.

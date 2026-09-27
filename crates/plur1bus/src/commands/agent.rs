@@ -1,7 +1,6 @@
 use crate::cli::AgentCmd;
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
-use plur1bus_config as cfg;
 use plur1bus_rpc::{Client, ConnectOptions};
 use serde_json::{json, Value};
 
@@ -35,9 +34,8 @@ fn try_core(layout: &Layout) -> Option<Client> {
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
-    let loaded = cfg::load(&layout.config_path())
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
-    let config = loaded.config;
+    // The registry is the running configuration's `agents` map: the supervisor's when it answers (B6).
+    let (config, revision) = super::config::running(out, layout);
     match cmd {
         AgentCmd::List => {
             let ids: Vec<String> = config["agents"]
@@ -98,14 +96,15 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                 );
             }
             let now = rfc3339_now();
-            let plan = cfg::set(
-                &config,
-                &format!("agents.{id}"),
-                json!({ "createdAt": now }),
-            )
-            .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
-            cfg::write_atomic(&layout.config_path(), &plan.after)
-                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
+            // Against the revision the existence check read: an agent added meanwhile is a conflict, not overwritten.
+            super::config::apply(
+                out,
+                layout,
+                vec![(format!("agents.{id}"), json!({ "createdAt": now }))],
+                Some(&revision),
+                true,
+                false,
+            );
             std::fs::create_dir_all(layout.workspace_dir(&id))
                 .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
             let opened = try_core(layout)
@@ -135,14 +134,22 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     1,
                 );
             }
-            let mut after = config.clone();
-            after["agents"].as_object_mut().unwrap().remove(&id);
-            cfg::validate(&after)
-                .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.join("; "), json!({}), 1));
+            // config.set has no delete: the whole map minus the agent, against the revision it was read from
+            // (H3B-R5), so an agent added meanwhile is a conflict instead of being dropped.
+            let mut agents = config["agents"].clone();
+            if let Some(m) = agents.as_object_mut() {
+                m.remove(&id);
+            }
+            super::config::apply(
+                out,
+                layout,
+                vec![("agents".to_string(), agents)],
+                Some(&revision),
+                true,
+                false,
+            );
             let _ = try_core(layout)
                 .and_then(|mut c| c.call("agent.close", json!({ "agentId": id })).ok());
-            cfg::write_atomic(&layout.config_path(), &after)
-                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
             out.ok("agent.remove/1", &json!({ "agentId": id, "removed": true, "dataKept": true }), || {
                 format!("removed agent {id} from the registry; data left in place under agents/{id} (purge arrives in M2)")
             });

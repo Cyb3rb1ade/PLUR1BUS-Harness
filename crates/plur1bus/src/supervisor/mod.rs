@@ -1,18 +1,21 @@
 //! Supervisor: process lifecycle for the core (and, later, modules).
 //!
 //! `state` is the pure state machine (health, backoff, crash classification) with no I/O. `server` is the
-//! supervisor's RPC endpoint, `logfile` the size-rotated log files. [`run`] is `plur1bus supervise`: it claims the
+//! supervisor's RPC endpoint, `logfile` the size-rotated log files, `config` the owner of `config.json` (`config.*`,
+//! the file watcher) and `subscribers` the connections that receive supervisor notifications. [`run`] is `plur1bus supervise`: it claims the
 //! home (single instance), writes `run/supervisor.token` and `run/supervisor.pid`, serves `supervisor.auth` and
 //! `daemon.*`, adopts a core that is already running or spawns one (`adopt`, `child`), monitors it, and stops on
 //! `daemon.stop` or SIGTERM/SIGINT (the core first).
 #![allow(dead_code)]
 pub mod adopt;
 pub mod child;
+pub mod config;
 pub mod logfile;
 #[cfg(windows)]
 pub mod pipe_windows;
 pub mod server;
 pub mod state;
+pub mod subscribers;
 
 use crate::paths::{supervisor_address, Layout};
 use logfile::RotatingFile;
@@ -41,7 +44,8 @@ pub struct SuperviseOpts {
     pub no_core: bool,
 }
 
-/// `supervisor.*` and `logs.*` from `config.json`, read once at start (S15).
+/// `supervisor.*` and `logs.*` of the running configuration ([`config::supervisor_config`]); replaced whenever the
+/// running configuration changes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SupervisorConfig {
     pub grace_ms: u64,
@@ -128,11 +132,18 @@ impl SupervisorState {
 }
 
 /// State shared by every supervisor thread (S14): one mutex, one condvar that wakes the main thread (a stop, a
-/// scheduled restart, `daemon.start`), and the log.
+/// scheduled restart, `daemon.start`), and the log. `config` has its own mutex, taken before `state` when both are
+/// needed.
 pub struct Shared {
     pub state: Mutex<SupervisorState>,
     pub wake: Condvar,
     pub log: Log,
+    /// `config.json` as the supervisor owns it (B3–B5).
+    pub config: Mutex<config::ConfigState>,
+    /// Connections subscribed to `config.changed` (and later `module.state`).
+    pub subscribers: subscribers::Subscribers,
+    /// The children's out logs, so a `logs.*` change reaches them too.
+    pub out_logs: Mutex<Vec<Arc<Mutex<Option<RotatingFile>>>>>,
 }
 
 impl Shared {
@@ -200,6 +211,17 @@ impl Log {
     pub fn error(&self, msg: &str, fields: Value) {
         self.write("error", msg, fields)
     }
+    /// `logs.maxBytes` / `logs.keep` changed: applies from the next write on.
+    pub fn set_limits(&self, max_bytes: u64, keep: u32) {
+        if let Some(f) = relock(&self.file).as_mut() {
+            f.set_limits(max_bytes, keep);
+        }
+    }
+}
+
+/// Locks `m`, using a poisoned mutex anyway: a panicking thread takes the whole process down (exit 70).
+pub(crate) fn relock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 pub fn now_ms() -> u64 {
@@ -280,31 +302,6 @@ pub fn parse_time_scale(raw: Option<&str>) -> Result<f64, String> {
             "PLUR1BUS_SUPERVISOR_TIME_SCALE must be a number above 0 and at most {MAX_TIME_SCALE}, got {raw:?}"
         )),
     }
-}
-
-/// Reads `supervisor.*` and `logs.*`. The supervisor never writes `config.json` (S15): a missing file means the
-/// defaults, and an unreadable or invalid one means the defaults plus a warning in the returned string.
-fn read_config(layout: &Layout) -> (SupervisorConfig, Option<String>) {
-    let path = layout.config_path();
-    let (config, warning) = if path.exists() {
-        match plur1bus_config::load(&path) {
-            Ok(l) => (l.config, None),
-            Err(e) => (plur1bus_config::defaults(), Some(e.to_string())),
-        }
-    } else {
-        (plur1bus_config::defaults(), None)
-    };
-    let num =
-        |section: &str, key: &str, fallback: u64| config[section][key].as_u64().unwrap_or(fallback);
-    (
-        SupervisorConfig {
-            grace_ms: num("supervisor", "graceMs", 60_000),
-            health_interval_ms: num("supervisor", "healthIntervalMs", 5_000),
-            log_max_bytes: num("logs", "maxBytes", 20 * 1024 * 1024),
-            log_keep: num("logs", "keep", 5).clamp(1, u32::MAX as u64) as u32,
-        },
-        warning,
-    )
 }
 
 fn platform() -> &'static str {
@@ -565,16 +562,18 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         let _ = fs::remove_file(&address);
     }
 
-    let (config, config_warning) = read_config(layout);
+    let config_state = config::initial(layout);
+    let config = config::supervisor_config(config_state.running.as_ref());
     let log = Log::open(
         &layout.log_file("supervisor"),
         config.log_max_bytes,
         config.log_keep,
     );
-    if let Some(w) = config_warning {
+    if let Some(r) = &config_state.rejected {
+        // B18: no configuration runs until a valid file appears; a core started now exits 2 (config-invalid).
         log.warn(
-            "config.json unreadable, using defaults",
-            json!({ "detail": w }),
+            "config.json is invalid; no configuration runs until it is fixed",
+            json!({ "errors": r.errors }),
         );
     }
 
@@ -606,6 +605,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         }),
         wake: Condvar::new(),
         log,
+        config: Mutex::new(config_state),
+        subscribers: subscribers::Subscribers::new(),
+        out_logs: Mutex::new(Vec::new()),
     });
 
     // Before the bind: from here on a SIGTERM takes the clean-stop path (the main loop below removes the files).
@@ -624,9 +626,12 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     };
     {
         let shared2 = shared.clone();
-        spawn_guarded(&shared, "accept", move || server.serve(shared2))
+        let layout2 = layout.clone();
+        spawn_guarded(&shared, "accept", move || server.serve(shared2, layout2))
             .unwrap_or_else(|e| fail(layout, 1, &format!("cannot start the accept thread: {e}")));
     }
+    config::spawn_watcher(&shared, layout, time_scale)
+        .unwrap_or_else(|e| fail(layout, 1, &format!("cannot start the config watcher: {e}")));
     shared.log.info(
         "supervisor ready",
         json!({ "pid": pid, "instanceId": instance_id, "address": address, "noCore": opts.no_core, "timeScale": time_scale }),
@@ -849,6 +854,26 @@ fn watch_signals(shared: &Arc<Shared>) {
     }
 }
 
+/// A `SupervisorState` for unit tests: `--no-core`, scale 1, default configuration.
+#[cfg(test)]
+pub(crate) fn test_state() -> SupervisorState {
+    SupervisorState {
+        instance_id: uuid::Uuid::new_v4().to_string(),
+        pid: 42,
+        started: Instant::now(),
+        started_at_ms: now_ms(),
+        no_core: true,
+        time_scale: 1.0,
+        config: config::supervisor_config(None),
+        child: None,
+        lifeline: Lifeline::None,
+        stopping: None,
+        backoff: Backoff::new(1.0),
+        restart_at: None,
+        start_requested: false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -908,7 +933,7 @@ mod tests {
             started_at_ms: now_ms(),
             no_core: true,
             time_scale: 1.0,
-            config: read_config(&Layout::new("/nonexistent-p1b-home".into())).0,
+            config: config::supervisor_config(None),
             child: None,
             lifeline: Lifeline::None,
             stopping: None,

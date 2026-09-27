@@ -96,7 +96,8 @@ struct Timing {
     /// Readiness: connect + `core.auth` every `ready_poll`, give up after `ready_timeout` (60 s × scale).
     ready_poll: Duration,
     ready_timeout: Duration,
-    /// `supervisor.healthIntervalMs` × scale, and the deadline of each `core.status`.
+    /// `supervisor.healthIntervalMs` × scale, and the deadline of each `core.status`. The interval is a live key:
+    /// the loops re-derive it from the running configuration ([`Timing::current`]).
     health_interval: Duration,
     poll_deadline: Duration,
     /// No successful poll for this long (30 s × scale, or three health intervals if that is longer) → hung.
@@ -107,6 +108,8 @@ struct Timing {
     kill_after: Duration,
     /// `daemon.stop`: wait `budgetMs` + this (5 s × scale), then kill.
     stop_grace: Duration,
+    /// The time scale everything above was multiplied by.
+    scale: f64,
 }
 
 /// Consecutive failed polls before `degraded("unresponsive")` (S8).
@@ -129,6 +132,18 @@ impl Timing {
             term_after: s(2_000),
             kill_after: s(10_000),
             stop_grace: s(5_000),
+            scale,
+        }
+    }
+
+    /// This timing with the health interval (and the hang threshold derived from it) of the running configuration:
+    /// `supervisor.healthIntervalMs` is live, so it is read before each poll.
+    fn current(self, shared: &Shared) -> Self {
+        let ms = shared.lock().config.health_interval_ms;
+        Timing {
+            health_interval: Timing::new(self.scale, ms).health_interval,
+            hang: Timing::new(self.scale, ms).hang,
+            ..self
         }
     }
 }
@@ -331,11 +346,13 @@ impl Monitor {
             }
         };
         let platform = if cfg!(windows) { "windows" } else { "posix" };
+        let out = Arc::new(Mutex::new(out));
+        relock(&shared.out_logs).push(out.clone());
         let ctx = Arc::new(Ctx {
             layout: layout.clone(),
             address: core_address(&layout.home, platform),
             timing,
-            out: Arc::new(Mutex::new(out)),
+            out,
         });
         Monitor {
             shared,
@@ -733,9 +750,9 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
 
 /// `core.status` every health interval, on the control connection (an adopted core's lifeline while it works).
 fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
-    let t = ctx.timing;
     let mut failures: u32 = 0;
     loop {
+        let t = ctx.timing.current(shared);
         if !sleep_while_alive(gen, t.health_interval) || gen.requested.load(Ordering::SeqCst) {
             break;
         }
@@ -838,7 +855,7 @@ fn waiter(shared: &Arc<Shared>, ctx: &Arc<Ctx>, gen: &Arc<Gen>) {
             }
             if ready && hung_since.is_none() {
                 let silent = relock(&gen.last_ok).elapsed();
-                if silent >= t.hang {
+                if silent >= t.current(shared).hang {
                     hung_since = Some(Instant::now());
                     shared.log.warn(
                         "core hung, terminating",
@@ -1091,5 +1108,23 @@ mod tests {
         // Three polls always fit in the hang threshold.
         assert_eq!(Timing::new(1.0, 60_000).hang, Duration::from_secs(180));
         assert_eq!(Timing::new(1.0, 5_000).hang, Duration::from_secs(30));
+    }
+
+    #[test]
+    fn the_health_interval_follows_the_running_configuration() {
+        let shared = Shared {
+            state: Mutex::new(crate::supervisor::test_state()),
+            wake: std::sync::Condvar::new(),
+            log: crate::supervisor::Log::none(),
+            config: Mutex::new(Default::default()),
+            subscribers: Default::default(),
+            out_logs: Mutex::new(Vec::new()),
+        };
+        let t = Timing::new(0.02, 5_000);
+        shared.lock().config.health_interval_ms = 60_000;
+        let now = t.current(&shared);
+        assert_eq!(now.health_interval, Duration::from_millis(1200));
+        assert_eq!(now.hang, Duration::from_millis(3600));
+        assert_eq!(now.ready_timeout, t.ready_timeout);
     }
 }

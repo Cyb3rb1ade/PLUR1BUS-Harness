@@ -76,7 +76,8 @@ export interface Capabilities {
   features: readonly string[];
 }
 
-/** The process that serves a method or notification: every one carries `x-server` (ruling S2). */
+/** The process that serves a method or emits a notification: every one carries `x-server` (ruling S2). Since 1.3.0 a
+ *  notification may be `supervisor` too (`config.changed`, sent on a `config.watch` connection). */
 export type RpcServerRole = "core" | "supervisor";
 const serverOf = (def: { "x-server"?: string }): RpcServerRole => (def["x-server"] === "supervisor" ? "supervisor" : "core");
 
@@ -84,6 +85,12 @@ const serverOf = (def: { "x-server"?: string }): RpcServerRole => (def["x-server
 export const METHODS_BY_SERVER: Readonly<Record<RpcServerRole, readonly string[]>> = Object.freeze({
   core: Object.freeze(METHODS.filter((m) => serverOf((SCHEMA as any).$defs.methods[m]) === "core")),
   supervisor: Object.freeze(METHODS.filter((m) => serverOf((SCHEMA as any).$defs.methods[m]) === "supervisor")),
+});
+
+/** Notification names per emitting process, in schema order. */
+export const NOTIFICATIONS_BY_SERVER: Readonly<Record<RpcServerRole, readonly string[]>> = Object.freeze({
+  core: Object.freeze(NOTIFICATIONS.filter((n) => serverOf((SCHEMA as any).$defs.notifications[n]) === "core")),
+  supervisor: Object.freeze(NOTIFICATIONS.filter((n) => serverOf((SCHEMA as any).$defs.notifications[n]) === "supervisor")),
 });
 
 /** Builds `Capabilities` from the schema's own x-stability/x-since/x-deprecated annotations (ADR-016 §3): the

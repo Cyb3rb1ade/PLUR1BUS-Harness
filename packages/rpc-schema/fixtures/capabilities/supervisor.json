@@ -15,9 +15,26 @@
     "daemon.stop": {
       "stability": "experimental",
       "since": "1.2.0"
+    },
+    "config.get": {
+      "stability": "experimental",
+      "since": "1.3.0"
+    },
+    "config.set": {
+      "stability": "experimental",
+      "since": "1.3.0"
+    },
+    "config.watch": {
+      "stability": "experimental",
+      "since": "1.3.0"
     }
   },
-  "notifications": {},
+  "notifications": {
+    "config.changed": {
+      "stability": "experimental",
+      "since": "1.3.0"
+    }
+  },
   "extensionPoints": {},
   "features": []
 }

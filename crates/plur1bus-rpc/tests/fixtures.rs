@@ -48,6 +48,9 @@ fn method_fixture(name: &str, f: &Value) {
         "daemon.status" => pair::<DaemonStatusParams, DaemonStatusResult>(name, f),
         "daemon.start" => pair::<DaemonStartParams, DaemonStartResult>(name, f),
         "daemon.stop" => pair::<DaemonStopParams, DaemonStopResult>(name, f),
+        "config.get" => pair::<ConfigGetParams, ConfigGetResult>(name, f),
+        "config.set" => pair::<ConfigSetParams, ConfigSetResult>(name, f),
+        "config.watch" => pair::<ConfigWatchParams, ConfigWatchResult>(name, f),
         "memory.recall" => pair::<MemoryRecallParams, MemoryRecallResult>(name, f),
         "memory.capture" => pair::<MemoryCaptureParams, MemoryCaptureResult>(name, f),
         "memory.checkpoint" => pair::<MemoryCheckpointParams, MemoryCheckpointResult>(name, f),
@@ -132,6 +135,9 @@ fn every_method_fixture_round_trips() {
         "daemon.start",
         "daemon.stop",
         "core.adopt",
+        "config.get",
+        "config.set",
+        "config.watch",
     ] {
         assert!(names.contains(m), "fixtures/methods/{m}.json is missing");
     }
@@ -187,6 +193,7 @@ fn every_notification_fixture_round_trips() {
             "embedding.identity.changed" => {
                 round_trip::<types::EmbeddingIdentityChangedNotification>(v, name)
             }
+            "config.changed" => round_trip::<types::ConfigChangedNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

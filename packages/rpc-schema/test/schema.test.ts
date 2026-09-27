@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, SCHEMA, loadFixtures, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
+import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, SCHEMA, buildCapabilities, loadFixtures, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
 
 describe("rpc-schema", () => {
   const fx = loadFixtures();
@@ -34,6 +34,28 @@ describe("rpc-schema", () => {
       assert.ok(fx.notifications[name], `notification fixture missing for ${name}`);
       assert.deepEqual(validateNotification(name, fx.notifications[name]), { ok: true }, name);
     }
+  });
+
+  it("supervisor.auth capabilities list config.* and config.changed; core.auth lists neither", () => {
+    const supervisor = buildCapabilities(["adoption", "lifelines"], "supervisor");
+    const core = buildCapabilities([], "core");
+    for (const m of ["config.get", "config.set", "config.watch"]) {
+      assert.equal(supervisor.methods[m]?.stability, "experimental", m);
+      assert.equal(supervisor.methods[m]?.since, "1.3.0", m);
+      assert.equal(core.methods[m], undefined, m);
+    }
+    assert.deepEqual(supervisor.notifications["config.changed"], { stability: "experimental", since: "1.3.0" });
+    assert.equal(core.notifications["config.changed"], undefined);
+    assert.deepEqual(validateResult("supervisor.auth", { rpc: RPC_VERSION, instanceId: "s", pid: 1, capabilities: supervisor }), { ok: true });
+  });
+
+  it("config.set refuses an empty or oversized change list and an unknown change field", () => {
+    const change = { key: "core.logLevel", value: "debug" };
+    assert.deepEqual(validateParams("config.set", { changes: [change] }), { ok: true });
+    assert.equal(validateParams("config.set", { changes: [] }).ok, false);
+    assert.equal(validateParams("config.set", { changes: Array.from({ length: 65 }, () => change) }).ok, false);
+    assert.equal(validateParams("config.set", { changes: [{ ...change, op: "set" }] }).ok, false);
+    assert.equal(validateParams("config.set", { changes: [{ key: "core.logLevel" }] }).ok, false);
   });
 
   it("rejects a recall without a query and a caller without a channel", () => {

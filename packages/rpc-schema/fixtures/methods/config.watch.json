@@ -1,0 +1,2 @@
+{ "params": {},
+  "result": { "subscriptionId": "sub-1", "config": { "schemaVersion": 1, "core": { "logLevel": "info" } }, "revision": "0123456789abcdef" } }

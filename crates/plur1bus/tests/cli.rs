@@ -1,3 +1,5 @@
+mod common;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 
@@ -1167,4 +1169,231 @@ fn human_errors_print_recovery_ids_to_stderr() {
         s.contains("ids: sharedId=m-new sourceId=m-src staleSharedId=m-old"),
         "expected the ids line on stderr, got: {s}"
     );
+}
+
+// ---- config routing through the supervisor (2a-H3b B6) -------------------------------------------------------------
+
+fn json_out(args: &[&str]) -> serde_json::Value {
+    let out = bin()
+        .args(args)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&out).unwrap()
+}
+
+#[test]
+fn config_set_routes_through_a_running_supervisor() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let _sup = common::start(dir.path());
+    let watch = common::Watch::open(dir.path());
+    let rev0 = watch.result["revision"].clone();
+
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "debug",
+        "--yes",
+    ]);
+    assert_eq!(v["schema"], "config.set/1");
+    assert_eq!(v["applied"], true);
+    assert_eq!(v["changed"], serde_json::json!(["core.logLevel"]));
+    let n = watch
+        .next_change(common::WAIT)
+        .expect("the supervisor did not apply it");
+    assert_eq!(n["source"], "set");
+    assert_eq!(n["previousRevision"], rev0);
+    assert_eq!(n["revision"], v["revision"]);
+    // The file is the supervisor's write, holding the new value.
+    let file: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "debug");
+
+    // `config get` answers from the running configuration: the CLI's `restart` plus `restartClass` and `revision`.
+    let g = json_out(&["--json", "--home", h, "config", "get", "core.logLevel"]);
+    assert_eq!(g["schema"], "config.get/1");
+    assert_eq!(g["value"], "debug");
+    assert_eq!(g["restart"], "live");
+    assert_eq!(g["restartClass"], "live");
+    assert_eq!(g["revision"], v["revision"]);
+
+    // The human text does not carry the no-supervisor wording.
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "warn",
+            "--yes",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sent to the running core"))
+        .stdout(predicate::str::contains("H1").not())
+        .stdout(predicate::str::contains("next core start").not());
+    // A dry run changes nothing.
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "error",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+    assert_eq!(watch.changes_within(common::TICK * 3).len(), 1); // only the `warn` set
+                                                                 // An invalid value is refused by the supervisor.
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "loud",
+            "--yes",
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("logLevel"));
+}
+
+#[test]
+fn config_set_without_a_supervisor_writes_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    // A supervisor that died without cleaning up: its token remains, its recorded pid is dead.
+    let mut gone = std::process::Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let dead = gone.id();
+    gone.wait().unwrap();
+    std::fs::create_dir_all(dir.path().join("run")).unwrap();
+    std::fs::write(dir.path().join("run/supervisor.token"), "a".repeat(64)).unwrap();
+    std::fs::write(dir.path().join("run/supervisor.pid"), format!("{dead} x\n")).unwrap();
+
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "debug",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+    let file =
+        plur1bus_config::parse(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "debug");
+    assert_eq!(v["revision"], plur1bus_config::revision(&file));
+    let g = json_out(&["--json", "--home", h, "config", "get", "core.logLevel"]);
+    assert_eq!(g["value"], "debug");
+    assert_eq!(g["revision"], v["revision"]);
+    // No token at all: the same direct path.
+    std::fs::remove_dir_all(dir.path().join("run")).unwrap();
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "warn",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+}
+
+#[cfg(unix)]
+#[test]
+fn config_set_with_an_unresponsive_supervisor_fails_and_writes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    std::fs::write(dir.path().join("config.json"), "{\"schemaVersion\":1}\n").unwrap();
+    let sup = common::start(dir.path());
+    let before = std::fs::read(dir.path().join("config.json")).unwrap();
+    // SAFETY: signals to our own child; Supervisor's Drop sends SIGCONT before killing it.
+    unsafe { libc::kill(sup.child.id() as i32, libc::SIGSTOP) };
+    let out = bin()
+        .args([
+            "--json",
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--yes",
+        ])
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_NOT_AVAILABLE", "{v}");
+    assert_eq!(v["reason"], "supervisor-unresponsive", "{v}");
+    assert_eq!(
+        std::fs::read(dir.path().join("config.json")).unwrap(),
+        before
+    );
+    drop(sup);
+}
+
+#[test]
+fn agent_create_routes_through_the_supervisor() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let _sup = common::start(dir.path());
+    let watch = common::Watch::open(dir.path());
+
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("created agent bernd"));
+    let n = watch
+        .next_change(common::WAIT)
+        .expect("agent create did not go through the supervisor");
+    assert_eq!(n["source"], "set");
+    assert_eq!(n["changed"], serde_json::json!(["agents.bernd"]));
+    assert!(n["config"]["agents"]["bernd"]["createdAt"]
+        .as_str()
+        .unwrap()
+        .ends_with('Z'));
+    let v = json_out(&["--json", "--home", h, "agent", "list"]);
+    assert_eq!(v["agents"][0]["agentId"], "bernd");
+
+    // remove sends the agents map minus the agent.
+    bin()
+        .args(["--home", h, "agent", "create", "anna"])
+        .assert()
+        .success();
+    watch.next_change(common::WAIT).unwrap();
+    bin()
+        .args(["--home", h, "agent", "remove", "bernd"])
+        .assert()
+        .success();
+    let n = watch.next_change(common::WAIT).unwrap();
+    assert_eq!(n["changed"], serde_json::json!(["agents.bernd"]));
+    let agents: Vec<&String> = n["config"]["agents"].as_object().unwrap().keys().collect();
+    assert_eq!(agents, ["anna"]);
 }

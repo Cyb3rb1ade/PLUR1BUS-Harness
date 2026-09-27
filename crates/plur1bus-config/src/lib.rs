@@ -1,5 +1,6 @@
 //! The config.json service: the same schema the TypeScript side uses (packages/config-schema), validated with the
-//! `jsonschema` crate. In H1 the CLI calls this directly; in H2 the supervisor owns it and the CLI goes through config.*.
+//! `jsonschema` crate. The supervisor owns config.json (2a-H3b, B3–B6) and serves `config.*` from this crate; the CLI
+//! calls it directly only when no supervisor runs.
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
@@ -239,14 +240,35 @@ pub fn load(path: &Path) -> Result<Loaded, ConfigError> {
         });
     }
     let text = fs::read_to_string(path)?;
-    let mut v: Value =
-        serde_json::from_str(&text).map_err(|e| ConfigError::NotJson(e.to_string()))?;
-    fill_defaults(schema(), &mut v); // the TS loader fills defaults through ajv useDefaults; do the same so both sides see one shape
-    validate(&v).map_err(ConfigError::Invalid)?;
     Ok(Loaded {
-        config: v,
+        config: parse(&text)?,
         created: false,
     })
+}
+
+/// Parses config.json's text, fills the schema defaults and validates the result: what [`load`] does after reading
+/// the file. The supervisor's watcher uses it on the bytes it read.
+pub fn parse(text: &str) -> Result<Config, ConfigError> {
+    let mut v: Value =
+        serde_json::from_str(text).map_err(|e| ConfigError::NotJson(e.to_string()))?;
+    fill_defaults(schema(), &mut v); // the TS loader fills defaults through ajv useDefaults; do the same so both sides see one shape
+    validate(&v).map_err(ConfigError::Invalid)?;
+    Ok(v)
+}
+
+/// The exact text [`write_atomic`] writes: pretty JSON plus a newline. The supervisor hashes it to recognise its own
+/// writes when the watcher sees config.json change.
+pub fn serialize(config: &Config) -> String {
+    format!("{}\n", serde_json::to_string_pretty(config).unwrap())
+}
+
+/// Ruling B5: the first 16 hex digits of SHA-256 over `serde_json::to_string(config)`. serde_json's map is a
+/// `BTreeMap` (the workspace does not enable `preserve_order`), so keys are sorted and the revision does not depend on
+/// key order or formatting.
+pub fn revision(config: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(serde_json::to_string(config).unwrap().as_bytes());
+    digest[..8].iter().map(|b| format!("{b:02x}")).collect()
 }
 
 pub fn write_atomic(path: &Path, config: &Config) -> io::Result<()> {
@@ -254,10 +276,7 @@ pub fn write_atomic(path: &Path, config: &Config) -> io::Result<()> {
         fs::create_dir_all(dir)?;
     }
     let tmp = path.with_extension(format!("json.tmp-{}", std::process::id()));
-    fs::write(
-        &tmp,
-        format!("{}\n", serde_json::to_string_pretty(config).unwrap()),
-    )?;
+    fs::write(&tmp, serialize(config))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -298,6 +317,18 @@ pub fn restart_class_of(key: &str) -> RestartClass {
         "live" => RestartClass::Live,
         c if c.starts_with("module:") => RestartClass::Module,
         _ => RestartClass::Core,
+    }
+}
+
+/// The `config.get` `restartClass` of a key: `live`, `core` or `module:<name>`.
+pub fn restart_class_name(key: &str) -> String {
+    match restart_class_of(key) {
+        RestartClass::Live => "live".into(),
+        RestartClass::Core => "core".into(),
+        RestartClass::Module => match module_name(key) {
+            Some(m) => format!("module:{m}"),
+            None => "module".into(),
+        },
     }
 }
 
@@ -566,12 +597,16 @@ pub fn get(config: &Config, key: Option<&str>) -> Option<Value> {
 }
 
 pub fn set(config: &Config, key: &str, value: Value) -> Result<Plan, ConfigError> {
-    let mut after = config.clone();
+    set_many(config, &[(key.to_string(), value)])
+}
+
+/// Writes `value` at the dotted `key` of `into`, creating intermediate objects.
+fn put(into: &mut Value, key: &str, value: Value) -> Result<(), ConfigError> {
     let parts: Vec<&str> = key.split('.').collect();
     let (last, dirs) = parts
         .split_last()
         .ok_or_else(|| ConfigError::UnknownKey(key.into()))?;
-    let mut node = &mut after;
+    let mut node = into;
     for p in dirs {
         node = node
             .as_object_mut()
@@ -582,6 +617,16 @@ pub fn set(config: &Config, key: &str, value: Value) -> Result<Plan, ConfigError
     node.as_object_mut()
         .ok_or_else(|| ConfigError::UnknownKey(key.into()))?
         .insert((*last).to_string(), value);
+    Ok(())
+}
+
+/// Applies every change in order (a later change to the same key wins) and validates the result once: all changes
+/// or none (`config.set`, spec §6.1). `config` is never modified.
+pub fn set_many(config: &Config, changes: &[(String, Value)]) -> Result<Plan, ConfigError> {
+    let mut after = config.clone();
+    for (key, value) in changes {
+        put(&mut after, key, value.clone())?;
+    }
     validate(&after).map_err(ConfigError::Invalid)?;
     let plan = restart_plan(config, &after);
     Ok(Plan {
