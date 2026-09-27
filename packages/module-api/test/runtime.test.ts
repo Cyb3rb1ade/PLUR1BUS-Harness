@@ -160,7 +160,7 @@ describe("module runtime (runModule)", () => {
     const { home: h } = await home();
     const token = "a".repeat(64);
     writeFileSync(coreTokenPath(h), token);
-    const core = createRpcServer({ server: "core", address: coreAddress(h), token, logger: silentLogger(), methods: {}, hello: () => ({ contract: "1.8.0", rpc: RPC_VERSION, instanceId: "fake-core", pid: process.pid }) });
+    const core = createRpcServer({ server: "core", address: coreAddress(h), token, logger: silentLogger(), methods: {}, hello: () => ({ contract: "1.9.0", rpc: RPC_VERSION, instanceId: "fake-core", pid: process.pid }) });
     await core.listen();
     const p = spawnModule(h);
     const c = await connectModule(h);

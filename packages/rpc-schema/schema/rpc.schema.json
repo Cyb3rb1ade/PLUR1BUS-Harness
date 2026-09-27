@@ -356,7 +356,7 @@
           "properties": {
             "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" },
             "sessionKey": { "$ref": "#/$defs/SessionKey" }, "query": { "type": "string", "minLength": 1, "maxLength": 32768 },
-            "budget": { "type": "object", "additionalProperties": false, "properties": { "softMs": { "type": "integer", "minimum": 1 }, "hardMs": { "type": "integer", "minimum": 1 }, "capChars": { "type": "integer", "minimum": 1 } } },
+            "budget": { "type": "object", "additionalProperties": false, "properties": { "softMs": { "type": "integer", "minimum": 1, "description": "advisory: the engine applies its construction-time recall.* values; hardMs is enforced by the core" }, "hardMs": { "type": "integer", "minimum": 1 }, "capChars": { "type": "integer", "minimum": 1, "description": "advisory: the engine applies its construction-time recall.* values; hardMs is enforced by the core" } } },
             "joined": { "type": "boolean", "default": false }
           }
         },

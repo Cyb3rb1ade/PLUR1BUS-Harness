@@ -109,7 +109,7 @@ describe("config-schema", () => {
     b.core.recall.softBudgetMs = 500;
     const plan = restartPlan(a, b);
     assert.deepEqual(plan.changed, ["core.recall.softBudgetMs"]);
-    assert.deepEqual(plan.restart, { live: ["core.recall.softBudgetMs"], core: false, modules: [] });
+    assert.deepEqual(plan.restart, { live: [], core: true, modules: [] });
   });
 
   it("adding entry to empty open map reports at entry level", () => {

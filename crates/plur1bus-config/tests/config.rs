@@ -78,6 +78,15 @@ fn restart_classes_match_the_schema() {
         RestartClass::Core
     );
     assert_eq!(restart_class_of("embedding.useClass"), RestartClass::Core);
+    assert_eq!(
+        restart_class_of("core.recall.softBudgetMs"),
+        RestartClass::Core
+    );
+    assert_eq!(restart_class_of("core.recall.capChars"), RestartClass::Core);
+    assert_eq!(
+        restart_class_of("core.recall.hardBudgetMs"),
+        RestartClass::Live
+    );
 }
 
 #[test]
@@ -85,8 +94,8 @@ fn set_produces_a_plan_and_refuses_bad_values() {
     let c = defaults();
     let plan = set(&c, "core.recall.softBudgetMs", json!(250)).unwrap();
     assert_eq!(plan.changed, vec!["core.recall.softBudgetMs"]);
-    assert_eq!(plan.restart.live, vec!["core.recall.softBudgetMs"]);
-    assert!(!plan.restart.core);
+    assert!(plan.restart.live.is_empty());
+    assert!(plan.restart.core);
     assert_eq!(plan.after["core"]["recall"]["softBudgetMs"], 250);
     match set(&c, "core.recall.softBudgetMs", json!("abc")) {
         Err(ConfigError::Invalid(e)) => {

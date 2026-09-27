@@ -247,7 +247,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
       "properties": {
         "softMs": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "advisory: the engine applies its construction-time recall.* values; hardMs is enforced by the core"
         },
         "hardMs": {
           "type": "integer",
@@ -255,7 +256,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
         },
         "capChars": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "advisory: the engine applies its construction-time recall.* values; hardMs is enforced by the core"
         }
       }
     },

@@ -15,9 +15,9 @@
         "recall": {
           "type": "object", "additionalProperties": false, "default": {},
           "properties": {
-            "softBudgetMs": { "type": "integer", "minimum": 50, "default": 400, "x-restart": "live", "x-tier": "advanced" },
+            "softBudgetMs": { "type": "integer", "minimum": 50, "default": 400, "x-restart": "core", "x-tier": "advanced" },
             "hardBudgetMs": { "type": "integer", "minimum": 100, "default": 600, "x-restart": "live", "x-tier": "advanced" },
-            "capChars": { "type": "integer", "minimum": 1000, "default": 17000, "x-restart": "live", "x-tier": "advanced" }
+            "capChars": { "type": "integer", "minimum": 1000, "default": 17000, "x-restart": "core", "x-tier": "advanced" }
           }
         },
         "capture": {

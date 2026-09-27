@@ -21,7 +21,7 @@ const base = defaults();
 
 const cases = [
   {
-    name: "live leaf change (core.recall.softBudgetMs)",
+    name: "core-class leaf change (core.recall.softBudgetMs)",
     before: base,
     after: (() => {
       const c = structuredClone(base);

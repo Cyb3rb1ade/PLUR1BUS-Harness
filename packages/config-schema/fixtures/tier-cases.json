@@ -207,7 +207,7 @@
                   "type": "integer",
                   "minimum": 50,
                   "default": 400,
-                  "x-restart": "live",
+                  "x-restart": "core",
                   "x-tier": "advanced"
                 },
                 "hardBudgetMs": {
@@ -221,7 +221,7 @@
                   "type": "integer",
                   "minimum": 1000,
                   "default": 17000,
-                  "x-restart": "live",
+                  "x-restart": "core",
                   "x-tier": "advanced"
                 }
               }

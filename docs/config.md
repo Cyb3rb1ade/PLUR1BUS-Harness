@@ -20,9 +20,9 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `$schema` | string |  | live |  |
 | `schemaVersion` | const |  | core |  |
 | `core.logLevel` | enum | `"info"` | live |  |
-| `core.recall.softBudgetMs` | integer | `400` | live |  |
+| `core.recall.softBudgetMs` | integer | `400` | core |  |
 | `core.recall.hardBudgetMs` | integer | `600` | live |  |
-| `core.recall.capChars` | integer | `17000` | live |  |
+| `core.recall.capChars` | integer | `17000` | core |  |
 | `core.capture.waitMs` | integer | `60000` | live |  |
 | `core.shutdownBudgetMs` | integer | `30000` | live |  |
 | `supervisor.graceMs` | integer | `60000` | live |  |

@@ -342,6 +342,12 @@ describe("core on the supervisor's configuration (B7)", () => {
     assert.equal((await c.call<any>("core.status")).config.restartPending, true);
   });
 
+  it("a softBudgetMs change sets restartPending (HB3: construction-time in the engine)", async () => {
+    const s = await startOnSupervisor();
+    await s.push((c) => { c.core.recall.softBudgetMs = 250; });
+    assert.equal(s.core.status().config?.restartPending, true);
+  });
+
   it("mutateConfig sends a flattened config.set", async () => {
     const s = await startOnSupervisor();
     const host = s.host();
