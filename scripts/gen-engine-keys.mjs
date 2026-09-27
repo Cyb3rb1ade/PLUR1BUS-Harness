@@ -1,21 +1,26 @@
-// Generates docs/config-engine-keys.md from the pinned engine's openclaw.plugin.json configSchema.
+// Generates docs/config-engine-keys.md from the pinned engine's host-neutral
+// engine-config.schema.json (E5, contract 1.9.0).
 //
-// H1 rule (spec §6.1, ADR-013): the harness has no host-neutral engine-config schema yet (that is
-// engine PR E5's job — a future engine-config.schema.json with a readAt: construction|live flag per
-// key). Until E5 ships, packages/core/src/engine-config.ts only ever reads config.engine.* once, at
-// core construction, so every engine.<key> is restart class "core" here, even for keys the engine's
-// own openclaw.plugin.json marks live for its OpenClaw host.
+// H1 rule (spec §6.1, ADR-013), revisited for E5: the engine now ships its own host-neutral
+// engine/config/engine-config.schema.json with a readAt: "construction"|"live" flag per top-level
+// key (docs/engine-api.md "recall.* keys are construction-time"). Every top-level key at this pin
+// is readAt: "construction" — packages/core/src/engine-config.ts only ever reads config.engine.*
+// once, at core construction — so every engine.<key> stays restart class "core" here. A future
+// engine pin that marks a top-level key "live" must fail this generator loudly rather than silently
+// keep classifying it "core" (ADR-013 "Revisit when: E5 lands").
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire(new URL("../packages/core/package.json", import.meta.url));
-// The pinned engine package ships its OpenClaw plugin manifest at openclaw.plugin.json; its
-// configSchema.properties is the only place these 54 keys are enumerated with types and defaults.
-const plugin = require("@cyb3rb1ade/plur1bus-memory/openclaw.plugin.json");
-const props = plugin.configSchema.properties;
+// The pinned engine ships its host-neutral config schema at engine/config/engine-config.schema.json;
+// its top-level `properties` is the only place these 55 keys are enumerated with types, defaults
+// and a readAt flag.
+const schema = require("@cyb3rb1ade/plur1bus-memory/engine/config/engine-config.schema.json");
+const props = schema.properties;
 
 // Keys packages/core/src/engine-config.ts forces or partially forces before handing the object to
-// the engine (buildEngineConfig). Kept in sync with that file by hand until E5 makes it generatable.
+// the engine (buildEngineConfig). Kept in sync with that file by hand until the engine exposes a
+// forced/harness-owned flag of its own.
 const FORCED = new Map([
   ["baseDbPath", "forced to `<home>/state/lancedb` (override via `engine.baseDbPathOverride`, not this key)"],
   ["autoRecall", "forced `false` (harness calls recall explicitly)"],
@@ -37,43 +42,45 @@ const FORCED = new Map([
 // Every engine key inherits x-tier from the "engine" node in config.schema.json (advanced, per
 // G16 — the engine node declares its own x-tier and nothing under it overrides it), so this
 // column is "advanced" on every row rather than derived per-key.
-const rows = Object.entries(props)
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([k, s]) => {
-    const type = Array.isArray(s.type) ? s.type.join("|") : (s.type ?? (s.enum ? "enum" : "any"));
-    const def = s.default !== undefined ? `\`${JSON.stringify(s.default)}\`` : "";
-    const forced = FORCED.get(k);
-    return `| \`engine.${k}\` | ${type} | ${def} | core | advanced | ${forced ? `**harness-owned**: ${forced}` : ""} |`;
-  });
+const rows = [];
+for (const [k, s] of Object.entries(props).sort(([a], [b]) => a.localeCompare(b))) {
+  if (s.readAt !== "construction") {
+    throw new Error(`gen-engine-keys: engine key ${k} is live; classify it in config.schema.json`);
+  }
+  const type = Array.isArray(s.type) ? s.type.join("|") : (s.type ?? (s.enum ? "enum" : "any"));
+  const def = s.default !== undefined ? `\`${JSON.stringify(s.default)}\`` : "";
+  const forced = FORCED.get(k);
+  rows.push(`| \`engine.${k}\` | ${type} | ${def} | core | advanced | ${forced ? `**harness-owned**: ${forced}` : ""} |`);
+}
 
-// Verified count at engine SHA 72b6697f (contract 1.8.0): openclaw.plugin.json
-// configSchema.properties still has 55 keys — unchanged from d32771c5 (contract 1.6.0); E3
-// (embedding probe/serve), E4 (engine status, model warm-up, shared-memory support), E4.1 (replay
-// guard records on rows settled) and E4.2 (verified-path shared memory on macOS/Windows) added no
-// config keys. This assertion catches a future drift in the pinned engine's key set.
+// Verified count at engine SHA ce65a176 (contract 1.9.0): engine-config.schema.json's top-level
+// properties still has 55 keys — unchanged from 72b6697f (contract 1.8.0); E5 (the host-neutral
+// engine-config.schema.json itself, the timing-phase fixes) added no config keys. This assertion
+// catches a future drift in the pinned engine's key set.
 const EXPECTED_KEY_COUNT = 55;
 if (rows.length !== EXPECTED_KEY_COUNT) {
   throw new Error(`gen-engine-keys: expected ${EXPECTED_KEY_COUNT} configSchema.properties keys, found ${rows.length}`);
 }
 
-const doc = `# Engine configuration keys (contract 1.8.0, engine @ 72b6697f)
+const doc = `# Engine configuration keys (contract 1.9.0, engine @ ce65a176)
 
-Generated by \`scripts/gen-engine-keys.mjs\` from the pinned engine's \`openclaw.plugin.json\`
+Generated by \`scripts/gen-engine-keys.mjs\` from the pinned engine's host-neutral
+\`engine/config/engine-config.schema.json\`
 (${rows.length} keys). Every key is reachable as \`engine.<key>\` in \`config.json\`;
 \`packages/core/src/engine-config.ts\` is the single translation between harness config and the
 engine's own config shape.
 
-Restart class is **core** for every engine key: the engine reads \`config.engine.*\` once, at core
-construction (\`buildEngineConfig\` in \`engine-config.ts\`), and nothing in the current core process
-re-reads it while running. This holds even for the handful of keys the engine's own
-\`configSchema\` marks as live for its own host (notably \`recall.*\`) — those keys
-only reach the engine at harness construction time until engine PR E5 ships a host-neutral
-\`engine-config.schema.json\` with a \`readAt: construction|live\` flag per key.
+Restart class is **core** for every engine key: every top-level key in the engine's own schema is
+\`readAt: "construction"\` at this pin (docs/engine-api.md "\`recall.*\` keys are construction-time"),
+and \`packages/core/src/engine-config.ts\` (\`buildEngineConfig\`) reads \`config.engine.*\` once, at
+core construction, never while running. This generator asserts that flag on every key and fails
+loudly the day the engine marks one \`"live"\` instead (ADR-013 "Revisit when: E5 lands").
 
-Two related facts worth keeping in mind when using these keys (verified Task 8, at this engine SHA):
+Two related facts worth keeping in mind when using these keys (verified at this engine SHA):
 \`RecallQuery.budget\`'s \`softMs\`/\`capChars\` fields are accepted but ignored by the engine — the
-budget these \`recall.*\` keys set has no observable effect on a single recall call at this SHA — and
-\`trace\` is absent from the recall result even though \`decisionTrace.enabled\` is forced \`true\`.
+budget these \`recall.*\` keys set has no observable effect on a single recall call at this SHA
+(re-verified Task 1, HB3) — and \`trace\` is absent from the recall result even though
+\`decisionTrace.enabled\` is forced \`true\`.
 
 Keys marked **harness-owned** below are forced (in whole or in part) by \`engine-config.ts\` and
 cannot be fully controlled through \`engine.<key>\` in \`config.json\`; see the Notes column for what

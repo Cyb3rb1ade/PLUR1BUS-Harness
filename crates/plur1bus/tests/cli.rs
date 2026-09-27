@@ -182,7 +182,7 @@ fn config_get_set_dry_run_and_rejection() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("live"))
+        .stdout(predicate::str::contains("restarts core: yes"))
         .stdout(predicate::str::contains("core.recall.softBudgetMs"));
     assert_eq!(
         std::fs::read(dir.path().join("config.json")).unwrap(),
@@ -224,8 +224,8 @@ fn config_get_set_dry_run_and_rejection() {
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
     assert_eq!(v["applied"], true);
-    assert_eq!(v["restart"]["live"][0], "core.recall.softBudgetMs");
-    assert_eq!(v["restart"]["core"], false);
+    assert_eq!(v["restart"]["live"].as_array().unwrap().len(), 0);
+    assert_eq!(v["restart"]["core"], true);
     bin()
         .args(["--home", h, "config", "get", "core.recall.softBudgetMs"])
         .assert()

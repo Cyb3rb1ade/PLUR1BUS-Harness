@@ -1,6 +1,6 @@
 [
   {
-    "name": "live leaf change (core.recall.softBudgetMs)",
+    "name": "core-class leaf change (core.recall.softBudgetMs)",
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
@@ -76,10 +76,8 @@
         "core.recall.softBudgetMs"
       ],
       "restart": {
-        "live": [
-          "core.recall.softBudgetMs"
-        ],
-        "core": false,
+        "live": [],
+        "core": true,
         "modules": []
       }
     }
