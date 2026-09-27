@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { describe, it, before, after } from "node:test";
+import { describe, it, before, after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -15,15 +15,21 @@ import { tempDir } from "./helpers/temp-dir.ts";
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 const badCaller = { ...caller, userId: "u".repeat(129) };
 /**
- * Shared memory (workspace/user copies, D31 proposals) needs the engine's stable
- * directory capabilities: fd-backed directory aliases, which only Linux's
- * /proc/self/fd provides (engine lib/directory-capability.js). On macOS and
- * Windows the engine reports shared memory as unsupported (E4) and `share`/
- * `proposals.accept` answer E_NOT_AVAILABLE reason unsupported — an engine
- * limitation tracked for the next engine plan.
+ * Shared memory (workspace/user copies, D31 proposals) is available on every CI platform since engine E4.2: Linux
+ * routes it through fd-backed directory capabilities (mode "fd-capability"), darwin and win32 through the engine's
+ * verified-path mode (engine docs/adr/0001-shared-memory-on-macos-and-windows.md). One runner-dependent case: a
+ * verified-path root owned by someone other than the current user is refused, and on an elevated Windows shell
+ * (GitHub's Windows runners are elevated) every directory the process creates is owned by Administrators, so there
+ * share answers unsafe-root (ADR 0001, ruling E4-R12). The share probe below asserts the per-platform outcome and
+ * records whether the shared-memory tests after it can run.
  */
-const SHARED_MEMORY = process.platform === "linux";
-const sharedOnly = { skip: !SHARED_MEMORY && "engine: shared memory needs stable directory capabilities (Linux only at the pin)" };
+let sharedMemory: boolean | undefined;
+/** For the tests that need a working share: false only after the probe saw the elevated-Windows refusal. */
+function sharedMemoryWorks(t: TestContext): boolean {
+  assert.notEqual(sharedMemory, undefined, "the share probe runs before any shared-memory test");
+  if (!sharedMemory) t.skip("elevated Windows runner: the verified-path shared root is owned by Administrators, share is refused unsafe-root (engine ADR 0001, E4-R12); the probe asserted that refusal");
+  return sharedMemory === true;
+}
 
 function newHome(): string {
   const home = tempDir("p1b-memops-");
@@ -101,8 +107,40 @@ describe("memory ops (in-process core)", () => {
     assert.equal(s1.cards.agentPrivate, s0.cards.agentPrivate - 1);
   });
 
+  it("share per platform: Linux and macOS share; Windows shares unelevated, and elevated is E_STORAGE then E_NOT_AVAILABLE unsafe-root (engine ADR 0001)", async () => {
+    const id = await capture("bernd", "Please remember that the server room key is at the front desk.");
+    const share = () => c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
+    if (process.platform !== "win32") {
+      const r = await share();
+      assert.equal(r.sourceId, id); assert.equal(r.target, "user"); assert.equal(typeof r.sharedId, "string");
+      sharedMemory = true;
+      return;
+    }
+    // Windows: the verified-path owner check (engine ADR 0001 step 3, ruling E4-R12) refuses a shared base owned by
+    // Administrators, which is what an elevated process creates. Exactly two outcomes are valid:
+    //  - unelevated: the share succeeds;
+    //  - elevated: the first share fails the check inside the write, which surfaces as E_STORAGE and taints the pool
+    //    until restart; every later share answers E_NOT_AVAILABLE reason unsupported, detail reason unsafe-root.
+    let first: any;
+    try { first = await share(); } catch (e) { first = e; }
+    if (!(first instanceof Error)) {
+      assert.equal(first.sourceId, id); assert.equal(typeof first.sharedId, "string");
+      sharedMemory = true;
+      return;
+    }
+    assert.equal((first as any).error, "E_STORAGE", `${(first as any).error} ${(first as any).reason}: ${first.message}`);
+    assert.equal((first as any).reason, "storage", first.message);
+    await assert.rejects(share(), (e: any) => {
+      rejectsWith("E_NOT_AVAILABLE", "unsupported")(e);
+      assert.deepEqual(e.ids, { capability: "shared-memory", reason: "unsafe-root" }, JSON.stringify(e.ids));
+      return true;
+    });
+    sharedMemory = false;
+  });
+
   let sharedId = "";
-  it("bernd shares to user; anna lists the copy with sharedBy bernd; anna's forget and correct of the copy are E_DENIED", sharedOnly, async () => {
+  it("bernd shares to user; anna lists the copy with sharedBy bernd; anna's forget and correct of the copy are E_DENIED", async (t) => {
+    if (!sharedMemoryWorks(t)) return;
     const id = await capture("bernd", "Please remember that the release freeze starts on the fifteenth.");
     const s = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
     assert.equal(s.sourceId, id); assert.equal(s.target, "user"); sharedId = s.sharedId;
@@ -113,7 +151,8 @@ describe("memory ops (in-process core)", () => {
     await assert.rejects(c.call("memory.correct", { caller, agentId: "anna", id: sharedId, text: "The release freeze starts on the tenth." }), rejectsWith("E_DENIED", "denied"));
   });
 
-  it("anna proposes; both list it pending; bernd accepts; anna sees accepted with resultId; a second proposal is rejected with a note", sharedOnly, async () => {
+  it("anna proposes; both list it pending; bernd accepts; anna sees accepted with resultId; a second proposal is rejected with a note", async (t) => {
+    if (!sharedMemoryWorks(t)) return;
     assert.ok(sharedId, "depends on the share test");
     const pr = await c.call<any>("memory.propose", { caller, agentId: "anna", sharedId, text: "The release freeze starts on the twentieth.", note: "moved in the planning call" });
     assert.equal(pr.sharedId, sharedId); assert.equal(pr.sharerAgentId, "bernd");
@@ -136,7 +175,8 @@ describe("memory ops (in-process core)", () => {
     assert.equal(seen2.resolutionNote, "the date is fixed");
   });
 
-  it("memory.proposal reaches a subscriber filtered to the proposer", sharedOnly, async () => {
+  it("memory.proposal reaches a subscriber filtered to the proposer", async (t) => {
+    if (!sharedMemoryWorks(t)) return;
     const id = await capture("bernd", "Please remember that the offsite is in Hamburg.");
     const { sharedId: copy } = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
     const s = await connect({ address: core.address, token: core.token });
@@ -150,16 +190,12 @@ describe("memory ops (in-process core)", () => {
     } finally { await s.close(); }
   });
 
-  it("accept by the proposer is E_NOT_FOUND (anti-oracle)", sharedOnly, async () => {
+  it("accept by the proposer is E_NOT_FOUND (anti-oracle)", async (t) => {
+    if (!sharedMemoryWorks(t)) return;
     const id = await capture("bernd", "Please remember that the demo day is in March.");
     const { sharedId: copy } = await c.call<any>("memory.share", { caller, agentId: "bernd", id, target: "user" });
     const pr = await c.call<any>("memory.propose", { caller, agentId: "anna", sharedId: copy, text: "The demo day is in April." });
     await assert.rejects(c.call("memory.proposals.accept", { caller, agentId: "anna", proposalId: pr.proposalId }), rejectsWith("E_NOT_FOUND", "not-found"));
-  });
-
-  it("without stable directory capabilities, share is E_NOT_AVAILABLE unsupported (engine limitation, E4)", { skip: SHARED_MEMORY && "Linux has shared memory" }, async () => {
-    const id = await capture("bernd", "Please remember that the server room key is at the front desk.");
-    await assert.rejects(c.call("memory.share", { caller, agentId: "bernd", id, target: "user" }), rejectsWith("E_NOT_AVAILABLE", "unsupported"));
   });
 
   it("topic with since is E_INVALID_PARAMS topic-xor-since; a whitespace-only correct text is E_INVALID_PARAMS reason invalid-input", async () => {

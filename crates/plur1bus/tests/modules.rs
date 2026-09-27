@@ -230,7 +230,8 @@ fn wait_for(c: &mut Client, role: &str, what: &str, f: impl Fn(&Value) -> bool) 
         }
         assert!(
             Instant::now() < deadline,
-            "timed out waiting for {role} {what}; last: {st}"
+            "timed out waiting for {role} {what}; last: {st}{}",
+            common::log_tails()
         );
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -283,7 +284,7 @@ fn an_installed_module_is_spawned_after_the_core_and_becomes_ready() {
     assert_eq!(core["kind"], "core");
     assert_eq!(fixture["kind"], "module");
     assert_eq!(fixture["adopted"], false);
-    assert_eq!(fixture["restarts"], 0);
+    assert_eq!(fixture["restarts"], 0, "{st}{}", common::log_tails());
     let pid = fixture["pid"].as_u64().unwrap();
     // Its own run files, as the module runtime writes them.
     let recorded = std::fs::read_to_string(h.home.join("run/module-fixture.pid")).unwrap();
@@ -301,7 +302,9 @@ fn an_installed_module_is_spawned_after_the_core_and_becomes_ready() {
         .log_index("fixture spawned", |r| r["pid"].as_u64() == Some(pid))
         .unwrap();
     assert!(core_spawned < fixture_spawned, "{:?}", h.log());
-    // `daemon status` prints one line per child with its kind.
+    // `daemon status` prints one line per child with its kind (the fake core reports ready once its run files are
+    // secured, which on Windows can outlast the module's start).
+    wait_for(&mut c, "core", "ready", |m| state(m) == "ready");
     let text = daemon_status_text(&h);
     assert!(text.contains("core (core): ready"), "{text}");
     assert!(text.contains("fixture (module): ready"), "{text}");
@@ -370,6 +373,9 @@ fn a_module_that_crashes_at_start_gives_up_after_five_and_the_core_is_untouched(
     assert_eq!(m["process"]["reason"], "gave-up", "{m}");
     assert_eq!(m["lastExit"]["reason"], Value::Null, "{m}");
     assert_eq!(m["pid"], Value::Null);
+    // The module gives up within a few scaled backoffs, which can be before the fake core has secured its run files
+    // and reports ready (icacls on Windows): wait for that before reading the text.
+    let st_ready = wait_for(&mut c, "core", "ready", |m| state(m) == "ready");
     let text = daemon_status_text(&h);
     assert!(
         text.contains("fixture (module): crashed: gave-up"),
@@ -396,8 +402,9 @@ fn a_module_that_crashes_at_start_gives_up_after_five_and_the_core_is_untouched(
         .unwrap_or_else(|| panic!("{list}"));
     assert_eq!(listed["child"]["process"]["state"], "crashed", "{list}");
     assert_eq!(listed["child"]["process"]["reason"], "gave-up", "{list}");
-    let core = child(&st, "core").unwrap().clone();
-    assert_eq!(state(&core), "ready", "{st}");
+    // `st` was read when the module gave up, possibly before the core was ready; use the later snapshot.
+    let core = child(&st_ready, "core").unwrap().clone();
+    assert_eq!(state(&core), "ready", "{st_ready}");
     assert_eq!(core["restarts"], 0);
     // No sixth attempt.
     std::thread::sleep(Duration::from_millis(500));
@@ -804,6 +811,9 @@ fn daemon_stop_stops_modules_before_the_core() {
 /// M3: `daemon.stop` keeps one deadline (budget + grace) for every child, however many there are. Two modules that
 /// cannot answer (SIGSTOP) are both killed at that deadline: the stop takes about one budget, not one per module.
 /// `healthIntervalMs` is long so the hang detector (three intervals) does not kill them first.
+/// The time scale is 0.1, not 0.02: the core's reserve is the stop grace (5 s x scale), and at 0.02 its 100 ms is
+/// used up on a slow runner by reaping the two killed modules, so the core would be killed or never asked. At 0.1
+/// the core has 500 ms, and the stop still ends well before the 2 s a budget per module would take.
 #[cfg(unix)]
 #[test]
 fn daemon_stop_keeps_one_deadline_for_every_child() {
@@ -813,7 +823,7 @@ fn daemon_stop_keeps_one_deadline_for_every_child() {
     let config =
         json!({ "schemaVersion": 1, "supervisor": { "graceMs": 1000, "healthIntervalMs": 60000 } });
     std::fs::write(h.home.join("config.json"), config.to_string()).unwrap();
-    let mut s = h.start(&[]);
+    let mut s = h.start_scaled("0.1", &[]);
     let mut c = client(&h.home);
     wait_for(&mut c, "fixture", "ready", |m| state(m) == "ready");
     let st = wait_for(&mut c, "fixture-b", "ready", |m| state(m) == "ready");

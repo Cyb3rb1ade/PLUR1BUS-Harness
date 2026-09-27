@@ -17,7 +17,7 @@
 //! B12), else it is `Foreign`.
 use super::state::{Role, RoleKind};
 use super::{spawn_guarded, Shared};
-#[cfg(test)]
+#[cfg(all(test, unix))]
 use crate::paths::core_address;
 use crate::paths::{Endpoints, Layout};
 use plur1bus_rpc::transport::{self, Stream};

@@ -10,14 +10,10 @@ export const REAL = process.env.PLUR1BUS_REAL_MODELS === "1";
 /** The flat seam's variant: `flat-embedder` (default) or `flat-embedder-cold` (PLUR1BUS_SYSTEM_INTERNALS; the first 2
  *  query embeddings of each core process take 350 ms, so a recall that does not wait for the warm-up overruns). */
 export const FLAT_INTERNALS = process.env.PLUR1BUS_SYSTEM_INTERNALS ?? "flat-embedder";
-/** Shared memory needs the engine's stable directory capabilities (fd-backed aliases via /proc/self/fd): Linux only at
- *  the pin. Kept as the fallback a test can check before a core exists; once one is running, prefer
- *  {@link sharedMemorySupported}, which asks the engine itself instead of assuming from the platform name. */
-export const SHARED_MEMORY = process.platform === "linux";
-
 /** Whether the running core at `h` reports explicit shared memory as supported (E4, `core.status.engine.
- *  sharedMemory.supported`), read through `1staid check --json`'s `memory.shared` row (`ok` iff supported) rather
- *  than assuming from {@link SHARED_MEMORY}, so a system test gates on what the engine actually answered. */
+ *  sharedMemory.supported`), read through `1staid check --json`'s `memory.shared` row (`ok` iff supported), so a system
+ *  test asserts what the engine actually answered. Since engine E4.2 that is true on Linux ("fd-capability"), macOS and
+ *  Windows ("verified-path", engine ADR 0001) until a verified-path check fails. */
 export function sharedMemorySupported(h: string): boolean {
   const doc = cli(h, ["1staid", "check"]);
   const check = (doc.checks as Array<{ id: string; status: string }>).find((c) => c.id === "memory.shared");

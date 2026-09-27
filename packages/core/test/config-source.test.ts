@@ -101,20 +101,24 @@ describe("config source (B7)", () => {
     const home = homeWith(defaults());
     const { sup, source } = await supervised(home, withLevel("info"));
     const seen: string[] = []; source.onChange((_p, next) => { seen.push(next.core.logLevel); });
-    await sup.stopListening(); // supervisor A goes away; its connection to the core stays open for now
+    // Supervisor A goes away and supervisor B takes the home over; A's connection to the core stays open for now. B
+    // answers on A's listener (handOver) rather than a fresh one: a Windows named pipe cannot be re-listened while
+    // A's connected instance still exists (EADDRINUSE), and that open connection is the point of this test.
     let b: FakeSupervisor | null = null;
-    b = await startFakeSupervisor({
-      home, config: withLevel("warn") as unknown as Record<string, unknown>,
+    b = sup.handOver({
+      config: withLevel("warn") as unknown as Record<string, unknown>,
       onWatch: () => {
         b!.push(withLevel("error") as unknown as Record<string, unknown>); // same chunk as the reply
         setImmediate(() => b!.push(withLevel("debug") as unknown as Record<string, unknown>)); // during the old close
       },
     }); cleanup.push(b);
+    assert.notEqual(b.token, sup.token);
     await source.resubscribe();
     await until(() => source.revision() === b!.revision);
     assert.equal(source.current().core.logLevel, "debug");
     assert.equal(source.source, "supervisor");
     assert.equal(seen.at(-1), "debug");
+    assert.deepEqual(b.watches, [b.token], "the re-watch reached B with B's token");
     await sup.close();
     await new Promise((r) => setTimeout(r, 50));
     assert.equal(source.source, "supervisor", "closing A's old connection is not a lost watch");

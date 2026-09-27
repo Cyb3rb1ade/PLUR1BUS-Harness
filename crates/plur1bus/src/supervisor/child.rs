@@ -211,13 +211,30 @@ const UNRESPONSIVE_AFTER: u32 = 3;
 const POST_KILL_WAIT: Duration = Duration::from_secs(1);
 /// How often the waiter checks the process and its watchdogs.
 const WAITER_TICK: Duration = Duration::from_millis(25);
+/// The ready timeout before the time scale (60 s, spec §6.4).
+pub const READY_TIMEOUT: Duration = Duration::from_secs(60);
+/// The shortest ready timeout a module gets whatever the time scale. A module secures its run directory and its token
+/// and pid files before it listens; on Windows that is several synchronous `icacls` runs (plus `whoami`), about a
+/// second or more on a CI runner, on top of Node's start-up. The tests' scale (0.02) would leave 1.2 s for all of it.
+/// At time scale 1 (production: the scale is a test seam) the timeout is 60 s and this floor never applies.
+pub const MODULE_READY_FLOOR: Duration = Duration::from_secs(10);
+
+/// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module at least
+/// [`MODULE_READY_FLOOR`].
+pub fn ready_timeout(kind: RoleKind, scale: f64) -> Duration {
+    let scaled = READY_TIMEOUT.mul_f64(scale);
+    match kind {
+        RoleKind::Core => scaled,
+        RoleKind::Module => scaled.max(MODULE_READY_FLOOR),
+    }
+}
 
 impl Timing {
     fn new(scale: f64, health_interval_ms: u64) -> Self {
         let s = |ms: u64| Duration::from_secs_f64(ms as f64 / 1000.0 * scale);
         Self {
             ready_poll: Duration::from_millis(100),
-            ready_timeout: s(60_000),
+            ready_timeout: ready_timeout(RoleKind::Core, scale),
             health_interval: s(health_interval_ms),
             poll_deadline: Duration::from_secs(2),
             // A long configured interval must not look like a hang between two healthy polls.
@@ -226,6 +243,14 @@ impl Timing {
             kill_after: s(10_000),
             stop_grace: s(5_000),
             scale,
+        }
+    }
+
+    /// This timing for a child of `kind`: a module's ready timeout has a floor ([`ready_timeout`]).
+    fn for_kind(self, kind: RoleKind) -> Self {
+        Timing {
+            ready_timeout: ready_timeout(kind, self.scale),
+            ..self
         }
     }
 
@@ -442,7 +467,7 @@ impl Monitor {
         let (timing, max_bytes, keep) = {
             let st = shared.lock();
             (
-                Timing::new(st.time_scale, st.config.health_interval_ms),
+                Timing::new(st.time_scale, st.config.health_interval_ms).for_kind(role.kind),
                 st.config.log_max_bytes,
                 st.config.log_keep,
             )
@@ -1543,6 +1568,31 @@ mod tests {
         // Three polls always fit in the hang threshold.
         assert_eq!(Timing::new(1.0, 60_000).hang, Duration::from_secs(180));
         assert_eq!(Timing::new(1.0, 5_000).hang, Duration::from_secs(30));
+    }
+
+    #[test]
+    fn a_module_ready_timeout_has_a_floor_only_below_it() {
+        let t = Timing::new(0.02, 5_000);
+        assert_eq!(
+            t.for_kind(RoleKind::Core).ready_timeout,
+            Duration::from_millis(1200)
+        );
+        assert_eq!(
+            t.for_kind(RoleKind::Module).ready_timeout,
+            MODULE_READY_FLOOR
+        );
+        // Production (scale 1): both keep 60 s.
+        for kind in [RoleKind::Core, RoleKind::Module] {
+            assert_eq!(ready_timeout(kind, 1.0), Duration::from_secs(60));
+            assert_eq!(
+                Timing::new(1.0, 5_000).for_kind(kind).ready_timeout,
+                Duration::from_secs(60)
+            );
+        }
+        assert_eq!(
+            ready_timeout(RoleKind::Module, 0.5),
+            Duration::from_secs(30)
+        );
     }
 
     #[test]

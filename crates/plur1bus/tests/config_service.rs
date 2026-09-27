@@ -9,7 +9,7 @@ use plur1bus_rpc::types::ErrorCode;
 use plur1bus_rpc::{Client, RpcError};
 use serde_json::{json, Value};
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 fn config_path(home: &Path) -> std::path::PathBuf {
     home.join("config.json")
@@ -532,7 +532,7 @@ fn a_subscriber_that_never_reads_is_dropped_and_set_stays_fast() {
     std::thread::sleep(TICK);
     for i in 0..100 {
         let lvl = if i % 2 == 0 { "debug" } else { "info" };
-        let t = Instant::now();
+        let t = std::time::Instant::now();
         set(&mut c, change("core.logLevel", json!(lvl))).unwrap();
         assert!(
             t.elapsed() < Duration::from_secs(1),
@@ -858,6 +858,9 @@ fn a_watch_connection_that_pipelines_without_reading_is_closed() {
     set(&mut c, change("agents", Value::Object(agents))).unwrap();
 
     let s = std::os::unix::net::UnixStream::connect(common::address(home)).unwrap();
+    // Set while the connection is surely open: macOS refuses SO_SNDTIMEO (EINVAL) on a socket whose peer has already
+    // closed it, which is what the writes below expect to happen.
+    s.set_write_timeout(Some(Duration::from_secs(1))).unwrap();
     let mut w = s.try_clone().unwrap();
     common::send_watch(&mut w, home);
     let line = json!({ "jsonrpc": "2.0", "id": 9, "method": "config.get", "params": {} })
@@ -871,7 +874,6 @@ fn a_watch_connection_that_pipelines_without_reading_is_closed() {
     std::thread::sleep(TICK * 2);
     // Without reading anything: the supervisor must have closed the socket, so writing fails (a leaked writer
     // would keep it open, and the writes would only fill its buffer until they time out).
-    w.set_write_timeout(Some(Duration::from_secs(1))).unwrap();
     let mut closed = None;
     for _ in 0..10_000 {
         if let Err(e) = w.write_all(line.as_bytes()) {

@@ -226,7 +226,8 @@ fn wait_for(c: &mut Client, role: &str, what: &str, f: impl Fn(&Value) -> bool) 
         }
         assert!(
             Instant::now() < deadline,
-            "timed out waiting for {role} {what}; last: {st}"
+            "timed out waiting for {role} {what}; last: {st}{}",
+            common::log_tails()
         );
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -428,13 +429,36 @@ fn install_refuses_escaping_entries_symlinks_and_reserved_names_and_copies_nothi
 #[test]
 fn install_refuses_a_module_whose_socket_path_would_be_too_long() {
     let mut h = Home::new();
-    // Deep enough that `<home>/run/module-<40 chars>.sock` passes 108 bytes (and so macOS's 104) on any temp dir.
-    let deep = h.dir.path().join("h").join("d".repeat(70));
+    // `sun_path` holds the address and its NUL: 104 bytes on macOS and the BSDs, 108 elsewhere. The home is made as
+    // deep as this platform's limit and the real temp dir (long on macOS: /var/folders/.../T/) allow, so that
+    // `<home>/run/module-m.sock` fits with one byte to spare and the 40-character name is over it everywhere.
+    let limit = if cfg!(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly"
+    )) {
+        104
+    } else {
+        108
+    };
+    let short_suffix = "/run/module-m.sock".len();
+    let base = h.dir.path().join("h");
+    let home_len = limit - 2 - short_suffix;
+    let pad = home_len
+        .checked_sub(base.as_os_str().len() + 1)
+        .filter(|&p| p > 0)
+        .unwrap_or_else(|| panic!("temp dir too long for this test: {}", base.display()));
+    let deep = base.join("d".repeat(pad));
     std::fs::create_dir_all(&deep).unwrap();
     h.home = deep;
+    let short_address = format!("{}/run/module-m.sock", h.home.display());
+    assert!(short_address.len() < limit, "{short_address}");
     let name = format!("m{}", "x".repeat(39));
     let address = format!("{}/run/module-{name}.sock", h.home.display());
-    assert!(address.len() >= 108, "{address}");
+    assert!(address.len() >= limit, "{address}");
     let src = h.source("long-name", json!({ "name": name }));
     let (code, v) = h.cli(&["module", "install", path_str(&src)]);
     assert_eq!(code, 1, "{v}");
@@ -791,6 +815,8 @@ fn uninstall_stops_and_removes_but_keeps_the_config() {
     h.config(json!({ "fixture": { "greeting": "kept" } }));
     let mut s = h.start();
     let mut c = client(&h.home);
+    // `m` is only read by the Linux /proc check below.
+    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
     let m = ready(&mut c, "fixture");
     // Outside a terminal, --yes is required and nothing happens without it.
     let (code, v) = h.cli(&["module", "uninstall", "fixture"]);
