@@ -12,6 +12,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md`. Binding: §4 (supervisor owns `config.json` and the module registry; the module manifest), §6.1 (one owner, `config.get|set|watch`, watcher, apply sequence), §6.2 (supervisor methods and notifications), §6.3 (lifecycle, amended by B2), §6.4 (spawn and monitor, backoff, lifeline and grace, locks, adoption, applied to modules), §6.6 rows `config`, `module`, `module graph`, §10 criteria 4, 5 and 12 (and 2, which must not regress), D3, D11, D14. Also binding: ADR-013 §4 and §5 (the target sequence this plan builds), ADR-016 §2, §3 and G3 (side-by-side `apiVersion`), ADR-012 §10 as shipped (flat `daemon.status/1`, RPC 1.2.0 `x-server`, `1staid check` ids, `CrashReason` vocabulary, rulings H3-R1 to H3-R26). Engine contract: `/home/claude/work/plur1bus-m1b1` `types/engine.d.ts` at `d0842424` (1.8.0): `AdminOps.obsidian`, `AdminOps.migrate`, `EmbeddingService.probe|serve`, `HostServices.mutateConfig`.
 
+**Owner decisions (2026-09-27, in chat):** B2 confirmed: the core reports `ready` right after `listen()` and replays the journal in the background; a recall during replay may miss a journaled fact, and `journalReplay` makes that visible. B15 confirmed: admin operations live in a top-level `admin` CLI group. The remaining open points (defer agent-scoped modules and extension points to 2b; invalid `config.json` → no core start; module config under `modules.<name>`; non-persistent `module stop`; C2 Windows core pipe front-end) run as the plan's rulings unless the owner overrides them.
+
 ---
 
 ## Repository, branch, and how to run anything

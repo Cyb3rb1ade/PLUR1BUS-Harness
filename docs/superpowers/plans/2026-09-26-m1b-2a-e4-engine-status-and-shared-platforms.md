@@ -42,6 +42,7 @@ The harness side — calling `engine.models.warm({ signal })` in the background 
 - **C2 replay key:** the harness journal (2a-H3 Task 15) gives every line a stable `runId`; E4's guard keys on it as planned.
 - **C3 golden corpus:** 11/11 (current main), not the spec's historic 9/9.
 - **C4 Tasks 9–10 (verified-path mode, incl. the Windows ACL check via `powershell.exe`):** not dispatched until the owner answers in chat. Tasks 1–8 ship a complete 1.8.0 without them.
+- **Owner decision 2026-09-27 (in chat):** Tasks 9–10 approved (ADR 0001 Option B, verified-path on darwin and win32). They ship as **E4.2** on branch `feat/e4-2-verified-path-shared-memory` from engine `main`, contract stays 1.8.0 (the `"verified-path"` literal is already in the union).
 - **C5 Task 10 test seam:** implementer's choice between the internals view and `testOptions.sharedMemoryMode`, recorded in the report.
 
 ## Review focus

@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` (harness repo) — §7 row **E5** ("Host-neutral `engine-config.schema.json` in the engine (the keys with types, defaults, and a `readAt: construction|live` flag); the adapter translates for `openclaw.plugin.json`", additive); §5 naming note (`packages/core/src/engine-config.ts` is the translation "until engine PR E5"); **D29** (`x-tier: basic | advanced`, "all engine keys are `advanced`"); **D28** (the OpenClaw plugin gets fixes only). Follow-ups: harness ledger `.superpowers/sdd/2026-09-26-m1b-2a-h3-supervisor-installer-warmup/progress.md` (Task 12 B1, H3-R22, H3-R23, nightly root cause) and `/home/claude/work/e4-1-report.md`.
 
+**Owner decisions (2026-09-27, in chat):** compaction is on by default for every host, including the OpenClaw plugin on the owner's VPS (`runtime.lancedbCompaction.enabled: true`). Base ruling: if #195 is still open when E5 starts, branch from its head `c4b613aa`; the PR then shows only E5's commits once #195 merges.
+
 ## 2a-E sequence
 
 | Step | Branch / PR | Contract | Status |
@@ -17,6 +19,7 @@
 | E1-E3 | #188, #192, #193 | 1.5.0-1.7.0 | merged |
 | E4 | `feat/e4-status-shared-platforms` (#194) | 1.8.0 | merged `d0842424` |
 | E4.1 | `fix/e4-1-replay-guard-records-on-rows-settled` (#195) | 1.8.0 | merging (base of E5) |
+| E4.2 | `feat/e4-2-verified-path-shared-memory` (E4 Tasks 9–10) | 1.8.0 | owner approved 2026-09-27; parallel to E5 |
 | **E5** | `feat/e5-engine-config-schema` | **1.9.0** | **this plan** |
 
 Harness side (not this plan): `scripts/gen-engine-keys.mjs` and `docs/config-engine-keys.md` read `engineConfigKeys()` instead of the manifest; `engine-config.ts` keeps only the harness-owned overrides; the warm-up (`packages/core/src/warmup.ts`) switches from `memory.list` to `engine.recall({ …, warmOnly: true })`; the `engine` node's description drops "until E5".
