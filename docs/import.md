@@ -2,6 +2,8 @@
 
 **Status:** Phase 0 draft · **Date:** 2026-09-22 · **Depends on:** ADR-003 (agent model), ADR-007 (users/roles/identity) — written in parallel, referenced here by name only.
 
+> **Amendment 2026-09-27 (owner, pulled forward):** two pieces of this importer ship ahead of M7 — the read-only **detect** step (`plur1bus import <openclaw|hermes> --detect`, §8) and the **skills import** (`plur1bus import <openclaw|hermes> --skills`, dry-run by default, `--apply` to write, `--rollback <report>`, §9). Everything else (stores, memory cards, soul, cron, channels, secrets, sessions, the wizard) stays in **M7** (`docs/milestones.md`). This resolves the old mismatch between the CLI stub ("M1b-3") and the milestone plan ("M7"): the stub label is gone, `plur1bus import` without `--detect`/`--skills`/`--rollback` answers `E_NOT_AVAILABLE` with `milestone: "M7"`. The reranker is now part of the detected configuration (§2.3.2).
+
 Scope: `plur1bus-harness import <openclaw|hermes>` plus a UI wizard (auftrag §4.2, brief D2). This document is the source-format and mapping specification the importer implementation and its tests are built from. It does not specify the importer's internal code structure.
 
 Sources opened for this document: `/home/claude/refs/openclaw` (`b9421f4`, v2026.9.5), `/home/claude/refs/hermes-agent` (`743ee72`), `/home/claude/refs/openclaw-plur1bus-memory` (`89148f9`, package `@cyb3rb1ade/plur1bus-memory` 7.15.4). Every path/schema claim below carries its own citation; claims not independently re-opened in this pass are marked "per research" and point at the underlying research file, which itself cites file:line.
@@ -104,6 +106,19 @@ Embedding identity = model + revision/artefact hash + quantization + dimension +
 - **Match:** the importer runs PLUR1BUS's own compatibility probe (embed a fixed probe set, compare against stored reference vectors, per auftrag §6.2) against the target install's configured embedding provider. On match, the store directory is copied as-is (copy-never-move) and registered under the harness's agent record; no vectors are recomputed.
 - **Mismatch (or target has no compatible provider configured yet):** the importer routes the store through PLUR1BUS's guided re-embedding migration — prepare target generation → dry-run → copy into new generation → separate switch → old generation retained for rollback (plur1bus-crons-embedding-portability.md §2, auftrag §6.2) — never a silent re-embed and never a mixed-vector-space table.
 - A store whose embedding identity cannot be determined at all (e.g. missing/corrupt provider metadata) is treated as a mismatch, never as an assumed match.
+
+#### 2.3.2 Reranker (added 2026-09-27)
+
+The reranker was missing from this document. It touches **no stored vector** (ADR-006 §"Rerankers": switchable at runtime without migration), so a reranker difference is never a reason to re-embed or to block a take-over.
+
+| Detected per source | Where | Values |
+|---|---|---|
+| Provider, model | PLUR1BUS plugin config `reranker.{enabled,provider,model,local.model,local.revision,local.dtype,fallbackProvider,fallbackModel}` (OpenClaw); Hermes has no reranker (`not-applicable`) | `provider` ∈ `local-transformers`, `cohere`, `disabled`; model id as configured, or the engine default (`woxpas-ai/bge-reranker-v2-m3-onnx` local, `rerank-v3.5` Cohere) marked `source: "engine-default"` |
+| Local vs remote | from the provider | `local` (`local-transformers`), `remote` (`cohere`), `disabled` (`enabled: false` or provider `disabled`), `unknown` |
+| Licence class | the pinned model catalog (ADR-006 table; `lib/providers/local-model-artifacts.js`) and the setup wizard's licence gate (ADR-006 "Non-interactive install … The same procedure applies to NC rerankers") | `permissive` (BGE-reranker-v2-m3, Apache-2.0), `non-commercial` (Jina reranker v2, CC BY-NC-4.0 — needs the owner's audit-logged NC confirmation before the harness may use it), `remote-service-terms` (hosted API, governed by the provider's terms, needs a provider key), `unknown` (a local model outside the catalog) |
+| Scope | the plugin config is installation-wide; the source has no per-agent reranker override | one line `scope: "default"` (OpenClaw), none (Hermes) |
+
+On import a reranker **mismatch is not fatal**: it becomes one report line with a recommendation (keep the harness default; or, for an NC model, run the licence gate first; or, for a remote reranker, note that the harness today forces a local reranker in `engine-config.ts` and remote rerankers need M2 provider profiles). Nothing is re-embedded and nothing is blocked because of it.
 
 ### 2.4 Workspace/user binding → harness principal (fail-closed)
 
@@ -380,10 +395,106 @@ Acceptance tests, directly against the fixtures above:
 
 | Gap | What's missing | Where to verify |
 |---|---|---|
-| OpenClaw skills default directory | No single fixed default directory was found (only `skills.load.extraDirs` config and the Skill Workshop's own `<state-dir>/agents/<agentId>/agent/workshop-skills` write target, both confirmed §2.2). Whether OpenClaw also has an implicit `~/.openclaw/skills` default alongside these was not confirmed by a source read that opened the skills-loading code path itself. | Read `src/skills/` loader source directly (not just `docs/gateway/configuration-examples.md`) in `/home/claude/refs/openclaw` before the importer implementation assumes a fixed default path. |
+| OpenClaw skills default directory | **Resolved 2026-09-27 (§8.4):** the loader (`src/skills/loading/workspace-skill-sources.ts` @ `b9421f4`) reads `skills.load.extraDirs`, plugin skill roots, the bundled dir, `<agentDir>/workshop-skills`, the managed `<state-dir>/skills`, `~/.agents/skills` (default state dir only), `<workspace>/.agents/skills` and `<workspace>/skills`. Original text: No single fixed default directory was found (only `skills.load.extraDirs` config and the Skill Workshop's own `<state-dir>/agents/<agentId>/agent/workshop-skills` write target, both confirmed §2.2). Whether OpenClaw also has an implicit `~/.openclaw/skills` default alongside these was not confirmed by a source read that opened the skills-loading code path itself. | Read `src/skills/` loader source directly (not just `docs/gateway/configuration-examples.md`) in `/home/claude/refs/openclaw` before the importer implementation assumes a fixed default path. |
 | OpenClaw `cron_jobs` table column shape | Table's existence and location confirmed (`src/cron/store/schema.ts:1,7-8`), but the actual column list (job id, schedule expression, prompt/command, delivery target, enabled flag, etc.) was not read this pass. | Read `src/cron/store/schema.ts` in full plus the migration files under `src/state/openclaw-state-db-schema-*.ts` in `/home/claude/refs/openclaw` for the authoritative column list before finalizing §2.2.1 and the fixture's `CREATE TABLE` statement. |
 | `KNOWLEDGE.md` provenance | Confirmed as a PLUR1BUS-supplied corpus supplement (`registerMemoryCorpusSupplement`), not an OpenClaw-native file — but the PLUR1BUS-side source (`OPENCLAW_SDK_COMPAT_AUDIT.md:41`) was not independently re-opened in this pass; its exact on-disk location and format within a PLUR1BUS store were not confirmed. | Open `/home/claude/refs/openclaw-plur1bus-memory` for `registerMemoryCorpusSupplement` call sites and the corpus-supplement's on-disk path before the importer's §2.3 store take-over enumerates it explicitly rather than treating it as "whatever is in the store directory already." |
 | Hermes `cron/jobs.json` record shape | Store path and locking mechanism confirmed (`cron/jobs.py:1,63-74,110`); the actual per-job JSON record fields (schedule expression format, `deliver=<platform>` field name, prompt field name) were not read in this pass (Part B, Verification notes). | Read `cron/jobs.py` and its schema/dataclass definitions in `/home/claude/refs/hermes-agent` directly before finalizing §3.2's cron-job mapping and the fixture's `jobs.json` shape. |
 | OpenClaw source-tree layout for the *Hermes-migration-derived* paths | Several OpenClaw-side paths in §4 (`exec-approvals.json`, `credentials/telegram-default-allowFrom.json`, `agents/main/agent/auth-profiles.json`, `~/.openclaw/skills/`, `~/.openclaw/cron/`, `~/.openclaw/extensions/`) were inferred from `openclaw_to_hermes.py`'s own path-construction logic (Hermes's view of OpenClaw), not independently confirmed against the OpenClaw repository directly, except where this document's own direct reads (§2.1, §2.2) already superseded them (state DB location, cron table, channel config, skills config). | Cross-check the still-unconfirmed paths (`exec-approvals.json`, `credentials/telegram-default-allowFrom.json`, `extensions/`) against `/home/claude/refs/openclaw` directly; several (e.g. `agents/main/agent/auth-profiles.json`) are already corroborated by this document's own §2.1 legacy-auth finding, but the exact filename for the command-allowlist store (`exec-approvals.json`) was not independently opened in the OpenClaw checkout this pass. |
 | Tombstone on-disk shape | Referenced only via the `/forget` archive-first behavior in the auftrag; no direct file/table read this pass. | Open the tombstone read/write path in `/home/claude/refs/openclaw-plur1bus-memory` before the fixture (§6.1) asserts on tombstone content rather than just copying the directory opaquely. |
 | `appendDestructiveOpLog` body | Path located (`lib/sql-safety.js:192`) but body not read; audit-entry shape assumed in §5.8 by analogy with the ACL audit log, not confirmed for this specific log. | Read `lib/sql-safety.js` around line 192 in `/home/claude/refs/openclaw-plur1bus-memory` before finalizing the importer's own audit-entry schema. |
+
+---
+
+## 8. Detect (read-only, pulled forward)
+
+**Status:** built 2026-09-27 (owner pulled it forward from M7). Phase 1 of §5.1 on its own: `plur1bus import <openclaw|hermes> --detect [--source <path>] [--profile <name>] [--json]`. It plans nothing and writes nothing — not to the source, not to the harness home.
+
+### 8.1 Where it runs
+
+The Rust CLI spawns Node once on `import.js`, a second entry of `packages/core` shipped beside `core.js` in the core payload (`$PLUR1BUS_IMPORT_JS`, else `import.js` next to `$PLUR1BUS_CORE_JS` / `<home>/runtime/core/core.js`; Node from `$PLUR1BUS_NODE` / `<home>/runtime/node-*` / `PATH`, the same lookup as `core run`). Node is required because detect reads LanceDB (with the engine's own `@lancedb/lancedb`, resolved through the pinned engine package, so the harness reads the source store with the same library version the engine writes it with) and SQLite (`node:sqlite`). It is **not** the core: no engine is constructed, the core lock is not taken, no running core or supervisor is contacted, so detect works with the harness stopped and on a machine where the harness was never set up. The Node side prints one envelope line (`{"ok":true,"schema","value","human"}` or `{"ok":false,"error","message","reason","exit"}`); the Rust side prints `value` as the `--json` document (with `schema` inserted, ADR-016 §8) or the human rendering.
+
+### 8.2 Read-only rules
+
+- SQLite is never opened in place for writing: a database up to 256 MiB is copied (with its `-wal`) into a private temp directory and opened there, so a live source's WAL is honoured and the source's `-shm`/`-wal` are never touched; a larger one is opened `readOnly` with `immutable=1` and the report warns that its WAL was not consulted.
+- LanceDB is opened only for `schema()`, `countRows()` and, when the table has an `embeddingFingerprint` column, a projection of that one column. No content column (`text`, …) is ever selected; the embedding cache's `debug_text` column is never selected.
+- Secrets are never read: `auth.json`, `auth-profiles.json`, `credentials/`, `agents/*/agent/openclaw-agent.sqlite` are reported by presence only; `.env` files are parsed for **key names** only (the value part of each line is discarded unread-into-output); config values at secret-shaped keys (`apiKey`, `token`, `secret`, `password`, `authorization`, `headers`, …) are reported by JSON path and whether they are an `${ENV}` reference.
+- No network, no provider call, no model load.
+- Tests assert the source fixture is byte-identical (paths, contents, mtimes) before and after, including while a writer keeps the fixture's SQLite database open in WAL mode.
+
+### 8.3 Source root and version
+
+| | OpenClaw | Hermes |
+|---|---|---|
+| Root order | `--source`, `$OPENCLAW_STATE_DIR`, `$OPENCLAW_PROFILE` (`~/.openclaw-<profile>`), `$OPENCLAW_HOME/.openclaw`, `~/.openclaw` (`src/config/state-dir.ts`, `src/cli/profile-utils.ts` @ `b9421f4`) | `--source`, `$HERMES_HOME`, `~/.hermes`; `--profile <name>` narrows to `<root>/profiles/<name>` (§3.1, §3.3) |
+| Config | `$OPENCLAW_CONFIG_PATH` (ignored with `--source`), else `<root>/openclaw.json` (JSON5; a symlinked file is followed; `$include` is not followed and is reported) | `config.yaml` (read by known key; unsupported YAML constructs make those keys `unknown`, never a guess) |
+| "Is an installation" | `openclaw.json` or `state/openclaw.sqlite` present — else `E_SOURCE_NOT_FOUND reason=not-an-openclaw-state-dir` | one of the root markers `config.yaml`, `.env`, `state.db` — else `E_SOURCE_NOT_FOUND reason=not-a-hermes-home` |
+| Version | release `meta.lastTouchedVersion` (config) and state schema `schema_meta.schema_version` (`meta_key='primary'`, `state/openclaw.sqlite`; 17 at `b9421f4`) — neither readable → `E_SOURCE_UNSUPPORTED reason=version-undeterminable` | `_config_version` (integer; missing or non-integer → `E_SOURCE_UNSUPPORTED reason=config-version-unreadable`; above 45 → warning `newer-than-tested`), sessions `schema_version.version` (30 tested; informational) |
+| Agents | `agents.entries` / `agents.list` / the implicit `main`, plus `agents/<id>/` directories; workspace per `agents.<id>.workspace`, `agents.defaults.workspace/<id>`, else `<root>/workspace-<id>` (`main`: `<root>/workspace`) | `default` (the root) plus each `profiles/<name>` |
+
+### 8.4 What is detected
+
+**PLUR1BUS (OpenClaw).** Plugin entry `plugins.entries["memory-lancedb-namespaced"]` (configured, `enabled`), plugin version from `<root>/extensions/*/package.json` or `<root>/npm/projects/*/node_modules/@cyb3rb1ade/plur1bus-memory/package.json` (else `plugins.installs`). Store root `baseDbPath` (config, else `<root>/memory/lancedb-namespaced`) with the engine's three layouts: `legacy-flat`, `named` (`namespaces`), `generation` (`reembedding.activeGeneration`, `generations/<g>/generation.json`). Stores: one per agent partition `<activeRoot>/<agentId>/memories.lance`, one per shared pool `.plur1bus-shared/{workspaces,users}/<key>/`. Embedding cache `<baseDbPath>/embedding-cache-v2/<scope>.db`, grouped by `(provider, model, dimensions)` with counts. Re-embedding state `control/reembedding-state.json` (full fingerprints per migration). Hermes: `memory.provider` is recorded; there is no Hermes PLUR1BUS adapter yet (M8), so stores and reranker are `not-applicable`.
+
+**Embedding identity per store**, field by field, each `{ value, source }`:
+
+| Field | Sources, in order | Notes |
+|---|---|---|
+| `provider` (incl. aggregator pin via `endpoint`) | `store-metadata` (fingerprint) · `config` (`embedding.provider`) · `cache` | |
+| `model` | `store-metadata` · `config` (`embedding.model` / `embedding.local.model`) · `cache` | |
+| `revision` | `store-metadata` · `config` (`embedding.local.revision`) · `model-cache` (exactly one revision directory for the model under `local.cacheDir`, default `<root>/models/plur1bus`) | remote providers: `not-applicable` |
+| `artefactHash` | `store-metadata` (SHA-256 over the fingerprint's sorted `{path, sha256}` artefacts) · `derived` (the catalog digest, when model + revision + quantization are confirmed and match the pinned catalog) | |
+| `quantization` | `store-metadata` (`dtype`; absent = `fp32`) · `model-cache` (`onnx/model_quantized.onnx` → `q8`, `onnx/model.onnx` → `fp32`) | |
+| `dimension` | **`vector-schema`** (the Lance `FixedSizeList` size of the `vector` column) — config, cache and manifest values are corroboration; a disagreement is a `mismatch` with reason `dimension-conflict` | |
+| `prefixSchema` | `store-metadata` · `config` (`local.queryPrefix/passagePrefix`) · `derived` (catalog default for the model) | remote: `not-applicable` |
+| `normalization` | `store-metadata` (`pooling`, `normalize`) · `derived` (local-transformers always mean-pools and normalizes) | |
+| `tokenCap` | `config` (`local.maxTokens`) · `derived` (512, the engine default) | remote: `not-applicable` |
+| `endpoint` | `store-metadata` · `config` (`baseUrl`) | local: `not-applicable` |
+
+A field without a confirming source is `unknown`. `derived` counts as confirmed only when every input it is derived from is confirmed. **Any unknown field makes the identity undetermined, and undetermined counts as a mismatch** (§2.3.1): the planned action is `re-embedding-migration`, with the note that M7's compatibility probe can confirm a match later. Each store also reports `distinctIdentities` — the number of distinct identities evidenced for it by generation manifests, per-row `embeddingFingerprint` values and embedding-cache groups — and more than one is a `mismatch` with reason `multiple-identities`.
+
+**Comparison with the harness target.** The target is what `packages/core/src/engine-config.ts` would give the engine for `<home>/config.json` (or the defaults when there is none): local-transformers, `engine.embedding.local.model` (default `intfloat/multilingual-e5-small`), dimension (default 384), and the revision, quantization, prefixes and artefact digest the pinned engine's catalog fixes for that model (sources `harness-config`, `harness-default`, `engine-catalog`). Per field: `match` / `mismatch` / `unknown`; per store a verdict `match` / `mismatch` / `undetermined` and a planned action `take-over` or `re-embedding-migration`.
+
+**Reranker:** §2.3.2.
+
+**Skills.** Every skill folder (a directory holding `SKILL.md`) under the source's roots: OpenClaw `skills.load.extraDirs` (`extra`), `$OPENCLAW_BUNDLED_SKILLS_DIR` (`bundled`, only when set — the bundled set ships inside OpenClaw's package, not the state dir), `<agentDir>/workshop-skills` (`workshop`), `<root>/skills` (`managed`, i.e. installed), `<workspace>/.agents/skills` (`project`), `<workspace>/skills` (`workspace`); Hermes `<profile>/skills/<category>/<name>` (`profile`), `skills.external_dirs` (`external`), `$HERMES_OPTIONAL_SKILLS` (`optional`; an optional skill the user installed already sits under `<profile>/skills`). Per skill: `id` (folder name, lowercased, `^[a-z0-9][a-z0-9._-]{0,63}$`, else problem `invalid-id`), `name` and `description` from the frontmatter (description cut at 300 characters), path, tier, agent, bytes, files, `sha256` (§9.2), `hasScripts` (executable bit, a shebang, a script extension, or a `scripts/` directory), skipped entries (symlink escapes, directory symlinks, secret files, `.git`), problems (`too-large`, `invalid-id`, `no-skill-md`), `shadowedBy` when a higher-precedence root has the same id, and whether the id already exists in the harness (`skills/index.json` or `skills/<id>/`) with its hash — giving the planned action for the default `--on-conflict skip`: `import`, `skip-identical`, `conflict-skip`, `refuse`.
+
+### 8.5 Output
+
+`--json` document `import.detect/1` (top-level keys, stable): `sourceType`, `source {root, resolvedFrom, configPath, profile}`, `version {release, stateSchema, configVersion, sessionsSchema, supported, warnings}`, `target {home, configSource, embedding {fields}, reranker}`, `agents[] {agentId, workspace, workspaceSource, agentDir, foundIn[]}`, `plur1bus {installed, plugin, storeRoot, embeddingCache, reembedding, stores[]}` (each store `{storeId, kind, agentId, namespace, path, rows, identity {fields, distinctIdentities, evidence[], comparison {verdict, fields}, plannedAction, reasons[]}}`), `rerankers[]`, `skills[]`, `secrets {files[], envKeys[], configKeys[]}`, `other {soul, memoryFiles, cron, sessionsDb}` (presence only — M7 entities), `warnings[]`, `counts`. The human rendering is the same data as short sections. Neither ever contains memory text, skill bodies or secret values.
+
+## 9. Skills import (pulled forward)
+
+**Status:** built 2026-09-27. `plur1bus import <openclaw|hermes> --skills [--apply] [--enable] [--on-conflict skip|rename|replace] [--max-skill-bytes <n>] [--source <path>] [--profile <name>]` and `plur1bus import <openclaw|hermes> --rollback <report.json> [--apply]` (everything else comes from the report; `--source`/`--profile` are refused with it). Phases 2–7 of §5.1 for the one entity kind "skill"; the source is read exactly as in §8.2.
+
+### 9.1 Harness skill store (minimal; for the extensions-ecosystem spec to adopt)
+
+No skill store existed in the harness before this (the layout reserved `<home>/skills`, nothing used it). The minimal contract, kept small on purpose so the parallel extensions-ecosystem design (enable/disable/install/uninstall, the plur1bus.app catalogue) can adopt or extend it:
+
+- `<home>/skills/<id>/SKILL.md` plus the rest of the skill folder, one directory per skill id.
+- `<home>/skills/index.json`: `{"version": 1, "skills": [{"id", "source", "sourcePath", "sha256", "enabled", "importedAt"}]}`, sorted by `id`. `source` is `"openclaw"` or `"hermes"` for imported skills (the ecosystem spec may add `"bundled"`, `"catalog"`, `"local"`); `sourcePath` is the absolute source folder at import time; `sha256` is §9.2; `importedAt` ISO-8601 UTC. Writers keep unknown top-level and per-entry fields they do not own; the file is replaced atomically (temp + rename).
+- Reserved names inside `skills/`: `index.json`, `.staging/`. Import run records live outside it, in `<home>/imports/<runId>/` (`report.json`, `report.txt`, `snapshot/`, `replaced/`, `rolled-back/`), and the importer's lock is `<home>/imports/.lock` (outside `skills/`, so a rollback that swaps the whole directory never moves its own lock).
+- **Imported skills land disabled** (`enabled: false`) unless `--enable` — skills can carry scripts; **owner decision to confirm** (D-level entry proposed with this change). `--enable` applies only to skills imported in that run; an already-present skill keeps its flag.
+
+### 9.2 Folder hash `plur1bus-skill-sha256/v1`
+
+Over the files that would be copied (after §9.3's exclusions), sorted by POSIX relative path: `"sha256:" + hex(SHA-256(concat(relpath + "\0" + hex(SHA-256(file bytes)) + "\n")))`. The same algorithm is proposed for D57's pinned bundled skills, so a vendored skill and an imported one are compared with one number.
+
+### 9.3 Copy rules
+
+Copy, never move. A symlinked skill folder is followed to its real directory; inside it, a file symlink that resolves inside the folder is copied as a regular file, one that resolves outside is **skipped** and listed (`symlinkEscapes`), a directory symlink is skipped (no loops). Never copied: `.env`, `.env.*`, `auth.json`, `credentials.json`, `*.pem`, `*.key`, `id_rsa*`, `.git/`, `.DS_Store`. A folder above 8 MiB or 2000 files (`--max-skill-bytes`) is refused `too-large`. Every destination path is resolved inside the staging directory (path traversal is refused).
+
+### 9.4 Apply, idempotency, resumability
+
+Dry-run is the default and writes nothing. `--apply`: take `<home>/imports/.lock` (a live holder → `E_LOCKED`, exit 3; a dead holder's lock is taken over), clear `skills/.staging/`, snapshot `skills/` into `<home>/imports/<runId>/snapshot/`, write `report.json` with status `running` and rewrite it after every skill and at the end (`completed`). Per skill, in root precedence order: copy into `.staging/`, re-hash, rename into `skills/<id>`, then update `index.json`. Same id and same hash → `skip-identical` (zero writes); a folder already on disk with the same hash but no index entry (an interrupted run) is adopted. Re-running after any interruption converges.
+
+### 9.5 Conflicts
+
+`--on-conflict skip` (default) keeps the harness's skill and reports `conflict-skip`; `rename` imports as `<id>-<source>` (then `-2`, `-3`, …; the frontmatter `name` is unchanged); `replace` moves the existing folder to `<home>/imports/<runId>/replaced/<id>/` first, then imports. A conflict is: the id exists (index or folder) with a different hash. Two source skills with the same id meet the same rule in precedence order.
+
+### 9.6 Report and rollback
+
+`import.skills/1`: `runId`, `sourceType`, `source {root}`, `version`, `mode`, `options`, `startedAt`, `finishedAt`, `status`, `harness {home, skillsDir}`, `snapshot`, `reportPath`, `indexSha256Before`, `indexSha256After`, `skills[] {id, targetId, tier, agentId, sourcePath, sha256, bytes, files, hasScripts, action, outcome, reason, enabled, backupPath}`, `counts`, `errors[]` — ids, paths, hashes and counts only, never skill bodies or secrets. `--rollback <report.json>` checks the run id and that the snapshot lies inside `<home>/imports/<runId>/` (else `E_ROLLBACK_INVALID`), refuses with `E_ROLLBACK_STALE` when `skills/index.json` changed since that run (roll the later run back first), and lists the per-id changes; with `--apply` it moves the current `skills/` to `<home>/imports/<runId>/rolled-back/` and restores the snapshot exactly. It never touches the source.
+
+### 9.7 Hermes skills, soul and cron
+
+Hermes skills follow §3.2 (`skills/<category>/<name>/SKILL.md`, frontmatter preserved verbatim, `.curator_state` not imported). `SOUL.md` and `cron/jobs.json` are detected (presence, §8.5 `other`) but imported only by M7 (§3.2, §4.2): soul → the agent's `SOUL.md` (D14), cron → harness scheduler or archive.

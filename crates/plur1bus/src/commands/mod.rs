@@ -5,6 +5,7 @@ pub mod core;
 pub mod daemon;
 pub mod dreams;
 pub mod firstaid;
+pub mod import;
 pub mod memory;
 pub mod memory_ops;
 pub mod module;

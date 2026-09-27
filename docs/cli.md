@@ -106,7 +106,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
 * `project` — Projects — M3
-* `import` — Import from OpenClaw/Hermes — M1b-3
+* `import` — [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
 * `uninstall` — Uninstall — M8
 
 ###### **Options:**
@@ -1015,13 +1015,37 @@ Projects — M3
 
 ## `plur1bus import`
 
-Import from OpenClaw/Hermes — M1b-3
+[experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
 
-**Usage:** `plur1bus import`
+**Usage:** `plur1bus import [OPTIONS] <SOURCE_TYPE>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<SOURCE_TYPE>` — Source system to read (never modified)
+
+  Possible values: `openclaw`, `hermes`
+
+
+###### **Options:**
+
+* `--detect` — Read-only report: version, agents, PLUR1BUS stores and embedding identity, reranker, skills, secret presence
+* `--skills` — Import the source's skills into <home>/skills (dry-run unless --apply; imported skills land disabled)
+* `--rollback <REPORT>` — Undo one --skills --apply run from its report.json (dry-run unless --apply)
+* `--source <PATH>` — Source root (default: $OPENCLAW_STATE_DIR / $OPENCLAW_PROFILE / ~/.openclaw, or $HERMES_HOME / ~/.hermes)
+* `--profile <NAME>` — Hermes only: import one named profile instead of the root and every profile
+* `--apply` — Write (with --skills or --rollback); without it nothing is written
+* `--enable` — With --skills: enable the imported skills (default: they land disabled)
+* `--on-conflict <MODE>` — With --skills: what to do when a skill id already exists in the harness
+
+  Possible values:
+  - `skip`:
+    Keep the harness's skill (default)
+  - `rename`:
+    Import as <id>-<source>
+  - `replace`:
+    Replace it; the old folder is kept under <home>/imports/<run>/replaced
+
+* `--max-skill-bytes <BYTES>` — With --skills: refuse skill folders larger than this (default 8 MiB)
 
 
 

@@ -29,7 +29,6 @@ fn stubs_exit_2_and_name_their_milestone() {
         ("channel", "M4"),
         ("user", "M2"),
         ("project", "M3"),
-        ("import", "M1b-3"),
         ("uninstall", "M8"),
     ] {
         bin()
