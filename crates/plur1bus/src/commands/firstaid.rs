@@ -853,6 +853,18 @@ fn check_journal_backlog(layout: &Layout, core_status: Option<&Value>) -> Check 
         .unwrap_or(0);
     let from_files = count_journal_lines(layout);
     let total = from_core.max(from_files);
+    // B2: the core serves while its journal replays in the background; the lines still waiting are progress, not a
+    // stuck backlog.
+    let replay = core_status.map(|s| &s["journalReplay"]);
+    if replay.and_then(|r| r["state"].as_str()) == Some("replaying") {
+        let replayed = replay.and_then(|r| r["replayed"].as_u64()).unwrap_or(0);
+        return Check::warn(
+            ID,
+            format!("replaying: {replayed} replayed, {total} left"),
+            Some(json!({ "replayed": replayed, "left": total })),
+            None,
+        );
+    }
     if total == 0 {
         Check::ok(ID, "no journal backlog")
     } else {
@@ -1500,6 +1512,32 @@ mod tests {
         let check = check_journal_backlog(&layout, None);
         assert_eq!(check.status, Status::Warn);
         assert_eq!(check.detail.unwrap()["count"], 3);
+    }
+
+    #[test]
+    fn journal_backlog_while_replaying_is_a_warning_with_progress() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.journal()).unwrap();
+        std::fs::write(
+            layout.journal().join("a.jsonl.replaying-4242"),
+            "{}\n{}\n{}\n",
+        )
+        .unwrap();
+        let status = json!({ "journalBacklog": 3, "journalReplay": { "state": "replaying", "replayed": 7, "kept": 0,
+            "passes": 0, "startedAt": 1, "finishedAt": null } });
+        let check = check_journal_backlog(&layout, Some(&status));
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+        assert_eq!(check.summary, "replaying: 7 replayed, 3 left");
+        assert_eq!(check.detail.unwrap(), json!({ "replayed": 7, "left": 3 }));
+        // A finished replay with nothing left is ok again.
+        std::fs::remove_file(layout.journal().join("a.jsonl.replaying-4242")).unwrap();
+        let done = json!({ "journalBacklog": 0, "journalReplay": { "state": "done", "replayed": 10, "kept": 0,
+            "passes": 1, "startedAt": 1, "finishedAt": 2 } });
+        assert_eq!(
+            check_journal_backlog(&layout, Some(&done)).status,
+            Status::Ok
+        );
     }
 
     #[test]

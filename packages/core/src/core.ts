@@ -11,7 +11,6 @@ import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig } from "./engine-config.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
-import { drainJournal } from "./journal.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { createLogger, type HarnessLogger } from "./logger.ts";
 import { MEMORY_OP_METHODS } from "./memory-ops.ts";
@@ -19,6 +18,7 @@ import { createOrphanWatch, type OrphanWatch } from "./orphan-watch.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
 import { callerToPrincipal } from "./principal.ts";
+import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
@@ -35,6 +35,8 @@ const DRAINED_METHODS = [...MEMORY_OP_METHODS, "memory.capture"] as const;
  *  the copy is refreshed every WARMING_REFRESH_MS as well (spec §6.3, S7). */
 const STATUS_CACHE_MS = 1000;
 const WARMING_REFRESH_MS = 250;
+/** H3B-R2: the longest a stop waits for the journal replay's capture in flight (never longer than its budget). */
+const REPLAY_STOP_WAIT_MS = 5000;
 
 export interface Core {
   start(): Promise<void>;
@@ -99,6 +101,7 @@ export function createCore(o: CoreOptions): Core {
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
   let warmup: Warmup | null = null;
+  let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
@@ -157,6 +160,7 @@ export function createCore(o: CoreOptions): Core {
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })),
       // E4: the engine reads the journal through the host capability; the replay's count when it reports none.
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
+      ...(replay ? { journalReplay: replay.status() } : {}),
       ...(jobs ? { jobs } : {}),
       deprecationsUsed: server?.deprecationsUsed() ?? [],
     };
@@ -196,7 +200,7 @@ export function createCore(o: CoreOptions): Core {
       log.warn("orphan grace expired, stopping", { graceMs: config.supervisor.graceMs });
       if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
     };
-    // Watched from the start (S4), so an adoption during the journal replay replaces the spawner's stdin, never the reverse.
+    // Watched from the start (S4), so an adoption during the engine start replaces the spawner's stdin, never the reverse.
     if (o.lifeline) orphans.watchStream(o.lifeline);
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
@@ -245,18 +249,11 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
-      // I2: replay once the socket accepts connections, so the CLI's captures go live instead of journaling while
-      // the journal is read; drainJournal re-runs the pass for any line that still arrived during one.
-      const replay = await drainJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
-      journalBacklog = replay.kept;
-      // The cached engine status predates the replay (its journal count included the lines just replayed): the first
-      // core.status after ready must not report them.
-      cacheEngineStatus(await eng.status());
       const ready: State = { state: "ready", since: clock() };
-      // A lifeline lost during the replay orphaned the core before it was ready; its grace may already have run out.
+      // A lifeline lost during the engine start orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
-      logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept, replayPasses: replay.passes, supervised: o.lifeline !== undefined });
+      logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
       warmup = startWarmup({
@@ -271,6 +268,14 @@ export function createCore(o: CoreOptions): Core {
           },
         },
         onRecallDone: () => { recallWarmPending = false; refreshEngineStatus(); },
+      });
+      // B2 (I2): the journal replays in the background once the socket accepts connections, so the CLI's captures go
+      // live instead of journaling while it is read; drainJournal re-runs the pass for any line that still arrived
+      // during one. A stop aborts it between lines (shutdown.signal).
+      replay = startJournalReplay({
+        dir: l.journal, agents: registry, engine: eng, logger, clock, signal: shutdown.signal,
+        // The cached engine status predates the replay (its journal count included the lines just replayed).
+        onDone: (r) => { journalBacklog = r.kept; refreshEngineStatus(); },
       });
       refreshEngineStatus(); // the probes now run: `warming` starts the WARMING_REFRESH_MS poll
       if (graceExpiredWhileStarting && state.state === "orphaned") graceExpired();
@@ -330,6 +335,19 @@ export function createCore(o: CoreOptions): Core {
       shutdown.abort(new Error("core stopping"));
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
+      // H3B-R2: the abort acts between lines; the capture in flight gets a bounded wait before the engine closes. A
+      // replay still running then leaves its `.replaying-<pid>` file for the next start, and logs nothing more.
+      await step(logger, "journal replay", async () => {
+        if (!replay) return;
+        let timer: NodeJS.Timeout | null = null;
+        const waited = await Promise.race([
+          replay.done.then(() => true),
+          new Promise<boolean>((res) => { timer = setTimeout(() => res(false), Math.min(REPLAY_STOP_WAIT_MS, budgetMs)); }),
+        ]);
+        if (timer) clearTimeout(timer);
+        if (!waited) logger?.warn("journal replay still running at stop; its file stays for the next start", { replayed: replay.status().replayed });
+        replay.detachLogger();
+      }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs }); }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;

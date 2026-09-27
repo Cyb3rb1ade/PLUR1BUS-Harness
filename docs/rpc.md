@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.2.0)
+# RPC reference (rpc 1.3.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -2806,6 +2806,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "integer",
       "description": "Complete lines still in state/journal (live and `.replaying-*` files) as the engine's journal status reports them (E4), or the start replay's kept count when the engine reports none."
     },
+    "journalReplay": {
+      "$ref": "#/$defs/JournalReplayStatus"
+    },
     "jobs": {
       "$ref": "#/$defs/JobsStatus"
     },
@@ -2815,6 +2818,60 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    }
+  }
+}
+```
+
+### `JournalReplayStatus`
+
+```json
+{
+  "description": "Experimental (1.3.0). The journal replay a core runs in the background after `ready` (B2): `ready` no longer means the journal is drained. `replayed` counts the lines that left the journal so far; `kept` is the on-disk count after the last pass and `passes` the number of passes, both set when the replay ends. `aborted` is a stop during the replay (the rest of the lines stay for the next start), `failed` a replay that could not read the journal. An empty journal is `done` with zeros at start. Absent before the core is ready.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "state",
+    "replayed",
+    "kept",
+    "passes",
+    "startedAt",
+    "finishedAt"
+  ],
+  "properties": {
+    "state": {
+      "type": "string",
+      "enum": [
+        "replaying",
+        "done",
+        "aborted",
+        "failed"
+      ]
+    },
+    "replayed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "kept": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startedAt": {
+      "type": "integer",
+      "description": "Wall time (ms) the replay started."
+    },
+    "finishedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "Wall time (ms) the replay ended; null while it runs."
     }
   }
 }

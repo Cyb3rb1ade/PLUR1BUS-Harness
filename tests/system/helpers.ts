@@ -155,6 +155,21 @@ export async function waitEngineReady(h: string, timeoutMs: number): Promise<num
   }
 }
 
+/** B2: the core replays its journal in the background after `ready`. Polls `1staid check --json` every 250 ms until
+ *  its `journal.backlog` check is `ok` (nothing journaled, no replay running). Resolves with the time waited, in ms. */
+export async function waitJournalDrained(h: string, timeoutMs: number): Promise<number> {
+  const t0 = performance.now(); let last: unknown = null;
+  for (;;) {
+    const r = cli(h, ["1staid", "check"], { allowFail: true });
+    const doc = "exit" in r ? JSON.parse(r.stdout) : r;
+    const check = (doc.checks as Array<{ id: string; status: string }>).find((c) => c.id === "journal.backlog");
+    last = check;
+    if (check?.status === "ok") return performance.now() - t0;
+    if (performance.now() - t0 > timeoutMs) throw new Error(`journal not drained within ${timeoutMs} ms: ${JSON.stringify(last)}`);
+    await sleep(250);
+  }
+}
+
 /** `daemon start` (spawns `supervise` detached, waits for the core to be ready) with `coreEnv(extra)`. */
 export const startDaemon = (h: string, extra: NodeJS.ProcessEnv = {}): any => cli(h, ["daemon", "start"], { env: coreEnv(extra) });
 

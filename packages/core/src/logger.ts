@@ -1,4 +1,4 @@
-import { closeSync, createWriteStream, existsSync, fstatSync, mkdirSync, openSync, renameSync, rmSync, writeSync, type WriteStream } from "node:fs";
+import { closeSync, existsSync, fstatSync, mkdirSync, openSync, renameSync, rmSync, writeSync, type WriteStream } from "node:fs";
 import { dirname } from "node:path";
 
 export type Level = "debug" | "info" | "warn" | "error";
@@ -52,12 +52,14 @@ function rotatingSink(file: string, maxBytes: number, keep: number): { write(lin
 
 export function createLogger(o: { file: string; level: Level; role: string; stream?: WriteStream; maxBytes?: number; keep?: number }): HarnessLogger {
   mkdirSync(dirname(o.file), { recursive: true });
-  const sink = !o.stream && o.maxBytes !== undefined
-    ? rotatingSink(o.file, o.maxBytes, Math.max(1, o.keep ?? 5))
-    : (() => {
-      const stream = o.stream ?? createWriteStream(o.file, { flags: "a" });
-      return { write: (line: string) => { stream.write(line); }, close: () => new Promise<void>((res) => stream.end(() => res())) };
-    })();
+  // The file sink is synchronous even without rotation: a stream opens its file later, on its own, so a logger nobody
+  // closed wrote into its directory after the owner removed it, and a write after close() raised on the stream.
+  const sink = o.stream
+    ? (() => {
+      const stream = o.stream;
+      return { write: (line: string) => { if (!stream.writableEnded) stream.write(line); }, close: () => new Promise<void>((res) => stream.end(() => res())) };
+    })()
+    : rotatingSink(o.file, o.maxBytes ?? Number.POSITIVE_INFINITY, Math.max(1, o.keep ?? 5));
   let level = o.level;
   const make = (base: Record<string, unknown>): HarnessLogger => {
     const write = (lvl: Level, msg: string, fields?: Record<string, unknown>) => {

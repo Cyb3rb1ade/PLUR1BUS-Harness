@@ -1,7 +1,7 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
@@ -155,45 +155,46 @@ describe("core supervised mode", () => {
   });
 });
 
-describe("core supervised mode before ready", () => {
+describe("core supervised mode during the journal replay (B2)", () => {
   const jline = (id: string) => ({ v: 1 as const, id, at: 1, agentId: "bernd", sessionKey: "s1", caller, messages: [{ role: "user" as const, content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
 
-  /** A core whose journal replay embeds one line for `replayMs`, so start() stays in `starting` that long. */
-  function slowStart(replayMs: number) {
+  /** A core whose journal replay embeds one line for `replayMs`; start() resolves ready before it is replayed. */
+  function slowReplay(replayMs: number) {
     const home = newHome(); const l = layout(home); const lifeline = new PassThrough(); let expired = 0;
     appendJournalLine(l.journal, jline("11111111-1111-4111-8111-111111111111"));
     const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => replayMs }), lifeline, onOrphanGraceExpired: () => { expired++; } });
-    const replaying = () => readdirSync(l.journal).some((f) => f.startsWith("bernd.jsonl.replaying-"));
+    const replaying = () => core.status().journalReplay?.state === "replaying";
     return { home, core, lifeline, replaying, expired: () => expired };
   }
 
-  it("an adoption during a slow replay survives ready", async () => {
-    const s = slowStart(GRACE_MS / 2);
+  it("a lifeline lost before ready orphans the core at ready, and an adoption during the replay re-attaches it", async () => {
+    const s = slowReplay(GRACE_MS * 2);
     s.lifeline.end(); // supervisor A is gone before the core is ready
-    const started = s.core.start(); // creates run/ synchronously
-    const token = writeSupervisorToken(s.home);
     let c: CoreClient | null = null;
     try {
-      await until(s.replaying, 10_000); // the socket serves once the replay runs
-      assert.equal(s.core.status().process.state, "starting");
+      await s.core.start();
+      const token = writeSupervisorToken(s.home);
+      assert.equal(s.core.status().process.state, "orphaned", "the lifeline lost before ready is applied at ready");
+      assert.ok(s.replaying(), "the replay still runs");
       c = await connect({ address: s.core.address, token: s.core.token });
       await c.call("core.adopt", { nonce: token }); // supervisor B adopts
-      await started;
       assert.equal(s.core.status().process.state, "ready", "B's connection is the lifeline, not A's dead stdin");
       await sleep(GRACE_MS + 200);
       assert.equal(s.core.status().process.state, "ready"); assert.equal(s.expired(), 0);
       await c.close(); c = null;
       await until(() => s.core.status().process.state === "orphaned");
-    } finally { await c?.close(); await started.catch(() => {}); await s.core.stop({ budgetMs: 5000 }); }
+    } finally { await c?.close(); await s.core.stop({ budgetMs: 5000 }); }
   });
 
-  it("a lifeline lost before ready whose grace runs out during the replay stops the core at ready", async () => {
-    const s = slowStart(GRACE_MS + 500);
+  it("a lifeline lost before ready whose grace runs out during the replay stops the core once", async () => {
+    const s = slowReplay(GRACE_MS * 3);
     s.lifeline.end();
     try {
       await s.core.start();
-      assert.equal(s.expired(), 1, "the expired grace is acted on at ready");
       assert.equal(s.core.status().process.state, "orphaned");
+      assert.equal(s.expired(), 0);
+      await until(() => s.expired() === 1, GRACE_MS * 2);
+      assert.ok(s.replaying(), "the grace ran out while the journal replayed");
       await sleep(GRACE_MS + 200); assert.equal(s.expired(), 1, "once");
     } finally { await s.core.stop({ budgetMs: 5000 }); }
   });

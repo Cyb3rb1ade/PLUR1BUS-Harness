@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, type RunningCore } from "./helpers.ts";
+import { REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitJournalDrained, type RunningCore } from "./helpers.ts";
 
 /** Spec targets for a CLI recall: the soft budget on the engine's timed phases and the core's hard budget on wall time. */
 const SOFT_TARGET_MS = 400;
@@ -112,8 +112,9 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       assert.ok(existsSync(journal), "journal written while the core is down");
       assert.match(readFileSync(journal, "utf8"), /Mira visits every spring/);
 
-      core = await startCore(h); // replay runs during start, before the ready line
-      t.diagnostic(`core ready (restart with replay) ${core.readyMs.toFixed(0)} ms; journal after replay: ${existsSync(journal) ? "present" : "absent"}`);
+      core = await startCore(h); // B2: the replay runs in the background after the ready line
+      const drainMs = await waitJournalDrained(h, 30_000);
+      t.diagnostic(`core ready (restart with replay) ${core.readyMs.toFixed(0)} ms, journal drained ${drainMs.toFixed(0)} ms after ready; journal after replay: ${existsSync(journal) ? "present" : "absent"}`);
       assert.ok(journalDrained(journal), `journal drained: ${existsSync(journal) ? readFileSync(journal, "utf8") : "(absent)"}`);
       // The restarted core is a new process: its models warm again (spec §6.3, S7), and a recall before that may
       // degrade by design. Wait, as after the first start (H3-R22; PLUR1BUS_SYSTEM_INTERNALS=flat-embedder-cold in CI).

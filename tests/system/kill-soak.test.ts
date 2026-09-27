@@ -51,7 +51,8 @@ const GIVE_UP_WINDOW_MS = 600_000 * TIME_SCALE * 1.2;
 const GIVE_UP_EXITS = 5;
 /** Random core kills pause this many turns before each supervisor kill, so that phase starts from a ready core. */
 const QUIET_TURNS = 3;
-/** How long a core may take to be ready (journal replay included) before a supervisor-kill phase. */
+/** How long a core may take to be ready before a supervisor-kill phase. Since B2 (2a-H3b) the journal replays in the
+ *  background after `ready`, so this covers the core start only. */
 const READY_BUDGET_MS = 60_000;
 /**
  * Journal drain budget after the last turn: 2 s (supervisor restart, core start) + 1 s per line still journaled, plus
@@ -329,8 +330,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       // The journal drains within a budget sized to what was still journaled after the last turn.
       const drainBudgetMs = DRAIN_BASE_MS + DRAIN_PER_LINE_MS * backlogAtEnd + restartWaitMs + backoffMs;
       // Drained: no line left in any journal file (a replay in progress renames `<agent>.jsonl` to
-      // `<agent>.jsonl.replaying-<pid>`, which `1staid check` counts too), the core ready (it is ready only once its
-      // replay is done), and `1staid check` agrees.
+      // `<agent>.jsonl.replaying-<pid>`, which `1staid check` counts too), the core ready, and `1staid check`'s
+      // journal.backlog ok. `ready` alone no longer implies drained (B2: the replay runs in the background after
+      // ready); journal.backlog is `warn` while `core.status.journalReplay` is replaying.
       await waitFor(`the journal to drain (${backlogAtEnd} line(s))`,
         () => journalLines(h) === 0 && readyChild(h) && firstAid(h).checks.find((c: any) => c.id === "journal.backlog")?.status === "ok",
         Math.max(0, drainBudgetMs - (performance.now() - lastTurnAt)), 100);

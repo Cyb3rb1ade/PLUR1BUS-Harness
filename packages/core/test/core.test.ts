@@ -51,6 +51,21 @@ async function recallUntil(client: CoreClient, query: string, pattern: RegExp, t
   return text;
 }
 
+/** B2: start() resolves before the journal is replayed; waits until the background replay is done and `pred` holds. */
+async function replayDone(core: Core, pred: (s: ReturnType<Core["status"]>) => boolean = () => true, timeoutMs = 20_000): Promise<ReturnType<Core["status"]>> {
+  const until = Date.now() + timeoutMs; let s = core.status();
+  while (Date.now() < until) {
+    s = core.status();
+    if (s.journalReplay?.state === "done" && pred(s)) return s;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  throw new Error(`journal replay not done: ${JSON.stringify({ journalReplay: s.journalReplay, journalBacklog: s.journalBacklog })}`);
+}
+
+const jline = (id: string, content: string, agentId = "bernd") => ({ v: 1 as const, id, at: 1000, agentId, sessionKey: "s1", caller, messages: [{ role: "user" as const, content }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
+const lineId = (n: number) => `${String(n).padStart(8, "0")}-6666-4666-8666-666666666666`;
+const journalLines = (file: string): number => (existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean).length : 0);
+
 describe("core", () => {
   const home = newHome();
   const l = layout(home);
@@ -65,7 +80,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.8.0"); assert.equal(s.rpc, "1.2.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.8.0"); assert.equal(s.rpc, "1.3.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 
@@ -230,21 +245,20 @@ describe("core stop", () => {
 });
 
 describe("core start journal replay (I2)", () => {
-  it("a line journaled while start() is replaying is captured before ready and counted in journalBacklog", async () => {
+  it("a line journaled while the journal is replaying is captured by the same replay and counted in journalBacklog", async () => {
     const home = newHome(); const l = layout(home);
-    const jline = (id: string, content: string) => ({ v: 1 as const, id, at: 1, agentId: "bernd", sessionKey: "s1", caller, messages: [{ role: "user" as const, content }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
     appendJournalLine(l.journal, jline("11111111-1111-4111-8111-111111111111", "Please remember that the boiler service is on Tuesday at eight."));
     const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 400 }) });
-    const started = core.start();
+    await core.start();
     // Wait until replay has renamed bernd.jsonl away (the first capture is embedding), then journal as the CLI would.
     const until = Date.now() + 10_000;
     while (!readdirSync(l.journal).some((f) => f.startsWith("bernd.jsonl.replaying-")) && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
     assert.ok(Date.now() < until, "replay never started");
     appendJournalLine(l.journal, jline("22222222-2222-4222-8222-222222222222", "Please remember that the chimney sweep comes on Wednesday at noon."));
-    await started;
     const c = await connect({ address: core.address, token: core.token });
     try {
-      assert.equal((await c.call<any>("core.status")).journalBacklog, 0);
+      const s = await replayDone(core, (x) => x.journalBacklog === 0);
+      assert.equal(s.journalReplay?.replayed, 2); assert.equal(s.journalReplay?.passes, 2);
       assert.equal(existsSync(join(l.journal, "bernd.jsonl")), false, "nothing stranded in the journal");
       const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "chimney sweep", joined: true, budget: { softMs: 5000, hardMs: 10_000 } });
       assert.match(r.joined.text, /chimney sweep/i);
@@ -253,7 +267,6 @@ describe("core start journal replay (I2)", () => {
 });
 
 describe("core journal backlog (Task 15, E4)", () => {
-  const jline = (id: string, content: string, agentId = "bernd") => ({ v: 1 as const, id, at: 1000, agentId, sessionKey: "s1", caller, messages: [{ role: "user" as const, content }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
 
   it("core.status journalBacklog comes from the engine's journal status", async () => {
     const home = newHome(); const l = layout(home);
@@ -264,6 +277,7 @@ describe("core journal backlog (Task 15, E4)", () => {
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
     try {
+      await replayDone(core, (x) => x.journalBacklog === 2);
       assert.equal((await c.call<any>("core.status")).journalBacklog, 2);
       // A line that arrives after the replay is not in the replay's count; the engine's capability sees it.
       appendJournalLine(l.journal, jline("33333333-3333-4333-8333-333333333333", "three", "ghost"));
@@ -279,13 +293,14 @@ describe("core journal backlog (Task 15, E4)", () => {
     const once = jline("44444444-4444-4444-8444-444444444444", text);
     appendJournalLine(l.journal, once);
     const first = createCore({ home, testInternals: flatTestInternals() });
-    await first.start(); await first.stop({ budgetMs: 5000 });
+    await first.start(); await replayDone(first); await first.stop({ budgetMs: 5000 });
     // The previous replay died after capturing: its `.replaying-<pid>` file survived with the same line.
     writeFileSync(join(l.journal, "bernd.jsonl.replaying-4242"), `${JSON.stringify(once)}\n`);
     const core = createCore({ home, testInternals: flatTestInternals() });
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
     try {
+      await replayDone(core, (x) => x.journalBacklog === 0);
       assert.equal((await c.call<any>("core.status")).journalBacklog, 0);
       assert.deepEqual(readdirSync(l.journal), [], "the duplicate line left the journal");
       const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
@@ -314,10 +329,79 @@ describe("core live capture then journal replay (Task 15 review, Q3)", () => {
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
     try {
+      await replayDone(core);
       assert.deepEqual(readdirSync(l.journal), [], "the replayed line was a duplicate-turn and left the journal");
       const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
       assert.equal(items.filter((x: any) => /window cleaner/.test(x.text)).length, 1, JSON.stringify(items.map((x: any) => x.text)));
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+});
+
+describe("core serves while the journal replays (B2)", () => {
+  const texts = (items: any[]) => items.map((x: any) => x.text as string).filter((t) => /journal line \d+/.test(t));
+  const fill = (journal: string, n: number) => { for (let i = 1; i <= n; i++) appendJournalLine(journal, jline(lineId(i), `Please remember journal line ${i} about the garden shed.`)); };
+
+  it("start() resolves ready while the journal replays", async () => {
+    const home = newHome(); const l = layout(home);
+    fill(l.journal, 20);
+    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 40 }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      const s0 = core.status();
+      assert.equal(s0.process.state, "ready");
+      assert.equal(s0.journalReplay?.state, "replaying", JSON.stringify(s0.journalReplay));
+      const s = await replayDone(core, (x) => x.journalBacklog === 0);
+      assert.equal(s.journalReplay?.replayed, 20); assert.equal(s.journalReplay?.kept, 0);
+      assert.equal(typeof s.journalReplay?.finishedAt, "number");
+      const log = readFileSync(l.logFile("core"), "utf8").split("\n").filter(Boolean).map((x) => JSON.parse(x).msg as string);
+      const ready = log.indexOf("core ready"); const firstReplayed = log.indexOf("journal: replayed");
+      assert.ok(ready !== -1 && firstReplayed > ready, `core ready (${ready}) precedes the first journal: replayed (${firstReplayed})`);
+      const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
+      assert.equal(texts(items).length, 20, JSON.stringify(texts(items)));
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
+  // Review Focus 4 (H3B-R2): the abort acts between lines; stop() waits for the capture in flight.
+  it("stop during replay keeps every unreplayed line and leaves no replaying file", async () => {
+    const home = newHome(); const l = layout(home);
+    fill(l.journal, 40);
+    const first = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 60 }) });
+    await first.start();
+    await first.stop({ budgetMs: 10_000 });
+    const replayed = first.status().journalReplay?.replayed ?? -1;
+    assert.deepEqual(readdirSync(l.journal).filter((f) => f.includes(".replaying-")), [], "no replaying file left");
+    const left = journalLines(join(l.journal, "bernd.jsonl"));
+    assert.ok(left > 0, "the stop interrupted the replay");
+    assert.equal(replayed + left, 40, `replayed ${replayed} + left ${left}`);
+    assert.equal(first.status().journalReplay?.state, "aborted");
+    const next = createCore({ home, testInternals: flatTestInternals() });
+    await next.start();
+    const c = await connect({ address: next.address, token: next.token });
+    try {
+      await replayDone(next, (x) => x.journalBacklog === 0);
+      assert.equal(journalLines(join(l.journal, "bernd.jsonl")), 0);
+      const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
+      const got = texts(items);
+      assert.equal(got.length, 40, JSON.stringify(got));
+      assert.equal(new Set(got).size, got.length, "no text twice");
+    } finally { await c.close(); await next.stop({ budgetMs: 5000 }); }
+  });
+
+  it("nothing is written to core.log after stop() resolves", async () => {
+    const home = newHome(); const l = layout(home);
+    fill(l.journal, 5);
+    // The capture in flight outlasts the stop's wait for the replay (min(5000, budgetMs)).
+    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 1500 }) });
+    await core.start();
+    await core.stop({ budgetMs: 300 });
+    const at = () => { const st = statSync(l.logFile("core")); return `${st.size}:${st.mtimeMs}`; };
+    const before = at();
+    await new Promise((r) => setTimeout(r, 500));
+    assert.equal(at(), before);
+    // The capture in flight still ends before the test's home is removed.
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.equal(at(), before);
   });
 });
 
