@@ -2,6 +2,7 @@ mod cli;
 mod commands;
 mod identity;
 mod journal;
+mod modules;
 mod output;
 mod paths;
 mod service;

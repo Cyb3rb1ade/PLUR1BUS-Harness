@@ -1,0 +1,1286 @@
+[
+  {
+    "name": "spec \u00a74 example",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": true
+  },
+  {
+    "name": "minimal manifest (defaults for the rest)",
+    "manifest": {
+      "name": "fixture",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "index.js",
+      "scope": "installation",
+      "priority": 500
+    },
+    "valid": true
+  },
+  {
+    "name": "agent scope, priority 0, prerelease semver, configSchema",
+    "manifest": {
+      "name": "fixture",
+      "version": "1.2.3-rc.1+build.5",
+      "apiVersion": "1",
+      "entry": "index.js",
+      "scope": "agent",
+      "priority": 0,
+      "configSchema": {
+        "type": "object"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "priority 999, apiVersion 12, nested entry",
+    "manifest": {
+      "name": "fixture",
+      "version": "0.1.0",
+      "apiVersion": "12",
+      "entry": "dist/sub/main.mjs",
+      "scope": "installation",
+      "priority": 999
+    },
+    "valid": true
+  },
+  {
+    "name": "missing apiVersion",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "missing entry",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "missing scope",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "missing priority",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true
+    },
+    "valid": false
+  },
+  {
+    "name": "priority 1000",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 1000
+    },
+    "valid": false
+  },
+  {
+    "name": "priority -1",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": -1
+    },
+    "valid": false
+  },
+  {
+    "name": "priority 2.5",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 2.5
+    },
+    "valid": false
+  },
+  {
+    "name": "scope global",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "global",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "unknown field",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200,
+      "homepage": "https://example.invalid"
+    },
+    "valid": false
+  },
+  {
+    "name": "extensionPoints value parallel",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "parallel"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name core (reserved)",
+    "manifest": {
+      "name": "core",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name supervisor (reserved)",
+    "manifest": {
+      "name": "supervisor",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name with a capital letter",
+    "manifest": {
+      "name": "Mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name starting with a digit",
+    "manifest": {
+      "name": "1host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name of 64 characters",
+    "manifest": {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name of 63 characters",
+    "manifest": {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": true
+  },
+  {
+    "name": "entry ../x.js",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "../x.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "entry /abs.js",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "/abs.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "entry dist/../../x.js",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/../../x.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "entry ./x.js",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "./x.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "entry with a backslash",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist\\index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "entry with a drive letter",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "C:/x.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "entry empty",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "entry dist/",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "version 1.0 (not semver)",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "version 01.0.0 (leading zero)",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "01.0.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "apiVersion 01",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "01",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "apiVersion 0",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "0",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "apiVersion as a number",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": 1,
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "duplicate needs",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core",
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "provides entry with an underscore",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp_server"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "consumes a dotted capability",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "pim.mail"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": true
+  },
+  {
+    "name": "restart sometimes",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "sometimes",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "restart always",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "always",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": true
+  },
+  {
+    "name": "lifeline as a string",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": "yes",
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "configSchema as an array",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200,
+      "configSchema": []
+    },
+    "valid": false
+  },
+  {
+    "name": "extension point name with a capital letter",
+    "manifest": {
+      "name": "mcp-host",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "onRecall": "chain"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "manifest is an array",
+    "manifest": [
+      {
+        "name": "mcp-host",
+        "version": "0.1.0",
+        "apiVersion": "1",
+        "entry": "dist/index.js",
+        "needs": [
+          "core"
+        ],
+        "provides": [
+          "mcp-server",
+          "mcp-client"
+        ],
+        "consumes": [
+          "memory",
+          "agent"
+        ],
+        "implements": [
+          "transport"
+        ],
+        "extensionPoints": {
+          "on-recall-complete": "chain",
+          "collect-status": "collect"
+        },
+        "scope": "installation",
+        "restart": "on-failure",
+        "lifeline": true,
+        "priority": 200
+      }
+    ],
+    "valid": false
+  }
+]

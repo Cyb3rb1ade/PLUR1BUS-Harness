@@ -73,6 +73,14 @@
       "tier": "basic"
     },
     {
+      "key": "modules",
+      "tier": "advanced"
+    },
+    {
+      "key": "modules.fixture.enabled",
+      "tier": "advanced"
+    },
+    {
       "key": "nope.nothing",
       "tier": "advanced"
     }
@@ -333,6 +341,25 @@
           "x-tier": "advanced",
           "x-reserved": "M2 (D18)",
           "additionalProperties": true
+        },
+        "modules": {
+          "description": "Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped.",
+          "type": "object",
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "additionalProperties": {
+            "type": "object",
+            "x-restart": "module:$key",
+            "x-tier": "advanced",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "additionalProperties": true
+          }
         }
       },
       "required": [

@@ -388,9 +388,11 @@ pub fn restart_class_name(key: &str) -> String {
     }
 }
 
+/// The module a `module:` class names; `$key` is the key segment that matched the node declaring it
+/// (`modules.fixture.greeting` → `fixture`, B13), as in the TypeScript `restartClassOf`.
 fn module_name(key: &str) -> Option<String> {
     let mut node = schema();
-    let mut cls: Option<&str> = None;
+    let mut cls: Option<(&str, &str)> = None;
     for part in key.split('.') {
         match node
             .get("properties")
@@ -400,14 +402,13 @@ fn module_name(key: &str) -> Option<String> {
             Some(n) => {
                 node = n;
                 if let Some(c) = n.get("x-restart").and_then(Value::as_str) {
-                    cls = Some(c);
+                    cls = Some((c, part));
                 }
             }
             None => break,
         }
     }
-    cls.and_then(|c| c.strip_prefix("module:"))
-        .map(String::from)
+    cls.and_then(|(c, part)| c.strip_prefix("module:").map(|m| m.replace("$key", part)))
 }
 
 /// Value equality matching TS's `JSON.stringify(a) === JSON.stringify(b)` for the leaf comparison

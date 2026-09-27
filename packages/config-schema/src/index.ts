@@ -18,6 +18,7 @@ export interface HarnessConfig {
   oauth: Record<string, unknown>;
   decision: Record<string, unknown>;
   modelRoles: Record<string, string>;
+  modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
 }
 
 export type RestartClass = "live" | "core" | `module:${string}`;
@@ -41,6 +42,8 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
   return { ok: false, errors: (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim()) };
 }
 
+/** Nearest ancestor declaring `x-restart` wins; `$key` in it is the key segment that matched that
+ * node (`modules.fixture.greeting` → `module:fixture`, B13). */
 export function restartClassOf(keyPath: string): RestartClass {
   let node: any = CONFIG_SCHEMA;
   let cls: RestartClass = "core"; // unknown → the conservative class
@@ -49,7 +52,7 @@ export function restartClassOf(keyPath: string): RestartClass {
     const next = node?.properties?.[part] ?? (node?.additionalProperties && typeof node.additionalProperties === "object" ? node.additionalProperties : undefined);
     if (!next) break;
     node = next;
-    if (node["x-restart"]) cls = node["x-restart"];
+    if (node["x-restart"]) cls = String(node["x-restart"]).replace("$key", part) as RestartClass;
   }
   return cls;
 }
