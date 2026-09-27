@@ -27,7 +27,8 @@
 - §6.1–§6.3, §6.8 (autostart, moved to D1), §6.9, §6.10 (D1/D2 column and "what every installer carries"), §6.11, §6.12, §6.13, §6.14 (D1 rows);
 - §6.15 (container bundle) in full, §6.16 (release and update policy) in full, including §6.16.7 (update-manifest hosting);
 - §7 (D1 gates v0.1.0);
-- §8: acceptance 1–15, 5a, 5b.
+- §8: acceptance 1–15, 5a, 5b;
+- §13 (added 2026-09-27): the owner's design canvas is the source of truth for UI (https://claude.ai/artifact/CRjk86mofQ9vqhb2twu8wS, page `v2 · Glow`). No canvas board exists for any D1 shell page; Tasks 12, 13, 14, 17 and 19 name the boards they borrow from (§13.4). The §13.5 conflicts are open owner questions, not rulings of this plan.
 
 Also binding: core spec D35, D77, D78 and §6.5 (amended); ADR-004 and its 2026-09-27 amendment (no own policy layer); ADR-005 (secrets); ADR-007 (effective rights = role ∩ token scopes, deny by default); ADR-012 including §11 (container mode); ADR-013 §5 (the supervisor owns `config.json`); ADR-016 §3 (capabilities, not version sniffing); milestones §6.3 (D78).
 
@@ -605,6 +606,9 @@ The key never appears in logs (redaction test, Task 15), in `Debug`, or anywhere
 - `pairing-model.ts`: native one-click and code flow as before (`cli-missing`, `denied`, `insecure-origin`, `installation-mismatch`, `incompatible`, `network`, `revoked`, `keychain-memory-only`).
 - `update-model.ts`: `idle → available(release) → [later | skip | installing(step)] → done | rolledBack(step, from, to) | recoveryFailed`, with `held` as a global flag; steps mirror §6.15.8.
 - Views: *Wizard*; *Connections* (list with kind badges, active marker, rename, remove, *Open*, *Add remote*, *Attach native local*); *Settings* → *Runtime* (detected list, the chosen one, endpoint shown, *Re-check*, memory slider), *Updates* (channel `stable`/`beta`, *Version halten*, *Nur Patch-Updates automatisch* default off, quiet hours, *Jetzt prüfen*), *Version* (installed version, *Zurück zu <from>* when possible with the snapshot time and the loss warning), *Advanced* (logs tail, *Diagnose kopieren* — redacted); *Update dialog* (version, date, security marker, notes in the UI language rendered from Markdown as plain paragraphs and lists only — no HTML, no links other than `https:` shown as text with a copy button, migration note for majors, *Jetzt*/*Später*/*Überspringen*); *Progress*; *Error*.
+- *Settings → Runtime* also shows a **Host capabilities** block (added 2026-09-27 with spec §13, gap A9): one switch per bridge capability the app offers — in D1 only `host.keyUnlock` (DS17: "enabled by the person in the app"; acceptance 7 needs the *off* state) — and the harness's `secrets-locked` state in words; plus the container health rows of gap A11 (runtime state, memory limit, volume free space, image digest, `crashed` with exit code and log tail from Task 7).
+- **Store variant of the update dialog** (DR22, spec §13 gap A12): when `PLUR1BUS_DESKTOP_STORE_BUILD=1`, the dialog shows the notes for information only, with no *Jetzt/Später/Überspringen* for the app; the harness-image upgrade flow and its progress view are unchanged.
+- **Board references (design canvas, spec §13.4).** No canvas board exists for these pages (gaps A1–A5, A11–A15); they apply the visual system of spec §13.1 through the M3 theme file (DR6; the token question is spec §13.5 C1) and borrow layouts: *Wizard* → `V2SetupRail` (rail, step list, glass) and `V2Setup` (choice cards, *Back/Continue*, the "Same as … in the terminal" line); *Install runtime* licence steps → `V2SetupMemory` (licence-confirm pattern); *Settings* → `V2General` (section nav, rows, segmented control) and `V2Advanced` (table, for *Advanced*); *Connections* → the *Harnesses this app can open* block of `V2Devices`; *Update dialog* → `V2Home` "What's new" and the `V2Modules` update card for layout only, content per spec §6.16.3 (spec §13.5 C6); *Progress*, *Error* → `V2FirstAid` check rows; wordmark → `V2LogoMorph`, static, red pivot `1`.
 - Strings only from `i18n/{en,de}.json`; locale follows the OS with an override.
 
 - [ ] **Step 1: Write the failing tests.** `wizard-model: happy path is three primary actions`, `wizard-model: no runtime on macOS 26 offers the Apple pkg; on macOS 15 shows the guide`, `wizard-model: each error kind maps to a message and a retry target`, `pairing-model` table, `update-model: later, skip, hold, rolled back and recovery failed transitions`, `origin-input: same table as Rust` (`origin-cases.json`), `notes renderer strips HTML and never creates links`, `i18n: en and de have identical key sets and no empty strings`.
@@ -634,6 +638,8 @@ pub async fn open_spa(app: &AppHandle, conn: &Connection, tokens: &dyn TokenStor
 ```
 External links open through a Rust-side opener that accepts only `https:`, `http:` and `mailto:` URLs already classified.
 
+**Board references (spec §13.4):** the SPA itself is M3's (canvas boards `V2*`, spec §13.2); this task draws only the shell error page for `/auth/ticket-failed`, which follows the `V2FirstAid` check-row layout like Task 12's *Error* view. The canvas's in-SPA connection switcher (`V2Devices`) is not built here: it needs a `shell_*` command beyond `shell_info` (spec §13.5 C9).
+
 - [ ] **Step 1: Write the failing tests.** `navigation_table`, `caller_check_rejects_other_webview_and_other_origin`, `shell_info_is_the_only_spa_command`, `spa_bridge_capability_is_scoped_to_the_connection_origin`, `switching_connection_replaces_the_capability` (Tauri mock runtime; if it cannot express remote-origin capabilities, test through `policy.rs` plus a recorded manual check and write a ruling), `a_replayed_ticket_page_is_retried_once_then_shows_the_error`, and after an open/close cycle `assert_no_token_on_disk(app_dirs, token)` and `no_cookie_database_in_app_dirs`.
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement.**
@@ -661,6 +667,7 @@ pub struct EventStream;   // GET /events?topics=harness.status, Bearer, backoff 
 - **Icon:** one per state, monochrome template on macOS; the tooltip states it in words.
 - **Single instance:** a second launch focuses `spa` (or `shell` when nothing is paired) and exits.
 - **Linux without an AppIndicator host:** the window stays in the taskbar; one-time hint.
+- **Board references (spec §13.4):** the canvas has no tray board (gap A13). State words and colours follow spec §13.1's status pairs (ok, warn, error, off); the macOS template icon stays monochrome, so a state is never carried by colour alone.
 
 - [ ] **Step 1: Write the failing tests.** `map_status_table`, `combine_table` (crashed beats ready; runtime missing beats harness; updating/rollback override), `stream_reconnects_with_backoff_and_last_event_id`, `revoked_stream_goes_unpaired_and_stops`, `harness_down_at_start_shows_error_page_and_reconnects`, `quit_asks_and_defaults_to_keep_running` (command-level test), `start_stop_harness_menu_calls_the_controller`.
 - [ ] **Step 2: Run** → FAIL.
@@ -779,6 +786,7 @@ Sequence exactly spec §6.15.8:
 - **`target.json`** written after install (Task 10's format) and updated on runtime/endpoint changes.
 - **Variants (DR4):** the release workflow builds the online bundle and, for the offline bundle, places `plur1bus-harness-<arch>.oci.tar` (or the Apple archive per DR13) into `resources/image/` and sets `bundle.tarball[arch]`.
 - **Uninstall** from *Settings → Advanced → Uninstall PLUR1BUS*, and from the OS uninstaller (NSIS uninstall section and the deb/rpm `prerm` only remove the app; they print where to find the data): three separate confirmations — containers; images; volumes (shows the size; default *keep*). The CLI shim and its `PATH` line are removed with the containers step. The keychain entries are removed with the volumes step.
+- **Board references (spec §13.4):** the canvas has no installer, runtime-install or uninstall board (gaps A1, A2, A15). The Apple pkg licence and the vendor-licence note use the licence-confirm pattern of `V2SetupMemory` (licence named on the choice, confirm before install); the three uninstall confirmations use the destructive button colour of spec §13.1 (`#B42318`), with *keep data* as the default.
 
 - [ ] **Step 1: Write the failing tests.** `apple_pkg_is_bundled_not_downloaded` (asserts no network call), `apple_pkg_refuses_wrong_sha_or_signature` (injected verifier), `apple_pkg_never_uses_sudo` (argv inspection), `vendor_installer_refuses_wrong_checksum` (injected verifier, download deleted), `vendor_installer_never_passes_silent_flags` (argv inspection), `vendor_installer_shows_the_vendor_licence_before_download`, `podman_socket_uses_fixed_argv`, `cli_shim_never_overwrites_a_foreign_file`, `path_line_is_added_once_with_marker_and_removed_on_uninstall`, `target_json_matches_the_forwarder_format` (parse with the same schema as Task 10), `uninstall_scopes_confirm_separately_and_keep_data_by_default`, `offline_variant_uses_the_bundled_tarball`.
 - [ ] **Step 2: Run** → FAIL.
@@ -823,7 +831,7 @@ Sequence exactly spec §6.15.8:
 - Modify: `apps/desktop/ui/**` (fixes), the M3 a11y runner config (every view reachable through a debug-only `?view=` parameter), `tray.rs` (labels from the catalogue)
 - Create: `apps/desktop/ui/test/a11y.test.ts` (if M3's runner is invoked from tests)
 
-- [ ] **Step 1: Run** axe-core over every view (wizard steps, settings pages, update dialog with a long note, rollback message, errors) in both themes and both locales → record violations.
+- [ ] **Step 1: Run** axe-core over every view (wizard steps, settings pages, update dialog with a long note, rollback message, errors) in both themes and both locales → record violations. Themes are the canvas light and dark sets (spec §13.1, boards `V2Main`/`V2MainDark`/`V2Sidebar`); the glow animations must stop under `prefers-reduced-motion`, and the "needs you" blink (1.4 s) must never be the only signal. The canvas's text below 12 px conflicts with ADR-004's floor (spec §13.5 C3): apply whichever the owner decides, and record it.
 - [ ] **Step 2: Fix** until clean; keyboard traversal (Tab order, Enter/Space, Escape), 4.5:1 contrast.
 - [ ] **Step 3: Tray and menus** from the catalogue; states spoken in words.
 - [ ] **Step 4: Manual screen-reader pass** (VoiceOver, NVDA, Orca where available) over the wizard, the update dialog, a rollback message and opening the SPA; record findings and name any OS not checked.
@@ -856,7 +864,7 @@ Same Global Constraints. Tasks named, not detailed:
 2. **Global shortcut and push-to-talk** (`tauri-plugin-global-shortcut`): person-chosen binding; `ptt:down/up` to the SPA; microphone only for the connection origin; Wayland fallback.
 3. **Deep links** (`plur1bus://pair`, `plur1bus://open`) with single-instance and spoofing tests.
 4. **Host bridge capabilities** `host.localModel` (D51 b, OpenAI-compatible relay to a host server on 127.0.0.1, macOS's only path to a large local model per design DS26) and `host.filePick`.
-5. **Bind mounts:** Obsidian vaults (one read-write bind mount per vault, multiple vaults supported, chosen with a native folder picker — a local folder, an iCloud/Sync folder, or a host-mounted NAS share) and a backup folder; container recreate on add/remove; the Obsidian bridge detects changes by **polling** (mtime scan), never inotify, because host→container notifications are not reliable over a virtiofs bind mount (design §4.18); `admin obsidian detect` sees mounted vaults only.
+5. **Bind mounts:** Obsidian vaults (one read-write bind mount per vault, multiple vaults supported, chosen with a native folder picker — a local folder, an iCloud/Sync folder, or a host-mounted NAS share) and a backup folder; container recreate on add/remove; the Obsidian bridge detects changes by **polling** (mtime scan), never inotify, because host→container notifications are not reliable over a virtiofs bind mount (design §4.18); `admin obsidian detect` sees mounted vaults only. No canvas board yet (spec §13.3 A8); `V2AgentMemory` and `V2MemorySettings` show the vault rows the picker feeds.
 6. **Windows WSL fallback** (spec §4.12): a PLUR1BUS WSL distro built from the image rootfs, `wsl --import` per user, started by the app with `plur1bus init`, caveats shown.
 7. **macOS Developer ID + notarisation; Windows signing** (owner's choice, Q1); **Linux GPG**; set `OS_SIGNING_READY=true` → first real `stable` promotion.
 8. **`deploy/upgrade.sh`** for compose (the D78 sequence: snapshot, migrate, gate, rollback) and its CI test on Linux.
@@ -877,7 +885,7 @@ Precondition, the **Tauri 3 gate**: Tauri 3 ≥ beta, `tauri-runtime-cef` out of
 ## D4 — Computer-use onboarding and WebMCP bridge (outline)
 
 1. **`host.computerUse`** over the bridge: the app relays MCP calls to the host `cua-driver`; tray indicator and kill switch.
-2. **macOS onboarding (DS10)**, Linux/Windows guidance.
+2. **macOS onboarding (DS10)**, Linux/Windows guidance. Board: the computer-use block of `V2SkillsLibrary` (two grants, indicator, stop; spec §13.4).
 3. **WebMCP consumer in panels (D55 b)** with payload limits and the harness allowlist and approvals.
 4. **Flatpak** if the owner says yes (Q3).
 5. **Docs, ADR note, demo, report.**
