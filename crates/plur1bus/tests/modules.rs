@@ -319,17 +319,31 @@ fn a_crashing_module_backs_off_and_the_core_is_untouched() {
     h.config(1000, json!({ "fixture": { "crashAfterMs": 200 } }));
     let mut s = h.start_scaled("0.2", &[]);
     let mut c = client(&h.home);
-    let st = wait_for(&mut c, "core", "ready", |c| state(c) == "ready");
-    let core_pid = child(&st, "core").unwrap()["pid"].clone();
+    // Sample from the first status on, not from the core's ready: a module no longer securing its run files with
+    // `icacls` (Windows, HB5) can crash for the first time before the core, still securing its own, reports ready,
+    // and waiting for the core would miss that first backoff.
+    let mut core_pid: Option<Value> = None;
     // (lastExit.at, nextRestartAt - lastExit.at) of every crash seen with a restart scheduled.
     let mut delays: Vec<(u64, u64)> = Vec::new();
     let deadline = Instant::now() + WAIT;
     let last = loop {
         let st = status(&mut c);
-        let core = child(&st, "core").unwrap();
-        assert_eq!(core["pid"], core_pid, "the core was touched: {st}");
-        assert_eq!(state(core), "ready", "{st}");
-        let m = child(&st, "fixture").unwrap().clone();
+        // Right after start the supervisor may not list its children yet.
+        let (Some(core), Some(m)) = (child(&st, "core"), child(&st, "fixture")) else {
+            assert!(Instant::now() < deadline, "children never listed: {st}");
+            std::thread::sleep(Duration::from_millis(20));
+            continue;
+        };
+        let m = m.clone();
+        match &core_pid {
+            // Once ready, the core stays the same, ready process whatever the module does.
+            Some(pid) => {
+                assert_eq!(&core["pid"], pid, "the core was touched: {st}");
+                assert_eq!(state(core), "ready", "{st}");
+            }
+            None if state(core) == "ready" => core_pid = Some(core["pid"].clone()),
+            None => {}
+        }
         if let (Some(next), Some(at)) = (m["nextRestartAt"].as_u64(), m["lastExit"]["at"].as_u64())
         {
             assert_eq!(state(&m), "crashed", "{m}");
@@ -338,7 +352,7 @@ fn a_crashing_module_backs_off_and_the_core_is_untouched() {
                 delays.push((at, next - at));
             }
         }
-        if delays.len() >= 3 && m["restarts"].as_u64() >= Some(2) {
+        if delays.len() >= 3 && m["restarts"].as_u64() >= Some(2) && core_pid.is_some() {
             break m;
         }
         assert!(Instant::now() < deadline, "{delays:?}; last {m}");
