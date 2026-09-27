@@ -80,3 +80,11 @@ it("the trace hook also sees a CommonJS require(), not just import() (the gap re
     `expected the require()-resolved fixture in the trace, got: ${JSON.stringify(urls)}`,
   );
 });
+
+it("the core bundle carries none of the importer (dist/import.js is a separate entry the core never loads)", () => {
+  const core = readFileSync(dist, "utf8");
+  for (const marker of ["plur1bus-skill-sha256", "lastTouchedVersion", "reembedding-state.json", "runImport"]) {
+    assert.ok(!core.includes(marker), `dist/core.js contains importer code (${marker})`);
+  }
+  assert.ok(!new RegExp(["open", "claw"].join(""), "i").test(core), "dist/core.js names the importer's source host");
+});

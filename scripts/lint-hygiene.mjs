@@ -15,7 +15,17 @@ const PATTERNS = [
   { re: /adapter\/openclaw|host-services\.js|plugin-runtime/, why: "no adapter or host-services import" },
 ];
 // Path -> the whole file is exempt (never scanned).
-const ALLOW_FILES = new Set(["scripts/lint-hygiene.mjs"]);
+const ALLOW_FILES = new Set([
+  "scripts/lint-hygiene.mjs",
+  // The importer (docs/import.md §8, §9) exists to read an OpenClaw installation, so naming OpenClaw's paths, env
+  // variables and plugin id is its job, not an idiom leaking into the harness. It is a separate entry (dist/import.js)
+  // the core process never loads (packages/core/test/import-hygiene.test.ts checks dist/core.js carries none of it).
+  "packages/core/src/import-bin.ts",
+  "crates/plur1bus/src/commands/import.rs",
+  "crates/plur1bus/tests/import.rs",
+]);
+// Directory prefixes exempt as a whole, for the same reason as the importer files above.
+const ALLOW_DIRS = ["packages/core/src/import/", "packages/core/test/import/"];
 // Path -> regexes; a matching line is allowed only if it also matches one of these.
 const ALLOW = new Map([
   ["packages/core/test/principal.test.ts", [/lib\/memory-request-context\.js/]],
@@ -29,11 +39,9 @@ const ALLOW = new Map([
   // allow by path + regex even though the file does not exist yet at lint time.
   ["scripts/gen-engine-keys.mjs", [/openclaw\.plugin\.json/]],
   ["pnpm-lock.yaml", [/.*/]],
-  // Pre-existing stub text (Tasks before this one) naming the harness's own future `plur1bus
-  // import` feature (M1b-3, docs/import.md) — a legitimate capability the harness itself will
-  // offer, not an OpenClaw idiom or adapter embedded in the harness.
-  ["crates/plur1bus/src/cli.rs", [/OpenClaw\/Hermes/]],
-  ["crates/plur1bus/src/main.rs", [/OpenClaw\/Hermes/]],
+  // `plur1bus import <openclaw|hermes>` (docs/import.md): the importer's clap definitions — its help text, the source
+  // enum and the documented source-root defaults — a capability the harness itself offers, not an OpenClaw idiom.
+  ["crates/plur1bus/src/cli.rs", [/OpenClaw\/Hermes/, /^\s*Openclaw,$/, /\$OPENCLAW_STATE_DIR \/ \$OPENCLAW_PROFILE \/ ~\/\.openclaw/]],
 ]);
 
 let bad = 0;
@@ -48,7 +56,7 @@ function walk(dir) {
     }
     if (![...EXT].some((e) => name.endsWith(e))) continue;
     const rel = relative(process.cwd(), p).replaceAll("\\", "/");
-    if (ALLOW_FILES.has(rel)) continue;
+    if (ALLOW_FILES.has(rel) || ALLOW_DIRS.some((d) => rel.startsWith(d))) continue;
     const allow = ALLOW.get(rel) ?? [];
     readFileSync(p, "utf8")
       .split("\n")

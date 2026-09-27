@@ -50,12 +50,7 @@ fn main() {
         }
         Cmd::Channel(_) => commands::stubs::milestone(&out, "channel", "M4", "channels"),
         Cmd::Project(_) => commands::stubs::milestone(&out, "project", "M3", "projects"),
-        Cmd::Import(_) => commands::stubs::milestone(
-            &out,
-            "import",
-            "M1b-3",
-            "OpenClaw/Hermes import (docs/import.md)",
-        ),
+        Cmd::Import(args) => commands::import::run(&out, &layout, args),
         Cmd::Uninstall(_) => commands::stubs::milestone(&out, "uninstall", "M8", "uninstaller"),
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),

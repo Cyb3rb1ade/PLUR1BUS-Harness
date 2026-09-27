@@ -1,0 +1,178 @@
+//! `plur1bus import` (docs/import.md §8, §9): the Rust side's plumbing against a fake importer
+//! (`tests/fixtures/fake-import.mjs`), plus one end-to-end run of the real `packages/core/dist/import.js`
+//! (`pnpm build` first, as CI does) on a small synthetic OpenClaw state dir.
+use assert_cmd::Command;
+use serde_json::Value;
+use std::path::{Path, PathBuf};
+
+fn bin() -> Command {
+    Command::cargo_bin("plur1bus").unwrap()
+}
+
+fn fake() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-import.mjs")
+}
+
+fn json_of(out: &[u8]) -> Value {
+    serde_json::from_slice(out)
+        .unwrap_or_else(|e| panic!("not JSON ({e}): {}", String::from_utf8_lossy(out)))
+}
+
+#[test]
+fn without_a_mode_it_is_the_m7_stub() {
+    let out = bin()
+        .args(["--json", "import", "openclaw"])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+    let v = json_of(&out);
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["milestone"], "M7");
+    bin()
+        .args(["import", "hermes"])
+        .assert()
+        .code(2)
+        .stderr(predicates::str::contains("M7"));
+}
+
+#[test]
+fn forwards_flags_and_inserts_the_schema() {
+    let home = tempfile::tempdir().unwrap();
+    let out = bin()
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .arg("--home")
+        .arg(home.path())
+        .args([
+            "--json", "import", "openclaw", "--detect", "--source", "/src",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v = json_of(&out);
+    assert_eq!(v["schema"], "import.detect/1");
+    let argv: Vec<String> = serde_json::from_value(v["argv"].clone()).unwrap();
+    assert_eq!(&argv[..4], ["openclaw", "--detect", "--source", "/src"]);
+    assert_eq!(argv[4], "--home");
+    assert!(Path::new(&argv[5]).ends_with(home.path().file_name().unwrap()));
+}
+
+#[test]
+fn prints_the_human_rendering_without_json() {
+    bin()
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .args(["import", "hermes", "--detect"])
+        .assert()
+        .success()
+        .stdout("FAKE HUMAN SUMMARY\n");
+}
+
+#[test]
+fn maps_an_error_envelope_to_an_error_document() {
+    let out = bin()
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .env("FAKE_IMPORT_MODE", "error")
+        .args(["--json", "import", "hermes", "--detect"])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+    let v = json_of(&out);
+    assert_eq!(v["schema"], "error/1");
+    assert_eq!(v["error"], "E_SOURCE_UNSUPPORTED");
+    assert_eq!(v["reason"], "version-undeterminable");
+}
+
+#[test]
+fn a_crash_or_a_missing_importer_is_e_import_failed() {
+    let out = bin()
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .env("FAKE_IMPORT_MODE", "crash")
+        .args(["--json", "import", "hermes", "--detect"])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(json_of(&out)["reason"], "importer-crashed");
+    let out = bin()
+        .env("PLUR1BUS_IMPORT_JS", "/nonexistent/import.js")
+        .args(["--json", "import", "hermes", "--detect"])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(json_of(&out)["reason"], "importer-missing");
+}
+
+/// The real importer, built by `pnpm build` (CI builds the TypeScript packages before `cargo test`).
+fn real_importer() -> PathBuf {
+    let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/dist/import.js");
+    assert!(
+        p.exists(),
+        "{} is missing: run `pnpm build` before `cargo test`",
+        p.display()
+    );
+    p
+}
+
+#[test]
+fn detects_and_imports_skills_end_to_end_with_the_real_importer() {
+    let tmp = tempfile::tempdir().unwrap();
+    let src = tmp.path().join("state");
+    let home = tmp.path().join("home");
+    std::fs::create_dir_all(src.join("workspace/skills/hello")).unwrap();
+    std::fs::write(
+        src.join("openclaw.json"),
+        "{ meta: { lastTouchedVersion: '2026.9.5' } }",
+    )
+    .unwrap();
+    std::fs::write(
+        src.join("workspace/skills/hello/SKILL.md"),
+        "---\nname: hello\ndescription: Say hello\n---\n# Hello\n",
+    )
+    .unwrap();
+    let run = |args: &[&str]| {
+        let out = bin()
+            .env("PLUR1BUS_IMPORT_JS", real_importer())
+            .env("PLUR1BUS_NODE", "node")
+            .arg("--home")
+            .arg(&home)
+            .args(["--json", "import", "openclaw", "--source"])
+            .arg(&src)
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        json_of(&out)
+    };
+    let d = run(&["--detect"]);
+    assert_eq!(d["schema"], "import.detect/1");
+    assert_eq!(d["version"]["release"], "2026.9.5");
+    assert_eq!(d["skills"][0]["id"], "hello");
+    assert_eq!(d["skills"][0]["plannedAction"], "import");
+    assert!(!home.exists(), "detect wrote to the harness home");
+    let s = run(&["--skills", "--apply"]);
+    assert_eq!(s["schema"], "import.skills/1");
+    assert_eq!(s["skills"][0]["outcome"], "imported");
+    let idx: Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join("skills/index.json")).unwrap())
+            .unwrap();
+    assert_eq!(idx["skills"][0]["id"], "hello");
+    assert_eq!(idx["skills"][0]["enabled"], false);
+    let report = s["reportPath"].as_str().unwrap().to_string();
+    let r = run(&["--rollback", &report, "--apply"]);
+    assert_eq!(r["schema"], "import.rollback/1");
+    assert!(!home.join("skills").exists());
+}

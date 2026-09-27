@@ -1,10 +1,10 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 /// Leaf command paths (space-joined, e.g. `"memory add"`) exempt from the `[experimental]`
 /// stability mark — the only CLI surface ADR-016 §4/G14 calls stable. Every other implemented
 /// leaf command's `about` starts with `[experimental] `; a stub names its milestone instead
-/// (`2a-H3b`, `M2`, `M3`, `M4`, `M1b-3` or `M8`) and is exempt for that reason (see the
+/// (`2a-H3b`, `M2`, `M3`, `M4` or `M8`) and is exempt for that reason (see the
 /// `leaf_commands_are_stable_or_marked_experimental` test below).
 /// Read by the `leaf_commands_are_stable_or_marked_experimental` test below and by anything else
 /// (docs, a future `plur1bus <cmd> --help` footer) that needs the stable subset; the binary
@@ -97,8 +97,8 @@ pub enum Cmd {
     Channel(StubArgs),
     /// Projects — M3
     Project(StubArgs),
-    /// Import from OpenClaw/Hermes — M1b-3
-    Import(StubArgs),
+    /// [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
+    Import(ImportArgs),
     /// Uninstall — M8
     Uninstall(StubArgs),
     /// Print the CLI reference as Markdown (used by scripts/gen-docs.mjs)
@@ -111,6 +111,57 @@ pub enum Cmd {
         #[arg(long, hide = true)]
         no_core: bool,
     },
+}
+
+/// `plur1bus import` (docs/import.md §8, §9). Without --detect, --skills or --rollback it answers the M7 stub.
+#[derive(Args, Debug)]
+pub struct ImportArgs {
+    /// Source system to read (never modified)
+    #[arg(value_enum)]
+    pub source_type: ImportSource,
+    /// Read-only report: version, agents, PLUR1BUS stores and embedding identity, reranker, skills, secret presence
+    #[arg(long, conflicts_with_all = ["skills", "rollback"])]
+    pub detect: bool,
+    /// Import the source's skills into <home>/skills (dry-run unless --apply; imported skills land disabled)
+    #[arg(long, conflicts_with = "rollback")]
+    pub skills: bool,
+    /// Undo one --skills --apply run from its report.json (dry-run unless --apply)
+    #[arg(long, value_name = "REPORT")]
+    pub rollback: Option<PathBuf>,
+    /// Source root (default: $OPENCLAW_STATE_DIR / $OPENCLAW_PROFILE / ~/.openclaw, or $HERMES_HOME / ~/.hermes)
+    #[arg(long, value_name = "PATH")]
+    pub source: Option<PathBuf>,
+    /// Hermes only: import one named profile instead of the root and every profile
+    #[arg(long, value_name = "NAME")]
+    pub profile: Option<String>,
+    /// Write (with --skills or --rollback); without it nothing is written
+    #[arg(long)]
+    pub apply: bool,
+    /// With --skills: enable the imported skills (default: they land disabled)
+    #[arg(long)]
+    pub enable: bool,
+    /// With --skills: what to do when a skill id already exists in the harness
+    #[arg(long, value_enum, value_name = "MODE")]
+    pub on_conflict: Option<OnConflict>,
+    /// With --skills: refuse skill folders larger than this (default 8 MiB)
+    #[arg(long, value_name = "BYTES")]
+    pub max_skill_bytes: Option<u64>,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImportSource {
+    Openclaw,
+    Hermes,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OnConflict {
+    /// Keep the harness's skill (default)
+    Skip,
+    /// Import as <id>-<source>
+    Rename,
+    /// Replace it; the old folder is kept under <home>/imports/<run>/replaced
+    Replace,
 }
 
 #[derive(Args, Debug)]
@@ -513,7 +564,7 @@ mod tests {
     use clap::CommandFactory;
 
     /// Milestone tags a stub command's `about` names (gen-docs.mjs's cli.md intro; G1).
-    const STUB_MILESTONES: &[&str] = &["2a-H3b", "M1b-3", "M2", "M3", "M4", "M8"];
+    const STUB_MILESTONES: &[&str] = &["2a-H3b", "M2", "M3", "M4", "M8"];
 
     fn collect_leaves(cmd: &clap::Command, prefix: &str, out: &mut Vec<(String, Option<String>)>) {
         let path = if prefix.is_empty() {
