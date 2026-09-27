@@ -361,8 +361,11 @@ fn an_invalid_hand_edit_is_rejected_the_running_config_stays_and_daemon_status_s
 
     let broken = r#"{"schemaVersion":1,"core":{"logLevel":"loud"}}"#;
     std::fs::write(config_path(home), broken).unwrap();
+    // `fs::write` truncates, then writes: a tick in between rejects the empty file first ("not JSON").
     wait_until("daemon.status.config.rejected", WAIT, || {
-        status_config(&mut c)["rejected"].is_object()
+        status_config(&mut c)["rejected"]["errors"]
+            .to_string()
+            .contains("logLevel")
     });
     let st = status_config(&mut c);
     assert_eq!(st["revision"], rev);

@@ -403,13 +403,16 @@ fn daemon_start_twice_is_idempotent() {
     stop_supervisor(&h.home);
 }
 
+/// Time scale 0.1, not 0.02: the core's ready timeout (60 s x scale) must outlast its start while two CLIs and two
+/// supervisors start at once. At 0.02 (1.2 s) a Windows runner under that load can take longer from spawn to
+/// `core.auth`, and the core killed as `ready-timeout` and respawned is a second `started` event.
 #[test]
 fn concurrent_daemon_starts_leave_one_supervisor_and_one_core() {
     let h = Home::new();
-    let a = daemon_cmd(&h, "ok", "0.02", &["daemon", "start"])
+    let a = daemon_cmd(&h, "ok", "0.1", &["daemon", "start"])
         .spawn()
         .unwrap();
-    let b = daemon_cmd(&h, "ok", "0.02", &["daemon", "start"])
+    let b = daemon_cmd(&h, "ok", "0.1", &["daemon", "start"])
         .spawn()
         .unwrap();
     let out_a = a.wait_with_output().unwrap();
@@ -437,9 +440,16 @@ fn concurrent_daemon_starts_leave_one_supervisor_and_one_core() {
         vb["status"]["supervisor"]["pid"]
     );
 
-    wait_until("one started event", WAIT, || {
-        h.named_events("started").len() == 1
-    });
+    let deadline = Instant::now() + WAIT;
+    while h.named_events("started").len() != 1 {
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for one started event: {:?}\nsupervisor.log:\n{}",
+            h.named_events("started"),
+            std::fs::read_to_string(h.home.join("logs/supervisor.log")).unwrap_or_default()
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
     let mut c = client(&h.home);
     assert_eq!(
         c.call("daemon.status", json!({})).unwrap()["children"][0]["process"]["state"],

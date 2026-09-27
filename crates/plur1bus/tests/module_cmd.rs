@@ -703,9 +703,14 @@ fn a_module_config_violating_its_config_schema_is_rejected() {
     cfg["modules"]["fixture"]["crashAfterMs"] = json!(-5);
     std::fs::write(h.home.join("config.json"), cfg.to_string()).unwrap();
     let deadline = Instant::now() + WAIT;
+    // `fs::write` truncates, then writes: a watcher tick in between rejects the empty file ("not JSON") and the next
+    // one the edit itself, so wait for a rejection that names the edit's error.
     let rejected = loop {
         let st = status(&mut c);
-        if !st["config"]["rejected"].is_null() {
+        if st["config"]["rejected"]["errors"]
+            .to_string()
+            .contains("crashAfterMs")
+        {
             break st["config"]["rejected"].clone();
         }
         assert!(
