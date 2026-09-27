@@ -1,7 +1,7 @@
 // The fixture module's own behaviour (its README): detail.greeting from modules.fixture.greeting, and crashAfterMs.
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { startFakeSupervisor, type FakeSupervisor } from "../../module-api/test/helpers/fake-supervisor.ts";
@@ -27,6 +27,11 @@ describe("fixture module", () => {
     await waitStatus(c, (s) => s.detail?.greeting === "changed");
     await c.call("module.shutdown", {});
     assert.equal(await exitWithin(p, 15_000), 0, p.stderr());
+  });
+
+  it("the build marks index.js as an ES module (H3B-R23)", () => {
+    const dist = buildFixture();
+    assert.deepEqual(JSON.parse(readFileSync(join(dist, "package.json"), "utf8")), { type: "module" });
   });
 
   it("crashAfterMs exits 1", async () => {

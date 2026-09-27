@@ -2,7 +2,8 @@
 //! `-supervisor` pipe (Windows). One accept loop, one thread per connection (S14). `supervisor.auth` must come first
 //! (constant-time token compare); a connection that has not authenticated within [`AUTH_IDLE`] is closed. Params are
 //! deserialised into the generated closed structs, so an unknown key is `E_INVALID_PARAMS`. A connection's writer is
-//! a [`SharedWriter`]: its replies and the notifications of its `config.watch` subscription share it.
+//! a [`SharedWriter`]: its replies and the notifications of its `config.watch` and `module.watch` subscriptions share
+//! it.
 use super::config::{self, SetError};
 use super::subscribers::{SharedWriter, Topic};
 use super::{relock, spawn_guarded, Shared, StopSource, DEFAULT_STOP_BUDGET, SUPERVISOR_FEATURES};
@@ -10,7 +11,7 @@ use crate::paths::{supervisor_address, Layout};
 use plur1bus_rpc::client::MAX_LINE;
 use plur1bus_rpc::types::{
     ConfigGetParams, ConfigGetParamsTier, ConfigSetParams, ConfigWatchParams, DaemonStartParams,
-    DaemonStatusParams, DaemonStopParams, SupervisorAuthParams,
+    DaemonStatusParams, DaemonStopParams, ModuleWatchParams, SupervisorAuthParams,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -137,6 +138,8 @@ struct Conn {
     subscriptions: Vec<String>,
     /// The `config.watch` subscription among them, reused by a second `config.watch`.
     config_sub: Option<String>,
+    /// The `module.watch` subscription among them, reused by a second `module.watch`.
+    module_sub: Option<String>,
 }
 
 enum Line {
@@ -316,6 +319,7 @@ impl ConnCtx {
             closer: closer.clone(),
             subscriptions: Vec::new(),
             config_sub: None,
+            module_sub: None,
         };
         // Watchdog: closes the connection unless `authed_tx` is dropped (auth succeeded, or the connection ended)
         // within AUTH_IDLE.
@@ -464,6 +468,49 @@ impl ConnCtx {
         (Value::Null, After::Queued)
     }
 
+    /// `module.watch`: under the state lock (so no `module.state` can come in between, B3), subscribe the connection
+    /// and queue the reply, holding every module child's current state, as the subscription's first line.
+    fn module_watch(&self, id: &Value, conn: &mut Conn) -> (Value, After) {
+        let st = self.shared.lock();
+        let reply = |sub: &str| {
+            let mut line = result_reply(
+                id,
+                json!({ "subscriptionId": sub, "modules": st.module_states() }),
+            )
+            .to_string();
+            line.push('\n');
+            line
+        };
+        if let Some(sub) = conn.module_sub.clone() {
+            // A second module.watch on this connection reuses its subscription (no duplicate notifications).
+            if !self.shared.subscribers.send_to(&sub, reply(&sub)) {
+                (conn.closer)(); // the read loop then ends
+            }
+            return (Value::Null, After::Queued);
+        }
+        let closer = conn.closer.clone();
+        let sub = self.shared.subscribers.add(
+            Topic::Modules,
+            conn.writer.clone(),
+            Box::new(move || closer()),
+        );
+        if !self.shared.subscribers.send_to(&sub, reply(&sub)) {
+            self.shared.subscribers.remove(&sub);
+            let reply = error_reply(
+                id,
+                "E_INTERNAL",
+                "cannot start the subscription",
+                None,
+                None,
+                None,
+            );
+            return (reply, After::Continue);
+        }
+        conn.subscriptions.push(sub.clone());
+        conn.module_sub = Some(sub);
+        (Value::Null, After::Queued)
+    }
+
     fn config_get(&self, id: &Value, p: ConfigGetParams) -> Value {
         if p.key.is_some() && p.tier.is_some() {
             return invalid_params(id, "key and tier are exclusive".into());
@@ -603,6 +650,10 @@ impl ConnCtx {
             "config.watch" => match parse::<ConfigWatchParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(_) => self.config_watch(&id, conn),
+            },
+            "module.watch" => match parse::<ModuleWatchParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => self.module_watch(&id, conn),
             },
             "daemon.start" => match parse::<DaemonStartParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),

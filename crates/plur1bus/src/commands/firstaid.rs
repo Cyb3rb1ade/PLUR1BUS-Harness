@@ -32,7 +32,7 @@ const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 14] = [
+const CHECK_IDS: [&str; 15] = [
     "config.valid",
     "run.permissions",
     "run.stale-files",
@@ -41,6 +41,7 @@ const CHECK_IDS: [&str; 14] = [
     "models.warm",
     "memory.shared",
     "core.lock",
+    "modules.state",
     "service.registration",
     "agents.activity",
     "journal.backlog",
@@ -163,8 +164,14 @@ fn probe(
     let address = match endpoint {
         Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
         Endpoint::Supervisor => supervisor_address(&layout.home, platform),
-        // 1staid probes only the core and the supervisor; a module's address needs its name (Layout::endpoints).
-        Endpoint::Module => unreachable!("read_token_of has no module token"),
+        // 1staid probes only the core and the supervisor (modules through the supervisor's view); a module's address
+        // needs its name (Layout::endpoints).
+        Endpoint::Module => {
+            return Err(RpcError::Unavailable {
+                reason: "no-address".into(),
+                detail: "1staid does not probe modules directly".into(),
+            })
+        }
     };
     let opts = ConnectOptions {
         connect_timeout: CHECK_TIMEOUT,
@@ -263,6 +270,10 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
         core_status.is_some(),
         core_peer_pid,
         core_server_mismatch,
+    ));
+    checks.push(check_modules_state(
+        daemon_status,
+        &crate::modules::scan(layout),
     ));
     checks.push(check_service_registration(layout, env.runner));
 
@@ -626,7 +637,7 @@ fn check_core_state(daemon_status: Option<&Value>) -> Check {
         // failure in `supervisor.state`).
         return Check::warn(ID, "core is not running (no supervisor to ask)", None, None);
     };
-    let Some(child) = status["children"].get(0) else {
+    let Some(child) = super::daemon::core_child(status) else {
         return Check::warn(ID, "core is not running", None, None);
     };
     let (status, summary, detail) = describe_child(child);
@@ -636,6 +647,139 @@ fn check_core_state(daemon_status: Option<&Value>) -> Check {
         summary,
         detail,
         hint: None,
+    }
+}
+
+// ---- modules.state --------------------------------------------------------------------------------
+
+/// One module child of `daemon.status` as `modules.state` judges it: ready or stopped (by configuration, scope or
+/// request) → ok; starting, stopping, restarting (crashed with a restart scheduled), orphaned or degraded → warn;
+/// crashed for good (fatal, given up, `manifest-invalid`, `api-version-unsupported`) → fail. The text is
+/// `<state>[: reason]`, with "gave up" for a give-up that carries no reason.
+fn judge_module(child: &Value) -> (Status, String) {
+    let state = child["process"]["state"].as_str().unwrap_or("starting");
+    let reason = child["process"]["reason"].as_str();
+    let text = match reason {
+        Some(r) => format!("{state}: {r}"),
+        None => state.to_string(),
+    };
+    match state {
+        "ready" | "stopped" => (Status::Ok, text),
+        "crashed" if child["nextRestartAt"].is_u64() => {
+            (Status::Warn, format!("{text}, restarting"))
+        }
+        "crashed" if reason.is_none() => {
+            let code = child["lastExit"]["code"]
+                .as_i64()
+                .map_or("none".to_string(), |c| c.to_string());
+            (
+                Status::Fail,
+                format!("crashed: gave up after repeated exits (last exit code {code})"),
+            )
+        }
+        "crashed" => (Status::Fail, text),
+        _ => (Status::Warn, text),
+    }
+}
+
+/// `modules.state`: the supervisor's view of every module child (`daemon.status`, `kind: "module"`), with the manifest
+/// errors of the installed modules (P13: they are not in `ChildStatus`). No module, or every module ready or stopped
+/// → ok; one restarting, orphaned or degraded → warn; one crashed for good → fail, with `detail.modules`. Without a
+/// supervisor: an invalid manifest still fails; valid modules only warn that nothing runs them.
+fn check_modules_state(
+    daemon_status: Option<&Value>,
+    installed: &[crate::modules::Installed],
+) -> Check {
+    const ID: &str = "modules.state";
+    let errors_of = |name: &str| -> Option<Value> {
+        installed
+            .iter()
+            .find(|i| i.name == name)
+            .and_then(|i| i.manifest.as_ref().err())
+            .map(|e| json!(e))
+    };
+    let invalid: Vec<&crate::modules::Installed> =
+        installed.iter().filter(|i| i.manifest.is_err()).collect();
+    let Some(status) = daemon_status else {
+        if installed.is_empty() {
+            return Check::ok(ID, "no modules installed");
+        }
+        if !invalid.is_empty() {
+            let names: Vec<&str> = invalid.iter().map(|i| i.name.as_str()).collect();
+            let modules: Vec<Value> = invalid
+                .iter()
+                .map(|i| json!({ "name": i.name, "state": null, "errors": errors_of(&i.name) }))
+                .collect();
+            return Check::fail(
+                ID,
+                format!("invalid module manifest: {}", names.join(", ")),
+                Some(json!({ "modules": modules })),
+                Some("fix modules/<name>/module.json".to_string()),
+            );
+        }
+        return Check::warn(
+            ID,
+            format!(
+                "{} module(s) installed, not running (no supervisor to ask)",
+                installed.len()
+            ),
+            None,
+            Some("plur1bus daemon start".to_string()),
+        );
+    };
+    let children: Vec<&Value> = status["children"]
+        .as_array()
+        .map(|a| a.iter().filter(|c| c["kind"] == "module").collect())
+        .unwrap_or_default();
+    let mut worst = Status::Ok;
+    let mut named = Vec::new();
+    let mut modules = Vec::new();
+    for c in &children {
+        let name = c["role"].as_str().unwrap_or("?");
+        let (status, text) = judge_module(c);
+        if status == Status::Ok {
+            continue;
+        }
+        if status == Status::Fail || worst == Status::Ok {
+            worst = status;
+        }
+        named.push(format!("{name} ({text})"));
+        let mut entry = json!({
+            "name": name, "state": c["process"]["state"], "reason": c["process"]["reason"],
+            "restarts": c["restarts"], "nextRestartAt": c["nextRestartAt"], "lastExit": c["lastExit"],
+        });
+        if let Some(e) = errors_of(name) {
+            entry["errors"] = e;
+        }
+        modules.push(entry);
+    }
+    // An installed module with no slot (a directory name that is no module name) never runs either.
+    for i in &invalid {
+        if !children.iter().any(|c| c["role"] == i.name.as_str()) {
+            worst = Status::Fail;
+            named.push(format!("{} (invalid manifest)", i.name));
+            modules.push(json!({ "name": i.name, "state": null, "errors": errors_of(&i.name) }));
+        }
+    }
+    if named.is_empty() {
+        return Check::ok(
+            ID,
+            match children.len() {
+                0 => "no modules installed".to_string(),
+                n => format!("{n} module(s) ready or stopped by configuration"),
+            },
+        );
+    }
+    let detail = Some(json!({ "modules": modules }));
+    let summary = named.join(", ");
+    match worst {
+        Status::Fail => Check::fail(
+            ID,
+            format!("module(s) failed: {summary}"),
+            detail,
+            Some("see logs/supervisor.log and logs/module-<name>.log".to_string()),
+        ),
+        _ => Check::warn(ID, format!("module(s) not ready: {summary}"), detail, None),
     }
 }
 
@@ -1617,6 +1761,133 @@ mod tests {
             check_jobs_last_runs(Some(&json!({})), None, None, deadline).status,
             Status::Skip
         );
+    }
+
+    fn module_child(name: &str, process: Value, next: Option<u64>) -> Value {
+        json!({ "role": name, "kind": "module", "process": process, "pid": null, "instanceId": null,
+            "adopted": false, "restarts": 4, "lastExit": { "code": 1, "signal": null, "at": 1, "reason": null },
+            "nextRestartAt": next })
+    }
+
+    fn daemon_status_with(children: Vec<Value>) -> Value {
+        let mut all =
+            vec![json!({ "role": "core", "kind": "core", "process": { "state": "ready" } })];
+        all.extend(children);
+        json!({ "supervisor": {}, "children": all })
+    }
+
+    fn installed(name: &str, manifest: Result<(), Vec<String>>) -> crate::modules::Installed {
+        let raw = json!({ "name": name, "version": "0.1.0", "apiVersion": "1", "entry": "index.js",
+            "scope": "installation", "priority": 500 })
+        .to_string();
+        crate::modules::Installed {
+            name: name.into(),
+            dir: std::path::PathBuf::from("/nonexistent").join(name),
+            manifest: manifest.map(|_| crate::modules::parse_manifest(&raw).unwrap()),
+        }
+    }
+
+    #[test]
+    fn modules_state_is_ok_without_modules_or_when_every_module_is_ready_or_stopped_by_config() {
+        assert_eq!(
+            check_modules_state(Some(&daemon_status_with(vec![])), &[]).status,
+            Status::Ok
+        );
+        assert_eq!(check_modules_state(None, &[]).status, Status::Ok);
+        let st = daemon_status_with(vec![
+            module_child("fixture", json!({ "state": "ready" }), None),
+            module_child(
+                "fixture-b",
+                json!({ "state": "stopped", "reason": "disabled" }),
+                None,
+            ),
+            module_child(
+                "agent-mod",
+                json!({ "state": "stopped", "reason": "scope-agent-unsupported" }),
+                None,
+            ),
+        ]);
+        let check = check_modules_state(Some(&st), &[]);
+        assert_eq!(check.status, Status::Ok, "{check:?}");
+        assert!(check.summary.contains("3 module(s)"), "{check:?}");
+        assert!(check.detail.is_none());
+    }
+
+    #[test]
+    fn modules_state_warns_while_a_module_restarts_is_orphaned_or_degraded() {
+        for (process, next) in [
+            (json!({ "state": "crashed" }), Some(5)),
+            (json!({ "state": "orphaned" }), None),
+            (
+                json!({ "state": "degraded", "reason": "unresponsive" }),
+                None,
+            ),
+        ] {
+            let st = daemon_status_with(vec![
+                module_child("fixture", process.clone(), next),
+                module_child("fixture-b", json!({ "state": "ready" }), None),
+            ]);
+            let check = check_modules_state(Some(&st), &[]);
+            assert_eq!(check.status, Status::Warn, "{process}: {check:?}");
+            let modules = check.detail.as_ref().unwrap()["modules"]
+                .as_array()
+                .unwrap();
+            assert_eq!(modules.len(), 1, "{check:?}");
+            assert_eq!(modules[0]["name"], "fixture");
+        }
+        // Valid modules without a supervisor: nothing runs them.
+        let check = check_modules_state(None, &[installed("fixture", Ok(()))]);
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+    }
+
+    #[test]
+    fn modules_state_fails_on_a_fatal_given_up_manifest_invalid_or_unsupported_module() {
+        for (process, text) in [
+            (
+                json!({ "state": "crashed", "reason": "manifest-invalid" }),
+                "manifest-invalid",
+            ),
+            (
+                json!({ "state": "crashed", "reason": "api-version-unsupported" }),
+                "api-version-unsupported",
+            ),
+            (json!({ "state": "crashed" }), "gave up"),
+        ] {
+            let st = daemon_status_with(vec![
+                module_child("fixture", process.clone(), None),
+                module_child("fixture-b", json!({ "state": "crashed" }), Some(9)),
+            ]);
+            let check = check_modules_state(Some(&st), &[]);
+            assert_eq!(check.status, Status::Fail, "{process}: {check:?}");
+            assert!(check.summary.contains(text), "{check:?}");
+            let modules = check.detail.as_ref().unwrap()["modules"]
+                .as_array()
+                .unwrap();
+            assert_eq!(
+                modules.len(),
+                2,
+                "the restarting one is listed too: {check:?}"
+            );
+            assert_eq!(modules[0]["lastExit"]["code"], 1);
+        }
+        // The manifest errors ride along (P13), with or without a supervisor.
+        let broken = installed(
+            "broken",
+            Err(vec!["/priority 1000 is greater than 999".into()]),
+        );
+        let st = daemon_status_with(vec![module_child(
+            "broken",
+            json!({ "state": "crashed", "reason": "manifest-invalid" }),
+            None,
+        )]);
+        for check in [
+            check_modules_state(Some(&st), std::slice::from_ref(&broken)),
+            check_modules_state(None, std::slice::from_ref(&broken)),
+        ] {
+            assert_eq!(check.status, Status::Fail, "{check:?}");
+            let text = check.detail.as_ref().unwrap().to_string();
+            assert!(text.contains("/priority 1000"), "{check:?}");
+        }
     }
 
     #[test]

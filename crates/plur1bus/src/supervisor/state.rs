@@ -59,6 +59,8 @@ impl Health {
 /// reasons (`LockHeld`, `ConfigInvalid`, `EngineContract`); `ReadyTimeout` and `AdoptedExit` are
 /// reserved here for Tasks 6 and 7 (a child that never becomes ready, and an adopted child later
 /// observed to exit); `None` denotes "crashed with no more specific reason than the exit itself".
+/// A module adds `ManifestInvalid` (its exit 2, an invalid manifest, or one left out of the start order) and
+/// `ApiVersionUnsupported` (B12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CrashReason {
     LockHeld,
@@ -66,8 +68,16 @@ pub enum CrashReason {
     EngineContract,
     ReadyTimeout,
     AdoptedExit,
+    ManifestInvalid,
+    ApiVersionUnsupported,
     None,
 }
+
+/// Why a module is `stopped` without being a crash: `modules.<name>.enabled` is false, its manifest asks for
+/// `scope: "agent"` (B10), or `module.stop` asked for it (Task 10).
+pub const STOPPED_DISABLED: &str = "disabled";
+pub const STOPPED_SCOPE_AGENT: &str = "scope-agent-unsupported";
+pub const STOPPED_BY_REQUEST: &str = "stopped-by-request";
 
 impl CrashReason {
     pub fn as_str(self) -> &'static str {
@@ -77,6 +87,8 @@ impl CrashReason {
             CrashReason::EngineContract => "engine-contract",
             CrashReason::ReadyTimeout => "ready-timeout",
             CrashReason::AdoptedExit => "adopted-exit",
+            CrashReason::ManifestInvalid => "manifest-invalid",
+            CrashReason::ApiVersionUnsupported => "api-version-unsupported",
             CrashReason::None => "none",
         }
     }
@@ -98,6 +110,11 @@ pub enum ExitClass {
     Retryable { reason: Option<String> },
     /// Fatal: mark crashed with `reason` and never restart until `daemon start`.
     Fatal { reason: String },
+    /// A module whose manifest says `restart: "never"`: crashed with `reason`, and no restart.
+    Final { reason: Option<String> },
+    /// A clean exit (code 0) the supervisor did not ask for, from a module that is not restarted after one
+    /// (`restart: "on-failure"` or `"never"`): stopped, no restart.
+    Exited,
 }
 
 /// Classifies a child's exit per ruling S9.
@@ -121,6 +138,61 @@ pub fn classify_exit(code: Option<i32>, signal: Option<i32>, requested: bool) ->
             reason: Some(CrashReason::LockHeld.to_string()),
         },
         _ => ExitClass::Retryable { reason: None },
+    }
+}
+
+/// [`classify_exit`] for a child of `kind`: a module's exit 2 is its runtime refusing its manifest
+/// (`manifest-invalid`, P13), never `config-invalid`; exit 4 means nothing special for a module. Exit 3 (`lock-held`)
+/// and every other exit follow the core's rules.
+pub fn classify_exit_for(
+    kind: RoleKind,
+    code: Option<i32>,
+    signal: Option<i32>,
+    requested: bool,
+) -> ExitClass {
+    match (kind, requested, code) {
+        (RoleKind::Core, ..) | (_, true, _) => classify_exit(code, signal, requested),
+        (RoleKind::Module, false, Some(2)) => ExitClass::Fatal {
+            reason: CrashReason::ManifestInvalid.to_string(),
+        },
+        (RoleKind::Module, false, Some(4)) => ExitClass::Retryable { reason: None },
+        (RoleKind::Module, false, _) => classify_exit(code, signal, requested),
+    }
+}
+
+/// A module manifest's `restart` (D14); the core behaves as `Always` (every unrequested exit is retried).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestartPolicy {
+    /// Also after a clean exit.
+    Always,
+    /// After a crash (a non-zero code or a signal), not after a clean exit. The manifest default.
+    OnFailure,
+    /// Never: an unrequested exit leaves the module crashed (or stopped, for a clean one).
+    Never,
+}
+
+impl RestartPolicy {
+    /// The manifest value; anything else (the schema allows none) is the default, `on-failure`.
+    pub fn parse(s: &str) -> RestartPolicy {
+        match s {
+            "always" => RestartPolicy::Always,
+            "never" => RestartPolicy::Never,
+            _ => RestartPolicy::OnFailure,
+        }
+    }
+}
+
+/// Applies `policy` to a retryable exit: a clean exit (code 0, no signal) is `Exited` unless the policy is `Always`;
+/// under `Never` any other retryable exit is `Final`. Requested and fatal exits are unchanged.
+pub fn apply_policy(class: ExitClass, policy: RestartPolicy, code: Option<i32>) -> ExitClass {
+    match (class, policy) {
+        (ExitClass::Retryable { .. }, RestartPolicy::OnFailure | RestartPolicy::Never)
+            if code == Some(0) =>
+        {
+            ExitClass::Exited
+        }
+        (ExitClass::Retryable { reason }, RestartPolicy::Never) => ExitClass::Final { reason },
+        (class, _) => class,
     }
 }
 
@@ -265,6 +337,8 @@ impl LastExit {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChildState {
     pub role: String,
+    /// `ChildStatus.kind`.
+    pub kind: RoleKind,
     pub health: Health,
     /// Epoch ms since `health` last changed; the fallback `since` for `Health::to_process_state`.
     pub since_ms: u64,
@@ -290,7 +364,37 @@ impl ChildState {
             "restarts": self.restarts,
             "lastExit": self.last_exit.as_ref().map(LastExit::to_json),
             "nextRestartAt": self.next_restart_at_ms,
+            "kind": match self.kind {
+                RoleKind::Core => "core",
+                RoleKind::Module => "module",
+            },
         })
+    }
+
+    /// Renders this child as a `$defs/ModuleState` value (`module.watch`, `module.state`).
+    pub fn to_module_state(&self) -> serde_json::Value {
+        serde_json::json!({
+            "name": self.role,
+            "process": self.health.to_process_state(self.since_ms),
+            "pid": self.pid,
+            "instanceId": self.instance_id,
+        })
+    }
+
+    /// A child that has not run yet: `starting`, no pid.
+    pub fn fresh(role: &Role) -> ChildState {
+        ChildState {
+            role: role.name.clone(),
+            kind: role.kind,
+            health: Health::Starting,
+            since_ms: 0,
+            pid: None,
+            instance_id: None,
+            adopted: false,
+            restarts: 0,
+            last_exit: None,
+            next_restart_at_ms: None,
+        }
     }
 }
 
@@ -360,6 +464,10 @@ pub struct Slot {
     pub restart_at: Option<Instant>,
     /// `daemon.start` (or the B18 re-arm) asked for an immediate spawn (a no-op while the child is running).
     pub start_requested: bool,
+    /// What an unrequested exit leads to: the manifest's `restart` for a module, `Always` for the core.
+    pub policy: RestartPolicy,
+    /// A module's manifest `apiVersion`: its `module.auth` hello must report it, and its manifest `name` (B12).
+    pub api_version: Option<String>,
 }
 
 impl Slot {
@@ -372,6 +480,8 @@ impl Slot {
             backoff: Backoff::new(scale),
             restart_at: None,
             start_requested: false,
+            policy: RestartPolicy::Always,
+            api_version: None,
         }
     }
 }
@@ -419,6 +529,7 @@ mod tests {
     fn child_with(health: Health, next: Option<u64>) -> ChildState {
         ChildState {
             role: "core".into(),
+            kind: RoleKind::Core,
             health,
             since_ms: 0,
             pid: None,
@@ -706,6 +817,7 @@ mod tests {
         for health in healths {
             let child = ChildState {
                 role: "core".to_string(),
+                kind: RoleKind::Core,
                 health: health.clone(),
                 since_ms: 1_700_000_000_000,
                 pid: Some(4242),
@@ -731,6 +843,7 @@ mod tests {
         // Also cover the "nothing scheduled, never adopted, no pid" corner.
         let child = ChildState {
             role: "core".to_string(),
+            kind: RoleKind::Core,
             health: Health::Starting,
             since_ms: 0,
             pid: None,
@@ -746,6 +859,112 @@ mod tests {
             .map(|e| e.to_string())
             .collect();
         assert!(errs.is_empty(), "{value}: {errs:?}");
+    }
+
+    #[test]
+    fn a_module_child_renders_its_kind_and_its_module_state() {
+        let validator = child_status_validator();
+        let schema: serde_json::Value = serde_json::from_str(plur1bus_rpc::SCHEMA_JSON).unwrap();
+        let doc = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/notifications/module.state",
+            "$defs": schema["$defs"]
+        });
+        let notification = jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(&doc)
+            .unwrap();
+        let mut child = ChildState::fresh(&Role::module("fixture-b"));
+        child.health = Health::Stopped {
+            reason: Some(STOPPED_DISABLED.into()),
+        };
+        let v = child.to_json();
+        assert_eq!(v["kind"], "module");
+        assert!(validator.is_valid(&v), "{v}");
+        assert_eq!(ChildState::fresh(&Role::core()).to_json()["kind"], "core");
+        let m = child.to_module_state();
+        assert_eq!(
+            m,
+            serde_json::json!({ "name": "fixture-b", "process": { "state": "stopped", "reason": "disabled", "since": 0 }, "pid": null, "instanceId": null })
+        );
+        assert!(notification.is_valid(&m), "{m}");
+    }
+
+    #[test]
+    fn a_module_exit_2_is_manifest_invalid_not_config_invalid() {
+        let m = RoleKind::Module;
+        assert_eq!(
+            classify_exit_for(m, Some(2), None, false),
+            ExitClass::Fatal {
+                reason: "manifest-invalid".into()
+            }
+        );
+        assert_eq!(
+            classify_exit_for(RoleKind::Core, Some(2), None, false),
+            ExitClass::Fatal {
+                reason: "config-invalid".into()
+            }
+        );
+        assert_eq!(
+            classify_exit_for(m, Some(3), None, false),
+            ExitClass::Retryable {
+                reason: Some("lock-held".into())
+            }
+        );
+        assert_eq!(
+            classify_exit_for(m, Some(4), None, false),
+            ExitClass::Retryable { reason: None }
+        );
+        assert_eq!(
+            classify_exit_for(m, Some(1), None, false),
+            ExitClass::Retryable { reason: None }
+        );
+        assert_eq!(
+            classify_exit_for(m, Some(2), None, true),
+            ExitClass::Requested
+        );
+        assert_eq!(CrashReason::ManifestInvalid.as_str(), "manifest-invalid");
+        assert_eq!(
+            CrashReason::ApiVersionUnsupported.as_str(),
+            "api-version-unsupported"
+        );
+    }
+
+    #[test]
+    fn the_restart_policy_decides_whether_an_exit_is_retried() {
+        use RestartPolicy::*;
+        let retry = || ExitClass::Retryable { reason: None };
+        assert_eq!(RestartPolicy::parse("always"), Always);
+        assert_eq!(RestartPolicy::parse("never"), Never);
+        assert_eq!(RestartPolicy::parse("on-failure"), OnFailure);
+        // A clean exit: retried only under `always`.
+        assert_eq!(apply_policy(retry(), Always, Some(0)), retry());
+        assert_eq!(apply_policy(retry(), OnFailure, Some(0)), ExitClass::Exited);
+        assert_eq!(apply_policy(retry(), Never, Some(0)), ExitClass::Exited);
+        // A crash: retried unless `never`.
+        assert_eq!(apply_policy(retry(), Always, Some(1)), retry());
+        assert_eq!(apply_policy(retry(), OnFailure, None), retry());
+        assert_eq!(
+            apply_policy(
+                ExitClass::Retryable {
+                    reason: Some("lock-held".into())
+                },
+                Never,
+                Some(3)
+            ),
+            ExitClass::Final {
+                reason: Some("lock-held".into())
+            }
+        );
+        // Requested and fatal exits are never changed.
+        assert_eq!(
+            apply_policy(ExitClass::Requested, Never, Some(0)),
+            ExitClass::Requested
+        );
+        let fatal = || ExitClass::Fatal {
+            reason: "manifest-invalid".into(),
+        };
+        assert_eq!(apply_policy(fatal(), Always, Some(2)), fatal());
     }
 
     proptest! {

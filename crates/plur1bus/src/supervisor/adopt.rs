@@ -13,7 +13,8 @@
 //! serves to recognise a foreign core.
 //!
 //! Everything here takes the child's [`Role`]: its address and run files come from [`Layout::endpoints`], its calls
-//! from [`Role::method`]. Only the core is supervised so far.
+//! from [`Role::method`]. A module's hello must also name the module its manifest describes ([`identity_mismatch`],
+//! B12), else it is `Foreign`.
 use super::state::{Role, RoleKind};
 use super::{spawn_guarded, Shared};
 #[cfg(test)]
@@ -123,6 +124,53 @@ fn child_options(role: &Role, timeout: Duration) -> ConnectOptions {
     }
 }
 
+/// B12: why a module's `module.auth` hello does not identify the module `role` names with manifest `apiVersion`
+/// `api_version` (`None` when it does, and always for the core).
+pub fn identity_mismatch(hello: &Value, role: &Role, api_version: Option<&str>) -> Option<String> {
+    if role.kind != RoleKind::Module {
+        return None;
+    }
+    let name = hello["module"]["name"].as_str();
+    let api = hello["module"]["apiVersion"].as_str();
+    (name != Some(role.name.as_str()) || api != api_version).then(|| {
+        format!(
+            "module-identity-mismatch: hello names {} apiVersion {}, the manifest {} apiVersion {}",
+            name.unwrap_or("nothing"),
+            api.unwrap_or("none"),
+            role.name,
+            api_version.unwrap_or("none"),
+        )
+    })
+}
+
+/// [`probe_child`] for a module whose manifest says `api_version`: a serving module whose hello names another module
+/// or API version is `Foreign` (B12), so it is terminated instead of adopted.
+pub fn probe_module(
+    layout: &Layout,
+    role: &Role,
+    api_version: Option<&str>,
+    timeout: Duration,
+) -> Probe {
+    match probe_child(layout, role, timeout) {
+        Probe::Serving {
+            peer,
+            hello,
+            client,
+        } => match identity_mismatch(&hello, role, api_version) {
+            Some(reason) => {
+                drop(client);
+                Probe::Foreign { peer, reason }
+            }
+            None => Probe::Serving {
+                peer,
+                hello,
+                client,
+            },
+        },
+        other => other,
+    }
+}
+
 /// Probes the core's address: [`probe_child`] for [`Role::core`].
 pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
     probe_child(layout, &Role::core(), timeout)
@@ -204,7 +252,7 @@ fn handshake_bounded(
     let timeout = opts.call_timeout;
     let (tx, rx) = std::sync::mpsc::channel();
     let spawned = std::thread::Builder::new()
-        .name("core-probe".into())
+        .name("child-probe".into())
         .spawn(move || {
             let _ = tx.send(Client::handshake(stream, &token, opts));
         });
@@ -541,6 +589,25 @@ fn wait_gone(peer: &Peer, deadline: Instant) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_module_hello_must_name_its_manifest_name_and_api_version() {
+        let hello = |name: &str, api: &str| json!({ "module": { "name": name, "version": "0.1.0", "apiVersion": api } });
+        let fixture = Role::module("fixture");
+        assert_eq!(
+            identity_mismatch(&hello("fixture", "1"), &fixture, Some("1")),
+            None
+        );
+        let other = identity_mismatch(&hello("impostor", "1"), &fixture, Some("1")).unwrap();
+        assert!(
+            other.starts_with("module-identity-mismatch") && other.contains("impostor"),
+            "{other}"
+        );
+        assert!(identity_mismatch(&hello("fixture", "2"), &fixture, Some("1")).is_some());
+        assert!(identity_mismatch(&json!({}), &fixture, Some("1")).is_some());
+        // The core's hello carries no module identity.
+        assert_eq!(identity_mismatch(&json!({}), &Role::core(), None), None);
+    }
 
     #[test]
     fn nothing_listening_probes_absent() {

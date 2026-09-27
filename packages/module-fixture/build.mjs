@@ -1,6 +1,8 @@
 // Builds the installable fixture module: src/index.ts with module-api (and everything it imports) inlined into
-// dist/index.js, plus module.json and README.md. Tests import buildFixture() to run against a fresh bundle.
-import { copyFileSync, mkdirSync } from "node:fs";
+// dist/index.js, plus module.json, README.md and a package.json that marks index.js as ESM (H3B-R23: the module
+// then loads the same way under a home that sits below a `"type": "commonjs"` package.json). Tests import
+// buildFixture() to run against a fresh bundle.
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
@@ -18,6 +20,7 @@ export async function buildFixture() {
     bundle: true, platform: "node", target: "node24", format: "esm", conditions: ["source"], logLevel: "warning",
   });
   for (const f of ["module.json", "README.md"]) copyFileSync(join(here, f), join(dist, f));
+  writeFileSync(join(dist, "package.json"), JSON.stringify({ type: "module" }) + "\n");
   return dist;
 }
 

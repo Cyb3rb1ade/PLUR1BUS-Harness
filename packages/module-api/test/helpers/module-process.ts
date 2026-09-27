@@ -21,7 +21,7 @@ export function installFixture(home: string, o: { dir?: string; manifest?: Recor
   const dist = join(fixtureRoot, "dist");
   const dir = join(home, "modules", o.dir ?? "fixture");
   mkdirSync(dir, { recursive: true });
-  for (const f of ["index.js", "README.md"]) copyFileSync(join(dist, f), join(dir, f));
+  for (const f of ["index.js", "package.json", "README.md"]) copyFileSync(join(dist, f), join(dir, f));
   const manifest = { ...JSON.parse(readFileSync(join(dist, "module.json"), "utf8")), ...o.manifest };
   writeFileSync(join(dir, "module.json"), JSON.stringify(manifest, null, 2));
   return dir;

@@ -49,6 +49,23 @@ describe("rpc-schema", () => {
     assert.deepEqual(validateResult("supervisor.auth", { rpc: RPC_VERSION, instanceId: "s", pid: 1, capabilities: supervisor }), { ok: true });
   });
 
+  it("supervisor.auth lists module.watch and module.state; ChildStatus carries its kind", () => {
+    const supervisor = buildCapabilities(["adoption", "lifelines"], "supervisor");
+    assert.deepEqual(supervisor.methods["module.watch"], { stability: "experimental", since: "1.3.0" });
+    assert.deepEqual(supervisor.notifications["module.state"], { stability: "experimental", since: "1.3.0" });
+    for (const server of ["core", "module"] as const) {
+      const other = buildCapabilities([], server);
+      assert.equal(other.methods["module.watch"], undefined, server);
+      assert.equal(other.notifications["module.state"], undefined, server);
+    }
+    assert.equal(validateParams("module.watch", { names: ["fixture"] }).ok, false);
+    const child = { role: "fixture", process: { state: "ready" }, pid: 1, instanceId: "i", adopted: false, restarts: 0, lastExit: null, nextRestartAt: null };
+    const status = (c: object) => ({ supervisor: { process: { state: "ready" }, instanceId: "s", pid: 2, uptimeMs: 1 }, children: [c] });
+    assert.deepEqual(validateResult("daemon.status", status(child)), { ok: true });
+    assert.deepEqual(validateResult("daemon.status", status({ ...child, kind: "module" })), { ok: true });
+    assert.equal(validateResult("daemon.status", status({ ...child, kind: "agent" })).ok, false);
+  });
+
   it("module.auth capabilities list only module-served methods", () => {
     const module = buildCapabilities(["adoption", "lifelines"], "module");
     assert.deepEqual(Object.keys(module.methods).sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);

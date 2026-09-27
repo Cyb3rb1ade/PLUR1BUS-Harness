@@ -1,11 +1,12 @@
-//! Supervisor: process lifecycle for the core (and, later, modules).
+//! Supervisor: process lifecycle for the core and the installed modules.
 //!
 //! `state` is the pure state machine (health, backoff, crash classification) with no I/O. `server` is the
 //! supervisor's RPC endpoint, `logfile` the size-rotated log files, `config` the owner of `config.json` (`config.*`,
 //! the file watcher) and `subscribers` the connections that receive supervisor notifications. [`run`] is `plur1bus supervise`: it claims the
 //! home (single instance), writes `run/supervisor.token` and `run/supervisor.pid`, serves `supervisor.auth` and
-//! `daemon.*`, adopts a core that is already running or spawns one (`adopt`, `child`), monitors it, and stops on
-//! `daemon.stop` or SIGTERM/SIGINT (the core first).
+//! `daemon.*`, adopts a core that is already running or spawns one (`adopt`, `child`), then does the same for every
+//! installed module in start order ([`start_modules`], D14), monitors them, and stops on `daemon.stop` or
+//! SIGTERM/SIGINT (the modules in reverse start order, then the core, inside one budget).
 #![allow(dead_code)]
 pub mod adopt;
 pub mod child;
@@ -21,8 +22,8 @@ use crate::paths::{supervisor_address, Layout};
 use logfile::RotatingFile;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
-use state::ChildState;
 pub use state::{next_due, Lifeline, Role, Slot};
+use state::{ChildState, Health, RoleKind};
 use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::io::{self, Write};
@@ -30,6 +31,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use subscribers::Topic;
 
 /// `capabilities.features` of the supervisor's hello.
 pub const SUPERVISOR_FEATURES: &[&str] = &["adoption", "lifelines"];
@@ -121,6 +123,16 @@ impl SupervisorState {
         self.slots.iter_mut().find(|s| s.role.name == name)
     }
 
+    /// Every module child's `$defs/ModuleState`, in slot order (`module.watch`).
+    pub fn module_states(&self) -> Vec<Value> {
+        self.slots
+            .iter()
+            .filter(|s| s.role.kind == RoleKind::Module)
+            .filter_map(|s| s.child.as_ref())
+            .map(ChildState::to_module_state)
+            .collect()
+    }
+
     /// The `daemon.status` result.
     pub fn status_json(&self) -> Value {
         let process = match self.stopping {
@@ -153,7 +165,7 @@ pub struct Shared {
     pub log: Log,
     /// `config.json` as the supervisor owns it (B3–B5).
     pub config: Mutex<config::ConfigState>,
-    /// Connections subscribed to `config.changed` (and later `module.state`).
+    /// Connections subscribed to `config.changed` or `module.state`.
     pub subscribers: subscribers::Subscribers,
     /// The children's out logs, so a `logs.*` change reaches them too.
     pub out_logs: Mutex<Vec<Arc<Mutex<Option<RotatingFile>>>>>,
@@ -228,6 +240,26 @@ impl Log {
     pub fn set_limits(&self, max_bytes: u64, keep: u32) {
         if let Some(f) = relock(&self.file).as_mut() {
             f.set_limits(max_bytes, keep);
+        }
+    }
+}
+
+/// Broadcasts `module.state` for `slot` when it is a module's and has a child; called with the state locked, right
+/// after the change, so the notifications keep the order of the changes (the lock order is state, then subscribers).
+pub(crate) fn broadcast_module_state(shared: &Shared, slot: &Slot) {
+    if slot.role.kind != RoleKind::Module {
+        return;
+    }
+    if let Some(c) = &slot.child {
+        let dropped =
+            shared
+                .subscribers
+                .broadcast(Topic::Modules, "module.state", &c.to_module_state());
+        for d in dropped {
+            shared.log.warn(
+                "module.state subscriber dropped",
+                json!({ "subscription": d.id, "reason": d.reason }),
+            );
         }
     }
 }
@@ -662,6 +694,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     let mut monitors = Monitors::new();
     if !opts.no_core {
         start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+        start_modules(&shared, layout, &token, &mut monitors);
     }
 
     // Main thread: the restart scheduler (a requested restart, a slot's `daemon.start` or due `restart_at`) until a
@@ -714,7 +747,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             StopSource::Signal(n) => format!("signal {n}"),
         } }),
     );
-    // The core last: the slots are stopped in reverse order.
+    // The slots are the core, then the modules in start order: stopped in reverse, the core last, all inside one
+    // budget (M3). Each child is asked to finish by the end of the shared budget and killed at the shared deadline.
     let order: Vec<String> = shared
         .lock()
         .slots
@@ -722,9 +756,14 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .rev()
         .map(|s| s.role.name.clone())
         .collect();
+    let budget_end = Instant::now() + stop.budget;
+    let deadline = budget_end + child::stop_grace(time_scale);
     for name in order {
         if let Some(m) = monitors.get_mut(&name) {
-            m.stop(stop.budget);
+            m.stop_until(
+                budget_end.saturating_duration_since(Instant::now()),
+                deadline,
+            );
         }
     }
     remove_run_files(layout);
@@ -828,6 +867,153 @@ pub fn push_restart(
     Some(rx)
 }
 
+/// The installed modules at start (D14), after the core: every module in `start_order` gets a slot, in that order,
+/// and is adopted or spawned ([`start_child`]) unless `modules.<name>.enabled` is false (`stopped` reason `disabled`),
+/// its manifest asks for `scope: "agent"` (`stopped`, `scope-agent-unsupported`, B10) or its `apiVersion` is not
+/// supported (`crashed`, `api-version-unsupported`, B12). A module left out of the start order (an invalid manifest,
+/// a needs-cycle, a `needs` that cannot be met) gets a slot `crashed` with `manifest-invalid`; the reasons go to the
+/// log (P13: `ChildStatus` has no detail). None of these is ever restarted on its own.
+fn start_modules(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors: &mut Monitors) {
+    let installed = crate::modules::scan(layout);
+    if installed.is_empty() {
+        return;
+    }
+    let order = crate::modules::start_order(&installed);
+    let graph = crate::modules::graph(&installed);
+    let current = crate::modules::current_api_version();
+    let modules_config = relock(&shared.config)
+        .running
+        .as_ref()
+        .map(|c| c["modules"].clone())
+        .unwrap_or(Value::Null);
+    let scale = shared.lock().time_scale;
+    let mut to_start = Vec::new();
+    let mut not_started = Vec::new();
+    for name in &order {
+        let Some(Ok(m)) = installed
+            .iter()
+            .find(|i| &i.name == name)
+            .map(|i| i.manifest.as_ref())
+        else {
+            continue;
+        };
+        let mut slot = Slot::new(Role::module(name), scale);
+        slot.policy = state::RestartPolicy::parse(&m.restart);
+        slot.api_version = Some(m.api_version.clone());
+        let stopped = |reason: &str| Health::Stopped {
+            reason: Some(reason.to_string()),
+        };
+        let held = if modules_config[name]["enabled"] == false {
+            Some((stopped(state::STOPPED_DISABLED), vec![]))
+        } else if m.scope == "agent" {
+            Some((stopped(state::STOPPED_SCOPE_AGENT), vec![]))
+        } else if !crate::modules::api_version_supported(&m.api_version, current) {
+            let errors = vec![format!(
+                "apiVersion {} is not supported (current {current}, previous {})",
+                m.api_version,
+                current.saturating_sub(1)
+            )];
+            Some((crashed(state::CrashReason::ApiVersionUnsupported), errors))
+        } else {
+            None
+        };
+        match held {
+            None => {
+                to_start.push(slot.role.clone());
+                shared.lock().slots.push(slot);
+            }
+            Some(h) => not_started.push((slot, h)),
+        }
+    }
+    for i in installed.iter().filter(|i| !order.contains(&i.name)) {
+        if !valid_role_name(&i.name) {
+            shared.log.warn(
+                "module directory name is not a module name; not started",
+                json!({ "module": i.name }),
+            );
+            continue;
+        }
+        let errors = match &i.manifest {
+            Err(errors) => errors.clone(),
+            Ok(m) => excluded_because(&i.name, m, &graph, &order),
+        };
+        let slot = Slot::new(Role::module(&i.name), scale);
+        not_started.push((slot, (crashed(state::CrashReason::ManifestInvalid), errors)));
+    }
+    for (mut slot, (health, errors)) in not_started {
+        let reason = health.to_process_state(0)["reason"].clone();
+        shared.log.info(
+            "module not started",
+            json!({ "module": slot.role.name, "reason": reason, "errors": errors }),
+        );
+        let mut child = ChildState::fresh(&slot.role);
+        child.health = health;
+        child.since_ms = now_ms();
+        slot.child = Some(child);
+        let mut st = shared.lock();
+        broadcast_module_state(shared, &slot);
+        st.slots.push(slot);
+    }
+    for role in to_start {
+        if shared.lock().stopping.is_some() {
+            return;
+        }
+        start_child(shared, layout, token, &role, monitors);
+    }
+}
+
+/// `Health::Crashed` for a module that never ran: no code, no signal, `reason`.
+fn crashed(reason: state::CrashReason) -> Health {
+    Health::Crashed {
+        code: None,
+        signal: None,
+        at: now_ms(),
+        reason: Some(reason.to_string()),
+    }
+}
+
+/// `$defs/ChildStatus.role`'s pattern, `^[a-z0-9][a-z0-9-]{0,63}$`.
+fn valid_role_name(name: &str) -> bool {
+    let b = name.as_bytes();
+    !b.is_empty()
+        && b.len() <= 64
+        && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
+        && b.iter()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
+}
+
+/// Why a module with a valid manifest is not in the start order: its needs-cycle, its unresolved `needs`, or a
+/// `needs` on a module that cannot start itself.
+fn excluded_because(
+    name: &str,
+    m: &crate::modules::Manifest,
+    graph: &crate::modules::Graph,
+    order: &[String],
+) -> Vec<String> {
+    let mut errors: Vec<String> = graph
+        .cycles
+        .iter()
+        .filter(|c| c.iter().any(|n| n == name))
+        .map(|c| format!("needs-cycle: {}", c.join(", ")))
+        .collect();
+    errors.extend(
+        graph
+            .unresolved
+            .iter()
+            .filter(|u| u["from"] == name && u["kind"] == "needs")
+            .map(|u| format!("unresolved needs: {}", u["name"].as_str().unwrap_or(""))),
+    );
+    if errors.is_empty() {
+        errors.extend(
+            m.needs
+                .iter()
+                .filter(|n| n.as_str() != "core" && !order.contains(n))
+                .map(|n| format!("needs {n}, which cannot start")),
+        );
+    }
+    errors
+}
+
 /// A child at start (spec §6.4, S6): probe its address before any spawn ([`probe_and_adopt`]), and spawn only when
 /// nothing was adopted.
 fn start_child(
@@ -885,7 +1071,16 @@ fn probe_and_adopt(
     role: &Role,
     monitors: &mut Monitors,
 ) -> bool {
-    let found = adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT);
+    let found = match role.kind {
+        RoleKind::Core => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
+        RoleKind::Module => {
+            let api = shared
+                .lock()
+                .slot(&role.name)
+                .and_then(|s| s.api_version.clone());
+            adopt::probe_module(layout, role, api.as_deref(), adopt::PROBE_TIMEOUT)
+        }
+    };
     let name = found.name();
     let reason = match &found {
         adopt::Probe::Foreign { reason, .. } => Some(reason.clone()),

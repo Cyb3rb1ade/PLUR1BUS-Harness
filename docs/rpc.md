@@ -2084,6 +2084,48 @@ Returns the running configuration and subscribes this connection to config.chang
 }
 ```
 
+### `module.watch`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Returns every module child's current state and subscribes this connection to module.state (B3).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subscriptionId",
+    "modules"
+  ],
+  "properties": {
+    "subscriptionId": {
+      "type": "string"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModuleState"
+      }
+    }
+  }
+}
+```
+
 ### `module.auth`
 
 **Stability:** experimental · since 1.3.0
@@ -2786,6 +2828,52 @@ The running configuration changed (B3), sent on connections that called config.w
       "enum": [
         "set",
         "file"
+      ]
+    }
+  }
+}
+```
+
+### `module.state`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch. Same shape as $defs/ModuleState.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "x-server": "supervisor",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch. Same shape as $defs/ModuleState.",
+  "required": [
+    "name",
+    "process",
+    "pid",
+    "instanceId"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "instanceId": {
+      "type": [
+        "string",
+        "null"
       ]
     }
   }
@@ -3704,6 +3792,52 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ],
       "description": "epoch ms of the scheduled restart; null when none is scheduled"
+    },
+    "kind": {
+      "enum": [
+        "core",
+        "module"
+      ],
+      "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0."
+    }
+  }
+}
+```
+
+### `ModuleState`
+
+```json
+{
+  "description": "Experimental (1.3.0). A module child's health as the supervisor sees it (module.watch, module.state): its name, its ChildStatus process state, and its pid and instance id while a process runs.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "process",
+    "pid",
+    "instanceId"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "instanceId": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

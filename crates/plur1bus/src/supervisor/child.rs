@@ -1,4 +1,4 @@
-//! Spawning and monitoring a child (spec §6.4): the core in supervised mode.
+//! Spawning and monitoring a child (spec §6.4): the core in supervised mode, and every module (D14).
 //!
 //! A [`Monitor`] serves one slot ([`Slot`](super::state::Slot)) of `SupervisorState::slots`, found by its role's name:
 //! every state update below goes to that slot's child, lifeline, backoff and restart schedule.
@@ -7,7 +7,7 @@
 //! runs three kinds of std threads (S14): the output pumps (stdout and stderr into `logs/<role>.out.log`), a health
 //! loop (readiness through the `core.auth` handshake, then `core.status` every `supervisor.healthIntervalMs`), and a
 //! waiter that reaps the process and is the only place that decides to kill it (ready timeout, hang). An exit goes
-//! through [`classify_exit`] and [`Backoff`](super::state::Backoff); a scheduled restart is left in
+//! through [`classify_exit_for`] and [`Backoff`](super::state::Backoff); a scheduled restart is left in
 //! the slot's `restart_at` for the main thread's scheduler, which calls [`Monitor::spawn`]. Every duration below
 //! except the 100 ms readiness poll and the 2 s poll deadline is multiplied by the time scale.
 //!
@@ -18,11 +18,12 @@
 use super::adopt::Peer;
 use super::logfile::RotatingFile;
 use super::state::{
-    classify_exit, ChildState, CrashReason, ExitClass, Health, LastExit, RestartDecision, Role,
-    RoleKind, Slot,
+    apply_policy, classify_exit_for, ChildState, CrashReason, ExitClass, Health, LastExit,
+    RestartDecision, Role, RoleKind, Slot,
 };
-use super::{now_ms, spawn_guarded, Lifeline, Shared, SupervisorState};
+use super::{broadcast_module_state, now_ms, spawn_guarded, Lifeline, Shared, SupervisorState};
 use crate::commands::core::{locate_core_js, locate_node};
+use crate::modules::Installed;
 use crate::paths::Layout;
 use plur1bus_rpc::{Client, ConnectOptions};
 use serde_json::{json, Value};
@@ -41,6 +42,8 @@ pub struct ChildSpec {
     pub program: PathBuf,
     pub args: Vec<OsString>,
     pub env: Vec<(OsString, OsString)>,
+    /// The working directory; `None` inherits the supervisor's.
+    pub cwd: Option<PathBuf>,
 }
 
 /// The core in supervised mode: `node <core.js> --home <home> --lifeline stdin --instance <id>`, plus
@@ -72,14 +75,48 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         program: locate_node(layout),
         args,
         env: Vec::new(),
+        cwd: None,
     })
 }
 
-/// How to start `role`'s child. Only the core can be spawned so far (modules arrive with Task 9).
+/// An installed module: `node <dir>/<entry> --home <home> --module <name> --lifeline stdin --instance <id>`, run in
+/// its own directory. Fails when its manifest is invalid.
+pub fn module_spec(layout: &Layout, m: &Installed, instance_id: &str) -> Result<ChildSpec, String> {
+    let manifest = m
+        .manifest
+        .as_ref()
+        .map_err(|errors| format!("module {}: {}", m.name, errors.join("; ")))?;
+    let args: Vec<OsString> = vec![
+        m.dir.join(&manifest.entry).into(),
+        "--home".into(),
+        layout.home.clone().into(),
+        "--module".into(),
+        m.name.clone().into(),
+        "--lifeline".into(),
+        "stdin".into(),
+        "--instance".into(),
+        instance_id.into(),
+    ];
+    Ok(ChildSpec {
+        role: m.name.clone(),
+        program: locate_node(layout),
+        args,
+        env: Vec::new(),
+        cwd: Some(m.dir.clone()),
+    })
+}
+
+/// How to start `role`'s child: [`core_spec`], or [`module_spec`] from the module's current `module.json`.
 pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<ChildSpec, String> {
     match role.kind {
         RoleKind::Core => core_spec(layout, instance_id),
-        RoleKind::Module => Err(format!("module {} cannot be spawned yet", role.name)),
+        RoleKind::Module => {
+            let installed = crate::modules::scan(layout)
+                .into_iter()
+                .find(|m| m.name == role.name)
+                .ok_or_else(|| format!("module {} is not installed", role.name))?;
+            module_spec(layout, &installed, instance_id)
+        }
     }
 }
 
@@ -168,7 +205,7 @@ struct Ctx {
     /// The child's token file (`run/core.token` for the core).
     token: PathBuf,
     timing: Timing,
-    /// `logs/<role>.out.log`, shared by every generation's pumps.
+    /// `logs/<role>.out.log` (`logs/module-<name>.out.log` for a module), shared by every generation's pumps.
     out: Arc<Mutex<Option<RotatingFile>>>,
 }
 
@@ -183,7 +220,7 @@ fn slot_mut<'a>(st: &'a mut SupervisorState, name: &str) -> Option<&'a mut Slot>
 
 /// One spawned process.
 struct Gen {
-    /// The name of its slot.
+    /// The name of its slot: always the monitor's `ctx.role.name` (M1), never the spec's.
     role: String,
     pid: u32,
     started: Instant,
@@ -330,6 +367,7 @@ impl Monitor {
             let prev = slot.child.take();
             slot.child = Some(ChildState {
                 role: name.clone(),
+                kind: m.ctx.role.kind,
                 health: health_from(&status["process"]).unwrap_or(Health::Starting),
                 since_ms: now_ms(),
                 pid: Some(pid),
@@ -340,6 +378,7 @@ impl Monitor {
                 next_restart_at_ms: None,
             });
             slot.lifeline = Lifeline::Connection;
+            broadcast_module_state(&m.shared, slot);
         }
         m.shared.log.info(
             &format!("{name} adopted"),
@@ -363,7 +402,11 @@ impl Monitor {
                 st.config.log_keep,
             )
         };
-        let out_path = layout.out_log(&role.name);
+        // `logs/core.out.log`; a module's is `logs/module-<name>.out.log`, beside the `module-<name>.log` it writes.
+        let out_path = match role.kind {
+            RoleKind::Core => layout.out_log(&role.name),
+            RoleKind::Module => layout.out_log(&format!("module-{}", role.name)),
+        };
         let out = match RotatingFile::open(&out_path, max_bytes, keep) {
             Ok(f) => Some(f),
             Err(e) => {
@@ -429,6 +472,9 @@ impl Monitor {
         self.spawned = true;
         let spec = with_instance(base, &instance_id);
         let mut cmd = Command::new(&spec.program);
+        if let Some(dir) = &spec.cwd {
+            cmd.current_dir(dir);
+        }
         cmd.args(&spec.args)
             .envs(spec.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
@@ -451,7 +497,7 @@ impl Monitor {
             Err(e) => {
                 self.shared.log.error(
                     &format!("{name} spawn failed"),
-                    json!({ "child": spec.role, "program": spec.program.display().to_string(), "err": e.to_string() }),
+                    json!({ "child": name, "program": spec.program.display().to_string(), "err": e.to_string() }),
                 );
                 if let Some(slot) = slot_mut(&mut self.shared.lock(), &name) {
                     let restarts = slot
@@ -459,7 +505,7 @@ impl Monitor {
                         .as_ref()
                         .map_or(0, |c| c.restarts + u32::from(restart));
                     slot.child
-                        .get_or_insert_with(|| fresh_child(&spec.role))
+                        .get_or_insert_with(|| fresh_child(&self.ctx.role))
                         .restarts = restarts;
                 }
                 record_exit(&self.shared, &name, None, None, None, false, None);
@@ -471,7 +517,7 @@ impl Monitor {
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
         let gen = Arc::new(Gen {
-            role: spec.role.clone(),
+            role: name.clone(),
             pid,
             started: Instant::now(),
             process: Mutex::new(Some(child)),
@@ -492,7 +538,8 @@ impl Monitor {
         if let Some(slot) = slot_mut(&mut self.shared.lock(), &name) {
             let prev = slot.child.take();
             slot.child = Some(ChildState {
-                role: spec.role.clone(),
+                role: name.clone(),
+                kind: self.ctx.role.kind,
                 health: Health::Starting,
                 since_ms: now_ms(),
                 pid: Some(pid),
@@ -503,13 +550,14 @@ impl Monitor {
                 next_restart_at_ms: None,
             });
             slot.lifeline = Lifeline::Stdin;
+            broadcast_module_state(&self.shared, slot);
         }
         self.shared.log.info(
             &format!("{name} spawned"),
-            json!({ "child": spec.role, "pid": pid, "instanceId": instance_id }),
+            json!({ "child": name, "pid": pid, "instanceId": instance_id }),
         );
         self.current = Some(gen.clone());
-        for (name, stream) in [
+        for (stream_name, stream) in [
             (
                 "stdout",
                 stdout.map(|s| Box::new(s) as Box<dyn Read + Send>),
@@ -521,19 +569,17 @@ impl Monitor {
         ] {
             if let Some(stream) = stream {
                 let out = self.ctx.out.clone();
-                self.start_thread(&format!("{}-{name}-{pid}", spec.role), move || {
+                self.start_thread(&format!("{name}-{stream_name}-{pid}"), move || {
                     pump(stream, &out)
                 });
             }
         }
         let (s, c, g) = (self.shared.clone(), self.ctx.clone(), gen.clone());
-        self.start_thread(&format!("{}-health-{pid}", spec.role), move || {
+        self.start_thread(&format!("{name}-health-{pid}"), move || {
             health_loop(&s, &c, &g)
         });
         let (s, c, g) = (self.shared.clone(), self.ctx.clone(), gen);
-        self.start_thread(&format!("{}-waiter-{pid}", spec.role), move || {
-            waiter(&s, &c, &g)
-        });
+        self.start_thread(&format!("{name}-waiter-{pid}"), move || waiter(&s, &c, &g));
     }
 
     fn start_thread<F: FnOnce() + Send + 'static>(&self, name: &str, f: F) {
@@ -548,9 +594,15 @@ impl Monitor {
     /// The stop sequence: `core.shutdown { budgetMs }` on the control connection (or a fresh one), wait until
     /// `budget` + 5 s × scale after the call, then kill. Returns once the process has exited (or could not be made to).
     pub fn stop(&mut self, budget: Duration) {
-        // A hard limit: everything below, delivery of `core.shutdown` included, fits in budget + grace; only the
-        // reaping after a kill may add up to POST_KILL_WAIT.
         let deadline = Instant::now() + budget + self.ctx.timing.stop_grace;
+        self.stop_until(budget, deadline);
+    }
+
+    /// [`Monitor::stop`] against a `deadline` shared with other children (`daemon.stop` stops every child inside one
+    /// budget, M3): the child is asked to finish within `budget` and killed at `deadline`.
+    pub fn stop_until(&mut self, budget: Duration, deadline: Instant) {
+        // A hard limit: everything below, delivery of `core.shutdown` included, fits before the deadline; only the
+        // reaping after a kill may add up to POST_KILL_WAIT.
         let name = self.ctx.role.name.clone();
         if let Some(slot) = slot_mut(&mut self.shared.lock(), &name) {
             slot.restart_at = None;
@@ -566,7 +618,9 @@ impl Monitor {
         }
         gen.requested.store(true, Ordering::SeqCst);
         set_health(&self.shared, &gen, Health::Stopping, true);
-        let budget_ms = budget.as_millis().min(120_000) as u64;
+        // Whole milliseconds, rounded up: a budget that has only lost microseconds on its way here stays what the
+        // caller gave.
+        let budget_ms = budget.as_micros().div_ceil(1000).min(120_000) as u64;
         self.shared.log.info(
             &format!("stopping {name}"),
             json!({ "pid": gen.pid, "budgetMs": budget_ms }),
@@ -671,8 +725,14 @@ fn wait_exited(gen: &Gen, deadline: Instant) -> bool {
     true
 }
 
-/// H3-R11: the child cannot be spawned at all (core.js missing). The supervisor stays up and shows the child as
-/// crashed for good (`config-invalid`, no restart scheduled) until `daemon.start` finds it spawnable.
+/// How long [`Monitor::stop`] waits past the budget before it kills (5 s × `scale`).
+pub fn stop_grace(scale: f64) -> Duration {
+    Timing::new(scale, 5_000).stop_grace
+}
+
+/// H3-R11: the child cannot be spawned at all (core.js missing, or a module whose manifest became invalid). The
+/// supervisor stays up and shows the child as crashed for good (`config-invalid` for the core, `manifest-invalid` for
+/// a module, no restart scheduled) until `daemon.start` finds it spawnable.
 pub fn mark_unspawnable(shared: &Shared, role: &str, err: &str) {
     shared.log.error(
         "cannot spawn the child",
@@ -684,31 +744,30 @@ pub fn mark_unspawnable(shared: &Shared, role: &str, err: &str) {
         return;
     };
     slot.restart_at = None;
-    let c = slot.child.get_or_insert_with(|| fresh_child(role));
+    let reason = match slot.role.kind {
+        RoleKind::Core => CrashReason::ConfigInvalid,
+        RoleKind::Module => CrashReason::ManifestInvalid,
+    };
+    let role = slot.role.clone();
+    let c = slot.child.get_or_insert_with(|| fresh_child(&role));
     c.health = Health::Crashed {
         code: None,
         signal: None,
         at,
-        reason: Some(CrashReason::ConfigInvalid.to_string()),
+        reason: Some(reason.to_string()),
     };
     c.since_ms = at;
     c.pid = None;
     c.instance_id = None;
     c.next_restart_at_ms = None;
     slot.lifeline = Lifeline::None;
+    broadcast_module_state(shared, slot);
 }
 
-fn fresh_child(role: &str) -> ChildState {
+fn fresh_child(role: &Role) -> ChildState {
     ChildState {
-        role: role.to_string(),
-        health: Health::Starting,
         since_ms: now_ms(),
-        pid: None,
-        instance_id: None,
-        adopted: false,
-        restarts: 0,
-        last_exit: None,
-        next_restart_at_ms: None,
+        ..ChildState::fresh(role)
     }
 }
 
@@ -763,11 +822,14 @@ fn set_health(shared: &Shared, gen: &Gen, health: Health, force: bool) {
     if !force && gen.requested.load(Ordering::SeqCst) {
         return;
     }
-    let child = slot_mut(&mut st, &gen.role).and_then(|s| s.child.as_mut());
-    if let Some(c) = child.filter(|c| c.pid == Some(gen.pid)) {
+    let Some(slot) = slot_mut(&mut st, &gen.role) else {
+        return;
+    };
+    if let Some(c) = slot.child.as_mut().filter(|c| c.pid == Some(gen.pid)) {
         if c.health != health {
             c.health = health;
             c.since_ms = now_ms();
+            broadcast_module_state(shared, slot);
         }
     }
 }
@@ -816,6 +878,24 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
             return;
         }
     };
+    // B12: a module must say it is the module the manifest describes; one that does not is killed (a crash, which
+    // backs off like any other).
+    if ctx.role.kind == RoleKind::Module {
+        let api = shared
+            .lock()
+            .slot(&ctx.role.name)
+            .and_then(|s| s.api_version.clone());
+        if let Some(reason) =
+            super::adopt::identity_mismatch(client.hello(), &ctx.role, api.as_deref())
+        {
+            shared.log.warn(
+                &format!("{} reports another identity, killing", gen.role),
+                json!({ "pid": gen.pid, "reason": reason, "hello": client.hello()["module"] }),
+            );
+            gen.kill();
+            return;
+        }
+    }
     let status = client.call(&ctx.role.method("status"), json!({})).ok();
     let first = (
         status
@@ -920,7 +1000,9 @@ fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
 /// `config.restartPending`; one requested restart is queued per generation (none while a stop or another restart job
 /// is on its way: that one replaces this process anyway).
 fn check_restart_pending(shared: &Shared, ctx: &Ctx, gen: &Gen, status: &Value) {
-    if status["config"]["restartPending"] != true
+    // Only the core reports `config.restartPending`; a module's config changes are restarted by the plan (Task 10).
+    if ctx.role.kind != RoleKind::Core
+        || status["config"]["restartPending"] != true
         || gen.requested.load(Ordering::SeqCst)
         || gen.pending_pushed.load(Ordering::SeqCst)
     {
@@ -932,15 +1014,9 @@ fn check_restart_pending(shared: &Shared, ctx: &Ctx, gen: &Gen, status: &Value) 
             return;
         }
     }
-    let plan = match ctx.role.kind {
-        RoleKind::Core => plur1bus_config::Restart {
-            core: true,
-            ..Default::default()
-        },
-        RoleKind::Module => plur1bus_config::Restart {
-            modules: vec![ctx.role.name.clone()],
-            ..Default::default()
-        },
+    let plan = plur1bus_config::Restart {
+        core: true,
+        ..Default::default()
     };
     if super::push_restart(shared, plan).is_some() {
         gen.pending_pushed.store(true, Ordering::SeqCst);
@@ -1094,10 +1170,12 @@ fn signal_name(n: i32) -> String {
     format!("SIG{n}")
 }
 
-/// Classifies an exit (S9) and updates the child: `Requested` → stopped; `Fatal` → crashed, no restart;
-/// `Retryable` → crashed with a restart scheduled in the slot's `restart_at`, or crashed for good once its backoff
-/// gives up. `gen.exited` flips under the same lock, so the scheduler and the stop sequence see the final state. `gen`
-/// is `None` for a spawn that failed. `role` names the slot.
+/// Classifies an exit (S9, per role: [`classify_exit_for`]) and applies the slot's restart policy
+/// ([`apply_policy`]), then updates the child: `Requested` or `Exited` → stopped; `Fatal` or `Final` → crashed, no
+/// restart; `Retryable` → crashed with a restart scheduled in the slot's `restart_at`, or crashed for good once its
+/// backoff gives up. `gen.exited` flips under the same lock, so the scheduler and the stop sequence see the final
+/// state. `gen` is `None` for a spawn that failed. `role` names the slot. A module's change is broadcast
+/// (`module.state`).
 fn record_exit(
     shared: &Shared,
     role: &str,
@@ -1128,7 +1206,12 @@ fn record_exit(
         reason: reason.clone(),
     };
     let restarting = gen.is_some_and(|g| g.restarting.load(Ordering::SeqCst));
-    let (health, reason, next) = match classify_exit(code, signal, requested) {
+    let class = apply_policy(
+        classify_exit_for(slot.role.kind, code, signal, requested),
+        slot.policy,
+        code,
+    );
+    let (health, reason, next) = match class {
         // A requested restart's exit is recorded with the reason `none`: not a crash, and nothing more specific.
         ExitClass::Requested if restarting => (
             Health::Stopped { reason: None },
@@ -1136,8 +1219,13 @@ fn record_exit(
             None,
         ),
         ExitClass::Requested => (Health::Stopped { reason: None }, None, None),
+        ExitClass::Exited => (Health::Stopped { reason: None }, None, None),
         ExitClass::Fatal { reason } => {
             let reason = Some(reason);
+            (crashed(&reason), reason, None)
+        }
+        ExitClass::Final { reason } => {
+            let reason = forced.map(|r| r.to_string()).or(reason);
             (crashed(&reason), reason, None)
         }
         ExitClass::Retryable { reason } => {
@@ -1159,7 +1247,8 @@ fn record_exit(
         }
     };
     let state = health.to_process_state(at)["state"].clone();
-    let c = slot.child.get_or_insert_with(|| fresh_child(role));
+    let slot_role = slot.role.clone();
+    let c = slot.child.get_or_insert_with(|| fresh_child(&slot_role));
     c.health = health;
     c.since_ms = at;
     c.pid = None;
@@ -1172,6 +1261,7 @@ fn record_exit(
     });
     c.next_restart_at_ms = next;
     slot.lifeline = Lifeline::None;
+    broadcast_module_state(shared, slot);
     if let Some(g) = gen {
         mark_exited(g);
     }
@@ -1231,6 +1321,56 @@ mod tests {
         assert_eq!(instance_of(&spec).as_deref(), Some(id));
         let other = with_instance(&spec, "x");
         assert_eq!(instance_of(&other).as_deref(), Some("x"));
+    }
+
+    #[test]
+    fn module_spec_runs_the_entry_in_its_own_directory_with_home_module_lifeline_and_instance() {
+        let home = std::env::temp_dir().join(format!("p1b mod ü {}", std::process::id()));
+        let layout = Layout::new(home.clone());
+        let dir = home.join("modules").join("fixture");
+        let raw = json!({ "name": "fixture", "version": "0.1.0", "apiVersion": "1", "entry": "dist/index.js",
+            "scope": "installation", "priority": 500 })
+        .to_string();
+        let m = Installed {
+            name: "fixture".into(),
+            dir: dir.clone(),
+            manifest: crate::modules::parse_manifest(&raw),
+        };
+        let id = "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234";
+        let spec = module_spec(&layout, &m, id).unwrap();
+        assert_eq!(spec.role, "fixture");
+        assert_eq!(spec.cwd.as_deref(), Some(dir.as_path()));
+        let args: Vec<String> = spec
+            .args
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            args,
+            [
+                dir.join("dist/index.js").to_string_lossy().into_owned(),
+                "--home".into(),
+                home.to_string_lossy().into_owned(),
+                "--module".into(),
+                "fixture".into(),
+                "--lifeline".into(),
+                "stdin".into(),
+                "--instance".into(),
+                id.into(),
+            ]
+        );
+        assert_eq!(instance_of(&spec).as_deref(), Some(id));
+        // An invalid manifest cannot be spawned; spec_for says so for a module that is not installed.
+        let broken = Installed {
+            manifest: Err(vec!["/priority too big".into()]),
+            ..m
+        };
+        assert!(module_spec(&layout, &broken, id)
+            .unwrap_err()
+            .contains("/priority too big"));
+        assert!(spec_for(&layout, &Role::module("fixture"), id)
+            .unwrap_err()
+            .contains("not installed"));
     }
 
     #[test]

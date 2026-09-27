@@ -34,12 +34,16 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
             "daemon.start",
             "daemon.status",
             "daemon.stop",
+            "module.watch",
             "supervisor.auth"
         ]
     );
     assert_eq!(
         caps["notifications"],
-        json!({ "config.changed": { "stability": "experimental", "since": "1.3.0" } })
+        json!({
+            "config.changed": { "stability": "experimental", "since": "1.3.0" },
+            "module.state": { "stability": "experimental", "since": "1.3.0" }
+        })
     );
     assert_eq!(caps["extensionPoints"], json!({}));
     assert_eq!(caps["features"], json!(["adoption", "lifelines"]));

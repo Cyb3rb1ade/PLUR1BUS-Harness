@@ -51,6 +51,7 @@ fn method_fixture(name: &str, f: &Value) {
         "config.get" => pair::<ConfigGetParams, ConfigGetResult>(name, f),
         "config.set" => pair::<ConfigSetParams, ConfigSetResult>(name, f),
         "config.watch" => pair::<ConfigWatchParams, ConfigWatchResult>(name, f),
+        "module.watch" => pair::<ModuleWatchParams, ModuleWatchResult>(name, f),
         "module.auth" => pair::<ModuleAuthParams, ModuleAuthResult>(name, f),
         "module.status" => pair::<ModuleStatusParams, ModuleStatusResult>(name, f),
         "module.adopt" => pair::<ModuleAdoptParams, ModuleAdoptResult>(name, f),
@@ -142,6 +143,7 @@ fn every_method_fixture_round_trips() {
         "config.get",
         "config.set",
         "config.watch",
+        "module.watch",
     ] {
         assert!(names.contains(m), "fixtures/methods/{m}.json is missing");
     }
@@ -198,6 +200,7 @@ fn every_notification_fixture_round_trips() {
                 round_trip::<types::EmbeddingIdentityChangedNotification>(v, name)
             }
             "config.changed" => round_trip::<types::ConfigChangedNotification>(v, name),
+            "module.state" => round_trip::<types::ModuleStateNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }
