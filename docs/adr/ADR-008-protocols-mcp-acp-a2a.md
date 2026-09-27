@@ -80,6 +80,14 @@ Ordering guarantee: events MUST be delivered in generation order and MUST NOT be
 
 **Security.** TLS always (`:1879`). Card security schemes (API key / HTTP / OAuth2 / OIDC / mTLS, `§4.5.2–4.5.6`) map onto harness users and API tokens and then onto RBAC through the single `authorize()` chokepoint (ADR-007). Rate limits per remote peer and per token. Everything reachable only through the harness API — no separate listener.
 
+**Amendment 2026-09-27 (spec D63; gap analysis against OpenClaw `extensions/a2a`, v2026.9.6).** Before implementation in M6 the A2A subsystem additionally commits to:
+- **SSRF guard on every outbound A2A request** (card fetch, `SendMessage`, streaming): no automatic redirects; loopback, private, link-local and metadata address ranges are refused after DNS resolution unless the remote agent is explicitly registered with `network: "local"`; the resolved address is pinned for the request.
+- **Server limits:** per-peer and per-token rate limit (default 60 requests/minute), request body cap 1 MiB, JSON-RPC batch cap 30, streaming connection cap per peer; violations answer the spec's error codes and are audited.
+- **Cancellation:** `CancelTask` maps onto the harness session's abort signal; a task that cannot be cancelled any more answers `TaskNotCancelableError`. No silent success.
+- **Configuration** (per agent under `a2a`): `serverOptIn`, `advertisedUrl`, `replyTimeoutMs`, `rateLimitPerMinute`, `exposeSkills`; global `a2a.peers{<id>: {cardUrl, auth, trust, network}}` replacing the bare `clientAllowlist`.
+- **Compatibility:** a read-only server shim for A2A 0.3 dotted method names (`message/send`, `tasks/get`) because deployed OpenClaw peers still speak them; our client speaks 1.0.0 only.
+- **Spike before build:** confirm `@a2a-js/sdk` serves one Agent Card and one task store per exposed agent under `/a2a/<agent>/`; otherwise wrap one SDK instance per agent.
+
 ### Conformance test plan
 
 | Target | Method | Gate |
