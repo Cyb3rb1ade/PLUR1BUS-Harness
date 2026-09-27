@@ -46,7 +46,7 @@ pub fn enabled(modules_config: &Value, name: &str) -> bool {
 
 /// The `$defs/ModuleListEntry` of every installed module, in scan order, with `child: null` (the supervisor fills in
 /// its child and the last polled `detail`). `errors`: the manifest's errors, why a valid module is left out of the
-/// start order, and an unsupported `apiVersion`.
+/// start order, an unsupported `apiVersion`, and a `modules.<name>` that does not satisfy its `configSchema` (M7).
 pub fn list_entries(installed: &[Installed], modules_config: &Value) -> Vec<Value> {
     let order = start_order(installed);
     let graph = graph(installed);
@@ -62,6 +62,10 @@ pub fn list_entries(installed: &[Installed], modules_config: &Value) -> Vec<Valu
                     } else {
                         excluded_because(&i.name, m, &graph, &order)
                     };
+                    let section = without_enabled(&modules_config[&i.name]);
+                    if !section.is_null() {
+                        errors.extend(section_errors(&i.name, m, &section));
+                    }
                     if !api_version_supported(&m.api_version, current) {
                         errors.push(format!(
                             "apiVersion {} is not supported (current {current}, previous {})",
@@ -93,29 +97,48 @@ pub fn config_errors(installed: &[Installed], before: &Value, after: &Value) -> 
     let mut errors = Vec::new();
     for i in installed {
         let Ok(m) = &i.manifest else { continue };
-        let Some(schema) = &m.config_schema else {
-            continue;
-        };
-        let section = &after["modules"][&i.name];
-        if section.is_null() || *section == before["modules"][&i.name] {
+        let section = without_enabled(&after["modules"][&i.name]);
+        // I1: `enabled` is compared away too, so flipping only the switch never re-validates the section.
+        if section.is_null() || section == without_enabled(&before["modules"][&i.name]) {
             continue;
         }
-        let mut value = section.clone();
-        if let Some(o) = value.as_object_mut() {
-            o.remove("enabled");
-        }
-        match jsonschema::options().build(schema) {
-            Err(e) => errors.push(format!(
-                "modules.{}: the module's configSchema is not a valid schema: {e}",
-                i.name
-            )),
-            Ok(v) => errors.extend(v.iter_errors(&value).map(|e| {
-                let path = e.instance_path.to_string().replace('/', ".");
-                format!("modules.{}{path}: {e}", i.name)
-            })),
-        }
+        errors.extend(section_errors(&i.name, m, &section));
     }
     errors
+}
+
+/// A `modules.<name>` section without `enabled` (the supervisor's switch, never the module's).
+fn without_enabled(section: &Value) -> Value {
+    let mut value = section.clone();
+    if let Some(o) = value.as_object_mut() {
+        o.remove("enabled");
+    }
+    value
+}
+
+/// Why `section` (without `enabled`) does not satisfy module `name`'s `configSchema`; nothing without one.
+fn section_errors(name: &str, m: &Manifest, section: &Value) -> Vec<String> {
+    let Some(schema) = &m.config_schema else {
+        return Vec::new();
+    };
+    match jsonschema::options().build(schema) {
+        Err(e) => vec![format!(
+            "modules.{name}: the module's configSchema is not a valid schema: {e}"
+        )],
+        Ok(v) => v
+            .iter_errors(section)
+            .map(|e| {
+                let path = e.instance_path.to_string().replace('/', ".");
+                format!("modules.{name}{path}: {e}")
+            })
+            .collect(),
+    }
+}
+
+/// M7: every `modules.<name>` that does not satisfy its module's `configSchema` now, whether it changed or not (a hand
+/// edit made while no supervisor ran, or a reinstall with a stricter schema). Reported, never refused.
+pub fn current_config_errors(installed: &[Installed], config: &Value) -> Vec<String> {
+    config_errors(installed, &json!({}), config)
 }
 
 #[cfg(test)]
@@ -152,6 +175,15 @@ mod tests {
         // An unchanged section is not checked again (a module installed later cannot block unrelated sets).
         let bad = cfg(json!({ "crashAfterMs": -1 }));
         assert!(config_errors(&mods, &bad, &bad).is_empty());
+        // I1: flipping only `enabled` over a section that is already invalid is not validated again.
+        let off = cfg(json!({ "crashAfterMs": -1, "enabled": false }));
+        assert!(config_errors(&mods, &bad, &off).is_empty());
+        assert!(config_errors(&mods, &off, &bad).is_empty());
+        // …but changing anything else in it is.
+        let other = cfg(json!({ "crashAfterMs": -2, "enabled": false }));
+        assert_eq!(config_errors(&mods, &off, &other).len(), 1);
+        // M7: the current configuration is checked whole.
+        assert_eq!(current_config_errors(&mods, &off).len(), 1);
         // Not installed: nothing to check against.
         assert!(config_errors(&[], &none, &bad).is_empty());
     }

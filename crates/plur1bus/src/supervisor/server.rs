@@ -595,29 +595,42 @@ impl ConnCtx {
             .unwrap_or(DEFAULT_STOP_BUDGET);
         let scale = self.shared.lock().time_scale;
         let wait = budget + super::child::stop_grace(scale) + MODULE_OP_SLACK;
-        let rx = match super::push_module_op(&self.shared, name, verb, budget) {
-            Ok(rx) => rx,
+        let op = match super::push_module_op(&self.shared, name, verb, budget) {
+            Ok(op) => op,
             Err(e) => return op_error_reply(id, e),
         };
-        match rx.recv_timeout(wait) {
-            Ok(Ok(v)) => result_reply(id, v),
-            Ok(Err(e)) => op_error_reply(id, e),
-            Err(mpsc::RecvTimeoutError::Disconnected) => op_error_reply(
+        let stopping = || {
+            op_error_reply(
                 id,
                 OpError::new(
                     "E_NOT_AVAILABLE",
                     "the supervisor is stopping",
                     Some("stopping"),
                 ),
-            ),
-            Err(mpsc::RecvTimeoutError::Timeout) => error_reply(
+            )
+        };
+        match op.rx.recv_timeout(wait) {
+            Ok(Ok(v)) => return result_reply(id, v),
+            Ok(Err(e)) => return op_error_reply(id, e),
+            Err(mpsc::RecvTimeoutError::Disconnected) => return stopping(),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+        // M5: not started yet → cancelled, it never runs; already running → its result is waited for (the call
+        // itself is bounded by its stop budget), so a reported failure never runs afterwards.
+        if super::modules::cancel_op(&op.state) {
+            return error_reply(
                 id,
-                "E_INTERNAL",
-                "the supervisor did not finish the call in time",
-                Some("timeout"),
+                "E_NOT_AVAILABLE",
+                "the supervisor was busy; the call was cancelled and nothing changed",
+                Some("busy"),
                 None,
                 None,
-            ),
+            );
+        }
+        match op.rx.recv() {
+            Ok(Ok(v)) => result_reply(id, v),
+            Ok(Err(e)) => op_error_reply(id, e),
+            Err(_) => stopping(),
         }
     }
 

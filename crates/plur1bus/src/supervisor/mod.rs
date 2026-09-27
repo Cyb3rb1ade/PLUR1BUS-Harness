@@ -626,6 +626,17 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             json!({ "errors": r.errors }),
         );
     }
+    if !config_state.module_errors.is_empty() {
+        log.warn(
+            "module configuration does not satisfy its configSchema",
+            json!({ "errors": config_state.module_errors }),
+        );
+    }
+    // M6: an install or uninstall that crashed left staging directories; a copy moved aside goes back.
+    let recovered = crate::modules::install::recover(layout);
+    if !recovered.is_empty() {
+        log.info("module staging recovered", json!({ "actions": recovered }));
+    }
     // A write that crashed before its rename left its temp file; this process owns config.json now.
     let stale = plur1bus_config::remove_stale_temps(&layout.config_path());
     if !stale.is_empty() {

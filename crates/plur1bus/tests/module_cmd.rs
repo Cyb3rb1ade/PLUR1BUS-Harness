@@ -369,6 +369,9 @@ fn install_refuses_escaping_entries_symlinks_and_reserved_names_and_copies_nothi
             "manifest-invalid",
         ),
         (h.dir.path().join("does-not-exist"), "not-a-directory"),
+        // M8: Windows device names are reserved on every OS.
+        (h.source("con", json!({ "name": "con" })), "reserved-name"),
+        (h.source("lpt1", json!({ "name": "lpt1" })), "reserved-name"),
     ];
     #[cfg(unix)]
     {
@@ -380,6 +383,26 @@ fn install_refuses_escaping_entries_symlinks_and_reserved_names_and_copies_nothi
         let outer = h.dir.path().join("src/outer-link");
         std::os::unix::fs::symlink(&target, &outer).unwrap();
         cases.push((outer, "symlink"));
+        // M2: a FIFO (any special file) is refused as user input, and never opened.
+        let fifo = h.source("fifo", json!({}));
+        let path = std::ffi::CString::new(fifo.join("pipe").to_str().unwrap()).unwrap();
+        // SAFETY: mkfifo on a NUL-terminated path in the test's own scratch directory.
+        assert_eq!(unsafe { libc::mkfifo(path.as_ptr(), 0o600) }, 0);
+        cases.push((fifo, "not-a-regular-file"));
+    }
+    #[cfg(windows)]
+    {
+        // A junction (a mount-point reparse point, no privilege needed) is refused like a symlink.
+        let inner = h.source("junction", json!({}));
+        let target = h.source("junction-target", json!({}));
+        let made = Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(inner.join("lib"))
+            .arg(&target)
+            .output()
+            .unwrap();
+        assert!(made.status.success(), "{made:?}");
+        cases.push((inner, "symlink"));
     }
     for (src, reason) in cases {
         let (code, v) = h.cli(&["module", "install", path_str(&src)]);
@@ -619,7 +642,8 @@ fn a_module_config_violating_its_config_schema_is_rejected() {
         ],
         "config.set",
     );
-    // A hand edit is rejected and the module keeps running on the running configuration.
+    // A hand edit is rejected and the module keeps running on the running configuration: the same process.
+    let running = ready(&mut c, "fixture");
     let mut cfg: Value =
         serde_json::from_slice(&std::fs::read(h.home.join("config.json")).unwrap()).unwrap();
     cfg["modules"]["fixture"]["crashAfterMs"] = json!(-5);
@@ -640,9 +664,16 @@ fn a_module_config_violating_its_config_schema_is_rejected() {
         rejected["errors"].to_string().contains("crashAfterMs"),
         "{rejected}"
     );
+    std::thread::sleep(Duration::from_millis(300)); // a few health intervals: a restart would show by now
     let m = ready(&mut c, "fixture");
-    assert_ne!(m["pid"], Value::Null);
-    let _ = first;
+    assert_eq!(
+        m["pid"], running["pid"],
+        "the rejected edit restarted the module"
+    );
+    assert_ne!(
+        running["pid"], first["pid"],
+        "the accepted set restarted it"
+    );
     stop(&mut s, &mut c);
 }
 
@@ -752,7 +783,6 @@ fn uninstall_stops_and_removes_but_keeps_the_config() {
                 .is_ok_and(|s| s.contains(") Z")),
         "the module process still runs"
     );
-    let _ = m;
     let cfg: Value =
         serde_json::from_slice(&std::fs::read(h.home.join("config.json")).unwrap()).unwrap();
     assert_eq!(cfg["modules"]["fixture"]["greeting"], "kept");
@@ -771,4 +801,169 @@ fn uninstall_stops_and_removes_but_keeps_the_config() {
         "module.uninstall",
     );
     assert!(h.modules_listing().is_empty());
+}
+
+/// I2: an offline install or uninstall holds the supervisor's single-instance lock (refused while a supervisor holds
+/// it, i.e. is starting), and is refused while a process of that module still runs without a supervisor.
+#[test]
+fn offline_install_and_uninstall_refuse_while_a_supervisor_starts_or_the_module_runs() {
+    let h = Home::new();
+    h.ok(
+        &["module", "install", path_str(&fixture_dist())],
+        "module.install",
+    );
+    let v2 = h.source("v2", json!({ "version": "0.2.0" }));
+    let manifest = std::fs::read(h.home.join("modules/fixture/module.json")).unwrap();
+    let unchanged = |h: &Home| {
+        assert_eq!(h.modules_listing(), ["fixture"]);
+        assert_eq!(
+            std::fs::read(h.home.join("modules/fixture/module.json")).unwrap(),
+            manifest
+        );
+    };
+    {
+        // What `supervise` holds from its start on.
+        let lock = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(h.home.join("run/supervisor.lock"))
+            .unwrap();
+        lock.try_lock().unwrap();
+        let (code, v) = h.cli(&["module", "install", path_str(&v2)]);
+        assert_eq!(
+            (code, &v["reason"]),
+            (1, &json!("supervisor-running")),
+            "{v}"
+        );
+        let (code, v) = h.cli(&["module", "uninstall", "fixture", "--yes"]);
+        assert_eq!(
+            (code, &v["reason"]),
+            (1, &json!("supervisor-running")),
+            "{v}"
+        );
+        unchanged(&h);
+    }
+    // An orphaned module process (this test's own pid stands in for it).
+    let pid_file = h.home.join("run/module-fixture.pid");
+    std::fs::write(&pid_file, format!("{} some-instance\n", std::process::id())).unwrap();
+    let (code, v) = h.cli(&["module", "install", path_str(&v2)]);
+    assert_eq!((code, &v["reason"]), (1, &json!("module-running")), "{v}");
+    let (code, v) = h.cli(&["module", "uninstall", "fixture", "--yes"]);
+    assert_eq!((code, &v["reason"]), (1, &json!("module-running")), "{v}");
+    unchanged(&h);
+    std::fs::remove_file(&pid_file).unwrap();
+    let v = h.ok(&["module", "install", path_str(&v2)], "module.install");
+    assert_eq!(v["replaced"], true);
+    h.ok(
+        &["module", "uninstall", "fixture", "--yes"],
+        "module.uninstall",
+    );
+}
+
+/// M3: a running module whose module.json became invalid can still be stopped by name.
+#[test]
+fn stop_works_for_a_running_module_whose_manifest_became_invalid() {
+    let h = Home::new();
+    h.ok(
+        &["module", "install", path_str(&fixture_dist())],
+        "module.install",
+    );
+    let mut s = h.start();
+    let mut c = client(&h.home);
+    let m = ready(&mut c, "fixture");
+    std::fs::write(h.home.join("modules/fixture/module.json"), "{ broken").unwrap();
+    h.ok(&["module", "stop", "fixture"], "module.stop");
+    let st = wait_for(&mut c, "fixture", "stopped", |x| state(x) == "stopped");
+    assert_eq!(child(&st, "fixture").unwrap()["pid"], Value::Null, "{st}");
+    #[cfg(target_os = "linux")]
+    assert!(
+        std::fs::read_to_string(format!("/proc/{}/stat", m["pid"]))
+            .map_or(true, |s| s.contains(") Z")),
+        "the module process still runs"
+    );
+    let _ = m;
+    // It cannot be started again while its manifest is invalid.
+    let (code, v) = h.cli(&["module", "start", "fixture"]);
+    assert_eq!((code, &v["reason"]), (1, &json!("manifest-invalid")), "{v}");
+    stop(&mut s, &mut c);
+}
+
+/// H3B-R28: a need stopped by `module stop` holds its dependents back as needs-unavailable; starting it releases them.
+#[test]
+fn a_need_stopped_by_request_holds_its_dependents() {
+    let h = Home::new();
+    h.ok(
+        &["module", "install", path_str(&fixture_dist())],
+        "module.install",
+    );
+    let dependent = h.source(
+        "fixture-b",
+        json!({ "name": "fixture-b", "needs": ["core", "fixture"] }),
+    );
+    h.ok(
+        &["module", "install", path_str(&dependent)],
+        "module.install",
+    );
+    let mut s = h.start();
+    let mut c = client(&h.home);
+    ready(&mut c, "fixture");
+    let b = ready(&mut c, "fixture-b");
+    h.ok(&["module", "stop", "fixture"], "module.stop");
+    let st = wait_for(&mut c, "fixture-b", "held back", |m| {
+        state(m) == "stopped" && m["process"]["reason"] == "needs-unavailable"
+    });
+    assert_eq!(
+        child(&st, "fixture").unwrap()["process"]["reason"],
+        "stopped-by-request"
+    );
+    let (code, v) = h.cli(&["module", "start", "fixture-b"]);
+    assert_eq!(
+        (code, &v["reason"]),
+        (1, &json!("needs-unavailable")),
+        "{v}"
+    );
+    h.ok(&["module", "start", "fixture"], "module.start");
+    ready(&mut c, "fixture");
+    let again = ready(&mut c, "fixture-b");
+    assert_ne!(again["pid"], b["pid"]);
+    stop(&mut s, &mut c);
+}
+
+/// I1 and M7 without a supervisor: `enabled` can be flipped over a section that already fails the module's
+/// configSchema (the switch is the supervisor's), and `module list` reports the section's errors.
+#[test]
+fn enabled_flips_over_a_section_that_fails_the_config_schema() {
+    let h = Home::new();
+    h.ok(
+        &["module", "install", path_str(&fixture_dist())],
+        "module.install",
+    );
+    // Written while nothing checked it (by hand, before the module was installed).
+    h.config(json!({ "fixture": { "crashAfterMs": -1 } }));
+    let list = h.ok(&["module", "list"], "module.list");
+    assert!(
+        entry(&list, "fixture")["errors"]
+            .to_string()
+            .contains("modules.fixture.crashAfterMs"),
+        "{list}"
+    );
+    h.ok(
+        &["config", "set", "modules.fixture.enabled", "false", "--yes"],
+        "config.set",
+    );
+    h.ok(
+        &["config", "set", "modules.fixture.enabled", "true", "--yes"],
+        "config.set",
+    );
+    let (code, v) = h.cli(&[
+        "config",
+        "set",
+        "--yes",
+        "--",
+        "modules.fixture.crashAfterMs",
+        "-2",
+    ]);
+    assert_eq!((code, &v["error"]), (1, &json!("E_CONFIG_INVALID")), "{v}");
 }

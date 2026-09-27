@@ -6,7 +6,34 @@ use serde_json::Value;
 use std::{collections::BTreeMap, fs, io, path::PathBuf, sync::OnceLock};
 
 pub const MODULE_API_VERSION: u32 = 1;
-pub const RESERVED_NAMES: &[&str] = &["core", "supervisor"];
+/// `core` and `supervisor` (the supervisor's own units), and the Windows device names (M8), refused on every OS so a
+/// manifest is portable.
+pub const RESERVED_NAMES: &[&str] = &[
+    "core",
+    "supervisor",
+    "con",
+    "prn",
+    "aux",
+    "nul",
+    "com1",
+    "com2",
+    "com3",
+    "com4",
+    "com5",
+    "com6",
+    "com7",
+    "com8",
+    "com9",
+    "lpt1",
+    "lpt2",
+    "lpt3",
+    "lpt4",
+    "lpt5",
+    "lpt6",
+    "lpt7",
+    "lpt8",
+    "lpt9",
+];
 pub const CORE_PROVIDES: &[&str] = &["memory", "agent", "jobs", "events"];
 pub const SCHEMA_JSON: &str =
     include_str!("../../../../packages/module-api/schema/manifest.schema.json");

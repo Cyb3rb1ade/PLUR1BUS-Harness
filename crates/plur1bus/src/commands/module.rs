@@ -33,6 +33,71 @@ fn modules_config(layout: &Layout) -> Value {
         .unwrap_or(Value::Null)
 }
 
+/// I2: an offline change of `modules/` holds the supervisor's single-instance lock (`run/supervisor.lock`) until it is
+/// done, so a supervisor cannot start (and scan `modules/`) half-way through it. A supervisor that holds the lock but
+/// did not answer is starting (or stopping): the command is refused and changes nothing.
+fn offline_lock(out: &Out, layout: &Layout) -> std::fs::File {
+    let run = layout.run();
+    let created = !run.exists();
+    let lock = std::fs::create_dir_all(&run)
+        .and_then(|_| {
+            #[cfg(unix)]
+            if created {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700))?;
+            }
+            let _ = created;
+            std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(layout.supervisor_lock())
+        })
+        .unwrap_or_else(|e| {
+            out.fail(
+                "E_INTERNAL",
+                &format!("cannot open {}: {e}", layout.supervisor_lock().display()),
+                json!({}),
+                1,
+            )
+        });
+    match lock.try_lock() {
+        Ok(()) => lock,
+        Err(std::fs::TryLockError::WouldBlock) => out.fail(
+            "E_NOT_AVAILABLE",
+            "a supervisor is starting or stopping; nothing was changed, re-run in a moment",
+            json!({ "reason": "supervisor-running" }),
+            1,
+        ),
+        Err(std::fs::TryLockError::Error(e)) => out.fail(
+            "E_INTERNAL",
+            &format!("cannot lock {}: {e}", layout.supervisor_lock().display()),
+            json!({}),
+            1,
+        ),
+    }
+}
+
+/// I2: the pid of a process of module `name` that still runs without a supervisor (orphaned inside its grace), from
+/// `run/module-<name>.pid`. Changing its directory now would leave it running the old code, or adopted later as the new
+/// version.
+fn running_pid(layout: &Layout, name: &str) -> Option<u32> {
+    std::fs::read_to_string(layout.run().join(format!("module-{name}.pid")))
+        .ok()
+        .and_then(|s| s.split_whitespace().next()?.parse::<u32>().ok())
+        .filter(|p| super::firstaid::pid_alive(*p))
+}
+
+fn module_running(out: &Out, name: &str, pid: u32) -> ! {
+    out.fail(
+        "E_NOT_AVAILABLE",
+        &format!("module {name} still runs (pid {pid}) without a supervisor; start the supervisor (`plur1bus daemon start`) or wait for it to exit"),
+        json!({ "reason": "module-running", "ids": { "pid": pid.to_string() } }),
+        1,
+    )
+}
+
 fn install_failed(out: &Out, e: &install::InstallError) -> ! {
     if e.is_io() {
         out.fail(
@@ -225,8 +290,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: ModuleCmd) {
                     json!({ "path": path.to_string_lossy() }),
                 ),
                 None => {
-                    let (m, replaced) = install::install(layout, Path::new(&path))
+                    let _lock = offline_lock(out, layout);
+                    let staged = install::stage(layout, Path::new(&path))
                         .unwrap_or_else(|e| install_failed(out, &e));
+                    let m = staged.manifest.clone();
+                    if let Some(pid) = running_pid(layout, &m.name) {
+                        drop(staged); // removes the staged copy: `out.fail` exits without running destructors
+                        module_running(out, &m.name, pid);
+                    }
+                    let replaced =
+                        install::commit(staged).unwrap_or_else(|e| install_failed(out, &e));
                     json!({ "name": m.name, "version": m.version, "replaced": replaced })
                 }
             };
@@ -251,6 +324,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ModuleCmd) {
             let v = match supervisor(out, layout) {
                 Some(mut c) => rpc(out, &mut c, "module.uninstall", json!({ "name": name })),
                 None => {
+                    let _lock = offline_lock(out, layout);
                     if install::installed_dir(layout, &name).is_none() {
                         out.fail(
                             "E_MODULE_UNKNOWN",
@@ -258,6 +332,9 @@ pub fn run(out: &Out, layout: &Layout, cmd: ModuleCmd) {
                             json!({}),
                             1,
                         );
+                    }
+                    if let Some(pid) = running_pid(layout, &name) {
+                        module_running(out, &name, pid);
                     }
                     install::uninstall(layout, &name).unwrap_or_else(|e| install_failed(out, &e));
                     json!({ "name": name, "removed": true })

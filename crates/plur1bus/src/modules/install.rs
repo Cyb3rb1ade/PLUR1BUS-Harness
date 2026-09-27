@@ -20,6 +20,8 @@ pub enum InstallError {
     Manifest(Vec<String>),
     /// A symlink in the source tree (the source itself included).
     Symlink(PathBuf),
+    /// A FIFO, socket or device file in the source tree: only directories and regular files are installed.
+    SpecialFile(PathBuf),
     /// `entry` is absolute or climbs out of the module directory.
     EntryOutside,
     /// The manifest names a reserved module (`core`, `supervisor`).
@@ -35,6 +37,7 @@ impl InstallError {
             InstallError::NotADirectory => "not-a-directory",
             InstallError::Manifest(_) => "manifest-invalid",
             InstallError::Symlink(_) => "symlink",
+            InstallError::SpecialFile(_) => "not-a-regular-file",
             InstallError::EntryOutside => "entry-outside",
             InstallError::Reserved => "reserved-name",
             InstallError::Io(_) => "io",
@@ -52,6 +55,9 @@ impl std::fmt::Display for InstallError {
             InstallError::NotADirectory => f.write_str("not a module directory"),
             InstallError::Manifest(errors) => write!(f, "invalid module: {}", errors.join("; ")),
             InstallError::Symlink(p) => write!(f, "symlinks are not installed: {}", p.display()),
+            InstallError::SpecialFile(p) => {
+                write!(f, "not a regular file or directory: {}", p.display())
+            }
             InstallError::EntryOutside => {
                 f.write_str("the manifest's entry leaves the module directory")
             }
@@ -112,27 +118,16 @@ fn walk(dir: &Path, out: &mut Vec<(PathBuf, bool)>) -> Result<(), InstallError> 
         } else if t.is_file() {
             out.push((path, false));
         } else {
-            return Err(InstallError::Io(format!(
-                "not a regular file or directory: {}",
-                path.display()
-            )));
+            return Err(InstallError::SpecialFile(path));
         }
     }
     Ok(())
 }
 
-/// Checks `src` (nothing is copied when it is refused), then copies it into `modules/<name>.tmp-<pid>`.
-pub fn stage(layout: &Layout, src: &Path) -> Result<Staged, InstallError> {
-    let meta = fs::symlink_metadata(src).map_err(|_| InstallError::NotADirectory)?;
-    if meta.file_type().is_symlink() {
-        return Err(InstallError::Symlink(src.to_path_buf()));
-    }
-    if !meta.is_dir() {
-        return Err(InstallError::NotADirectory);
-    }
-    let mut tree = Vec::new();
-    walk(src, &mut tree)?;
-    let raw = match fs::read_to_string(src.join("module.json")) {
+/// `dir/module.json` checked as an install source: the reserved-name and escaping-entry refusals (on the raw JSON,
+/// before the schema, which refuses both too), the schema, and the entry file.
+fn check_manifest(dir: &Path) -> Result<Manifest, InstallError> {
+    let raw = match fs::read_to_string(dir.join("module.json")) {
         Ok(raw) => raw,
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
             return Err(InstallError::Manifest(vec![
@@ -145,7 +140,6 @@ pub fn stage(layout: &Layout, src: &Path) -> Result<Staged, InstallError> {
             )]))
         }
     };
-    // The two refusals with a reason of their own come before the schema, which refuses both as well.
     if let Ok(v) = serde_json::from_str::<Value>(&raw) {
         if v["name"]
             .as_str()
@@ -158,15 +152,34 @@ pub fn stage(layout: &Layout, src: &Path) -> Result<Staged, InstallError> {
         }
     }
     let manifest = parse_manifest(&raw).map_err(InstallError::Manifest)?;
-    if !src.join(&manifest.entry).is_file() {
+    let entry = fs::symlink_metadata(dir.join(&manifest.entry));
+    if !entry.is_ok_and(|m| m.is_file()) {
         return Err(InstallError::Manifest(vec![format!(
             "entry {} not found",
             manifest.entry
         )]));
     }
+    Ok(manifest)
+}
+
+/// Checks `src` (nothing is copied when it is refused), copies it into `modules/<name>.tmp-<pid>`, and checks the
+/// copy again (M1): the tree has no symlink or special file, and its `module.json` is valid and names the same module.
+/// What is installed is what was checked, even if the source changed while it was copied.
+pub fn stage(layout: &Layout, src: &Path) -> Result<Staged, InstallError> {
+    let meta = fs::symlink_metadata(src).map_err(|_| InstallError::NotADirectory)?;
+    if meta.file_type().is_symlink() {
+        return Err(InstallError::Symlink(src.to_path_buf()));
+    }
+    if !meta.is_dir() {
+        return Err(InstallError::NotADirectory);
+    }
+    let mut tree = Vec::new();
+    walk(src, &mut tree)?;
+    let manifest = check_manifest(src)?;
     let modules = layout.home.join("modules");
     fs::create_dir_all(&modules).map_err(|e| io_err("cannot create", &modules, e))?;
-    let staged = Staged {
+    recover(layout);
+    let mut staged = Staged {
         tmp: modules.join(format!("{}.tmp-{}", manifest.name, std::process::id())),
         dst: modules.join(&manifest.name),
         manifest,
@@ -184,11 +197,62 @@ pub fn stage(layout: &Layout, src: &Path) -> Result<Staged, InstallError> {
         // `staged` is dropped on the error path, which removes the partial copy.
         done.map_err(|e| io_err("cannot copy", &path, e))?;
     }
+    let mut copied = Vec::new();
+    walk(&staged.tmp, &mut copied)?;
+    let checked = check_manifest(&staged.tmp)?;
+    if checked.name != staged.manifest.name {
+        return Err(InstallError::Manifest(vec![
+            "module.json changed while it was copied".into(),
+        ]));
+    }
+    staged.manifest = checked;
     Ok(staged)
 }
 
+/// `<name>.tmp-<pid>`, `<name>.tmp-<pid>-old` or `<name>.tmp-<pid>-rm`: (name, pid, suffix).
+fn parse_staging(dir: &str) -> Option<(&str, u32, &str)> {
+    let (name, rest) = dir.split_once(".tmp-")?;
+    let (pid, suffix) = match rest.split_once('-') {
+        Some((pid, suffix)) => (pid, suffix),
+        None => (rest, ""),
+    };
+    Some((name, pid.parse().ok()?, suffix))
+}
+
+/// M6: what an install or uninstall that crashed left under `modules/`, from a process that is gone: a copy moved
+/// aside (`-old`) goes back to `modules/<name>` when that is missing; every other staging directory is removed. A
+/// staging directory of a live process (another install in progress, or this process's own) is left alone. Returns
+/// what was done, for the log.
+pub fn recover(layout: &Layout) -> Vec<String> {
+    let modules = layout.home.join("modules");
+    let Ok(entries) = fs::read_dir(&modules) else {
+        return Vec::new();
+    };
+    let mut done = Vec::new();
+    for e in entries.flatten() {
+        let Ok(dir) = e.file_name().into_string() else {
+            continue;
+        };
+        let Some((name, pid, suffix)) = parse_staging(&dir) else {
+            continue;
+        };
+        if pid == std::process::id() || crate::commands::firstaid::pid_alive(pid) {
+            continue;
+        }
+        let path = e.path();
+        let dst = modules.join(name);
+        if suffix == "old" && !dst.exists() && fs::rename(&path, &dst).is_ok() {
+            done.push(format!("restored {} to {}", path.display(), dst.display()));
+        } else if fs::remove_dir_all(&path).is_ok() {
+            done.push(format!("removed {}", path.display()));
+        }
+    }
+    done
+}
+
 /// Puts a staged module in place: an installed one of the same name is renamed aside, the staged copy renamed in and
-/// the old one removed. Returns whether one was replaced. The caller stops a running module first.
+/// the old one removed. Returns whether one was replaced. The caller stops a running module first. Should the old copy
+/// not go back after a failed rename, the error names where it is ([`recover`] restores it later).
 pub fn commit(staged: Staged) -> Result<bool, InstallError> {
     let replaced = staged.dst.is_dir();
     let old = staged.tmp.with_file_name(format!(
@@ -200,10 +264,11 @@ pub fn commit(staged: Staged) -> Result<bool, InstallError> {
         fs::rename(&staged.dst, &old).map_err(|e| io_err("cannot move aside", &staged.dst, e))?;
     }
     if let Err(e) = fs::rename(&staged.tmp, &staged.dst) {
-        if replaced {
-            let _ = fs::rename(&old, &staged.dst);
+        let mut err = format!("cannot rename {} into place: {e}", staged.tmp.display());
+        if replaced && fs::rename(&old, &staged.dst).is_err() {
+            err.push_str(&format!("; the previous copy is at {}", old.display()));
         }
-        return Err(io_err("cannot rename into place", &staged.tmp, e));
+        return Err(InstallError::Io(err));
     }
     if replaced {
         let _ = fs::remove_dir_all(&old);
@@ -211,7 +276,9 @@ pub fn commit(staged: Staged) -> Result<bool, InstallError> {
     Ok(replaced)
 }
 
-/// [`stage`] then [`commit`] (no running module to stop: the offline CLI).
+/// [`stage`] then [`commit`], with nothing in between. The offline CLI calls the two halves itself, so it can refuse
+/// between them while a process of the module still runs (I2).
+#[allow(dead_code)]
 pub fn install(layout: &Layout, src: &Path) -> Result<(Manifest, bool), InstallError> {
     let staged = stage(layout, src)?;
     let manifest = staged.manifest.clone();
@@ -282,6 +349,38 @@ mod tests {
         assert!(!dst.exists());
         assert!(installed_dir(&layout, "mod-a").is_none());
         assert!(installed_dir(&layout, "../h").is_none());
+    }
+
+    #[test]
+    fn recover_restores_a_copy_moved_aside_and_removes_stale_staging() {
+        let tmp = tempfile::tempdir().unwrap();
+        let layout = Layout::new(tmp.path().join("h"));
+        let modules = layout.home.join("modules");
+        let dead = 999_999_999u32; // above any pid_max
+        let own = std::process::id();
+        for d in [
+            format!("mod-a.tmp-{dead}-old"), // a crash between the two renames: mod-a is gone
+            format!("mod-b.tmp-{dead}"),     // a copy that never got committed
+            format!("mod-c.tmp-{dead}-old"), // mod-c is in place: the old copy is stale
+            "mod-c".to_string(),
+            format!("mod-d.tmp-{own}"), // this process's own staging: left alone
+        ] {
+            fs::create_dir_all(modules.join(d)).unwrap();
+        }
+        fs::write(
+            modules.join(format!("mod-a.tmp-{dead}-old/module.json")),
+            "{}",
+        )
+        .unwrap();
+        let done = recover(&layout);
+        assert_eq!(done.len(), 3, "{done:?}");
+        assert!(modules.join("mod-a/module.json").is_file());
+        let mut left: Vec<String> = fs::read_dir(&modules)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        assert_eq!(left, ["mod-a", "mod-c", &format!("mod-d.tmp-{own}")]);
     }
 
     #[test]

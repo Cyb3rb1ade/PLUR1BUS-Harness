@@ -33,6 +33,21 @@ pub struct ModuleOp {
     /// How long a stop of the module may take (`budgetMs`, default [`DEFAULT_STOP_BUDGET`]).
     pub budget: Duration,
     pub done: std::sync::mpsc::Sender<Result<Value, OpError>>,
+    /// [`OP_QUEUED`], then [`OP_RUNNING`] when the main thread takes it, or [`OP_CANCELLED`] when its caller gave up
+    /// first (M5): a cancelled op is never run.
+    pub state: Arc<std::sync::atomic::AtomicU8>,
+}
+
+pub const OP_QUEUED: u8 = 0;
+pub const OP_RUNNING: u8 = 1;
+pub const OP_CANCELLED: u8 = 2;
+
+/// The caller of a queued op gives up: true when the op had not started (it never will), false when it runs.
+pub fn cancel_op(state: &std::sync::atomic::AtomicU8) -> bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    state
+        .compare_exchange(OP_QUEUED, OP_CANCELLED, SeqCst, SeqCst)
+        .is_ok()
 }
 
 /// A refused or failed `module.*` call: the closed error code, its message, reason and detail.
@@ -69,7 +84,7 @@ pub fn push_module_op(
     name: &str,
     verb: ModuleVerb,
     budget: Duration,
-) -> Result<std::sync::mpsc::Receiver<Result<Value, OpError>>, OpError> {
+) -> Result<OpHandle, OpError> {
     let mut st = shared.lock();
     if st.stopping.is_some() {
         return Err(OpError::new(
@@ -79,14 +94,22 @@ pub fn push_module_op(
         ));
     }
     let (done, rx) = std::sync::mpsc::channel();
+    let state = Arc::new(std::sync::atomic::AtomicU8::new(OP_QUEUED));
     st.module_ops.push_back(ModuleOp {
         name: name.to_string(),
         verb,
         budget,
         done,
+        state: state.clone(),
     });
     shared.wake.notify_all();
-    Ok(rx)
+    Ok(OpHandle { rx, state })
+}
+
+/// A queued op as its caller holds it: the result channel and the op's state ([`cancel_op`]).
+pub struct OpHandle {
+    pub rx: std::sync::mpsc::Receiver<Result<Value, OpError>>,
+    pub state: Arc<std::sync::atomic::AtomicU8>,
 }
 
 /// What every installed module should be now, as the registry (`modules/`, D14) and the running configuration say.
@@ -128,6 +151,11 @@ impl ModulesView {
     }
 }
 
+/// Whether `child` is `stopped` by `module.stop` (B13).
+fn stopped_by_request(child: &ChildState) -> bool {
+    matches!(&child.health, Health::Stopped { reason: Some(r) } if r == state::STOPPED_BY_REQUEST)
+}
+
 /// The reason a held-back state carries.
 fn held_reason(h: &Health) -> String {
     h.to_process_state(0)["reason"]
@@ -151,6 +179,14 @@ fn modules_view(shared: &Shared, layout: &Layout) -> ModulesView {
     // Modules not started, with why: a dependent of one of them is held back too (`start_order` is topological, so
     // one pass makes it transitive, H3B-R25).
     let mut held_back: BTreeMap<String, String> = BTreeMap::new();
+    // H3B-R28: a module stopped by `module.stop` holds its dependents back too (it may still be started itself).
+    let requested_stops: BTreeSet<String> = shared
+        .lock()
+        .slots
+        .iter()
+        .filter(|s| s.child.as_ref().is_some_and(stopped_by_request))
+        .map(|s| s.role.name.clone())
+        .collect();
     for name in &order {
         let Some(Ok(m)) = installed
             .iter()
@@ -186,8 +222,14 @@ fn modules_view(shared: &Shared, layout: &Layout) -> ModulesView {
             (!unavailable.is_empty())
                 .then(|| (stopped(state::STOPPED_NEEDS_UNAVAILABLE), unavailable))
         };
-        if let Some((health, _)) = &h {
-            held_back.insert(name.clone(), held_reason(health));
+        match &h {
+            Some((health, _)) => {
+                held_back.insert(name.clone(), held_reason(health));
+            }
+            None if requested_stops.contains(name) => {
+                held_back.insert(name.clone(), state::STOPPED_BY_REQUEST.to_string());
+            }
+            None => {}
         }
         names.push(name.clone());
         held.insert(name.clone(), h);
@@ -407,7 +449,13 @@ pub(super) fn reconcile_start(
     for name in &r.view.names {
         match r.view.held.get(name).cloned().flatten() {
             Some((health, errors)) => {
-                if !monitors.get(name).is_some_and(child::Monitor::is_running) {
+                let requested = shared
+                    .lock()
+                    .slot(name)
+                    .and_then(|s| s.child.as_ref())
+                    .is_some_and(stopped_by_request);
+                // A module stopped by request keeps showing that until it is started (B13).
+                if !requested && !monitors.get(name).is_some_and(child::Monitor::is_running) {
                     hold(shared, name, &health, &errors);
                 }
             }
@@ -475,7 +523,24 @@ pub(super) fn run_module_op(
         verb,
         budget,
         done,
+        state,
     } = op;
+    // M5: its caller already gave up and reported a failure; a staged install is dropped (its copy removed).
+    if state
+        .compare_exchange(
+            OP_QUEUED,
+            OP_RUNNING,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        )
+        .is_err()
+    {
+        shared.log.info(
+            "module call cancelled before it ran (its caller timed out)",
+            json!({ "module": name }),
+        );
+        return;
+    }
     let verb_name = match &verb {
         ModuleVerb::Start => "start",
         ModuleVerb::Stop => "stop",
@@ -526,8 +591,13 @@ fn control_module(
         return Err(no_children());
     }
     let view = modules_view(shared, layout);
-    view.runnable(name)?;
     sync_slots(shared, &view, monitors);
+    match verb {
+        // M3: a module that has a slot can always be stopped, whatever its manifest says now.
+        ModuleVerb::Stop if shared.lock().slot(name).is_some() => {}
+        ModuleVerb::Stop => return Err(OpError::unknown(name)),
+        _ => view.runnable(name)?,
+    }
     let running = monitors.get(name).is_some_and(child::Monitor::is_running);
     match verb {
         ModuleVerb::Stop => {
@@ -567,6 +637,9 @@ fn control_module(
         }
         _ => {} // start while it runs: nothing to do
     }
+    // H3B-R28: its dependents follow (a stop holds them back as needs-unavailable, a start releases them).
+    let r = reconcile_stop(shared, layout, monitors, &BTreeSet::new(), None);
+    reconcile_start(shared, layout, token, monitors, r);
     Ok(json!({ "accepted": true, "name": name }))
 }
 
@@ -719,6 +792,20 @@ mod tests {
             at: 0,
             reason: Some(reason.to_string()),
         }
+    }
+
+    #[test]
+    fn a_cancelled_op_never_runs_and_a_running_one_cannot_be_cancelled() {
+        use std::sync::atomic::{AtomicU8, Ordering};
+        let queued = AtomicU8::new(OP_QUEUED);
+        assert!(cancel_op(&queued));
+        assert_eq!(queued.load(Ordering::SeqCst), OP_CANCELLED);
+        // The main thread's claim then fails, so the op is dropped.
+        assert!(queued
+            .compare_exchange(OP_QUEUED, OP_RUNNING, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err());
+        let running = AtomicU8::new(OP_RUNNING);
+        assert!(!cancel_op(&running));
     }
 
     #[test]

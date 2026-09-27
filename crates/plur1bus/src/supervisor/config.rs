@@ -33,6 +33,9 @@ pub struct ConfigState {
     pub stamp: Option<(SystemTime, u64)>,
     /// The last hand edit that failed validation; cleared by the next valid file or `config.set`.
     pub rejected: Option<Rejected>,
+    /// M7: at start, the `modules.<name>` sections that do not satisfy their module's `configSchema` (edited while no
+    /// supervisor ran, or a stricter schema installed since). Logged, and shown in `module.list` errors; not refused.
+    pub module_errors: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,6 +108,7 @@ pub fn initial(layout: &Layout) -> ConfigState {
     };
     match parse(&bytes) {
         Ok(v) => ConfigState {
+            module_errors: crate::modules::current_config_errors(&crate::modules::scan(layout), &v),
             revision: Some(cfg::revision(&v)),
             running: Some(v),
             applied_hash: Some(sha256(&bytes)),

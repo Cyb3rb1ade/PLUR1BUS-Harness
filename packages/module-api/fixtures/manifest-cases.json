@@ -451,6 +451,166 @@
     "valid": false
   },
   {
+    "name": "name con (Windows device name, reserved)",
+    "manifest": {
+      "name": "con",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name nul (Windows device name, reserved)",
+    "manifest": {
+      "name": "nul",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name com1 (Windows device name, reserved)",
+    "manifest": {
+      "name": "com1",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name lpt9 (Windows device name, reserved)",
+    "manifest": {
+      "name": "lpt9",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": false
+  },
+  {
+    "name": "name com10 (not a device name)",
+    "manifest": {
+      "name": "com10",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "dist/index.js",
+      "needs": [
+        "core"
+      ],
+      "provides": [
+        "mcp-server",
+        "mcp-client"
+      ],
+      "consumes": [
+        "memory",
+        "agent"
+      ],
+      "implements": [
+        "transport"
+      ],
+      "extensionPoints": {
+        "on-recall-complete": "chain",
+        "collect-status": "collect"
+      },
+      "scope": "installation",
+      "restart": "on-failure",
+      "lifeline": true,
+      "priority": 200
+    },
+    "valid": true
+  },
+  {
     "name": "name with a capital letter",
     "manifest": {
       "name": "Mcp-host",
