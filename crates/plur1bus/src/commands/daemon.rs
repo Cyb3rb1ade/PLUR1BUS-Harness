@@ -270,6 +270,14 @@ fn fatal_crash(status: &Value) -> Option<&Value> {
     (process["state"] == "crashed" && child["nextRestartAt"].is_null()).then_some(process)
 }
 
+/// Whether `daemon.start` sent to a running supervisor starts the core (`started` in `daemon start`'s result): only a
+/// core that is down, `crashed` or `stopped`. A core that is `starting` (or not spawned yet: a supervisor answers
+/// before it spawns its core) is being started by that supervisor, as after a concurrent `daemon start` won the
+/// race; the call changes nothing for it, so this invocation started nothing.
+fn start_starts_the_core(status: &Value) -> bool {
+    matches!(core_state(status), Some("crashed" | "stopped"))
+}
+
 /// Polls `daemon.status` until the core child is `ready` or `deadline` passes; `E_CORE_UNAVAILABLE
 /// reason=not-ready` on timeout, with the last known status in the document (the brief). A crash the supervisor will
 /// not retry fails at once with `reason=core-crashed` and the crash reason (final review M3) instead of waiting out
@@ -312,13 +320,15 @@ fn wait_for_ready(
 }
 
 /// `daemon start` (the brief, ruling H3-R4): a supervisor that already answers gets `daemon.start` (a no-op
-/// reset unless the core is crashed) and is reported `via: "running"`; otherwise a registered service is
+/// reset unless the core is crashed) and is reported `via: "running"`, `started` only when its core was down
+/// ([`start_starts_the_core`]); otherwise a registered service is
 /// started through its manager (`via: "service"`), or a fresh supervisor is spawned detached (`via: "spawn"`).
 /// A spawn that loses the single-instance race waits for the winner's endpoint instead and answers
 /// `started: false, via: "running"`.
 fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, Value) {
     if let Probe::Answered(status) = probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
         let already_ready = core_state(&status) == Some("ready");
+        let started = start_starts_the_core(&status);
         // A fatal crash reported before the reset below is the one being reset, not a new one.
         let reset = fatal_crash(&status).cloned();
         if !already_ready {
@@ -331,7 +341,7 @@ fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, V
         } else {
             wait_for_ready(out, layout, READY_TIMEOUT, status, reset)
         };
-        return (!already_ready, "running", status);
+        return (started, "running", status);
     }
 
     let runner = super::service::runner(out);
@@ -621,6 +631,19 @@ fn core_line(supervisor: &Value, children: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_start_on_a_running_supervisor_starts_only_a_core_that_is_down() {
+        let with = |state: &str| json!({ "children": [{ "role": "core", "kind": "core", "process": { "state": state } }] });
+        for state in ["crashed", "stopped"] {
+            assert!(start_starts_the_core(&with(state)), "{state}");
+        }
+        // A concurrent `daemon start` that lost the race finds the winner's core starting (or not spawned yet).
+        for state in ["starting", "ready", "degraded", "orphaned", "stopping"] {
+            assert!(!start_starts_the_core(&with(state)), "{state}");
+        }
+        assert!(!start_starts_the_core(&json!({ "children": [] })));
+    }
 
     #[test]
     fn the_core_is_found_among_module_children_whatever_its_position() {
