@@ -63,6 +63,23 @@ describe("config-schema", () => {
     }
   });
 
+  it("modules.<name> resolves module:$key to module:<name> (B13)", () => {
+    assert.equal(restartClassOf("modules"), "live");
+    assert.equal(restartClassOf("modules.x.enabled"), "module:x");
+    assert.equal(restartClassOf("modules.fixture.greeting"), "module:fixture");
+    assert.equal(restartClassOf("modules.fixture-b"), "module:fixture-b");
+    assert.deepEqual((defaults() as any).modules, {});
+    const base = defaults();
+    const withFixture = structuredClone(base) as any; withFixture.modules.fixture = { greeting: "hello" };
+    assert.equal(validate(withFixture).ok, true);
+    assert.equal((validate(withFixture) as any).config.modules.fixture.enabled, true, "enabled defaults to true");
+    assert.equal(validate({ ...structuredClone(base), modules: { fixture: { enabled: "yes" } } }).ok, false);
+    const changed = structuredClone(withFixture); changed.modules.fixture.greeting = "hi";
+    assert.deepEqual(restartPlan(withFixture, changed).restart, { live: [], core: false, modules: ["fixture"] });
+    const added = structuredClone(withFixture); added.modules["fixture-b"] = { enabled: true };
+    assert.deepEqual(restartPlan(withFixture, added).restart, { live: [], core: false, modules: ["fixture-b"] });
+  });
+
   it("removing agents.bernd reports symmetric changed list", () => {
     const a = defaults();
     const b = structuredClone(a);

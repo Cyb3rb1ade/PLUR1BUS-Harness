@@ -48,7 +48,14 @@ importers:
         specifier: workspace:*
         version: link:../rpc-schema
 
-  packages/module-api: {}
+  packages/module-api:
+    dependencies:
+      '@plur1bus/rpc-schema':
+        specifier: workspace:*
+        version: link:../rpc-schema
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
 
   packages/rpc-schema:
     dependencies:

@@ -30,5 +30,6 @@
   "providers": {},
   "oauth": {},
   "decision": {},
-  "modelRoles": {}
+  "modelRoles": {},
+  "modules": {}
 }

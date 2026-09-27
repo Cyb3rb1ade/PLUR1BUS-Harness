@@ -34,3 +34,4 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [55 engine keys, all advanced and core](config-engine-keys.md). |
 | `oauth` | object | `{}` | live |  |
 | `decision` | object | `{}` | live |  |
+| `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
