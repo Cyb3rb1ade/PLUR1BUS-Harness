@@ -241,7 +241,11 @@ fn snapshot(dir: &Path) -> BTreeMap<PathBuf, (u64, SystemTime)> {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            let Ok(meta) = entry.metadata() else { continue };
+            // Not `entry.metadata()`: on Windows that is the parent listing's cached copy, whose directory
+            // timestamps NTFS updates lazily; a fresh query reads the entry itself.
+            let Ok(meta) = fs::symlink_metadata(&path) else {
+                continue;
+            };
             let rel = path.strip_prefix(root).unwrap().to_path_buf();
             out.insert(
                 rel,
