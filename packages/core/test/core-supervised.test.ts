@@ -350,6 +350,26 @@ describe("core on the supervisor's configuration (B7)", () => {
     assert.deepEqual(s.sup.sets, [{ changes: [{ key: "engine.recall.maxItems", value: 7 }, { key: "engine.tags", value: ["a", "b"] }] }]);
   });
 
+  it("a core that fell back to the file takes the supervisor's agents and mutateConfig after a re-watch (M7)", async () => {
+    const home = newHome(); const lifeline = new PassThrough(); let host: HostServices | null = null;
+    core = createCore({
+      home, lifeline, testInternals: flatTestInternals(),
+      supervisorConfig: { attempts: 1, connectTimeoutMs: 100 }, inspectHost: (h) => { host = h; },
+    });
+    await core.start(); // no supervisor answers: config.json
+    assert.equal(core.status().config?.source, "file");
+    assert.equal(host!.mutateConfig, undefined);
+    const next = testConfig(); next.agents.anna = {};
+    const sup = await startFakeSupervisor({ home, config: next as unknown as Record<string, unknown> }); sups.push(sup);
+    const c = await connect({ address: core.address, token: core.token }); clients.push(c);
+    await c.call("core.adopt", { nonce: sup.token });
+    await until(() => core!.status().config?.source === "supervisor");
+    assert.deepEqual(core.status().agents.map((a) => a.agentId), ["anna", "bernd"], "the supervisor's agents, not config.json's");
+    assert.equal(typeof host!.mutateConfig, "function");
+    await host!.mutateConfig!({ x: 1 });
+    assert.deepEqual(sup.sets, [{ changes: [{ key: "engine.x", value: 1 }] }]);
+  });
+
   it("after core.adopt the core re-watches with the new token", async () => {
     const s = await startOnSupervisor();
     assert.deepEqual(s.sup.watches, [s.sup.token]);

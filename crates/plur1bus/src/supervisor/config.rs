@@ -341,9 +341,14 @@ pub fn set(
     if let Some(rx) = job {
         let deadline = started + super::DEFAULT_STOP_BUDGET + ready_timeout(shared);
         match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-            Ok(units) => {
-                if units.iter().any(|u| u == "core") {
-                    wait_core_up(shared, deadline);
+            Ok(mut units) => {
+                // M4: `core` counts as restarted only once the new process is ready.
+                if units.iter().any(|u| u == "core") && !wait_core_ready(shared, deadline) {
+                    units.retain(|u| u != "core");
+                    shared.log.warn(
+                        "the restarted core did not become ready",
+                        json!({ "revision": revision }),
+                    );
                 }
                 restarted = units;
             }
@@ -357,7 +362,8 @@ pub fn set(
         "applied": applied, "dryRun": dry_run, "changed": changed, "restart": restart, "revision": revision,
         "restarted": restarted, "durationMs": started.elapsed().as_millis() as u64,
     });
-    if applied && !dry_run && restart["core"] == true {
+    // The last spawn-to-ready time is the estimate: on a dry run it informs the decision (M3).
+    if (applied || dry_run) && restart["core"] == true {
         out["estimates"] = json!({ "core": shared.lock().core_ready_ms });
     }
     Ok(out)
@@ -376,29 +382,24 @@ fn ready_timeout(shared: &Shared) -> Duration {
     Duration::from_secs_f64(READY_TIMEOUT_SECS as f64 * shared.lock().time_scale)
 }
 
-/// Waits until the core the restart spawned is up (ready or degraded), has exited, or `deadline` passes.
-fn wait_core_up(shared: &Shared, deadline: Instant) {
+/// Waits until the core the restart spawned is ready (true), or has exited or `deadline` passes (false).
+fn wait_core_ready(shared: &Shared, deadline: Instant) -> bool {
     use super::state::Health;
     while Instant::now() < deadline {
         let st = shared.lock();
-        let up = st
+        let health = st
             .slot("core")
             .and_then(|s| s.child.as_ref())
-            .is_some_and(|c| {
-                matches!(
-                    c.health,
-                    Health::Ready
-                        | Health::Degraded(_)
-                        | Health::Crashed { .. }
-                        | Health::Stopped { .. }
-                )
-            });
+            .map(|c| c.health.clone());
         drop(st);
-        if up {
-            return;
+        match health {
+            Some(Health::Ready) => return true,
+            Some(Health::Crashed { .. } | Health::Stopped { .. }) | None => return false,
+            _ => {}
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+    false
 }
 
 /// One watcher tick (B4): see [`poll_locked`].

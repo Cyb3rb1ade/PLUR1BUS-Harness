@@ -235,7 +235,18 @@ export function createCore(o: CoreOptions): Core {
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
       // Under the supervisor the agents follow its configuration; on its own the core follows config.json's edits.
-      const registry = createAgentRegistry(cs.source === "supervisor" ? { config: cfg } : { path: l.configPath }, l, logger); agents = registry;
+      // Decided per call (M7): a core that fell back to the file and later re-watched switches over, and back.
+      const supervised = createAgentRegistry({ config: cfg }, l, logger);
+      const fromFile = createAgentRegistry({ path: l.configPath }, l, logger);
+      const pick = <T>(f: (r: AgentRegistry) => T): T => {
+        if (cs.source === "supervisor") return f(supervised);
+        try { return f(fromFile); } catch { return f(supervised); } // no readable config.json: what runs
+      };
+      const registry: AgentRegistry = {
+        list: () => pick((r) => r.list()), has: (id) => pick((r) => r.has(id)),
+        scaffold: (id) => supervised.scaffold(id), workspaceOf: (id) => pick((r) => r.workspaceOf(id)),
+      };
+      agents = registry;
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       const unmapped = new Set<string>();
@@ -252,7 +263,9 @@ export function createCore(o: CoreOptions): Core {
       };
       const host = createHarnessHost({
         layout: l, logger, config, engineConfig, agents: registry, events, clock,
-        ...(cs.source === "supervisor" ? { mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")) } : {}),
+        // Offered only while a supervisor watch is live (M7: also after a later re-watch).
+        mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
+        canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};

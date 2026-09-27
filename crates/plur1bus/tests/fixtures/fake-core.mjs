@@ -16,6 +16,7 @@
 // invalid config.json).
 // FAKE_CORE_RESTART_PENDING=1 (one-shot): the first core of a home (the one that creates state/fake-core-restart-pending)
 // reports core.status config.restartPending true; every later one false (H3B-R7).
+// Both need PLUR1BUS_ALLOW_TEST_INTERNALS=1.
 // FAKE_CORE_WATCH_CONFIG=1: before listening, call config.watch on the supervisor (auth with run/supervisor.token) and
 // wait up to 10 s for its reply, like core.js under a supervisor (B7); event `config-watched` { revision } or
 // `config-watch-failed`. The connection stays open.
@@ -37,7 +38,15 @@ const { values } = parseArgs({
 });
 const home = path.resolve(values.home ?? ".");
 const instanceId = values.instance ?? "00000000-0000-4000-8000-000000000000";
-const mode = process.env.FAKE_CORE_MODE ?? "ok";
+// FAKE_CORE_LATER_MODE (with PLUR1BUS_ALLOW_TEST_INTERNALS=1): the mode of every core of a home but the first (the one
+// that creates state/fake-core-first); the first runs FAKE_CORE_MODE.
+function laterCore() {
+  mkdirSync(path.join(home, "state"), { recursive: true });
+  try { writeFileSync(path.join(home, "state", "fake-core-first"), `${process.pid}\n`, { flag: "wx" }); return false; } catch { return true; }
+}
+const mode = process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1" && process.env.FAKE_CORE_LATER_MODE && laterCore()
+  ? process.env.FAKE_CORE_LATER_MODE
+  : process.env.FAKE_CORE_MODE ?? "ok";
 const started = Date.now();
 
 function event(name, extra = {}) {
@@ -97,7 +106,9 @@ const token = randomBytes(32).toString("hex");
 
 // One-shot (H3B-R7): only the core that creates the marker reports a pending restart, so its successor does not.
 let restartPending = null;
-if (process.env.FAKE_CORE_RESTART_PENDING === "1") {
+// Test seams of the global constraints: honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1 (the supervisor's own gate).
+const internals = process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1";
+if (internals && process.env.FAKE_CORE_RESTART_PENDING === "1") {
   try { writeFileSync(path.join(stateDir, "fake-core-restart-pending"), `${process.pid}\n`, { flag: "wx" }); restartPending = true; }
   catch { restartPending = false; }
 }
@@ -273,7 +284,7 @@ function watchConfig() {
   });
 }
 
-if (kind !== "no-listen" && process.env.FAKE_CORE_WATCH_CONFIG === "1") await watchConfig();
+if (kind !== "no-listen" && internals && process.env.FAKE_CORE_WATCH_CONFIG === "1") await watchConfig();
 
 if (kind !== "no-listen") {
   // Before listen, as core.ts does.

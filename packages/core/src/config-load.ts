@@ -25,3 +25,14 @@ export function loadConfig(path: string): { config: HarnessConfig; created: bool
   if (m.applied) { writeFileSync(`${path}.bak-${m.from}`, readFileSync(path)); writeConfigAtomic(path, r.config); }
   return { config: r.config, created: false };
 }
+
+/** config.json as it is, never written (the supervisor owns it): the defaults when it is missing, migrated in memory.
+ *  Throws ConfigInvalid like loadConfig. */
+export function readConfigFile(path: string): HarnessConfig {
+  if (!existsSync(path)) return defaults();
+  let raw: unknown;
+  try { raw = JSON.parse(readFileSync(path, "utf8")); } catch (e) { throw new ConfigInvalid(path, [`not JSON: ${(e as Error).message}`]); }
+  const r = validate(migrate(raw).config);
+  if (!r.ok) throw new ConfigInvalid(path, r.errors);
+  return r.config;
+}

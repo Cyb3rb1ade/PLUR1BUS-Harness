@@ -62,6 +62,8 @@ pub struct SupervisorConfig {
 pub struct RestartJob {
     pub plan: plur1bus_config::Restart,
     pub done: std::sync::mpsc::Sender<Vec<String>>,
+    /// When it was queued: a unit spawned after this already runs the configuration that asked for it (M8).
+    pub queued_at: Instant,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -672,9 +674,11 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     break Err(stop);
                 }
                 // Before `daemon.start`: a job restarts a core that is down, and the start that follows is a no-op.
-                if let Some(job) = st.restart_jobs.pop_front() {
+                if !st.restart_jobs.is_empty() {
+                    // M8: every job queued by now is coalesced into one run.
+                    let jobs: Vec<RestartJob> = st.restart_jobs.drain(..).collect();
                     st.restart_running = true;
-                    break Ok(Next::Job(job));
+                    break Ok(Next::Job(jobs));
                 }
                 let now = Instant::now();
                 if let Some(i) = next_due(&st.slots, now) {
@@ -697,7 +701,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         };
         match next {
             Err(stop) => break stop,
-            Ok(Next::Job(job)) => run_restart_job(&shared, layout, &mut monitors, job),
+            Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &mut monitors, jobs),
             Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
     };
@@ -731,8 +735,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
 
 /// What the scheduler runs next.
 enum Next {
-    /// A requested restart (B8).
-    Job(RestartJob),
+    /// The requested restarts queued so far (B8), run as one (M8).
+    Job(Vec<RestartJob>),
     /// A slot whose `daemon.start` or scheduled restart is due.
     Due(Role),
 }
@@ -755,19 +759,33 @@ fn spawn_child(shared: &Arc<Shared>, layout: &Layout, role: &Role, monitors: &mu
     }
 }
 
-/// Runs one requested restart (B8): the core, when the plan names it, through [`child::Monitor::restart_requested`]
-/// (or a first spawn when there has been no process); modules follow with Task 10. Sends the units restarted.
-fn run_restart_job(
+/// Runs the requested restarts queued so far as one (B8, M8): the core, when a plan names it, through
+/// [`child::Monitor::restart_requested`] (or a first spawn when there has been no process), unless a process spawned
+/// after the oldest job was queued already runs (it watched the configuration that asked for the restart); modules
+/// follow with Task 10. Every job is sent the units restarted.
+fn run_restart_jobs(
     shared: &Arc<Shared>,
     layout: &Layout,
     monitors: &mut Monitors,
-    job: RestartJob,
+    jobs: Vec<RestartJob>,
 ) {
     let mut restarted = Vec::new();
     let no_core = shared.lock().no_core;
-    if job.plan.core && !no_core {
+    let core_wanted = jobs.iter().any(|j| j.plan.core);
+    let oldest = jobs.iter().map(|j| j.queued_at).min();
+    if core_wanted && !no_core {
         let core = Role::core();
+        let fresh = state::restart_already_done(
+            monitors
+                .get(&core.name)
+                .and_then(child::Monitor::running_since),
+            oldest,
+        );
         match monitors.get_mut(&core.name) {
+            Some(_) if fresh => shared.log.info(
+                "core restart skipped: the running core started after it was requested",
+                json!({ "jobs": jobs.len() }),
+            ),
             Some(m) => m.restart_requested(DEFAULT_STOP_BUDGET),
             None => {
                 if let Some(slot) = shared.lock().slot_mut(&core.name) {
@@ -784,7 +802,9 @@ fn run_restart_job(
         }
     }
     shared.lock().restart_running = false;
-    let _ = job.done.send(restarted);
+    for job in jobs {
+        let _ = job.done.send(restarted.clone());
+    }
 }
 
 /// Queues a requested restart of `plan`'s units and wakes the main thread; `None` (nothing queued) during a stop, or
@@ -799,7 +819,11 @@ pub fn push_restart(
         return None;
     }
     let (done, rx) = std::sync::mpsc::channel();
-    st.restart_jobs.push_back(RestartJob { plan, done });
+    st.restart_jobs.push_back(RestartJob {
+        plan,
+        done,
+        queued_at: Instant::now(),
+    });
     shared.wake.notify_all();
     Some(rx)
 }

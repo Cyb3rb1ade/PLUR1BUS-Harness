@@ -390,6 +390,22 @@ pub fn next_due(slots: &[Slot], now: Instant) -> Option<usize> {
         .map(|(_, i)| i)
 }
 
+/// B8: whether a requested restart resets a child's backoff first. Only a child crashed for good does: a fatal exit
+/// (crashed with no restart scheduled) or a backoff that gave up. A retryable crash waiting for its backoff keeps its
+/// attempt count.
+pub fn crashed_for_good(child: Option<&ChildState>, given_up: bool) -> bool {
+    given_up
+        || child.is_some_and(|c| {
+            matches!(c.health, Health::Crashed { .. }) && c.next_restart_at_ms.is_none()
+        })
+}
+
+/// M8: a requested restart whose oldest job was queued before the running process started is skipped: that process
+/// already watched the configuration that asked for it.
+pub fn restart_already_done(running_since: Option<Instant>, oldest_job: Option<Instant>) -> bool {
+    matches!((running_since, oldest_job), (Some(since), Some(queued)) if since > queued)
+}
+
 /// The earliest scheduled restart of any slot: when the scheduler has to wake up next.
 pub fn next_wake(slots: &[Slot]) -> Option<Instant> {
     slots.iter().filter_map(|s| s.restart_at).min()
@@ -399,6 +415,57 @@ pub fn next_wake(slots: &[Slot]) -> Option<Instant> {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    fn child_with(health: Health, next: Option<u64>) -> ChildState {
+        ChildState {
+            role: "core".into(),
+            health,
+            since_ms: 0,
+            pid: None,
+            instance_id: None,
+            adopted: false,
+            restarts: 0,
+            last_exit: None,
+            next_restart_at_ms: next,
+        }
+    }
+
+    #[test]
+    fn only_a_child_crashed_for_good_has_its_backoff_reset() {
+        let crashed = || Health::Crashed {
+            code: Some(1),
+            signal: None,
+            at: 1,
+            reason: None,
+        };
+        // Fatal (no restart scheduled) or given up: reset.
+        assert!(crashed_for_good(Some(&child_with(crashed(), None)), false));
+        assert!(crashed_for_good(
+            Some(&child_with(Health::Ready, None)),
+            true
+        ));
+        // A retryable crash waiting for its backoff, a running child, no child: kept.
+        assert!(!crashed_for_good(
+            Some(&child_with(crashed(), Some(5))),
+            false
+        ));
+        assert!(!crashed_for_good(
+            Some(&child_with(Health::Ready, None)),
+            false
+        ));
+        assert!(!crashed_for_good(None, false));
+    }
+
+    #[test]
+    fn a_restart_requested_before_the_running_process_started_is_already_done() {
+        let t0 = Instant::now();
+        let t1 = t0 + Duration::from_millis(5);
+        assert!(restart_already_done(Some(t1), Some(t0)));
+        assert!(!restart_already_done(Some(t0), Some(t1)));
+        assert!(!restart_already_done(Some(t0), Some(t0)));
+        assert!(!restart_already_done(None, Some(t0)), "nothing runs: spawn");
+        assert!(!restart_already_done(Some(t0), None));
+    }
     use std::collections::VecDeque as StdVecDeque;
 
     fn secs(n: u64) -> Duration {

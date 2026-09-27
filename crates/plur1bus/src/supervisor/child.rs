@@ -621,9 +621,17 @@ impl Monitor {
 }
 
 impl Monitor {
+    /// When the running process was spawned (or adopted); `None` while none runs.
+    pub fn running_since(&self) -> Option<Instant> {
+        self.current
+            .as_ref()
+            .filter(|g| !g.exited.load(Ordering::SeqCst))
+            .map(|g| g.started)
+    }
+
     /// A requested restart (B8): the stop sequence with `budget`, then a spawn. Its exit is `Requested` (reason
-    /// `none`), so it never counts toward the give-up budget. A core that is `crashed` (fatal or given up) has its
-    /// backoff reset first.
+    /// `none`), so it never counts toward the give-up budget. A core that is `crashed` for good (fatal or given up)
+    /// has its backoff reset first.
     pub fn restart_requested(&mut self, budget: Duration) {
         let pid = self
             .current
@@ -635,11 +643,9 @@ impl Monitor {
             });
         let name = self.ctx.role.name.clone();
         if let Some(slot) = slot_mut(&mut self.shared.lock(), &name) {
-            let crashed = slot
-                .child
-                .as_ref()
-                .is_some_and(|c| matches!(c.health, Health::Crashed { .. }));
-            if crashed || slot.backoff.given_up() {
+            // B8 (M2): only a fatal crash (no restart scheduled) or a given-up backoff; a retryable crash waiting in
+            // backoff keeps its attempt count.
+            if super::state::crashed_for_good(slot.child.as_ref(), slot.backoff.given_up()) {
                 slot.backoff.reset();
             }
         }

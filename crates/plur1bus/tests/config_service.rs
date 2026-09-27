@@ -596,6 +596,15 @@ fn a_core_key_change_restarts_the_core_once_and_reports_it() {
             .any(|e| e["pid"].as_u64() == Some(after) && e["revision"] == r["revision"]),
         "{watched:?}"
     );
+    // M3: a dry run carries the estimate too.
+    let dry = set(
+        &mut c,
+        json!({ "changes": [{ "key": "engine.duplicateThreshold", "value": 1.02 }], "dryRun": true }),
+    )
+    .unwrap();
+    assert_valid("methods/config.set/result", &dry);
+    assert!(dry["estimates"]["core"].is_u64(), "{dry}");
+    assert_eq!(dry["restarted"], json!([]));
     // Once: no second restart follows.
     std::thread::sleep(TICK * 10);
     let child = common::core_child(&mut c);
@@ -880,4 +889,28 @@ fn a_watch_connection_that_pipelines_without_reading_is_closed() {
     drop(s);
     // The supervisor still serves everyone else.
     assert!(running(&mut c).1.len() == 16);
+}
+
+#[test]
+fn a_restarted_core_that_dies_is_not_reported_restarted() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let events = dir.path().join("events.jsonl");
+    // Every core after the first exits 2 at once (fatal config-invalid).
+    let _sup =
+        common::start_with_core(&home, &events, "0.2", &[("FAKE_CORE_LATER_MODE", "exit:2")]);
+    let mut c = client(&home);
+    ready_pid(&mut c);
+    let r = set(&mut c, change("engine.duplicateThreshold", json!(1.01))).unwrap();
+    assert_valid("methods/config.set/result", &r);
+    assert_eq!(r["applied"], true, "{r}");
+    assert_eq!(
+        r["restarted"],
+        json!([]),
+        "a dead new core is not a restart: {r}"
+    );
+    let child = common::core_child(&mut c);
+    assert_eq!(child_state(&child), "crashed", "{child}");
+    assert_eq!(child["process"]["reason"], "config-invalid", "{child}");
 }

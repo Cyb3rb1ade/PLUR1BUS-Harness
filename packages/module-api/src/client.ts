@@ -33,6 +33,8 @@ export interface CoreClient {
   readonly hello: Hello;
   call<T = unknown>(method: string, params?: object): Promise<T>;
   onNotification(handler: (method: string, params: unknown) => void): () => void;
+  /** Called once when the connection ends (the peer closed it, an error, or close()). */
+  onClose(handler: () => void): () => void;
   close(): Promise<void>;
   /** true when the connected core lacks `capabilities` (an older core answers for itself) or when
    *  `capabilities.methods` names this method. */
@@ -55,6 +57,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
 
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
   const handlers = new Set<(method: string, params: unknown) => void>();
+  const closeHandlers = new Set<() => void>();
   const dec = new LineDecoder();
   let nextId = 1; let closed = false;
   let lastSocketError: { code: string | undefined; message: string } | undefined;
@@ -71,7 +74,12 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
       else p.resolve(m.result);
     }
   });
-  sock.on("close", () => { closed = true; failAll(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed", lastSocketError ? `${lastSocketError.code || "error"}: ${lastSocketError.message}` : undefined)); });
+  sock.on("close", () => {
+    closed = true;
+    failAll(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed", lastSocketError ? `${lastSocketError.code || "error"}: ${lastSocketError.message}` : undefined));
+    const hs = [...closeHandlers]; closeHandlers.clear();
+    for (const h of hs) { try { h(); } catch { /* a close handler never breaks the others */ } }
+  });
   sock.on("error", (e) => { const err = e as NodeJS.ErrnoException; lastSocketError = { code: err.code, message: err.message }; });
 
   function call<T = unknown>(method: string, params: object = {}): Promise<T> {
@@ -98,6 +106,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
     hello,
     call,
     onNotification(h) { handlers.add(h); return () => handlers.delete(h); },
+    onClose(h) { if (closed) { h(); return () => {}; } closeHandlers.add(h); return () => { closeHandlers.delete(h); }; },
     close: () => new Promise<void>((res) => { if (closed) return res(); sock.end(() => { sock.destroy(); res(); }); }),
     supports: (method) => !hello.capabilities || Object.hasOwn(hello.capabilities.methods, method),
   };

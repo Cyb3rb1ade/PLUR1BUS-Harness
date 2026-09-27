@@ -46,6 +46,27 @@ describe("watchSupervisorConfig", () => {
     await w.close();
   });
 
+  it("a config.changed right behind the watch reply is not lost (I1)", async () => {
+    const h = home();
+    let sup: FakeSupervisor | null = null;
+    // The push goes out in the same write as the reply: the peer reads both in one chunk.
+    sup = await startFakeSupervisor({ home: h, config: { core: { logLevel: "info" } }, revision: "r1", onWatch: () => { sup!.push({ core: { logLevel: "debug" } }); } }); sups.push(sup);
+    const w = await watchSupervisorConfig({ home: h });
+    assert.equal(w.revision, sup.revision);
+    assert.notEqual(w.revision, "r1");
+    assert.deepEqual(w.config, { core: { logLevel: "debug" } });
+    await w.close();
+  });
+
+  it("onClose fires when the supervisor goes away", async () => {
+    const h = home();
+    const sup = await startFakeSupervisor({ home: h, config: {} });
+    const w = await watchSupervisorConfig({ home: h });
+    let closed = 0; w.onClose(() => { closed++; });
+    await sup.close();
+    await until(() => closed === 1);
+  });
+
   it("rejects after the given attempts when nothing listens", async () => {
     const h = home();
     mkdirSync(runDir(h), { recursive: true });

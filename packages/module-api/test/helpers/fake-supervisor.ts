@@ -21,10 +21,15 @@ export interface FakeSupervisor {
   push(config: Record<string, unknown>, o?: Partial<Omit<ConfigChanged, "config" | "revision" | "previousRevision">>): ConfigChanged;
   /** Sends raw `config.changed` params without changing what `config.watch` answers (e.g. an invalid config). */
   pushRaw(params: ConfigChanged): void;
+  /** Stops accepting connections; the connections already open stay (a supervisor process that is going away while
+   *  its peers have not noticed yet). */
+  stopListening(): Promise<void>;
   close(): Promise<void>;
 }
 
-export async function startFakeSupervisor(o: { home: string; config: Record<string, unknown>; revision?: string; token?: string }): Promise<FakeSupervisor> {
+/** `onWatch` runs right after a `config.watch` reply is written, synchronously: a `push()` in it lands on the socket
+ *  directly behind the reply (the I1 race). */
+export async function startFakeSupervisor(o: { home: string; config: Record<string, unknown>; revision?: string; token?: string; onWatch?: () => void }): Promise<FakeSupervisor> {
   const token = o.token ?? randomBytes(32).toString("hex");
   mkdirSync(runDir(o.home), { recursive: true });
   writeFileSync(supervisorTokenPath(o.home), token, { mode: 0o600 });
@@ -50,7 +55,12 @@ export async function startFakeSupervisor(o: { home: string; config: Record<stri
           continue;
         }
         if (!authed) { fail("E_UNAUTHORIZED", "auth-required"); continue; }
-        if (msg.method === "config.watch") { watchers.add(sock); watches.push(token); reply({ subscriptionId: `s${watches.length}`, config, revision }); continue; }
+        if (msg.method === "config.watch") {
+          watchers.add(sock); watches.push(token);
+          // Corked: the reply and whatever onWatch pushes go out in one write, so the peer reads them in one chunk.
+          sock.cork(); reply({ subscriptionId: `s${watches.length}`, config, revision }); o.onWatch?.(); process.nextTick(() => sock.uncork());
+          continue;
+        }
         if (msg.method === "config.set") {
           sets.push(msg.params);
           reply({ applied: true, dryRun: false, changed: msg.params.changes.map((c: { key: string }) => c.key), restart: { live: [], core: false, modules: [] }, revision, restarted: [], durationMs: 0 });
@@ -77,6 +87,8 @@ export async function startFakeSupervisor(o: { home: string; config: Record<stri
       return params;
     },
     pushRaw: send,
-    close: () => new Promise<void>((res) => { for (const s of sockets) s.destroy(); server.close(() => res()); }),
+    // server.close()'s callback waits for every open connection; stopping to listen does not.
+    stopListening: async () => { if (server.listening) server.close(); },
+    close: () => new Promise<void>((res) => { for (const s of sockets) s.destroy(); if (!server.listening) return res(); server.close(() => res()); }),
   };
 }
