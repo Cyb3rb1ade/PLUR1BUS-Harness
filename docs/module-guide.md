@@ -308,7 +308,7 @@ supervisor to have anything to act on:
 
 | Command | Offline | Through a supervisor |
 |---|---|---|
-| `module list` | Reads `modules/` and the config directly; `child` is always `null` | Adds live `child` status (pid, process state, `detail` — the module's last polled `module.status.detail`) |
+| `module list` | Reads `modules/` and the config directly (the defaults when `config.json` is missing, which it never creates); `child` is always `null` | Adds live `child` status (pid, process state, `detail` — the module's last polled `module.status.detail`) |
 | `module graph` | Computed from the manifests on disk | Same computation, same result |
 | `module install <path>` | Stages and commits directly on disk | Routed to the supervisor, which serialises installs one at a time |
 | `module uninstall <name>` | Removes the directory directly | Routed; stops the module first if it is running |
@@ -327,18 +327,34 @@ unchanged:
   specific even though the schema would refuse it too.
 - **`EntryOutside`**: the manifest's raw `entry` is absolute, uses a drive letter, a backslash, or a
   `..` segment — likewise checked ahead of the schema for a specific reason.
-- **`Manifest(errors)`**: the manifest fails schema validation, or its `entry` file does not exist in
-  the staged copy.
+- **`Manifest(errors)`**: the manifest fails schema validation, its `configSchema` does not compile as
+  a JSON Schema (for example `{"type": 5}`; refused here rather than breaking every later
+  `config set modules.<name>.*`), or its `entry` file does not exist in the staged copy.
+- **`SocketPathTooLong`**: `run/module-<name>.sock` under this home would not fit a Unix socket
+  address (`sun_path` is 104 bytes on macOS and the BSDs and 108 on Linux, the terminating NUL
+  included). The module would install and then crash-loop, unable to listen, so a shorter name (or
+  home) is required. Not checked on Windows, where modules listen on named pipes.
 
 A refusal maps to `E_INVALID_PARAMS` with a `reason` naming the case above (`not-a-directory`,
-`symlink`, `not-a-regular-file`, `reserved-name`, `entry-outside`, `manifest-invalid`); an I/O
+`symlink`, `not-a-regular-file`, `reserved-name`, `entry-outside`, `manifest-invalid`,
+`socket-path-too-long`); an I/O
 failure (a permissions problem, a full disk) maps to `E_INTERNAL` instead, since it says nothing
 about the module being installed.
+
+**Trust: an installed module runs with the owner's full harness authority.** A module is a process
+of the same OS user as the supervisor and the core. It reads `run/supervisor.token` (the module API's
+`config.watch` connects with it) and can read `run/core.token`, so it can call anything the owner
+can: `config.set`, `module.install`, `daemon.stop`, `admin.*`, every `memory.*` method. There is no
+sandbox, signature or catalog in 2a. The install refusals above are **path hygiene** (no symlink,
+special file, escaping entry or reserved name ends up under `modules/`), not a security boundary:
+install only modules whose code you would run yourself.
 
 **Install and uninstall are staged, not in-place**, so a failure midway never leaves a half-written
 module: a new install copies into `modules/<name>.tmp-<pid>` and only renames it into place once
 every check has passed; a reinstall first moves the existing directory aside to
-`modules/<name>.tmp-<pid>-old` before the rename, restoring it if the rename fails; uninstall renames
+`modules/<name>.tmp-<pid>-old` before the rename, restoring it if the rename fails (on Windows each rename is retried for about 2 s while it fails
+with a transient access-denied or sharing violation, as Defender or the indexer can briefly hold a
+handle on a freshly copied tree); uninstall renames
 to `modules/<name>.tmp-<pid>-rm` before removing it. A crash between these steps leaves a
 `.tmp-<pid>[-old|-rm]` directory that the supervisor recovers automatically at its next start (an
 `-old` whose target directory is missing is renamed back; everything else stale is removed) and
@@ -348,8 +364,12 @@ before every subsequent `stage` call.
 exclusive lock file the supervisor itself takes before probing its own address at start (ADR-012
 §10.5/§10.12) — so an offline module change and a starting-or-stopping supervisor can never race
 each other over the same module directory: whichever loses the lock is refused (the CLI with
-`E_NOT_AVAILABLE reason=supervisor-running`, exit 1; a supervisor that loses it exits 3, the
-existing "already running" refusal) rather than corrupting the module tree.
+`E_NOT_AVAILABLE reason=supervisor-running`, exit 1) rather than corrupting the module tree. A
+supervisor that finds the lock held probes its address for up to 3 s: if another supervisor answers,
+it exits 3 (the "already running" refusal, mapped to 0 under launchd); if nobody answers, it tries
+the lock once more and continues as the supervisor when it wins, and otherwise exits 1 — a
+transient failure that launchd's `KeepAlive{SuccessfulExit:false}` retries, so a supervisor started
+while an offline install held the lock is restarted instead of staying down.
 
 ## 10. `dist/package.json`: `{"type":"module"}` (ruling H3B-R23)
 

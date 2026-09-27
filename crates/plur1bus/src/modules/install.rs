@@ -26,6 +26,9 @@ pub enum InstallError {
     EntryOutside,
     /// The manifest names a reserved module (`core`, `supervisor`).
     Reserved,
+    /// `run/module-<name>.sock` under this home would not fit a Unix socket address (`sun_path`: 104 bytes on macOS,
+    /// 108 on Linux, the terminating NUL included): the module would install and then never listen (final review M7).
+    SocketPathTooLong { address: String, limit: usize },
     /// Copying, renaming or removing failed; nothing was left half-done under `modules/<name>`.
     Io(String),
 }
@@ -40,6 +43,7 @@ impl InstallError {
             InstallError::SpecialFile(_) => "not-a-regular-file",
             InstallError::EntryOutside => "entry-outside",
             InstallError::Reserved => "reserved-name",
+            InstallError::SocketPathTooLong { .. } => "socket-path-too-long",
             InstallError::Io(_) => "io",
         }
     }
@@ -64,6 +68,13 @@ impl std::fmt::Display for InstallError {
             InstallError::Reserved => {
                 write!(f, "the names {} are reserved", RESERVED_NAMES.join(", "))
             }
+            InstallError::SocketPathTooLong { address, limit } => write!(
+                f,
+                "this module's socket address {address} is {} bytes, over this platform's limit of {} (a shorter \
+                 module name or home directory fits)",
+                address.len(),
+                limit - 1
+            ),
             InstallError::Io(e) => f.write_str(e),
         }
     }
@@ -152,6 +163,14 @@ fn check_manifest(dir: &Path) -> Result<Manifest, InstallError> {
         }
     }
     let manifest = parse_manifest(&raw).map_err(InstallError::Manifest)?;
+    // M3: a configSchema that is not a schema would install and then fail every `config set modules.<name>.*`.
+    if let Some(schema) = &manifest.config_schema {
+        if let Err(e) = jsonschema::options().build(schema) {
+            return Err(InstallError::Manifest(vec![format!(
+                "configSchema is not a valid JSON Schema: {e}"
+            )]));
+        }
+    }
     let entry = fs::symlink_metadata(dir.join(&manifest.entry));
     if !entry.is_ok_and(|m| m.is_file()) {
         return Err(InstallError::Manifest(vec![format!(
@@ -160,6 +179,35 @@ fn check_manifest(dir: &Path) -> Result<Manifest, InstallError> {
         )]));
     }
     Ok(manifest)
+}
+
+/// `sun_path`'s size, the terminating NUL included: the longest Unix socket address is one byte shorter. `None` on
+/// Windows, where a module listens on a named pipe whose name does not depend on the home's length.
+fn socket_path_limit() -> Option<usize> {
+    if cfg!(windows) {
+        None
+    } else if cfg!(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly"
+    )) {
+        Some(104)
+    } else {
+        Some(108)
+    }
+}
+
+/// M7: refuses a module whose `run/module-<name>.sock` under this home would not fit a socket address.
+fn check_socket_path(address: String, limit: Option<usize>) -> Result<(), InstallError> {
+    match limit {
+        Some(limit) if address.len() >= limit => {
+            Err(InstallError::SocketPathTooLong { address, limit })
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Checks `src` (nothing is copied when it is refused), copies it into `modules/<name>.tmp-<pid>`, and checks the
@@ -176,6 +224,14 @@ pub fn stage(layout: &Layout, src: &Path) -> Result<Staged, InstallError> {
     let mut tree = Vec::new();
     walk(src, &mut tree)?;
     let manifest = check_manifest(src)?;
+    check_socket_path(
+        crate::paths::module_address(
+            &layout.home,
+            if cfg!(windows) { "windows" } else { "posix" },
+            &manifest.name,
+        ),
+        socket_path_limit(),
+    )?;
     let modules = layout.home.join("modules");
     fs::create_dir_all(&modules).map_err(|e| io_err("cannot create", &modules, e))?;
     recover(layout);
@@ -250,6 +306,37 @@ pub fn recover(layout: &Layout) -> Vec<String> {
     done
 }
 
+/// How long a rename under `modules/` is retried: about 2 s on Windows, where Defender or the indexer can hold a handle
+/// on a freshly copied tree for a moment (M8); not at all elsewhere.
+fn rename_retry_budget() -> std::time::Duration {
+    if cfg!(windows) {
+        std::time::Duration::from_secs(2)
+    } else {
+        std::time::Duration::ZERO
+    }
+}
+
+/// A failure a transient handle on Windows causes: access denied (EPERM, `ERROR_ACCESS_DENIED` 5), a sharing violation
+/// (EBUSY, `ERROR_SHARING_VIOLATION` 32) or a lock violation (`ERROR_LOCK_VIOLATION` 33).
+fn transient_rename_error(e: &io::Error) -> bool {
+    e.kind() == io::ErrorKind::PermissionDenied
+        || e.kind() == io::ErrorKind::ResourceBusy
+        || (cfg!(windows) && matches!(e.raw_os_error(), Some(5 | 32 | 33)))
+}
+
+/// `fs::rename`, retried every 100 ms within [`rename_retry_budget`] while it fails with [`transient_rename_error`].
+fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
+    let deadline = std::time::Instant::now() + rename_retry_budget();
+    loop {
+        match fs::rename(from, to) {
+            Err(e) if transient_rename_error(&e) && std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            r => return r,
+        }
+    }
+}
+
 /// Puts a staged module in place: an installed one of the same name is renamed aside, the staged copy renamed in and
 /// the old one removed. Returns whether one was replaced. The caller stops a running module first. Should the old copy
 /// not go back after a failed rename, the error names where it is ([`recover`] restores it later).
@@ -261,11 +348,12 @@ pub fn commit(staged: Staged) -> Result<bool, InstallError> {
     ));
     if replaced {
         let _ = fs::remove_dir_all(&old);
-        fs::rename(&staged.dst, &old).map_err(|e| io_err("cannot move aside", &staged.dst, e))?;
+        rename_retrying(&staged.dst, &old)
+            .map_err(|e| io_err("cannot move aside", &staged.dst, e))?;
     }
-    if let Err(e) = fs::rename(&staged.tmp, &staged.dst) {
+    if let Err(e) = rename_retrying(&staged.tmp, &staged.dst) {
         let mut err = format!("cannot rename {} into place: {e}", staged.tmp.display());
-        if replaced && fs::rename(&old, &staged.dst).is_err() {
+        if replaced && rename_retrying(&old, &staged.dst).is_err() {
             err.push_str(&format!("; the previous copy is at {}", old.display()));
         }
         return Err(InstallError::Io(err));
@@ -305,13 +393,25 @@ pub fn uninstall(layout: &Layout, name: &str) -> Result<(), InstallError> {
     };
     let gone = dir.with_file_name(format!("{name}.tmp-{}-rm", std::process::id()));
     let _ = fs::remove_dir_all(&gone);
-    fs::rename(&dir, &gone).map_err(|e| io_err("cannot remove", &dir, e))?;
+    rename_retrying(&dir, &gone).map_err(|e| io_err("cannot remove", &dir, e))?;
     fs::remove_dir_all(&gone).map_err(|e| io_err("cannot remove", &gone, e))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_socket_address_that_does_not_fit_sun_path_is_refused() {
+        // macOS: 104 bytes with the NUL, so 103 fits and 104 does not.
+        assert!(check_socket_path("a".repeat(103), Some(104)).is_ok());
+        let e = check_socket_path("a".repeat(104), Some(104)).unwrap_err();
+        assert_eq!(e.reason(), "socket-path-too-long");
+        assert!(e.to_string().contains("limit of 103"), "{e}");
+        assert!(check_socket_path("a".repeat(107), Some(108)).is_ok());
+        assert!(check_socket_path("a".repeat(108), Some(108)).is_err());
+        assert!(check_socket_path("a".repeat(500), None).is_ok());
+    }
 
     fn module_dir(root: &Path, manifest: &str) -> PathBuf {
         let d = root.join("src-module");

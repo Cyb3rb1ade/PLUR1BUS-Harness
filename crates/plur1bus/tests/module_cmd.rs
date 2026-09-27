@@ -368,6 +368,11 @@ fn install_refuses_escaping_entries_symlinks_and_reserved_names_and_copies_nothi
             h.source("no-entry", json!({ "entry": "gone.js" })),
             "manifest-invalid",
         ),
+        // M3: a configSchema that is not a JSON Schema is refused at install, not at every later config set.
+        (
+            h.source("bad-schema", json!({ "configSchema": { "type": 5 } })),
+            "manifest-invalid",
+        ),
         (h.dir.path().join("does-not-exist"), "not-a-directory"),
         // M8: Windows device names are reserved on every OS.
         (h.source("con", json!({ "name": "con" })), "reserved-name"),
@@ -415,6 +420,31 @@ fn install_refuses_escaping_entries_symlinks_and_reserved_names_and_copies_nothi
         std::fs::read(h.home.join("modules/fixture/module.json")).unwrap(),
         manifest_before
     );
+}
+
+/// M7: a module whose `run/module-<name>.sock` would not fit a Unix socket address under this home is refused before
+/// anything is copied (it would install and then crash-loop, unable to listen). Windows modules use named pipes.
+#[cfg(unix)]
+#[test]
+fn install_refuses_a_module_whose_socket_path_would_be_too_long() {
+    let mut h = Home::new();
+    // Deep enough that `<home>/run/module-<40 chars>.sock` passes 108 bytes (and so macOS's 104) on any temp dir.
+    let deep = h.dir.path().join("h").join("d".repeat(70));
+    std::fs::create_dir_all(&deep).unwrap();
+    h.home = deep;
+    let name = format!("m{}", "x".repeat(39));
+    let address = format!("{}/run/module-{name}.sock", h.home.display());
+    assert!(address.len() >= 108, "{address}");
+    let src = h.source("long-name", json!({ "name": name }));
+    let (code, v) = h.cli(&["module", "install", path_str(&src)]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["error"], "E_INVALID_PARAMS", "{v}");
+    assert_eq!(v["reason"], "socket-path-too-long", "{v}");
+    assert!(h.modules_listing().is_empty(), "{:?}", h.modules_listing());
+    // The same home takes a short name.
+    let short = h.source("short-name", json!({ "name": "m" }));
+    h.ok(&["module", "install", path_str(&short)], "module.install");
+    assert_eq!(h.modules_listing(), ["m"]);
 }
 
 #[test]

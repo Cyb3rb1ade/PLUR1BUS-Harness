@@ -385,16 +385,6 @@ fn probe(layout: &Layout, address: &str) -> Option<u64> {
     client.hello()["pid"].as_u64()
 }
 
-/// The pid in `run/supervisor.pid` (`<pid> <instanceId>`), if any.
-fn pid_from_file(layout: &Layout) -> Option<u64> {
-    fs::read_to_string(layout.supervisor_pid())
-        .ok()?
-        .split_whitespace()
-        .next()?
-        .parse()
-        .ok()
-}
-
 /// 32 random bytes as lower-case hex (S3).
 fn fresh_token() -> io::Result<String> {
     let mut b = [0u8; 32];
@@ -524,7 +514,8 @@ fn fail(layout: &Layout, code: i32, msg: &str) -> ! {
 }
 
 /// `plur1bus supervise`. Never returns: exits 0 after a stop, 2 on a usage error, 3 when another supervisor owns
-/// the home, 1 when the endpoint cannot be set up, 70 after a panic.
+/// the home (a supervisor answered), 1 when the endpoint cannot be set up or the lock stays held with no supervisor
+/// answering, 70 after a panic.
 pub fn run(layout: &Layout, opts: SuperviseOpts) -> ! {
     match catch_unwind(AssertUnwindSafe(|| run_inner(layout, opts))) {
         Ok(code) => std::process::exit(code),
@@ -591,7 +582,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         });
     if let Err(e) = lock.try_lock() {
         match e {
-            fs::TryLockError::WouldBlock => already_running(layout, &address),
+            fs::TryLockError::WouldBlock => already_running(layout, &address, &lock),
             fs::TryLockError::Error(e) => fail(
                 layout,
                 1,
@@ -1046,26 +1037,43 @@ fn probe_and_adopt(
     }
 }
 
-/// Another process holds the lock: it is a supervisor that is running or still starting. Report its pid (from
-/// its hello, else from its pid file) and exit 3.
-fn already_running(layout: &Layout, address: &str) -> ! {
+/// Another process holds the lock: a supervisor that is running or still starting, or a short-lived CLI holding it
+/// for an offline module mutation (`commands::module::offline_lock`). Probe for up to 3 s: a supervisor that answers
+/// is reported by pid and this process exits 3 (a non-transient refusal, 0 under launchd). When nothing answered,
+/// the lock is tried once more; on success this process continues as the supervisor. Otherwise it exits 1, a
+/// transient failure that launchd's `KeepAlive{SuccessfulExit:false}` retries after its throttle interval, so a
+/// supervisor started while an offline `module install` held the lock is not lost (final review I1).
+fn already_running(layout: &Layout, address: &str, lock: &fs::File) {
     let deadline = Instant::now() + Duration::from_secs(3);
-    let pid = loop {
+    loop {
         if let Some(pid) = probe(layout, address) {
-            break Some(pid);
+            fail(
+                layout,
+                3,
+                &format!("supervisor already running (pid {pid})"),
+            );
         }
         if Instant::now() >= deadline {
-            break pid_from_file(layout);
+            break;
         }
         std::thread::sleep(Duration::from_millis(50));
-    };
-    match pid {
-        Some(pid) => fail(
+    }
+    match lock.try_lock() {
+        Ok(()) => {}
+        Err(fs::TryLockError::WouldBlock) => fail(
             layout,
-            3,
-            &format!("supervisor already running (pid {pid})"),
+            1,
+            &format!(
+                "{} is held but no supervisor answered (an offline module change, or a supervisor still \
+                 starting or stopping); try again",
+                layout.supervisor_lock().display()
+            ),
         ),
-        None => fail(layout, 3, "supervisor already running (pid unknown)"),
+        Err(fs::TryLockError::Error(e)) => fail(
+            layout,
+            1,
+            &format!("cannot lock {}: {e}", layout.supervisor_lock().display()),
+        ),
     }
 }
 

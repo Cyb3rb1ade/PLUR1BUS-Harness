@@ -175,6 +175,23 @@ pub(crate) fn running(out: &Out, layout: &Layout) -> (Value, String) {
     (loaded.config, revision)
 }
 
+/// [`running`] for a command that only reads the configuration: the supervisor's when it answers, else config.json
+/// or, when it is missing, the defaults — never creating the file (final review M4). An invalid file while no
+/// configuration runs is `E_CONFIG_INVALID`; while the supervisor runs the last valid one, that one is used.
+pub(crate) fn running_read_only(out: &Out, layout: &Layout) -> Value {
+    match route(layout) {
+        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.get", json!({})) {
+            Ok(v) => return v["value"].clone(),
+            Err(e) if reason_of(&e) == Some("config-unavailable") => {}
+            Err(e) => fail_rpc(out, &e),
+        },
+        Ok(Route::Direct) => {}
+        Err(e) => fail_rpc(out, &e),
+    }
+    cfg::read(&layout.config_path())
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1))
+}
+
 /// A `config.set/1` result and how it was produced.
 pub(crate) struct Applied {
     /// The raw `config.set` result (the supervisor's, or the same shape built locally).

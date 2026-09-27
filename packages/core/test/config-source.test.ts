@@ -1,6 +1,6 @@
 import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { defaults, type HarnessConfig } from "@plur1bus/config-schema";
 import { startFakeSupervisor, type FakeSupervisor } from "../../module-api/test/helpers/fake-supervisor.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "../src/config-source.ts";
@@ -74,6 +74,14 @@ describe("config source (B7)", () => {
     assert.equal(source.revision(), null);
     assert.equal(source.set([{ key: "core.logLevel", value: "info" }]), null, "no supervisor to send a change to");
     assert.ok(logger.records.some((r) => r.level === "warn" && r.msg === "supervisor configuration unavailable; reading config.json"), JSON.stringify(logger.records));
+  });
+
+  it("a supervised fallback runs the defaults without creating a missing config.json (M4)", async () => {
+    const home = tempDir("p1b-cfgsrc-");
+    const source = await openConfigSource({ layout: layout(home), supervised: true, logger: capture(), attempts: 1, connectTimeoutMs: 100 }); cleanup.push(source);
+    assert.equal(source.source, "file");
+    assert.deepEqual(source.current(), defaults());
+    assert.equal(existsSync(layout(home).configPath), false, "only the supervisor writes config.json");
   });
 
   it("restartPending follows a core-class change", async () => {

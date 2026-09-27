@@ -9,7 +9,6 @@ use crate::commands::module::confirm;
 use crate::identity;
 use crate::output::Out;
 use crate::paths::Layout;
-use plur1bus_config as cfg;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::time::Duration;
@@ -188,9 +187,9 @@ pub fn run(out: &Out, layout: &Layout, cmd: AdminCmd) {
 }
 
 fn obsidian(out: &Out, layout: &Layout, cmd: ObsidianCmd) {
-    let config = cfg::load(&layout.config_path())
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1))
-        .config;
+    // M4: the running configuration (the supervisor's, which may be the last valid one over a rejected hand edit),
+    // else the file read without creating it.
+    let config = super::config::running_read_only(out, layout);
     let caller = identity::caller();
     match cmd {
         ObsidianCmd::Detect { agent, candidates } => {

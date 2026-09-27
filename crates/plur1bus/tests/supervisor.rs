@@ -396,6 +396,67 @@ fn a_second_supervisor_under_launchd_exits_0_with_the_message() {
     );
 }
 
+/// Holds `run/supervisor.lock` the way `commands::module::offline_lock` does for an offline `module install`:
+/// same file, same exclusive `try_lock`, no supervisor endpoint behind it.
+fn hold_lock_like_an_offline_install(home: &Path) -> std::fs::File {
+    std::fs::create_dir_all(run_dir(home)).unwrap();
+    let f = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(run_dir(home).join("supervisor.lock"))
+        .unwrap();
+    f.try_lock().unwrap();
+    f
+}
+
+#[test]
+fn a_supervisor_under_launchd_that_finds_the_lock_held_by_an_offline_install_exits_1() {
+    // Final review I1: nobody answers on the address, so this is not "another supervisor runs" (3, mapped to 0
+    // under launchd, which KeepAlive{SuccessfulExit:false} would never restart). It must exit 1, which launchd
+    // retries once the offline mutation has released the lock.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let lock = hold_lock_like_an_offline_install(home);
+
+    let out = command(home)
+        .env("PLUR1BUS_SERVICE_MANAGER", "launchd")
+        .output()
+        .unwrap();
+    drop(lock);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(stderr.contains("no supervisor answered"), "{stderr}");
+    assert!(!stderr.contains("exiting 0 instead of"), "{stderr}");
+    // It never became a supervisor: no token, no pid file.
+    assert!(!run_dir(home).join("supervisor.token").exists());
+    assert!(!run_dir(home).join("supervisor.pid").exists());
+}
+
+#[test]
+fn a_supervisor_that_finds_the_lock_released_during_its_probe_wait_starts() {
+    // The offline mutation ends within the 3 s probe wait: the second try_lock wins and this process serves.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let lock = hold_lock_like_an_offline_install(home);
+    let child = command(home)
+        .env("PLUR1BUS_SERVICE_MANAGER", "launchd")
+        .spawn()
+        .unwrap();
+    let mut sup = Supervisor { child };
+    std::thread::sleep(Duration::from_millis(1000));
+    drop(lock);
+    wait_for(&run_dir(home).join("supervisor.token"));
+    let mut c = client(home);
+    assert_eq!(
+        c.call("daemon.status", json!({})).unwrap()["supervisor"]["pid"],
+        sup.pid()
+    );
+    c.call("daemon.stop", json!({ "budgetMs": 1000 })).unwrap();
+    assert_eq!(sup.wait_exit(WAIT).code(), Some(0));
+}
+
 #[test]
 fn two_supervisors_starting_at_once_leave_exactly_one() {
     let dir = tempfile::tempdir().unwrap();

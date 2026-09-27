@@ -26,10 +26,11 @@ fn rpc(out: &Out, client: &mut Client, method: &str, params: Value) -> Value {
     call(client, method, params).unwrap_or_else(|e| fail_rpc(out, &e))
 }
 
-/// `modules.*` of config.json (nothing when it is missing or cannot be read: `list` still lists).
+/// `modules.*` of config.json (the defaults' when it is missing, which is not created; nothing when it cannot be
+/// read: `list` still lists).
 fn modules_config(layout: &Layout) -> Value {
-    plur1bus_config::load(&layout.config_path())
-        .map(|l| l.config["modules"].clone())
+    plur1bus_config::read(&layout.config_path())
+        .map(|c| c["modules"].clone())
         .unwrap_or(Value::Null)
 }
 

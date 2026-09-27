@@ -376,6 +376,26 @@ fn a_module_that_crashes_at_start_gives_up_after_five_and_the_core_is_untouched(
         "{text}"
     );
     assert!(text.contains("core (core): ready"), "{text}");
+    // M5: `module list` (through the supervisor) shows the same state and reason.
+    let list = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+        .args(["--json", "--home"])
+        .arg(&h.home)
+        .args(["module", "list"])
+        .env("PLUR1BUS_SERVICE_FAKE", h.service_fake())
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert_eq!(list.status.code(), Some(0), "{list:?}");
+    let list: Value = serde_json::from_slice(&list.stdout).unwrap();
+    let listed = list["modules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["name"] == "fixture")
+        .unwrap_or_else(|| panic!("{list}"));
+    assert_eq!(listed["child"]["process"]["state"], "crashed", "{list}");
+    assert_eq!(listed["child"]["process"]["reason"], "gave-up", "{list}");
     let core = child(&st, "core").unwrap().clone();
     assert_eq!(state(&core), "ready", "{st}");
     assert_eq!(core["restarts"], 0);

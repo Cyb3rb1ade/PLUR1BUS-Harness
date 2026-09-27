@@ -246,6 +246,17 @@ pub fn load(path: &Path) -> Result<Loaded, ConfigError> {
     })
 }
 
+/// config.json's configuration, or the defaults when the file is missing — without creating it: the supervisor owns
+/// config.json, so a reader never writes it (final review M4). An unreadable or invalid file is an error, as in
+/// [`load`].
+pub fn read(path: &Path) -> Result<Config, ConfigError> {
+    match fs::read_to_string(path) {
+        Ok(text) => parse(&text),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(defaults()),
+        Err(e) => Err(e.into()),
+    }
+}
+
 /// Parses config.json's text, fills the schema defaults and validates the result: what [`load`] does after reading
 /// the file. The supervisor's watcher uses it on the bytes it read.
 pub fn parse(text: &str) -> Result<Config, ConfigError> {

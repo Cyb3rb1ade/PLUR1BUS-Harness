@@ -4390,7 +4390,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Whether explicit shared memory (share/proposals) is available on this platform (E4). \"verified-path\" is reserved for a future fallback mode and is not produced yet.",
+  "description": "Whether explicit shared memory (share/proposals) is available on this platform (E4). \"fd-capability\": the Linux file-descriptor mode; \"verified-path\": the path-verified mode the engine uses on macOS and Windows (since engine E4.2); \"unavailable\": neither works here (`reason` says why).",
   "type": "object",
   "additionalProperties": false,
   "required": [

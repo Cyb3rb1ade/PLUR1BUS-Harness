@@ -147,7 +147,9 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
   }
   const snapshot = first ? accept(first.config, first.revision, "supervisor configuration") : null;
   if (first && !snapshot) { await first.close(); first = null; }
-  current = snapshot ?? loadConfig(o.layout.configPath).config; // ConfigInvalid propagates: the core exits 2 (B18)
+  // M4: a supervised core never writes config.json (the supervisor owns it), so its fallback reads without creating
+  // or migrating the file; a standalone core keeps loadConfig (defaults written, migration persisted).
+  current = snapshot ?? (o.supervised ? readConfigFile(o.layout.configPath) : loadConfig(o.layout.configPath).config); // ConfigInvalid propagates: the core exits 2 (B18)
   builtWith = current;
   if (first) follow(first);
   else if (o.supervised) scheduleRetry(); // M1: a supervised core that missed the start window keeps trying

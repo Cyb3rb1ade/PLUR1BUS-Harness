@@ -334,7 +334,7 @@ fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
             return Check::ok(
                 ID,
-                "config.json does not exist yet (defaults are created at the next start)",
+                "config.json does not exist yet (the defaults run until a command writes it)",
             );
         }
         Err(e) => return Check::fail(ID, format!("cannot read config.json: {e}"), None, None),

@@ -1632,3 +1632,36 @@ fn a_conflict_between_preview_and_apply_says_changed_meanwhile() {
         "{\"schemaVersion\":1}\n"
     );
 }
+
+/// Final review M4: only the supervisor (or a command that writes the configuration) creates config.json. Offline
+/// `module list` and `admin obsidian` read it, and on a fresh home they run against the defaults without creating it.
+#[test]
+fn offline_module_list_and_admin_obsidian_do_not_create_config_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().to_str().unwrap();
+    let out = bin()
+        .args(["--json", "--home", home, "module", "list"])
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "module.list/1", "{v}");
+    assert!(!dir.path().join("config.json").exists(), "module list");
+
+    // The defaults register no agent: refused before any RPC, and still nothing written.
+    let out = bin()
+        .args([
+            "--json", "--home", home, "admin", "obsidian", "detect", "--agent", "bernd",
+        ])
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_AGENT_UNKNOWN", "{v}");
+    assert!(!dir.path().join("config.json").exists(), "admin obsidian");
+}
