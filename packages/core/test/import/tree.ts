@@ -4,7 +4,8 @@ import { createHash } from "node:crypto";
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join, relative } from "node:path";
 
-export function treeEntries(root: string): string[] {
+export function treeEntries(root: string, opts: { mtime?: boolean } = {}): string[] {
+  const mt = (m: number) => (opts.mtime === false ? "" : ` ${m}`);
   const out: string[] = [];
   const walk = (p: string) => {
     for (const name of readdirSync(p).sort()) {
@@ -12,14 +13,14 @@ export function treeEntries(root: string): string[] {
       const st = lstatSync(q);
       const rel = relative(root, q).replaceAll("\\", "/");
       if (st.isSymbolicLink()) out.push(`L ${rel} -> ${readlinkSync(q)}`);
-      else if (st.isDirectory()) { out.push(`D ${rel} ${st.mtimeMs}`); walk(q); }
-      else out.push(`F ${rel} ${st.size} ${st.mtimeMs} ${createHash("sha256").update(readFileSync(q)).digest("hex")}`);
+      else if (st.isDirectory()) { out.push(`D ${rel}${mt(st.mtimeMs)}`); walk(q); }
+      else out.push(`F ${rel} ${st.size}${mt(st.mtimeMs)} ${createHash("sha256").update(readFileSync(q)).digest("hex")}`);
     }
   };
   walk(root);
   return out;
 }
 
-export function treeDigest(root: string): string {
-  return treeEntries(root).join("\n");
+export function treeDigest(root: string, opts: { mtime?: boolean } = {}): string {
+  return treeEntries(root, opts).join("\n");
 }

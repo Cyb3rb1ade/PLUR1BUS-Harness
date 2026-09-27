@@ -472,7 +472,7 @@ No skill store existed in the harness before this (the layout reserved `<home>/s
 
 - `<home>/skills/<id>/SKILL.md` plus the rest of the skill folder, one directory per skill id.
 - `<home>/skills/index.json`: `{"version": 1, "skills": [{"id", "source", "sourcePath", "sha256", "enabled", "importedAt"}]}`, sorted by `id`. `source` is `"openclaw"` or `"hermes"` for imported skills (the ecosystem spec may add `"bundled"`, `"catalog"`, `"local"`); `sourcePath` is the absolute source folder at import time; `sha256` is §9.2; `importedAt` ISO-8601 UTC. Writers keep unknown top-level and per-entry fields they do not own; the file is replaced atomically (temp + rename).
-- Reserved names inside `skills/`: `index.json`, `.lock`, `.staging/`. Import run records live outside it, in `<home>/imports/<runId>/` (`report.json`, `report.txt`, `snapshot/`, `replaced/`, `rolled-back/`).
+- Reserved names inside `skills/`: `index.json`, `.staging/`. Import run records live outside it, in `<home>/imports/<runId>/` (`report.json`, `report.txt`, `snapshot/`, `replaced/`, `rolled-back/`), and the importer's lock is `<home>/imports/.lock` (outside `skills/`, so a rollback that swaps the whole directory never moves its own lock).
 - **Imported skills land disabled** (`enabled: false`) unless `--enable` — skills can carry scripts; **owner decision to confirm** (D-level entry proposed with this change). `--enable` applies only to skills imported in that run; an already-present skill keeps its flag.
 
 ### 9.2 Folder hash `plur1bus-skill-sha256/v1`
@@ -485,7 +485,7 @@ Copy, never move. A symlinked skill folder is followed to its real directory; in
 
 ### 9.4 Apply, idempotency, resumability
 
-Dry-run is the default and writes nothing. `--apply`: take `skills/.lock` (a live holder → `E_LOCKED`, exit 3; a dead holder's lock is taken over), clear `skills/.staging/`, snapshot `skills/` into `<home>/imports/<runId>/snapshot/`, write `report.json` with status `running` and rewrite it after every skill and at the end (`completed`). Per skill, in root precedence order: copy into `.staging/`, re-hash, rename into `skills/<id>`, then update `index.json`. Same id and same hash → `skip-identical` (zero writes); a folder already on disk with the same hash but no index entry (an interrupted run) is adopted. Re-running after any interruption converges.
+Dry-run is the default and writes nothing. `--apply`: take `<home>/imports/.lock` (a live holder → `E_LOCKED`, exit 3; a dead holder's lock is taken over), clear `skills/.staging/`, snapshot `skills/` into `<home>/imports/<runId>/snapshot/`, write `report.json` with status `running` and rewrite it after every skill and at the end (`completed`). Per skill, in root precedence order: copy into `.staging/`, re-hash, rename into `skills/<id>`, then update `index.json`. Same id and same hash → `skip-identical` (zero writes); a folder already on disk with the same hash but no index entry (an interrupted run) is adopted. Re-running after any interruption converges.
 
 ### 9.5 Conflicts
 

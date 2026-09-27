@@ -1,30 +1,10 @@
 // `import <source> --detect` (docs/import.md §8): the read-only report, `import.detect/1`.
 import { existsSync } from "node:fs";
-import { homedir as osHomedir } from "node:os";
-import { targetIdentity, type TargetIdentity } from "./identity.ts";
+import type { TargetIdentity } from "./identity.ts";
+import { readSource, type SourceOptions } from "./source.ts";
 import { planSkills } from "./skills-import.ts";
-import { DEFAULT_MAX_SKILL_BYTES, DEFAULT_MAX_SKILL_FILES, scanSkills, type ScannedSkill } from "./skills-scan.ts";
-import { detectHermes } from "./sources/hermes.ts";
-import { detectOpenclaw } from "./sources/openclaw.ts";
-import type { SourceReport, SourceType } from "./types.ts";
-
-export interface SourceOptions {
-  sourceType: SourceType;
-  source?: string | undefined;
-  profile?: string | undefined;
-  home: string;
-  env?: NodeJS.ProcessEnv;
-  homedir?: string;
-  maxBytes?: number;
-}
-
-export async function readSource(o: SourceOptions): Promise<{ report: SourceReport; target: TargetIdentity; skills: ScannedSkill[] }> {
-  const target = targetIdentity(o.home);
-  const ctx = { sourceType: o.sourceType, source: o.source, profile: o.profile, env: o.env ?? process.env, homedir: o.homedir ?? osHomedir(), home: o.home, target };
-  const report = o.sourceType === "openclaw" ? await detectOpenclaw(ctx) : await detectHermes(ctx);
-  const skills = scanSkills(report.skillRoots, { maxBytes: o.maxBytes ?? DEFAULT_MAX_SKILL_BYTES, maxFiles: DEFAULT_MAX_SKILL_FILES });
-  return { report, target, skills };
-}
+import type { ScannedSkill } from "./skills-scan.ts";
+import type { SourceReport } from "./types.ts";
 
 export interface DetectSkill {
   id: string; name: string | null; description: string | null; path: string; tier: string; agentId: string | null;

@@ -14,7 +14,7 @@ export interface SkillIndex { version: number; skills: IndexEntry[]; [k: string]
 
 export const skillsDir = (home: string) => join(home, "skills");
 export const indexPath = (home: string) => join(skillsDir(home), "index.json");
-const RESERVED = new Set(["index.json", ".lock", ".staging"]);
+const RESERVED = new Set(["index.json", ".staging"]);
 
 export function readIndex(home: string): SkillIndex {
   const p = indexPath(home);
@@ -64,11 +64,14 @@ export function harnessSkillState(home: string, id: string, idx: SkillIndex = re
   return { exists, indexed: !!entry, sha256 };
 }
 
-/** Takes `<home>/skills/.lock` (exclusive create, holding our pid). A lock whose pid is gone is taken over; a live
- *  holder is E_LOCKED. Returns the release function. */
+export const importsDir = (home: string) => join(home, "imports");
+
+/** Takes `<home>/imports/.lock` (exclusive create, holding our pid) — outside `skills/`, so a rollback that swaps the
+ *  whole `skills/` directory never moves its own lock. A lock whose pid is gone is taken over; a live holder is
+ *  E_LOCKED. Returns the release function. */
 export function acquireLock(home: string): () => void {
-  mkdirSync(skillsDir(home), { recursive: true });
-  const p = join(skillsDir(home), ".lock");
+  mkdirSync(importsDir(home), { recursive: true });
+  const p = join(importsDir(home), ".lock");
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const fd = openSync(p, "wx", 0o600);
