@@ -217,8 +217,10 @@ pub const READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// (0.02) would leave 1.2 s for it, too little on a loaded CI runner. A module's run files cost nothing extra here: on
 /// Windows the supervisor set `run/`'s inheritable ACL at start and the module skips `icacls` (HB5; only when that
 /// ACL could not be set do its own `icacls` runs come back, and the tests of that path run at scale 1). At time scale
-/// 1 (production: the scale is a test seam) the timeout is 60 s and this floor never applies.
-pub const MODULE_READY_FLOOR: Duration = Duration::from_secs(3);
+/// 1 (production: the scale is a test seam) the timeout is 60 s and this floor never applies. It stays at 10 s although
+/// a module is now ready well under 3 s (`tests/windows.rs` asserts that speed directly): a timeout is headroom, a
+/// larger one costs a passing start nothing, and a tighter one only turned slow CI runners into flakes.
+pub const MODULE_READY_FLOOR: Duration = Duration::from_secs(10);
 
 /// The variable through which the supervisor tells a child that `run/` carries the protected, inheritable
 /// user-and-SYSTEM ACL (HB5): its `securePath` then runs no `icacls` for `run/` and the files directly inside it.
