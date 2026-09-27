@@ -375,7 +375,7 @@ fn a_module_that_crashes_at_start_gives_up_after_five_and_the_core_is_untouched(
     assert_eq!(m["pid"], Value::Null);
     // The module gives up within a few scaled backoffs, which can be before the fake core has secured its run files
     // and reports ready (icacls on Windows): wait for that before reading the text.
-    wait_for(&mut c, "core", "ready", |m| state(m) == "ready");
+    let st_ready = wait_for(&mut c, "core", "ready", |m| state(m) == "ready");
     let text = daemon_status_text(&h);
     assert!(
         text.contains("fixture (module): crashed: gave-up"),
@@ -402,8 +402,9 @@ fn a_module_that_crashes_at_start_gives_up_after_five_and_the_core_is_untouched(
         .unwrap_or_else(|| panic!("{list}"));
     assert_eq!(listed["child"]["process"]["state"], "crashed", "{list}");
     assert_eq!(listed["child"]["process"]["reason"], "gave-up", "{list}");
-    let core = child(&st, "core").unwrap().clone();
-    assert_eq!(state(&core), "ready", "{st}");
+    // `st` was read when the module gave up, possibly before the core was ready; use the later snapshot.
+    let core = child(&st_ready, "core").unwrap().clone();
+    assert_eq!(state(&core), "ready", "{st_ready}");
     assert_eq!(core["restarts"], 0);
     // No sixth attempt.
     std::thread::sleep(Duration::from_millis(500));
