@@ -52,6 +52,24 @@ describe("tool naming and selection", () => {
     for (const m of forbidden) assert.equal(byName(tools, m), undefined, m);
   });
 
+  it("admin methods are never offered as WebMCP tools", () => {
+    const admin = (Object.keys(caps.methods)).filter((m) => m.startsWith("admin."));
+    assert.equal(admin.length, 6, `the core advertises the admin.* methods: ${admin.join(", ")}`);
+    // Even when the handshake calls them stable and core-served and the page names them in include (D55).
+    const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
+    const fakeSchema = structuredClone(SCHEMA) as any;
+    for (const m of [...admin, "admin.future.op"]) {
+      assert.ok(isForbiddenMethod(m), m);
+      fakeCaps.methods[m] = { stability: "stable", since: "1.3.0", server: "core" };
+      fakeSchema.$defs.methods[m] ??= { "x-stability": "stable", "x-since": "1.3.0", "x-server": "core", params: { type: "object", additionalProperties: false, properties: {} } };
+      fakeSchema.$defs.methods[m]["x-stability"] = "stable";
+    }
+    const include = [...admin, "admin.future.op"];
+    assert.deepEqual(selectMethods({ capabilities: fakeCaps, schema: fakeSchema, include }).filter((m) => m.startsWith("admin.")), []);
+    const tools = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include });
+    for (const m of include) assert.equal(byName(tools, m), undefined, m);
+  });
+
   it("filters by x-server when present (capability entry or schema def)", () => {
     const fakeCaps = { methods: { ...caps.methods, "memory.recall": { ...caps.methods["memory.recall"]!, server: "supervisor" } } as Record<string, any> };
     assert.ok(!selectMethods({ capabilities: fakeCaps, schema: SCHEMA }).includes("memory.recall"));

@@ -86,6 +86,28 @@ describe("rpc-schema", () => {
     assert.equal(validateResult("module.uninstall", { name: "fixture", removed: false }).ok, false);
   });
 
+  it("admin.* are core methods with closed params (B15)", () => {
+    const core = buildCapabilities([], "core");
+    const admin = ["admin.obsidian.detect", "admin.obsidian.prepare", "admin.obsidian.confirm", "admin.migrate", "admin.embedding.probe", "admin.embedding.serve"];
+    for (const m of admin) {
+      assert.deepEqual(core.methods[m], { stability: "experimental", since: "1.3.0" }, m);
+      assert.equal(buildCapabilities([], "supervisor").methods[m], undefined, m);
+    }
+    const caller = { channel: "cli", accountId: "a", userId: "u" };
+    assert.equal(validateParams("admin.obsidian.detect", { caller, agentId: "bernd", candidates: Array(33).fill("/v") }).ok, false);
+    assert.deepEqual(validateParams("admin.obsidian.detect", { caller, agentId: "bernd", candidates: Array(32).fill("/v") }), { ok: true });
+    assert.equal(validateParams("admin.obsidian.prepare", { caller, agentId: "bernd" }).ok, false);
+    assert.equal(validateParams("admin.obsidian.confirm", { caller, agentId: "bernd", nonce: "n", force: true }).ok, false);
+    assert.equal(validateParams("admin.migrate", { from: 0, to: "1" }).ok, false);
+    assert.equal(validateParams("admin.migrate", { from: "-1", to: "1" }).ok, false);
+    assert.equal(validateParams("admin.embedding.probe", { refresh: "yes" }).ok, false);
+    assert.deepEqual(validateParams("admin.embedding.serve", {}), { ok: true });
+    assert.deepEqual(validateParams("admin.embedding.serve", { address: null }), { ok: true });
+    assert.equal(validateParams("admin.embedding.serve", { address: { kind: "tcp", address: "x" } }).ok, false);
+    assert.deepEqual(validateResult("admin.embedding.serve", { address: null, tokenPath: null, identity: null }), { ok: true });
+    assert.equal(validateResult("admin.obsidian.confirm", { confirmed: false, vaultPath: "/v", vaultDigest: "d", alreadyConfirmed: false }).ok, false);
+  });
+
   it("module.auth capabilities list only module-served methods", () => {
     const module = buildCapabilities(["adoption", "lifelines"], "module");
     assert.deepEqual(Object.keys(module.methods).sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);

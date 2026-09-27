@@ -51,7 +51,7 @@ fn install_failed(out: &Out, e: &install::InstallError) -> ! {
 }
 
 /// G18: a destructive command asks on a terminal (not with `--json`); a script needs `--yes`.
-fn confirm(out: &Out, question: &str, yes: bool) {
+pub(crate) fn confirm(out: &Out, question: &str, yes: bool) {
     if yes {
         return;
     }

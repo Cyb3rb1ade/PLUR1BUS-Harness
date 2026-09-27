@@ -65,6 +65,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ModuleCmd,
     },
+    /// [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
+    Admin {
+        #[command(subcommand)]
+        sub: AdminCmd,
+    },
     /// Supervisor control: start, stop, restart, status
     Daemon {
         #[command(subcommand)]
@@ -391,6 +396,79 @@ pub enum ModuleCmd {
     Stop { name: String },
     /// [experimental] Restart a module (needs a running supervisor)
     Restart { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AdminCmd {
+    /// [experimental] Obsidian vault setup for an agent: detect, prepare, confirm
+    Obsidian {
+        #[command(subcommand)]
+        sub: ObsidianCmd,
+    },
+    /// [experimental] Migrate the memory store's schema (needs a running core)
+    ///
+    /// Asks first on a terminal; a script (or `--json`) needs `--yes`. Refused unless FROM is the store's current
+    /// version; applying FROM = TO changes nothing. The engine offers no dry run.
+    Migrate {
+        /// the store's current schema version (decimal)
+        #[arg(long)]
+        from: u32,
+        /// the schema version to migrate to (decimal)
+        #[arg(long)]
+        to: u32,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Embedding provider: probe, serve
+    Embedding {
+        #[command(subcommand)]
+        sub: EmbeddingCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ObsidianCmd {
+    /// [experimental] List the Obsidian vaults the agent may use and whether each is confirmed
+    ///
+    /// The configured vaults, the agent's workspace and every `--candidate` (at most 20). Read-only.
+    Detect {
+        #[arg(long)]
+        agent: String,
+        /// a directory to check as a vault (repeatable)
+        #[arg(long = "candidate", value_name = "PATH")]
+        candidates: Vec<PathBuf>,
+    },
+    /// [experimental] Start the one-time confirmation of a vault: prints a nonce valid for 10 minutes
+    ///
+    /// Writes nothing; `admin obsidian confirm` with the nonce records the confirmation.
+    Prepare {
+        #[arg(long)]
+        agent: String,
+        vault: PathBuf,
+    },
+    /// [experimental] Confirm a vault with the nonce `admin obsidian prepare` printed
+    Confirm {
+        #[arg(long)]
+        agent: String,
+        nonce: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum EmbeddingCmd {
+    /// [experimental] Check that the embedding provider answers (exit 1 when it does not)
+    Probe {
+        /// call the provider again instead of answering the last successful probe
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// [experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+    Serve {
+        /// stop serving instead
+        #[arg(long)]
+        stop: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

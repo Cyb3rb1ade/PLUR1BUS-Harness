@@ -1,0 +1,2 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "vaultPath": "/tmp/p1b-vault" },
+  "result": { "nonce": "6f1c2d3e-4a5b-4c6d-8e7f-901234567890", "expiresAt": 1790000600000, "vaultPath": "/tmp/p1b-vault", "vaultDigest": "sha256:0f1e2d3c" } }

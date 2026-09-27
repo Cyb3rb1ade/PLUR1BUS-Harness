@@ -91,6 +91,22 @@ fn method_fixture(name: &str, f: &Value) {
         "jobs.history" => pair::<JobsHistoryParams, JobsHistoryResult>(name, f),
         "events.subscribe" => pair::<EventsSubscribeParams, EventsSubscribeResult>(name, f),
         "events.unsubscribe" => pair::<EventsUnsubscribeParams, EventsUnsubscribeResult>(name, f),
+        "admin.obsidian.detect" => {
+            pair::<AdminObsidianDetectParams, AdminObsidianDetectResult>(name, f)
+        }
+        "admin.obsidian.prepare" => {
+            pair::<AdminObsidianPrepareParams, AdminObsidianPrepareResult>(name, f)
+        }
+        "admin.obsidian.confirm" => {
+            pair::<AdminObsidianConfirmParams, AdminObsidianConfirmResult>(name, f)
+        }
+        "admin.migrate" => pair::<AdminMigrateParams, AdminMigrateResult>(name, f),
+        "admin.embedding.probe" => {
+            pair::<AdminEmbeddingProbeParams, AdminEmbeddingProbeResult>(name, f)
+        }
+        "admin.embedding.serve" => {
+            pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
+        }
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -158,6 +174,12 @@ fn every_method_fixture_round_trips() {
         "module.graph",
         "module.install",
         "module.uninstall",
+        "admin.obsidian.detect",
+        "admin.obsidian.prepare",
+        "admin.obsidian.confirm",
+        "admin.migrate",
+        "admin.embedding.probe",
+        "admin.embedding.serve",
     ] {
         assert!(names.contains(m), "fixtures/methods/{m}.json is missing");
     }

@@ -82,7 +82,7 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
       # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
-      - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts
+      - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts
         timeout-minutes: 10
         env: { PLUR1BUS_BIN: target/release/plur1bus }
       # H3-R22: the same acceptance with a cold flat embedder (the first 2 query embeddings of each core process take

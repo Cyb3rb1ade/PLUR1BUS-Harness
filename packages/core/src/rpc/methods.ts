@@ -5,6 +5,7 @@ import type {
   MemoryCaptureParams, MemoryCaptureResult, MemoryCheckpointParams, MemoryCheckpointResult, MemoryRecallParams, MemoryRecallResult,
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
+import { buildAdminMethods } from "../admin-ops.ts";
 import type { AgentRegistry } from "../agents.ts";
 import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
@@ -23,6 +24,8 @@ export interface MethodDeps {
   isStopping: () => boolean;
   /** S3/S4: verifies the nonce against run/supervisor.token and makes the connection the lifeline; throws E_UNAUTHORIZED. */
   adopt: (nonce: string, connectionId: string) => CoreStatusResult;
+  /** After an applied `admin.migrate`: refreshes `core.status.engine.storeSchema`. */
+  onMigrated: () => void | Promise<void>;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -124,6 +127,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     },
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
+    ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {

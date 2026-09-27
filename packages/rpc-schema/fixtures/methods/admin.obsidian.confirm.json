@@ -1,0 +1,2 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "nonce": "6f1c2d3e-4a5b-4c6d-8e7f-901234567890" },
+  "result": { "confirmed": true, "vaultPath": "/tmp/p1b-vault", "vaultDigest": "sha256:0f1e2d3c", "alreadyConfirmed": false } }

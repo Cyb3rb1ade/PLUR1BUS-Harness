@@ -6,6 +6,7 @@ import type { HarnessConfig } from "@plur1bus/config-schema";
 import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
+import { ADMIN_METHODS } from "./admin-ops.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
@@ -27,8 +28,9 @@ import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
- *  is never cut off (the client would journal the text and the next core would store it a second time). */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, "memory.capture"] as const;
+ *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
+ *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, "memory.capture"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -274,7 +276,7 @@ export function createCore(o: CoreOptions): Core {
       cacheEngineStatus(es);
       storeSchema = es.storeSchema;
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
-        logger.warn("store schema differs from the engine's expected version; migration arrives with 2a-H3", { current: storeSchema.current, expected: storeSchema.expected });
+        logger.warn("store schema differs from the engine's expected version; run `plur1bus admin migrate`", { current: storeSchema.current, expected: storeSchema.expected });
       }
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
@@ -286,6 +288,12 @@ export function createCore(o: CoreOptions): Core {
           setImmediate(() => { if (o.onShutdownRequested) o.onShutdownRequested(budgetMs); else void stop(budgetMs !== undefined ? { budgetMs } : {}); });
         },
         adopt,
+        // B15: an applied admin.migrate changes the store's marker; core.status reads it from here.
+        onMigrated: async () => {
+          const s = await eng.status();
+          storeSchema = s.storeSchema;
+          cacheEngineStatus(s);
+        },
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,

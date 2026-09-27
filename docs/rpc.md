@@ -1499,6 +1499,430 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `admin.obsidian.detect`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Obsidian vaults the agent may use (engine AdminOps.obsidian.detect, read-only): the configured vaults, the agent workspace and the caller's candidates (a proved principal only). isVault: .obsidian/workspace.json or .obsidian/app.json exists; confirmed: a confirmation receipt for this agent, workspace and vault exists.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "vaults"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "vaults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "isVault",
+          "confirmed",
+          "source"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "isVault": {
+            "type": "boolean"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "config",
+              "workspace",
+              "candidate"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `admin.obsidian.prepare`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+First half of the one-time vault confirmation (engine AdminOps.obsidian.prepare): a nonce bound to the caller, the agent and the vault's digest, valid for 10 minutes. Writes nothing to the vault; admin.obsidian.confirm consumes the nonce. Needs a valid caller identity (E_DENIED reason=principal-invalid).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "vaultPath"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "vaultPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce",
+    "expiresAt",
+    "vaultPath",
+    "vaultDigest"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "number"
+    },
+    "vaultPath": {
+      "type": "string"
+    },
+    "vaultDigest": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `admin.obsidian.confirm`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Second half of the vault confirmation (engine AdminOps.obsidian.confirm): consumes the nonce and records the receipt. alreadyConfirmed: a receipt existed before this call. An unknown or expired nonce is E_NOT_FOUND, a malformed one E_INVALID_PARAMS, another identity or a changed vault E_DENIED.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "nonce"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "confirmed",
+    "vaultPath",
+    "vaultDigest",
+    "alreadyConfirmed"
+  ],
+  "properties": {
+    "confirmed": {
+      "const": true
+    },
+    "vaultPath": {
+      "type": "string"
+    },
+    "vaultDigest": {
+      "type": "string"
+    },
+    "alreadyConfirmed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.migrate`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Store schema migration (engine AdminOps.migrate). from and to are decimal strings ("0" = a store written before any marker existed). E_CONFLICT when from is not the store's current version, E_INVALID_PARAMS for an unknown or downgrading to, E_STORAGE when the marker is unreadable. applied is false when from equals to. core.status engine.storeSchema follows a migration.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from",
+    "to"
+  ],
+  "properties": {
+    "from": {
+      "type": "string",
+      "pattern": "^[0-9]{1,9}$"
+    },
+    "to": {
+      "type": "string",
+      "pattern": "^[0-9]{1,9}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from",
+    "to",
+    "applied"
+  ],
+  "properties": {
+    "from": {
+      "type": "string"
+    },
+    "to": {
+      "type": "string"
+    },
+    "applied": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.embedding.probe`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Exercises the embedding provider once (engine EmbeddingService.probe); a successful result is memoized (cached: true) unless refresh is true. A provider failure is ok: false with error, never an RPC error. Bounded by 30 s and by the core's stop (error aborted).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "refresh": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "cached",
+    "identity",
+    "durationMs",
+    "checkedAt"
+  ],
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "error": {
+      "enum": [
+        "aborted",
+        "provider-failed",
+        "invalid-vector",
+        "dimension-mismatch"
+      ]
+    },
+    "cached": {
+      "type": "boolean"
+    },
+    "identity": {
+      "$ref": "#/$defs/EmbeddingIdentity"
+    },
+    "durationMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "checkedAt": {
+      "type": "number"
+    }
+  }
+}
+```
+
+### `admin.embedding.serve`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve): address omitted = the engine's platform default, null = stop serving. Idempotent for the address already served. The token itself is never returned, only tokenPath. E_INVALID_PARAMS for a malformed address or a kind the platform does not use, E_CONFLICT when another address is served or the address is in use, E_STORAGE when the listener fails.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "address": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/IpcAddress"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "address",
+    "tokenPath",
+    "identity"
+  ],
+  "properties": {
+    "address": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/IpcAddress"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tokenPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "identity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "dimensions",
+            "fingerprintId"
+          ],
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "dimensions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fingerprintId": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
 ### `events.subscribe`
 
 **Stability:** stable · since 1.0.0
@@ -4732,6 +5156,64 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
   "type": "string",
   "minLength": 1,
   "maxLength": 256
+}
+```
+
+### `IpcAddress`
+
+```json
+{
+  "description": "An IPC endpoint (engine IpcAddress): a Linux abstract socket name, an absolute unix-socket path or a Windows named pipe.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "address"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "abstract-socket",
+        "unix-socket",
+        "named-pipe"
+      ]
+    },
+    "address": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+### `EmbeddingIdentity`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fingerprintId",
+    "provider",
+    "model",
+    "dimensions"
+  ],
+  "properties": {
+    "fingerprintId": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
 }
 ```
 

@@ -52,6 +52,15 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus module start`↴](#plur1bus-module-start)
 * [`plur1bus module stop`↴](#plur1bus-module-stop)
 * [`plur1bus module restart`↴](#plur1bus-module-restart)
+* [`plur1bus admin`↴](#plur1bus-admin)
+* [`plur1bus admin obsidian`↴](#plur1bus-admin-obsidian)
+* [`plur1bus admin obsidian detect`↴](#plur1bus-admin-obsidian-detect)
+* [`plur1bus admin obsidian prepare`↴](#plur1bus-admin-obsidian-prepare)
+* [`plur1bus admin obsidian confirm`↴](#plur1bus-admin-obsidian-confirm)
+* [`plur1bus admin migrate`↴](#plur1bus-admin-migrate)
+* [`plur1bus admin embedding`↴](#plur1bus-admin-embedding)
+* [`plur1bus admin embedding probe`↴](#plur1bus-admin-embedding-probe)
+* [`plur1bus admin embedding serve`↴](#plur1bus-admin-embedding-serve)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
 * [`plur1bus daemon start`↴](#plur1bus-daemon-start)
 * [`plur1bus daemon stop`↴](#plur1bus-daemon-stop)
@@ -87,6 +96,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `dreams` — Dreaming jobs: status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
+* `admin` — [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
@@ -677,6 +687,136 @@ A runtime stop only: `config set modules.<name>.enabled false` is the persistent
 ###### **Arguments:**
 
 * `<NAME>`
+
+
+
+## `plur1bus admin`
+
+[experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
+
+**Usage:** `plur1bus admin <COMMAND>`
+
+###### **Subcommands:**
+
+* `obsidian` — [experimental] Obsidian vault setup for an agent: detect, prepare, confirm
+* `migrate` — [experimental] Migrate the memory store's schema (needs a running core)
+* `embedding` — [experimental] Embedding provider: probe, serve
+
+
+
+## `plur1bus admin obsidian`
+
+[experimental] Obsidian vault setup for an agent: detect, prepare, confirm
+
+**Usage:** `plur1bus admin obsidian <COMMAND>`
+
+###### **Subcommands:**
+
+* `detect` — [experimental] List the Obsidian vaults the agent may use and whether each is confirmed
+* `prepare` — [experimental] Start the one-time confirmation of a vault: prints a nonce valid for 10 minutes
+* `confirm` — [experimental] Confirm a vault with the nonce `admin obsidian prepare` printed
+
+
+
+## `plur1bus admin obsidian detect`
+
+[experimental] List the Obsidian vaults the agent may use and whether each is confirmed
+
+The configured vaults, the agent's workspace and every `--candidate` (at most 20). Read-only.
+
+**Usage:** `plur1bus admin obsidian detect [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--candidate <PATH>` — a directory to check as a vault (repeatable)
+
+
+
+## `plur1bus admin obsidian prepare`
+
+[experimental] Start the one-time confirmation of a vault: prints a nonce valid for 10 minutes
+
+Writes nothing; `admin obsidian confirm` with the nonce records the confirmation.
+
+**Usage:** `plur1bus admin obsidian prepare --agent <AGENT> <VAULT>`
+
+###### **Arguments:**
+
+* `<VAULT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus admin obsidian confirm`
+
+[experimental] Confirm a vault with the nonce `admin obsidian prepare` printed
+
+**Usage:** `plur1bus admin obsidian confirm --agent <AGENT> <NONCE>`
+
+###### **Arguments:**
+
+* `<NONCE>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus admin migrate`
+
+[experimental] Migrate the memory store's schema (needs a running core)
+
+Asks first on a terminal; a script (or `--json`) needs `--yes`. Refused unless FROM is the store's current version; applying FROM = TO changes nothing. The engine offers no dry run.
+
+**Usage:** `plur1bus admin migrate [OPTIONS] --from <FROM> --to <TO>`
+
+###### **Options:**
+
+* `--from <FROM>` — the store's current schema version (decimal)
+* `--to <TO>` — the schema version to migrate to (decimal)
+* `--yes` — skip the confirmation prompt (required outside a terminal)
+
+
+
+## `plur1bus admin embedding`
+
+[experimental] Embedding provider: probe, serve
+
+**Usage:** `plur1bus admin embedding <COMMAND>`
+
+###### **Subcommands:**
+
+* `probe` — [experimental] Check that the embedding provider answers (exit 1 when it does not)
+* `serve` — [experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+
+
+
+## `plur1bus admin embedding probe`
+
+[experimental] Check that the embedding provider answers (exit 1 when it does not)
+
+**Usage:** `plur1bus admin embedding probe [OPTIONS]`
+
+###### **Options:**
+
+* `--refresh` — call the provider again instead of answering the last successful probe
+
+
+
+## `plur1bus admin embedding serve`
+
+[experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+
+**Usage:** `plur1bus admin embedding serve [OPTIONS]`
+
+###### **Options:**
+
+* `--stop` — stop serving instead
 
 
 
