@@ -121,10 +121,12 @@ describe("dist/core.js", () => {
     const exited = new Promise<number | null>((r) => child.once("exit", r));
     try {
       const t0 = Date.now();
-      while (!existsSync(l.corePid) && child.exitCode === null && Date.now() - t0 < 10_000) await new Promise((r) => setTimeout(r, 50));
-      assert.ok(existsSync(l.corePid), "the core became ready");
+      // core.pid is written just before the socket listens (S6), so wait for the socket too; its stdout (the ready line) goes to the FIFO.
+      const up = () => existsSync(l.corePid) && existsSync(l.coreSocket);
+      while (!up() && child.exitCode === null && Date.now() - t0 < 10_000) await new Promise((r) => setTimeout(r, 50));
+      assert.ok(up(), "the core became ready");
       // Exercise the engine (default engine config, one capture) the way a real session does before its supervisor dies.
-      const c = await connect({ address: join(home, "run", "core.sock"), token: readFileSync(l.coreToken, "utf8") });
+      const c = await connect({ address: l.coreSocket, token: readFileSync(l.coreToken, "utf8") });
       try {
         const cap = await c.call<any>("memory.capture", { caller: { channel: "cli", accountId: "a1", userId: "u1" }, agentId: "bernd", sessionKey: "s1", wait: true, waitMs: 10_000,
           messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }] });

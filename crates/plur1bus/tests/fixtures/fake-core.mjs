@@ -4,7 +4,7 @@
 // 3), writes run/core.token and run/core.pid and then listens on the same address like the real core, and answers
 // core.auth, core.status, core.shutdown and core.adopt. FAKE_CORE_MODE picks its behaviour:
 //   ok                    serve until core.shutdown or lifeline loss
-//   crash-after:<ms>      serve, then exit 1 after <ms>
+//   crash-after:<ms>      serve, then exit 1 <ms> after it reports ready (on Windows: once run/ is secured)
 //   exit:<code>           exit with <code> at once, before the lock
 //   listen-after:<ms>     hold the lock and write the run files, but listen only after <ms> (a core still starting)
 //   hang-after:<ms>       serve, then stop answering every request after <ms> (no SIGTERM handler; event `hung`)
@@ -124,6 +124,12 @@ let state = "ready";
 // reports `starting` until they are done, the way the real core reports `starting` until its journal replay is done.
 // Elsewhere mkdirSync/writeFileSync modes already match core.ts.
 let secured = process.platform !== "win32";
+let onSecured = [];
+/** Runs `f` once the run files are secured (at once where there is nothing to secure). */
+function whenSecured(f) {
+  if (secured) f();
+  else onSecured.push(f);
+}
 function secureRunFiles() {
   if (secured) return;
   const script = [
@@ -138,6 +144,7 @@ function secureRunFiles() {
     secured = true;
     event("secured", { ok: !err, ...(err ? { stderr: String(stderr) } : {}) });
     if (err) process.stderr.write(`fake-core: securing run/ failed: ${stderr}\n`);
+    for (const f of onSecured.splice(0)) f();
   });
 }
 /** The state core.status reports: `starting` while the run files are being secured. */
@@ -293,7 +300,9 @@ if (kind !== "no-listen") {
   const listen = () => server.listen(address, () => {
     event("listening");
     secureRunFiles();
-    if (kind === "crash-after") setTimeout(() => exit(1), Number(a));
+    // From the moment it reports ready: securing run/ takes a second or more on a Windows runner, and a core that
+    // crashes before that is never ready (a test waiting for ready would see only crashes, then the give-up).
+    if (kind === "crash-after") whenSecured(() => setTimeout(() => exit(1), Number(a)));
     if (kind === "hang-after") setTimeout(() => { hung = true; event("hung"); }, Number(a));
   });
   if (kind === "listen-after") setTimeout(listen, Number(a));

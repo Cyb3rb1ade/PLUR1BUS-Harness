@@ -811,9 +811,10 @@ fn daemon_stop_stops_modules_before_the_core() {
 /// M3: `daemon.stop` keeps one deadline (budget + grace) for every child, however many there are. Two modules that
 /// cannot answer (SIGSTOP) are both killed at that deadline: the stop takes about one budget, not one per module.
 /// `healthIntervalMs` is long so the hang detector (three intervals) does not kill them first.
-/// The time scale is 0.1, not 0.02: the core's reserve is the stop grace (5 s x scale), and at 0.02 its 100 ms is
-/// used up on a slow runner by reaping the two killed modules, so the core would be killed or never asked. At 0.1
-/// the core has 500 ms, and the stop still ends well before the 2 s a budget per module would take.
+/// The core's reserve is the stop grace (5 s x scale). At 0.02 its 100 ms is used up on a slow runner by reaping the
+/// two killed modules; at 0.1 its 500 ms was once not enough on a loaded ubuntu runner either (asked at once, the
+/// fake core took about 600 ms to exit and was killed). At 0.3 the core has 1.5 s, and with a 2 s budget the stop
+/// (at most budget + grace, 3.5 s) still ends before the 4 s a budget per module would take.
 #[cfg(unix)]
 #[test]
 fn daemon_stop_keeps_one_deadline_for_every_child() {
@@ -823,7 +824,7 @@ fn daemon_stop_keeps_one_deadline_for_every_child() {
     let config =
         json!({ "schemaVersion": 1, "supervisor": { "graceMs": 1000, "healthIntervalMs": 60000 } });
     std::fs::write(h.home.join("config.json"), config.to_string()).unwrap();
-    let mut s = h.start_scaled("0.1", &[]);
+    let mut s = h.start_scaled("0.3", &[]);
     let mut c = client(&h.home);
     wait_for(&mut c, "fixture", "ready", |m| state(m) == "ready");
     let st = wait_for(&mut c, "fixture-b", "ready", |m| state(m) == "ready");
@@ -835,12 +836,12 @@ fn daemon_stop_keeps_one_deadline_for_every_child() {
         }
     }
     let t0 = Instant::now();
-    stop(&mut s, &mut c, 1000);
+    stop(&mut s, &mut c, 2000);
     let took = t0.elapsed();
-    // Both modules are killed at the end of the 1000 ms budget, then the core stops at once; a budget per module
-    // would take over 2 s.
-    assert!(took >= Duration::from_millis(1000), "{took:?}");
-    assert!(took < Duration::from_millis(1900), "{took:?}");
+    // Both modules are killed at the end of the 2000 ms budget, then the core stops within its grace; a budget per
+    // module would take over 4 s.
+    assert!(took >= Duration::from_millis(2000), "{took:?}");
+    assert!(took < Duration::from_millis(3800), "{took:?}");
     for name in ["fixture", "fixture-b"] {
         assert!(
             h.log_index(&format!("{name} did not stop in time, killing"), |_| true)
