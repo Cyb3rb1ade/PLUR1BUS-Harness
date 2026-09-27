@@ -25,7 +25,7 @@ export function skill(dir: string, name: string, description: string, body = `# 
   write(join(dir, "SKILL.md"), `---\nname: ${name}\ndescription: ${description}\nversion: 1.0.0\n---\n${body}`);
 }
 
-async function lanceStore(partition: string, dims: number, rows: number, extra: Record<string, unknown> = {}): Promise<void> {
+export async function lanceStore(partition: string, dims: number, rows: number, extra: Record<string, unknown> = {}): Promise<void> {
   const lancedb = (await loadLanceDb())!;
   mkdirSync(partition, { recursive: true });
   const db = await lancedb.connect(partition) as any;

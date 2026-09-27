@@ -6,7 +6,7 @@ import { targetIdentity } from "../../src/import/identity.ts";
 import { detectOpenclaw, resolveOpenclawRoot } from "../../src/import/sources/openclaw.ts";
 import { ImportError, type SourceReport } from "../../src/import/types.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
-import { CONTENT_MARKER, FAKE_TOKEN, openclawFixture, SHARED_KEY, type OpenclawFixture } from "./fixtures.ts";
+import { CONTENT_MARKER, FAKE_TOKEN, lanceStore, openclawFixture, SHARED_KEY, type OpenclawFixture } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
 
 const ctxFor = (source: string | undefined, env: NodeJS.ProcessEnv = {}, homedir = "/nonexistent-home") => {
@@ -100,6 +100,25 @@ describe("detectOpenclaw on the synthetic fixture", () => {
     const s = JSON.stringify(r);
     assert.ok(!s.includes(FAKE_TOKEN), "fake token leaked");
     assert.ok(!s.includes(CONTENT_MARKER), "content leaked");
+  });
+});
+
+describe("detectOpenclaw on a store with unknown metadata", () => {
+  it("knows only the vector-schema dimension and plans a re-embedding migration", async () => {
+    const d = tempDir("p1b-imp-");
+    writeFileSync(join(d, "openclaw.json"), "{ meta: { lastTouchedVersion: '2026.9.5' }, plugins: { entries: { 'memory-lancedb-namespaced': { config: {} } } } }");
+    await lanceStore(join(d, "memory", "lancedb-namespaced", "main"), 768, 1);
+    const before = treeDigest(d);
+    const r = await detectOpenclaw(ctxFor(d));
+    const s = r.plur1bus.stores[0]!;
+    assert.equal(s.storeId, "agent:main");
+    assert.deepEqual(s.identity.fields.dimension, { value: 768, source: "vector-schema" });
+    for (const k of ["provider", "model", "revision", "artefactHash", "quantization"] as const) assert.equal(s.identity.fields[k].source, "unknown", k);
+    assert.equal(s.identity.distinctIdentities, 1);
+    assert.equal(s.identity.comparison.verdict, "mismatch");
+    assert.equal(s.identity.comparison.fields.model, "unknown");
+    assert.equal(s.identity.plannedAction, "re-embedding-migration");
+    assert.equal(treeDigest(d), before);
   });
 });
 
