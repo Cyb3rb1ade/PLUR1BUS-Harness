@@ -1,6 +1,6 @@
 # Milestones — PLUR1BUS Harness (Variant B)
 
-**Status:** Phase 0 deliverable, awaiting owner approval · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
+**Status:** Phase 0 deliverable, awaiting owner approval; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7) · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
 **Re-cut of** `docs/phase0/auftrag-original-2026-09-21.md` §12 (M0–M8) for **Variant B** per `docs/phase0/brief.md` D1–D11 and ADR-001 (K4 tripped, K3 red on Windows arm64). Every §12 acceptance criterion reappears below, re-cut; the 16 operational criteria of `docs/learnings-hermes-openclaw.md` §3 are mapped as **L1–L16**; ADR-001's targets T1–T7, ADR-009's A1–A8 and ADR-010's B1–B10 are milestone exit criteria. Engine work is PRs in the **PLUR1BUS repo** (`docs/engine-extraction.md` §c, PR-01…PR-15; ADR-002's P0–P10 is the same plan at coarser grain).
 
 ---
@@ -37,7 +37,9 @@
 | M6 | MCP/ACP/A2A · external coding agents · skills · plugins | — | **30–44** | Q7; ADR-008 Q1–Q6; ADR-011 Q1–Q6 |
 | M7 | Importers: OpenClaw, Hermes | PR-10 (identity migration path) | **14–22** | ADR-007 Q4 |
 | M8 | Platform hardening · installers · services · release v0.1.0 | PR-12, PR-13, PR-14 | **20–32** | Q2; ADR-001 Q3/Q5 |
-| | **Total** | | **211–324** | |
+| D1 | **Part of v0.1.0** (desktop spec §11 Q5, decided 2026-09-27): container bundle + thin shell, after M3 | M3; M2 | **20–30** (in the total) |
+| D2–D4 | Track D remainder: native integration + OS-signed releases, browser container/CEF panel, computer use + WebMCP — after D1, beside M4–M8 | D1 | **26–40** (not in the total) | — |
+| | **Total** | | **231–354** | |
 
 ### M0 — Phase 0 (done, awaiting approval)
 
@@ -227,12 +229,12 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Host adapters (D28, `docs/host-adapters.md`), scheduled after M3 and ordered by demand:** the client kits `@plur1bus/memory-client` (TS) and `plur1bus-memory-client` (Python) and the memory proxy belong to M3's HTTP API; then the thin OpenClaw plugin (also NemoClaw), the Hermes `MemoryProvider`, the Open WebUI filter, and a ZeroClaw provider once its WASM question is answered. Each adapter ships with a conformance run against the ADR-016 kit.
 
-**Scope.** `install.sh` / `install.ps1` without admin rights (user-writable Node, no system package manager), non-interactive mode with explicit flags, owner bootstrap token printed, import offered, embedding/reranker choice with licence notice; `doctor`, `update` with rollback, `uninstall`; services via launchd user agent, `systemd --user` (+ documented `loginctl enable-linger`), Windows Task Scheduler; optional Docker image (linux/amd64, linux/arm64). Engine PR-12 (four bash scripts → `.mjs`), PR-13 (extract control-UI package with a `tokens` module), PR-14 (publish `@cyb3rb1ade/plur1bus-engine`; the plugin is **not** repointed — per D28 it keeps its own separate memory or becomes a thin client of the harness, at the owner's choice). Backup/restore with dry-run, **stores first** then config, users, sessions, then the dream ledger. Documented degradations: darwin-x64 LanceDB (source build or Rosetta), Linux node-pty source build (toolchain prerequisite check), named-namespace routing POSIX-only, Linux-arm64 SEAs never built in Docker. `platform-matrix.md` §3, §6, §7; original §10.
+**Scope.** `install.sh` / `install.ps1` without admin rights (user-writable Node, no system package manager), non-interactive mode with explicit flags, owner bootstrap token printed, import offered, embedding/reranker choice with licence notice; `doctor`, `update` with rollback, `uninstall`; services via launchd user agent, `systemd --user` (+ documented `loginctl enable-linger`), Windows Task Scheduler; the harness container image (linux/amd64, linux/arm64) built, signed and size-gated by desktop D1's pipeline and published with `deploy/compose.yaml` (D77); `update` per D78 (§6.3). Engine PR-12 (four bash scripts → `.mjs`), PR-13 (extract control-UI package with a `tokens` module), PR-14 (publish `@cyb3rb1ade/plur1bus-engine`; the plugin is **not** repointed — per D28 it keeps its own separate memory or becomes a thin client of the harness, at the owner's choice). Backup/restore with dry-run, **stores first** then config, users, sessions, then the dream ledger. Documented degradations: darwin-x64 LanceDB (source build or Rosetta), Linux node-pty source build (toolchain prerequisite check), named-namespace routing POSIX-only, Linux-arm64 SEAs never built in Docker. `platform-matrix.md` §3, §6, §7; original §10.
 
 **Acceptance** (§12 M8 re-cut)
 1. **CI matrix green on all five targets** for the §10 smoke E2E (see §5.3) (§12 M8; **T6**).
 2. Installers complete without admin rights on macOS arm64, Windows x64 and Linux x64/arm64; non-interactive mode reproduces the same result.
-3. Service registration and survival of a reboot verified per OS; `update` rolls back cleanly; `uninstall` leaves no daemon and no service unit.
+3. Service registration and survival of a reboot verified per OS; `update` follows D78 (signed feed, notes shown, snapshot → migrate → health gate) and rolls back automatically on an injected failure; `uninstall` leaves no daemon and no service unit.
 4. Backup → restore round-trip restores stores, vault, config, users, sessions and the dream ledger; dry-run reports the same plan.
 5. Docs complete: README, per-platform quickstart, admin and user handbook, provider/model/channel guides, import guide, architecture, ADRs (original §11).
 6. `npm audit` clean at the agreed severity, TypeScript strict, lint clean, licence attribution (MIT for OpenClaw tokens, Apache-2.0 for Buzz/A2A SDKs) present.
@@ -245,6 +247,17 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 **Exit:** signed release, demo guide, full test report, known-issues list, `UPSTREAM.md`-equivalent compatibility matrix (harness × engine × OpenClaw).
 
 ---
+
+### Track D — Desktop app and container bundle (D1 gates v0.1.0, after M3; D2–D4 beside M4–M8; D74, D77, D78)
+
+The desktop app (Tauri) ships the harness as containers: one `plur1bus-harness` container (supervisor, core, modules — never split, ADR-012 §11), from D3 a separate `plur1bus-browser` container, optional sidecars. It detects and supports Apple `container` (macOS 26+, Apple silicon) and Docker-compatible runtimes (Docker Desktop, Docker Engine rootful/rootless, Podman, OrbStack, Colima), never bundles Docker Desktop, and updates only through D78 releases. **D1 is now part of the v0.1.0 critical path** (owner 2026-09-27, desktop spec §11 Q5, DS29): container distribution is the primary desktop path, so v0.1.0's release checklist (§6.2 item 13) is incomplete without it. Spec: `docs/superpowers/specs/2026-09-27-desktop-app-design.md`; plan: `docs/superpowers/plans/2026-09-27-desktop-app-d1.md`.
+
+| M | Content | Depends on | Effort (ad) |
+|---|---|---|---|
+| **D1** (v0.1.0) | Container bundle + thin shell: harness image, **two installer variants per OS (complete offline, small online, desktop spec DS30)**, runtime detection and both adapters, wizard, start/stop/status, auto-pair, tray, host CLI shim, host bridge (`host.keyUnlock`), D78 update flow with snapshot, health gate and automatic rollback (patch updates **on** by default, desktop spec §11 Q8), release gate, **the signed `updates.plur1bus.app` manifest indirecting to GitHub Releases/GHCR (desktop spec DS28)**, **SignPath Foundation signing (submitted, pending) plus a Microsoft Store MSIX channel (desktop spec DS31, DS32)**, **a Flathub Flatpak on Linux (desktop spec DS34)**, domain `app.plur1bus.desktop`/`plur1bus://`/`plur1bus.app` (desktop spec DS33) | M3; M2 secret store | 20–30 |
+| D2 | Native integration + OS-signed `beta`/`stable` on the direct channel | D1 | 8–12 |
+| D3 | Browser container, CEF panel, egress (Windows keeps the D1 container-browser panel until this gate — desktop spec DS35, §11 Q4, decided) | D2; Tauri 3 gate; D72–D74 | 12–18 |
+| D4 | Computer use + WebMCP bridge; the D1 Flatpak's CEF sandbox work | D3; D62 | 6–10 |
 
 ## 3. Dependency graph
 
@@ -381,8 +394,21 @@ Install → **load the local embedding and reranker model** → create owner →
 | 11 | Compatibility matrix published (harness × engine × OpenClaw); `docs/compatibility-openclaw.md` has its harness column filled |
 | 12 | Engine published as `@cyb3rb1ade/plur1bus-engine` (PR-14) and the OpenClaw plugin installs and behaves identically at the same version |
 | 13 | Tag `v0.1.0`, CHANGELOG, release notes naming every documented degradation and everything in §7 |
+| 14 | D78 release gate green: upgrade test from the previous two tagged pre-releases on synthetic fixtures (for v0.1.0: from the last two `beta`s), German and English user release notes pass the lint, images cosign-signed with SBOM and provenance, `beta` canary period completed before `stable` |
 
 ---
+
+### 6.3 Release and update policy (D78) — applies to every release after M8's first
+
+1. Consumers receive only tagged releases from the release workflow on `stable` (default) or `beta` (opt-in); nothing is installed from `main`, a branch or a nightly.
+2. SemVer with a product meaning: patch = fixes only and never a store or config migration; minor = features and forward migrations; major = the only place for a breaking change, with a migration note.
+3. Every release has short German and English notes written for users (fixed headings, length caps, security releases marked), linted in CI; the commit changelog is for developers.
+4. Every update — desktop, native `plur1bus update`, VPS script — is shown with its notes first, needs the person's *Jetzt* (or an allowed automatic patch), and runs snapshot → migrate → health gate (`1staid check`, `admin smoke`) → automatic rollback on failure.
+5. Release gate: full five-target matrix, kill soak, upgrade tests from the previous two releases on synthetic data fixtures including an injected failing migration, the Apple `container` record, the notes lint; then a `beta` canary (7 days minor/major, 48 h patch) before promotion to `stable` by re-signing the identical artefacts.
+6. Cadence: a stable minor every 4 weeks on a published calendar, patches when needed, security fixes out of band.
+7. **Hosting (decided 2026-09-27, desktop spec DS28, §6.16.7):** app bundles and harness/browser images live on GitHub Releases and GHCR; the updater and `plur1bus update` read a small, signed manifest at `updates.plur1bus.app`, on the owner's own domain, that points at those artefacts — never a direct GitHub URL and never the owner's own webspace for the bytes. Patch-only automatic updates are **on** by default for new installs (§11 Q8), always through the same snapshot → health gate → automatic-rollback path as a manual approval.
+
+Source: core spec D78; desktop spec DS24, DS28, §6.16, §6.16.7.
 
 ## 7. Explicitly out of scope for v0.1.0
 
@@ -397,7 +423,7 @@ Install → **load the local embedding and reranker model** → create owner →
 | **A harness-native subscription OAuth for Anthropic, Google, OpenAI, xAI** — not as opt-in, not behind a flag. **Amended 2026-09-22:** Anthropic subscription *use* is no longer out of scope — it ships via the "Anthropic via Claude Code / Agent SDK" backend profile (spawn the unmodified binary/SDK under the user's own login, `policy_status: allowed`); only a harness-implemented Claude.ai OAuth/PKCE/device-code flow, or reading `~/.claude/.credentials.json`/Keychain, stays out of scope. Google, OpenAI and xAI subscription logins remain fully out of scope: API keys and the vendor CLI over ACP instead | ADR-005 §"Conflicts"; `provider-matrix.md` §4 |
 | **macOS x64 as a hard target** — best-effort; no `@lancedb/lancedb` package exists for it, and Node does not CI-test SEA there | Q2; `platform-matrix.md` §1, §3 |
 | **Tier-3 PTY coding agents** beyond an opt-in, "unsupported"-labelled path; the ten registry-listed CLIs outside the M6 set ship attachable but "community-tested, unverified" | ADR-011 Q2, §"Minimum set for M6" |
-| **Desktop shell** (Electron/Tauri) and any second UI shell | ADR-004 §"Web UI — framework" |
+| ~~**Desktop shell**~~ → **D1 is now required for v0.1.0** (owner 2026-09-27, desktop spec §11 Q5, decided: yes); D2–D4 stay track D, beside M4–M8 (ADR-004 amendment 2026-09-27; D77 container bundle, D78 update policy). Any **second UI shell** beyond it stays out of scope | ADR-004 §"Web UI — framework"; core spec D74, D77, D78 |
 | **Fan-out collaboration on by default**, and delegation chains deeper than 1 | ADR-003 guardrails; enabled only after the equal-budget eval |
 | **Importing third-party memory-provider data** from Hermes; importing pending pairing codes | original §4.2; `import.md` §3.2 |
 | **Named-namespace routing on Windows** (fd-based directory capability self-disables) | `platform-matrix.md` §3 Tier-2 degradation |

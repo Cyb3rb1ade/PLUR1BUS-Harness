@@ -1,6 +1,6 @@
 # ADR-001: Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A)
 
-**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D5, D6, D9, D10 · `docs/phase0/auftrag-original-2026-09-21.md` §2.2 (K1–K4), §4, §10, §11, §12 · `docs/phase0/research/hermes-learnings-and-import.md` A2, A4, A5, A6, A10–A14 · `docs/phase0/research/plur1bus-host-contract.md` §1, §5, §9, §10 · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2, §4 · `docs/phase0/research/platform-binaries-and-startup.md` · `docs/phase0/research/protocols-channels-coding-clis.md` · `docs/phase0/research/harness-engineering-state-of-the-art.md` §4, §7 · `docs/phase0/research/verification-log.md` V1–V4
+**Status:** Accepted (2026-09-22; **amended 2026-09-27 by owner decisions D77 and D78**, see "Amendment 2026-09-27" below) · **Date:** 2026-09-22 / 2026-09-27 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D1, D5, D6, D9, D10 · `docs/phase0/auftrag-original-2026-09-21.md` §2.2 (K1–K4), §4, §10, §11, §12 · `docs/phase0/research/hermes-learnings-and-import.md` A2, A4, A5, A6, A10–A14 · `docs/phase0/research/plur1bus-host-contract.md` §1, §5, §9, §10 · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2, §4 · `docs/phase0/research/platform-binaries-and-startup.md` · `docs/phase0/research/protocols-channels-coding-clis.md` · `docs/phase0/research/harness-engineering-state-of-the-art.md` §4, §7 · `docs/phase0/research/verification-log.md` V1–V4
 
 ## Context
 
@@ -137,6 +137,13 @@ Against that, Variant B's maintenance exposure is real and is the single reason 
 *Recommended resolution:* **(1), with (2) as the PLUR1BUS-repo fallback.** The harness never needs the election; the PR to PLUR1BUS should make the transport pluggable so the OpenClaw plugin keeps a working cross-process path (named pipe on Windows) while the harness uses the in-process owner. Tracked as an action item in ADR-002.
 
 **C2 — Node floor.** §2.2's Variant B text says Node ≥ 22.22; D1 says Node ≥ 24. D1 wins per the brief's precedence rule. Recorded only so the discrepancy is not re-litigated. No impact: V1/V2 confirm FTS5 on 22.22, 24-class and 26 builds alike.
+
+## Amendment 2026-09-27 — distribution as containers (D77) and release policy (D78)
+
+- **Distribution.** The `distro` row's "optional Docker image" becomes the **primary** distribution artefact: a multi-arch harness image (`linux/arm64`, `linux/amd64`) that the desktop app installs and runs through Apple `container` or a Docker-compatible runtime, and that a VPS runs through `compose.yaml`. `install.sh` / `install.ps1` and the service units stay as the secondary, native path (core spec D77, desktop spec DS1, DS22).
+- **Process model unchanged.** Exactly one core per installation, the thin CLI over a Unix socket or named pipe, the supervisor, fail-soft behaviour: all of it runs unchanged **inside one container** (ADR-012 §11). A separate container holds only the streamed Chromium (D74 b, from desktop D3) and optional sidecars.
+- **"No listening TCP port except the harness API, loopback-bound by default"** holds on the host: the runtime publishes the API on `127.0.0.1` only. Inside the container the API binds the container's own interface, which nothing reaches unless published.
+- **Updates (D78).** Consumers receive only versioned, tested releases on `stable`/`beta`, with German/English release notes, an explicit *Jetzt / Später / Überspringen* choice, and a snapshot → migrate → health gate → automatic rollback sequence (desktop spec DS24, §6.16).
 
 ## Open questions for the owner
 
