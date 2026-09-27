@@ -14,6 +14,18 @@ const PATTERNS = [
   { re: /["'`]\/(state|forget)["'`]/, why: "no slash-command emulation" },
   { re: /adapter\/openclaw|host-services\.js|plugin-runtime/, why: "no adapter or host-services import" },
 ];
+// Path prefix -> patterns checked only under it.
+const SCOPED = [
+  {
+    // Spec §4: the supervisor's dependency budget. Downloads, archives and signatures belong to the installer
+    // (`crate::install::{fetch,archive}`, reached from setup/update/repair), never to the supervisor.
+    prefix: "crates/plur1bus/src/supervisor/",
+    patterns: [
+      { re: /\b(ureq|flate2|tar::|zip::|minisign_verify|install::fetch|install::archive)\b/, why: "supervisor dependency budget (spec §4)" },
+      { re: /\b(tar|zip)::[{*]/, why: "supervisor dependency budget (spec §4)" },
+    ],
+  },
+];
 // Path -> the whole file is exempt (never scanned).
 const ALLOW_FILES = new Set([
   "scripts/lint-hygiene.mjs",
@@ -58,10 +70,11 @@ function walk(dir) {
     const rel = relative(process.cwd(), p).replaceAll("\\", "/");
     if (ALLOW_FILES.has(rel) || ALLOW_DIRS.some((d) => rel.startsWith(d))) continue;
     const allow = ALLOW.get(rel) ?? [];
+    const patterns = [...PATTERNS, ...SCOPED.filter((s) => rel.startsWith(s.prefix)).flatMap((s) => s.patterns)];
     readFileSync(p, "utf8")
       .split(/\r?\n/) // a Windows checkout (core.autocrlf) has CRLF; anchored allow-list regexes must still match
       .forEach((line, i) => {
-        for (const { re, why } of PATTERNS) {
+        for (const { re, why } of patterns) {
           if (re.test(line) && !allow.some((a) => a.test(line))) {
             console.error(`${rel}:${i + 1}: ${why}: ${line.trim().slice(0, 120)}`);
             bad += 1;

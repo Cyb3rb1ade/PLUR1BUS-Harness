@@ -22,6 +22,13 @@ clap-markdown = "0.1"
 sha2 = "0.10"
 getrandom = "0.3"
 jsonschema = { version = "0.26", default-features = false }
+# Installer only (HB6, O2): reached from `setup`, `update` and `1staid repair`, never from `supervisor/`
+# (scripts/lint-hygiene.mjs enforces the supervisor dependency budget, spec §4).
+ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
+zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
+minisign-verify = "0.2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

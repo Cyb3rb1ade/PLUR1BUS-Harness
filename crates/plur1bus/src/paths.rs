@@ -231,6 +231,30 @@ impl Layout {
     pub fn runtime(&self) -> PathBuf {
         self.home.join("runtime")
     }
+    /// `<home>/manifest.json`, the install manifest `setup` writes (HB9).
+    pub fn install_manifest(&self) -> PathBuf {
+        self.home.join("manifest.json")
+    }
+    /// `<home>/skills`: one `<name>/SKILL.md` directory per skill (⟂EXT 5).
+    #[allow(dead_code)] // setup's skills step (2a-H3b-b Task 4)
+    pub fn skills(&self) -> PathBuf {
+        self.home.join("skills")
+    }
+    /// `<home>/models`: the embedding and reranker model cache.
+    #[allow(dead_code)] // the models.cache check (2a-H3b-b Task 6)
+    pub fn models(&self) -> PathBuf {
+        self.home.join("models")
+    }
+    /// `<home>/modules`: one `<name>/module.json` directory per installed module.
+    #[allow(dead_code)] // setup's modules.bundled step (2a-H3b-b Task 4)
+    pub fn modules_dir(&self) -> PathBuf {
+        self.home.join("modules")
+    }
+    /// `logs/audit.log` (HB12).
+    #[allow(dead_code)] // audit::append's writers (2a-H3b-b Tasks 4, 7)
+    pub fn audit_log(&self) -> PathBuf {
+        self.logs().join("audit.log")
+    }
     /// A supervised child's address and run files. The core keeps its paths (`run/core.{sock,token,pid}`, the
     /// `-core` pipe); a module has `run/module-<name>.{sock,token,pid}` and the `-module-<name>` pipe.
     pub fn endpoints(&self, role: &Role, platform: &str) -> Endpoints {
@@ -401,6 +425,14 @@ mod tests {
             supervisor_address(Path::new("/h/.plur1bus"), "posix"),
             "/h/.plur1bus/run/supervisor.sock"
         );
+        assert_eq!(
+            l.install_manifest(),
+            PathBuf::from("/h/.plur1bus/manifest.json")
+        );
+        assert_eq!(l.skills(), PathBuf::from("/h/.plur1bus/skills"));
+        assert_eq!(l.models(), PathBuf::from("/h/.plur1bus/models"));
+        assert_eq!(l.modules_dir(), PathBuf::from("/h/.plur1bus/modules"));
+        assert_eq!(l.audit_log(), PathBuf::from("/h/.plur1bus/logs/audit.log"));
         // Same hash as the core pipe above, `-supervisor` suffix (paths.ts pipeName(home, "supervisor")).
         assert_eq!(
             supervisor_address(Path::new(r"C:\Users\c\AppData\Local\PLUR1BUS"), "windows"),

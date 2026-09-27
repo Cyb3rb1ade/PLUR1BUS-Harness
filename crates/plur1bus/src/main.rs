@@ -1,6 +1,9 @@
+mod audit;
 mod cli;
 mod commands;
+mod container;
 mod identity;
+mod install;
 mod journal;
 mod modules;
 mod output;
@@ -26,18 +29,16 @@ fn main() {
         Cmd::Markdown => {
             print!("{}", clap_markdown::help_markdown::<Cli>());
         }
-        Cmd::Setup(_) => commands::stubs::milestone(
-            &out,
-            "setup",
-            "2a-H3b",
-            "installer and service registration (spec §6.5)",
-        ),
+        Cmd::Setup(args) => commands::setup::run(&out, &layout, args),
+        Cmd::FirstAid {
+            sub: cli::FirstAidCmd::Repair(args),
+        } => commands::repair::run(&out, &layout, args),
         Cmd::FirstAid { sub } => commands::firstaid::run(&out, &layout, sub),
         Cmd::Module { sub } => commands::module::run(&out, &layout, sub),
         Cmd::Admin { sub } => commands::admin::run(&out, &layout, sub),
         Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
         Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
-        Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3b", "manifest check"),
+        Cmd::Update(args) => commands::update::run(&out, &layout, args),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
         Cmd::Model(_) => commands::stubs::milestone(
             &out,

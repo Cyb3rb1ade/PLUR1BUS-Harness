@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.app/schema/release-manifest.schema.json",
+  "title": "PLUR1BUS release manifest ({channel}.json, D78) as the harness reads it",
+  "description": "The top level is D78's release.json and stays open: every D78 field passes. The harness reads `version`, `channel`, `minFromVersion` and the optional, closed `native` object (HB10, O3), which the harness release workflow produces as release-native.json.",
+  "type": "object",
+  "required": ["version", "channel", "minFromVersion"],
+  "properties": {
+    "version": { "$ref": "#/$defs/version" },
+    "channel": { "type": "string", "minLength": 1 },
+    "minFromVersion": { "$ref": "#/$defs/version" },
+    "native": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binary", "core", "node", "modules", "configSchemaVersion"],
+      "properties": {
+        "binary": { "$ref": "#/$defs/perTarget" },
+        "core": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "contract", "rpc", "payload"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "contract": { "$ref": "#/$defs/version" },
+            "rpc": { "$ref": "#/$defs/version" },
+            "payload": { "$ref": "#/$defs/perTarget" }
+          }
+        },
+        "node": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version"],
+          "properties": { "version": { "$ref": "#/$defs/version" } }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "version", "apiVersion"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "version": { "$ref": "#/$defs/version" },
+              "apiVersion": { "type": "string", "pattern": "^[1-9][0-9]*$" }
+            }
+          }
+        },
+        "configSchemaVersion": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "sha256"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "perTarget": {
+      "type": "object",
+      "propertyNames": { "enum": ["linux-x64", "linux-arm64", "darwin-arm64", "win-x64", "win-arm64"] },
+      "additionalProperties": { "$ref": "#/$defs/asset" }
+    }
+  }
+}
