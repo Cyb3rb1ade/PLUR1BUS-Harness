@@ -382,9 +382,21 @@ fn a_non_utf8_binary_path_is_refused() {
         }
         cmd.arg("--home")
             .arg(&e.home)
-            .args(["--json", "service", "install"])
-            .output()
-            .unwrap()
+            .args(["--json", "service", "install"]);
+        // A test running in parallel may fork while `fs::copy` still holds the copy open for writing; the forked child
+        // keeps that descriptor until it execs, and exec of the copy fails with ETXTBSY meanwhile. Retry briefly.
+        let mut attempt = 0;
+        loop {
+            match cmd.output() {
+                Err(err)
+                    if err.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 100 =>
+                {
+                    attempt += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                other => break other.unwrap(),
+            }
+        }
     };
     let (code, v) = parse(out);
     assert_eq!(code, 1, "{v}");
