@@ -102,6 +102,8 @@ Owner bootstrap (one-time token from installer or console) → **embedding and r
 - **Settings search (the second deviation).** A persistent search field over the settings index (label, config key, help text, current non-secret value, page), keyboard-reachable with `/`, results grouped by page, with deep links. Same index powers a global command palette (⌘K/Ctrl-K) later.
 - **How reference screens are produced.** §9: the source is the reference, there are no delivered screenshots. Procedure: (1) ship the **logo package first**, per the owner's earlier decision; (2) render PLUR1BUS's control UI locally against fixture data (the renderer is a pure HTML emitter — `control-ui-plugin-runtime.js` — so a fixture projection plus a headless screenshot is sufficient, no OpenClaw host needed); (3) store those images as `docs/ui/reference/*.png` with the fixture that produced them; (4) draw the harness screens against them; (5) keep a visual-diff check so a token or density change is visible in review.
 
+**Amendment 2026-09-27 (spec D74).** An optional **desktop shell** (Tauri with `tauri-apps/cef-rs`) is added as a client after M3. It hosts the same SPA plus a collapsible side panel with a CEF browser that can be detached into its own window and re-attached. The SPA stays the only required UI: without the shell (VPS, plain browser) the panel streams a headless Chromium. Enforcement is unchanged: the shell is a client of the harness API like the SPA, and it never gets its own policy layer.
+
 ## Options considered
 
 ### Option A: Skin + plugin pages on the Hermes dashboard
