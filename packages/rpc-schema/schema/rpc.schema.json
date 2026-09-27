@@ -485,7 +485,7 @@
       "admin.obsidian.detect": {
         "x-stability": "experimental", "x-since": "1.3.0", "x-server": "core",
         "description": "Obsidian vaults the agent may use (engine AdminOps.obsidian.detect, read-only): the configured vaults, the agent workspace and the caller's candidates (a proved principal only). isVault: .obsidian/workspace.json or .obsidian/app.json exists; confirmed: a confirmation receipt for this agent, workspace and vault exists.",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "candidates": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 4096 } } } },
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "candidates": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 4096 } } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "vaults"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "vaults": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["path", "isVault", "confirmed", "source"], "properties": { "path": { "type": "string" }, "isVault": { "type": "boolean" }, "confirmed": { "type": "boolean" }, "source": { "enum": ["config", "workspace", "candidate"] } } } } } }
       },
       "admin.obsidian.prepare": {

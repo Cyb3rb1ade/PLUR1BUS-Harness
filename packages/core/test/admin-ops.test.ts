@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
@@ -11,7 +12,7 @@ import type { AgentRegistry } from "../src/agents.ts";
 import { createCore, type Core } from "../src/core.ts";
 import type { HarnessLogger } from "../src/logger.ts";
 import { layout } from "../src/paths.ts";
-import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { flatEmbedder, flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
@@ -144,6 +145,41 @@ describe("admin.migrate over a legacy store", () => {
       assert.deepEqual(r, { from: "0", to: "1", applied: true });
       assert.deepEqual(core.status().engine.storeSchema, { current: "1", expected: "1" });
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+});
+
+describe("admin.embedding.serve on the platform default address", () => {
+  it("serves on the default address, idempotently, and a core stop removes the socket", async () => {
+    // The default is <home>/state/lancedb/control/embedding-ipc/embedding.sock; darwin allows 103 bytes for a socket
+    // path and its per-user tmpdir is long, so the home is made under /tmp there (Windows uses a named pipe).
+    const base = process.platform === "win32" ? tmpdir() : "/tmp";
+    const home = mkdtempSync(join(base, "p1b-sv-"));
+    try {
+      const cfg = defaults(); cfg.agents.bernd = {};
+      cfg.engine = { reranker: { enabled: false }, dreaming: { enabled: false } };
+      writeFileSync(layout(home).configPath, JSON.stringify(cfg));
+      // The IPC server serves only a provider with a model identity (lib/providers/scoped-embedding-ipc.js: `model`,
+      // `dimensions`), as the real providers have; the plain flat seam has none.
+      const core = createCore({ home, testInternals: { embeddings: { ...flatEmbedder(), model: "flat-test", dimensions: 384 }, reranker: null } });
+      await core.start();
+      const c = await connect({ address: core.address, token: core.token });
+      let address: { kind: string; address: string };
+      try {
+        const r = await valid("admin.embedding.serve", c.call<any>("admin.embedding.serve", {}));
+        assert.ok(r.address, JSON.stringify(r));
+        address = r.address;
+        assert.equal(address.kind, process.platform === "win32" ? "named-pipe" : "unix-socket");
+        assert.equal(r.identity?.dimensions, 384);
+        assert.equal(typeof r.tokenPath, "string");
+        if (address.kind === "unix-socket") {
+          assert.ok(address.address.startsWith(join(layout(home).lancedb, "control", "embedding-ipc")), address.address);
+          assert.ok(existsSync(address.address), `socket ${address.address} exists`);
+        }
+        const again = await valid("admin.embedding.serve", c.call<any>("admin.embedding.serve", {}));
+        assert.deepEqual(again.address, address);
+      } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+      if (address.kind === "unix-socket") assert.equal(existsSync(address.address), false, "the core's stop removes the socket");
+    } finally { rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
   });
 });
 

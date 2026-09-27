@@ -410,11 +410,11 @@ pub enum AdminCmd {
     /// Asks first on a terminal; a script (or `--json`) needs `--yes`. Refused unless FROM is the store's current
     /// version; applying FROM = TO changes nothing. The engine offers no dry run.
     Migrate {
-        /// the store's current schema version (decimal)
-        #[arg(long)]
+        /// the store's current schema version (decimal, at most 9 digits)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(0..=999_999_999))]
         from: u32,
-        /// the schema version to migrate to (decimal)
-        #[arg(long)]
+        /// the schema version to migrate to (decimal, at most 9 digits)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(0..=999_999_999))]
         to: u32,
         /// skip the confirmation prompt (required outside a terminal)
         #[arg(long)]
@@ -464,6 +464,9 @@ pub enum EmbeddingCmd {
         refresh: bool,
     },
     /// [experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+    ///
+    /// Serving lasts only as long as this core process: it ends when the core stops or is restarted (by the
+    /// supervisor after a crash or a core-class configuration change); run it again after a restart.
     Serve {
         /// stop serving instead
         #[arg(long)]

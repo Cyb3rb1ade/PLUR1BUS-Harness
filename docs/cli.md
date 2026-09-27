@@ -777,8 +777,8 @@ Asks first on a terminal; a script (or `--json`) needs `--yes`. Refused unless F
 
 ###### **Options:**
 
-* `--from <FROM>` — the store's current schema version (decimal)
-* `--to <TO>` — the schema version to migrate to (decimal)
+* `--from <FROM>` — the store's current schema version (decimal, at most 9 digits)
+* `--to <TO>` — the schema version to migrate to (decimal, at most 9 digits)
 * `--yes` — skip the confirmation prompt (required outside a terminal)
 
 
@@ -811,6 +811,8 @@ Asks first on a terminal; a script (or `--json`) needs `--yes`. Refused unless F
 ## `plur1bus admin embedding serve`
 
 [experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+
+Serving lasts only as long as this core process: it ends when the core stops or is restarted (by the supervisor after a crash or a core-class configuration change); run it again after a restart.
 
 **Usage:** `plur1bus admin embedding serve [OPTIONS]`
 

@@ -17,12 +17,44 @@ use std::time::Duration;
 /// Longer than the core's own 30 s bound on the embedding probe, so the core answers before the CLI gives up.
 const CALL_TIMEOUT: Duration = Duration::from_secs(45);
 
+/// `admin.migrate`: the engine sets no budget on a migration (AdminOps.migrate at the pinned SHA runs every step to the
+/// end, with no signal or deadline), so the CLI waits long rather than leave a migration it cannot see finishing (a
+/// retry after a timeout would answer E_CONFLICT). The human output reports progress while it waits.
+const MIGRATE_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+const MIGRATE_PROGRESS_EVERY: Duration = Duration::from_secs(10);
+
 /// Calls `method` on the core and returns its result; any failure prints the error and exits.
 fn call(out: &Out, layout: &Layout, method: &str, params: Value) -> Value {
-    let mut c = connect_core(out, layout, "admin", CALL_TIMEOUT);
+    call_with(out, layout, method, params, CALL_TIMEOUT)
+}
+
+fn call_with(out: &Out, layout: &Layout, method: &str, params: Value, timeout: Duration) -> Value {
+    let mut c = connect_core(out, layout, "admin", timeout);
     require_supports(out, &c, method);
     c.call(method, params)
         .unwrap_or_else(|e| out.from_rpc_error(&e))
+}
+
+/// `admin.migrate` with [`MIGRATE_TIMEOUT`]; without `--json` a line on stderr every [`MIGRATE_PROGRESS_EVERY`] says
+/// it is still running.
+fn call_migrate(out: &Out, layout: &Layout, params: Value) -> Value {
+    if out.json {
+        return call_with(out, layout, "admin.migrate", params, MIGRATE_TIMEOUT);
+    }
+    eprintln!("migrating the store schema (the core runs it to the end even if this command is interrupted)");
+    let (done, wait) = std::sync::mpsc::channel::<()>();
+    let t0 = std::time::Instant::now();
+    let progress = std::thread::spawn(move || {
+        while let Err(std::sync::mpsc::RecvTimeoutError::Timeout) =
+            wait.recv_timeout(MIGRATE_PROGRESS_EVERY)
+        {
+            eprintln!("still migrating ({} s)", t0.elapsed().as_secs());
+        }
+    });
+    let v = call_with(out, layout, "admin.migrate", params, MIGRATE_TIMEOUT);
+    drop(done);
+    progress.join().ok();
+    v
 }
 
 /// The engine resolves a relative vault path against the user's home; on the command line it means the working
@@ -123,7 +155,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AdminCmd) {
                 yes,
             );
             let params = json!({ "from": from.to_string(), "to": to.to_string() });
-            let v = call(out, layout, "admin.migrate", params);
+            let v = call_migrate(out, layout, params);
             out.ok("admin.migrate/1", &v, || describe_migrate(&v));
         }
         AdminCmd::Embedding {
@@ -213,6 +245,19 @@ mod tests {
         let rel = vault_arg(Path::new("vault"));
         assert!(Path::new(&rel).is_absolute(), "{rel}");
         assert!(rel.ends_with("vault"), "{rel}");
+    }
+
+    #[test]
+    fn migrate_versions_are_limited_to_nine_digits_like_the_schema() {
+        use clap::Parser;
+        let parse = |from: &str| {
+            crate::cli::Cli::try_parse_from([
+                "plur1bus", "admin", "migrate", "--from", from, "--to", "1",
+            ])
+        };
+        assert!(parse("999999999").is_ok());
+        assert!(parse("1000000000").is_err());
+        assert!(parse("-1").is_err());
     }
 
     #[test]

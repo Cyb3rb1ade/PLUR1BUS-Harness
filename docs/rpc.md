@@ -1526,7 +1526,7 @@ Obsidian vaults the agent may use (engine AdminOps.obsidian.detect, read-only): 
     },
     "candidates": {
       "type": "array",
-      "maxItems": 32,
+      "maxItems": 20,
       "items": {
         "type": "string",
         "minLength": 1,

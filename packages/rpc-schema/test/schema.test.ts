@@ -94,8 +94,8 @@ describe("rpc-schema", () => {
       assert.equal(buildCapabilities([], "supervisor").methods[m], undefined, m);
     }
     const caller = { channel: "cli", accountId: "a", userId: "u" };
-    assert.equal(validateParams("admin.obsidian.detect", { caller, agentId: "bernd", candidates: Array(33).fill("/v") }).ok, false);
-    assert.deepEqual(validateParams("admin.obsidian.detect", { caller, agentId: "bernd", candidates: Array(32).fill("/v") }), { ok: true });
+    assert.equal(validateParams("admin.obsidian.detect", { caller, agentId: "bernd", candidates: Array(21).fill("/v") }).ok, false);
+    assert.deepEqual(validateParams("admin.obsidian.detect", { caller, agentId: "bernd", candidates: Array(20).fill("/v") }), { ok: true });
     assert.equal(validateParams("admin.obsidian.prepare", { caller, agentId: "bernd" }).ok, false);
     assert.equal(validateParams("admin.obsidian.confirm", { caller, agentId: "bernd", nonce: "n", force: true }).ok, false);
     assert.equal(validateParams("admin.migrate", { from: 0, to: "1" }).ok, false);

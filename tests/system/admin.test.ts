@@ -30,7 +30,24 @@ describe("2a-H3b — admin ops through the CLI (B15)", () => {
     }
   });
 
-  it("admin migrate without --yes in a non-interactive shell exits 2 and changes nothing", { skip: REAL && "flat embedder only" }, async () => {
+  it("admin migrate without --yes refuses before connecting: with no core it is exit 2, never E_CORE_UNAVAILABLE", () => {
+    const h = home();
+    try {
+      const refused = cli(h, ["admin", "migrate", "--from", "1", "--to", "1"], { allowFail: true });
+      assert.equal(refused.exit, 2, JSON.stringify(refused));
+      const doc = JSON.parse(refused.stdout);
+      assert.equal(doc.error, "E_INVALID_PARAMS", JSON.stringify(doc));
+      assert.equal(doc.applied, false, JSON.stringify(doc));
+      // The same call with --yes does try the core, and there is none.
+      const unavailable = cli(h, ["admin", "migrate", "--from", "1", "--to", "1", "--yes"], { allowFail: true });
+      assert.equal(unavailable.exit, 1, JSON.stringify(unavailable));
+      assert.equal(JSON.parse(unavailable.stdout).error, "E_CORE_UNAVAILABLE");
+    } finally {
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+
+  it("admin migrate without --yes in a non-interactive shell exits 2 and changes nothing",{ skip: REAL && "flat embedder only" }, async () => {
     const h = home();
     let core: RunningCore | undefined;
     try {
