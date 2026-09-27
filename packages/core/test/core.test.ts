@@ -43,7 +43,7 @@ function snapshot(dir: string, skip: readonly string[] = []): Record<string, str
 async function recallUntil(client: CoreClient, query: string, pattern: RegExp, timeoutMs = 8000): Promise<string> {
   const until = Date.now() + timeoutMs; let text = "";
   while (Date.now() < until) {
-    const r = await client.call<any>("memory.recall", { caller, agentId: "bernd", query, joined: true });
+    const r = await client.call<any>("memory.recall", { caller, agentId: "bernd", query, joined: true, budget: { softMs: 5000, hardMs: 10_000 } });
     text = r.joined.text;
     if (pattern.test(text)) return text;
     await new Promise((res) => setTimeout(res, 100));
@@ -246,7 +246,7 @@ describe("core start journal replay (I2)", () => {
     try {
       assert.equal((await c.call<any>("core.status")).journalBacklog, 0);
       assert.equal(existsSync(join(l.journal, "bernd.jsonl")), false, "nothing stranded in the journal");
-      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "chimney sweep", joined: true });
+      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "chimney sweep", joined: true, budget: { softMs: 5000, hardMs: 10_000 } });
       assert.match(r.joined.text, /chimney sweep/i);
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
@@ -413,7 +413,7 @@ describe("core model warm-up (E4, S7)", () => {
       for (const f of ["run-state.json", ".current-mood.txt", ".emotional-state.json"]) assert.equal(after[rel(f)], before[rel(f)], f);
       assert.equal(got.some((m) => m.startsWith("recall.")), false, JSON.stringify(got));
       // Control: a client recall does write the workspace (activity) and presents the due reminder.
-      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything due today", joined: true });
+      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything due today", joined: true, budget: { softMs: 5000, hardMs: 10_000 } });
       assert.notDeepEqual(homeNow(), before, "a real recall writes the home (the snapshot would see a warm-up's writes)");
       assert.match(r.joined.text, /water the plants/);
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }

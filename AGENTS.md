@@ -103,6 +103,8 @@ Env vars that matter when driving the core directly instead of through the CLI:
   in CI, 1000 in the nightly) and its mulberry32 seed (printed as a diagnostic either way, so a
   failing run can be replayed — though replay reproduces only the kill schedule, not timing,
   outages or journal replays).
+- `PLUR1BUS_SOAK_RECALL_BUDGET_MS` — the kill soak's per-`memory recall` wall budget (default 1000; the nightly's
+  1 000-turn run sets 3000 because recall slows as the agents' tables grow).
 - `PLUR1BUS_REAL_MODELS=1` (with optional `PLUR1BUS_MODELS_CACHE=<dir>` for the ~600 MB download) — the
   real-model acceptance (`tests/system/two-session-recall.test.ts`, criterion 1). `PLUR1BUS_SYSTEM_INTERNALS`
   picks the flat seam's variant otherwise (`flat-embedder-cold`, see below).

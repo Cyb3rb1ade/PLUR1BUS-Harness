@@ -56,7 +56,8 @@ describe("core supervised mode", () => {
     await until(() => s.core.status().process.state === "orphaned");
     assert.equal(typeof s.core.status().process.since, "number");
     const c = await s.client();
-    const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything about lunch" });
+    // About serving while orphaned, not latency: a generous budget so a slow CI runner does not abort the recall.
+    const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything about lunch", budget: { softMs: 5000, hardMs: 10_000 } });
     assert.equal(r.degraded, null);
     assert.equal((await c.call<any>("core.status")).process.state, "orphaned");
     // The models warm in the background (S7): wait for them, then orphaned must not have taken engine.ready away.
