@@ -22,7 +22,8 @@ fn valid_id(id: &str) -> bool {
 
 fn try_core(layout: &Layout) -> Option<Client> {
     let token = std::fs::read_to_string(layout.core_token()).ok()?;
-    Client::connect(
+    super::connect_recorded(
+        layout,
         &core_address(
             &layout.home,
             if cfg!(windows) { "windows" } else { "posix" },

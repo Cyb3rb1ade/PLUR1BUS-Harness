@@ -1,5 +1,5 @@
 name: nightly
-# M1 acceptance 1 with real models: the system test with the real e5-small embedder and the bge-reranker
+# M1 acceptance 1 with real models, and the 1 000-turn kill soak (acceptance 2, flat embedder): the system test with the real e5-small embedder and the bge-reranker
 # (PLUR1BUS_REAL_MODELS=1 asserts the reranker ran and did not fall back), plus the benchmark gates. The
 # ~600 MB of models live in the core's <home>/models; the test links each temp home's models/ to
 # PLUR1BUS_MODELS_CACHE, which is restored before and saved after the run (even a failed one).
@@ -52,8 +52,23 @@ jobs:
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
       - name: system test (real models)
         run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
-        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_REAL_MODELS: "1" }
+        timeout-minutes: 30
+        # H3-R26: shared CI runners are not reference hardware. The CI recall budget keeps a slow runner from
+        # aborting the recall (degraded must still be null); the 400/600 ms targets are reported as diagnostics and
+        # `::warning::` lines here, and asserted only on reference hardware (AGENTS.md, "Real-model acceptance").
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_REAL_MODELS: "1", PLUR1BUS_CI_RECALL_HARD_MS: "2000" }
+      # Criterion 2 at full length (S16, ruling H3-R19): 1 000 turns over 10 agents, flat embedder (the soak is about
+      # durability under kills, so it does not need the models).
+      - name: kill soak (1 000 turns)
+        # Runs even when the real-model system test failed: the two acceptances are independent.
+        if: ${{ !cancelled() }}
+        run: node --experimental-strip-types --test tests/system/kill-soak.test.ts
+        timeout-minutes: 60
+        # Recall budget 3 s here (PR CI keeps 1 s): the 1 000-turn run grows each agent's table, and recall slows with
+        # every LanceDB fragment (known engine follow-up); the soak prints per-third p95/max so the growth stays visible.
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "1000", PLUR1BUS_SOAK_RECALL_BUDGET_MS: "3000" }
       - run: pnpm bench
+        timeout-minutes: 10
       - name: save model cache
         if: ${{ always() && steps.models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
         uses: actions/cache/save@v4

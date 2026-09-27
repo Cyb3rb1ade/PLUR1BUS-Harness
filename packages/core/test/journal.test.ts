@@ -1,12 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, renameSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import type { JournalLine } from "@plur1bus/rpc-schema";
 import { createAgentRegistry } from "../src/agents.ts";
-import { appendJournalLine, drainJournal, replayJournal } from "../src/journal.ts";
+import { appendJournalLine, drainJournal, JOURNAL_BACKLOG_MAX_BYTES, journalBacklog, replayJournal } from "../src/journal.ts";
 import { createLogger } from "../src/logger.ts";
 import { layout } from "../src/paths.ts";
 
@@ -222,6 +222,79 @@ describe("journal", () => {
       // bad.jsonl itself is left untouched (never renamed away) so it is retried on the next startup.
       assert.equal(readFileSync(join(l.journal, "bad.jsonl"), "utf8").includes("bad-content"), true);
       assert.equal(existsSync(join(l.journal, "good.jsonl")) && readFileSync(join(l.journal, "good.jsonl"), "utf8").length > 0, false);
+    });
+  });
+
+  describe("Task 15 (E4): runId, duplicate-turn, backlog", () => {
+    it("replay passes the line id as runId, the same across restarts and a partially replayed file", async () => {
+      const { l, agents, logger } = setup();
+      const a = line("11111111-1111-4111-8111-111111111111", "kept once");
+      const b = line("22222222-2222-4222-8222-222222222222", "never handled");
+      appendJournalLine(l.journal, a); appendJournalLine(l.journal, b);
+      const runIds: string[] = [];
+      // Every capture is refused, so both lines are kept and replayed again by the next "start".
+      const engine = { capture: (t: any) => { runIds.push(t.runId); return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 0, skipped: 1, reason: "engine-closed" }), abort() {} }; } } as any;
+      await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      // A core killed mid-replay leaves `<agent>.jsonl.replaying-<pid>`: its lines keep their ids, so their runIds too.
+      renameSync(join(l.journal, "bernd.jsonl"), join(l.journal, "bernd.jsonl.replaying-4242"));
+      await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      const want = [`journal:${a.id}`, `journal:${b.id}`];
+      // The third pass replays the recovered file, appends its kept lines back to bernd.jsonl, and the regular scan
+      // then replays those too: four passes over the same two lines, every one with the same runIds.
+      assert.deepEqual(runIds, [...want, ...want, ...want, ...want]);
+    });
+
+    it("a duplicate-turn result removes the line; any other reason keeps it", async () => {
+      const { l, agents, logger } = setup();
+      appendJournalLine(l.journal, line("11111111-1111-4111-8111-111111111111", "already captured"));
+      appendJournalLine(l.journal, line("22222222-2222-4222-8222-222222222222", "incomplete"));
+      const engine = { capture: (t: any) => ({ id: "x", acceptedAt: 1, done: Promise.resolve(t.messages[0].content === "already captured"
+        ? { stored: 0, skipped: 1, reason: "duplicate-turn" } : { stored: 0, skipped: 1, reason: "capture-incomplete" }), abort() {} }) } as any;
+      const r = await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 });
+      assert.deepEqual(r, { replayed: 1, kept: 1 });
+      const left = readFileSync(join(l.journal, "bernd.jsonl"), "utf8").trim().split("\n").map((x) => JSON.parse(x).messages[0].content);
+      assert.deepEqual(left, ["incomplete"]);
+    });
+
+    it("journalBacklog counts lines across live and replaying files and reports the oldest at", () => {
+      const { l } = setup();
+      assert.deepEqual(journalBacklog(join(l.journal, "missing")), { entries: 0, oldestAt: null });
+      assert.deepEqual(journalBacklog(l.journal), { entries: 0, oldestAt: null });
+      appendJournalLine(l.journal, { ...line("11111111-1111-4111-8111-111111111111", "live"), at: 3000 });
+      appendJournalLine(l.journal, { ...line("22222222-2222-4222-8222-222222222222", "other agent"), agentId: "anna", at: 2000 });
+      // A replay in progress: the lines under `.replaying-<pid>` are still backlog.
+      writeFileSync(join(l.journal, "bernd.jsonl.replaying-4242"), `${JSON.stringify({ ...line("33333333-3333-4333-8333-333333333333", "replaying"), at: 1000 })}\n${JSON.stringify({ ...line("44444444-4444-4444-8444-444444444444", "replaying 2"), at: 4000 })}\n`);
+      // A torn tail (no newline yet) is not a complete line; a kept unparseable line counts but has no `at`.
+      writeFileSync(join(l.journal, "anna.jsonl"), '{"v":1,"id":"5555\n{"v":1,"id":"6666', { flag: "a" });
+      writeFileSync(join(l.journal, "notes.txt"), "not a journal\n");
+      assert.deepEqual(journalBacklog(l.journal), { entries: 5, oldestAt: 1000 });
+    });
+
+    it("journalBacklog stops counting at 100 000 lines", () => {
+      const { l } = setup();
+      // Short (unparseable, still counted) lines, so the line bound is reached well before the byte bound.
+      const one = `${JSON.stringify({ ...line("11111111-1111-4111-8111-111111111111", "x"), at: 7 })}\n`;
+      writeFileSync(join(l.journal, "anna.jsonl"), one + "{}\n".repeat(60_000));
+      writeFileSync(join(l.journal, "bernd.jsonl"), one + "{}\n".repeat(60_000));
+      journalBacklog(l.journal); // warm the page cache
+      const t0 = performance.now();
+      const b = journalBacklog(l.journal);
+      const ms = performance.now() - t0;
+      assert.equal(b.entries, 100_000);
+      assert.equal(b.oldestAt, 7);
+      assert.ok(ms < 250, `bounded work: ${ms.toFixed(0)} ms`);
+    });
+
+    it("journalBacklog stops reading at 8 MiB and counts only the complete lines before the cut", () => {
+      const { l } = setup();
+      const big = `${JSON.stringify({ ...line("11111111-1111-4111-8111-111111111111", "y".repeat(1000)), at: 9 })}\n`;
+      const lines = Math.ceil((JOURNAL_BACKLOG_MAX_BYTES * 1.5) / big.length);
+      writeFileSync(join(l.journal, "anna.jsonl"), big.repeat(lines));
+      writeFileSync(join(l.journal, "bernd.jsonl"), big.repeat(10)); // after the cut: never read
+      const b = journalBacklog(l.journal);
+      assert.equal(b.entries, Math.floor(JOURNAL_BACKLOG_MAX_BYTES / big.length));
+      assert.equal(b.oldestAt, 9);
     });
   });
 

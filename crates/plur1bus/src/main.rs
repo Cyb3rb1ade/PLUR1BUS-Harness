@@ -4,6 +4,8 @@ mod identity;
 mod journal;
 mod output;
 mod paths;
+mod service;
+mod supervisor;
 use clap::Parser;
 use cli::{Cli, Cmd};
 use output::Out;
@@ -17,31 +19,25 @@ fn main() {
         Cmd::Core {
             sub: cli::CoreCmd::Run,
         } => commands::core::run(&out, &layout),
+        Cmd::Supervise { no_core } => {
+            supervisor::run(&layout, supervisor::SuperviseOpts { no_core })
+        }
         Cmd::Markdown => {
             print!("{}", clap_markdown::help_markdown::<Cli>());
         }
         Cmd::Setup(_) => commands::stubs::milestone(
             &out,
             "setup",
-            "2a-H3",
+            "2a-H3b",
             "installer and service registration (spec §6.5)",
         ),
-        Cmd::FirstAid { .. } => {
-            commands::stubs::milestone(&out, "1staid", "2a-H3", "check and repair (spec §6.6)")
-        }
+        Cmd::FirstAid { sub } => commands::firstaid::run(&out, &layout, sub),
         Cmd::Module(_) => {
-            commands::stubs::milestone(&out, "module", "2a-H3", "module lifecycle and graph")
+            commands::stubs::milestone(&out, "module", "2a-H3b", "module lifecycle and graph")
         }
-        Cmd::Daemon(_) => commands::stubs::milestone(
-            &out,
-            "daemon",
-            "2a-H3",
-            "supervisor control; in H1 start the core with `plur1bus core run`",
-        ),
-        Cmd::Service(_) => {
-            commands::stubs::milestone(&out, "service", "2a-H3", "OS service registration")
-        }
-        Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3", "manifest check"),
+        Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
+        Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
+        Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3b", "manifest check"),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
         Cmd::Model(_) => commands::stubs::milestone(
             &out,

@@ -25,6 +25,7 @@ ajv.addKeyword("x-rpc-version");
 ajv.addKeyword("x-stability");
 ajv.addKeyword("x-since");
 ajv.addKeyword("x-deprecated");
+ajv.addKeyword("x-server");
 ajv.addSchema(schemaJson);
 const SCHEMA_ID: string = (schemaJson as any).$id;
 
@@ -75,16 +76,28 @@ export interface Capabilities {
   features: readonly string[];
 }
 
+/** The process that serves a method or notification: every one carries `x-server` (ruling S2). */
+export type RpcServerRole = "core" | "supervisor";
+const serverOf = (def: { "x-server"?: string }): RpcServerRole => (def["x-server"] === "supervisor" ? "supervisor" : "core");
+
+/** Method names per serving process, in schema order. */
+export const METHODS_BY_SERVER: Readonly<Record<RpcServerRole, readonly string[]>> = Object.freeze({
+  core: Object.freeze(METHODS.filter((m) => serverOf((SCHEMA as any).$defs.methods[m]) === "core")),
+  supervisor: Object.freeze(METHODS.filter((m) => serverOf((SCHEMA as any).$defs.methods[m]) === "supervisor")),
+});
+
 /** Builds `Capabilities` from the schema's own x-stability/x-since/x-deprecated annotations (ADR-016 §3): the
- *  keys and their entries always match what this rpc-schema version actually ships, never a hand-kept list. */
-export function buildCapabilities(features: readonly string[]): Capabilities {
+ *  keys and their entries always match what this rpc-schema version actually ships, never a hand-kept list.
+ *  Only the methods and notifications whose `x-server` is `server` are listed. */
+export function buildCapabilities(features: readonly string[], server: RpcServerRole = "core"): Capabilities {
   const schema = SCHEMA as any;
   const entry = (def: { "x-stability": "experimental" | "stable"; "x-since": string; "x-deprecated"?: Deprecation }): CapabilityEntry => ({
     stability: def["x-stability"],
     since: def["x-since"],
     ...(def["x-deprecated"] ? { deprecated: def["x-deprecated"] } : {}),
   });
-  const map = (defs: Record<string, any>): Record<string, CapabilityEntry> => Object.fromEntries(Object.entries(defs).map(([name, def]) => [name, entry(def)]));
+  const map = (defs: Record<string, any>): Record<string, CapabilityEntry> =>
+    Object.fromEntries(Object.entries(defs).filter(([, def]) => serverOf(def) === server).map(([name, def]) => [name, entry(def)]));
   return {
     methods: map(schema.$defs.methods),
     notifications: map(schema.$defs.notifications),

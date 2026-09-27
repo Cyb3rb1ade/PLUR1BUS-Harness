@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { REAL, SHARED_MEMORY, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { REAL, cli, home, reapHome, sharedMemorySupported, startCore, stopCore, type RunningCore } from "./helpers.ts";
 
 /** Every CLI call in this test must answer within this wall time. */
 const CLI_BUDGET_MS = 2000;
@@ -58,11 +58,11 @@ describe("M1b-2a-H2 — memory surface through the CLI", () => {
       assert.equal(state.schema, "memory.state/1");
       assert.equal(state.cards.agentPrivate, 1, JSON.stringify(state));
 
-      if (!SHARED_MEMORY) {
-        // Engine limitation on macOS/Windows: explicit shared memory is disabled and share fails with storage.
+      if (!sharedMemorySupported(h)) {
+        // Engine limitation on macOS/Windows (E4): explicit shared memory is unsupported and share answers E_NOT_AVAILABLE.
         const refused = run(["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"], { allowFail: true });
         assert.equal(refused.exit, 1, JSON.stringify(refused));
-        assert.equal(refused.doc.error, "E_STORAGE", JSON.stringify(refused.doc));
+        assert.equal(refused.doc.error, "E_NOT_AVAILABLE", JSON.stringify(refused.doc));
       } else {
         const share = run(["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"]);
         assert.equal(share.schema, "memory.share/1");
@@ -104,6 +104,7 @@ describe("M1b-2a-H2 — memory surface through the CLI", () => {
       }
     } finally {
       if (core) await stopCore(core);
+      await reapHome(h);
       rmSync(h, { recursive: true, force: true });
     }
   });

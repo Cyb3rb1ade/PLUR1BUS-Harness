@@ -1,13 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { writeFileSync } from "node:fs";
 import { connect } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore } from "../src/core.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 // G17: shutdown drains in-flight memory ops before it closes the sockets. Windows-safe: every stop is an in-process
 // core.stop(), never a signal. The embedder delay holds the op inside the engine; stop() begins while it is held.
@@ -18,7 +17,7 @@ const HOLD_MS = 600;
 const STOP_AFTER_MS = 50;
 
 function newHome(): string {
-  const home = mkdtempSync(join(tmpdir(), "p1b-drain-"));
+  const home = tempDir("p1b-drain-");
   const cfg = defaults(); cfg.agents.bernd = {};
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
   cfg.engine.duplicateThreshold = 1.01;
@@ -87,6 +86,95 @@ describe("core stop drains in-flight memory ops (G17)", () => {
       assert.ok(Array.isArray((await list.p).items), "the in-flight list still answers");
       await stopped;
     } finally { await c1.close(); await c2.close(); await core.stop({ budgetMs: BUDGET_MS }); }
+  });
+
+  it("a capture that the stop aborts before it stored anything is refused as core-stopping, so the client journals it", async () => {
+    const home = newHome();
+    const hold = embedHold(HOLD_MS);
+    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: hold.delayMs }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      hold.arm();
+      const cap = tracked(c.call<any>("memory.capture", { caller, agentId: "bernd", messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }], wait: true, waitMs: 10_000 }));
+      await hold.entered; await sleep(STOP_AFTER_MS);
+      assert.equal(cap.settled(), false, "premise: the capture is still held in the embedder when stop begins");
+      const stopped = core.stop({ budgetMs: BUDGET_MS });
+      // Before the fix the reply was a success document `{ stored: 0, skipped: 1, reason: "not_captured" }`: the CLI
+      // printed it and the fact was lost, neither stored nor journaled (found by the Task 12 kill soak).
+      await assert.rejects(cap.p, (e: any) => {
+        assert.equal(e.error, "E_CORE_UNAVAILABLE", `${e.error} ${e.reason}: ${e.message}`);
+        assert.equal(e.reason, "core-stopping");
+        return true;
+      });
+      await stopped;
+    } finally { await c.close(); await core.stop({ budgetMs: BUDGET_MS }); }
+  });
+
+  it("a capture sent after stop began answers E_CORE_UNAVAILABLE core-stopping", async () => {
+    const home = newHome();
+    const hold = embedHold(HOLD_MS);
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: hold.delayMs }) });
+    await core.start();
+    const c1 = await connect({ address: core.address, token: core.token });
+    const c2 = await connect({ address: core.address, token: core.token });
+    try {
+      hold.arm();
+      const list = tracked(c1.call<any>("memory.list", { caller, agentId: "bernd", topic: "x" }));
+      await hold.entered; await sleep(STOP_AFTER_MS);
+      const stopped = core.stop({ budgetMs: BUDGET_MS });
+      await assert.rejects(c2.call("memory.capture", { caller, agentId: "bernd", messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }], wait: true, waitMs: 10_000 }), (e: any) => {
+        assert.equal(e.error, "E_CORE_UNAVAILABLE", `${e.error} ${e.reason}: ${e.message}`);
+        assert.equal(e.reason, "core-stopping");
+        return true;
+      });
+      await list.p; await stopped;
+    } finally { await c1.close(); await c2.close(); await core.stop({ budgetMs: BUDGET_MS }); }
+  });
+
+  it("H3-R21: a recall sent after stop began answers E_CORE_UNAVAILABLE core-stopping", async () => {
+    const home = newHome();
+    const hold = embedHold(HOLD_MS);
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: hold.delayMs }) });
+    await core.start();
+    const c1 = await connect({ address: core.address, token: core.token });
+    const c2 = await connect({ address: core.address, token: core.token });
+    try {
+      hold.arm();
+      const list = tracked(c1.call<any>("memory.list", { caller, agentId: "bernd", topic: "x" }));
+      await hold.entered; await sleep(STOP_AFTER_MS);
+      const stopped = core.stop({ budgetMs: BUDGET_MS });
+      await assert.rejects(c2.call("memory.recall", { caller, agentId: "bernd", query: "boiler" }), (e: any) => {
+        assert.equal(e.error, "E_CORE_UNAVAILABLE", `${e.error} ${e.reason}: ${e.message}`);
+        assert.equal(e.reason, "core-stopping");
+        return true;
+      });
+      await list.p; await stopped;
+    } finally { await c1.close(); await c2.close(); await core.stop({ budgetMs: BUDGET_MS }); }
+  });
+
+  it("H3-R21: a recall in flight when stop begins never answers degraded engine-closed", async () => {
+    const home = newHome();
+    const hold = embedHold(HOLD_MS);
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: hold.delayMs }) });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      hold.arm();
+      const recall = tracked(c.call<any>("memory.recall", { caller, agentId: "bernd", query: "boiler", budget: { softMs: 5000, hardMs: 8000 } }));
+      await hold.entered; await sleep(STOP_AFTER_MS);
+      assert.equal(recall.settled(), false, "premise: the recall is still held in the embedder when stop begins");
+      const stopped = core.stop({ budgetMs: BUDGET_MS });
+      // Either the engine still served it, or the core refuses it as stopping; never a served-looking engine-closed.
+      const outcome = await recall.p.then((r) => r, (e) => e);
+      if (outcome instanceof Error) {
+        assert.equal((outcome as any).error, "E_CORE_UNAVAILABLE", String(outcome));
+        assert.equal((outcome as any).reason, "core-stopping");
+      } else {
+        assert.notEqual(outcome.degraded?.reason, "engine-closed", JSON.stringify(outcome.degraded));
+      }
+      await stopped;
+    } finally { await c.close(); await core.stop({ budgetMs: BUDGET_MS }); }
   });
 
   it("a correct in flight when stop begins completes and survives restart", async () => {

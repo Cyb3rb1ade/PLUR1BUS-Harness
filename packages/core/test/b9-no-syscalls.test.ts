@@ -88,7 +88,7 @@ describe("B9 — no socket or spawn calls during recall assembly", () => {
   it("one memory.recall over an open connection makes 0 socket/spawn calls", async () => {
     patch();
     let r: any;
-    try { r = await c.call<any>("memory.recall", { caller, agentId: "bernd", sessionKey: "s2", query: "when is the roadmap review", joined: true }); }
+    try { r = await c.call<any>("memory.recall", { caller, agentId: "bernd", sessionKey: "s2", query: "when is the roadmap review", joined: true, budget: { softMs: 5000, hardMs: 10_000 } }); } // B9 counts syscalls, not latency
     finally { restore(); }
     assert.equal(r.degraded, null, JSON.stringify(r.degraded));
     assert.match(r.joined.text, /roadmap review/i);

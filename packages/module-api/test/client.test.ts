@@ -1,15 +1,23 @@
 import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Socket } from "node:net";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LineDecoder, encodeLine } from "../src/framing.ts";
 import { RpcCallError, connect } from "../src/client.ts";
 
+const tempDirs: string[] = [];
+function tempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "p1b-client-"));
+  tempDirs.push(dir);
+  return dir;
+}
+after(() => { for (const d of tempDirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
+
 const TOKEN = "a".repeat(64);
 function address(): string {
-  return process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-${process.pid}-${Math.random().toString(36).slice(2)}` : join(mkdtempSync(join(tmpdir(), "p1b-client-")), "core.sock");
+  return process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-${process.pid}-${Math.random().toString(36).slice(2)}` : join(tempDir(), "core.sock");
 }
 
 /** Minimal fake core: auth, echo, one notification, slow method. */
@@ -107,6 +115,34 @@ describe("client", () => {
       assert.equal(c.supports("memory.propose"), false);
       await c.close();
     } finally { withCaps.close(); }
+  });
+
+  it("connect with endpoint supervisor sends supervisor.auth", async () => {
+    const supAddr = address();
+    const firstMethods: string[] = [];
+    const supHello = { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: { methods: { "daemon.status": { stability: "experimental", since: "1.2.0" } }, notifications: {}, extensionPoints: {}, features: ["adoption"] } };
+    const sup = createServer((sock: Socket) => {
+      const dec = new LineDecoder(); let first = true;
+      sock.on("data", (chunk) => {
+        for (const msg of dec.push(chunk) as any[]) {
+          if (first) { firstMethods.push(msg.method); first = false; }
+          if (msg.method === "supervisor.auth" && msg.params?.token === TOKEN) sock.write(encodeLine({ jsonrpc: "2.0", id: msg.id, result: supHello }));
+          else sock.write(encodeLine({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: "auth", data: { error: "E_UNAUTHORIZED", reason: "auth-required" } } }));
+        }
+      });
+    });
+    await new Promise<void>((res) => sup.listen(supAddr, () => res()));
+    try {
+      const c = await connect({ address: supAddr, token: TOKEN, endpoint: "supervisor" });
+      assert.deepEqual(firstMethods, ["supervisor.auth"]);
+      assert.deepEqual(c.hello, supHello);
+      assert.equal(c.supports("daemon.status"), true);
+      assert.equal(c.supports("memory.recall"), false);
+      await c.close();
+      // The default endpoint is still the core: against a supervisor it sends core.auth and is refused.
+      await assert.rejects(connect({ address: supAddr, token: TOKEN }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
+      assert.deepEqual(firstMethods, ["supervisor.auth", "core.auth"]);
+    } finally { sup.close(); }
   });
 
   it("cleans up the socket when auth handshake rejects", async () => {

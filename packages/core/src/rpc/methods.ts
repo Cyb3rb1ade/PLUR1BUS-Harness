@@ -1,7 +1,7 @@
 import type { CheckpointResult, Deferral, Degraded, Engine, JobName, JobRun, Principal, RecallResult } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type {
-  AgentCloseParams, AgentOpenParams, AgentStatusParams, CallerIdentity, CoreShutdownParams, CoreStatusResult, JobsHistoryParams, JobsRunParams,
+  AgentCloseParams, AgentOpenParams, AgentStatusParams, CallerIdentity, CoreAdoptParams, CoreShutdownParams, CoreStatusResult, JobsHistoryParams, JobsRunParams,
   MemoryCaptureParams, MemoryCaptureResult, MemoryCheckpointParams, MemoryCheckpointResult, MemoryRecallParams, MemoryRecallResult,
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
@@ -20,6 +20,8 @@ export interface MethodDeps {
   captureSignal: AbortSignal;
   /** G17: true once the core is stopping or stopped; memory ops are refused from then on. */
   isStopping: () => boolean;
+  /** S3/S4: verifies the nonce against run/supervisor.token and makes the connection the lifeline; throws E_UNAUTHORIZED. */
+  adopt: (nonce: string, connectionId: string) => CoreStatusResult;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -43,6 +45,9 @@ function serializeRecall(r: RecallResult, joined: boolean, capChars: number): Me
 
 const projectCheckpoint = (c: CheckpointResult): MemoryCheckpointResult => ({ agentId: c.agentId, reason: c.reason, digest: c.digest, written: c.written });
 
+/** G17/H3-R21: the refusal a stopping core gives memory calls; clients treat it like an unreachable core. */
+const coreStopping = (): RpcError => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
+
 export function buildMethods(d: MethodDeps): Record<string, Handler> {
   const openAgents = new Map<string, { close(): Promise<void> }>(); // one map per core
 
@@ -58,8 +63,12 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
   return {
     "core.status": async () => d.status(),
     "core.shutdown": async (p: CoreShutdownParams) => { d.shutdown(p.budgetMs); return { accepted: true as const }; },
+    "core.adopt": async (p: CoreAdoptParams, ctx) => ({ status: d.adopt(p.nonce, ctx.connectionId) }),
 
     "memory.recall": async (p: MemoryRecallParams, ctx) => {
+      // H3-R21: a stopping core refuses a recall as core-unavailable (the client answers degraded core-unavailable),
+      // instead of passing on the engine's "engine closed" as if the core had served it.
+      if (d.isStopping()) throw coreStopping();
       const { principal, degraded } = identity(d, p.caller, p.agentId);
       const hardMs = p.budget?.hardMs ?? d.config.core.recall.hardBudgetMs;
       const softMs = p.budget?.softMs ?? d.config.core.recall.softBudgetMs;
@@ -69,6 +78,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       try {
         // RecallQuery has no sessionKey (contract 1.4.1): the session key is capture-side until 2c.
         const r = await d.engine.recall({ query: p.query, principal, agent: AGENT_CONTEXT_CLI, budget: { softMs, hardMs, capChars }, signal });
+        if (r.degraded?.reason === "engine-closed" && d.isStopping()) throw coreStopping();
         const out = serializeRecall(r, p.joined === true, capChars);
         return degraded && !out.degraded ? { ...out, degraded } : out;
       } finally { d.activity.idle(p.agentId); }
@@ -77,6 +87,9 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     // R19: a capture is never lost because of the wait. Its signal is the core's shutdown signal only — not the
     // connection (a client disconnect never aborts it) and not the waitMs timer (which bounds the reply, not the work).
     "memory.capture": async (p: MemoryCaptureParams): Promise<MemoryCaptureResult> => {
+      // A capture the core cannot take because it is stopping is refused as core-unavailable, never answered as the
+      // engine's "not captured": the client (the CLI's memory add) then journals it for the next core (Task 12 soak).
+      if (d.isStopping()) throw coreStopping();
       const { principal } = identity(d, p.caller, p.agentId);
       d.activity.set(p.agentId, { state: "capturing" });
       const handle = d.engine.capture({
@@ -94,8 +107,11 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       let timer: NodeJS.Timeout | undefined;
       const timedOut = new Promise<null>((res) => { timer = setTimeout(() => res(null), waitMs); timer.unref(); });
       try {
-        const r = await Promise.race([settle, timedOut]);
+        let r: Awaited<typeof settle> | null;
+        try { r = await Promise.race([settle, timedOut]); } catch (e) { if (d.captureSignal.aborted) throw coreStopping(); throw e; }
         if (r === null) return pending; // the capture keeps running; its .finally resets activity and logs the outcome
+        // The core's stop aborted it before anything was stored: not the engine's verdict on the text.
+        if (d.captureSignal.aborted && r.stored === 0) throw coreStopping();
         return { id: handle.id, acceptedAt: handle.acceptedAt, stored: r.stored, skipped: r.skipped, ...(r.reason ? { reason: r.reason } : {}) };
       } finally { clearTimeout(timer); }
     },

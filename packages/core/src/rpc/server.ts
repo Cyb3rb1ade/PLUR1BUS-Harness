@@ -28,11 +28,14 @@ export interface RpcServer {
    *  A subscription with `agentId` needs that id in `audience` when one is given, otherwise `params.agentId === agentId`. */
   notify(method: string, params: object, opts?: NotifyOptions): void;
   subscriptions(): Subscription[];
+  /** Deprecated methods/notifications used at least once since start (ADR-016 §5, S13), as `method:<name>`/
+   *  `notification:<name>`, sorted; for `core.status.deprecationsUsed` and `1staid check`'s `api.deprecations`. */
+  deprecationsUsed(): string[];
 }
 
 // ADR-016 §5 / G13: the schema's deprecated surface, computed once; each name is warned about once per process.
 const DEPRECATED = (() => {
-  const caps = buildCapabilities([]);
+  const caps = buildCapabilities([], "core");
   const pick = (entries: Record<string, { deprecated?: Deprecation }>) => new Map(Object.entries(entries).flatMap(([name, e]) => (e.deprecated ? [[name, e.deprecated] as const] : [])));
   return { method: pick(caps.methods), notification: pick(caps.notifications) };
 })();
@@ -48,7 +51,13 @@ function warnIfDeprecated(logger: HarnessLogger, kind: "method" | "notification"
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
 interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
 
-export function createRpcServer(o: { address: string; token: string; hello: () => Hello; methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number }): RpcServer {
+export interface RpcServerOptions {
+  address: string; token: string; hello: () => Hello; methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number;
+  /** Called once per connection after its socket has closed (the core's adopted lifeline, S4). */
+  onConnectionClosed?: (connectionId: string) => void;
+}
+
+export function createRpcServer(o: RpcServerOptions): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
   const conns = new Map<string, Conn>();
@@ -150,7 +159,12 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       }
       for (const m of msgs) void dispatch(c, m);
     });
-    sock.on("close", () => { if (c.authTimer) clearTimeout(c.authTimer); for (const ac of c.inflight.values()) ac.abort(new Error("connection closed")); conns.delete(c.id); });
+    sock.on("close", () => {
+      if (c.authTimer) clearTimeout(c.authTimer);
+      for (const ac of c.inflight.values()) ac.abort(new Error("connection closed"));
+      conns.delete(c.id);
+      try { o.onConnectionClosed?.(c.id); } catch (err) { o.logger.error("onConnectionClosed failed", { connectionId: c.id, err }); }
+    });
     sock.on("error", (e) => o.logger.debug("socket error", { connectionId: c.id, err: e }));
   }
 
@@ -209,5 +223,6 @@ export function createRpcServer(o: { address: string; token: string; hello: () =
       }
     },
     subscriptions: () => [...conns.values()].flatMap((c) => [...c.subs.values()]),
+    deprecationsUsed: () => [...warnedDeprecated].sort(),
   };
 }

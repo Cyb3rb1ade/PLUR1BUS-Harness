@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { METHODS, NOTIFICATIONS, SCHEMA, buildCapabilities, validateResult } from "../src/index.ts";
+import { readFileSync } from "node:fs";
+import { METHODS, METHODS_BY_SERVER, NOTIFICATIONS, RPC_VERSION, SCHEMA, buildCapabilities, validateResult } from "../src/index.ts";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -36,14 +37,63 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(stableNotifications, ["core.state"]);
   });
 
-  it("buildCapabilities lists every method and notification with stability and since", () => {
+  it("every method declares x-server core or supervisor, and every notification x-server core", () => {
+    for (const [name, def] of Object.entries(methods) as [string, { "x-server"?: string }][]) {
+      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor", `${name} x-server`);
+    }
+    for (const [name, def] of Object.entries(notifications) as [string, { "x-server"?: string }][]) {
+      assert.equal(def["x-server"], "core", `${name} x-server`);
+    }
+  });
+
+  it("buildCapabilities lists every core method and notification with stability and since", () => {
     const capabilities = buildCapabilities([]);
-    assert.deepEqual(Object.keys(capabilities.methods).sort(), [...METHODS].sort());
+    assert.deepEqual(Object.keys(capabilities.methods).sort(), [...METHODS_BY_SERVER.core].sort());
     assert.deepEqual(Object.keys(capabilities.notifications).sort(), [...NOTIFICATIONS].sort());
     assert.equal(capabilities.methods["core.auth"]!.stability, "stable");
     assert.deepEqual(
-      validateResult("core.auth", { contract: "1.6.0", rpc: "1.1.0", instanceId: "i", pid: 1, capabilities }),
+      validateResult("core.auth", { contract: "1.6.0", rpc: "1.2.0", instanceId: "i", pid: 1, capabilities }),
       { ok: true },
     );
+  });
+
+  it("buildCapabilities(core) omits supervisor methods and vice versa", () => {
+    const core = buildCapabilities([], "core");
+    assert.ok(core.methods["memory.recall"]);
+    assert.ok(core.methods["core.adopt"]);
+    assert.equal(core.methods["daemon.status"], undefined);
+    const supervisor = buildCapabilities(["lifelines", "adoption"], "supervisor");
+    assert.deepEqual(Object.keys(supervisor.methods).sort(), ["daemon.start", "daemon.status", "daemon.stop", "supervisor.auth"]);
+    assert.deepEqual(supervisor.notifications, {});
+    assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);
+    assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), ["daemon.start", "daemon.status", "daemon.stop", "supervisor.auth"]);
+    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor].sort(), [...METHODS].sort());
+    assert.deepEqual(validateResult("supervisor.auth", { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: supervisor }), { ok: true });
+  });
+
+  it("capability fixtures match buildCapabilities", () => {
+    for (const server of ["core", "supervisor"] as const) {
+      const fixture = JSON.parse(readFileSync(new URL(`../fixtures/capabilities/${server}.json`, import.meta.url), "utf8"));
+      assert.deepEqual(fixture, buildCapabilities([], server), `fixtures/capabilities/${server}.json`);
+    }
+  });
+
+  it("RPC_VERSION is 1.2.0 and matches the $id", () => {
+    assert.equal(RPC_VERSION, "1.2.0");
+    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.2.0/rpc.schema.json");
+  });
+
+  it("everything new in 1.2.0 is experimental", () => {
+    for (const name of ["supervisor.auth", "daemon.status", "daemon.start", "daemon.stop", "core.adopt"]) {
+      assert.equal(methods[name]?.["x-stability"], "experimental", name);
+      assert.equal(methods[name]?.["x-since"], "1.2.0", name);
+    }
+  });
+
+  it("core.status and core.adopt share $defs/CoreStatus", () => {
+    const m = methods as Record<string, any>;
+    assert.deepEqual(m["core.status"].result, { $ref: "#/$defs/CoreStatus" });
+    assert.deepEqual(m["core.adopt"].result.properties.status, { $ref: "#/$defs/CoreStatus" });
+    assert.ok(schema.$defs.CoreStatus.properties.process);
   });
 });

@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { validateJournalLine, type JournalLine } from "@plur1bus/rpc-schema";
@@ -13,6 +13,70 @@ export function appendJournalLine(dir: string, line: JournalLine): void {
 
 const REPLAYING_SUFFIX = /\.jsonl\.replaying-\d+$/;
 
+/** `journalBacklog` stops counting at either bound and reports what it counted up to there (the engine waits at most
+ *  50 ms for it): at most this many lines … */
+export const JOURNAL_BACKLOG_MAX_ENTRIES = 100_000;
+/** … and at most this many bytes read across all journal files. */
+export const JOURNAL_BACKLOG_MAX_BYTES = 8 * 1024 * 1024;
+/** Both writers (the CLI's serde struct and `appendJournalLine`) emit `v`, `id`, `at` first; anything else is parsed. */
+const AT_PREFIX = /^\{"v":1,"id":"[^"\\]*","at":(\d+)[,}]/;
+const AT_PREFIX_BYTES = 128;
+const NL = 0x0a;
+
+/** `at` of one complete line (`buf[start, end)`, without its `\n`): the fixed prefix when it matches, else a parse. */
+function atOf(buf: Buffer, start: number, end: number): number | null {
+  const m = AT_PREFIX.exec(buf.toString("utf8", start, Math.min(end, start + AT_PREFIX_BYTES)));
+  if (m) return Number(m[1]);
+  try {
+    const at = (JSON.parse(buf.toString("utf8", start, end)) as { at?: unknown } | null)?.at;
+    return typeof at === "number" && Number.isFinite(at) ? at : null;
+  } catch { return null; }
+}
+
+const isBlank = (buf: Buffer, start: number, end: number): boolean => {
+  for (let k = start; k < end; k++) { const b = buf[k]!; if (b !== 0x20 && b !== 0x09 && b !== 0x0d) return false; }
+  return true;
+};
+
+/** Up to `max` bytes from the start of `path`; null when it vanished (a replay renamed or removed it meanwhile). */
+function readHead(path: string, max: number): Buffer | null {
+  let fd: number;
+  try { fd = openSync(path, "r"); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return null; throw e; }
+  try {
+    const buf = Buffer.allocUnsafe(Math.min(max, fstatSync(fd).size));
+    let n = 0;
+    while (n < buf.length) { const r = readSync(fd, buf, n, buf.length - n, n); if (r === 0) break; n += r; }
+    return buf.subarray(0, n);
+  } finally { closeSync(fd); }
+}
+
+/** The host capability `journalBacklog` (E4, HostCapabilities): complete (newline-terminated, non-blank) lines across
+ *  every `<agent>.jsonl` and every `*.jsonl.replaying-*` (a replay in progress, or one a killed core left behind), and
+ *  the smallest `at` among them. Sync and bounded by JOURNAL_BACKLOG_MAX_ENTRIES lines and JOURNAL_BACKLOG_MAX_BYTES
+ *  read; past either it reports the count up to the bound. A file renamed or removed between the listing and the read
+ *  (a replay starting or finishing) is skipped. */
+export function journalBacklog(dir: string): { entries: number; oldestAt: number | null } {
+  let entries = 0; let oldestAt: number | null = null; let budget = JOURNAL_BACKLOG_MAX_BYTES;
+  let files: string[];
+  try { files = readdirSync(dir); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return { entries, oldestAt }; throw e; }
+  for (const f of files.sort()) {
+    if (!f.endsWith(".jsonl") && !REPLAYING_SUFFIX.test(f)) continue;
+    if (budget <= 0) break;
+    const buf = readHead(join(dir, f), budget);
+    if (!buf) continue;
+    budget -= buf.length;
+    // Only `\n`-terminated lines count: the bytes after the last one are a torn tail (or the byte budget's cut).
+    for (let start = 0, nl = buf.indexOf(NL); nl !== -1; start = nl + 1, nl = buf.indexOf(NL, start)) {
+      if (isBlank(buf, start, nl)) continue;
+      entries += 1;
+      const at = atOf(buf, start, nl);
+      if (at !== null && (oldestAt === null || at < oldestAt)) oldestAt = at;
+      if (entries >= JOURNAL_BACKLOG_MAX_ENTRIES) return { entries, oldestAt };
+    }
+  }
+  return { entries, oldestAt };
+}
+
 interface KeptLine { text: string; isPhysicalTail: boolean }
 type ReplayEngine = Pick<Engine, "capture">;
 type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number };
@@ -20,8 +84,9 @@ type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; l
 /** Replays state/journal/<agentId>.jsonl at core start.
  *
  *  R20: a line leaves the journal only when `capture(...).done` resolves with NO `reason` and
- *  `stored + skipped > 0` (the engine's ok path — a dedup skip with no reason still counts as handled).
- *  Any reason, zero counts, or a rejected `done` keeps the line (logged with why), and replay continues
+ *  `stored + skipped > 0` (the engine's ok path — a dedup skip with no reason still counts as handled),
+ *  or with reason `duplicate-turn` (E4, Q3: the engine already captured this turn; the runId is `journal:<line id>`,
+ *  so it is the same at every start and for a line recovered from a leftover `.replaying-*` file). Any other reason, zero counts, or a rejected `done` keeps the line (logged with why), and replay continues
  *  with the next line. Concurrent-append safety: each `<agent>.jsonl` is first atomically renamed to
  *  `<agent>.jsonl.replaying-<pid>` before it is read, so a line the CLI appends to `<agent>.jsonl` while
  *  replay is running lands in a fresh file, never the one being processed. Kept lines (including a torn
@@ -66,7 +131,7 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
  *  pass is running, and a single pass would strand that line until the next restart. After each pass the
  *  lines still on disk are counted: kept lines are appended back, so anything beyond the pass's own `kept`
  *  arrived meanwhile and gets another pass. Bounded by `maxPasses`, so a CLI that keeps journaling cannot hold
- *  the core in `starting`. `kept` is the on-disk count after the last pass, what `journalBacklog` reports. */
+ *  the core in `starting`. `kept` is the on-disk count after the last pass: `core.status.journalBacklog` when the engine reports no journal. */
 export async function drainJournal(o: JournalOpts, maxPasses = 5): Promise<{ replayed: number; kept: number; passes: number }> {
   let replayed = 0;
   for (let passes = 1; ; passes++) {
@@ -131,10 +196,15 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
 
     const { principal } = callerToPrincipal(line.caller, line.agentId, ws);
     try {
+      // H3-R24: marks the window in which a SIGKILL can store a line twice (engine PR E4.1: the turn guard records
+      // late); the kill soak matches it with the victim's pid.
+      o.logger.info("journal: replay start", { id: line.id, pid: process.pid });
       const handle = o.engine.capture({ agentId: line.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: line.messages, incognito: false, signal: AbortSignal.timeout(60_000), ...(line.sessionKey ? { sessionKey: line.sessionKey } : {}), runId: `journal:${line.id}` });
       const r = await handle.done;
-      const handled = r.reason == null && r.stored + r.skipped > 0;
-      if (handled) { replayed += 1; o.logger.info("journal: replayed", { file: agentFile, id: line.id, stored: r.stored, skipped: r.skipped }); }
+      // E4 (1.8.0): `duplicate-turn` means this line's runId was already captured (a core killed mid-replay
+      // replays it again), so the turn is stored and the line is done.
+      const handled = (r.reason == null && r.stored + r.skipped > 0) || r.reason === "duplicate-turn";
+      if (handled) { replayed += 1; o.logger.info("journal: replayed", { file: agentFile, id: line.id, pid: process.pid, stored: r.stored, skipped: r.skipped }); }
       else { o.logger.warn("journal: capture not handled, line kept", { file: agentFile, id: line.id, reason: r.reason, stored: r.stored, skipped: r.skipped }); kept.push({ text, isPhysicalTail }); }
     } catch (e) {
       // R20.1: a rejected `done` keeps the line and replay continues with the next line/file.

@@ -20,6 +20,8 @@ export interface Layout {
   home: string; configPath: string; state: string; lancedb: string; journal: string; agents: string;
   agentDir(id: string): string; workspaceDir(id: string): string;
   run: string; coreSocket: string; coreToken: string; corePid: string; coreLock: string;
+  /** Written by the supervisor (S3): its RPC token and the nonce `core.adopt` proves. */
+  supervisorSocket: string; supervisorToken: string; supervisorPid: string;
   logs: string; logFile(role: string): string; runtime: string; models: string; modules: string; skills: string;
 }
 
@@ -30,12 +32,22 @@ export function layout(home: string): Layout {
     home, configPath: j("config.json"), state: j("state"), lancedb: j("state", "lancedb"), journal: j("state", "journal"), agents: j("agents"),
     agentDir: (id) => j("agents", id), workspaceDir: (id) => j("agents", id, "workspace"),
     run: j("run"), coreSocket: j("run", "core.sock"), coreToken: j("run", "core.token"), corePid: j("run", "core.pid"), coreLock: j("state", "core.lock"),
+    supervisorSocket: j("run", "supervisor.sock"), supervisorToken: j("run", "supervisor.token"), supervisorPid: j("run", "supervisor.pid"),
     logs: j("logs"), logFile: (role) => j("logs", `${role}.log`), runtime: j("runtime"), models: j("models"), modules: j("modules"), skills: j("skills"),
   };
 }
 
+/** The per-home Windows pipe name: `\\.\pipe\plur1bus-<first 16 hex of sha256(lower-cased home)>-<role>`. */
+function pipeName(home: string, role: string): string {
+  return `\\\\.\\pipe\\plur1bus-${createHash("sha256").update(home.toLowerCase()).digest("hex").slice(0, 16)}-${role}`;
+}
+
 /** The address the RPC server listens on and the client connects to. */
 export function coreAddress(home: string, platform: NodeJS.Platform = process.platform): string {
-  if (platform === "win32") return `\\\\.\\pipe\\plur1bus-${createHash("sha256").update(home.toLowerCase()).digest("hex").slice(0, 16)}-core`;
-  return layout(home).coreSocket;
+  return platform === "win32" ? pipeName(home, "core") : layout(home).coreSocket;
+}
+
+/** The supervisor's RPC address: `run/supervisor.sock` on POSIX, the per-home `-supervisor` pipe on Windows. */
+export function supervisorAddress(home: string, platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32" ? pipeName(home, "supervisor") : layout(home).supervisorSocket;
 }

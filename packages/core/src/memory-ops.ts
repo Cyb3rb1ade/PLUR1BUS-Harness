@@ -25,6 +25,7 @@ export function requireAgent(agents: AgentRegistry, agentId: string): string {
 // G7: the engine's MemoryOpErrorCode → the closed RPC code; `reason` carries the engine code verbatim.
 const ERROR_MAP: Readonly<Record<E.MemoryOpErrorCode, ErrorCode>> = Object.freeze({
   "not-found": "E_NOT_FOUND", denied: "E_DENIED", "invalid-input": "E_INVALID_PARAMS", "approval-required": "E_APPROVAL_REQUIRED", conflict: "E_CONFLICT", storage: "E_STORAGE",
+  unsupported: "E_NOT_AVAILABLE", // 1.8.0; Task 14 adds its tests and the daemon/1staid surfaces
 });
 
 const coreStopping = (ids?: Record<string, string>) =>

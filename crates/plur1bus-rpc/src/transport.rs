@@ -4,6 +4,10 @@ use std::time::Duration;
 
 pub trait Stream: Read + Write + Send {
     fn set_read_timeout(&self, d: Option<Duration>) -> io::Result<()>;
+    /// The pid the OS names as the process at the other end (ruling S6): `SO_PEERCRED` (Linux), `LOCAL_PEERPID`
+    /// (macOS), `GetNamedPipeServerProcessId` (Windows). `None` where the OS cannot tell. Unlike a pid file, this is
+    /// the process that owns the socket now, so it is the only pid a supervisor may signal.
+    fn peer_pid(&self) -> Option<u32>;
 }
 
 #[cfg(unix)]
@@ -28,6 +32,59 @@ mod imp {
         fn set_read_timeout(&self, d: Option<Duration>) -> io::Result<()> {
             self.0.set_read_timeout(d)
         }
+        fn peer_pid(&self) -> Option<u32> {
+            use std::os::unix::io::AsRawFd;
+            peer_pid_of(self.0.as_raw_fd())
+        }
+    }
+
+    /// The credentials the kernel recorded for the listening process when the connection was made.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn peer_pid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
+        let mut cred = libc::ucred {
+            pid: 0,
+            uid: 0,
+            gid: 0,
+        };
+        let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+        // SAFETY: getsockopt writes at most `len` bytes into `cred`, a live local of that size.
+        let r = unsafe {
+            libc::getsockopt(
+                fd,
+                libc::SOL_SOCKET,
+                libc::SO_PEERCRED,
+                (&mut cred as *mut libc::ucred).cast(),
+                &mut len,
+            )
+        };
+        (r == 0 && cred.pid > 0).then_some(cred.pid as u32)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    fn peer_pid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
+        let mut pid: libc::pid_t = 0;
+        let mut len = std::mem::size_of::<libc::pid_t>() as libc::socklen_t;
+        // SAFETY: getsockopt writes at most `len` bytes into `pid`, a live local of that size.
+        let r = unsafe {
+            libc::getsockopt(
+                fd,
+                libc::SOL_LOCAL,
+                libc::LOCAL_PEERPID,
+                (&mut pid as *mut libc::pid_t).cast(),
+                &mut len,
+            )
+        };
+        (r == 0 && pid > 0).then_some(pid as u32)
+    }
+
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "ios"
+    )))]
+    fn peer_pid_of(_fd: std::os::unix::io::RawFd) -> Option<u32> {
+        None
     }
     /// A missing socket file fails at once (ENOENT) — that is the "core absent" case the CLI answers in < 300 ms.
     /// A local connect does not wait on a live listener, so the timeout is not needed here; `Client::connect` applies it
@@ -39,10 +96,12 @@ mod imp {
 
 #[cfg(windows)]
 mod imp {
+    //! The pipe is opened with `FILE_FLAG_OVERLAPPED`; every read is `ReadFile` + `WaitForSingleObject(event,
+    //! deadline)` + `CancelIoEx` on timeout ([`crate::win::overlapped_op`]), so a read deadline works as on unix: the
+    //! timeout surfaces as `call-timeout` and poisons the client.
     use super::*;
-    use std::fs::{File, OpenOptions};
-    use std::time::Instant;
-    pub struct S(File);
+    use crate::win::{pipe_server_pid, OverlappedPipe};
+    pub struct S(OverlappedPipe);
     impl Read for S {
         fn read(&mut self, b: &mut [u8]) -> io::Result<usize> {
             self.0.read(b)
@@ -53,27 +112,25 @@ mod imp {
             self.0.write(b)
         }
         fn flush(&mut self) -> io::Result<()> {
-            self.0.flush()
-        }
-    }
-    // H2: overlapped I/O with timeouts; until then a Windows read blocks without a deadline.
-    impl Stream for S {
-        fn set_read_timeout(&self, _d: Option<Duration>) -> io::Result<()> {
             Ok(())
         }
     }
-    pub fn connect(address: &str, connect_timeout: Duration) -> io::Result<Box<dyn Stream>> {
-        let start = Instant::now();
-        loop {
-            match OpenOptions::new().read(true).write(true).open(address) {
-                Ok(f) => return Ok(Box::new(S(f))),
-                // 231 = ERROR_PIPE_BUSY: every server instance is taken; retry until the connect timeout.
-                Err(e) if e.raw_os_error() == Some(231) && start.elapsed() < connect_timeout => {
-                    std::thread::sleep(Duration::from_millis(10))
-                }
-                Err(e) => return Err(e),
-            }
+    impl Stream for S {
+        /// Also bounds each write, which on a pipe can block while the server does not read.
+        fn set_read_timeout(&self, d: Option<Duration>) -> io::Result<()> {
+            self.0.set_timeout(d);
+            Ok(())
         }
+        fn peer_pid(&self) -> Option<u32> {
+            pipe_server_pid(self.0.handle())
+        }
+    }
+    /// Retries while every server instance is busy (`ERROR_PIPE_BUSY`) until the connect timeout.
+    pub fn connect(address: &str, connect_timeout: Duration) -> io::Result<Box<dyn Stream>> {
+        Ok(Box::new(S(OverlappedPipe::connect(
+            address,
+            connect_timeout,
+        )?)))
     }
 }
 

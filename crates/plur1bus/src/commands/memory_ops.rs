@@ -4,12 +4,13 @@
 //! `memory.proposals.list|accept|reject`). Unlike `memory add`/`memory recall` (`memory.rs`),
 //! these never journal: a core that cannot be reached fails fast with `E_CORE_UNAVAILABLE`.
 use crate::cli::{MemoryCmd, ProposalStatus, ProposalsCmd, ShareTarget};
+use crate::commands::daemon::supervisor_detail;
 use crate::commands::memory::{connect, degraded_line, require_agent};
 use crate::identity;
 use crate::output::Out;
 use crate::paths::Layout;
 use plur1bus_config as cfg;
-use plur1bus_rpc::{is_unavailable, Client};
+use plur1bus_rpc::{is_unavailable, Client, RpcError};
 use serde_json::{json, Value};
 use std::io::{IsTerminal, Write};
 use std::time::Duration;
@@ -60,18 +61,21 @@ fn parse_time_or_fail(out: &Out, flag: &str, s: &str) -> u64 {
 fn connect_or_unavailable(out: &Out, layout: &Layout) -> Client {
     match connect(layout, Duration::from_secs(30)) {
         Ok(c) => c,
-        Err(e) if is_unavailable(&e) => out.fail(
-            "E_CORE_UNAVAILABLE",
-            &format!("core unavailable: {e}"),
-            json!({
-                "degraded": {
-                    "reason": "core-unavailable",
-                    "capability": "memory-ops",
-                    "detail": e.to_string()
-                }
-            }),
-            1,
-        ),
+        Err(e) if is_unavailable(&e) => {
+            let detail = format!("{e} ({})", supervisor_detail(layout));
+            out.fail(
+                "E_CORE_UNAVAILABLE",
+                &format!("core unavailable: {e}"),
+                json!({
+                    "degraded": {
+                        "reason": "core-unavailable",
+                        "capability": "memory-ops",
+                        "detail": detail
+                    }
+                }),
+                1,
+            )
+        }
         Err(e) => out.from_rpc_error(&e),
     }
 }
@@ -90,6 +94,20 @@ fn require_supports(out: &Out, c: &Client, method: &str) {
     }
 }
 
+/// `E_NOT_AVAILABLE reason=unsupported` (E4: `share`/`proposals.accept` on a platform without stable directory
+/// capabilities) gets a human-only hint before `from_rpc_error` exits, so a person hitting it at the terminal
+/// (not a script parsing `--json`) sees why, not just the bare error code.
+fn print_unsupported_hint(out: &Out, e: &RpcError) {
+    if out.json {
+        return;
+    }
+    let unsupported = e.code_name() == "E_NOT_AVAILABLE"
+        && matches!(e, RpcError::Call { reason: Some(r), .. } if r == "unsupported");
+    if unsupported {
+        eprintln!("explicit shared memory is not available on this platform");
+    }
+}
+
 /// Connects, checks capabilities, calls `method`, and prints the result — the shared shape of
 /// every memory-ops command except `share` (which needs to retry once on `E_APPROVAL_REQUIRED`).
 fn call(
@@ -104,7 +122,10 @@ fn call(
     require_supports(out, &c, method);
     match c.call(method, params) {
         Ok(v) => out.ok(schema, &v, || with_degraded(human(&v), &v)),
-        Err(e) => out.from_rpc_error(&e),
+        Err(e) => {
+            print_unsupported_hint(out, &e);
+            out.from_rpc_error(&e);
+        }
     }
 }
 
@@ -315,6 +336,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                             }
                             eprintln!("re-run with --allow-sensitive after the person confirmed");
                         }
+                        print_unsupported_hint(out, &e);
                         out.from_rpc_error(&e);
                     }
                 }
