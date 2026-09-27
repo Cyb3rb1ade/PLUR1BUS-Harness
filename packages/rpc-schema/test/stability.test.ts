@@ -89,7 +89,7 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(d.additionalProperties, false);
     assert.ok(!(schema.$defs as any).CoreStatus.required.includes("journalReplay"));
     const base = { process: { state: "ready", since: 1 }, contract: "1.8.0", rpc: "1.3.0", instanceId: "i", pid: 1, uptimeMs: 1, engine: { ready: true, degraded: null }, agents: [] };
-    const replaying = { state: "replaying", replayed: 3, kept: 0, passes: 0, startedAt: 1, finishedAt: null };
+    const replaying = { state: "replaying", replayed: 3, pendingRemoval: 3, kept: 0, passes: 0, startedAt: 1, finishedAt: null };
     assert.deepEqual(validateResult("core.status", base), { ok: true });
     assert.deepEqual(validateResult("core.status", { ...base, journalReplay: replaying }), { ok: true });
     assert.equal(validateResult("core.status", { ...base, journalReplay: { ...replaying, extra: 1 } }).ok, false);

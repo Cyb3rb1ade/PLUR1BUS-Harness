@@ -30,7 +30,7 @@ describe("startJournalReplay", () => {
   it("an empty journal is done at once with zeros", async () => {
     const { l, agents, logger } = setup(0); let seen: JournalReplayStatus | null = null;
     const r = startJournalReplay({ dir: l.journal, agents, engine: { capture: () => { throw new Error("no capture expected"); } } as any, logger, clock: () => 7, signal: new AbortController().signal, onDone: (s) => { seen = s; } });
-    assert.deepEqual(r.status(), { state: "done", replayed: 0, kept: 0, passes: 0, startedAt: 7, finishedAt: 7 });
+    assert.deepEqual(r.status(), { state: "done", replayed: 0, pendingRemoval: 0, kept: 0, passes: 0, startedAt: 7, finishedAt: 7 });
     assert.deepEqual(seen, r.status());
     await r.done;
   });
@@ -45,8 +45,9 @@ describe("startJournalReplay", () => {
     assert.equal(r.status().state, "replaying"); assert.equal(r.status().startedAt, 10); assert.equal(r.status().finishedAt, null);
     while (calls < 2) await new Promise((res) => setImmediate(res));
     assert.equal(r.status().replayed, 1, "a replayed line counts before the pass ends");
+    assert.equal(r.status().pendingRemoval, 1, "and stays in the replaying file until the file is finished");
     t = 20; release(); await r.done;
-    assert.deepEqual(r.status(), { state: "done", replayed: 3, kept: 0, passes: 1, startedAt: 10, finishedAt: 20 });
+    assert.deepEqual(r.status(), { state: "done", replayed: 3, pendingRemoval: 0, kept: 0, passes: 1, startedAt: 10, finishedAt: 20 });
     assert.deepEqual(seen, r.status());
   });
 
@@ -56,7 +57,7 @@ describe("startJournalReplay", () => {
     const engine = { capture: () => { ac.abort(); return ok(); } } as any;
     const r = startJournalReplay({ dir: l.journal, agents, engine, logger, clock: () => 1, signal: ac.signal });
     await r.done;
-    assert.deepEqual({ ...r.status(), startedAt: 0, finishedAt: 0 }, { state: "aborted", replayed: 1, kept: 3, passes: 1, startedAt: 0, finishedAt: 0 });
+    assert.deepEqual({ ...r.status(), startedAt: 0, finishedAt: 0 }, { state: "aborted", replayed: 1, pendingRemoval: 0, kept: 3, passes: 1, startedAt: 0, finishedAt: 0 });
     assert.equal(readFileSync(join(l.journal, "bernd.jsonl"), "utf8").trim().split("\n").length, 3);
   });
 
@@ -68,15 +69,34 @@ describe("startJournalReplay", () => {
     assert.equal(r.status().state, "failed"); assert.equal(r.status().finishedAt, 1);
   });
 
-  it("logs nothing once its logger is detached", async () => {
+  it("a stop after the last line was handled is done, not aborted", async () => {
+    const { l, agents, logger } = setup(2);
+    const ac = new AbortController(); let calls = 0;
+    const engine = { capture: () => { calls += 1; if (calls === 2) ac.abort(); return ok(); } } as any;
+    const r = startJournalReplay({ dir: l.journal, agents, engine, logger, clock: () => 1, signal: ac.signal });
+    await r.done;
+    assert.equal(r.status().state, "done"); assert.equal(r.status().replayed, 2);
+  });
+
+  // H3B-R2 / review I2, M4: a stop that gave up waiting leaves the file in progress exactly as it is.
+  it("abandon() makes it aborted at once, silent, and leaves the replaying file untouched", async () => {
     const { l, agents, logger } = setup(3);
     let release!: () => void; const gate = new Promise<void>((res) => { release = res; });
-    const engine = { capture: () => ({ ...ok(), done: gate.then(() => ({ stored: 1, skipped: 0 })) }) } as any;
-    const r = startJournalReplay({ dir: l.journal, agents, engine, logger, clock: () => 1, signal: new AbortController().signal });
-    while (!readdirSync(l.journal).some((f) => f.includes(".replaying-"))) await new Promise((res) => setImmediate(res));
-    r.detachLogger();
-    const before = statSync(l.logFile("core")).size;
+    const ac = new AbortController(); let calls = 0;
+    const engine = { capture: () => { calls += 1; return calls === 2 ? { ...ok(), done: gate.then(() => ({ stored: 1, skipped: 0 })) } : ok(); } } as any;
+    let onDone = 0;
+    const r = startJournalReplay({ dir: l.journal, agents, engine, logger, clock: () => 5, signal: ac.signal, onDone: () => { onDone += 1; } });
+    while (calls < 2) await new Promise((res) => setImmediate(res));
+    const files = readdirSync(l.journal); assert.equal(files.length, 1); assert.match(files[0]!, /^bernd\.jsonl\.replaying-\d+$/);
+    const content = readFileSync(join(l.journal, files[0]!), "utf8");
+    ac.abort(); r.abandon();
+    assert.deepEqual(r.status(), { state: "aborted", replayed: 0, pendingRemoval: 0, kept: 0, passes: 0, startedAt: 5, finishedAt: 5 }, "the replayed line stays in the file, so it has not left the journal");
+    const logSize = statSync(l.logFile("core")).size;
     release(); await r.done;
-    assert.equal(statSync(l.logFile("core")).size, before);
+    assert.deepEqual(readdirSync(l.journal), files, "no append-back, no delete");
+    assert.equal(readFileSync(join(l.journal, files[0]!), "utf8"), content);
+    assert.equal(calls, 2, "no capture after the abort");
+    assert.equal(statSync(l.logFile("core")).size, logSize, "nothing logged");
+    assert.equal(r.status().state, "aborted"); assert.equal(onDone, 0);
   });
 });

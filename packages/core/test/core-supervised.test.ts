@@ -1,4 +1,4 @@
-import { describe, it, afterEach } from "node:test";
+import { after, afterEach, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -197,5 +197,59 @@ describe("core supervised mode during the journal replay (B2)", () => {
       assert.ok(s.replaying(), "the grace ran out while the journal replayed");
       await sleep(GRACE_MS + 200); assert.equal(s.expired(), 1, "once");
     } finally { await s.core.stop({ budgetMs: 5000 }); }
+  });
+});
+
+describe("core supervised mode before ready (startDelayMs seam)", () => {
+  const allow = process.env.PLUR1BUS_ALLOW_TEST_INTERNALS;
+  before(() => { process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = "1"; });
+  after(() => { if (allow === undefined) delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS; else process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = allow; });
+
+  /** A core that listens but stays in `starting` for `delayMs` (the seam), as a slow start would. */
+  function slowStart(delayMs: number) {
+    const home = newHome(); const lifeline = new PassThrough(); let expired = 0;
+    const core = createCore({ home, testInternals: { ...flatTestInternals(), startDelayMs: delayMs }, lifeline, onOrphanGraceExpired: () => { expired++; } });
+    return { home, core, lifeline, expired: () => expired };
+  }
+
+  it("an adoption before ready survives ready", async () => {
+    const s = slowStart(GRACE_MS * 2);
+    s.lifeline.end(); // supervisor A is gone before the core is ready
+    const started = s.core.start();
+    let c: CoreClient | null = null;
+    try {
+      await until(() => existsSync(layout(s.home).coreToken), 10_000);
+      const token = writeSupervisorToken(s.home);
+      await sleep(GRACE_MS + 200); // A's grace runs out while starting
+      assert.equal(s.core.status().process.state, "starting");
+      c = await connect({ address: s.core.address, token: s.core.token });
+      await c.call("core.adopt", { nonce: token }); // supervisor B adopts before ready: the expired grace is void
+      await started;
+      assert.equal(s.core.status().process.state, "ready", "B's connection is the lifeline, not A's dead stdin");
+      await sleep(GRACE_MS + 200);
+      assert.equal(s.core.status().process.state, "ready"); assert.equal(s.expired(), 0);
+      await c.close(); c = null;
+      await until(() => s.core.status().process.state === "orphaned");
+    } finally { await c?.close(); await started.catch(() => {}); await s.core.stop({ budgetMs: 5000 }); }
+  });
+
+  it("a lifeline lost before ready whose grace runs out while starting stops the core at ready", async () => {
+    const s = slowStart(GRACE_MS + 500);
+    s.lifeline.end();
+    try {
+      await s.core.start();
+      assert.equal(s.expired(), 1, "the expired grace is acted on at ready");
+      assert.equal(s.core.status().process.state, "orphaned");
+      await sleep(GRACE_MS + 200); assert.equal(s.expired(), 1, "once");
+    } finally { await s.core.stop({ budgetMs: 5000 }); }
+  });
+
+  it("the seam is ignored without PLUR1BUS_ALLOW_TEST_INTERNALS=1", async () => {
+    delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS;
+    const s = slowStart(5000);
+    try {
+      const t0 = performance.now(); await s.core.start();
+      assert.ok(performance.now() - t0 < 4000, "start was not delayed");
+    } finally { process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = "1"; await s.core.stop({ budgetMs: 5000 }); }
   });
 });

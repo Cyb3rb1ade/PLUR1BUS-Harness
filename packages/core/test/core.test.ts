@@ -388,20 +388,51 @@ describe("core serves while the journal replays (B2)", () => {
     } finally { await c.close(); await next.stop({ budgetMs: 5000 }); }
   });
 
-  it("nothing is written to core.log after stop() resolves", async () => {
+  // Review I2/M4: a stop that gives up waiting abandons the replay: nothing is written after stop() resolves, neither
+  // core.log nor the journal, whose replaying file stays for the next start.
+  it("nothing is written to core.log or the journal after stop() resolves", async () => {
     const home = newHome(); const l = layout(home);
     fill(l.journal, 5);
-    // The capture in flight outlasts the stop's wait for the replay (min(5000, budgetMs)).
+    // The capture in flight outlasts the stop's wait for the replay (min(5000, budgetMs / 2)).
     const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 1500 }) });
     await core.start();
     await core.stop({ budgetMs: 300 });
-    const at = () => { const st = statSync(l.logFile("core")); return `${st.size}:${st.mtimeMs}`; };
+    assert.equal(core.status().journalReplay?.state, "aborted");
+    const files = readdirSync(l.journal);
+    assert.equal(files.length, 1); assert.match(files[0]!, /^bernd\.jsonl\.replaying-\d+$/, "the replaying file stays for the next start");
+    assert.equal(journalLines(join(l.journal, files[0]!)), 5);
+    const at = () => JSON.stringify([snapshot(l.journal), statSync(l.logFile("core")).size, statSync(l.logFile("core")).mtimeMs]);
     const before = at();
     await new Promise((r) => setTimeout(r, 500));
     assert.equal(at(), before);
-    // The capture in flight still ends before the test's home is removed.
+    // After the capture in flight has ended as well.
     await new Promise((r) => setTimeout(r, 1500));
     assert.equal(at(), before);
+    // The next start recovers the file: every line is stored once.
+    const next = createCore({ home, testInternals: flatTestInternals() });
+    await next.start();
+    const c = await connect({ address: next.address, token: next.token });
+    try {
+      await replayDone(next, (x) => x.journalBacklog === 0);
+      assert.deepEqual(readdirSync(l.journal), []);
+      const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
+      assert.equal(texts(items).length, 5, JSON.stringify(texts(items)));
+    } finally { await c.close(); await next.stop({ budgetMs: 5000 }); }
+  });
+
+  // Review I1 (plan criterion 4): the replay wait and the engine close share one budget.
+  it("a stop during a backlog whose capture outlasts the budget stays inside the budget", async () => {
+    const home = newHome(); const l = layout(home);
+    fill(l.journal, 3);
+    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 6000 }) });
+    await core.start();
+    await new Promise((r) => setTimeout(r, 100)); // the first capture is embedding
+    const t0 = performance.now();
+    await core.stop({ budgetMs: 2000 });
+    const ms = performance.now() - t0;
+    assert.ok(ms < 2000 + 1500, `stop took ${ms.toFixed(0)} ms for a 2000 ms budget`);
+    assert.equal(core.status().process.state, "stopped");
+    await new Promise((r) => setTimeout(r, 6000)); // the capture in flight ends before the home is removed
   });
 });
 

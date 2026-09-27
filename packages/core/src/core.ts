@@ -35,7 +35,9 @@ const DRAINED_METHODS = [...MEMORY_OP_METHODS, "memory.capture"] as const;
  *  the copy is refreshed every WARMING_REFRESH_MS as well (spec §6.3, S7). */
 const STATUS_CACHE_MS = 1000;
 const WARMING_REFRESH_MS = 250;
-/** H3B-R2: the longest a stop waits for the journal replay's capture in flight (never longer than its budget). */
+/** H3B-R2: the longest a stop waits for the journal replay's capture in flight; never more than half its budget, so
+ *  the engine close keeps the rest (the whole stop stays inside the budget: plan criterion 4, the supervisor's kill
+ *  deadline at budget + stop grace). */
 const REPLAY_STOP_WAIT_MS = 5000;
 
 export interface Core {
@@ -220,7 +222,8 @@ export function createCore(o: CoreOptions): Core {
         }
       };
       const host = createHarnessHost({ layout: l, logger, config, engineConfig, agents: registry, events, clock });
-      const eng = bindEngine(host, engineConfig, o.testInternals); engine = eng;
+      const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
+      const eng = bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined); engine = eng;
       assertEngineContract(eng);
       const es = await eng.status();
       cacheEngineStatus(es);
@@ -249,6 +252,9 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
+      // Test seam (Task 2 review M2), honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1: holds the listening core in
+      // `starting`, so the lifeline paths before ready (grace expired while starting, adoption before ready) stay testable.
+      if (typeof startDelayMs === "number" && process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1") await new Promise((r) => setTimeout(r, startDelayMs));
       const ready: State = { state: "ready", since: clock() };
       // A lifeline lost during the engine start orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
@@ -326,6 +332,7 @@ export function createCore(o: CoreOptions): Core {
     if (stopping) return stopping;
     stopping = (async () => {
       const t0 = performance.now(); const budgetMs = so.budgetMs ?? 30_000;
+      const remaining = () => Math.max(0, budgetMs - (performance.now() - t0));
       // G17: from here on isStopping() refuses new memory ops; the engine drains its side, then the server waits (in
       // what is left of the budget) for those replies to be written before it ends the sockets.
       setState({ state: "stopping", since: clock() });
@@ -342,16 +349,16 @@ export function createCore(o: CoreOptions): Core {
         let timer: NodeJS.Timeout | null = null;
         const waited = await Promise.race([
           replay.done.then(() => true),
-          new Promise<boolean>((res) => { timer = setTimeout(() => res(false), Math.min(REPLAY_STOP_WAIT_MS, budgetMs)); }),
+          new Promise<boolean>((res) => { timer = setTimeout(() => res(false), Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }),
         ]);
         if (timer) clearTimeout(timer);
         if (!waited) logger?.warn("journal replay still running at stop; its file stays for the next start", { replayed: replay.status().replayed });
-        replay.detachLogger();
+        replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
-      await step(logger, "engine close", async () => { await engine?.close({ budgetMs }); }, errors);
+      await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;
-        const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: Math.max(0, budgetMs - (performance.now() - t0)) });
+        const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: remaining() });
         if (!r.drained) logger?.warn("memory ops still pending at close", { pending: r.pending });
       }, errors);
       await step(logger, "server close", async () => { await server?.close({ graceMs: 1000 }); }, errors);

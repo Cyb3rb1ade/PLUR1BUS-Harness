@@ -858,10 +858,16 @@ fn check_journal_backlog(layout: &Layout, core_status: Option<&Value>) -> Check 
     let replay = core_status.map(|s| &s["journalReplay"]);
     if replay.and_then(|r| r["state"].as_str()) == Some("replaying") {
         let replayed = replay.and_then(|r| r["replayed"].as_u64()).unwrap_or(0);
+        // Replayed lines stay in the `.replaying-*` file in progress (both counts above include them) until the
+        // replay finishes that file.
+        let pending = replay
+            .and_then(|r| r["pendingRemoval"].as_u64())
+            .unwrap_or(0);
+        let left = total.saturating_sub(pending);
         return Check::warn(
             ID,
-            format!("replaying: {replayed} replayed, {total} left"),
-            Some(json!({ "replayed": replayed, "left": total })),
+            format!("replaying: {replayed} replayed, {left} left"),
+            Some(json!({ "replayed": replayed, "left": left })),
             None,
         );
     }
@@ -1516,24 +1522,35 @@ mod tests {
 
     #[test]
     fn journal_backlog_while_replaying_is_a_warning_with_progress() {
+        // One agent, 40 journaled lines: the replay renamed the file and has replayed 30 of them, which stay in the
+        // `.replaying-<pid>` file (and in the engine's count) until the file is finished.
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
         std::fs::create_dir_all(layout.journal()).unwrap();
         std::fs::write(
-            layout.journal().join("a.jsonl.replaying-4242"),
-            "{}\n{}\n{}\n",
+            layout.journal().join("bernd.jsonl.replaying-4242"),
+            "{}\n".repeat(40),
         )
         .unwrap();
-        let status = json!({ "journalBacklog": 3, "journalReplay": { "state": "replaying", "replayed": 7, "kept": 0,
-            "passes": 0, "startedAt": 1, "finishedAt": null } });
+        let status = json!({ "journalBacklog": 40, "journalReplay": { "state": "replaying", "replayed": 30,
+            "pendingRemoval": 30, "kept": 0, "passes": 0, "startedAt": 1, "finishedAt": null } });
         let check = check_journal_backlog(&layout, Some(&status));
         assert_eq!(check.status, Status::Warn, "{check:?}");
-        assert_eq!(check.summary, "replaying: 7 replayed, 3 left");
-        assert_eq!(check.detail.unwrap(), json!({ "replayed": 7, "left": 3 }));
+        assert_eq!(check.summary, "replaying: 30 replayed, 10 left");
+        assert_eq!(check.detail.unwrap(), json!({ "replayed": 30, "left": 10 }));
+        // A second agent's file waiting for its turn is left too; the first file finished (removed, pending reset).
+        std::fs::remove_file(layout.journal().join("bernd.jsonl.replaying-4242")).unwrap();
+        std::fs::write(layout.journal().join("anna.jsonl"), "{}\n".repeat(5)).unwrap();
+        let next = json!({ "journalBacklog": 5, "journalReplay": { "state": "replaying", "replayed": 40,
+            "pendingRemoval": 0, "kept": 0, "passes": 0, "startedAt": 1, "finishedAt": null } });
+        assert_eq!(
+            check_journal_backlog(&layout, Some(&next)).summary,
+            "replaying: 40 replayed, 5 left"
+        );
         // A finished replay with nothing left is ok again.
-        std::fs::remove_file(layout.journal().join("a.jsonl.replaying-4242")).unwrap();
-        let done = json!({ "journalBacklog": 0, "journalReplay": { "state": "done", "replayed": 10, "kept": 0,
-            "passes": 1, "startedAt": 1, "finishedAt": 2 } });
+        std::fs::remove_file(layout.journal().join("anna.jsonl")).unwrap();
+        let done = json!({ "journalBacklog": 0, "journalReplay": { "state": "done", "replayed": 45,
+            "pendingRemoval": 0, "kept": 0, "passes": 1, "startedAt": 1, "finishedAt": 2 } });
         assert_eq!(
             check_journal_backlog(&layout, Some(&done)).status,
             Status::Ok
