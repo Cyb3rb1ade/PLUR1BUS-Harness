@@ -142,13 +142,16 @@ fn detects_and_imports_skills_end_to_end_with_the_real_importer() {
     )
     .unwrap();
     let run = |args: &[&str]| {
-        let out = bin()
-            .env("PLUR1BUS_IMPORT_JS", real_importer())
+        let mut cmd = bin();
+        cmd.env("PLUR1BUS_IMPORT_JS", real_importer())
             .env("PLUR1BUS_NODE", "node")
             .arg("--home")
             .arg(&home)
-            .args(["--json", "import", "openclaw", "--source"])
-            .arg(&src)
+            .args(["--json", "import", "openclaw"]);
+        if !args.contains(&"--rollback") {
+            cmd.arg("--source").arg(&src);
+        }
+        let out = cmd
             .args(args)
             .assert()
             .success()
