@@ -125,28 +125,47 @@ Env vars that matter when driving the core directly instead of through the CLI:
   being skipped; `PLUR1BUS_SERVICE_FAKE=<dir>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) instead
   selects the fake service-manager seam (`crates/plur1bus/src/service/fake.rs`) that every other
   service test runs against.
+- `PLUR1BUS_SERVICE_MANAGER=launchd` — set by the launchd unit itself (`service/launchd.rs`'s
+  rendered plist always writes it first in `EnvironmentVariables`); the supervisor reads it to remap
+  its own non-transient exit codes 2 and 3 to 0 before exiting, so launchd's `KeepAlive =
+  { SuccessfulExit = false }` does not loop a usage error or a lost single-instance race forever
+  (`supervisor::exit_code`, B16, ADR-012 §10.7). Not meaningful outside a launchd-installed service.
+- `PLUR1BUS_MODULE_API_CURRENT=<n>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) — overrides the
+  supervisor's own module API version (module-guide.md "API-version policy"; `modules::manifest`).
+- `PLUR1BUS_FIXTURE_MODULE=<dir>` — where a Rust test finds the built fixture module to install
+  into a test home; default `packages/module-fixture/dist` (`pnpm build` builds it before `cargo
+  test`, which is why CI always runs the TS build first).
+- `FAKE_CORE_RESTART_PENDING=1`, `FAKE_CORE_WATCH_CONFIG=1`, `FAKE_CORE_LATER_MODE=<mode>`,
+  `FAKE_CORE_CONFIG_CHECK=1` (all with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) — seams on
+  `crates/plur1bus/tests/fixtures/fake-core.mjs` used only by the supervisor's own Rust tests: a
+  one-shot `core.status.config.restartPending`, a fake core that calls `config.watch` at start and
+  logs `config-watched`, a mode that changes for every core of a home after the first, and a fake
+  core that rejects a configuration the same way the real core's `config.json` validation would.
 
 ## Where things live
 
 | Path | Language | Package | Purpose |
 |---|---|---|---|
-| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor: `agent`, `memory` (including `memory list/show/forget/correct/share/state/propose/proposals list\|accept\|reject`, the MemoryOps surface, `crates/plur1bus/src/commands/memory_ops.rs`), `dreams`, `config` (`get`/`set`/`schema`, each with `--tier basic\|advanced`), `core` (internal), `daemon start\|stop\|restart\|status` (`src/commands/daemon.rs`), `service install\|uninstall\|status` (`src/commands/service.rs`), `1staid check` (`src/commands/firstaid.rs`, read-only diagnostics) — all real as of 2a-H3a — plus the hidden `supervise` subcommand (`src/supervisor/`, spawned by `daemon start`/the OS service, never run directly by a user) and still-stubbed `setup`, `module`, `update`, `user`, `model`, `login`, `channel`, `project`, `import`, `uninstall`, `1staid repair` (relabelled `2a-H3b` in their help text and `--json` `milestone` field). Every command supports `--json`, and every `--json` document carries a top-level `schema` id (see Conventions). |
-| `crates/plur1bus/src/supervisor` | Rust | (part of `plur1bus`) | The supervisor itself: `mod.rs` (state machine, restart scheduler, `SupervisorState`/`Shared`), `server.rs` (the `supervisor.auth`/`daemon.*` RPC server), `child.rs` (`Monitor`: spawn, health polling, hang-kill, backoff), `adopt.rs` (peer-credentialed adoption of an already-running core, `Peer`, `probe_core`), `state.rs` (`Health`, `CrashReason`, `Backoff`, pure and unit-tested), `logfile.rs` (`RotatingFile`, size-based log rotation), `pipe_windows.rs` (the Windows named-pipe ACL and overlapped I/O, `cfg(windows)`). See ADR-012 §10. |
-| `crates/plur1bus/src/service` | Rust | (part of `plur1bus`) | OS service registration: `mod.rs` (`Manager`, `Unit`, `Runner` trait), `systemd.rs`, `launchd.rs`, `schtasks.rs` (one renderer/installer per OS), `fake.rs` (the `PLUR1BUS_SERVICE_FAKE` test seam). See ADR-012 §10.6. |
-| `crates/plur1bus-rpc` | Rust | lib | JSON-RPC client types and transport for both the core's and the supervisor's RPC surfaces (`Endpoint::{Core,Supervisor}`); `capabilities.rs` (the `x-server`-filtered capability builder, Rust side of `buildCapabilities`); `win.rs`/`acl.rs` (Windows pipe DACL, peer-pid checks, overlapped I/O with real read deadlines). |
-| `crates/plur1bus-config` | Rust | lib | `config.json` load/validate/write against the same schema TypeScript uses (`packages/config-schema/schema/config.schema.json`, included via `include_str!`). |
-| `packages/rpc-schema` | JSON Schema + codegen | `@plur1bus/rpc-schema` | The single source for RPC methods/params/results/notifications/errors. `pnpm gen` writes `generated/types.ts` and `generated/names.json`; never edit `generated/` by hand. |
-| `packages/core` | TypeScript | `@plur1bus/core` | The core process: engine binding (`engine-config.ts`), RPC server, config load/watch, journal, activity, agent registry, CLI-facing `bin.ts`. |
-| `packages/module-api` | TypeScript | `@plur1bus/module-api` | Manifest schema and client surface for future modules (first- or third-party). |
-| `packages/webmcp` | TypeScript | `@plur1bus/webmcp` | WebMCP mapping in both directions (D55): core capabilities + RPC schema → WebMCP tools for the M3 GUI (`buildWebMcpTools`, `registerPlur1busTools`), and page tools → `webmcp:<origin>/<tool>` MCP descriptors plus the origin allowlist for the browser bridge. Platform-neutral (no Node/DOM imports); WebMCP draft differences live in `src/adapter.ts`. |
-| `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key; `pnpm gen` writes `fixtures/defaults.json` and `fixtures/restart-plan-cases.json`. |
-| `docs/` | Markdown | — | `docs/config-engine-keys.md`, `docs/config.md`, `docs/rpc.md` and `docs/cli.md` are generated (`pnpm docs:gen`); ADRs live in `docs/adr/` (ADR-012 process model/languages/RPC/lock, ADR-013 configuration/restart classes, ADR-016 API stability and versioning); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans). |
+| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor: `agent`, `memory` (including `memory list/show/forget/correct/share/state/propose/proposals list\|accept\|reject`, the MemoryOps surface, `crates/plur1bus/src/commands/memory_ops.rs`), `dreams`, `config` (`get`/`set`/`schema`, each with `--tier basic\|advanced`, routed through the supervisor's `config.get\|set\|watch` when one answers — ADR-013 §5), `module` (`list\|graph\|install\|uninstall\|start\|stop\|restart`, `src/commands/module.rs`, module-guide.md), `admin` (`obsidian detect\|prepare\|confirm`, `migrate`, `embedding probe\|serve`, `src/commands/admin.rs`, B15 — never exposed over WebMCP, see Conventions), `core` (internal), `daemon start\|stop\|restart\|status` (`src/commands/daemon.rs`), `service install\|uninstall\|status` (`src/commands/service.rs`), `1staid check` (`src/commands/firstaid.rs`, read-only diagnostics) — all real — plus the hidden `supervise` subcommand (`src/supervisor/`, spawned by `daemon start`/the OS service, never run directly by a user) and still-stubbed `setup`, `update`, `user`, `model`, `login`, `channel`, `project`, `import`, `uninstall`, `1staid repair` (relabelled `2a-H3b-b` in their help text and `--json` `milestone` field). Every command supports `--json`, and every `--json` document carries a top-level `schema` id (see Conventions). |
+| `crates/plur1bus/src/supervisor` | Rust | (part of `plur1bus`) | The supervisor itself: `mod.rs` (state machine, restart scheduler, `SupervisorState`/`Shared`, slots as role-keyed `Slot`s — core and modules alike), `modules.rs` (the module lifecycle: `ModulesView`/held-back reasons, `start_modules`, `reconcile_stop`/`reconcile_start`, the `module.*` op handlers, `module_list`), `server.rs` (the `supervisor.auth`/`daemon.*`/`config.*`/`module.*` RPC server), `config.rs` (owns `config.json`: `ConfigState`, the polling watcher, `set`, live appliers, B18's invalid-file handling), `subscribers.rs` (per-connection notification queues for `config.watch`/`module.watch`), `child.rs` (`Monitor`: spawn, health polling, hang-kill, backoff, `module_spec`/`module_plan`), `adopt.rs` (peer-credentialed adoption of an already-running core or module, `Peer`, `probe_child`), `state.rs` (`Role`/`RoleKind`, `Health`, `CrashReason`, `RestartPolicy`, `Backoff`, pure and unit-tested), `logfile.rs` (`RotatingFile`, size-based log rotation), `pipe_windows.rs` (the Windows named-pipe ACL and overlapped I/O, `cfg(windows)`). See ADR-012 §10, ADR-013 §5, module-guide.md. |
+| `crates/plur1bus/src/modules` | Rust | (part of `plur1bus`) | Module manifests independent of the supervisor's runtime state: `manifest.rs` (`Manifest`, `parse_manifest`, `RESERVED_NAMES`, the API-version policy), `graph.rs` (`band`, `graph`, `start_order`), `install.rs` (`stage`/`commit`/`uninstall`, `InstallError`, staging recovery, B14). See module-guide.md. |
+| `crates/plur1bus/src/service` | Rust | (part of `plur1bus`) | OS service registration: `mod.rs` (`Manager`, `Unit`, `Runner` trait), `systemd.rs`, `launchd.rs` (writes `PLUR1BUS_SERVICE_MANAGER=launchd`, B16), `schtasks.rs` (one renderer/installer per OS), `fake.rs` (the `PLUR1BUS_SERVICE_FAKE` test seam). See ADR-012 §10.6, §10.7. |
+| `crates/plur1bus-rpc` | Rust | lib | JSON-RPC client types and transport for the core's, the supervisor's and a module's RPC surfaces (`Endpoint::{Core,Supervisor,Module}`); `capabilities.rs` (the `x-server`-filtered capability builder, Rust side of `buildCapabilities`); `win.rs`/`acl.rs` (Windows pipe DACL, peer-pid checks, overlapped I/O with real read deadlines). |
+| `crates/plur1bus-config` | Rust | lib | `config.json` load/validate/write against the same schema TypeScript uses (`packages/config-schema/schema/config.schema.json`, included via `include_str!`); `revision`/`set_many` (a config's content hash and a multi-key apply, used by the supervisor's `config.set`). |
+| `packages/rpc-schema` | JSON Schema + codegen | `@plur1bus/rpc-schema` | The single source for RPC methods/params/results/notifications/errors, now split across three `x-server` values (`core`, `supervisor`, `module`). `pnpm gen` writes `generated/types.ts` and `generated/names.json`; never edit `generated/` by hand. |
+| `packages/core` | TypeScript | `@plur1bus/core` | The core process: engine binding (`engine-config.ts`), RPC server (`rpc/server.ts`, now a thin `server: "core"` binding over module-api's shared server), config load/watch (`config-source.ts`: a live `config.watch` against the supervisor, falling back to reading `config.json` when none answers), journal (background replay while serving, `replay.ts`), activity, agent registry, admin ops over RPC (`admin-ops.ts`: obsidian, migrate, embedding probe/serve), CLI-facing `bin.ts`. |
+| `packages/module-api` | TypeScript | `@plur1bus/module-api` | The module runtime and manifest: `manifest.ts` (schema, `apiVersionSupported`), `runtime.ts` (`runModule`, `ModuleContext` — module-guide.md), `control-server.ts`/`client.ts` (the module's own RPC endpoint and its client of the core), `config-watch.ts` (`watchSupervisorConfig`), `paths.ts` (address/run-file rules shared with the Rust supervisor), plus pieces moved here from the core so a module and the core share one implementation: the RPC server core, `RpcError`, the rotating logger, `securePath`, the orphan watch, the adoption-nonce check, and the exclusive lock. |
+| `packages/module-fixture` | TypeScript | `@plur1bus/module-fixture` (private) | The one module this repo ships, for tests only: exercises `runModule`, the supervisor's module handling and the D14 manifest end to end. `module.json` declares `needs: [core]`, `provides: [fixture.echo]`, `consumes: [memory]`, `scope: installation`, `priority: 500`; `dist/package.json` is `{"type":"module"}` (B12/H3B-R23, module-guide.md). Its `README.md` follows the "Module README convention" below. |
+| `packages/webmcp` | TypeScript | `@plur1bus/webmcp` | WebMCP mapping in both directions (D55): core capabilities + RPC schema → WebMCP tools for the M3 GUI (`buildWebMcpTools`, `registerPlur1busTools`), and page tools → `webmcp:<origin>/<tool>` MCP descriptors plus the origin allowlist for the browser bridge. `FORBIDDEN_PREFIX` includes `"admin."`: every `admin.*` method is refused as a WebMCP tool regardless of its stability or `x-server`, tested even against a hypothetical future `admin.*` method (B15). Platform-neutral (no Node/DOM imports); WebMCP draft differences live in `src/adapter.ts`. |
+| `packages/config-schema` | JSON Schema | `@plur1bus/config-schema` | `config.json` schema with `x-restart` per key, now including the `modules.<name>` namespace (`x-restart: "module:$key"`, `enabled` default `true`); `pnpm gen` writes `fixtures/defaults.json` and `fixtures/restart-plan-cases.json`. |
+| `docs/` | Markdown | — | `docs/config-engine-keys.md`, `docs/config.md`, `docs/rpc.md` and `docs/cli.md` are generated (`pnpm docs:gen`); `docs/module-guide.md` is hand-written (module manifest, `runModule`, the module lifecycle and configuration — spec §5, D14); ADRs live in `docs/adr/` (ADR-012 process model/languages/RPC/lock, ADR-013 configuration/restart classes, ADR-016 API stability and versioning); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans). |
 | `scripts/` | Node | — | Cross-cutting tooling: `check-toolchain.mjs`, `test-package.mjs` (shared by every package's `test` script), `gen-engine-keys.mjs`, `gen-docs.mjs`, `lint-hygiene.mjs`, `copy-dir.mjs`. |
 
 `tests/system` now exists (`two-session-recall`, `memory-ops`, `reconnect`, `kill-soak.test.ts`,
-`helpers.ts`), built up across 2a-H2 and 2a-H3a; see "Build / test / lint" above for how to run it.
-`skills/plur1bus-harness` is still named only in the design spec and does not exist yet — it is
-2a-H3b-8 work — do not assume it is there.
+`config-restart.test.ts`, `modules.test.ts`, `admin.test.ts`, `helpers.ts`), built up across 2a-H2
+through 2a-H3b-a; see "Build / test / lint" above for how to run it. `skills/plur1bus-harness` is
+still named only in the design spec and does not exist yet — it is 2a-H3b-b work — do not assume it
+is there.
 
 ## Conventions
 
@@ -166,12 +185,17 @@ Env vars that matter when driving the core directly instead of through the CLI:
   removeAfter, replacement }` (ADR-016 §4/§5/§10). `buildCapabilities` derives `core.auth`'s
   `capabilities` entirely from these annotations — never a hand-kept list — so a method's stability
   can't drift from what `docs/rpc.md`'s generated `## Stability` section and `core.auth` both show.
-- **Every RPC method carries `x-server: "core" | "supervisor"`, and every notification carries
-  `x-server: "core"`** (since 2a-H3a, RPC schema 1.2.0, ADR-012 §3/§10, ADR-016's 2a-H3a
-  implementation record). `buildCapabilities(features, server)` / `capabilities(server, features)`
+- **Every RPC method carries `x-server: "core" | "supervisor" | "module"`, and every notification
+  carries `x-server: "core" | "supervisor"`** (RPC schema 1.3.0, ADR-012 §3/§10, ADR-016's
+  implementation records). `buildCapabilities(features, server)` / `capabilities(server, features)`
   filter by it before returning a handshake's `capabilities`, so `core.auth` never lists a
-  `daemon.*` method and `supervisor.auth` never lists `memory.*`. A method with no `x-server` is a
-  bug in the schema, the same as a method with no `x-stability`.
+  `daemon.*` or `module.*` method, `supervisor.auth` never lists `memory.*`, and a module's own
+  `module.auth` handshake lists only the four methods every module serves (`module.auth|status
+  |adopt|shutdown` — no module ever advertises a notification). A method with no `x-server` is a
+  bug in the schema, the same as a method with no `x-stability`. `admin.*` is `x-server: "core"`
+  like any other core method, but is additionally never offered as a WebMCP tool (see the
+  `packages/webmcp` row above) — a person can run it from the CLI, an agent cannot reach it through
+  WebMCP.
 - **Every RPC method's `params` object is closed** — `additionalProperties: false` — in
   `rpc.schema.json`. An RPC method whose params allow unknown properties is a bug.
 - **`--json` output is always the raw RPC value, never a re-serialized typed struct.** Every CLI
@@ -253,15 +277,20 @@ past 1.0 in its config, e.g. `cfg.engine.duplicateThreshold = 1.01`.
 
 ## Module README convention (D14)
 
-Not yet exercised in this repo — 2a-H3b-2/3 add the module loader and the first module — but the
-convention is fixed: every
-module under `packages/` or `modules/` ships its own `README.md` covering, at minimum:
+Now exercised: `packages/module-fixture/README.md` is the first module built against it, and every
+module under `packages/` or `modules/` (an installed, on-disk module lives under `<home>/modules/`
+instead, D14/module-guide.md) ships its own `README.md` covering, at minimum:
 
 1. Purpose — what the module does and why it exists.
 2. Its manifest (name, `provides`/`consumes`/`needs`, version).
 3. The RPC methods it provides and the ones it consumes from the core or other modules.
-4. The restart class (`core`/`live`) of every config key it owns.
+4. The restart class (`module:<name>`, since it is the config keys under `modules.<name>` a
+   module's own README documents) of every config key it owns.
 5. How to run and test it in isolation, without starting the full supervisor.
+
+`docs/module-guide.md` covers the manifest format and the module runtime end to end; a module's own
+README documents that specific module against it, the way `packages/module-fixture/README.md`
+does.
 
 ## Docs
 
@@ -274,11 +303,16 @@ the clap tree via the hidden `plur1bus __markdown` subcommand) and `docs/config.
 --tier`), the last three by `scripts/gen-docs.mjs`. `pnpm docs:check` runs `scripts/gen-docs.mjs
 --check`, which fails when any of `docs/rpc.md`, `docs/cli.md` or `docs/config.md` is stale; CI runs
 it on every OS. After touching the RPC schema, the config schema or any clap definition (help text
-included), run `pnpm docs:gen` and commit the result; never hand-edit a generated doc. The decision
-records for the process model, languages, RPC and lock (ADR-012), for configuration and restart
-classes (ADR-013) and for API stability and versioning (ADR-016) are in `docs/adr/`; all three carry
-a 2a-H3a implementation record (the supervisor, `daemon`/`service`/`1staid check`, the Windows
-named-pipe ACL, model warm-up and the `x-server`-split RPC schema — ADR-012 §10, ADR-016's 2a-H3a
-record). Every CLI stub that still says "2a-H3" now says **"2a-H3b"** (`daemon`, `service` and
-`1staid check` dropped the label because they are real commands now): the module loader, `setup`,
-`update`, `1staid repair` and admin ops over RPC are what moved to that next harness plan.
+included), run `pnpm docs:gen` and commit the result; never hand-edit a generated doc.
+`docs/module-guide.md` is hand-written and is never checked by `docs:check`, but it documents
+generated surface (the manifest schema, `modules.<name>` config, the `module.*` RPC methods) and
+should be re-read whenever those change underneath it. The decision records for the process model,
+languages, RPC and lock (ADR-012), for configuration and restart classes (ADR-013) and for API
+stability and versioning (ADR-016) are in `docs/adr/`; all three carry a 2a-H3a implementation
+record (the supervisor, `daemon`/`service`/`1staid check`, the Windows named-pipe ACL, model warm-up
+and the `x-server`-split RPC schema) and a **2a-H3b-a** record (the supervisor's ownership of
+`config.json`, config-driven restarts, module processes, `module.*`/`admin.*` over RPC — ADR-012
+§10, ADR-013 §5, ADR-016's implementation records). Every CLI stub that still says "2a-H3b" now
+means **2a-H3b-b**: only `setup`, `update`, `user`, `model`, `login`, `channel`, `project`, `import`,
+`uninstall` and `1staid repair` remain stubs — `config`, `module`, `daemon`, `service`, `1staid
+check` and `admin` are all real commands now.
