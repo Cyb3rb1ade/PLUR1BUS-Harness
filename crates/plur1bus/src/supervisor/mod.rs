@@ -444,9 +444,36 @@ fn release_own_console() {
     }
 }
 
-fn fail(code: i32, msg: &str) -> ! {
+/// Maps a non-transient supervisor exit to 0 under launchd (ruling B16): `KeepAlive.SuccessfulExit = false` would
+/// otherwise loop-restart 2 (usage/set-up failure) or 3 (another supervisor already owns the home) forever, and
+/// retrying under the same OS service registration can never fix either. Every other `code`, and every other
+/// `manager`, passes through unchanged. clap's own exit 2 for a CLI usage error never reaches here: it happens
+/// before `supervisor::run` is called.
+pub fn exit_code(code: i32, manager: Option<&str>) -> i32 {
+    if manager == Some("launchd") && matches!(code, 2 | 3) {
+        0
+    } else {
+        code
+    }
+}
+
+/// Exits with `code`, remapped through [`exit_code`] using `PLUR1BUS_SERVICE_MANAGER` (set by the launchd plist,
+/// `service::launchd::SERVICE_MANAGER_ENV`). When the remap changes the code, the reason is written to stderr and to
+/// `logs/supervisor.log` before exiting; every `fail` site that can produce 2 or 3 runs before the shared `Log` is
+/// open, so a fresh ad hoc one is opened here (harmless if it happens to race the real one: both append).
+fn fail(layout: &Layout, code: i32, msg: &str) -> ! {
     eprintln!("plur1bus supervise: {msg}");
-    std::process::exit(code)
+    let manager = std::env::var("PLUR1BUS_SERVICE_MANAGER").ok();
+    let mapped = exit_code(code, manager.as_deref());
+    if mapped != code {
+        let note = format!(
+            "exiting {mapped} instead of {code} so launchd does not restart a non-transient failure"
+        );
+        eprintln!("{note}");
+        let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+        log.info(&note, json!({}));
+    }
+    std::process::exit(mapped)
 }
 
 /// `plur1bus supervise`. Never returns: exits 0 after a stop, 2 on a usage error, 3 when another supervisor owns
@@ -466,11 +493,15 @@ pub fn run(layout: &Layout, opts: SuperviseOpts) -> ! {
 fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     let allow = allow_test_internals();
     if opts.no_core && !allow {
-        fail(2, "--no-core requires PLUR1BUS_ALLOW_TEST_INTERNALS=1");
+        fail(
+            layout,
+            2,
+            "--no-core requires PLUR1BUS_ALLOW_TEST_INTERNALS=1",
+        );
     }
     let time_scale = if allow {
         let raw = std::env::var("PLUR1BUS_SUPERVISOR_TIME_SCALE").ok();
-        parse_time_scale(raw.as_deref()).unwrap_or_else(|e| fail(2, &e))
+        parse_time_scale(raw.as_deref()).unwrap_or_else(|e| fail(layout, 2, &e))
     } else {
         1.0
     };
@@ -485,6 +516,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         create_private_dir(&layout.run()).and_then(|_| fs::create_dir_all(layout.logs()))
     {
         fail(
+            layout,
             1,
             &format!(
                 "cannot create run/ and logs/ under {}: {e}",
@@ -505,6 +537,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .open(layout.supervisor_lock())
         .unwrap_or_else(|e| {
             fail(
+                layout,
                 1,
                 &format!("cannot open {}: {e}", layout.supervisor_lock().display()),
             )
@@ -513,6 +546,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         match e {
             fs::TryLockError::WouldBlock => already_running(layout, &address),
             fs::TryLockError::Error(e) => fail(
+                layout,
                 1,
                 &format!("cannot lock {}: {e}", layout.supervisor_lock().display()),
             ),
@@ -520,7 +554,11 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     }
     // A supervisor that predates the lock, or a squatter, still answers here; a dead socket is removed.
     if let Some(pid) = probe(layout, &address) {
-        fail(3, &format!("supervisor already running (pid {pid})"));
+        fail(
+            layout,
+            3,
+            &format!("supervisor already running (pid {pid})"),
+        );
     }
     #[cfg(unix)]
     if Path::new(&address).exists() {
@@ -542,11 +580,12 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
 
     let instance_id = uuid::Uuid::new_v4().to_string();
     let pid = std::process::id();
-    let token = fresh_token().unwrap_or_else(|e| fail(1, &format!("cannot generate a token: {e}")));
+    let token =
+        fresh_token().unwrap_or_else(|e| fail(layout, 1, &format!("cannot generate a token: {e}")));
     if let Err(e) = write_private(&layout.supervisor_token(), &token)
         .and_then(|_| write_private(&layout.supervisor_pid(), &format!("{pid} {instance_id}\n")))
     {
-        fail(1, &format!("cannot write the run files: {e}"));
+        fail(layout, 1, &format!("cannot write the run files: {e}"));
     }
 
     let shared = Arc::new(Shared {
@@ -580,13 +619,13 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                 json!({ "address": address, "err": e.to_string() }),
             );
             remove_run_files(layout);
-            fail(1, &format!("cannot listen on {address}: {e}"));
+            fail(layout, 1, &format!("cannot listen on {address}: {e}"));
         }
     };
     {
         let shared2 = shared.clone();
         spawn_guarded(&shared, "accept", move || server.serve(shared2))
-            .unwrap_or_else(|e| fail(1, &format!("cannot start the accept thread: {e}")));
+            .unwrap_or_else(|e| fail(layout, 1, &format!("cannot start the accept thread: {e}")));
     }
     shared.log.info(
         "supervisor ready",
@@ -765,8 +804,12 @@ fn already_running(layout: &Layout, address: &str) -> ! {
         std::thread::sleep(Duration::from_millis(50));
     };
     match pid {
-        Some(pid) => fail(3, &format!("supervisor already running (pid {pid})")),
-        None => fail(3, "supervisor already running (pid unknown)"),
+        Some(pid) => fail(
+            layout,
+            3,
+            &format!("supervisor already running (pid {pid})"),
+        ),
+        None => fail(layout, 3, "supervisor already running (pid unknown)"),
     }
 }
 
@@ -820,6 +863,22 @@ mod tests {
         ] {
             assert!(parse_time_scale(Some(bad)).is_err(), "{bad:?} accepted");
         }
+    }
+
+    #[test]
+    fn non_transient_exits_are_0_under_launchd_only() {
+        // 2 (usage/setup) and 3 (already running) are non-transient: retrying under the same OS service
+        // registration cannot succeed, so launchd must not loop-restart them (ruling B16).
+        assert_eq!(exit_code(2, Some("launchd")), 0);
+        assert_eq!(exit_code(3, Some("launchd")), 0);
+        // A transient or fatal exit is never masked, even under launchd.
+        assert_eq!(exit_code(1, Some("launchd")), 1);
+        assert_eq!(exit_code(70, Some("launchd")), 70);
+        // No other manager remaps anything.
+        assert_eq!(exit_code(2, None), 2);
+        assert_eq!(exit_code(3, None), 3);
+        assert_eq!(exit_code(2, Some("systemd")), 2);
+        assert_eq!(exit_code(3, Some("systemd")), 3);
     }
 
     #[test]

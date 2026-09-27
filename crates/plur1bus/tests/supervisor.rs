@@ -365,6 +365,37 @@ fn a_second_supervisor_on_the_same_home_exits_3() {
 }
 
 #[test]
+fn a_second_supervisor_under_launchd_exits_0_with_the_message() {
+    // Ruling B16: under launchd (`KeepAlive.SuccessfulExit = false`), the loser's non-transient exit 3 must become
+    // 0, or launchd loops restarting a supervisor that can never win the lock.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let first = start(home);
+    drop(client(home));
+
+    let out = command(home)
+        .env("PLUR1BUS_SERVICE_MANAGER", "launchd")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains(&format!("supervisor already running (pid {})", first.pid())),
+        "{stderr}"
+    );
+    assert!(stderr.contains("exiting 0 instead of 3"), "{stderr}");
+    // The message also lands in logs/supervisor.log, opened ad hoc since fail(3) precedes the real Log::open.
+    let log = std::fs::read_to_string(home.join("logs").join("supervisor.log")).unwrap();
+    assert!(log.contains("exiting 0 instead of 3"), "{log}");
+    // The winner is unaffected: still the one supervisor answering for this home.
+    let mut c = client(home);
+    assert_eq!(
+        c.call("daemon.status", json!({})).unwrap()["supervisor"]["pid"],
+        first.pid()
+    );
+}
+
+#[test]
 fn two_supervisors_starting_at_once_leave_exactly_one() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
