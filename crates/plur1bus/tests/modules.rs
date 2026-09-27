@@ -230,7 +230,8 @@ fn wait_for(c: &mut Client, role: &str, what: &str, f: impl Fn(&Value) -> bool) 
         }
         assert!(
             Instant::now() < deadline,
-            "timed out waiting for {role} {what}; last: {st}"
+            "timed out waiting for {role} {what}; last: {st}{}",
+            common::log_tails()
         );
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -283,7 +284,7 @@ fn an_installed_module_is_spawned_after_the_core_and_becomes_ready() {
     assert_eq!(core["kind"], "core");
     assert_eq!(fixture["kind"], "module");
     assert_eq!(fixture["adopted"], false);
-    assert_eq!(fixture["restarts"], 0);
+    assert_eq!(fixture["restarts"], 0, "{st}{}", common::log_tails());
     let pid = fixture["pid"].as_u64().unwrap();
     // Its own run files, as the module runtime writes them.
     let recorded = std::fs::read_to_string(h.home.join("run/module-fixture.pid")).unwrap();
@@ -301,7 +302,9 @@ fn an_installed_module_is_spawned_after_the_core_and_becomes_ready() {
         .log_index("fixture spawned", |r| r["pid"].as_u64() == Some(pid))
         .unwrap();
     assert!(core_spawned < fixture_spawned, "{:?}", h.log());
-    // `daemon status` prints one line per child with its kind.
+    // `daemon status` prints one line per child with its kind (the fake core reports ready once its run files are
+    // secured, which on Windows can outlast the module's start).
+    wait_for(&mut c, "core", "ready", |m| state(m) == "ready");
     let text = daemon_status_text(&h);
     assert!(text.contains("core (core): ready"), "{text}");
     assert!(text.contains("fixture (module): ready"), "{text}");
@@ -370,6 +373,9 @@ fn a_module_that_crashes_at_start_gives_up_after_five_and_the_core_is_untouched(
     assert_eq!(m["process"]["reason"], "gave-up", "{m}");
     assert_eq!(m["lastExit"]["reason"], Value::Null, "{m}");
     assert_eq!(m["pid"], Value::Null);
+    // The module gives up within a few scaled backoffs, which can be before the fake core has secured its run files
+    // and reports ready (icacls on Windows): wait for that before reading the text.
+    wait_for(&mut c, "core", "ready", |m| state(m) == "ready");
     let text = daemon_status_text(&h);
     assert!(
         text.contains("fixture (module): crashed: gave-up"),

@@ -226,7 +226,8 @@ fn wait_for(c: &mut Client, role: &str, what: &str, f: impl Fn(&Value) -> bool) 
         }
         assert!(
             Instant::now() < deadline,
-            "timed out waiting for {role} {what}; last: {st}"
+            "timed out waiting for {role} {what}; last: {st}{}",
+            common::log_tails()
         );
         std::thread::sleep(Duration::from_millis(20));
     }

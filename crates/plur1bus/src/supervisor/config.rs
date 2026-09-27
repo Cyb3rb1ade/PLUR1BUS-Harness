@@ -356,7 +356,12 @@ pub fn set(
     };
     let mut restarted: Vec<String> = Vec::new();
     if let Some(rx) = job {
-        let deadline = started + super::DEFAULT_STOP_BUDGET + ready_timeout(shared);
+        let deadline = started
+            + super::DEFAULT_STOP_BUDGET
+            + ready_timeout(
+                shared,
+                restart["modules"].as_array().is_some_and(|m| !m.is_empty()),
+            );
         match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
             Ok(mut units) => {
                 // M4: a unit counts as restarted only once its new process is ready.
@@ -397,9 +402,17 @@ const READY_TIMEOUT_SECS: u64 = 60;
 pub const RESTART_WAIT_MAX: Duration =
     Duration::from_secs(super::DEFAULT_STOP_BUDGET.as_secs() + READY_TIMEOUT_SECS);
 
-/// The supervisor's ready timeout for a spawned core (60 s × time scale, as `child::Timing`).
-fn ready_timeout(shared: &Shared) -> Duration {
-    Duration::from_secs_f64(READY_TIMEOUT_SECS as f64 * shared.lock().time_scale)
+/// The supervisor's ready timeout for the units a restart starts (as `child::Timing`): the core's (60 s × time scale),
+/// or a module's when `modules` (the same, with the module floor; never shorter than the core's).
+fn ready_timeout(shared: &Shared, modules: bool) -> Duration {
+    use super::state::RoleKind;
+    let scale = shared.lock().time_scale;
+    let core = super::child::ready_timeout(RoleKind::Core, scale);
+    if modules {
+        core.max(super::child::ready_timeout(RoleKind::Module, scale))
+    } else {
+        core
+    }
 }
 
 /// Waits until the unit (`core` or a module) the restart started is ready (true), or has exited or `deadline` passes

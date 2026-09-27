@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
+use std::cell::RefCell;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -102,7 +103,55 @@ pub fn start_with_core(
         home.join("run/supervisor.token").exists()
     });
     drop(client(home));
+    LOG_HOME.with(|h| *h.borrow_mut() = Some(home.to_path_buf()));
     s
+}
+
+thread_local! {
+    /// The home of the supervisor this test thread last started with a core ([`start_with_core`]), for [`log_tails`].
+    static LOG_HOME: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+}
+
+/// Lines kept from the end of each log by [`log_tails`].
+const TAIL_LINES: usize = 25;
+
+/// For a failure message: the last lines of every module's own log and captured output (`logs/module-*`) and of
+/// `logs/supervisor.log`, in the home this test thread last started a supervisor with a core in. A module that never
+/// becomes ready leaves its reason there (CI runs cannot be inspected after the temp home is gone).
+pub fn log_tails() -> String {
+    let Some(home) = LOG_HOME.with(|h| h.borrow().clone()) else {
+        return String::new();
+    };
+    let logs = home.join("logs");
+    let mut names: Vec<String> = std::fs::read_dir(&logs)
+        .map(|d| {
+            d.flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .filter(|n| n.starts_with("module-"))
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names.push("supervisor.log".into());
+    let mut out = String::new();
+    for name in names {
+        let text = match std::fs::read(logs.join(&name)) {
+            Ok(b) => String::from_utf8_lossy(&b).into_owned(),
+            Err(e) => format!("(unreadable: {e})"),
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let tail = &lines[lines.len().saturating_sub(TAIL_LINES)..];
+        out.push_str(&format!(
+            "\n--- logs/{name} (last {} of {} lines) ---\n",
+            tail.len(),
+            lines.len()
+        ));
+        for l in tail {
+            out.push_str(l);
+            out.push('\n');
+        }
+    }
+    out
 }
 
 /// The fake core's events (one JSON object per line) named `name`.
