@@ -13,7 +13,11 @@ export interface ControlServerOptions {
   authIdleMs?: number;
   logger?: HarnessLogger;
 }
-export interface ControlServer { listen(): Promise<void>; close(): Promise<void> }
+export interface ControlServer {
+  listen(): Promise<void>;
+  /** Ends every connection and destroys the ones still open after `graceMs` (default 1000). */
+  close(o?: { graceMs?: number }): Promise<void>;
+}
 
 /** A module process's control endpoint (B9): the shared RPC server with the `module` role — the `module.auth`
  *  handshake against the module's token, params and result validation, and the module-served methods only. On
@@ -25,5 +29,5 @@ export function createControlServer(o: ControlServerOptions): ControlServer {
     ...(o.authIdleMs !== undefined ? { authIdleMs: o.authIdleMs } : {}),
     ...(o.onConnectionClosed ? { onConnectionClosed: o.onConnectionClosed } : {}),
   });
-  return { listen: () => server.listen(), close: () => server.close({ graceMs: 1000 }) };
+  return { listen: () => server.listen(), close: (c = {}) => server.close({ graceMs: c.graceMs ?? 1000 }) };
 }

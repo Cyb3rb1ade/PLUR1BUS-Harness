@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
+// module-api's test helpers, by relative path: test-only, and in the package dependency direction (this package
+// depends on module-api). They are not part of module-api's published surface.
 import { startFakeSupervisor, type FakeSupervisor } from "../../module-api/test/helpers/fake-supervisor.ts";
 import { buildFixture, connectModule, exitWithin, installFixture, killLeftovers, spawnModule, waitStatus } from "../../module-api/test/helpers/module-process.ts";
 import { tempDir } from "../../module-api/test/helpers/temp-dir.ts";

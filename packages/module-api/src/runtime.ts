@@ -40,9 +40,11 @@ export interface ModuleDefinition { start(ctx: ModuleContext): Promise<{ stop(o:
 /** The features `module.auth` advertises. */
 export const MODULE_FEATURES = ["adoption", "lifelines"] as const;
 
-/** Exit codes: 2 = usage or manifest (never retried by the supervisor as a transient failure), 3 = the lock is held. */
+/** Exit codes: 2 = usage or manifest (never retried by the supervisor as a transient failure), 3 = the lock is held
+ *  by another instance (retried); a lock file that cannot be opened is 1, like any other start failure. */
 const EXIT_MANIFEST = 2;
 const EXIT_LOCKED = 3;
+const EXIT_FAILED = 1;
 /** A `module.shutdown` without budgetMs, SIGTERM and the grace expiry give the module this long to stop. */
 const DEFAULT_STOP_BUDGET_MS = 10_000;
 const CORE_BACKOFF_MS = { first: 250, max: 5_000 };
@@ -200,7 +202,7 @@ export async function runModule(def: ModuleDefinition, argv: string[] = process.
   const files = moduleRunFiles(home, name);
   mkdirSync(runDir(home), { recursive: true, mode: 0o700 });
   let lock: ExclusiveLock | null;
-  try { lock = acquireExclusiveLock(files.lock, { instanceId }); } catch (e) { return fail(EXIT_LOCKED, `lock unavailable: ${files.lock}: ${(e as Error).message}`); }
+  try { lock = acquireExclusiveLock(files.lock, { instanceId }); } catch (e) { return fail(EXIT_FAILED, `lock unavailable: ${files.lock}: ${(e as Error).message}`); }
   if (!lock) return fail(EXIT_LOCKED, `another instance of ${name} holds ${files.lock}`);
 
   // 3. The configuration, then the log (built from it).
@@ -262,18 +264,28 @@ export async function runModule(def: ModuleDefinition, argv: string[] = process.
     logger.info("module stopping", { why, budgetMs });
     orphans?.dispose();
     shutdown.abort(new Error(`module stopping: ${why}`));
+    // The budget covers the whole stop (M3): the module's own stop, then closing the core link, the config watch and
+    // the server (whose grace for peers that keep their side open is cut to what is left). Only the run files, the
+    // lock and the log (synchronous, instant) come after the deadline.
+    const t0 = performance.now();
+    const left = () => Math.max(0, budgetMs - (performance.now() - t0));
+    const within = async (what: string, work: Promise<unknown>): Promise<void> => {
+      let timer: NodeJS.Timeout | undefined;
+      const inTime = await Promise.race([work.then(() => true), new Promise<boolean>((res) => { timer = setTimeout(() => res(false), left()); })]);
+      clearTimeout(timer);
+      if (!inTime) logger.warn(`${what} overran the stop budget`, { budgetMs });
+    };
     let failed = o.failed === true;
     if (handle) {
-      let timer: NodeJS.Timeout | undefined;
-      try {
-        const inTime = await Promise.race([handle.stop({ budgetMs }).then(() => true), new Promise<boolean>((res) => { timer = setTimeout(() => res(false), budgetMs); })]);
-        if (!inTime) logger.warn("module stop overran its budget", { budgetMs });
-      } catch (err) { failed = true; logger.error("module stop failed", { err }); } finally { clearTimeout(timer); }
+      const h = handle;
+      await within("module stop", Promise.resolve().then(() => h.stop({ budgetMs })).catch((err: unknown) => { failed = true; logger.error("module stop failed", { err }); }));
     }
     const step = async (what: string, fn: () => unknown) => { try { await fn(); } catch (err) { logger.error(`stop step failed: ${what}`, { err }); } };
-    await step("core link", () => coreLink?.close());
-    await step("config watch", () => config.close());
-    await step("server close", () => server?.close());
+    await within("closing", Promise.all([
+      step("core link", () => coreLink?.close()),
+      step("config watch", () => config.close()),
+      step("server close", () => server?.close({ graceMs: Math.min(1000, left()) })),
+    ]));
     await step("run files", () => { if (wroteRunFiles) { rmSync(files.token, { force: true }); rmSync(files.pid, { force: true }); } });
     await step("lock release", () => lock?.release());
     state = { state: "stopped", since: clock() };

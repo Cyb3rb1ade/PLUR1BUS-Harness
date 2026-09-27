@@ -65,6 +65,10 @@ importers:
       '@plur1bus/module-api':
         specifier: workspace:*
         version: link:../module-api
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
   packages/rpc-schema:
     dependencies:

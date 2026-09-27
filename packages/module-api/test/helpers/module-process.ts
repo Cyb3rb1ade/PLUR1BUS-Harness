@@ -1,8 +1,10 @@
 // Runs the built fixture module (packages/module-fixture) as a real process against a temp home: module-api's runtime
-// tests and the fixture's own tests share it.
+// tests and the fixture's own tests share it. The fixture tests import this file by relative path (a test-only link:
+// module-fixture depends on module-api, never the reverse), and buildFixture() runs the fixture's build.mjs as a child
+// process rather than importing it.
 import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connect, type CoreClient } from "../../src/client.ts";
@@ -21,7 +23,9 @@ export function installFixture(home: string, o: { dir?: string; manifest?: Recor
   const dist = join(fixtureRoot, "dist");
   const dir = join(home, "modules", o.dir ?? "fixture");
   mkdirSync(dir, { recursive: true });
-  for (const f of ["index.js", "package.json", "README.md"]) copyFileSync(join(dist, f), join(dir, f));
+  // Everything the build ships (index.js, package.json, README.md, …), as an install would; module.json is written
+  // below with the overrides applied.
+  for (const f of readdirSync(dist)) if (f !== "module.json") copyFileSync(join(dist, f), join(dir, f));
   const manifest = { ...JSON.parse(readFileSync(join(dist, "module.json"), "utf8")), ...o.manifest };
   writeFileSync(join(dir, "module.json"), JSON.stringify(manifest, null, 2));
   return dir;
