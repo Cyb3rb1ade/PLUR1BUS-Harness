@@ -330,6 +330,37 @@ fn a_config_change_while_the_file_stays_valid_does_not_re_arm_a_config_invalid_c
 }
 
 #[test]
+fn reverting_a_rejected_edit_to_the_running_bytes_re_arms_a_config_invalid_core() {
+    // B18, the `applied_hash` path: the core restarts while the file is rejected, exits 2 and goes fatal; putting
+    // back the bytes that already run re-arms it without any configuration change.
+    let h = Home::new();
+    h.write_config(json!({ "schemaVersion": 1 }));
+    let original = std::fs::read(h.home.join("config.json")).unwrap();
+    let _s = start(&h, "crash-after:600", "0.02");
+    let mut c = client(&h.home);
+    wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+    std::fs::write(h.home.join("config.json"), "{ not json").unwrap();
+    let child = wait_child(&mut c, "crashed config-invalid", WAIT, |c| {
+        state(c) == "crashed" && c["process"]["reason"] == "config-invalid"
+    });
+    assert_eq!(child["lastExit"]["code"], 2, "{child}");
+    let started = h.named_events("started").len();
+
+    std::fs::write(h.home.join("config.json"), &original).unwrap();
+    wait_until("the core to start again", WAIT, || {
+        h.named_events("started").len() > started
+    });
+    assert!(h
+        .log_records()
+        .iter()
+        .any(|r| r["msg"] == "config.json matches the running configuration again"));
+    assert!(h
+        .log_records()
+        .iter()
+        .any(|r| r["msg"] == "config.json is valid again, restarting the core"));
+}
+
+#[test]
 fn daemon_start_after_crashed_resets_and_respawns() {
     let h = Home::new();
     let _s = start(&h, "exit:1", "0.02");

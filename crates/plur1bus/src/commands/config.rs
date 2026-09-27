@@ -16,8 +16,10 @@ use std::time::{Duration, Instant};
 
 /// How long the supervisor gets to accept and authenticate a connection before it counts as unresponsive.
 const SUPERVISOR_CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
-/// The deadline of one `config.*` call.
-const SUPERVISOR_CALL_TIMEOUT: Duration = Duration::from_secs(30);
+/// The deadline of one `config.*` call (H3B-R22): a `config.set` may wait for a core restart, so the deadline is the
+/// supervisor's longest restart wait plus 10 s. `agent create|remove` go through [`apply`] and share it.
+const SUPERVISOR_CALL_TIMEOUT: Duration =
+    Duration::from_secs(supervisor::config::RESTART_WAIT_MAX.as_secs() + 10);
 
 fn parse_value(raw: &str) -> Value {
     serde_json::from_str(raw).unwrap_or_else(|_| Value::String(raw.to_string()))
@@ -66,6 +68,8 @@ pub(crate) fn route(layout: &Layout) -> Result<Route, RpcError> {
         expected_server_pid: None, // set by connect_recorded
     };
     match super::connect_recorded(layout, &address, &token, opts) {
+        // An older supervisor (before 1.3.0) does not own config.json and never writes it: the file is ours (I2).
+        Ok(c) if !c.supports("config.set") => Ok(Route::Direct),
         Ok(c) => Ok(Route::Supervisor(c)),
         Err(RpcError::Unavailable { reason, .. }) if reason == "core-unavailable" => {
             Ok(Route::Direct)
@@ -90,6 +94,23 @@ fn reason_of(e: &RpcError) -> Option<&str> {
     }
 }
 
+/// The direct path's `E_CONFLICT reason=config-changed`: the same error the supervisor answers, so both paths print
+/// the same message and document.
+fn conflict(current: &str) -> RpcError {
+    RpcError::Call {
+        error: ErrorCode::EConflict,
+        jsonrpc: -32000,
+        message: "config.json changed since the given revision".into(),
+        reason: Some("config-changed".into()),
+        detail: None,
+        ids: Some(
+            [("currentRevision".to_string(), current.to_string())]
+                .into_iter()
+                .collect(),
+        ),
+    }
+}
+
 /// Prints a failed `config.*` call and exits 1: the error name, its reason/detail/ids, and a message that says what
 /// to do.
 fn fail_rpc(out: &Out, e: &RpcError) -> ! {
@@ -105,7 +126,12 @@ fn fail_rpc(out: &Out, e: &RpcError) -> ! {
     if let Some(ids) = e.ids() {
         extra["ids"] = json!(ids);
     }
-    let message = match (e, reason_of(e)) {
+    out.fail(&e.code_name(), &fail_message(e), extra, 1)
+}
+
+/// The human message of a failed `config.*` call: what happened and what to do.
+fn fail_message(e: &RpcError) -> String {
+    match (e, reason_of(e)) {
         (_, Some("config-changed")) => "config.json changed meanwhile; re-run".to_string(),
         (_, Some("config-unavailable")) => {
             "the supervisor runs no valid configuration; fix config.json".to_string()
@@ -122,8 +148,7 @@ fn fail_rpc(out: &Out, e: &RpcError) -> ! {
             format!("{message}: {d}")
         }
         _ => e.to_string(),
-    };
-    out.fail(&e.code_name(), &message, extra, 1)
+    }
 }
 
 /// The running configuration and its revision: the supervisor's when it answers, else config.json (created with
@@ -285,12 +310,7 @@ pub(crate) fn apply(
                 .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
             let current = cfg::revision(&loaded.config);
             if expect.is_some_and(|r| r != current) {
-                out.fail(
-                    "E_CONFLICT",
-                    "config.json changed meanwhile; re-run",
-                    json!({ "reason": "config-changed", "ids": { "currentRevision": current } }),
-                    1,
-                );
+                fail_rpc(out, &conflict(&current));
             }
             let keys: Vec<&str> = changes.iter().map(|(k, _)| k.as_str()).collect();
             let plan = cfg::set_many(&loaded.config, &changes).unwrap_or_else(|e| {
@@ -420,5 +440,37 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
                 }
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn both_paths_say_changed_meanwhile_on_a_conflict() {
+        // The direct path's own conflict and the supervisor's E_CONFLICT print the same message.
+        assert_eq!(
+            fail_message(&conflict("0123456789abcdef")),
+            "config.json changed meanwhile; re-run"
+        );
+        let from_supervisor = RpcError::Call {
+            error: ErrorCode::EConflict,
+            jsonrpc: -32000,
+            message: "config.json changed since the given revision".into(),
+            reason: Some("config-changed".into()),
+            detail: None,
+            ids: None,
+        };
+        assert_eq!(
+            fail_message(&from_supervisor),
+            "config.json changed meanwhile; re-run"
+        );
+        assert_eq!(
+            conflict("r")
+                .ids()
+                .and_then(|i| i.get("currentRevision").cloned()),
+            Some("r".to_string())
+        );
     }
 }

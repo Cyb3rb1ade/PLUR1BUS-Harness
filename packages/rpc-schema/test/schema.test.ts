@@ -58,6 +58,12 @@ describe("rpc-schema", () => {
     assert.equal(validateParams("config.set", { changes: [{ key: "core.logLevel" }] }).ok, false);
   });
 
+  it("config.get takes a key or a tier, never both", () => {
+    assert.deepEqual(validateParams("config.get", { key: "core.logLevel" }), { ok: true });
+    assert.deepEqual(validateParams("config.get", { tier: "basic" }), { ok: true });
+    assert.equal(validateParams("config.get", { key: "core.logLevel", tier: "basic" }).ok, false);
+  });
+
   it("rejects a recall without a query and a caller without a channel", () => {
     const r = validateParams("memory.recall", { caller: { channel: "cli", accountId: "h", userId: "u" }, agentId: "a" });
     assert.equal(r.ok, false);

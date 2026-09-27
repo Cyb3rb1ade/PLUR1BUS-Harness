@@ -64,7 +64,13 @@ fn main() {
     // Shared `$defs` (Capabilities, cards, ErrorObject, …) are read from the core, so they are opened too.
     defs.values_mut().for_each(open_objects);
     for (m, def) in methods.as_object().unwrap() {
-        defs.insert(format!("{}Params", pascal(m)), def["params"].clone());
+        let mut params = def["params"].clone();
+        // A top-level `not` (e.g. config.get's "key and tier are exclusive") would turn the struct into an opaque
+        // type in typify; the server that deserialises these params enforces such a rule itself.
+        if let Some(o) = params.as_object_mut() {
+            o.remove("not");
+        }
+        defs.insert(format!("{}Params", pascal(m)), params);
         let mut result = def["result"].clone();
         open_objects(&mut result);
         defs.insert(format!("{}Result", pascal(m)), result);

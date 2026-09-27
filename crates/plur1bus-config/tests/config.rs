@@ -1,7 +1,7 @@
 use plur1bus_config::{
-    defaults, filter_config_by_tier, filter_schema_by_tier, load, restart_class_name,
-    restart_class_of, revision, serialize, set, set_many, tier_of, validate, write_atomic,
-    ConfigError, RestartClass, Tier,
+    defaults, filter_config_by_tier, filter_schema_by_tier, load, remove_stale_temps,
+    restart_class_name, restart_class_of, revision, serialize, set, set_many, tier_of, validate,
+    write_atomic, ConfigError, RestartClass, Tier,
 };
 use serde_json::{json, Value};
 use std::fs;
@@ -370,4 +370,32 @@ fn restart_class_names_carry_the_module() {
     assert_eq!(restart_class_name("core.logLevel"), "live");
     assert_eq!(restart_class_name("engine.recallMinScore"), "core");
     assert_eq!(restart_class_name("agents.bernd"), "live");
+}
+
+#[test]
+fn write_atomic_is_private_reports_the_final_stamp_and_stale_temps_are_removed() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("config.json");
+    // A temp a crashed writer left behind (another pid), and one with this process's own name.
+    let stale = dir.path().join("config.json.tmp-999999");
+    fs::write(&stale, "{").unwrap();
+    let meta = write_atomic(&p, &defaults()).unwrap();
+    let now = fs::metadata(&p).unwrap();
+    assert_eq!(meta.len(), now.len());
+    assert_eq!(meta.modified().unwrap(), now.modified().unwrap());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(now.permissions().mode() & 0o777, 0o600);
+    }
+    assert!(!dir
+        .path()
+        .join(format!("config.json.tmp-{}", std::process::id()))
+        .exists());
+    assert_eq!(
+        remove_stale_temps(&p),
+        vec!["config.json.tmp-999999".to_string()]
+    );
+    assert!(!stale.exists() && p.exists());
+    assert!(remove_stale_temps(&p).is_empty());
 }

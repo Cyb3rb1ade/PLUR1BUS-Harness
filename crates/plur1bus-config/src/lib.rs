@@ -271,25 +271,81 @@ pub fn revision(config: &Value) -> String {
     digest[..8].iter().map(|b| format!("{b:02x}")).collect()
 }
 
-pub fn write_atomic(path: &Path, config: &Config) -> io::Result<()> {
-    if let Some(dir) = path.parent() {
+/// Writes config.json atomically and durably: a temp file beside it (`config.json.tmp-<pid>`, created 0600 on unix),
+/// written and fsynced, renamed over the target, then the directory fsynced (unix), so a power loss leaves either the
+/// old or the new file, never an empty one. Returns the temp file's metadata taken before the rename: a rename keeps
+/// mtime and length, so the supervisor records exactly its own write's stamp and any later write differs.
+pub fn write_atomic(path: &Path, config: &Config) -> io::Result<fs::Metadata> {
+    use std::io::Write;
+    let dir = path.parent().filter(|d| !d.as_os_str().is_empty());
+    if let Some(dir) = dir {
         fs::create_dir_all(dir)?;
     }
-    let tmp = path.with_extension(format!("json.tmp-{}", std::process::id()));
-    fs::write(&tmp, serialize(config))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600)) {
+    let tmp = temp_path(path, std::process::id());
+    let written = (|| {
+        let mut opts = fs::OpenOptions::new();
+        opts.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let mut f = opts.open(&tmp)?;
+        #[cfg(unix)]
+        {
+            // `mode` only applies to a new file; a stale temp of the same name keeps its own mode otherwise.
+            use std::os::unix::fs::PermissionsExt;
+            f.set_permissions(fs::Permissions::from_mode(0o600))?;
+        }
+        f.write_all(serialize(config).as_bytes())?;
+        f.sync_all()?;
+        let meta = f.metadata()?;
+        drop(f);
+        fs::rename(&tmp, path)?;
+        Ok(meta)
+    })();
+    let meta = match written {
+        Ok(m) => m,
+        Err(e) => {
             let _ = fs::remove_file(&tmp);
             return Err(e);
         }
+    };
+    #[cfg(unix)]
+    if let Some(dir) = dir {
+        fs::File::open(dir)?.sync_all()?;
     }
-    if let Err(e) = fs::rename(&tmp, path) {
-        let _ = fs::remove_file(&tmp);
-        return Err(e);
+    Ok(meta)
+}
+
+/// `config.json.tmp-<pid>`: the temp file [`write_atomic`] renames into place.
+fn temp_path(path: &Path, pid: u32) -> std::path::PathBuf {
+    path.with_extension(format!("json.tmp-{pid}"))
+}
+
+/// Removes temp files a crashed [`write_atomic`] left beside `path` (any `config.json.tmp-*` but this process's
+/// own); returns their names.
+pub fn remove_stale_temps(path: &Path) -> Vec<String> {
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
+        return Vec::new();
+    };
+    let prefix = format!("{}.tmp-", name.to_string_lossy());
+    let own = temp_path(path, std::process::id());
+    let mut removed = Vec::new();
+    let Ok(entries) = fs::read_dir(if dir.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        dir
+    }) else {
+        return removed;
+    };
+    for e in entries.flatten() {
+        let n = e.file_name().to_string_lossy().into_owned();
+        if n.starts_with(&prefix) && e.path() != own && fs::remove_file(e.path()).is_ok() {
+            removed.push(n);
+        }
     }
-    Ok(())
+    removed
 }
 
 pub fn restart_class_of(key: &str) -> RestartClass {

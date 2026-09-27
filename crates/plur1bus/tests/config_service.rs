@@ -401,7 +401,10 @@ fn a_truncated_then_completed_edit_applies_once() {
 
     std::fs::write(config_path(home), "{").unwrap();
     std::thread::sleep(TICK * 3 / 2);
-    // Whatever the watcher saw meanwhile, the running configuration did not change.
+    // The watcher saw the truncated file and rejected it; the running configuration did not change.
+    wait_until("the truncated file to be rejected", WAIT, || {
+        status_config(&mut c)["rejected"].is_object()
+    });
     assert_eq!(running(&mut c).0, before);
     write_config(
         home,
@@ -658,4 +661,223 @@ fn a_core_reporting_restart_pending_is_restarted_once() {
         1,
         "{log}"
     );
+}
+
+// ---- fix round 1 ---------------------------------------------------------------------------------------------------
+
+/// The names of `config.json.rejected-*` backups in `home`.
+fn backups(home: &Path) -> Vec<std::path::PathBuf> {
+    std::fs::read_dir(home)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("config.json.rejected-")
+        })
+        .map(|e| e.path())
+        .collect()
+}
+
+#[test]
+fn a_set_right_after_an_unpolled_hand_edit_builds_on_it() {
+    // I1: the watcher ticks every 5 s here, so the edit is unseen when the set arrives.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    write_config(home, &json!({ "schemaVersion": 1 }));
+    let _sup = common::start_scaled(home, "5");
+    let mut c = client(home);
+    let watch = Watch::open(home);
+    let (_, rev0) = running(&mut c);
+
+    // A stale ifRevision is a conflict against the edit, and nothing is written.
+    write_config(
+        home,
+        &json!({ "schemaVersion": 1, "core": { "logLevel": "debug" } }),
+    );
+    let edited = std::fs::read(config_path(home)).unwrap();
+    let mut p = change("supervisor.graceMs", json!(30000));
+    p["ifRevision"] = json!(rev0);
+    let (e, reason, _, ids) = call_error(set(&mut c, p));
+    assert_eq!(
+        (e, reason.as_deref()),
+        (ErrorCode::EConflict, Some("config-changed"))
+    );
+    let n = watch
+        .next_change(WAIT)
+        .expect("the edit was not applied first");
+    assert_eq!(n["source"], "file");
+    assert_eq!(ids["currentRevision"], n["revision"]);
+    assert_eq!(std::fs::read(config_path(home)).unwrap(), edited);
+
+    // A revision-less set right after another edit keeps both changes.
+    write_config(
+        home,
+        &json!({ "schemaVersion": 1, "core": { "logLevel": "warn" } }),
+    );
+    let r = set(&mut c, change("supervisor.graceMs", json!(30000))).unwrap();
+    assert_eq!(r["applied"], true);
+    let file = file_config(home);
+    assert_eq!(level(&file), "warn");
+    assert_eq!(file["supervisor"]["graceMs"], 30000);
+    let sources: Vec<Value> = watch
+        .changes_within(TICK * 2)
+        .into_iter()
+        .map(|n| n["source"].clone())
+        .collect();
+    assert_eq!(sources, [json!("file"), json!("set")]);
+    assert!(backups(home).is_empty());
+}
+
+#[test]
+fn a_set_right_after_an_unpolled_invalid_edit_backs_up_those_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    write_config(home, &json!({ "schemaVersion": 1 }));
+    let _sup = common::start_scaled(home, "5");
+    let mut c = client(home);
+    let broken = r#"{"schemaVersion":1,"core":{"logLevel":"loud"}}"#;
+    std::fs::write(config_path(home), broken).unwrap();
+    let r = set(&mut c, change("core.logLevel", json!("debug"))).unwrap();
+    assert_eq!(r["applied"], true);
+    let b = backups(home);
+    assert_eq!(b.len(), 1);
+    assert_eq!(std::fs::read_to_string(&b[0]).unwrap(), broken);
+    assert_eq!(level(&file_config(home)), "debug");
+    assert!(status_config(&mut c)["rejected"].is_null());
+}
+
+#[test]
+fn a_fix_with_the_same_length_and_mtime_as_the_rejected_file_is_still_seen() {
+    // M3: coarse mtimes (1 s, 2 s) can give the fix the rejected file's stamp.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    write_config(home, &json!({ "schemaVersion": 1 }));
+    let _sup = start(home);
+    let mut c = client(home);
+    let watch = Watch::open(home);
+    std::fs::write(
+        config_path(home),
+        r#"{"schemaVersion":1,"core":{"logLevel":"loud"}}"#,
+    )
+    .unwrap();
+    wait_until("the rejection", WAIT, || {
+        status_config(&mut c)["rejected"].is_object()
+    });
+    let mtime = std::fs::metadata(config_path(home))
+        .unwrap()
+        .modified()
+        .unwrap();
+    std::fs::write(
+        config_path(home),
+        r#"{"schemaVersion":1,"core":{"logLevel":"warn"}}"#,
+    )
+    .unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(config_path(home))
+        .unwrap()
+        .set_modified(mtime)
+        .unwrap();
+    let n = watch.next_change(WAIT).expect("the fix was not seen");
+    assert_eq!(level(&n["config"]), "warn");
+    assert!(status_config(&mut c)["rejected"].is_null());
+}
+
+#[test]
+fn a_second_config_watch_on_a_connection_reuses_its_subscription() {
+    // M5
+    use std::io::{BufRead, BufReader, Write};
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let _sup = start(home);
+    let mut c = client(home);
+    let mut conn = common::raw(home);
+    common::send_watch(conn.as_mut(), home);
+    conn.write_all(
+        format!(
+            "{}\n",
+            json!({ "jsonrpc": "2.0", "id": 3, "method": "config.watch", "params": {} })
+        )
+        .as_bytes(),
+    )
+    .unwrap();
+    let (tx, rx) = std::sync::mpsc::channel::<Value>();
+    std::thread::spawn(move || {
+        for line in BufReader::new(conn).lines() {
+            let Ok(line) = line else { return };
+            if tx.send(serde_json::from_str(&line).unwrap()).is_err() {
+                return;
+            }
+        }
+    });
+    let next = || rx.recv_timeout(WAIT).expect("no line");
+    assert_eq!(next()["id"], 1);
+    let first = next();
+    let second = next();
+    assert_eq!(first["id"], 2);
+    assert_eq!(second["id"], 3);
+    assert_eq!(
+        first["result"]["subscriptionId"],
+        second["result"]["subscriptionId"]
+    );
+    set(&mut c, change("core.logLevel", json!("debug"))).unwrap();
+    assert_eq!(next()["method"], "config.changed");
+    assert!(
+        rx.recv_timeout(TICK * 3).is_err(),
+        "config.changed was delivered twice"
+    );
+}
+
+#[cfg(unix)] // H3B-R18: no write deadline on Windows.
+#[test]
+fn a_watch_connection_that_pipelines_without_reading_is_closed() {
+    // M1: its own replies fill its queue; the supervisor closes the connection instead of leaking its writer.
+    use std::io::Write;
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let _sup = start(home);
+    let mut c = client(home);
+    let agents: serde_json::Map<String, Value> = (0..200)
+        .map(|i| {
+            (
+                format!("agent-{i:03}"),
+                json!({ "displayName": "x".repeat(128) }),
+            )
+        })
+        .collect();
+    set(&mut c, change("agents", Value::Object(agents))).unwrap();
+
+    let s = std::os::unix::net::UnixStream::connect(common::address(home)).unwrap();
+    let mut w = s.try_clone().unwrap();
+    common::send_watch(&mut w, home);
+    let line = json!({ "jsonrpc": "2.0", "id": 9, "method": "config.get", "params": {} })
+        .to_string()
+        + "\n";
+    for _ in 0..300 {
+        if w.write_all(line.as_bytes()).is_err() {
+            break; // already closed
+        }
+    }
+    std::thread::sleep(TICK * 2);
+    // Without reading anything: the supervisor must have closed the socket, so writing fails (a leaked writer
+    // would keep it open, and the writes would only fill its buffer until they time out).
+    w.set_write_timeout(Some(Duration::from_secs(1))).unwrap();
+    let mut closed = None;
+    for _ in 0..10_000 {
+        if let Err(e) = w.write_all(line.as_bytes()) {
+            closed = Some(e.kind());
+            break;
+        }
+    }
+    assert!(
+        matches!(
+            closed,
+            Some(std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset)
+        ),
+        "the connection stayed open: {closed:?}"
+    );
+    drop(s);
+    // The supervisor still serves everyone else.
+    assert!(running(&mut c).1.len() == 16);
 }

@@ -1397,3 +1397,231 @@ fn agent_create_routes_through_the_supervisor() {
     let agents: Vec<&String> = n["config"]["agents"].as_object().unwrap().keys().collect();
     assert_eq!(agents, ["anna"]);
 }
+
+// ---- fix round 1: route edge cases and the conflict message ---------------------------------------------------------
+
+/// A stand-in supervisor on `run/supervisor.sock` (unix): writes the token and a pid file naming this (alive) test
+/// process, answers `supervisor.auth` with `hello`, and every other request with `answer(method, params)` (a
+/// `result` or an `error` object). Every request line is sent to the returned receiver.
+#[cfg(unix)]
+fn fake_supervisor(
+    home: &std::path::Path,
+    hello: serde_json::Value,
+    answer: impl Fn(&str, &serde_json::Value) -> serde_json::Value + Send + Sync + 'static,
+) -> std::sync::mpsc::Receiver<serde_json::Value> {
+    use std::io::{BufRead, BufReader, Write};
+    let run = home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    let token = "b".repeat(64);
+    std::fs::write(run.join("supervisor.token"), &token).unwrap();
+    std::fs::write(
+        run.join("supervisor.pid"),
+        format!("{} fake\n", std::process::id()),
+    )
+    .unwrap();
+    let listener = std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let answer = std::sync::Arc::new(answer);
+    std::thread::spawn(move || {
+        for s in listener.incoming() {
+            let Ok(s) = s else { return };
+            let (hello, answer, tx) = (hello.clone(), answer.clone(), tx.clone());
+            std::thread::spawn(move || {
+                let mut w = s.try_clone().unwrap();
+                for line in BufReader::new(s).lines() {
+                    let Ok(line) = line else { return };
+                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    let _ = tx.send(req.clone());
+                    let method = req["method"].as_str().unwrap_or_default();
+                    let body = if method == "supervisor.auth" {
+                        serde_json::json!({ "result": hello })
+                    } else {
+                        answer(method, &req["params"])
+                    };
+                    let mut reply = serde_json::json!({ "jsonrpc": "2.0", "id": req["id"] });
+                    for (k, v) in body.as_object().unwrap() {
+                        reply[k] = v.clone();
+                    }
+                    let _ = writeln!(w, "{reply}");
+                }
+            });
+        }
+    });
+    rx
+}
+
+#[cfg(unix)]
+fn fake_hello(methods: &[&str]) -> serde_json::Value {
+    let m: serde_json::Map<String, serde_json::Value> = methods
+        .iter()
+        .map(|m| {
+            (
+                m.to_string(),
+                serde_json::json!({ "stability": "experimental", "since": "1.2.0" }),
+            )
+        })
+        .collect();
+    serde_json::json!({ "rpc": "1.2.0", "instanceId": "fake", "pid": std::process::id(),
+        "capabilities": { "methods": m, "notifications": {}, "extensionPoints": {}, "features": [] } })
+}
+
+#[cfg(unix)]
+#[test]
+fn a_supervisor_without_config_methods_leaves_config_json_to_the_cli() {
+    // I2: an H3a supervisor (RPC 1.2.0) never writes config.json; the CLI reads and writes it directly.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let seen = fake_supervisor(
+        dir.path(),
+        fake_hello(&[
+            "supervisor.auth",
+            "daemon.status",
+            "daemon.start",
+            "daemon.stop",
+        ]),
+        |m, _| serde_json::json!({ "error": { "code": -32601, "message": format!("method not found: {m}") } }),
+    );
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "debug",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+    let file =
+        plur1bus_config::parse(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "debug");
+    assert_eq!(
+        json_out(&["--json", "--home", h, "config", "get", "core.logLevel"])["value"],
+        "debug"
+    );
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    assert_eq!(
+        json_out(&["--json", "--home", h, "agent", "list"])["agents"][0]["agentId"],
+        "bernd"
+    );
+    let methods: Vec<String> = seen
+        .try_iter()
+        .map(|r| r["method"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        methods.iter().all(|m| m == "supervisor.auth"),
+        "{methods:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_live_pid_with_a_refused_socket_counts_as_no_supervisor() {
+    // B6: a token and a recorded pid that is alive (this test), but nothing listens on the socket.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let run = dir.path().join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    std::fs::write(run.join("supervisor.token"), "c".repeat(64)).unwrap();
+    std::fs::write(
+        run.join("supervisor.pid"),
+        format!("{} x\n", std::process::id()),
+    )
+    .unwrap();
+    drop(std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap()); // leaves a dead socket file
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "warn",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+    let file =
+        plur1bus_config::parse(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "warn");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_conflict_between_preview_and_apply_says_changed_meanwhile() {
+    // Review Focus 2 at the CLI: the supervisor refuses the apply's ifRevision.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let seen = fake_supervisor(
+        dir.path(),
+        fake_hello(&[
+            "supervisor.auth",
+            "config.get",
+            "config.set",
+            "config.watch",
+        ]),
+        |_, p| {
+            if p["dryRun"] == true {
+                serde_json::json!({ "result": { "applied": false, "dryRun": true, "changed": ["core.logLevel"],
+                    "restart": { "live": ["core.logLevel"], "core": false, "modules": [] },
+                    "revision": "1111111111111111", "restarted": [], "durationMs": 0 } })
+            } else {
+                serde_json::json!({ "error": { "code": -32000, "message": "config.json changed since the given revision",
+                    "data": { "error": "E_CONFLICT", "reason": "config-changed", "ids": { "currentRevision": "2222222222222222" } } } })
+            }
+        },
+    );
+    std::fs::write(dir.path().join("config.json"), "{\"schemaVersion\":1}\n").unwrap();
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--yes",
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains(
+            "config.json changed meanwhile; re-run",
+        ));
+    let out = bin()
+        .args([
+            "--json",
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--yes",
+        ])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_CONFLICT", "{v}");
+    assert_eq!(v["reason"], "config-changed");
+    assert_eq!(v["ids"]["currentRevision"], "2222222222222222");
+    // The apply carried the previewed revision; nothing was written by the CLI.
+    let applies: Vec<serde_json::Value> = seen
+        .try_iter()
+        .filter(|r| r["method"] == "config.set" && r["params"]["dryRun"].is_null())
+        .collect();
+    assert!(!applies.is_empty());
+    assert!(applies
+        .iter()
+        .all(|r| r["params"]["ifRevision"] == "1111111111111111"));
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("config.json")).unwrap(),
+        "{\"schemaVersion\":1}\n"
+    );
+}

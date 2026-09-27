@@ -40,6 +40,9 @@ pub struct Rejected {
     /// Wall time (epoch ms) of the rejection.
     pub at: u64,
     pub errors: Vec<String>,
+    /// The rejected file's bytes (`None` when it could not be read): the watcher compares against them while the
+    /// rejection is pending (M3), and a `config.set` backs exactly these up.
+    pub bytes: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +97,7 @@ pub fn initial(layout: &Layout) -> ConfigState {
                 rejected: Some(Rejected {
                     at: now_ms(),
                     errors: vec![format!("cannot read config.json: {e}")],
+                    bytes: None,
                 }),
                 ..ConfigState::default()
             }
@@ -112,6 +116,7 @@ pub fn initial(layout: &Layout) -> ConfigState {
             rejected: Some(Rejected {
                 at: now_ms(),
                 errors,
+                bytes: Some(bytes),
             }),
             ..ConfigState::default()
         },
@@ -272,6 +277,9 @@ pub fn set(
     // restart job (Task 5) must wait without it, because the restarted core's own `config.watch` needs it (H3B-R6).
     let (applied, changed, restart, revision, job) = {
         let mut st = relock(&shared.config);
+        // I1: a hand edit the watcher has not seen yet is applied (or rejected) first, under this lock, so the set
+        // builds on it: never overwritten unseen, and a stale `ifRevision` is a conflict.
+        poll_locked(shared, layout, &mut st);
         let Some(running) = st.running.clone() else {
             return Err(SetError::Unavailable);
         };
@@ -293,9 +301,14 @@ pub fn set(
             (!dry_run, plan.changed, restart, current, None)
         } else {
             let path = layout.config_path();
-            if st.rejected.is_some() && path.exists() {
+            if let Some(rejected) = &st.rejected {
+                // The bytes the watcher rejected, read under this lock a moment ago (not whatever is on disk now).
                 let backup = path.with_file_name(format!("config.json.rejected-{}", now_ms()));
-                fs::copy(&path, &backup).map_err(|e| {
+                let copied = match &rejected.bytes {
+                    Some(b) => fs::write(&backup, b),
+                    None => fs::copy(&path, &backup).map(|_| ()),
+                };
+                copied.map_err(|e| {
                     SetError::Io(format!("cannot back up the rejected config.json: {e}"))
                 })?;
                 shared.log.info(
@@ -303,10 +316,11 @@ pub fn set(
                     json!({ "path": backup.display().to_string() }),
                 );
             }
-            cfg::write_atomic(&path, &plan.after)
+            let meta = cfg::write_atomic(&path, &plan.after)
                 .map_err(|e| SetError::Io(format!("cannot write config.json: {e}")))?;
             st.applied_hash = Some(sha256(cfg::serialize(&plan.after).as_bytes()));
-            st.stamp = file_stamp(&path);
+            // The temp file's stamp, taken before the rename: a write that lands after it always differs.
+            st.stamp = meta.modified().ok().map(|m| (m, meta.len()));
             install(shared, &mut st, plan.after, "set");
             let revision = st.revision.clone().unwrap_or_default();
             // Queued before the config lock is released, so the job precedes any the restarted core's own
@@ -345,9 +359,17 @@ pub fn set(
     Ok(out)
 }
 
+/// The ready timeout of a spawned core before the time scale (60 s, as `child::Timing`).
+const READY_TIMEOUT_SECS: u64 = 60;
+
+/// The longest a `config.set` waits for its restart job (time scale 1): the stop budget plus the ready timeout. The
+/// CLI's `config.set` call deadline is this plus 10 s (H3B-R22), so it never gives up while the supervisor waits.
+pub const RESTART_WAIT_MAX: Duration =
+    Duration::from_secs(super::DEFAULT_STOP_BUDGET.as_secs() + READY_TIMEOUT_SECS);
+
 /// The supervisor's ready timeout for a spawned core (60 s × time scale, as `child::Timing`).
 fn ready_timeout(shared: &Shared) -> Duration {
-    Duration::from_secs_f64(60.0 * shared.lock().time_scale)
+    Duration::from_secs_f64(READY_TIMEOUT_SECS as f64 * shared.lock().time_scale)
 }
 
 /// Waits until the core the restart spawned is up (ready or degraded), has exited, or `deadline` passes.
@@ -370,22 +392,31 @@ fn wait_core_up(shared: &Shared, deadline: Instant) {
     }
 }
 
-/// One watcher tick (B4): when config.json's mtime or length changed, read it; bytes the supervisor applied or wrote
-/// itself are ignored; a valid, different file is applied like a set (`source: "file"`); an invalid one leaves the
-/// running configuration alone and is recorded in `rejected`. The file is never rewritten here.
+/// One watcher tick (B4): see [`poll_locked`].
 pub fn poll_file(shared: &Arc<Shared>, layout: &Layout) {
+    let mut st = relock(&shared.config);
+    poll_locked(shared, layout, &mut st);
+}
+
+/// Looks at config.json with the config lock held (the watcher's tick, and the start of every `config.set`, I1).
+/// When its mtime or length changed, or while a rejection is pending (M3: a fix of the same length within one
+/// coarse mtime tick is still seen), it is read: bytes the supervisor applied or wrote itself are ignored; a valid,
+/// different file is applied like a set (`source: "file"`); an invalid one leaves the running configuration alone
+/// and is recorded in `rejected`. The file is never rewritten here.
+fn poll_locked(shared: &Shared, layout: &Layout, st: &mut ConfigState) {
     let path = layout.config_path();
     let stamp = file_stamp(&path);
-    let mut st = relock(&shared.config);
-    if stamp == st.stamp {
+    if stamp == st.stamp && st.rejected.is_none() {
         return;
     }
     st.stamp = stamp;
     if stamp.is_none() {
-        shared.log.warn(
-            "config.json is gone; the running configuration stays",
-            json!({}),
-        );
+        if st.rejected.is_none() {
+            shared.log.warn(
+                "config.json is gone; the running configuration stays",
+                json!({}),
+            );
+        }
         return;
     }
     let bytes = match fs::read(&path) {
@@ -398,6 +429,13 @@ pub fn poll_file(shared: &Arc<Shared>, layout: &Layout) {
             return;
         }
     };
+    if st
+        .rejected
+        .as_ref()
+        .is_some_and(|r| r.bytes.as_deref() == Some(&bytes[..]))
+    {
+        return; // still the file already rejected
+    }
     let hash = sha256(&bytes);
     if st.applied_hash == Some(hash) {
         if st.rejected.take().is_some() {
@@ -418,11 +456,12 @@ pub fn poll_file(shared: &Arc<Shared>, layout: &Layout) {
             st.rejected = Some(Rejected {
                 at: now_ms(),
                 errors,
+                bytes: Some(bytes),
             });
         }
         Ok(new) => {
             st.applied_hash = Some(hash);
-            install(shared, &mut st, new, "file");
+            install(shared, st, new, "file");
         }
     }
 }

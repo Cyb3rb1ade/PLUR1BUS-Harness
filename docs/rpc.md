@@ -1844,6 +1844,16 @@ The running configuration (spec §6.1, B5): the whole value, one key (dotted pat
 {
   "type": "object",
   "additionalProperties": false,
+  "not": {
+    "properties": {
+      "key": {},
+      "tier": {}
+    },
+    "required": [
+      "key",
+      "tier"
+    ]
+  },
   "properties": {
     "key": {
       "type": "string",

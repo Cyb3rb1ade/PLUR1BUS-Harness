@@ -454,7 +454,7 @@
       "config.get": {
         "x-stability": "experimental", "x-since": "1.3.0", "x-server": "supervisor",
         "description": "The running configuration (spec §6.1, B5): the whole value, one key (dotted path) or one tier (key and tier are exclusive). `restartClass` is `live`, `core` or `module:<name>` for a key, else null; `restart` is the same class without the module name (the CLI's `config.get/1` field). `revision` identifies the running configuration (config.set's ifRevision). E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs.",
-        "params": { "type": "object", "additionalProperties": false, "properties": { "key": { "type": "string", "minLength": 1 }, "tier": { "enum": ["basic", "advanced"] } } },
+        "params": { "type": "object", "additionalProperties": false, "not": { "properties": { "key": {}, "tier": {} }, "required": ["key", "tier"] }, "properties": { "key": { "type": "string", "minLength": 1 }, "tier": { "enum": ["basic", "advanced"] } } },
         "result": {
           "type": "object", "additionalProperties": false,
           "required": ["key", "tier", "value", "restartClass", "restart", "revision"],

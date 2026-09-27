@@ -135,6 +135,8 @@ struct Conn {
     closer: Arc<dyn Fn() + Send + Sync>,
     /// Subscriptions made on this connection; removed when it ends.
     subscriptions: Vec<String>,
+    /// The `config.watch` subscription among them, reused by a second `config.watch`.
+    config_sub: Option<String>,
 }
 
 enum Line {
@@ -311,6 +313,7 @@ impl ConnCtx {
             writer: Arc::new(Mutex::new(writer)),
             closer: closer.clone(),
             subscriptions: Vec::new(),
+            config_sub: None,
         };
         // Watchdog: closes the connection unless `authed_tx` is dropped (auth succeeded, or the connection ended)
         // within AUTH_IDLE.
@@ -375,7 +378,10 @@ impl ConnCtx {
                 // directly could overtake the queued `config.watch` reply or a notification sent before it.
                 if let Some(sub) = conn.subscriptions.first() {
                     if !self.shared.subscribers.send_to(sub, line) {
-                        break; // dropped for not reading: its connection is being closed
+                        // Its queue is full (the peer does not read) or the subscriber was dropped: close the
+                        // connection, so a writer thread blocked on it ends and the socket is released (M1).
+                        (conn.closer)();
+                        break;
                     }
                 } else {
                     let mut w = relock(&conn.writer);
@@ -413,6 +419,20 @@ impl ConnCtx {
         let (Some(running), Some(revision)) = (st.running.as_ref(), st.revision.as_ref()) else {
             return (config_unavailable(id), After::Continue);
         };
+        if let Some(sub) = conn.config_sub.clone() {
+            // M5: a second config.watch on this connection reuses its subscription (no duplicate notifications).
+            let mut line = result_reply(
+                id,
+                json!({ "subscriptionId": sub, "config": running, "revision": revision }),
+            )
+            .to_string();
+            line.push('\n');
+            if !self.shared.subscribers.send_to(&sub, line) {
+                (conn.closer)(); // the read loop then ends
+                return (Value::Null, After::Queued);
+            }
+            return (Value::Null, After::Queued);
+        }
         let closer = conn.closer.clone();
         let sub = self.shared.subscribers.add(
             Topic::Config,
@@ -437,7 +457,8 @@ impl ConnCtx {
             );
             return (reply, After::Continue);
         }
-        conn.subscriptions.push(sub);
+        conn.subscriptions.push(sub.clone());
+        conn.config_sub = Some(sub);
         (Value::Null, After::Queued)
     }
 

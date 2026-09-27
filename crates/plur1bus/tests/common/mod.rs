@@ -41,12 +41,17 @@ pub fn wait_until(what: &str, within: Duration, mut f: impl FnMut() -> bool) {
 
 /// Starts `plur1bus supervise --no-core` in `home` and waits until it answers `supervisor.auth`.
 pub fn start(home: &Path) -> Supervisor {
+    start_scaled(home, SCALE)
+}
+
+/// [`start`] at time scale `scale` (the watcher ticks every 1000 ms × `scale`).
+pub fn start_scaled(home: &Path, scale: &str) -> Supervisor {
     let child = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
         .arg("--home")
         .arg(home)
         .args(["supervise", "--no-core"])
         .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
-        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", SCALE)
+        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", scale)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
