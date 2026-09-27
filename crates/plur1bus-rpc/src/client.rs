@@ -1,26 +1,52 @@
 use crate::error::RpcError;
 use crate::transport::{connect as transport_connect, Stream};
-use crate::types::{CoreAuthResult, ErrorCode};
+use crate::types::{CoreAuthResult, ErrorCode, SupervisorAuthResult};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::time::Duration;
 
-/// The `core.auth` result: the generated [`CoreAuthResult`] under the name the client API uses.
-pub type Hello = CoreAuthResult;
+/// The server a client talks to; it picks the handshake method (ruling S2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Endpoint {
+    /// The core: `core.auth`.
+    #[default]
+    Core,
+    /// The supervisor: `supervisor.auth`.
+    Supervisor,
+}
+impl Endpoint {
+    /// The first call on a connection to this endpoint.
+    pub fn auth_method(self) -> &'static str {
+        match self {
+            Endpoint::Core => "core.auth",
+            Endpoint::Supervisor => "supervisor.auth",
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ConnectOptions {
-    /// Bounds the socket connect and the whole `core.auth` handshake.
+    /// Bounds the socket connect and the whole handshake.
     pub connect_timeout: Duration,
     /// Read deadline for every call after the handshake.
     pub call_timeout: Duration,
+    /// Which server `address` belongs to (default: the core).
+    pub endpoint: Endpoint,
+    /// The pid the caller expects to serve `address` (the one in `run/core.pid` or `run/supervisor.pid`). On Windows,
+    /// where any account can create a pipe of a free name, a pipe whose `GetNamedPipeServerProcessId` differs is
+    /// refused before the token is sent (`E_UNAUTHORIZED`, reason `pipe-server-mismatch`, ruling S11). `None` skips
+    /// the check. Unix sockets live in the `0700` `run/` directory, where nobody else can bind, so it is not checked
+    /// there.
+    pub expected_server_pid: Option<u32>,
 }
 impl Default for ConnectOptions {
     fn default() -> Self {
         Self {
             connect_timeout: Duration::from_millis(300),
             call_timeout: Duration::from_secs(30),
+            endpoint: Endpoint::Core,
+            expected_server_pid: None,
         }
     }
 }
@@ -35,7 +61,8 @@ impl Default for ConnectOptions {
 pub struct Client {
     reader: BufReader<Box<dyn Stream>>,
     next_id: u64,
-    hello: Option<Hello>,
+    hello: Value,
+    endpoint: Endpoint,
     poisoned: bool,
 }
 
@@ -45,18 +72,34 @@ pub const MAX_LINE: usize = 4 * 1024 * 1024;
 impl Client {
     pub fn connect(address: &str, token: &str, opts: ConnectOptions) -> Result<Client, RpcError> {
         let stream = transport_connect(address, opts.connect_timeout)?;
+        Self::handshake(stream, token, opts)
+    }
+
+    /// Authenticates on a stream that is already connected ([`crate::transport::connect`]): the handshake of
+    /// [`Client::connect`]. Lets a caller read the stream's [`Stream::peer_pid`] first and then talk to exactly that
+    /// server.
+    pub fn handshake(
+        stream: Box<dyn Stream>,
+        token: &str,
+        opts: ConnectOptions,
+    ) -> Result<Client, RpcError> {
         let mut client = Client {
             reader: BufReader::new(stream),
             next_id: 1,
-            hello: None,
+            hello: Value::Null,
+            endpoint: opts.endpoint,
             poisoned: false,
         };
-        // The handshake runs under the connect timeout: a core that owns the socket but never answers must fail fast.
+        if cfg!(windows) {
+            check_server_pid(opts.expected_server_pid, client.peer_pid())?;
+        }
+        let method = opts.endpoint.auth_method();
+        // The handshake runs under the connect timeout: a server that owns the socket but never answers must fail fast.
         client
             .reader
             .get_ref()
             .set_read_timeout(Some(opts.connect_timeout))?;
-        let raw = match client.call("core.auth", json!({ "token": token })) {
+        let raw = match client.call(method, json!({ "token": token })) {
             Err(RpcError::Unavailable { reason, detail }) if reason == "call-timeout" => {
                 return Err(RpcError::Unavailable {
                     reason: "handshake-timeout".into(),
@@ -68,35 +111,51 @@ impl Client {
         // Check the major before parsing the rest: a MAJOR-2 hello may have a shape this client cannot read.
         let rpc = raw["rpc"]
             .as_str()
-            .ok_or_else(|| RpcError::Protocol("core.auth result: missing rpc".into()))?;
+            .ok_or_else(|| RpcError::Protocol(format!("{method} result: missing rpc")))?;
         let major: Option<u64> = rpc.split('.').next().and_then(|s| s.parse().ok());
         if major != Some(crate::SUPPORTED_RPC_MAJOR) {
             return Err(RpcError::Version {
                 server: rpc.to_string(),
             });
         }
-        let hello: Hello = serde_json::from_value(raw)
-            .map_err(|e| RpcError::Protocol(format!("core.auth result: {e}")))?;
+        // The shape is checked against the generated (open) result type, but the raw value is what the client keeps:
+        // unknown keys from a newer 1.x server survive for callers that print or forward the hello (R13).
+        let shape = match opts.endpoint {
+            Endpoint::Core => serde_json::from_value::<CoreAuthResult>(raw.clone()).map(drop),
+            Endpoint::Supervisor => {
+                serde_json::from_value::<SupervisorAuthResult>(raw.clone()).map(drop)
+            }
+        };
+        shape.map_err(|e| RpcError::Protocol(format!("{method} result: {e}")))?;
         client
             .reader
             .get_ref()
             .set_read_timeout(Some(opts.call_timeout))?;
-        client.hello = Some(hello);
+        client.hello = raw;
         Ok(client)
     }
 
-    pub fn hello(&self) -> &Hello {
-        self.hello
-            .as_ref()
-            .expect("a connected client always holds the core.auth result")
+    /// The handshake result exactly as the server sent it (`core.auth` or `supervisor.auth`).
+    pub fn hello(&self) -> &Value {
+        &self.hello
     }
 
-    /// True when the hello has no `capabilities` (an older core answers for itself), else whether
+    /// The pid the OS names as the server of this connection (see [`Stream::peer_pid`]).
+    pub fn peer_pid(&self) -> Option<u32> {
+        self.reader.get_ref().peer_pid()
+    }
+
+    /// The server this client is connected to.
+    pub fn endpoint(&self) -> Endpoint {
+        self.endpoint
+    }
+
+    /// True when the hello has no `capabilities` (an older server answers for itself), else whether
     /// `capabilities.methods` names `method`.
     pub fn supports(&self, method: &str) -> bool {
-        match &self.hello().capabilities {
-            None => true,
-            Some(capabilities) => capabilities.methods.contains_key(method),
+        match self.hello.get("capabilities") {
+            None | Some(Value::Null) => true,
+            Some(capabilities) => capabilities["methods"].get(method).is_some(),
         }
     }
 
@@ -217,6 +276,27 @@ enum Line {
     Closed,
 }
 
+/// Ruling S11: with an expectation, the OS must name exactly that pid as the server, or the token stays unsent.
+fn check_server_pid(expected: Option<u32>, actual: Option<u32>) -> Result<(), RpcError> {
+    let Some(expected) = expected else {
+        return Ok(());
+    };
+    if actual == Some(expected) {
+        return Ok(());
+    }
+    Err(RpcError::Call {
+        error: ErrorCode::EUnauthorized,
+        jsonrpc: -32000,
+        message: "the pipe is not served by the expected process".into(),
+        reason: Some("pipe-server-mismatch".into()),
+        detail: Some(match actual {
+            Some(pid) => format!("served by pid {pid}, expected pid {expected}"),
+            None => format!("the OS does not name the server, expected pid {expected}"),
+        }),
+        ids: None,
+    })
+}
+
 /// Errors after which the stream position is unknown (timeouts, I/O errors, close). The over-long line case poisons
 /// itself in `call_inner`, since a `Protocol` error on a complete line leaves the stream at a clean boundary.
 fn poisons(e: &RpcError) -> bool {
@@ -239,5 +319,40 @@ fn call_error(err: &Value) -> RpcError {
                 .collect();
             (!ids.is_empty()).then_some(ids)
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reason(r: Result<(), RpcError>) -> Option<String> {
+        match r {
+            Err(RpcError::Call {
+                error: ErrorCode::EUnauthorized,
+                reason,
+                ..
+            }) => reason,
+            other => panic!("expected E_UNAUTHORIZED, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_server_pid_check_passes_on_a_match_or_without_an_expectation() {
+        assert!(check_server_pid(Some(42), Some(42)).is_ok());
+        assert!(check_server_pid(None, Some(42)).is_ok());
+        assert!(check_server_pid(None, None).is_ok());
+    }
+
+    #[test]
+    fn a_mismatched_or_unnamed_server_is_refused_as_pipe_server_mismatch() {
+        assert_eq!(
+            reason(check_server_pid(Some(1), Some(42))).as_deref(),
+            Some("pipe-server-mismatch")
+        );
+        assert_eq!(
+            reason(check_server_pid(Some(1), None)).as_deref(),
+            Some("pipe-server-mismatch")
+        );
     }
 }

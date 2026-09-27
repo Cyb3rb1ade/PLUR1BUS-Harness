@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Leaf command paths (space-joined, e.g. `"memory add"`) exempt from the `[experimental]`
 /// stability mark — the only CLI surface ADR-016 §4/G14 calls stable. Every other implemented
 /// leaf command's `about` starts with `[experimental] `; a stub names its milestone instead
-/// (`2a-H3`, `M2`, `M3`, `M4`, `M1b-3` or `M8`) and is exempt for that reason (see the
+/// (`2a-H3b`, `M2`, `M3`, `M4`, `M1b-3` or `M8`) and is exempt for that reason (see the
 /// `leaf_commands_are_stable_or_marked_experimental` test below).
 /// Read by the `leaf_commands_are_stable_or_marked_experimental` test below and by anything else
 /// (docs, a future `plur1bus <cmd> --help` footer) that needs the stable subset; the binary
@@ -32,9 +32,9 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
-    /// Install the harness (runtime, service registration) — 2a-H3
+    /// Install the harness (runtime, service registration) — 2a-H3b
     Setup(StubArgs),
-    /// Check and repair the installation — 2a-H3
+    /// Check and repair the installation (repair — 2a-H3b)
     #[command(name = "1staid")]
     FirstAid {
         #[command(subcommand)]
@@ -60,18 +60,24 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ConfigCmd,
     },
-    /// Modules — 2a-H3
+    /// Modules — 2a-H3b
     Module(StubArgs),
-    /// Supervisor control — 2a-H3
-    Daemon(StubArgs),
-    /// OS service registration — 2a-H3
-    Service(StubArgs),
+    /// Supervisor control: start, stop, restart, status
+    Daemon {
+        #[command(subcommand)]
+        sub: DaemonCmd,
+    },
+    /// OS service registration of the supervisor (user context, no admin rights)
+    Service {
+        #[command(subcommand)]
+        sub: ServiceCmd,
+    },
     /// Core process (internal)
     Core {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// Update check — 2a-H3
+    /// Update check — 2a-H3b
     Update(StubArgs),
     /// Users — M2
     User(StubArgs),
@@ -90,6 +96,13 @@ pub enum Cmd {
     /// Print the CLI reference as Markdown (used by scripts/gen-docs.mjs)
     #[command(hide = true, name = "__markdown")]
     Markdown,
+    /// Run the supervisor in the foreground (internal: started by the OS service or `daemon start`)
+    #[command(hide = true)]
+    Supervise {
+        /// Test seam: never spawn or adopt a core (needs PLUR1BUS_ALLOW_TEST_INTERNALS=1)
+        #[arg(long, hide = true)]
+        no_core: bool,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -100,9 +113,9 @@ pub struct StubArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum FirstAidCmd {
-    /// Check the installation for problems — 2a-H3
+    /// [experimental] Read-only diagnostics over the installation (spec §6.6)
     Check,
-    /// Repair a broken installation — 2a-H3
+    /// Repair a broken installation — 2a-H3b
     Repair {
         #[arg(long)]
         yes: bool,
@@ -327,8 +340,52 @@ pub enum TierFilter {
     Advanced,
 }
 #[derive(Subcommand, Debug)]
+pub enum ServiceCmd {
+    /// [experimental] Register the supervisor with the OS service manager and start it
+    Install {
+        /// register only; the service starts at the next login
+        #[arg(long)]
+        no_start: bool,
+        /// Extra environment for the service, KEY=VALUE (internal; not supported on Windows)
+        #[arg(long = "env", hide = true, value_name = "KEY=VALUE")]
+        env: Vec<String>,
+    },
+    /// [experimental] Stop and unregister the supervisor's OS service
+    Uninstall,
+    /// [experimental] Show whether the OS service is registered and running
+    Status,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DaemonCmd {
+    /// [experimental] Start the supervisor (and its core) if it is not already running
+    Start {
+        /// return as soon as the supervisor's endpoint answers, without waiting for the core to become ready
+        #[arg(long)]
+        no_wait: bool,
+    },
+    /// [experimental] Stop the supervisor (and its core)
+    Stop {
+        /// milliseconds the core gets to shut down before the supervisor kills it (default: 10000)
+        #[arg(long)]
+        budget_ms: Option<u64>,
+    },
+    /// [experimental] Stop then start the supervisor
+    Restart,
+    /// [experimental] Supervisor and core status
+    ///
+    /// Prints `supervisor: <state>`, `core: <state>[: reason][; restart in N ms]` and the OS service registration.
+    /// With `--json` (`daemon.status/1`), `supervisor` is always the supervisor's own entry (`process.state`, plus
+    /// `instanceId`, `pid` and `uptimeMs` while it answers; `stopped` when nothing runs, `degraded` with reason
+    /// `unresponsive` when it does not answer), `children` the supervised children beside it (empty unless it
+    /// answers), `service` the registration, and `sharedMemory` the core's shared-memory support when the core
+    /// answers.
+    Status,
+}
+
+#[derive(Subcommand, Debug)]
 pub enum CoreCmd {
-    /// [experimental] Run the core in the foreground (the supervisor's spawn target — 2a-H3)
+    /// [experimental] Run the core in the foreground (the supervisor's spawn target)
     Run,
 }
 
@@ -338,7 +395,7 @@ mod tests {
     use clap::CommandFactory;
 
     /// Milestone tags a stub command's `about` names (gen-docs.mjs's cli.md intro; G1).
-    const STUB_MILESTONES: &[&str] = &["2a-H3", "M1b-3", "M2", "M3", "M4", "M8"];
+    const STUB_MILESTONES: &[&str] = &["2a-H3b", "M1b-3", "M2", "M3", "M4", "M8"];
 
     fn collect_leaves(cmd: &clap::Command, prefix: &str, out: &mut Vec<(String, Option<String>)>) {
         let path = if prefix.is_empty() {

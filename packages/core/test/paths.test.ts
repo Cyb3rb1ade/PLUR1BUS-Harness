@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { coreAddress, layout, resolveHome } from "../src/paths.ts";
+import { coreAddress, layout, resolveHome, supervisorAddress } from "../src/paths.ts";
 
 describe("paths", () => {
   it("prefers --home, then PLUR1BUS_HOME, then the platform default", () => {
@@ -23,5 +23,15 @@ describe("paths", () => {
   it("names a per-home pipe on windows and the socket elsewhere", () => {
     assert.equal(coreAddress("/h/.plur1bus", "linux"), "/h/.plur1bus/run/core.sock");
     assert.match(coreAddress("C:\\Users\\c\\AppData\\Local\\PLUR1BUS", "win32"), /^\\\\\.\\pipe\\plur1bus-[0-9a-f]{16}-core$/);
+  });
+  it("names the supervisor's token, pid and address next to the core's", () => {
+    const l = layout("/h/.plur1bus");
+    assert.equal(l.supervisorToken, "/h/.plur1bus/run/supervisor.token");
+    assert.equal(l.supervisorPid, "/h/.plur1bus/run/supervisor.pid");
+    assert.equal(supervisorAddress("/h/.plur1bus", "linux"), "/h/.plur1bus/run/supervisor.sock");
+    const home = "C:\\Users\\c\\AppData\\Local\\PLUR1BUS";
+    const sup = supervisorAddress(home, "win32");
+    assert.match(sup, /^\\\\\.\\pipe\\plur1bus-[0-9a-f]{16}-supervisor$/);
+    assert.equal(sup.replace(/-supervisor$/, "-core"), coreAddress(home, "win32"), "same per-home hash as the core pipe");
   });
 });

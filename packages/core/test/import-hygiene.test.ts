@@ -7,19 +7,19 @@
 import { it } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaults } from "@plur1bus/config-schema";
 import { layout } from "../src/paths.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 const dist = fileURLToPath(new URL("../dist/core.js", import.meta.url));
 if (!existsSync(dist)) execFileSync("pnpm", ["build"], { cwd: fileURLToPath(new URL("..", import.meta.url)), stdio: "inherit", shell: process.platform === "win32" });
 
 /** Spawns `target` with the trace hook `--import`ed, returns the trace file's resolved URLs after the first stdout line. */
 async function traceFirstStdoutLine(target: string, args: string[], env: NodeJS.ProcessEnv): Promise<{ urls: string[]; firstLine: string }> {
-  const traceHome = mkdtempSync(join(tmpdir(), "p1b-hyg-"));
+  const traceHome = tempDir("p1b-hyg-");
   const trace = join(traceHome, "trace.txt");
   writeFileSync(trace, "");
   const child = spawn(
@@ -34,7 +34,7 @@ async function traceFirstStdoutLine(target: string, args: string[], env: NodeJS.
 }
 
 it("the core process never loads a forbidden host-adapter module (criterion 6)", async () => {
-  const home = mkdtempSync(join(tmpdir(), "p1b-hyg-"));
+  const home = tempDir("p1b-hyg-");
   const l = layout(home);
   const cfg = defaults();
   cfg.agents.bernd = {};

@@ -1,7 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
@@ -10,6 +10,7 @@ import { createCore, type Core } from "../src/core.ts";
 import { MEMORY_OP_METHODS } from "../src/memory-ops.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 const badCaller = { ...caller, userId: "u".repeat(129) };
@@ -17,14 +18,15 @@ const badCaller = { ...caller, userId: "u".repeat(129) };
  * Shared memory (workspace/user copies, D31 proposals) needs the engine's stable
  * directory capabilities: fd-backed directory aliases, which only Linux's
  * /proc/self/fd provides (engine lib/directory-capability.js). On macOS and
- * Windows the engine disables explicit shared memory and `share` fails with
- * storage — an engine limitation tracked for the next engine plan.
+ * Windows the engine reports shared memory as unsupported (E4) and `share`/
+ * `proposals.accept` answer E_NOT_AVAILABLE reason unsupported — an engine
+ * limitation tracked for the next engine plan.
  */
 const SHARED_MEMORY = process.platform === "linux";
 const sharedOnly = { skip: !SHARED_MEMORY && "engine: shared memory needs stable directory capabilities (Linux only at the pin)" };
 
 function newHome(): string {
-  const home = mkdtempSync(join(tmpdir(), "p1b-memops-"));
+  const home = tempDir("p1b-memops-");
   const cfg = defaults(); cfg.agents.bernd = {}; cfg.agents.anna = {};
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
   // Several distinct facts with the flat embedder: disable capture dedup (see core.test.ts).
@@ -51,10 +53,13 @@ describe("memory ops (in-process core)", () => {
 
   const list = async (agentId: string, who = caller) => c.call<any>("memory.list", { caller: who, agentId, since: 0 });
   const ids = async (agentId: string) => new Set<string>((await list(agentId)).items.map((x: any) => x.id));
-  /** Captures one fact for the agent and returns the id of the card it added. */
+  /**
+   * Captures one fact for the agent and returns the id of the card it added. Every call is its own run (a fresh
+   * runId), so the engine's replay guard (agent, runId, sessionKey, messages) never takes it for a repeated turn.
+   */
   async function capture(agentId: string, content: string): Promise<string> {
     const before = await ids(agentId);
-    const r = await c.call<any>("memory.capture", { caller, agentId, messages: [{ role: "user", content }, { role: "assistant", content: "Noted." }], wait: true, waitMs: 10_000 });
+    const r = await c.call<any>("memory.capture", { caller, agentId, runId: randomUUID(), messages: [{ role: "user", content }, { role: "assistant", content: "Noted." }], wait: true, waitMs: 10_000 });
     assert.ok(r.stored >= 1, JSON.stringify(r));
     const added = [...(await ids(agentId))].filter((id) => !before.has(id));
     assert.equal(added.length, 1, `expected one new card, got ${added.length}`);
@@ -152,9 +157,9 @@ describe("memory ops (in-process core)", () => {
     await assert.rejects(c.call("memory.proposals.accept", { caller, agentId: "anna", proposalId: pr.proposalId }), rejectsWith("E_NOT_FOUND", "not-found"));
   });
 
-  it("without stable directory capabilities, share fails with E_STORAGE (engine limitation)", { skip: SHARED_MEMORY && "Linux has shared memory" }, async () => {
-    const id = await capture("bernd", "Please remember that the office plants need water on Mondays.");
-    await assert.rejects(c.call("memory.share", { caller, agentId: "bernd", id, target: "user" }), rejectsWith("E_STORAGE", "storage"));
+  it("without stable directory capabilities, share is E_NOT_AVAILABLE unsupported (engine limitation, E4)", { skip: SHARED_MEMORY && "Linux has shared memory" }, async () => {
+    const id = await capture("bernd", "Please remember that the server room key is at the front desk.");
+    await assert.rejects(c.call("memory.share", { caller, agentId: "bernd", id, target: "user" }), rejectsWith("E_NOT_AVAILABLE", "unsupported"));
   });
 
   it("topic with since is E_INVALID_PARAMS topic-xor-since; a whitespace-only correct text is E_INVALID_PARAMS reason invalid-input", async () => {

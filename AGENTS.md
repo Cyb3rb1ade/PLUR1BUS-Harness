@@ -87,18 +87,53 @@ Env vars that matter when driving the core directly instead of through the CLI:
 
 - `PLUR1BUS_BIN` — the `plur1bus` binary a system test shells out to.
 - `PLUR1BUS_CORE_JS` — path to the built core entry (`packages/core/dist/core.js`); `plur1bus core
-  run` uses this instead of the (not-yet-installed, H2) `<home>/runtime/core/core.js`.
-- `PLUR1BUS_NODE` — the Node binary `plur1bus core run` execs; falls back to `<home>/runtime/node-*`
-  (H2) then whatever `node` is on `PATH`.
+  run` and the supervisor's own spawn (`supervisor::child::core_spec`) both use this instead of the
+  (not-yet-installed, 2a-H3b `setup`) `<home>/runtime/core/core.js`.
+- `PLUR1BUS_NODE` — the Node binary `plur1bus core run` and the supervisor exec; falls back to
+  `<home>/runtime/node-*` (2a-H3b) then whatever `node` is on `PATH`. Must name `node`/`node.exe`
+  directly — never a shell shim (`.cmd`, a wrapper script) — because the supervisor's identity
+  checks require the reported child pid to be the real Node process (ADR-012 §10.7).
 - `PLUR1BUS_ALLOW_TEST_INTERNALS=1` — required alongside `--test-internals flat-embedder` on
-  `packages/core/dist/core.js` (see below); refused without it.
+  `packages/core/dist/core.js` (see below); refused without it. Also gates the supervisor-only test
+  seams below.
+- `PLUR1BUS_SUPERVISOR_TIME_SCALE=<float>` — multiplies every supervisor duration (backoff, health
+  interval, hang/kill thresholds, the stable-ready window); must be finite and > 0, else the
+  supervisor exits 2. Requires `PLUR1BUS_ALLOW_TEST_INTERNALS=1`.
+- `PLUR1BUS_SOAK_TURNS`, `PLUR1BUS_SOAK_SEED` — the kill-soak system test's turn count (default 200
+  in CI, 1000 in the nightly) and its mulberry32 seed (printed as a diagnostic either way, so a
+  failing run can be replayed — though replay reproduces only the kill schedule, not timing,
+  outages or journal replays).
+- `PLUR1BUS_SOAK_RECALL_BUDGET_MS` — the kill soak's per-`memory recall` wall budget (default 1000; the nightly's
+  1 000-turn run sets 3000 because recall slows as the agents' tables grow).
+- `PLUR1BUS_REAL_MODELS=1` (with optional `PLUR1BUS_MODELS_CACHE=<dir>` for the ~600 MB download) — the
+  real-model acceptance (`tests/system/two-session-recall.test.ts`, criterion 1). `PLUR1BUS_SYSTEM_INTERNALS`
+  picks the flat seam's variant otherwise (`flat-embedder-cold`, see below).
+- `PLUR1BUS_CI_RECALL_HARD_MS=<ms>` — ruling H3-R26, set only by the nightly: shared CI runners are not reference
+  hardware, so the test raises the test home's `core.recall.hardBudgetMs` to this value (a slow runner must not
+  abort the recall; both measured recalls must still answer `degraded: null`) and reports the 400 ms
+  (`timing.totalMs`) / 600 ms (CLI wall time) targets as diagnostics plus a GitHub Actions `::warning::` instead of
+  failing on them. **The strict acceptance runs on reference hardware with it unset**, where the targets are
+  asserted:
+
+  ```bash
+  cargo build --release -p plur1bus && pnpm build
+  PLUR1BUS_BIN=target/release/plur1bus PLUR1BUS_REAL_MODELS=1 PLUR1BUS_MODELS_CACHE=~/.cache/plur1bus-models \
+    node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+  ```
+- `PLUR1BUS_SERVICE_TEST=1` — required, alongside `PLUR1BUS_SERVICE_FAKE` unset, for
+  `tests/service_real.rs` to touch a real systemd/launchd/Task Scheduler installation instead of
+  being skipped; `PLUR1BUS_SERVICE_FAKE=<dir>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) instead
+  selects the fake service-manager seam (`crates/plur1bus/src/service/fake.rs`) that every other
+  service test runs against.
 
 ## Where things live
 
 | Path | Language | Package | Purpose |
 |---|---|---|---|
-| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor skeleton: `agent`, `memory` (including `memory list/show/forget/correct/share/state/propose/proposals list\|accept\|reject`, the MemoryOps surface, `crates/plur1bus/src/commands/memory_ops.rs`), `dreams`, `config` (`get`/`set`/`schema`, each with `--tier basic\|advanced`), `core` (internal), plus stubbed `setup`, `1staid`, `module`, `daemon`, `service`, `update`, `user`, `model`, `login`, `channel`, `project`, `import`, `uninstall` (relabelled `2a-H3` in their help text and `--json` `milestone` field). Every command supports `--json`, and every `--json` document carries a top-level `schema` id (see Conventions). |
-| `crates/plur1bus-rpc` | Rust | lib | JSON-RPC client types and transport for the core's RPC surface. |
+| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor: `agent`, `memory` (including `memory list/show/forget/correct/share/state/propose/proposals list\|accept\|reject`, the MemoryOps surface, `crates/plur1bus/src/commands/memory_ops.rs`), `dreams`, `config` (`get`/`set`/`schema`, each with `--tier basic\|advanced`), `core` (internal), `daemon start\|stop\|restart\|status` (`src/commands/daemon.rs`), `service install\|uninstall\|status` (`src/commands/service.rs`), `1staid check` (`src/commands/firstaid.rs`, read-only diagnostics) — all real as of 2a-H3a — plus the hidden `supervise` subcommand (`src/supervisor/`, spawned by `daemon start`/the OS service, never run directly by a user) and still-stubbed `setup`, `module`, `update`, `user`, `model`, `login`, `channel`, `project`, `import`, `uninstall`, `1staid repair` (relabelled `2a-H3b` in their help text and `--json` `milestone` field). Every command supports `--json`, and every `--json` document carries a top-level `schema` id (see Conventions). |
+| `crates/plur1bus/src/supervisor` | Rust | (part of `plur1bus`) | The supervisor itself: `mod.rs` (state machine, restart scheduler, `SupervisorState`/`Shared`), `server.rs` (the `supervisor.auth`/`daemon.*` RPC server), `child.rs` (`Monitor`: spawn, health polling, hang-kill, backoff), `adopt.rs` (peer-credentialed adoption of an already-running core, `Peer`, `probe_core`), `state.rs` (`Health`, `CrashReason`, `Backoff`, pure and unit-tested), `logfile.rs` (`RotatingFile`, size-based log rotation), `pipe_windows.rs` (the Windows named-pipe ACL and overlapped I/O, `cfg(windows)`). See ADR-012 §10. |
+| `crates/plur1bus/src/service` | Rust | (part of `plur1bus`) | OS service registration: `mod.rs` (`Manager`, `Unit`, `Runner` trait), `systemd.rs`, `launchd.rs`, `schtasks.rs` (one renderer/installer per OS), `fake.rs` (the `PLUR1BUS_SERVICE_FAKE` test seam). See ADR-012 §10.6. |
+| `crates/plur1bus-rpc` | Rust | lib | JSON-RPC client types and transport for both the core's and the supervisor's RPC surfaces (`Endpoint::{Core,Supervisor}`); `capabilities.rs` (the `x-server`-filtered capability builder, Rust side of `buildCapabilities`); `win.rs`/`acl.rs` (Windows pipe DACL, peer-pid checks, overlapped I/O with real read deadlines). |
 | `crates/plur1bus-config` | Rust | lib | `config.json` load/validate/write against the same schema TypeScript uses (`packages/config-schema/schema/config.schema.json`, included via `include_str!`). |
 | `packages/rpc-schema` | JSON Schema + codegen | `@plur1bus/rpc-schema` | The single source for RPC methods/params/results/notifications/errors. `pnpm gen` writes `generated/types.ts` and `generated/names.json`; never edit `generated/` by hand. |
 | `packages/core` | TypeScript | `@plur1bus/core` | The core process: engine binding (`engine-config.ts`), RPC server, config load/watch, journal, activity, agent registry, CLI-facing `bin.ts`. |
@@ -107,8 +142,10 @@ Env vars that matter when driving the core directly instead of through the CLI:
 | `docs/` | Markdown | — | `docs/config-engine-keys.md`, `docs/config.md`, `docs/rpc.md` and `docs/cli.md` are generated (`pnpm docs:gen`); ADRs live in `docs/adr/` (ADR-012 process model/languages/RPC/lock, ADR-013 configuration/restart classes, ADR-016 API stability and versioning); the rest is hand-written design/status/planning material, including `docs/superpowers/` (specs, plans). |
 | `scripts/` | Node | — | Cross-cutting tooling: `check-toolchain.mjs`, `test-package.mjs` (shared by every package's `test` script), `gen-engine-keys.mjs`, `gen-docs.mjs`, `lint-hygiene.mjs`, `copy-dir.mjs`. |
 
-`tests/system` and `skills/plur1bus-harness` are named in the design spec but do not exist yet at
-this point in the build — do not assume they are there.
+`tests/system` now exists (`two-session-recall`, `memory-ops`, `reconnect`, `kill-soak.test.ts`,
+`helpers.ts`), built up across 2a-H2 and 2a-H3a; see "Build / test / lint" above for how to run it.
+`skills/plur1bus-harness` is still named only in the design spec and does not exist yet — it is
+2a-H3b-8 work — do not assume it is there.
 
 ## Conventions
 
@@ -128,6 +165,12 @@ this point in the build — do not assume they are there.
   removeAfter, replacement }` (ADR-016 §4/§5/§10). `buildCapabilities` derives `core.auth`'s
   `capabilities` entirely from these annotations — never a hand-kept list — so a method's stability
   can't drift from what `docs/rpc.md`'s generated `## Stability` section and `core.auth` both show.
+- **Every RPC method carries `x-server: "core" | "supervisor"`, and every notification carries
+  `x-server: "core"`** (since 2a-H3a, RPC schema 1.2.0, ADR-012 §3/§10, ADR-016's 2a-H3a
+  implementation record). `buildCapabilities(features, server)` / `capabilities(server, features)`
+  filter by it before returning a handshake's `capabilities`, so `core.auth` never lists a
+  `daemon.*` method and `supervisor.auth` never lists `memory.*`. A method with no `x-server` is a
+  bug in the schema, the same as a method with no `x-stability`.
 - **Every RPC method's `params` object is closed** — `additionalProperties: false` — in
   `rpc.schema.json`. An RPC method whose params allow unknown properties is a bug.
 - **`--json` output is always the raw RPC value, never a re-serialized typed struct.** Every CLI
@@ -169,13 +212,36 @@ PLUR1BUS_CORE_JS=packages/core/dist/core.js cargo run -p plur1bus -- core run --
 ```
 
 `core run` execs Node on `dist/core.js --home <path>` and prints `{"ready":true,"address":...,"pid":...}`
-on success once the RPC server is listening.
+on success once the RPC server is listening. This stays the developer path for running the core with
+no supervisor at all (ADR-012 §8).
+
+**Under a supervisor** (spawns and monitors the core, restarts it with backoff, adds `daemon`/
+`1staid check`; ADR-012 §10):
+
+```bash
+export PATH=/home/claude/.node24/bin:$PATH
+pnpm --filter @plur1bus/core build
+PLUR1BUS_CORE_JS=packages/core/dist/core.js cargo run -p plur1bus -- --home /tmp/h daemon start
+cargo run -p plur1bus -- --home /tmp/h daemon status   # {"supervisor":{...},"children":[{...}]}
+cargo run -p plur1bus -- --home /tmp/h 1staid check    # read-only diagnostics, never starts/signals anything
+cargo run -p plur1bus -- --home /tmp/h daemon stop
+```
+
+`daemon start` spawns the *supervisor* (`plur1bus supervise`, a hidden subcommand — not meant to be
+run directly), which in turn spawns the core using the same `PLUR1BUS_CORE_JS`/`PLUR1BUS_NODE`
+lookup as `core run`. If a registered OS service already owns this home (`service install`),
+`daemon start` starts that service instead of spawning a detached process directly.
 
 For a fast, no-network, no-ONNX-model test loop, run `dist/core.js` directly with the test seam:
 
 ```bash
 PLUR1BUS_ALLOW_TEST_INTERNALS=1 node packages/core/dist/core.js --home /tmp/h --test-internals flat-embedder
 ```
+
+`flat-embedder-cold` is the same seam, but the first 2 query embeddings of each core process take 350 ms
+each, one at a time (a cold model): system tests pick it with `PLUR1BUS_SYSTEM_INTERNALS=flat-embedder-cold`
+(CI runs `two-session-recall` that way), so a recall that does not wait for the model warm-up
+(`waitEngineReady`) overruns the core's 600 ms hard budget and answers `aborted`.
 
 `flat-embedder` swaps in a fixed embedding vector and a null reranker (production config always
 turns the reranker on in `engine-config.ts`, which would otherwise try to download the ONNX
@@ -186,7 +252,8 @@ past 1.0 in its config, e.g. `cfg.engine.duplicateThreshold = 1.01`.
 
 ## Module README convention (D14)
 
-Not yet exercised in this repo — 2a-H3 adds the first module — but the convention is fixed: every
+Not yet exercised in this repo — 2a-H3b-2/3 add the module loader and the first module — but the
+convention is fixed: every
 module under `packages/` or `modules/` ships its own `README.md` covering, at minimum:
 
 1. Purpose — what the module does and why it exists.
@@ -208,6 +275,9 @@ the clap tree via the hidden `plur1bus __markdown` subcommand) and `docs/config.
 it on every OS. After touching the RPC schema, the config schema or any clap definition (help text
 included), run `pnpm docs:gen` and commit the result; never hand-edit a generated doc. The decision
 records for the process model, languages, RPC and lock (ADR-012), for configuration and restart
-classes (ADR-013) and for API stability and versioning (ADR-016) are in `docs/adr/`. Every CLI stub
-that used to say "H2" now says "2a-H3" (ruling G1, plan 2a-H2): the supervisor, installer, `1staid`,
-soak testing, the Windows named-pipe ACL and model warm-up all moved to that next harness plan.
+classes (ADR-013) and for API stability and versioning (ADR-016) are in `docs/adr/`; all three carry
+a 2a-H3a implementation record (the supervisor, `daemon`/`service`/`1staid check`, the Windows
+named-pipe ACL, model warm-up and the `x-server`-split RPC schema — ADR-012 §10, ADR-016's 2a-H3a
+record). Every CLI stub that still says "2a-H3" now says **"2a-H3b"** (`daemon`, `service` and
+`1staid check` dropped the label because they are real commands now): the module loader, `setup`,
+`update`, `1staid repair` and admin ops over RPC are what moved to that next harness plan.

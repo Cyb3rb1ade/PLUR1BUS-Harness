@@ -1,0 +1,165 @@
+{
+  "methods": {
+    "core.auth": {
+      "stability": "stable",
+      "since": "1.0.0"
+    },
+    "core.status": {
+      "stability": "stable",
+      "since": "1.0.0"
+    },
+    "core.shutdown": {
+      "stability": "stable",
+      "since": "1.0.0"
+    },
+    "core.adopt": {
+      "stability": "experimental",
+      "since": "1.2.0"
+    },
+    "memory.recall": {
+      "stability": "stable",
+      "since": "1.0.0"
+    },
+    "memory.capture": {
+      "stability": "stable",
+      "since": "1.0.0"
+    },
+    "memory.checkpoint": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "memory.list": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "memory.show": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "memory.forget": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "memory.correct": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "memory.share": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "memory.state": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "memory.propose": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "memory.proposals.list": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "memory.proposals.accept": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "memory.proposals.reject": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "agent.list": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "agent.open": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "agent.close": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "agent.status": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "jobs.list": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "jobs.run": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "jobs.history": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "events.subscribe": {
+      "stability": "stable",
+      "since": "1.0.0"
+    },
+    "events.unsubscribe": {
+      "stability": "stable",
+      "since": "1.0.0"
+    }
+  },
+  "notifications": {
+    "core.state": {
+      "stability": "stable",
+      "since": "1.0.0"
+    },
+    "agent.activity": {
+      "stability": "experimental",
+      "since": "1.0.0"
+    },
+    "engine.event": {
+      "stability": "experimental",
+      "since": "1.0.0",
+      "deprecated": {
+        "since": "1.1.0",
+        "removeAfter": "2027-03-26",
+        "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)"
+      }
+    },
+    "recall.completed": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "recall.degraded": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "recall.block-clipped": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "recall.block-dropped": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "job.run": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "memory.proposal": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "dream.completed": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "acl.denied": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    },
+    "embedding.identity.changed": {
+      "stability": "experimental",
+      "since": "1.1.0"
+    }
+  },
+  "extensionPoints": {},
+  "features": []
+}

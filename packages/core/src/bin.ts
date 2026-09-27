@@ -3,20 +3,43 @@ import { ConfigInvalid, loadConfig } from "./config-load.ts";
 import { createCore } from "./core.ts";
 import { RpcError } from "./rpc/errors.ts";
 
-const { values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" } }, strict: true });
+// Under a supervisor, stdout and stderr are pipes that the supervisor reads. A SIGKILLed supervisor leaves them without
+// a reader while the core lives on through its lifeline grace (S5, C1), so every later write fails with EPIPE. The
+// core's own log file is the record: a lost stdio sink must never crash the core (e.g. midway through the grace-expiry stop).
+for (const stream of [process.stdout, process.stderr]) stream.on("error", () => {});
+
+const { values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" }, lifeline: { type: "string" }, instance: { type: "string" } }, strict: true });
+// Supervised mode (S4): the supervisor spawns the core with `--lifeline stdin --instance <uuid>` and holds stdin's write end.
+if (values.lifeline !== undefined && values.lifeline !== "stdin") { console.error(`--lifeline accepts only stdin, got ${values.lifeline}`); process.exit(2); }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (values.instance !== undefined && !UUID.test(values.instance)) { console.error(`--instance must be a UUID, got ${values.instance}`); process.exit(2); }
 let testInternals: Record<string, unknown> | undefined;
 if (values["test-internals"]) {
   if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") { console.error("--test-internals requires PLUR1BUS_ALLOW_TEST_INTERNALS=1"); process.exit(2); }
-  if (values["test-internals"] === "flat-embedder") {
+  const variant = values["test-internals"];
+  if (variant === "flat-embedder" || variant === "flat-embedder-cold") {
     const vector = () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)); const one = async () => vector();
+    // flat-embedder-cold (H3-R22): the first 2 embedQuery calls of this process (the warm-up probe and its
+    // memory.list) take 350 ms each, one after the other (a cold model serves one inference at a time) — enough that a recall issued before the warm-up finished queues
+    // behind the warm-up's probe and overruns the core's 600 ms hard budget.
+    let coldCalls = variant === "flat-embedder-cold" ? 2 : 0; let coldChain: Promise<void> = Promise.resolve();
+    const query = async () => {
+      if (coldCalls > 0) { coldCalls--; const mine = coldChain.then(() => new Promise<void>((r) => setTimeout(r, 350))); coldChain = mine; await mine; }
+      return vector();
+    };
     // R17: force the null reranker alongside the flat embedder — production config always turns the reranker
     // on (engine-config.ts), so with >= 2 memories the engine would otherwise download the ONNX model in tests.
-    testInternals = { embeddings: { embed: one, embedQuery: one, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} }, reranker: null };
+    testInternals = { embeddings: { embed: one, embedQuery: query, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} }, reranker: null };
   } else { console.error(`unknown --test-internals ${values["test-internals"]}`); process.exit(2); }
 }
 
 // A core.shutdown RPC takes the same stop-and-exit path as SIGTERM (I1): without it the process outlived the stop.
-const core = createCore({ ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}), onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs) });
+const core = createCore({
+  ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}),
+  ...(values.instance ? { instanceId: values.instance.toLowerCase() } : {}), ...(values.lifeline === "stdin" ? { lifeline: process.stdin } : {}),
+  onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs),
+  onOrphanGraceExpired: () => stop("lifeline grace expired"),
+});
 
 // Reused across repeated signals: core.ts's own resolved config isn't exposed on the committed Core surface
 // (start/stop/status/address/token/layout), so this reads config.json once after a successful start rather

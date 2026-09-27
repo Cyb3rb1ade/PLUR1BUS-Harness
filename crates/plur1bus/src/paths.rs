@@ -144,6 +144,17 @@ pub fn resolve_home_from_process(cli_home: Option<&Path>) -> PathBuf {
     resolve_home(cli_home, &env, platform, &home_dir, None, &cwd)
 }
 
+/// The platform default home (`~/.plur1bus` or `%LOCALAPPDATA%\PLUR1BUS`), ignoring `--home` and `$PLUR1BUS_HOME`:
+/// the home whose OS service keeps the plain name (S10).
+pub fn default_home() -> PathBuf {
+    let mut env: HashMap<String, String> = std::env::vars().collect();
+    env.remove("PLUR1BUS_HOME");
+    let platform = if cfg!(windows) { "windows" } else { "posix" };
+    let home_dir = home::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    resolve_home(None, &env, platform, &home_dir, None, &cwd)
+}
+
 #[derive(Debug, Clone)]
 pub struct Layout {
     pub home: PathBuf,
@@ -173,6 +184,47 @@ impl Layout {
     pub fn core_token(&self) -> PathBuf {
         self.run().join("core.token")
     }
+    pub fn core_pid(&self) -> PathBuf {
+        self.run().join("core.pid")
+    }
+    /// The supervisor's RPC token and the nonce `core.adopt` proves (S3).
+    pub fn supervisor_token(&self) -> PathBuf {
+        self.run().join("supervisor.token")
+    }
+    /// `<pid> <instanceId>\n` of the running supervisor.
+    pub fn supervisor_pid(&self) -> PathBuf {
+        self.run().join("supervisor.pid")
+    }
+    /// The pid recorded in `run/core.pid` (`Endpoint::Core`) or `run/supervisor.pid` (`Endpoint::Supervisor`), the
+    /// first field of `<pid> <instanceId>`. Clients pass it as `ConnectOptions::expected_server_pid` (ruling S11).
+    pub fn recorded_pid(&self, endpoint: plur1bus_rpc::Endpoint) -> Option<u32> {
+        let file = match endpoint {
+            plur1bus_rpc::Endpoint::Core => self.core_pid(),
+            plur1bus_rpc::Endpoint::Supervisor => self.supervisor_pid(),
+        };
+        std::fs::read_to_string(file)
+            .ok()?
+            .split_whitespace()
+            .next()?
+            .parse()
+            .ok()
+    }
+    /// Held with an exclusive OS file lock for the supervisor's whole life: the single-instance guard.
+    pub fn supervisor_lock(&self) -> PathBuf {
+        self.run().join("supervisor.lock")
+    }
+    pub fn logs(&self) -> PathBuf {
+        self.home.join("logs")
+    }
+    /// `logs/<role>.log`, the process's own JSON-lines log (S17).
+    pub fn log_file(&self, role: &str) -> PathBuf {
+        self.logs().join(format!("{role}.log"))
+    }
+    /// `logs/<role>.out.log`, a child's captured stdout/stderr (S17).
+    #[allow(dead_code)] // written by the child output pump (Task 6)
+    pub fn out_log(&self, role: &str) -> PathBuf {
+        self.logs().join(format!("{role}.out.log"))
+    }
     pub fn runtime(&self) -> PathBuf {
         self.home.join("runtime")
     }
@@ -180,15 +232,26 @@ impl Layout {
 
 /// Same rule as packages/core/src/paths.ts coreAddress(): socket path on POSIX, a per-home pipe name on Windows.
 pub fn core_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "core")
+}
+
+/// Same rule as packages/core/src/paths.ts supervisorAddress(): `run/supervisor.sock` on POSIX, the per-home
+/// `-supervisor` pipe on Windows.
+pub fn supervisor_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "supervisor")
+}
+
+/// `\\.\pipe\plur1bus-<first 16 hex of sha256(lower-cased home)>-<role>` on Windows, `<home>/run/<role>.sock` elsewhere.
+fn address(home: &Path, platform: &str, role: &str) -> String {
     if platform == "windows" {
         format!(
-            r"\\.\pipe\plur1bus-{}-core",
+            r"\\.\pipe\plur1bus-{}-{role}",
             &sha256_hex(home.to_string_lossy().to_lowercase().as_bytes())[..16]
         )
     } else {
         // Build with '/' explicitly: `platform` decides the format, not the host's path separator.
         format!(
-            "{}/run/core.sock",
+            "{}/run/{role}.sock",
             home.to_string_lossy().trim_end_matches('/')
         )
     }
@@ -261,6 +324,37 @@ mod tests {
     }
 
     #[test]
+    fn supervisor_paths_mirror_the_typescript_layout() {
+        let l = Layout::new(PathBuf::from("/h/.plur1bus"));
+        assert_eq!(l.core_pid(), PathBuf::from("/h/.plur1bus/run/core.pid"));
+        assert_eq!(
+            l.supervisor_token(),
+            PathBuf::from("/h/.plur1bus/run/supervisor.token")
+        );
+        assert_eq!(
+            l.supervisor_pid(),
+            PathBuf::from("/h/.plur1bus/run/supervisor.pid")
+        );
+        assert_eq!(
+            l.log_file("supervisor"),
+            PathBuf::from("/h/.plur1bus/logs/supervisor.log")
+        );
+        assert_eq!(
+            l.out_log("core"),
+            PathBuf::from("/h/.plur1bus/logs/core.out.log")
+        );
+        assert_eq!(
+            supervisor_address(Path::new("/h/.plur1bus"), "posix"),
+            "/h/.plur1bus/run/supervisor.sock"
+        );
+        // Same hash as the core pipe above, `-supervisor` suffix (paths.ts pipeName(home, "supervisor")).
+        assert_eq!(
+            supervisor_address(Path::new(r"C:\Users\c\AppData\Local\PLUR1BUS"), "windows"),
+            r"\\.\pipe\plur1bus-741b3e0a44818d49-supervisor"
+        );
+    }
+
+    #[test]
     fn relative_home_is_resolved_against_cwd_like_node_path_resolve() {
         let env = HashMap::new();
         let cwd = Path::new("/work");
@@ -324,5 +418,24 @@ mod tests {
             ),
             PathBuf::from(r"C:\a\b")
         );
+    }
+
+    #[test]
+    fn recorded_pid_reads_the_first_field_of_each_pid_file() {
+        use plur1bus_rpc::Endpoint;
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        assert_eq!(layout.recorded_pid(Endpoint::Core), None);
+        std::fs::create_dir_all(layout.run()).unwrap();
+        std::fs::write(
+            layout.core_pid(),
+            "4242 11111111-2222-4333-8444-555555555555\n",
+        )
+        .unwrap();
+        std::fs::write(layout.supervisor_pid(), "77 x\n").unwrap();
+        assert_eq!(layout.recorded_pid(Endpoint::Core), Some(4242));
+        assert_eq!(layout.recorded_pid(Endpoint::Supervisor), Some(77));
+        std::fs::write(layout.core_pid(), "not-a-pid\n").unwrap();
+        assert_eq!(layout.recorded_pid(Endpoint::Core), None);
     }
 }

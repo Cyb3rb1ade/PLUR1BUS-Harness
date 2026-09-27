@@ -43,6 +43,11 @@ fn method_fixture(name: &str, f: &Value) {
         "core.auth" => pair::<CoreAuthParams, CoreAuthResult>(name, f),
         "core.status" => pair::<CoreStatusParams, CoreStatusResult>(name, f),
         "core.shutdown" => pair::<CoreShutdownParams, CoreShutdownResult>(name, f),
+        "core.adopt" => pair::<CoreAdoptParams, CoreAdoptResult>(name, f),
+        "supervisor.auth" => pair::<SupervisorAuthParams, SupervisorAuthResult>(name, f),
+        "daemon.status" => pair::<DaemonStatusParams, DaemonStatusResult>(name, f),
+        "daemon.start" => pair::<DaemonStartParams, DaemonStartResult>(name, f),
+        "daemon.stop" => pair::<DaemonStopParams, DaemonStopResult>(name, f),
         "memory.recall" => pair::<MemoryRecallParams, MemoryRecallResult>(name, f),
         "memory.capture" => pair::<MemoryCaptureParams, MemoryCaptureResult>(name, f),
         "memory.checkpoint" => pair::<MemoryCheckpointParams, MemoryCheckpointResult>(name, f),
@@ -120,6 +125,16 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
 fn every_method_fixture_round_trips() {
     let files = load_dir("methods");
     assert!(!files.is_empty());
+    let names: BTreeSet<&str> = files.iter().map(|(n, _)| n.as_str()).collect();
+    for m in [
+        "supervisor.auth",
+        "daemon.status",
+        "daemon.start",
+        "daemon.stop",
+        "core.adopt",
+    ] {
+        assert!(names.contains(m), "fixtures/methods/{m}.json is missing");
+    }
     for (name, f) in &files {
         method_fixture(name, f);
     }
