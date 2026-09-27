@@ -791,6 +791,8 @@ fn uninstall_stops_and_removes_but_keeps_the_config() {
     h.config(json!({ "fixture": { "greeting": "kept" } }));
     let mut s = h.start();
     let mut c = client(&h.home);
+    // `m` is only read by the Linux /proc check below.
+    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
     let m = ready(&mut c, "fixture");
     // Outside a terminal, --yes is required and nothing happens without it.
     let (code, v) = h.cli(&["module", "uninstall", "fixture"]);

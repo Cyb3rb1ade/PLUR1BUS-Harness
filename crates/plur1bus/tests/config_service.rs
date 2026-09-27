@@ -9,7 +9,7 @@ use plur1bus_rpc::types::ErrorCode;
 use plur1bus_rpc::{Client, RpcError};
 use serde_json::{json, Value};
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 fn config_path(home: &Path) -> std::path::PathBuf {
     home.join("config.json")
@@ -532,7 +532,7 @@ fn a_subscriber_that_never_reads_is_dropped_and_set_stays_fast() {
     std::thread::sleep(TICK);
     for i in 0..100 {
         let lvl = if i % 2 == 0 { "debug" } else { "info" };
-        let t = Instant::now();
+        let t = std::time::Instant::now();
         set(&mut c, change("core.logLevel", json!(lvl))).unwrap();
         assert!(
             t.elapsed() < Duration::from_secs(1),
