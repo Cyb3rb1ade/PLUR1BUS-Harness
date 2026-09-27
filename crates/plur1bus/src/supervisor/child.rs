@@ -19,7 +19,7 @@ use super::adopt::Peer;
 use super::logfile::RotatingFile;
 use super::state::{
     apply_policy, classify_exit_for, ChildState, CrashReason, ExitClass, Health, LastExit,
-    RestartDecision, Role, RoleKind, Slot,
+    RestartDecision, RestartPolicy, Role, RoleKind, Slot,
 };
 use super::{broadcast_module_state, now_ms, spawn_guarded, Lifeline, Shared, SupervisorState};
 use crate::commands::core::{locate_core_js, locate_node};
@@ -79,24 +79,27 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
     })
 }
 
-/// An installed module: `node <dir>/<entry> --home <home> --module <name> --lifeline stdin --instance <id>`, run in
-/// its own directory. Fails when its manifest is invalid.
+/// An installed module: `node <dir>/<entry> --home <home> --module <name> [--lifeline stdin] --instance <id>`, run in
+/// its own directory (`--lifeline stdin` unless the manifest says `lifeline: false`). Fails when its manifest is
+/// invalid.
 pub fn module_spec(layout: &Layout, m: &Installed, instance_id: &str) -> Result<ChildSpec, String> {
     let manifest = m
         .manifest
         .as_ref()
         .map_err(|errors| format!("module {}: {}", m.name, errors.join("; ")))?;
-    let args: Vec<OsString> = vec![
+    let mut args: Vec<OsString> = vec![
         m.dir.join(&manifest.entry).into(),
         "--home".into(),
         layout.home.clone().into(),
         "--module".into(),
         m.name.clone().into(),
-        "--lifeline".into(),
-        "stdin".into(),
-        "--instance".into(),
-        instance_id.into(),
     ];
+    // A manifest with `lifeline: false` runs without one (H3B-R25): the module then reads config.json itself and does
+    // not end with the supervisor.
+    if manifest.lifeline {
+        args.extend(["--lifeline".into(), "stdin".into()]);
+    }
+    args.extend(["--instance".into(), instance_id.into()]);
     Ok(ChildSpec {
         role: m.name.clone(),
         program: locate_node(layout),
@@ -106,17 +109,58 @@ pub fn module_spec(layout: &Layout, m: &Installed, instance_id: &str) -> Result<
     })
 }
 
-/// How to start `role`'s child: [`core_spec`], or [`module_spec`] from the module's current `module.json`.
-pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<ChildSpec, String> {
+/// A module as its current `module.json` says to run it: the spawn spec, its restart policy and its `apiVersion`.
+/// Read afresh on every spawn (and probe), so an edited or reinstalled manifest is what runs.
+pub struct ModulePlan {
+    pub spec: ChildSpec,
+    pub policy: RestartPolicy,
+    pub api_version: String,
+}
+
+/// Why a child cannot be spawned: the crash reason it is marked with, and the message logged.
+pub type Unspawnable = (CrashReason, String);
+
+/// Reads module `role`'s current manifest: not installed or invalid → `manifest-invalid`; an `apiVersion` this
+/// supervisor does not support → `api-version-unsupported` (B12).
+pub fn module_plan(
+    layout: &Layout,
+    role: &Role,
+    instance_id: &str,
+) -> Result<ModulePlan, Unspawnable> {
+    let invalid = |e: String| (CrashReason::ManifestInvalid, e);
+    let installed = crate::modules::scan(layout)
+        .into_iter()
+        .find(|m| m.name == role.name)
+        .ok_or_else(|| invalid(format!("module {} is not installed", role.name)))?;
+    let spec = module_spec(layout, &installed, instance_id).map_err(invalid)?;
+    let manifest = installed
+        .manifest
+        .as_ref()
+        .map_err(|e| invalid(e.join("; ")))?;
+    let current = crate::modules::current_api_version();
+    if !crate::modules::api_version_supported(&manifest.api_version, current) {
+        return Err((
+            CrashReason::ApiVersionUnsupported,
+            format!(
+                "module {}: apiVersion {} is not supported (current {current})",
+                role.name, manifest.api_version
+            ),
+        ));
+    }
+    Ok(ModulePlan {
+        spec,
+        policy: RestartPolicy::parse(&manifest.restart),
+        api_version: manifest.api_version.clone(),
+    })
+}
+
+/// How to start `role`'s child: [`core_spec`] (`config-invalid` when it cannot be built), or [`module_plan`]'s spec.
+pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<ChildSpec, Unspawnable> {
     match role.kind {
-        RoleKind::Core => core_spec(layout, instance_id),
-        RoleKind::Module => {
-            let installed = crate::modules::scan(layout)
-                .into_iter()
-                .find(|m| m.name == role.name)
-                .ok_or_else(|| format!("module {} is not installed", role.name))?;
-            module_spec(layout, &installed, instance_id)
+        RoleKind::Core => {
+            core_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
         }
+        RoleKind::Module => module_plan(layout, role, instance_id).map(|p| p.spec),
     }
 }
 
@@ -451,7 +495,24 @@ impl Monitor {
             return;
         }
         let name = self.ctx.role.name.clone();
-        if self.spec.is_none() {
+        if self.ctx.role.kind == RoleKind::Module {
+            // Minor 3: every spawn runs the manifest as it is now; the slot's policy and apiVersion follow it.
+            let id = self
+                .spec
+                .as_ref()
+                .and_then(instance_of)
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+            match module_plan(&self.ctx.layout, &self.ctx.role, &id) {
+                Ok(plan) => {
+                    if let Some(slot) = slot_mut(&mut self.shared.lock(), &name) {
+                        slot.policy = plan.policy;
+                        slot.api_version = Some(plan.api_version);
+                    }
+                    self.spec = Some(plan.spec);
+                }
+                Err(e) => return mark_unspawnable(&self.shared, &name, &e),
+            }
+        } else if self.spec.is_none() {
             match spec_for(
                 &self.ctx.layout,
                 &self.ctx.role,
@@ -730,13 +791,13 @@ pub fn stop_grace(scale: f64) -> Duration {
     Timing::new(scale, 5_000).stop_grace
 }
 
-/// H3-R11: the child cannot be spawned at all (core.js missing, or a module whose manifest became invalid). The
-/// supervisor stays up and shows the child as crashed for good (`config-invalid` for the core, `manifest-invalid` for
-/// a module, no restart scheduled) until `daemon.start` finds it spawnable.
-pub fn mark_unspawnable(shared: &Shared, role: &str, err: &str) {
+/// H3-R11: the child cannot be spawned at all (core.js missing: `config-invalid`; a module whose manifest is invalid
+/// or whose apiVersion is unsupported). The supervisor stays up and shows the child as crashed for good with that
+/// reason, no restart scheduled, until `daemon.start` (or `module.start`) finds it spawnable.
+pub fn mark_unspawnable(shared: &Shared, role: &str, (reason, err): &Unspawnable) {
     shared.log.error(
         "cannot spawn the child",
-        json!({ "child": role, "err": err }),
+        json!({ "child": role, "err": err, "reason": reason.as_str() }),
     );
     let at = now_ms();
     let mut st = shared.lock();
@@ -744,10 +805,6 @@ pub fn mark_unspawnable(shared: &Shared, role: &str, err: &str) {
         return;
     };
     slot.restart_at = None;
-    let reason = match slot.role.kind {
-        RoleKind::Core => CrashReason::ConfigInvalid,
-        RoleKind::Module => CrashReason::ManifestInvalid,
-    };
     let role = slot.role.clone();
     let c = slot.child.get_or_insert_with(|| fresh_child(&role));
     c.health = Health::Crashed {
@@ -878,8 +935,8 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
             return;
         }
     };
-    // B12: a module must say it is the module the manifest describes; one that does not is killed (a crash, which
-    // backs off like any other).
+    // B12: a module must say it is the module the manifest describes; one that does not is killed, and the exit is
+    // fatal `manifest-invalid` (a retry would report the same identity).
     if ctx.role.kind == RoleKind::Module {
         let api = shared
             .lock()
@@ -892,6 +949,7 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 &format!("{} reports another identity, killing", gen.role),
                 json!({ "pid": gen.pid, "reason": reason, "hello": client.hello()["module"] }),
             );
+            *relock(&gen.kill_reason) = Some(CrashReason::ManifestInvalid);
             gen.kill();
             return;
         }
@@ -1206,11 +1264,19 @@ fn record_exit(
         reason: reason.clone(),
     };
     let restarting = gen.is_some_and(|g| g.restarting.load(Ordering::SeqCst));
-    let class = apply_policy(
-        classify_exit_for(slot.role.kind, code, signal, requested),
-        slot.policy,
-        code,
-    );
+    let class = match forced {
+        // B12: a spawned module that reported another identity was killed for it; retrying cannot fix that.
+        Some(CrashReason::ManifestInvalid) if !requested => ExitClass::Fatal {
+            reason: CrashReason::ManifestInvalid.to_string(),
+        },
+        _ => apply_policy(
+            classify_exit_for(slot.role.kind, code, signal, requested),
+            slot.policy,
+            code,
+        ),
+    };
+    // `(health, the exit's own reason, next restart)`: a give-up shows `gave-up` as its state's reason (H3B-R26), while
+    // `lastExit.reason` keeps what the exit itself was.
     let (health, reason, next) = match class {
         // A requested restart's exit is recorded with the reason `none`: not a crash, and nothing more specific.
         ExitClass::Requested if restarting => (
@@ -1236,14 +1302,17 @@ fn record_exit(
             } else {
                 slot.backoff.on_exit(now)
             };
-            let next = match decision {
+            match decision {
                 RestartDecision::After(d) => {
                     slot.restart_at = Some(now + d);
-                    Some(at + d.as_millis() as u64)
+                    (crashed(&reason), reason, Some(at + d.as_millis() as u64))
                 }
-                RestartDecision::GiveUp => None,
-            };
-            (crashed(&reason), reason, next)
+                RestartDecision::GiveUp => (
+                    crashed(&Some(CrashReason::GaveUp.to_string())),
+                    reason,
+                    None,
+                ),
+            }
         }
     };
     let state = health.to_process_state(at)["state"].clone();
@@ -1360,6 +1429,25 @@ mod tests {
             ]
         );
         assert_eq!(instance_of(&spec).as_deref(), Some(id));
+        // lifeline: false → no --lifeline stdin (H3B-R25).
+        let mut no_lifeline = m.clone();
+        if let Ok(man) = no_lifeline.manifest.as_mut() {
+            man.lifeline = false;
+        }
+        let args: Vec<String> = module_spec(&layout, &no_lifeline, id)
+            .unwrap()
+            .args
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            !args.iter().any(|a| a == "--lifeline" || a == "stdin"),
+            "{args:?}"
+        );
+        assert_eq!(
+            args[args.len() - 2..],
+            ["--instance".to_string(), id.to_string()]
+        );
         // An invalid manifest cannot be spawned; spec_for says so for a module that is not installed.
         let broken = Installed {
             manifest: Err(vec!["/priority too big".into()]),
@@ -1368,9 +1456,9 @@ mod tests {
         assert!(module_spec(&layout, &broken, id)
             .unwrap_err()
             .contains("/priority too big"));
-        assert!(spec_for(&layout, &Role::module("fixture"), id)
-            .unwrap_err()
-            .contains("not installed"));
+        let (reason, err) = spec_for(&layout, &Role::module("fixture"), id).unwrap_err();
+        assert_eq!(reason, CrashReason::ManifestInvalid);
+        assert!(err.contains("not installed"), "{err}");
     }
 
     #[test]

@@ -60,7 +60,8 @@ impl Health {
 /// reserved here for Tasks 6 and 7 (a child that never becomes ready, and an adopted child later
 /// observed to exit); `None` denotes "crashed with no more specific reason than the exit itself".
 /// A module adds `ManifestInvalid` (its exit 2, an invalid manifest, or one left out of the start order) and
-/// `ApiVersionUnsupported` (B12).
+/// `ApiVersionUnsupported` (B12). `GaveUp` (H3B-R26) is the state of a child whose backoff gave up: five exits inside the
+/// window; its last exit keeps its own reason. The values are `$defs/CrashReason` in the RPC schema.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CrashReason {
     LockHeld,
@@ -70,6 +71,7 @@ pub enum CrashReason {
     AdoptedExit,
     ManifestInvalid,
     ApiVersionUnsupported,
+    GaveUp,
     None,
 }
 
@@ -78,6 +80,9 @@ pub enum CrashReason {
 pub const STOPPED_DISABLED: &str = "disabled";
 pub const STOPPED_SCOPE_AGENT: &str = "scope-agent-unsupported";
 pub const STOPPED_BY_REQUEST: &str = "stopped-by-request";
+/// A module whose `needs` names a module that is not started (disabled, agent-scoped, an unsupported API version, or
+/// itself held back): stopped, transitively (H3B-R25).
+pub const STOPPED_NEEDS_UNAVAILABLE: &str = "needs-unavailable";
 
 impl CrashReason {
     pub fn as_str(self) -> &'static str {
@@ -89,6 +94,7 @@ impl CrashReason {
             CrashReason::AdoptedExit => "adopted-exit",
             CrashReason::ManifestInvalid => "manifest-invalid",
             CrashReason::ApiVersionUnsupported => "api-version-unsupported",
+            CrashReason::GaveUp => "gave-up",
             CrashReason::None => "none",
         }
     }
@@ -888,6 +894,28 @@ mod tests {
             serde_json::json!({ "name": "fixture-b", "process": { "state": "stopped", "reason": "disabled", "since": 0 }, "pid": null, "instanceId": null })
         );
         assert!(notification.is_valid(&m), "{m}");
+    }
+
+    #[test]
+    fn crash_reasons_match_the_schema_vocabulary() {
+        let schema: serde_json::Value = serde_json::from_str(plur1bus_rpc::SCHEMA_JSON).unwrap();
+        let all = [
+            CrashReason::LockHeld,
+            CrashReason::ConfigInvalid,
+            CrashReason::EngineContract,
+            CrashReason::ReadyTimeout,
+            CrashReason::AdoptedExit,
+            CrashReason::ManifestInvalid,
+            CrashReason::ApiVersionUnsupported,
+            CrashReason::GaveUp,
+            CrashReason::None,
+        ];
+        let ours: Vec<serde_json::Value> =
+            all.iter().map(|r| serde_json::json!(r.as_str())).collect();
+        assert_eq!(
+            schema["$defs"]["CrashReason"]["enum"],
+            serde_json::json!(ours)
+        );
     }
 
     #[test]

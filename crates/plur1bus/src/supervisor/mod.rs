@@ -694,7 +694,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     let mut monitors = Monitors::new();
     if !opts.no_core {
         start_child(&shared, layout, &token, &Role::core(), &mut monitors);
-        start_modules(&shared, layout, &token, &mut monitors);
+        start_modules(&shared, layout);
     }
 
     // Main thread: the restart scheduler (a requested restart, a slot's `daemon.start` or due `restart_at`) until a
@@ -714,7 +714,17 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     break Ok(Next::Job(jobs));
                 }
                 let now = Instant::now();
-                if let Some(i) = next_due(&st.slots, now) {
+                // The core first: its start or due restart never waits behind the modules' first starts.
+                let core_due = st.slots.first().is_some_and(|s| {
+                    s.role.kind == RoleKind::Core
+                        && (s.start_requested || s.restart_at.is_some_and(|at| at <= now))
+                });
+                let due = if core_due {
+                    Some(0)
+                } else {
+                    next_due(&st.slots, now)
+                };
+                if let Some(i) = due {
                     let slot = &mut st.slots[i];
                     slot.start_requested = false;
                     slot.restart_at = None;
@@ -735,6 +745,12 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         match next {
             Err(stop) => break stop,
             Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &mut monitors, jobs),
+            // A module's first start probes for one to adopt, like the core's at start (S6).
+            Ok(Next::Due(role))
+                if role.kind == RoleKind::Module && !monitors.contains_key(&role.name) =>
+            {
+                start_child(&shared, layout, &token, &role, &mut monitors)
+            }
             Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
     };
@@ -748,22 +764,26 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         } }),
     );
     // The slots are the core, then the modules in start order: stopped in reverse, the core last, all inside one
-    // budget (M3). Each child is asked to finish by the end of the shared budget and killed at the shared deadline.
-    let order: Vec<String> = shared
+    // budget plus one grace (M3, H3B-R25). A module is asked to finish by the end of the budget and killed there; the
+    // grace is the core's reserve: it is asked for what is left of the budget, at least half the grace, and killed at
+    // the end of the grace, so a hung module never costs the core its clean stop.
+    let order: Vec<(String, RoleKind)> = shared
         .lock()
         .slots
         .iter()
         .rev()
-        .map(|s| s.role.name.clone())
+        .map(|s| (s.role.name.clone(), s.role.kind))
         .collect();
+    let grace = child::stop_grace(time_scale);
     let budget_end = Instant::now() + stop.budget;
-    let deadline = budget_end + child::stop_grace(time_scale);
-    for name in order {
+    let deadline = budget_end + grace;
+    for (name, kind) in order {
         if let Some(m) = monitors.get_mut(&name) {
-            m.stop_until(
-                budget_end.saturating_duration_since(Instant::now()),
-                deadline,
-            );
+            let left = budget_end.saturating_duration_since(Instant::now());
+            match kind {
+                RoleKind::Module => m.stop_until(left, budget_end),
+                RoleKind::Core => m.stop_until(left.max(grace / 2), deadline),
+            }
         }
     }
     remove_run_files(layout);
@@ -873,7 +893,7 @@ pub fn push_restart(
 /// supported (`crashed`, `api-version-unsupported`, B12). A module left out of the start order (an invalid manifest,
 /// a needs-cycle, a `needs` that cannot be met) gets a slot `crashed` with `manifest-invalid`; the reasons go to the
 /// log (P13: `ChildStatus` has no detail). None of these is ever restarted on its own.
-fn start_modules(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors: &mut Monitors) {
+fn start_modules(shared: &Arc<Shared>, layout: &Layout) {
     let installed = crate::modules::scan(layout);
     if installed.is_empty() {
         return;
@@ -887,8 +907,10 @@ fn start_modules(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors: &
         .map(|c| c["modules"].clone())
         .unwrap_or(Value::Null);
     let scale = shared.lock().time_scale;
-    let mut to_start = Vec::new();
     let mut not_started = Vec::new();
+    // Modules not started, with why: a dependent of one of them is held back too (`start_order` is topological, so
+    // one pass makes it transitive, H3B-R25).
+    let mut held_back: BTreeMap<String, String> = BTreeMap::new();
     for name in &order {
         let Some(Ok(m)) = installed
             .iter()
@@ -915,14 +937,33 @@ fn start_modules(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors: &
             )];
             Some((crashed(state::CrashReason::ApiVersionUnsupported), errors))
         } else {
-            None
+            let unavailable: Vec<String> = m
+                .needs
+                .iter()
+                .filter_map(|n| {
+                    held_back
+                        .get(n)
+                        .map(|why| format!("needs {n}, which is not started ({why})"))
+                })
+                .collect();
+            (!unavailable.is_empty())
+                .then(|| (stopped(state::STOPPED_NEEDS_UNAVAILABLE), unavailable))
         };
         match held {
             None => {
-                to_start.push(slot.role.clone());
+                // Started by the scheduler, one per turn, so a core restart is never held up behind module start-up
+                // (the core's due restarts come first there).
+                slot.start_requested = true;
                 shared.lock().slots.push(slot);
             }
-            Some(h) => not_started.push((slot, h)),
+            Some(h) => {
+                let why = h.0.to_process_state(0)["reason"]
+                    .as_str()
+                    .unwrap_or("not started")
+                    .to_string();
+                held_back.insert(name.clone(), why);
+                not_started.push((slot, h));
+            }
         }
     }
     for i in installed.iter().filter(|i| !order.contains(&i.name)) {
@@ -954,12 +995,7 @@ fn start_modules(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors: &
         broadcast_module_state(shared, &slot);
         st.slots.push(slot);
     }
-    for role in to_start {
-        if shared.lock().stopping.is_some() {
-            return;
-        }
-        start_child(shared, layout, token, &role, monitors);
-    }
+    shared.wake.notify_all();
 }
 
 /// `Health::Crashed` for a module that never ran: no code, no signal, `reason`.
@@ -1074,10 +1110,16 @@ fn probe_and_adopt(
     let found = match role.kind {
         RoleKind::Core => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
         RoleKind::Module => {
-            let api = shared
-                .lock()
-                .slot(&role.name)
-                .and_then(|s| s.api_version.clone());
+            // The manifest as it is now (minor 3), else what the slot last saw.
+            let api = child::module_plan(layout, role, "probe")
+                .ok()
+                .map(|p| p.api_version)
+                .or_else(|| {
+                    shared
+                        .lock()
+                        .slot(&role.name)
+                        .and_then(|s| s.api_version.clone())
+                });
             adopt::probe_module(layout, role, api.as_deref(), adopt::PROBE_TIMEOUT)
         }
     };

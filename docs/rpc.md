@@ -2840,43 +2840,15 @@ The running configuration changed (B3), sent on connections that called config.w
 
 **Served by:** supervisor
 
-A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch. Same shape as $defs/ModuleState.
+A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch.
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.3.0",
   "x-server": "supervisor",
-  "type": "object",
-  "additionalProperties": false,
-  "description": "A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch. Same shape as $defs/ModuleState.",
-  "required": [
-    "name",
-    "process",
-    "pid",
-    "instanceId"
-  ],
-  "properties": {
-    "name": {
-      "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
-    },
-    "process": {
-      "$ref": "#/$defs/ProcessState"
-    },
-    "pid": {
-      "type": [
-        "integer",
-        "null"
-      ]
-    },
-    "instanceId": {
-      "type": [
-        "string",
-        "null"
-      ]
-    }
-  }
+  "description": "A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch.",
+  "$ref": "#/$defs/ModuleState"
 }
 ```
 
@@ -3701,11 +3673,32 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `CrashReason`
+
+```json
+{
+  "description": "Experimental (1.3.0). The supervisor's crash-reason vocabulary (ADR-012 §10): `ChildStatus.process.reason` of a crashed child and `ChildStatus.lastExit.reason` take these values. `gave-up`: the child exited five times inside the give-up window and is not restarted on its own (its last exit is in `lastExit`); `manifest-invalid` and `api-version-unsupported` are module-only (B12). Documentation: the fields stay plain strings.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "enum": [
+    "lock-held",
+    "config-invalid",
+    "engine-contract",
+    "ready-timeout",
+    "adopted-exit",
+    "manifest-invalid",
+    "api-version-unsupported",
+    "gave-up",
+    "none"
+  ]
+}
+```
+
 ### `ChildStatus`
 
 ```json
 {
-  "description": "One supervised child process as the supervisor sees it.",
+  "description": "One supervised child process as the supervisor sees it. A crashed child's `process.reason` and `lastExit.reason` are $defs/CrashReason values.",
   "type": "object",
   "additionalProperties": false,
   "required": [

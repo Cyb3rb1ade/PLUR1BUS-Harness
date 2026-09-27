@@ -551,9 +551,9 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
                         "supervisor: {}",
                         supervisor["process"]["state"].as_str().unwrap_or("unknown")
                     ),
-                    format!("core: {}", core_line(&supervisor, &children)),
+                    format!("core (core): {}", core_line(&supervisor, &children)),
                 ];
-                // One line per module child, with its kind (`daemon status` lists every child).
+                // One line per child with its kind: the core above, then every module.
                 lines.extend(
                     children
                         .as_array()

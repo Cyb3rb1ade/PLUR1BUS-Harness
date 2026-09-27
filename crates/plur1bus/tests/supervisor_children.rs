@@ -269,6 +269,9 @@ fn five_quick_crashes_end_in_crashed_without_further_attempts() {
     assert_eq!(state(&now), "crashed", "{now}");
     assert_eq!(now["restarts"], 4);
     assert_eq!(now["lastExit"]["code"], 1);
+    // H3B-R26: a give-up says so; the last exit keeps its own (no specific) reason.
+    assert_eq!(now["process"]["reason"], "gave-up", "{now}");
+    assert_eq!(now["lastExit"]["reason"], Value::Null, "{now}");
     assert!(now["pid"].is_null());
     assert_eq!(child["restarts"], 4);
 }

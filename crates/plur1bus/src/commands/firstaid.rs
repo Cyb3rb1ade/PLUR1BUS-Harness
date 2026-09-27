@@ -652,10 +652,11 @@ fn check_core_state(daemon_status: Option<&Value>) -> Check {
 
 // ---- modules.state --------------------------------------------------------------------------------
 
-/// One module child of `daemon.status` as `modules.state` judges it: ready or stopped (by configuration, scope or
-/// request) → ok; starting, stopping, restarting (crashed with a restart scheduled), orphaned or degraded → warn;
-/// crashed for good (fatal, given up, `manifest-invalid`, `api-version-unsupported`) → fail. The text is
-/// `<state>[: reason]`, with "gave up" for a give-up that carries no reason.
+/// One module child of `daemon.status` as `modules.state` judges it: ready, or stopped with a reason (by
+/// configuration, scope, request or an unavailable need) → ok; stopped with no reason (it exited on its own and its
+/// restart policy does not restart that), starting, stopping, restarting (crashed with a restart scheduled),
+/// orphaned or degraded → warn; crashed for good (fatal, `gave-up`, `manifest-invalid`, `api-version-unsupported`,
+/// or a crash under `restart: "never"`) → fail. The text is `<state>[: reason]` plus the last exit where it helps.
 fn judge_module(child: &Value) -> (Status, String) {
     let state = child["process"]["state"].as_str().unwrap_or("starting");
     let reason = child["process"]["reason"].as_str();
@@ -663,21 +664,39 @@ fn judge_module(child: &Value) -> (Status, String) {
         Some(r) => format!("{state}: {r}"),
         None => state.to_string(),
     };
-    match state {
-        "ready" | "stopped" => (Status::Ok, text),
-        "crashed" if child["nextRestartAt"].is_u64() => {
+    let code = || {
+        child["lastExit"]["code"]
+            .as_i64()
+            .map_or("none".to_string(), |c| c.to_string())
+    };
+    match (state, reason) {
+        ("ready", _) | ("stopped", Some(_)) => (Status::Ok, text),
+        ("stopped", None) => (
+            Status::Warn,
+            format!(
+                "stopped: exited on its own (exit code {}), not restarted",
+                code()
+            ),
+        ),
+        ("crashed", _) if child["nextRestartAt"].is_u64() => {
             (Status::Warn, format!("{text}, restarting"))
         }
-        "crashed" if reason.is_none() => {
-            let code = child["lastExit"]["code"]
-                .as_i64()
-                .map_or("none".to_string(), |c| c.to_string());
-            (
-                Status::Fail,
-                format!("crashed: gave up after repeated exits (last exit code {code})"),
-            )
-        }
-        "crashed" => (Status::Fail, text),
+        ("crashed", Some("gave-up")) => (
+            Status::Fail,
+            format!(
+                "crashed: gave up after repeated exits (last exit code {})",
+                code()
+            ),
+        ),
+        // Only `restart: "never"` leaves a crash with no reason and no restart.
+        ("crashed", None) => (
+            Status::Fail,
+            format!(
+                "crashed, not restarted (restart: never; exit code {})",
+                code()
+            ),
+        ),
+        ("crashed", _) => (Status::Fail, text),
         _ => (Status::Warn, text),
     }
 }
@@ -1806,10 +1825,15 @@ mod tests {
                 json!({ "state": "stopped", "reason": "scope-agent-unsupported" }),
                 None,
             ),
+            module_child(
+                "needy",
+                json!({ "state": "stopped", "reason": "needs-unavailable" }),
+                None,
+            ),
         ]);
         let check = check_modules_state(Some(&st), &[]);
         assert_eq!(check.status, Status::Ok, "{check:?}");
-        assert!(check.summary.contains("3 module(s)"), "{check:?}");
+        assert!(check.summary.contains("4 module(s)"), "{check:?}");
         assert!(check.detail.is_none());
     }
 
@@ -1822,6 +1846,8 @@ mod tests {
                 json!({ "state": "degraded", "reason": "unresponsive" }),
                 None,
             ),
+            // Exited 0 on its own under `restart: "on-failure"`: stopped, but not by configuration.
+            (json!({ "state": "stopped" }), None),
         ] {
             let st = daemon_status_with(vec![
                 module_child("fixture", process.clone(), next),
@@ -1851,7 +1877,11 @@ mod tests {
                 json!({ "state": "crashed", "reason": "api-version-unsupported" }),
                 "api-version-unsupported",
             ),
-            (json!({ "state": "crashed" }), "gave up"),
+            (
+                json!({ "state": "crashed", "reason": "gave-up" }),
+                "gave up after repeated exits",
+            ),
+            (json!({ "state": "crashed" }), "restart: never"),
         ] {
             let st = daemon_status_with(vec![
                 module_child("fixture", process.clone(), None),

@@ -163,7 +163,7 @@ fn kill_if_ours(pid: u32, home: &Path) {
         kill(pid);
     }
 }
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 fn kill_if_ours(pid: u32, home: &Path) {
     let args = Command::new("ps")
         .args(["-o", "command=", "-p", &pid.to_string()])
@@ -171,6 +171,18 @@ fn kill_if_ours(pid: u32, home: &Path) {
         .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
         .unwrap_or_default();
     if args.contains(&*home.to_string_lossy()) {
+        kill(pid);
+    }
+}
+#[cfg(windows)]
+fn kill_if_ours(pid: u32, home: &Path) {
+    let query = format!("(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine");
+    let args = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &query])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase())
+        .unwrap_or_default();
+    if args.contains(&home.to_string_lossy().to_lowercase()) {
         kill(pid);
     }
 }
@@ -222,6 +234,19 @@ fn wait_for(c: &mut Client, role: &str, what: &str, f: impl Fn(&Value) -> bool) 
         );
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+/// The human `daemon status` text (fake service manager).
+fn daemon_status_text(h: &Home) -> String {
+    let out = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+        .arg("--home")
+        .arg(&h.home)
+        .args(["daemon", "status"])
+        .env("PLUR1BUS_SERVICE_FAKE", h.service_fake())
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout).into_owned()
 }
 
 fn stop(s: &mut Supervisor, c: &mut Client, budget_ms: u64) {
@@ -277,16 +302,8 @@ fn an_installed_module_is_spawned_after_the_core_and_becomes_ready() {
         .unwrap();
     assert!(core_spawned < fixture_spawned, "{:?}", h.log());
     // `daemon status` prints one line per child with its kind.
-    let out = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
-        .arg("--home")
-        .arg(&h.home)
-        .args(["daemon", "status"])
-        .env("PLUR1BUS_SERVICE_FAKE", h.service_fake())
-        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
-        .output()
-        .unwrap();
-    let text = String::from_utf8_lossy(&out.stdout);
-    assert!(text.contains("core: ready"), "{text}");
+    let text = daemon_status_text(&h);
+    assert!(text.contains("core (core): ready"), "{text}");
     assert!(text.contains("fixture (module): ready"), "{text}");
     stop(&mut s, &mut c, 5000);
 }
@@ -349,7 +366,16 @@ fn a_module_that_crashes_at_start_gives_up_after_five_and_the_core_is_untouched(
     });
     let m = child(&st, "fixture").unwrap();
     assert_eq!(m["lastExit"]["code"], 1, "{m}");
+    // H3B-R26: the state says why it stays down; the last exit keeps its own (no specific) reason.
+    assert_eq!(m["process"]["reason"], "gave-up", "{m}");
+    assert_eq!(m["lastExit"]["reason"], Value::Null, "{m}");
     assert_eq!(m["pid"], Value::Null);
+    let text = daemon_status_text(&h);
+    assert!(
+        text.contains("fixture (module): crashed: gave-up"),
+        "{text}"
+    );
+    assert!(text.contains("core (core): ready"), "{text}");
     let core = child(&st, "core").unwrap().clone();
     assert_eq!(state(&core), "ready", "{st}");
     assert_eq!(core["restarts"], 0);
@@ -444,6 +470,19 @@ fn invalid_disabled_and_agent_scoped_modules_are_listed_not_spawned() {
         "needy",
         json!({ "name": "needy", "needs": ["core", "missing"] }),
     );
+    // H3B-R25: a dependent of a module that is not started stays stopped, transitively.
+    h.install(
+        "needs-disabled",
+        json!({ "name": "needs-disabled", "needs": ["core", "fixture"] }),
+    );
+    h.install(
+        "needs-agent",
+        json!({ "name": "needs-agent", "needs": ["agent-mod"] }),
+    );
+    h.install(
+        "needs-needs",
+        json!({ "name": "needs-needs", "needs": ["needs-disabled"] }),
+    );
     h.config(1000, json!({ "fixture": { "enabled": false } }));
     let mut s = h.start(&[]);
     let mut c = client(&h.home);
@@ -456,6 +495,9 @@ fn invalid_disabled_and_agent_scoped_modules_are_listed_not_spawned() {
             ("agent-mod", "stopped", "scope-agent-unsupported"),
             ("broken", "crashed", "manifest-invalid"),
             ("needy", "crashed", "manifest-invalid"),
+            ("needs-disabled", "stopped", "needs-unavailable"),
+            ("needs-agent", "stopped", "needs-unavailable"),
+            ("needs-needs", "stopped", "needs-unavailable"),
         ];
         for (name, s, reason) in expect {
             let m = child(st, name).unwrap_or_else(|| panic!("{name} missing: {st}"));
@@ -469,7 +511,24 @@ fn invalid_disabled_and_agent_scoped_modules_are_listed_not_spawned() {
     assert!(!h.log().iter().any(|r| r["msg"]
         .as_str()
         .is_some_and(|m| m.ends_with(" spawned") && !m.starts_with("core"))));
-    for name in ["fixture", "broken", "agent-mod", "needy"] {
+    let transitive = h
+        .log()
+        .into_iter()
+        .find(|r| r["msg"] == "module not started" && r["module"] == "needs-needs")
+        .unwrap();
+    assert!(
+        transitive["errors"].to_string().contains("needs-disabled"),
+        "{transitive}"
+    );
+    for name in [
+        "fixture",
+        "broken",
+        "agent-mod",
+        "needy",
+        "needs-disabled",
+        "needs-agent",
+        "needs-needs",
+    ] {
         assert!(!h.home.join(format!("run/module-{name}.pid")).exists());
     }
     // The reasons behind manifest-invalid are logged (ChildStatus has no detail).
@@ -748,7 +807,8 @@ fn daemon_stop_keeps_one_deadline_for_every_child() {
     let t0 = Instant::now();
     stop(&mut s, &mut c, 1000);
     let took = t0.elapsed();
-    // Budget 1000 ms + grace 100 ms (5 s × 0.02), plus the kills; one budget per module would take over 2.2 s.
+    // Both modules are killed at the end of the 1000 ms budget, then the core stops at once; a budget per module
+    // would take over 2 s.
     assert!(took >= Duration::from_millis(1000), "{took:?}");
     assert!(took < Duration::from_millis(1900), "{took:?}");
     for name in ["fixture", "fixture-b"] {
@@ -759,4 +819,158 @@ fn daemon_stop_keeps_one_deadline_for_every_child() {
             h.log()
         );
     }
+    // H3B-R25: the grace is the core's reserve, so the hung modules cost it nothing: it was asked to stop with
+    // time left and stopped cleanly.
+    let shutdown = h.events("shutdown");
+    assert_eq!(shutdown.len(), 1, "{:?}", h.log());
+    assert!(
+        shutdown[0]["budgetMs"].as_u64().unwrap() > 0,
+        "{shutdown:?}"
+    );
+    assert!(
+        h.log_index("core did not stop in time, killing", |_| true)
+            .is_none(),
+        "{:?}",
+        h.log()
+    );
+    assert!(h
+        .log_index("core exited", |r| r["state"] == "stopped"
+            && r["code"] == 0
+            && r["signal"].is_null())
+        .is_some());
+}
+
+/// The manifest's `restart` (D14): `never` leaves a crashed module down after one exit; `always` restarts it after a
+/// clean exit too (until the give-up); the default `on-failure` does not restart a clean exit (stopped, which
+/// `1staid` warns about since nothing asked for it).
+#[test]
+fn the_manifest_restart_policy_decides_what_an_exit_leads_to() {
+    let h = Home::new();
+    h.install("fixture", json!({ "restart": "never" }));
+    let always = h.install(
+        "fixture-b",
+        json!({ "name": "fixture-b", "restart": "always" }),
+    );
+    std::fs::write(always.join("index.js"), "process.exit(0);\n").unwrap();
+    let clean = h.install("fixture-c", json!({ "name": "fixture-c" }));
+    std::fs::write(clean.join("index.js"), "process.exit(0);\n").unwrap();
+    h.config(1000, json!({ "fixture": { "crashAfterMs": 200 } }));
+    let mut s = h.start(&[]);
+    let mut c = client(&h.home);
+    let st = wait_for(&mut c, "fixture", "crashed", |m| state(m) == "crashed");
+    let never = child(&st, "fixture").unwrap();
+    assert_eq!(never["nextRestartAt"], Value::Null, "{never}");
+    assert_eq!(never["restarts"], 0, "{never}");
+    assert_eq!(never["lastExit"]["code"], 1, "{never}");
+    assert!(never["process"].get("reason").is_none(), "{never}");
+    let st = wait_for(&mut c, "fixture-b", "given up", |m| {
+        m["process"]["reason"] == "gave-up"
+    });
+    let b = child(&st, "fixture-b").unwrap();
+    assert_eq!(b["restarts"], 4, "{b}");
+    assert_eq!(b["lastExit"]["code"], 0, "{b}");
+    let st = wait_for(&mut c, "fixture-c", "stopped", |m| state(m) == "stopped");
+    let cl = child(&st, "fixture-c").unwrap();
+    assert!(cl["process"].get("reason").is_none(), "{cl}");
+    assert_eq!(cl["restarts"], 0, "{cl}");
+    std::thread::sleep(Duration::from_millis(300));
+    let st = status(&mut c);
+    assert_eq!(child(&st, "fixture").unwrap()["restarts"], 0, "{st}");
+    assert_eq!(child(&st, "fixture-c").unwrap()["restarts"], 0, "{st}");
+    let spawned = |name: &str| {
+        h.log()
+            .iter()
+            .filter(|r| r["msg"] == format!("{name} spawned"))
+            .count()
+    };
+    assert_eq!(spawned("fixture"), 1);
+    assert_eq!(spawned("fixture-b"), 5);
+    assert_eq!(spawned("fixture-c"), 1);
+    let (_, v) = h.check();
+    let check = v["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == "modules.state")
+        .unwrap()
+        .clone();
+    assert_eq!(check["status"], "fail", "{check}");
+    let summary = check["summary"].as_str().unwrap();
+    assert!(
+        summary.contains("fixture (crashed, not restarted (restart: never"),
+        "{check}"
+    );
+    assert!(
+        summary.contains("fixture-b (crashed: gave up after repeated exits"),
+        "{check}"
+    );
+    assert!(
+        summary.contains("fixture-c (stopped: exited on its own"),
+        "{check}"
+    );
+    stop(&mut s, &mut c, 5000);
+}
+
+/// Minor 3: every spawn reads the manifest as it is now. A module whose `apiVersion` is changed to an unsupported one
+/// while it runs is not respawned after its next exit: `crashed`, `api-version-unsupported`.
+#[test]
+fn a_respawn_reads_the_manifest_again() {
+    let h = Home::new();
+    let dir = h.install("fixture", json!({}));
+    h.config(1000, json!({}));
+    let mut s = h.start(&[]);
+    let mut c = client(&h.home);
+    let st = wait_for(&mut c, "fixture", "ready", |m| state(m) == "ready");
+    let pid = child(&st, "fixture").unwrap()["pid"].as_u64().unwrap();
+    let mut m: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("module.json")).unwrap()).unwrap();
+    m["apiVersion"] = json!("3");
+    std::fs::write(dir.join("module.json"), m.to_string()).unwrap();
+    kill(pid as u32);
+    let st = wait_for(&mut c, "fixture", "api-version-unsupported", |m| {
+        m["process"]["reason"] == "api-version-unsupported"
+    });
+    let m = child(&st, "fixture").unwrap();
+    assert_eq!(state(m), "crashed", "{m}");
+    assert_eq!(m["nextRestartAt"], Value::Null, "{m}");
+    assert_eq!(m["pid"], Value::Null, "{m}");
+    assert_eq!(
+        h.log()
+            .iter()
+            .filter(|r| r["msg"] == "fixture spawned")
+            .count(),
+        1
+    );
+    stop(&mut s, &mut c, 5000);
+}
+
+/// B12 on the spawn path (minor 2): a spawned module whose hello names another module is killed, and the exit is fatal
+/// `manifest-invalid` — a retry would report the same identity.
+#[cfg(unix)]
+#[test]
+fn a_spawned_module_reporting_another_name_is_fatal_manifest_invalid() {
+    let h = Home::new();
+    let dir = h.install("fixture", json!({}));
+    let entry = IMPOSTOR.replace(
+        "const run = process.argv[2];",
+        "const run = join(process.argv[process.argv.indexOf(\"--home\") + 1], \"run\");",
+    );
+    std::fs::write(dir.join("index.js"), entry).unwrap();
+    h.config(1000, json!({}));
+    let mut s = h.start(&[]);
+    let mut c = client(&h.home);
+    let st = wait_for(&mut c, "fixture", "crashed", |m| state(m) == "crashed");
+    let m = child(&st, "fixture").unwrap();
+    assert_eq!(m["process"]["reason"], "manifest-invalid", "{m}");
+    assert_eq!(m["lastExit"]["reason"], "manifest-invalid", "{m}");
+    assert_eq!(m["nextRestartAt"], Value::Null, "{m}");
+    assert_eq!(m["restarts"], 0, "{m}");
+    assert!(h
+        .log_index("fixture reports another identity, killing", |r| r["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("impostor")))
+        .is_some());
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(child(&status(&mut c), "fixture").unwrap()["restarts"], 0);
+    stop(&mut s, &mut c, 5000);
 }
