@@ -187,6 +187,10 @@ struct Gen {
     /// Adopted core: the lifeline once it can no longer carry calls. Kept open until the exit, because closing it
     /// would orphan a core that is still alive.
     parked: Mutex<Option<Client>>,
+    /// Stopped for a requested restart ([`Monitor::restart_requested`]): its exit's reason is `none`.
+    restarting: AtomicBool,
+    /// This process reported `config.restartPending` and a restart job was queued for it (once per generation).
+    pending_pushed: AtomicBool,
 }
 
 impl Gen {
@@ -293,6 +297,8 @@ impl Monitor {
             lifeline_in_control: AtomicBool::new(true),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),
+            restarting: AtomicBool::new(false),
+            pending_pushed: AtomicBool::new(false),
         });
         {
             let mut st = m.shared.lock();
@@ -450,6 +456,8 @@ impl Monitor {
             lifeline_in_control: AtomicBool::new(false),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),
+            restarting: AtomicBool::new(false),
+            pending_pushed: AtomicBool::new(false),
         });
         {
             let mut st = self.shared.lock();
@@ -577,6 +585,40 @@ impl Monitor {
                     .error("core not reaped after the kill", json!({ "pid": gen.pid }));
             }
         }
+    }
+}
+
+impl Monitor {
+    /// A requested restart (B8): the stop sequence with `budget`, then a spawn. Its exit is `Requested` (reason
+    /// `none`), so it never counts toward the give-up budget. A core that is `crashed` (fatal or given up) has its
+    /// backoff reset first.
+    pub fn restart_requested(&mut self, budget: Duration) {
+        let pid = self
+            .current
+            .as_ref()
+            .filter(|g| !g.exited.load(Ordering::SeqCst))
+            .map(|g| {
+                g.restarting.store(true, Ordering::SeqCst);
+                g.pid
+            });
+        {
+            let mut st = self.shared.lock();
+            let crashed = st
+                .child
+                .as_ref()
+                .is_some_and(|c| matches!(c.health, Health::Crashed { .. }));
+            if crashed || st.backoff.given_up() {
+                st.backoff.reset();
+            }
+        }
+        self.shared
+            .log
+            .info("restarting core (requested)", json!({ "pid": pid }));
+        self.stop(budget);
+        if self.shared.lock().stopping.is_some() {
+            return;
+        }
+        self.spawn();
     }
 }
 
@@ -730,17 +772,27 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
             return;
         }
     };
-    let first = client
-        .call("core.status", json!({}))
-        .ok()
-        .and_then(|s| health_from(&s["process"]))
-        // Authenticated but no state yet: stay `starting` until a poll reports one.
-        .unwrap_or(Health::Starting);
+    let status = client.call("core.status", json!({})).ok();
+    let first = (
+        status
+            .as_ref()
+            .and_then(|s| health_from(&s["process"]))
+            // Authenticated but no state yet: stay `starting` until a poll reports one.
+            .unwrap_or(Health::Starting),
+        status,
+    );
     let now = Instant::now();
     *relock(&gen.last_ok) = now;
     gen.ready.store(true, Ordering::SeqCst);
-    shared.lock().backoff.on_ready(now);
-    set_health(shared, gen, first, false);
+    {
+        let mut st = shared.lock();
+        st.backoff.on_ready(now);
+        st.core_ready_ms = Some(gen.started.elapsed().as_millis() as u64);
+    }
+    set_health(shared, gen, first.0, false);
+    if let Some(status) = &first.1 {
+        check_restart_pending(shared, gen, status);
+    }
     shared.log.info(
         "core ready",
         json!({ "child": gen.role, "pid": gen.pid, "readyMs": gen.started.elapsed().as_millis() as u64 }),
@@ -790,6 +842,7 @@ fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 if let Some(h) = health_from(&status["process"]) {
                     set_health(shared, gen, h, false);
                 }
+                check_restart_pending(shared, gen, &status);
             }
             Err(e) => {
                 if gen.exited.load(Ordering::SeqCst) || gen.requested.load(Ordering::SeqCst) {
@@ -808,6 +861,39 @@ fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 }
             }
         }
+    }
+}
+
+/// B7: a core whose configuration differs from the one it started with in a `core`-class key reports
+/// `config.restartPending`; one requested restart is queued per generation (none while a stop or another restart job
+/// is on its way: that one replaces this process anyway).
+fn check_restart_pending(shared: &Shared, gen: &Gen, status: &Value) {
+    if status["config"]["restartPending"] != true
+        || gen.requested.load(Ordering::SeqCst)
+        || gen.pending_pushed.load(Ordering::SeqCst)
+    {
+        return;
+    }
+    {
+        let st = shared.lock();
+        if st.restart_running || !st.restart_jobs.is_empty() || st.stopping.is_some() {
+            return;
+        }
+    }
+    if super::push_restart(
+        shared,
+        plur1bus_config::Restart {
+            core: true,
+            ..Default::default()
+        },
+    )
+    .is_some()
+    {
+        gen.pending_pushed.store(true, Ordering::SeqCst);
+        shared.log.info(
+            "core reports a pending core-class config change",
+            json!({ "pid": gen.pid }),
+        );
     }
 }
 
@@ -970,7 +1056,14 @@ fn record_exit(
         at,
         reason: reason.clone(),
     };
+    let restarting = gen.is_some_and(|g| g.restarting.load(Ordering::SeqCst));
     let (health, reason, next) = match classify_exit(code, signal, requested) {
+        // A requested restart's exit is recorded with the reason `none`: not a crash, and nothing more specific.
+        ExitClass::Requested if restarting => (
+            Health::Stopped { reason: None },
+            Some(CrashReason::None.to_string()),
+            None,
+        ),
         ExitClass::Requested => (Health::Stopped { reason: None }, None, None),
         ExitClass::Fatal { reason } => {
             let reason = Some(reason);

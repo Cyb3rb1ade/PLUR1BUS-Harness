@@ -99,6 +99,18 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(validateResult("core.status", { ...base, journalReplay: { ...replaying, state: "paused" } }).ok, false);
   });
 
+  it("core.status config (1.3.0) is optional, closed and experimental", () => {
+    const d = (schema.$defs as any).CoreConfigStatus;
+    assert.equal(d["x-stability"], "experimental"); assert.equal(d["x-since"], "1.3.0");
+    assert.equal(d.additionalProperties, false);
+    assert.ok(!(schema.$defs as any).CoreStatus.required.includes("config"));
+    const base = { process: { state: "ready", since: 1 }, contract: "1.8.0", rpc: "1.3.0", instanceId: "i", pid: 1, uptimeMs: 1, engine: { ready: true, degraded: null }, agents: [] };
+    assert.deepEqual(validateResult("core.status", { ...base, config: { revision: "r", source: "supervisor", restartPending: true } }), { ok: true });
+    assert.deepEqual(validateResult("core.status", { ...base, config: { revision: null, source: "file", restartPending: false } }), { ok: true });
+    assert.equal(validateResult("core.status", { ...base, config: { revision: null, source: "env", restartPending: false } }).ok, false);
+    assert.equal(validateResult("core.status", { ...base, config: { revision: null, source: "file" } }).ok, false);
+  });
+
   it("everything new in 1.2.0 is experimental", () => {
     for (const name of ["supervisor.auth", "daemon.status", "daemon.start", "daemon.stop", "core.adopt"]) {
       assert.equal(methods[name]?.["x-stability"], "experimental", name);

@@ -29,6 +29,19 @@ describe("orphan watch", () => {
     w.dispose();
   });
 
+  it("setGraceMs applies to the next orphaning; a running timer keeps its deadline", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    const { w, events, advance } = harness(1000);
+    const s = new PassThrough(); w.watchStream(s);
+    s.end(); await flush();
+    w.setGraceMs(5000); // while the 1 s grace runs
+    advance(1000); assert.deepEqual(events, ["orphaned:1000", "expired"], "the running timer keeps its 1 s");
+    w.watchConnection("c1"); w.connectionClosed("c1");
+    advance(4999); assert.deepEqual(events, ["orphaned:1000", "expired", "reattached", "orphaned:2000"]);
+    advance(1); assert.equal(events.at(-1), "expired", "the next orphaning waits 5 s");
+    w.dispose();
+  });
+
   it("watchConnection before expiry cancels the timer and calls onReattached", async () => {
     mock.timers.enable({ apis: ["setTimeout"] });
     const { w, events, advance } = harness();

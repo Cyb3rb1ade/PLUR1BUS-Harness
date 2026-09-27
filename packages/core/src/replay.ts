@@ -25,6 +25,7 @@ function detachable(target: () => HarnessLogger | null): HarnessLogger {
     warn: (m, f) => target()?.warn(m, f), error: (m, f) => target()?.error(m, f),
     child: (fields) => detachable(() => target()?.child(fields) ?? null),
     setLevel: (l) => target()?.setLevel(l),
+    setRotation: (r) => target()?.setRotation(r),
     close: async () => {},
   };
 }

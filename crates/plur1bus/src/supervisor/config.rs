@@ -256,7 +256,10 @@ fn install(shared: &Shared, st: &mut ConfigState, new: Value, source: &str) {
 
 /// `config.set` (B5): validates `changes` against the running configuration (all or none), refuses a stale
 /// `if_revision`, writes config.json atomically (after backing up a rejected hand edit, B4), makes the result the
-/// running configuration and notifies the subscribers (`source: "set"`). `dry_run` only computes the plan.
+/// running configuration and notifies the subscribers (`source: "set"`). `dry_run` only computes the plan. A change
+/// of a `core`-class key then restarts the core (B8): the job is queued with the new configuration, and waited for
+/// (up to the stop budget plus the ready timeout) without the config lock (H3B-R6); `restarted`, `durationMs` and
+/// `estimates.core` report it.
 pub fn set(
     shared: &Arc<Shared>,
     layout: &Layout,
@@ -267,7 +270,7 @@ pub fn set(
     let started = Instant::now();
     // Serialised by the config mutex. It is released at the end of this block: a later step that waits for a
     // restart job (Task 5) must wait without it, because the restarted core's own `config.watch` needs it (H3B-R6).
-    let (applied, changed, restart, revision) = {
+    let (applied, changed, restart, revision, job) = {
         let mut st = relock(&shared.config);
         let Some(running) = st.running.clone() else {
             return Err(SetError::Unavailable);
@@ -287,7 +290,7 @@ pub fn set(
         })?;
         let restart = restart_json(&plan.restart);
         if dry_run || (plan.changed.is_empty() && st.rejected.is_none()) {
-            (!dry_run, plan.changed, restart, current)
+            (!dry_run, plan.changed, restart, current, None)
         } else {
             let path = layout.config_path();
             if st.rejected.is_some() && path.exists() {
@@ -306,13 +309,65 @@ pub fn set(
             st.stamp = file_stamp(&path);
             install(shared, &mut st, plan.after, "set");
             let revision = st.revision.clone().unwrap_or_default();
-            (true, plan.changed, restart, revision)
+            // Queued before the config lock is released, so the job precedes any the restarted core's own
+            // `restartPending` could cause.
+            let job = plan
+                .restart
+                .core
+                .then(|| super::push_restart(shared, plan.restart.clone()))
+                .flatten();
+            (true, plan.changed, restart, revision, job)
         }
     };
-    Ok(json!({
+    let mut restarted: Vec<String> = Vec::new();
+    if let Some(rx) = job {
+        let deadline = started + super::DEFAULT_STOP_BUDGET + ready_timeout(shared);
+        match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+            Ok(units) => {
+                if units.iter().any(|u| u == "core") {
+                    wait_core_up(shared, deadline);
+                }
+                restarted = units;
+            }
+            Err(_) => shared.log.warn(
+                "the requested restart did not finish in time",
+                json!({ "revision": revision }),
+            ),
+        }
+    }
+    let mut out = json!({
         "applied": applied, "dryRun": dry_run, "changed": changed, "restart": restart, "revision": revision,
-        "restarted": [], "durationMs": started.elapsed().as_millis() as u64,
-    }))
+        "restarted": restarted, "durationMs": started.elapsed().as_millis() as u64,
+    });
+    if applied && !dry_run && restart["core"] == true {
+        out["estimates"] = json!({ "core": shared.lock().core_ready_ms });
+    }
+    Ok(out)
+}
+
+/// The supervisor's ready timeout for a spawned core (60 s × time scale, as `child::Timing`).
+fn ready_timeout(shared: &Shared) -> Duration {
+    Duration::from_secs_f64(60.0 * shared.lock().time_scale)
+}
+
+/// Waits until the core the restart spawned is up (ready or degraded), has exited, or `deadline` passes.
+fn wait_core_up(shared: &Shared, deadline: Instant) {
+    use super::state::Health;
+    while Instant::now() < deadline {
+        let up = shared.lock().child.as_ref().is_some_and(|c| {
+            matches!(
+                c.health,
+                Health::Ready
+                    | Health::Degraded(_)
+                    | Health::Crashed { .. }
+                    | Health::Stopped { .. }
+            )
+        });
+        if up {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 /// One watcher tick (B4): when config.json's mtime or length changed, read it; bytes the supervisor applied or wrote

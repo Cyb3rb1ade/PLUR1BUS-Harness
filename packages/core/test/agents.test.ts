@@ -54,7 +54,7 @@ describe("agents", () => {
       warn: (msg) => warns.push(msg),
       error: () => {},
       child: () => logger,
-      setLevel: () => {},
+      setLevel: () => {}, setRotation: () => {},
       close: async () => {},
     };
     const reg = createAgentRegistry({ path: l.configPath }, l, logger);
@@ -76,7 +76,7 @@ describe("agents", () => {
       warn: (msg) => warns.push(msg),
       error: () => {},
       child: () => logger,
-      setLevel: () => {},
+      setLevel: () => {}, setRotation: () => {},
       close: async () => {},
     };
     const reg = createAgentRegistry({ path: l.configPath }, l, logger);
@@ -121,7 +121,7 @@ describe("agents", () => {
       warn: (msg) => warns.push(msg),
       error: () => {},
       child: () => logger,
-      setLevel: () => {},
+      setLevel: () => {}, setRotation: () => {},
       close: async () => {},
     };
     const reg = createAgentRegistry({ path: l.configPath }, l, logger);

@@ -63,6 +63,81 @@ pub fn start(home: &Path) -> Supervisor {
     s
 }
 
+/// `plur1bus supervise` in `home` with `tests/fixtures/fake-core.mjs` as its core (events appended to `events`), at
+/// time scale `scale`, plus `env`; waits until it answers `supervisor.auth`.
+pub fn start_with_core(
+    home: &Path,
+    events: &Path,
+    scale: &str,
+    env: &[(&str, &str)],
+) -> Supervisor {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-core.mjs");
+    let child = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+        .arg("--home")
+        .arg(home)
+        .arg("supervise")
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", scale)
+        .env("PLUR1BUS_CORE_JS", &fixture)
+        .env("PLUR1BUS_NODE", "node")
+        .env_remove("PLUR1BUS_TEST_INTERNALS")
+        .env("FAKE_CORE_EVENTS", events)
+        .env("FAKE_CORE_GRACE_MS", "300")
+        .envs(env.iter().copied())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let s = Supervisor {
+        child,
+        home: home.to_path_buf(),
+    };
+    wait_until("run/supervisor.token", WAIT, || {
+        home.join("run/supervisor.token").exists()
+    });
+    drop(client(home));
+    s
+}
+
+/// The fake core's events (one JSON object per line) named `name`.
+pub fn fake_core_events(events: &Path, name: &str) -> Vec<Value> {
+    std::fs::read_to_string(events)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|e| e["event"] == name)
+        .collect()
+}
+
+/// `daemon.status`'s core child (validated), or null.
+pub fn core_child(c: &mut Client) -> Value {
+    let st = c.call("daemon.status", json!({})).unwrap();
+    assert_valid("methods/daemon.status/result", &st);
+    st["children"].get(0).cloned().unwrap_or(Value::Null)
+}
+
+/// Polls `daemon.status` until the core child satisfies `f`; returns it.
+pub fn wait_child(
+    c: &mut Client,
+    what: &str,
+    within: Duration,
+    f: impl Fn(&Value) -> bool,
+) -> Value {
+    let deadline = Instant::now() + within;
+    loop {
+        let child = core_child(c);
+        if f(&child) {
+            return child;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for {what}; last: {child}"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 /// Same rule as `paths::supervisor_address` (the tempdir home is already absolute and normalised).
 pub fn address(home: &Path) -> String {
     if cfg!(windows) {

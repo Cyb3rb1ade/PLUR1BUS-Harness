@@ -6,7 +6,9 @@ import { engineLoggerFrom, type HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
 
-export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; config: HarnessConfig; engineConfig: Record<string, unknown>; agents: AgentRegistry; events: (name: string, payload: unknown) => void; clock?: () => number }): HostServices {
+export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; config: HarnessConfig; engineConfig: Record<string, unknown>; agents: AgentRegistry; events: (name: string, payload: unknown) => void; clock?: () => number;
+  /** Set only under a supervisor (B7): the engine's config changes go to the supervisor's `config.set`. */
+  mutateConfig?: (patch: Record<string, unknown>) => Promise<void> }): HostServices {
   return {
     logger: engineLoggerFrom(o.logger.child({ src: "engine" })),
     stateDir: o.layout.state,
@@ -16,7 +18,8 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
     capabilities: { journalBacklog: () => journalBacklog(o.layout.journal) },
     workspaceDir: async (agentId) => o.agents.workspaceOf(agentId),
     config: () => o.engineConfig as EngineConfig,
-    // mutateConfig: absent in H1 (H2 forwards to the supervisor's config.set)
+    // Absent without a supervisor: nothing else owns config.json while the core runs on its own.
+    ...(o.mutateConfig ? { mutateConfig: o.mutateConfig } : {}),
     events: { emit: (name, payload) => o.events(name, payload) },
     clock: o.clock ?? Date.now,
     platform: createPlatformCapabilities({ logger: o.logger }),

@@ -22,6 +22,7 @@ use logfile::RotatingFile;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
 use state::{Backoff, ChildState};
+use std::collections::VecDeque;
 use std::fs;
 use std::io::{self, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -52,6 +53,14 @@ pub struct SupervisorConfig {
     pub health_interval_ms: u64,
     pub log_max_bytes: u64,
     pub log_keep: u32,
+}
+
+/// A requested restart (B8): the units of `plan` are restarted by the main thread, which then sends the ones it
+/// restarted on `done` (a caller that stopped waiting has dropped the receiver; the send is then ignored).
+#[derive(Debug)]
+pub struct RestartJob {
+    pub plan: plur1bus_config::Restart,
+    pub done: std::sync::mpsc::Sender<Vec<String>>,
 }
 
 /// What currently keeps the supervised core's lifeline (S4).
@@ -110,6 +119,13 @@ pub struct SupervisorState {
     pub restart_at: Option<Instant>,
     /// `daemon.start` asked for an immediate spawn (a no-op while the core is running).
     pub start_requested: bool,
+    /// Requested restarts (`config.set` of a `core` key, a core reporting `restartPending`), run in order by the main
+    /// thread (B8), which a push wakes.
+    pub restart_jobs: VecDeque<RestartJob>,
+    /// The main thread is running a restart job (a core reporting `restartPending` then pushes none).
+    pub restart_running: bool,
+    /// The last spawn-to-ready time of the core (ms): `config.set`'s `estimates.core`. `None` before one.
+    pub core_ready_ms: Option<u64>,
 }
 
 impl SupervisorState {
@@ -602,6 +618,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             backoff: Backoff::new(time_scale),
             restart_at: None,
             start_requested: false,
+            restart_jobs: VecDeque::new(),
+            restart_running: false,
+            core_ready_ms: None,
         }),
         wake: Condvar::new(),
         log,
@@ -651,23 +670,28 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         start_core(&shared, layout, &token, &mut monitor, spawn_core);
     }
 
-    // Main thread: the restart scheduler (a due `restart_at`, `daemon.start`) until a stop.
+    // Main thread: the restart scheduler (a requested restart, a due `restart_at`, `daemon.start`) until a stop.
     let stop = loop {
-        let spawn = {
+        let next = {
             let mut st = shared.lock();
             loop {
                 if let Some(stop) = st.stopping {
                     break Err(stop);
                 }
+                // Before `daemon.start`: a job restarts a core that is down, and the start that follows is a no-op.
+                if let Some(job) = st.restart_jobs.pop_front() {
+                    st.restart_running = true;
+                    break Ok(Some(job));
+                }
                 if std::mem::take(&mut st.start_requested) {
                     st.restart_at = None;
-                    break Ok(());
+                    break Ok(None);
                 }
                 let now = Instant::now();
                 st = match st.restart_at {
                     Some(at) if at <= now => {
                         st.restart_at = None;
-                        break Ok(());
+                        break Ok(None);
                     }
                     Some(at) => match shared.wake.wait_timeout(st, at - now) {
                         Ok((g, _)) => g,
@@ -677,11 +701,14 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                 };
             }
         };
-        match spawn {
+        match next {
             Err(stop) => break stop,
-            Ok(()) => restart_core(&shared, layout, &token, &mut monitor, spawn_core),
+            Ok(Some(job)) => run_restart_job(&shared, &mut monitor, job, spawn_core),
+            Ok(None) => restart_core(&shared, layout, &token, &mut monitor, spawn_core),
         }
     };
+    // A job still queued is not run: dropping its sender tells a waiting `config.set` so.
+    shared.lock().restart_jobs.clear();
     shared.log.info(
         "supervisor stopping",
         json!({ "budgetMs": stop.budget.as_millis() as u64, "source": match stop.source {
@@ -696,6 +723,49 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     shared.log.info("supervisor stopped", json!({}));
     drop(lock);
     0
+}
+
+/// Runs one requested restart (B8): the core, when the plan names it, through [`child::Monitor::restart_requested`]
+/// (or a first spawn when there has been no process); modules follow with Task 10. Sends the units restarted.
+fn run_restart_job(
+    shared: &Arc<Shared>,
+    monitor: &mut Option<child::Monitor>,
+    job: RestartJob,
+    spawn_core: impl Fn(&mut Option<child::Monitor>),
+) {
+    let mut restarted = Vec::new();
+    let no_core = shared.lock().no_core;
+    if job.plan.core && !no_core {
+        match monitor.as_mut() {
+            Some(m) => m.restart_requested(DEFAULT_STOP_BUDGET),
+            None => {
+                shared.lock().backoff.reset();
+                spawn_core(monitor);
+            }
+        }
+        if monitor.as_ref().is_some_and(child::Monitor::is_running) {
+            restarted.push("core".to_string());
+        }
+    }
+    shared.lock().restart_running = false;
+    let _ = job.done.send(restarted);
+}
+
+/// Queues a requested restart of `plan`'s units and wakes the main thread; `None` (nothing queued) during a stop, or
+/// when the plan names only the core and there is none to restart (`--no-core`). The receiver yields the units
+/// restarted.
+pub fn push_restart(
+    shared: &Shared,
+    plan: plur1bus_config::Restart,
+) -> Option<std::sync::mpsc::Receiver<Vec<String>>> {
+    let mut st = shared.lock();
+    if st.stopping.is_some() || (st.no_core && plan.modules.is_empty()) {
+        return None;
+    }
+    let (done, rx) = std::sync::mpsc::channel();
+    st.restart_jobs.push_back(RestartJob { plan, done });
+    shared.wake.notify_all();
+    Some(rx)
 }
 
 /// The core at start (spec §6.4, S6): probe the address before any spawn ([`probe_and_adopt`]), and spawn only when
@@ -871,6 +941,9 @@ pub(crate) fn test_state() -> SupervisorState {
         backoff: Backoff::new(1.0),
         restart_at: None,
         start_requested: false,
+        restart_jobs: VecDeque::new(),
+        restart_running: false,
+        core_ready_ms: None,
     }
 }
 
@@ -940,6 +1013,9 @@ mod tests {
             backoff: Backoff::new(1.0),
             restart_at: None,
             start_requested: false,
+            restart_jobs: VecDeque::new(),
+            restart_running: false,
+            core_ready_ms: None,
         };
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {

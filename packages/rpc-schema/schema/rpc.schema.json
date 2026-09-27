@@ -110,7 +110,19 @@
         "journalBacklog": { "type": "integer", "description": "Complete lines still in state/journal (live and `.replaying-*` files) as the engine's journal status reports them (E4), or the start replay's kept count when the engine reports none." },
         "journalReplay": { "$ref": "#/$defs/JournalReplayStatus" },
         "jobs": { "$ref": "#/$defs/JobsStatus" },
+        "config": { "$ref": "#/$defs/CoreConfigStatus" },
         "deprecationsUsed": { "type": "array", "items": { "type": "string" }, "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)." }
+      }
+    },
+    "CoreConfigStatus": {
+      "description": "Experimental (1.3.0). The configuration the core runs (B7): `source` is `supervisor` (its `config.watch` snapshot and every `config.changed` since) or `file` (config.json read at start, when no supervisor answered). `revision` is the supervisor's revision of it, null for the file. `restartPending` is true when it differs from the configuration the core started with in a `core`-class key; the supervisor then restarts the core once. Absent before the core has read its configuration.",
+      "x-stability": "experimental", "x-since": "1.3.0",
+      "type": "object", "additionalProperties": false,
+      "required": ["revision", "source", "restartPending"],
+      "properties": {
+        "revision": { "type": ["string", "null"] },
+        "source": { "type": "string", "enum": ["supervisor", "file"] },
+        "restartPending": { "type": "boolean" }
       }
     },
     "JournalReplayStatus": {

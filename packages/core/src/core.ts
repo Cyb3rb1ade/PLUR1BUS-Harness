@@ -1,18 +1,19 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
-import type { Engine, EngineStatus, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { HarnessConfig } from "@plur1bus/config-schema";
 import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
-import { loadConfig } from "./config-load.ts";
+import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
 import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig } from "./engine-config.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
-import { createLogger, type HarnessLogger } from "./logger.ts";
+import { createLogger, type HarnessLogger, type Level } from "./logger.ts";
 import { MEMORY_OP_METHODS } from "./memory-ops.ts";
 import { createOrphanWatch, type OrphanWatch } from "./orphan-watch.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
@@ -45,6 +46,8 @@ export interface Core {
   stop(o?: { budgetMs?: number }): Promise<void>;
   status(): CoreStatusResult;
   readonly address: string; readonly token: string; readonly layout: Layout;
+  /** The configuration the core runs now (B7); null before start() has read it. */
+  currentConfig(): HarnessConfig | null;
 }
 type State = ProcessState & { since: number };
 
@@ -62,6 +65,11 @@ export interface CoreOptions {
   lifeline?: NodeJS.ReadableStream;
   /** Called when the core has been orphaned for `supervisor.graceMs`, in place of calling stop() directly. */
   onOrphanGraceExpired?: () => void;
+  /** B7 (H3B-R8): load the configuration from the supervisor's `config.watch` (falling back to config.json), and
+   *  follow its `config.changed`. bin.ts sets it for `--lifeline stdin`; absent, the core reads config.json once. */
+  supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
+  /** Test seam: sees the HostServices the engine is given. */
+  inspectHost?: (host: HostServices) => void;
 }
 
 /** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
@@ -102,6 +110,7 @@ export function createCore(o: CoreOptions): Core {
   let journalBacklog = 0; let stopping: Promise<void> | null = null; let wroteRunFiles = false;
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
+  let source: ConfigSource | null = null;
   let warmup: Warmup | null = null;
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
@@ -164,15 +173,24 @@ export function createCore(o: CoreOptions): Core {
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
       ...(replay ? { journalReplay: replay.status() } : {}),
       ...(jobs ? { jobs } : {}),
+      ...(source ? { config: { revision: source.revision(), source: source.source, restartPending: source.restartPending() } } : {}),
       deprecationsUsed: server?.deprecationsUsed() ?? [],
     };
   }
 
   async function start(): Promise<void> {
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal]) mkdirSync(d, { recursive: true, mode: 0o700 });
-    const { config } = loadConfig(l.configPath);
+    // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
+    // written once it does.
+    const early: [Level, string, Record<string, unknown> | undefined][] = [];
+    const at = (lvl: Level) => (msg: string, fields?: Record<string, unknown>) => { if (logger) logger[lvl](msg, fields); else early.push([lvl, msg, fields]); };
+    const cs = await openConfigSource({ layout: l, supervised: o.supervisorConfig !== undefined, logger: { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error") }, ...o.supervisorConfig });
+    source = cs;
+    const config = cs.current(); // the configuration the engine is built from (core-class keys)
+    const cfg = () => cs.current();
     logger = o.logger ?? createLogger({ file: l.logFile("core"), level: config.core.logLevel, role: "core", maxBytes: config.logs.maxBytes, keep: config.logs.keep });
     const log = logger;
+    for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
     const platform = createPlatformCapabilities({ logger: log });
     platform.securePath(l.run, { mode: 0o700 });
@@ -183,7 +201,7 @@ export function createCore(o: CoreOptions): Core {
         if (state.state !== "ready" && state.state !== "degraded") return;
         beforeOrphan = state;
         setState({ state: "orphaned", since });
-        log.warn("lifeline lost, core orphaned", { graceMs: config.supervisor.graceMs });
+        log.warn("lifeline lost, core orphaned", { graceMs: cfg().supervisor.graceMs });
       },
       onReattached: () => {
         if (state.state === "starting") { graceExpiredWhileStarting = false; return; } // an adoption before ready is a live lifeline
@@ -199,14 +217,25 @@ export function createCore(o: CoreOptions): Core {
       },
     });
     const graceExpired = () => {
-      log.warn("orphan grace expired, stopping", { graceMs: config.supervisor.graceMs });
+      log.warn("orphan grace expired, stopping", { graceMs: cfg().supervisor.graceMs });
       if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
     };
     // Watched from the start (S4), so an adoption during the engine start replaces the spawner's stdin, never the reverse.
     if (o.lifeline) orphans.watchStream(o.lifeline);
+    // Spec §6.1 live keys: applied as they arrive. `core.recall.*`, `core.capture.waitMs`, `core.shutdownBudgetMs` and
+    // `agents` are read per use; a `core`-class change waits for the supervisor's restart (restartPending).
+    const watchedOrphans = orphans;
+    cs.onChange((prev, next, plan) => {
+      if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
+      if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
+      if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
+      log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
+      log.debug("live keys applied", { keys: plan.restart.live });
+    });
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
-      const registry = createAgentRegistry({ path: l.configPath }, l, logger); agents = registry;
+      // Under the supervisor the agents follow its configuration; on its own the core follows config.json's edits.
+      const registry = createAgentRegistry(cs.source === "supervisor" ? { config: cfg } : { path: l.configPath }, l, logger); agents = registry;
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       const unmapped = new Set<string>();
@@ -221,7 +250,11 @@ export function createCore(o: CoreOptions): Core {
           server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload }, { optIn: true });
         }
       };
-      const host = createHarnessHost({ layout: l, logger, config, engineConfig, agents: registry, events, clock });
+      const host = createHarnessHost({
+        layout: l, logger, config, engineConfig, agents: registry, events, clock,
+        ...(cs.source === "supervisor" ? { mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")) } : {}),
+      });
+      o.inspectHost?.(host);
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
       const eng = bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined); engine = eng;
       assertEngineContract(eng);
@@ -234,7 +267,7 @@ export function createCore(o: CoreOptions): Core {
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
       const methods = buildMethods({
-        engine: eng, config, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
+        engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
         shutdown: (budgetMs) => {
@@ -292,6 +325,7 @@ export function createCore(o: CoreOptions): Core {
       shutdown.abort(new Error("core start failed"));
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
+      await step(log, "config watch", async () => { await source?.close(); });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -315,6 +349,8 @@ export function createCore(o: CoreOptions): Core {
     }
     orphans?.watchConnection(connectionId);
     logger?.info("adopted", { connectionId, state: state.state });
+    // B7: the adopting supervisor may run another configuration than the one this core follows.
+    void source?.resubscribe();
     return status();
   }
 
@@ -342,6 +378,7 @@ export function createCore(o: CoreOptions): Core {
       shutdown.abort(new Error("core stopping"));
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
+      await step(logger, "config watch", async () => { await source?.close(); }, errors);
       // H3B-R2: the abort acts between lines; the capture in flight gets a bounded wait before the engine closes. A
       // replay still running then leaves its `.replaying-<pid>` file for the next start, and logs nothing more.
       await step(logger, "journal replay", async () => {
@@ -371,5 +408,5 @@ export function createCore(o: CoreOptions): Core {
     return stopping;
   }
 
-  return { start, stop, status, address, token, layout: l };
+  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null };
 }

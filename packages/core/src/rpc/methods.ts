@@ -14,7 +14,8 @@ import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
 
 export interface MethodDeps {
-  engine: Engine; config: HarnessConfig; agents: AgentRegistry; activity: ActivityTracker; logger: HarnessLogger;
+  /** The running configuration, read per use: `core.recall.*` and `core.capture.waitMs` are live keys. */
+  engine: Engine; config: () => HarnessConfig; agents: AgentRegistry; activity: ActivityTracker; logger: HarnessLogger;
   status: () => CoreStatusResult; shutdown: (budgetMs?: number) => void; journalBacklog: () => number; clock: () => number;
   /** R19: the core-owned shutdown signal, the only abort a capture observes. */
   captureSignal: AbortSignal;
@@ -70,9 +71,9 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       // instead of passing on the engine's "engine closed" as if the core had served it.
       if (d.isStopping()) throw coreStopping();
       const { principal, degraded } = identity(d, p.caller, p.agentId);
-      const hardMs = p.budget?.hardMs ?? d.config.core.recall.hardBudgetMs;
-      const softMs = p.budget?.softMs ?? d.config.core.recall.softBudgetMs;
-      const capChars = p.budget?.capChars ?? d.config.core.recall.capChars;
+      const hardMs = p.budget?.hardMs ?? d.config().core.recall.hardBudgetMs;
+      const softMs = p.budget?.softMs ?? d.config().core.recall.softBudgetMs;
+      const capChars = p.budget?.capChars ?? d.config().core.recall.capChars;
       const signal = AbortSignal.any([ctx.signal, AbortSignal.timeout(hardMs)]);
       d.activity.set(p.agentId, { state: "recalling" });
       try {
@@ -103,7 +104,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       settle.catch((e) => d.logger.warn("capture failed", { agentId: p.agentId, captureId: handle.id, err: e })); // never an unhandled rejection
       const pending: MemoryCaptureResult = { id: handle.id, acceptedAt: handle.acceptedAt, pending: true };
       if (p.wait === false) return pending;
-      const waitMs = p.waitMs ?? d.config.core.capture.waitMs;
+      const waitMs = p.waitMs ?? d.config().core.capture.waitMs;
       let timer: NodeJS.Timeout | undefined;
       const timedOut = new Promise<null>((res) => { timer = setTimeout(() => res(null), waitMs); timer.unref(); });
       try {

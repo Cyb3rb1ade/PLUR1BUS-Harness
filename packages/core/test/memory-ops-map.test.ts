@@ -102,7 +102,7 @@ describe("buildMemoryOpMethods (fake engine)", () => {
   const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
   const workspace = tempDir("p1b-memops-map-");
   const agents: AgentRegistry = { list: () => ["bernd"], has: (id) => id === "bernd", scaffold: () => {}, workspaceOf: (id) => (id === "bernd" ? workspace : undefined) };
-  const logger = { debug() {}, info() {}, warn() {}, error() {}, child() { return logger; }, setLevel() {}, close: async () => {} } as HarnessLogger;
+  const logger = { debug() {}, info() {}, warn() {}, error() {}, child() { return logger; }, setLevel() {}, setRotation() {}, close: async () => {} } as HarnessLogger;
   const ctx = { signal: new AbortController().signal } as any;
 
   function fixture(o: { stopping?: () => boolean; fail?: unknown } = {}) {

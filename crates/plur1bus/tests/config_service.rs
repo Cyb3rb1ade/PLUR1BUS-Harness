@@ -1,6 +1,7 @@
 //! The supervisor owns config.json (2a-H3b rulings B3–B5, B18): `config.get|set|watch`, `config.changed`, revisions
 //! and conflicts, and the polling watcher (hand edits, rejections, non-atomic saves). `supervise --no-core` in a temp
-//! home; the watcher ticks every 200 ms (time scale 0.2).
+//! home; the watcher ticks every 200 ms (time scale 0.2). The restart tests (2a-H3b B7, B8) run `supervise` with the
+//! fake core instead.
 mod common;
 
 use common::{assert_valid, client, start, wait_until, Watch, TICK, WAIT};
@@ -549,4 +550,112 @@ fn a_subscriber_that_never_reads_is_dropped_and_set_stays_fast() {
     let w = Watch::open(home);
     set(&mut c, change("core.logLevel", json!("warn"))).unwrap();
     assert_eq!(level(&w.next_change(WAIT).unwrap()["config"]), "warn");
+}
+
+/// The core's `process.state` in a `daemon.status` child.
+fn child_state(child: &Value) -> &str {
+    child["process"]["state"].as_str().unwrap_or("")
+}
+
+fn ready_pid(c: &mut Client) -> u64 {
+    let child = common::wait_child(c, "a ready core", WAIT, |ch| child_state(ch) == "ready");
+    child["pid"].as_u64().unwrap()
+}
+
+#[test]
+fn a_core_key_change_restarts_the_core_once_and_reports_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let events = dir.path().join("events.jsonl");
+    // H3B-R6: every fake core calls config.watch before it listens, so the respawned core can only become ready if
+    // the set released the config mutex before it waited for the restart.
+    let _sup = common::start_with_core(&home, &events, "0.2", &[("FAKE_CORE_WATCH_CONFIG", "1")]);
+    let mut c = client(&home);
+    let before = ready_pid(&mut c);
+    let r = set(&mut c, change("engine.duplicateThreshold", json!(1.01))).unwrap();
+    assert_valid("methods/config.set/result", &r);
+    assert_eq!(r["restart"]["core"], true);
+    assert_eq!(r["restarted"], json!(["core"]));
+    assert!(r["estimates"]["core"].is_u64(), "{r}");
+    assert!(r["durationMs"].is_u64(), "{r}");
+    let child = common::core_child(&mut c);
+    assert_eq!(child_state(&child), "ready", "{child}");
+    let after = child["pid"].as_u64().unwrap();
+    assert_ne!(after, before, "a new core process");
+    assert_eq!(child["lastExit"]["reason"], "none", "{child}");
+    assert_eq!(child["restarts"], 1, "{child}");
+    // The new core watched the configuration it now runs.
+    let watched = common::fake_core_events(&events, "config-watched");
+    assert!(
+        watched
+            .iter()
+            .any(|e| e["pid"].as_u64() == Some(after) && e["revision"] == r["revision"]),
+        "{watched:?}"
+    );
+    // Once: no second restart follows.
+    std::thread::sleep(TICK * 10);
+    let child = common::core_child(&mut c);
+    assert_eq!(child["pid"].as_u64(), Some(after), "{child}");
+    assert_eq!(common::fake_core_events(&events, "started").len(), 2);
+}
+
+#[test]
+fn requested_restarts_never_count_toward_give_up() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let events = dir.path().join("events.jsonl");
+    let _sup = common::start_with_core(&home, &events, "0.02", &[]);
+    let mut c = client(&home);
+    let mut pid = ready_pid(&mut c);
+    // Six requested restarts well inside the 10 min × 0.02 window, where five crashes would give up.
+    for i in 1..=6u64 {
+        let r = set(
+            &mut c,
+            change("engine.duplicateThreshold", json!(1.0 + i as f64 / 100.0)),
+        )
+        .unwrap();
+        assert_eq!(r["restarted"], json!(["core"]), "set {i}: {r}");
+        let child = common::core_child(&mut c);
+        assert_ne!(child_state(&child), "crashed", "set {i}: {child}");
+        let now = child["pid"].as_u64().expect("a running core");
+        assert_ne!(now, pid, "set {i} restarted the core");
+        pid = now;
+    }
+    let child = common::wait_child(&mut c, "ready", WAIT, |ch| child_state(ch) == "ready");
+    assert_eq!(child["restarts"], 6, "{child}");
+    assert!(child["nextRestartAt"].is_null(), "{child}");
+}
+
+#[test]
+fn a_core_reporting_restart_pending_is_restarted_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let events = dir.path().join("events.jsonl");
+    let _sup =
+        common::start_with_core(&home, &events, "0.2", &[("FAKE_CORE_RESTART_PENDING", "1")]);
+    let mut c = client(&home);
+    wait_until("the first core", WAIT, || {
+        !common::fake_core_events(&events, "started").is_empty()
+    });
+    let child = common::wait_child(&mut c, "one requested restart", WAIT, |ch| {
+        ch["restarts"] == 1 && child_state(ch) == "ready"
+    });
+    assert_eq!(child["lastExit"]["reason"], "none", "{child}");
+    let pid = child["pid"].as_u64().unwrap();
+    // The new generation reports nothing pending: it stays (health polls every 1 s here).
+    std::thread::sleep(Duration::from_secs(3));
+    let child = common::core_child(&mut c);
+    assert_eq!(child["pid"].as_u64(), Some(pid), "{child}");
+    assert_eq!(child["restarts"], 1, "{child}");
+    let log = std::fs::read_to_string(home.join("logs/supervisor.log")).unwrap();
+    assert_eq!(
+        log.lines()
+            .filter(|l| l.contains("core reports a pending core-class config change"))
+            .count(),
+        1,
+        "{log}"
+    );
 }

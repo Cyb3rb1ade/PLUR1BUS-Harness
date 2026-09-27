@@ -14,6 +14,11 @@
 // FAKE_CORE_JOBS (JSON) is core.status's `jobs` object (default: absent, as from a core without job health).
 // FAKE_CORE_CONFIG_CHECK=1: exit 2 at start when <home>/config.json exists but is not JSON (core.js exits 2 on an
 // invalid config.json).
+// FAKE_CORE_RESTART_PENDING=1 (one-shot): the first core of a home (the one that creates state/fake-core-restart-pending)
+// reports core.status config.restartPending true; every later one false (H3B-R7).
+// FAKE_CORE_WATCH_CONFIG=1: before listening, call config.watch on the supervisor (auth with run/supervisor.token) and
+// wait up to 10 s for its reply, like core.js under a supervisor (B7); event `config-watched` { revision } or
+// `config-watch-failed`. The connection stays open.
 // Every event (started, listening, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
 // The lifeline (S4) is stdin with --lifeline stdin, then the connection of the last successful core.adopt (whose nonce
 // must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
@@ -90,6 +95,13 @@ mkdirSync(run, { recursive: true });
 if (process.platform !== "win32") rmSync(address, { force: true });
 const token = randomBytes(32).toString("hex");
 
+// One-shot (H3B-R7): only the core that creates the marker reports a pending restart, so its successor does not.
+let restartPending = null;
+if (process.env.FAKE_CORE_RESTART_PENDING === "1") {
+  try { writeFileSync(path.join(stateDir, "fake-core-restart-pending"), `${process.pid}\n`, { flag: "wx" }); restartPending = true; }
+  catch { restartPending = false; }
+}
+
 let statusCalls = 0;
 let hung = false;
 let stopping = false;
@@ -145,6 +157,7 @@ function coreStatus() {
     process: { state: reportedState(), since: started }, contract: "1.8.0", rpc: "1.3.0", instanceId, pid: process.pid,
     uptimeMs: Date.now() - started, engine: process.env.FAKE_CORE_ENGINE ? JSON.parse(process.env.FAKE_CORE_ENGINE) : { ready: true, degraded: null }, agents: [],
     ...(process.env.FAKE_CORE_JOBS ? { jobs: JSON.parse(process.env.FAKE_CORE_JOBS) } : {}),
+    ...(restartPending === null ? {} : { config: { revision: null, source: "file", restartPending } }),
   };
 }
 
@@ -228,6 +241,39 @@ const server = net.createServer((sock) => {
     }
   });
 });
+
+/** B7 as core.js does it under a supervisor: config.watch before the core serves. */
+function watchConfig() {
+  const address = process.platform === "win32"
+    ? `\\\\.\\pipe\\plur1bus-${createHash("sha256").update(home.toLowerCase()).digest("hex").slice(0, 16)}-supervisor`
+    : path.join(run, "supervisor.sock");
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (name, extra = {}) => { if (settled) return; settled = true; clearTimeout(timer); event(name, extra); resolve(); };
+    const timer = setTimeout(() => done("config-watch-failed", { reason: "timeout" }), 10_000);
+    let token = "";
+    try { token = readFileSync(path.join(run, "supervisor.token"), "utf8").trim(); } catch { done("config-watch-failed", { reason: "no-token" }); return; }
+    const sock = net.createConnection(address);
+    globalThis.fakeCoreWatch = sock; // kept open, like the core's subscription
+    let buf = "";
+    sock.on("error", () => done("config-watch-failed", { reason: "error" }));
+    sock.on("connect", () => {
+      sock.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "supervisor.auth", params: { token } }) + "\n");
+      sock.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "config.watch", params: {} }) + "\n");
+    });
+    sock.on("data", (chunk) => {
+      buf += chunk.toString("utf8");
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        let msg; try { msg = JSON.parse(line); } catch { continue; }
+        if (msg.id === 2) done(msg.result ? "config-watched" : "config-watch-failed", msg.result ? { revision: msg.result.revision } : { error: msg.error });
+      }
+    });
+  });
+}
+
+if (kind !== "no-listen" && process.env.FAKE_CORE_WATCH_CONFIG === "1") await watchConfig();
 
 if (kind !== "no-listen") {
   // Before listen, as core.ts does.

@@ -11,6 +11,8 @@ export interface HarnessLogger {
   error(msg: string, fields?: Record<string, unknown>): void;
   child(fields: Record<string, unknown>): HarnessLogger;
   setLevel(level: Level): void;
+  /** `logs.maxBytes` / `logs.keep` changed (a live key): applies from the next write on. No-op for a stream sink. */
+  setRotation(o: { maxBytes: number; keep: number }): void;
   close(): Promise<void>;
 }
 
@@ -20,7 +22,7 @@ function serializeError(v: unknown): unknown {
 
 /** A line sink that rotates by size (S17): checked before each write, `<file>.1` newest … `<file>.<keep>` oldest.
  *  Synchronous appends, so a rotation never races a queued write and every line lands in exactly one file. */
-function rotatingSink(file: string, maxBytes: number, keep: number): { write(line: string): void; close(): void } {
+function rotatingSink(file: string, maxBytes: number, keep: number): { write(line: string): void; close(): void; setLimits(maxBytes: number, keep: number): void } {
   let closed = false;
   let fd: number | null = null; let size = 0;
   const open = () => { fd = openSync(file, "a", 0o600); size = fstatSync(fd).size; };
@@ -47,6 +49,7 @@ function rotatingSink(file: string, maxBytes: number, keep: number): { write(lin
       } catch { /* dropped */ }
     },
     close() { closed = true; if (fd !== null) { try { closeSync(fd); } catch { /* already gone */ } fd = null; } },
+    setLimits(m, k) { maxBytes = m; keep = Math.max(1, k); },
   };
 }
 
@@ -57,7 +60,7 @@ export function createLogger(o: { file: string; level: Level; role: string; stre
   const sink = o.stream
     ? (() => {
       const stream = o.stream;
-      return { write: (line: string) => { if (!stream.writableEnded) stream.write(line); }, close: () => new Promise<void>((res) => stream.end(() => res())) };
+      return { write: (line: string) => { if (!stream.writableEnded) stream.write(line); }, close: () => new Promise<void>((res) => stream.end(() => res())), setLimits: () => {} };
     })()
     : rotatingSink(o.file, o.maxBytes ?? Number.POSITIVE_INFINITY, Math.max(1, o.keep ?? 5));
   let level = o.level;
@@ -72,6 +75,7 @@ export function createLogger(o: { file: string; level: Level; role: string; stre
       debug: (m, f) => write("debug", m, f), info: (m, f) => write("info", m, f), warn: (m, f) => write("warn", m, f), error: (m, f) => write("error", m, f),
       child: (fields) => make({ ...base, ...fields }),
       setLevel: (l) => { level = l; },
+      setRotation: (r) => { sink.setLimits(r.maxBytes, r.keep); },
       close: async () => { await sink.close(); },
     };
   };

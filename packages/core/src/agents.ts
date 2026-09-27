@@ -8,11 +8,41 @@ import type { HarnessLogger } from "./logger.ts";
 const TEMPLATE_DIR = new URL("./agent-templates/", import.meta.url);
 const TEMPLATES = ["SOUL.md", "USER.md", "persona-voice.md"] as const;
 
+/** The agent's workspace directory and its template files (never overwriting one that exists). */
+function scaffoldFiles(l: Layout, id: string): void {
+  mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
+  for (const t of TEMPLATES) {
+    const target = join(l.agentDir(id), t);
+    if (!existsSync(target)) writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", id), { mode: 0o600 });
+  }
+}
+
 export interface AgentRegistry { list(): string[]; has(id: string): boolean; scaffold(id: string): void; workspaceOf(id: string): string | undefined }
 
-export function createAgentRegistry(configOrPath: HarnessConfig | { path: string }, l: Layout, logger?: HarnessLogger): AgentRegistry {
-  // Handle both forms: existing (config) and new (path with live reload)
-  if (!("agents" in configOrPath)) {
+/** A fixed configuration, config.json with live reload (`path`), or a function returning the current configuration
+ *  (`config`: the supervisor's, B7). The function form scaffolds an agent the first time it appears, like the path form. */
+export type AgentRegistryInput = HarnessConfig | { path: string } | { config: () => HarnessConfig };
+
+export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout, logger?: HarnessLogger): AgentRegistry {
+  if ("config" in configOrPath && typeof configOrPath.config === "function") {
+    const current = configOrPath.config;
+    const seen = new Set<string>();
+    const agentsNow = () => {
+      const agents = current().agents;
+      for (const id of Object.keys(agents)) {
+        if (seen.has(id)) continue;
+        try { scaffoldFiles(l, id); seen.add(id); } catch (e) { logger?.warn("scaffold failed, will retry later", { agentId: id, err: e }); }
+      }
+      return agents;
+    };
+    return {
+      list: () => Object.keys(agentsNow()).sort(),
+      has: (id) => Object.hasOwn(agentsNow(), id),
+      scaffold: (id) => scaffoldFiles(l, id),
+      workspaceOf: (id) => (Object.hasOwn(agentsNow(), id) ? l.workspaceDir(id) : undefined),
+    };
+  }
+  if ("path" in configOrPath) {
     // Path form with live reload
     const pathForm = configOrPath as { path: string };
     let cached = { mtimeMs: 0, config: null as HarnessConfig | null };
@@ -22,11 +52,7 @@ export function createAgentRegistry(configOrPath: HarnessConfig | { path: string
 
     const scaffoldAgent = (id: string) => {
       try {
-        mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
-        for (const t of TEMPLATES) {
-          const target = join(l.agentDir(id), t);
-          if (!existsSync(target)) writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", id), { mode: 0o600 });
-        }
+        scaffoldFiles(l, id);
       } catch (e) {
         logger?.warn("scaffold failed, will retry later", { agentId: id, err: e });
       }
@@ -113,13 +139,7 @@ export function createAgentRegistry(configOrPath: HarnessConfig | { path: string
     return {
       list: () => Object.keys(config.agents).sort(),
       has: (id) => Object.hasOwn(config.agents, id),
-      scaffold(id) {
-        mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
-        for (const t of TEMPLATES) {
-          const target = join(l.agentDir(id), t);
-          if (!existsSync(target)) writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", id), { mode: 0o600 });
-        }
-      },
+      scaffold: (id) => scaffoldFiles(l, id),
       workspaceOf: (id) => (Object.hasOwn(config.agents, id) ? l.workspaceDir(id) : undefined),
     };
   }
