@@ -219,6 +219,8 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 6. Rollback restores the pre-apply state exactly.
 7. Fixtures are hand-authored and synthetic; a grep for known fixture tokens finds nothing in any report.
 
+**Pulled forward (owner, 2026-09-27):** `import --detect` (read-only) and `import --skills` (dry-run/apply/rollback) ship before M7 (`import.md` §8, §9); the rest of this scope stays here.
+
 **Blocking questions:** ADR-007 Q4 (unlink semantics affects the v1→v2 back-fill offered during import).
 
 **Effort 14–22 ad.** Fixture generation (both sources, two embedding identities) 3–5, OpenClaw importer 5–8, Hermes importer 4–6, wizard + report + rollback 2–3.
