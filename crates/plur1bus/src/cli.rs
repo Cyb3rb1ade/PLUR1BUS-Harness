@@ -60,8 +60,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ConfigCmd,
     },
-    /// Modules — 2a-H3b
-    Module(StubArgs),
+    /// Modules: list, graph, install, uninstall, start, stop, restart
+    Module {
+        #[command(subcommand)]
+        sub: ModuleCmd,
+    },
     /// Supervisor control: start, stop, restart, status
     Daemon {
         #[command(subcommand)]
@@ -354,6 +357,40 @@ pub enum ServiceCmd {
     Uninstall,
     /// [experimental] Show whether the OS service is registered and running
     Status,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ModuleCmd {
+    /// [experimental] List the installed modules and their state
+    ///
+    /// One line per module under `modules/`: name, version, priority and band, scope, whether
+    /// `modules.<name>.enabled` lets it run, its supervised state (while a supervisor runs) and why it cannot start.
+    List,
+    /// [experimental] Show the module dependency graph
+    ///
+    /// The modules as a tree by priority band (needs and consumes edges under each), then the needs-cycles and what
+    /// does not resolve.
+    Graph,
+    /// [experimental] Install a module from a directory (copied into modules/<name>)
+    ///
+    /// Refused, with nothing copied, when the directory holds a symlink, the manifest is invalid, names a reserved
+    /// module (core, supervisor) or has an entry outside the directory. A running module of that name is restarted.
+    Install { path: PathBuf },
+    /// [experimental] Stop and remove an installed module (its config section stays)
+    Uninstall {
+        name: String,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Start a module (needs a running supervisor)
+    Start { name: String },
+    /// [experimental] Stop a module until `module start` or a supervisor restart (needs a running supervisor)
+    ///
+    /// A runtime stop only: `config set modules.<name>.enabled false` is the persistent switch.
+    Stop { name: String },
+    /// [experimental] Restart a module (needs a running supervisor)
+    Restart { name: String },
 }
 
 #[derive(Subcommand, Debug)]

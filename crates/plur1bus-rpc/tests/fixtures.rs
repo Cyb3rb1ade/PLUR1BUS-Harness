@@ -52,6 +52,13 @@ fn method_fixture(name: &str, f: &Value) {
         "config.set" => pair::<ConfigSetParams, ConfigSetResult>(name, f),
         "config.watch" => pair::<ConfigWatchParams, ConfigWatchResult>(name, f),
         "module.watch" => pair::<ModuleWatchParams, ModuleWatchResult>(name, f),
+        "module.list" => pair::<ModuleListParams, ModuleListResult>(name, f),
+        "module.start" => pair::<ModuleStartParams, ModuleStartResult>(name, f),
+        "module.stop" => pair::<ModuleStopParams, ModuleStopResult>(name, f),
+        "module.restart" => pair::<ModuleRestartParams, ModuleRestartResult>(name, f),
+        "module.graph" => pair::<ModuleGraphParams, ModuleGraphResult>(name, f),
+        "module.install" => pair::<ModuleInstallParams, ModuleInstallResult>(name, f),
+        "module.uninstall" => pair::<ModuleUninstallParams, ModuleUninstallResult>(name, f),
         "module.auth" => pair::<ModuleAuthParams, ModuleAuthResult>(name, f),
         "module.status" => pair::<ModuleStatusParams, ModuleStatusResult>(name, f),
         "module.adopt" => pair::<ModuleAdoptParams, ModuleAdoptResult>(name, f),
@@ -144,6 +151,13 @@ fn every_method_fixture_round_trips() {
         "config.set",
         "config.watch",
         "module.watch",
+        "module.list",
+        "module.start",
+        "module.stop",
+        "module.restart",
+        "module.graph",
+        "module.install",
+        "module.uninstall",
     ] {
         assert!(names.contains(m), "fixtures/methods/{m}.json is missing");
     }

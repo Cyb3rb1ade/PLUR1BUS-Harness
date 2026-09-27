@@ -7,11 +7,14 @@
 use super::config::{self, SetError};
 use super::subscribers::{SharedWriter, Topic};
 use super::{relock, spawn_guarded, Shared, StopSource, DEFAULT_STOP_BUDGET, SUPERVISOR_FEATURES};
+use super::{ModuleVerb, OpError};
 use crate::paths::{supervisor_address, Layout};
 use plur1bus_rpc::client::MAX_LINE;
 use plur1bus_rpc::types::{
     ConfigGetParams, ConfigGetParamsTier, ConfigSetParams, ConfigWatchParams, DaemonStartParams,
-    DaemonStatusParams, DaemonStopParams, ModuleWatchParams, SupervisorAuthParams,
+    DaemonStatusParams, DaemonStopParams, ModuleGraphParams, ModuleInstallParams, ModuleListParams,
+    ModuleRestartParams, ModuleStartParams, ModuleStopParams, ModuleUninstallParams,
+    ModuleWatchParams, SupervisorAuthParams,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -234,6 +237,13 @@ fn set_error_reply(id: &Value, e: SetError) -> Value {
             None,
         ),
     }
+}
+
+/// Room a `module.*` call leaves, beyond the module's stop, for a restart job the main thread runs before it.
+const MODULE_OP_SLACK: Duration = Duration::from_secs(30);
+
+fn op_error_reply(id: &Value, e: OpError) -> Value {
+    error_reply(id, e.error, &e.message, e.reason.as_deref(), e.detail, None)
 }
 
 fn invalid_params(id: &Value, detail: String) -> Value {
@@ -571,6 +581,80 @@ impl ConnCtx {
         }
     }
 
+    /// Queues a `module.*` control call for the main thread and waits for its result: the stop budget, the stop grace
+    /// and room for a restart job running before it.
+    fn module_op(&self, id: &Value, name: &str, verb: ModuleVerb, budget_ms: Option<i64>) -> Value {
+        if budget_ms.is_some_and(|b| !(0..=MAX_BUDGET_MS).contains(&b)) {
+            return invalid_params(
+                id,
+                format!("budgetMs must be between 0 and {MAX_BUDGET_MS}"),
+            );
+        }
+        let budget = budget_ms
+            .map(|b| Duration::from_millis(b as u64))
+            .unwrap_or(DEFAULT_STOP_BUDGET);
+        let scale = self.shared.lock().time_scale;
+        let wait = budget + super::child::stop_grace(scale) + MODULE_OP_SLACK;
+        let rx = match super::push_module_op(&self.shared, name, verb, budget) {
+            Ok(rx) => rx,
+            Err(e) => return op_error_reply(id, e),
+        };
+        match rx.recv_timeout(wait) {
+            Ok(Ok(v)) => result_reply(id, v),
+            Ok(Err(e)) => op_error_reply(id, e),
+            Err(mpsc::RecvTimeoutError::Disconnected) => op_error_reply(
+                id,
+                OpError::new(
+                    "E_NOT_AVAILABLE",
+                    "the supervisor is stopping",
+                    Some("stopping"),
+                ),
+            ),
+            Err(mpsc::RecvTimeoutError::Timeout) => error_reply(
+                id,
+                "E_INTERNAL",
+                "the supervisor did not finish the call in time",
+                Some("timeout"),
+                None,
+                None,
+            ),
+        }
+    }
+
+    /// `module.install`: the source is checked and copied into its staging directory here (a refusal copies nothing,
+    /// B14), then the main thread puts it in place around a stop and a start of the module.
+    fn module_install(&self, id: &Value, path: &str) -> Value {
+        // One install at a time: the staging directory is named after the module and this process.
+        static STAGING: Mutex<()> = Mutex::new(());
+        let _one = relock(&STAGING);
+        let staged = match crate::modules::install::stage(&self.layout, std::path::Path::new(path))
+        {
+            Ok(s) => s,
+            Err(e) if e.is_io() => {
+                return error_reply(
+                    id,
+                    "E_INTERNAL",
+                    "the module could not be copied",
+                    None,
+                    Some(e.to_string()),
+                    None,
+                )
+            }
+            Err(e) => {
+                return error_reply(
+                    id,
+                    "E_INVALID_PARAMS",
+                    "the module was not installed",
+                    Some(e.reason()),
+                    Some(e.to_string()),
+                    None,
+                )
+            }
+        };
+        let name = staged.manifest.name.clone();
+        self.module_op(id, &name, ModuleVerb::Install(Box::new(staged)), None)
+    }
+
     /// Returns the reply, what to do next, and whether the connection is now authenticated; `None` for a message
     /// without an `id` (a notification), which gets no reply.
     fn dispatch(&self, msg: &Value, authed: bool, conn: &mut Conn) -> Option<(Value, After, bool)> {
@@ -654,6 +738,52 @@ impl ConnCtx {
             "module.watch" => match parse::<ModuleWatchParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(_) => self.module_watch(&id, conn),
+            },
+            "module.list" => match parse::<ModuleListParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    result_reply(&id, super::module_list(&self.shared, &self.layout)),
+                    After::Continue,
+                ),
+            },
+            "module.graph" => match parse::<ModuleGraphParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => {
+                    let g = crate::modules::graph(&crate::modules::scan(&self.layout));
+                    (result_reply(&id, json!(g)), After::Continue)
+                }
+            },
+            "module.start" => match parse::<ModuleStartParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(p) => (
+                    self.module_op(&id, &p.name, ModuleVerb::Start, p.budget_ms),
+                    After::Continue,
+                ),
+            },
+            "module.stop" => match parse::<ModuleStopParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(p) => (
+                    self.module_op(&id, &p.name, ModuleVerb::Stop, p.budget_ms),
+                    After::Continue,
+                ),
+            },
+            "module.restart" => match parse::<ModuleRestartParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(p) => (
+                    self.module_op(&id, &p.name, ModuleVerb::Restart, p.budget_ms),
+                    After::Continue,
+                ),
+            },
+            "module.install" => match parse::<ModuleInstallParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(p) => (self.module_install(&id, &p.path), After::Continue),
+            },
+            "module.uninstall" => match parse::<ModuleUninstallParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(p) => (
+                    self.module_op(&id, &p.name, ModuleVerb::Uninstall, None),
+                    After::Continue,
+                ),
             },
             "daemon.start" => match parse::<DaemonStartParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),

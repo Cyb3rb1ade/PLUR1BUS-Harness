@@ -261,14 +261,23 @@ fn install(shared: &Shared, st: &mut ConfigState, new: Value, source: &str) {
             json!({ "subscriptionId": d.id, "reason": d.reason }),
         );
     }
+    // A hand edit of `modules.<name>` restarts, stops or starts that module like a `config.set` (B13); nobody waits
+    // for it. (A core key edited by hand reaches the core through its own `restartPending`, B7.)
+    if source == "file" && !plan.restart.modules.is_empty() {
+        let modules = cfg::Restart {
+            modules: plan.restart.modules.clone(),
+            ..Default::default()
+        };
+        drop(super::push_restart(shared, modules));
+    }
 }
 
 /// `config.set` (B5): validates `changes` against the running configuration (all or none), refuses a stale
 /// `if_revision`, writes config.json atomically (after backing up a rejected hand edit, B4), makes the result the
-/// running configuration and notifies the subscribers (`source: "set"`). `dry_run` only computes the plan. A change
-/// of a `core`-class key then restarts the core (B8): the job is queued with the new configuration, and waited for
-/// (up to the stop budget plus the ready timeout) without the config lock (H3B-R6); `restarted`, `durationMs` and
-/// `estimates.core` report it.
+/// running configuration and notifies the subscribers (`source: "set"`). `dry_run` only computes the plan. A changed
+/// `modules.<name>` is validated against the module's `configSchema` (B13). A change of a `core`-class or a module key
+/// then restarts that unit (B8): the job is queued with the new configuration, and waited for (up to the stop budget
+/// plus the ready timeout) without the config lock (H3B-R6); `restarted`, `durationMs` and `estimates.core` report it.
 pub fn set(
     shared: &Arc<Shared>,
     layout: &Layout,
@@ -300,6 +309,12 @@ pub fn set(
             cfg::ConfigError::Invalid(v) => SetError::Invalid(v),
             other => SetError::Invalid(vec![other.to_string()]),
         })?;
+        // B13: a changed `modules.<name>` must satisfy its manifest's configSchema.
+        let module_errors =
+            crate::modules::config_errors(&crate::modules::scan(layout), &running, &plan.after);
+        if !module_errors.is_empty() {
+            return Err(SetError::Invalid(module_errors));
+        }
         let restart = restart_json(&plan.restart);
         if dry_run || (plan.changed.is_empty() && st.rejected.is_none()) {
             (!dry_run, plan.changed, restart, current, None)
@@ -328,10 +343,8 @@ pub fn set(
             install(shared, &mut st, plan.after, "set");
             let revision = st.revision.clone().unwrap_or_default();
             // Queued before the config lock is released, so the job precedes any the restarted core's own
-            // `restartPending` could cause.
-            let job = plan
-                .restart
-                .core
+            // `restartPending` could cause. A module key restarts its module (B13), `enabled` stops or starts it.
+            let job = (plan.restart.core || !plan.restart.modules.is_empty())
                 .then(|| super::push_restart(shared, plan.restart.clone()))
                 .flatten();
             (true, plan.changed, restart, revision, job)
@@ -342,14 +355,17 @@ pub fn set(
         let deadline = started + super::DEFAULT_STOP_BUDGET + ready_timeout(shared);
         match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
             Ok(mut units) => {
-                // M4: `core` counts as restarted only once the new process is ready.
-                if units.iter().any(|u| u == "core") && !wait_core_ready(shared, deadline) {
-                    units.retain(|u| u != "core");
-                    shared.log.warn(
-                        "the restarted core did not become ready",
-                        json!({ "revision": revision }),
-                    );
-                }
+                // M4: a unit counts as restarted only once its new process is ready.
+                units.retain(|u| {
+                    let ready = wait_ready(shared, u, deadline);
+                    if !ready {
+                        shared.log.warn(
+                            &format!("the restarted {u} did not become ready"),
+                            json!({ "revision": revision }),
+                        );
+                    }
+                    ready
+                });
                 restarted = units;
             }
             Err(_) => shared.log.warn(
@@ -382,13 +398,14 @@ fn ready_timeout(shared: &Shared) -> Duration {
     Duration::from_secs_f64(READY_TIMEOUT_SECS as f64 * shared.lock().time_scale)
 }
 
-/// Waits until the core the restart spawned is ready (true), or has exited or `deadline` passes (false).
-fn wait_core_ready(shared: &Shared, deadline: Instant) -> bool {
+/// Waits until the unit (`core` or a module) the restart started is ready (true), or has exited or `deadline` passes
+/// (false).
+fn wait_ready(shared: &Shared, unit: &str, deadline: Instant) -> bool {
     use super::state::Health;
     while Instant::now() < deadline {
         let st = shared.lock();
         let health = st
-            .slot("core")
+            .slot(unit)
             .and_then(|s| s.child.as_ref())
             .map(|c| c.health.clone());
         drop(st);
@@ -470,6 +487,22 @@ fn poll_locked(shared: &Shared, layout: &Layout, st: &mut ConfigState) {
             });
         }
         Ok(new) => {
+            // B13: a hand edit of `modules.<name>` must satisfy the module's configSchema too.
+            let before = st.running.clone().unwrap_or_else(|| json!({}));
+            let errors =
+                crate::modules::config_errors(&crate::modules::scan(layout), &before, &new);
+            if !errors.is_empty() {
+                shared.log.warn(
+                    "config.json rejected; the running configuration stays",
+                    json!({ "errors": errors, "running": st.revision }),
+                );
+                st.rejected = Some(Rejected {
+                    at: now_ms(),
+                    errors,
+                    bytes: Some(bytes),
+                });
+                return;
+            }
             st.applied_hash = Some(hash);
             install(shared, st, new, "file");
         }

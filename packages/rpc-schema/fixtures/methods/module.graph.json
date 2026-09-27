@@ -1,0 +1,20 @@
+{ "params": {},
+  "result": {
+    "nodes": [
+      { "name": "core", "version": null, "priority": null, "band": null, "scope": "installation", "extensionPoints": {}, "valid": true },
+      { "name": "fixture", "version": "0.1.0", "priority": 500, "band": "add-ons", "scope": "installation", "extensionPoints": { "collect-status": "collect" }, "valid": true },
+      { "name": "loop-a", "version": "0.1.0", "priority": 500, "band": "add-ons", "scope": "installation", "extensionPoints": {}, "valid": true },
+      { "name": "loop-b", "version": "0.1.0", "priority": 500, "band": "add-ons", "scope": "installation", "extensionPoints": {}, "valid": true }
+    ],
+    "edges": [
+      { "from": "fixture", "to": "core", "kind": "needs" },
+      { "from": "fixture", "to": "core", "kind": "consumes", "capability": "memory" },
+      { "from": "loop-a", "to": "loop-b", "kind": "needs" },
+      { "from": "loop-b", "to": "loop-a", "kind": "needs" }
+    ],
+    "cycles": [["loop-a", "loop-b"]],
+    "unresolved": [
+      { "from": "loop-a", "kind": "needs", "name": "missing" },
+      { "from": "loop-b", "kind": "consumes", "capability": "weather" }
+    ]
+  } }

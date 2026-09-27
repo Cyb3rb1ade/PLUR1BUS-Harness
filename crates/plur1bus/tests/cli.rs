@@ -52,17 +52,24 @@ fn stubs_exit_2_and_name_their_milestone() {
 
 #[test]
 fn stubs_name_2a_h3b() {
-    // `daemon` and `service` are implemented (Tasks 8, 9); the rest are still milestone stubs.
+    // `daemon`, `service` and `module` are implemented (2a-H3a Tasks 8, 9; 2a-H3b Task 10); the rest are still
+    // milestone stubs.
     for cmd in ["setup", "module", "daemon", "service", "update", "1staid"] {
         bin().arg(cmd).arg("--help").assert().success();
     }
+    // `module status` is no longer a stub: clap refuses the unknown subcommand.
     bin()
         .args(["module", "status"])
         .assert()
         .code(2)
+        .stderr(predicate::str::contains("2a-H3b").not());
+    bin()
+        .args(["update", "check"])
+        .assert()
+        .code(2)
         .stderr(predicate::str::contains("2a-H3b"));
     let out = bin()
-        .args(["--json", "module", "status"])
+        .args(["--json", "update", "check"])
         .assert()
         .code(2)
         .get_output()

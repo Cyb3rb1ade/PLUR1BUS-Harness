@@ -34,6 +34,13 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
             "daemon.start",
             "daemon.status",
             "daemon.stop",
+            "module.graph",
+            "module.install",
+            "module.list",
+            "module.restart",
+            "module.start",
+            "module.stop",
+            "module.uninstall",
             "module.watch",
             "supervisor.auth"
         ]

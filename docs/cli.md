@@ -45,6 +45,13 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus config set`↴](#plur1bus-config-set)
 * [`plur1bus config schema`↴](#plur1bus-config-schema)
 * [`plur1bus module`↴](#plur1bus-module)
+* [`plur1bus module list`↴](#plur1bus-module-list)
+* [`plur1bus module graph`↴](#plur1bus-module-graph)
+* [`plur1bus module install`↴](#plur1bus-module-install)
+* [`plur1bus module uninstall`↴](#plur1bus-module-uninstall)
+* [`plur1bus module start`↴](#plur1bus-module-start)
+* [`plur1bus module stop`↴](#plur1bus-module-stop)
+* [`plur1bus module restart`↴](#plur1bus-module-restart)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
 * [`plur1bus daemon start`↴](#plur1bus-daemon-start)
 * [`plur1bus daemon stop`↴](#plur1bus-daemon-stop)
@@ -79,7 +86,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `memory` — Memory: add and recall through the core
 * `dreams` — Dreaming jobs: status, run, log
 * `config` — Configuration: get, set, schema
-* `module` — Modules — 2a-H3b
+* `module` — Modules: list, graph, install, uninstall, start, stop, restart
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
@@ -569,13 +576,107 @@ Set a config value (stable, ADR-016 §4)
 
 ## `plur1bus module`
 
-Modules — 2a-H3b
+Modules: list, graph, install, uninstall, start, stop, restart
 
-**Usage:** `plur1bus module`
+**Usage:** `plur1bus module <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the installed modules and their state
+* `graph` — [experimental] Show the module dependency graph
+* `install` — [experimental] Install a module from a directory (copied into modules/<name>)
+* `uninstall` — [experimental] Stop and remove an installed module (its config section stays)
+* `start` — [experimental] Start a module (needs a running supervisor)
+* `stop` — [experimental] Stop a module until `module start` or a supervisor restart (needs a running supervisor)
+* `restart` — [experimental] Restart a module (needs a running supervisor)
+
+
+
+## `plur1bus module list`
+
+[experimental] List the installed modules and their state
+
+One line per module under `modules/`: name, version, priority and band, scope, whether `modules.<name>.enabled` lets it run, its supervised state (while a supervisor runs) and why it cannot start.
+
+**Usage:** `plur1bus module list`
+
+
+
+## `plur1bus module graph`
+
+[experimental] Show the module dependency graph
+
+The modules as a tree by priority band (needs and consumes edges under each), then the needs-cycles and what does not resolve.
+
+**Usage:** `plur1bus module graph`
+
+
+
+## `plur1bus module install`
+
+[experimental] Install a module from a directory (copied into modules/<name>)
+
+Refused, with nothing copied, when the directory holds a symlink, the manifest is invalid, names a reserved module (core, supervisor) or has an entry outside the directory. A running module of that name is restarted.
+
+**Usage:** `plur1bus module install <PATH>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<PATH>`
+
+
+
+## `plur1bus module uninstall`
+
+[experimental] Stop and remove an installed module (its config section stays)
+
+**Usage:** `plur1bus module uninstall [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--yes` — skip the confirmation prompt (required outside a terminal)
+
+
+
+## `plur1bus module start`
+
+[experimental] Start a module (needs a running supervisor)
+
+**Usage:** `plur1bus module start <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+
+
+## `plur1bus module stop`
+
+[experimental] Stop a module until `module start` or a supervisor restart (needs a running supervisor)
+
+A runtime stop only: `config set modules.<name>.enabled false` is the persistent switch.
+
+**Usage:** `plur1bus module stop <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+
+
+## `plur1bus module restart`
+
+[experimental] Restart a module (needs a running supervisor)
+
+**Usage:** `plur1bus module restart <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
 
 
 

@@ -221,9 +221,10 @@ fn supervise_writes_token_and_pid_and_answers_auth_with_capabilities() {
     assert!(methods.get("daemon.status").is_some(), "{hello}");
     assert!(methods.get("daemon.stop").is_some());
     assert!(methods.get("memory.recall").is_none());
+    assert!(methods.get("module.install").is_some(), "{hello}");
     assert_eq!(
         hello["capabilities"]["features"],
-        json!(["adoption", "lifelines"])
+        json!(["adoption", "config", "lifelines", "modules"])
     );
 
     let log = std::fs::read_to_string(home.join("logs").join("supervisor.log")).unwrap();

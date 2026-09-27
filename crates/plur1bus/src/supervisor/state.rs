@@ -474,6 +474,8 @@ pub struct Slot {
     pub policy: RestartPolicy,
     /// A module's manifest `apiVersion`: its `module.auth` hello must report it, and its manifest `name` (B12).
     pub api_version: Option<String>,
+    /// A module's `module.status.detail` as last polled (`module.list`); cleared by a spawn.
+    pub detail: Option<serde_json::Value>,
 }
 
 impl Slot {
@@ -488,6 +490,7 @@ impl Slot {
             start_requested: false,
             policy: RestartPolicy::Always,
             api_version: None,
+            detail: None,
         }
     }
 }

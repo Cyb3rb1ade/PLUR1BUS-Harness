@@ -422,6 +422,7 @@ impl Monitor {
                 next_restart_at_ms: None,
             });
             slot.lifeline = Lifeline::Connection;
+            slot.detail = module_detail(m.ctx.role.kind, status);
             broadcast_module_state(&m.shared, slot);
         }
         m.shared.log.info(
@@ -611,6 +612,7 @@ impl Monitor {
                 next_restart_at_ms: None,
             });
             slot.lifeline = Lifeline::Stdin;
+            slot.detail = None;
             broadcast_module_state(&self.shared, slot);
         }
         self.shared.log.info(
@@ -744,6 +746,19 @@ impl Monitor {
             .map(|g| g.started)
     }
 
+    /// The stop half of a requested restart (B8: a plan stops its modules before the core and starts them after):
+    /// like [`Monitor::stop`], but the exit is recorded as a requested restart's (reason `none`).
+    pub fn stop_restarting(&mut self, budget: Duration) {
+        if let Some(g) = self
+            .current
+            .as_ref()
+            .filter(|g| !g.exited.load(Ordering::SeqCst))
+        {
+            g.restarting.store(true, Ordering::SeqCst);
+        }
+        self.stop(budget);
+    }
+
     /// A requested restart (B8): the stop sequence with `budget`, then a spawn. Its exit is `Requested` (reason
     /// `none`), so it never counts toward the give-up budget. A core that is `crashed` for good (fatal or given up)
     /// has its backoff reset first.
@@ -872,6 +887,26 @@ fn health_from(process: &Value) -> Option<Health> {
     })
 }
 
+/// A module's `module.status.detail` (`None` for the core, or when the module reports none).
+fn module_detail(kind: RoleKind, status: &Value) -> Option<Value> {
+    (kind == RoleKind::Module)
+        .then(|| status.get("detail").filter(|d| d.is_object()).cloned())
+        .flatten()
+}
+
+/// Keeps a module's polled `module.status.detail` in its slot (`module.list`), while `gen` is the current process.
+fn record_detail(shared: &Shared, ctx: &Ctx, gen: &Gen, status: &Value) {
+    if ctx.role.kind != RoleKind::Module {
+        return;
+    }
+    let mut st = shared.lock();
+    if let Some(slot) = slot_mut(&mut st, &gen.role) {
+        if slot.child.as_ref().is_some_and(|c| c.pid == Some(gen.pid)) {
+            slot.detail = module_detail(RoleKind::Module, status);
+        }
+    }
+}
+
 /// Updates the child's health if `gen` is still the current process. Once a stop was requested only `Stopping`
 /// (`force`) is written.
 fn set_health(shared: &Shared, gen: &Gen, health: Health, force: bool) {
@@ -975,6 +1010,9 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
             st.core_ready_ms = Some(gen.started.elapsed().as_millis() as u64);
         }
     }
+    if let Some(status) = &first.1 {
+        record_detail(shared, ctx, gen, status);
+    }
     set_health(shared, gen, first.0, false);
     if let Some(status) = &first.1 {
         check_restart_pending(shared, ctx, gen, status);
@@ -1028,6 +1066,7 @@ fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 }
                 failures = 0;
                 *relock(&gen.last_ok) = Instant::now();
+                record_detail(shared, ctx, gen, &status);
                 if let Some(h) = health_from(&status["process"]) {
                     set_health(shared, gen, h, false);
                 }

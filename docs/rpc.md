@@ -2126,6 +2126,324 @@ Returns every module child's current state and subscribes this connection to mod
 }
 ```
 
+### `module.list`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Every installed module (modules/<name>/module.json) in directory order, with its supervised child (B14).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "modules"
+  ],
+  "properties": {
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModuleListEntry"
+      }
+    }
+  }
+}
+```
+
+### `module.start`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Clears the module's backoff and starts it (a no-op while it runs); ends a module.stop. E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "name"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `module.stop`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Stops the module within budgetMs (default 10000); it stays stopped (reason stopped-by-request) until module.start or a supervisor restart. The persistent switch is modules.<name>.enabled (B13). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "name"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `module.restart`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Stops the module within budgetMs (default 10000) and starts it again (a requested restart: it never counts toward the give-up budget). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "name"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `module.graph`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+The module dependency graph (spec §6.6).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ModuleGraph"
+}
+```
+
+### `module.install`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Installs the module directory at path (B14): copied into modules/<name>.tmp-<pid>, then renamed to modules/<name>. Refused (E_INVALID_PARAMS, nothing copied) with reason not-a-directory, manifest-invalid, symlink, entry-outside or reserved-name. A running module of that name is stopped and started again; a new module starts unless modules.<name>.enabled is false. replaced: a module of that name was installed before.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version",
+    "replaced"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "replaced": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `module.uninstall`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Stops the module and removes modules/<name>; modules.<name> stays in config.json (B14). E_MODULE_UNKNOWN when no module of that name is installed.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "removed"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "removed": {
+      "const": true
+    }
+  }
+}
+```
+
 ### `module.auth`
 
 **Stability:** experimental · since 1.3.0
@@ -3890,6 +4208,254 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "detail": {
       "type": "object",
       "description": "what the module reports about itself (ModuleContext.setDetail)"
+    }
+  }
+}
+```
+
+### `ModuleListEntry`
+
+```json
+{
+  "description": "Experimental (1.3.0). One installed module (module.list, B14): its manifest identity (null fields when the manifest is invalid), whether modules.<name>.enabled lets it run, why it cannot start (manifest errors, a needs-cycle, an unresolved need, an unsupported apiVersion), its child while a supervisor runs it (null without a supervisor or before it has a slot), and the last module.status detail the supervisor polled (null when none).",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version",
+    "apiVersion",
+    "priority",
+    "band",
+    "scope",
+    "provides",
+    "consumes",
+    "needs",
+    "enabled",
+    "errors",
+    "child"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "apiVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "priority": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "band": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scope": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provides": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "consumes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "needs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "child": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ChildStatus"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "detail": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `ModuleGraph`
+
+```json
+{
+  "description": "Experimental (1.3.0). The module dependency graph (module.graph, spec §6.6): the core node first, then every installed module (valid: false with null fields for an invalid manifest); needs-edges and consumes-edges (with the capability); the needs-cycles (members sorted); and what does not resolve (a needs naming a missing or invalid module, a consumes without a provider).",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nodes",
+    "edges",
+    "cycles",
+    "unresolved"
+  ],
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version",
+          "priority",
+          "band",
+          "scope",
+          "extensionPoints",
+          "valid"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "band": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "extensionPoints": {
+            "type": "object",
+            "additionalProperties": {
+              "enum": [
+                "chain",
+                "collect"
+              ]
+            }
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "kind"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "needs",
+              "consumes"
+            ]
+          },
+          "capability": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cycles": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "kind"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "needs",
+              "consumes"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

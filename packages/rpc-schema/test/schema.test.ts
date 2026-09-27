@@ -66,6 +66,26 @@ describe("rpc-schema", () => {
     assert.equal(validateResult("daemon.status", status({ ...child, kind: "agent" })).ok, false);
   });
 
+  it("module.list|start|stop|restart|graph|install|uninstall are supervisor methods with closed params (B13, B14)", () => {
+    const supervisor = buildCapabilities([], "supervisor");
+    const verbs = ["list", "start", "stop", "restart", "graph", "install", "uninstall"];
+    for (const v of verbs) {
+      assert.deepEqual(supervisor.methods[`module.${v}`], { stability: "experimental", since: "1.3.0" }, v);
+      assert.equal(buildCapabilities([], "module").methods[`module.${v}`], undefined, v);
+    }
+    assert.equal(validateParams("module.list", { all: true }).ok, false);
+    assert.equal(validateParams("module.start", {}).ok, false);
+    assert.equal(validateParams("module.stop", { name: "fixture", force: true }).ok, false);
+    assert.equal(validateParams("module.restart", { name: "fixture", budgetMs: 120001 }).ok, false);
+    assert.equal(validateParams("module.install", { path: "" }).ok, false);
+    assert.equal(validateParams("module.uninstall", { name: "fixture", yes: true }).ok, false);
+    const entry = (fx.methods["module.list"]!.result as { modules: Record<string, unknown>[] }).modules[1];
+    assert.equal(validateResult("module.list", { modules: [{ ...entry, extra: 1 }] }).ok, false);
+    assert.deepEqual(validateResult("module.list", { modules: [{ ...entry, child: null, detail: null }] }), { ok: true });
+    assert.equal(validateResult("module.graph", { nodes: [], edges: [{ from: "a", to: "b", kind: "provides" }], cycles: [], unresolved: [] }).ok, false);
+    assert.equal(validateResult("module.uninstall", { name: "fixture", removed: false }).ok, false);
+  });
+
   it("module.auth capabilities list only module-served methods", () => {
     const module = buildCapabilities(["adoption", "lifelines"], "module");
     assert.deepEqual(Object.keys(module.methods).sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);

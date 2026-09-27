@@ -6,6 +6,7 @@ pub mod dreams;
 pub mod firstaid;
 pub mod memory;
 pub mod memory_ops;
+pub mod module;
 pub mod service;
 pub mod stubs;
 

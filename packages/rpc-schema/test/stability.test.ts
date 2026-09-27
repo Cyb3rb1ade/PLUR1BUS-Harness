@@ -65,7 +65,7 @@ describe("rpc-schema stability annotations", () => {
     assert.ok(core.methods["core.adopt"]);
     assert.equal(core.methods["daemon.status"], undefined);
     const supervisor = buildCapabilities(["lifelines", "adoption"], "supervisor");
-    const supervisorMethods = ["config.get", "config.set", "config.watch", "daemon.start", "daemon.status", "daemon.stop", "module.watch", "supervisor.auth"];
+    const supervisorMethods = ["config.get", "config.set", "config.watch", "daemon.start", "daemon.status", "daemon.stop", "module.graph", "module.install", "module.list", "module.restart", "module.start", "module.stop", "module.uninstall", "module.watch", "supervisor.auth"];
     assert.deepEqual(Object.keys(supervisor.methods).sort(), supervisorMethods);
     assert.deepEqual(Object.keys(supervisor.notifications), ["config.changed", "module.state"]);
     assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);

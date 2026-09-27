@@ -80,7 +80,7 @@ pub(crate) fn route(layout: &Layout) -> Result<Route, RpcError> {
 }
 
 /// One `config.*` call; a transport failure (timeout, closed connection) is `supervisor-unresponsive`.
-fn call(client: &mut Client, method: &str, params: Value) -> Result<Value, RpcError> {
+pub(crate) fn call(client: &mut Client, method: &str, params: Value) -> Result<Value, RpcError> {
     client.call(method, params).map_err(|e| match e {
         RpcError::Unavailable { reason, detail } => unresponsive(format!("{reason}: {detail}")),
         other => other,
@@ -113,7 +113,7 @@ fn conflict(current: &str) -> RpcError {
 
 /// Prints a failed `config.*` call and exits 1: the error name, its reason/detail/ids, and a message that says what
 /// to do.
-fn fail_rpc(out: &Out, e: &RpcError) -> ! {
+pub(crate) fn fail_rpc(out: &Out, e: &RpcError) -> ! {
     let mut extra = json!({});
     if let RpcError::Call { reason, detail, .. } = e {
         if let Some(r) = reason {
@@ -313,13 +313,29 @@ pub(crate) fn apply(
                 fail_rpc(out, &conflict(&current));
             }
             let keys: Vec<&str> = changes.iter().map(|(k, _)| k.as_str()).collect();
-            let plan = cfg::set_many(&loaded.config, &changes).unwrap_or_else(|e| {
-                let extra = match keys.as_slice() {
-                    [one] => json!({ "key": one }),
-                    many => json!({ "keys": many }),
-                };
-                out.fail("E_CONFIG_INVALID", &e.to_string(), extra, 1)
-            });
+            let extra = match keys.as_slice() {
+                [one] => json!({ "key": one }),
+                many => json!({ "keys": many }),
+            };
+            let plan = cfg::set_many(&loaded.config, &changes)
+                .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), extra.clone(), 1));
+            // B13: a changed `modules.<name>` must satisfy its manifest's configSchema, as through the supervisor.
+            let module_errors = crate::modules::config_errors(
+                &crate::modules::scan(layout),
+                &loaded.config,
+                &plan.after,
+            );
+            if !module_errors.is_empty() {
+                out.fail(
+                    "E_CONFIG_INVALID",
+                    &format!(
+                        "the configuration would be invalid: {}",
+                        module_errors.join("; ")
+                    ),
+                    extra,
+                    1,
+                );
+            }
             let restart = json!({
                 "live": plan.restart.live,
                 "core": plan.restart.core,

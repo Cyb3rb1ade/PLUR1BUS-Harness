@@ -24,7 +24,7 @@ use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
 pub use state::{next_due, Lifeline, Role, Slot};
 use state::{ChildState, Health, RoleKind};
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
 use std::io::{self, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -34,7 +34,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subscribers::Topic;
 
 /// `capabilities.features` of the supervisor's hello.
-pub const SUPERVISOR_FEATURES: &[&str] = &["adoption", "lifelines"];
+pub const SUPERVISOR_FEATURES: &[&str] = &["adoption", "config", "lifelines", "modules"];
 
 /// Budget for stopping the children when `daemon.stop` names none, and on SIGTERM/SIGINT.
 pub const DEFAULT_STOP_BUDGET: Duration = Duration::from_secs(10);
@@ -66,6 +66,56 @@ pub struct RestartJob {
     pub done: std::sync::mpsc::Sender<Vec<String>>,
     /// When it was queued: a unit spawned after this already runs the configuration that asked for it (M8).
     pub queued_at: Instant,
+}
+
+/// What a `module.*` control call asks the main thread to do (it owns the monitors).
+#[derive(Debug)]
+pub enum ModuleVerb {
+    Start,
+    Stop,
+    Restart,
+    /// A module already copied into its staging directory (B14): committed on the main thread, around a stop and a
+    /// start of the module when it runs.
+    Install(Box<crate::modules::install::Staged>),
+    Uninstall,
+}
+
+/// A queued `module.*` control call: run by the main thread, which sends the result on `done`.
+#[derive(Debug)]
+pub struct ModuleOp {
+    pub name: String,
+    pub verb: ModuleVerb,
+    /// How long a stop of the module may take (`budgetMs`, default [`DEFAULT_STOP_BUDGET`]).
+    pub budget: Duration,
+    pub done: std::sync::mpsc::Sender<Result<Value, OpError>>,
+}
+
+/// A refused or failed `module.*` call: the closed error code, its message, reason and detail.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpError {
+    pub error: &'static str,
+    pub message: String,
+    pub reason: Option<String>,
+    pub detail: Option<String>,
+}
+
+impl OpError {
+    pub fn new(error: &'static str, message: impl Into<String>, reason: Option<&str>) -> Self {
+        OpError {
+            error,
+            message: message.into(),
+            reason: reason.map(str::to_string),
+            detail: None,
+        }
+    }
+
+    fn unknown(name: &str) -> Self {
+        OpError::new(
+            "E_MODULE_UNKNOWN",
+            format!("no module named {name} is installed"),
+            None,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,6 +161,8 @@ pub struct SupervisorState {
     pub restart_running: bool,
     /// The last spawn-to-ready time of the core (ms): `config.set`'s `estimates.core`. `None` before one.
     pub core_ready_ms: Option<u64>,
+    /// Queued `module.*` control calls, run in order by the main thread after the restart jobs.
+    pub module_ops: VecDeque<ModuleOp>,
 }
 
 impl SupervisorState {
@@ -654,6 +706,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             restart_jobs: VecDeque::new(),
             restart_running: false,
             core_ready_ms: None,
+            module_ops: VecDeque::new(),
         }),
         wake: Condvar::new(),
         log,
@@ -713,6 +766,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     st.restart_running = true;
                     break Ok(Next::Job(jobs));
                 }
+                if let Some(op) = st.module_ops.pop_front() {
+                    break Ok(Next::Op(op));
+                }
                 let now = Instant::now();
                 // The core first: its start or due restart never waits behind the modules' first starts.
                 let core_due = st.slots.first().is_some_and(|s| {
@@ -744,7 +800,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         };
         match next {
             Err(stop) => break stop,
-            Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &mut monitors, jobs),
+            Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &token, &mut monitors, jobs),
+            Ok(Next::Op(op)) => run_module_op(&shared, layout, &token, &mut monitors, op),
             // A module's first start probes for one to adopt, like the core's at start (S6).
             Ok(Next::Due(role))
                 if role.kind == RoleKind::Module && !monitors.contains_key(&role.name) =>
@@ -754,8 +811,12 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
     };
-    // A job still queued is not run: dropping its sender tells a waiting `config.set` so.
-    shared.lock().restart_jobs.clear();
+    // A job or module call still queued is not run: dropping its sender tells the waiting caller so.
+    {
+        let mut st = shared.lock();
+        st.restart_jobs.clear();
+        st.module_ops.clear();
+    }
     shared.log.info(
         "supervisor stopping",
         json!({ "budgetMs": stop.budget.as_millis() as u64, "source": match stop.source {
@@ -798,6 +859,8 @@ enum Next {
     Job(Vec<RestartJob>),
     /// A slot whose `daemon.start` or scheduled restart is due.
     Due(Role),
+    /// A `module.*` control call.
+    Op(ModuleOp),
 }
 
 /// The monitors of the main thread, one per slot that has been spawned or adopted, keyed by the slot's name.
@@ -818,13 +881,16 @@ fn spawn_child(shared: &Arc<Shared>, layout: &Layout, role: &Role, monitors: &mu
     }
 }
 
-/// Runs the requested restarts queued so far as one (B8, M8): the core, when a plan names it, through
-/// [`child::Monitor::restart_requested`] (or a first spawn when there has been no process), unless a process spawned
-/// after the oldest job was queued already runs (it watched the configuration that asked for the restart); modules
-/// follow with Task 10. Every job is sent the units restarted.
+/// Runs the requested restarts queued so far as one (B8, M8). The modules a plan names, and every module whose
+/// `enabled` or `needs` situation changed with it, are stopped first (reverse start order); then the core, when a plan
+/// names it, through [`child::Monitor::restart_requested`] (or a first spawn when there has been no process); then the
+/// modules are started in start order ([`reconcile_stop`], [`reconcile_start`]). A unit whose process spawned after the
+/// oldest job was queued already runs the configuration that asked for the restart and is left alone (M8). Every job
+/// is sent the units restarted.
 fn run_restart_jobs(
     shared: &Arc<Shared>,
     layout: &Layout,
+    token: &str,
     monitors: &mut Monitors,
     jobs: Vec<RestartJob>,
 ) {
@@ -832,6 +898,12 @@ fn run_restart_jobs(
     let no_core = shared.lock().no_core;
     let core_wanted = jobs.iter().any(|j| j.plan.core);
     let oldest = jobs.iter().map(|j| j.queued_at).min();
+    let modules: BTreeSet<String> = jobs
+        .iter()
+        .flat_map(|j| j.plan.modules.iter().cloned())
+        .collect();
+    let reconcile = (!no_core && !modules.is_empty())
+        .then(|| reconcile_stop(shared, layout, monitors, &modules, oldest));
     if core_wanted && !no_core {
         let core = Role::core();
         let fresh = state::restart_already_done(
@@ -860,6 +932,9 @@ fn run_restart_jobs(
             restarted.push(core.name);
         }
     }
+    if let Some(r) = reconcile {
+        restarted.extend(reconcile_start(shared, layout, token, monitors, r));
+    }
     shared.lock().restart_running = false;
     for job in jobs {
         let _ = job.done.send(restarted.clone());
@@ -887,17 +962,81 @@ pub fn push_restart(
     Some(rx)
 }
 
-/// The installed modules at start (D14), after the core: every module in `start_order` gets a slot, in that order,
-/// and is adopted or spawned ([`start_child`]) unless `modules.<name>.enabled` is false (`stopped` reason `disabled`),
-/// its manifest asks for `scope: "agent"` (`stopped`, `scope-agent-unsupported`, B10) or its `apiVersion` is not
-/// supported (`crashed`, `api-version-unsupported`, B12). A module left out of the start order (an invalid manifest,
-/// a needs-cycle, a `needs` that cannot be met) gets a slot `crashed` with `manifest-invalid`; the reasons go to the
-/// log (P13: `ChildStatus` has no detail). None of these is ever restarted on its own.
-fn start_modules(shared: &Arc<Shared>, layout: &Layout) {
-    let installed = crate::modules::scan(layout);
-    if installed.is_empty() {
-        return;
+/// Queues a `module.*` control call for the main thread and wakes it; `Err` during a stop.
+pub fn push_module_op(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+) -> Result<std::sync::mpsc::Receiver<Result<Value, OpError>>, OpError> {
+    let mut st = shared.lock();
+    if st.stopping.is_some() {
+        return Err(OpError::new(
+            "E_NOT_AVAILABLE",
+            "the supervisor is stopping",
+            Some("stopping"),
+        ));
     }
+    let (done, rx) = std::sync::mpsc::channel();
+    st.module_ops.push_back(ModuleOp {
+        name: name.to_string(),
+        verb,
+        budget,
+        done,
+    });
+    shared.wake.notify_all();
+    Ok(rx)
+}
+
+/// What every installed module should be now, as the registry (`modules/`, D14) and the running configuration say.
+struct ModulesView {
+    installed: Vec<crate::modules::Installed>,
+    /// Slot order: the start order, then the modules left out of it (scan order). Only valid role names.
+    names: Vec<String>,
+    /// `None`: it should run. `Some((health, errors))`: it is held back with that state (`modules.<name>.enabled`
+    /// false → stopped `disabled`; `scope: "agent"` → stopped `scope-agent-unsupported`, B10; an unsupported
+    /// `apiVersion` → crashed `api-version-unsupported`, B12; a `needs` on a held module → stopped `needs-unavailable`,
+    /// transitively, H3B-R25; left out of the start order → crashed `manifest-invalid`).
+    held: BTreeMap<String, Option<(Health, Vec<String>)>>,
+}
+
+impl ModulesView {
+    fn manifest(&self, name: &str) -> Option<&crate::modules::Manifest> {
+        self.installed
+            .iter()
+            .find(|i| i.name == name)
+            .and_then(|i| i.manifest.as_ref().ok())
+    }
+
+    /// Why `name` cannot run, as a `module.*` error; `Err` also when it is not installed.
+    fn runnable(&self, name: &str) -> Result<(), OpError> {
+        match self.held.get(name) {
+            None => Err(OpError::unknown(name)),
+            Some(None) => Ok(()),
+            Some(Some((health, errors))) => {
+                let reason = held_reason(health);
+                let mut e = OpError::new(
+                    "E_NOT_AVAILABLE",
+                    format!("module {name} cannot run ({reason})"),
+                    Some(&reason),
+                );
+                e.detail = (!errors.is_empty()).then(|| errors.join("; "));
+                Err(e)
+            }
+        }
+    }
+}
+
+/// The reason a held-back state carries.
+fn held_reason(h: &Health) -> String {
+    h.to_process_state(0)["reason"]
+        .as_str()
+        .unwrap_or("not started")
+        .to_string()
+}
+
+fn modules_view(shared: &Shared, layout: &Layout) -> ModulesView {
+    let installed = crate::modules::scan(layout);
     let order = crate::modules::start_order(&installed);
     let graph = crate::modules::graph(&installed);
     let current = crate::modules::current_api_version();
@@ -906,8 +1045,8 @@ fn start_modules(shared: &Arc<Shared>, layout: &Layout) {
         .as_ref()
         .map(|c| c["modules"].clone())
         .unwrap_or(Value::Null);
-    let scale = shared.lock().time_scale;
-    let mut not_started = Vec::new();
+    let mut held = BTreeMap::new();
+    let mut names = Vec::new();
     // Modules not started, with why: a dependent of one of them is held back too (`start_order` is topological, so
     // one pass makes it transitive, H3B-R25).
     let mut held_back: BTreeMap<String, String> = BTreeMap::new();
@@ -919,13 +1058,10 @@ fn start_modules(shared: &Arc<Shared>, layout: &Layout) {
         else {
             continue;
         };
-        let mut slot = Slot::new(Role::module(name), scale);
-        slot.policy = state::RestartPolicy::parse(&m.restart);
-        slot.api_version = Some(m.api_version.clone());
         let stopped = |reason: &str| Health::Stopped {
             reason: Some(reason.to_string()),
         };
-        let held = if modules_config[name]["enabled"] == false {
+        let h = if !crate::modules::enabled(&modules_config, name) {
             Some((stopped(state::STOPPED_DISABLED), vec![]))
         } else if m.scope == "agent" {
             Some((stopped(state::STOPPED_SCOPE_AGENT), vec![]))
@@ -949,53 +1085,493 @@ fn start_modules(shared: &Arc<Shared>, layout: &Layout) {
             (!unavailable.is_empty())
                 .then(|| (stopped(state::STOPPED_NEEDS_UNAVAILABLE), unavailable))
         };
-        match held {
-            None => {
-                // Started by the scheduler, one per turn, so a core restart is never held up behind module start-up
-                // (the core's due restarts come first there).
-                slot.start_requested = true;
-                shared.lock().slots.push(slot);
-            }
-            Some(h) => {
-                let why = h.0.to_process_state(0)["reason"]
-                    .as_str()
-                    .unwrap_or("not started")
-                    .to_string();
-                held_back.insert(name.clone(), why);
-                not_started.push((slot, h));
-            }
+        if let Some((health, _)) = &h {
+            held_back.insert(name.clone(), held_reason(health));
         }
+        names.push(name.clone());
+        held.insert(name.clone(), h);
     }
     for i in installed.iter().filter(|i| !order.contains(&i.name)) {
         if !valid_role_name(&i.name) {
-            shared.log.warn(
-                "module directory name is not a module name; not started",
-                json!({ "module": i.name }),
-            );
             continue;
         }
         let errors = match &i.manifest {
             Err(errors) => errors.clone(),
-            Ok(m) => excluded_because(&i.name, m, &graph, &order),
+            Ok(m) => crate::modules::excluded_because(&i.name, m, &graph, &order),
         };
-        let slot = Slot::new(Role::module(&i.name), scale);
-        not_started.push((slot, (crashed(state::CrashReason::ManifestInvalid), errors)));
-    }
-    for (mut slot, (health, errors)) in not_started {
-        let reason = health.to_process_state(0)["reason"].clone();
-        shared.log.info(
-            "module not started",
-            json!({ "module": slot.role.name, "reason": reason, "errors": errors }),
+        names.push(i.name.clone());
+        held.insert(
+            i.name.clone(),
+            Some((crashed(state::CrashReason::ManifestInvalid), errors)),
         );
-        let mut child = ChildState::fresh(&slot.role);
-        child.health = health;
-        child.since_ms = now_ms();
-        slot.child = Some(child);
-        let mut st = shared.lock();
-        broadcast_module_state(shared, &slot);
-        st.slots.push(slot);
+    }
+    ModulesView {
+        installed,
+        names,
+        held,
+    }
+}
+
+/// A new slot for module `name`, with its manifest's restart policy and `apiVersion`.
+fn module_slot(view: &ModulesView, name: &str, scale: f64) -> Slot {
+    let mut slot = Slot::new(Role::module(name), scale);
+    if let Some(m) = view.manifest(name) {
+        slot.policy = state::RestartPolicy::parse(&m.restart);
+        slot.api_version = Some(m.api_version.clone());
+    }
+    slot
+}
+
+/// Gives module `name` the held-back `health` (logged as "module not started" with `errors`) unless its child already
+/// shows that state; clears any start or restart it had scheduled.
+fn hold(shared: &Shared, name: &str, health: &Health, errors: &[String]) {
+    let mut st = shared.lock();
+    let Some(slot) = st.slot_mut(name) else {
+        return;
+    };
+    slot.start_requested = false;
+    slot.restart_at = None;
+    let same = slot.child.as_ref().is_some_and(|c| {
+        c.health.to_process_state(0)["state"] == health.to_process_state(0)["state"]
+            && held_reason(&c.health) == held_reason(health)
+    });
+    if same {
+        return;
+    }
+    let mut child = slot
+        .child
+        .take()
+        .unwrap_or_else(|| ChildState::fresh(&slot.role));
+    child.health = health.clone();
+    child.since_ms = now_ms();
+    child.pid = None;
+    child.instance_id = None;
+    child.next_restart_at_ms = None;
+    slot.child = Some(child);
+    broadcast_module_state(shared, slot);
+    drop(st);
+    shared.log.info(
+        "module not started",
+        json!({ "module": name, "reason": held_reason(health), "errors": errors }),
+    );
+}
+
+/// The installed modules at start (D14), after the core: every module gets a slot in [`ModulesView`] order. One that
+/// should run is started by the scheduler (adopted or spawned, [`start_child`]), one per turn, so a core restart is
+/// never held up behind module start-up; a held-back one shows its state ([`hold`]; P13: the reasons go to the log).
+/// None of the held-back ones is ever restarted on its own.
+fn start_modules(shared: &Arc<Shared>, layout: &Layout) {
+    let view = modules_view(shared, layout);
+    if view.installed.is_empty() {
+        return;
+    }
+    for i in view.installed.iter().filter(|i| !valid_role_name(&i.name)) {
+        shared.log.warn(
+            "module directory name is not a module name; not started",
+            json!({ "module": i.name }),
+        );
+    }
+    let scale = shared.lock().time_scale;
+    for name in &view.names {
+        let mut slot = module_slot(&view, name, scale);
+        let held = view.held.get(name).cloned().flatten();
+        slot.start_requested = held.is_none();
+        shared.lock().slots.push(slot);
+        if let Some((health, errors)) = held {
+            hold(shared, name, &health, &errors);
+        }
     }
     shared.wake.notify_all();
+}
+
+/// Every installed module has a slot, and the slots follow `view` (the core first); a slot whose module is gone and
+/// that runs no process is removed with its monitor.
+fn sync_slots(shared: &Shared, view: &ModulesView, monitors: &mut Monitors) {
+    let mut st = shared.lock();
+    let scale = st.time_scale;
+    let gone: Vec<String> = st
+        .slots
+        .iter()
+        .filter(|s| s.role.kind == RoleKind::Module && !view.held.contains_key(&s.role.name))
+        .map(|s| s.role.name.clone())
+        .filter(|n| !monitors.get(n).is_some_and(child::Monitor::is_running))
+        .collect();
+    st.slots
+        .retain(|s| s.role.kind == RoleKind::Core || !gone.contains(&s.role.name));
+    for n in gone {
+        monitors.remove(&n);
+    }
+    for name in &view.names {
+        if st.slot(name).is_none() {
+            st.slots.push(module_slot(view, name, scale));
+        }
+    }
+    let rank = |s: &Slot| match s.role.kind {
+        RoleKind::Core => 0,
+        RoleKind::Module => {
+            1 + view
+                .names
+                .iter()
+                .position(|n| *n == s.role.name)
+                .unwrap_or(view.names.len())
+        }
+    };
+    st.slots.sort_by_key(rank);
+}
+
+/// The first half of bringing the modules to [`ModulesView`] (B8, B13): stops, in reverse start order, every running
+/// module that is now held back (disabled, or a need that went away) and every running module in `restart` (its own
+/// configuration changed) that did not start after the oldest request (M8).
+struct Reconcile {
+    view: ModulesView,
+    restart: BTreeSet<String>,
+    oldest: Option<Instant>,
+}
+
+fn reconcile_stop(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    monitors: &mut Monitors,
+    restart: &BTreeSet<String>,
+    oldest: Option<Instant>,
+) -> Reconcile {
+    let view = modules_view(shared, layout);
+    sync_slots(shared, &view, monitors);
+    for name in view.names.iter().rev() {
+        let Some(m) = monitors.get_mut(name).filter(|m| m.is_running()) else {
+            continue;
+        };
+        let held = view.held.get(name).is_some_and(Option::is_some);
+        let fresh = state::restart_already_done(m.running_since(), oldest);
+        if held {
+            m.stop(DEFAULT_STOP_BUDGET);
+        } else if restart.contains(name) && !fresh {
+            m.stop_restarting(DEFAULT_STOP_BUDGET);
+        }
+    }
+    Reconcile {
+        view,
+        restart: restart.clone(),
+        oldest,
+    }
+}
+
+/// Whether a module that should run and runs no process is started by a reconcile: when its own configuration changed
+/// (unless `module.stop` stopped it, B13), or when it is in a held-back state that no longer applies, or has never had
+/// a process (a module installed or made startable since).
+fn wants_start(slot: &Slot, has_monitor: bool, in_plan: bool) -> bool {
+    let (state, reason) = match &slot.child {
+        None => return true,
+        Some(c) => {
+            let ps = c.health.to_process_state(0);
+            (
+                ps["state"].as_str().unwrap_or("").to_string(),
+                ps["reason"].as_str().map(str::to_string),
+            )
+        }
+    };
+    let reason = reason.as_deref();
+    if state == "stopped" && reason == Some(state::STOPPED_BY_REQUEST) {
+        return false;
+    }
+    if in_plan {
+        return true;
+    }
+    let held_stop = state == "stopped"
+        && matches!(
+            reason,
+            Some(
+                state::STOPPED_DISABLED
+                    | state::STOPPED_SCOPE_AGENT
+                    | state::STOPPED_NEEDS_UNAVAILABLE
+            )
+        );
+    let held_crash = !has_monitor
+        && state == "crashed"
+        && matches!(reason, Some("manifest-invalid" | "api-version-unsupported"));
+    held_stop || held_crash
+}
+
+/// The second half: every module that should run and runs no process is started in start order when
+/// [`wants_start`] says so (a crash for good has its backoff reset first, B8); every held-back module shows its state.
+/// Returns the modules of `restart` that run a process started for it (or one already fresh, M8).
+fn reconcile_start(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitors: &mut Monitors,
+    r: Reconcile,
+) -> Vec<String> {
+    let mut restarted = Vec::new();
+    for name in &r.view.names {
+        match r.view.held.get(name).cloned().flatten() {
+            Some((health, errors)) => {
+                if !monitors.get(name).is_some_and(child::Monitor::is_running) {
+                    hold(shared, name, &health, &errors);
+                }
+            }
+            None => {
+                let in_plan = r.restart.contains(name);
+                if let Some(m) = monitors.get(name).filter(|m| m.is_running()) {
+                    if in_plan && state::restart_already_done(m.running_since(), r.oldest) {
+                        restarted.push(name.clone());
+                    }
+                    continue;
+                }
+                let start = {
+                    let mut st = shared.lock();
+                    let Some(slot) = st.slot_mut(name) else {
+                        continue;
+                    };
+                    let start = wants_start(slot, monitors.contains_key(name), in_plan);
+                    if start {
+                        if state::crashed_for_good(slot.child.as_ref(), slot.backoff.given_up()) {
+                            slot.backoff.reset();
+                        }
+                        slot.start_requested = false;
+                        slot.restart_at = None;
+                    }
+                    start
+                };
+                if start {
+                    start_module(shared, layout, token, name, monitors);
+                    if in_plan {
+                        restarted.push(name.clone());
+                    }
+                }
+            }
+        }
+    }
+    restarted
+}
+
+/// Starts module `name` now: through its monitor, or by probing for one to adopt and then spawning (its first start).
+fn start_module(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    name: &str,
+    monitors: &mut Monitors,
+) {
+    let role = Role::module(name);
+    if monitors.contains_key(name) {
+        spawn_child(shared, layout, &role, monitors);
+    } else {
+        start_child(shared, layout, token, &role, monitors);
+    }
+}
+
+/// Runs one `module.*` control call on the main thread and sends its result.
+fn run_module_op(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitors: &mut Monitors,
+    op: ModuleOp,
+) {
+    let ModuleOp {
+        name,
+        verb,
+        budget,
+        done,
+    } = op;
+    let verb_name = match &verb {
+        ModuleVerb::Start => "start",
+        ModuleVerb::Stop => "stop",
+        ModuleVerb::Restart => "restart",
+        ModuleVerb::Install(_) => "install",
+        ModuleVerb::Uninstall => "uninstall",
+    };
+    shared.log.info(
+        &format!("module.{verb_name}"),
+        json!({ "module": name, "budgetMs": budget.as_millis() as u64 }),
+    );
+    let result = match verb {
+        ModuleVerb::Install(staged) => {
+            install_module(shared, layout, token, monitors, *staged, budget)
+        }
+        ModuleVerb::Uninstall => uninstall_module(shared, layout, token, monitors, &name, budget),
+        verb => control_module(shared, layout, token, monitors, &name, verb, budget),
+    };
+    if let Err(e) = &result {
+        shared.log.info(
+            &format!("module.{verb_name} refused"),
+            json!({ "module": name, "error": e.error, "reason": e.reason, "detail": e.detail }),
+        );
+    }
+    let _ = done.send(result);
+}
+
+fn no_children() -> OpError {
+    OpError::new(
+        "E_NOT_AVAILABLE",
+        "this supervisor has no children to start",
+        Some("no-children"),
+    )
+}
+
+/// `module.start|stop|restart` (B13): refused for a module that is not installed or cannot run. `stop` leaves it
+/// `stopped` with reason `stopped-by-request` (no restart scheduled) until `start`, `restart` or a supervisor restart.
+fn control_module(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitors: &mut Monitors,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+) -> Result<Value, OpError> {
+    if shared.lock().no_core {
+        return Err(no_children());
+    }
+    let view = modules_view(shared, layout);
+    view.runnable(name)?;
+    sync_slots(shared, &view, monitors);
+    let running = monitors.get(name).is_some_and(child::Monitor::is_running);
+    match verb {
+        ModuleVerb::Stop => {
+            if let Some(m) = monitors.get_mut(name) {
+                m.stop(budget);
+            }
+            let mut st = shared.lock();
+            if let Some(slot) = st.slot_mut(name) {
+                slot.start_requested = false;
+                slot.restart_at = None;
+                let mut child = slot
+                    .child
+                    .take()
+                    .unwrap_or_else(|| ChildState::fresh(&slot.role));
+                child.health = Health::Stopped {
+                    reason: Some(state::STOPPED_BY_REQUEST.to_string()),
+                };
+                child.since_ms = now_ms();
+                child.next_restart_at_ms = None;
+                slot.child = Some(child);
+                broadcast_module_state(shared, slot);
+            }
+        }
+        ModuleVerb::Restart if running => {
+            if let Some(m) = monitors.get_mut(name) {
+                m.restart_requested(budget);
+            }
+        }
+        // Start, or a restart of a module that runs no process: a fresh start with its backoff cleared.
+        _ if !running => {
+            if let Some(slot) = shared.lock().slot_mut(name) {
+                slot.backoff.reset();
+                slot.start_requested = false;
+                slot.restart_at = None;
+            }
+            start_module(shared, layout, token, name, monitors);
+        }
+        _ => {} // start while it runs: nothing to do
+    }
+    Ok(json!({ "accepted": true, "name": name }))
+}
+
+/// `module.install` with a supervisor (B14): a running module of that name is stopped, the staged copy put in place,
+/// and the modules reconciled: the module starts again when it was running, or when it is new and may run.
+fn install_module(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitors: &mut Monitors,
+    staged: crate::modules::install::Staged,
+    budget: Duration,
+) -> Result<Value, OpError> {
+    let name = staged.manifest.name.clone();
+    let version = staged.manifest.version.clone();
+    let no_core = shared.lock().no_core;
+    let was_running = monitors.get(&name).is_some_and(child::Monitor::is_running);
+    if was_running {
+        if let Some(m) = monitors.get_mut(&name) {
+            m.stop_restarting(budget);
+        }
+    }
+    let replaced = match crate::modules::install::commit(staged) {
+        Ok(r) => r,
+        Err(e) => {
+            if was_running {
+                start_module(shared, layout, token, &name, monitors);
+            }
+            let mut err = OpError::new("E_INTERNAL", "the module could not be installed", None);
+            err.detail = Some(e.to_string());
+            return Err(err);
+        }
+    };
+    shared.log.info(
+        "module installed",
+        json!({ "module": name, "version": version, "replaced": replaced }),
+    );
+    if !no_core {
+        let restart: BTreeSet<String> = if was_running {
+            [name.clone()].into()
+        } else {
+            BTreeSet::new()
+        };
+        let r = reconcile_stop(shared, layout, monitors, &restart, None);
+        reconcile_start(shared, layout, token, monitors, r);
+    }
+    Ok(json!({ "name": name, "version": version, "replaced": replaced }))
+}
+
+/// `module.uninstall` with a supervisor (B14): the module is stopped, its directory and slot removed (its
+/// `modules.<name>` stays in config.json), and the modules reconciled (a dependent is held back).
+fn uninstall_module(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitors: &mut Monitors,
+    name: &str,
+    budget: Duration,
+) -> Result<Value, OpError> {
+    if crate::modules::install::installed_dir(layout, name).is_none() {
+        return Err(OpError::unknown(name));
+    }
+    if let Some(m) = monitors.get_mut(name) {
+        m.stop(budget);
+    }
+    if let Err(e) = crate::modules::install::uninstall(layout, name) {
+        let mut err = OpError::new("E_INTERNAL", "the module could not be removed", None);
+        err.detail = Some(e.to_string());
+        return Err(err);
+    }
+    shared
+        .log
+        .info("module uninstalled", json!({ "module": name }));
+    let no_core = {
+        let mut st = shared.lock();
+        st.slots
+            .retain(|s| s.role.name != name || s.role.kind == RoleKind::Core);
+        st.no_core
+    };
+    monitors.remove(name);
+    if !no_core {
+        let r = reconcile_stop(shared, layout, monitors, &BTreeSet::new(), None);
+        reconcile_start(shared, layout, token, monitors, r);
+    }
+    Ok(json!({ "name": name, "removed": true }))
+}
+
+/// The `module.list` result: [`crate::modules::list_entries`] with every module's child and last polled detail.
+pub fn module_list(shared: &Shared, layout: &Layout) -> Value {
+    let installed = crate::modules::scan(layout);
+    let modules_config = relock(&shared.config)
+        .running
+        .as_ref()
+        .map(|c| c["modules"].clone())
+        .unwrap_or(Value::Null);
+    let mut entries = crate::modules::list_entries(&installed, &modules_config);
+    let st = shared.lock();
+    for e in &mut entries {
+        let slot = e["name"].as_str().and_then(|n| st.slot(n));
+        e["child"] = slot
+            .and_then(|s| s.child.as_ref())
+            .map(ChildState::to_json)
+            .unwrap_or(Value::Null);
+        e["detail"] = slot.and_then(|s| s.detail.clone()).unwrap_or(Value::Null);
+    }
+    json!({ "modules": entries })
 }
 
 /// `Health::Crashed` for a module that never ran: no code, no signal, `reason`.
@@ -1016,38 +1592,6 @@ fn valid_role_name(name: &str) -> bool {
         && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
         && b.iter()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
-}
-
-/// Why a module with a valid manifest is not in the start order: its needs-cycle, its unresolved `needs`, or a
-/// `needs` on a module that cannot start itself.
-fn excluded_because(
-    name: &str,
-    m: &crate::modules::Manifest,
-    graph: &crate::modules::Graph,
-    order: &[String],
-) -> Vec<String> {
-    let mut errors: Vec<String> = graph
-        .cycles
-        .iter()
-        .filter(|c| c.iter().any(|n| n == name))
-        .map(|c| format!("needs-cycle: {}", c.join(", ")))
-        .collect();
-    errors.extend(
-        graph
-            .unresolved
-            .iter()
-            .filter(|u| u["from"] == name && u["kind"] == "needs")
-            .map(|u| format!("unresolved needs: {}", u["name"].as_str().unwrap_or(""))),
-    );
-    if errors.is_empty() {
-        errors.extend(
-            m.needs
-                .iter()
-                .filter(|n| n.as_str() != "core" && !order.contains(n))
-                .map(|n| format!("needs {n}, which cannot start")),
-        );
-    }
-    errors
 }
 
 /// A child at start (spec §6.4, S6): probe its address before any spawn ([`probe_and_adopt`]), and spawn only when
@@ -1245,6 +1789,7 @@ pub(crate) fn test_state() -> SupervisorState {
         restart_jobs: VecDeque::new(),
         restart_running: false,
         core_ready_ms: None,
+        module_ops: VecDeque::new(),
     }
 }
 
@@ -1313,6 +1858,7 @@ mod tests {
             restart_jobs: VecDeque::new(),
             restart_running: false,
             core_ready_ms: None,
+            module_ops: VecDeque::new(),
         };
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {
