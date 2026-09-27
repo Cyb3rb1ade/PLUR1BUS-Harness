@@ -35,6 +35,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   const mode = modes[0];
   if (values.apply && mode === "detect") return fail("E_INVALID_PARAMS", "apply-with-detect", "--detect is read-only; --apply applies to --skills and --rollback");
   if ((values.enable || values["on-conflict"] !== undefined || values["max-skill-bytes"] !== undefined) && mode !== "skills") return fail("E_INVALID_PARAMS", "skills-only-flag", "--enable, --on-conflict and --max-skill-bytes apply to --skills only");
+  if (mode === "rollback" && (values.source !== undefined || values.profile !== undefined)) return fail("E_INVALID_PARAMS", "rollback-takes-report-only", "--rollback reads everything from the report; drop --source and --profile");
   if (values.profile !== undefined && sourceType !== "hermes") return fail("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   const onConflict = (values["on-conflict"] ?? "skip") as string;
   if (!["skip", "rename", "replace"].includes(onConflict)) return fail("E_INVALID_PARAMS", "on-conflict", "--on-conflict must be skip, rename or replace");

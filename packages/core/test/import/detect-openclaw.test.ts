@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { targetIdentity } from "../../src/import/identity.ts";
 import { detectOpenclaw, resolveOpenclawRoot } from "../../src/import/sources/openclaw.ts";
 import { ImportError, type SourceReport } from "../../src/import/types.ts";
@@ -16,13 +16,14 @@ const ctxFor = (source: string | undefined, env: NodeJS.ProcessEnv = {}, homedir
 
 describe("OpenClaw source root", () => {
   it("resolves --source, OPENCLAW_STATE_DIR, OPENCLAW_PROFILE, OPENCLAW_HOME and the default in that order", () => {
-    const h = "/home/u";
-    assert.equal(resolveOpenclawRoot({ source: "/x", env: { OPENCLAW_STATE_DIR: "/y" }, homedir: h }).root, "/x");
-    assert.deepEqual(resolveOpenclawRoot({ env: { OPENCLAW_STATE_DIR: "/y", OPENCLAW_PROFILE: "p" }, homedir: h }), { root: "/y", resolvedFrom: "env:OPENCLAW_STATE_DIR", configPath: "/y/openclaw.json" });
-    assert.equal(resolveOpenclawRoot({ env: { OPENCLAW_PROFILE: "work" }, homedir: h }).root, "/home/u/.openclaw-work");
-    assert.equal(resolveOpenclawRoot({ env: { OPENCLAW_HOME: "/alt" }, homedir: h }).root, "/alt/.openclaw");
-    assert.equal(resolveOpenclawRoot({ env: {}, homedir: h }).root, "/home/u/.openclaw");
-    assert.equal(resolveOpenclawRoot({ env: { OPENCLAW_CONFIG_PATH: "/c/oc.json" }, homedir: h }).configPath, "/c/oc.json");
+    const h = resolve("/home/u"); const x = resolve("/x"); const y = resolve("/y");
+    assert.equal(resolveOpenclawRoot({ source: x, env: { OPENCLAW_STATE_DIR: y }, homedir: h }).root, x);
+    assert.deepEqual(resolveOpenclawRoot({ env: { OPENCLAW_STATE_DIR: y, OPENCLAW_PROFILE: "p" }, homedir: h }), { root: y, resolvedFrom: "env:OPENCLAW_STATE_DIR", configPath: join(y, "openclaw.json") });
+    assert.equal(resolveOpenclawRoot({ env: { OPENCLAW_PROFILE: "work" }, homedir: h }).root, join(h, ".openclaw-work"));
+    assert.equal(resolveOpenclawRoot({ env: { OPENCLAW_HOME: resolve("/alt") }, homedir: h }).root, join(resolve("/alt"), ".openclaw"));
+    assert.equal(resolveOpenclawRoot({ env: {}, homedir: h }).root, join(h, ".openclaw"));
+    assert.equal(resolveOpenclawRoot({ env: { OPENCLAW_CONFIG_PATH: resolve("/c/oc.json") }, homedir: h }).configPath, resolve("/c/oc.json"));
+    assert.equal(resolveOpenclawRoot({ source: x, env: { OPENCLAW_CONFIG_PATH: resolve("/c/oc.json") }, homedir: h }).configPath, join(x, "openclaw.json"), "--source ignores OPENCLAW_CONFIG_PATH");
     assert.throws(() => resolveOpenclawRoot({ env: { OPENCLAW_PROFILE: "../x" }, homedir: h }), ImportError);
   });
 });
@@ -119,6 +120,17 @@ describe("detectOpenclaw on a store with unknown metadata", () => {
     assert.equal(s.identity.comparison.fields.model, "unknown");
     assert.equal(s.identity.plannedAction, "re-embedding-migration");
     assert.equal(treeDigest(d), before);
+  });
+});
+
+describe("detectOpenclaw with a symlinked config", () => {
+  it("follows a symlinked openclaw.json (dotfile managers)", { skip: process.platform === "win32" }, async () => {
+    const d = tempDir("p1b-imp-");
+    mkdirSync(join(d, "dotfiles")); mkdirSync(join(d, "state"));
+    writeFileSync(join(d, "dotfiles", "openclaw.json"), "{ meta: { lastTouchedVersion: '2026.9.5' } }");
+    symlinkSync(join(d, "dotfiles", "openclaw.json"), join(d, "state", "openclaw.json"));
+    const r = await detectOpenclaw(ctxFor(join(d, "state")));
+    assert.equal(r.version.release, "2026.9.5");
   });
 });
 

@@ -1,7 +1,7 @@
 import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { targetIdentity } from "../../src/import/identity.ts";
 import { detectHermes, resolveHermesRoot } from "../../src/import/sources/hermes.ts";
 import type { ImportError, SourceReport } from "../../src/import/types.ts";
@@ -19,9 +19,10 @@ describe("Hermes source", () => {
   before(async () => { fx = hermesFixture(); digest = treeDigest(fx.base); r = await detectHermes(ctxFor(fx.root)); });
 
   it("resolves --source, HERMES_HOME and the default", () => {
-    assert.equal(resolveHermesRoot({ source: "/s", env: { HERMES_HOME: "/h" }, homedir: "/u" }).root, "/s");
-    assert.deepEqual(resolveHermesRoot({ env: { HERMES_HOME: "/h" }, homedir: "/u" }), { root: "/h", resolvedFrom: "env:HERMES_HOME" });
-    assert.equal(resolveHermesRoot({ env: {}, homedir: "/u" }).root, "/u/.hermes");
+    const [s, h, u] = [resolve("/s"), resolve("/h"), resolve("/u")];
+    assert.equal(resolveHermesRoot({ source: s, env: { HERMES_HOME: h }, homedir: u }).root, s);
+    assert.deepEqual(resolveHermesRoot({ env: { HERMES_HOME: h }, homedir: u }), { root: h, resolvedFrom: "env:HERMES_HOME" });
+    assert.equal(resolveHermesRoot({ env: {}, homedir: u }).root, join(u, ".hermes"));
   });
   it("leaves the source byte-identical", () => assert.equal(treeDigest(fx.base), digest));
   it("reads config and sessions versions", () => {

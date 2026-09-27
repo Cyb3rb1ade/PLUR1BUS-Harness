@@ -1,7 +1,7 @@
 // Read-only primitives for the importer (docs/import.md §8.2). Nothing here writes to a source path: SQLite is read
 // from a private copy (or opened immutable), LanceDB is resolved through the pinned engine package, `.env` files
 // yield key names only.
-import { copyFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
@@ -11,10 +11,11 @@ import { pathToFileURL } from "node:url";
 /** Databases up to this size (plus WAL) are copied to a temp dir and read there. */
 export const SQLITE_COPY_LIMIT = 256 * 1024 * 1024;
 
-/** A regular file's text, or null when it is missing, not a regular file (symlinks included) or larger than `max`. */
+/** A regular file's text (a symlink is followed: dotfile managers link config files), or null when it is missing,
+ *  not a regular file or larger than `max`. Skill contents never go through this; the skill scan has its own rules. */
 export function readBounded(path: string, max: number): string | null {
   try {
-    const st = lstatSync(path);
+    const st = statSync(path);
     if (!st.isFile() || st.size > max) return null;
     return readFileSync(path, "utf8");
   } catch {

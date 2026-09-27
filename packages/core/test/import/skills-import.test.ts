@@ -8,7 +8,7 @@ import { DEFAULT_MAX_SKILL_BYTES } from "../../src/import/skills-scan.ts";
 import { readIndex } from "../../src/import/skills-registry.ts";
 import type { ImportError } from "../../src/import/types.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
-import { CONTENT_MARKER, FAKE_TOKEN, harnessHome, hermesFixture, openclawFixture, write, type OpenclawFixture } from "./fixtures.ts";
+import { CONTENT_MARKER, FAKE_TOKEN, harnessHome, hermesFixture, openclawFixture, POSIX, write, type OpenclawFixture } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
 
 const opts = (source: string, home: string, over: Partial<SkillsOptions> = {}): SkillsOptions => ({
@@ -52,8 +52,10 @@ describe("skills import", () => {
     assert.equal(readFileSync(join(home, "skills", "conflict", "SKILL.md"), "utf8").includes("harness version"), true);
     assert.ok(!existsSync(join(home, "skills", "escape", ".env")));
     assert.ok(!existsSync(join(home, "skills", "escape", "leak.txt")));
-    assert.ok(existsSync(join(home, "skills", "escape", "alias.md")));
-    assert.ok((statSync(join(home, "skills", "runner", "scripts", "run.sh")).mode & 0o100) !== 0);
+    if (POSIX) {
+      assert.ok(existsSync(join(home, "skills", "escape", "alias.md")), "an inside link is copied as a file");
+      assert.ok((statSync(join(home, "skills", "runner", "scripts", "run.sh")).mode & 0o100) !== 0, "exec bit kept");
+    }
     assert.ok(!existsSync(join(home, "skills", ".staging")));
     assert.ok(existsSync(join(home, "imports", r.runId, "report.json")) && existsSync(join(home, "imports", r.runId, "report.txt")));
     for (const text of [JSON.stringify(r), renderSkills(r), readFileSync(r.reportPath!, "utf8")]) {

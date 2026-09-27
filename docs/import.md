@@ -426,7 +426,7 @@ The Rust CLI spawns Node once on `import.js`, a second entry of `packages/core` 
 | | OpenClaw | Hermes |
 |---|---|---|
 | Root order | `--source`, `$OPENCLAW_STATE_DIR`, `$OPENCLAW_PROFILE` (`~/.openclaw-<profile>`), `$OPENCLAW_HOME/.openclaw`, `~/.openclaw` (`src/config/state-dir.ts`, `src/cli/profile-utils.ts` @ `b9421f4`) | `--source`, `$HERMES_HOME`, `~/.hermes`; `--profile <name>` narrows to `<root>/profiles/<name>` (§3.1, §3.3) |
-| Config | `$OPENCLAW_CONFIG_PATH`, else `<root>/openclaw.json` (JSON5; `$include` is not followed and is reported) | `config.yaml` (read by known key; unsupported YAML constructs make those keys `unknown`, never a guess) |
+| Config | `$OPENCLAW_CONFIG_PATH` (ignored with `--source`), else `<root>/openclaw.json` (JSON5; a symlinked file is followed; `$include` is not followed and is reported) | `config.yaml` (read by known key; unsupported YAML constructs make those keys `unknown`, never a guess) |
 | "Is an installation" | `openclaw.json` or `state/openclaw.sqlite` present — else `E_SOURCE_NOT_FOUND reason=not-an-openclaw-state-dir` | one of the root markers `config.yaml`, `.env`, `state.db` — else `E_SOURCE_NOT_FOUND reason=not-a-hermes-home` |
 | Version | release `meta.lastTouchedVersion` (config) and state schema `schema_meta.schema_version` (`meta_key='primary'`, `state/openclaw.sqlite`; 17 at `b9421f4`) — neither readable → `E_SOURCE_UNSUPPORTED reason=version-undeterminable` | `_config_version` (integer; missing or non-integer → `E_SOURCE_UNSUPPORTED reason=config-version-unreadable`; above 45 → warning `newer-than-tested`), sessions `schema_version.version` (30 tested; informational) |
 | Agents | `agents.entries` / `agents.list` / the implicit `main`, plus `agents/<id>/` directories; workspace per `agents.<id>.workspace`, `agents.defaults.workspace/<id>`, else `<root>/workspace-<id>` (`main`: `<root>/workspace`) | `default` (the root) plus each `profiles/<name>` |
@@ -464,7 +464,7 @@ A field without a confirming source is `unknown`. `derived` counts as confirmed 
 
 ## 9. Skills import (pulled forward)
 
-**Status:** built 2026-09-27. `plur1bus import <openclaw|hermes> --skills [--apply] [--enable] [--on-conflict skip|rename|replace] [--max-skill-bytes <n>] [--source <path>] [--profile <name>]` and `plur1bus import <openclaw|hermes> --rollback <report.json> [--apply]`. Phases 2–7 of §5.1 for the one entity kind "skill"; the source is read exactly as in §8.2.
+**Status:** built 2026-09-27. `plur1bus import <openclaw|hermes> --skills [--apply] [--enable] [--on-conflict skip|rename|replace] [--max-skill-bytes <n>] [--source <path>] [--profile <name>]` and `plur1bus import <openclaw|hermes> --rollback <report.json> [--apply]` (everything else comes from the report; `--source`/`--profile` are refused with it). Phases 2–7 of §5.1 for the one entity kind "skill"; the source is read exactly as in §8.2.
 
 ### 9.1 Harness skill store (minimal; for the extensions-ecosystem spec to adopt)
 

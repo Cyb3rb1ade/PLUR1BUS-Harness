@@ -14,6 +14,9 @@ export const CONTENT_MARKER = "CONTENT-MARKER-do-not-report";
 export const E5 = "intfloat/multilingual-e5-small";
 export const NANO = "jinaai/jina-embeddings-v5-text-nano-retrieval";
 export const SHARED_KEY = `w-${"ab".repeat(31)}`;
+/** Symlinks and POSIX exec bits: Windows runners create neither without privileges, so those cases are POSIX-only. */
+export const POSIX = process.platform !== "win32";
+const link = (target: string, path: string) => { if (POSIX) symlinkSync(target, path); };
 
 export function write(path: string, text: string, mode?: number): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -64,8 +67,8 @@ export async function openclawFixture(): Promise<OpenclawFixture> {
   write(join(root, "openclaw.json"), `// synthetic fixture
 {
   meta: { lastTouchedVersion: "2026.9.5" },
-  agents: { list: [ { id: "alpha", workspace: "${join(root, "ws-alpha")}" }, { id: "beta" } ] },
-  skills: { load: { extraDirs: ["${extraSkills}"] } },
+  agents: { list: [ { id: "alpha", workspace: ${JSON.stringify(join(root, "ws-alpha"))} }, { id: "beta" } ] },
+  skills: { load: { extraDirs: [${JSON.stringify(extraSkills)}] } },
   models: { providers: { "anthropic:default": { provider: "anthropic", mode: "api_key", apiKey: "${FAKE_TOKEN}" }, "openai:env": { apiKey: "\${OPENAI_API_KEY}" } } },
   plugins: {
     entries: {
@@ -105,8 +108,8 @@ export async function openclawFixture(): Promise<OpenclawFixture> {
   skill(join(root, "ws-alpha", "skills", "runner"), "runner", "Runs a helper script");
   write(join(root, "ws-alpha", "skills", "runner", "scripts", "run.sh"), "#!/bin/sh\necho hi\n", 0o755);
   skill(join(root, "ws-alpha", "skills", "escape"), "escape", "Has a symlink that escapes");
-  symlinkSync(outside, join(root, "ws-alpha", "skills", "escape", "leak.txt"));
-  symlinkSync("SKILL.md", join(root, "ws-alpha", "skills", "escape", "alias.md"));
+  link(outside, join(root, "ws-alpha", "skills", "escape", "leak.txt"));
+  link("SKILL.md", join(root, "ws-alpha", "skills", "escape", "alias.md"));
   write(join(root, "ws-alpha", "skills", "escape", ".env"), `SECRET=${FAKE_TOKEN}\n`);
   skill(join(root, "skills", "conflict"), "conflict", "Installed skill that clashes with the harness");
   skill(join(extraSkills, "extra-one"), "extra-one", "From an extra dir");
@@ -133,7 +136,7 @@ memory:
   provider: ""
 skills:
   external_dirs:
-    - ${external}
+    - ${JSON.stringify(external)}
 `);
   write(join(root, ".env"), `OPENROUTER_API_KEY=${FAKE_TOKEN}\nTELEGRAM_BOT_TOKEN=${FAKE_TOKEN}\n`);
   write(join(root, "auth.json"), JSON.stringify({ token: FAKE_TOKEN }));

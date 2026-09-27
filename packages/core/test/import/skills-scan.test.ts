@@ -20,7 +20,7 @@ describe("skill scan", () => {
     assert.equal(s.sha256, expected);
     assert.equal(folderHash(s.entries), expected);
   });
-  it("detects scripts by exec bit, extension, shebang and scripts/", () => {
+  it("detects scripts by exec bit, extension, shebang and scripts/", { skip: process.platform === "win32" }, () => {
     const d = tempDir("p1b-imp-");
     skill(join(d, "a"), "a", "x"); write(join(d, "a", "tool"), "#!/usr/bin/env node\n");
     skill(join(d, "b"), "b", "x"); write(join(d, "b", "x.py"), "print(1)\n");
@@ -28,7 +28,7 @@ describe("skill scan", () => {
     skill(join(d, "e"), "e", "plain");
     assert.deepEqual(["a", "b", "c", "e"].map((n) => scanSkill(join(d, n), R).hasScripts), [true, true, true, false]);
   });
-  it("skips escaping symlinks, directory symlinks and secret files; keeps inside file links", () => {
+  it("skips escaping symlinks, directory symlinks and secret files; keeps inside file links", { skip: process.platform === "win32" }, () => {
     const d = tempDir("p1b-imp-");
     write(join(d, "outside.txt"), FAKE_TOKEN);
     skill(join(d, "s"), "s", "x");
@@ -60,7 +60,7 @@ describe("skill scan", () => {
     assert.equal(s.name, "My Skill");
     assert.equal(s.description!.length, 300);
   });
-  it("finds nested skills and follows a symlinked skill folder", () => {
+  it("finds nested skills and follows a symlinked skill folder", { skip: process.platform === "win32" }, () => {
     const d = tempDir("p1b-imp-");
     skill(join(d, "root", "cat", "nested"), "nested", "x");
     skill(join(d, "elsewhere", "linked"), "linked", "x");

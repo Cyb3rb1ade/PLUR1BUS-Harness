@@ -23,6 +23,7 @@ describe("importer argv", () => {
     assert.equal(await reason(["openclaw", "--detect", "--profile", "p", ...h]), "E_INVALID_PARAMS/profile-not-supported/2");
     assert.equal(await reason(["hermes", "--detect", "--bogus", ...h]), "E_INVALID_PARAMS/bad-arguments/2");
     assert.equal(await reason(["hermes", "--detect"]), "E_INVALID_PARAMS/home-missing/2");
+    assert.equal(await reason(["hermes", "--rollback", "r.json", "--source", "/s", ...h]), "E_INVALID_PARAMS/rollback-takes-report-only/2");
   });
   it("runs detect, skills and rollback end to end through the envelope", async () => {
     const fx = hermesFixture(); const home = tempDir("p1b-imp-home-");
