@@ -292,8 +292,10 @@ impl ConnCtx {
                 None,
             );
         }
-        st.backoff.reset();
-        st.start_requested = true;
+        if let Some(core) = st.slot_mut("core") {
+            core.backoff.reset();
+            core.start_requested = true;
+        }
         self.shared.wake.notify_all();
         drop(st);
         self.shared

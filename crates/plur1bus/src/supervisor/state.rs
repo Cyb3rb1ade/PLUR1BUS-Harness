@@ -294,6 +294,107 @@ impl ChildState {
     }
 }
 
+/// Whether a supervised child is the core or a module.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RoleKind {
+    Core,
+    Module,
+}
+
+/// A supervised child's identity: its name (`core`, or the module's name) and its kind. The name keys its slot, its
+/// run files ([`crate::paths::Layout::endpoints`]) and its logs.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Role {
+    pub name: String,
+    pub kind: RoleKind,
+}
+
+impl Role {
+    pub fn core() -> Role {
+        Role {
+            name: "core".into(),
+            kind: RoleKind::Core,
+        }
+    }
+
+    pub fn module(name: &str) -> Role {
+        Role {
+            name: name.into(),
+            kind: RoleKind::Module,
+        }
+    }
+
+    /// The RPC method `verb` on this child's own surface: `core.<verb>` or `module.<verb>`.
+    pub fn method(&self, verb: &str) -> String {
+        match self.kind {
+            RoleKind::Core => format!("core.{verb}"),
+            RoleKind::Module => format!("module.{verb}"),
+        }
+    }
+}
+
+/// What currently keeps a supervised child's lifeline (S4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Lifeline {
+    /// No child, or the child's lifeline is gone (it is orphaned or has exited).
+    None,
+    /// A child this supervisor spawned: the supervisor holds the only write end of its stdin.
+    Stdin,
+    /// An adopted child: the authenticated connection on which its adoption succeeded.
+    Connection,
+}
+
+/// One supervised child as the scheduler sees it: the child's state, its lifeline, and its own restart backoff and
+/// schedule.
+#[derive(Debug)]
+pub struct Slot {
+    pub role: Role,
+    /// The child, once spawned or adopted. Its `health` carries the crash reason (`Health::Crashed { reason }`) and
+    /// `last_exit` the last exit with its reason; `adopted` says whether it was adopted (S19).
+    pub child: Option<ChildState>,
+    /// The child's lifeline source; `Lifeline::None` while there is no child.
+    pub lifeline: Lifeline,
+    /// The child's restart backoff (spec §6.4); `daemon.start` resets it.
+    pub backoff: Backoff,
+    /// When the main thread's scheduler respawns the child; set by an exit that the backoff allows to retry.
+    pub restart_at: Option<Instant>,
+    /// `daemon.start` (or the B18 re-arm) asked for an immediate spawn (a no-op while the child is running).
+    pub start_requested: bool,
+}
+
+impl Slot {
+    /// An empty slot: no child yet, nothing scheduled. `scale` is the supervisor's time scale (see [`Backoff::new`]).
+    pub fn new(role: Role, scale: f64) -> Slot {
+        Slot {
+            role,
+            child: None,
+            lifeline: Lifeline::None,
+            backoff: Backoff::new(scale),
+            restart_at: None,
+            start_requested: false,
+        }
+    }
+}
+
+/// The slot the scheduler serves next: the first one with a start request, else the one whose restart is due
+/// earliest (`restart_at <= now`). `None` when nothing is due.
+pub fn next_due(slots: &[Slot], now: Instant) -> Option<usize> {
+    if let Some(i) = slots.iter().position(|s| s.start_requested) {
+        return Some(i);
+    }
+    slots
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| s.restart_at.filter(|&at| at <= now).map(|at| (at, i)))
+        .min()
+        .map(|(_, i)| i)
+}
+
+/// The earliest scheduled restart of any slot: when the scheduler has to wake up next.
+pub fn next_wake(slots: &[Slot]) -> Option<Instant> {
+    slots.iter().filter_map(|s| s.restart_at).min()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,6 +403,70 @@ mod tests {
 
     fn secs(n: u64) -> Duration {
         Duration::from_secs(n)
+    }
+
+    #[test]
+    fn role_method_names() {
+        assert_eq!(Role::core().method("status"), "core.status");
+        assert_eq!(Role::core().method("shutdown"), "core.shutdown");
+        assert_eq!(Role::module("fixture").method("status"), "module.status");
+        assert_eq!(Role::module("fixture").method("auth"), "module.auth");
+        assert_eq!(
+            Role::core(),
+            Role {
+                name: "core".into(),
+                kind: RoleKind::Core
+            }
+        );
+        assert_eq!(
+            Role::module("fixture-b"),
+            Role {
+                name: "fixture-b".into(),
+                kind: RoleKind::Module
+            }
+        );
+    }
+
+    #[test]
+    fn next_due_prefers_a_start_request_then_the_earliest_restart() {
+        let now = Instant::now();
+        let slot = |name: &str, restart_at: Option<Instant>, start_requested: bool| {
+            let mut s = Slot::new(Role::module(name), 1.0);
+            s.restart_at = restart_at;
+            s.start_requested = start_requested;
+            s
+        };
+        // Nothing requested, nothing scheduled.
+        assert_eq!(next_due(&[], now), None);
+        assert_eq!(next_due(&[slot("a", None, false)], now), None);
+        // A restart in the future is not due yet.
+        assert_eq!(
+            next_due(&[slot("a", Some(now + secs(1)), false)], now),
+            None
+        );
+        // The earliest of the due restarts wins; a future one never does.
+        let slots = [
+            slot("a", Some(now + secs(5)), false),
+            slot("b", Some(now - secs(1)), false),
+            slot("c", Some(now - secs(3)), false),
+            slot("d", Some(now), false),
+        ];
+        assert_eq!(next_due(&slots, now), Some(2));
+        // A start request comes before any due restart, wherever it sits.
+        let slots = [
+            slot("a", Some(now - secs(9)), false),
+            slot("b", None, true),
+            slot("c", Some(now + secs(9)), true),
+        ];
+        assert_eq!(next_due(&slots, now), Some(1));
+        // The earliest scheduled restart, due or not, is when the scheduler wakes next.
+        let slots = [
+            slot("a", Some(now + secs(5)), false),
+            slot("b", Some(now + secs(2)), false),
+            slot("c", None, false),
+        ];
+        assert_eq!(next_wake(&slots), Some(now + secs(2)));
+        assert_eq!(next_wake(&[slot("a", None, false)]), None);
     }
 
     #[test]

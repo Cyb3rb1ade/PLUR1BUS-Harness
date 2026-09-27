@@ -3,9 +3,10 @@
 //! `E_CORE_UNAVAILABLE`/`degraded` document (`memory add|recall`, the memory-ops surface, `dreams`).
 use crate::cli::DaemonCmd;
 use crate::output::Out;
-use crate::paths::{core_address, supervisor_address, Layout};
+use crate::paths::{supervisor_address, Layout};
 use crate::service::{self, Manager, Runner, ServiceError};
 use crate::supervisor;
+use crate::supervisor::Role;
 use plur1bus_rpc::{ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
 use std::ffi::OsString;
@@ -93,7 +94,7 @@ fn core_state(status: &Value) -> Option<&str> {
 /// bounded budget as the supervisor probe. `None` when the core is unreachable or does not report it yet.
 fn core_shared_memory(layout: &Layout) -> Option<Value> {
     let token = super::read_token_of(layout, Endpoint::Core)?;
-    let address = core_address(&layout.home, platform_str());
+    let address = layout.endpoints(&Role::core(), platform_str()).address;
     let opts = ConnectOptions {
         connect_timeout: PROBE_CONNECT_TIMEOUT,
         call_timeout: PROBE_CALL_TIMEOUT,

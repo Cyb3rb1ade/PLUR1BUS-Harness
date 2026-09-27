@@ -9,8 +9,9 @@
 //! budget the brief sets even when nothing answers.
 use crate::cli::FirstAidCmd;
 use crate::output::Out;
-use crate::paths::{core_address, supervisor_address, Layout};
+use crate::paths::{supervisor_address, Layout};
 use crate::service::{self, Runner};
+use crate::supervisor::Role;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -160,7 +161,7 @@ fn probe(
         detail: String::new(),
     })?;
     let address = match endpoint {
-        Endpoint::Core => core_address(&layout.home, platform),
+        Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
         Endpoint::Supervisor => supervisor_address(&layout.home, platform),
     };
     let opts = ConnectOptions {
@@ -510,7 +511,11 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
     let mut stale: Vec<String> = Vec::new();
 
     for (name, path, endpoint) in [
-        ("core.pid", layout.core_pid(), Endpoint::Core),
+        (
+            "core.pid",
+            layout.endpoints(&Role::core(), platform).pid,
+            Endpoint::Core,
+        ),
         (
             "supervisor.pid",
             layout.supervisor_pid(),
@@ -536,7 +541,7 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
         ] {
             if path.exists() {
                 let address = match endpoint {
-                    Endpoint::Core => core_address(&layout.home, platform),
+                    Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
                     Endpoint::Supervisor => supervisor_address(&layout.home, platform),
                 };
                 let alive = plur1bus_rpc::transport::connect(&address, CHECK_TIMEOUT).is_ok();
@@ -1128,7 +1133,7 @@ fn check_windows_pipe_acl(layout: &Layout) -> Check {
     };
     let mut writable = Vec::new();
     for (name, address) in [
-        ("core", core_address(&layout.home, "windows")),
+        ("core", layout.endpoints(&Role::core(), "windows").address),
         ("supervisor", supervisor_address(&layout.home, "windows")),
     ] {
         if let Ok(entries) = win::pipe_dacl_report(&address) {

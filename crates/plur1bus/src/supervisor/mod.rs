@@ -21,8 +21,9 @@ use crate::paths::{supervisor_address, Layout};
 use logfile::RotatingFile;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
-use state::{Backoff, ChildState};
-use std::collections::VecDeque;
+use state::ChildState;
+pub use state::{next_due, Lifeline, Role, Slot};
+use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::io::{self, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -63,17 +64,6 @@ pub struct RestartJob {
     pub done: std::sync::mpsc::Sender<Vec<String>>,
 }
 
-/// What currently keeps the supervised core's lifeline (S4).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Lifeline {
-    /// No child, or the child's lifeline is gone (it is orphaned or has exited).
-    None,
-    /// A child this supervisor spawned: the supervisor holds the only write end of its stdin.
-    Stdin,
-    /// An adopted child: the authenticated connection on which `core.adopt` succeeded (Task 7).
-    Connection,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopSource {
     /// `daemon.stop`.
@@ -91,7 +81,7 @@ pub struct StopRequest {
     pub requested_at: Instant,
 }
 
-/// The supervisor's mutable state (ruling H3-R2), behind [`Shared::state`]. Task 6 fills `child`.
+/// The supervisor's mutable state (ruling H3-R2), behind [`Shared::state`].
 #[derive(Debug)]
 pub struct SupervisorState {
     /// Fresh UUID per supervisor start; also in `run/supervisor.pid` and the hello.
@@ -106,19 +96,10 @@ pub struct SupervisorState {
     /// `PLUR1BUS_SUPERVISOR_TIME_SCALE` (1.0 unless the test seam sets it): multiplies every supervisor duration.
     pub time_scale: f64,
     pub config: SupervisorConfig,
-    /// The core, once spawned or adopted. Its `health` carries the crash reason (`Health::Crashed { reason }`) and
-    /// `last_exit` the last exit with its reason; `adopted` says whether it was adopted (S19).
-    pub child: Option<ChildState>,
-    /// The core's lifeline source; `Lifeline::None` while there is no child.
-    pub lifeline: Lifeline,
+    /// One slot per supervised child, the core first: its state, lifeline, backoff and restart schedule.
+    pub slots: Vec<Slot>,
     /// Set by `daemon.stop` or a signal; the main thread then stops the children and exits 0.
     pub stopping: Option<StopRequest>,
-    /// The core's restart backoff (spec §6.4); `daemon.start` resets it.
-    pub backoff: Backoff,
-    /// When the main thread's scheduler respawns the core; set by an exit that the backoff allows to retry.
-    pub restart_at: Option<Instant>,
-    /// `daemon.start` asked for an immediate spawn (a no-op while the core is running).
-    pub start_requested: bool,
     /// Requested restarts (`config.set` of a `core` key, a core reporting `restartPending`), run in order by the main
     /// thread (B8), which a push wakes.
     pub restart_jobs: VecDeque<RestartJob>,
@@ -129,6 +110,15 @@ pub struct SupervisorState {
 }
 
 impl SupervisorState {
+    /// The slot of the child named `name` (`core`, or a module's name).
+    pub fn slot(&self, name: &str) -> Option<&Slot> {
+        self.slots.iter().find(|s| s.role.name == name)
+    }
+
+    pub fn slot_mut(&mut self, name: &str) -> Option<&mut Slot> {
+        self.slots.iter_mut().find(|s| s.role.name == name)
+    }
+
     /// The `daemon.status` result.
     pub fn status_json(&self) -> Value {
         let process = match self.stopping {
@@ -142,7 +132,12 @@ impl SupervisorState {
                 "pid": self.pid,
                 "uptimeMs": self.started.elapsed().as_millis() as u64,
             },
-            "children": self.child.iter().map(ChildState::to_json).collect::<Vec<_>>(),
+            "children": self
+                .slots
+                .iter()
+                .filter_map(|s| s.child.as_ref())
+                .map(ChildState::to_json)
+                .collect::<Vec<_>>(),
         })
     }
 }
@@ -620,12 +615,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             no_core: opts.no_core,
             time_scale,
             config,
-            child: None,
-            lifeline: Lifeline::None,
+            slots: vec![Slot::new(Role::core(), time_scale)],
             stopping: None,
-            backoff: Backoff::new(time_scale),
-            restart_at: None,
-            start_requested: false,
             restart_jobs: VecDeque::new(),
             restart_running: false,
             core_ready_ms: None,
@@ -664,21 +655,15 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         json!({ "pid": pid, "instanceId": instance_id, "address": address, "noCore": opts.no_core, "timeScale": time_scale }),
     );
 
-    // Built lazily: when core.js is missing the supervisor stays up with a fatal child (H3-R11), and `daemon.start`
-    // tries again.
-    let mut monitor: Option<child::Monitor> = None;
-    let spawn_core = |monitor: &mut Option<child::Monitor>| match monitor {
-        Some(m) => m.spawn(),
-        None => match child::core_spec(layout, &uuid::Uuid::new_v4().to_string()) {
-            Ok(spec) => *monitor = Some(child::Monitor::start(shared.clone(), layout, spec)),
-            Err(e) => child::mark_unspawnable(&shared, "core", &e),
-        },
-    };
+    // Monitors are built lazily, one per slot, keyed by the slot's name: when core.js is missing the supervisor stays
+    // up with a fatal child (H3-R11), and `daemon.start` tries again.
+    let mut monitors = Monitors::new();
     if !opts.no_core {
-        start_core(&shared, layout, &token, &mut monitor, spawn_core);
+        start_child(&shared, layout, &token, &Role::core(), &mut monitors);
     }
 
-    // Main thread: the restart scheduler (a requested restart, a due `restart_at`, `daemon.start`) until a stop.
+    // Main thread: the restart scheduler (a requested restart, a slot's `daemon.start` or due `restart_at`) until a
+    // stop.
     let stop = loop {
         let next = {
             let mut st = shared.lock();
@@ -689,19 +674,20 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                 // Before `daemon.start`: a job restarts a core that is down, and the start that follows is a no-op.
                 if let Some(job) = st.restart_jobs.pop_front() {
                     st.restart_running = true;
-                    break Ok(Some(job));
-                }
-                if std::mem::take(&mut st.start_requested) {
-                    st.restart_at = None;
-                    break Ok(None);
+                    break Ok(Next::Job(job));
                 }
                 let now = Instant::now();
-                st = match st.restart_at {
-                    Some(at) if at <= now => {
-                        st.restart_at = None;
-                        break Ok(None);
-                    }
-                    Some(at) => match shared.wake.wait_timeout(st, at - now) {
+                if let Some(i) = next_due(&st.slots, now) {
+                    let slot = &mut st.slots[i];
+                    slot.start_requested = false;
+                    slot.restart_at = None;
+                    break Ok(Next::Due(slot.role.clone()));
+                }
+                st = match state::next_wake(&st.slots) {
+                    Some(at) => match shared
+                        .wake
+                        .wait_timeout(st, at.saturating_duration_since(now))
+                    {
                         Ok((g, _)) => g,
                         Err(e) => e.into_inner().0,
                     },
@@ -711,8 +697,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         };
         match next {
             Err(stop) => break stop,
-            Ok(Some(job)) => run_restart_job(&shared, &mut monitor, job, spawn_core),
-            Ok(None) => restart_core(&shared, layout, &token, &mut monitor, spawn_core),
+            Ok(Next::Job(job)) => run_restart_job(&shared, layout, &mut monitors, job),
+            Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
     };
     // A job still queued is not run: dropping its sender tells a waiting `config.set` so.
@@ -724,8 +710,18 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             StopSource::Signal(n) => format!("signal {n}"),
         } }),
     );
-    if let Some(m) = monitor.as_mut() {
-        m.stop(stop.budget);
+    // The core last: the slots are stopped in reverse order.
+    let order: Vec<String> = shared
+        .lock()
+        .slots
+        .iter()
+        .rev()
+        .map(|s| s.role.name.clone())
+        .collect();
+    for name in order {
+        if let Some(m) = monitors.get_mut(&name) {
+            m.stop(stop.budget);
+        }
     }
     remove_run_files(layout);
     shared.log.info("supervisor stopped", json!({}));
@@ -733,26 +729,58 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     0
 }
 
+/// What the scheduler runs next.
+enum Next {
+    /// A requested restart (B8).
+    Job(RestartJob),
+    /// A slot whose `daemon.start` or scheduled restart is due.
+    Due(Role),
+}
+
+/// The monitors of the main thread, one per slot that has been spawned or adopted, keyed by the slot's name.
+type Monitors = BTreeMap<String, child::Monitor>;
+
+/// Spawns `role`'s child: through its monitor, or by building the monitor (and its spawn spec) first. A spec that
+/// cannot be built marks the child unspawnable (H3-R11).
+fn spawn_child(shared: &Arc<Shared>, layout: &Layout, role: &Role, monitors: &mut Monitors) {
+    match monitors.get_mut(&role.name) {
+        Some(m) => m.spawn(),
+        None => match child::spec_for(layout, role, &uuid::Uuid::new_v4().to_string()) {
+            Ok(spec) => {
+                let m = child::Monitor::start(shared.clone(), layout, role.clone(), spec);
+                monitors.insert(role.name.clone(), m);
+            }
+            Err(e) => child::mark_unspawnable(shared, &role.name, &e),
+        },
+    }
+}
+
 /// Runs one requested restart (B8): the core, when the plan names it, through [`child::Monitor::restart_requested`]
 /// (or a first spawn when there has been no process); modules follow with Task 10. Sends the units restarted.
 fn run_restart_job(
     shared: &Arc<Shared>,
-    monitor: &mut Option<child::Monitor>,
+    layout: &Layout,
+    monitors: &mut Monitors,
     job: RestartJob,
-    spawn_core: impl Fn(&mut Option<child::Monitor>),
 ) {
     let mut restarted = Vec::new();
     let no_core = shared.lock().no_core;
     if job.plan.core && !no_core {
-        match monitor.as_mut() {
+        let core = Role::core();
+        match monitors.get_mut(&core.name) {
             Some(m) => m.restart_requested(DEFAULT_STOP_BUDGET),
             None => {
-                shared.lock().backoff.reset();
-                spawn_core(monitor);
+                if let Some(slot) = shared.lock().slot_mut(&core.name) {
+                    slot.backoff.reset();
+                }
+                spawn_child(shared, layout, &core, monitors);
             }
         }
-        if monitor.as_ref().is_some_and(child::Monitor::is_running) {
-            restarted.push("core".to_string());
+        if monitors
+            .get(&core.name)
+            .is_some_and(child::Monitor::is_running)
+        {
+            restarted.push(core.name);
         }
     }
     shared.lock().restart_running = false;
@@ -776,98 +804,106 @@ pub fn push_restart(
     Some(rx)
 }
 
-/// The core at start (spec §6.4, S6): probe the address before any spawn ([`probe_and_adopt`]), and spawn only when
-/// no core was adopted.
-fn start_core(
+/// A child at start (spec §6.4, S6): probe its address before any spawn ([`probe_and_adopt`]), and spawn only when
+/// nothing was adopted.
+fn start_child(
     shared: &Arc<Shared>,
     layout: &Layout,
     token: &str,
-    monitor: &mut Option<child::Monitor>,
-    spawn_core: impl Fn(&mut Option<child::Monitor>),
+    role: &Role,
+    monitors: &mut Monitors,
 ) {
-    if !probe_and_adopt(shared, layout, token, monitor) && shared.lock().stopping.is_none() {
-        spawn_core(monitor);
+    if !probe_and_adopt(shared, layout, token, role, monitors) && shared.lock().stopping.is_none() {
+        spawn_child(shared, layout, role, monitors);
     }
 }
 
-/// A due restart or `daemon.start`. When the last exit was `lock-held`, another core holds `state/core.lock`: most
-/// likely one still starting (the core takes the lock seconds before it listens). So the address is probed again
-/// first, and a core that now serves is adopted instead of spawning yet another one that would exit 3.
-fn restart_core(
+/// A due restart or `daemon.start` of `role`. When the last exit was `lock-held`, another process holds the child's
+/// lock (`state/core.lock` for the core): most likely one still starting (the core takes the lock seconds before it
+/// listens). So the address is probed again first, and a child that now serves is adopted instead of spawning yet
+/// another one that would exit 3.
+fn restart_child(
     shared: &Arc<Shared>,
     layout: &Layout,
     token: &str,
-    monitor: &mut Option<child::Monitor>,
-    spawn_core: impl Fn(&mut Option<child::Monitor>),
+    role: &Role,
+    monitors: &mut Monitors,
 ) {
-    let running = monitor.as_ref().is_some_and(child::Monitor::is_running);
+    let running = monitors
+        .get(&role.name)
+        .is_some_and(child::Monitor::is_running);
     let lock_held = {
         let st = shared.lock();
-        st.child
-            .as_ref()
+        st.slot(&role.name)
+            .and_then(|s| s.child.as_ref())
             .and_then(|c| c.last_exit.as_ref())
             .and_then(|e| e.reason.as_deref())
             == Some(state::CrashReason::LockHeld.as_str())
     };
     if !running
         && lock_held
-        && (probe_and_adopt(shared, layout, token, monitor) || shared.lock().stopping.is_some())
+        && (probe_and_adopt(shared, layout, token, role, monitors)
+            || shared.lock().stopping.is_some())
     {
         return;
     }
-    spawn_core(monitor);
+    spawn_child(shared, layout, role, monitors);
 }
 
-/// Probes the core's address (S6). A serving core is adopted on the probe's own connection with the current token
-/// as nonce, and becomes the monitor's process; a hung or foreign one is terminated through the pin the probe took
-/// on the socket's server. Returns whether a core was adopted. A failed adoption (a core that is stopping) returns
-/// false: the spawn that follows exits 3 while it still holds the lock, and backs off.
+/// Probes `role`'s address (S6). A serving child is adopted on the probe's own connection with the current token as
+/// nonce, and becomes its monitor's process; a hung or foreign one is terminated through the pin the probe took on the
+/// socket's server. Returns whether a child was adopted. A failed adoption (a child that is stopping) returns false:
+/// the spawn that follows exits 3 while it still holds the lock, and backs off.
 fn probe_and_adopt(
     shared: &Arc<Shared>,
     layout: &Layout,
     token: &str,
-    monitor: &mut Option<child::Monitor>,
+    role: &Role,
+    monitors: &mut Monitors,
 ) -> bool {
-    let found = adopt::probe_core(layout, adopt::PROBE_TIMEOUT);
+    let found = adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT);
     let name = found.name();
     let reason = match &found {
         adopt::Probe::Foreign { reason, .. } => Some(reason.clone()),
         _ => None,
     };
     shared.log.info(
-        "core probe",
+        &format!("{} probe", role.name),
         json!({ "result": name, "peerPid": found.peer_pid(), "reason": reason }),
     );
     match found {
         adopt::Probe::Absent => false,
-        adopt::Probe::Serving { peer, client, .. } => match adopt::adopt(client, token) {
+        adopt::Probe::Serving { peer, client, .. } => match adopt::adopt(client, role, token) {
             Ok((lifeline, status)) => {
-                match monitor {
+                match monitors.get_mut(&role.name) {
                     Some(m) => m.attach_adopted(peer, lifeline, &status),
                     None => {
-                        let spec = child::core_spec(layout, &uuid::Uuid::new_v4().to_string()).ok();
-                        *monitor = Some(child::Monitor::adopt(
+                        let spec =
+                            child::spec_for(layout, role, &uuid::Uuid::new_v4().to_string()).ok();
+                        let m = child::Monitor::adopt(
                             shared.clone(),
                             layout,
+                            role.clone(),
                             spec,
                             peer,
                             lifeline,
                             &status,
-                        ));
+                        );
+                        monitors.insert(role.name.clone(), m);
                     }
                 }
                 true
             }
             Err(e) => {
                 shared.log.warn(
-                    "adoption failed, spawning a core",
+                    &format!("adoption failed, spawning a {}", role.name),
                     json!({ "err": e.to_string() }),
                 );
                 false
             }
         },
         adopt::Probe::Hung { peer } | adopt::Probe::Foreign { peer, .. } => {
-            adopt::terminate_found(shared, layout, peer, name);
+            adopt::terminate_found(shared, layout, role, peer, name);
             false
         }
     }
@@ -943,12 +979,8 @@ pub(crate) fn test_state() -> SupervisorState {
         no_core: true,
         time_scale: 1.0,
         config: config::supervisor_config(None),
-        child: None,
-        lifeline: Lifeline::None,
+        slots: vec![Slot::new(Role::core(), 1.0)],
         stopping: None,
-        backoff: Backoff::new(1.0),
-        restart_at: None,
-        start_requested: false,
         restart_jobs: VecDeque::new(),
         restart_running: false,
         core_ready_ms: None,
@@ -1015,12 +1047,8 @@ mod tests {
             no_core: true,
             time_scale: 1.0,
             config: config::supervisor_config(None),
-            child: None,
-            lifeline: Lifeline::None,
+            slots: vec![Slot::new(Role::core(), 1.0)],
             stopping: None,
-            backoff: Backoff::new(1.0),
-            restart_at: None,
-            start_requested: false,
             restart_jobs: VecDeque::new(),
             restart_running: false,
             core_ready_ms: None,

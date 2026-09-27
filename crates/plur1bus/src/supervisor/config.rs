@@ -206,13 +206,17 @@ fn apply_live(shared: &Shared, config: &Value) {
 /// Its backoff is reset, as for `daemon.start`.
 fn rearm_core(shared: &Shared) {
     let mut st = shared.lock();
-    let crashed_config_invalid = st.child.as_ref().is_some_and(|c| {
+    let (no_core, stopping) = (st.no_core, st.stopping.is_some());
+    let Some(core) = st.slot_mut("core") else {
+        return;
+    };
+    let crashed_config_invalid = core.child.as_ref().is_some_and(|c| {
         matches!(&c.health, super::state::Health::Crashed { reason: Some(r), .. }
             if r == super::state::CrashReason::ConfigInvalid.as_str())
     });
-    if crashed_config_invalid && !st.no_core && st.stopping.is_none() && !st.start_requested {
-        st.backoff.reset();
-        st.start_requested = true;
+    if crashed_config_invalid && !no_core && !stopping && !core.start_requested {
+        core.backoff.reset();
+        core.start_requested = true;
         shared.wake.notify_all();
         drop(st);
         shared.log.info(
@@ -376,15 +380,20 @@ fn ready_timeout(shared: &Shared) -> Duration {
 fn wait_core_up(shared: &Shared, deadline: Instant) {
     use super::state::Health;
     while Instant::now() < deadline {
-        let up = shared.lock().child.as_ref().is_some_and(|c| {
-            matches!(
-                c.health,
-                Health::Ready
-                    | Health::Degraded(_)
-                    | Health::Crashed { .. }
-                    | Health::Stopped { .. }
-            )
-        });
+        let st = shared.lock();
+        let up = st
+            .slot("core")
+            .and_then(|s| s.child.as_ref())
+            .is_some_and(|c| {
+                matches!(
+                    c.health,
+                    Health::Ready
+                        | Health::Degraded(_)
+                        | Health::Crashed { .. }
+                        | Health::Stopped { .. }
+                )
+            });
+        drop(st);
         if up {
             return;
         }
