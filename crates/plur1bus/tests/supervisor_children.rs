@@ -8,6 +8,14 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
 const WAIT: Duration = Duration::from_secs(15);
+/// The fake core stops answering this long after it listens. It must stay responsive until the supervisor's first
+/// readiness poll has authenticated; on the slower Windows runners that can take longer than 300 ms, and a core that
+/// hangs before it is ready is killed at the ready timeout instead of being detected as hung.
+const HANG_AFTER: &str = if cfg!(windows) {
+    "hang-after:1500"
+} else {
+    "hang-after:300"
+};
 
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-core.mjs")
@@ -317,7 +325,7 @@ fn daemon_start_after_crashed_resets_and_respawns() {
 #[test]
 fn a_hung_core_is_terminated_after_the_hang_threshold() {
     let h = Home::new();
-    let _s = start(&h, "hang-after:300", "0.02");
+    let _s = start(&h, HANG_AFTER, "0.02");
     let mut c = client(&h.home);
     let first = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
     let first_pid = first["pid"].as_u64().unwrap();
@@ -469,7 +477,7 @@ fn a_core_that_never_listens_is_killed_as_ready_timeout_and_restarted() {
 #[test]
 fn daemon_stop_is_bounded_by_the_budget_for_a_hung_core() {
     let h = Home::new();
-    let mut s = start(&h, "hang-after:300", "0.02");
+    let mut s = start(&h, HANG_AFTER, "0.02");
     let mut c = client(&h.home);
     let child = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
     let pid = child["pid"].as_u64().unwrap();
