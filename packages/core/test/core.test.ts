@@ -453,21 +453,24 @@ describe("core run files (S11)", () => {
 describe("core model warm-up (E4, S7)", () => {
   // H3-R22/R23: the models' probes alone leave the first recall cold (a real query embedding, the first table
   // search); a recall that pays that inside the core's 600 ms hard budget answers `aborted` even though its phases
-  // look fast. The flat embedder stands in for a cold model: its first three embedQuery calls take 350 ms each (the
+  // look fast. The flat embedder stands in for a cold model: its first three embedQuery calls take COLD_MS each (the
   // warm-up probe, the warm-up's memory.list, and the first of the two a recall makes). The read-only recall-path
-  // warm-up absorbs one of them, which keeps the first client recall inside the budget (without it: 700 ms of
-  // embedding in the first recall, aborted).
+  // warm-up absorbs one of them, which keeps the first client recall inside the budget (without it: 2 x COLD_MS of
+  // embedding in the first recall, over HARD_MS, aborted). HARD_MS sits just under 2 x COLD_MS, so the rest of the
+  // recall has COLD_MS - 50 ms on a slow runner (Windows CI spent 260 ms there) and the proof does not depend on
+  // runner speed: without the warm-up the embedding alone is over the hard budget.
   it("the first memory.recall after engine.ready is not aborted: the recall-path warm-up absorbs the cold path (H3-R22/R23)", async () => {
+    const COLD_MS = 800; const HARD_MS = 2 * COLD_MS - 50;
     const home = newHome(); let calls = 0;
-    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => (++calls <= 3 ? 350 : 0) }) });
+    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => (++calls <= 3 ? COLD_MS : 0) }) });
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
     try {
-      let s: any; const until = Date.now() + 8000;
+      let s: any; const until = Date.now() + 15_000;
       do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until);
       assert.equal(s.engine.ready, true, JSON.stringify(s.engine));
       assert.equal(calls, 2, `the warm-up's memory.list embedded the query before engine.ready (embedQuery calls: ${calls})`);
-      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "when is the roadmap review", joined: true, budget: { hardMs: 600, softMs: 400 } });
+      const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "when is the roadmap review", joined: true, budget: { hardMs: HARD_MS, softMs: COLD_MS } });
       assert.equal(r.degraded, null, `first recall: ${JSON.stringify(r.degraded)} timing ${JSON.stringify(r.timing)}`);
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
@@ -545,8 +548,16 @@ describe("core model warm-up (E4, S7)", () => {
       assert.equal(s0.process.state, "ready");
       assert.equal(s0.engine.ready, false);
       assert.equal(s0.engine.degraded?.reason, "models-warming", JSON.stringify(s0.engine));
-      await new Promise((r) => setTimeout(r, 600));
-      const s1 = await c.call<any>("core.status");
+      // Until the probe and then the recall-path warm-up (a first memory.list: a cold table search, slow on Windows CI)
+      // have answered; the process is ready all along.
+      let s1: any; const until = Date.now() + 8000;
+      do {
+        s1 = await c.call<any>("core.status");
+        assert.equal(s1.process.state, "ready");
+        if (s1.engine.ready) break;
+        assert.equal(s1.engine.degraded?.reason, "models-warming", JSON.stringify(s1.engine));
+        await new Promise((r) => setTimeout(r, 50));
+      } while (Date.now() < until);
       assert.equal(s1.process.state, "ready");
       assert.equal(s1.engine.ready, true, JSON.stringify(s1.engine));
       assert.equal(s1.engine.degraded, null);

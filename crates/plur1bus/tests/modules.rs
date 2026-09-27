@@ -804,6 +804,9 @@ fn daemon_stop_stops_modules_before_the_core() {
 /// M3: `daemon.stop` keeps one deadline (budget + grace) for every child, however many there are. Two modules that
 /// cannot answer (SIGSTOP) are both killed at that deadline: the stop takes about one budget, not one per module.
 /// `healthIntervalMs` is long so the hang detector (three intervals) does not kill them first.
+/// The time scale is 0.1, not 0.02: the core's reserve is the stop grace (5 s x scale), and at 0.02 its 100 ms is
+/// used up on a slow runner by reaping the two killed modules, so the core would be killed or never asked. At 0.1
+/// the core has 500 ms, and the stop still ends well before the 2 s a budget per module would take.
 #[cfg(unix)]
 #[test]
 fn daemon_stop_keeps_one_deadline_for_every_child() {
@@ -813,7 +816,7 @@ fn daemon_stop_keeps_one_deadline_for_every_child() {
     let config =
         json!({ "schemaVersion": 1, "supervisor": { "graceMs": 1000, "healthIntervalMs": 60000 } });
     std::fs::write(h.home.join("config.json"), config.to_string()).unwrap();
-    let mut s = h.start(&[]);
+    let mut s = h.start_scaled("0.1", &[]);
     let mut c = client(&h.home);
     wait_for(&mut c, "fixture", "ready", |m| state(m) == "ready");
     let st = wait_for(&mut c, "fixture-b", "ready", |m| state(m) == "ready");
