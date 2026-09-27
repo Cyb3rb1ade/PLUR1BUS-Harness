@@ -9,12 +9,29 @@ pub mod import;
 pub mod memory;
 pub mod memory_ops;
 pub mod module;
+pub mod repair;
 pub mod service;
+pub mod setup;
 pub mod stubs;
+pub mod update;
 
+use crate::output::Out;
 use crate::paths::Layout;
 use plur1bus_rpc::types::ErrorCode;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
+
+/// `E_NOT_AVAILABLE reason=container-managed`, exit 1, when `PLUR1BUS_CONTAINER=1` (HB14): in the harness image the
+/// image owns the installation, so `setup` and `update --check` never run there. Returns otherwise.
+pub(crate) fn refuse_in_container(out: &Out, cmd: &str) {
+    if crate::container::container_mode() {
+        out.fail(
+            "E_NOT_AVAILABLE",
+            &format!("`plur1bus {cmd}` is not available in container mode: the image manages the installation"),
+            serde_json::json!({ "reason": "container-managed", "command": cmd }),
+            1,
+        );
+    }
+}
 
 /// Whether `e` is the S11 refusal of a pipe served by another process than the recorded one.
 fn is_server_mismatch(e: &RpcError) -> bool {

@@ -49,10 +49,25 @@ fn stubs_exit_2_and_name_their_milestone() {
     }
 }
 
+fn json_code(args: &[&str], env: &[(&str, &str)], code: i32) -> serde_json::Value {
+    let mut cmd = bin();
+    cmd.env_remove("PLUR1BUS_CONTAINER");
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    let out = cmd
+        .args(args)
+        .assert()
+        .code(code)
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&out).unwrap()
+}
+
 #[test]
-fn stubs_name_2a_h3b() {
-    // `daemon`, `service` and `module` are implemented (2a-H3a Tasks 8, 9; 2a-H3b Task 10); the rest are still
-    // milestone stubs.
+fn setup_update_and_repair_answer_their_milestone_until_implemented() {
+    // `daemon`, `service` and `module` are implemented (2a-H3a Tasks 8, 9; 2a-H3b Task 10).
     for cmd in ["setup", "module", "daemon", "service", "update", "1staid"] {
         bin().arg(cmd).arg("--help").assert().success();
     }
@@ -62,20 +77,65 @@ fn stubs_name_2a_h3b() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("2a-H3b").not());
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    for (args, command) in [
+        (
+            vec!["--json", "--home", h, "setup", "--non-interactive"],
+            "setup",
+        ),
+        (
+            vec!["--json", "--home", h, "update", "--check"],
+            "update --check",
+        ),
+        (
+            vec!["--json", "--home", h, "1staid", "repair", "--dry-run"],
+            "1staid repair",
+        ),
+    ] {
+        let v = json_code(&args, &[], 2);
+        assert_eq!(v["error"], "E_NOT_AVAILABLE", "{args:?}");
+        assert_eq!(v["milestone"], "2a-H3b-b", "{args:?}");
+        assert_eq!(v["command"], command);
+    }
+    assert!(
+        std::fs::read_dir(dir.path()).unwrap().next().is_none(),
+        "the stubs write nothing"
+    );
+}
+
+#[test]
+fn update_without_check_is_the_m8_stub() {
+    let v = json_code(&["--json", "update"], &[], 2);
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["milestone"], "M8");
+    // Also in container mode: only `--check` is refused there.
+    let v = json_code(&["--json", "update"], &[("PLUR1BUS_CONTAINER", "1")], 2);
+    assert_eq!(v["milestone"], "M8");
     bin()
-        .args(["update", "check"])
+        .env_remove("PLUR1BUS_CONTAINER")
+        .arg("update")
         .assert()
         .code(2)
-        .stderr(predicate::str::contains("2a-H3b"));
-    let out = bin()
-        .args(["--json", "update", "check"])
-        .assert()
-        .code(2)
-        .get_output()
-        .stdout
-        .clone();
-    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
-    assert_eq!(v["milestone"], "2a-H3b");
+        .stderr(predicate::str::contains("M8"));
+}
+
+#[test]
+fn setup_and_update_check_are_container_managed_in_container_mode() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    for args in [
+        vec!["--json", "--home", h, "setup", "--non-interactive"],
+        vec!["--json", "--home", h, "update", "--check"],
+    ] {
+        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+        assert_eq!(v["error"], "E_NOT_AVAILABLE", "{args:?}");
+        assert_eq!(v["reason"], "container-managed", "{args:?}");
+        // Only exactly "1" is container mode.
+        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "true")], 2);
+        assert_eq!(v["milestone"], "2a-H3b-b", "{args:?}");
+    }
+    assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
 }
 
 #[test]

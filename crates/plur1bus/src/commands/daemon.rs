@@ -325,7 +325,7 @@ fn wait_for_ready(
 /// started through its manager (`via: "service"`), or a fresh supervisor is spawned detached (`via: "spawn"`).
 /// A spawn that loses the single-instance race waits for the winner's endpoint instead and answers
 /// `started: false, via: "running"`.
-fn do_start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, Value) {
+pub(crate) fn start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'static str, Value) {
     if let Probe::Answered(status) = probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT) {
         let already_ready = core_state(&status) == Some("ready");
         let started = start_starts_the_core(&status);
@@ -498,7 +498,7 @@ pub(crate) fn stop_supervisor(
 pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
     match cmd {
         DaemonCmd::Start { no_wait } => {
-            let (started, via, status) = do_start(out, layout, no_wait);
+            let (started, via, status) = start(out, layout, no_wait);
             out.ok(
                 "daemon.start/1",
                 &json!({ "started": started, "via": via, "status": status }),
@@ -532,7 +532,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
         }
         DaemonCmd::Restart => {
             let (stopped, was_running) = do_stop(out, layout, None);
-            let (started, via, status) = do_start(out, layout, false);
+            let (started, via, status) = start(out, layout, false);
             out.ok(
                 "daemon.restart/1",
                 &json!({

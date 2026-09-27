@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Leaf command paths (space-joined, e.g. `"memory add"`) exempt from the `[experimental]`
 /// stability mark — the only CLI surface ADR-016 §4/G14 calls stable. Every other implemented
 /// leaf command's `about` starts with `[experimental] `; a stub names its milestone instead
-/// (`2a-H3b`, `M2`, `M3`, `M4` or `M8`) and is exempt for that reason (see the
+/// (`M2`, `M3`, `M4` or `M8`) and is exempt for that reason (see the
 /// `leaf_commands_are_stable_or_marked_experimental` test below).
 /// Read by the `leaf_commands_are_stable_or_marked_experimental` test below and by anything else
 /// (docs, a future `plur1bus <cmd> --help` footer) that needs the stable subset; the binary
@@ -32,9 +32,13 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
-    /// Install the harness (runtime, service registration) — 2a-H3b
-    Setup(StubArgs),
-    /// Check and repair the installation (repair — 2a-H3b)
+    /// [experimental] Install the harness: Node runtime, core, config, skills, OS service, start and first check
+    ///
+    /// Downloads the pinned Node runtime and the core payload and verifies their SHA-256 hashes, writes the config
+    /// (asking only the basic-tier questions), copies the bundled skills, registers the OS service, starts the
+    /// supervisor and runs `1staid check`. Safe to run again: a step whose result is already installed is skipped.
+    Setup(SetupArgs),
+    /// Check and repair the installation
     #[command(name = "1staid")]
     FirstAid {
         #[command(subcommand)]
@@ -85,8 +89,10 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// Update check — 2a-H3b
-    Update(StubArgs),
+    /// [experimental] Update check: what a release would change and which units would restart (`--check`)
+    ///
+    /// Applying an update is M8; without `--check` the command answers that milestone.
+    Update(UpdateArgs),
     /// Users — M2
     User(StubArgs),
     /// Models and provider profiles — M2
@@ -164,6 +170,60 @@ pub enum OnConflict {
     Replace,
 }
 
+/// `plur1bus setup` (spec §6.5, HB11).
+#[derive(Args, Debug)]
+pub struct SetupArgs {
+    /// Never prompt: answers come from the flags and the defaults (agent `main`, use class `general`)
+    #[arg(long)]
+    pub non_interactive: bool,
+    /// Accept the non-commercial licence of the default models (asked for unless the use class is commercial)
+    #[arg(long)]
+    pub accept_nc_licence: bool,
+    /// Do not register the OS service (the supervisor is still started for this session)
+    #[arg(long)]
+    pub no_service: bool,
+    /// Install the core from this directory or .tar.gz instead of the release payload
+    #[arg(long, value_name = "DIR|TAR.GZ")]
+    pub core_from: Option<PathBuf>,
+    /// Release channel recorded in the install manifest
+    #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"], default_value = "stable")]
+    pub channel: String,
+    /// Embedding use class (default: general)
+    #[arg(long, value_name = "CLASS", value_parser = ["general", "research", "commercial"])]
+    pub use_class: Option<String>,
+    /// The first agent's id (default: main)
+    #[arg(long, value_name = "ID")]
+    pub agent: Option<String>,
+}
+
+/// `plur1bus update` (spec §6.5, HB10).
+#[derive(Args, Debug)]
+pub struct UpdateArgs {
+    /// Compare the installation with the release manifest and print the plan; changes nothing
+    #[arg(long)]
+    pub check: bool,
+    /// Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
+    #[arg(long, value_name = "PATH|URL")]
+    pub manifest: Option<String>,
+    /// Release channel (default: the installed one)
+    #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"])]
+    pub channel: Option<String>,
+}
+
+/// `plur1bus 1staid repair` (spec §6.6, HB16).
+#[derive(Args, Debug)]
+pub struct RepairArgs {
+    /// Confirm every step of the plan without asking (required outside a terminal)
+    #[arg(long)]
+    pub yes: bool,
+    /// Print the plan and change nothing
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Plan only this step (repeatable)
+    #[arg(long = "only", value_name = "STEP_ID")]
+    pub only: Vec<String>,
+}
+
 #[derive(Args, Debug)]
 pub struct StubArgs {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
@@ -174,13 +234,8 @@ pub struct StubArgs {
 pub enum FirstAidCmd {
     /// [experimental] Read-only diagnostics over the installation (spec §6.6)
     Check,
-    /// Repair a broken installation — 2a-H3b
-    Repair {
-        #[arg(long)]
-        yes: bool,
-        #[arg(long)]
-        dry_run: bool,
-    },
+    /// [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
+    Repair(RepairArgs),
 }
 #[derive(Subcommand, Debug)]
 pub enum AgentCmd {
@@ -564,7 +619,7 @@ mod tests {
     use clap::CommandFactory;
 
     /// Milestone tags a stub command's `about` names (gen-docs.mjs's cli.md intro; G1).
-    const STUB_MILESTONES: &[&str] = &["2a-H3b", "M2", "M3", "M4", "M8"];
+    const STUB_MILESTONES: &[&str] = &["M2", "M3", "M4", "M8"];
 
     fn collect_leaves(cmd: &clap::Command, prefix: &str, out: &mut Vec<(String, Option<String>)>) {
         let path = if prefix.is_empty() {
@@ -602,6 +657,105 @@ mod tests {
                 stable || experimental || stub,
                 "leaf `{path}` is neither stable, marked [experimental], nor a milestone stub (about: {about:?})"
             );
+        }
+    }
+
+    fn parse(args: &[&str]) -> Cli {
+        Cli::try_parse_from(std::iter::once("plur1bus").chain(args.iter().copied()))
+            .unwrap_or_else(|e| panic!("{args:?}: {e}"))
+    }
+
+    #[test]
+    fn setup_update_repair_parse_their_flags() {
+        match parse(&["setup"]).cmd {
+            Cmd::Setup(a) => {
+                assert!(!a.non_interactive && !a.accept_nc_licence && !a.no_service);
+                assert_eq!(a.channel, "stable");
+                assert_eq!((a.core_from, a.use_class, a.agent), (None, None, None));
+            }
+            other => panic!("{other:?}"),
+        }
+        match parse(&[
+            "setup",
+            "--non-interactive",
+            "--accept-nc-licence",
+            "--no-service",
+            "--core-from",
+            "/tmp/p1b A/core",
+            "--channel",
+            "beta",
+            "--use-class",
+            "research",
+            "--agent",
+            "bernd",
+        ])
+        .cmd
+        {
+            Cmd::Setup(a) => {
+                assert!(a.non_interactive && a.accept_nc_licence && a.no_service);
+                assert_eq!(a.core_from, Some(PathBuf::from("/tmp/p1b A/core")));
+                assert_eq!(a.channel, "beta");
+                assert_eq!(a.use_class.as_deref(), Some("research"));
+                assert_eq!(a.agent.as_deref(), Some("bernd"));
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(Cli::try_parse_from(["plur1bus", "setup", "--use-class", "hobby"]).is_err());
+        assert!(Cli::try_parse_from(["plur1bus", "setup", "--channel", "nightly"]).is_err());
+
+        match parse(&["update"]).cmd {
+            Cmd::Update(a) => assert!(!a.check && a.manifest.is_none() && a.channel.is_none()),
+            other => panic!("{other:?}"),
+        }
+        match parse(&[
+            "update",
+            "--check",
+            "--manifest",
+            "https://example.invalid/stable.json",
+            "--channel",
+            "beta",
+        ])
+        .cmd
+        {
+            Cmd::Update(a) => {
+                assert!(a.check);
+                assert_eq!(
+                    a.manifest.as_deref(),
+                    Some("https://example.invalid/stable.json")
+                );
+                assert_eq!(a.channel.as_deref(), Some("beta"));
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(Cli::try_parse_from(["plur1bus", "update", "check"]).is_err());
+
+        match parse(&[
+            "1staid",
+            "repair",
+            "--yes",
+            "--dry-run",
+            "--only",
+            "run.permissions.fix",
+            "--only",
+            "config.restore",
+        ])
+        .cmd
+        {
+            Cmd::FirstAid {
+                sub: FirstAidCmd::Repair(a),
+            } => {
+                assert!(a.yes && a.dry_run);
+                assert_eq!(a.only, ["run.permissions.fix", "config.restore"]);
+            }
+            other => panic!("{other:?}"),
+        }
+        match parse(&["1staid", "repair"]).cmd {
+            Cmd::FirstAid {
+                sub: FirstAidCmd::Repair(a),
+            } => {
+                assert!(!a.yes && !a.dry_run && a.only.is_empty());
+            }
+            other => panic!("{other:?}"),
         }
     }
 }

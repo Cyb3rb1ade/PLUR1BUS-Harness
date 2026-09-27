@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.app/schema/install-manifest.schema.json",
+  "title": "PLUR1BUS install manifest (<home>/manifest.json)",
+  "description": "What `plur1bus setup` installed (HB9). Written only by `setup` and by `1staid repair` when it reinstalls a unit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "installedAt", "updatedAt", "channel", "target", "binary", "node", "core", "modules", "skills"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "installedAt": { "type": "integer", "minimum": 0, "description": "Epoch milliseconds of the first setup." },
+    "updatedAt": { "type": "integer", "minimum": 0, "description": "Epoch milliseconds of the last write." },
+    "channel": { "enum": ["stable", "beta"] },
+    "target": { "$ref": "#/$defs/target" },
+    "binary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sha256"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "sha256": { "$ref": "#/$defs/sha256OrNull" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "archiveSha256", "binarySha256", "path"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "archiveSha256": { "$ref": "#/$defs/sha256" },
+        "binarySha256": { "$ref": "#/$defs/sha256" },
+        "path": { "type": "string", "minLength": 1, "description": "Absolute path of the node binary." }
+      }
+    },
+    "core": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "contract", "rpc", "sha256", "source"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "contract": { "$ref": "#/$defs/version" },
+        "rpc": { "$ref": "#/$defs/version" },
+        "sha256": { "$ref": "#/$defs/sha256OrNull" },
+        "source": { "enum": ["release", "local"] }
+      }
+    },
+    "modules": { "type": "array", "items": { "$ref": "#/$defs/package" } },
+    "skills": { "type": "array", "items": { "$ref": "#/$defs/package" } }
+  },
+  "$defs": {
+    "target": { "enum": ["linux-x64", "linux-arm64", "darwin-arm64", "win-x64", "win-arm64"] },
+    "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sha256OrNull": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "source", "sha256"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": { "$ref": "#/$defs/version" },
+        "source": { "enum": ["bundled", "local", "catalog"], "description": "`catalog` is reserved for the extensions ecosystem (⟂EXT 4)." },
+        "sha256": { "$ref": "#/$defs/sha256OrNull" }
+      }
+    }
+  }
+}
