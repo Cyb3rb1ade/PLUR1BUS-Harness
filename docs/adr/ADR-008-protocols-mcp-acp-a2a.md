@@ -50,6 +50,13 @@ Exact pins for ACP and A2A (not caret ranges) because both SDKs are young; `^1.3
 
 **Server.** The harness exposes two tool groups to foreign MCP hosts: harness functions (agent listing/invocation, project board, task status) and PLUR1BUS memory tools. Auth and scope map to harness users and personal API tokens (auftrag §8), through the same `authorize()` chokepoint as every other surface (ADR-007) — a token's scopes narrow, never widen, the user's role. Per the spec, **stdio servers take credentials from the environment and do not implement the OAuth flow**; the Streamable HTTP server does, behind TLS and the harness API. Exposed memory tools are ACL-bound exactly as in-process calls: `user` scope requires the caller's principal, `agent-private` requires `manage` on that agent. Deny by default; the default exposure is *no* tools until an operator enables them.
 
+**Amendment 2026-09-27 (spec D67): authorization on headless gateways.** The MCP client reuses ADR-005's headless ladder for remote-server OAuth, as follows:
+1. Use the device authorization grant (RFC 8628) when the authorization server advertises it.
+2. Otherwise use a loopback redirect, and print the exact `ssh -L` command.
+3. Otherwise use paste-back. The person opens the authorization URL on any device and pastes the redirect URL, or `code` + `state`, into `plur1bus mcp auth <server> --manual`, the UI or a channel DM. `state` and the PKCE verifier are checked, and the window lasts 10 minutes.
+
+Client registration uses client ID metadata documents. Dynamic client registration stays excluded. Tokens live in the credential store. When a refresh fails, the server reports `auth-required`.
+
 ### ACP
 
 **Schema v1 only.** v2 is alpha and explicitly allowed to break wire compatibility while still being called ACP (`schema/v2/CHANGELOG.md` @ `bba7ddf`; `protocols-channels-coding-clis.md` pin recommendation). We also do not follow Hermes onto the unstable track (`use_unstable_protocol=True`, A12). Revisit when v2 reaches a stable release.
