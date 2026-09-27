@@ -564,11 +564,14 @@ describe("core model warm-up (E4, S7)", () => {
     const c = await connect({ address: core.address, token: core.token });
     try {
       const s = await c.call<any>("core.status"); // sharedMemory is part of the eng.status() cached at start()
-      if (process.platform === "linux") {
-        assert.deepEqual(s.engine.sharedMemory, { supported: true, mode: "fd-capability" }, JSON.stringify(s.engine));
-      } else {
-        assert.deepEqual(s.engine.sharedMemory, { supported: false, mode: "unavailable", reason: "platform" }, JSON.stringify(s.engine));
-      }
+      // Linux routes shared memory through fd-backed directory capabilities; darwin and win32 use the engine's
+      // verified-path mode (engine E4.2, docs/adr/0001-shared-memory-on-macos-and-windows.md). A verified-path pool
+      // answers supported until a check fails, and nothing has touched shared memory yet here — so this holds on an
+      // elevated Windows runner too, whose first share is refused (unsafe-root, ADR 0001 ruling E4-R12).
+      const expected = process.platform === "linux" ? { supported: true, mode: "fd-capability" }
+        : process.platform === "darwin" || process.platform === "win32" ? { supported: true, mode: "verified-path" }
+        : { supported: false, mode: "unavailable", reason: "platform" };
+      assert.deepEqual(s.engine.sharedMemory, expected, JSON.stringify(s.engine));
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 

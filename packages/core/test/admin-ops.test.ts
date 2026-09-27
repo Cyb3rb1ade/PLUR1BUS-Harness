@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { validateResult } from "@plur1bus/rpc-schema";
@@ -172,8 +172,11 @@ describe("admin.embedding.serve on the platform default address", () => {
         assert.equal(r.identity?.dimensions, 384);
         assert.equal(typeof r.tokenPath, "string");
         if (address.kind === "unix-socket") {
-          assert.ok(address.address.startsWith(join(layout(home).lancedb, "control", "embedding-ipc")), address.address);
+          // The engine reports the canonical path: on darwin /tmp is a symlink to /private/tmp, so the home made as
+          // /tmp/p1b-sv-… comes back as /private/tmp/p1b-sv-…. Compare canonical paths on both sides.
+          const ipcDir = realpathSync(join(layout(home).lancedb, "control", "embedding-ipc"));
           assert.ok(existsSync(address.address), `socket ${address.address} exists`);
+          assert.ok(realpathSync(address.address).startsWith(ipcDir + sep), `${address.address} is not under ${ipcDir}`);
         }
         const again = await valid("admin.embedding.serve", c.call<any>("admin.embedding.serve", {}));
         assert.deepEqual(again.address, address);

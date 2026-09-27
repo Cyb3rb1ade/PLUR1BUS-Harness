@@ -105,9 +105,10 @@ pub(crate) fn require_supports(out: &Out, c: &Client, method: &str) {
     }
 }
 
-/// `E_NOT_AVAILABLE reason=unsupported` (E4: `share`/`proposals.accept` on a platform without stable directory
-/// capabilities) gets a human-only hint before `from_rpc_error` exits, so a person hitting it at the terminal
-/// (not a script parsing `--json`) sees why, not just the bare error code.
+/// `E_NOT_AVAILABLE reason=unsupported` (E4: `share`/`proposals.accept` where the engine cannot offer explicit
+/// shared memory — a platform without a shared-memory mode, or, since engine E4.2, a verified-path check that failed
+/// on macOS/Windows; `ids.reason` says which) gets a human-only hint before `from_rpc_error` exits, so a person
+/// hitting it at the terminal (not a script parsing `--json`) sees why, not just the bare error code.
 fn print_unsupported_hint(out: &Out, e: &RpcError) {
     if out.json {
         return;
@@ -115,7 +116,7 @@ fn print_unsupported_hint(out: &Out, e: &RpcError) {
     let unsupported = e.code_name() == "E_NOT_AVAILABLE"
         && matches!(e, RpcError::Call { reason: Some(r), .. } if r == "unsupported");
     if unsupported {
-        eprintln!("explicit shared memory is not available on this platform");
+        eprintln!("explicit shared memory is not available; the ids line names the reason");
     }
 }
 

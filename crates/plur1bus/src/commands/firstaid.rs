@@ -878,7 +878,10 @@ fn check_shared_memory(core_status: Option<&Value>) -> Check {
         ID,
         format!("explicit shared memory unavailable ({reason})"),
         Some(json!({ "mode": mode, "reason": reason })),
-        Some("share and proposals answer E_NOT_AVAILABLE on this platform".to_string()),
+        Some(
+            "share and proposals answer E_NOT_AVAILABLE; agent-private memory is unaffected"
+                .to_string(),
+        ),
     )
 }
 

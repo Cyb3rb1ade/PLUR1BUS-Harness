@@ -58,13 +58,27 @@ describe("M1b-2a-H2 — memory surface through the CLI", () => {
       assert.equal(state.schema, "memory.state/1");
       assert.equal(state.cards.agentPrivate, 1, JSON.stringify(state));
 
-      if (!sharedMemorySupported(h)) {
-        // Engine limitation on macOS/Windows (E4): explicit shared memory is unsupported and share answers E_NOT_AVAILABLE.
-        const refused = run(["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"], { allowFail: true });
-        assert.equal(refused.exit, 1, JSON.stringify(refused));
+      // Explicit shared memory (engine E4.2): Linux answers "fd-capability", macOS and Windows "verified-path" (engine
+      // docs/adr/0001-shared-memory-on-macos-and-windows.md). Before any share, every platform reports it available:
+      // a verified-path pool stays supported until one of its checks fails.
+      assert.equal(sharedMemorySupported(h), true, "1staid check reports memory.shared ok");
+      const shareArgs = ["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"];
+      // Linux and macOS share. On Windows the outcome depends on elevation (ADR 0001, ruling E4-R12): an elevated
+      // process creates directories owned by Administrators, which the verified-path owner check refuses. Exactly two
+      // outcomes are valid there: unelevated, the share succeeds; elevated, the first share fails that check inside the
+      // write (E_STORAGE, exit 1) and taints the pool until restart, and every later share is E_NOT_AVAILABLE (exit 2)
+      // with reason unsupported and ids.reason unsafe-root.
+      const share = run(shareArgs, { allowFail: process.platform === "win32" });
+      if (typeof share.exit === "number") {
+        assert.equal(share.exit, 1, JSON.stringify(share));
+        assert.equal(share.doc.error, "E_STORAGE", JSON.stringify(share.doc));
+        const refused = run(shareArgs, { allowFail: true });
+        assert.equal(refused.exit, 2, JSON.stringify(refused));
         assert.equal(refused.doc.error, "E_NOT_AVAILABLE", JSON.stringify(refused.doc));
+        assert.equal(refused.doc.reason, "unsupported", JSON.stringify(refused.doc));
+        assert.deepEqual(refused.doc.ids, { capability: "shared-memory", reason: "unsafe-root" }, JSON.stringify(refused.doc));
+        t.diagnostic("elevated Windows: share refused unsafe-root (engine ADR 0001, E4-R12)");
       } else {
-        const share = run(["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"]);
         assert.equal(share.schema, "memory.share/1");
         assert.equal(share.sourceId, corrected.id, JSON.stringify(share));
 
