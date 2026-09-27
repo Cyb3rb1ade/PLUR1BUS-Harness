@@ -60,6 +60,22 @@ pub fn user_and_system_sddl(user_sid: &str) -> String {
     format!("D:P(A;;GA;;;{user_sid})(A;;GA;;;SY)")
 }
 
+/// `OBJECT_INHERIT_ACE`: files created in the directory inherit the ACE.
+pub const OBJECT_INHERIT_ACE: u8 = 0x01;
+/// `CONTAINER_INHERIT_ACE`: subdirectories created in the directory inherit the ACE.
+pub const CONTAINER_INHERIT_ACE: u8 = 0x02;
+/// `INHERITED_ACE`: the ACE came from the parent's inheritable ACEs.
+pub const INHERITED_ACE: u8 = 0x10;
+/// `SE_DACL_PROTECTED`: the security descriptor's DACL takes nothing from its parent.
+pub const SE_DACL_PROTECTED: u16 = 0x1000;
+
+/// The DACL the supervisor sets on `run/` once at start (HB5, DS36): protected (nothing inherited from the home),
+/// full file access for the user and SYSTEM, both inherited by every file (`OI`) and subdirectory (`CI`) created in
+/// it later, so a child's token and pid files are user-and-SYSTEM-only from their first byte, with no `icacls` run.
+pub fn run_dir_sddl(user_sid: &str) -> String {
+    format!("D:P(A;OICI;FA;;;{user_sid})(A;OICI;FA;;;SY)")
+}
+
 /// The SIDs that may write to `run/` or one of its token/pid files: the same write-like rights as
 /// [`writable_by_others`], but trusting only `user_sid` and SYSTEM — unlike a pipe's default DACL, `run/`'s ACL
 /// (ruling S11: `icacls <p> /inheritance:r /grant:r *<user SID>:(F) *S-1-5-18:(F)`) never names Administrators or
@@ -96,6 +112,14 @@ mod tests {
         assert_eq!(
             user_and_system_sddl(USER),
             format!("D:P(A;;GA;;;{USER})(A;;GA;;;SY)")
+        );
+    }
+
+    #[test]
+    fn run_dir_sddl_is_protected_and_inheritable_for_the_user_and_system_only() {
+        assert_eq!(
+            run_dir_sddl(USER),
+            format!("D:P(A;OICI;FA;;;{USER})(A;OICI;FA;;;SY)")
         );
     }
 

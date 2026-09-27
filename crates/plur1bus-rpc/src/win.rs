@@ -1,9 +1,12 @@
 //! Windows access checks and pipe I/O for the RPC endpoints (ruling S11): the current user's SID, the server of a
 //! pipe, a pipe's DACL, the user-and-SYSTEM security descriptor, and overlapped pipe I/O with real deadlines.
 //! The platform-neutral parts (the DACL entry, the "writable by others" rule, the SDDL) are in [`crate::acl`].
-pub use crate::acl::{run_writable_by_others, user_and_system_sddl, writable_by_others, DaclEntry};
+pub use crate::acl::{
+    run_dir_sddl, run_writable_by_others, user_and_system_sddl, writable_by_others, DaclEntry,
+};
 use std::ffi::c_void;
 use std::io;
+use std::os::windows::ffi::OsStrExt;
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -14,14 +17,14 @@ use windows_sys::Win32::Foundation::{
 };
 use windows_sys::Win32::Security::Authorization::{
     ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW,
-    GetNamedSecurityInfoW, GetSecurityInfo, SetSecurityInfo, SDDL_REVISION_1, SE_FILE_OBJECT,
-    SE_KERNEL_OBJECT,
+    GetNamedSecurityInfoW, GetSecurityInfo, SetNamedSecurityInfoW, SetSecurityInfo,
+    SDDL_REVISION_1, SE_FILE_OBJECT, SE_KERNEL_OBJECT,
 };
 use windows_sys::Win32::Security::{
-    AclSizeInformation, GetAce, GetAclInformation, GetSecurityDescriptorDacl, GetTokenInformation,
-    TokenUser, ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION,
-    DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
-    SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER,
+    AclSizeInformation, GetAce, GetAclInformation, GetSecurityDescriptorControl,
+    GetSecurityDescriptorDacl, GetTokenInformation, TokenUser, ACCESS_ALLOWED_ACE, ACE_HEADER, ACL,
+    ACL_SIZE_INFORMATION, DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+    PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, SECURITY_IDENTIFICATION,
@@ -199,6 +202,81 @@ pub fn restrict_to_user(h: HANDLE) -> io::Result<()> {
     Ok(())
 }
 
+/// A path as a NUL-terminated UTF-16 string, unpaired surrogates included (no lossy conversion).
+fn wide_path(path: &std::path::Path) -> Vec<u16> {
+    path.as_os_str().encode_wide().chain(Some(0)).collect()
+}
+
+/// Replaces the DACL of the file or directory at `path` with the one `sddl` describes, protected from inheritance
+/// (`SetNamedSecurityInfoW(path, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION)`).
+/// For a directory the call also propagates the new inheritable ACEs to the children already in it (those whose own
+/// DACL is not protected). Used for `run/` at supervisor start (HB5) with [`run_dir_sddl`]. Fails on a volume without
+/// ACLs (FAT, some network shares: `ERROR_NOT_SUPPORTED`) and when the caller may not write the DACL.
+pub fn set_path_dacl(path: &std::path::Path, sddl: &str) -> io::Result<()> {
+    let sd = SecurityDescriptor::from_sddl(sddl)?;
+    let dacl = sd.dacl()?;
+    let text = wide_path(path);
+    // SAFETY: `text` is NUL-terminated; `dacl` points into `sd`, which lives for the whole call; owner, group and SACL
+    // are not set (null) and not named in the security information flags.
+    let r = unsafe {
+        SetNamedSecurityInfoW(
+            text.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            dacl,
+            std::ptr::null(),
+        )
+    };
+    if r != 0 {
+        return Err(io::Error::from_raw_os_error(r as i32));
+    }
+    Ok(())
+}
+
+/// A file's DACL with what [`file_dacl_report`] leaves out: whether the descriptor is `SE_DACL_PROTECTED`, and each
+/// ACE's flags (`OBJECT_INHERIT_ACE`, `CONTAINER_INHERIT_ACE`, `INHERITED_ACE`, … in [`crate::acl`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileDacl {
+    pub protected: bool,
+    pub aces: Vec<(DaclEntry, u8)>,
+}
+
+/// [`file_dacl_report`] plus the descriptor's protection and every ACE's flags (`GetNamedSecurityInfoW`,
+/// `GetSecurityDescriptorControl`).
+pub fn file_dacl_detail(path: &std::path::Path) -> io::Result<FileDacl> {
+    let text = wide_path(path);
+    let mut dacl: *mut ACL = std::ptr::null_mut();
+    let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+    // SAFETY: as in `file_dacl_report`.
+    let r = unsafe {
+        GetNamedSecurityInfoW(
+            text.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut dacl,
+            std::ptr::null_mut(),
+            &mut sd,
+        )
+    };
+    if r != 0 {
+        return Err(io::Error::from_raw_os_error(r as i32));
+    }
+    let _free = Local(sd);
+    let (mut control, mut revision) = (0u16, 0u32);
+    // SAFETY: `sd` is the valid descriptor returned above; both outputs are live locals.
+    if unsafe { GetSecurityDescriptorControl(sd, &mut control, &mut revision) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(FileDacl {
+        protected: control & crate::acl::SE_DACL_PROTECTED != 0,
+        aces: aces_from(dacl)?,
+    })
+}
+
 /// The DACL of the pipe at `address`, read through a client handle (`GetSecurityInfo`). Opening the pipe takes one
 /// server instance for a moment; the server sees a connection that closes without a request. A NULL DACL (everyone
 /// may do anything) is reported as one `GENERIC_ALL` entry for Everyone (`S-1-1-0`).
@@ -279,12 +357,21 @@ pub fn file_dacl_report(path: &std::path::Path) -> io::Result<Vec<DaclEntry>> {
 /// Walks a DACL's ACEs into platform-neutral [`DaclEntry`] values, shared by [`dacl_of`] (an open kernel object) and
 /// [`file_dacl_report`] (a path).
 fn dacl_entries_from(dacl: *mut ACL) -> io::Result<Vec<DaclEntry>> {
+    Ok(aces_from(dacl)?.into_iter().map(|(e, _)| e).collect())
+}
+
+/// Each allowed or denied ACE of `dacl` with its flags (`ACE_HEADER.AceFlags`); a NULL DACL as one flagless
+/// `GENERIC_ALL` entry for Everyone.
+fn aces_from(dacl: *mut ACL) -> io::Result<Vec<(DaclEntry, u8)>> {
     if dacl.is_null() {
-        return Ok(vec![DaclEntry {
-            sid: "S-1-1-0".into(),
-            mask: crate::acl::GENERIC_ALL,
-            allow: true,
-        }]);
+        return Ok(vec![(
+            DaclEntry {
+                sid: "S-1-1-0".into(),
+                mask: crate::acl::GENERIC_ALL,
+                allow: true,
+            },
+            0,
+        )]);
     }
     let mut info = ACL_SIZE_INFORMATION {
         AceCount: 0,
@@ -311,18 +398,22 @@ fn dacl_entries_from(dacl: *mut ACL) -> io::Result<Vec<DaclEntry>> {
             return Err(io::Error::last_os_error());
         }
         // SAFETY: every ACE starts with an ACE_HEADER.
-        let kind = u32::from(unsafe { &*(ace as *const ACE_HEADER) }.AceType);
+        let header = unsafe { &*(ace as *const ACE_HEADER) };
+        let kind = u32::from(header.AceType);
         if kind != ACCESS_ALLOWED_ACE_TYPE && kind != ACCESS_DENIED_ACE_TYPE {
             continue; // object and callback ACEs do not occur on pipes or on run/'s files
         }
         // SAFETY: allowed and denied ACEs share the ACCESS_ALLOWED_ACE layout; the SID starts at `SidStart`.
         let a = unsafe { &*(ace as *const ACCESS_ALLOWED_ACE) };
         let sid = (&a.SidStart as *const u32).cast_mut().cast::<c_void>();
-        entries.push(DaclEntry {
-            sid: sid_to_string(sid)?,
-            mask: a.Mask,
-            allow: kind == ACCESS_ALLOWED_ACE_TYPE,
-        });
+        entries.push((
+            DaclEntry {
+                sid: sid_to_string(sid)?,
+                mask: a.Mask,
+                allow: kind == ACCESS_ALLOWED_ACE_TYPE,
+            },
+            header.AceFlags,
+        ));
     }
     Ok(entries)
 }

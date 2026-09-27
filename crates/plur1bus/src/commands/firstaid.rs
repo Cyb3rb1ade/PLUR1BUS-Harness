@@ -368,6 +368,23 @@ fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
 
 // ---- run.permissions --------------------------------------------------------------------------
 
+/// The token files `run.permissions` covers: the core's, the supervisor's and every module's (`module-*.token`, HB5 d),
+/// the modules' sorted by name.
+fn token_files(run: &Path) -> Vec<String> {
+    let mut modules: Vec<String> = std::fs::read_dir(run)
+        .map(|d| {
+            d.flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .filter(|n| n.starts_with("module-") && n.ends_with(".token"))
+                .collect()
+        })
+        .unwrap_or_default();
+    modules.sort();
+    let mut names = vec!["core.token".to_string(), "supervisor.token".to_string()];
+    names.extend(modules);
+    names
+}
+
 #[cfg(unix)]
 fn check_run_permissions(layout: &Layout) -> Check {
     use std::os::unix::fs::PermissionsExt;
@@ -397,8 +414,8 @@ fn check_run_permissions(layout: &Layout) -> Check {
             )
         }
     }
-    for name in ["core.token", "supervisor.token"] {
-        let p = run.join(name);
+    for name in token_files(&run) {
+        let p = run.join(&name);
         if !p.exists() {
             continue;
         }
@@ -444,8 +461,8 @@ fn check_run_permissions(layout: &Layout) -> Check {
         }
         Err(e) => return Check::fail(ID, format!("cannot read run/'s ACL: {e}"), None, None),
     }
-    for name in ["core.token", "supervisor.token"] {
-        let p = run.join(name);
+    for name in token_files(&run) {
+        let p = run.join(&name);
         if !p.exists() {
             continue;
         }
@@ -1384,6 +1401,24 @@ mod tests {
         json!({ "engine": { "ready": degraded.is_null(), "degraded": degraded, "models": {
             "embedder": embedder,
             "reranker": { "state": "ready", "warming": false, "checkedAt": 1, "id": "local-transformers" } } } })
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_permissions_covers_module_tokens() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.run()).unwrap();
+        std::fs::set_permissions(layout.run(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let token = layout.run().join("module-fixture.token");
+        std::fs::write(&token, "t").unwrap();
+        std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert_eq!(check_run_permissions(&layout).status, Status::Ok);
+        std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let c = check_run_permissions(&layout);
+        assert_eq!(c.status, Status::Fail, "{c:?}");
+        assert!(c.summary.contains("module-fixture.token"), "{c:?}");
     }
 
     #[test]

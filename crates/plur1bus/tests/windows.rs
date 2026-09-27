@@ -1,12 +1,22 @@
 //! Windows pipe security (ruling S11): the supervisor pipe's explicit user-and-SYSTEM DACL and first-instance rule,
 //! the run files' DACL, and the core pipe's default DACL (Node's `net`, checked with `pipe_dacl_report`). The core is
 //! `tests/fixtures/fake-core.mjs` run by `node`. Every test uses its own temp home.
+//!
+//! `run/`'s inheritable ACL (HB5, DS36): the supervisor sets it once at start, a module's run files inherit it and
+//! skip `icacls`, and when it cannot be set the module's own `icacls` path secures them instead. The module is the
+//! built fixture (`PLUR1BUS_FIXTURE_MODULE`, default `packages/module-fixture/dist`, built by `pnpm build`).
 #![cfg(windows)]
+mod common;
+
+use plur1bus_rpc::acl::{
+    run_writable_by_others, CONTAINER_INHERIT_ACE, INHERITED_ACE, OBJECT_INHERIT_ACE,
+};
 use plur1bus_rpc::win::{
-    file_dacl_report, pipe_dacl_report, user_sid, writable_by_others, DaclEntry,
+    file_dacl_detail, file_dacl_report, pipe_dacl_report, user_sid, writable_by_others, DaclEntry,
 };
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::json;
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::os::windows::ffi::OsStrExt;
@@ -266,4 +276,184 @@ fn core_pipe_default_dacl_is_not_writable_by_others() {
     )
     .unwrap();
     let _ = c.call("core.shutdown", json!({}));
+}
+
+// ---- run/'s inheritable ACL (HB5) ------------------------------------------------------------------------------------
+
+/// The built fixture module's directory.
+fn fixture_dist() -> PathBuf {
+    std::env::var_os("PLUR1BUS_FIXTURE_MODULE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/module-fixture/dist")
+        })
+}
+
+/// A temp home with the fixture installed as `modules/fixture` and `supervisor.graceMs = 1000`; returns the temp dir
+/// (holding the home `h` and the fake core's events file).
+fn home_with_fixture() -> (tempfile::TempDir, PathBuf, PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("h");
+    let dst = home.join("modules").join("fixture");
+    std::fs::create_dir_all(&dst).unwrap();
+    let src = fixture_dist();
+    for entry in std::fs::read_dir(&src)
+        .unwrap_or_else(|e| panic!("{}: {e} (run `pnpm build` first)", src.display()))
+    {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_file() {
+            std::fs::copy(entry.path(), dst.join(entry.file_name())).unwrap();
+        }
+    }
+    std::fs::write(
+        home.join("config.json"),
+        r#"{ "schemaVersion": 1, "supervisor": { "graceMs": 1000 }, "modules": {} }"#,
+    )
+    .unwrap();
+    let events = dir.path().join("events.jsonl");
+    (dir, home, events)
+}
+
+fn supervisor_log(home: &Path) -> Vec<Value> {
+    std::fs::read_to_string(home.join("logs/supervisor.log"))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
+}
+
+/// Waits until the supervisor logs `fixture ready`; returns that record.
+fn wait_fixture_ready(home: &Path) -> Value {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        if let Some(r) = supervisor_log(home)
+            .into_iter()
+            .find(|r| r["msg"] == "fixture ready")
+        {
+            return r;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the fixture module did not become ready{}",
+            common::log_tails()
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// Stops the supervisor over RPC (never a signal on Windows) and waits for it to exit.
+fn stop_supervisor(s: &mut common::Supervisor) {
+    let mut c = common::client(&s.home);
+    let _ = c.call("daemon.stop", json!({ "budgetMs": 5000 }));
+    let deadline = Instant::now() + WAIT;
+    while s.child.try_wait().unwrap().is_none() {
+        assert!(Instant::now() < deadline, "the supervisor did not exit");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn user_and_system(user: &str) -> BTreeSet<String> {
+    BTreeSet::from([user.to_string(), "S-1-5-18".to_string()])
+}
+
+#[test]
+fn run_dir_acl_is_protected_and_inheritable_after_supervisor_start() {
+    let (_dir, home, events) = home_with_fixture();
+    let mut s = common::start_with_core(&home, &events, "1", &[]);
+    let user = user_sid().unwrap();
+    let d = file_dacl_detail(&home.join("run")).unwrap();
+    assert!(d.protected, "run/ is not SE_DACL_PROTECTED: {d:?}");
+    assert_eq!(d.aces.len(), 2, "{d:?}");
+    let sids: BTreeSet<String> = d.aces.iter().map(|(e, _)| e.sid.clone()).collect();
+    assert_eq!(sids, user_and_system(&user), "{d:?}");
+    for (e, flags) in &d.aces {
+        assert!(e.allow, "{d:?}");
+        assert_eq!(
+            flags & (OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE),
+            OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE,
+            "{d:?}"
+        );
+        assert_eq!(flags & INHERITED_ACE, 0, "{d:?}");
+    }
+    assert!(
+        supervisor_log(&home).iter().any(|r| r["msg"]
+            .as_str()
+            .is_some_and(|m| m.starts_with("run/ ACL set"))),
+        "{}",
+        common::log_tails()
+    );
+    stop_supervisor(&mut s);
+}
+
+#[test]
+fn module_run_files_inherit_the_restrictive_acl() {
+    let (_dir, home, events) = home_with_fixture();
+    let mut s = common::start_with_core(&home, &events, "1", &[]);
+    wait_fixture_ready(&home);
+    let user = user_sid().unwrap();
+    for f in ["module-fixture.token", "module-fixture.pid"] {
+        let path = home.join("run").join(f);
+        let d = file_dacl_detail(&path).unwrap();
+        let entries: Vec<DaclEntry> = d.aces.iter().map(|(e, _)| e.clone()).collect();
+        assert_eq!(
+            run_writable_by_others(&entries, &user),
+            Vec::<String>::new(),
+            "{f}: {d:?}"
+        );
+        assert_eq!(sids(&entries), user_and_system(&user), "{f}: {d:?}");
+        // Inherited from run/, not written by icacls (which would protect the DACL and drop the flag).
+        assert!(
+            d.aces.iter().all(|(_, flags)| flags & INHERITED_ACE != 0),
+            "{f}: {d:?}"
+        );
+        assert!(!d.protected, "{f}: icacls ran: {d:?}");
+    }
+    // The post-ready check found nothing.
+    assert!(
+        !supervisor_log(&home).iter().any(|r| r["msg"]
+            .as_str()
+            .is_some_and(|m| m.contains("is writable by"))),
+        "{}",
+        common::log_tails()
+    );
+    stop_supervisor(&mut s);
+}
+
+#[test]
+fn the_module_becomes_ready_within_3s() {
+    let (_dir, home, events) = home_with_fixture();
+    let mut s = common::start_with_core(&home, &events, "1", &[]);
+    let ready = wait_fixture_ready(&home);
+    let ms = ready["readyMs"].as_u64().unwrap();
+    // For the task report: the spawn-to-ready time of a module on this runner.
+    println!("fixture spawn-to-ready: {ms} ms");
+    assert!(ms < 3000, "fixture took {ms} ms to become ready");
+    stop_supervisor(&mut s);
+}
+
+#[test]
+fn when_the_run_acl_cannot_be_set_children_fall_back_to_secure_path() {
+    let (_dir, home, events) = home_with_fixture();
+    let mut s =
+        common::start_with_core(&home, &events, "1", &[("PLUR1BUS_TEST_FAIL_RUN_ACL", "1")]);
+    wait_fixture_ready(&home);
+    assert!(
+        supervisor_log(&home).iter().any(|r| r["msg"]
+            .as_str()
+            .is_some_and(|m| m.starts_with("run/ ACL not set"))),
+        "{}",
+        common::log_tails()
+    );
+    let user = user_sid().unwrap();
+    let d = file_dacl_detail(&home.join("run/module-fixture.token")).unwrap();
+    let entries: Vec<DaclEntry> = d.aces.iter().map(|(e, _)| e.clone()).collect();
+    // The module ran icacls itself: protected, user and SYSTEM only.
+    assert!(d.protected, "{d:?}");
+    assert_eq!(sids(&entries), user_and_system(&user), "{d:?}");
+    assert_eq!(
+        run_writable_by_others(&entries, &user),
+        Vec::<String>::new(),
+        "{d:?}"
+    );
+    stop_supervisor(&mut s);
 }

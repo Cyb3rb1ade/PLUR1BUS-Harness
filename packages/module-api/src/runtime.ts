@@ -235,7 +235,7 @@ export async function runModule(def: ModuleDefinition, argv: string[] = process.
   const logger = createLogger({ file: path.join(home, "logs", `module-${name}.log`), level: "info", role: `module-${name}`, maxBytes: cfg.logs.maxBytes, keep: cfg.logs.keep });
   log = logger;
   for (const [lvl, msg, f] of early.splice(0)) logger[lvl](msg, f);
-  const securePath = createSecurePath({ logger });
+  const securePath = createSecurePath({ logger, runDir: runDir(home) });
   securePath(runDir(home), { mode: 0o700 });
 
   // State and status.
