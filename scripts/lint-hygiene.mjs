@@ -59,7 +59,7 @@ function walk(dir) {
     if (ALLOW_FILES.has(rel) || ALLOW_DIRS.some((d) => rel.startsWith(d))) continue;
     const allow = ALLOW.get(rel) ?? [];
     readFileSync(p, "utf8")
-      .split("\n")
+      .split(/\r?\n/) // a Windows checkout (core.autocrlf) has CRLF; anchored allow-list regexes must still match
       .forEach((line, i) => {
         for (const { re, why } of PATTERNS) {
           if (re.test(line) && !allow.some((a) => a.test(line))) {
