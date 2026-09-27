@@ -28,3 +28,24 @@ export function supervisorAddress(home: string, platform: NodeJS.Platform = proc
 export function supervisorTokenPath(home: string): string {
   return path.join(runDir(home), "supervisor.token");
 }
+
+/** The core's RPC address. */
+export function coreAddress(home: string, platform: NodeJS.Platform = process.platform): string {
+  return unitAddress(home, "core", platform);
+}
+
+/** `run/core.token`: the core's RPC token, rewritten by every core start. */
+export function coreTokenPath(home: string): string {
+  return path.join(runDir(home), "core.token");
+}
+
+/** A module's RPC address: role `module-<name>`, the same rule as the core's (paths.rs `module_address`). */
+export function moduleAddress(home: string, name: string, platform: NodeJS.Platform = process.platform): string {
+  return unitAddress(home, `module-${name}`, platform);
+}
+
+/** A module's run files, beside its socket: `run/module-<name>.{token,pid,lock}` (paths.rs `Layout::endpoints`). */
+export function moduleRunFiles(home: string, name: string): { token: string; pid: string; lock: string } {
+  const j = (ext: string) => path.join(runDir(home), `module-${name}.${ext}`);
+  return { token: j("token"), pid: j("pid"), lock: j("lock") };
+}

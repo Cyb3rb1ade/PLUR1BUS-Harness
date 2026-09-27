@@ -1,0 +1,19 @@
+{
+  "name": "fixture",
+  "version": "0.1.0",
+  "apiVersion": "1",
+  "entry": "index.js",
+  "needs": ["core"],
+  "provides": ["fixture.echo"],
+  "consumes": ["memory"],
+  "extensionPoints": { "collect-status": "collect" },
+  "scope": "installation",
+  "priority": 500,
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "greeting": { "type": "string" },
+      "crashAfterMs": { "type": "integer", "minimum": 0 }
+    }
+  }
+}

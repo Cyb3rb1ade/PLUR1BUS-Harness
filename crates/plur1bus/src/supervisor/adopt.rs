@@ -105,11 +105,11 @@ fn pid_file_instance(ep: &Endpoints) -> Option<String> {
     s.split_whitespace().nth(1).map(str::to_string)
 }
 
-/// The handshake endpoint of `role`. The core's is `core.auth`; modules have no handshake of their own yet (Task 8
-/// adds `Endpoint::Module` and `module.auth`), and none is supervised before then.
+/// The handshake endpoint of `role`: `core.auth` for the core, `module.auth` for a module (B9).
 pub(crate) fn rpc_endpoint(role: &Role) -> Endpoint {
     match role.kind {
-        RoleKind::Core | RoleKind::Module => Endpoint::Core,
+        RoleKind::Core => Endpoint::Core,
+        RoleKind::Module => Endpoint::Module,
     }
 }
 

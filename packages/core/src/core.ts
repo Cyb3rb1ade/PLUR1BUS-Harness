@@ -1,8 +1,9 @@
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { randomBytes, randomUUID } from "node:crypto";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
+import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
@@ -15,7 +16,6 @@ import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { createLogger, type HarnessLogger, type Level } from "./logger.ts";
 import { MEMORY_OP_METHODS } from "./memory-ops.ts";
-import { createOrphanWatch, type OrphanWatch } from "./orphan-watch.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
 import { callerToPrincipal } from "./principal.ts";
@@ -87,7 +87,6 @@ function projectJobs(jobs: EngineStatus["jobs"] | undefined): JobsStatus | null 
   };
 }
 
-const HEX64 = /^[0-9a-f]{64}$/; // both sides are lower-cased before the comparison
 /** The caller the CLI sends (crates/plur1bus/src/identity.rs: host name, OS user), so the recall-path warm-up reads
  *  as the CLI principal. */
 function cliCaller(): { channel: "cli"; accountId: string; userId: string } {
@@ -352,12 +351,9 @@ export function createCore(o: CoreOptions): Core {
   /** `core.adopt` (S3, S4): the nonce must equal the current run/supervisor.token, compared in constant time. */
   function adopt(nonce: string, connectionId: string): CoreStatusResult {
     if (state.state === "stopping" || state.state === "stopped") throw new RpcError("E_NOT_AVAILABLE", "core is stopping", { reason: "stopping" });
-    let expected: string | null = null;
-    try { expected = readFileSync(l.supervisorToken, "utf8").trim().toLowerCase(); } catch { /* missing: refused below */ }
-    const given = nonce.toLowerCase();
-    const ok = expected !== null && HEX64.test(expected) && HEX64.test(given) && timingSafeEqual(Buffer.from(given, "utf8"), Buffer.from(expected, "utf8"));
-    if (!ok) {
-      logger?.warn("adoption refused", { connectionId, tokenFile: expected === null ? "missing" : HEX64.test(expected) ? "present" : "malformed" });
+    const check = checkAdoptionNonce(l.supervisorToken, nonce);
+    if (!check.ok) {
+      logger?.warn("adoption refused", { connectionId, tokenFile: check.tokenFile });
       throw new RpcError("E_UNAUTHORIZED", "adoption refused", { reason: "adopt-nonce" });
     }
     orphans?.watchConnection(connectionId);

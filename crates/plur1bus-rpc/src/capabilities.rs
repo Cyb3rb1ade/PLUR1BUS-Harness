@@ -6,7 +6,7 @@ use serde_json::{json, Map, Value};
 /// The RPC schema, the single source for both languages.
 pub const SCHEMA_JSON: &str = include_str!("../../../packages/rpc-schema/schema/rpc.schema.json");
 
-/// Builds the `Capabilities` value `server` (`"core"` or `"supervisor"`) advertises in its handshake. The schema is
+/// Builds the `Capabilities` value `server` (`"core"`, `"supervisor"` or `"module"`) advertises in its handshake. The schema is
 /// parsed on every call: this runs once per supervisor start, never on the CLI's start-up path.
 pub fn capabilities(server: &str, features: &[&str]) -> Value {
     let schema: Value = serde_json::from_str(SCHEMA_JSON).expect("rpc.schema.json parses");

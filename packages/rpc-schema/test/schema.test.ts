@@ -49,6 +49,20 @@ describe("rpc-schema", () => {
     assert.deepEqual(validateResult("supervisor.auth", { rpc: RPC_VERSION, instanceId: "s", pid: 1, capabilities: supervisor }), { ok: true });
   });
 
+  it("module.auth capabilities list only module-served methods", () => {
+    const module = buildCapabilities(["adoption", "lifelines"], "module");
+    assert.deepEqual(Object.keys(module.methods).sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);
+    assert.deepEqual(module.notifications, {});
+    for (const [m, e] of Object.entries(module.methods)) assert.deepEqual(e, { stability: "experimental", since: "1.3.0" }, m);
+    for (const server of ["core", "supervisor"] as const) {
+      const other = buildCapabilities([], server);
+      for (const m of Object.keys(module.methods)) assert.equal(other.methods[m], undefined, `${server} does not list ${m}`);
+    }
+    assert.deepEqual(validateResult("module.auth", { rpc: RPC_VERSION, instanceId: "m", pid: 3, module: { name: "fixture", version: "0.1.0", apiVersion: "1" }, capabilities: module }), { ok: true });
+    assert.equal(validateParams("module.shutdown", { budgetMs: 120001 }).ok, false);
+    assert.equal(validateParams("module.status", { verbose: true }).ok, false);
+  });
+
   it("config.set refuses an empty or oversized change list and an unknown change field", () => {
     const change = { key: "core.logLevel", value: "debug" };
     assert.deepEqual(validateParams("config.set", { changes: [change] }), { ok: true });

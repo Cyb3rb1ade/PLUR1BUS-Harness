@@ -198,10 +198,12 @@ impl Layout {
     }
     /// The pid recorded in `run/core.pid` (`Endpoint::Core`) or `run/supervisor.pid` (`Endpoint::Supervisor`), the
     /// first field of `<pid> <instanceId>`. Clients pass it as `ConnectOptions::expected_server_pid` (ruling S11).
+    /// `None` for `Endpoint::Module`: a module's pid file is per module (`Layout::endpoints(role).pid`).
     pub fn recorded_pid(&self, endpoint: plur1bus_rpc::Endpoint) -> Option<u32> {
         let file = match endpoint {
             plur1bus_rpc::Endpoint::Core => self.core_pid(),
             plur1bus_rpc::Endpoint::Supervisor => self.supervisor_pid(),
+            plur1bus_rpc::Endpoint::Module => return None,
         };
         std::fs::read_to_string(file)
             .ok()?
@@ -294,6 +296,28 @@ fn sha256_hex(b: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn module_address_parity() {
+        // The same strings as module-api's `module address parity` (paths.test.ts); the hash is computed from the rule.
+        assert_eq!(
+            module_address(Path::new("/tmp/p1b"), "linux", "fixture"),
+            "/tmp/p1b/run/module-fixture.sock"
+        );
+        assert_eq!(
+            module_address(Path::new("/tmp/p1b"), "macos", "fixture"),
+            "/tmp/p1b/run/module-fixture.sock"
+        );
+        let home = r"C:\Users\A B\AppData\Local\PLUR1BUS";
+        let digest = format!(
+            "{:x}",
+            Sha256::digest(r"c:\users\a b\appdata\local\plur1bus".as_bytes())
+        );
+        let hash16 = &digest[..16];
+        assert_eq!(
+            module_address(Path::new(home), "windows", "fixture"),
+            format!(r"\\.\pipe\plur1bus-{hash16}-module-fixture")
+        );
+    }
     #[test]
     fn parity_with_the_typescript_layout() {
         let env = HashMap::new();

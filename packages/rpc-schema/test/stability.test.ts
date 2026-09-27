@@ -37,9 +37,9 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(stableNotifications, ["core.state"]);
   });
 
-  it("every method and every notification declares x-server core or supervisor", () => {
+  it("every method declares x-server core, supervisor or module; every notification core or supervisor", () => {
     for (const [name, def] of Object.entries(methods) as [string, { "x-server"?: string }][]) {
-      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor", `${name} x-server`);
+      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "module", `${name} x-server`);
     }
     for (const [name, def] of Object.entries(notifications) as [string, { "x-server"?: string }][]) {
       assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor", `${name} x-server`);
@@ -70,12 +70,13 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(Object.keys(supervisor.notifications), ["config.changed"]);
     assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);
     assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), supervisorMethods);
-    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor].sort(), [...METHODS].sort());
+    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module].sort(), [...METHODS].sort());
+    assert.deepEqual([...METHODS_BY_SERVER.module].sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);
     assert.deepEqual(validateResult("supervisor.auth", { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: supervisor }), { ok: true });
   });
 
   it("capability fixtures match buildCapabilities", () => {
-    for (const server of ["core", "supervisor"] as const) {
+    for (const server of ["core", "supervisor", "module"] as const) {
       const fixture = JSON.parse(readFileSync(new URL(`../fixtures/capabilities/${server}.json`, import.meta.url), "utf8"));
       assert.deepEqual(fixture, buildCapabilities([], server), `fixtures/capabilities/${server}.json`);
     }

@@ -12,7 +12,7 @@ fn fixture(server: &str) -> Value {
 
 #[test]
 fn capabilities_match_the_typescript_fixtures() {
-    for server in ["core", "supervisor"] {
+    for server in ["core", "supervisor", "module"] {
         assert_eq!(
             plur1bus_rpc::capabilities(server, &[]),
             fixture(server),
@@ -53,4 +53,30 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
     assert!(core["notifications"]["engine.event"]["deprecated"].is_object());
     assert!(core["methods"].get("config.set").is_none());
     assert!(core["notifications"].get("config.changed").is_none());
+}
+
+#[test]
+fn capabilities_module_lists_only_module_methods() {
+    let caps = plur1bus_rpc::capabilities("module", &["lifelines", "adoption"]);
+    let methods: Vec<&String> = caps["methods"].as_object().unwrap().keys().collect();
+    assert_eq!(
+        methods,
+        [
+            "module.adopt",
+            "module.auth",
+            "module.shutdown",
+            "module.status"
+        ]
+    );
+    assert_eq!(caps["notifications"], json!({}));
+    assert_eq!(caps["features"], json!(["adoption", "lifelines"]));
+    for server in ["core", "supervisor"] {
+        let other = plur1bus_rpc::capabilities(server, &[]);
+        for m in methods.iter() {
+            assert!(
+                other["methods"].get(m.as_str()).is_none(),
+                "{server} lists {m}"
+            );
+        }
+    }
 }

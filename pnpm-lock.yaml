@@ -50,12 +50,21 @@ importers:
 
   packages/module-api:
     dependencies:
+      '@plur1bus/config-schema':
+        specifier: workspace:*
+        version: link:../config-schema
       '@plur1bus/rpc-schema':
         specifier: workspace:*
         version: link:../rpc-schema
       ajv:
         specifier: 8.20.0
         version: 8.20.0
+
+  packages/module-fixture:
+    dependencies:
+      '@plur1bus/module-api':
+        specifier: workspace:*
+        version: link:../module-api
 
   packages/rpc-schema:
     dependencies:

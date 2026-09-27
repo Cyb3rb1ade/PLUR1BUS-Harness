@@ -1,6 +1,6 @@
 import { homedir as osHomedir } from "node:os";
 import path from "node:path";
-import { supervisorAddress as moduleApiSupervisorAddress, unitAddress } from "@plur1bus/module-api";
+import { coreAddress as moduleApiCoreAddress, supervisorAddress as moduleApiSupervisorAddress } from "@plur1bus/module-api";
 
 export interface ResolveHomeOptions { home?: string; env?: NodeJS.ProcessEnv; platform?: NodeJS.Platform; homedir?: string; localAppData?: string }
 
@@ -39,7 +39,7 @@ export function layout(home: string): Layout {
 
 /** The address the RPC server listens on and the client connects to (the one rule: module-api's `unitAddress`). */
 export function coreAddress(home: string, platform: NodeJS.Platform = process.platform): string {
-  return unitAddress(home, "core", platform);
+  return moduleApiCoreAddress(home, platform);
 }
 
 /** The supervisor's RPC address: `run/supervisor.sock` on POSIX, the per-home `-supervisor` pipe on Windows. */

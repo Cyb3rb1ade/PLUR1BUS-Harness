@@ -163,6 +163,8 @@ fn probe(
     let address = match endpoint {
         Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
         Endpoint::Supervisor => supervisor_address(&layout.home, platform),
+        // 1staid probes only the core and the supervisor; a module's address needs its name (Layout::endpoints).
+        Endpoint::Module => unreachable!("read_token_of has no module token"),
     };
     let opts = ConnectOptions {
         connect_timeout: CHECK_TIMEOUT,
@@ -531,19 +533,19 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
     }
 
     if platform != "windows" {
-        for (name, path, endpoint) in [
-            ("core.sock", run.join("core.sock"), Endpoint::Core),
+        for (name, path, address) in [
+            (
+                "core.sock",
+                run.join("core.sock"),
+                layout.endpoints(&Role::core(), platform).address,
+            ),
             (
                 "supervisor.sock",
                 run.join("supervisor.sock"),
-                Endpoint::Supervisor,
+                supervisor_address(&layout.home, platform),
             ),
         ] {
             if path.exists() {
-                let address = match endpoint {
-                    Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
-                    Endpoint::Supervisor => supervisor_address(&layout.home, platform),
-                };
                 let alive = plur1bus_rpc::transport::connect(&address, CHECK_TIMEOUT).is_ok();
                 if !alive && !stale.iter().any(|s| s == name) {
                     stale.push(name.to_string());

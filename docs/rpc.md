@@ -4,9 +4,11 @@ Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
 (Windows). The first call on a connection is `core.auth`; its result carries `contract` (engine contract version) and `rpc`
 (this schema's version). Methods served by the supervisor (**Served by:** supervisor) are called on the supervisor's own
-endpoint, whose first call is `supervisor.auth`. Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
+endpoint, whose first call is `supervisor.auth`. Methods served by a module (**Served by:** module) are called on that
+module's own endpoint (`run/module-<name>.sock`, or the per-home `-module-<name>` pipe), whose first call is
+`module.auth`. Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core or supervisor.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.
 
 ## Error codes
 
@@ -2082,6 +2084,191 @@ Returns the running configuration and subscribes this connection to config.chang
 }
 ```
 
+### `module.auth`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+The first call on a module connection; token is the content of run/module-<name>.token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rpc",
+    "instanceId",
+    "pid",
+    "module"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "apiVersion"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "apiVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    }
+  }
+}
+```
+
+### `module.status`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ModuleStatus"
+}
+```
+
+### `module.adopt`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+Called by a supervisor on a running module to adopt it. nonce is the current content of run/supervisor.token; the connection it succeeds on becomes the module's lifeline. E_UNAUTHORIZED reason=adopt-nonce otherwise.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/ModuleStatus"
+    }
+  }
+}
+```
+
+### `module.shutdown`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+Asks the module to stop within budgetMs; the process removes its run files and exits 0.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
@@ -3517,6 +3704,65 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ],
       "description": "epoch ms of the scheduled restart; null when none is scheduled"
+    }
+  }
+}
+```
+
+### `ModuleStatus`
+
+```json
+{
+  "description": "Experimental (1.3.0). A module process's own status (module.status, module.adopt): its process state, its manifest identity, and its link to the core.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "process",
+    "name",
+    "version",
+    "apiVersion",
+    "instanceId",
+    "pid",
+    "uptimeMs",
+    "core"
+  ],
+  "properties": {
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "version": {
+      "type": "string"
+    },
+    "apiVersion": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "uptimeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "core": {
+      "enum": [
+        "connected",
+        "reconnecting",
+        "not-needed"
+      ],
+      "description": "connected or reconnecting when the manifest needs the core; not-needed otherwise"
+    },
+    "detail": {
+      "type": "object",
+      "description": "what the module reports about itself (ModuleContext.setDetail)"
     }
   }
 }
