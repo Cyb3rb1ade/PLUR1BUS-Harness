@@ -1395,9 +1395,9 @@ fn record_exit(
     c.next_restart_at_ms = next;
     slot.lifeline = Lifeline::None;
     broadcast_module_state(shared, slot);
-    if let Some(g) = gen {
-        mark_exited(g);
-    }
+    // Logged before `exited` flips: the stop sequence returns as soon as it sees `exited`, and after `daemon.stop` the
+    // supervisor then logs `supervisor stopped` and ends the process, which on Windows could beat this thread's line
+    // (a stopped core with no exit logged, or a restart's `spawned` before its `exited`).
     shared.log.info(
         &format!("{role} exited"),
         json!({
@@ -1405,6 +1405,9 @@ fn record_exit(
             "state": state, "reason": reason, "nextRestartAt": next,
         }),
     );
+    if let Some(g) = gen {
+        mark_exited(g);
+    }
     shared.wake.notify_all();
 }
 
@@ -1593,6 +1596,54 @@ mod tests {
             ready_timeout(RoleKind::Module, 0.5),
             Duration::from_secs(30)
         );
+    }
+
+    /// The stop sequence returns once `gen.exited` is set, and the supervisor then logs `supervisor stopped` and exits
+    /// the process. The exit's own log line must be written by then: were `exited` set first, the process could end
+    /// (seen on Windows) before the waiter thread wrote `core exited`.
+    #[test]
+    fn an_exit_is_logged_before_it_is_marked_exited() {
+        let shared = Arc::new(Shared {
+            state: Mutex::new(crate::supervisor::test_state()),
+            wake: std::sync::Condvar::new(),
+            log: crate::supervisor::Log::none(),
+            config: Mutex::new(Default::default()),
+            subscribers: Default::default(),
+            out_logs: Mutex::new(Vec::new()),
+        });
+        let gen = Arc::new(Gen {
+            role: "core".into(),
+            pid: 1,
+            started: Instant::now(),
+            process: Mutex::new(None),
+            stdin: Mutex::new(None),
+            control: Mutex::new(None),
+            requested: AtomicBool::new(true),
+            ready: AtomicBool::new(true),
+            exited: AtomicBool::new(false),
+            kill_reason: Mutex::new(None),
+            last_ok: Mutex::new(Instant::now()),
+            peer: None,
+            lifeline_in_control: AtomicBool::new(false),
+            lifeline_lost: AtomicBool::new(false),
+            parked: Mutex::new(None),
+            restarting: AtomicBool::new(false),
+            pending_pushed: AtomicBool::new(false),
+        });
+        // Holding the log's file lock blocks every log line; record_exit must not flip `exited` before its line.
+        let held = relock(&shared.log.file);
+        let (s, g) = (shared.clone(), gen.clone());
+        let t = std::thread::spawn(move || {
+            record_exit(&s, "core", Some(&g), Some(0), None, true, None)
+        });
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(
+            !gen.exited.load(Ordering::SeqCst),
+            "exited was set before the exit was logged"
+        );
+        drop(held);
+        t.join().unwrap();
+        assert!(gen.exited.load(Ordering::SeqCst));
     }
 
     #[test]
