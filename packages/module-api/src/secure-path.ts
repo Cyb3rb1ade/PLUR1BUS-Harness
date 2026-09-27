@@ -19,10 +19,24 @@ export interface SecurePathOptions {
   platform?: NodeJS.Platform;
   /** Defaults to `execFileSync` (no window, output captured). */
   execFile?: ExecFile;
-  /** Where a failed ACL grant is reported. */
-  logger?: { warn(msg: string, fields?: Record<string, unknown>): void };
+  /** Where a failed ACL grant is reported (and, at `debug`, a path the supervisor's `run/` ACL already covers). */
+  logger?: { warn(msg: string, fields?: Record<string, unknown>): void; debug?(msg: string, fields?: Record<string, unknown>): void };
   /** The Windows directory the tools are run from; defaults to `%SystemRoot%`, then `C:\Windows`. */
   systemRoot?: string;
+  /** Where `PLUR1BUS_RUN_ACL` is read; defaults to `process.env`. */
+  env?: NodeJS.ProcessEnv;
+  /** The home's `run/` (`path.join(home, "run")`). Without it `PLUR1BUS_RUN_ACL` changes nothing. */
+  runDir?: string;
+}
+
+/** Set by the supervisor for every child it spawns once `run/`'s protected, inheritable ACL is in place (HB5). */
+export const RUN_ACL_ENV = "PLUR1BUS_RUN_ACL";
+
+/** Whether `p` is `runDir` or directly inside it, compared case-insensitively after `path.resolve` (HB5 c). */
+function inRunDir(p: string, runDir: string): boolean {
+  const dir = path.resolve(runDir).toLowerCase();
+  const target = path.resolve(p).toLowerCase();
+  return target === dir || path.dirname(target) === dir;
 }
 
 /** `<SystemRoot>\System32\<exe>`: the tools run by absolute path, never whatever a `PATH` lookup finds first. */
@@ -117,6 +131,11 @@ let processSid: string | null | undefined;
  * Anything that does not end in exactly user + SYSTEM is `{ applied: false, reason: "acl-tool-unavailable" }` plus a
  * warning (`reason: "icacls-failed"`): the engine contract's closed unions name the mechanism `"acl"` and have no
  * separate failure reason.
+ * Under the supervisor (HB5, DS36): the supervisor sets `run/`'s DACL once at start (protected, user + SYSTEM, inherited
+ * by every file and directory created in it) and then passes `PLUR1BUS_RUN_ACL=inherited` to its children. With that
+ * variable and a `runDir`, `run/` and the files directly inside it need no tool: `{ applied: true, mechanism: "acl" }`
+ * plus one `debug` line. The supervisor checks each child's token and pid files natively after it is ready. Any other
+ * path, and every path of a process started by hand (no variable), takes the icacls path above unchanged.
  */
 export function createSecurePath(o: SecurePathOptions = {}): SecurePath {
   const platform = o.platform ?? process.platform;
@@ -139,6 +158,10 @@ export function createSecurePath(o: SecurePathOptions = {}): SecurePath {
     let isDir: boolean;
     try { isDir = statSync(p).isDirectory(); } catch { return { applied: false, reason: "missing" }; }
     if (platform === "win32") {
+      if (o.runDir !== undefined && (o.env ?? process.env)[RUN_ACL_ENV] === "inherited" && inRunDir(p, o.runDir)) {
+        o.logger?.debug?.("securePath: covered by the supervisor's run/ ACL", { path: p });
+        return { applied: true, mechanism: "acl" };
+      }
       const failed = (err: unknown): SecurePathResult => {
         o.logger?.warn("securePath: icacls grant failed", { path: p, reason: "icacls-failed", err: String((err as Error)?.message ?? err) });
         return { applied: false, reason: "acl-tool-unavailable" };

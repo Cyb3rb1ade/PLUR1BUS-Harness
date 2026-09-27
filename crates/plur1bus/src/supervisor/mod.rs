@@ -116,6 +116,9 @@ pub struct SupervisorState {
     pub core_ready_ms: Option<u64>,
     /// Queued `module.*` control calls, run in order by the main thread after the restart jobs.
     pub module_ops: VecDeque<ModuleOp>,
+    /// `run/`'s protected, inheritable ACL was set at start (HB5): every spawned child gets `PLUR1BUS_RUN_ACL=inherited`
+    /// ([`child::child_env`]). Always `false` off Windows.
+    pub run_acl_inherited: bool,
 }
 
 impl SupervisorState {
@@ -430,6 +433,28 @@ fn write_private(path: &Path, content: &str) -> io::Result<()> {
     fs::rename(&tmp, path)
 }
 
+/// Sets `run/`'s DACL to [`plur1bus_rpc::acl::run_dir_sddl`] (HB5): `Ok` when it took, `Err(Some(reason))` when it
+/// failed (FAT or network volume, no user SID; `PLUR1BUS_TEST_FAIL_RUN_ACL=1` with test internals acts as a failure),
+/// `Err(None)` off Windows, where `create_private_dir`'s `0700` is the whole story.
+#[cfg(windows)]
+fn secure_run_dir(run: &Path, allow_test_internals: bool) -> Result<(), Option<String>> {
+    if allow_test_internals && std::env::var("PLUR1BUS_TEST_FAIL_RUN_ACL").as_deref() == Ok("1") {
+        return Err(Some(
+            "SetNamedSecurityInfoW failed (PLUR1BUS_TEST_FAIL_RUN_ACL)".into(),
+        ));
+    }
+    plur1bus_rpc::win::user_sid()
+        .and_then(|sid| {
+            plur1bus_rpc::win::set_path_dacl(run, &plur1bus_rpc::acl::run_dir_sddl(&sid))
+        })
+        .map_err(|e| Some(e.to_string()))
+}
+
+#[cfg(not(windows))]
+fn secure_run_dir(_run: &Path, _allow_test_internals: bool) -> Result<(), Option<String>> {
+    Err(None)
+}
+
 fn create_private_dir(dir: &Path) -> io::Result<()> {
     fs::create_dir_all(dir)?;
     #[cfg(unix)]
@@ -562,6 +587,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             ),
         );
     }
+    // HB5: before anything is probed, adopted or spawned, `run/` gets its protected, inheritable user-and-SYSTEM ACL,
+    // so every file a child creates in it is private from its first byte. Logged once the log is open.
+    let run_acl = secure_run_dir(&layout.run(), allow);
     let address = supervisor_address(&layout.home, platform());
 
     // Single instance: an exclusive lock on run/supervisor.lock, held until the process ends (the OS drops it
@@ -617,6 +645,17 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             json!({ "errors": r.errors }),
         );
     }
+    match &run_acl {
+        Ok(()) => log.info(
+            "run/ ACL set: protected, inherited by run files, user and SYSTEM only",
+            json!({}),
+        ),
+        Err(Some(e)) => log.warn(
+            &format!("run/ ACL not set: {e}; children secure their own run files"),
+            json!({ "err": e }),
+        ),
+        Err(None) => {}
+    }
     if !config_state.module_errors.is_empty() {
         log.warn(
             "module configuration does not satisfy its configSchema",
@@ -662,6 +701,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             restart_running: false,
             core_ready_ms: None,
             module_ops: VecDeque::new(),
+            run_acl_inherited: run_acl.is_ok(),
         }),
         wake: Condvar::new(),
         log,
@@ -1130,6 +1170,7 @@ pub(crate) fn test_state() -> SupervisorState {
         restart_running: false,
         core_ready_ms: None,
         module_ops: VecDeque::new(),
+        run_acl_inherited: false,
     }
 }
 
@@ -1199,6 +1240,7 @@ mod tests {
             restart_running: false,
             core_ready_ms: None,
             module_ops: VecDeque::new(),
+            run_acl_inherited: false,
         };
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {

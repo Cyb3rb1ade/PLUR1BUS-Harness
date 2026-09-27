@@ -213,11 +213,28 @@ const POST_KILL_WAIT: Duration = Duration::from_secs(1);
 const WAITER_TICK: Duration = Duration::from_millis(25);
 /// The ready timeout before the time scale (60 s, spec §6.4).
 pub const READY_TIMEOUT: Duration = Duration::from_secs(60);
-/// The shortest ready timeout a module gets whatever the time scale. A module secures its run directory and its token
-/// and pid files before it listens; on Windows that is several synchronous `icacls` runs (plus `whoami`), about a
-/// second or more on a CI runner, on top of Node's start-up. The tests' scale (0.02) would leave 1.2 s for all of it.
-/// At time scale 1 (production: the scale is a test seam) the timeout is 60 s and this floor never applies.
-pub const MODULE_READY_FLOOR: Duration = Duration::from_secs(10);
+/// The shortest ready timeout a module gets whatever the time scale: room for Node's start-up only. The tests' scale
+/// (0.02) would leave 1.2 s for it, too little on a loaded CI runner. A module's run files cost nothing extra here: on
+/// Windows the supervisor set `run/`'s inheritable ACL at start and the module skips `icacls` (HB5; only when that
+/// ACL could not be set do its own `icacls` runs come back, and the tests of that path run at scale 1). At time scale
+/// 1 (production: the scale is a test seam) the timeout is 60 s and this floor never applies.
+pub const MODULE_READY_FLOOR: Duration = Duration::from_secs(3);
+
+/// The variable through which the supervisor tells a child that `run/` carries the protected, inheritable
+/// user-and-SYSTEM ACL (HB5): its `securePath` then runs no `icacls` for `run/` and the files directly inside it.
+/// Not a test seam: the contract between the supervisor and its children on Windows.
+pub const RUN_ACL_ENV: &str = "PLUR1BUS_RUN_ACL";
+
+/// What the supervisor adds to a child's environment: `PLUR1BUS_RUN_ACL=inherited` when `run/`'s ACL was set at
+/// start, nothing otherwise (the spawn then also removes any inherited value, so a child never trusts an ACL that is
+/// not there).
+pub fn child_env(run_acl_inherited: bool) -> Vec<(&'static str, &'static str)> {
+    if run_acl_inherited {
+        vec![(RUN_ACL_ENV, "inherited")]
+    } else {
+        Vec::new()
+    }
+}
 
 /// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module at least
 /// [`MODULE_READY_FLOOR`].
@@ -564,6 +581,8 @@ impl Monitor {
         }
         cmd.args(&spec.args)
             .envs(spec.env.iter().map(|(k, v)| (k, v)))
+            .env_remove(RUN_ACL_ENV)
+            .envs(child_env(self.shared.lock().run_acl_inherited))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -1046,7 +1065,49 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
         &format!("{} ready", gen.role),
         json!({ "child": gen.role, "pid": gen.pid, "readyMs": gen.started.elapsed().as_millis() as u64 }),
     );
+    #[cfg(windows)]
+    verify_run_files(shared, &ctx.layout, &ctx.role);
     *relock(&gen.control) = Some(client);
+}
+
+/// The defence-in-depth check of HB5 (d), after a child is ready: reads the DACL of its token and pid files natively
+/// and logs every SID besides the user and SYSTEM that may write one (`run file <name> is writable by <SIDs>`, `warn`).
+/// A file that cannot be read is logged too; nothing is ignored silently, and nothing is changed.
+#[cfg(windows)]
+fn verify_run_files(shared: &Shared, layout: &Layout, role: &Role) {
+    use plur1bus_rpc::win::{file_dacl_report, run_writable_by_others, user_sid};
+    let user = match user_sid() {
+        Ok(u) => u,
+        Err(e) => {
+            shared.log.warn(
+                "cannot check the run files: the user SID is unknown",
+                json!({ "child": role.name, "err": e.to_string() }),
+            );
+            return;
+        }
+    };
+    let ep = layout.endpoints(role, "windows");
+    for path in [ep.token, ep.pid] {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        match file_dacl_report(&path) {
+            Ok(entries) => {
+                let others = run_writable_by_others(&entries, &user);
+                if !others.is_empty() {
+                    shared.log.warn(
+                        &format!("run file {name} is writable by {}", others.join(", ")),
+                        json!({ "child": role.name, "path": path.display().to_string(), "sids": others }),
+                    );
+                }
+            }
+            Err(e) => shared.log.warn(
+                &format!("cannot read the ACL of run file {name}"),
+                json!({ "child": role.name, "path": path.display().to_string(), "err": e.to_string() }),
+            ),
+        }
+    }
 }
 
 /// `core.status` every health interval, on the control connection (an adopted core's lifeline while it works).
@@ -1422,6 +1483,13 @@ fn mark_exited(g: &Gen) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn child_env_passes_the_run_acl_only_when_it_was_set() {
+        assert_eq!(child_env(true), [("PLUR1BUS_RUN_ACL", "inherited")]);
+        assert_eq!(RUN_ACL_ENV, "PLUR1BUS_RUN_ACL");
+        assert!(child_env(false).is_empty());
+    }
 
     #[test]
     fn core_spec_passes_home_lifeline_and_instance() {

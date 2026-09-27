@@ -193,7 +193,7 @@ export function createCore(o: CoreOptions): Core {
     const log = logger;
     for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
-    const platform = createPlatformCapabilities({ logger: log });
+    const platform = createPlatformCapabilities({ logger: log, runDir: l.run });
     platform.securePath(l.run, { mode: 0o700 });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
