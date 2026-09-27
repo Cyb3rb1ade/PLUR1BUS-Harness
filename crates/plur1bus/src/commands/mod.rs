@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod agent;
 pub mod config;
 pub mod core;
@@ -6,6 +7,7 @@ pub mod dreams;
 pub mod firstaid;
 pub mod memory;
 pub mod memory_ops;
+pub mod module;
 pub mod service;
 pub mod stubs;
 
@@ -26,6 +28,8 @@ fn read_token_of(layout: &Layout, endpoint: Endpoint) -> Option<String> {
     let path = match endpoint {
         Endpoint::Core => layout.core_token(),
         Endpoint::Supervisor => layout.supervisor_token(),
+        // A module's token file is per module (`Layout::endpoints`); nothing reads one through this helper.
+        Endpoint::Module => return None,
     };
     let t = std::fs::read_to_string(path).ok()?.trim().to_string();
     (!t.is_empty()).then_some(t)

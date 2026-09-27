@@ -516,7 +516,7 @@ fn daemon_status_with_a_running_supervisor_is_flat_and_names_the_core() {
     assert_eq!(human.status.code(), Some(0), "{human:?}");
     let text = String::from_utf8_lossy(&human.stdout);
     assert!(text.contains("supervisor: ready"), "{text}");
-    assert!(text.contains("core: ready"), "{text}");
+    assert!(text.contains("core (core): ready"), "{text}");
 
     stop_supervisor(&h.home);
 }

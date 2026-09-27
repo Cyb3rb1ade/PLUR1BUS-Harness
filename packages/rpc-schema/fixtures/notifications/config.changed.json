@@ -1,0 +1,3 @@
+{ "revision": "fedcba9876543210", "previousRevision": "0123456789abcdef", "changed": ["core.logLevel"],
+  "restart": { "live": ["core.logLevel"], "core": false, "modules": [] },
+  "config": { "schemaVersion": 1, "core": { "logLevel": "debug" } }, "source": "file" }

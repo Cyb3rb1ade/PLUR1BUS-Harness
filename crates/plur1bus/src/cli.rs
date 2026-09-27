@@ -60,8 +60,16 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ConfigCmd,
     },
-    /// Modules — 2a-H3b
-    Module(StubArgs),
+    /// Modules: list, graph, install, uninstall, start, stop, restart
+    Module {
+        #[command(subcommand)]
+        sub: ModuleCmd,
+    },
+    /// [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
+    Admin {
+        #[command(subcommand)]
+        sub: AdminCmd,
+    },
     /// Supervisor control: start, stop, restart, status
     Daemon {
         #[command(subcommand)]
@@ -354,6 +362,116 @@ pub enum ServiceCmd {
     Uninstall,
     /// [experimental] Show whether the OS service is registered and running
     Status,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ModuleCmd {
+    /// [experimental] List the installed modules and their state
+    ///
+    /// One line per module under `modules/`: name, version, priority and band, scope, whether
+    /// `modules.<name>.enabled` lets it run, its supervised state (while a supervisor runs) and why it cannot start.
+    List,
+    /// [experimental] Show the module dependency graph
+    ///
+    /// The modules as a tree by priority band (needs and consumes edges under each), then the needs-cycles and what
+    /// does not resolve.
+    Graph,
+    /// [experimental] Install a module from a directory (copied into modules/<name>)
+    ///
+    /// Refused, with nothing copied, when the directory holds a symlink, the manifest is invalid, names a reserved
+    /// module (core, supervisor) or has an entry outside the directory. A running module of that name is restarted.
+    Install { path: PathBuf },
+    /// [experimental] Stop and remove an installed module (its config section stays)
+    Uninstall {
+        name: String,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Start a module (needs a running supervisor)
+    Start { name: String },
+    /// [experimental] Stop a module until `module start` or a supervisor restart (needs a running supervisor)
+    ///
+    /// A runtime stop only: `config set modules.<name>.enabled false` is the persistent switch.
+    Stop { name: String },
+    /// [experimental] Restart a module (needs a running supervisor)
+    Restart { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AdminCmd {
+    /// [experimental] Obsidian vault setup for an agent: detect, prepare, confirm
+    Obsidian {
+        #[command(subcommand)]
+        sub: ObsidianCmd,
+    },
+    /// [experimental] Migrate the memory store's schema (needs a running core)
+    ///
+    /// Asks first on a terminal; a script (or `--json`) needs `--yes`. Refused unless FROM is the store's current
+    /// version; applying FROM = TO changes nothing. The engine offers no dry run.
+    Migrate {
+        /// the store's current schema version (decimal, at most 9 digits)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(0..=999_999_999))]
+        from: u32,
+        /// the schema version to migrate to (decimal, at most 9 digits)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(0..=999_999_999))]
+        to: u32,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Embedding provider: probe, serve
+    Embedding {
+        #[command(subcommand)]
+        sub: EmbeddingCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ObsidianCmd {
+    /// [experimental] List the Obsidian vaults the agent may use and whether each is confirmed
+    ///
+    /// The configured vaults, the agent's workspace and every `--candidate` (at most 20). Read-only.
+    Detect {
+        #[arg(long)]
+        agent: String,
+        /// a directory to check as a vault (repeatable)
+        #[arg(long = "candidate", value_name = "PATH")]
+        candidates: Vec<PathBuf>,
+    },
+    /// [experimental] Start the one-time confirmation of a vault: prints a nonce valid for 10 minutes
+    ///
+    /// Writes nothing; `admin obsidian confirm` with the nonce records the confirmation.
+    Prepare {
+        #[arg(long)]
+        agent: String,
+        vault: PathBuf,
+    },
+    /// [experimental] Confirm a vault with the nonce `admin obsidian prepare` printed
+    Confirm {
+        #[arg(long)]
+        agent: String,
+        nonce: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum EmbeddingCmd {
+    /// [experimental] Check that the embedding provider answers (exit 1 when it does not)
+    Probe {
+        /// call the provider again instead of answering the last successful probe
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// [experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+    ///
+    /// Serving lasts only as long as this core process: it ends when the core stops or is restarted (by the
+    /// supervisor after a crash or a core-class configuration change); run it again after a restart.
+    Serve {
+        /// stop serving instead
+        #[arg(long)]
+        stop: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

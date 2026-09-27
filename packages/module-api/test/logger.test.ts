@@ -32,6 +32,18 @@ describe("logger", () => {
     seq.forEach((v, k) => { if (k > 0) assert.equal(v, seq[k - 1]! + 1, `line ${seq[k - 1]! + 1} is lost`); });
   });
 
+  it("setRotation applies new limits from the next write", async () => {
+    const dir = tempDir("p1b-log-"); const file = join(dir, "core.log");
+    const log = createLogger({ file, level: "info", role: "core", maxBytes: 1_000_000, keep: 1 });
+    for (let i = 0; i < 20; i++) log.info("line", { i });
+    assert.equal(existsSync(`${file}.1`), false, "no rotation under the first limit");
+    log.setRotation({ maxBytes: 200, keep: 3 });
+    for (let i = 20; i < 60; i++) log.info("line", { i });
+    await log.close();
+    assert.ok(existsSync(`${file}.3`) && !existsSync(`${file}.4`), "keep 3 now");
+    assert.ok(statSync(file).size <= 200, "maxBytes 200 now");
+  });
+
   it("appends to an existing file and rotates it when it is already full", async () => {
     const dir = tempDir("p1b-log-"); const file = join(dir, "core.log");
     const first = createLogger({ file, level: "info", role: "core", maxBytes: 200, keep: 1 });

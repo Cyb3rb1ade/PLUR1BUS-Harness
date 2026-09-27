@@ -1,3 +1,4 @@
+use crate::supervisor::state::{Role, RoleKind};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -197,10 +198,12 @@ impl Layout {
     }
     /// The pid recorded in `run/core.pid` (`Endpoint::Core`) or `run/supervisor.pid` (`Endpoint::Supervisor`), the
     /// first field of `<pid> <instanceId>`. Clients pass it as `ConnectOptions::expected_server_pid` (ruling S11).
+    /// `None` for `Endpoint::Module`: a module's pid file is per module (`Layout::endpoints(role).pid`).
     pub fn recorded_pid(&self, endpoint: plur1bus_rpc::Endpoint) -> Option<u32> {
         let file = match endpoint {
             plur1bus_rpc::Endpoint::Core => self.core_pid(),
             plur1bus_rpc::Endpoint::Supervisor => self.supervisor_pid(),
+            plur1bus_rpc::Endpoint::Module => return None,
         };
         std::fs::read_to_string(file)
             .ok()?
@@ -228,6 +231,30 @@ impl Layout {
     pub fn runtime(&self) -> PathBuf {
         self.home.join("runtime")
     }
+    /// A supervised child's address and run files. The core keeps its paths (`run/core.{sock,token,pid}`, the
+    /// `-core` pipe); a module has `run/module-<name>.{sock,token,pid}` and the `-module-<name>` pipe.
+    pub fn endpoints(&self, role: &Role, platform: &str) -> Endpoints {
+        match role.kind {
+            RoleKind::Core => Endpoints {
+                address: core_address(&self.home, platform),
+                token: self.core_token(),
+                pid: self.core_pid(),
+            },
+            RoleKind::Module => Endpoints {
+                address: module_address(&self.home, platform, &role.name),
+                token: self.run().join(format!("module-{}.token", role.name)),
+                pid: self.run().join(format!("module-{}.pid", role.name)),
+            },
+        }
+    }
+}
+
+/// Where a supervised child listens and where it keeps its token and `<pid> <instanceId>` file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Endpoints {
+    pub address: String,
+    pub token: PathBuf,
+    pub pid: PathBuf,
 }
 
 /// Same rule as packages/core/src/paths.ts coreAddress(): socket path on POSIX, a per-home pipe name on Windows.
@@ -239,6 +266,11 @@ pub fn core_address(home: &Path, platform: &str) -> String {
 /// `-supervisor` pipe on Windows.
 pub fn supervisor_address(home: &Path, platform: &str) -> String {
     address(home, platform, "supervisor")
+}
+
+/// A module's address: `run/module-<name>.sock` on POSIX, the per-home `-module-<name>` pipe on Windows.
+pub fn module_address(home: &Path, platform: &str, name: &str) -> String {
+    address(home, platform, &format!("module-{name}"))
 }
 
 /// `\\.\pipe\plur1bus-<first 16 hex of sha256(lower-cased home)>-<role>` on Windows, `<home>/run/<role>.sock` elsewhere.
@@ -264,6 +296,28 @@ fn sha256_hex(b: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn module_address_parity() {
+        // The same strings as module-api's `module address parity` (paths.test.ts); the hash is computed from the rule.
+        assert_eq!(
+            module_address(Path::new("/tmp/p1b"), "linux", "fixture"),
+            "/tmp/p1b/run/module-fixture.sock"
+        );
+        assert_eq!(
+            module_address(Path::new("/tmp/p1b"), "macos", "fixture"),
+            "/tmp/p1b/run/module-fixture.sock"
+        );
+        let home = r"C:\Users\A B\AppData\Local\PLUR1BUS";
+        let digest = format!(
+            "{:x}",
+            Sha256::digest(r"c:\users\a b\appdata\local\plur1bus".as_bytes())
+        );
+        let hash16 = &digest[..16];
+        assert_eq!(
+            module_address(Path::new(home), "windows", "fixture"),
+            format!(r"\\.\pipe\plur1bus-{hash16}-module-fixture")
+        );
+    }
     #[test]
     fn parity_with_the_typescript_layout() {
         let env = HashMap::new();
@@ -351,6 +405,43 @@ mod tests {
         assert_eq!(
             supervisor_address(Path::new(r"C:\Users\c\AppData\Local\PLUR1BUS"), "windows"),
             r"\\.\pipe\plur1bus-741b3e0a44818d49-supervisor"
+        );
+    }
+
+    #[test]
+    fn core_endpoints_match_the_old_paths() {
+        use crate::supervisor::state::Role;
+        let l = Layout::new(PathBuf::from("/h/.plur1bus"));
+        let e = l.endpoints(&Role::core(), "posix");
+        assert_eq!(e.address, "/h/.plur1bus/run/core.sock");
+        assert_eq!(e.address, core_address(&l.home, "posix"));
+        assert_eq!(e.token, PathBuf::from("/h/.plur1bus/run/core.token"));
+        assert_eq!(e.token, l.core_token());
+        assert_eq!(e.pid, PathBuf::from("/h/.plur1bus/run/core.pid"));
+        assert_eq!(e.pid, l.core_pid());
+
+        let w = Layout::new(PathBuf::from(r"C:\Users\c\AppData\Local\PLUR1BUS"));
+        let e = w.endpoints(&Role::core(), "windows");
+        assert_eq!(e.address, r"\\.\pipe\plur1bus-741b3e0a44818d49-core");
+        assert_eq!(e.address, core_address(&w.home, "windows"));
+        assert_eq!(e.token, w.core_token());
+        assert_eq!(e.pid, w.core_pid());
+
+        // A module gets its own run files and its own pipe (the core's hash, `-module-<name>` suffix).
+        let m = l.endpoints(&Role::module("fixture"), "posix");
+        assert_eq!(m.address, "/h/.plur1bus/run/module-fixture.sock");
+        assert_eq!(
+            m.token,
+            PathBuf::from("/h/.plur1bus/run/module-fixture.token")
+        );
+        assert_eq!(m.pid, PathBuf::from("/h/.plur1bus/run/module-fixture.pid"));
+        assert_eq!(
+            w.endpoints(&Role::module("fixture"), "windows").address,
+            r"\\.\pipe\plur1bus-741b3e0a44818d49-module-fixture"
+        );
+        assert_eq!(
+            module_address(&w.home, "windows", "fixture"),
+            r"\\.\pipe\plur1bus-741b3e0a44818d49-module-fixture"
         );
     }
 

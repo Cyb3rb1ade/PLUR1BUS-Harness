@@ -15,10 +15,16 @@ pub fn gui_domain() -> String {
     format!("gui/{uid}")
 }
 
+/// launchd's own name for its service manager (B16): the supervisor reads this back from its environment to know
+/// a non-transient exit (2 or 3) must become 0, so `KeepAlive.SuccessfulExit = false` does not loop-restart a
+/// failure that retrying can never fix (see `supervisor::exit_code`).
+pub const SERVICE_MANAGER_ENV: &str = "PLUR1BUS_SERVICE_MANAGER";
+
 /// The property list. `KeepAlive.SuccessfulExit = false` restarts the supervisor after a crash or a kill, never after
 /// a clean exit (`daemon stop`); `ThrottleInterval` spaces the restarts. `ExitTimeOut` and `AbandonProcessGroup`: see
 /// the module docs of `service`. `StandardErrorPath` (`<home>/logs/supervisor.stderr`) keeps what `supervise` prints
-/// before its own log is open (usage and set-up failures).
+/// before its own log is open (usage and set-up failures). `EnvironmentVariables` always carries
+/// [`SERVICE_MANAGER_ENV`], on top of any caller-supplied `env` (B16).
 pub fn render(
     bin: &str,
     home: &str,
@@ -38,17 +44,20 @@ pub fn render(
         s.push_str(&format!("    {}\n", string(a)));
     }
     s.push_str("  </array>\n");
-    if !env.is_empty() {
-        s.push_str("  <key>EnvironmentVariables</key>\n  <dict>\n");
-        for (k, v) in env {
-            s.push_str(&format!(
-                "    <key>{}</key>\n    {}\n",
-                xml_escape(k),
-                string(v)
-            ));
-        }
-        s.push_str("  </dict>\n");
+    s.push_str("  <key>EnvironmentVariables</key>\n  <dict>\n");
+    s.push_str(&format!(
+        "    <key>{}</key>\n    {}\n",
+        xml_escape(SERVICE_MANAGER_ENV),
+        string("launchd")
+    ));
+    for (k, v) in env {
+        s.push_str(&format!(
+            "    <key>{}</key>\n    {}\n",
+            xml_escape(k),
+            string(v)
+        ));
     }
+    s.push_str("  </dict>\n");
     s.push_str(&format!(
         "  <key>StandardErrorPath</key>\n  {}\n",
         string(stderr)
@@ -210,7 +219,50 @@ mod tests {
             ])
         );
         assert_eq!(p["ProgramArguments"][3], "supervise");
-        assert!(p.get("EnvironmentVariables").is_none());
+        // B16: the supervisor must always be told it runs under launchd, even with no caller-supplied env.
+        assert_eq!(
+            p["EnvironmentVariables"]["PLUR1BUS_SERVICE_MANAGER"],
+            "launchd"
+        );
+        assert_eq!(p["EnvironmentVariables"].as_object().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn plist_sets_the_service_manager_env() {
+        // Parsed with roxmltree directly (rather than through plist_json) to pin the exact XML shape B16 relies on.
+        let xml = render(
+            "/Applications/p1b/plur1bus",
+            "/Users/u/.plur1bus",
+            "dev.plur1bus.supervisor",
+            &[("PLUR1BUS_NODE".into(), "/opt/node".into())],
+            "/Users/u/.plur1bus/logs/supervisor.stderr",
+        );
+        let doc = roxmltree::Document::parse_with_options(
+            &xml,
+            roxmltree::ParsingOptions {
+                allow_dtd: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let dict = doc
+            .descendants()
+            .find(|n| n.has_tag_name("key") && n.text() == Some("EnvironmentVariables"))
+            .and_then(|n| n.next_sibling_element())
+            .expect("EnvironmentVariables dict");
+        assert!(dict.has_tag_name("dict"), "{xml}");
+        let mut kv = dict.children().filter(|n| n.is_element());
+        let mut found_manager = false;
+        while let Some(key) = kv.next() {
+            let Some(value) = kv.next() else { break };
+            if key.has_tag_name("key") && key.text() == Some("PLUR1BUS_SERVICE_MANAGER") {
+                assert_eq!(value.text(), Some("launchd"), "{xml}");
+                found_manager = true;
+            }
+        }
+        assert!(found_manager, "{xml}");
+        // The caller-supplied env is still there alongside it.
+        assert!(xml.contains("PLUR1BUS_NODE"), "{xml}");
     }
 
     #[test]

@@ -23,9 +23,10 @@ if (!ajv.validateSchema(schema)) throw new Error(`rpc.schema.json is not a valid
 // 2. Method and notification names come from the schema, never from a hand list.
 const methods = Object.keys(schema.$defs.methods);
 const notifications = Object.keys(schema.$defs.notifications);
-for (const [kind, defs] of [["method", schema.$defs.methods], ["notification", schema.$defs.notifications]]) {
+// Methods are served by the core, the supervisor or a module process (1.3.0); notifications come from the first two.
+for (const [kind, defs, servers] of [["method", schema.$defs.methods, ["core", "supervisor", "module"]], ["notification", schema.$defs.notifications, ["core", "supervisor"]]]) {
   for (const [name, def] of Object.entries(defs)) {
-    if (def["x-server"] !== "core" && def["x-server"] !== "supervisor") throw new Error(`rpc.schema.json: ${kind} ${name} lacks x-server core|supervisor`);
+    if (!servers.includes(def["x-server"])) throw new Error(`rpc.schema.json: ${kind} ${name} lacks x-server ${servers.join("|")}`);
   }
 }
 
@@ -59,5 +60,5 @@ writeFileSync(join(outDir, "names.json"), JSON.stringify({ rpc: schema["x-rpc-ve
 const { buildCapabilities } = await import(pathToFileURL(join(here, "index.ts")).href);
 const capDir = join(here, "..", "fixtures", "capabilities");
 mkdirSync(capDir, { recursive: true });
-for (const server of ["core", "supervisor"]) writeFileSync(join(capDir, `${server}.json`), JSON.stringify(buildCapabilities([], server), null, 2) + "\n");
+for (const server of ["core", "supervisor", "module"]) writeFileSync(join(capDir, `${server}.json`), JSON.stringify(buildCapabilities([], server), null, 2) + "\n");
 console.log(`rpc-schema: ${methods.length} methods, ${notifications.length} notifications → generated/`);

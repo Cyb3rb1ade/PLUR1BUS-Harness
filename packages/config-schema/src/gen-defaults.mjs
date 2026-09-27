@@ -72,6 +72,16 @@ const cases = [
       return c;
     })(),
   },
+  {
+    name: "modules.fixture.greeting changes",
+    before: (() => { const c = structuredClone(base); c.modules.fixture = { enabled: true, greeting: "hello" }; return c; })(),
+    after: (() => { const c = structuredClone(base); c.modules.fixture = { enabled: true, greeting: "hi" }; return c; })(),
+  },
+  {
+    name: "adding modules.fixture-b",
+    before: base,
+    after: (() => { const c = structuredClone(base); c.modules["fixture-b"] = { enabled: true }; return c; })(),
+  },
 ];
 
 const out = cases.map(({ name, before, after }) => ({ name, before, after, expected: restartPlan(before, after) }));
@@ -105,7 +115,7 @@ const tierKeys = [
   "$schema", "schemaVersion", "core.logLevel", "core.recall.capChars", "supervisor.graceMs",
   "logs.keep", "agents", "agents.bernd", "agents.bernd.displayName", "embedding.useClass",
   "embedding.acceptedNcLicence", "engine", "engine.chatModels", "engine.recall.softBudgetMs",
-  "providers.x", "oauth", "decision", "modelRoles.chat", "nope.nothing",
+  "providers.x", "oauth", "decision", "modelRoles.chat", "modules", "modules.fixture.enabled", "nope.nothing",
 ];
 const tierOut = {
   cases: tierKeys.map((key) => ({ key, tier: tierOf(key) })),

@@ -1,3 +1,5 @@
+mod common;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 
@@ -50,17 +52,24 @@ fn stubs_exit_2_and_name_their_milestone() {
 
 #[test]
 fn stubs_name_2a_h3b() {
-    // `daemon` and `service` are implemented (Tasks 8, 9); the rest are still milestone stubs.
+    // `daemon`, `service` and `module` are implemented (2a-H3a Tasks 8, 9; 2a-H3b Task 10); the rest are still
+    // milestone stubs.
     for cmd in ["setup", "module", "daemon", "service", "update", "1staid"] {
         bin().arg(cmd).arg("--help").assert().success();
     }
+    // `module status` is no longer a stub: clap refuses the unknown subcommand.
     bin()
         .args(["module", "status"])
         .assert()
         .code(2)
+        .stderr(predicate::str::contains("2a-H3b").not());
+    bin()
+        .args(["update", "check"])
+        .assert()
+        .code(2)
         .stderr(predicate::str::contains("2a-H3b"));
     let out = bin()
-        .args(["--json", "module", "status"])
+        .args(["--json", "update", "check"])
         .assert()
         .code(2)
         .get_output()
@@ -1167,4 +1176,492 @@ fn human_errors_print_recovery_ids_to_stderr() {
         s.contains("ids: sharedId=m-new sourceId=m-src staleSharedId=m-old"),
         "expected the ids line on stderr, got: {s}"
     );
+}
+
+// ---- config routing through the supervisor (2a-H3b B6) -------------------------------------------------------------
+
+fn json_out(args: &[&str]) -> serde_json::Value {
+    let out = bin()
+        .args(args)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&out).unwrap()
+}
+
+#[test]
+fn config_set_routes_through_a_running_supervisor() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let _sup = common::start(dir.path());
+    let watch = common::Watch::open(dir.path());
+    let rev0 = watch.result["revision"].clone();
+
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "debug",
+        "--yes",
+    ]);
+    assert_eq!(v["schema"], "config.set/1");
+    assert_eq!(v["applied"], true);
+    assert_eq!(v["changed"], serde_json::json!(["core.logLevel"]));
+    let n = watch
+        .next_change(common::WAIT)
+        .expect("the supervisor did not apply it");
+    assert_eq!(n["source"], "set");
+    assert_eq!(n["previousRevision"], rev0);
+    assert_eq!(n["revision"], v["revision"]);
+    // The file is the supervisor's write, holding the new value.
+    let file: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "debug");
+
+    // `config get` answers from the running configuration: the CLI's `restart` plus `restartClass` and `revision`.
+    let g = json_out(&["--json", "--home", h, "config", "get", "core.logLevel"]);
+    assert_eq!(g["schema"], "config.get/1");
+    assert_eq!(g["value"], "debug");
+    assert_eq!(g["restart"], "live");
+    assert_eq!(g["restartClass"], "live");
+    assert_eq!(g["revision"], v["revision"]);
+
+    // The human text does not carry the no-supervisor wording.
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "warn",
+            "--yes",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sent to the running core"))
+        .stdout(predicate::str::contains("H1").not())
+        .stdout(predicate::str::contains("next core start").not());
+    // A dry run changes nothing.
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "error",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+    assert_eq!(watch.changes_within(common::TICK * 3).len(), 1); // only the `warn` set
+                                                                 // An invalid value is refused by the supervisor.
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "loud",
+            "--yes",
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("logLevel"));
+}
+
+#[test]
+fn config_set_without_a_supervisor_writes_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    // A supervisor that died without cleaning up: its token remains, its recorded pid is dead.
+    let mut gone = std::process::Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let dead = gone.id();
+    gone.wait().unwrap();
+    std::fs::create_dir_all(dir.path().join("run")).unwrap();
+    std::fs::write(dir.path().join("run/supervisor.token"), "a".repeat(64)).unwrap();
+    std::fs::write(dir.path().join("run/supervisor.pid"), format!("{dead} x\n")).unwrap();
+
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "debug",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+    let file =
+        plur1bus_config::parse(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "debug");
+    assert_eq!(v["revision"], plur1bus_config::revision(&file));
+    let g = json_out(&["--json", "--home", h, "config", "get", "core.logLevel"]);
+    assert_eq!(g["value"], "debug");
+    assert_eq!(g["revision"], v["revision"]);
+    // No token at all: the same direct path.
+    std::fs::remove_dir_all(dir.path().join("run")).unwrap();
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "warn",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+}
+
+#[cfg(unix)]
+#[test]
+fn config_set_with_an_unresponsive_supervisor_fails_and_writes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    std::fs::write(dir.path().join("config.json"), "{\"schemaVersion\":1}\n").unwrap();
+    let sup = common::start(dir.path());
+    let before = std::fs::read(dir.path().join("config.json")).unwrap();
+    // SAFETY: signals to our own child; Supervisor's Drop sends SIGCONT before killing it.
+    unsafe { libc::kill(sup.child.id() as i32, libc::SIGSTOP) };
+    let out = bin()
+        .args([
+            "--json",
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--yes",
+        ])
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_NOT_AVAILABLE", "{v}");
+    assert_eq!(v["reason"], "supervisor-unresponsive", "{v}");
+    assert_eq!(
+        std::fs::read(dir.path().join("config.json")).unwrap(),
+        before
+    );
+    drop(sup);
+}
+
+#[test]
+fn agent_create_routes_through_the_supervisor() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let _sup = common::start(dir.path());
+    let watch = common::Watch::open(dir.path());
+
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("created agent bernd"));
+    let n = watch
+        .next_change(common::WAIT)
+        .expect("agent create did not go through the supervisor");
+    assert_eq!(n["source"], "set");
+    assert_eq!(n["changed"], serde_json::json!(["agents.bernd"]));
+    assert!(n["config"]["agents"]["bernd"]["createdAt"]
+        .as_str()
+        .unwrap()
+        .ends_with('Z'));
+    let v = json_out(&["--json", "--home", h, "agent", "list"]);
+    assert_eq!(v["agents"][0]["agentId"], "bernd");
+
+    // remove sends the agents map minus the agent.
+    bin()
+        .args(["--home", h, "agent", "create", "anna"])
+        .assert()
+        .success();
+    watch.next_change(common::WAIT).unwrap();
+    bin()
+        .args(["--home", h, "agent", "remove", "bernd"])
+        .assert()
+        .success();
+    let n = watch.next_change(common::WAIT).unwrap();
+    assert_eq!(n["changed"], serde_json::json!(["agents.bernd"]));
+    let agents: Vec<&String> = n["config"]["agents"].as_object().unwrap().keys().collect();
+    assert_eq!(agents, ["anna"]);
+}
+
+// ---- fix round 1: route edge cases and the conflict message ---------------------------------------------------------
+
+/// A stand-in supervisor on `run/supervisor.sock` (unix): writes the token and a pid file naming this (alive) test
+/// process, answers `supervisor.auth` with `hello`, and every other request with `answer(method, params)` (a
+/// `result` or an `error` object). Every request line is sent to the returned receiver.
+#[cfg(unix)]
+fn fake_supervisor(
+    home: &std::path::Path,
+    hello: serde_json::Value,
+    answer: impl Fn(&str, &serde_json::Value) -> serde_json::Value + Send + Sync + 'static,
+) -> std::sync::mpsc::Receiver<serde_json::Value> {
+    use std::io::{BufRead, BufReader, Write};
+    let run = home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    let token = "b".repeat(64);
+    std::fs::write(run.join("supervisor.token"), &token).unwrap();
+    std::fs::write(
+        run.join("supervisor.pid"),
+        format!("{} fake\n", std::process::id()),
+    )
+    .unwrap();
+    let listener = std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let answer = std::sync::Arc::new(answer);
+    std::thread::spawn(move || {
+        for s in listener.incoming() {
+            let Ok(s) = s else { return };
+            let (hello, answer, tx) = (hello.clone(), answer.clone(), tx.clone());
+            std::thread::spawn(move || {
+                let mut w = s.try_clone().unwrap();
+                for line in BufReader::new(s).lines() {
+                    let Ok(line) = line else { return };
+                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    let _ = tx.send(req.clone());
+                    let method = req["method"].as_str().unwrap_or_default();
+                    let body = if method == "supervisor.auth" {
+                        serde_json::json!({ "result": hello })
+                    } else {
+                        answer(method, &req["params"])
+                    };
+                    let mut reply = serde_json::json!({ "jsonrpc": "2.0", "id": req["id"] });
+                    for (k, v) in body.as_object().unwrap() {
+                        reply[k] = v.clone();
+                    }
+                    let _ = writeln!(w, "{reply}");
+                }
+            });
+        }
+    });
+    rx
+}
+
+#[cfg(unix)]
+fn fake_hello(methods: &[&str]) -> serde_json::Value {
+    let m: serde_json::Map<String, serde_json::Value> = methods
+        .iter()
+        .map(|m| {
+            (
+                m.to_string(),
+                serde_json::json!({ "stability": "experimental", "since": "1.2.0" }),
+            )
+        })
+        .collect();
+    serde_json::json!({ "rpc": "1.2.0", "instanceId": "fake", "pid": std::process::id(),
+        "capabilities": { "methods": m, "notifications": {}, "extensionPoints": {}, "features": [] } })
+}
+
+#[cfg(unix)]
+#[test]
+fn a_supervisor_without_config_methods_leaves_config_json_to_the_cli() {
+    // I2: an H3a supervisor (RPC 1.2.0) never writes config.json; the CLI reads and writes it directly.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let seen = fake_supervisor(
+        dir.path(),
+        fake_hello(&[
+            "supervisor.auth",
+            "daemon.status",
+            "daemon.start",
+            "daemon.stop",
+        ]),
+        |m, _| serde_json::json!({ "error": { "code": -32601, "message": format!("method not found: {m}") } }),
+    );
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "debug",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+    let file =
+        plur1bus_config::parse(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "debug");
+    assert_eq!(
+        json_out(&["--json", "--home", h, "config", "get", "core.logLevel"])["value"],
+        "debug"
+    );
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    assert_eq!(
+        json_out(&["--json", "--home", h, "agent", "list"])["agents"][0]["agentId"],
+        "bernd"
+    );
+    let methods: Vec<String> = seen
+        .try_iter()
+        .map(|r| r["method"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        methods.iter().all(|m| m == "supervisor.auth"),
+        "{methods:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_live_pid_with_a_refused_socket_counts_as_no_supervisor() {
+    // B6: a token and a recorded pid that is alive (this test), but nothing listens on the socket.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let run = dir.path().join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    std::fs::write(run.join("supervisor.token"), "c".repeat(64)).unwrap();
+    std::fs::write(
+        run.join("supervisor.pid"),
+        format!("{} x\n", std::process::id()),
+    )
+    .unwrap();
+    drop(std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap()); // leaves a dead socket file
+    let v = json_out(&[
+        "--json",
+        "--home",
+        h,
+        "config",
+        "set",
+        "core.logLevel",
+        "warn",
+        "--yes",
+    ]);
+    assert_eq!(v["applied"], true);
+    let file =
+        plur1bus_config::parse(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["core"]["logLevel"], "warn");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_conflict_between_preview_and_apply_says_changed_meanwhile() {
+    // Review Focus 2 at the CLI: the supervisor refuses the apply's ifRevision.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let seen = fake_supervisor(
+        dir.path(),
+        fake_hello(&[
+            "supervisor.auth",
+            "config.get",
+            "config.set",
+            "config.watch",
+        ]),
+        |_, p| {
+            if p["dryRun"] == true {
+                serde_json::json!({ "result": { "applied": false, "dryRun": true, "changed": ["core.logLevel"],
+                    "restart": { "live": ["core.logLevel"], "core": false, "modules": [] },
+                    "revision": "1111111111111111", "restarted": [], "durationMs": 0 } })
+            } else {
+                serde_json::json!({ "error": { "code": -32000, "message": "config.json changed since the given revision",
+                    "data": { "error": "E_CONFLICT", "reason": "config-changed", "ids": { "currentRevision": "2222222222222222" } } } })
+            }
+        },
+    );
+    std::fs::write(dir.path().join("config.json"), "{\"schemaVersion\":1}\n").unwrap();
+    bin()
+        .args([
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--yes",
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains(
+            "config.json changed meanwhile; re-run",
+        ));
+    let out = bin()
+        .args([
+            "--json",
+            "--home",
+            h,
+            "config",
+            "set",
+            "core.logLevel",
+            "debug",
+            "--yes",
+        ])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_CONFLICT", "{v}");
+    assert_eq!(v["reason"], "config-changed");
+    assert_eq!(v["ids"]["currentRevision"], "2222222222222222");
+    // The apply carried the previewed revision; nothing was written by the CLI.
+    let applies: Vec<serde_json::Value> = seen
+        .try_iter()
+        .filter(|r| r["method"] == "config.set" && r["params"]["dryRun"].is_null())
+        .collect();
+    assert!(!applies.is_empty());
+    assert!(applies
+        .iter()
+        .all(|r| r["params"]["ifRevision"] == "1111111111111111"));
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("config.json")).unwrap(),
+        "{\"schemaVersion\":1}\n"
+    );
+}
+
+/// Final review M4: only the supervisor (or a command that writes the configuration) creates config.json. Offline
+/// `module list` and `admin obsidian` read it, and on a fresh home they run against the defaults without creating it.
+#[test]
+fn offline_module_list_and_admin_obsidian_do_not_create_config_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().to_str().unwrap();
+    let out = bin()
+        .args(["--json", "--home", home, "module", "list"])
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["schema"], "module.list/1", "{v}");
+    assert!(!dir.path().join("config.json").exists(), "module list");
+
+    // The defaults register no agent: refused before any RPC, and still nothing written.
+    let out = bin()
+        .args([
+            "--json", "--home", home, "admin", "obsidian", "detect", "--agent", "bernd",
+        ])
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_AGENT_UNKNOWN", "{v}");
+    assert!(!dir.path().join("config.json").exists(), "admin obsidian");
 }

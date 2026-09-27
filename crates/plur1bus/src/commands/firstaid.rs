@@ -9,8 +9,9 @@
 //! budget the brief sets even when nothing answers.
 use crate::cli::FirstAidCmd;
 use crate::output::Out;
-use crate::paths::{core_address, supervisor_address, Layout};
+use crate::paths::{supervisor_address, Layout};
 use crate::service::{self, Runner};
+use crate::supervisor::Role;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -31,7 +32,7 @@ const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 14] = [
+const CHECK_IDS: [&str; 15] = [
     "config.valid",
     "run.permissions",
     "run.stale-files",
@@ -40,6 +41,7 @@ const CHECK_IDS: [&str; 14] = [
     "models.warm",
     "memory.shared",
     "core.lock",
+    "modules.state",
     "service.registration",
     "agents.activity",
     "journal.backlog",
@@ -160,8 +162,16 @@ fn probe(
         detail: String::new(),
     })?;
     let address = match endpoint {
-        Endpoint::Core => core_address(&layout.home, platform),
+        Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
         Endpoint::Supervisor => supervisor_address(&layout.home, platform),
+        // 1staid probes only the core and the supervisor (modules through the supervisor's view); a module's address
+        // needs its name (Layout::endpoints).
+        Endpoint::Module => {
+            return Err(RpcError::Unavailable {
+                reason: "no-address".into(),
+                detail: "1staid does not probe modules directly".into(),
+            })
+        }
     };
     let opts = ConnectOptions {
         connect_timeout: CHECK_TIMEOUT,
@@ -217,7 +227,17 @@ fn probe_supervisor(layout: &Layout, platform: &str) -> SupervisorView {
 pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     let deadline = Instant::now() + GATHER_BUDGET;
     let mut checks = Vec::with_capacity(CHECK_IDS.len());
-    checks.push(check_config_valid(layout));
+    // The supervisor's own view: `daemon.status` gives the supervisor's health, the core child's (exactly as `daemon
+    // status` reports them) and the configuration it runs, which `config.valid` needs first.
+    let supervisor = probe_supervisor(layout, env.platform);
+    let daemon_status = match &supervisor {
+        SupervisorView::Answered(v) => Some(v),
+        _ => None,
+    };
+    checks.push(check_config_valid(
+        layout,
+        daemon_status.map(|s| &s["config"]),
+    ));
     checks.push(check_run_permissions(layout));
     checks.push(check_run_stale_files(layout, env.platform));
 
@@ -225,14 +245,7 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
         return checks;
     }
 
-    // The supervisor's own view: `daemon.status` gives both the supervisor's health and the core child's, exactly
-    // as `daemon status` reports them.
-    let supervisor = probe_supervisor(layout, env.platform);
     checks.push(check_supervisor_state(&supervisor));
-    let daemon_status = match &supervisor {
-        SupervisorView::Answered(v) => Some(v),
-        _ => None,
-    };
     checks.push(check_core_state(daemon_status));
 
     if out_of_budget(deadline, &mut checks) {
@@ -257,6 +270,10 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
         core_status.is_some(),
         core_peer_pid,
         core_server_mismatch,
+    ));
+    checks.push(check_modules_state(
+        daemon_status,
+        &crate::modules::scan(layout),
     ));
     checks.push(check_service_registration(layout, env.runner));
 
@@ -293,16 +310,31 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
 const CURRENT_CONFIG_SCHEMA_VERSION: u64 = 1;
 
 /// Reads and validates `config.json` without ever writing it — unlike [`plur1bus_config::load`], which creates a
-/// default file when one is missing (a side effect this read-only check must not have).
-fn check_config_valid(layout: &Layout) -> Check {
+/// default file when one is missing (a side effect this read-only check must not have). `supervisor` is the running
+/// supervisor's `daemon.status.config`: a hand edit it rejected fails the check with its errors (B4); while no valid
+/// configuration runs (B18) the hint does not offer `config set`, which then has nothing to apply against.
+fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
     const ID: &str = "config.valid";
+    if let Some(rejected) = supervisor.map(|c| &c["rejected"]).filter(|r| r.is_object()) {
+        let hint = if supervisor.is_some_and(|c| c["revision"].is_string()) {
+            "the supervisor runs the last valid configuration; fix config.json or use plur1bus config set"
+        } else {
+            "no valid configuration runs, so the core cannot start; fix config.json"
+        };
+        return Check::fail(
+            ID,
+            "the supervisor rejected config.json",
+            Some(json!({ "errors": rejected["errors"], "at": rejected["at"] })),
+            Some(hint.to_string()),
+        );
+    }
     let path = layout.config_path();
     let text = match std::fs::read_to_string(&path) {
         Ok(t) => t,
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
             return Check::ok(
                 ID,
-                "config.json does not exist yet (defaults are created at the next start)",
+                "config.json does not exist yet (the defaults run until a command writes it)",
             );
         }
         Err(e) => return Check::fail(ID, format!("cannot read config.json: {e}"), None, None),
@@ -452,7 +484,8 @@ fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
 
 // ---- run.stale-files --------------------------------------------------------------------------
 
-fn pid_alive(pid: u32) -> bool {
+/// Whether `pid` names a live process (`kill(pid, 0)` / `OpenProcess`). Also used by `config` routing (B6).
+pub(crate) fn pid_alive(pid: u32) -> bool {
     #[cfg(unix)]
     {
         // SAFETY: signal 0 only checks that the pid exists; no signal is actually delivered.
@@ -491,7 +524,11 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
     let mut stale: Vec<String> = Vec::new();
 
     for (name, path, endpoint) in [
-        ("core.pid", layout.core_pid(), Endpoint::Core),
+        (
+            "core.pid",
+            layout.endpoints(&Role::core(), platform).pid,
+            Endpoint::Core,
+        ),
         (
             "supervisor.pid",
             layout.supervisor_pid(),
@@ -507,19 +544,19 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
     }
 
     if platform != "windows" {
-        for (name, path, endpoint) in [
-            ("core.sock", run.join("core.sock"), Endpoint::Core),
+        for (name, path, address) in [
+            (
+                "core.sock",
+                run.join("core.sock"),
+                layout.endpoints(&Role::core(), platform).address,
+            ),
             (
                 "supervisor.sock",
                 run.join("supervisor.sock"),
-                Endpoint::Supervisor,
+                supervisor_address(&layout.home, platform),
             ),
         ] {
             if path.exists() {
-                let address = match endpoint {
-                    Endpoint::Core => core_address(&layout.home, platform),
-                    Endpoint::Supervisor => supervisor_address(&layout.home, platform),
-                };
                 let alive = plur1bus_rpc::transport::connect(&address, CHECK_TIMEOUT).is_ok();
                 if !alive && !stale.iter().any(|s| s == name) {
                     stale.push(name.to_string());
@@ -600,7 +637,7 @@ fn check_core_state(daemon_status: Option<&Value>) -> Check {
         // failure in `supervisor.state`).
         return Check::warn(ID, "core is not running (no supervisor to ask)", None, None);
     };
-    let Some(child) = status["children"].get(0) else {
+    let Some(child) = super::daemon::core_child(status) else {
         return Check::warn(ID, "core is not running", None, None);
     };
     let (status, summary, detail) = describe_child(child);
@@ -610,6 +647,158 @@ fn check_core_state(daemon_status: Option<&Value>) -> Check {
         summary,
         detail,
         hint: None,
+    }
+}
+
+// ---- modules.state --------------------------------------------------------------------------------
+
+/// One module child of `daemon.status` as `modules.state` judges it: ready, or stopped with a reason (by
+/// configuration, scope, request or an unavailable need) → ok; stopped with no reason (it exited on its own and its
+/// restart policy does not restart that), starting, stopping, restarting (crashed with a restart scheduled),
+/// orphaned or degraded → warn; crashed for good (fatal, `gave-up`, `manifest-invalid`, `api-version-unsupported`,
+/// or a crash under `restart: "never"`) → fail. The text is `<state>[: reason]` plus the last exit where it helps.
+fn judge_module(child: &Value) -> (Status, String) {
+    let state = child["process"]["state"].as_str().unwrap_or("starting");
+    let reason = child["process"]["reason"].as_str();
+    let text = match reason {
+        Some(r) => format!("{state}: {r}"),
+        None => state.to_string(),
+    };
+    let code = || {
+        child["lastExit"]["code"]
+            .as_i64()
+            .map_or("none".to_string(), |c| c.to_string())
+    };
+    match (state, reason) {
+        ("ready", _) | ("stopped", Some(_)) => (Status::Ok, text),
+        ("stopped", None) => (
+            Status::Warn,
+            format!(
+                "stopped: exited on its own (exit code {}), not restarted",
+                code()
+            ),
+        ),
+        ("crashed", _) if child["nextRestartAt"].is_u64() => {
+            (Status::Warn, format!("{text}, restarting"))
+        }
+        ("crashed", Some("gave-up")) => (
+            Status::Fail,
+            format!(
+                "crashed: gave up after repeated exits (last exit code {})",
+                code()
+            ),
+        ),
+        // Only `restart: "never"` leaves a crash with no reason and no restart.
+        ("crashed", None) => (
+            Status::Fail,
+            format!(
+                "crashed, not restarted (restart: never; exit code {})",
+                code()
+            ),
+        ),
+        ("crashed", _) => (Status::Fail, text),
+        _ => (Status::Warn, text),
+    }
+}
+
+/// `modules.state`: the supervisor's view of every module child (`daemon.status`, `kind: "module"`), with the manifest
+/// errors of the installed modules (P13: they are not in `ChildStatus`). No module, or every module ready or stopped
+/// → ok; one restarting, orphaned or degraded → warn; one crashed for good → fail, with `detail.modules`. Without a
+/// supervisor: an invalid manifest still fails; valid modules only warn that nothing runs them.
+fn check_modules_state(
+    daemon_status: Option<&Value>,
+    installed: &[crate::modules::Installed],
+) -> Check {
+    const ID: &str = "modules.state";
+    let errors_of = |name: &str| -> Option<Value> {
+        installed
+            .iter()
+            .find(|i| i.name == name)
+            .and_then(|i| i.manifest.as_ref().err())
+            .map(|e| json!(e))
+    };
+    let invalid: Vec<&crate::modules::Installed> =
+        installed.iter().filter(|i| i.manifest.is_err()).collect();
+    let Some(status) = daemon_status else {
+        if installed.is_empty() {
+            return Check::ok(ID, "no modules installed");
+        }
+        if !invalid.is_empty() {
+            let names: Vec<&str> = invalid.iter().map(|i| i.name.as_str()).collect();
+            let modules: Vec<Value> = invalid
+                .iter()
+                .map(|i| json!({ "name": i.name, "state": null, "errors": errors_of(&i.name) }))
+                .collect();
+            return Check::fail(
+                ID,
+                format!("invalid module manifest: {}", names.join(", ")),
+                Some(json!({ "modules": modules })),
+                Some("fix modules/<name>/module.json".to_string()),
+            );
+        }
+        return Check::warn(
+            ID,
+            format!(
+                "{} module(s) installed, not running (no supervisor to ask)",
+                installed.len()
+            ),
+            None,
+            Some("plur1bus daemon start".to_string()),
+        );
+    };
+    let children: Vec<&Value> = status["children"]
+        .as_array()
+        .map(|a| a.iter().filter(|c| c["kind"] == "module").collect())
+        .unwrap_or_default();
+    let mut worst = Status::Ok;
+    let mut named = Vec::new();
+    let mut modules = Vec::new();
+    for c in &children {
+        let name = c["role"].as_str().unwrap_or("?");
+        let (status, text) = judge_module(c);
+        if status == Status::Ok {
+            continue;
+        }
+        if status == Status::Fail || worst == Status::Ok {
+            worst = status;
+        }
+        named.push(format!("{name} ({text})"));
+        let mut entry = json!({
+            "name": name, "state": c["process"]["state"], "reason": c["process"]["reason"],
+            "restarts": c["restarts"], "nextRestartAt": c["nextRestartAt"], "lastExit": c["lastExit"],
+        });
+        if let Some(e) = errors_of(name) {
+            entry["errors"] = e;
+        }
+        modules.push(entry);
+    }
+    // An installed module with no slot (a directory name that is no module name) never runs either.
+    for i in &invalid {
+        if !children.iter().any(|c| c["role"] == i.name.as_str()) {
+            worst = Status::Fail;
+            named.push(format!("{} (invalid manifest)", i.name));
+            modules.push(json!({ "name": i.name, "state": null, "errors": errors_of(&i.name) }));
+        }
+    }
+    if named.is_empty() {
+        return Check::ok(
+            ID,
+            match children.len() {
+                0 => "no modules installed".to_string(),
+                n => format!("{n} module(s) ready or stopped by configuration"),
+            },
+        );
+    }
+    let detail = Some(json!({ "modules": modules }));
+    let summary = named.join(", ");
+    match worst {
+        Status::Fail => Check::fail(
+            ID,
+            format!("module(s) failed: {summary}"),
+            detail,
+            Some("see logs/supervisor.log and logs/module-<name>.log".to_string()),
+        ),
+        _ => Check::warn(ID, format!("module(s) not ready: {summary}"), detail, None),
     }
 }
 
@@ -853,6 +1042,24 @@ fn check_journal_backlog(layout: &Layout, core_status: Option<&Value>) -> Check 
         .unwrap_or(0);
     let from_files = count_journal_lines(layout);
     let total = from_core.max(from_files);
+    // B2: the core serves while its journal replays in the background; the lines still waiting are progress, not a
+    // stuck backlog.
+    let replay = core_status.map(|s| &s["journalReplay"]);
+    if replay.and_then(|r| r["state"].as_str()) == Some("replaying") {
+        let replayed = replay.and_then(|r| r["replayed"].as_u64()).unwrap_or(0);
+        // Replayed lines stay in the `.replaying-*` file in progress (both counts above include them) until the
+        // replay finishes that file.
+        let pending = replay
+            .and_then(|r| r["pendingRemoval"].as_u64())
+            .unwrap_or(0);
+        let left = total.saturating_sub(pending);
+        return Check::warn(
+            ID,
+            format!("replaying: {replayed} replayed, {left} left"),
+            Some(json!({ "replayed": replayed, "left": left })),
+            None,
+        );
+    }
     if total == 0 {
         Check::ok(ID, "no journal backlog")
     } else {
@@ -1091,7 +1298,7 @@ fn check_windows_pipe_acl(layout: &Layout) -> Check {
     };
     let mut writable = Vec::new();
     for (name, address) in [
-        ("core", core_address(&layout.home, "windows")),
+        ("core", layout.endpoints(&Role::core(), "windows").address),
         ("supervisor", supervisor_address(&layout.home, "windows")),
     ] {
         if let Ok(entries) = win::pipe_dacl_report(&address) {
@@ -1503,6 +1710,43 @@ mod tests {
     }
 
     #[test]
+    fn journal_backlog_while_replaying_is_a_warning_with_progress() {
+        // One agent, 40 journaled lines: the replay renamed the file and has replayed 30 of them, which stay in the
+        // `.replaying-<pid>` file (and in the engine's count) until the file is finished.
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.journal()).unwrap();
+        std::fs::write(
+            layout.journal().join("bernd.jsonl.replaying-4242"),
+            "{}\n".repeat(40),
+        )
+        .unwrap();
+        let status = json!({ "journalBacklog": 40, "journalReplay": { "state": "replaying", "replayed": 30,
+            "pendingRemoval": 30, "kept": 0, "passes": 0, "startedAt": 1, "finishedAt": null } });
+        let check = check_journal_backlog(&layout, Some(&status));
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+        assert_eq!(check.summary, "replaying: 30 replayed, 10 left");
+        assert_eq!(check.detail.unwrap(), json!({ "replayed": 30, "left": 10 }));
+        // A second agent's file waiting for its turn is left too; the first file finished (removed, pending reset).
+        std::fs::remove_file(layout.journal().join("bernd.jsonl.replaying-4242")).unwrap();
+        std::fs::write(layout.journal().join("anna.jsonl"), "{}\n".repeat(5)).unwrap();
+        let next = json!({ "journalBacklog": 5, "journalReplay": { "state": "replaying", "replayed": 40,
+            "pendingRemoval": 0, "kept": 0, "passes": 0, "startedAt": 1, "finishedAt": null } });
+        assert_eq!(
+            check_journal_backlog(&layout, Some(&next)).summary,
+            "replaying: 40 replayed, 5 left"
+        );
+        // A finished replay with nothing left is ok again.
+        std::fs::remove_file(layout.journal().join("anna.jsonl")).unwrap();
+        let done = json!({ "journalBacklog": 0, "journalReplay": { "state": "done", "replayed": 45,
+            "pendingRemoval": 0, "kept": 0, "passes": 1, "startedAt": 1, "finishedAt": 2 } });
+        assert_eq!(
+            check_journal_backlog(&layout, Some(&done)).status,
+            Status::Ok
+        );
+    }
+
+    #[test]
     fn jobs_from_core_status_warn_on_failures_breaker_and_unreadable_lines() {
         let deadline = Instant::now() + Duration::from_secs(5);
         let healthy = json!({ "jobs": { "ledger": "ok", "agents": [{ "agentId": "bernd", "running": [], "breakerOpen": false,
@@ -1538,13 +1782,152 @@ mod tests {
         );
     }
 
+    fn module_child(name: &str, process: Value, next: Option<u64>) -> Value {
+        json!({ "role": name, "kind": "module", "process": process, "pid": null, "instanceId": null,
+            "adopted": false, "restarts": 4, "lastExit": { "code": 1, "signal": null, "at": 1, "reason": null },
+            "nextRestartAt": next })
+    }
+
+    fn daemon_status_with(children: Vec<Value>) -> Value {
+        let mut all =
+            vec![json!({ "role": "core", "kind": "core", "process": { "state": "ready" } })];
+        all.extend(children);
+        json!({ "supervisor": {}, "children": all })
+    }
+
+    fn installed(name: &str, manifest: Result<(), Vec<String>>) -> crate::modules::Installed {
+        let raw = json!({ "name": name, "version": "0.1.0", "apiVersion": "1", "entry": "index.js",
+            "scope": "installation", "priority": 500 })
+        .to_string();
+        crate::modules::Installed {
+            name: name.into(),
+            dir: std::path::PathBuf::from("/nonexistent").join(name),
+            manifest: manifest.map(|_| crate::modules::parse_manifest(&raw).unwrap()),
+        }
+    }
+
+    #[test]
+    fn modules_state_is_ok_without_modules_or_when_every_module_is_ready_or_stopped_by_config() {
+        assert_eq!(
+            check_modules_state(Some(&daemon_status_with(vec![])), &[]).status,
+            Status::Ok
+        );
+        assert_eq!(check_modules_state(None, &[]).status, Status::Ok);
+        let st = daemon_status_with(vec![
+            module_child("fixture", json!({ "state": "ready" }), None),
+            module_child(
+                "fixture-b",
+                json!({ "state": "stopped", "reason": "disabled" }),
+                None,
+            ),
+            module_child(
+                "agent-mod",
+                json!({ "state": "stopped", "reason": "scope-agent-unsupported" }),
+                None,
+            ),
+            module_child(
+                "needy",
+                json!({ "state": "stopped", "reason": "needs-unavailable" }),
+                None,
+            ),
+        ]);
+        let check = check_modules_state(Some(&st), &[]);
+        assert_eq!(check.status, Status::Ok, "{check:?}");
+        assert!(check.summary.contains("4 module(s)"), "{check:?}");
+        assert!(check.detail.is_none());
+    }
+
+    #[test]
+    fn modules_state_warns_while_a_module_restarts_is_orphaned_or_degraded() {
+        for (process, next) in [
+            (json!({ "state": "crashed" }), Some(5)),
+            (json!({ "state": "orphaned" }), None),
+            (
+                json!({ "state": "degraded", "reason": "unresponsive" }),
+                None,
+            ),
+            // Exited 0 on its own under `restart: "on-failure"`: stopped, but not by configuration.
+            (json!({ "state": "stopped" }), None),
+        ] {
+            let st = daemon_status_with(vec![
+                module_child("fixture", process.clone(), next),
+                module_child("fixture-b", json!({ "state": "ready" }), None),
+            ]);
+            let check = check_modules_state(Some(&st), &[]);
+            assert_eq!(check.status, Status::Warn, "{process}: {check:?}");
+            let modules = check.detail.as_ref().unwrap()["modules"]
+                .as_array()
+                .unwrap();
+            assert_eq!(modules.len(), 1, "{check:?}");
+            assert_eq!(modules[0]["name"], "fixture");
+        }
+        // Valid modules without a supervisor: nothing runs them.
+        let check = check_modules_state(None, &[installed("fixture", Ok(()))]);
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+    }
+
+    #[test]
+    fn modules_state_fails_on_a_fatal_given_up_manifest_invalid_or_unsupported_module() {
+        for (process, text) in [
+            (
+                json!({ "state": "crashed", "reason": "manifest-invalid" }),
+                "manifest-invalid",
+            ),
+            (
+                json!({ "state": "crashed", "reason": "api-version-unsupported" }),
+                "api-version-unsupported",
+            ),
+            (
+                json!({ "state": "crashed", "reason": "gave-up" }),
+                "gave up after repeated exits",
+            ),
+            (json!({ "state": "crashed" }), "restart: never"),
+        ] {
+            let st = daemon_status_with(vec![
+                module_child("fixture", process.clone(), None),
+                module_child("fixture-b", json!({ "state": "crashed" }), Some(9)),
+            ]);
+            let check = check_modules_state(Some(&st), &[]);
+            assert_eq!(check.status, Status::Fail, "{process}: {check:?}");
+            assert!(check.summary.contains(text), "{check:?}");
+            let modules = check.detail.as_ref().unwrap()["modules"]
+                .as_array()
+                .unwrap();
+            assert_eq!(
+                modules.len(),
+                2,
+                "the restarting one is listed too: {check:?}"
+            );
+            assert_eq!(modules[0]["lastExit"]["code"], 1);
+        }
+        // The manifest errors ride along (P13), with or without a supervisor.
+        let broken = installed(
+            "broken",
+            Err(vec!["/priority 1000 is greater than 999".into()]),
+        );
+        let st = daemon_status_with(vec![module_child(
+            "broken",
+            json!({ "state": "crashed", "reason": "manifest-invalid" }),
+            None,
+        )]);
+        for check in [
+            check_modules_state(Some(&st), std::slice::from_ref(&broken)),
+            check_modules_state(None, std::slice::from_ref(&broken)),
+        ] {
+            assert_eq!(check.status, Status::Fail, "{check:?}");
+            let text = check.detail.as_ref().unwrap().to_string();
+            assert!(text.contains("/priority 1000"), "{check:?}");
+        }
+    }
+
     #[test]
     fn out_of_budget_fills_every_remaining_id_with_a_time_budget_warning() {
         // Minor 4 of the review.
         let mut checks = vec![
-            check_config_valid(&Layout::new(
-                tempfile::tempdir().unwrap().path().to_path_buf(),
-            )),
+            check_config_valid(
+                &Layout::new(tempfile::tempdir().unwrap().path().to_path_buf()),
+                None,
+            ),
             Check::ok("run.permissions", "x"),
             Check::ok("run.stale-files", "x"),
         ];
@@ -1569,8 +1952,33 @@ mod tests {
     fn config_valid_reports_ok_when_config_json_is_absent_without_creating_it() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
-        let check = check_config_valid(&layout);
+        let check = check_config_valid(&layout, None);
         assert_eq!(check.status, Status::Ok);
         assert!(!layout.config_path().exists());
+    }
+
+    #[test]
+    fn config_valid_fails_when_the_supervisor_rejected_an_edit() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let errors = json!(["/core/logLevel \"loud\" is not one of the allowed values"]);
+        // A valid configuration still runs: the hint offers both ways out.
+        let running =
+            json!({ "revision": "0123456789abcdef", "rejected": { "at": 5, "errors": errors } });
+        let c = check_config_valid(&layout, Some(&running));
+        assert_eq!(c.status, Status::Fail, "{c:?}");
+        assert_eq!(c.detail.as_ref().unwrap()["errors"], errors);
+        assert_eq!(
+            c.hint.as_deref(),
+            Some("the supervisor runs the last valid configuration; fix config.json or use plur1bus config set")
+        );
+        // Nothing runs (invalid at start, B18): `config set` has nothing to apply against, so it is not offered.
+        let none = json!({ "revision": null, "rejected": { "at": 5, "errors": errors } });
+        let c = check_config_valid(&layout, Some(&none));
+        assert_eq!(c.status, Status::Fail);
+        assert!(!c.hint.as_deref().unwrap().contains("config set"), "{c:?}");
+        // No rejection: the file decides, as without a supervisor.
+        let clean = json!({ "revision": "0123456789abcdef", "rejected": null });
+        assert_eq!(check_config_valid(&layout, Some(&clean)).status, Status::Ok);
     }
 }

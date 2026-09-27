@@ -45,6 +45,22 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus config set`↴](#plur1bus-config-set)
 * [`plur1bus config schema`↴](#plur1bus-config-schema)
 * [`plur1bus module`↴](#plur1bus-module)
+* [`plur1bus module list`↴](#plur1bus-module-list)
+* [`plur1bus module graph`↴](#plur1bus-module-graph)
+* [`plur1bus module install`↴](#plur1bus-module-install)
+* [`plur1bus module uninstall`↴](#plur1bus-module-uninstall)
+* [`plur1bus module start`↴](#plur1bus-module-start)
+* [`plur1bus module stop`↴](#plur1bus-module-stop)
+* [`plur1bus module restart`↴](#plur1bus-module-restart)
+* [`plur1bus admin`↴](#plur1bus-admin)
+* [`plur1bus admin obsidian`↴](#plur1bus-admin-obsidian)
+* [`plur1bus admin obsidian detect`↴](#plur1bus-admin-obsidian-detect)
+* [`plur1bus admin obsidian prepare`↴](#plur1bus-admin-obsidian-prepare)
+* [`plur1bus admin obsidian confirm`↴](#plur1bus-admin-obsidian-confirm)
+* [`plur1bus admin migrate`↴](#plur1bus-admin-migrate)
+* [`plur1bus admin embedding`↴](#plur1bus-admin-embedding)
+* [`plur1bus admin embedding probe`↴](#plur1bus-admin-embedding-probe)
+* [`plur1bus admin embedding serve`↴](#plur1bus-admin-embedding-serve)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
 * [`plur1bus daemon start`↴](#plur1bus-daemon-start)
 * [`plur1bus daemon stop`↴](#plur1bus-daemon-stop)
@@ -79,7 +95,8 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `memory` — Memory: add and recall through the core
 * `dreams` — Dreaming jobs: status, run, log
 * `config` — Configuration: get, set, schema
-* `module` — Modules — 2a-H3b
+* `module` — Modules: list, graph, install, uninstall, start, stop, restart
+* `admin` — [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
@@ -569,13 +586,239 @@ Set a config value (stable, ADR-016 §4)
 
 ## `plur1bus module`
 
-Modules — 2a-H3b
+Modules: list, graph, install, uninstall, start, stop, restart
 
-**Usage:** `plur1bus module`
+**Usage:** `plur1bus module <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the installed modules and their state
+* `graph` — [experimental] Show the module dependency graph
+* `install` — [experimental] Install a module from a directory (copied into modules/<name>)
+* `uninstall` — [experimental] Stop and remove an installed module (its config section stays)
+* `start` — [experimental] Start a module (needs a running supervisor)
+* `stop` — [experimental] Stop a module until `module start` or a supervisor restart (needs a running supervisor)
+* `restart` — [experimental] Restart a module (needs a running supervisor)
+
+
+
+## `plur1bus module list`
+
+[experimental] List the installed modules and their state
+
+One line per module under `modules/`: name, version, priority and band, scope, whether `modules.<name>.enabled` lets it run, its supervised state (while a supervisor runs) and why it cannot start.
+
+**Usage:** `plur1bus module list`
+
+
+
+## `plur1bus module graph`
+
+[experimental] Show the module dependency graph
+
+The modules as a tree by priority band (needs and consumes edges under each), then the needs-cycles and what does not resolve.
+
+**Usage:** `plur1bus module graph`
+
+
+
+## `plur1bus module install`
+
+[experimental] Install a module from a directory (copied into modules/<name>)
+
+Refused, with nothing copied, when the directory holds a symlink, the manifest is invalid, names a reserved module (core, supervisor) or has an entry outside the directory. A running module of that name is restarted.
+
+**Usage:** `plur1bus module install <PATH>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<PATH>`
+
+
+
+## `plur1bus module uninstall`
+
+[experimental] Stop and remove an installed module (its config section stays)
+
+**Usage:** `plur1bus module uninstall [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--yes` — skip the confirmation prompt (required outside a terminal)
+
+
+
+## `plur1bus module start`
+
+[experimental] Start a module (needs a running supervisor)
+
+**Usage:** `plur1bus module start <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+
+
+## `plur1bus module stop`
+
+[experimental] Stop a module until `module start` or a supervisor restart (needs a running supervisor)
+
+A runtime stop only: `config set modules.<name>.enabled false` is the persistent switch.
+
+**Usage:** `plur1bus module stop <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+
+
+## `plur1bus module restart`
+
+[experimental] Restart a module (needs a running supervisor)
+
+**Usage:** `plur1bus module restart <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+
+
+## `plur1bus admin`
+
+[experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
+
+**Usage:** `plur1bus admin <COMMAND>`
+
+###### **Subcommands:**
+
+* `obsidian` — [experimental] Obsidian vault setup for an agent: detect, prepare, confirm
+* `migrate` — [experimental] Migrate the memory store's schema (needs a running core)
+* `embedding` — [experimental] Embedding provider: probe, serve
+
+
+
+## `plur1bus admin obsidian`
+
+[experimental] Obsidian vault setup for an agent: detect, prepare, confirm
+
+**Usage:** `plur1bus admin obsidian <COMMAND>`
+
+###### **Subcommands:**
+
+* `detect` — [experimental] List the Obsidian vaults the agent may use and whether each is confirmed
+* `prepare` — [experimental] Start the one-time confirmation of a vault: prints a nonce valid for 10 minutes
+* `confirm` — [experimental] Confirm a vault with the nonce `admin obsidian prepare` printed
+
+
+
+## `plur1bus admin obsidian detect`
+
+[experimental] List the Obsidian vaults the agent may use and whether each is confirmed
+
+The configured vaults, the agent's workspace and every `--candidate` (at most 20). Read-only.
+
+**Usage:** `plur1bus admin obsidian detect [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--candidate <PATH>` — a directory to check as a vault (repeatable)
+
+
+
+## `plur1bus admin obsidian prepare`
+
+[experimental] Start the one-time confirmation of a vault: prints a nonce valid for 10 minutes
+
+Writes nothing; `admin obsidian confirm` with the nonce records the confirmation.
+
+**Usage:** `plur1bus admin obsidian prepare --agent <AGENT> <VAULT>`
+
+###### **Arguments:**
+
+* `<VAULT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus admin obsidian confirm`
+
+[experimental] Confirm a vault with the nonce `admin obsidian prepare` printed
+
+**Usage:** `plur1bus admin obsidian confirm --agent <AGENT> <NONCE>`
+
+###### **Arguments:**
+
+* `<NONCE>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus admin migrate`
+
+[experimental] Migrate the memory store's schema (needs a running core)
+
+Asks first on a terminal; a script (or `--json`) needs `--yes`. Refused unless FROM is the store's current version; applying FROM = TO changes nothing. The engine offers no dry run.
+
+**Usage:** `plur1bus admin migrate [OPTIONS] --from <FROM> --to <TO>`
+
+###### **Options:**
+
+* `--from <FROM>` — the store's current schema version (decimal, at most 9 digits)
+* `--to <TO>` — the schema version to migrate to (decimal, at most 9 digits)
+* `--yes` — skip the confirmation prompt (required outside a terminal)
+
+
+
+## `plur1bus admin embedding`
+
+[experimental] Embedding provider: probe, serve
+
+**Usage:** `plur1bus admin embedding <COMMAND>`
+
+###### **Subcommands:**
+
+* `probe` — [experimental] Check that the embedding provider answers (exit 1 when it does not)
+* `serve` — [experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+
+
+
+## `plur1bus admin embedding probe`
+
+[experimental] Check that the embedding provider answers (exit 1 when it does not)
+
+**Usage:** `plur1bus admin embedding probe [OPTIONS]`
+
+###### **Options:**
+
+* `--refresh` — call the provider again instead of answering the last successful probe
+
+
+
+## `plur1bus admin embedding serve`
+
+[experimental] Serve the core's embeddings over the scoped IPC endpoint (platform default address)
+
+Serving lasts only as long as this core process: it ends when the core stops or is restarted (by the supervisor after a crash or a core-class configuration change); run it again after a restart.
+
+**Usage:** `plur1bus admin embedding serve [OPTIONS]`
+
+###### **Options:**
+
+* `--stop` — stop serving instead
 
 
 

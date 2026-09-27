@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
 import { homedir as osHomedir } from "node:os";
 import path from "node:path";
+import { coreAddress as moduleApiCoreAddress, supervisorAddress as moduleApiSupervisorAddress } from "@plur1bus/module-api";
 
 export interface ResolveHomeOptions { home?: string; env?: NodeJS.ProcessEnv; platform?: NodeJS.Platform; homedir?: string; localAppData?: string }
 
@@ -37,17 +37,12 @@ export function layout(home: string): Layout {
   };
 }
 
-/** The per-home Windows pipe name: `\\.\pipe\plur1bus-<first 16 hex of sha256(lower-cased home)>-<role>`. */
-function pipeName(home: string, role: string): string {
-  return `\\\\.\\pipe\\plur1bus-${createHash("sha256").update(home.toLowerCase()).digest("hex").slice(0, 16)}-${role}`;
-}
-
-/** The address the RPC server listens on and the client connects to. */
+/** The address the RPC server listens on and the client connects to (the one rule: module-api's `unitAddress`). */
 export function coreAddress(home: string, platform: NodeJS.Platform = process.platform): string {
-  return platform === "win32" ? pipeName(home, "core") : layout(home).coreSocket;
+  return moduleApiCoreAddress(home, platform);
 }
 
 /** The supervisor's RPC address: `run/supervisor.sock` on POSIX, the per-home `-supervisor` pipe on Windows. */
 export function supervisorAddress(home: string, platform: NodeJS.Platform = process.platform): string {
-  return platform === "win32" ? pipeName(home, "supervisor") : layout(home).supervisorSocket;
+  return moduleApiSupervisorAddress(home, platform);
 }

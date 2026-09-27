@@ -48,6 +48,21 @@ fn method_fixture(name: &str, f: &Value) {
         "daemon.status" => pair::<DaemonStatusParams, DaemonStatusResult>(name, f),
         "daemon.start" => pair::<DaemonStartParams, DaemonStartResult>(name, f),
         "daemon.stop" => pair::<DaemonStopParams, DaemonStopResult>(name, f),
+        "config.get" => pair::<ConfigGetParams, ConfigGetResult>(name, f),
+        "config.set" => pair::<ConfigSetParams, ConfigSetResult>(name, f),
+        "config.watch" => pair::<ConfigWatchParams, ConfigWatchResult>(name, f),
+        "module.watch" => pair::<ModuleWatchParams, ModuleWatchResult>(name, f),
+        "module.list" => pair::<ModuleListParams, ModuleListResult>(name, f),
+        "module.start" => pair::<ModuleStartParams, ModuleStartResult>(name, f),
+        "module.stop" => pair::<ModuleStopParams, ModuleStopResult>(name, f),
+        "module.restart" => pair::<ModuleRestartParams, ModuleRestartResult>(name, f),
+        "module.graph" => pair::<ModuleGraphParams, ModuleGraphResult>(name, f),
+        "module.install" => pair::<ModuleInstallParams, ModuleInstallResult>(name, f),
+        "module.uninstall" => pair::<ModuleUninstallParams, ModuleUninstallResult>(name, f),
+        "module.auth" => pair::<ModuleAuthParams, ModuleAuthResult>(name, f),
+        "module.status" => pair::<ModuleStatusParams, ModuleStatusResult>(name, f),
+        "module.adopt" => pair::<ModuleAdoptParams, ModuleAdoptResult>(name, f),
+        "module.shutdown" => pair::<ModuleShutdownParams, ModuleShutdownResult>(name, f),
         "memory.recall" => pair::<MemoryRecallParams, MemoryRecallResult>(name, f),
         "memory.capture" => pair::<MemoryCaptureParams, MemoryCaptureResult>(name, f),
         "memory.checkpoint" => pair::<MemoryCheckpointParams, MemoryCheckpointResult>(name, f),
@@ -76,6 +91,22 @@ fn method_fixture(name: &str, f: &Value) {
         "jobs.history" => pair::<JobsHistoryParams, JobsHistoryResult>(name, f),
         "events.subscribe" => pair::<EventsSubscribeParams, EventsSubscribeResult>(name, f),
         "events.unsubscribe" => pair::<EventsUnsubscribeParams, EventsUnsubscribeResult>(name, f),
+        "admin.obsidian.detect" => {
+            pair::<AdminObsidianDetectParams, AdminObsidianDetectResult>(name, f)
+        }
+        "admin.obsidian.prepare" => {
+            pair::<AdminObsidianPrepareParams, AdminObsidianPrepareResult>(name, f)
+        }
+        "admin.obsidian.confirm" => {
+            pair::<AdminObsidianConfirmParams, AdminObsidianConfirmResult>(name, f)
+        }
+        "admin.migrate" => pair::<AdminMigrateParams, AdminMigrateResult>(name, f),
+        "admin.embedding.probe" => {
+            pair::<AdminEmbeddingProbeParams, AdminEmbeddingProbeResult>(name, f)
+        }
+        "admin.embedding.serve" => {
+            pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
+        }
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -132,6 +163,23 @@ fn every_method_fixture_round_trips() {
         "daemon.start",
         "daemon.stop",
         "core.adopt",
+        "config.get",
+        "config.set",
+        "config.watch",
+        "module.watch",
+        "module.list",
+        "module.start",
+        "module.stop",
+        "module.restart",
+        "module.graph",
+        "module.install",
+        "module.uninstall",
+        "admin.obsidian.detect",
+        "admin.obsidian.prepare",
+        "admin.obsidian.confirm",
+        "admin.migrate",
+        "admin.embedding.probe",
+        "admin.embedding.serve",
     ] {
         assert!(names.contains(m), "fixtures/methods/{m}.json is missing");
     }
@@ -187,6 +235,8 @@ fn every_notification_fixture_round_trips() {
             "embedding.identity.changed" => {
                 round_trip::<types::EmbeddingIdentityChangedNotification>(v, name)
             }
+            "config.changed" => round_trip::<types::ConfigChangedNotification>(v, name),
+            "module.state" => round_trip::<types::ModuleStateNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

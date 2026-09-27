@@ -3,9 +3,10 @@
 //! `E_CORE_UNAVAILABLE`/`degraded` document (`memory add|recall`, the memory-ops surface, `dreams`).
 use crate::cli::DaemonCmd;
 use crate::output::Out;
-use crate::paths::{core_address, supervisor_address, Layout};
+use crate::paths::{supervisor_address, Layout};
 use crate::service::{self, Manager, Runner, ServiceError};
 use crate::supervisor;
+use crate::supervisor::Role;
 use plur1bus_rpc::{ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
 use std::ffi::OsString;
@@ -83,9 +84,18 @@ fn probe_status(layout: &Layout) -> Option<Value> {
     }
 }
 
+/// The core child of a `daemon.status` result, if any: the first child that is not a module (`kind: "module"`,
+/// 1.3.0). A supervisor before 1.3.0 reports no `kind` and only the core.
+pub(crate) fn core_child(status: &Value) -> Option<&Value> {
+    status["children"]
+        .as_array()?
+        .iter()
+        .find(|c| c["kind"] != "module")
+}
+
 /// The core child's `process.state` in a `daemon.status` result, if there is one.
 fn core_state(status: &Value) -> Option<&str> {
-    status["children"].get(0)?["process"]["state"].as_str()
+    core_child(status)?["process"]["state"].as_str()
 }
 
 /// The core's own `engine.sharedMemory` (E4), read directly from it: the supervisor's `daemon.status` result
@@ -93,7 +103,7 @@ fn core_state(status: &Value) -> Option<&str> {
 /// bounded budget as the supervisor probe. `None` when the core is unreachable or does not report it yet.
 fn core_shared_memory(layout: &Layout) -> Option<Value> {
     let token = super::read_token_of(layout, Endpoint::Core)?;
-    let address = core_address(&layout.home, platform_str());
+    let address = layout.endpoints(&Role::core(), platform_str()).address;
     let opts = ConnectOptions {
         connect_timeout: PROBE_CONNECT_TIMEOUT,
         call_timeout: PROBE_CALL_TIMEOUT,
@@ -136,11 +146,16 @@ pub(crate) fn supervisor_detail(layout: &Layout) -> String {
 /// `core <state>[: reason][; restart in N ms]` for the core child of a `daemon.status` result (ruling H3-R25): the
 /// wording of every core-unavailable document and, without the `core ` prefix, of `daemon status`'s `core:` line.
 fn describe_core(status: &Value) -> String {
-    let Some(child) = status["children"].get(0) else {
+    let Some(child) = core_child(status) else {
         return "core starting".to_string();
     };
+    format!("core {}", describe_child_state(child))
+}
+
+/// `<state>[: reason][; restart in N ms]` for one `daemon.status` child.
+fn describe_child_state(child: &Value) -> String {
     let state = child["process"]["state"].as_str().unwrap_or("starting");
-    let mut text = format!("core {state}");
+    let mut text = state.to_string();
     if let Some(reason) = child["process"]["reason"].as_str() {
         text.push_str(&format!(": {reason}"));
     } else if state == "crashed" {
@@ -250,7 +265,7 @@ fn fail_service(out: &Out, e: &ServiceError) -> ! {
 /// The core child's `process` (`{ state: "crashed", reason, since }`) when it crashed in a way the supervisor will
 /// not retry on its own: `nextRestartAt: null` (`config-invalid`, `engine-contract`, or a give-up).
 fn fatal_crash(status: &Value) -> Option<&Value> {
-    let child = status["children"].get(0)?;
+    let child = core_child(status)?;
     let process = &child["process"];
     (process["state"] == "crashed" && child["nextRestartAt"].is_null()).then_some(process)
 }
@@ -536,17 +551,33 @@ pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
                         "supervisor: {}",
                         supervisor["process"]["state"].as_str().unwrap_or("unknown")
                     ),
-                    format!("core: {}", core_line(&supervisor, &children)),
-                    format!(
-                        "service: {} ({})",
-                        if svc.registered {
-                            "registered"
-                        } else {
-                            "not registered"
-                        },
-                        svc.manager.as_str()
-                    ),
+                    format!("core (core): {}", core_line(&supervisor, &children)),
                 ];
+                // One line per child with its kind: the core above, then every module.
+                lines.extend(
+                    children
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|c| c["kind"] == "module")
+                        .map(|c| {
+                            format!(
+                                "{} ({}): {}",
+                                c["role"].as_str().unwrap_or("?"),
+                                c["kind"].as_str().unwrap_or("module"),
+                                describe_child_state(c)
+                            )
+                        }),
+                );
+                lines.extend([format!(
+                    "service: {} ({})",
+                    if svc.registered {
+                        "registered"
+                    } else {
+                        "not registered"
+                    },
+                    svc.manager.as_str()
+                )]);
                 if let Some(s) = &shared_memory {
                     lines.push(format!("shared memory: {}", describe_shared_memory(s)));
                 }
@@ -590,6 +621,25 @@ fn core_line(supervisor: &Value, children: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_core_is_found_among_module_children_whatever_its_position() {
+        let status = json!({ "children": [
+            { "role": "fixture", "kind": "module", "process": { "state": "crashed", "reason": "manifest-invalid" } },
+            { "role": "core", "kind": "core", "process": { "state": "ready" } },
+        ] });
+        assert_eq!(core_child(&status).unwrap()["role"], "core");
+        assert_eq!(describe_core(&status), "core ready");
+        assert_eq!(
+            describe_child_state(&status["children"][0]),
+            "crashed: manifest-invalid"
+        );
+        // A supervisor before 1.3.0: no kind, only the core.
+        let old = json!({ "children": [{ "role": "core", "process": { "state": "ready" } }] });
+        assert_eq!(core_child(&old).unwrap()["role"], "core");
+        let only_modules = json!({ "children": [{ "role": "fixture", "kind": "module", "process": { "state": "ready" } }] });
+        assert!(core_child(&only_modules).is_none());
+    }
 
     #[test]
     fn describe_core_names_every_state() {

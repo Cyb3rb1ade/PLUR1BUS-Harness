@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.dev/schema/module/1/manifest.schema.json",
+  "title": "PLUR1BUS module manifest (module.json, module API 1)",
+  "description": "D14. One source for the TypeScript validator (@plur1bus/module-api) and the supervisor (crates/plur1bus/src/modules). Reserved names and the entry-path rules live here too (H3B-R11), so both sides agree.",
+  "x-stability": "experimental",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "version", "apiVersion", "entry", "scope", "priority"],
+  "properties": {
+    "name": {
+      "description": "Module name; equals its directory under modules/. `core` and `supervisor` are reserved.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$",
+      "not": { "enum": ["core", "supervisor", "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"] }
+    },
+    "version": {
+      "description": "Semantic version of the module (semver 2.0.0).",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\\+([0-9a-zA-Z-]+(\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "apiVersion": {
+      "description": "Module API major the module is written against, as a decimal string without leading zeros (B12).",
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "entry": {
+      "description": "Entry script, relative to the module directory: `/`-separated segments that do not start with a dot, so no absolute path, no drive letter, no backslash, no `.` or `..` segment (it cannot leave the directory).",
+      "type": "string",
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*(/[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*)*$"
+    },
+    "needs": { "description": "Modules that must be ready first; `core` is the core.", "$ref": "#/$defs/names", "default": [] },
+    "provides": { "description": "Capabilities this module offers to others.", "$ref": "#/$defs/names", "default": [] },
+    "consumes": { "description": "Capabilities this module uses, from the core (memory, agent, jobs, events) or another module's `provides`.", "$ref": "#/$defs/names", "default": [] },
+    "implements": { "description": "Interfaces this module implements.", "$ref": "#/$defs/names", "default": [] },
+    "extensionPoints": {
+      "description": "Extension points this module offers: `chain` runs handlers in sequence, `collect` in parallel with merged results (B11: validated and listed, not dispatched in 2a).",
+      "type": "object",
+      "default": {},
+      "propertyNames": { "pattern": "^[a-z][a-z0-9.-]{0,63}$" },
+      "additionalProperties": { "enum": ["chain", "collect"] }
+    },
+    "scope": {
+      "description": "`installation`: one instance; `agent`: one instance per agent (B10: not started in 2a).",
+      "enum": ["installation", "agent"]
+    },
+    "restart": { "enum": ["on-failure", "always", "never"], "default": "on-failure" },
+    "lifeline": { "description": "The module exits when its supervisor connection closes.", "type": "boolean", "default": true },
+    "priority": {
+      "description": "Start priority and band: 0–99 foundation, 100–199 core services, 200–299 services, 300–399 aggregators, 400–499 orchestration, 500–999 add-ons.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 999
+    },
+    "configSchema": { "description": "JSON Schema for this module's `modules.<name>` config object.", "type": "object" }
+  },
+  "$defs": {
+    "names": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{0,63}$" }
+    }
+  }
+}

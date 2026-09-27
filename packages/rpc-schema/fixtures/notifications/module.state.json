@@ -1,0 +1,1 @@
+{ "name": "fixture", "process": { "state": "crashed", "reason": "manifest-invalid", "since": 1790000000500 }, "pid": null, "instanceId": null }

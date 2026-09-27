@@ -12,6 +12,8 @@ export interface OrphanWatch {
   /** A loss only when `connectionId` is the current source. */
   connectionClosed(connectionId: string): void;
   readonly orphanedSince: number | null;
+  /** `supervisor.graceMs` changed (a live key): the next orphaning uses `ms`; a running grace timer keeps its deadline. */
+  setGraceMs(ms: number): void;
   /** Cancels the grace timer and ignores every later event. */
   dispose(): void;
 }
@@ -29,6 +31,7 @@ export function createOrphanWatch(o: OrphanWatchOptions): OrphanWatch {
   let orphanedSince: number | null = null;
   let timer: NodeJS.Timeout | null = null;
   let disposed = false;
+  let graceMs = o.graceMs;
 
   const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
 
@@ -38,7 +41,7 @@ export function createOrphanWatch(o: OrphanWatchOptions): OrphanWatch {
     if (orphanedSince !== null) return;
     orphanedSince = clock();
     // Not unref'ed: the grace expiry is what ends an orphan, so it must keep the process alive until then.
-    timer = setTimeout(() => { timer = null; if (!disposed) o.onGraceExpired(); }, o.graceMs);
+    timer = setTimeout(() => { timer = null; if (!disposed) o.onGraceExpired(); }, graceMs);
     o.onOrphaned(orphanedSince);
   }
 
@@ -64,6 +67,7 @@ export function createOrphanWatch(o: OrphanWatchOptions): OrphanWatch {
       if (source?.kind === "connection" && source.id === connectionId) lost(source);
     },
     get orphanedSince() { return orphanedSince; },
+    setGraceMs(ms) { graceMs = ms; },
     dispose() { disposed = true; source = null; clearTimer(); },
   };
 }

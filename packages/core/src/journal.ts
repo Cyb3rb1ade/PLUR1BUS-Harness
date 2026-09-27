@@ -78,10 +78,19 @@ export function journalBacklog(dir: string): { entries: number; oldestAt: number
 }
 
 interface KeptLine { text: string; isPhysicalTail: boolean }
-type ReplayEngine = Pick<Engine, "capture">;
-type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number };
+export type ReplayEngine = Pick<Engine, "capture">;
+/** What the background replay (replay.ts) observes. `lineReplayed`: a line was handled (it leaves the journal when its
+ *  file is finished); `fileDone`: a `.replaying-*` file was finished (removed, or left after a failure); `cut`: the
+ *  abort left lines unreplayed; `abandoned`: a stop gave up waiting (H3B-R2) — the file in progress is then left
+ *  exactly as it is (no append-back, no delete) for the next start's recovery. */
+export interface ReplayHooks { lineReplayed(): void; fileDone(): void; cut(): void; abandoned(): boolean }
+/** `signal` (B2): once aborted, the replay stops between lines — the capture in flight runs to its end under its own
+ *  timeout, the rest of the current file is kept without a capture call, no further file is renamed and no further
+ *  pass runs. */
+export type JournalOpts = { dir: string; agents: AgentRegistry; engine: ReplayEngine; logger: HarnessLogger; clock: () => number; signal?: AbortSignal; hooks?: ReplayHooks };
 
-/** Replays state/journal/<agentId>.jsonl at core start.
+/** Replays state/journal/<agentId>.jsonl at core start (in the background since B2; `o.signal` stops it between
+ *  lines, the capture in flight keeps its own 60 s timeout: H3B-R2).
  *
  *  R20: a line leaves the journal only when `capture(...).done` resolves with NO `reason` and
  *  `stored + skipped > 0` (the engine's ok path — a dedup skip with no reason still counts as handled),
@@ -102,6 +111,7 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
 
   // Recover any replaying file left over from a crashed prior replay before the regular scan.
   for (const entry of readdirSync(o.dir).filter((f) => REPLAYING_SUFFIX.test(f))) {
+    if (o.signal?.aborted) { o.hooks?.cut(); break; } // left in place for the next start's recovery
     const replayingPath = join(o.dir, entry);
     const agentFile = entry.replace(/\.replaying-\d+$/, "");
     const r = await safeProcessReplayingFile(o, replayingPath, agentFile);
@@ -109,6 +119,7 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
   }
 
   for (const file of readdirSync(o.dir).filter((f) => f.endsWith(".jsonl") && !REPLAYING_SUFFIX.test(f))) {
+    if (o.signal?.aborted) { o.hooks?.cut(); break; } // not renamed: the lines stay where the CLI wrote them
     const path = join(o.dir, file);
     const replayingPath = `${path}.replaying-${process.pid}`;
     try { renameSync(path, replayingPath); }
@@ -126,12 +137,13 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
   return { replayed, kept };
 }
 
-/** I2: replays at start until no line arrived during the last pass. The core runs this after the RPC server
- *  listens: a CLI that failed to connect just before that may journal into a fresh `<agent>.jsonl` while a
- *  pass is running, and a single pass would strand that line until the next restart. After each pass the
- *  lines still on disk are counted: kept lines are appended back, so anything beyond the pass's own `kept`
- *  arrived meanwhile and gets another pass. Bounded by `maxPasses`, so a CLI that keeps journaling cannot hold
- *  the core in `starting`. `kept` is the on-disk count after the last pass: `core.status.journalBacklog` when the engine reports no journal. */
+/** I2: replays at start until no line arrived during the last pass. The core runs this in the background once the
+ *  RPC server listens and the core is ready (B2, replay.ts): a CLI that failed to connect just before that may
+ *  journal into a fresh `<agent>.jsonl` while a pass is running, and a single pass would strand that line until the
+ *  next restart. After each pass the lines still on disk are counted: kept lines are appended back, so anything
+ *  beyond the pass's own `kept` arrived meanwhile and gets another pass. Bounded by `maxPasses`, so a CLI that keeps
+ *  journaling cannot keep the replay running, and by `signal` (no further pass once aborted). `kept` is the on-disk
+ *  count after the last pass: `core.status.journalBacklog` when the engine reports no journal. */
 export async function drainJournal(o: JournalOpts, maxPasses = 5): Promise<{ replayed: number; kept: number; passes: number }> {
   let replayed = 0;
   for (let passes = 1; ; passes++) {
@@ -139,11 +151,12 @@ export async function drainJournal(o: JournalOpts, maxPasses = 5): Promise<{ rep
     replayed += r.replayed;
     const onDisk = countJournalLines(o);
     if (onDisk <= r.kept || passes >= maxPasses) return { replayed, kept: onDisk, passes };
+    if (o.signal?.aborted) { o.hooks?.cut(); return { replayed, kept: onDisk, passes }; } // lines arrived, no further pass
   }
 }
 
 /** Non-empty lines in every `<agent>.jsonl` and leftover `*.jsonl.replaying-*` under the journal dir. */
-function countJournalLines(o: JournalOpts): number {
+export function countJournalLines(o: Pick<JournalOpts, "dir" | "logger">): number {
   if (!existsSync(o.dir)) return 0;
   let n = 0;
   for (const f of readdirSync(o.dir)) if (f.endsWith(".jsonl") || REPLAYING_SUFFIX.test(f)) n += countLinesBestEffort(o, join(o.dir, f));
@@ -157,10 +170,10 @@ async function safeProcessReplayingFile(o: JournalOpts, replayingPath: string, a
   catch (e) {
     o.logger.warn("journal: file skipped this start", { file: agentFile, err: e });
     return { replayed: 0, kept: countLinesBestEffort(o, replayingPath) };
-  }
+  } finally { o.hooks?.fileDone(); }
 }
 
-function countLinesBestEffort(o: JournalOpts, path: string): number {
+function countLinesBestEffort(o: Pick<JournalOpts, "logger">, path: string): number {
   try { return readFileSync(path, "utf8").split("\n").filter(Boolean).length; }
   catch (e) { o.logger.warn("journal: could not count kept lines after skip", { path, err: e }); return 0; }
 }
@@ -172,11 +185,14 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
   const rawLines = raw.split("\n");
   if (endedWithNewline) rawLines.pop(); // trailing "" after the final \n
   const kept: KeptLine[] = [];
+  let abortedAt: number | null = null;
 
   for (let i = 0; i < rawLines.length; i++) {
     const text = rawLines[i]!;
     if (!text) continue;
     const isPhysicalTail = i === rawLines.length - 1 && !endedWithNewline; // R20.3: a complete tail is still replayed; only unparseable/invalid stays torn
+    // B2: a stop aborts between lines; this and every later line go back unchanged, without a capture call.
+    if (o.signal?.aborted) { abortedAt ??= kept.length; kept.push({ text, isPhysicalTail }); continue; }
     const clean = text.endsWith("\r") ? text.slice(0, -1) : text; // R20.4: CRLF tolerance
 
     let line: JournalLine;
@@ -195,15 +211,15 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
     if (!ws) { o.logger.warn("journal: agent not registered, line kept", { file: agentFile, agentId: line.agentId }); kept.push({ text, isPhysicalTail }); continue; }
 
     const { principal } = callerToPrincipal(line.caller, line.agentId, ws);
+    let handled = false;
     try {
-      // H3-R24: marks the window in which a SIGKILL can store a line twice (engine PR E4.1: the turn guard records
-      // late); the kill soak matches it with the victim's pid.
+      // Diagnostic, paired with "journal: replayed" below: which line a replay is capturing, and by which core pid.
       o.logger.info("journal: replay start", { id: line.id, pid: process.pid });
       const handle = o.engine.capture({ agentId: line.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: line.messages, incognito: false, signal: AbortSignal.timeout(60_000), ...(line.sessionKey ? { sessionKey: line.sessionKey } : {}), runId: `journal:${line.id}` });
       const r = await handle.done;
       // E4 (1.8.0): `duplicate-turn` means this line's runId was already captured (a core killed mid-replay
       // replays it again), so the turn is stored and the line is done.
-      const handled = (r.reason == null && r.stored + r.skipped > 0) || r.reason === "duplicate-turn";
+      handled = (r.reason == null && r.stored + r.skipped > 0) || r.reason === "duplicate-turn";
       if (handled) { replayed += 1; o.logger.info("journal: replayed", { file: agentFile, id: line.id, pid: process.pid, stored: r.stored, skipped: r.skipped }); }
       else { o.logger.warn("journal: capture not handled, line kept", { file: agentFile, id: line.id, reason: r.reason, stored: r.stored, skipped: r.skipped }); kept.push({ text, isPhysicalTail }); }
     } catch (e) {
@@ -211,8 +227,14 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
       o.logger.warn("journal: capture threw, line kept", { file: agentFile, id: line.id, err: e });
       kept.push({ text, isPhysicalTail });
     }
+    // Outside the capture's try: a failing observer never turns a stored line into a kept one.
+    if (handled) { try { o.hooks?.lineReplayed(); } catch { /* progress only */ } }
   }
 
+  // H3B-R2: a stop that gave up waiting for this file's capture owns nothing any more; the file stays as it is and
+  // the next start's recovery replays it (the line in flight then answers duplicate-turn).
+  if (o.hooks?.abandoned()) return { replayed: 0, kept: rawLines.filter(Boolean).length };
+  if (abortedAt !== null) { o.hooks?.cut(); o.logger.info("journal: replay aborted, rest of the file kept", { file: agentFile, kept: kept.length - abortedAt }); }
   const agentPath = join(o.dir, agentFile);
   if (kept.length) {
     // Round 2 fix: every kept line — including a torn/unparseable tail — gets its own trailing "\n", so a

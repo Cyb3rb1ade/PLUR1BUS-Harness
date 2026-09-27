@@ -1,5 +1,6 @@
 //! The config.json service: the same schema the TypeScript side uses (packages/config-schema), validated with the
-//! `jsonschema` crate. In H1 the CLI calls this directly; in H2 the supervisor owns it and the CLI goes through config.*.
+//! `jsonschema` crate. The supervisor owns config.json (2a-H3b, B3–B6) and serves `config.*` from this crate; the CLI
+//! calls it directly only when no supervisor runs.
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
@@ -239,38 +240,123 @@ pub fn load(path: &Path) -> Result<Loaded, ConfigError> {
         });
     }
     let text = fs::read_to_string(path)?;
-    let mut v: Value =
-        serde_json::from_str(&text).map_err(|e| ConfigError::NotJson(e.to_string()))?;
-    fill_defaults(schema(), &mut v); // the TS loader fills defaults through ajv useDefaults; do the same so both sides see one shape
-    validate(&v).map_err(ConfigError::Invalid)?;
     Ok(Loaded {
-        config: v,
+        config: parse(&text)?,
         created: false,
     })
 }
 
-pub fn write_atomic(path: &Path, config: &Config) -> io::Result<()> {
-    if let Some(dir) = path.parent() {
+/// config.json's configuration, or the defaults when the file is missing — without creating it: the supervisor owns
+/// config.json, so a reader never writes it (final review M4). An unreadable or invalid file is an error, as in
+/// [`load`].
+pub fn read(path: &Path) -> Result<Config, ConfigError> {
+    match fs::read_to_string(path) {
+        Ok(text) => parse(&text),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(defaults()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Parses config.json's text, fills the schema defaults and validates the result: what [`load`] does after reading
+/// the file. The supervisor's watcher uses it on the bytes it read.
+pub fn parse(text: &str) -> Result<Config, ConfigError> {
+    let mut v: Value =
+        serde_json::from_str(text).map_err(|e| ConfigError::NotJson(e.to_string()))?;
+    fill_defaults(schema(), &mut v); // the TS loader fills defaults through ajv useDefaults; do the same so both sides see one shape
+    validate(&v).map_err(ConfigError::Invalid)?;
+    Ok(v)
+}
+
+/// The exact text [`write_atomic`] writes: pretty JSON plus a newline. The supervisor hashes it to recognise its own
+/// writes when the watcher sees config.json change.
+pub fn serialize(config: &Config) -> String {
+    format!("{}\n", serde_json::to_string_pretty(config).unwrap())
+}
+
+/// Ruling B5: the first 16 hex digits of SHA-256 over `serde_json::to_string(config)`. serde_json's map is a
+/// `BTreeMap` (the workspace does not enable `preserve_order`), so keys are sorted and the revision does not depend on
+/// key order or formatting.
+pub fn revision(config: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(serde_json::to_string(config).unwrap().as_bytes());
+    digest[..8].iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Writes config.json atomically and durably: a temp file beside it (`config.json.tmp-<pid>`, created 0600 on unix),
+/// written and fsynced, renamed over the target, then the directory fsynced (unix), so a power loss leaves either the
+/// old or the new file, never an empty one. Returns the temp file's metadata taken before the rename: a rename keeps
+/// mtime and length, so the supervisor records exactly its own write's stamp and any later write differs.
+pub fn write_atomic(path: &Path, config: &Config) -> io::Result<fs::Metadata> {
+    use std::io::Write;
+    let dir = path.parent().filter(|d| !d.as_os_str().is_empty());
+    if let Some(dir) = dir {
         fs::create_dir_all(dir)?;
     }
-    let tmp = path.with_extension(format!("json.tmp-{}", std::process::id()));
-    fs::write(
-        &tmp,
-        format!("{}\n", serde_json::to_string_pretty(config).unwrap()),
-    )?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600)) {
+    let tmp = temp_path(path, std::process::id());
+    let written = (|| {
+        let mut opts = fs::OpenOptions::new();
+        opts.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let mut f = opts.open(&tmp)?;
+        #[cfg(unix)]
+        {
+            // `mode` only applies to a new file; a stale temp of the same name keeps its own mode otherwise.
+            use std::os::unix::fs::PermissionsExt;
+            f.set_permissions(fs::Permissions::from_mode(0o600))?;
+        }
+        f.write_all(serialize(config).as_bytes())?;
+        f.sync_all()?;
+        let meta = f.metadata()?;
+        drop(f);
+        fs::rename(&tmp, path)?;
+        Ok(meta)
+    })();
+    let meta = match written {
+        Ok(m) => m,
+        Err(e) => {
             let _ = fs::remove_file(&tmp);
             return Err(e);
         }
+    };
+    #[cfg(unix)]
+    if let Some(dir) = dir {
+        fs::File::open(dir)?.sync_all()?;
     }
-    if let Err(e) = fs::rename(&tmp, path) {
-        let _ = fs::remove_file(&tmp);
-        return Err(e);
+    Ok(meta)
+}
+
+/// `config.json.tmp-<pid>`: the temp file [`write_atomic`] renames into place.
+fn temp_path(path: &Path, pid: u32) -> std::path::PathBuf {
+    path.with_extension(format!("json.tmp-{pid}"))
+}
+
+/// Removes temp files a crashed [`write_atomic`] left beside `path` (any `config.json.tmp-*` but this process's
+/// own); returns their names.
+pub fn remove_stale_temps(path: &Path) -> Vec<String> {
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
+        return Vec::new();
+    };
+    let prefix = format!("{}.tmp-", name.to_string_lossy());
+    let own = temp_path(path, std::process::id());
+    let mut removed = Vec::new();
+    let Ok(entries) = fs::read_dir(if dir.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        dir
+    }) else {
+        return removed;
+    };
+    for e in entries.flatten() {
+        let n = e.file_name().to_string_lossy().into_owned();
+        if n.starts_with(&prefix) && e.path() != own && fs::remove_file(e.path()).is_ok() {
+            removed.push(n);
+        }
     }
-    Ok(())
+    removed
 }
 
 pub fn restart_class_of(key: &str) -> RestartClass {
@@ -301,9 +387,23 @@ pub fn restart_class_of(key: &str) -> RestartClass {
     }
 }
 
+/// The `config.get` `restartClass` of a key: `live`, `core` or `module:<name>`.
+pub fn restart_class_name(key: &str) -> String {
+    match restart_class_of(key) {
+        RestartClass::Live => "live".into(),
+        RestartClass::Core => "core".into(),
+        RestartClass::Module => match module_name(key) {
+            Some(m) => format!("module:{m}"),
+            None => "module".into(),
+        },
+    }
+}
+
+/// The module a `module:` class names; `$key` is the key segment that matched the node declaring it
+/// (`modules.fixture.greeting` → `fixture`, B13), as in the TypeScript `restartClassOf`.
 fn module_name(key: &str) -> Option<String> {
     let mut node = schema();
-    let mut cls: Option<&str> = None;
+    let mut cls: Option<(&str, &str)> = None;
     for part in key.split('.') {
         match node
             .get("properties")
@@ -313,14 +413,13 @@ fn module_name(key: &str) -> Option<String> {
             Some(n) => {
                 node = n;
                 if let Some(c) = n.get("x-restart").and_then(Value::as_str) {
-                    cls = Some(c);
+                    cls = Some((c, part));
                 }
             }
             None => break,
         }
     }
-    cls.and_then(|c| c.strip_prefix("module:"))
-        .map(String::from)
+    cls.and_then(|(c, part)| c.strip_prefix("module:").map(|m| m.replace("$key", part)))
 }
 
 /// Value equality matching TS's `JSON.stringify(a) === JSON.stringify(b)` for the leaf comparison
@@ -566,12 +665,16 @@ pub fn get(config: &Config, key: Option<&str>) -> Option<Value> {
 }
 
 pub fn set(config: &Config, key: &str, value: Value) -> Result<Plan, ConfigError> {
-    let mut after = config.clone();
+    set_many(config, &[(key.to_string(), value)])
+}
+
+/// Writes `value` at the dotted `key` of `into`, creating intermediate objects.
+fn put(into: &mut Value, key: &str, value: Value) -> Result<(), ConfigError> {
     let parts: Vec<&str> = key.split('.').collect();
     let (last, dirs) = parts
         .split_last()
         .ok_or_else(|| ConfigError::UnknownKey(key.into()))?;
-    let mut node = &mut after;
+    let mut node = into;
     for p in dirs {
         node = node
             .as_object_mut()
@@ -582,6 +685,16 @@ pub fn set(config: &Config, key: &str, value: Value) -> Result<Plan, ConfigError
     node.as_object_mut()
         .ok_or_else(|| ConfigError::UnknownKey(key.into()))?
         .insert((*last).to_string(), value);
+    Ok(())
+}
+
+/// Applies every change in order (a later change to the same key wins) and validates the result once: all changes
+/// or none (`config.set`, spec §6.1). `config` is never modified.
+pub fn set_many(config: &Config, changes: &[(String, Value)]) -> Result<Plan, ConfigError> {
+    let mut after = config.clone();
+    for (key, value) in changes {
+        put(&mut after, key, value.clone())?;
+    }
     validate(&after).map_err(ConfigError::Invalid)?;
     let plan = restart_plan(config, &after);
     Ok(Plan {

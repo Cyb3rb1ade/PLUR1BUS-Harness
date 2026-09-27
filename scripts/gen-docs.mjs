@@ -31,7 +31,9 @@ Generated from \`packages/rpc-schema/schema/rpc.schema.json\` by \`scripts/gen-d
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on \`run/core.sock\` (POSIX) or the per-home named pipe
 (Windows). The first call on a connection is \`core.auth\`; its result carries \`contract\` (engine contract version) and \`rpc\`
 (this schema's version). Methods served by the supervisor (**Served by:** supervisor) are called on the supervisor's own
-endpoint, whose first call is \`supervisor.auth\`. Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
+endpoint, whose first call is \`supervisor.auth\`. Methods served by a module (**Served by:** module) are called on that
+module's own endpoint (\`run/module-<name>.sock\`, or the per-home \`-module-<name>\` pipe), whose first call is
+\`module.auth\`. Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
 ${schema.description ? `\n${schema.description}\n` : ""}
 ## Error codes
 

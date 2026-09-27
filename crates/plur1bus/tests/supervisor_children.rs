@@ -117,6 +117,7 @@ fn start_with(h: &Home, mode: &str, scale: &str, core_js: &Path) -> Supervisor {
         .env("FAKE_CORE_MODE", mode)
         .env("FAKE_CORE_EVENTS", &h.events)
         .env("FAKE_CORE_GRACE_MS", "300")
+        .env("FAKE_CORE_CONFIG_CHECK", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -276,6 +277,9 @@ fn five_quick_crashes_end_in_crashed_without_further_attempts() {
     assert_eq!(state(&now), "crashed", "{now}");
     assert_eq!(now["restarts"], 4);
     assert_eq!(now["lastExit"]["code"], 1);
+    // H3B-R26: a give-up says so; the last exit keeps its own (no specific) reason.
+    assert_eq!(now["process"]["reason"], "gave-up", "{now}");
+    assert_eq!(now["lastExit"]["reason"], Value::Null, "{now}");
     assert!(now["pid"].is_null());
     assert_eq!(child["restarts"], 4);
 }
@@ -293,6 +297,78 @@ fn exit_code_2_is_fatal_config_invalid() {
     std::thread::sleep(Duration::from_millis(500));
     assert_eq!(h.named_events("started").len(), 1);
     assert_eq!(state(&core_child(&mut c)), "crashed");
+}
+
+#[test]
+fn an_invalid_config_is_fatal_and_the_first_valid_file_re_arms_the_core() {
+    // B18: an invalid config.json → the core exits 2 → fatal config-invalid, no restart; the first valid file the
+    // watcher sees starts it again with a fresh backoff.
+    let h = Home::new();
+    std::fs::write(h.home.join("config.json"), "{ not json").unwrap();
+    let _s = start(&h, "ok", "0.02");
+    let mut c = client(&h.home);
+    let child = wait_child(&mut c, "crashed", WAIT, |c| state(c) == "crashed");
+    assert_eq!(child["process"]["reason"], "config-invalid", "{child}");
+    std::thread::sleep(Duration::from_millis(300)); // 15 watcher ticks: nothing restarts it
+    assert_eq!(h.named_events("started").len(), 1);
+
+    h.write_config(json!({ "schemaVersion": 1 }));
+    wait_child(&mut c, "ready again", WAIT, |c| state(c) == "ready");
+    assert_eq!(h.named_events("started").len(), 2);
+    assert!(h
+        .log_records()
+        .iter()
+        .any(|r| r["msg"] == "config.json is valid again, restarting the core"));
+}
+
+#[test]
+fn a_config_change_while_the_file_stays_valid_does_not_re_arm_a_config_invalid_core() {
+    // B18 re-arms only on the first valid file after an invalid one; a set over a valid file leaves a fatal core alone.
+    let h = Home::new();
+    let _s = start(&h, "exit:2", "0.02");
+    let mut c = client(&h.home);
+    wait_child(&mut c, "crashed", WAIT, |c| state(c) == "crashed");
+    let r = c
+        .call(
+            "config.set",
+            json!({ "changes": [{ "key": "core.logLevel", "value": "debug" }] }),
+        )
+        .unwrap();
+    assert_eq!(r["applied"], true);
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(h.named_events("started").len(), 1);
+    assert_eq!(state(&core_child(&mut c)), "crashed");
+}
+
+#[test]
+fn reverting_a_rejected_edit_to_the_running_bytes_re_arms_a_config_invalid_core() {
+    // B18, the `applied_hash` path: the core restarts while the file is rejected, exits 2 and goes fatal; putting
+    // back the bytes that already run re-arms it without any configuration change.
+    let h = Home::new();
+    h.write_config(json!({ "schemaVersion": 1 }));
+    let original = std::fs::read(h.home.join("config.json")).unwrap();
+    let _s = start(&h, "crash-after:600", "0.02");
+    let mut c = client(&h.home);
+    wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+    std::fs::write(h.home.join("config.json"), "{ not json").unwrap();
+    let child = wait_child(&mut c, "crashed config-invalid", WAIT, |c| {
+        state(c) == "crashed" && c["process"]["reason"] == "config-invalid"
+    });
+    assert_eq!(child["lastExit"]["code"], 2, "{child}");
+    let started = h.named_events("started").len();
+
+    std::fs::write(h.home.join("config.json"), &original).unwrap();
+    wait_until("the core to start again", WAIT, || {
+        h.named_events("started").len() > started
+    });
+    assert!(h
+        .log_records()
+        .iter()
+        .any(|r| r["msg"] == "config.json matches the running configuration again"));
+    assert!(h
+        .log_records()
+        .iter()
+        .any(|r| r["msg"] == "config.json is valid again, restarting the core"));
 }
 
 #[test]

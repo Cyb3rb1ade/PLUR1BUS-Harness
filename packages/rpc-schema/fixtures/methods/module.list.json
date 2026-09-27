@@ -1,0 +1,9 @@
+{ "params": {},
+  "result": { "modules": [
+    { "name": "broken", "version": null, "apiVersion": null, "priority": null, "band": null, "scope": null, "provides": [], "consumes": [], "needs": [], "enabled": true,
+      "errors": ["/priority 1000 is greater than the maximum of 999"], "child": null },
+    { "name": "fixture", "version": "0.1.0", "apiVersion": "1", "priority": 500, "band": "add-ons", "scope": "installation", "provides": ["fixture.echo"], "consumes": ["memory"], "needs": ["core"], "enabled": true,
+      "errors": [],
+      "child": { "role": "fixture", "process": { "state": "ready", "since": 1790000000000 }, "pid": 4242, "instanceId": "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234", "adopted": false, "restarts": 0, "lastExit": null, "nextRestartAt": null, "kind": "module" },
+      "detail": { "greeting": "hi" } }
+  ] } }

@@ -1,0 +1,14 @@
+{
+  "name": "@plur1bus/module-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node ../../scripts/test-package.mjs"
+  },
+  "dependencies": { "@plur1bus/module-api": "workspace:*" },
+  "devDependencies": { "esbuild": "0.28.2" }
+}

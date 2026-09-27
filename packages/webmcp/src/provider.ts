@@ -48,9 +48,9 @@ export const TOOL_PREFIX = "plur1bus_";
 export const PAGE_SUPPLIED_PARAMS: readonly string[] = ["caller"];
 
 /** Methods that are never exposed, even when named in `include`: authentication, process lifecycle,
- *  supervisor/daemon/module control, subscriptions and configuration writes. */
+ *  supervisor/daemon/module control, subscriptions, configuration writes and admin ops (D55: `admin.*`). */
 const FORBIDDEN_EXACT = new Set(["core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close"]);
-const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "events.", "config.", "module.", "service.", "update.", "secrets.", "login.", "auth."];
+const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "update.", "secrets.", "login.", "auth."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];
 
 export function isForbiddenMethod(method: string): boolean {

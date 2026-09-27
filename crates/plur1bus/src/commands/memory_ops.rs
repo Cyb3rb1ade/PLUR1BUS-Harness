@@ -59,7 +59,18 @@ fn parse_time_or_fail(out: &Out, flag: &str, s: &str) -> u64 {
 /// reached fails fast here (never journaled — that fallback is `memory add`/`memory recall`
 /// only).
 fn connect_or_unavailable(out: &Out, layout: &Layout) -> Client {
-    match connect(layout, Duration::from_secs(30)) {
+    connect_core(out, layout, "memory-ops", Duration::from_secs(30))
+}
+
+/// Connects to the core with `call_timeout`; a core that cannot be reached fails with
+/// `E_CORE_UNAVAILABLE` and `degraded.capability` = `capability` (shared with `admin`).
+pub(crate) fn connect_core(
+    out: &Out,
+    layout: &Layout,
+    capability: &str,
+    call_timeout: Duration,
+) -> Client {
+    match connect(layout, call_timeout) {
         Ok(c) => c,
         Err(e) if is_unavailable(&e) => {
             let detail = format!("{e} ({})", supervisor_detail(layout));
@@ -69,7 +80,7 @@ fn connect_or_unavailable(out: &Out, layout: &Layout) -> Client {
                 json!({
                     "degraded": {
                         "reason": "core-unavailable",
-                        "capability": "memory-ops",
+                        "capability": capability,
                         "detail": detail
                     }
                 }),
@@ -83,7 +94,7 @@ fn connect_or_unavailable(out: &Out, layout: &Layout) -> Client {
 /// A core old enough to have no `capabilities` at all answers for itself (`Client::supports`
 /// then returns `true`); a core that *does* advertise capabilities but omits this method answers
 /// `E_NOT_AVAILABLE reason=core-lacks-method` without ever reaching it (G14/review item 5).
-fn require_supports(out: &Out, c: &Client, method: &str) {
+pub(crate) fn require_supports(out: &Out, c: &Client, method: &str) {
     if !c.supports(method) {
         out.fail(
             "E_NOT_AVAILABLE",
@@ -156,9 +167,9 @@ fn proposal_status_str(s: &ProposalStatus) -> &'static str {
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
-    let config = cfg::load(&layout.config_path())
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1))
-        .config;
+    // Read without creating config.json: only the supervisor (or a config-writing command) writes it (M4).
+    let config = cfg::read(&layout.config_path())
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
     let caller = identity::caller();
 
     match cmd {

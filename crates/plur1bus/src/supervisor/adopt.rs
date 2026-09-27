@@ -1,6 +1,6 @@
 //! Adoption of a core that is already running when the supervisor starts (spec §6.4, rulings S3–S6, S19).
 //!
-//! Before any spawn the supervisor probes the core's address ([`probe_core`]). A core that answers as the one
+//! Before any spawn the supervisor probes the child's address ([`probe_child`]; [`probe_core`] for the core). A core that answers as the one
 //! `run/core.pid` names is adopted through `core.adopt { nonce }` ([`adopt`]): the nonce is the content of
 //! `run/supervisor.token`, and the connection the call succeeds on becomes the core's lifeline. A core that accepts but
 //! does not answer, or that is not the one the pid file names, is terminated ([`terminate_found`]) and a fresh one is
@@ -11,8 +11,15 @@
 //! be the server: a pidfd on Linux, a process handle on Windows, so a recycled pid is never signalled. macOS has no
 //! such handle; there the pid is re-checked as the socket's server right before each signal. `run/core.pid` only
 //! serves to recognise a foreign core.
+//!
+//! Everything here takes the child's [`Role`]: its address and run files come from [`Layout::endpoints`], its calls
+//! from [`Role::method`]. A module's hello must also name the module its manifest describes ([`identity_mismatch`],
+//! B12), else it is `Foreign`.
+use super::state::{Role, RoleKind};
 use super::{spawn_guarded, Shared};
-use crate::paths::{core_address, Layout};
+#[cfg(test)]
+use crate::paths::core_address;
+use crate::paths::{Endpoints, Layout};
 use plur1bus_rpc::transport::{self, Stream};
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
@@ -73,35 +80,109 @@ fn platform() -> &'static str {
     }
 }
 
-fn read_core_token(layout: &Layout) -> Option<String> {
-    let t = std::fs::read_to_string(layout.core_token()).ok()?;
+fn endpoints(layout: &Layout, role: &Role) -> Endpoints {
+    layout.endpoints(role, platform())
+}
+
+fn read_token(ep: &Endpoints) -> Option<String> {
+    let t = std::fs::read_to_string(&ep.token).ok()?;
     let t = t.trim().to_string();
     (!t.is_empty()).then_some(t)
 }
 
-/// The instance id in `run/core.pid` (`<pid> <instanceId>`).
-fn pid_file_instance(layout: &Layout) -> Option<String> {
-    let s = std::fs::read_to_string(layout.core_pid()).ok()?;
+/// The pid in the child's pid file (`<pid> <instanceId>`), the first field.
+fn pid_file_pid(ep: &Endpoints) -> Option<u32> {
+    std::fs::read_to_string(&ep.pid)
+        .ok()?
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()
+}
+
+/// The instance id in the child's pid file (`<pid> <instanceId>`).
+fn pid_file_instance(ep: &Endpoints) -> Option<String> {
+    let s = std::fs::read_to_string(&ep.pid).ok()?;
     s.split_whitespace().nth(1).map(str::to_string)
 }
 
-fn core_options(timeout: Duration) -> ConnectOptions {
+/// The handshake endpoint of `role`: `core.auth` for the core, `module.auth` for a module (B9).
+pub(crate) fn rpc_endpoint(role: &Role) -> Endpoint {
+    match role.kind {
+        RoleKind::Core => Endpoint::Core,
+        RoleKind::Module => Endpoint::Module,
+    }
+}
+
+fn child_options(role: &Role, timeout: Duration) -> ConnectOptions {
     ConnectOptions {
         connect_timeout: timeout,
         call_timeout: timeout,
-        endpoint: Endpoint::Core,
+        endpoint: rpc_endpoint(role),
         // The probe reads the server's pid itself and classifies a mismatch (`Foreign`); callers check it first.
         expected_server_pid: None,
     }
 }
 
-/// Probes the core's address (rule S6): a failed connect → `Absent`; a server other than the pid in `run/core.pid` →
-/// `Foreign` before the token is sent (S11); connected, but no token file or no `core.auth` answer within `timeout` →
-/// `Hung`; hello `pid` ≠ the socket's server, or hello `instanceId` ≠ `run/core.pid` →
-/// `Foreign`; otherwise `Serving`. The handshake runs on the very connection whose peer pid was read.
+/// B12: why a module's `module.auth` hello does not identify the module `role` names with manifest `apiVersion`
+/// `api_version` (`None` when it does, and always for the core).
+pub fn identity_mismatch(hello: &Value, role: &Role, api_version: Option<&str>) -> Option<String> {
+    if role.kind != RoleKind::Module {
+        return None;
+    }
+    let name = hello["module"]["name"].as_str();
+    let api = hello["module"]["apiVersion"].as_str();
+    (name != Some(role.name.as_str()) || api != api_version).then(|| {
+        format!(
+            "module-identity-mismatch: hello names {} apiVersion {}, the manifest {} apiVersion {}",
+            name.unwrap_or("nothing"),
+            api.unwrap_or("none"),
+            role.name,
+            api_version.unwrap_or("none"),
+        )
+    })
+}
+
+/// [`probe_child`] for a module whose manifest says `api_version`: a serving module whose hello names another module
+/// or API version is `Foreign` (B12), so it is terminated instead of adopted.
+pub fn probe_module(
+    layout: &Layout,
+    role: &Role,
+    api_version: Option<&str>,
+    timeout: Duration,
+) -> Probe {
+    match probe_child(layout, role, timeout) {
+        Probe::Serving {
+            peer,
+            hello,
+            client,
+        } => match identity_mismatch(&hello, role, api_version) {
+            Some(reason) => {
+                drop(client);
+                Probe::Foreign { peer, reason }
+            }
+            None => Probe::Serving {
+                peer,
+                hello,
+                client,
+            },
+        },
+        other => other,
+    }
+}
+
+/// Probes the core's address: [`probe_child`] for [`Role::core`].
 pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
-    let address = core_address(&layout.home, platform());
-    let Ok(stream) = transport::connect(&address, timeout) else {
+    probe_child(layout, &Role::core(), timeout)
+}
+
+/// Probes `role`'s address (rule S6): a failed connect → `Absent`; a server other than the pid in its pid file
+/// (`run/core.pid` for the core) → `Foreign` before the token is sent (S11); connected, but no token file or no
+/// handshake answer within `timeout` → `Hung`; hello `pid` ≠ the socket's server, or hello `instanceId` ≠ the pid
+/// file's → `Foreign`; otherwise `Serving`. The handshake runs on the very connection whose peer pid was read.
+pub fn probe_child(layout: &Layout, role: &Role, timeout: Duration) -> Probe {
+    let ep = endpoints(layout, role);
+    let Ok(stream) = transport::connect(&ep.address, timeout) else {
         return Probe::Absent;
     };
     // Every supported OS names the server. Where one cannot, nothing may be signalled: the fresh core's spawn then
@@ -110,9 +191,9 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
         return Probe::Absent;
     };
     // Pinned now, while the connection names it as the server.
-    let peer = Peer::open(peer_pid, layout);
-    // S11: a server other than the process run/core.pid names never receives run/core.token.
-    if let Some(recorded) = layout.recorded_pid(plur1bus_rpc::Endpoint::Core) {
+    let peer = Peer::open_at(peer_pid, ep.address.clone());
+    // S11: a server other than the process the pid file names never receives the token.
+    if let Some(recorded) = pid_file_pid(&ep) {
         if recorded != peer_pid {
             return Probe::Foreign {
                 peer,
@@ -120,10 +201,10 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
             };
         }
     }
-    let Some(token) = read_core_token(layout) else {
+    let Some(token) = read_token(&ep) else {
         return Probe::Hung { peer };
     };
-    let client = match handshake_bounded(stream, token, timeout) {
+    let client = match handshake_bounded(stream, token, child_options(role, timeout)) {
         Some(Ok(c)) => c,
         None => return Probe::Hung { peer },
         Some(Err(RpcError::Unavailable { reason, .. })) if reason == "handshake-timeout" => {
@@ -143,7 +224,7 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
             reason: "pid-mismatch".into(),
         };
     }
-    match pid_file_instance(layout) {
+    match pid_file_instance(&ep) {
         None => Probe::Foreign {
             peer,
             reason: "no-pid-file".into(),
@@ -166,13 +247,14 @@ pub fn probe_core(layout: &Layout, timeout: Duration) -> Probe {
 fn handshake_bounded(
     stream: Box<dyn Stream>,
     token: String,
-    timeout: Duration,
+    opts: ConnectOptions,
 ) -> Option<Result<Client, RpcError>> {
+    let timeout = opts.call_timeout;
     let (tx, rx) = std::sync::mpsc::channel();
     let spawned = std::thread::Builder::new()
-        .name("core-probe".into())
+        .name("child-probe".into())
         .spawn(move || {
-            let _ = tx.send(Client::handshake(stream, &token, core_options(timeout)));
+            let _ = tx.send(Client::handshake(stream, &token, opts));
         });
     if spawned.is_err() {
         return None;
@@ -180,25 +262,31 @@ fn handshake_bounded(
     rx.recv_timeout(timeout + Duration::from_millis(500)).ok()
 }
 
-/// Adopts the core `client` is authenticated with (the probe's own connection, so no other process can slip in
-/// between probe and adoption): `core.adopt { nonce: supervisor_token }`. Returns the connection, which is now the
-/// core's lifeline and must stay open for as long as the core is supervised, and the core's `CoreStatus`. Refused when
-/// the OS does not name the socket's server, or names another pid than the hello.
-pub fn adopt(mut client: Client, supervisor_token: &str) -> Result<(Client, Value), RpcError> {
+/// Adopts the child `client` is authenticated with (the probe's own connection, so no other process can slip in
+/// between probe and adoption): `core.adopt { nonce: supervisor_token }` (`role`'s own `adopt`). Returns the
+/// connection, which is now the child's lifeline and must stay open for as long as the child is supervised, and the
+/// child's status. Refused when the OS does not name the socket's server, or names another pid than the hello.
+pub fn adopt(
+    mut client: Client,
+    role: &Role,
+    supervisor_token: &str,
+) -> Result<(Client, Value), RpcError> {
+    let name = &role.name;
     let peer_pid = client.peer_pid().ok_or_else(|| {
-        RpcError::Protocol("the OS does not name the core socket's server".into())
+        RpcError::Protocol(format!("the OS does not name the {name} socket's server"))
     })?;
     let hello_pid = client.hello()["pid"].as_u64();
     if hello_pid != Some(u64::from(peer_pid)) {
         return Err(RpcError::Protocol(format!(
-            "the core's hello pid {hello_pid:?} is not the socket's server {peer_pid}"
+            "the {name}'s hello pid {hello_pid:?} is not the socket's server {peer_pid}"
         )));
     }
-    let result = client.call("core.adopt", json!({ "nonce": supervisor_token }))?;
+    let method = role.method("adopt");
+    let result = client.call(&method, json!({ "nonce": supervisor_token }))?;
     let status = result
         .get("status")
         .cloned()
-        .ok_or_else(|| RpcError::Protocol("core.adopt result: missing status".into()))?;
+        .ok_or_else(|| RpcError::Protocol(format!("{method} result: missing status")))?;
     Ok((client, status))
 }
 
@@ -221,7 +309,11 @@ pub struct Peer {
 impl Peer {
     /// Call this while the pid is known to be the server (right after the probe read it from the connection).
     pub fn open(pid: u32, layout: &Layout) -> Peer {
-        let address = core_address(&layout.home, platform());
+        Peer::open_at(pid, endpoints(layout, &Role::core()).address)
+    }
+
+    /// [`Peer::open`] for the server of `address` (a child's address, [`Layout::endpoints`]).
+    pub fn open_at(pid: u32, address: String) -> Peer {
         #[cfg(target_os = "linux")]
         {
             use std::os::fd::FromRawFd;
@@ -409,38 +501,50 @@ fn is_zombie(_pid: u32) -> bool {
     false
 }
 
-/// Terminates a hung or foreign core found at start (S6, S8): `core.shutdown` on a fresh connection to that same
-/// server, SIGTERM (unix) after 2 s, SIGKILL / TerminateProcess 10 s later (both × the time scale). Returns once the
-/// process is gone, or after the kill plus a short wait.
-pub fn terminate_found(shared: &Arc<Shared>, layout: &Layout, peer: Peer, probe: &str) {
+/// Terminates a hung or foreign child found at start (S6, S8): `core.shutdown` (`role`'s own `shutdown`) on a fresh
+/// connection to that same server, SIGTERM (unix) after 2 s, SIGKILL / TerminateProcess 10 s later (both × the time
+/// scale). Returns once the process is gone, or after the kill plus a short wait.
+pub fn terminate_found(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    role: &Role,
+    peer: Peer,
+    probe: &str,
+) {
     let scale = shared.lock().time_scale;
     let s = |ms: u64| Duration::from_secs_f64(ms as f64 / 1000.0 * scale);
     let pid = peer.pid;
     let t0 = Instant::now();
+    let what = format!("terminating a {} found at start", role.name);
     let log = |step: &str| {
-        shared.log.warn(
-            "terminating a core found at start",
-            json!({ "pid": pid, "probe": probe, "step": step }),
-        )
+        shared
+            .log
+            .warn(&what, json!({ "pid": pid, "probe": probe, "step": step }))
     };
     log("shutdown");
     // On its own thread: a hung core never answers, and the escalation below must not wait for it.
-    let layout2 = layout.clone();
-    let spawned = spawn_guarded(shared, &format!("core-shutdown-{pid}"), move || {
-        let address = core_address(&layout2.home, platform());
-        let Some(token) = read_core_token(&layout2) else {
-            return;
-        };
-        let Ok(stream) = transport::connect(&address, PROBE_TIMEOUT) else {
-            return;
-        };
-        if stream.peer_pid() != Some(pid) {
-            return;
-        }
-        if let Ok(mut c) = Client::handshake(stream, &token, core_options(PROBE_TIMEOUT)) {
-            let _ = c.call("core.shutdown", json!({}));
-        }
-    });
+    let ep = endpoints(layout, role);
+    let role2 = role.clone();
+    let spawned = spawn_guarded(
+        shared,
+        &format!("{}-shutdown-{pid}", role.name),
+        move || {
+            let Some(token) = read_token(&ep) else {
+                return;
+            };
+            let Ok(stream) = transport::connect(&ep.address, PROBE_TIMEOUT) else {
+                return;
+            };
+            if stream.peer_pid() != Some(pid) {
+                return;
+            }
+            if let Ok(mut c) =
+                Client::handshake(stream, &token, child_options(&role2, PROBE_TIMEOUT))
+            {
+                let _ = c.call(&role2.method("shutdown"), json!({}));
+            }
+        },
+    );
     if let Err(e) = spawned {
         shared.log.error(
             "cannot start the shutdown thread",
@@ -462,7 +566,7 @@ pub fn terminate_found(shared: &Arc<Shared>, layout: &Layout, peer: Peer, probe:
     peer.kill();
     if !wait_gone(&peer, Instant::now() + POST_KILL_WAIT) {
         shared.log.error(
-            "core found at start still running after the kill",
+            &format!("{} found at start still running after the kill", role.name),
             json!({ "pid": pid }),
         );
     }
@@ -485,6 +589,25 @@ fn wait_gone(peer: &Peer, deadline: Instant) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_module_hello_must_name_its_manifest_name_and_api_version() {
+        let hello = |name: &str, api: &str| json!({ "module": { "name": name, "version": "0.1.0", "apiVersion": api } });
+        let fixture = Role::module("fixture");
+        assert_eq!(
+            identity_mismatch(&hello("fixture", "1"), &fixture, Some("1")),
+            None
+        );
+        let other = identity_mismatch(&hello("impostor", "1"), &fixture, Some("1")).unwrap();
+        assert!(
+            other.starts_with("module-identity-mismatch") && other.contains("impostor"),
+            "{other}"
+        );
+        assert!(identity_mismatch(&hello("fixture", "2"), &fixture, Some("1")).is_some());
+        assert!(identity_mismatch(&json!({}), &fixture, Some("1")).is_some());
+        // The core's hello carries no module identity.
+        assert_eq!(identity_mismatch(&json!({}), &Role::core(), None), None);
+    }
 
     #[test]
     fn nothing_listening_probes_absent() {

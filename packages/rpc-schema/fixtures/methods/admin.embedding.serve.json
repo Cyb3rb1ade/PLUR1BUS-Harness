@@ -1,0 +1,2 @@
+{ "params": { "address": { "kind": "unix-socket", "address": "/tmp/p1b-home/control/embedding-ipc/owner.sock" } },
+  "result": { "address": { "kind": "unix-socket", "address": "/tmp/p1b-home/control/embedding-ipc/owner.sock" }, "tokenPath": "/tmp/p1b-home/control/embedding-ipc/token", "identity": { "model": "flat", "dimensions": 384, "fingerprintId": "fp-flat-384" } } }

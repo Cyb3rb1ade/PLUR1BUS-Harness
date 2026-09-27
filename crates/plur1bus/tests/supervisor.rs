@@ -221,9 +221,10 @@ fn supervise_writes_token_and_pid_and_answers_auth_with_capabilities() {
     assert!(methods.get("daemon.status").is_some(), "{hello}");
     assert!(methods.get("daemon.stop").is_some());
     assert!(methods.get("memory.recall").is_none());
+    assert!(methods.get("module.install").is_some(), "{hello}");
     assert_eq!(
         hello["capabilities"]["features"],
-        json!(["adoption", "lifelines"])
+        json!(["adoption", "config", "lifelines", "modules"])
     );
 
     let log = std::fs::read_to_string(home.join("logs").join("supervisor.log")).unwrap();
@@ -362,6 +363,98 @@ fn a_second_supervisor_on_the_same_home_exits_3() {
         c.call("daemon.status", json!({})).unwrap()["supervisor"]["pid"],
         first.pid()
     );
+}
+
+#[test]
+fn a_second_supervisor_under_launchd_exits_0_with_the_message() {
+    // Ruling B16: under launchd (`KeepAlive.SuccessfulExit = false`), the loser's non-transient exit 3 must become
+    // 0, or launchd loops restarting a supervisor that can never win the lock.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let first = start(home);
+    drop(client(home));
+
+    let out = command(home)
+        .env("PLUR1BUS_SERVICE_MANAGER", "launchd")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains(&format!("supervisor already running (pid {})", first.pid())),
+        "{stderr}"
+    );
+    assert!(stderr.contains("exiting 0 instead of 3"), "{stderr}");
+    // The message also lands in logs/supervisor.log, opened ad hoc since fail(3) precedes the real Log::open.
+    let log = std::fs::read_to_string(home.join("logs").join("supervisor.log")).unwrap();
+    assert!(log.contains("exiting 0 instead of 3"), "{log}");
+    // The winner is unaffected: still the one supervisor answering for this home.
+    let mut c = client(home);
+    assert_eq!(
+        c.call("daemon.status", json!({})).unwrap()["supervisor"]["pid"],
+        first.pid()
+    );
+}
+
+/// Holds `run/supervisor.lock` the way `commands::module::offline_lock` does for an offline `module install`:
+/// same file, same exclusive `try_lock`, no supervisor endpoint behind it.
+fn hold_lock_like_an_offline_install(home: &Path) -> std::fs::File {
+    std::fs::create_dir_all(run_dir(home)).unwrap();
+    let f = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(run_dir(home).join("supervisor.lock"))
+        .unwrap();
+    f.try_lock().unwrap();
+    f
+}
+
+#[test]
+fn a_supervisor_under_launchd_that_finds_the_lock_held_by_an_offline_install_exits_1() {
+    // Final review I1: nobody answers on the address, so this is not "another supervisor runs" (3, mapped to 0
+    // under launchd, which KeepAlive{SuccessfulExit:false} would never restart). It must exit 1, which launchd
+    // retries once the offline mutation has released the lock.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let lock = hold_lock_like_an_offline_install(home);
+
+    let out = command(home)
+        .env("PLUR1BUS_SERVICE_MANAGER", "launchd")
+        .output()
+        .unwrap();
+    drop(lock);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(stderr.contains("no supervisor answered"), "{stderr}");
+    assert!(!stderr.contains("exiting 0 instead of"), "{stderr}");
+    // It never became a supervisor: no token, no pid file.
+    assert!(!run_dir(home).join("supervisor.token").exists());
+    assert!(!run_dir(home).join("supervisor.pid").exists());
+}
+
+#[test]
+fn a_supervisor_that_finds_the_lock_released_during_its_probe_wait_starts() {
+    // The offline mutation ends within the 3 s probe wait: the second try_lock wins and this process serves.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let lock = hold_lock_like_an_offline_install(home);
+    let child = command(home)
+        .env("PLUR1BUS_SERVICE_MANAGER", "launchd")
+        .spawn()
+        .unwrap();
+    let mut sup = Supervisor { child };
+    std::thread::sleep(Duration::from_millis(1000));
+    drop(lock);
+    wait_for(&run_dir(home).join("supervisor.token"));
+    let mut c = client(home);
+    assert_eq!(
+        c.call("daemon.status", json!({})).unwrap()["supervisor"]["pid"],
+        sup.pid()
+    );
+    c.call("daemon.stop", json!({ "budgetMs": 1000 })).unwrap();
+    assert_eq!(sup.wait_exit(WAIT).code(), Some(0));
 }
 
 #[test]

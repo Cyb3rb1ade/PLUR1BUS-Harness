@@ -1,6 +1,6 @@
 use crate::error::RpcError;
 use crate::transport::{connect as transport_connect, Stream};
-use crate::types::{CoreAuthResult, ErrorCode, SupervisorAuthResult};
+use crate::types::{CoreAuthResult, ErrorCode, ModuleAuthResult, SupervisorAuthResult};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
@@ -14,6 +14,9 @@ pub enum Endpoint {
     Core,
     /// The supervisor: `supervisor.auth`.
     Supervisor,
+    /// A module process: `module.auth` (B9). Its address and run files are per module
+    /// (`Layout::endpoints` in the CLI crate), so this variant carries no name.
+    Module,
 }
 impl Endpoint {
     /// The first call on a connection to this endpoint.
@@ -21,6 +24,7 @@ impl Endpoint {
         match self {
             Endpoint::Core => "core.auth",
             Endpoint::Supervisor => "supervisor.auth",
+            Endpoint::Module => "module.auth",
         }
     }
 }
@@ -125,6 +129,7 @@ impl Client {
             Endpoint::Supervisor => {
                 serde_json::from_value::<SupervisorAuthResult>(raw.clone()).map(drop)
             }
+            Endpoint::Module => serde_json::from_value::<ModuleAuthResult>(raw.clone()).map(drop),
         };
         shape.map_err(|e| RpcError::Protocol(format!("{method} result: {e}")))?;
         client
@@ -135,7 +140,7 @@ impl Client {
         Ok(client)
     }
 
-    /// The handshake result exactly as the server sent it (`core.auth` or `supervisor.auth`).
+    /// The handshake result exactly as the server sent it (`core.auth`, `supervisor.auth` or `module.auth`).
     pub fn hello(&self) -> &Value {
         &self.hello
     }

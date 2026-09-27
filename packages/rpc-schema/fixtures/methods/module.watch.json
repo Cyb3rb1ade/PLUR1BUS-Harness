@@ -1,0 +1,5 @@
+{ "params": {},
+  "result": { "subscriptionId": "sub-2", "modules": [
+    { "name": "fixture", "process": { "state": "ready", "since": 1790000000000 }, "pid": 4242, "instanceId": "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234" },
+    { "name": "fixture-b", "process": { "state": "stopped", "reason": "disabled", "since": 1790000000000 }, "pid": null, "instanceId": null }
+  ] } }

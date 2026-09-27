@@ -1,0 +1,5 @@
+{ "params": { "caller": { "channel": "cli", "accountId": "macbooker", "userId": "cyberblade" }, "agentId": "bernd", "candidates": ["/tmp/p1b-vault"] },
+  "result": { "agentId": "bernd", "vaults": [
+    { "path": "/tmp/p1b-home/agents/bernd", "isVault": false, "confirmed": false, "source": "workspace" },
+    { "path": "/tmp/p1b-vault", "isVault": true, "confirmed": true, "source": "candidate" }
+  ] } }

@@ -2,6 +2,7 @@ mod cli;
 mod commands;
 mod identity;
 mod journal;
+mod modules;
 mod output;
 mod paths;
 mod service;
@@ -32,9 +33,8 @@ fn main() {
             "installer and service registration (spec §6.5)",
         ),
         Cmd::FirstAid { sub } => commands::firstaid::run(&out, &layout, sub),
-        Cmd::Module(_) => {
-            commands::stubs::milestone(&out, "module", "2a-H3b", "module lifecycle and graph")
-        }
+        Cmd::Module { sub } => commands::module::run(&out, &layout, sub),
+        Cmd::Admin { sub } => commands::admin::run(&out, &layout, sub),
         Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
         Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
         Cmd::Update(_) => commands::stubs::milestone(&out, "update", "2a-H3b", "manifest check"),

@@ -1,12 +1,14 @@
-# RPC reference (rpc 1.2.0)
+# RPC reference (rpc 1.3.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
 (Windows). The first call on a connection is `core.auth`; its result carries `contract` (engine contract version) and `rpc`
 (this schema's version). Methods served by the supervisor (**Served by:** supervisor) are called on the supervisor's own
-endpoint, whose first call is `supervisor.auth`. Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
+endpoint, whose first call is `supervisor.auth`. Methods served by a module (**Served by:** module) are called on that
+module's own endpoint (`run/module-<name>.sock`, or the per-home `-module-<name>` pipe), whose first call is
+`module.auth`. Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core or supervisor.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.
 
 ## Error codes
 
@@ -1497,6 +1499,430 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `admin.obsidian.detect`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Obsidian vaults the agent may use (engine AdminOps.obsidian.detect, read-only): the configured vaults, the agent workspace and the caller's candidates (a proved principal only). isVault: .obsidian/workspace.json or .obsidian/app.json exists; confirmed: a confirmation receipt for this agent, workspace and vault exists.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "vaults"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "vaults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "isVault",
+          "confirmed",
+          "source"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "isVault": {
+            "type": "boolean"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "config",
+              "workspace",
+              "candidate"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `admin.obsidian.prepare`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+First half of the one-time vault confirmation (engine AdminOps.obsidian.prepare): a nonce bound to the caller, the agent and the vault's digest, valid for 10 minutes. Writes nothing to the vault; admin.obsidian.confirm consumes the nonce. Needs a valid caller identity (E_DENIED reason=principal-invalid).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "vaultPath"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "vaultPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce",
+    "expiresAt",
+    "vaultPath",
+    "vaultDigest"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "number"
+    },
+    "vaultPath": {
+      "type": "string"
+    },
+    "vaultDigest": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `admin.obsidian.confirm`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Second half of the vault confirmation (engine AdminOps.obsidian.confirm): consumes the nonce and records the receipt. alreadyConfirmed: a receipt existed before this call. An unknown or expired nonce is E_NOT_FOUND, a malformed one E_INVALID_PARAMS, another identity or a changed vault E_DENIED.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "nonce"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "confirmed",
+    "vaultPath",
+    "vaultDigest",
+    "alreadyConfirmed"
+  ],
+  "properties": {
+    "confirmed": {
+      "const": true
+    },
+    "vaultPath": {
+      "type": "string"
+    },
+    "vaultDigest": {
+      "type": "string"
+    },
+    "alreadyConfirmed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.migrate`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Store schema migration (engine AdminOps.migrate). from and to are decimal strings ("0" = a store written before any marker existed). E_CONFLICT when from is not the store's current version, E_INVALID_PARAMS for an unknown or downgrading to, E_STORAGE when the marker is unreadable. applied is false when from equals to. core.status engine.storeSchema follows a migration.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from",
+    "to"
+  ],
+  "properties": {
+    "from": {
+      "type": "string",
+      "pattern": "^[0-9]{1,9}$"
+    },
+    "to": {
+      "type": "string",
+      "pattern": "^[0-9]{1,9}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from",
+    "to",
+    "applied"
+  ],
+  "properties": {
+    "from": {
+      "type": "string"
+    },
+    "to": {
+      "type": "string"
+    },
+    "applied": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.embedding.probe`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Exercises the embedding provider once (engine EmbeddingService.probe); a successful result is memoized (cached: true) unless refresh is true. A provider failure is ok: false with error, never an RPC error. Bounded by 30 s and by the core's stop (error aborted).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "refresh": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "cached",
+    "identity",
+    "durationMs",
+    "checkedAt"
+  ],
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "error": {
+      "enum": [
+        "aborted",
+        "provider-failed",
+        "invalid-vector",
+        "dimension-mismatch"
+      ]
+    },
+    "cached": {
+      "type": "boolean"
+    },
+    "identity": {
+      "$ref": "#/$defs/EmbeddingIdentity"
+    },
+    "durationMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "checkedAt": {
+      "type": "number"
+    }
+  }
+}
+```
+
+### `admin.embedding.serve`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** core
+
+Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve): address omitted = the engine's platform default, null = stop serving. Idempotent for the address already served. The token itself is never returned, only tokenPath. E_INVALID_PARAMS for a malformed address or a kind the platform does not use, E_CONFLICT when another address is served or the address is in use, E_STORAGE when the listener fails.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "address": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/IpcAddress"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "address",
+    "tokenPath",
+    "identity"
+  ],
+  "properties": {
+    "address": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/IpcAddress"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tokenPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "identity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "dimensions",
+            "fingerprintId"
+          ],
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "dimensions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fingerprintId": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
 ### `events.subscribe`
 
 **Stability:** stable · since 1.0.0
@@ -1693,6 +2119,50 @@ The supervisor's own state and one entry per supervised child.
       "items": {
         "$ref": "#/$defs/ChildStatus"
       }
+    },
+    "config": {
+      "description": "Experimental (1.3.0). The configuration the supervisor runs (B4): `revision` of the running configuration (null when no valid configuration runs, e.g. config.json was invalid at start) and the last hand edit of config.json it rejected (null once a valid file or a config.set replaced it).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "rejected"
+      ],
+      "properties": {
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rejected": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "at",
+                "errors"
+              ],
+              "properties": {
+                "at": {
+                  "type": "integer",
+                  "description": "Wall time (ms) of the rejection."
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
     }
   }
 }
@@ -1752,6 +2222,803 @@ Clears a crashed or stopped child's backoff and spawns it.
 **Served by:** supervisor
 
 Replies first, then shuts every child down within budgetMs, removes the supervisor's run files and exits the supervisor.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    }
+  }
+}
+```
+
+### `config.get`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+The running configuration (spec §6.1, B5): the whole value, one key (dotted path) or one tier (key and tier are exclusive). `restartClass` is `live`, `core` or `module:<name>` for a key, else null; `restart` is the same class without the module name (the CLI's `config.get/1` field). `revision` identifies the running configuration (config.set's ifRevision). E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "not": {
+    "properties": {
+      "key": {},
+      "tier": {}
+    },
+    "required": [
+      "key",
+      "tier"
+    ]
+  },
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "enum": [
+        "basic",
+        "advanced"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "tier",
+    "value",
+    "restartClass",
+    "restart",
+    "revision"
+  ],
+  "properties": {
+    "key": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tier": {
+      "oneOf": [
+        {
+          "enum": [
+            "basic",
+            "advanced"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "value": {},
+    "restartClass": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "restart": {
+      "oneOf": [
+        {
+          "enum": [
+            "live",
+            "core",
+            "module"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revision": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `config.set`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Validates and applies all changes or none, writes config.json atomically and notifies config.watch subscribers (config.changed, source=set). dryRun only computes the plan. ifRevision refuses a configuration that changed since (E_CONFLICT reason=config-changed, ids.currentRevision). E_CONFIG_INVALID (detail: the joined errors) for a value the schema refuses; E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs. `restart` is the plan; `restarted` names the units restarted for it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "changes"
+  ],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {}
+        }
+      }
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "ifRevision": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "applied",
+    "dryRun",
+    "changed",
+    "restart",
+    "revision",
+    "restarted",
+    "durationMs"
+  ],
+  "properties": {
+    "applied": {
+      "type": "boolean"
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "restart": {
+      "$ref": "#/$defs/RestartPlan"
+    },
+    "revision": {
+      "type": "string",
+      "description": "After an apply the new revision; on a dry run the current one."
+    },
+    "restarted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "estimates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "description": "Estimated restart time (ms) per unit, null when unknown."
+    }
+  }
+}
+```
+
+### `config.watch`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Returns the running configuration and subscribes this connection to config.changed (B3). E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subscriptionId",
+    "config",
+    "revision"
+  ],
+  "properties": {
+    "subscriptionId": {
+      "type": "string"
+    },
+    "config": {
+      "type": "object"
+    },
+    "revision": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `module.watch`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Returns every module child's current state and subscribes this connection to module.state (B3).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subscriptionId",
+    "modules"
+  ],
+  "properties": {
+    "subscriptionId": {
+      "type": "string"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModuleState"
+      }
+    }
+  }
+}
+```
+
+### `module.list`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Every installed module (modules/<name>/module.json) in directory order, with its supervised child (B14).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "modules"
+  ],
+  "properties": {
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModuleListEntry"
+      }
+    }
+  }
+}
+```
+
+### `module.start`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Clears the module's backoff and starts it (a no-op while it runs); ends a module.stop. E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "name"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `module.stop`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Stops the module within budgetMs (default 10000); it stays stopped (reason stopped-by-request) until module.start or a supervisor restart. The persistent switch is modules.<name>.enabled (B13). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "name"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `module.restart`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Stops the module within budgetMs (default 10000) and starts it again (a requested restart: it never counts toward the give-up budget). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "accepted",
+    "name"
+  ],
+  "properties": {
+    "accepted": {
+      "const": true
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `module.graph`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+The module dependency graph (spec §6.6).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ModuleGraph"
+}
+```
+
+### `module.install`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Installs the module directory at path (B14): copied into modules/<name>.tmp-<pid>, then renamed to modules/<name>. Refused (E_INVALID_PARAMS, nothing copied) with reason not-a-directory, manifest-invalid, symlink, entry-outside or reserved-name. A running module of that name is stopped and started again; a new module starts unless modules.<name>.enabled is false. replaced: a module of that name was installed before.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version",
+    "replaced"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "replaced": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `module.uninstall`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+Stops the module and removes modules/<name>; modules.<name> stays in config.json (B14). E_MODULE_UNKNOWN when no module of that name is installed.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "removed"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "removed": {
+      "const": true
+    }
+  }
+}
+```
+
+### `module.auth`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+The first call on a module connection; token is the content of run/module-<name>.token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rpc",
+    "instanceId",
+    "pid",
+    "module"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "apiVersion"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "apiVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    }
+  }
+}
+```
+
+### `module.status`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ModuleStatus"
+}
+```
+
+### `module.adopt`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+Called by a supervisor on a running module to adopt it. nonce is the current content of run/supervisor.token; the connection it succeeds on becomes the module's lifeline. E_UNAUTHORIZED reason=adopt-nonce otherwise.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/ModuleStatus"
+    }
+  }
+}
+```
+
+### `module.shutdown`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** module
+
+Asks the module to stop within budgetMs; the process removes its run files and exits 0.
 
 **params**
 
@@ -2250,6 +3517,80 @@ Declared by the engine contract but not emitted by the pinned engine; no payload
       "$ref": "#/$defs/AgentId"
     }
   }
+}
+```
+
+### `config.changed`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+The running configuration changed (B3), sent on connections that called config.watch. `config` is the full new configuration; `source` is `set` (config.set) or `file` (a hand edit of config.json the watcher applied). `previousRevision` is null when no valid configuration ran before.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "x-server": "supervisor",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "The running configuration changed (B3), sent on connections that called config.watch. `config` is the full new configuration; `source` is `set` (config.set) or `file` (a hand edit of config.json the watcher applied). `previousRevision` is null when no valid configuration ran before.",
+  "required": [
+    "revision",
+    "previousRevision",
+    "changed",
+    "restart",
+    "config",
+    "source"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string"
+    },
+    "previousRevision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "restart": {
+      "$ref": "#/$defs/RestartPlan"
+    },
+    "config": {
+      "type": "object"
+    },
+    "source": {
+      "enum": [
+        "set",
+        "file"
+      ]
+    }
+  }
+}
+```
+
+### `module.state`
+
+**Stability:** experimental · since 1.3.0
+
+**Served by:** supervisor
+
+A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "x-server": "supervisor",
+  "description": "A module child's health changed (spawned, ready, degraded, orphaned, stopping, stopped or crashed), sent on connections that called module.watch.",
+  "$ref": "#/$defs/ModuleState"
 }
 ```
 
@@ -2806,8 +4147,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "integer",
       "description": "Complete lines still in state/journal (live and `.replaying-*` files) as the engine's journal status reports them (E4), or the start replay's kept count when the engine reports none."
     },
+    "journalReplay": {
+      "$ref": "#/$defs/JournalReplayStatus"
+    },
     "jobs": {
       "$ref": "#/$defs/JobsStatus"
+    },
+    "config": {
+      "$ref": "#/$defs/CoreConfigStatus"
     },
     "deprecationsUsed": {
       "type": "array",
@@ -2815,6 +4162,100 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    }
+  }
+}
+```
+
+### `CoreConfigStatus`
+
+```json
+{
+  "description": "Experimental (1.3.0). The configuration the core runs (B7): `source` is `supervisor` (its `config.watch` snapshot and every `config.changed` since) or `file` (config.json read at start, when no supervisor answered). `revision` is the supervisor's revision of it, null for the file. `restartPending` is true when it differs from the configuration the core started with in a `core`-class key; the supervisor then restarts the core once. Absent before the core has read its configuration.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "source",
+    "restartPending"
+  ],
+  "properties": {
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "supervisor",
+        "file"
+      ]
+    },
+    "restartPending": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `JournalReplayStatus`
+
+```json
+{
+  "description": "Experimental (1.3.0). The journal replay a core runs in the background after `ready` (B2): `ready` no longer means the journal is drained. `replayed` counts the lines that left the journal so far; `pendingRemoval` those among them still in the `.replaying-*` file in progress (it is removed when the replay finishes that file, so journal counts include them until then); `kept` is the on-disk count after the last pass and `passes` the number of passes, both set when the replay ends. `aborted` is a stop that left lines unreplayed (they stay for the next start), `failed` a replay that could not read the journal. An empty journal is `done` with zeros at start. Absent before the core is ready.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "state",
+    "replayed",
+    "pendingRemoval",
+    "kept",
+    "passes",
+    "startedAt",
+    "finishedAt"
+  ],
+  "properties": {
+    "state": {
+      "type": "string",
+      "enum": [
+        "replaying",
+        "done",
+        "aborted",
+        "failed"
+      ]
+    },
+    "replayed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pendingRemoval": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "kept": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startedAt": {
+      "type": "integer",
+      "description": "Wall time (ms) the replay started."
+    },
+    "finishedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "Wall time (ms) the replay ended; null while it runs."
     }
   }
 }
@@ -2949,7 +4390,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Whether explicit shared memory (share/proposals) is available on this platform (E4). \"verified-path\" is reserved for a future fallback mode and is not produced yet.",
+  "description": "Whether explicit shared memory (share/proposals) is available on this platform (E4). \"fd-capability\": the Linux file-descriptor mode; \"verified-path\": the path-verified mode the engine uses on macOS and Windows (since engine E4.2); \"unavailable\": neither works here (`reason` says why).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -2974,11 +4415,32 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `CrashReason`
+
+```json
+{
+  "description": "Experimental (1.3.0). The supervisor's crash-reason vocabulary (ADR-012 §10): `ChildStatus.process.reason` of a crashed child and `ChildStatus.lastExit.reason` take these values. `gave-up`: the child exited five times inside the give-up window and is not restarted on its own (its last exit is in `lastExit`); `manifest-invalid` and `api-version-unsupported` are module-only (B12). Documentation: the fields stay plain strings.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "enum": [
+    "lock-held",
+    "config-invalid",
+    "engine-contract",
+    "ready-timeout",
+    "adopted-exit",
+    "manifest-invalid",
+    "api-version-unsupported",
+    "gave-up",
+    "none"
+  ]
+}
+```
+
 ### `ChildStatus`
 
 ```json
 {
-  "description": "One supervised child process as the supervisor sees it.",
+  "description": "One supervised child process as the supervisor sees it. A crashed child's `process.reason` and `lastExit.reason` are $defs/CrashReason values.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -3065,6 +4527,359 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ],
       "description": "epoch ms of the scheduled restart; null when none is scheduled"
+    },
+    "kind": {
+      "enum": [
+        "core",
+        "module"
+      ],
+      "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0."
+    }
+  }
+}
+```
+
+### `ModuleState`
+
+```json
+{
+  "description": "Experimental (1.3.0). A module child's health as the supervisor sees it (module.watch, module.state): its name, its ChildStatus process state, and its pid and instance id while a process runs.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "process",
+    "pid",
+    "instanceId"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "instanceId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `ModuleStatus`
+
+```json
+{
+  "description": "Experimental (1.3.0). A module process's own status (module.status, module.adopt): its process state, its manifest identity, and its link to the core.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "process",
+    "name",
+    "version",
+    "apiVersion",
+    "instanceId",
+    "pid",
+    "uptimeMs",
+    "core"
+  ],
+  "properties": {
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "version": {
+      "type": "string"
+    },
+    "apiVersion": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "uptimeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "core": {
+      "enum": [
+        "connected",
+        "reconnecting",
+        "not-needed"
+      ],
+      "description": "connected or reconnecting when the manifest needs the core; not-needed otherwise"
+    },
+    "detail": {
+      "type": "object",
+      "description": "what the module reports about itself (ModuleContext.setDetail)"
+    }
+  }
+}
+```
+
+### `ModuleListEntry`
+
+```json
+{
+  "description": "Experimental (1.3.0). One installed module (module.list, B14): its manifest identity (null fields when the manifest is invalid), whether modules.<name>.enabled lets it run, why it cannot start (manifest errors, a needs-cycle, an unresolved need, an unsupported apiVersion), its child while a supervisor runs it (null without a supervisor or before it has a slot), and the last module.status detail the supervisor polled (null when none).",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version",
+    "apiVersion",
+    "priority",
+    "band",
+    "scope",
+    "provides",
+    "consumes",
+    "needs",
+    "enabled",
+    "errors",
+    "child"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "apiVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "priority": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "band": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scope": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provides": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "consumes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "needs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "child": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ChildStatus"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "detail": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `ModuleGraph`
+
+```json
+{
+  "description": "Experimental (1.3.0). The module dependency graph (module.graph, spec §6.6): the core node first, then every installed module (valid: false with null fields for an invalid manifest); needs-edges and consumes-edges (with the capability); the needs-cycles (members sorted); and what does not resolve (a needs naming a missing or invalid module, a consumes without a provider).",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nodes",
+    "edges",
+    "cycles",
+    "unresolved"
+  ],
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version",
+          "priority",
+          "band",
+          "scope",
+          "extensionPoints",
+          "valid"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "band": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "extensionPoints": {
+            "type": "object",
+            "additionalProperties": {
+              "enum": [
+                "chain",
+                "collect"
+              ]
+            }
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "kind"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "needs",
+              "consumes"
+            ]
+          },
+          "capability": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cycles": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "kind"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "needs",
+              "consumes"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }
@@ -3300,6 +5115,40 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `RestartPlan`
+
+```json
+{
+  "description": "Experimental (1.3.0). A restart plan (ADR-013 §3): the changed live keys, whether the core restarts, and the modules that restart.",
+  "x-stability": "experimental",
+  "x-since": "1.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "live",
+    "core",
+    "modules"
+  ],
+  "properties": {
+    "live": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "core": {
+      "type": "boolean"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
 ### `MemoryId`
 
 ```json
@@ -3307,6 +5156,64 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
   "type": "string",
   "minLength": 1,
   "maxLength": 256
+}
+```
+
+### `IpcAddress`
+
+```json
+{
+  "description": "An IPC endpoint (engine IpcAddress): a Linux abstract socket name, an absolute unix-socket path or a Windows named pipe.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "address"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "abstract-socket",
+        "unix-socket",
+        "named-pipe"
+      ]
+    },
+    "address": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+### `EmbeddingIdentity`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fingerprintId",
+    "provider",
+    "model",
+    "dimensions"
+  ],
+  "properties": {
+    "fingerprintId": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
 }
 ```
 

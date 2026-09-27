@@ -1,27 +1,33 @@
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, renameSync, writeFileSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import type { JournalLine } from "@plur1bus/rpc-schema";
 import { createAgentRegistry } from "../src/agents.ts";
 import { appendJournalLine, drainJournal, JOURNAL_BACKLOG_MAX_BYTES, journalBacklog, replayJournal } from "../src/journal.ts";
-import { createLogger } from "../src/logger.ts";
+import { createLogger, type HarnessLogger } from "../src/logger.ts";
 import { layout } from "../src/paths.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
 const caller = { channel: "cli" as const, accountId: "h", userId: "u" };
 // messages must type as JournalLine's non-empty tuple, not a plain array, for strict tsc.
 const line = (id: string, content: string): JournalLine => ({ v: 1, id, at: 1, agentId: "bernd", sessionKey: "s1", caller, messages: [{ role: "user", content }] });
 
+const loggers: HarnessLogger[] = [];
+const newLogger = (file: string): HarnessLogger => { const lg = createLogger({ file, level: "debug", role: "core" }); loggers.push(lg); return lg; };
+// Before helpers/temp-dir.ts removes the homes (a describe's `after` runs ahead of the file-level one).
+function closeLoggers(): Promise<unknown> { return Promise.all(loggers.splice(0).map((lg) => lg.close())); }
+
 function setup() {
-  const l = layout(mkdtempSync(join(tmpdir(), "p1b-journal-"))); mkdirSync(l.journal, { recursive: true });
+  const l = layout(tempDir("p1b-journal-")); mkdirSync(l.journal, { recursive: true });
   const cfg = defaults(); cfg.agents.bernd = {}; const agents = createAgentRegistry(cfg, l); agents.scaffold("bernd");
-  const logger = createLogger({ file: l.logFile("core"), level: "debug", role: "core" });
+  const logger = newLogger(l.logFile("core"));
   return { l, agents, logger };
 }
 
 describe("journal", () => {
+  after(closeLoggers);
   it("replays complete lines and keeps a torn tail", async () => {
     const { l, agents, logger } = setup();
     appendJournalLine(l.journal, line("11111111-1111-4111-8111-111111111111", "one"));
@@ -203,10 +209,10 @@ describe("journal", () => {
   // test-only rename-injection seam to replayJournal's production signature.
   describe("round 2, finding 1: per-file isolation on a rename failure", () => {
     it("skips a file whose rename fails and still replays another agent's file", async () => {
-      const l = layout(mkdtempSync(join(tmpdir(), "p1b-journal-"))); mkdirSync(l.journal, { recursive: true });
+      const l = layout(tempDir("p1b-journal-")); mkdirSync(l.journal, { recursive: true });
       const cfg = defaults(); cfg.agents.bad = {}; cfg.agents.good = {};
       const agents = createAgentRegistry(cfg, l); agents.scaffold("bad"); agents.scaffold("good");
-      const logger = createLogger({ file: l.logFile("core"), level: "debug", role: "core" });
+      const logger = newLogger(l.logFile("core"));
       appendJournalLine(l.journal, { ...line("11111111-1111-4111-8111-111111111111", "bad-content"), agentId: "bad" });
       appendJournalLine(l.journal, { ...line("22222222-2222-4222-8222-222222222222", "good-content"), agentId: "good" });
       mkdirSync(join(l.journal, `bad.jsonl.replaying-${process.pid}`)); // blocks renameSync onto this exact path with EISDIR
@@ -335,6 +341,52 @@ describe("journal", () => {
       } } as any;
       const r = await drainJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 }, 3);
       assert.equal(r.passes, 3); assert.equal(r.replayed, 3); assert.equal(r.kept, 1, "the line appended during the last pass is the backlog");
+    });
+  });
+
+  // B2 (2a-H3b): the core serves while the journal replays, and a stop aborts the replay between lines.
+  describe("B2: abort signal", () => {
+    const ids = (n: number) => `${String(n).padStart(8, "0")}-1111-4111-8111-111111111111`;
+
+    it("an aborted signal keeps the rest of the file without calling capture", async () => {
+      const { l, agents, logger } = setup();
+      for (let i = 1; i <= 5; i++) appendJournalLine(l.journal, line(ids(i), `line ${i}`));
+      const ac = new AbortController(); let calls = 0;
+      const engine = { capture: () => { calls += 1; ac.abort(new Error("core stopping")); return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 1, skipped: 0 }), abort() {} }; } } as any;
+      const r = await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1, signal: ac.signal });
+      assert.equal(calls, 1, "no capture after the abort");
+      assert.deepEqual(r, { replayed: 1, kept: 4 });
+      const left = readFileSync(join(l.journal, "bernd.jsonl"), "utf8").trim().split("\n").map((x) => JSON.parse(x).messages[0].content);
+      assert.deepEqual(left, ["line 2", "line 3", "line 4", "line 5"]);
+      assert.deepEqual(readdirSync(l.journal).filter((f) => f.includes(".replaying-")), []);
+    });
+
+    it("renames no further file once aborted", async () => {
+      const { l, logger } = setup();
+      const cfg2 = defaults(); cfg2.agents.anna = {}; cfg2.agents.bernd = {};
+      const agents2 = createAgentRegistry(cfg2, l); agents2.scaffold("anna"); agents2.scaffold("bernd");
+      appendJournalLine(l.journal, { ...line(ids(1), "anna's"), agentId: "anna" });
+      appendJournalLine(l.journal, line(ids(2), "bernd's"));
+      const ac = new AbortController(); const captured: string[] = [];
+      const engine = { capture: (t: any) => { captured.push(t.messages[0].content); ac.abort(); return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 1, skipped: 0 }), abort() {} }; } } as any;
+      const r = await replayJournal({ dir: l.journal, agents: agents2, engine, logger, clock: () => 1, signal: ac.signal });
+      assert.equal(captured.length, 1); assert.equal(r.replayed, 1);
+      assert.deepEqual(readdirSync(l.journal).sort(), [captured[0] === "anna's" ? "bernd.jsonl" : "anna.jsonl"], "the other file was left as it was");
+    });
+
+    it("drainJournal runs no further pass after abort", async () => {
+      const { l, agents, logger } = setup();
+      appendJournalLine(l.journal, line(ids(1), "first"));
+      const ac = new AbortController(); let calls = 0;
+      const engine = { capture: () => {
+        calls += 1;
+        // A line arrives during the pass (would earn a second pass), and the core stops.
+        appendJournalLine(l.journal, line(ids(100 + calls), "during-replay")); ac.abort();
+        return { id: "x", acceptedAt: 1, done: Promise.resolve({ stored: 1, skipped: 0 }), abort() {} };
+      } } as any;
+      const r = await drainJournal({ dir: l.journal, agents, engine, logger, clock: () => 1, signal: ac.signal });
+      assert.equal(calls, 1);
+      assert.deepEqual(r, { replayed: 1, kept: 1, passes: 1 });
     });
   });
 });

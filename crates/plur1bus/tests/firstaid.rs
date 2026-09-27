@@ -309,6 +309,7 @@ fn check_json_validates_the_document_shape() {
         "models.warm",
         "memory.shared",
         "core.lock",
+        "modules.state",
         "service.registration",
         "agents.activity",
         "journal.backlog",

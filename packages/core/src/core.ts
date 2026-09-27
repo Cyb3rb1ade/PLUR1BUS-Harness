@@ -1,24 +1,26 @@
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { randomBytes, randomUUID } from "node:crypto";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
-import type { Engine, EngineStatus, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { HarnessConfig } from "@plur1bus/config-schema";
+import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
+import { ADMIN_METHODS } from "./admin-ops.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
-import { loadConfig } from "./config-load.ts";
+import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
 import { assertEngineContract, bindEngine } from "./engine.ts";
 import { buildEngineConfig } from "./engine-config.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
-import { drainJournal } from "./journal.ts";
 import { acquireCoreLock } from "./lock.ts";
-import { createLogger, type HarnessLogger } from "./logger.ts";
+import { createLogger, type HarnessLogger, type Level } from "./logger.ts";
 import { MEMORY_OP_METHODS } from "./memory-ops.ts";
-import { createOrphanWatch, type OrphanWatch } from "./orphan-watch.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
 import { callerToPrincipal } from "./principal.ts";
+import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
@@ -26,8 +28,9 @@ import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
- *  is never cut off (the client would journal the text and the next core would store it a second time). */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, "memory.capture"] as const;
+ *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
+ *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, "memory.capture"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -35,12 +38,18 @@ const DRAINED_METHODS = [...MEMORY_OP_METHODS, "memory.capture"] as const;
  *  the copy is refreshed every WARMING_REFRESH_MS as well (spec §6.3, S7). */
 const STATUS_CACHE_MS = 1000;
 const WARMING_REFRESH_MS = 250;
+/** H3B-R2: the longest a stop waits for the journal replay's capture in flight; never more than half its budget, so
+ *  the engine close keeps the rest (the whole stop stays inside the budget: plan criterion 4, the supervisor's kill
+ *  deadline at budget + stop grace). */
+const REPLAY_STOP_WAIT_MS = 5000;
 
 export interface Core {
   start(): Promise<void>;
   stop(o?: { budgetMs?: number }): Promise<void>;
   status(): CoreStatusResult;
   readonly address: string; readonly token: string; readonly layout: Layout;
+  /** The configuration the core runs now (B7); null before start() has read it. */
+  currentConfig(): HarnessConfig | null;
 }
 type State = ProcessState & { since: number };
 
@@ -58,6 +67,11 @@ export interface CoreOptions {
   lifeline?: NodeJS.ReadableStream;
   /** Called when the core has been orphaned for `supervisor.graceMs`, in place of calling stop() directly. */
   onOrphanGraceExpired?: () => void;
+  /** B7 (H3B-R8): load the configuration from the supervisor's `config.watch` (falling back to config.json), and
+   *  follow its `config.changed`. bin.ts sets it for `--lifeline stdin`; absent, the core reads config.json once. */
+  supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
+  /** Test seam: sees the HostServices the engine is given. */
+  inspectHost?: (host: HostServices) => void;
 }
 
 /** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
@@ -75,7 +89,6 @@ function projectJobs(jobs: EngineStatus["jobs"] | undefined): JobsStatus | null 
   };
 }
 
-const HEX64 = /^[0-9a-f]{64}$/; // both sides are lower-cased before the comparison
 /** The caller the CLI sends (crates/plur1bus/src/identity.rs: host name, OS user), so the recall-path warm-up reads
  *  as the CLI principal. */
 function cliCaller(): { channel: "cli"; accountId: string; userId: string } {
@@ -98,7 +111,9 @@ export function createCore(o: CoreOptions): Core {
   let journalBacklog = 0; let stopping: Promise<void> | null = null; let wroteRunFiles = false;
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
+  let source: ConfigSource | null = null;
   let warmup: Warmup | null = null;
+  let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
@@ -157,16 +172,26 @@ export function createCore(o: CoreOptions): Core {
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })),
       // E4: the engine reads the journal through the host capability; the replay's count when it reports none.
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
+      ...(replay ? { journalReplay: replay.status() } : {}),
       ...(jobs ? { jobs } : {}),
+      ...(source ? { config: { revision: source.revision(), source: source.source, restartPending: source.restartPending() } } : {}),
       deprecationsUsed: server?.deprecationsUsed() ?? [],
     };
   }
 
   async function start(): Promise<void> {
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal]) mkdirSync(d, { recursive: true, mode: 0o700 });
-    const { config } = loadConfig(l.configPath);
+    // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
+    // written once it does.
+    const early: [Level, string, Record<string, unknown> | undefined][] = [];
+    const at = (lvl: Level) => (msg: string, fields?: Record<string, unknown>) => { if (logger) logger[lvl](msg, fields); else early.push([lvl, msg, fields]); };
+    const cs = await openConfigSource({ layout: l, supervised: o.supervisorConfig !== undefined, logger: { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error") }, ...o.supervisorConfig });
+    source = cs;
+    const config = cs.current(); // the configuration the engine is built from (core-class keys)
+    const cfg = () => cs.current();
     logger = o.logger ?? createLogger({ file: l.logFile("core"), level: config.core.logLevel, role: "core", maxBytes: config.logs.maxBytes, keep: config.logs.keep });
     const log = logger;
+    for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
     const platform = createPlatformCapabilities({ logger: log });
     platform.securePath(l.run, { mode: 0o700 });
@@ -177,7 +202,7 @@ export function createCore(o: CoreOptions): Core {
         if (state.state !== "ready" && state.state !== "degraded") return;
         beforeOrphan = state;
         setState({ state: "orphaned", since });
-        log.warn("lifeline lost, core orphaned", { graceMs: config.supervisor.graceMs });
+        log.warn("lifeline lost, core orphaned", { graceMs: cfg().supervisor.graceMs });
       },
       onReattached: () => {
         if (state.state === "starting") { graceExpiredWhileStarting = false; return; } // an adoption before ready is a live lifeline
@@ -193,14 +218,36 @@ export function createCore(o: CoreOptions): Core {
       },
     });
     const graceExpired = () => {
-      log.warn("orphan grace expired, stopping", { graceMs: config.supervisor.graceMs });
+      log.warn("orphan grace expired, stopping", { graceMs: cfg().supervisor.graceMs });
       if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
     };
-    // Watched from the start (S4), so an adoption during the journal replay replaces the spawner's stdin, never the reverse.
+    // Watched from the start (S4), so an adoption during the engine start replaces the spawner's stdin, never the reverse.
     if (o.lifeline) orphans.watchStream(o.lifeline);
+    // Spec §6.1 live keys: applied as they arrive. `core.recall.*`, `core.capture.waitMs`, `core.shutdownBudgetMs` and
+    // `agents` are read per use; a `core`-class change waits for the supervisor's restart (restartPending).
+    const watchedOrphans = orphans;
+    cs.onChange((prev, next, plan) => {
+      if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
+      if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
+      if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
+      log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
+      log.debug("live keys applied", { keys: plan.restart.live });
+    });
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
-      const registry = createAgentRegistry({ path: l.configPath }, l, logger); agents = registry;
+      // Under the supervisor the agents follow its configuration; on its own the core follows config.json's edits.
+      // Decided per call (M7): a core that fell back to the file and later re-watched switches over, and back.
+      const supervised = createAgentRegistry({ config: cfg }, l, logger);
+      const fromFile = createAgentRegistry({ path: l.configPath }, l, logger);
+      const pick = <T>(f: (r: AgentRegistry) => T): T => {
+        if (cs.source === "supervisor") return f(supervised);
+        try { return f(fromFile); } catch { return f(supervised); } // no readable config.json: what runs
+      };
+      const registry: AgentRegistry = {
+        list: () => pick((r) => r.list()), has: (id) => pick((r) => r.has(id)),
+        scaffold: (id) => supervised.scaffold(id), workspaceOf: (id) => pick((r) => r.workspaceOf(id)),
+      };
+      agents = registry;
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       const unmapped = new Set<string>();
@@ -215,25 +262,38 @@ export function createCore(o: CoreOptions): Core {
           server?.notify("engine.event", { name, ...(typeof agentId === "string" && AGENT_ID.test(agentId) ? { agentId } : {}), payload }, { optIn: true });
         }
       };
-      const host = createHarnessHost({ layout: l, logger, config, engineConfig, agents: registry, events, clock });
-      const eng = bindEngine(host, engineConfig, o.testInternals); engine = eng;
+      const host = createHarnessHost({
+        layout: l, logger, config, engineConfig, agents: registry, events, clock,
+        // Offered only while a supervisor watch is live (M7: also after a later re-watch).
+        mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
+        canMutateConfig: () => cs.source === "supervisor",
+      });
+      o.inspectHost?.(host);
+      const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
+      const eng = bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined); engine = eng;
       assertEngineContract(eng);
       const es = await eng.status();
       cacheEngineStatus(es);
       storeSchema = es.storeSchema;
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
-        logger.warn("store schema differs from the engine's expected version; migration arrives with 2a-H3", { current: storeSchema.current, expected: storeSchema.expected });
+        logger.warn("store schema differs from the engine's expected version; run `plur1bus admin migrate`", { current: storeSchema.current, expected: storeSchema.expected });
       }
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
       const methods = buildMethods({
-        engine: eng, config, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
+        engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
         shutdown: (budgetMs) => {
           setImmediate(() => { if (o.onShutdownRequested) o.onShutdownRequested(budgetMs); else void stop(budgetMs !== undefined ? { budgetMs } : {}); });
         },
         adopt,
+        // B15: an applied admin.migrate changes the store's marker; core.status reads it from here.
+        onMigrated: async () => {
+          const s = await eng.status();
+          storeSchema = s.storeSchema;
+          cacheEngineStatus(s);
+        },
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -245,18 +305,14 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
-      // I2: replay once the socket accepts connections, so the CLI's captures go live instead of journaling while
-      // the journal is read; drainJournal re-runs the pass for any line that still arrived during one.
-      const replay = await drainJournal({ dir: l.journal, agents: registry, engine: eng, logger, clock });
-      journalBacklog = replay.kept;
-      // The cached engine status predates the replay (its journal count included the lines just replayed): the first
-      // core.status after ready must not report them.
-      cacheEngineStatus(await eng.status());
+      // Test seam (Task 2 review M2), honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1: holds the listening core in
+      // `starting`, so the lifeline paths before ready (grace expired while starting, adoption before ready) stay testable.
+      if (typeof startDelayMs === "number" && process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1") await new Promise((r) => setTimeout(r, startDelayMs));
       const ready: State = { state: "ready", since: clock() };
-      // A lifeline lost during the replay orphaned the core before it was ready; its grace may already have run out.
+      // A lifeline lost during the engine start orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
-      logger.info("core ready", { instanceId, address, replayed: replay.replayed, kept: replay.kept, replayPasses: replay.passes, supervised: o.lifeline !== undefined });
+      logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
       warmup = startWarmup({
@@ -272,6 +328,14 @@ export function createCore(o: CoreOptions): Core {
         },
         onRecallDone: () => { recallWarmPending = false; refreshEngineStatus(); },
       });
+      // B2 (I2): the journal replays in the background once the socket accepts connections, so the CLI's captures go
+      // live instead of journaling while it is read; drainJournal re-runs the pass for any line that still arrived
+      // during one. A stop aborts it between lines (shutdown.signal).
+      replay = startJournalReplay({
+        dir: l.journal, agents: registry, engine: eng, logger, clock, signal: shutdown.signal,
+        // The cached engine status predates the replay (its journal count included the lines just replayed).
+        onDone: (r) => { journalBacklog = r.kept; refreshEngineStatus(); },
+      });
       refreshEngineStatus(); // the probes now run: `warming` starts the WARMING_REFRESH_MS poll
       if (graceExpiredWhileStarting && state.state === "orphaned") graceExpired();
     } catch (e) {
@@ -281,6 +345,7 @@ export function createCore(o: CoreOptions): Core {
       shutdown.abort(new Error("core start failed"));
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
+      await step(log, "config watch", async () => { await source?.close(); });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -294,16 +359,15 @@ export function createCore(o: CoreOptions): Core {
   /** `core.adopt` (S3, S4): the nonce must equal the current run/supervisor.token, compared in constant time. */
   function adopt(nonce: string, connectionId: string): CoreStatusResult {
     if (state.state === "stopping" || state.state === "stopped") throw new RpcError("E_NOT_AVAILABLE", "core is stopping", { reason: "stopping" });
-    let expected: string | null = null;
-    try { expected = readFileSync(l.supervisorToken, "utf8").trim().toLowerCase(); } catch { /* missing: refused below */ }
-    const given = nonce.toLowerCase();
-    const ok = expected !== null && HEX64.test(expected) && HEX64.test(given) && timingSafeEqual(Buffer.from(given, "utf8"), Buffer.from(expected, "utf8"));
-    if (!ok) {
-      logger?.warn("adoption refused", { connectionId, tokenFile: expected === null ? "missing" : HEX64.test(expected) ? "present" : "malformed" });
+    const check = checkAdoptionNonce(l.supervisorToken, nonce);
+    if (!check.ok) {
+      logger?.warn("adoption refused", { connectionId, tokenFile: check.tokenFile });
       throw new RpcError("E_UNAUTHORIZED", "adoption refused", { reason: "adopt-nonce" });
     }
     orphans?.watchConnection(connectionId);
     logger?.info("adopted", { connectionId, state: state.state });
+    // B7: the adopting supervisor may run another configuration than the one this core follows.
+    void source?.resubscribe();
     return status();
   }
 
@@ -321,6 +385,7 @@ export function createCore(o: CoreOptions): Core {
     if (stopping) return stopping;
     stopping = (async () => {
       const t0 = performance.now(); const budgetMs = so.budgetMs ?? 30_000;
+      const remaining = () => Math.max(0, budgetMs - (performance.now() - t0));
       // G17: from here on isStopping() refuses new memory ops; the engine drains its side, then the server waits (in
       // what is left of the budget) for those replies to be written before it ends the sockets.
       setState({ state: "stopping", since: clock() });
@@ -330,10 +395,24 @@ export function createCore(o: CoreOptions): Core {
       shutdown.abort(new Error("core stopping"));
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
-      await step(logger, "engine close", async () => { await engine?.close({ budgetMs }); }, errors);
+      await step(logger, "config watch", async () => { await source?.close(); }, errors);
+      // H3B-R2: the abort acts between lines; the capture in flight gets a bounded wait before the engine closes. A
+      // replay still running then leaves its `.replaying-<pid>` file for the next start, and logs nothing more.
+      await step(logger, "journal replay", async () => {
+        if (!replay) return;
+        let timer: NodeJS.Timeout | null = null;
+        const waited = await Promise.race([
+          replay.done.then(() => true),
+          new Promise<boolean>((res) => { timer = setTimeout(() => res(false), Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }),
+        ]);
+        if (timer) clearTimeout(timer);
+        if (!waited) logger?.warn("journal replay still running at stop; its file stays for the next start", { replayed: replay.status().replayed });
+        replay.abandon(); // after a finished replay only detaches its logger
+      }, errors);
+      await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;
-        const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: Math.max(0, budgetMs - (performance.now() - t0)) });
+        const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: remaining() });
         if (!r.drained) logger?.warn("memory ops still pending at close", { pending: r.pending });
       }, errors);
       await step(logger, "server close", async () => { await server?.close({ graceMs: 1000 }); }, errors);
@@ -346,5 +425,5 @@ export function createCore(o: CoreOptions): Core {
     return stopping;
   }
 
-  return { start, stop, status, address, token, layout: l };
+  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null };
 }

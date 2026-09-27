@@ -7,7 +7,7 @@ import { WARMUP_QUERY, projectModels, startWarmup } from "../src/warmup.ts";
 type Line = [level: string, msg: string, fields: Record<string, unknown> | undefined];
 function recordingLogger(lines: Line[]): HarnessLogger {
   const at = (level: string) => (msg: string, fields?: Record<string, unknown>) => { lines.push([level, msg, fields]); };
-  const l: HarnessLogger = { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error"), child: () => l, setLevel: () => {}, close: async () => {} };
+  const l: HarnessLogger = { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error"), child: () => l, setLevel: () => {}, setRotation: () => {}, close: async () => {} };
   return l;
 }
 

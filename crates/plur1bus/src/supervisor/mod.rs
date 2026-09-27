@@ -1,33 +1,43 @@
-//! Supervisor: process lifecycle for the core (and, later, modules).
+//! Supervisor: process lifecycle for the core and the installed modules.
 //!
 //! `state` is the pure state machine (health, backoff, crash classification) with no I/O. `server` is the
-//! supervisor's RPC endpoint, `logfile` the size-rotated log files. [`run`] is `plur1bus supervise`: it claims the
+//! supervisor's RPC endpoint, `logfile` the size-rotated log files, `config` the owner of `config.json` (`config.*`,
+//! the file watcher) and `subscribers` the connections that receive supervisor notifications. [`run`] is `plur1bus supervise`: it claims the
 //! home (single instance), writes `run/supervisor.token` and `run/supervisor.pid`, serves `supervisor.auth` and
-//! `daemon.*`, adopts a core that is already running or spawns one (`adopt`, `child`), monitors it, and stops on
-//! `daemon.stop` or SIGTERM/SIGINT (the core first).
+//! `daemon.*`, adopts a core that is already running or spawns one (`adopt`, `child`), then does the same for every
+//! installed module in start order ([`start_modules`], D14), monitors them, and stops on `daemon.stop` or
+//! SIGTERM/SIGINT (the modules in reverse start order, then the core, inside one budget).
 #![allow(dead_code)]
 pub mod adopt;
 pub mod child;
+pub mod config;
 pub mod logfile;
+pub mod modules;
 #[cfg(windows)]
 pub mod pipe_windows;
 pub mod server;
 pub mod state;
+pub mod subscribers;
 
 use crate::paths::{supervisor_address, Layout};
 use logfile::RotatingFile;
+pub use modules::{module_list, push_module_op, ModuleOp, ModuleVerb, OpError};
+use modules::{reconcile_start, reconcile_stop, run_module_op, start_modules};
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
-use state::{Backoff, ChildState};
+pub use state::{next_due, Lifeline, Role, Slot};
+use state::{ChildState, RoleKind};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
 use std::io::{self, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use subscribers::Topic;
 
 /// `capabilities.features` of the supervisor's hello.
-pub const SUPERVISOR_FEATURES: &[&str] = &["adoption", "lifelines"];
+pub const SUPERVISOR_FEATURES: &[&str] = &["adoption", "config", "lifelines", "modules"];
 
 /// Budget for stopping the children when `daemon.stop` names none, and on SIGTERM/SIGINT.
 pub const DEFAULT_STOP_BUDGET: Duration = Duration::from_secs(10);
@@ -41,7 +51,8 @@ pub struct SuperviseOpts {
     pub no_core: bool,
 }
 
-/// `supervisor.*` and `logs.*` from `config.json`, read once at start (S15).
+/// `supervisor.*` and `logs.*` of the running configuration ([`config::supervisor_config`]); replaced whenever the
+/// running configuration changes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SupervisorConfig {
     pub grace_ms: u64,
@@ -50,15 +61,14 @@ pub struct SupervisorConfig {
     pub log_keep: u32,
 }
 
-/// What currently keeps the supervised core's lifeline (S4).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Lifeline {
-    /// No child, or the child's lifeline is gone (it is orphaned or has exited).
-    None,
-    /// A child this supervisor spawned: the supervisor holds the only write end of its stdin.
-    Stdin,
-    /// An adopted child: the authenticated connection on which `core.adopt` succeeded (Task 7).
-    Connection,
+/// A requested restart (B8): the units of `plan` are restarted by the main thread, which then sends the ones it
+/// restarted on `done` (a caller that stopped waiting has dropped the receiver; the send is then ignored).
+#[derive(Debug)]
+pub struct RestartJob {
+    pub plan: plur1bus_config::Restart,
+    pub done: std::sync::mpsc::Sender<Vec<String>>,
+    /// When it was queued: a unit spawned after this already runs the configuration that asked for it (M8).
+    pub queued_at: Instant,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,7 +88,7 @@ pub struct StopRequest {
     pub requested_at: Instant,
 }
 
-/// The supervisor's mutable state (ruling H3-R2), behind [`Shared::state`]. Task 6 fills `child`.
+/// The supervisor's mutable state (ruling H3-R2), behind [`Shared::state`].
 #[derive(Debug)]
 pub struct SupervisorState {
     /// Fresh UUID per supervisor start; also in `run/supervisor.pid` and the hello.
@@ -93,22 +103,41 @@ pub struct SupervisorState {
     /// `PLUR1BUS_SUPERVISOR_TIME_SCALE` (1.0 unless the test seam sets it): multiplies every supervisor duration.
     pub time_scale: f64,
     pub config: SupervisorConfig,
-    /// The core, once spawned or adopted. Its `health` carries the crash reason (`Health::Crashed { reason }`) and
-    /// `last_exit` the last exit with its reason; `adopted` says whether it was adopted (S19).
-    pub child: Option<ChildState>,
-    /// The core's lifeline source; `Lifeline::None` while there is no child.
-    pub lifeline: Lifeline,
+    /// One slot per supervised child, the core first: its state, lifeline, backoff and restart schedule.
+    pub slots: Vec<Slot>,
     /// Set by `daemon.stop` or a signal; the main thread then stops the children and exits 0.
     pub stopping: Option<StopRequest>,
-    /// The core's restart backoff (spec §6.4); `daemon.start` resets it.
-    pub backoff: Backoff,
-    /// When the main thread's scheduler respawns the core; set by an exit that the backoff allows to retry.
-    pub restart_at: Option<Instant>,
-    /// `daemon.start` asked for an immediate spawn (a no-op while the core is running).
-    pub start_requested: bool,
+    /// Requested restarts (`config.set` of a `core` key, a core reporting `restartPending`), run in order by the main
+    /// thread (B8), which a push wakes.
+    pub restart_jobs: VecDeque<RestartJob>,
+    /// The main thread is running a restart job (a core reporting `restartPending` then pushes none).
+    pub restart_running: bool,
+    /// The last spawn-to-ready time of the core (ms): `config.set`'s `estimates.core`. `None` before one.
+    pub core_ready_ms: Option<u64>,
+    /// Queued `module.*` control calls, run in order by the main thread after the restart jobs.
+    pub module_ops: VecDeque<ModuleOp>,
 }
 
 impl SupervisorState {
+    /// The slot of the child named `name` (`core`, or a module's name).
+    pub fn slot(&self, name: &str) -> Option<&Slot> {
+        self.slots.iter().find(|s| s.role.name == name)
+    }
+
+    pub fn slot_mut(&mut self, name: &str) -> Option<&mut Slot> {
+        self.slots.iter_mut().find(|s| s.role.name == name)
+    }
+
+    /// Every module child's `$defs/ModuleState`, in slot order (`module.watch`).
+    pub fn module_states(&self) -> Vec<Value> {
+        self.slots
+            .iter()
+            .filter(|s| s.role.kind == RoleKind::Module)
+            .filter_map(|s| s.child.as_ref())
+            .map(ChildState::to_module_state)
+            .collect()
+    }
+
     /// The `daemon.status` result.
     pub fn status_json(&self) -> Value {
         let process = match self.stopping {
@@ -122,17 +151,29 @@ impl SupervisorState {
                 "pid": self.pid,
                 "uptimeMs": self.started.elapsed().as_millis() as u64,
             },
-            "children": self.child.iter().map(ChildState::to_json).collect::<Vec<_>>(),
+            "children": self
+                .slots
+                .iter()
+                .filter_map(|s| s.child.as_ref())
+                .map(ChildState::to_json)
+                .collect::<Vec<_>>(),
         })
     }
 }
 
 /// State shared by every supervisor thread (S14): one mutex, one condvar that wakes the main thread (a stop, a
-/// scheduled restart, `daemon.start`), and the log.
+/// scheduled restart, `daemon.start`), and the log. `config` has its own mutex, taken before `state` when both are
+/// needed.
 pub struct Shared {
     pub state: Mutex<SupervisorState>,
     pub wake: Condvar,
     pub log: Log,
+    /// `config.json` as the supervisor owns it (B3–B5).
+    pub config: Mutex<config::ConfigState>,
+    /// Connections subscribed to `config.changed` or `module.state`.
+    pub subscribers: subscribers::Subscribers,
+    /// The children's out logs, so a `logs.*` change reaches them too.
+    pub out_logs: Mutex<Vec<Arc<Mutex<Option<RotatingFile>>>>>,
 }
 
 impl Shared {
@@ -200,6 +241,37 @@ impl Log {
     pub fn error(&self, msg: &str, fields: Value) {
         self.write("error", msg, fields)
     }
+    /// `logs.maxBytes` / `logs.keep` changed: applies from the next write on.
+    pub fn set_limits(&self, max_bytes: u64, keep: u32) {
+        if let Some(f) = relock(&self.file).as_mut() {
+            f.set_limits(max_bytes, keep);
+        }
+    }
+}
+
+/// Broadcasts `module.state` for `slot` when it is a module's and has a child; called with the state locked, right
+/// after the change, so the notifications keep the order of the changes (the lock order is state, then subscribers).
+pub(crate) fn broadcast_module_state(shared: &Shared, slot: &Slot) {
+    if slot.role.kind != RoleKind::Module {
+        return;
+    }
+    if let Some(c) = &slot.child {
+        let dropped =
+            shared
+                .subscribers
+                .broadcast(Topic::Modules, "module.state", &c.to_module_state());
+        for d in dropped {
+            shared.log.warn(
+                "module.state subscriber dropped",
+                json!({ "subscription": d.id, "reason": d.reason }),
+            );
+        }
+    }
+}
+
+/// Locks `m`, using a poisoned mutex anyway: a panicking thread takes the whole process down (exit 70).
+pub(crate) fn relock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 pub fn now_ms() -> u64 {
@@ -282,31 +354,6 @@ pub fn parse_time_scale(raw: Option<&str>) -> Result<f64, String> {
     }
 }
 
-/// Reads `supervisor.*` and `logs.*`. The supervisor never writes `config.json` (S15): a missing file means the
-/// defaults, and an unreadable or invalid one means the defaults plus a warning in the returned string.
-fn read_config(layout: &Layout) -> (SupervisorConfig, Option<String>) {
-    let path = layout.config_path();
-    let (config, warning) = if path.exists() {
-        match plur1bus_config::load(&path) {
-            Ok(l) => (l.config, None),
-            Err(e) => (plur1bus_config::defaults(), Some(e.to_string())),
-        }
-    } else {
-        (plur1bus_config::defaults(), None)
-    };
-    let num =
-        |section: &str, key: &str, fallback: u64| config[section][key].as_u64().unwrap_or(fallback);
-    (
-        SupervisorConfig {
-            grace_ms: num("supervisor", "graceMs", 60_000),
-            health_interval_ms: num("supervisor", "healthIntervalMs", 5_000),
-            log_max_bytes: num("logs", "maxBytes", 20 * 1024 * 1024),
-            log_keep: num("logs", "keep", 5).clamp(1, u32::MAX as u64) as u32,
-        },
-        warning,
-    )
-}
-
 fn platform() -> &'static str {
     if cfg!(windows) {
         "windows"
@@ -336,16 +383,6 @@ fn probe(layout: &Layout, address: &str) -> Option<u64> {
     };
     let client = Client::connect(address, &token, opts).ok()?;
     client.hello()["pid"].as_u64()
-}
-
-/// The pid in `run/supervisor.pid` (`<pid> <instanceId>`), if any.
-fn pid_from_file(layout: &Layout) -> Option<u64> {
-    fs::read_to_string(layout.supervisor_pid())
-        .ok()?
-        .split_whitespace()
-        .next()?
-        .parse()
-        .ok()
 }
 
 /// 32 random bytes as lower-case hex (S3).
@@ -444,13 +481,41 @@ fn release_own_console() {
     }
 }
 
-fn fail(code: i32, msg: &str) -> ! {
+/// Maps a non-transient supervisor exit to 0 under launchd (ruling B16): `KeepAlive.SuccessfulExit = false` would
+/// otherwise loop-restart 2 (usage/set-up failure) or 3 (another supervisor already owns the home) forever, and
+/// retrying under the same OS service registration can never fix either. Every other `code`, and every other
+/// `manager`, passes through unchanged. clap's own exit 2 for a CLI usage error never reaches here: it happens
+/// before `supervisor::run` is called.
+pub fn exit_code(code: i32, manager: Option<&str>) -> i32 {
+    if manager == Some("launchd") && matches!(code, 2 | 3) {
+        0
+    } else {
+        code
+    }
+}
+
+/// Exits with `code`, remapped through [`exit_code`] using `PLUR1BUS_SERVICE_MANAGER` (set by the launchd plist,
+/// `service::launchd::SERVICE_MANAGER_ENV`). When the remap changes the code, the reason is written to stderr and to
+/// `logs/supervisor.log` before exiting; every `fail` site that can produce 2 or 3 runs before the shared `Log` is
+/// open, so a fresh ad hoc one is opened here (harmless if it happens to race the real one: both append).
+fn fail(layout: &Layout, code: i32, msg: &str) -> ! {
     eprintln!("plur1bus supervise: {msg}");
-    std::process::exit(code)
+    let manager = std::env::var("PLUR1BUS_SERVICE_MANAGER").ok();
+    let mapped = exit_code(code, manager.as_deref());
+    if mapped != code {
+        let note = format!(
+            "exiting {mapped} instead of {code} so launchd does not restart a non-transient failure"
+        );
+        eprintln!("{note}");
+        let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+        log.info(&note, json!({}));
+    }
+    std::process::exit(mapped)
 }
 
 /// `plur1bus supervise`. Never returns: exits 0 after a stop, 2 on a usage error, 3 when another supervisor owns
-/// the home, 1 when the endpoint cannot be set up, 70 after a panic.
+/// the home (a supervisor answered), 1 when the endpoint cannot be set up or the lock stays held with no supervisor
+/// answering, 70 after a panic.
 pub fn run(layout: &Layout, opts: SuperviseOpts) -> ! {
     match catch_unwind(AssertUnwindSafe(|| run_inner(layout, opts))) {
         Ok(code) => std::process::exit(code),
@@ -466,11 +531,15 @@ pub fn run(layout: &Layout, opts: SuperviseOpts) -> ! {
 fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     let allow = allow_test_internals();
     if opts.no_core && !allow {
-        fail(2, "--no-core requires PLUR1BUS_ALLOW_TEST_INTERNALS=1");
+        fail(
+            layout,
+            2,
+            "--no-core requires PLUR1BUS_ALLOW_TEST_INTERNALS=1",
+        );
     }
     let time_scale = if allow {
         let raw = std::env::var("PLUR1BUS_SUPERVISOR_TIME_SCALE").ok();
-        parse_time_scale(raw.as_deref()).unwrap_or_else(|e| fail(2, &e))
+        parse_time_scale(raw.as_deref()).unwrap_or_else(|e| fail(layout, 2, &e))
     } else {
         1.0
     };
@@ -485,6 +554,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         create_private_dir(&layout.run()).and_then(|_| fs::create_dir_all(layout.logs()))
     {
         fail(
+            layout,
             1,
             &format!(
                 "cannot create run/ and logs/ under {}: {e}",
@@ -505,14 +575,16 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .open(layout.supervisor_lock())
         .unwrap_or_else(|e| {
             fail(
+                layout,
                 1,
                 &format!("cannot open {}: {e}", layout.supervisor_lock().display()),
             )
         });
     if let Err(e) = lock.try_lock() {
         match e {
-            fs::TryLockError::WouldBlock => already_running(layout, &address),
+            fs::TryLockError::WouldBlock => already_running(layout, &address, &lock),
             fs::TryLockError::Error(e) => fail(
+                layout,
                 1,
                 &format!("cannot lock {}: {e}", layout.supervisor_lock().display()),
             ),
@@ -520,33 +592,59 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     }
     // A supervisor that predates the lock, or a squatter, still answers here; a dead socket is removed.
     if let Some(pid) = probe(layout, &address) {
-        fail(3, &format!("supervisor already running (pid {pid})"));
+        fail(
+            layout,
+            3,
+            &format!("supervisor already running (pid {pid})"),
+        );
     }
     #[cfg(unix)]
     if Path::new(&address).exists() {
         let _ = fs::remove_file(&address);
     }
 
-    let (config, config_warning) = read_config(layout);
+    let config_state = config::initial(layout);
+    let config = config::supervisor_config(config_state.running.as_ref());
     let log = Log::open(
         &layout.log_file("supervisor"),
         config.log_max_bytes,
         config.log_keep,
     );
-    if let Some(w) = config_warning {
+    if let Some(r) = &config_state.rejected {
+        // B18: no configuration runs until a valid file appears; a core started now exits 2 (config-invalid).
         log.warn(
-            "config.json unreadable, using defaults",
-            json!({ "detail": w }),
+            "config.json is invalid; no configuration runs until it is fixed",
+            json!({ "errors": r.errors }),
+        );
+    }
+    if !config_state.module_errors.is_empty() {
+        log.warn(
+            "module configuration does not satisfy its configSchema",
+            json!({ "errors": config_state.module_errors }),
+        );
+    }
+    // M6: an install or uninstall that crashed left staging directories; a copy moved aside goes back.
+    let recovered = crate::modules::install::recover(layout);
+    if !recovered.is_empty() {
+        log.info("module staging recovered", json!({ "actions": recovered }));
+    }
+    // A write that crashed before its rename left its temp file; this process owns config.json now.
+    let stale = plur1bus_config::remove_stale_temps(&layout.config_path());
+    if !stale.is_empty() {
+        log.info(
+            "removed stale config.json temp files",
+            json!({ "files": stale }),
         );
     }
 
     let instance_id = uuid::Uuid::new_v4().to_string();
     let pid = std::process::id();
-    let token = fresh_token().unwrap_or_else(|e| fail(1, &format!("cannot generate a token: {e}")));
+    let token =
+        fresh_token().unwrap_or_else(|e| fail(layout, 1, &format!("cannot generate a token: {e}")));
     if let Err(e) = write_private(&layout.supervisor_token(), &token)
         .and_then(|_| write_private(&layout.supervisor_pid(), &format!("{pid} {instance_id}\n")))
     {
-        fail(1, &format!("cannot write the run files: {e}"));
+        fail(layout, 1, &format!("cannot write the run files: {e}"));
     }
 
     let shared = Arc::new(Shared {
@@ -558,15 +656,18 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             no_core: opts.no_core,
             time_scale,
             config,
-            child: None,
-            lifeline: Lifeline::None,
+            slots: vec![Slot::new(Role::core(), time_scale)],
             stopping: None,
-            backoff: Backoff::new(time_scale),
-            restart_at: None,
-            start_requested: false,
+            restart_jobs: VecDeque::new(),
+            restart_running: false,
+            core_ready_ms: None,
+            module_ops: VecDeque::new(),
         }),
         wake: Condvar::new(),
         log,
+        config: Mutex::new(config_state),
+        subscribers: subscribers::Subscribers::new(),
+        out_logs: Mutex::new(Vec::new()),
     });
 
     // Before the bind: from here on a SIGTERM takes the clean-stop path (the main loop below removes the files).
@@ -580,52 +681,71 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                 json!({ "address": address, "err": e.to_string() }),
             );
             remove_run_files(layout);
-            fail(1, &format!("cannot listen on {address}: {e}"));
+            fail(layout, 1, &format!("cannot listen on {address}: {e}"));
         }
     };
     {
         let shared2 = shared.clone();
-        spawn_guarded(&shared, "accept", move || server.serve(shared2))
-            .unwrap_or_else(|e| fail(1, &format!("cannot start the accept thread: {e}")));
+        let layout2 = layout.clone();
+        spawn_guarded(&shared, "accept", move || server.serve(shared2, layout2))
+            .unwrap_or_else(|e| fail(layout, 1, &format!("cannot start the accept thread: {e}")));
     }
+    config::spawn_watcher(&shared, layout, time_scale)
+        .unwrap_or_else(|e| fail(layout, 1, &format!("cannot start the config watcher: {e}")));
     shared.log.info(
         "supervisor ready",
         json!({ "pid": pid, "instanceId": instance_id, "address": address, "noCore": opts.no_core, "timeScale": time_scale }),
     );
 
-    // Built lazily: when core.js is missing the supervisor stays up with a fatal child (H3-R11), and `daemon.start`
-    // tries again.
-    let mut monitor: Option<child::Monitor> = None;
-    let spawn_core = |monitor: &mut Option<child::Monitor>| match monitor {
-        Some(m) => m.spawn(),
-        None => match child::core_spec(layout, &uuid::Uuid::new_v4().to_string()) {
-            Ok(spec) => *monitor = Some(child::Monitor::start(shared.clone(), layout, spec)),
-            Err(e) => child::mark_unspawnable(&shared, "core", &e),
-        },
-    };
+    // Monitors are built lazily, one per slot, keyed by the slot's name: when core.js is missing the supervisor stays
+    // up with a fatal child (H3-R11), and `daemon.start` tries again.
+    let mut monitors = Monitors::new();
     if !opts.no_core {
-        start_core(&shared, layout, &token, &mut monitor, spawn_core);
+        start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+        start_modules(&shared, layout);
     }
 
-    // Main thread: the restart scheduler (a due `restart_at`, `daemon.start`) until a stop.
+    // Main thread: the restart scheduler (a requested restart, a slot's `daemon.start` or due `restart_at`) until a
+    // stop.
     let stop = loop {
-        let spawn = {
+        let next = {
             let mut st = shared.lock();
             loop {
                 if let Some(stop) = st.stopping {
                     break Err(stop);
                 }
-                if std::mem::take(&mut st.start_requested) {
-                    st.restart_at = None;
-                    break Ok(());
+                // Before `daemon.start`: a job restarts a core that is down, and the start that follows is a no-op.
+                if !st.restart_jobs.is_empty() {
+                    // M8: every job queued by now is coalesced into one run.
+                    let jobs: Vec<RestartJob> = st.restart_jobs.drain(..).collect();
+                    st.restart_running = true;
+                    break Ok(Next::Job(jobs));
+                }
+                if let Some(op) = st.module_ops.pop_front() {
+                    break Ok(Next::Op(op));
                 }
                 let now = Instant::now();
-                st = match st.restart_at {
-                    Some(at) if at <= now => {
-                        st.restart_at = None;
-                        break Ok(());
-                    }
-                    Some(at) => match shared.wake.wait_timeout(st, at - now) {
+                // The core first: its start or due restart never waits behind the modules' first starts.
+                let core_due = st.slots.first().is_some_and(|s| {
+                    s.role.kind == RoleKind::Core
+                        && (s.start_requested || s.restart_at.is_some_and(|at| at <= now))
+                });
+                let due = if core_due {
+                    Some(0)
+                } else {
+                    next_due(&st.slots, now)
+                };
+                if let Some(i) = due {
+                    let slot = &mut st.slots[i];
+                    slot.start_requested = false;
+                    slot.restart_at = None;
+                    break Ok(Next::Due(slot.role.clone()));
+                }
+                st = match state::next_wake(&st.slots) {
+                    Some(at) => match shared
+                        .wake
+                        .wait_timeout(st, at.saturating_duration_since(now))
+                    {
                         Ok((g, _)) => g,
                         Err(e) => e.into_inner().0,
                     },
@@ -633,11 +753,25 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                 };
             }
         };
-        match spawn {
+        match next {
             Err(stop) => break stop,
-            Ok(()) => restart_core(&shared, layout, &token, &mut monitor, spawn_core),
+            Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &token, &mut monitors, jobs),
+            Ok(Next::Op(op)) => run_module_op(&shared, layout, &token, &mut monitors, op),
+            // A module's first start probes for one to adopt, like the core's at start (S6).
+            Ok(Next::Due(role))
+                if role.kind == RoleKind::Module && !monitors.contains_key(&role.name) =>
+            {
+                start_child(&shared, layout, &token, &role, &mut monitors)
+            }
+            Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
     };
+    // A job or module call still queued is not run: dropping its sender tells the waiting caller so.
+    {
+        let mut st = shared.lock();
+        st.restart_jobs.clear();
+        st.module_ops.clear();
+    }
     shared.log.info(
         "supervisor stopping",
         json!({ "budgetMs": stop.budget.as_millis() as u64, "source": match stop.source {
@@ -645,8 +779,28 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             StopSource::Signal(n) => format!("signal {n}"),
         } }),
     );
-    if let Some(m) = monitor.as_mut() {
-        m.stop(stop.budget);
+    // The slots are the core, then the modules in start order: stopped in reverse, the core last, all inside one
+    // budget plus one grace (M3, H3B-R25). A module is asked to finish by the end of the budget and killed there; the
+    // grace is the core's reserve: it is asked for what is left of the budget, at least half the grace, and killed at
+    // the end of the grace, so a hung module never costs the core its clean stop.
+    let order: Vec<(String, RoleKind)> = shared
+        .lock()
+        .slots
+        .iter()
+        .rev()
+        .map(|s| (s.role.name.clone(), s.role.kind))
+        .collect();
+    let grace = child::stop_grace(time_scale);
+    let budget_end = Instant::now() + stop.budget;
+    let deadline = budget_end + grace;
+    for (name, kind) in order {
+        if let Some(m) = monitors.get_mut(&name) {
+            let left = budget_end.saturating_duration_since(Instant::now());
+            match kind {
+                RoleKind::Module => m.stop_until(left, budget_end),
+                RoleKind::Core => m.stop_until(left.max(grace / 2), deadline),
+            }
+        }
     }
     remove_run_files(layout);
     shared.log.info("supervisor stopped", json!({}));
@@ -654,119 +808,272 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     0
 }
 
-/// The core at start (spec §6.4, S6): probe the address before any spawn ([`probe_and_adopt`]), and spawn only when
-/// no core was adopted.
-fn start_core(
-    shared: &Arc<Shared>,
-    layout: &Layout,
-    token: &str,
-    monitor: &mut Option<child::Monitor>,
-    spawn_core: impl Fn(&mut Option<child::Monitor>),
-) {
-    if !probe_and_adopt(shared, layout, token, monitor) && shared.lock().stopping.is_none() {
-        spawn_core(monitor);
+/// What the scheduler runs next.
+enum Next {
+    /// The requested restarts queued so far (B8), run as one (M8).
+    Job(Vec<RestartJob>),
+    /// A slot whose `daemon.start` or scheduled restart is due.
+    Due(Role),
+    /// A `module.*` control call.
+    Op(ModuleOp),
+}
+
+/// The monitors of the main thread, one per slot that has been spawned or adopted, keyed by the slot's name.
+type Monitors = BTreeMap<String, child::Monitor>;
+
+/// Spawns `role`'s child: through its monitor, or by building the monitor (and its spawn spec) first. A spec that
+/// cannot be built marks the child unspawnable (H3-R11).
+fn spawn_child(shared: &Arc<Shared>, layout: &Layout, role: &Role, monitors: &mut Monitors) {
+    match monitors.get_mut(&role.name) {
+        Some(m) => m.spawn(),
+        None => match child::spec_for(layout, role, &uuid::Uuid::new_v4().to_string()) {
+            Ok(spec) => {
+                let m = child::Monitor::start(shared.clone(), layout, role.clone(), spec);
+                monitors.insert(role.name.clone(), m);
+            }
+            Err(e) => child::mark_unspawnable(shared, &role.name, &e),
+        },
     }
 }
 
-/// A due restart or `daemon.start`. When the last exit was `lock-held`, another core holds `state/core.lock`: most
-/// likely one still starting (the core takes the lock seconds before it listens). So the address is probed again
-/// first, and a core that now serves is adopted instead of spawning yet another one that would exit 3.
-fn restart_core(
+/// Runs the requested restarts queued so far as one (B8, M8). The modules a plan names, and every module whose
+/// `enabled` or `needs` situation changed with it, are stopped first (reverse start order); then the core, when a plan
+/// names it, through [`child::Monitor::restart_requested`] (or a first spawn when there has been no process); then the
+/// modules are started in start order ([`reconcile_stop`], [`reconcile_start`]). A unit whose process spawned after the
+/// oldest job was queued already runs the configuration that asked for the restart and is left alone (M8). Every job
+/// is sent the units restarted.
+fn run_restart_jobs(
     shared: &Arc<Shared>,
     layout: &Layout,
     token: &str,
-    monitor: &mut Option<child::Monitor>,
-    spawn_core: impl Fn(&mut Option<child::Monitor>),
+    monitors: &mut Monitors,
+    jobs: Vec<RestartJob>,
 ) {
-    let running = monitor.as_ref().is_some_and(child::Monitor::is_running);
+    let mut restarted = Vec::new();
+    let no_core = shared.lock().no_core;
+    let core_wanted = jobs.iter().any(|j| j.plan.core);
+    let oldest = jobs.iter().map(|j| j.queued_at).min();
+    let modules: BTreeSet<String> = jobs
+        .iter()
+        .flat_map(|j| j.plan.modules.iter().cloned())
+        .collect();
+    let reconcile = (!no_core && !modules.is_empty())
+        .then(|| reconcile_stop(shared, layout, monitors, &modules, oldest));
+    if core_wanted && !no_core {
+        let core = Role::core();
+        let fresh = state::restart_already_done(
+            monitors
+                .get(&core.name)
+                .and_then(child::Monitor::running_since),
+            oldest,
+        );
+        match monitors.get_mut(&core.name) {
+            Some(_) if fresh => shared.log.info(
+                "core restart skipped: the running core started after it was requested",
+                json!({ "jobs": jobs.len() }),
+            ),
+            Some(m) => m.restart_requested(DEFAULT_STOP_BUDGET),
+            None => {
+                if let Some(slot) = shared.lock().slot_mut(&core.name) {
+                    slot.backoff.reset();
+                }
+                spawn_child(shared, layout, &core, monitors);
+            }
+        }
+        if monitors
+            .get(&core.name)
+            .is_some_and(child::Monitor::is_running)
+        {
+            restarted.push(core.name);
+        }
+    }
+    if let Some(r) = reconcile {
+        restarted.extend(reconcile_start(shared, layout, token, monitors, r));
+    }
+    shared.lock().restart_running = false;
+    for job in jobs {
+        let _ = job.done.send(restarted.clone());
+    }
+}
+
+/// Queues a requested restart of `plan`'s units and wakes the main thread; `None` (nothing queued) during a stop, or
+/// when the plan names only the core and there is none to restart (`--no-core`). The receiver yields the units
+/// restarted.
+pub fn push_restart(
+    shared: &Shared,
+    plan: plur1bus_config::Restart,
+) -> Option<std::sync::mpsc::Receiver<Vec<String>>> {
+    let mut st = shared.lock();
+    if st.stopping.is_some() || (st.no_core && plan.modules.is_empty()) {
+        return None;
+    }
+    let (done, rx) = std::sync::mpsc::channel();
+    st.restart_jobs.push_back(RestartJob {
+        plan,
+        done,
+        queued_at: Instant::now(),
+    });
+    shared.wake.notify_all();
+    Some(rx)
+}
+
+/// A child at start (spec §6.4, S6): probe its address before any spawn ([`probe_and_adopt`]), and spawn only when
+/// nothing was adopted.
+fn start_child(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    role: &Role,
+    monitors: &mut Monitors,
+) {
+    if !probe_and_adopt(shared, layout, token, role, monitors) && shared.lock().stopping.is_none() {
+        spawn_child(shared, layout, role, monitors);
+    }
+}
+
+/// A due restart or `daemon.start` of `role`. When the last exit was `lock-held`, another process holds the child's
+/// lock (`state/core.lock` for the core): most likely one still starting (the core takes the lock seconds before it
+/// listens). So the address is probed again first, and a child that now serves is adopted instead of spawning yet
+/// another one that would exit 3.
+fn restart_child(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    role: &Role,
+    monitors: &mut Monitors,
+) {
+    let running = monitors
+        .get(&role.name)
+        .is_some_and(child::Monitor::is_running);
     let lock_held = {
         let st = shared.lock();
-        st.child
-            .as_ref()
+        st.slot(&role.name)
+            .and_then(|s| s.child.as_ref())
             .and_then(|c| c.last_exit.as_ref())
             .and_then(|e| e.reason.as_deref())
             == Some(state::CrashReason::LockHeld.as_str())
     };
     if !running
         && lock_held
-        && (probe_and_adopt(shared, layout, token, monitor) || shared.lock().stopping.is_some())
+        && (probe_and_adopt(shared, layout, token, role, monitors)
+            || shared.lock().stopping.is_some())
     {
         return;
     }
-    spawn_core(monitor);
+    spawn_child(shared, layout, role, monitors);
 }
 
-/// Probes the core's address (S6). A serving core is adopted on the probe's own connection with the current token
-/// as nonce, and becomes the monitor's process; a hung or foreign one is terminated through the pin the probe took
-/// on the socket's server. Returns whether a core was adopted. A failed adoption (a core that is stopping) returns
-/// false: the spawn that follows exits 3 while it still holds the lock, and backs off.
+/// Probes `role`'s address (S6). A serving child is adopted on the probe's own connection with the current token as
+/// nonce, and becomes its monitor's process; a hung or foreign one is terminated through the pin the probe took on the
+/// socket's server. Returns whether a child was adopted. A failed adoption (a child that is stopping) returns false:
+/// the spawn that follows exits 3 while it still holds the lock, and backs off.
 fn probe_and_adopt(
     shared: &Arc<Shared>,
     layout: &Layout,
     token: &str,
-    monitor: &mut Option<child::Monitor>,
+    role: &Role,
+    monitors: &mut Monitors,
 ) -> bool {
-    let found = adopt::probe_core(layout, adopt::PROBE_TIMEOUT);
+    let found = match role.kind {
+        RoleKind::Core => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
+        RoleKind::Module => {
+            // The manifest as it is now (minor 3), else what the slot last saw.
+            let api = child::module_plan(layout, role, "probe")
+                .ok()
+                .map(|p| p.api_version)
+                .or_else(|| {
+                    shared
+                        .lock()
+                        .slot(&role.name)
+                        .and_then(|s| s.api_version.clone())
+                });
+            adopt::probe_module(layout, role, api.as_deref(), adopt::PROBE_TIMEOUT)
+        }
+    };
     let name = found.name();
     let reason = match &found {
         adopt::Probe::Foreign { reason, .. } => Some(reason.clone()),
         _ => None,
     };
     shared.log.info(
-        "core probe",
+        &format!("{} probe", role.name),
         json!({ "result": name, "peerPid": found.peer_pid(), "reason": reason }),
     );
     match found {
         adopt::Probe::Absent => false,
-        adopt::Probe::Serving { peer, client, .. } => match adopt::adopt(client, token) {
+        adopt::Probe::Serving { peer, client, .. } => match adopt::adopt(client, role, token) {
             Ok((lifeline, status)) => {
-                match monitor {
+                match monitors.get_mut(&role.name) {
                     Some(m) => m.attach_adopted(peer, lifeline, &status),
                     None => {
-                        let spec = child::core_spec(layout, &uuid::Uuid::new_v4().to_string()).ok();
-                        *monitor = Some(child::Monitor::adopt(
+                        let spec =
+                            child::spec_for(layout, role, &uuid::Uuid::new_v4().to_string()).ok();
+                        let m = child::Monitor::adopt(
                             shared.clone(),
                             layout,
+                            role.clone(),
                             spec,
                             peer,
                             lifeline,
                             &status,
-                        ));
+                        );
+                        monitors.insert(role.name.clone(), m);
                     }
                 }
                 true
             }
             Err(e) => {
                 shared.log.warn(
-                    "adoption failed, spawning a core",
+                    &format!("adoption failed, spawning a {}", role.name),
                     json!({ "err": e.to_string() }),
                 );
                 false
             }
         },
         adopt::Probe::Hung { peer } | adopt::Probe::Foreign { peer, .. } => {
-            adopt::terminate_found(shared, layout, peer, name);
+            adopt::terminate_found(shared, layout, role, peer, name);
             false
         }
     }
 }
 
-/// Another process holds the lock: it is a supervisor that is running or still starting. Report its pid (from
-/// its hello, else from its pid file) and exit 3.
-fn already_running(layout: &Layout, address: &str) -> ! {
+/// Another process holds the lock: a supervisor that is running or still starting, or a short-lived CLI holding it
+/// for an offline module mutation (`commands::module::offline_lock`). Probe for up to 3 s: a supervisor that answers
+/// is reported by pid and this process exits 3 (a non-transient refusal, 0 under launchd). When nothing answered,
+/// the lock is tried once more; on success this process continues as the supervisor. Otherwise it exits 1, a
+/// transient failure that launchd's `KeepAlive{SuccessfulExit:false}` retries after its throttle interval, so a
+/// supervisor started while an offline `module install` held the lock is not lost (final review I1).
+fn already_running(layout: &Layout, address: &str, lock: &fs::File) {
     let deadline = Instant::now() + Duration::from_secs(3);
-    let pid = loop {
+    loop {
         if let Some(pid) = probe(layout, address) {
-            break Some(pid);
+            fail(
+                layout,
+                3,
+                &format!("supervisor already running (pid {pid})"),
+            );
         }
         if Instant::now() >= deadline {
-            break pid_from_file(layout);
+            break;
         }
         std::thread::sleep(Duration::from_millis(50));
-    };
-    match pid {
-        Some(pid) => fail(3, &format!("supervisor already running (pid {pid})")),
-        None => fail(3, "supervisor already running (pid unknown)"),
+    }
+    match lock.try_lock() {
+        Ok(()) => {}
+        Err(fs::TryLockError::WouldBlock) => fail(
+            layout,
+            1,
+            &format!(
+                "{} is held but no supervisor answered (an offline module change, or a supervisor still \
+                 starting or stopping); try again",
+                layout.supervisor_lock().display()
+            ),
+        ),
+        Err(fs::TryLockError::Error(e)) => fail(
+            layout,
+            1,
+            &format!("cannot lock {}: {e}", layout.supervisor_lock().display()),
+        ),
     }
 }
 
@@ -806,6 +1113,26 @@ fn watch_signals(shared: &Arc<Shared>) {
     }
 }
 
+/// A `SupervisorState` for unit tests: `--no-core`, scale 1, default configuration.
+#[cfg(test)]
+pub(crate) fn test_state() -> SupervisorState {
+    SupervisorState {
+        instance_id: uuid::Uuid::new_v4().to_string(),
+        pid: 42,
+        started: Instant::now(),
+        started_at_ms: now_ms(),
+        no_core: true,
+        time_scale: 1.0,
+        config: config::supervisor_config(None),
+        slots: vec![Slot::new(Role::core(), 1.0)],
+        stopping: None,
+        restart_jobs: VecDeque::new(),
+        restart_running: false,
+        core_ready_ms: None,
+        module_ops: VecDeque::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -820,6 +1147,22 @@ mod tests {
         ] {
             assert!(parse_time_scale(Some(bad)).is_err(), "{bad:?} accepted");
         }
+    }
+
+    #[test]
+    fn non_transient_exits_are_0_under_launchd_only() {
+        // 2 (usage/setup) and 3 (already running) are non-transient: retrying under the same OS service
+        // registration cannot succeed, so launchd must not loop-restart them (ruling B16).
+        assert_eq!(exit_code(2, Some("launchd")), 0);
+        assert_eq!(exit_code(3, Some("launchd")), 0);
+        // A transient or fatal exit is never masked, even under launchd.
+        assert_eq!(exit_code(1, Some("launchd")), 1);
+        assert_eq!(exit_code(70, Some("launchd")), 70);
+        // No other manager remaps anything.
+        assert_eq!(exit_code(2, None), 2);
+        assert_eq!(exit_code(3, None), 3);
+        assert_eq!(exit_code(2, Some("systemd")), 2);
+        assert_eq!(exit_code(3, Some("systemd")), 3);
     }
 
     #[test]
@@ -849,13 +1192,13 @@ mod tests {
             started_at_ms: now_ms(),
             no_core: true,
             time_scale: 1.0,
-            config: read_config(&Layout::new("/nonexistent-p1b-home".into())).0,
-            child: None,
-            lifeline: Lifeline::None,
+            config: config::supervisor_config(None),
+            slots: vec![Slot::new(Role::core(), 1.0)],
             stopping: None,
-            backoff: Backoff::new(1.0),
-            restart_at: None,
-            start_requested: false,
+            restart_jobs: VecDeque::new(),
+            restart_running: false,
+            core_ready_ms: None,
+            module_ops: VecDeque::new(),
         };
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {

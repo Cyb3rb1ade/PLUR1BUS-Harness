@@ -1,0 +1,2 @@
+{ "params": { "refresh": true },
+  "result": { "ok": true, "cached": false, "identity": { "fingerprintId": "fp-flat-384", "provider": "test", "model": "flat", "dimensions": 384 }, "durationMs": 1.5, "checkedAt": 1790000000000 } }

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { validateErrorObject } from "@plur1bus/rpc-schema";
-import { RpcError } from "../src/rpc/errors.ts";
+import { RpcError } from "../src/rpc-error.ts";
 
 describe("RpcError", () => {
   it("RpcError serialises ids only when present", () => {
