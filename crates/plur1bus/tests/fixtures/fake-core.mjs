@@ -6,7 +6,8 @@
 //   ok                    serve until core.shutdown or lifeline loss
 //   crash-after:<ms>      serve, then exit 1 <ms> after it reports ready (on Windows: once run/ is secured)
 //   exit:<code>           exit with <code> at once, before the lock
-//   listen-after:<ms>     hold the lock and write the run files, but listen only after <ms> (a core still starting)
+//   listen-on-signal      hold the lock and write the run files, but listen only once <home>/state/fake-core-listen
+//                         exists (a core still starting, for as long as the test needs)
 //   hang-after:<ms>       serve, then stop answering every request <ms> after it reports ready (on Windows: once run/
 //                         is secured; no SIGTERM handler; event `hung`)
 //   no-listen             start (run files not written) but never listen
@@ -27,7 +28,7 @@
 // after FAKE_CORE_GRACE_MS (default 1000) unless a core.adopt arrives first.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { execFile } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -312,8 +313,10 @@ if (kind !== "no-listen") {
     // it at the ready timeout and starts another, which is not the hung core a test then stops.
     if (kind === "hang-after") whenSecured(() => setTimeout(() => { hung = true; event("hung"); }, Number(a)));
   });
-  if (kind === "listen-after") setTimeout(listen, Number(a));
-  else listen();
+  if (kind === "listen-on-signal") {
+    const signal = path.join(stateDir, "fake-core-listen");
+    const poll = setInterval(() => { if (existsSync(signal)) { clearInterval(poll); listen(); } }, 20);
+  } else listen();
 }
 
 if (values.lifeline === "stdin") {
