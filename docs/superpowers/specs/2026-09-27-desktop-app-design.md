@@ -886,6 +886,7 @@ Milestone = where the screen can first be built (the SPA from M3; a board needin
 | G5 | Extensions: the `plur1bus://install` confirm page (catalogue id only), catalogue view, purge/restore, capability rows for `hostBridge` and `mcpApps` (D79) | `DskB-P1x-*` | X3, X4 |
 | G6 | Installer artwork and store listings: DMG background, NSIS header/sidebar bitmaps, MSIX Store listing images, Flathub/AppStream screenshots | `DskIcons` | D1 (Task 17) |
 | G7 | Web UI: dark variants of the `RspB-*` examples and of most `V2*` boards (C2), a theme control on `V2General` (C2), `V2Search` at compact and wide, native-mode (non-container) variants of the C5 rows | `RspB-Sidebar-states` (light + dark) | M3 |
+| G8 | Direct chat without a project or card (D92/D93, 2026-09-28): chat home/history, empty state, agent picker, incognito state, promote-to-card dialog, `RspB-Chat-*`, sidebar *Chat* entry, tray *New chat*, D2 quick chat — brief in `2026-09-28-direct-chat-design.md` §8 | `V2Session` (card-bound only), `V2ComposerStates`, `V2Search` "Ask Bernd about …" | M2 (CLI), M3 (web), D1/D2 |
 
 **(b) Screens with no spec or plan backing — 11.**
 
