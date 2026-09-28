@@ -316,6 +316,9 @@ fn check_json_validates_the_document_shape() {
         "jobs.last-runs",
         "api.deprecations",
         "windows.pipe-acl",
+        "runtime.node",
+        "runtime.core",
+        "models.cache",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -333,6 +336,42 @@ fn check_json_validates_the_document_shape() {
         );
         assert!(c["summary"].is_string(), "{c}");
     }
+}
+
+/// HB15: `CHECK_IDS` grows from 15 to 18 with the installer checks appended at the end, in order.
+#[test]
+fn check_json_lists_18_ids_in_order_with_the_three_new_ones_last() {
+    let h = Home::new();
+    let out = check_cmd(&h).output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let v = json_stdout(&out);
+    let ids: Vec<String> = v["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(ids.len(), 18, "{v}");
+    assert_eq!(
+        &ids[15..],
+        &["runtime.node", "runtime.core", "models.cache"],
+        "{v}"
+    );
+}
+
+/// HB15: a dev home with no install manifest never gets a `fail` from the new checks — `runtime.node` and
+/// `runtime.core` `skip` (never installed by `setup`), and `models.cache` only `warn`s that the models are not
+/// cached yet.
+#[test]
+fn a_dev_home_has_no_fail_from_the_new_checks() {
+    let h = Home::new();
+    let out = check_cmd(&h).output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let v = json_stdout(&out);
+    let checks = checks_by_id(&v);
+    assert_eq!(checks["runtime.node"]["status"], "skip", "{v}");
+    assert_eq!(checks["runtime.core"]["status"], "skip", "{v}");
+    assert_ne!(checks["models.cache"]["status"], "fail", "{v}");
 }
 
 /// Review Focus 3: the run files a SIGKILL or a power loss leaves behind (sockets, pid files and both token files),

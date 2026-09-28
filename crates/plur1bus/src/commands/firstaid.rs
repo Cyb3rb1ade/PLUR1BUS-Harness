@@ -32,7 +32,7 @@ const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 15] = [
+const CHECK_IDS: [&str; 18] = [
     "config.valid",
     "run.permissions",
     "run.stale-files",
@@ -48,6 +48,9 @@ const CHECK_IDS: [&str; 15] = [
     "jobs.last-runs",
     "api.deprecations",
     "windows.pipe-acl",
+    "runtime.node",
+    "runtime.core",
+    "models.cache",
 ];
 
 /// `true` (after filling `checks` up to [`CHECK_IDS`]'s length with a "time budget exhausted" warning each) once
@@ -302,6 +305,27 @@ pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
     }
 
     checks.push(check_windows_pipe_acl(layout));
+
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+
+    // HB15: the installer checks. A home with no install manifest (every dev setup, every test before this task)
+    // always `skip`s `runtime.*`; `models.cache` has no such gate.
+    let manifest = crate::install::manifest::read(layout).unwrap_or(None);
+    checks.push(super::firstaid_install::check_runtime_node(
+        layout,
+        manifest.as_ref(),
+    ));
+    checks.push(super::firstaid_install::check_runtime_core(
+        layout,
+        manifest.as_ref(),
+        core_status.as_ref(),
+    ));
+    checks.push(super::firstaid_install::check_models_cache(
+        layout,
+        core_status.as_ref(),
+    ));
     checks
 }
 
