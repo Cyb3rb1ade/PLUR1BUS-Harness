@@ -102,6 +102,9 @@ pub struct SupervisorState {
     pub no_core: bool,
     /// `PLUR1BUS_SUPERVISOR_TIME_SCALE` (1.0 unless the test seam sets it): multiplies every supervisor duration.
     pub time_scale: f64,
+    /// The core's ready timeout has its floor (`child::CORE_READY_FLOOR`): true unless the test seam
+    /// `PLUR1BUS_SUPERVISOR_NO_CORE_READY_FLOOR=1` (with test internals) drops it.
+    pub core_ready_floor: bool,
     pub config: SupervisorConfig,
     /// One slot per supervised child, the core first: its state, lifeline, backoff and restart schedule.
     pub slots: Vec<Slot>,
@@ -568,6 +571,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     } else {
         1.0
     };
+    let core_ready_floor =
+        !(allow && std::env::var(child::NO_CORE_READY_FLOOR_ENV).as_deref() == Ok("1"));
     #[cfg(windows)]
     {
         release_own_console();
@@ -694,6 +699,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             started_at_ms: now_ms(),
             no_core: opts.no_core,
             time_scale,
+            core_ready_floor,
             config,
             slots: vec![Slot::new(Role::core(), time_scale)],
             stopping: None,
@@ -1163,6 +1169,7 @@ pub(crate) fn test_state() -> SupervisorState {
         started_at_ms: now_ms(),
         no_core: true,
         time_scale: 1.0,
+        core_ready_floor: true,
         config: config::supervisor_config(None),
         slots: vec![Slot::new(Role::core(), 1.0)],
         stopping: None,
@@ -1233,6 +1240,7 @@ mod tests {
             started_at_ms: now_ms(),
             no_core: true,
             time_scale: 1.0,
+            core_ready_floor: true,
             config: config::supervisor_config(None),
             slots: vec![Slot::new(Role::core(), 1.0)],
             stopping: None,

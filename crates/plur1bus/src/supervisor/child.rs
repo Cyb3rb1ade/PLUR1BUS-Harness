@@ -186,7 +186,8 @@ fn with_instance(spec: &ChildSpec, instance_id: &str) -> ChildSpec {
 /// The supervisor's durations for one child (S8, spec §6.4).
 #[derive(Debug, Clone, Copy)]
 struct Timing {
-    /// Readiness: connect + `core.auth` every `ready_poll`, give up after `ready_timeout` (60 s × scale).
+    /// Readiness: connect + `core.auth` every `ready_poll`, give up after `ready_timeout` (60 s × scale, at least
+    /// [`CORE_READY_FLOOR`] / [`MODULE_READY_FLOOR`]).
     ready_poll: Duration,
     ready_timeout: Duration,
     /// `supervisor.healthIntervalMs` × scale, and the deadline of each `core.status`. The interval is a live key:
@@ -221,6 +222,15 @@ pub const READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// a module is now ready well under 3 s (`tests/windows.rs` asserts that speed directly): a timeout is headroom, a
 /// larger one costs a passing start nothing, and a tighter one only turned slow CI runners into flakes.
 pub const MODULE_READY_FLOOR: Duration = Duration::from_secs(10);
+/// The shortest ready timeout the core gets whatever the time scale, for the same reason as [`MODULE_READY_FLOOR`]:
+/// at the tests' scale (0.02) 1.2 s did not cover a Node core's start (securing `run/`, Node's own start-up) on a
+/// loaded Windows runner, and the core killed as `ready-timeout` and respawned broke every test that counts core
+/// restarts, `started` events or compares the core's pid. At time scale 1 (production) the timeout is 60 s and this
+/// floor never applies. A test of the core's ready timeout itself drops it through [`NO_CORE_READY_FLOOR_ENV`].
+pub const CORE_READY_FLOOR: Duration = Duration::from_secs(10);
+/// Test seam (only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`): `=1` drops [`CORE_READY_FLOOR`], so a test of a core that
+/// never becomes ready sees the plain scaled timeout (60 s × scale) instead of waiting out the floor.
+pub const NO_CORE_READY_FLOOR_ENV: &str = "PLUR1BUS_SUPERVISOR_NO_CORE_READY_FLOOR";
 
 /// The variable through which the supervisor tells a child that `run/` carries the protected, inheritable
 /// user-and-SYSTEM ACL (HB5): its `securePath` then runs no `icacls` for `run/` and the files directly inside it.
@@ -239,10 +249,12 @@ pub fn child_env(run_acl_inherited: bool) -> Vec<(&'static str, &'static str)> {
 }
 
 /// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module at least
-/// [`MODULE_READY_FLOOR`].
-pub fn ready_timeout(kind: RoleKind, scale: f64) -> Duration {
+/// [`MODULE_READY_FLOOR`], for the core at least [`CORE_READY_FLOOR`] unless `core_floor` is false (the test seam
+/// [`NO_CORE_READY_FLOOR_ENV`]; `State::core_ready_floor`).
+pub fn ready_timeout(kind: RoleKind, scale: f64, core_floor: bool) -> Duration {
     let scaled = READY_TIMEOUT.mul_f64(scale);
     match kind {
+        RoleKind::Core if core_floor => scaled.max(CORE_READY_FLOOR),
         RoleKind::Core => scaled,
         RoleKind::Module => scaled.max(MODULE_READY_FLOOR),
     }
@@ -253,7 +265,7 @@ impl Timing {
         let s = |ms: u64| Duration::from_secs_f64(ms as f64 / 1000.0 * scale);
         Self {
             ready_poll: Duration::from_millis(100),
-            ready_timeout: ready_timeout(RoleKind::Core, scale),
+            ready_timeout: ready_timeout(RoleKind::Core, scale, true),
             health_interval: s(health_interval_ms),
             poll_deadline: Duration::from_secs(2),
             // A long configured interval must not look like a hang between two healthy polls.
@@ -265,10 +277,11 @@ impl Timing {
         }
     }
 
-    /// This timing for a child of `kind`: a module's ready timeout has a floor ([`ready_timeout`]).
-    fn for_kind(self, kind: RoleKind) -> Self {
+    /// This timing for a child of `kind`: the ready timeout has a floor ([`ready_timeout`]; the core's only when
+    /// `core_floor`).
+    fn for_kind(self, kind: RoleKind, core_floor: bool) -> Self {
         Timing {
-            ready_timeout: ready_timeout(kind, self.scale),
+            ready_timeout: ready_timeout(kind, self.scale, core_floor),
             ..self
         }
     }
@@ -486,7 +499,8 @@ impl Monitor {
         let (timing, max_bytes, keep) = {
             let st = shared.lock();
             (
-                Timing::new(st.time_scale, st.config.health_interval_ms).for_kind(role.kind),
+                Timing::new(st.time_scale, st.config.health_interval_ms)
+                    .for_kind(role.kind, st.core_ready_floor),
                 st.config.log_max_bytes,
                 st.config.log_keep,
             )
@@ -1631,7 +1645,8 @@ mod tests {
     fn timing_scales_everything_but_the_poll_cadence_and_deadline() {
         let t = Timing::new(0.02, 5_000);
         assert_eq!(t.health_interval, Duration::from_millis(100));
-        assert_eq!(t.ready_timeout, Duration::from_millis(1200));
+        // The one exception: the core's ready timeout has a floor (1.2 s scaled).
+        assert_eq!(t.ready_timeout, CORE_READY_FLOOR);
         assert_eq!(t.hang, Duration::from_millis(600));
         assert_eq!(t.term_after, Duration::from_millis(40));
         assert_eq!(t.kill_after, Duration::from_millis(200));
@@ -1644,28 +1659,41 @@ mod tests {
     }
 
     #[test]
-    fn a_module_ready_timeout_has_a_floor_only_below_it() {
+    fn a_ready_timeout_has_a_floor_only_below_it() {
         let t = Timing::new(0.02, 5_000);
         assert_eq!(
-            t.for_kind(RoleKind::Core).ready_timeout,
+            t.for_kind(RoleKind::Core, true).ready_timeout,
+            CORE_READY_FLOOR
+        );
+        assert_eq!(
+            t.for_kind(RoleKind::Module, true).ready_timeout,
+            MODULE_READY_FLOOR
+        );
+        // The seam that drops the core's floor (a test of the ready timeout itself); a module keeps its own.
+        assert_eq!(
+            t.for_kind(RoleKind::Core, false).ready_timeout,
             Duration::from_millis(1200)
         );
         assert_eq!(
-            t.for_kind(RoleKind::Module).ready_timeout,
+            ready_timeout(RoleKind::Core, 0.02, false),
+            Duration::from_millis(1200)
+        );
+        assert_eq!(
+            t.for_kind(RoleKind::Module, false).ready_timeout,
             MODULE_READY_FLOOR
         );
-        // Production (scale 1): both keep 60 s.
+        // Production (scale 1): both keep 60 s, with or without the core floor.
         for kind in [RoleKind::Core, RoleKind::Module] {
-            assert_eq!(ready_timeout(kind, 1.0), Duration::from_secs(60));
-            assert_eq!(
-                Timing::new(1.0, 5_000).for_kind(kind).ready_timeout,
-                Duration::from_secs(60)
-            );
+            for floor in [true, false] {
+                assert_eq!(ready_timeout(kind, 1.0, floor), Duration::from_secs(60));
+                assert_eq!(
+                    Timing::new(1.0, 5_000).for_kind(kind, floor).ready_timeout,
+                    Duration::from_secs(60)
+                );
+            }
+            // Above the floor the scaled value stands.
+            assert_eq!(ready_timeout(kind, 0.5, true), Duration::from_secs(30));
         }
-        assert_eq!(
-            ready_timeout(RoleKind::Module, 0.5),
-            Duration::from_secs(30)
-        );
     }
 
     /// The stop sequence returns once `gen.exited` is set, and the supervisor then logs `supervisor stopped` and exits
