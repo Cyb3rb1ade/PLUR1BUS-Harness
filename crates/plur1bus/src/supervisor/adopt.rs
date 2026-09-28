@@ -369,7 +369,7 @@ impl Peer {
 
     /// Whether the process still exists. Linux: the pidfd is not readable (it becomes readable when the process
     /// exits, zombie included). Windows: the handle is not signalled; without a handle "cannot tell" counts as alive
-    /// while the core's pipe still exists. Otherwise `kill(pid, 0)`, with a Linux zombie counted as gone.
+    /// while the core's pipe still exists. Otherwise `kill(pid, 0)`, with a zombie (Linux, macOS) counted as gone.
     pub fn alive(&self) -> bool {
         #[cfg(target_os = "linux")]
         if let Some(fd) = &self.pidfd {
@@ -496,7 +496,32 @@ fn is_zombie(pid: u32) -> bool {
         == Some('Z')
 }
 
-#[cfg(all(unix, not(target_os = "linux")))]
+/// macOS: `proc_pidinfo(PROC_PIDTBSDINFO)` with a non-zero `arg` also finds a zombie (`proc_find_zombref`), and its
+/// `pbi_status` is then `SZOMB`. `kill(pid, 0)` succeeds on a zombie, so without this an exited but unreaped process
+/// (a child of the caller, as in `1staid repair`'s tests) would count as alive for as long as it stays unreaped, and
+/// its socket, closed at exit, would make every later signal look like a lost pin.
+#[cfg(target_os = "macos")]
+fn is_zombie(pid: u32) -> bool {
+    let Ok(pid) = libc::c_int::try_from(pid) else {
+        return false;
+    };
+    // SAFETY: zeroed plain-old-data, filled by proc_pidinfo up to `size` bytes.
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
+    // SAFETY: the buffer is a live local of `size` bytes.
+    let n = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            1,
+            (&mut info as *mut libc::proc_bsdinfo).cast(),
+            size,
+        )
+    };
+    n == size && info.pbi_status == libc::SZOMB
+}
+
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
 fn is_zombie(_pid: u32) -> bool {
     false
 }
@@ -638,8 +663,8 @@ mod tests {
         assert!(Peer::open(std::process::id(), &layout).alive());
         let mut child = std::process::Command::new("true").spawn().unwrap();
         let pid = child.id();
-        // Exited but not reaped: on Linux a zombie counts as gone.
-        #[cfg(target_os = "linux")]
+        // Exited but not reaped: on Linux (/proc stat `Z`) and macOS (`pbi_status == SZOMB`) a zombie counts as gone.
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
         {
             let deadline = Instant::now() + Duration::from_secs(5);
             while Peer::open(pid, &layout).alive() {

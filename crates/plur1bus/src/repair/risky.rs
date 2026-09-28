@@ -350,7 +350,7 @@ pub fn terminate_hung(ctx: &Ctx, step: &Step) -> Result<Value, String> {
         signal = "kill";
         if !peer.kill() && peer.alive() {
             return Err(format!(
-                "cannot signal pid {pid}: it is no longer pinned as the server of the {} address",
+                "pid {pid} still exists but no longer serves the {} address, so it cannot be verified and is not killed",
                 role.name
             ));
         }
