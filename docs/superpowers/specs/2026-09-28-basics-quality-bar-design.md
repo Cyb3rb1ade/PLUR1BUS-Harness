@@ -1,6 +1,6 @@
 # The basics everyone expects: a quality bar — design
 
-**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage; rev 4: new D106 host toolset) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D106 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
+**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage; rev 4: new D106 host toolset; rev 5: new D107 OS ecosystem layer) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D107 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
 
 **Owner requirements, 2026-09-28 (translated from German, condensed):**
 
@@ -393,6 +393,38 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 
 **Placement and effort:** with M1b-2b (tool execution under a principal), 7–11 ad (tool families 4–6, sandbox spike and per-OS work 2–3, conformance suite and eval scenarios 1–2).
 
+### D107 — OS ecosystem layer: permissions, system apps and OS services on macOS, Windows and Linux (extends D106, D27, D62, DS17)
+
+**Owner, 2026-09-28 (condensed):** the agents also need the operating systems' own ecosystems. On macOS that means the TCC permissions — Accessibility, Automation (Apple Events to Mail, Safari, Finder, Calendar, Music …), Full Disk Access (Mail database, Messages, protected user paths, the unified log), Screen Recording, Input Monitoring, Files and Folders, Camera, Microphone, Contacts, Calendars, Photos — without which stock apps cannot be controlled reliably; MDM can pre-set part of them on supervised devices, a private Mac cannot. Stock apps are driven by three legitimate routes, not "every function": (1) Shortcuts / App Intents — typed, declared actions, often with confirmation, the route Apple intends for agents; (2) AppleScript / Scripting Bridge — Finder, Mail, Safari, Music, Calendar, Notes, System Events, needs Automation consent per target app, many newer apps are weakly scriptable or not at all; (3) Accessibility — the fallback when no scripting API exists, brittle under UI changes, and (owner) more restrictive for UI-less background services since macOS 27. The same is needed on Windows and Linux.
+
+**The architectural consequence: permissions belong to a signed host process, never to the containers.** macOS TCC grants attach to the code signature and bundle id of the responsible process; Windows privacy toggles and Linux portals likewise act for a desktop app identity. The bundled harness runs in containers (D77), which can hold none of these grants. So:
+- The desktop app ships a small **signed native helper, `PLUR1BUS Host`** (inside `app.plur1bus.desktop`, Developer ID-signed and notarised on macOS, SignPath/MSIX on Windows, Flatpak on Linux). It holds the OS grants and offers named capabilities to the harness over the **host bridge (DS17)** — the same channel as `host.keyUnlock`. D27's Swift `pim-apple` helper becomes part of it.
+- A CLI-only installation without the desktop app has no helper: the ecosystem tools report `host-helper-missing`; run from a terminal, macOS would attribute grants to the terminal app, which PLUR1BUS never relies on.
+- Every capability is additionally gated per agent (D106 risk classes and D38 approvals); an OS grant is necessary, never sufficient.
+
+**Routes, in order of preference — typed first, UI last:**
+
+| | macOS | Windows | Linux (GNOME/KDE) |
+|---|---|---|---|
+| 1. Declared actions | **Shortcuts / App Intents**: list and run shortcuts (`shortcuts` CLI or the Shortcuts framework), parameters typed, the system's own confirmations kept | **COM automation and WinRT APIs** of system and Office apps (Outlook, Excel, Word object models; `Windows.ApplicationModel.Appointments`/`Contacts`, toast notifications), PowerShell modules | **D-Bus services** (`org.freedesktop.Notifications`, systemd user units, NetworkManager, UPower, logind), **xdg-desktop-portal** (ScreenCast, Screenshot, Background, FileChooser, Camera), Evolution Data Server / Akonadi for PIM |
+| 2. Scripting | **AppleScript / JXA** via OSA with Automation consent per target app (Finder, Mail, Safari, Music, Calendar, Notes, System Events) | PowerShell against COM/WMI/CIM (system settings read, scheduled tasks, services) | KWin scripts and GNOME Shell D-Bus for windows; CLI tools per desktop |
+| 3. Native frameworks for data | **EventKit** (calendars, reminders), **Contacts**, **PhotoKit**, **ScreenCaptureKit** — preferred over AppleScript where they exist (D27) | the WinRT data APIs above, **Windows.Graphics.Capture** for the screen | portals and EDS/Akonadi as above |
+| 4. UI fallback | **Accessibility** (AX) through D62 `cua-driver` | **UI Automation** through D62 | **AT-SPI** through D62; X11 where Wayland offers no route |
+
+**Permission handling.**
+- **Just in time, never up front:** a capability asks for its OS grant the first time a person uses a feature that needs it, with one sentence why; nothing is requested at install.
+- A **Permissions page** (Settings › Computer access) lists every OS grant with status (granted / denied / not asked), which features need it, and a button that opens the exact system pane (macOS `x-apple.systempreferences:` deep links, Windows `ms-settings:privacy-*` URIs, Linux the portal or desktop settings); after a change the helper re-checks.
+- **Full Disk Access** is opt-in per purpose (e.g. "read Mail and Messages databases, read-only"), and reading those stores is read-only and always an approval-class call with a visible scope.
+- **Input Monitoring / keystroke capture is not used.** Recording the person's keystrokes is a keylogger by function, is heavily scrutinised in notarisation and review, and no planned feature needs it (voice input uses the microphone, D44; UI control sends events through Accessibility, which does not require reading keys). Recorded as an exclusion.
+- **Managed fleets:** documented PPPC/configuration-profile keys for organisations that pre-approve the helper on supervised Macs and Intune/GPO equivalents on Windows; never required, never assumed on a private machine.
+- The owner's note on macOS 27 (Accessibility stricter for UI-less background services) is taken into the D2 spike: the helper is a real app with a UI (menu-bar / tray presence), not a faceless daemon, so it stays eligible; the spike verifies this on the current macOS before the design is frozen.
+
+**Tools** (on top of D106, through the host bridge): `os.shortcuts.list/run`, `os.script.run` (AppleScript/JXA, PowerShell-COM; the script is shown on approval, per target app consent tracked), `os.permissions.status/request`, `screen.capture` (per call or per session, with a visible indicator), `pim.*` (D27 domains, local route first), and the D62 `ui.*` actions for the fallback. Each has a capability entry in D103's index with its OS route, so triage picks the typed route before UI automation.
+
+**Tested.** The D106 conformance suite gains an ecosystem leg per OS on real desktops: macOS on the owner's Mac (manual gate per release) and a CI job for everything that runs without TCC prompts; Windows on the Windows 11 VM (nightly); Linux on a GNOME and a KDE VM. Scenarios: create a calendar event, run a named shortcut, move files in Finder/Explorer, read today's mail headers (with FDA or via Mail scripting), take a screenshot, change a setting through the declared route — each also in `tool-eval`.
+
+**Placement and effort:** desktop track **D2** (native integration), 10–15 ad (helper and host-bridge capabilities 3–4, macOS routes 3–4, Windows routes 2–3, Linux routes 2–3, permissions page and tests 1–2). D27's `pim-apple` helper effort is absorbed.
+
 ## 3. Placement and effort
 
 | Decision | Milestone | Effort (ad) | Acceptance added |
@@ -409,9 +441,10 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 | D103 capability index + category routing | **M2** with D97 (index, taxonomy, keyword/embedding tiers, `capabilities.search`); decision-model tier with the D18/D70 decision service | 4–6 | routing recall ≥ 95 % on `tool-eval`; new skill routable right after install; decision call ≤ 200 ms p95 locally; stable category prefix |
 | D105 message triage | **M2** with D30 and D103 (one decision call) | 2–4 | segmentation F1 ≥ 0.9; under-provisioning ≤ 5 %; escalation one class up once; class change only at task boundaries |
 | D106 host toolset | **M1b-2b** (tool execution under a principal) | 7–11 | per-OS conformance on five targets + Windows VM nightly; credential deny-list suite; approvals for every destructive/privileged call; host scenarios in `tool-eval` ≥ 95 % |
+| D107 OS ecosystem layer | **D2** (signed `PLUR1BUS Host` helper over DS17) | 10–15 | per-OS ecosystem leg (owner's Mac per release, Windows VM nightly, GNOME + KDE VMs); just-in-time grants; no Input Monitoring; FDA reads approval-gated; typed route chosen before UI fallback |
 | D104 hand-off format | **M5** (replaces the typed delegation contract's field list; D36/D50 consume it) | 2–3 | schema validation and repair; `ack` round trip; `approvalsHeld` verified against the approval store; a forged approval reference is refused; Markdown rendering |
 
-**Total +45–71 ad** across M1b-2b (+7–11), M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
+**Total +55–86 ad** across M1b-2b (+7–11), D2 (+10–15), M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
 
 ## 4. Owner choices (defaults the design runs on)
 
