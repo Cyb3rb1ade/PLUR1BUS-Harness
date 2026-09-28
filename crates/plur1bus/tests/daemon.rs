@@ -403,9 +403,9 @@ fn daemon_start_twice_is_idempotent() {
     stop_supervisor(&h.home);
 }
 
-/// Time scale 0.1, not 0.02: the core's ready timeout (60 s x scale) must outlast its start while two CLIs and two
-/// supervisors start at once. At 0.02 (1.2 s) a Windows runner under that load can take longer from spawn to
-/// `core.auth`, and the core killed as `ready-timeout` and respawned is a second `started` event.
+/// Time scale 0.1, not 0.02: every scaled duration gets more room while two CLIs and two supervisors start at once. The
+/// core's ready timeout no longer depends on it (below scale 1/6 it is `CORE_READY_FLOOR`, 10 s); a core killed as
+/// `ready-timeout` and respawned would be a second `started` event.
 #[test]
 fn concurrent_daemon_starts_leave_one_supervisor_and_one_core() {
     let h = Home::new();
