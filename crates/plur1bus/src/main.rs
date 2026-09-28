@@ -8,6 +8,7 @@ mod journal;
 mod modules;
 mod output;
 mod paths;
+mod repair;
 mod service;
 mod supervisor;
 use clap::Parser;

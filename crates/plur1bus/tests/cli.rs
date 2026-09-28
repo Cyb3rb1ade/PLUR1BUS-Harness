@@ -66,7 +66,7 @@ fn json_code(args: &[&str], env: &[(&str, &str)], code: i32) -> serde_json::Valu
 }
 
 #[test]
-fn setup_update_and_repair_answer_their_milestone_until_implemented() {
+fn setup_update_and_repair_are_no_longer_stubs() {
     // `daemon`, `service` and `module` are implemented (2a-H3a Tasks 8, 9; 2a-H3b Task 10).
     for cmd in ["setup", "module", "daemon", "service", "update", "1staid"] {
         bin().arg(cmd).arg("--help").assert().success();
@@ -78,18 +78,25 @@ fn setup_update_and_repair_answer_their_milestone_until_implemented() {
         .code(2)
         .stderr(predicate::str::contains("2a-H3b").not());
     // `update --check` is implemented (2a-H3b-b Task 5); it is covered by `tests/update.rs` and by
-    // `update_check_reports_not_installed_and_writes_nothing` below, not by the shared stub loop.
+    // `update_check_reports_not_installed_and_writes_nothing` below. `setup` is implemented (2a-H3b-b Task 4,
+    // tests/setup.rs), and so is `1staid repair` (2a-H3b-b Task 7, tests/repair.rs): its dry run writes nothing.
     let dir = tempfile::tempdir().unwrap();
-    let h = dir.path().to_str().unwrap();
-    // `setup` is implemented (2a-H3b-b Task 4, tests/setup.rs).
+    let home = dir.path().join("h");
+    std::fs::create_dir_all(&home).unwrap();
+    let fake = dir.path().join("fake");
+    std::fs::create_dir_all(&fake).unwrap();
+    let h = home.to_str().unwrap();
     let args = ["--json", "--home", h, "1staid", "repair", "--dry-run"];
-    let v = json_code(&args, &[], 2);
-    assert_eq!(v["error"], "E_NOT_AVAILABLE", "{args:?}");
-    assert_eq!(v["milestone"], "2a-H3b-b", "{args:?}");
-    assert_eq!(v["command"], "1staid repair");
+    let env = [
+        ("PLUR1BUS_ALLOW_TEST_INTERNALS", "1"),
+        ("PLUR1BUS_SERVICE_FAKE", fake.to_str().unwrap()),
+    ];
+    let v = json_code(&args, &env, 0);
+    assert_eq!(v["schema"], "1staid.repair/1", "{v}");
+    assert_eq!(v["dryRun"], true, "{v}");
     assert!(
-        std::fs::read_dir(dir.path()).unwrap().next().is_none(),
-        "the stubs write nothing"
+        std::fs::read_dir(&home).unwrap().next().is_none(),
+        "a dry run writes nothing"
     );
 }
 
