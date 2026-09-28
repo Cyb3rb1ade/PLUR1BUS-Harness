@@ -3132,7 +3132,7 @@ One extension in detail. E_NOT_FOUND reason=extension-unknown when nothing of th
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
     }
   }
 }
@@ -3195,7 +3195,7 @@ Audits a package file (.p1x, or a skill folder, .zip or .skill normalised to an 
 
 **Served by:** supervisor
 
-Installs an inspected package, disabled unless enable is given (which needs acknowledge capabilities). Installing the identical package again is a no-op with replaced false. E_NOT_FOUND reason=inspection-expired; E_APPROVAL_REQUIRED reason=acknowledge-unsigned|acknowledge-unknown-signer|acknowledge-downgrade|acknowledge-capabilities; E_CONFLICT reason=busy|name-taken; E_DENIED reason=revoked|policy-unsigned-disallowed; E_INVALID_PARAMS reason=digest-mismatch|package-invalid|agents-not-supported; E_INTERNAL reason=worker-failed.
+Installs an inspected package, disabled unless enable is given (which needs acknowledge capabilities). Installing the identical package again is a no-op with replaced false. E_NOT_FOUND reason=inspection-expired; E_APPROVAL_REQUIRED reason=acknowledge-unsigned|acknowledge-unknown-signer|acknowledge-downgrade|acknowledge-capabilities; E_CONFLICT reason=busy|name-taken; E_DENIED reason=revoked|policy-unsigned-disallowed; E_INVALID_PARAMS reason=digest-mismatch|package-invalid|agents-not-supported; E_INTERNAL reason=worker-failed. E_LOCKED reason=skills-locked (another writer holds the skills index).
 
 **params**
 
@@ -3280,7 +3280,7 @@ Installs an inspected package, disabled unless enable is given (which needs ackn
 
 **Served by:** supervisor
 
-Moves an extension into the trash (kept extensions.trashDays days); purge also moves its data. E_NOT_FOUND reason=extension-unknown; E_CONFLICT reason=required-by|busy; E_DENIED reason=bundled (purge of a bundled item).
+Moves an extension into the trash (kept extensions.trashDays days); purge also moves its data. E_NOT_FOUND reason=extension-unknown; E_CONFLICT reason=required-by|busy; E_DENIED reason=bundled (purge of a bundled item). E_LOCKED reason=skills-locked (another writer holds the skills index).
 
 **params**
 
@@ -3294,7 +3294,7 @@ Moves an extension into the trash (kept extensions.trashDays days); purge also m
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
     },
     "purge": {
       "type": "boolean"
@@ -3341,7 +3341,7 @@ Moves an extension into the trash (kept extensions.trashDays days); purge also m
 
 **Served by:** supervisor
 
-Restores an extension from the trash. E_NOT_FOUND reason=trash-expired; E_CONFLICT reason=name-taken|busy.
+Restores an extension from the trash. E_NOT_FOUND reason=trash-expired; E_CONFLICT reason=name-taken|busy. E_LOCKED reason=skills-locked (another writer holds the skills index).
 
 **params**
 
@@ -3395,7 +3395,7 @@ Restores an extension from the trash. E_NOT_FOUND reason=trash-expired; E_CONFLI
 
 **Served by:** supervisor
 
-Enables an extension, for the given agents (skills only) or everywhere; dryRun reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_APPROVAL_REQUIRED reason=acknowledge-capabilities; E_NOT_AVAILABLE reason=needs-setup|incompatible|tampered; E_DENIED reason=revoked; E_INVALID_PARAMS reason=agents-not-supported (modules and channels); E_CONFLICT reason=busy.
+Enables an extension, for the given agents (skills only) or everywhere; dryRun reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_APPROVAL_REQUIRED reason=acknowledge-capabilities; E_NOT_AVAILABLE reason=needs-setup|incompatible|tampered; E_DENIED reason=revoked; E_INVALID_PARAMS reason=agents-not-supported (modules and channels); E_CONFLICT reason=busy. E_LOCKED reason=skills-locked (another writer holds the skills index).
 
 **params**
 
@@ -3409,7 +3409,7 @@ Enables an extension, for the given agents (skills only) or everywhere; dryRun r
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
     },
     "agents": {
       "$ref": "#/$defs/ExtAgents"
@@ -3482,7 +3482,7 @@ Enables an extension, for the given agents (skills only) or everywhere; dryRun r
 
 **Served by:** supervisor
 
-Disables an extension, for the given agents (skills only) or everywhere; dryRun reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_CONFLICT reason=required-by|busy; E_INVALID_PARAMS reason=agents-not-supported (modules and channels).
+Disables an extension, for the given agents (skills only) or everywhere; dryRun reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_CONFLICT reason=required-by|busy; E_INVALID_PARAMS reason=agents-not-supported (modules and channels). E_LOCKED reason=skills-locked (another writer holds the skills index).
 
 **params**
 
@@ -3496,7 +3496,7 @@ Disables an extension, for the given agents (skills only) or everywhere; dryRun 
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
     },
     "agents": {
       "$ref": "#/$defs/ExtAgents"
@@ -4152,7 +4152,7 @@ A module child's health changed (spawned, ready, degraded, orphaned, stopping, s
 
 **Served by:** supervisor
 
-An extension's kind, state, version or overlays changed (install, uninstall, restore, enable, disable, integrity), sent on connections that called ext.watch.
+An extension's kind, state, version or overlays changed (install, uninstall, restore, enable, disable, integrity), sent on connections that called ext.watch. `state` is installed or enabled, or removed once the extension was uninstalled (then version is the removed version and overlays is empty).
 
 ```json
 {
@@ -4161,7 +4161,7 @@ An extension's kind, state, version or overlays changed (install, uninstall, res
   "x-server": "supervisor",
   "type": "object",
   "additionalProperties": false,
-  "description": "An extension's kind, state, version or overlays changed (install, uninstall, restore, enable, disable, integrity), sent on connections that called ext.watch.",
+  "description": "An extension's kind, state, version or overlays changed (install, uninstall, restore, enable, disable, integrity), sent on connections that called ext.watch. `state` is installed or enabled, or removed once the extension was uninstalled (then version is the removed version and overlays is empty).",
   "required": [
     "name",
     "kind",
@@ -4172,7 +4172,7 @@ An extension's kind, state, version or overlays changed (install, uninstall, res
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
     },
     "kind": {
       "$ref": "#/$defs/ExtKind"
@@ -5737,15 +5737,15 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.4.0). A derived condition shown instead of the plain state; it never changes the configuration: `needs-setup` (a required secret slot is unfilled), `tampered` (installed files differ from state.json), `revoked` (a revocation matches), `incompatible` (compat no longer holds), `hidden` (a bundled item the person uninstalled).",
+  "description": "Experimental (1.4.0). A derived condition shown instead of the plain state; it never changes the configuration: `needs-setup` (a required secret slot is unfilled), `tampered` (installed files differ from state.json), `revoked` (a revocation matches), `incompatible` (compat no longer holds), `error` (an item in an error state, e.g. a module that gave up, spec 6.2).",
   "x-stability": "experimental",
   "x-since": "1.4.0",
   "enum": [
     "needs-setup",
-    "tampered",
-    "revoked",
     "incompatible",
-    "hidden"
+    "revoked",
+    "tampered",
+    "error"
   ]
 }
 ```
@@ -5867,7 +5867,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
     },
     "id": {
       "type": [
@@ -5999,7 +5999,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
             "type": "string"
           },
           "removedAt": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
@@ -6033,7 +6034,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "string"
     },
     "expiresAt": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time"
     },
     "sha256": {
       "type": "string",
@@ -6103,7 +6105,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           ],
           "properties": {
             "changed": {
-              "type": "boolean"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         }

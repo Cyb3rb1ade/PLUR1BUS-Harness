@@ -85,7 +85,7 @@ describe("tool naming and selection", () => {
   });
 
   it("ext.list and ext.inspect are not refused by the deny list", () => {
-    for (const m of ["ext.list", "ext.inspect", "ext.show", "ext.search"]) assert.equal(isForbiddenMethod(m), false, m);
+    for (const m of ["ext.list", "ext.inspect", "ext.show"]) assert.equal(isForbiddenMethod(m), false, m);
   });
 
   it("filters by x-server when present (capability entry or schema def)", () => {

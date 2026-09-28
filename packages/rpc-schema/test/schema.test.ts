@@ -132,6 +132,15 @@ describe("rpc-schema", () => {
     for (const m of EXT_METHODS) for (const server of ["core", "module"] as const) assert.equal(buildCapabilities([], server).methods[m], undefined, `${server} ${m}`);
   });
 
+  it("ext names accept imported skill ids and overlays include error", () => {
+    for (const m of ["ext.show", "ext.uninstall", "ext.enable", "ext.disable"]) {
+      assert.equal(validateParams(m, { name: "my.skill_v2" }).ok, true, m);
+      assert.equal(validateParams(m, { name: "Bad" }).ok, false, m);
+    }
+    assert.equal(validateNotification("ext.changed", { name: "my.skill", kind: "skill", state: "removed", version: "1.0.0", overlays: ["error"] }).ok, true);
+    assert.equal(validateNotification("ext.changed", { name: "a", kind: "skill", state: "enabled", version: "1", overlays: ["hidden"] }).ok, false);
+  });
+
   it("ext.changed is a supervisor notification", () => {
     assert.deepEqual(buildCapabilities([], "supervisor").notifications["ext.changed"], { stability: "experimental", since: "1.4.0" });
     assert.equal((SCHEMA as any).$defs.notifications["ext.changed"]["x-server"], "supervisor");

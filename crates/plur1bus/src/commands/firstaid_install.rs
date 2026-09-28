@@ -379,7 +379,7 @@ mod tests {
         let layout = Layout::new(dir.path().to_path_buf());
         let m = manifest();
         write_core(&layout, &m.core.version);
-        let running = json!({ "contract": "1.8.0", "rpc": "1.3.0" });
+        let running = json!({ "contract": "1.8.0", "rpc": "1.4.0" });
         let c = check_runtime_core(&layout, Some(&m), Some(&running));
         assert_eq!(c.status, Status::Warn, "{c:?}");
         assert!(c.summary.contains("1.8.0"), "{c:?}");

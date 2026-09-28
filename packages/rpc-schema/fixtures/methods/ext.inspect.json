@@ -9,5 +9,5 @@
     "capabilities": {},
     "scripts": [],
     "requires": {},
-    "replaces": { "version": "0.9.0", "capabilityDiff": { "changed": false } }
+    "replaces": { "version": "0.9.0", "capabilityDiff": { "changed": [] } }
   } }
