@@ -4,7 +4,7 @@ import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch } from "@plur1bus/module-api";
-import { RPC_VERSION, SCHEMA, buildCapabilities, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
+import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
@@ -326,7 +326,11 @@ export function createCore(o: CoreOptions): Core {
             return ws ? callerToPrincipal(cliCaller(), agentId, ws).principal : null;
           },
         },
-        onRecallDone: () => { recallWarmPending = false; refreshEngineStatus(); },
+        // The memory ops' RPC validators compile here, not in the first client call's end-to-end budget (spec §6.4).
+        onRecallDone: () => {
+          try { precompileMethods(["memory.recall", "memory.capture"]); } catch (err) { logger?.debug("rpc validator warm-up failed", { err }); }
+          recallWarmPending = false; refreshEngineStatus();
+        },
       });
       // B2 (I2): the journal replays in the background once the socket accepts connections, so the CLI's captures go
       // live instead of journaling while it is read; drainJournal re-runs the pass for any line that still arrived

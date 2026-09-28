@@ -77,12 +77,20 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       const hardMs = p.budget?.hardMs ?? d.config().core.recall.hardBudgetMs;
       const softMs = p.budget?.softMs ?? d.config().core.recall.softBudgetMs;
       const capChars = p.budget?.capChars ?? d.config().core.recall.capChars;
-      const signal = AbortSignal.any([ctx.signal, AbortSignal.timeout(hardMs)]);
+      // The core enforces the hard budget (the engine reads no per-call budget, H3b-b Task 1) by aborting the engine's
+      // signal, so the engine cannot tell it from a cancelled caller and answers `aborted`. Spec §6.4 ("Clients under
+      // core loss"): a recall past the hard budget returns what is complete with `degraded: timeout`. `aborted` stays
+      // for the caller's own cancellation (its connection closed).
+      const hard = AbortSignal.timeout(hardMs);
+      const signal = AbortSignal.any([ctx.signal, hard]);
       d.activity.set(p.agentId, { state: "recalling" });
       try {
         // RecallQuery has no sessionKey (contract 1.4.1): the session key is capture-side until 2c.
-        const r = await d.engine.recall({ query: p.query, principal, agent: AGENT_CONTEXT_CLI, budget: { softMs, hardMs, capChars }, signal });
+        let r = await d.engine.recall({ query: p.query, principal, agent: AGENT_CONTEXT_CLI, budget: { softMs, hardMs, capChars }, signal });
         if (r.degraded?.reason === "engine-closed" && d.isStopping()) throw coreStopping();
+        if (r.degraded?.reason === "aborted" && hard.aborted && !ctx.signal.aborted) {
+          r = { ...r, degraded: { reason: "timeout", capability: "recall", detail: `core hard budget ${hardMs} ms` } };
+        }
         const out = serializeRecall(r, p.joined === true, capChars);
         return degraded && !out.degraded ? { ...out, degraded } : out;
       } finally { d.activity.idle(p.agentId); }

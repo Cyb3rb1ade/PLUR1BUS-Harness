@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, SCHEMA, buildCapabilities, loadFixtures, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
+import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, SCHEMA, buildCapabilities, loadFixtures, precompileMethods, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
 
 describe("rpc-schema", () => {
   const fx = loadFixtures();
@@ -135,6 +135,12 @@ describe("rpc-schema", () => {
     assert.deepEqual(validateParams("config.get", { key: "core.logLevel" }), { ok: true });
     assert.deepEqual(validateParams("config.get", { tier: "basic" }), { ok: true });
     assert.equal(validateParams("config.get", { key: "core.logLevel", tier: "basic" }).ok, false);
+  });
+
+  it("precompileMethods compiles known methods' validators and refuses an unknown method", () => {
+    precompileMethods(["memory.recall", "memory.capture"]);
+    assert.equal(validateParams("memory.recall", {}).ok, false, "the precompiled validator still validates");
+    assert.throws(() => precompileMethods(["memory.nope"]), /unknown method memory\.nope/);
   });
 
   it("rejects a recall without a query and a caller without a channel", () => {
