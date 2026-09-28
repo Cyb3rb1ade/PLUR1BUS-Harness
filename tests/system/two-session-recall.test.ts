@@ -81,7 +81,7 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       const r = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "when is the roadmap review"]);
       const ms = performance.now() - t0;
       t.diagnostic(`CLI memory recall wall ${ms.toFixed(0)} ms, engine timing.totalMs ${r.timing?.totalMs ?? "n/a"}; timing ${JSON.stringify(r.timing ?? null)}`);
-      assert.equal(r.degraded, null, JSON.stringify(r.degraded));
+      assert.equal(r.degraded, null, JSON.stringify({ degraded: r.degraded, wallMs: Math.round(ms), timing: r.timing }));
       assert.match(r.joined.text, /roadmap review/i);
       if (REAL) {
         // The first measured recall after the warm-up is within the 400/600 ms targets (it failed on macOS at 582 ms
@@ -125,7 +125,7 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       const after = cli(h, ["memory", "recall", "--agent", "bernd", "--session", "s4", "--joined", "when does Mira visit"]);
       const afterMs = performance.now() - t0;
       t.diagnostic(`CLI recall after restart wall ${afterMs.toFixed(0)} ms, engine timing.totalMs ${after.timing?.totalMs ?? "n/a"}`);
-      assert.equal(after.degraded, null, JSON.stringify(after.degraded));
+      assert.equal(after.degraded, null, JSON.stringify({ degraded: after.degraded, wallMs: Math.round(afterMs), timing: after.timing }));
       // Reported against the targets on CI; asserted only for the first recall on reference hardware (as before).
       if (REAL && CI_RECALL_HARD_MS !== null) checkRecallBudget(t, "recall after restart", afterMs, after.timing);
       assert.match(after.joined.text, /Mira|spring/i);

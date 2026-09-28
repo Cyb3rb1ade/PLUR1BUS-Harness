@@ -49,6 +49,15 @@ export function validateResult(method: string, value: unknown): Validation {
   if (!METHODS.includes(method)) return { ok: false, errors: [`unknown method ${method}`] };
   return run(validator(`/$defs/methods/${method}/result`), value);
 }
+/** Compiles the params and result validators of `methods` now instead of on each method's first call. A fresh
+ *  core's first memory.recall otherwise paid Ajv's compile of both inside its end-to-end budget (spec §6.4); the core's
+ *  warm-up calls this before it reports the engine ready. Throws on an unknown method. */
+export function precompileMethods(methods: readonly string[]): void {
+  for (const m of methods) {
+    if (!METHODS.includes(m)) throw new Error(`unknown method ${m}`);
+    validator(`/$defs/methods/${m}/params`); validator(`/$defs/methods/${m}/result`);
+  }
+}
 export function validateNotification(name: string, value: unknown): Validation {
   if (!NOTIFICATIONS.includes(name)) return { ok: false, errors: [`unknown notification ${name}`] };
   return run(validator(`/$defs/notifications/${name}`), value);

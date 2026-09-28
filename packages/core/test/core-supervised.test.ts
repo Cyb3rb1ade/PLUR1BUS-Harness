@@ -311,7 +311,9 @@ describe("core on the supervisor's configuration (B7)", () => {
     assert.equal(before.degraded, null, "a 5 s hard budget covers a 400 ms embedding");
     await s.push((cfg) => { cfg.core.recall.softBudgetMs = 50; cfg.core.recall.hardBudgetMs = 100; });
     const after = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything about lunch" });
-    assert.equal(after.degraded?.reason, "aborted");
+    // Spec §6.4 "Clients under core loss": a recall past the hard budget answers what is complete with degraded
+    // `timeout`. The engine only sees its signal aborted and says `aborted`; that word is for a caller who cancelled.
+    assert.deepEqual(after.degraded, { reason: "timeout", capability: "recall", detail: "core hard budget 100 ms" });
   });
 
   it("supervisor.graceMs change applies to the next orphaning", async () => {
