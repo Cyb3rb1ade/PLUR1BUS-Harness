@@ -43,3 +43,4 @@ predicates = "3"
 tempfile.workspace = true
 proptest = "1"
 roxmltree = "0.21"
+minisign = "0.10.0"

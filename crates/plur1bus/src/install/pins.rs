@@ -38,12 +38,25 @@ fn test_internals() -> bool {
 }
 
 /// A test seam's value, read once per process and only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`.
+/// Lower-cased: only for hex digests.
 fn seam(cell: &'static OnceLock<Option<String>>, name: &str) -> Option<&'static str> {
     cell.get_or_init(|| {
         test_internals()
             .then(|| std::env::var(name).ok())
             .flatten()
             .map(|v| v.trim().to_ascii_lowercase())
+            .filter(|v| !v.is_empty())
+    })
+    .as_deref()
+}
+
+/// A test seam's value, case preserved (a base64 minisign public key is case-sensitive, unlike a hex digest).
+fn seam_raw(cell: &'static OnceLock<Option<String>>, name: &str) -> Option<&'static str> {
+    cell.get_or_init(|| {
+        test_internals()
+            .then(|| std::env::var(name).ok())
+            .flatten()
+            .map(|v| v.trim().to_string())
             .filter(|v| !v.is_empty())
     })
     .as_deref()
@@ -98,6 +111,21 @@ pub fn core_payload_sha256() -> Option<&'static str> {
 /// build.
 pub fn release_base_url() -> Option<&'static str> {
     option_env!("PLUR1BUS_RELEASE_BASE_URL")
+}
+
+/// The minisign public key `update --check` verifies `{channel}.json` against (HB10): the channel's baked key
+/// (`PLUR1BUS_RELEASE_PUBKEY_STABLE`/`_BETA`), or, under `PLUR1BUS_ALLOW_TEST_INTERNALS=1`,
+/// `PLUR1BUS_TEST_RELEASE_PUBKEY` in place of either. `None` in a dev build with no seam: the caller reports
+/// `verified: false` rather than refusing.
+pub fn release_pubkey_for(channel: &str) -> Option<&'static str> {
+    static SEAM: OnceLock<Option<String>> = OnceLock::new();
+    if let Some(k) = seam_raw(&SEAM, "PLUR1BUS_TEST_RELEASE_PUBKEY") {
+        return Some(k);
+    }
+    match channel {
+        "beta" => option_env!("PLUR1BUS_RELEASE_PUBKEY_BETA"),
+        _ => option_env!("PLUR1BUS_RELEASE_PUBKEY_STABLE"),
+    }
 }
 
 #[cfg(test)]
