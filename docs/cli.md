@@ -1055,7 +1055,8 @@ Projects — M3
 * `--detect` — Read-only report: version, agents, PLUR1BUS stores and embedding identity, reranker, skills, secret presence
 * `--skills` — Import the source's skills into <home>/skills (dry-run unless --apply; imported skills land disabled)
 * `--rollback <REPORT>` — Undo one --skills --apply run from its report.json (dry-run unless --apply)
-* `--source <PATH>` — Source root (default: $OPENCLAW_STATE_DIR / $OPENCLAW_PROFILE / ~/.openclaw, or $HERMES_HOME / ~/.hermes)
+* `--source <PATH>` — Source root (default: $OPENCLAW_STATE_DIR / $OPENCLAW_PROFILE / ~/.openclaw, or $HERMES_HOME / ~/.hermes, %LOCALAPPDATA%\hermes on Windows); a \\wsl$\<distro>\... or \\wsl.localhost\<distro>\... path reads a WSL-hosted source
+* `--map <SOURCE=LOCAL>` — Map paths in the source's config that start with SOURCE to LOCAL (repeatable), for paths the importer cannot map itself
 * `--profile <NAME>` — Hermes only: import one named profile instead of the root and every profile
 * `--apply` — Write (with --skills or --rollback); without it nothing is written
 * `--enable` — With --skills: enable the imported skills (default: they land disabled)

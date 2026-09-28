@@ -38,6 +38,10 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
         v.push("--source".into());
         v.push(s.clone().into_os_string());
     }
+    for m in &a.map {
+        v.push("--map".into());
+        v.push(m.clone());
+    }
     if let Some(p) = &a.profile {
         v.push("--profile".into());
         v.push(p.into());
@@ -168,6 +172,10 @@ mod tests {
             "--skills",
             "--source",
             "/s",
+            "--map",
+            "/home/u=/srv/u",
+            "--map",
+            "C:\\Data=/mnt/data",
             "--profile",
             "work",
             "--apply",
@@ -188,6 +196,10 @@ mod tests {
                 "--skills",
                 "--source",
                 "/s",
+                "--map",
+                "/home/u=/srv/u",
+                "--map",
+                "C:\\Data=/mnt/data",
                 "--profile",
                 "work",
                 "--apply",
@@ -217,6 +229,16 @@ mod tests {
         ])
         .is_err());
         assert!(Cli::try_parse_from(["plur1bus", "import", "zeroclaw", "--detect"]).is_err());
+        assert!(Cli::try_parse_from([
+            "plur1bus",
+            "import",
+            "hermes",
+            "--rollback",
+            "r.json",
+            "--map",
+            "/a=/b"
+        ])
+        .is_err());
     }
 
     #[test]

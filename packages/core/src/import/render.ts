@@ -36,6 +36,12 @@ export function renderDetect(r: DetectReport): string {
     const flags = [s.hasScripts ? "scripts" : "", s.skipped.symlinkEscapes.length ? `${s.skipped.symlinkEscapes.length} symlink escape(s) skipped` : "", s.skipped.secretFiles ? `${s.skipped.secretFiles} secret file(s) skipped` : "", s.shadowedBy ? "shadowed" : "", s.existsInHarness ? "id in harness" : ""].filter(Boolean);
     L.push(`  ${s.id.padEnd(24)} ${s.tier}${s.agentId ? `/${s.agentId}` : ""}  ${s.files} files ${s.bytes} B  → ${s.plannedAction}${s.reason ? ` (${s.reason})` : ""}${flags.length ? `  [${flags.join("; ")}]` : ""}`);
   }
+  const pt = r.portability;
+  if (pt.origin !== "native" || pt.movedFrom.length || pt.mapped.length || pt.unmapped.length) {
+    L.push("", `Portability: ${pt.origin} source, ${pt.flavour} paths (source root ${pt.sourceRoot})`);
+    for (const m of pt.mapped) L.push(`  ${m.key}: ${m.value} → ${m.path} [${m.how}]`);
+    for (const u of pt.unmapped) L.push(`  ${u.key}: ${u.value} — unmapped (${u.reason})`);
+  }
   L.push("", "Secrets (presence only):");
   if (!r.secrets.files.length && !r.secrets.configKeys.length) L.push("  none found");
   for (const f of r.secrets.files) L.push(`  ${f.path} (${f.kind})`);

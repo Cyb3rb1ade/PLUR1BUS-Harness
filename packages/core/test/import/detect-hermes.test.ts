@@ -1,6 +1,6 @@
 import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { targetIdentity } from "../../src/import/identity.ts";
 import { detectHermes, resolveHermesRoot } from "../../src/import/sources/hermes.ts";
@@ -61,6 +61,21 @@ describe("Hermes source", () => {
     const p = await detectHermes(ctxFor(fx.root, "work"));
     assert.deepEqual(p.agents.map((a) => a.agentId), ["work"]);
     assert.deepEqual(p.skillRoots.map((s) => s.agentId), ["work"]);
+  });
+});
+
+describe("Hermes external skill dirs through the path mapper (G3)", () => {
+  it("resolves relative dirs against the profile, expands the source-side environment and reports foreign paths", async () => {
+    const d = tempDir("p1b-imp-");
+    // A path in the other OS's syntax: foreign on this host whichever CI OS runs it.
+    const foreign = process.platform === "win32" ? "/opt/tools/skills" : "C:\\Tools\\skills";
+    writeFileSync(join(d, "config.yaml"), `_config_version: 45\nskills:\n  external_dirs:\n    - ${foreign}\n    - $EXT_SKILLS/more\n`);
+    mkdirSync(join(d, "profiles", "work"), { recursive: true });
+    writeFileSync(join(d, "profiles", "work", "config.yaml"), "_config_version: 45\nskills:\n  external_dirs:\n    - shared-skills\n");
+    const r = await detectHermes(ctxFor(d, undefined, { EXT_SKILLS: join(d, "ext") }));
+    const ext = r.skillRoots.filter((s) => s.tier === "external").map((s) => [s.agentId, s.dir]);
+    assert.deepEqual(ext, [["default", join(d, "ext", "more")], ["work", join(d, "profiles", "work", "shared-skills")]]);
+    assert.deepEqual(r.portability.unmapped, [{ key: "config.yaml:skills.external_dirs[0]", value: foreign, reason: "foreign-path" }]);
   });
 });
 

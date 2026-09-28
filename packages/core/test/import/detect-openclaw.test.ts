@@ -134,6 +134,33 @@ describe("detectOpenclaw with a symlinked config", () => {
   });
 });
 
+describe("detectOpenclaw with foreign-flavour config paths (G3)", () => {
+  // A prefix in the other OS's syntax: foreign on this host whichever CI OS runs it.
+  const [FOREIGN, SEP] = process.platform === "win32" ? ["/srv/shared", "/"] : ["D:\\Shared", "\\"];
+  it("rebases paths of a state dir copied from Windows and reports the unmappable ones", async () => {
+    const d = tempDir("p1b-imp-");
+    const root = join(d, "copied", ".openclaw");
+    mkdirSync(join(root, "ws-alpha", "skills", "notes"), { recursive: true });
+    writeFileSync(join(root, "ws-alpha", "skills", "notes", "SKILL.md"), "---\nname: notes\n---\n");
+    writeFileSync(join(root, "openclaw.json"), JSON.stringify({
+      meta: { lastTouchedVersion: "2026.9.5" },
+      agents: { list: [{ id: "alpha", workspace: "C:\\Users\\J\u00fcrgen\\.openclaw\\ws-alpha" }] },
+      skills: { load: { extraDirs: [`${FOREIGN}${SEP}skills`, "${SKILLS_HOME}/x"] } },
+    }));
+    const before = treeDigest(d);
+    const r = await detectOpenclaw(ctxFor(root));
+    assert.equal(r.agents[0]!.workspace, join(root, "ws-alpha"));
+    assert.deepEqual(r.portability.movedFrom, ["C:\\Users\\J\u00fcrgen\\.openclaw"]);
+    assert.deepEqual(r.portability.mapped.map((m) => [m.key, m.how]), [["agents.alpha.workspace", "rebased"]]);
+    assert.deepEqual(r.portability.unmapped.map((u) => [u.key, u.reason]), [["skills.load.extraDirs[0]", "foreign-path"], ["skills.load.extraDirs[1]", "env-var"]]);
+    assert.ok(r.skillRoots.every((s) => s.dir.startsWith(d) || s.dir.startsWith("/nonexistent-home")), "no C:\\… path is ever resolved under the root");
+    assert.ok(r.warnings.some((w) => /moved or copied/.test(w)) && r.warnings.some((w) => /--map/.test(w)));
+    const mapped = await detectOpenclaw({ ...ctxFor(root), maps: [{ from: FOREIGN, to: join(d, "shared") }] });
+    assert.ok(mapped.skillRoots.some((s) => s.tier === "extra" && s.dir === join(d, "shared", "skills")));
+    assert.equal(treeDigest(d), before);
+  });
+});
+
 describe("detectOpenclaw refusals", () => {
   const code = async (p: Promise<unknown>) => { try { await p; return "resolved"; } catch (e) { return `${(e as ImportError).code}/${(e as ImportError).reason}`; } };
   it("refuses a missing directory, an empty directory and an unparseable config", async () => {

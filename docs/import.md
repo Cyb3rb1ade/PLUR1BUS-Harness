@@ -407,7 +407,7 @@ Acceptance tests, directly against the fixtures above:
 
 ## 8. Detect (read-only, pulled forward)
 
-**Status:** built 2026-09-27 (owner pulled it forward from M7). Phase 1 of §5.1 on its own: `plur1bus import <openclaw|hermes> --detect [--source <path>] [--profile <name>] [--json]`. It plans nothing and writes nothing — not to the source, not to the harness home.
+**Status:** built 2026-09-27 (owner pulled it forward from M7). Phase 1 of §5.1 on its own: `plur1bus import <openclaw|hermes> --detect [--source <path>] [--profile <name>] [--map <source-prefix>=<local-prefix>]… [--json]`. It plans nothing and writes nothing — not to the source, not to the harness home.
 
 ### 8.1 Where it runs
 
@@ -460,11 +460,26 @@ A field without a confirming source is `unknown`. `derived` counts as confirmed 
 
 ### 8.5 Output
 
-`--json` document `import.detect/1` (top-level keys, stable): `sourceType`, `source {root, resolvedFrom, configPath, profile}`, `version {release, stateSchema, configVersion, sessionsSchema, supported, warnings}`, `target {home, configSource, embedding {fields}, reranker}`, `agents[] {agentId, workspace, workspaceSource, agentDir, foundIn[]}`, `plur1bus {installed, plugin, storeRoot, embeddingCache, reembedding, stores[]}` (each store `{storeId, kind, agentId, namespace, path, rows, identity {fields, distinctIdentities, evidence[], comparison {verdict, fields}, plannedAction, reasons[]}}`), `rerankers[]`, `skills[]`, `secrets {files[], envKeys[], configKeys[]}`, `other {soul, memoryFiles, cron, sessionsDb}` (presence only — M7 entities), `warnings[]`, `counts`. The human rendering is the same data as short sections. Neither ever contains memory text, skill bodies or secret values.
+`--json` document `import.detect/1` (top-level keys, stable): `sourceType`, `source {root, resolvedFrom, configPath, profile}`, `version {release, stateSchema, configVersion, sessionsSchema, supported, warnings}`, `target {home, configSource, embedding {fields}, reranker}`, `agents[] {agentId, workspace, workspaceSource, agentDir, foundIn[]}`, `plur1bus {installed, plugin, storeRoot, embeddingCache, reembedding, stores[]}` (each store `{storeId, kind, agentId, namespace, path, rows, identity {fields, distinctIdentities, evidence[], comparison {verdict, fields}, plannedAction, reasons[]}}`), `rerankers[]`, `skills[]`, `secrets {files[], envKeys[], configKeys[]}`, `other {soul, memoryFiles, cron, sessionsDb}` (presence only — M7 entities), `portability` (§8.6), `warnings[]`, `counts`. The human rendering is the same data as short sections. Neither ever contains memory text, skill bodies or secret values.
+
+### 8.6 Cross-platform sources and path mapping
+
+Added 2026-09-28 (HM3; design: `docs/superpowers/specs/2026-09-28-plugin-distribution-and-migration-design.md` §B.1–B.6).
+
+**Where a source is read from.** The root (§8.3) is classified as an *origin* with a *flavour* (the path syntax its configs are written in): `native` (host flavour); `wsl:<distro>` when `--source` is `\\wsl$\<distro>\…` or `\\wsl.localhost\<distro>\…` on Windows (POSIX flavour; the source-side root is the POSIX path inside the distro, the source-side home is `/home/<u>` or `/root` when the root sits there); `windows-from-wsl` when the root is `/mnt/<drive>/…` read inside WSL (`WSL_DISTRO_NAME`/`WSL_INTEROP` set; Windows flavour, home `<drive>:\Users\<u>`); `network` for a UNC share on Windows. Automatic WSL discovery and probing (`wsl.exe`, `--probe-wsl`), the `wsl:<distro>:<path>` source syntax and the snapshot producer are M7 (spec G5, G6); host-side import for the container bundle is D2.
+
+**Paths inside the source's config** (`agents.*.workspace`, `agents.*.agentDir`, `agents.defaults.workspace`, the plugin's `baseDbPath` and `embedding.local.cacheDir`, `skills.load.extraDirs`, Hermes `skills.external_dirs`) go through one mapper instead of the host's `path` module:
+
+1. Parsed with the **source's** flavour. A drive-letter or `\\server\share` path is Windows syntax, a leading `/` POSIX syntax, whatever the host: a POSIX path in a config read on Windows is never read as `C:\home\…`, a Windows path read on Linux is never resolved under the root. `\x` and `C:x` are `drive-relative` and unmapped.
+2. `~` expands against the source-side home; `${OPENCLAW_HOME}` against the source-side root; Hermes also expands `$VAR`/`${VAR}` (and `%VAR%` for a Windows source) from the environment — only for a native source, whose environment is the host's; any other variable is unmapped (`env-var`). Relative paths resolve against the root (Hermes: against the profile directory).
+3. Mapped, in order: a `--map <source-prefix>=<local-prefix>` rule (repeatable, longest prefix first, whole segments, case-insensitive for Windows syntax); a path under the source-side root → the same relative path under the root as read; a path through a **same-named root in a home directory** (`/home/<u>/.openclaw/…`, `C:\Users\<u>\.openclaw\…`, `…\AppData\Local\hermes\…`) that is not the root being read → **rebased** onto it (the state dir was copied or moved; reported in `portability.movedFrom` with a warning); a path under the source-side home → under that home as read (unmapped `outside-source-root` when the host cannot reach it); the origin's mounts (WSL: `/mnt/<x>/…` → `<X>:\…`, anything else → `\\wsl.localhost\<distro>\…`; from WSL: `<X>:\…` → `/mnt/<x>/…`); a native source's own-syntax path as written. Anything else is **unmapped** with a reason (`foreign-path`, `drive-relative`, `env-var`, `home-unknown`, `outside-source-root`) and the config key, never guessed; a store root that cannot be mapped falls back to the default path with a warning.
+4. Host environment variables that describe the host's installation (`$OPENCLAW_BUNDLED_SKILLS_DIR`, `$HERMES_OPTIONAL_SKILLS`) are read for a native source only. The personal skills root (`~/.agents/skills`) is the source-side user's home (over WSL, the distro user's).
+
+The detect document gains `portability {origin, flavour, sourceRoot, sourceHome, movedFrom[], mapped[] {key, value, path, how}, unmapped[] {key, value, reason}}` (`how`: `root`, `home`, `rebased`, `mount`, `map`; identity mappings are not listed); the human rendering has a *Portability* section when anything was mapped or unmapped.
 
 ## 9. Skills import (pulled forward)
 
-**Status:** built 2026-09-27. `plur1bus import <openclaw|hermes> --skills [--apply] [--enable] [--on-conflict skip|rename|replace] [--max-skill-bytes <n>] [--source <path>] [--profile <name>]` and `plur1bus import <openclaw|hermes> --rollback <report.json> [--apply]` (everything else comes from the report; `--source`/`--profile` are refused with it). Phases 2–7 of §5.1 for the one entity kind "skill"; the source is read exactly as in §8.2.
+**Status:** built 2026-09-27. `plur1bus import <openclaw|hermes> --skills [--apply] [--enable] [--on-conflict skip|rename|replace] [--max-skill-bytes <n>] [--source <path>] [--profile <name>] [--map <source-prefix>=<local-prefix>]…` and `plur1bus import <openclaw|hermes> --rollback <report.json> [--apply]` (everything else comes from the report; `--source`/`--profile` are refused with it). Phases 2–7 of §5.1 for the one entity kind "skill"; the source is read exactly as in §8.2.
 
 ### 9.1 Harness skill store (minimal; for the extensions-ecosystem spec to adopt)
 

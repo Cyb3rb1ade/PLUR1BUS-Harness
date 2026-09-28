@@ -5,7 +5,7 @@ import { renderDetect } from "../../src/import/render.ts";
 import { CONTENT_MARKER, FAKE_TOKEN, harnessHome, hermesFixture, openclawFixture, POSIX, type OpenclawFixture } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
 
-const TOP = ["agents", "counts", "other", "plur1bus", "rerankers", "secrets", "skillRoots", "skills", "source", "sourceType", "target", "version", "warnings"];
+const TOP = ["agents", "counts", "other", "plur1bus", "portability", "rerankers", "secrets", "skillRoots", "skills", "source", "sourceType", "target", "version", "warnings"];
 
 describe("detect (OpenClaw)", () => {
   let fx: OpenclawFixture; let home: string; let r: DetectReport; let homeDigest: string; let srcDigest: string;

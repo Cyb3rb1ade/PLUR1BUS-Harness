@@ -4,8 +4,8 @@
 // (src/skills/loading/workspace-skill-sources.ts), plugin install dirs (src/plugins/install-paths.ts), the state DB
 // schema marker (src/state/openclaw-state-db-maintenance.ts). Read-only throughout.
 import { readdirSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
-import { envGet, expandTilde, pathFor } from "../paths.ts";
+import { join, resolve } from "node:path";
+import { envGet, expandTilde, locateSource, pathFor, portabilityOf, SourcePathMapper } from "../paths.ts";
 import { classifyReranker, compareReranker } from "../identity.ts";
 import { parseJson5 } from "../json5.ts";
 import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables } from "../readonly.ts";
@@ -70,17 +70,9 @@ export function resolveOpenclawRoot(o: RootInput): { root: string; resolvedFrom:
   return { root, resolvedFrom, configPath };
 }
 
-const expandHome = (p: string, homedir: string) => expandTilde(p, homedir, process.platform);
-
-/** A path from the source's config: `~`, `${OPENCLAW_HOME}` (the state dir, as the plugin binds it) and relative paths
- *  (against the state dir) are resolved; any other `${VAR}` is left unresolved (null) — the environment is not read. */
-export function expandConfigPath(p: unknown, root: string, homedir: string): string | null {
-  if (typeof p !== "string" || !p.trim()) return null;
-  const s = p.trim().replaceAll("${OPENCLAW_HOME}", root);
-  if (/\$\{[^}]*\}/.test(s)) return null;
-  const e = expandHome(s, homedir);
-  return isAbsolute(e) ? resolve(e) : resolve(root, e);
-}
+/** A config value that names a path, through the source's mapper (§B.4); null when absent or unmappable. */
+type CfgPath = (v: unknown, key: string) => string | null;
+const mapperPath = (m: SourcePathMapper): CfgPath => (v, key) => (typeof v === "string" && v.trim() ? m.map(v, key).path : null);
 
 const obj = (v: unknown): Record<string, any> | undefined => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, any>) : undefined);
 
@@ -123,7 +115,7 @@ function pluginVersion(root: string, cfg: Record<string, any>): { version: strin
   return { version: null, versionSource: null, path: null };
 }
 
-function agents(root: string, cfg: Record<string, any>, homedir: string): AgentInfo[] {
+function agents(root: string, cfg: Record<string, any>, cfgPath: CfgPath): AgentInfo[] {
   const a = obj(cfg.agents);
   const found = new Map<string, { entry: Record<string, any>; foundIn: Set<string> }>();
   const add = (id: unknown, entry: Record<string, any>, where: string) => {
@@ -137,16 +129,16 @@ function agents(root: string, cfg: Record<string, any>, homedir: string): AgentI
   else if (Array.isArray(a?.list)) for (const e of a!.list) add(obj(e)?.id, obj(e) ?? {}, "config");
   else add("main", {}, "implicit");
   for (const d of subdirs(join(root, "agents"))) add(d, {}, "directory");
-  const defaultsWs = expandConfigPath(obj(a?.defaults)?.workspace, root, homedir);
+  const defaultsWs = cfgPath(obj(a?.defaults)?.workspace, "agents.defaults.workspace");
   const ids = [...found.keys()].sort();
   return ids.map((id) => {
     const { entry, foundIn } = found.get(id)!;
-    const configured = expandConfigPath(entry.workspace, root, homedir);
+    const configured = cfgPath(entry.workspace, `agents.${id}.workspace`);
     let workspace: string; let workspaceSource: string;
     if (configured) { workspace = configured; workspaceSource = "config"; }
     else if (defaultsWs) { workspace = id === "main" ? defaultsWs : join(defaultsWs, id); workspaceSource = "config:agents.defaults.workspace"; }
     else { workspace = id === "main" ? join(root, "workspace") : join(root, `workspace-${id}`); workspaceSource = "default"; }
-    const agentDir = expandConfigPath(entry.agentDir, root, homedir) ?? join(root, "agents", id, "agent");
+    const agentDir = cfgPath(entry.agentDir, `agents.${id}.agentDir`) ?? join(root, "agents", id, "agent");
     return { agentId: id, workspace, workspaceSource, agentDir, foundIn: [...foundIn].sort() };
   });
 }
@@ -177,19 +169,23 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   const versionWarnings: string[] = [];
   if (state.schema !== null && state.schema > TESTED_STATE_SCHEMA) versionWarnings.push(`state schema ${state.schema} is newer than the tested ${TESTED_STATE_SCHEMA}`);
 
-  const agentList = agents(root, cfg, ctx.homedir);
+  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir });
+  const base = pathFor(loc.flavour).basename(loc.sourceRoot);
+  const mapper = new SourcePathMapper(loc, { maps: ctx.maps, vars: { OPENCLAW_HOME: loc.sourceRoot }, rootNames: base === ".openclaw" || base === ".clawdbot" ? [".openclaw", ".clawdbot"] : [] });
+  const cfgPath = mapperPath(mapper);
+  const agentList = agents(root, cfg, cfgPath);
   const entry = obj(obj(obj(cfg.plugins)?.entries)?.[PLUGIN_ID]);
   const pcfg = obj(entry?.config) ?? {};
   const pv = pluginVersion(root, cfg);
-  const baseFromCfg = expandConfigPath(pcfg.baseDbPath, root, ctx.homedir);
-  if (pcfg.baseDbPath && !baseFromCfg) warnings.push("PLUR1BUS baseDbPath uses an environment variable; the default path was scanned instead");
+  const baseFromCfg = cfgPath(pcfg.baseDbPath, `plugins.entries.${PLUGIN_ID}.config.baseDbPath`);
+  if (pcfg.baseDbPath && !baseFromCfg) warnings.push("PLUR1BUS baseDbPath could not be mapped to a local path (see portability.unmapped); the default path was scanned instead");
   const baseDbPath = baseFromCfg ?? join(root, "memory", "lancedb-namespaced");
   const installed = !!entry || pv.version !== null || isDir(baseDbPath);
   let plur1bus: SourceReport["plur1bus"] = { installed, plugin: null, storeRoot: null, embeddingCache: null, reembedding: null, stores: [] };
   if (installed) {
     const emb = obj(pcfg.embedding);
     const cacheDirCfg = emb?.local?.cacheDir ?? emb?.cacheDir;
-    const modelCacheDir = cacheDirCfg ? expandConfigPath(cacheDirCfg, root, ctx.homedir) : join(root, "models", "plur1bus");
+    const modelCacheDir = cacheDirCfg ? cfgPath(cacheDirCfg, `plugins.entries.${PLUGIN_ID}.config.embedding.local.cacheDir`) : join(root, "models", "plur1bus");
     const scan = await scanStoreRoot({ baseDbPath, baseDbPathSource: baseFromCfg ? "config" : "default", config: pcfg, modelCacheDir, target: ctx.target.embedding });
     warnings.push(...scan.warnings);
     plur1bus = {
@@ -203,12 +199,14 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   // Skill roots, low → high precedence (workspace-skill-sources.ts).
   const skillRoots: SkillRoot[] = [];
   const extra = obj(obj(cfg.skills)?.load)?.extraDirs;
-  if (Array.isArray(extra)) for (const d of extra) { const p = expandConfigPath(d, root, ctx.homedir); if (p) skillRoots.push({ dir: p, tier: "extra", agentId: null, precedence: 1 }); }
+  if (Array.isArray(extra)) extra.forEach((d, i) => { const p = cfgPath(d, `skills.load.extraDirs[${i}]`); if (p) skillRoots.push({ dir: p, tier: "extra", agentId: null, precedence: 1 }); });
+  // A host environment variable describes the host's OpenClaw, not one read over WSL or from a copy on another OS.
   const bundled = ctx.env.OPENCLAW_BUNDLED_SKILLS_DIR?.trim();
-  if (bundled) skillRoots.push({ dir: resolve(expandHome(bundled, ctx.homedir)), tier: "bundled", agentId: null, precedence: 2 });
+  if (bundled && loc.origin === "native") skillRoots.push({ dir: resolve(expandTilde(bundled, ctx.homedir, process.platform)), tier: "bundled", agentId: null, precedence: 2 });
   for (const a of agentList) if (a.agentDir) skillRoots.push({ dir: join(a.agentDir, "workshop-skills"), tier: "workshop", agentId: a.agentId, precedence: 3 });
   skillRoots.push({ dir: join(root, "skills"), tier: "managed", agentId: null, precedence: 4 });
-  if (resolvedFrom === "default" || resolvedFrom === "default-legacy") skillRoots.push({ dir: join(ctx.homedir, ".agents", "skills"), tier: "personal", agentId: null, precedence: 5 });
+  // The personal root belongs to the source-side user: over WSL that is the distro user's home, not the harness user's.
+  if ((resolvedFrom === "default" || resolvedFrom === "default-legacy" || loc.origin !== "native") && loc.accessHome) skillRoots.push({ dir: join(loc.accessHome, ".agents", "skills"), tier: "personal", agentId: null, precedence: 5 });
   for (const a of agentList) if (a.workspace) {
     skillRoots.push({ dir: join(a.workspace, ".agents", "skills"), tier: "project", agentId: a.agentId, precedence: 6 });
     skillRoots.push({ dir: join(a.workspace, "skills"), tier: "workspace", agentId: a.agentId, precedence: 7 });
@@ -235,6 +233,6 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
     sourceType: "openclaw",
     source: { root, resolvedFrom, configPath: hasConfig ? configPath : null, profile: null },
     version: { release, stateSchema: state.schema, configVersion: null, sessionsSchema: null, supported: versionWarnings.length === 0, warnings: versionWarnings },
-    agents: agentList, plur1bus, rerankers, skillRoots, secrets, other, warnings,
+    agents: agentList, plur1bus, rerankers, skillRoots, secrets, other, portability: portabilityOf(mapper, warnings), warnings,
   };
 }

@@ -134,9 +134,12 @@ pub struct ImportArgs {
     /// Undo one --skills --apply run from its report.json (dry-run unless --apply)
     #[arg(long, value_name = "REPORT")]
     pub rollback: Option<PathBuf>,
-    /// Source root (default: $OPENCLAW_STATE_DIR / $OPENCLAW_PROFILE / ~/.openclaw, or $HERMES_HOME / ~/.hermes)
+    /// Source root (default: $OPENCLAW_STATE_DIR / $OPENCLAW_PROFILE / ~/.openclaw, or $HERMES_HOME / ~/.hermes, %LOCALAPPDATA%\hermes on Windows); a \\wsl$\<distro>\... or \\wsl.localhost\<distro>\... path reads a WSL-hosted source
     #[arg(long, value_name = "PATH")]
     pub source: Option<PathBuf>,
+    /// Map paths in the source's config that start with SOURCE to LOCAL (repeatable), for paths the importer cannot map itself
+    #[arg(long = "map", value_name = "SOURCE=LOCAL", conflicts_with = "rollback", value_parser = clap::value_parser!(std::ffi::OsString))]
+    pub map: Vec<std::ffi::OsString>,
     /// Hermes only: import one named profile instead of the root and every profile
     #[arg(long, value_name = "NAME")]
     pub profile: Option<String>,
