@@ -792,7 +792,17 @@ fn windows_permissions_fix_resets_run_files_made_by_the_core_to_inherit_the_run_
         assert!(ok.success(), "icacls {args:?}");
     };
     let sid = plur1bus_rpc::win::user_sid().unwrap();
-    for f in ["core.token", "core.pid", "module-fixture.token"] {
+    // `core.pid` names a live process (this test), so `run.stale-files` rightly leaves it alone and the plan is the
+    // permission reset only.
+    fs::write(
+        run.join("core.pid"),
+        format!(
+            "{} 00000000-0000-4000-8000-000000000000\n",
+            std::process::id()
+        ),
+    )
+    .unwrap();
+    for f in ["core.token", "module-fixture.token"] {
         fs::write(run.join(f), b"TEST ONLY").unwrap();
     }
     for f in ["core.token", "core.pid"] {
