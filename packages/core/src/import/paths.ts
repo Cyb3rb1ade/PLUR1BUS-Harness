@@ -152,7 +152,7 @@ function below(a: AbsPath, base: AbsPath): string[] | null {
 function plausibleHome(prefix: readonly string[], syntax: Syntax): boolean {
   const p = prefix.map((x) => fold(x, syntax));
   if (syntax === "win32") return p[0] === "users" && (p.length === 2 || (p.length === 4 && p[2] === "appdata" && (p[3] === "local" || p[3] === "roaming")));
-  return (p.length === 2 && (p[0] === "home" || p[0] === "users")) || (p.length === 1 && p[0] === "root") || (p.length === 3 && p[0] === "var" && p[1] === "home");
+  return (p.length === 2 && (p[0] === "home" || p[0] === "Users")) || (p.length === 1 && p[0] === "root") || (p.length === 3 && p[0] === "var" && p[1] === "home");
 }
 
 export type MapHow = "native" | "root" | "home" | "rebased" | "mount" | "map";

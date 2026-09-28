@@ -49,7 +49,8 @@ function splitFlow(inner: string): string[] | null {
 
 export function readYaml(text: string): { value: unknown; unsupported: string[] } {
   const unsupported: string[] = [];
-  const lines: Line[] = text.replace(/\r\n?/g, "\n").split("\n").map((raw, idx) => ({ raw, indent: raw.length - raw.trimStart().length, no: idx + 1 }));
+  // A leading BOM (Notepad, PowerShell 5.1 `Out-File -Encoding utf8`) would count as indentation of the first line.
+  const lines: Line[] = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n").map((raw, idx) => ({ raw, indent: raw.length - raw.trimStart().length, no: idx + 1 }));
   const blank = (l: Line) => { const t = l.raw.trim(); return t === "" || t.startsWith("#") || (l.indent === 0 && (t === "---" || t === "...")); };
   let pos = 0;
   const nextSig = (from: number) => { let j = from; while (j < lines.length && blank(lines[j]!)) j++; return j; };

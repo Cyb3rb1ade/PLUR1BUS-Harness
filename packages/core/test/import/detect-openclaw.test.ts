@@ -6,7 +6,7 @@ import { targetIdentity } from "../../src/import/identity.ts";
 import { detectOpenclaw, resolveOpenclawRoot } from "../../src/import/sources/openclaw.ts";
 import { ImportError, type SourceReport } from "../../src/import/types.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
-import { CONTENT_MARKER, FAKE_TOKEN, lanceStore, openclawFixture, SHARED_KEY, type OpenclawFixture } from "./fixtures.ts";
+import { CONTENT_MARKER, FAKE_TOKEN, lanceStore, needsFileSymlinks, openclawFixture, SHARED_KEY, type OpenclawFixture } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
 
 const ctxFor = (source: string | undefined, env: NodeJS.ProcessEnv = {}, homedir = "/nonexistent-home") => {
@@ -124,7 +124,7 @@ describe("detectOpenclaw on a store with unknown metadata", () => {
 });
 
 describe("detectOpenclaw with a symlinked config", () => {
-  it("follows a symlinked openclaw.json (dotfile managers)", { skip: process.platform === "win32" }, async () => {
+  it("follows a symlinked openclaw.json (dotfile managers)", needsFileSymlinks, async () => {
     const d = tempDir("p1b-imp-");
     mkdirSync(join(d, "dotfiles")); mkdirSync(join(d, "state"));
     writeFileSync(join(d, "dotfiles", "openclaw.json"), "{ meta: { lastTouchedVersion: '2026.9.5' } }");
