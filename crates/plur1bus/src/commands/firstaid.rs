@@ -28,7 +28,7 @@ const CHECK_TIMEOUT: Duration = Duration::from_millis(300);
 /// per-agent `jobs.history` calls, so a large or slow agent roster cannot make the whole check run long past what a
 /// human waiting on it would expect. Whatever has not run by then is reported `warn` ("time budget exhausted")
 /// rather than left to overrun.
-const GATHER_BUDGET: Duration = Duration::from_secs(3);
+pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
@@ -53,6 +53,9 @@ const CHECK_IDS: [&str; 18] = [
     "models.cache",
 ];
 
+/// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
+pub(crate) const BUDGET_EXHAUSTED: &str = "time budget exhausted";
+
 /// `true` (after filling `checks` up to [`CHECK_IDS`]'s length with a "time budget exhausted" warning each) once
 /// `deadline` has passed; `checks` must already hold exactly the ids `CHECK_IDS` names, in order, up to this point.
 fn out_of_budget(deadline: Instant, checks: &mut Vec<Check>) -> bool {
@@ -60,7 +63,7 @@ fn out_of_budget(deadline: Instant, checks: &mut Vec<Check>) -> bool {
         return false;
     }
     for id in &CHECK_IDS[checks.len()..] {
-        checks.push(Check::warn(id, "time budget exhausted", None, None));
+        checks.push(Check::warn(id, BUDGET_EXHAUSTED, None, None));
     }
     true
 }
@@ -224,11 +227,21 @@ fn probe_supervisor(layout: &Layout, platform: &str) -> SupervisorView {
     classify_supervisor(result, recorded_pid_alive)
 }
 
+/// One `1staid check` pass over `layout` with the host's clock and platform, bounded by `deadline`: what `1staid
+/// check` prints and what `1staid repair` plans from (and checks again afterwards).
+pub(crate) fn collect(layout: &Layout, runner: &dyn Runner, deadline: Instant) -> Vec<Check> {
+    let env = Env {
+        now: Env::now_ms(),
+        platform: if cfg!(windows) { "windows" } else { "posix" },
+        runner,
+    };
+    gather(layout, &env, deadline)
+}
+
 /// Pure orchestration over small readers (ruling H3-R5): produces every [`Check`] in the fixed table order the
 /// brief specifies, so a later task can insert a row "after core.state" or "after models.warm" by name. Never
-/// writes, starts or signals anything.
-pub fn gather(layout: &Layout, env: &Env) -> Vec<Check> {
-    let deadline = Instant::now() + GATHER_BUDGET;
+/// writes, starts or signals anything. Whatever has not run by `deadline` is reported as [`BUDGET_EXHAUSTED`].
+pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     let mut checks = Vec::with_capacity(CHECK_IDS.len());
     // The supervisor's own view: `daemon.status` gives the supervisor's health, the core child's (exactly as `daemon
     // status` reports them) and the configuration it runs, which `config.valid` needs first.
@@ -558,7 +571,8 @@ pub(crate) fn pid_alive(pid: u32) -> bool {
 
 /// A socket/pipe or pid file with no live peer behind it (Review Focus 3): `run/supervisor.lock` is never checked
 /// here (H3-R9: it is expected to exist and to be held for the supervisor's whole life), and neither are any
-/// `*.tmp` files a crash left behind (also expected, H3-R9) — this only looks at the four named run files.
+/// `*.tmp` files a crash left behind (also expected, H3-R9) — this only looks at the core's and the supervisor's pid
+/// files and sockets and at each module's (`module-<name>.pid`, `module-<name>.sock`).
 fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
     const ID: &str = "run.stale-files";
     let run = layout.run();
@@ -603,6 +617,35 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
                     stale.push(name.to_string());
                 }
             }
+        }
+    }
+
+    // A module's pid file and (POSIX) socket, `run/module-<name>.{pid,sock}`: stale on the same terms as the core's.
+    let mut module_files: Vec<String> = std::fs::read_dir(&run)
+        .map(|d| {
+            d.flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .filter(|n| {
+                    n.starts_with("module-") && (n.ends_with(".pid") || n.ends_with(".sock"))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    module_files.sort();
+    for name in module_files {
+        let path = run.join(&name);
+        let alive = if name.ends_with(".pid") {
+            std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|t| t.split_whitespace().next()?.parse::<u32>().ok())
+                .is_some_and(pid_alive)
+        } else if platform != "windows" {
+            plur1bus_rpc::transport::connect(&path.to_string_lossy(), CHECK_TIMEOUT).is_ok()
+        } else {
+            true
+        };
+        if !alive {
+            stale.push(name);
         }
     }
 
@@ -1376,12 +1419,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
     match cmd {
         FirstAidCmd::Check => {
             let runner = super::service::runner(out);
-            let env = Env {
-                now: Env::now_ms(),
-                platform: if cfg!(windows) { "windows" } else { "posix" },
-                runner: runner.as_ref(),
-            };
-            let checks = gather(layout, &env);
+            let checks = collect(layout, runner.as_ref(), Instant::now() + GATHER_BUDGET);
             let ok = !checks.iter().any(|c| c.status == Status::Fail);
             out.ok(
                 "1staid.check/1",
@@ -1406,9 +1444,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
                 std::process::exit(1);
             }
         }
-        FirstAidCmd::Repair { .. } => {
-            super::stubs::milestone(out, "1staid repair", "2a-H3b", "repair (spec §6.6)")
-        }
+        FirstAidCmd::Repair(args) => super::repair::run(out, layout, args),
     }
 }
 

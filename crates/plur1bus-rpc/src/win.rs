@@ -25,6 +25,7 @@ use windows_sys::Win32::Security::{
     GetSecurityDescriptorDacl, GetTokenInformation, TokenUser, ACCESS_ALLOWED_ACE, ACE_HEADER, ACL,
     ACL_SIZE_INFORMATION, DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
     PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER,
+    UNPROTECTED_DACL_SECURITY_INFORMATION,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, SECURITY_IDENTIFICATION,
@@ -223,6 +224,36 @@ pub fn set_path_dacl(path: &std::path::Path, sddl: &str) -> io::Result<()> {
             text.as_ptr(),
             SE_FILE_OBJECT,
             DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            dacl,
+            std::ptr::null(),
+        )
+    };
+    if r != 0 {
+        return Err(io::Error::from_raw_os_error(r as i32));
+    }
+    Ok(())
+}
+
+/// Resets the DACL of the file at `path` to "inherit only": no explicit ACE, not protected, so the file takes exactly
+/// the inheritable ACEs of its directory (`SetNamedSecurityInfoW(path, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+/// UNPROTECTED_DACL_SECURITY_INFORMATION, <empty DACL>)`). Used by `1staid repair` after [`set_path_dacl`] gave
+/// `run/` its [`run_dir_sddl`], for token and pid files that carry an ACL of their own (an older core's `icacls`
+/// grant, a hand edit). The DACL passed is empty, never NULL (a NULL DACL would grant everyone full access).
+/// `SetNamedSecurityInfoW` opens the file itself with the `READ_CONTROL | WRITE_DAC` it needs; neither right is
+/// subject to another process's share mode, so a file a running process holds open is still reset.
+pub fn inherit_path_dacl(path: &std::path::Path) -> io::Result<()> {
+    let sd = SecurityDescriptor::from_sddl("D:")?;
+    let dacl = sd.dacl()?;
+    let text = wide_path(path);
+    // SAFETY: `text` is NUL-terminated; `dacl` is a valid, empty ACL inside `sd`, which lives for the whole call; owner,
+    // group and SACL are not set (null) and not named in the security information flags.
+    let r = unsafe {
+        SetNamedSecurityInfoW(
+            text.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | UNPROTECTED_DACL_SECURITY_INFORMATION,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
             dacl,
