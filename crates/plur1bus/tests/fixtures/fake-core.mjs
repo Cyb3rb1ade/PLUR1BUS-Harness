@@ -7,7 +7,8 @@
 //   crash-after:<ms>      serve, then exit 1 <ms> after it reports ready (on Windows: once run/ is secured)
 //   exit:<code>           exit with <code> at once, before the lock
 //   listen-after:<ms>     hold the lock and write the run files, but listen only after <ms> (a core still starting)
-//   hang-after:<ms>       serve, then stop answering every request after <ms> (no SIGTERM handler; event `hung`)
+//   hang-after:<ms>       serve, then stop answering every request <ms> after it reports ready (on Windows: once run/
+//                         is secured; no SIGTERM handler; event `hung`)
 //   no-listen             start (run files not written) but never listen
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
 // FAKE_CORE_ENGINE (JSON) replaces core.status's `engine` object (default: ready, not degraded).
@@ -307,7 +308,9 @@ if (kind !== "no-listen") {
     // From the moment it reports ready: securing run/ takes a second or more on a Windows runner, and a core that
     // crashes before that is never ready (a test waiting for ready would see only crashes, then the give-up).
     if (kind === "crash-after") whenSecured(() => setTimeout(() => exit(1), Number(a)));
-    if (kind === "hang-after") setTimeout(() => { hung = true; event("hung"); }, Number(a));
+    // Also from ready: a core that hangs while it still reports `starting` is never ready, and the supervisor kills
+    // it at the ready timeout and starts another, which is not the hung core a test then stops.
+    if (kind === "hang-after") whenSecured(() => setTimeout(() => { hung = true; event("hung"); }, Number(a)));
   });
   if (kind === "listen-after") setTimeout(listen, Number(a));
   else listen();
