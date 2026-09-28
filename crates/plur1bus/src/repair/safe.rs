@@ -53,13 +53,22 @@ fn run_secret_files(run: &Path) -> Vec<String> {
 }
 
 /// unix: `run/` 0700, every token and pid file in it 0600. Windows: `run/` gets the protected, inheritable
-/// user-and-SYSTEM DACL the supervisor sets at start (HB5), and each token and pid file its own protected DACL.
+/// user-and-SYSTEM DACL the supervisor sets at start (HB5), and each token and pid file is reset to inherit exactly
+/// that DACL (no explicit ACE, not protected) instead of receiving an explicit DACL of its own: resetting needs only
+/// `READ_CONTROL | WRITE_DAC`, which the user holds on its own files, and it leaves the files as the ones a child
+/// creates in a secured `run/`. The directory goes first, so the files inherit its new ACEs. A file another process
+/// holds locked (a sharing or lock violation) is left as it is and reported in `inUse`; any other error fails the
+/// step after every file was tried.
 pub fn fix_run_permissions(ctx: &Ctx, _step: &Step) -> Result<Value, String> {
     let run = ctx.layout.run();
     if !run.is_dir() {
         return Ok(json!({ "files": [], "note": "run/ does not exist" }));
     }
     let files = run_secret_files(&run);
+    let mut fixed: Vec<String> = Vec::new();
+    #[allow(unused_mut)] // only the Windows branch finds locked files
+    let mut in_use: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -67,28 +76,36 @@ pub fn fix_run_permissions(ctx: &Ctx, _step: &Step) -> Result<Value, String> {
             .map_err(|e| io_msg(&run, e))?;
         for f in &files {
             let p = run.join(f);
-            fs::set_permissions(&p, fs::Permissions::from_mode(0o600))
-                .map_err(|e| io_msg(&p, e))?;
+            match fs::set_permissions(&p, fs::Permissions::from_mode(0o600)) {
+                Ok(()) => fixed.push(f.clone()),
+                Err(e) => errors.push(io_msg(&p, e)),
+            }
         }
     }
     #[cfg(windows)]
     {
-        use std::os::windows::fs::OpenOptionsExt;
-        use std::os::windows::io::AsRawHandle;
-        use windows_sys::Win32::Storage::FileSystem::WRITE_DAC;
         let sid = plur1bus_rpc::win::user_sid().map_err(|e| format!("user SID: {e}"))?;
         plur1bus_rpc::win::set_path_dacl(&run, &plur1bus_rpc::acl::run_dir_sddl(&sid))
             .map_err(|e| io_msg(&run, e))?;
         for f in &files {
             let p = run.join(f);
-            let h = fs::OpenOptions::new()
-                .access_mode(WRITE_DAC)
-                .open(&p)
-                .map_err(|e| io_msg(&p, e))?;
-            plur1bus_rpc::win::restrict_to_user(h.as_raw_handle()).map_err(|e| io_msg(&p, e))?;
+            match plur1bus_rpc::win::inherit_path_dacl(&p) {
+                Ok(()) => fixed.push(f.clone()),
+                Err(e) if is_locked(&e) => in_use.push(f.clone()),
+                Err(e) => errors.push(io_msg(&p, e)),
+            }
         }
     }
-    Ok(json!({ "files": files }))
+    if !errors.is_empty() {
+        return Err(errors.join("; "));
+    }
+    Ok(json!({ "files": fixed, "inUse": in_use }))
+}
+
+/// `ERROR_SHARING_VIOLATION` (32) or `ERROR_LOCK_VIOLATION` (33): another process holds the file.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn is_locked(e: &io::Error) -> bool {
+    matches!(e.raw_os_error(), Some(32 | 33))
 }
 
 // ---- run.stale-files.remove ------------------------------------------------------------------------------------

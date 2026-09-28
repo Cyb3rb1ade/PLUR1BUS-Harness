@@ -304,10 +304,17 @@ fn supervise(e: &Env, core_js: &Path, env: &[(&str, &str)]) -> Supervised {
 
 // ---- the plan ---------------------------------------------------------------------------------------------------
 
+/// A healthy installation is a running one: the registered service, and a supervisor that secured `run/` at start
+/// (0700 on unix, the protected inheritable user-and-SYSTEM DACL on Windows, HB5) serving a ready core.
 #[test]
 fn a_healthy_installation_plans_nothing() {
     let e = Env::new();
     e.install_service();
+    let _s = supervise(&e, &fixture(), &[("FAKE_CORE_MODE", "ok")]);
+    let mut c = supervisor_client(&e.home);
+    wait_until("the core to become ready", WAIT, || {
+        core_state(&mut c) == "ready"
+    });
     let (code, v) = e.repair(&[]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["schema"], "1staid.repair/1", "{v}");
@@ -622,7 +629,13 @@ fn service_renew_rewrites_a_deleted_unit() {
     assert_eq!(e.service_status()["registered"], false);
 
     let (code, v) = e.repair(&["--yes"]);
-    assert_eq!(ids(&v), ["service.renew"], "{v}");
+    // On Windows `service install` created run/ (the task XML lives there) with the temp dir's inherited ACL, which
+    // `run.permissions` rightly fails; that step is covered by its own tests.
+    let planned: Vec<String> = ids(&v)
+        .into_iter()
+        .filter(|id| !(cfg!(windows) && id == "run.permissions.fix"))
+        .collect();
+    assert_eq!(planned, ["service.renew"], "{v}");
     assert_eq!(step(&v, "service.renew")["status"], "done", "{v}");
     assert_eq!(step(&v, "service.renew")["risk"], "low", "{v}");
     assert_eq!(code, 0, "{v}");
@@ -752,5 +765,82 @@ mod node {
             .unwrap()
             .iter()
             .any(|f| f == "runtime.node"));
+    }
+}
+
+// ---- run.permissions.fix on Windows --------------------------------------------------------------------------------
+
+/// The run files as a real installation leaves them: `core.token` and `core.pid` with the protected explicit DACL an
+/// older core's `securePath` gives them (`icacls /inheritance:r /grant:r <user>:(F) SYSTEM:(F)`), a module token
+/// with whatever it inherited, and a `run/` that BUILTIN\Users may modify. The fix gives `run/` the supervisor's
+/// protected inheritable DACL (HB5) and resets every token and pid file to inherit exactly that.
+#[cfg(windows)]
+#[test]
+fn windows_permissions_fix_resets_run_files_made_by_the_core_to_inherit_the_run_acl() {
+    use plur1bus_rpc::acl::{INHERITED_ACE, SYSTEM_SID};
+    let e = Env::new();
+    e.install_service();
+    let run = e.home.join("run");
+    fs::create_dir_all(&run).unwrap();
+    let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+    let icacls = |args: &[&str]| {
+        let ok = Command::new(Path::new(&system_root).join(r"System32\icacls.exe"))
+            .args(args)
+            .stdout(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(ok.success(), "icacls {args:?}");
+    };
+    let sid = plur1bus_rpc::win::user_sid().unwrap();
+    for f in ["core.token", "core.pid", "module-fixture.token"] {
+        fs::write(run.join(f), b"TEST ONLY").unwrap();
+    }
+    for f in ["core.token", "core.pid"] {
+        let p = run.join(f);
+        icacls(&[
+            p.to_str().unwrap(),
+            "/inheritance:r",
+            "/grant:r",
+            &format!("*{sid}:(F)"),
+            "*S-1-5-18:(F)",
+        ]);
+        assert!(plur1bus_rpc::win::file_dacl_detail(&p).unwrap().protected);
+    }
+    icacls(&[run.to_str().unwrap(), "/grant", "*S-1-5-32-545:(OI)(CI)(M)"]);
+
+    let (code, v) = e.repair(&["--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(ids(&v), ["run.permissions.fix"], "{v}");
+
+    let (code, v) = e.repair(&["--yes"]);
+    let s = step(&v, "run.permissions.fix");
+    assert_eq!(s["status"], "done", "{v}");
+    assert_eq!(
+        s["detail"]["files"],
+        json!(["core.pid", "core.token", "module-fixture.token"]),
+        "{v}"
+    );
+    assert_eq!(code, 0, "{v}");
+    assert!(!v["checkAfter"]["failing"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f == "run.permissions"));
+
+    let dir = plur1bus_rpc::win::file_dacl_detail(&run).unwrap();
+    assert!(dir.protected, "{dir:?}");
+    let mut sids: Vec<&str> = dir.aces.iter().map(|(a, _)| a.sid.as_str()).collect();
+    sids.sort();
+    let mut want = vec![sid.as_str(), SYSTEM_SID];
+    want.sort();
+    assert_eq!(sids, want, "{dir:?}");
+    for f in ["core.token", "core.pid", "module-fixture.token"] {
+        let d = plur1bus_rpc::win::file_dacl_detail(&run.join(f)).unwrap();
+        assert!(!d.protected, "{f}: {d:?}");
+        assert!(!d.aces.is_empty(), "{f}: {d:?}");
+        for (ace, flags) in &d.aces {
+            assert!(flags & INHERITED_ACE != 0, "{f}: explicit ACE left: {d:?}");
+            assert!(ace.sid == sid || ace.sid == SYSTEM_SID, "{f}: {d:?}");
+        }
     }
 }
