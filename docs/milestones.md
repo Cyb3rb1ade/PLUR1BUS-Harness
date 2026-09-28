@@ -1,6 +1,6 @@
 # Milestones — PLUR1BUS Harness (Variant B)
 
-**Status:** Phase 0 deliverable, awaiting owner approval; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7); **amended 2026-09-27 for the extensions ecosystem (core spec D79–D85): track X in §2, M6 scope and effort, §3** · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
+**Status:** Phase 0 deliverable, awaiting owner approval; **amended 2026-09-28 (owner requirements on host-mode plugin packages and cross-platform migration, D86–D91: §2 table, track HM, M7 effort, M8 host adapters, D2, §3 graph)**; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7); **amended 2026-09-27 for the extensions ecosystem (core spec D79–D85): track X in §2, M6 scope and effort, §3** · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
 **Re-cut of** `docs/phase0/auftrag-original-2026-09-21.md` §12 (M0–M8) for **Variant B** per `docs/phase0/brief.md` D1–D11 and ADR-001 (K4 tripped, K3 red on Windows arm64). Every §12 acceptance criterion reappears below, re-cut; the 16 operational criteria of `docs/learnings-hermes-openclaw.md` §3 are mapped as **L1–L16**; ADR-001's targets T1–T7, ADR-009's A1–A8 and ADR-010's B1–B10 are milestone exit criteria. Engine work is PRs in the **PLUR1BUS repo** (`docs/engine-extraction.md` §c, PR-01…PR-15; ADR-002's P0–P10 is the same plan at coarser grain).
 
 ---
@@ -35,13 +35,15 @@
 | M4 | Channels: Telegram, Discord, Matrix, Buzz | PR-06 channel vocabulary (**M4 blocker**) | **22–34** | Q4; ADR-003 Q1–Q3 |
 | M5 | Collaboration: projects, consult/delegate, guardrails, trace | — | **18–28** | ADR-003 Q4/Q5 |
 | M6 | MCP/ACP/A2A · external coding agents · skills · plugins | — | **26–38** (skills/plugins UI moved to X3) | Q7; ADR-008 Q1–Q6; ADR-011 Q1–Q6 |
-| M7 | Importers: OpenClaw, Hermes | PR-10 (identity migration path) | **14–22** | ADR-007 Q4 |
+| M7 | Importers: OpenClaw, Hermes (cross-platform sources: WSL discovery, snapshot producer, D90/D91) | PR-10 (identity migration path) | **17–27** (+3–5 for D90/D91, 2026-09-28) | ADR-007 Q4; plugin-distribution spec C7, C8, C12 |
 | M8 | Platform hardening · installers · services · release v0.1.0 | PR-12, PR-13, PR-14 | **20–32** | Q2; ADR-001 Q3/Q5 |
 | D1 | **Part of v0.1.0** (desktop spec §11 Q5, decided 2026-09-27): container bundle + thin shell, after M3 | M3; M2 | **20–30** (in the total) |
 | D2–D4 | Track D remainder: native integration + OS-signed releases, browser container/CEF panel, computer use + WebMCP — after D1, beside M4–M8 | D1 | **26–40** (not in the total) | — |
 | X1–X3 | **Extensions, part of v0.1.0** (D79–D85): file install, enable/disable, uninstall for skills and plugins (X1, after 2a-H3b-b), MCP servers and bundles (X2, with 2b), web UI + D1 hooks (X3, with M3) | 2a-H3b-b; 2b; M3 | **15–22** (in the total; 4–6 of X3 moved from M6) | extensions spec §13 Q1–Q17 |
+| HM1–HM3 | **Host-mode plugins** (D86–D91, owner 2026-09-28): OpenClaw plugin distribution on five targets + installers (HM1, after 2a-H3b-b), Hermes host-mode adapter (HM2, beside 2b; moved from M8), importer cross-platform fixes now (HM3) | 2a-H3b-b; 2a RPC | **17–26** (in the total) | plugin-distribution spec §C C1–C6, C11 |
+| HM4 | Host-mode remainder: coexistence guards, Hermes on an existing harness, host → harness upgrade, Hermes catalogue listing | HM2; M3 | **2–3** (not in the total) | spec §C C4, C9 |
 | X4–X5 | Extensions remainder: signed web catalogue + per-item updates + revocation (X4, target v0.2), publishing tooling + first packages (X5) | X1–X3 | **8–13** (not in the total) | extensions spec §13 Q2–Q4, Q11–Q13 |
-| | **Total** | | **242–370** | |
+| | **Total** | | **262–401** (was 242–370; +17–26 track HM, +3–5 M7, 2026-09-28) | |
 
 ### M0 — Phase 0 (done, awaiting approval)
 
@@ -225,13 +227,13 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Blocking questions:** ADR-007 Q4 (unlink semantics affects the v1→v2 back-fill offered during import).
 
-**Effort 14–22 ad.** Fixture generation (both sources, two embedding identities) 3–5, OpenClaw importer 5–8, Hermes importer 4–6, wizard + report + rollback 2–3.
+**Effort 17–27 ad.** Fixture generation (both sources, two embedding identities) 3–5, OpenClaw importer 5–8, Hermes importer 4–6, wizard + report + rollback 2–3, **cross-platform sources 3–5** (2026-09-28, D90/D91: WSL discovery and probe, snapshot producer incl. the WSL `tar` stream, LanceDB copy-by-manifest and the running-source rule, the WSL CI job made required; plan tasks 6–7 of `docs/superpowers/specs/2026-09-28-plugin-distribution-and-migration-design.md` §B.9). The small fixes to the shipped `detect`/`skills` code (per-OS roots, path mapper, case/unportable-name checks, SQLite copy verification, per-OS layout fixtures) are track HM3, not M7.
 
 **Exit:** demo guide, test report against both fixtures, import guide in the docs.
 
 ### M8 — Platform hardening and release v0.1.0
 
-**Host adapters (D28, `docs/host-adapters.md`), scheduled after M3 and ordered by demand:** the client kits `@plur1bus/memory-client` (TS) and `plur1bus-memory-client` (Python) and the memory proxy belong to M3's HTTP API; then the thin OpenClaw plugin (also NemoClaw), the Hermes `MemoryProvider`, the Open WebUI filter, and a ZeroClaw provider once its WASM question is answered. Each adapter ships with a conformance run against the ADR-016 kit.
+**Host adapters (D28, `docs/host-adapters.md`), scheduled after M3 and ordered by demand:** the client kits `@plur1bus/memory-client` (TS) and `plur1bus-memory-client` (Python) and the memory proxy belong to M3's HTTP API; then the thin OpenClaw plugin (also NemoClaw), ~~the Hermes `MemoryProvider`~~ (moved to track HM2 on 2026-09-28 as a host-mode adapter on the 2a RPC, D88; M8 keeps only its thin-client variant against a remote harness), the Open WebUI filter, and a ZeroClaw provider once its WASM question is answered. Each adapter ships with a conformance run against the ADR-016 kit.
 
 **Scope.** `install.sh` / `install.ps1` without admin rights (user-writable Node, no system package manager), non-interactive mode with explicit flags, owner bootstrap token printed, import offered, embedding/reranker choice with licence notice; `doctor`, `update` with rollback, `uninstall`; services via launchd user agent, `systemd --user` (+ documented `loginctl enable-linger`), Windows Task Scheduler; the harness container image (linux/amd64, linux/arm64) built, signed and size-gated by desktop D1's pipeline and published with `deploy/compose.yaml` (D77); `update` per D78 (§6.3). Engine PR-12 (four bash scripts → `.mjs`), PR-13 (extract control-UI package with a `tokens` module), PR-14 (publish `@cyb3rb1ade/plur1bus-engine`; the plugin is **not** repointed — per D28 it keeps its own separate memory or becomes a thin client of the harness, at the owner's choice). Backup/restore with dry-run, **stores first** then config, users, sessions, then the dream ledger. Documented degradations: darwin-x64 LanceDB (source build or Rosetta), Linux node-pty source build (toolchain prerequisite check), named-namespace routing POSIX-only, Linux-arm64 SEAs never built in Docker. `platform-matrix.md` §3, §6, §7; original §10.
 
@@ -259,7 +261,7 @@ The desktop app (Tauri) ships the harness as containers: one `plur1bus-harness` 
 | M | Content | Depends on | Effort (ad) |
 |---|---|---|---|
 | **D1** (v0.1.0) | Container bundle + thin shell: harness image, **two installer variants per OS (complete offline, small online, desktop spec DS30)**, runtime detection and both adapters, wizard, start/stop/status, auto-pair, tray, host CLI shim, host bridge (`host.keyUnlock`), D78 update flow with snapshot, health gate and automatic rollback (patch updates **on** by default, desktop spec §11 Q8), release gate, **the signed `updates.plur1bus.app` manifest indirecting to GitHub Releases/GHCR (desktop spec DS28)**, **SignPath Foundation signing (submitted, pending) plus a Microsoft Store MSIX channel (desktop spec DS31, DS32)**, **a Flathub Flatpak on Linux (desktop spec DS34)**, domain `app.plur1bus.desktop`/`plur1bus://`/`plur1bus.app` (desktop spec DS33) | M3; M2 secret store | 20–30 |
-| D2 | Native integration + OS-signed `beta`/`stable` on the direct channel | D1 | 8–12 |
+| D2 | Native integration + OS-signed `beta`/`stable` on the direct channel; **plus (2026-09-28, D87/D90):** host-bridge `host.importSnapshot` and WSL enumeration so the container bundle can import host-side sources, and "Install PLUR1BUS into my OpenClaw/Hermes" driving the D87 scripts | D1; HM1–HM2 | 10–15 (was 8–12) |
 | D3 | Browser container (windowless cases only), native panel — WebView2 on Windows, CEF on macOS/Linux — and egress (owner 2026-09-27, desktop spec DS37–DS39, §11 Q4 re-decided; was: Windows keeps a container-browser panel, DS35) | D2; Tauri 3 gate; D72–D74 | 12–18 |
 | D4 | Computer use + WebMCP bridge; the D1 Flatpak's CEF sandbox work | D3; D62 | 6–10 |
 
@@ -276,6 +278,19 @@ One package format (`.p1x`: ZIP + `p1x.json` manifest with per-file SHA-256 + op
 | X5 — after X1 freezes the format, before X4 ships | `Cyb3rb1ade/plur1bus-extensions` repository, lint/release/catalog/re-sign workflows, `REVIEW.md`, GitHub Pages + DNS for `extensions.plur1bus.app` (owner), first 1–3 packages | X1; owner keys and DNS | 3–5 (+0.5–2 per package) |
 
 M4's channel modules (D60) and M7's importer use X1's install path; M7 needs no skill writer beyond the `feat/import-detect` contract.
+
+### Track HM — Host-mode plugins for OpenClaw and Hermes (D86–D91; HM1–HM3 in the total, HM4 after)
+
+Owner 2026-09-28: the plugin for people who do not want the standalone harness needs installation packages for Linux, macOS and Windows, and the migration assistant must work on all platforms. Host mode = PLUR1BUS memory inside OpenClaw or Hermes without harness channels, UI or agents. Spec: `docs/superpowers/specs/2026-09-28-plugin-distribution-and-migration-design.md` (§A distribution, §B migration, §C owner decisions C1–C12).
+
+| M | Content | Depends on | Effort (ad) |
+|---|---|---|---|
+| **HM1** — directly after 2a-H3b-b | OpenClaw plugin distribution: `plugin-dist.yml` in the plugin repo (pack once, install into real OpenClaw minimum + latest on `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15`, `windows-2025`, `windows-11-arm`, WSL leg non-blocking; full suite on Windows and macOS); new `openclaw plur1bus selftest`; `install-plugin.sh`/`.ps1` (detect incl. WSL delegation, compatibility, ClawHub install, postinstall step, licence gate, verify, update with store snapshot and rollback, uninstall); Node port of the bash installer's snapshot step; README install fixes; plugin feed with minisign, npm provenance, attestations | H3b-b release pipeline (`harness-release.yml`, `install.sh`/`.ps1`) | 6–9 |
+| **HM2** — after HM1, beside 2b | Hermes host-mode adapter: Python IPC client (`plur1bus-memory-client`, socket + named pipe), directory provider `$HERMES_HOME/plugins/plur1bus/` with `plugin.yaml`/`cli.py`, `plur1bus setup --profile host` (supervisor + core only), `install-plugin --host hermes` on Linux, macOS, Windows native and WSL, RPC conformance run, CI on three OSes | 2a RPC (`memory.*`, `agent.*`); HM1 | 8–12 |
+| **HM3** — with HM1 | Importer cross-platform fixes on the shipped `detect`/`skills` code: per-OS roots (Hermes `%LOCALAPPDATA%\hermes`, OpenClaw `HOME`/legacy), `SourcePathMapper`, case-collision and unportable-name checks, `textHash`, SQLite copy verification + retry, rename retry, per-OS layout fixtures incl. Windows symlinks, long paths, non-ASCII homes (spec §B.9 G1–G4, G7–G12) | `feat/import-detect` code | 3–5 |
+| HM4 — after HM2 | Coexistence guards, Hermes bound to an existing harness as tier-1 client, host → harness upgrade (`setup --profile full`), Hermes catalogue submission (no updater in the catalogue build) | HM2; M3 (thin-client option) | 2–3 |
+
+M7 carries the WSL discovery, the snapshot producer and the WSL CI job (+3–5); D2 carries the host-side import for the container bundle and the in-app plugin install (+2–3).
 
 ## 3. Dependency graph
 
@@ -302,6 +317,10 @@ graph LR
   M3 --> X3 --> X4[X4 catalogue, updates]
   X1 --> X5[X5 publishing] --> X4
   X3 --> M8
+  H3bb[2a-H3b-b] --> HM1[HM1 OpenClaw plugin dist] --> HM2[HM2 Hermes host mode] --> HM4[HM4 coexistence, upgrade]
+  H3bb --> HM3[HM3 importer cross-platform] --> M7
+  M3 --> HM4
+  HM2 --> D2x[D2 in-app plugin install, host-side import]
 ```
 
 | Can run in parallel | Condition |
