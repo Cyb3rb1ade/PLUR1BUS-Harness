@@ -12,6 +12,9 @@
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
 // FAKE_CORE_ENGINE (JSON) replaces core.status's `engine` object (default: ready, not degraded).
 // FAKE_CORE_JOBS (JSON) is core.status's `jobs` object (default: absent, as from a core without job health).
+// FAKE_CORE_STORE_SCHEMA=<current>:<expected> (needs PLUR1BUS_ALLOW_TEST_INTERNALS=1): core.status's
+// engine.storeSchema = { current, expected } (the RPC schema's names), and admin.migrate { from, to } answers
+// { from, to, applied: true } once from equals current, then reports current = to (E_CONFLICT otherwise, as the core).
 // FAKE_CORE_CONFIG_CHECK=1: exit 2 at start when <home>/config.json exists but is not JSON (core.js exits 2 on an
 // invalid config.json).
 // FAKE_CORE_RESTART_PENDING=1 (one-shot): the first core of a home (the one that creates state/fake-core-restart-pending)
@@ -113,6 +116,13 @@ if (internals && process.env.FAKE_CORE_RESTART_PENDING === "1") {
   catch { restartPending = false; }
 }
 
+// engine.storeSchema, when FAKE_CORE_STORE_SCHEMA sets it; admin.migrate moves `current`.
+let storeSchema = null;
+if (internals && process.env.FAKE_CORE_STORE_SCHEMA) {
+  const [current, expected] = process.env.FAKE_CORE_STORE_SCHEMA.split(":");
+  storeSchema = { current, expected };
+}
+
 let statusCalls = 0;
 let hung = false;
 let stopping = false;
@@ -174,10 +184,15 @@ function adopted(sock, nonce) {
   event("adopted", { nonce });
 }
 
+function engineStatus() {
+  const engine = process.env.FAKE_CORE_ENGINE ? JSON.parse(process.env.FAKE_CORE_ENGINE) : { ready: true, degraded: null };
+  return storeSchema ? { ...engine, storeSchema: { ...storeSchema } } : engine;
+}
+
 function coreStatus() {
   return {
     process: { state: reportedState(), since: started }, contract: "1.9.0", rpc: "1.3.0", instanceId, pid: process.pid,
-    uptimeMs: Date.now() - started, engine: process.env.FAKE_CORE_ENGINE ? JSON.parse(process.env.FAKE_CORE_ENGINE) : { ready: true, degraded: null }, agents: [],
+    uptimeMs: Date.now() - started, engine: engineStatus(), agents: [],
     ...(process.env.FAKE_CORE_JOBS ? { jobs: JSON.parse(process.env.FAKE_CORE_JOBS) } : {}),
     ...(restartPending === null ? {} : { config: { revision: null, source: "file", restartPending } }),
   };
@@ -243,6 +258,18 @@ const server = net.createServer((sock) => {
       }
       adopted(sock, nonce);
       send({ id, result: { status: coreStatus() } });
+      return;
+    }
+    if (method === "admin.migrate" && storeSchema) {
+      const from = String(params.from ?? "");
+      const to = String(params.to ?? "");
+      if (from !== storeSchema.current) {
+        send({ id, error: { code: -32000, message: `the store is at ${storeSchema.current}, not ${from}`, data: { error: "E_CONFLICT" } } });
+        return;
+      }
+      storeSchema.current = to;
+      event("migrated", { from, to });
+      send({ id, result: { from, to, applied: true } });
       return;
     }
     if (method === "core.shutdown") {

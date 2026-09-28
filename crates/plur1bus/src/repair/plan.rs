@@ -9,9 +9,12 @@
 //! | `runtime.node.reinstall` | `runtime.node` fail | medium |
 //! | `runtime.core.reinstall` | `runtime.core` fail | medium |
 //!
+//! The last four ids (`unit.terminate-hung`, `store.migrate`, `service.silent-exit`, `service.restart-loop`) probe
+//! the units and read `logs/supervisor.log` themselves ([`risky::plan`]).
+//!
 //! A row the check pass never reached (its "time budget exhausted" warning) plans nothing: there is no finding to
 //! act on.
-use super::{safe, Ctx, Plan, Risk, Step, STEP_ORDER};
+use super::{risky, safe, Ctx, Plan, Risk, Step, STEP_ORDER};
 use crate::commands::firstaid::{Check, Status, BUDGET_EXHAUSTED};
 use serde_json::json;
 
@@ -129,7 +132,10 @@ pub fn plan_for(checks: &[Check], ctx: &Ctx, only: &[String]) -> Plan {
         });
     }
 
-    steps.retain(|s| only.is_empty() || only.iter().any(|o| o == s.id));
+    let wanted = |id: &str| only.is_empty() || only.iter().any(|o| o == id);
+    steps.extend(risky::plan(checks, ctx, &wanted));
+
+    steps.retain(|s| wanted(s.id));
     steps.sort_by_key(|s| STEP_ORDER.iter().position(|id| *id == s.id));
     Plan { steps }
 }

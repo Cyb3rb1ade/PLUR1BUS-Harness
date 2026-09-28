@@ -7,9 +7,10 @@
 //! without a confirmation (one prompt for the `none`/`low` steps, one per `medium`/`high` step, or `--yes`), `state/`
 //! is never touched, and every applied step appends one `repair.<id>` line to the audit log.
 //!
-//! [`plan`] maps checks to steps; [`safe`] holds the steps of this task. 2a-H3b-b Task 8 adds `risky.rs` with the
-//! last four ids of [`STEP_ORDER`].
+//! [`plan`] maps checks to steps; [`safe`] holds the steps of 2a-H3b-b Task 7, [`risky`] the last four ids of
+//! [`STEP_ORDER`] (Task 8: the hung unit, the store migration and the two HB17 reports).
 pub mod plan;
+pub mod risky;
 pub mod safe;
 
 use crate::commands::firstaid::Check;
@@ -37,7 +38,6 @@ pub const STEP_ORDER: &[&str] = &[
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
-#[allow(dead_code)] // `None` (report steps) and `High` (hung unit, store migration) arrive with 2a-H3b-b Task 8
 pub enum Risk {
     None,
     Low,
@@ -67,7 +67,9 @@ impl Ctx<'_> {
     }
 }
 
-/// The function that applies a step: `Ok(detail)` when it is done, `Err(message)` when it failed.
+/// The function that applies a step: `Ok(detail)` when it is done, `Err(message)` when it failed. A step that finds,
+/// right before it would change something, that it must not (the unit it pinned is not the one serving any more)
+/// returns `Ok({ "skipped": true, "reason", "message" })` and becomes `skipped`.
 pub type Apply = fn(&Ctx, &Step) -> Result<Value, String>;
 
 #[derive(Clone, Serialize)]
@@ -117,6 +119,20 @@ impl Step {
             status: StepStatus::Planned,
             detail: None,
             apply,
+        }
+    }
+
+    /// A `report` step (HB17): risk `none`, no confirmation, no change; `done` once executed, its `detail` the
+    /// evidence.
+    pub fn report(
+        id: &'static str,
+        target: impl Into<String>,
+        reason: &'static str,
+        apply: Apply,
+    ) -> Step {
+        Step {
+            needs_confirmation: false,
+            ..Step::planned(id, "report", target, reason, Risk::None, apply)
         }
     }
 
@@ -219,6 +235,12 @@ pub fn execute(plan: &mut Plan, ctx: &Ctx, confirm: &mut dyn Prompter, yes: bool
         }
         let s = plan.steps[i].clone();
         let (status, mut detail) = match (s.apply)(ctx, &s) {
+            Ok(mut d) if d["skipped"] == true => {
+                if let Some(o) = d.as_object_mut() {
+                    o.remove("skipped");
+                }
+                (StepStatus::Skipped, d)
+            }
             Ok(d) => (StepStatus::Done, d),
             Err(message) => (StepStatus::Failed, json!({ "message": message })),
         };
