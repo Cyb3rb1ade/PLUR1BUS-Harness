@@ -1,6 +1,6 @@
 # The basics everyone expects: a quality bar — design
 
-**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage; rev 4: new D106 host toolset; rev 5: new D107 OS ecosystem layer) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D107 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
+**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage; rev 4: new D106 host toolset; rev 5: new D107 OS ecosystem layer; rev 6: new D108 remote desktop control by the person's own harness) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D108 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
 
 **Owner requirements, 2026-09-28 (translated from German, condensed):**
 
@@ -425,6 +425,21 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 
 **Placement and effort:** desktop track **D2** (native integration), 10–15 ad (helper and host-bridge capabilities 3–4, macOS routes 3–4, Windows routes 2–3, Linux routes 2–3, permissions page and tests 1–2). D27's `pim-apple` helper effort is absorbed.
 
+### D108 — Remote desktop control: the person's own harness drives their computer from another host (extends D62, D107, DS17, D35)
+
+**Owner, 2026-09-29:** "Is remote control of the desktop possible with us then?" — yes, and the owner asked for it to be planned. Until now computer use covered only a bundled harness on the same machine (desktop spec §2 non-goal: "computer use on a laptop driven by a harness on another host … not part of track D"); this decision lifts that non-goal.
+
+**Shape.** A harness on another host the person owns — the VPS running Bernd, a NAS, a second computer — uses the D106/D107 host tools and the D62 computer-use actions on the person's desktop.
+- **The desktop dials out, nothing is hosted.** The desktop app on the controlled machine opens the host-bridge connection (DS17) **to the person's own harness** over their own network — Tailscale/WireGuard or LAN (D35, D72) — with the paired device token. No vendor relay, no open port on the desktop, no third-party service; this satisfies the owner's "nothing hosted remotely".
+- **Pairing and scope.** The desktop is paired with that harness once (D35 pairing code/QR). Per paired harness the person picks which capability families it may use remotely (e.g. files and shell yes, screen and UI control only on request); defaults are **off** for screen, UI control, clipboard and Full-Disk-Access reads.
+- **Session consent.** A remote control session starts only after a prompt on the controlled machine ("Bernd on vps wants to control this Mac for: <task> — Allow for this task / Deny"), unless the person has granted "unattended" for that harness explicitly in settings (for their own servers; shown in red, revocable).
+- **Visible and stoppable.** While a remote session runs, the desktop shows a persistent indicator (menu bar / tray and a screen-edge frame) with the controlling harness and agent, and a **stop control plus a global stop shortcut** that ends the session immediately and revokes it until the person re-allows. The system's own screen-recording indicator stays on as well.
+- **Same rules as local.** Every call goes through D106 roots, the credential deny-list, risk classes and D38 approvals; approval prompts appear **on the controlled machine and in the harness's chat**, whichever the person answers first. Privilege is never silent. Each action is logged on both ends (harness audit and a local session log on the desktop the person can open).
+- **Screen data stays scoped.** Screenshots travel only to the controlling harness for the running step, are not captured into memory (D93-style `incognito` for screen content by default) and are dropped after the step unless the person asks to keep them.
+- **Headless targets.** A Linux server without a desktop has no remote *desktop*; there the harness uses its own local host tools, or SSH through the person's own client (D106 `shell.session`).
+
+**Placement and effort:** desktop track **D4** (with computer use and the WebMCP bridge), 4–6 ad on top of D4: remote pairing scopes, session consent and indicator, stop control, dual-ended audit, screenshot scoping, a two-machine test (VPS harness in CI → desktop app on the Windows 11 VM; manual gate on the owner's Mac).
+
 ## 3. Placement and effort
 
 | Decision | Milestone | Effort (ad) | Acceptance added |
@@ -442,9 +457,10 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 | D105 message triage | **M2** with D30 and D103 (one decision call) | 2–4 | segmentation F1 ≥ 0.9; under-provisioning ≤ 5 %; escalation one class up once; class change only at task boundaries |
 | D106 host toolset | **M1b-2b** (tool execution under a principal) | 7–11 | per-OS conformance on five targets + Windows VM nightly; credential deny-list suite; approvals for every destructive/privileged call; host scenarios in `tool-eval` ≥ 95 % |
 | D107 OS ecosystem layer | **D2** (signed `PLUR1BUS Host` helper over DS17) | 10–15 | per-OS ecosystem leg (owner's Mac per release, Windows VM nightly, GNOME + KDE VMs); just-in-time grants; no Input Monitoring; FDA reads approval-gated; typed route chosen before UI fallback |
+| D108 remote desktop control | **D4** | 4–6 | desktop dials out to the person's own harness only; per-harness capability scopes; session consent on the controlled machine; indicator + stop; dual audit; two-machine test |
 | D104 hand-off format | **M5** (replaces the typed delegation contract's field list; D36/D50 consume it) | 2–3 | schema validation and repair; `ack` round trip; `approvalsHeld` verified against the approval store; a forged approval reference is refused; Markdown rendering |
 
-**Total +55–86 ad** across M1b-2b (+7–11), D2 (+10–15), M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
+**Total +59–92 ad** across M1b-2b (+7–11), D2 (+10–15), D4 (+4–6), M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
 
 ## 4. Owner choices (defaults the design runs on)
 
