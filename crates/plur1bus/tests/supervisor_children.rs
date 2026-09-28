@@ -105,6 +105,16 @@ fn start(h: &Home, mode: &str, scale: &str) -> Supervisor {
 }
 
 fn start_with(h: &Home, mode: &str, scale: &str, core_js: &Path) -> Supervisor {
+    start_env(h, mode, scale, core_js, &[])
+}
+
+fn start_env(
+    h: &Home,
+    mode: &str,
+    scale: &str,
+    core_js: &Path,
+    env: &[(&str, &str)],
+) -> Supervisor {
     let child = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
         .arg("--home")
         .arg(&h.home)
@@ -118,6 +128,7 @@ fn start_with(h: &Home, mode: &str, scale: &str, core_js: &Path) -> Supervisor {
         .env("FAKE_CORE_EVENTS", &h.events)
         .env("FAKE_CORE_GRACE_MS", "300")
         .env("FAKE_CORE_CONFIG_CHECK", "1")
+        .envs(env.iter().copied())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -533,9 +544,16 @@ fn spawns_under_a_home_with_spaces() {
 #[test]
 fn a_core_that_never_listens_is_killed_as_ready_timeout_and_restarted() {
     let h = Home::new();
-    let _s = start(&h, "no-listen", "0.02");
+    // Ready timeout 60 s x 0.02 = 1.2 s: the seam drops the core's 10 s floor, which only keeps a slow but healthy
+    // start from being killed and would only lengthen this test.
+    let _s = start_env(
+        &h,
+        "no-listen",
+        "0.02",
+        &fixture(),
+        &[("PLUR1BUS_SUPERVISOR_NO_CORE_READY_FLOOR", "1")],
+    );
     let mut c = client(&h.home);
-    // Ready timeout 60 s x 0.02 = 1.2 s.
     let child = wait_child(&mut c, "a ready-timeout exit", WAIT, |c| {
         c["lastExit"]["reason"] == "ready-timeout"
     });
