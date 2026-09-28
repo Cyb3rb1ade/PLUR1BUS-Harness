@@ -1,0 +1,22 @@
+[package]
+name = "plur1bus-ext"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Extensions from file (spec 2026-09-27 §5, §8): audits, verifies and packs `.p1x` packages. It never extracts
+# (X1-R3) and the supervisor never links it for package bytes (X1-R2; scripts/lint-hygiene.mjs).
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+flate2 = "1"
+# Writer for `ext pack` only; the audit uses its own central-directory parser.
+zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
+minisign-verify = "0.2"
+jsonschema = { version = "0.26", default-features = false }
+semver = "1"
+icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
+
+[dev-dependencies]
+minisign = "0.10"

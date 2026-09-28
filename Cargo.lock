@@ -1090,6 +1090,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-ext"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "icu_normalizer",
+ "jsonschema",
+ "minisign",
+ "minisign-verify",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "zip",
+]
+
+[[package]]
 name = "plur1bus-rpc"
 version = "0.1.0"
 dependencies = [
