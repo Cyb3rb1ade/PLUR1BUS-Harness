@@ -538,7 +538,13 @@ fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
 
 // ---- run.stale-files --------------------------------------------------------------------------
 
-/// Whether `pid` names a live process (`kill(pid, 0)` / `OpenProcess`). Also used by `config` routing (B6).
+/// Whether `pid` names a live process (`kill(pid, 0)` / `OpenProcess` + a zero-timeout wait). Also used by `config`
+/// routing (B6).
+///
+/// Windows: a process object outlives its process for as long as anyone holds a handle to it (the parent that has
+/// not closed its `Child` yet, a supervisor's pin, an antivirus scanner that looked at the exit), so `OpenProcess`
+/// alone succeeds on a pid that exited moments ago. Only an unsignalled handle means the process still runs, the way
+/// `supervisor::adopt::Peer::alive` checks it.
 pub(crate) fn pid_alive(pid: u32) -> bool {
     #[cfg(unix)]
     {
@@ -548,18 +554,25 @@ pub(crate) fn pid_alive(pid: u32) -> bool {
     }
     #[cfg(windows)]
     {
-        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::Foundation::{CloseHandle, WAIT_TIMEOUT};
         use windows_sys::Win32::System::Threading::{
-            OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+            OpenProcess, WaitForSingleObject, PROCESS_QUERY_LIMITED_INFORMATION,
+            PROCESS_SYNCHRONIZE,
         };
-        // SAFETY: a standard open/close pair; a null handle means the process could not be opened.
+        // SAFETY: a standard open/wait/close on a handle owned here; a null handle means the process could not be
+        // opened.
         unsafe {
-            let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            let h = OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE,
+                0,
+                pid,
+            );
             if h.is_null() {
                 return false;
             }
+            let running = WaitForSingleObject(h, 0) == WAIT_TIMEOUT;
             CloseHandle(h);
-            true
+            running
         }
     }
     #[cfg(not(any(unix, windows)))]
@@ -1451,6 +1464,23 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A process that has exited is not alive, even while a handle to it is still open: here the `Child` that ran it
+    /// (on Windows its process object, and so the pid, stays until that handle is closed).
+    #[test]
+    fn an_exited_process_is_not_alive_while_its_handle_is_open() {
+        assert!(pid_alive(std::process::id()));
+        let exe = std::env::current_exe().unwrap();
+        let mut child = std::process::Command::new(exe)
+            .arg("--list")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        child.wait().unwrap();
+        assert!(!pid_alive(pid), "pid {pid} exited but counts as alive");
+        drop(child);
+    }
 
     fn warm_status(degraded: Value, embedder_error: Option<&str>) -> Value {
         let mut embedder =
