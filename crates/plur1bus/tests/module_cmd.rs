@@ -643,7 +643,9 @@ fn a_module_key_change_restarts_only_that_module() {
     assert_ne!(m["pid"], first["pid"], "{st}");
     let core_now = child(&st, "core").unwrap();
     assert_eq!(core_now["pid"], core["pid"], "{st}");
-    assert_eq!(core_now["restarts"], 0, "{st}");
+    // The change must not restart the core; compare with the count at ready, not with 0: at the tests' time scale a
+    // loaded Windows runner can let the core's 1.2 s ready timeout expire during start-up, before the change.
+    assert_eq!(core_now["restarts"], core["restarts"], "{st}");
     let list = h.ok(&["module", "list"], "module.list");
     assert_eq!(
         entry(&list, "fixture")["detail"]["greeting"],
