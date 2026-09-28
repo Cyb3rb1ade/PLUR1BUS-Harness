@@ -1,7 +1,8 @@
 // Skills import (docs/import.md §9): plan, apply, rollback. Copy-never-move, idempotent per folder hash, resumable
 // after interruption, conflicts per --on-conflict, imported skills disabled unless --enable, snapshot + report per run.
 import { randomBytes } from "node:crypto";
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { copyFileRetry, cpRetry, renameRetry, rmRetry } from "./fs-retry.ts";
 import { basename, join, resolve, sep } from "node:path";
 import { readSource, type SourceOptions } from "./source.ts";
 import { acquireLock, harnessSkillState, importsDir, indexDigest, readIndex, skillsDir, storedIds, writeIndex, type HarnessSkillState, type SkillIndex } from "./skills-registry.ts";
@@ -105,7 +106,7 @@ function writeReportFiles(runDir: string, r: SkillsReport, human: (r: SkillsRepo
   mkdirSync(runDir, { recursive: true });
   const p = join(runDir, "report.json");
   writeFileSync(`${p}.tmp`, `${JSON.stringify(r, null, 2)}\n`, { mode: 0o600 });
-  renameSync(`${p}.tmp`, p);
+  renameRetry(`${p}.tmp`, p);
   writeFileSync(join(runDir, "report.txt"), `${human(r)}\n`, { mode: 0o600 });
 }
 
@@ -119,11 +120,11 @@ function stage(skill: ScannedSkill, stagingRoot: string): string {
     const dest = join(dir, ...parts);
     if (!insideDir(dir, dest)) throw new Error(`refused path ${e.rel}`);
     mkdirSync(join(dest, ".."), { recursive: true });
-    copyFileSync(e.abs, dest);
+    copyFileRetry(e.abs, dest);
     chmodSync(dest, (e.mode & 0o755) | 0o600);
   }
   const check = scanSkill(dir, { tier: "staging", agentId: null, precedence: 0 }, { maxBytes: Number.MAX_SAFE_INTEGER, maxFiles: Number.MAX_SAFE_INTEGER });
-  if (check.sha256 !== skill.sha256) { rmSync(dir, { recursive: true, force: true }); throw new Error("source-changed-during-copy"); }
+  if (check.sha256 !== skill.sha256) { rmRetry(dir, { recursive: true, force: true }); throw new Error("source-changed-during-copy"); }
   return dir;
 }
 
@@ -154,12 +155,12 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
   try {
     const sdir = skillsDir(home);
     const staging = join(sdir, ".staging");
-    rmSync(staging, { recursive: true, force: true });
+    rmRetry(staging, { recursive: true, force: true });
     const runDir = join(importsDir(home), runId);
     const snapDir = join(runDir, "snapshot");
     mkdirSync(snapDir, { recursive: true });
     const existed = existsSync(sdir);
-    if (existed) cpSync(sdir, join(snapDir, "skills"), { recursive: true, filter: (p) => basename(p) !== ".staging" });
+    if (existed) cpRetry(sdir, join(snapDir, "skills"), { recursive: true, filter: (p) => basename(p) !== ".staging" });
     base.snapshot = { path: snapDir, existed };
     base.reportPath = join(runDir, "report.json");
     base.indexSha256Before = indexDigest(home);
@@ -182,10 +183,10 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
             if (p.action === "replace") {
               const backup = join(runDir, "replaced", targetId);
               mkdirSync(join(runDir, "replaced"), { recursive: true });
-              renameSync(dest, backup);
+              renameRetry(dest, backup);
               e.backupPath = backup;
-            } else if (existsSync(dest)) { rmSync(staged, { recursive: true, force: true }); throw new Error("target-exists"); }
-            renameSync(staged, dest);
+            } else if (existsSync(dest)) { rmRetry(staged, { recursive: true, force: true }); throw new Error("target-exists"); }
+            renameRetry(staged, dest);
           }
           const entries = idx.skills.filter((x) => x.id !== targetId);
           // An adopted folder may be the CRLF/LF twin of the source: the index records the bytes on disk.
@@ -202,7 +203,7 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
       }
       flush();
     }
-    rmSync(staging, { recursive: true, force: true });
+    rmRetry(staging, { recursive: true, force: true });
     base.status = "completed";
     base.finishedAt = now().toISOString();
     flush();
@@ -253,8 +254,8 @@ export function rollback(o: { home: string; reportPath: string; apply: boolean; 
   try {
     const aside = join(runDir, "rolled-back");
     mkdirSync(aside, { recursive: true });
-    if (existsSync(skillsDir(home))) { renameSync(skillsDir(home), join(aside, "skills")); out.movedAside = join(aside, "skills"); }
-    if (rep.snapshot.existed) cpSync(snapSkills, skillsDir(home), { recursive: true });
+    if (existsSync(skillsDir(home))) { renameRetry(skillsDir(home), join(aside, "skills")); out.movedAside = join(aside, "skills"); }
+    if (rep.snapshot.existed) cpRetry(snapSkills, skillsDir(home), { recursive: true });
     out.status = "completed";
     return out;
   } finally {

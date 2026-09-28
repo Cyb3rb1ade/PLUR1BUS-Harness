@@ -2,7 +2,8 @@
 // `{version: 1, skills: [{id, source, sourcePath, sha256, enabled, importedAt}]}`. Kept minimal on purpose for the
 // extensions-ecosystem spec to adopt: writers preserve fields they do not own, the file is replaced atomically.
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { renameRetry, rmRetry } from "./fs-retry.ts";
 import { join } from "node:path";
 import { isDir } from "./readonly.ts";
 import { scanSkill, SKILL_ID } from "./skills-scan.ts";
@@ -40,7 +41,7 @@ export function writeIndex(home: string, idx: SkillIndex): void {
   const p = indexPath(home);
   const tmp = `${p}.tmp-${process.pid}`;
   writeFileSync(tmp, `${JSON.stringify(sorted, null, 2)}\n`, { mode: 0o600 });
-  renameSync(tmp, p);
+  renameRetry(tmp, p);
 }
 
 /** Skill folder ids present in the store (not the reserved names). */
@@ -78,13 +79,13 @@ export function acquireLock(home: string): () => void {
       const fd = openSync(p, "wx", 0o600);
       writeFileSync(fd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
       closeSync(fd);
-      return () => { try { const cur = JSON.parse(readFileSync(p, "utf8")) as { pid?: number }; if (cur.pid === process.pid) rmSync(p, { force: true }); } catch { /* gone */ } };
+      return () => { try { const cur = JSON.parse(readFileSync(p, "utf8")) as { pid?: number }; if (cur.pid === process.pid) rmRetry(p, { force: true }); } catch { /* gone */ } };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
       let pid: number | undefined;
       try { pid = (JSON.parse(readFileSync(p, "utf8")) as { pid?: number }).pid; } catch { /* unreadable: treat as stale */ }
       if (pid !== undefined && pid !== process.pid && alive(pid)) throw new ImportError("E_LOCKED", "skills-locked", `another import (pid ${pid}) holds ${p}`, 3);
-      rmSync(p, { force: true });
+      rmRetry(p, { force: true });
     }
   }
   throw new ImportError("E_LOCKED", "skills-locked", `could not take ${p}`, 3);
