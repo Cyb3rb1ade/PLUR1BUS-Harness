@@ -109,12 +109,19 @@ Env vars that matter when driving the core directly instead of through the CLI:
 - `PLUR1BUS_REAL_MODELS=1` (with optional `PLUR1BUS_MODELS_CACHE=<dir>` for the ~600 MB download) — the
   real-model acceptance (`tests/system/two-session-recall.test.ts`, criterion 1). `PLUR1BUS_SYSTEM_INTERNALS`
   picks the flat seam's variant otherwise (`flat-embedder-cold`, see below).
-- `PLUR1BUS_CI_RECALL_HARD_MS=<ms>` — ruling H3-R26, set only by the nightly: shared CI runners are not reference
-  hardware, so the test raises the test home's `core.recall.hardBudgetMs` to this value (a slow runner must not
-  abort the recall; both measured recalls must still answer `degraded: null`) and reports the 400 ms
-  (`timing.totalMs`) / 600 ms (CLI wall time) targets as diagnostics plus a GitHub Actions `::warning::` instead of
-  failing on them. **The strict acceptance runs on reference hardware with it unset**, where the targets are
-  asserted:
+- `PLUR1BUS_CI_RECALL_HARD_MS=<ms>` — ruling H3-R26, set by every CI job that runs a recall test against shared
+  runners, not only the nightly: `ci.yml`'s own system job sets `3000` (extended to the PR-triggered job as well,
+  not just the nightly, once the 2a-H3b-b recall-abort fix below made the distinction matter) and `nightly.yml`
+  sets `2000`. Shared CI runners are not reference hardware, so the test raises the test home's
+  `core.recall.hardBudgetMs` to this value (a slow runner must not abort the recall; both measured recalls must
+  still answer `degraded: null`) and reports the 400 ms (`timing.totalMs`) / 600 ms (CLI wall time) targets as
+  diagnostics plus a GitHub Actions `::warning::` instead of failing on them. A recall that *does* hit the hard
+  budget now answers `degraded: { reason: "timeout", ... }`, not `"aborted"` (2a-H3b-b,
+  `packages/core/src/rpc/methods.ts`: the hard-budget `AbortSignal.timeout` firing is distinguished from every
+  other abort source that also reports `degraded.reason === "aborted"`), and `packages/core/src/core.ts` now
+  precompiles the `memory.recall`/`memory.capture` RPC validators once at core start (`precompileMethods`) rather
+  than on first use, so a cold ajv compile is never mistaken for recall latency. **The strict acceptance runs on
+  reference hardware with it unset**, where the targets are asserted:
 
   ```bash
   cargo build --release -p plur1bus && pnpm build
@@ -142,15 +149,30 @@ Env vars that matter when driving the core directly instead of through the CLI:
   one-shot `core.status.config.restartPending`, a fake core that calls `config.watch` at start and
   logs `config-watched`, a mode that changes for every core of a home after the first, and a fake
   core that rejects a configuration the same way the real core's `config.json` validation would.
+  `FAKE_CORE_ENGINE`/`FAKE_CORE_JOBS`/`FAKE_CORE_STORE_SCHEMA` (JSON) override `core.status`'s
+  `engine`/`jobs`/`engine.storeSchema` fields; `FAKE_CORE_EVENTS=<file>` appends one JSON line per
+  lifecycle event (`started`, `listening`, `hung`, `shutdown`, `orphaned`, `adopted`, `exiting`).
+  `FAKE_CORE_MODE` (default `ok`) picks the fake core's own behaviour — read the file's own header
+  comment (`crates/plur1bus/tests/fixtures/fake-core.mjs`) before relying on the exact wording, but
+  as of 2a-H3b-b the modes are: `ok` (serve until `core.shutdown` or lifeline loss); `crash-after:<ms>`
+  (exit 1 `<ms>` after ready — on Windows, after `run/` is secured); `exit:<code>` (exit at once, before
+  the lock); `listen-on-signal` (hold the lock and write the run files, but listen only once
+  `<home>/state/fake-core-listen` exists — a core still starting, for as long as a test needs; this
+  replaced the earlier `listen-after:<ms>`); `hang-after:<ms>` (serve, then stop answering `<ms>` after
+  ready — on Windows, after `run/` is secured; no SIGTERM handler); `no-listen` (start, run files not
+  written, never listen); `slow-status:<n>:<ms>` (delay the reply to the n-th `core.status`, counted
+  across connections, by `<ms>`).
 
 ## Where things live
 
 | Path | Language | Package | Purpose |
 |---|---|---|---|
-| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor: `agent`, `memory` (including `memory list/show/forget/correct/share/state/propose/proposals list\|accept\|reject`, the MemoryOps surface, `crates/plur1bus/src/commands/memory_ops.rs`), `dreams`, `config` (`get`/`set`/`schema`, each with `--tier basic\|advanced`, routed through the supervisor's `config.get\|set\|watch` when one answers — ADR-013 §5), `module` (`list\|graph\|install\|uninstall\|start\|stop\|restart`, `src/commands/module.rs`, module-guide.md), `admin` (`obsidian detect\|prepare\|confirm`, `migrate`, `embedding probe\|serve`, `src/commands/admin.rs`, B15 — never exposed over WebMCP, see Conventions), `core` (internal), `daemon start\|stop\|restart\|status` (`src/commands/daemon.rs`), `service install\|uninstall\|status` (`src/commands/service.rs`), `1staid check` (`src/commands/firstaid.rs`, read-only diagnostics), `import <openclaw|hermes> --detect|--skills|--rollback` (`src/commands/import.rs`, spawns Node on `import.js`, docs/import.md §8/§9) — all real — plus the hidden `supervise` subcommand (`src/supervisor/`, spawned by `daemon start`/the OS service, never run directly by a user) and still-stubbed `setup`, `update`, `user`, `model`, `login`, `channel`, `project`, `uninstall`, `1staid repair` (relabelled `2a-H3b-b` in their help text and `--json` `milestone` field); `import` without a mode is the `M7` stub. Every command supports `--json`, and every `--json` document carries a top-level `schema` id (see Conventions). |
+| `crates/plur1bus` | Rust | binary `plur1bus` | CLI + supervisor: `agent`, `memory` (including `memory list/show/forget/correct/share/state/propose/proposals list\|accept\|reject`, the MemoryOps surface, `crates/plur1bus/src/commands/memory_ops.rs`), `dreams`, `config` (`get`/`set`/`schema`, each with `--tier basic\|advanced`, routed through the supervisor's `config.get\|set\|watch` when one answers — ADR-013 §5), `module` (`list\|graph\|install\|uninstall\|start\|stop\|restart`, `src/commands/module.rs`, module-guide.md), `admin` (`obsidian detect\|prepare\|confirm`, `migrate`, `embedding probe\|serve`, `src/commands/admin.rs`, B15 — never exposed over WebMCP, see Conventions), `core` (internal), `daemon start\|stop\|restart\|status` (`src/commands/daemon.rs`), `service install\|uninstall\|status` (`src/commands/service.rs`), `1staid check` (`src/commands/firstaid.rs`, read-only diagnostics), `import <openclaw|hermes> --detect|--skills|--rollback` (`src/commands/import.rs`, spawns Node on `import.js`, docs/import.md §8/§9), and, since **2a-H3b-b**, `setup` (`src/commands/setup.rs` → `src/install/`, nine fixed steps, module-guide.md §12), `update --check` (`src/commands/update.rs`, a signed release feed, `--json` schema `update.check/1`) and `1staid repair` (`src/commands/repair.rs` → `src/repair/`, `--json` schema `1staid.repair/1`, `--dry-run`/`--yes`, never touches `state/`) — all real — plus the hidden `supervise` subcommand (`src/supervisor/`, spawned by `daemon start`/the OS service, never run directly by a user) and still-stubbed `update` without `--check` (applying an update, M8), `user`, `model`, `login`, `channel`, `project`, `uninstall` (M8) (relabelled `2a-H3b-b` in their help text and `--json` `milestone` field where that label still applies); `import` without a mode is the `M7` stub. Every command supports `--json`, and every `--json` document carries a top-level `schema` id (see Conventions; `setup/1`, `update.check/1` and `1staid.repair/1` are the three ids this plan adds, and `1staid.check/1`'s own `checks[]` ids are append-only — three more landed this plan, `runtime.node`/`runtime.core`/`models.cache`, ADR-016). |
 | `crates/plur1bus/src/supervisor` | Rust | (part of `plur1bus`) | The supervisor itself: `mod.rs` (state machine, restart scheduler, `SupervisorState`/`Shared`, slots as role-keyed `Slot`s — core and modules alike), `modules.rs` (the module lifecycle: `ModulesView`/held-back reasons, `start_modules`, `reconcile_stop`/`reconcile_start`, the `module.*` op handlers, `module_list`), `server.rs` (the `supervisor.auth`/`daemon.*`/`config.*`/`module.*` RPC server), `config.rs` (owns `config.json`: `ConfigState`, the polling watcher, `set`, live appliers, B18's invalid-file handling), `subscribers.rs` (per-connection notification queues for `config.watch`/`module.watch`), `child.rs` (`Monitor`: spawn, health polling, hang-kill, backoff, `module_spec`/`module_plan`), `adopt.rs` (peer-credentialed adoption of an already-running core or module, `Peer`, `probe_child`), `state.rs` (`Role`/`RoleKind`, `Health`, `CrashReason`, `RestartPolicy`, `Backoff`, pure and unit-tested), `logfile.rs` (`RotatingFile`, size-based log rotation), `pipe_windows.rs` (the Windows named-pipe ACL and overlapped I/O, `cfg(windows)`). See ADR-012 §10, ADR-013 §5, module-guide.md. |
 | `crates/plur1bus/src/modules` | Rust | (part of `plur1bus`) | Module manifests independent of the supervisor's runtime state: `manifest.rs` (`Manifest`, `parse_manifest`, `RESERVED_NAMES`, the API-version policy), `graph.rs` (`band`, `graph`, `start_order`), `install.rs` (`stage`/`commit`/`uninstall`, `InstallError`, staging recovery, B14). See module-guide.md. |
 | `crates/plur1bus/src/service` | Rust | (part of `plur1bus`) | OS service registration: `mod.rs` (`Manager`, `Unit`, `Runner` trait), `systemd.rs`, `launchd.rs` (writes `PLUR1BUS_SERVICE_MANAGER=launchd`, B16), `schtasks.rs` (one renderer/installer per OS), `fake.rs` (the `PLUR1BUS_SERVICE_FAKE` test seam). See ADR-012 §10.6, §10.7. |
+| `crates/plur1bus/src/install` | Rust | (part of `plur1bus`) | 2a-H3b-b: installer foundations reached only from `setup`/`update`/`1staid repair`, never `supervisor/` (`scripts/lint-hygiene.mjs` enforces the boundary). `targets.rs` (the five release `Target`s), `fetch.rs`/`archive.rs` (the one verified download client and the one verified extractor, `verify_and_extract`, ⟂EXT 1; `ureq`+`rustls`, `flate2`+`tar`, `zip`), `manifest.rs` (`<home>/manifest.json` and the D78 release-manifest view, both JSON-Schema-validated, `schema/*.schema.json`), `pins.rs` (the Node version and its `SHASUMS256.txt` fixture), `setup.rs` (the nine-step installer), `skills.rs` (the skills step and third-party `CHECKSUMS` verification). See ADR-012 §10.13, `docs/module-guide.md` §12. |
+| `crates/plur1bus/src/repair` | Rust | (part of `plur1bus`) | 2a-H3b-b: `1staid repair`'s plan and steps. `mod.rs` (`STEP_ORDER`, the plan/print/confirm/apply loop, `--dry-run`/`--yes`, never touches `state/`), `plan.rs` (which finding maps to which step and its `Risk`), `safe.rs` (`run.permissions.fix`, `run.stale-files.remove`, `config.restore`, `service.renew`, `runtime.node\|core.reinstall`), `risky.rs` (`unit.terminate-hung` — termination through the pinned peer, §10.2's identity rule — `store.migrate`, and the log-based `service.silent-exit`/`service.restart-loop` reports, HB17). See ADR-012 §10.13. |
 | `crates/plur1bus-rpc` | Rust | lib | JSON-RPC client types and transport for the core's, the supervisor's and a module's RPC surfaces (`Endpoint::{Core,Supervisor,Module}`); `capabilities.rs` (the `x-server`-filtered capability builder, Rust side of `buildCapabilities`); `win.rs`/`acl.rs` (Windows pipe DACL, peer-pid checks, overlapped I/O with real read deadlines). |
 | `crates/plur1bus-config` | Rust | lib | `config.json` load/validate/write against the same schema TypeScript uses (`packages/config-schema/schema/config.schema.json`, included via `include_str!`); `revision`/`set_many` (a config's content hash and a multi-key apply, used by the supervisor's `config.set`). |
 | `packages/rpc-schema` | JSON Schema + codegen | `@plur1bus/rpc-schema` | The single source for RPC methods/params/results/notifications/errors, now split across three `x-server` values (`core`, `supervisor`, `module`). `pnpm gen` writes `generated/types.ts` and `generated/names.json`; never edit `generated/` by hand. |
@@ -164,9 +186,11 @@ Env vars that matter when driving the core directly instead of through the CLI:
 
 `tests/system` now exists (`two-session-recall`, `memory-ops`, `reconnect`, `kill-soak.test.ts`,
 `config-restart.test.ts`, `modules.test.ts`, `admin.test.ts`, `helpers.ts`), built up across 2a-H2
-through 2a-H3b-a; see "Build / test / lint" above for how to run it. `skills/plur1bus-harness` is
-still named only in the design spec and does not exist yet — it is 2a-H3b-b work — do not assume it
-is there.
+through 2a-H3b-a; see "Build / test / lint" above for how to run it. **`skills/plur1bus-ops/`**
+(`SKILL.md` plus `playbooks/{diagnose,configure,repair}.md`) is the bundled operations skill 2a-H3b-b
+ships (the design spec's earlier working name was `skills/plur1bus-harness`, HB13's O7 default
+renamed it); `setup`'s `skills` step installs it into `<home>/skills/` (module-guide.md §12), and a
+freshness test keeps it in step with the CLI it documents.
 
 ## Conventions
 
@@ -306,14 +330,20 @@ the clap tree via the hidden `plur1bus __markdown` subcommand) and `docs/config.
 it on every OS. After touching the RPC schema, the config schema or any clap definition (help text
 included), run `pnpm docs:gen` and commit the result; never hand-edit a generated doc.
 `docs/module-guide.md` is hand-written and is never checked by `docs:check`, but it documents
-generated surface (the manifest schema, `modules.<name>` config, the `module.*` RPC methods) and
-should be re-read whenever those change underneath it. The decision records for the process model,
-languages, RPC and lock (ADR-012), for configuration and restart classes (ADR-013) and for API
-stability and versioning (ADR-016) are in `docs/adr/`; all three carry a 2a-H3a implementation
-record (the supervisor, `daemon`/`service`/`1staid check`, the Windows named-pipe ACL, model warm-up
-and the `x-server`-split RPC schema) and a **2a-H3b-a** record (the supervisor's ownership of
-`config.json`, config-driven restarts, module processes, `module.*`/`admin.*` over RPC — ADR-012
-§10, ADR-013 §5, ADR-016's implementation records). Every CLI stub that still says "2a-H3b" now
-means **2a-H3b-b**: only `setup`, `update`, `user`, `model`, `login`, `channel`, `project`,
-`uninstall` and `1staid repair` remain stubs (`import` is real for `--detect`/`--skills`/`--rollback`; its full scope is M7) — `config`, `module`, `daemon`, `service`, `1staid
-check` and `admin` are all real commands now.
+generated surface (the manifest schema, `modules.<name>` config, the `module.*` RPC methods, and,
+since 2a-H3b-b, §12's installer paths) and should be re-read whenever those change underneath it. The
+decision records for the process model, languages, RPC and lock (ADR-012), for configuration and
+restart classes (ADR-013) and for API stability and versioning (ADR-016) are in `docs/adr/`; all
+three carry a 2a-H3a implementation record (the supervisor, `daemon`/`service`/`1staid check`, the
+Windows named-pipe ACL, model warm-up and the `x-server`-split RPC schema), a **2a-H3b-a** record
+(the supervisor's ownership of `config.json`, config-driven restarts, module processes,
+`module.*`/`admin.*` over RPC — ADR-012 §10, ADR-013 §5, ADR-016's implementation records) and,
+now, a **2a-H3b-b** record (`setup`, `update --check`, `1staid repair`, the release workflow and the
+Windows `run/` ACL landing — ADR-012 §10.13; the `core.recall.*` reclassification and `setup`'s
+basic-tier questions — ADR-013 §9; the three new CLI `schema` ids and `1staid.check/1`'s append-only
+ids — ADR-016's implementation record; ADR-006 also gained a 2a-H3b-b implementation record for the
+setup wizard's use-class question and NC-licence gate). Only `update` without `--check` (applying an
+update, M8), `user`, `model`, `login`, `channel`, `project` and `uninstall` (M8) remain stubs
+(`import` is real for `--detect`/`--skills`/`--rollback`; its full scope is M7) — `config`, `module`,
+`daemon`, `service`, `1staid check`, `admin`, `setup`, `update --check` and `1staid repair`
+are all real now.
