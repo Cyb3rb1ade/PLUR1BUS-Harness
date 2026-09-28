@@ -1,0 +1,2 @@
+{ "params": { "name": "fixture", "dryRun": true },
+  "result": { "name": "fixture", "state": "enabled", "restart": { "modules": ["fixture-b"] }, "heldBack": [] } }

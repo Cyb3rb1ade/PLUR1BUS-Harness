@@ -2,11 +2,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, SCHEMA, buildCapabilities, loadFixtures, precompileMethods, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
 
+const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.install", "ext.list", "ext.restore", "ext.show", "ext.uninstall", "ext.watch"];
+
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.3.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.3.0");
+  it("declares rpc 1.4.0 and the closed error enum", () => {
+    assert.equal(RPC_VERSION, "1.4.0");
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",
@@ -106,6 +108,54 @@ describe("rpc-schema", () => {
     assert.equal(validateParams("admin.embedding.serve", { address: { kind: "tcp", address: "x" } }).ok, false);
     assert.deepEqual(validateResult("admin.embedding.serve", { address: null, tokenPath: null, identity: null }), { ok: true });
     assert.equal(validateResult("admin.obsidian.confirm", { confirmed: false, vaultPath: "/v", vaultDigest: "d", alreadyConfirmed: false }).ok, false);
+  });
+
+  it("every ext method is supervisor experimental since 1.4.0 with closed params", () => {
+    const supervisor = buildCapabilities([], "supervisor");
+    for (const m of EXT_METHODS) {
+      assert.deepEqual(supervisor.methods[m], { stability: "experimental", since: "1.4.0" }, m);
+      const def = (SCHEMA as any).$defs.methods[m];
+      assert.equal(def["x-server"], "supervisor", m);
+      assert.equal(def.params.additionalProperties, false, `${m} params are closed`);
+    }
+    assert.equal(validateParams("ext.list", { kind: ["skill"], bogus: 1 }).ok, false);
+    assert.equal(validateParams("ext.list", { kind: ["mcp-server"] }).ok, false);
+    assert.equal(validateParams("ext.list", { state: ["enabled"], agent: "bernd" }).ok, true);
+    assert.equal(validateParams("ext.inspect", { source: { upload: "u" } }).ok, false);
+    assert.equal(validateParams("ext.inspect", { source: { path: "/p", extra: 1 } }).ok, false);
+    assert.equal(validateParams("ext.install", { inspectionId: "i", config: {} }).ok, false);
+    assert.equal(validateParams("ext.install", { inspectionId: "i", acknowledge: ["nope"] }).ok, false);
+    assert.equal(validateParams("ext.install", { inspectionId: "i", enable: { agents: ["bernd"] } }).ok, true);
+    assert.equal(validateParams("ext.enable", { name: "demo-skill", agents: "all", acknowledge: ["capabilities"], dryRun: true }).ok, true);
+    assert.equal(validateParams("ext.enable", { name: "demo-skill", acknowledge: ["unsigned"] }).ok, false);
+    assert.equal(validateParams("ext.watch", { names: [] }).ok, false);
+    for (const m of EXT_METHODS) for (const server of ["core", "module"] as const) assert.equal(buildCapabilities([], server).methods[m], undefined, `${server} ${m}`);
+  });
+
+  it("ext names accept imported skill ids and overlays include error", () => {
+    for (const m of ["ext.show", "ext.uninstall", "ext.enable", "ext.disable"]) {
+      assert.equal(validateParams(m, { name: "my.skill_v2" }).ok, true, m);
+      assert.equal(validateParams(m, { name: "Bad" }).ok, false, m);
+    }
+    assert.equal(validateNotification("ext.changed", { name: "my.skill", kind: "skill", state: "removed", version: "1.0.0", overlays: ["error"] }).ok, true);
+    assert.equal(validateNotification("ext.changed", { name: "a", kind: "skill", state: "enabled", version: "1", overlays: ["hidden"] }).ok, false);
+  });
+
+  it("ext.changed is a supervisor notification", () => {
+    assert.deepEqual(buildCapabilities([], "supervisor").notifications["ext.changed"], { stability: "experimental", since: "1.4.0" });
+    assert.equal((SCHEMA as any).$defs.notifications["ext.changed"]["x-server"], "supervisor");
+    for (const server of ["core", "module"] as const) assert.equal(buildCapabilities([], server).notifications["ext.changed"], undefined, server);
+    assert.equal(validateNotification("ext.changed", { name: "demo-skill", kind: "skill", state: "enabled", version: "1.0.0", overlays: [] }).ok, true);
+    assert.equal(validateNotification("ext.changed", { name: "demo-skill", kind: "skill", state: "enabled", version: "1.0.0" }).ok, false);
+  });
+
+  it("core.auth never lists ext methods and supervisor.auth lists all nine", () => {
+    const core = buildCapabilities([], "core");
+    const supervisor = buildCapabilities([], "supervisor");
+    assert.deepEqual(Object.keys(core.methods).filter((m) => m.startsWith("ext.")), []);
+    assert.deepEqual(Object.keys(core.notifications).filter((m) => m.startsWith("ext.")), []);
+    assert.deepEqual(Object.keys(supervisor.methods).filter((m) => m.startsWith("ext.")).sort(), EXT_METHODS);
+    assert.equal(EXT_METHODS.length, 9);
   });
 
   it("module.auth capabilities list only module-served methods", () => {

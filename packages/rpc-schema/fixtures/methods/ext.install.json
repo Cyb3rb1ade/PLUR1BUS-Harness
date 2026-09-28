@@ -1,0 +1,2 @@
+{ "params": { "inspectionId": "insp-7f3a9c", "acknowledge": ["unsigned", "capabilities"], "enable": { "agents": "all" } },
+  "result": { "name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "enabled" } }

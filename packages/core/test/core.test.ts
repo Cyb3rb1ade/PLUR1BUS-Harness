@@ -83,7 +83,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.9.0"); assert.equal(s.rpc, "1.3.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.9.0"); assert.equal(s.rpc, "1.4.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 

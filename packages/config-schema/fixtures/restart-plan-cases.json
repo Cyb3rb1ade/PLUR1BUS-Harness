@@ -25,6 +25,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -60,6 +68,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -108,6 +124,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -143,6 +167,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -193,6 +225,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -230,6 +270,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24T00:00:00Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -286,6 +334,14 @@
           "createdAt": "2026-09-24T00:00:00Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -321,6 +377,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -375,6 +439,14 @@
           "createdAt": "2026-09-24T00:00:00Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -412,6 +484,14 @@
       "agents": {
         "karl": {
           "createdAt": "2026-09-24T00:00:00Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -466,6 +546,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -501,6 +589,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -555,6 +651,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -590,6 +694,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "research",
         "acceptedNcLicence": false
@@ -641,6 +753,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -681,6 +801,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -736,6 +864,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -771,6 +907,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false

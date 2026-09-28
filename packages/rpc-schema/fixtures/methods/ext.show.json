@@ -1,0 +1,11 @@
+{ "params": { "name": "demo-scripts" },
+  "result": {
+    "item": { "name": "demo-scripts", "id": "local/demo-scripts", "kind": "skill", "version": "1.2.0", "source": "file", "trust": "unknown-signer", "state": "installed", "overlays": ["tampered"], "enabled": false, "agents": [], "integrity": "tampered" },
+    "manifest": { "id": "local/demo-scripts", "name": "demo-scripts", "version": "1.2.0", "kind": "skill" },
+    "capabilities": { "exec": true },
+    "scripts": [ { "path": "scripts/run.sh", "size": 42, "firstLine": "#!/bin/sh" } ],
+    "trust": { "tier": "unknown-signer", "keyId": "0123456789ABCDEF" },
+    "files": { "count": 3, "bytes": 512 },
+    "dependents": [],
+    "trash": [ { "trashId": "demo-scripts-1.1.0-20260928T120000Z", "version": "1.1.0", "removedAt": "2026-09-28T12:00:00Z" } ]
+  } }

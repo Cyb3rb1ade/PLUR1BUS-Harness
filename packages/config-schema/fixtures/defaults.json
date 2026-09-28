@@ -22,6 +22,14 @@
     "keep": 5
   },
   "agents": {},
+  "extensions": {
+    "allowUnsigned": true,
+    "trashDays": 14,
+    "limits": {
+      "packageBytes": 268435456,
+      "skillBytes": 16777216
+    }
+  },
   "embedding": {
     "useClass": "general",
     "acceptedNcLicence": false

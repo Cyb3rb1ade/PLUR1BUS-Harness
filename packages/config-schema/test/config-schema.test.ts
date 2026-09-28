@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { CONFIG_SCHEMA, SCHEMA_VERSION, defaults, migrate, restartClassOf, restartPlan, validate } from "../src/index.ts";
+import { CONFIG_SCHEMA, SCHEMA_VERSION, defaults, migrate, restartClassOf, restartPlan, tierOf, validate } from "../src/index.ts";
 
 function walk(node: any, path: string[], out: string[][]) {
   if (!node || typeof node !== "object" || !node.properties) return;
@@ -119,5 +119,28 @@ describe("config-schema", () => {
     const plan = restartPlan(a, b);
     assert.deepEqual(plan.changed, ["providers.nvidia"]);
     assert.deepEqual(plan.restart, { live: ["providers.nvidia"], core: false, modules: [] });
+  });
+
+  it("extensions.* and agents.<id>.skills are live, advanced, with the X1-R21 defaults", () => {
+    assert.equal(restartClassOf("extensions.trashDays"), "live");
+    assert.equal(restartClassOf("extensions.limits.skillBytes"), "live");
+    assert.equal(restartClassOf("agents.bernd.skills.blocked"), "live");
+    assert.equal(tierOf("agents.bernd.skills.blocked"), "advanced");
+    assert.equal(tierOf("extensions.allowUnsigned"), "advanced");
+    const d: any = defaults();
+    assert.deepEqual(d.extensions, { allowUnsigned: true, trashDays: 14, limits: { packageBytes: 268435456, skillBytes: 16777216 } });
+    assert.equal(validate(d).ok, true);
+  });
+
+  it("extensions.* and agents.<id>.skills refuse out-of-range or unknown values", () => {
+    const mk = (f: (c: any) => void) => { const c: any = defaults(); f(c); return validate(c).ok; };
+    assert.equal(mk((c) => { c.agents.bernd = { skills: { blocked: ["a"], pinned: [], applyAt: "next-turn" } }; }), true);
+    assert.equal(mk((c) => { c.agents.bernd = { skills: { applyAt: "never" } }; }), false);
+    assert.equal(mk((c) => { c.agents.bernd = { skills: { bogus: 1 } }; }), false);
+    assert.equal(mk((c) => { c.extensions.trashDays = 0; }), false);
+    assert.equal(mk((c) => { c.extensions.trashDays = 366; }), false);
+    assert.equal(mk((c) => { c.extensions.limits.packageBytes = 1048575; }), false);
+    assert.equal(mk((c) => { c.extensions.limits.skillBytes = 1073741825; }), false);
+    assert.equal(mk((c) => { c.extensions.bogus = 1; }), false);
   });
 });

@@ -1,0 +1,5 @@
+{ "params": { "kind": ["skill", "module"], "state": ["installed", "enabled"], "agent": "bernd" },
+  "result": { "items": [
+    { "name": "demo-skill", "id": "local/demo-skill", "kind": "skill", "version": "1.0.0", "source": "file", "trust": "unsigned", "state": "enabled", "overlays": [], "enabled": true, "agents": ["bernd"], "integrity": "ok" },
+    { "name": "fixture", "id": null, "kind": "module", "version": "0.1.0", "source": "local", "trust": "dev", "state": "installed", "overlays": ["needs-setup"], "enabled": false, "agents": "all" }
+  ] } }
