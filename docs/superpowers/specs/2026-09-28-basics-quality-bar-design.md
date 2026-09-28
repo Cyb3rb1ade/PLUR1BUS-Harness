@@ -1,6 +1,6 @@
 # The basics everyone expects: a quality bar — design
 
-**Status:** Draft for owner review · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D102 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
+**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D104 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
 
 **Owner requirements, 2026-09-28 (translated from German, condensed):**
 
@@ -12,7 +12,12 @@
 6. A PDF report or an essay produced by an agent must not look "typed on an 80s typewriter": it must look "like a 100,000-euro-per-job advertising agency" — modern, glossy, high contrast, high quality.
 7. Question: does an emergent agent-to-agent language (the owner remembered a paper/video where agents switched to an efficient non-human "beeping" language) make sense as the communication layer between agents?
 
-The owner asked for this spec ("Ja") after the controller's summary of the gaps. Nothing here is implemented.
+8. (Feedback on rev 1.) Fallbacks and "knowing what works and what doesn't" approved; error messages must be reflected back properly, **with a suggested fix for the person**; "simple CAPTCHAs he could theoretically solve".
+9. Why `CLAUDE.md`?
+10. A **nightly routine that writes all skills (once at the start, then the new ones) into a database** in a short, fast-to-read form, **sorted into categories**, so that the decision model (Jev, Laya) looks at a task and tells the agent "70 % you need tools from category range 130–160, 30 % from 1–30" — a quick pre-selection so the agent finds its tool more reliably.
+11. Installer and design system approved as proposed; agent language dropped, but **a fixed hand-off format is wanted — "you are an agent yourself and know exactly what you need when accepting and handing over work"**.
+
+The owner asked for this spec ("Ja") after the controller's summary of the gaps, and approved D94–D101 on rev 1 with the changes above. Nothing here is implemented.
 
 ## 1. Verified current state
 
@@ -52,6 +57,10 @@ Every agent has `web.fetch` unless denied (behaviour-profile `tools.deny`, ADR-0
 **Result.** `{ finalUrl, status, contentType, title, lang, publishedAt?, markdown, sections[], cursor?, renderUsed, fromCache, fetchedAt }`, delivered as a `tool_result` with a **provenance envelope** (`source: web`, URL, fetch time) — web content is untrusted data, never instructions (the same rule as M5 peer output).
 
 **Typed failures** (the agent always learns *why*): `not-found`, `gone`, `auth-required` (401/403 with a login form detected), `paywall`, `captcha`, `rate-limited` (with `Retry-After`), `timeout`, `too-large` (default cap 20 MB download, 200 k tokens extracted), `unsupported-type`, `tls-error`, `egress-denied`, `private-address`, `needs-render`. On `auth-required` or `captcha` the agent may offer the person a **handover** in the browser panel (desktop spec §6.5); it never solves CAPTCHAs and never types passwords.
+
+**Every failure carries two texts** (rev 2, owner item 8): `hint` for the agent (what to try next: another source via `web.search`, the `render` mode, a later retry at `Retry-After`, a narrower `section`) and `userAction`, one sentence the agent can pass on as a concrete suggestion for the person — e.g. *"The page needs a login: sign in in the browser panel and say 'continue'"*, *"Paywalled: forward me the article or give me access; meanwhile I found two free sources"*, *"The site limits automated requests; I will retry at 14:05"*. The agent reports a failure with the `userAction` instead of a bare error, and tries the `hint` first where it is safe to.
+
+**CAPTCHAs are not solved, including simple ones** (owner item 8, answered): a CAPTCHA is the site's explicit check that a human is present; solving it for the person turns PLUR1BUS into a bot-detection bypass, breaks the sites' terms, and would put the Store and Flathub listings and the project's trust at risk. What reduces CAPTCHAs legitimately is done instead: pages go through the **native panel with the person's own browser profile** where the desktop app is attached (their cookies and logins, a real browser — the most common reason for a CAPTCHA disappears); pacing per host; official APIs, feeds and exports preferred over scraping; other sources through `web.search`. When one still appears and the person is present, the handover takes seconds; when they are away, the task parks with a notification carrying the `userAction`, and the rest of the task continues where it can.
 
 **Safety.**
 - **SSRF guard:** loopback, link-local, private (RFC 1918, ULA) and cloud-metadata addresses are refused as `private-address`, after DNS resolution and on every redirect hop; exceptions are an explicit per-installation allowlist (typical: the owner's Tailscale names and `100.x` addresses, D72).
@@ -107,7 +116,7 @@ The `browser` skill (D74) keeps the *how*; the *what* becomes a fixed tool set t
 
 Standards written only into a prompt do not hold. They are enforced where a coding task ends.
 
-1. **Conventions are read, in this order:** the project's `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.editorconfig`, formatter and linter configs (Prettier, ESLint/Biome, `rustfmt`/Clippy, Ruff/Black, `gofmt`/`golangci-lint`, …), and the existing code's style. What the project says wins.
+1. **Conventions are read, in this order:** the project's `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, `.editorconfig`, formatter and linter configs (Prettier, ESLint/Biome, `rustfmt`/Clippy, Ruff/Black, `gofmt`/`golangci-lint`, …), and the existing code's style. What the project says wins. *Why these file names* (owner item 9): `AGENTS.md` is the cross-tool convention file (Codex, Cursor, Zed, Jules and others read it) and PLUR1BUS's own primary one; `CLAUDE.md` is Claude Code's and `GEMINI.md` Gemini CLI's equivalent — many repositories only have one of them, so PLUR1BUS reads all three and, when asked to create one, writes `AGENTS.md`.
 2. **Shipped defaults when the project says nothing:** a written-by-us **`coding-standards`** skill with one reference per language (TypeScript, JavaScript, Python, Rust, Go, Swift, Kotlin, C#, shell, SQL) — idiomatic formatting via the language's standard formatter, naming, error handling, no dead code, small functions, tests next to the code — and a **`documentation-standards`** skill: doc comments on every public API, README kept true when behaviour changes, CHANGELOG in *Keep a Changelog* form, an ADR for an architecture decision, Conventional Commits unless the repo uses another style. Both are injected by D69 when a task touches code.
 3. **The gate.** A coding task in a project (M5 worktree) or a direct chat with a workspace is **done** only when the project's own formatter, linter, type checker and tests have run in that worktree and passed, or the agent reports exactly which failed and why it could not fix them. `task.complete` is refused with `E_PRECONDITION reason=checks-not-run|checks-failed` until then; the person can override with a visible note. Detection of the commands: `package.json` scripts, `Makefile`/`justfile` targets, `Cargo.toml`, `pyproject.toml`, `go.mod`, CI workflow files as the last hint.
 4. **Documentation is part of done:** changed public APIs without updated doc comments, or behaviour changes without a README/CHANGELOG touch where the project keeps them, are listed in the completion report as open items.
@@ -174,8 +183,133 @@ The owner's question (item 7) is answered with a recorded decision so it is not 
   2. The models still read and write **tokens**: an invented code is not in their training data, splits into more tokens and is understood worse than plain English.
   3. **Readability is a product promise** — activity feed, audit log, approvals, memory and skill mining all depend on a person being able to read what agents said to each other; an unreadable layer breaks every one of them and reads as alarming.
   4. The only real efficiency route, exchanging internal model states (latent communication), works only between instances of the same local model; PLUR1BUS is multi-provider.
-- **What we do instead:** agent-to-agent messages stay in the M5 **typed hand-off** (objective, state, open items, artefact references, output schema, ≤ 2 k tokens) with natural-language fields, compact by schema, readable in the trace.
+- **What we do instead:** agent-to-agent messages use the typed, readable **hand-off format of D104** (the owner approved this route on rev 1), compact by schema, readable in the trace.
 - **Revisit** only if two agents on the same local model show a measured gain on the fan-out eval; not planned.
+
+### D103 — Capability index and category routing (extends D69 and D97 item 5)
+
+The owner's idea (item 10) — a compact, categorised register of everything an agent can use, and a decision model that pre-selects categories with probabilities — becomes the first stage of tool and skill selection.
+
+**Capability index.** One row per skill, harness tool, MCP tool, plugin command and channel action, in the core's SQLite store with FTS5 and a vector column (our own embedder, D54):
+
+| Field | Content |
+|---|---|
+| `id`, `kind`, `name`, `version` (content hash) | identity; `kind` = skill \| tool \| mcp-tool \| plugin-command \| channel-action |
+| `category` | one primary and at most two secondary category ids (below) |
+| `summary` | ≤ 25 words: what it does |
+| `useWhen` / `notFor` | one line each — the distinction that decides between similar items |
+| `inputs` | a one-line argument sketch, not the schema |
+| `sideEffects` | none \| local \| external \| money — also feeds approval rules |
+| `stats` | offered / used / found-by-search counts, success rate, per agent |
+
+- **Built** once over everything installed at first start; then **event-driven** on install, update, enable and disable (a new skill is routable immediately, not only the next morning); a **nightly pass** re-checks hashes, re-summarises changed items, refreshes statistics and recalibrates the priors below. Summaries and classification run on the `summarize` model role and are cached per version hash, so an unchanged item costs nothing.
+- **Taxonomy with stable ids instead of number ranges.** The owner's ranges ("websites 120–150, documents 30–50, recipes 1–30") are kept as the idea — a numbered map the decision model can point into — but as a **two-level category tree with stable ids** (e.g. `web.browse`, `web.research`, `docs.create`, `docs.convert`, `code.edit`, `code.review`, `data.analyse`, `comm.email`, `comm.chat`, `files.manage`, `ops.system`, `memory.manage`, `media.image`, `media.audio`, `life.cooking`, `life.travel`, `plur1bus.admin`), because contiguous ranges break the day a category outgrows its block. About 15 top-level and 80–120 second-level categories ship; new items are classified automatically, a person can move an item, and extensions (D79) may declare their category.
+
+**Routing, per task intent** (D69's task-intent gate: only when the intent changes, not every turn):
+1. The decision model (D18/D70: Jev with an API key, Kev or Laya locally) receives the task and the **category list** (names and one-line descriptions, a stable cached prefix of about 1–2 k tokens) and returns a **distribution over at most three categories** with probabilities and a confidence — the owner's "70 % from here, 30 % from there".
+2. The shortlist (default 12 items) is **split proportionally**: 70 % → 8 slots from the first category, 30 % → 4 from the second; inside each category the keyword and embedding tiers of D69 rank the items against the task, weighted by the agent's usage priors.
+3. The shortlisted tools are offered with their **full schemas**; skills go through D69's injection (at most 3). Everything else stays reachable through **`capabilities.search { query, category? }`**, a small tool every agent always has — the agent is never locked out of a tool the router did not pick.
+4. **Low confidence** (below 0.5) widens the shortlist to the top three categories and adds a hint to use `capabilities.search`.
+
+**Learning.** Every turn records what was offered, what was used and what the agent had to search for. The nightly pass turns this into per-agent category priors; a tool repeatedly found by search outside the shortlist is a routing miss, shown in the trace and counted in `tool-eval`.
+
+**Gates.** Routing recall: the needed item is in the shortlist in ≥ 95 % of the `tool-eval` scenarios (D97); the decision call stays within 200 ms p95 locally and is skipped when the intent is unchanged; the category-list prefix is byte-stable across turns (ADR-010).
+
+### D104 — The hand-off format (`plur1bus.handoff/1`, `plur1bus.return/1`)
+
+Written from the agent side (owner item 11). When an agent takes over work, what it misses most is rarely the task itself; it is **what counts as done, what is already decided, what was tried and failed, which "facts" are actually unverified assumptions, and what it may decide alone**. The format makes exactly these explicit and keeps everything else by reference.
+
+**Kinds.** `delegate` (sender waits for a return), `handoff` (ownership moves; the sender stops), `consult` (a question; the answer is the return), `return` (result back), `ack` (the receiver's acceptance check).
+
+**`plur1bus.handoff/1`** — required fields in **bold**:
+
+```jsonc
+{
+  "schema": "plur1bus.handoff/1",
+  "id": "ho_…", "kind": "delegate",                    // **id, kind**
+  "from": { "agent": "bernd", "session": "s_…" },       // **from**
+  "to":   { "agent": "forge" },                         // **to** (agent or role)
+  "task": { "id": "t_…", "card": "PLB-140", "project": "p_…" },
+  "parent": "ho_…",                                     // chain for traces and cycle checks
+  "objective": "The dreaming scheduler runs the REM phase after deep, verified by a test.",  // **one sentence, an outcome not an activity**
+  "doneWhen": [                                         // **checkable criteria** (delegate, handoff)
+    "tests/dreams/rem-order.test.ts passes",
+    "docs/dreaming.md names the new order"
+  ],
+  "why": "Owner wants REM to see deep's output; judgment calls should favour correctness over speed.",
+  "constraints": {
+    "must": ["keep the public RPC unchanged"],
+    "mustNot": ["touch the engine repo", "push"],
+    "scope": { "paths": ["packages/core/src/dreams/**"], "tools": ["code.*", "web.fetch"] }
+  },
+  "decided": [                                          // settled — do not reopen without new evidence
+    { "what": "REM runs after deep, not in parallel", "why": "deep writes the cards REM reads" }
+  ],
+  "facts": [                                            // verified, each with its evidence
+    { "claim": "the scheduler is in scheduler.ts:88", "source": "repo@a1b2c3d" }
+  ],
+  "assumptions": [                                      // unverified — the receiver checks the risky ones first
+    { "claim": "no other job depends on REM running early", "risk": "high" }
+  ],
+  "state": {                                            // **required for handoff**
+    "done":    [{ "step": "failing test written", "evidence": "commit 9f8e7d6" }],
+    "current": "implementing the order change",
+    "next":    ["make the test pass", "update docs"]
+  },
+  "triedAndFailed": [                                   // the biggest time-saver; required when there is history
+    { "approach": "reordering via config", "why": "the order is hard-coded in the job table" }
+  ],
+  "openQuestions": [
+    { "q": "should a skipped deep phase skip REM too?", "answerBy": "human", "default": "yes" }
+  ],
+  "artifacts": [                                        // references, never pasted content
+    { "ref": "worktree:forge/PLB-140@9f8e7d6", "kind": "git" },
+    { "ref": "memory:c_…", "kind": "memory-card" },
+    { "ref": "attachment:a_…", "kind": "file", "sha256": "…" }
+  ],
+  "environment": { "workspace": "p_…", "branch": "forge/PLB-140", "base": "main@…", "secrets": ["GITHUB_TOKEN"] },  // secrets by name only
+  "authority": {
+    "mayDecide": ["implementation details inside scope", "test names"],
+    "mustAsk":   ["any change outside scope", "anything irreversible"],
+    "approvalsHeld": ["approval:ap_…"]                  // references the receiver verifies, never claims
+  },
+  "budget": { "tokens": 60000, "toolCalls": 80, "deadline": "2026-09-29T18:00:00Z", "modelTier": "standard" },
+  "returnContract": {                                   // **required for delegate**
+    "format": "plur1bus.return/1", "maxTokens": 2000, "reportTo": "artifact:report.md"
+  },
+  "confidence": "medium"
+}
+```
+
+**`plur1bus.return/1`:**
+
+```jsonc
+{
+  "schema": "plur1bus.return/1", "id": "rt_…", "inReplyTo": "ho_…",
+  "status": "done",                                     // done | done_with_concerns | blocked | needs_context | declined
+  "summary": "REM now runs after deep; test and docs updated.",   // ≤ 3 sentences
+  "doneWhen": [{ "criterion": "tests/dreams/rem-order.test.ts passes", "met": true, "evidence": "CI run 123" }],
+  "changes":  [{ "ref": "commit 1a2b3c4", "what": "order in job table" }],
+  "artifacts": [{ "ref": "artifact:report.md", "kind": "file" }],
+  "concerns": [], "blockedBy": null, "needs": [],       // needs = questions when status is needs_context
+  "assumptionsChecked": [{ "claim": "no other job depends on REM running early", "result": "true — grep + tests" }],
+  "learned": [{ "fact": "the job table is the only place the order lives", "source": "repo@1a2b3c4" }],  // memory candidates
+  "suggestedNext": ["remove the dead config key"],
+  "usage": { "tokens": 41210, "toolCalls": 37, "durationMs": 912000 }
+}
+```
+
+**`ack`** (for `delegate` and `handoff`, before work starts): the receiver restates the objective in one sentence and lists blocking questions, or says `ok`. It costs one short message and catches a misread objective before an hour of work; `consult` needs no ack.
+
+**Rules.**
+- **Size:** the hand-off is ≤ 2 k tokens (the M5 cap); anything larger goes into `artifacts` and is read on demand.
+- **Facts and assumptions stay apart:** most hand-off failures are an assumption passed on as a fact.
+- **`decided` is not reopened** without new evidence, which the receiver names; **`triedAndFailed`** is mandatory once there is history.
+- **Authority is explicit,** so a receiver neither stalls nor overreaches; `approvalsHeld` are references the harness checks against its approval store — a hand-off can never grant an approval by saying so.
+- **Provenance:** a hand-off arrives as a `tool_result` with a provenance envelope; text inside artifacts is data, never instructions. Secrets appear by name only.
+- **Validation:** both formats are JSON-schema-validated (D97); a hand-off missing a required field goes back to the sender for repair, not to the receiver as a guess.
+- **Readable for people:** the activity feed and the Kanban card render a hand-off as a card — objective, the `doneWhen` checklist, state, next steps, open questions — with the JSON behind a toggle; `plur1bus task show --handoff` prints it as Markdown. A person picking up an agent's work reads the same card.
+- **Reuse:** the same format carries a Kanban card moving between agents (D36), MoA fan-out (D50), external coding agents over ACP (as `_meta`), a context hand-over to a fresh session when a model switches or a window fills (D23), and the evidence of a mined skill (D99). It replaces the loose field list of the M5 "typed delegation contract" (objective, scope, forbidden actions, output schema, citation requirement, ≤ 2 k cap, model tier, deadline), all of which it contains.
 
 ## 3. Placement and effort
 
@@ -190,8 +324,10 @@ The owner's question (item 7) is answered with a recorded decision so it is not 
 | D100 documents | **M6** (skills) with D65; golden set in CI from then; rubric in the v0.1.0 checklist | 6–10 | golden set visual diff; automatic page checks catch seeded overflow/contrast/widow defects |
 | D101 installer | **D1** | 2–3 | per-channel checks: choices applied, silent flags, update keeps a deleted icon deleted, uninstall removes entries |
 | D102 | record only | 0 | — |
+| D103 capability index + category routing | **M2** with D97 (index, taxonomy, keyword/embedding tiers, `capabilities.search`); decision-model tier with the D18/D70 decision service | 4–6 | routing recall ≥ 95 % on `tool-eval`; new skill routable right after install; decision call ≤ 200 ms p95 locally; stable category prefix |
+| D104 hand-off format | **M5** (replaces the typed delegation contract's field list; D36/D50 consume it) | 2–3 | schema validation and repair; `ack` round trip; `approvalsHeld` verified against the approval store; a forged approval reference is refused; Markdown rendering |
 
-**Total +30–47 ad** across M2 (+14–21), M5 (+3–5), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
+**Total +36–56 ad** across M2 (+18–27), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
 
 ## 4. Owner choices (defaults the design runs on)
 
@@ -205,6 +341,8 @@ The owner's question (item 7) is answered with a recorded decision so it is not 
 | Q6 | Tool-use bar for v0.1.0 | ≥ 95 % per default model | 95 % |
 | Q7 | Fonts of the neutral kit | Inter / Source Serif 4 / JetBrains Mono | as default; brand kit overrides |
 | Q8 | Windows opt-out flags for silent install | `/NODESKTOP /NOSTARTMENU /NOAUTOSTART` | as written |
+| Q9 | Shortlist size and split rule (D103) | 12 items, proportional to the category probabilities | as written; tune on `tool-eval` |
+| Q10 | Is the hand-off `ack` mandatory for every `delegate`? | yes, except `consult` and hand-offs under 1 k tokens of budget | yes |
 
 ## 5. Risks
 
@@ -213,3 +351,5 @@ The owner's question (item 7) is answered with a recorded decision so it is not 
 - **R3 Visual review needs a vision model.** Mitigation: automatic checks always run; the delivery says when the model review was skipped.
 - **R4 Proposal fatigue.** Mitigation: rate limits, *Never for this kind*, threshold tuning on fixtures.
 - **R5 Autostart feels intrusive to some users.** Mitigation: visible first-run toggle everywhere, OS controls respected, no re-enable after a user's disable.
+- **R6 Routing hides the right tool.** Mitigation: `capabilities.search` always present, low-confidence widening, misses counted and shown.
+- **R7 Hand-offs grow into essays.** Mitigation: the 2 k cap enforced by validation, artefacts by reference.
