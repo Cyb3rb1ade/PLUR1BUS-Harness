@@ -5,8 +5,9 @@ companion to the generated `docs/rpc.md` (the `module.*` RPC surface) and `docs/
 `modules.<name>` configuration namespace) — re-read it whenever the manifest schema, the module
 runtime (`@plur1bus/module-api`), or the supervisor's module handling change underneath it, since
 `docs:check` does not cover this file. It records spec §5 and owner decision D14 as built by plan
-2a-H3b-a; the architectural background (why modules are separate processes at all) is ADR-012 §1,
-and the config-ownership and restart-class rules a module's configuration follows are ADR-013.
+2a-H3b-a, plus §12's installer paths (⟂EXT) built by plan 2a-H3b-b; the architectural background (why
+modules are separate processes at all) is ADR-012 §1 (§10.13 for the installer), and the
+config-ownership and restart-class rules a module's configuration follows are ADR-013.
 
 ## 1. What a module is
 
@@ -402,3 +403,61 @@ Without `--lifeline stdin`, the module reads `config.json` once and runs until S
 `config.json`/a live `config.watch` if one answers, and stops on its own once stdin closes and
 `supervisor.graceMs` passes with no adoption. `pnpm --filter <module-package> test` runs a module's
 own tests against a freshly built `dist/`.
+
+## 12. Install paths (2a-H3b-b) and the extensions-ecosystem seams (⟂EXT)
+
+`plur1bus setup` and `1staid repair` (`crates/plur1bus/src/install/`, `docs/adr/ADR-012-process-model-and-languages.md`
+§10.13) are how a module (or a skill) first gets onto disk in a real installation, as opposed to the
+manual `cp`/`module install` path §11 covers for development. The `docs/extensions-ecosystem` spec
+(not yet written) will add skill and plugin enable/disable/install on top of this; this plan fixed
+five points so that spec extends this installer instead of building a second one. All five are
+verified against the code on this branch, not merely asserted by the plan:
+
+1. **One verified extractor.** Every package that arrives from outside the binary — the Node
+   runtime archive, a core payload, a module package, a skill bundle — goes through
+   `install::archive::verify_and_extract(archive, sha256, into, strip)` (`crates/plur1bus/src/install/archive.rs`):
+   one SHA-256 check, one `.tar.gz` (`flate2` + `tar`) or `.zip` (`zip`) extractor, shared by every
+   caller. A future ecosystem spec's plugin install must reuse this function rather than add a second
+   download client or archive reader.
+2. **The refusal vocabulary is stable, and additive only.** A module install already refuses with one
+   of seven fixed reasons (`modules::install::InstallError::reason()`, §9 above): `not-a-directory`,
+   `manifest-invalid`, `symlink`, `special-file`, `entry-outside`, `reserved-name`,
+   `socket-path-too-long`. This plan's own installer adds four more, from `install::archive`/`fetch`:
+   `digest-mismatch` (a downloaded or bundled package's hash does not match), `archive-unsafe-entry`
+   and `archive-unsupported` (`ArchiveError::UnsafeEntry`/`Unsupported`, `install/archive.rs`), and
+   `download-too-large` (`FetchError::TooLarge`/`ArchiveError::TooLarge`, `install/fetch.rs`,
+   `install/archive.rs`). A later plugin install reports one of these eleven reasons, or a new one
+   added the same additive way (ADR-016 §2) — none is ever renamed.
+3. **One commit path for modules.** `setup`'s `modules.bundled` step and `1staid repair`'s runtime
+   reinstall steps both install through the same `modules::install::{stage, commit}` §9 already
+   describes: staging into `modules/<name>.tmp-<pid>`, the `run/supervisor.lock` rule for an offline
+   install, supervisor-first when one answers. A plugin that turns out to be a module uses this exact
+   path, not a parallel one.
+4. **The install manifest has a slot per unit.** `<home>/manifest.json` (HB9,
+   `crates/plur1bus/schema/install-manifest.schema.json`, `InstallManifest` in
+   `crates/plur1bus/src/install/manifest.rs`) carries `modules: PackageUnit[]` and
+   `skills: PackageUnit[]`, each entry `{ name, version, source, sha256 }` with `source` one of
+   `"bundled"`, `"local"` or **`"catalog"`** — reserved for the ecosystem spec and written by nothing
+   in this plan (`manifest.rs`'s own doc comment on `PackageUnit`).
+5. **Skill layout.** Setup's `skills` step (HB13, `crates/plur1bus/src/install/skills.rs`) copies
+   `<payload>/skills/<name>/` to `<home>/skills/<name>/`; a bundled third-party skill additionally
+   lives under `skills/third-party/` and is checked against `skills/third-party/CHECKSUMS`
+   (`sha256sum` format, paths relative to `third-party/`) before anything is copied — a mismatch,
+   missing or unpinned file fails the step with `digest-mismatch` and copies nothing
+   (`verify_checksums`). The bundled operations skill this plan ships, `skills/plur1bus-ops/`
+   (`SKILL.md` plus `playbooks/{diagnose,configure,repair}.md`), is installed through this same path.
+   Enable/disable of an installed skill is the ecosystem spec's job and must not move this directory
+   layout.
+
+**What `setup` installs, beyond modules and skills.** `setup` (spec §6.5, HB8–HB13) runs nine fixed
+steps in order — `state-root`, `runtime.node`, `runtime.core`, `modules.bundled`, `config`, `skills`,
+`service`, `start`, `check` (`STEP_IDS`, `crates/plur1bus/src/install/setup.rs`) — the first failure
+stops the run and every later step is `skipped` with reason `after-failure`; a step whose result
+already matches the install manifest is `skipped` with reason `already-installed`. The Node runtime
+(HB8: version `24.21.0`, installed at `runtime/node-24.21.0/bin/node[.exe]`, `locate_node` preferring
+`PLUR1BUS_NODE`, then the manifest, then any `runtime/node-*`, then `PATH`) and the core payload are
+both fetched and verified through point 1 above. `config` asks only the `basic`-tier questions
+(`agents`, `embedding.useClass`; ADR-013 §2a/§9) and gates the NC licence exactly as ADR-006 records.
+`1staid repair`'s `runtime.node.reinstall`/`runtime.core.reinstall` steps (HB16, §7 of the
+2a-H3b-b plan) re-run the same fetch-and-verify path when `1staid check`'s `runtime.node`/
+`runtime.core` rows fail.
