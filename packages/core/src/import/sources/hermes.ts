@@ -4,7 +4,7 @@
 // HERMES_OPTIONAL_SKILLS). Read-only throughout; each profile is its own agent (§3.3).
 import { join, resolve } from "node:path";
 import { envGet, expandTilde, expandUser, expandVars, locateSource, pathFor, portabilityOf, SourcePathMapper, userHome } from "../paths.ts";
-import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables } from "../readonly.ts";
+import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables, sqliteWarning } from "../readonly.ts";
 import { caseCollisions, caseInsensitiveTarget, unportableName } from "../skills-scan.ts";
 import { subdirs } from "../store-scan.ts";
 import { readYaml } from "../yaml-lite.ts";
@@ -62,7 +62,7 @@ function sessionsSchema(dir: string, warnings: string[]): number | null {
     try {
       if (!sqliteTables(h.db).includes("schema_version")) return null;
       const row = h.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version?: unknown } | undefined;
-      if (h.mode === "immutable") warnings.push("state.db is larger than the copy limit; read without its WAL");
+      const w = sqliteWarning(h, "state.db"); if (w) warnings.push(w);
       return Number.isSafeInteger(Number(row?.version)) && row?.version !== null ? Number(row!.version) : null;
     } finally { h.close(); }
   } catch (e) {

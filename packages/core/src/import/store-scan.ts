@@ -4,7 +4,7 @@
 import { readdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { assembleIdentity, compareIdentity, type CacheGroup, type FieldSource, type Fingerprint, type Identity } from "./identity.ts";
-import { isDir, isFile, loadLanceDb, openSqliteReadOnly, readBounded } from "./readonly.ts";
+import { isDir, isFile, loadLanceDb, openSqliteReadOnly, readBounded, sqliteWarning } from "./readonly.ts";
 import type { StoreReport } from "./types.ts";
 
 const RESERVED = new Set([".plur1bus-shared", "control", "generations", "embedding-cache-v2"]);
@@ -47,7 +47,7 @@ function readCacheGroups(cacheDir: string, warnings: string[]): Map<string, Cach
         // Only the identity columns; `debug_text` (message text) and `vector` are never selected.
         const rows = h.db.prepare("SELECT provider, model, dimensions, COUNT(*) AS entries FROM embeddings GROUP BY provider, model, dimensions ORDER BY provider, model, dimensions").all() as unknown as CacheGroup[];
         out.set(scope, rows.map((r) => ({ provider: String(r.provider), model: String(r.model), dimensions: Number(r.dimensions), entries: Number(r.entries) })));
-        if (h.mode === "immutable") warnings.push(`embedding cache ${name}: larger than the copy limit, read without its WAL`);
+        const w = sqliteWarning(h, `embedding cache ${name}`); if (w) warnings.push(w);
       } finally { h.close(); }
     } catch (e) {
       warnings.push(`embedding cache ${name}: unreadable (${(e as Error).message})`);

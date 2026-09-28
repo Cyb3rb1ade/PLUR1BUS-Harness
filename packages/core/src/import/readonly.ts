@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
+import { ImportError } from "./types.ts";
 
 /** Databases up to this size (plus WAL) are copied to a temp dir and read there. */
 export const SQLITE_COPY_LIMIT = 256 * 1024 * 1024;
@@ -50,31 +51,87 @@ export function isSecretFileName(name: string): boolean {
   return SECRET_NAMES.has(n) || n.startsWith(".env.") || n.endsWith(".pem") || n.endsWith(".key") || n.startsWith("id_rsa") || n.startsWith("id_ed25519") || n.startsWith("id_ecdsa");
 }
 
-export interface SqliteHandle { db: DatabaseSync; mode: "copy" | "immutable"; close(): void }
+export interface SqliteHandle {
+  db: DatabaseSync;
+  mode: "copy" | "immutable";
+  /** Why the database was opened `immutable=1` (its WAL not consulted): above the copy limit, or it kept changing
+   *  while it was copied. */
+  immutableReason: "too-large" | "source-busy" | null;
+  /** Copy attempts made (0 for a database above the copy limit). */
+  attempts: number;
+  close(): void;
+}
 
-/** Opens a SQLite database without ever writing next to it: a copy (db + WAL) in a private temp dir up to
- *  `maxCopyBytes`, else `immutable=1` read-only (the WAL is then not consulted). */
-export function openSqliteReadOnly(path: string, opts: { maxCopyBytes?: number } = {}): SqliteHandle {
+export interface SqliteOpenOptions {
+  maxCopyBytes?: number;
+  /** Where the private copy is made (default: the OS temp dir). */
+  stagingDir?: string;
+  /** A database that keeps changing: `immutable` (detect: warn and read without the WAL) or `throw` E_SOURCE_BUSY. */
+  onBusy?: "immutable" | "throw";
+  /** Test hooks: runs after each copy (attempt number, path of the copied db); replaces the backoff sleep. */
+  afterCopy?: (attempt: number, copy: string) => void;
+  sleep?: (ms: number) => void;
+}
+
+/** Copy attempts before a changing database counts as busy (one copy plus three retries, spec §B.5). */
+export const SQLITE_COPY_ATTEMPTS = 4;
+const BACKOFF_MS = [50, 200, 800];
+const sleeper = new Int32Array(new SharedArrayBuffer(4));
+
+type Stamp = { size: number; mtimeMs: number } | null;
+const stamp = (p: string): Stamp => { try { const st = statSync(p); return { size: st.size, mtimeMs: st.mtimeMs }; } catch { return null; } };
+const same = (a: Stamp, b: Stamp) => (a === null ? b === null : b !== null && a.size === b.size && a.mtimeMs === b.mtimeMs);
+
+/** Opens a SQLite database without ever writing next to it (§8.2, plugin-distribution spec §B.5): a checked copy
+ *  (db, then WAL) in a private staging dir up to `maxCopyBytes` — size and mtime of both are recorded before and
+ *  after, and the copy must pass `PRAGMA quick_check`; a change or failure is retried with backoff, and after
+ *  [SQLITE_COPY_ATTEMPTS] attempts the database is busy. Above the limit (or busy, by default) it is opened
+ *  `immutable=1` read-only, and its WAL is then not consulted. */
+export function openSqliteReadOnly(path: string, opts: SqliteOpenOptions = {}): SqliteHandle {
   const limit = opts.maxCopyBytes ?? SQLITE_COPY_LIMIT;
   const abs = resolve(path);
   const wal = `${abs}-wal`;
   const size = statSync(abs).size + (existsSync(wal) ? statSync(wal).size : 0);
-  if (size <= limit) {
-    const dir = mkdtempSync(join(tmpdir(), "p1b-import-sqlite-"));
+  const immutable = (reason: "too-large" | "source-busy", attempts: number): SqliteHandle => {
+    const url = new URL(`${pathToFileURL(abs).href}?immutable=1&mode=ro`);
+    const db = new DatabaseSync(url, { readOnly: true });
+    return { db, mode: "immutable", immutableReason: reason, attempts, close: () => db.close() };
+  };
+  if (size > limit) return immutable("too-large", 0);
+  const sleep = opts.sleep ?? ((ms: number) => { Atomics.wait(sleeper, 0, 0, ms); });
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= SQLITE_COPY_ATTEMPTS; attempt++) {
+    if (attempt > 1) sleep(BACKOFF_MS[attempt - 2] ?? 800);
+    const dir = mkdtempSync(join(opts.stagingDir ?? tmpdir(), "p1b-import-sqlite-"));
+    const drop = () => rmSync(dir, { recursive: true, force: true });
+    let db: DatabaseSync | null = null;
     try {
+      const before = [stamp(abs), stamp(wal)] as const;
       const copy = join(dir, basename(abs));
       copyFileSync(abs, copy);
-      if (existsSync(wal)) copyFileSync(wal, `${copy}-wal`);
-      const db = new DatabaseSync(copy);
-      return { db, mode: "copy", close: () => { try { db.close(); } finally { rmSync(dir, { recursive: true, force: true }); } } };
+      if (before[1] !== null) copyFileSync(wal, `${copy}-wal`);
+      opts.afterCopy?.(attempt, copy);
+      if (!same(before[0], stamp(abs)) || !same(before[1], stamp(wal))) { drop(); lastError = new Error("changed during copy"); continue; }
+      db = new DatabaseSync(copy);
+      const check = db.prepare("PRAGMA quick_check").all() as Record<string, unknown>[];
+      if (check.length !== 1 || Object.values(check[0]!)[0] !== "ok") { db.close(); drop(); lastError = new Error("quick_check failed"); continue; }
+      const open = db;
+      return { db: open, mode: "copy", immutableReason: null, attempts: attempt, close: () => { try { open.close(); } finally { drop(); } } };
     } catch (e) {
-      rmSync(dir, { recursive: true, force: true });
-      throw e;
+      try { db?.close(); } catch { /* already closed */ }
+      drop();
+      lastError = e;
     }
   }
-  const url = new URL(`${pathToFileURL(abs).href}?immutable=1&mode=ro`);
-  const db = new DatabaseSync(url, { readOnly: true });
-  return { db, mode: "immutable", close: () => db.close() };
+  if (opts.onBusy === "throw") throw new ImportError("E_SOURCE_BUSY", "source-busy", `${abs} kept changing while it was copied (${SQLITE_COPY_ATTEMPTS} attempts; last: ${(lastError as Error)?.message ?? lastError}); stop the source and retry`, 3);
+  return immutable("source-busy", SQLITE_COPY_ATTEMPTS);
+}
+
+/** The report warning for a database read `immutable=1`, or null for a checked copy. */
+export function sqliteWarning(h: SqliteHandle, label: string): string | null {
+  if (h.immutableReason === "too-large") return `${label}: larger than the copy limit, read without its WAL`;
+  if (h.immutableReason === "source-busy") return `${label}: kept changing while it was copied (source-busy); read without its WAL — stop the source for an exact read`;
+  return null;
 }
 
 /** Table names of an open database. */

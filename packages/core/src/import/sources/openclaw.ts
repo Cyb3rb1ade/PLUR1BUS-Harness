@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { envGet, expandTilde, locateSource, pathFor, portabilityOf, SourcePathMapper } from "../paths.ts";
 import { classifyReranker, compareReranker } from "../identity.ts";
 import { parseJson5 } from "../json5.ts";
-import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables } from "../readonly.ts";
+import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables, sqliteWarning } from "../readonly.ts";
 import { scanStoreRoot, subdirs } from "../store-scan.ts";
 import { ImportError, secretConfigKeys, type AgentInfo, type SecretsReport, type SkillRoot, type SourceCtx, type SourceReport } from "../types.ts";
 
@@ -82,6 +82,7 @@ function readStateSchema(root: string, warnings: string[]): { schema: number | n
   try {
     const h = openSqliteReadOnly(p);
     try {
+      const w = sqliteWarning(h, "state/openclaw.sqlite"); if (w) warnings.push(w);
       const tables = sqliteTables(h.db);
       let schema: number | null = null;
       if (tables.includes("schema_meta")) {
