@@ -313,14 +313,13 @@ describe("core journal backlog (Task 15, E4)", () => {
 
   // Kill soak, ubuntu CI (seed 3846737509, fact 160 stored twice): a core SIGKILLed while it replays a line, after the
   // engine committed the line's row to LanceDB and before its turn guard (`<lancedb>/_capture-turns/<agent>.json`)
-  // recorded the turn, leaves the row stored, the guard without the turn and the line in its `.replaying-<pid>` file;
-  // the next core stores it again. The row and the guard are two separate writes, and under live turns served while
-  // the journal replays (B2) the commit's continuation waits behind other work, so the window reaches tens of ms.
-  // Here the kill lands there on purpose: the child core SIGKILLs itself on the engine's "stored memory" log line.
-  // The harness cannot close it: only the engine knows a turn's rows (chunking stores the whole text and its parts, so
-  // a lookup of stored rows by turn cannot tell a finished turn from a SIGKILLed half), and its public surface carries
-  // no turn id. `todo` until the engine records a turn durably before its first row (engine follow-up).
-  it("a core SIGKILLed after a replayed line's row was stored, before its turn guard recorded it, stores the line once", { todo: "engine: the turn guard is written after the row commit, not atomically with it" }, async () => {
+  // recorded the turn, left the row stored, the guard without the turn and the line in its `.replaying-<pid>` file;
+  // the next core stored it again. E4.3 (engine PR #199) closed the window: the guard now persists the turn as
+  // *pending*, with its planned row ids, before the first row is written (fsync + atomic rename), and a replay of a
+  // pending turn deletes those ids before it stores again — so the kill this test forces, on the engine's "stored
+  // memory" log line right after a row's commit, always lands inside the pending window, not before it.
+  // The child core SIGKILLs itself on that log line; the fresh core that replays the line must store it exactly once.
+  it("a core SIGKILLed after a replayed line's row was stored, before its turn guard recorded it, stores the line once", async () => {
     const home = newHome(); const l = layout(home);
     const text = "Please remember that the chimney sweep comes on Tuesday at eight.";
     appendJournalLine(l.journal, jline("77777777-7777-4777-8777-777777777777", text));
