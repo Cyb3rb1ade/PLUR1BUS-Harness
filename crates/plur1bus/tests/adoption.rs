@@ -156,7 +156,7 @@ impl HandCore {
         });
         // The run files come before listen, as in core.ts; wait for the socket too, except for a core that
         // listens late on purpose.
-        if !mode.starts_with("listen-after") {
+        if mode != "listen-on-signal" {
             wait_until("the hand-started core listening", WAIT, || {
                 h.events("listening")
                     .iter()
@@ -508,13 +508,20 @@ fn a_server_other_than_the_recorded_pid_is_foreign_before_the_token_is_sent() {
 /// Review round 1, Important 1: the core takes `state/core.lock` seconds before it listens. A supervisor starting in
 /// that window finds nothing on the address, and its own spawn exits 3 (`lock-held`). Every restart after a
 /// `lock-held` exit probes again, so the core is adopted once it serves; lock-held exits never make the backoff give
-/// up (the core here listens after enough of them to have given up five times over at this scale).
+/// up (the core here listens only after more of them than the five exits that give up otherwise).
+///
+/// The core listens when the test signals it, not after a fixed delay: on a loaded Windows machine the supervisor
+/// alone took longer than such a delay to start, found the core already serving and adopted it without a spawn.
 #[test]
 fn a_core_still_starting_is_adopted_once_it_listens() {
     let h = Home::new();
-    let starting = HandCore::start(&h, "listen-after:2500");
+    let starting = HandCore::start(&h, "listen-on-signal");
     let mut s = start(&h, "300");
     let mut c = client(&h.home);
+    wait_until("six lock-held exits", Duration::from_secs(30), || {
+        h.events("locked").len() >= 6
+    });
+    std::fs::write(h.home.join("state/fake-core-listen"), "").unwrap();
     let child = wait_child(&mut c, "the starting core adopted", |c| {
         ready(c) && c["adopted"] == true
     });

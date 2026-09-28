@@ -8,9 +8,10 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
 const WAIT: Duration = Duration::from_secs(15);
-/// The fake core stops answering this long after it listens. It must stay responsive until the supervisor's first
-/// readiness poll has authenticated; on the slower Windows runners that can take longer than 300 ms, and a core that
-/// hangs before it is ready is killed at the ready timeout instead of being detected as hung.
+/// The fake core stops answering this long after it reports ready (on Windows once run/ is secured, which can take
+/// seconds on a loaded machine). It must stay responsive until the supervisor's readiness poll has seen it ready; on
+/// the slower Windows runners that can take longer than 300 ms, and a core that hangs before it is ready is killed at
+/// the ready timeout instead of being detected as hung.
 const HANG_AFTER: &str = if cfg!(windows) {
     "hang-after:1500"
 } else {
@@ -576,7 +577,7 @@ fn daemon_stop_is_bounded_by_the_budget_for_a_hung_core() {
     let child = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
     let pid = child["pid"].as_u64().unwrap();
     wait_until("the core to hang", WAIT, || {
-        !h.named_events("hung").is_empty()
+        h.named_events("hung").iter().any(|e| e["pid"] == pid)
     });
     let asked = Instant::now();
     assert_eq!(

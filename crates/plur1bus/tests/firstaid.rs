@@ -11,6 +11,8 @@ use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant, SystemTime};
 
 const WAIT: Duration = Duration::from_secs(15);
+/// How long the real built core may take to start (`tests/repair.rs` allows the same for the same core).
+const REAL_CORE_START: Duration = Duration::from_secs(60);
 
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-core.mjs")
@@ -695,11 +697,24 @@ fn deprecations_list_engine_event_with_used_flag() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    let _core = Spawned::new(core, &h.home);
+    let mut core = Spawned::new(core, &h.home);
 
-    wait_until("the core token", WAIT, || {
-        h.home.join("run/core.token").exists()
-    });
+    // The real engine's first start on a machine (fresh node_modules, scanned on first load by an antivirus) takes far
+    // longer than the fake core's: allow what the repair test allows the same core, and fail at once, with the core's
+    // log, if it exits instead.
+    let deadline = Instant::now() + REAL_CORE_START;
+    while !h.home.join("run/core.token").exists() {
+        if let Some(status) = core.child.try_wait().unwrap() {
+            let log = fs::read_to_string(h.home.join("logs/core.log")).unwrap_or_default();
+            panic!("the core exited before writing its token ({status}): {log}");
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for the core token after {REAL_CORE_START:?}: {}",
+            fs::read_to_string(h.home.join("logs/core.log")).unwrap_or_default()
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
     let address = if cfg!(windows) {
         use sha2::{Digest, Sha256};
         let hh = format!(
@@ -710,7 +725,7 @@ fn deprecations_list_engine_event_with_used_flag() {
     } else {
         format!("{}/run/core.sock", h.home.display())
     };
-    let deadline = Instant::now() + WAIT;
+    let deadline = Instant::now() + REAL_CORE_START;
     let mut sub = loop {
         let token = std::fs::read_to_string(h.home.join("run/core.token")).unwrap_or_default();
         match Client::connect(&address, token.trim(), opts(Endpoint::Core)) {
