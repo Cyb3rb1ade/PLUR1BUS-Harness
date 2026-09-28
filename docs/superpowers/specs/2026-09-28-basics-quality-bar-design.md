@@ -1,6 +1,6 @@
 # The basics everyone expects: a quality bar — design
 
-**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D105 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
+**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage; rev 4: new D106 host toolset) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D106 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
 
 **Owner requirements, 2026-09-28 (translated from German, condensed):**
 
@@ -361,6 +361,38 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 
 **Gates.** On the triage eval set (German and English, mixed single/multi messages): task segmentation F1 ≥ 0.9; under-provisioning (class later escalated) ≤ 5 %; over-provisioning reported. Every routing decision (shape, class distribution, chosen model, reason) is in the turn event.
 
+### D106 — Host toolset: operating the person's computer with first-party, tested tools
+
+**Owner, 2026-09-28 (translated):** "I definitely do not want to host anything remotely. If there is an alternative to Desktop Commander, I would take the alternative. I just want the agents to have a strict, well-working, tested skill set to manage and operate their human's computer competently."
+
+**Why first-party and not a third-party MCP server.** Desktop Commander (MIT, widely used) was the D38 reference case. It is not adopted as the default because: its `allowedDirectories` is by its own documentation not a boundary for terminal commands; telemetry is on by default; its usual install path tracks `@latest`; its hosted remote mode is exactly what the owner excludes; and the harness needs its own approval, audit, principal and risk model on every call, which a foreign server cannot carry. Computer control is too central to depend on another project's semantics. D62 (`cua-driver` for GUI control, local, pinned) stays: it does one thing the harness should not rebuild.
+
+**Tool families** (harness code, like `web.fetch`; each call schema-validated per D97):
+
+| Family | Calls | Default class |
+|---|---|---|
+| `fs` | `list`, `stat`, `read` (ranges, encodings, binary → reference), `search` (names with globs, content with ripgrep semantics), `write`, `edit` (exact-string replacement with uniqueness check), `mkdir`, `copy`, `move`, `trash`, `delete` | read: allowed · write/edit inside roots: allowed · move out of roots, `delete`: approval |
+| `shell` | `run { command, cwd, timeoutMs, env }` with output cap and exit code; `session.open/send/read/close` (PTY; REPLs, long builds, SSH through the person's own client) | allowed inside roots for commands on the per-OS read-only allowlist; everything else approval unless the person granted the agent "shell inside workspace" |
+| `proc` | `list`, `inspect`, `signal`, `kill` | read: allowed · signal/kill: approval |
+| `sys` | `info`, `disks`, `memory`, `battery`, `network`, `startupItems`, `services`, `updates` | read-only, allowed |
+| `pkg` | `search`, `list`, `install`, `upgrade`, `remove` over Homebrew, winget/Scoop, apt/dnf/pacman, Flatpak | read: allowed · changes: approval, one per batch with the full list |
+| `apps` | `list`, `open`, `focus`, `quit` | allowed; `quit` of an app with unsaved state: approval |
+| `clipboard`, `notify` | read/write clipboard, desktop notification | clipboard read: approval per session |
+
+**Rules enforced in the tool layer.**
+- **Roots** per agent: default the agent's workspace; further folders only by an explicit grant the person gives in settings or at an approval prompt ("allow for this task / always").
+- **Credential deny-list**, never readable even inside roots: OS keychains and credential stores, `~/.ssh`, `~/.gnupg`, browser profiles, password-manager data, cloud-CLI credential files, `.env` and token files by pattern — existence probes only (the same rule as ADR-011's coding-agent discovery).
+- **Privilege** (`sudo`, UAC, polkit) is never silent: always an approval with the exact command, and the password is typed by the person into the OS prompt, never by the agent.
+- **Trash, not delete:** `fs.trash` uses the OS trash; `fs.delete` exists only for explicit requests and needs approval.
+- **Dry run** for batch changes (more than 20 files or any package change) shows the full plan first.
+- **Audit:** one line per mutating call (who, which agent, what, result), redacted like the other logs.
+- **OS sandbox for `shell`**, decided per OS by a spike: Linux Landlock (or bubblewrap), macOS a Seatbelt profile, Windows a restricted token in a job object. Where none holds, the approval rules alone apply and the UI says "not sandboxed on this system".
+- **Nothing hosted:** the toolset runs inside the harness on the person's machine. External MCP clients can use it only through the harness's own MCP server (D25) with the same approvals; no relay service of any vendor.
+
+**Tested.** A per-OS conformance suite (macOS arm64, Linux x64/arm64, Windows x64/arm64) runs every family against a scratch home in CI — never the runner's real home — and a nightly run on the owner's Windows 11 VM; host-control scenarios (free disk space, find and move files, install a package with approval, restart a hung app, read logs) are part of `tool-eval` (D97) with the same ≥ 95 % bar. A `host-ops` skill teaches the playbooks (diagnose, clean up, install, organise files) on top of the tools, in the style of D66.
+
+**Placement and effort:** with M1b-2b (tool execution under a principal), 7–11 ad (tool families 4–6, sandbox spike and per-OS work 2–3, conformance suite and eval scenarios 1–2).
+
 ## 3. Placement and effort
 
 | Decision | Milestone | Effort (ad) | Acceptance added |
@@ -376,9 +408,10 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 | D102 | record only | 0 | — |
 | D103 capability index + category routing | **M2** with D97 (index, taxonomy, keyword/embedding tiers, `capabilities.search`); decision-model tier with the D18/D70 decision service | 4–6 | routing recall ≥ 95 % on `tool-eval`; new skill routable right after install; decision call ≤ 200 ms p95 locally; stable category prefix |
 | D105 message triage | **M2** with D30 and D103 (one decision call) | 2–4 | segmentation F1 ≥ 0.9; under-provisioning ≤ 5 %; escalation one class up once; class change only at task boundaries |
+| D106 host toolset | **M1b-2b** (tool execution under a principal) | 7–11 | per-OS conformance on five targets + Windows VM nightly; credential deny-list suite; approvals for every destructive/privileged call; host scenarios in `tool-eval` ≥ 95 % |
 | D104 hand-off format | **M5** (replaces the typed delegation contract's field list; D36/D50 consume it) | 2–3 | schema validation and repair; `ack` round trip; `approvalsHeld` verified against the approval store; a forged approval reference is refused; Markdown rendering |
 
-**Total +38–60 ad** across M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
+**Total +45–71 ad** across M1b-2b (+7–11), M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
 
 ## 4. Owner choices (defaults the design runs on)
 
