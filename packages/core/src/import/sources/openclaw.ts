@@ -5,6 +5,7 @@
 // schema marker (src/state/openclaw-state-db-maintenance.ts). Read-only throughout.
 import { readdirSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
+import { envGet, expandTilde, pathFor } from "../paths.ts";
 import { classifyReranker, compareReranker } from "../identity.ts";
 import { parseJson5 } from "../json5.ts";
 import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables } from "../readonly.ts";
@@ -17,24 +18,59 @@ const ENGINE_PACKAGE = "@cyb3rb1ade/plur1bus-memory";
 export const TESTED_STATE_SCHEMA = 17;
 const PROFILE_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 
-export function resolveOpenclawRoot(o: { source?: string | undefined; env: NodeJS.ProcessEnv; homedir: string }): { root: string; resolvedFrom: string; configPath: string } {
-  const env = o.env;
-  const home = env.OPENCLAW_HOME?.trim() ? resolve(expandHome(env.OPENCLAW_HOME.trim(), o.homedir)) : o.homedir;
+export interface RootInput {
+  source?: string | undefined;
+  env: NodeJS.ProcessEnv;
+  homedir: string;
+  /** The host platform whose path rules apply (default: this process's). */
+  platform?: NodeJS.Platform | undefined;
+  /** Directory existence (injected by tests; default: the file system). */
+  exists?: (p: string) => boolean;
+  isFile?: (p: string) => boolean;
+}
+
+/** OpenClaw's `<home>`: `OPENCLAW_HOME` (a leading `~` against the OS home), else the OS home `HOME` → `USERPROFILE`
+ *  → `os.homedir()` — on every OS, so a `HOME` set on Windows (Git Bash) wins as it does for OpenClaw
+ *  (`packages/normalization-core/src/home-dir.ts` @ b9421f4). */
+export function openclawHome(env: NodeJS.ProcessEnv, homedir: string, platform: NodeJS.Platform): string {
+  const P = pathFor(platform);
+  const nonEmpty = (v: string | undefined) => (v?.trim() ? v.trim() : undefined);
+  const osHome = nonEmpty(envGet(env, "HOME", platform)) ?? nonEmpty(envGet(env, "USERPROFILE", platform)) ?? homedir;
+  const explicit = nonEmpty(envGet(env, "OPENCLAW_HOME", platform));
+  return P.resolve(explicit ? expandTilde(explicit, osHome, platform) : osHome);
+}
+
+export function resolveOpenclawRoot(o: RootInput): { root: string; resolvedFrom: string; configPath: string } {
+  const platform = o.platform ?? process.platform;
+  const P = pathFor(platform);
+  const exists = o.exists ?? isDir;
+  const fileExists = o.isFile ?? isFile;
+  const get = (n: string) => envGet(o.env, n, platform)?.trim() || undefined;
+  const home = openclawHome(o.env, o.homedir, platform);
   let root: string; let resolvedFrom: string;
-  if (o.source) { root = resolve(expandHome(o.source, o.homedir)); resolvedFrom = "flag:--source"; }
-  else if (env.OPENCLAW_STATE_DIR?.trim()) { root = resolve(expandHome(env.OPENCLAW_STATE_DIR.trim(), home)); resolvedFrom = "env:OPENCLAW_STATE_DIR"; }
-  else if (env.OPENCLAW_PROFILE?.trim() && env.OPENCLAW_PROFILE.trim().toLowerCase() !== "default") {
-    const p = env.OPENCLAW_PROFILE.trim();
+  if (o.source) { root = P.resolve(expandTilde(o.source, o.homedir, platform)); resolvedFrom = "flag:--source"; }
+  else if (get("OPENCLAW_STATE_DIR")) { root = P.resolve(expandTilde(get("OPENCLAW_STATE_DIR")!, home, platform)); resolvedFrom = "env:OPENCLAW_STATE_DIR"; }
+  else if (get("OPENCLAW_PROFILE") && get("OPENCLAW_PROFILE")!.toLowerCase() !== "default") {
+    const p = get("OPENCLAW_PROFILE")!;
     if (!PROFILE_RE.test(p)) throw new ImportError("E_INVALID_PARAMS", "invalid-profile", `OPENCLAW_PROFILE ${JSON.stringify(p)} is not a valid profile name`);
-    root = join(home, `.openclaw-${p}`); resolvedFrom = "env:OPENCLAW_PROFILE";
-  } else { root = join(home, ".openclaw"); resolvedFrom = env.OPENCLAW_HOME?.trim() ? "env:OPENCLAW_HOME" : "default"; }
-  const configPath = !o.source && env.OPENCLAW_CONFIG_PATH?.trim() ? resolve(expandHome(env.OPENCLAW_CONFIG_PATH.trim(), home)) : join(root, "openclaw.json");
+    root = P.join(home, `.openclaw-${p}`); resolvedFrom = "env:OPENCLAW_PROFILE";
+  } else {
+    // src/config/state-dir.ts: the new dir when it exists, else the legacy `.clawdbot` when only that exists.
+    const fresh = P.join(home, ".openclaw"); const legacy = P.join(home, ".clawdbot");
+    if (!exists(fresh) && exists(legacy)) { root = legacy; resolvedFrom = "default-legacy"; }
+    else { root = fresh; resolvedFrom = get("OPENCLAW_HOME") ? "env:OPENCLAW_HOME" : "default"; }
+  }
+  let configPath: string;
+  if (!o.source && get("OPENCLAW_CONFIG_PATH")) configPath = P.resolve(expandTilde(get("OPENCLAW_CONFIG_PATH")!, home, platform));
+  else {
+    // src/config/paths.ts: `openclaw.json`, else the legacy `clawdbot.json` when only that exists.
+    const main = P.join(root, "openclaw.json"); const legacy = P.join(root, "clawdbot.json");
+    configPath = !fileExists(main) && fileExists(legacy) ? legacy : main;
+  }
   return { root, resolvedFrom, configPath };
 }
 
-function expandHome(p: string, homedir: string): string {
-  return p === "~" ? homedir : p.startsWith("~/") || p.startsWith("~\\") ? join(homedir, p.slice(2)) : p;
-}
+const expandHome = (p: string, homedir: string) => expandTilde(p, homedir, process.platform);
 
 /** A path from the source's config: `~`, `${OPENCLAW_HOME}` (the state dir, as the plugin binds it) and relative paths
  *  (against the state dir) are resolved; any other `${VAR}` is left unresolved (null) — the environment is not read. */
@@ -120,7 +156,7 @@ function countFiles(dir: string): number {
 }
 
 export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
-  const { root, resolvedFrom, configPath } = resolveOpenclawRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir });
+  const { root, resolvedFrom, configPath } = resolveOpenclawRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
   const warnings: string[] = [];
   if (ctx.profile) throw new ImportError("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   if (!isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
@@ -172,7 +208,7 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   if (bundled) skillRoots.push({ dir: resolve(expandHome(bundled, ctx.homedir)), tier: "bundled", agentId: null, precedence: 2 });
   for (const a of agentList) if (a.agentDir) skillRoots.push({ dir: join(a.agentDir, "workshop-skills"), tier: "workshop", agentId: a.agentId, precedence: 3 });
   skillRoots.push({ dir: join(root, "skills"), tier: "managed", agentId: null, precedence: 4 });
-  if (resolvedFrom === "default") skillRoots.push({ dir: join(ctx.homedir, ".agents", "skills"), tier: "personal", agentId: null, precedence: 5 });
+  if (resolvedFrom === "default" || resolvedFrom === "default-legacy") skillRoots.push({ dir: join(ctx.homedir, ".agents", "skills"), tier: "personal", agentId: null, precedence: 5 });
   for (const a of agentList) if (a.workspace) {
     skillRoots.push({ dir: join(a.workspace, ".agents", "skills"), tier: "project", agentId: a.agentId, precedence: 6 });
     skillRoots.push({ dir: join(a.workspace, "skills"), tier: "workspace", agentId: a.agentId, precedence: 7 });

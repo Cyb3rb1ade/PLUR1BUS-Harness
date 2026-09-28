@@ -21,7 +21,7 @@ describe("Hermes source", () => {
   it("resolves --source, HERMES_HOME and the default", () => {
     const [s, h, u] = [resolve("/s"), resolve("/h"), resolve("/u")];
     assert.equal(resolveHermesRoot({ source: s, env: { HERMES_HOME: h }, homedir: u }).root, s);
-    assert.deepEqual(resolveHermesRoot({ env: { HERMES_HOME: h }, homedir: u }), { root: h, resolvedFrom: "env:HERMES_HOME" });
+    assert.deepEqual(resolveHermesRoot({ env: { HERMES_HOME: h }, homedir: u }), { root: h, resolvedFrom: "env:HERMES_HOME", profile: null });
     assert.equal(resolveHermesRoot({ env: {}, homedir: u }).root, join(u, ".hermes"));
   });
   it("leaves the source byte-identical", () => assert.equal(treeDigest(fx.base), digest));
@@ -51,6 +51,11 @@ describe("Hermes source", () => {
     const s = JSON.stringify(r);
     assert.ok(!s.includes(FAKE_TOKEN));
     assert.ok(!s.includes(CONTENT_MARKER));
+  });
+  it("narrows to the profile a HERMES_HOME of <root>/profiles/<name> selects, and refuses a contradicting --profile", async () => {
+    const p = await detectHermes(ctxFor(undefined, undefined, { HERMES_HOME: join(fx.root, "profiles", "work") }));
+    assert.deepEqual([p.source.root, p.source.profile, p.agents.map((a) => a.agentId)], [fx.root, "work", ["work"]]);
+    await assert.rejects(detectHermes(ctxFor(undefined, "other", { HERMES_HOME: join(fx.root, "profiles", "work") })), /profile-conflict|selects profile/);
   });
   it("narrows to one profile with --profile", async () => {
     const p = await detectHermes(ctxFor(fx.root, "work"));

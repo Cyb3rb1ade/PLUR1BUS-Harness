@@ -15,6 +15,8 @@ export interface SourceCtx {
   profile?: string | undefined;
   env: NodeJS.ProcessEnv;
   homedir: string;
+  /** The host platform whose path rules apply (injected by tests; default: this process's). */
+  platform?: NodeJS.Platform | undefined;
   /** The harness home the target is read from (never written by detect). */
   home: string;
   target: TargetIdentity;

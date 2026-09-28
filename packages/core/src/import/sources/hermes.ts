@@ -3,6 +3,7 @@
 // sessions schema (hermes_state_common.py SCHEMA_VERSION), skill dirs (get_skills_dir, skills.external_dirs,
 // HERMES_OPTIONAL_SKILLS). Read-only throughout; each profile is its own agent (§3.3).
 import { join, resolve } from "node:path";
+import { envGet, expandTilde, expandUser, expandVars, pathFor, userHome } from "../paths.ts";
 import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables } from "../readonly.ts";
 import { subdirs } from "../store-scan.ts";
 import { readYaml } from "../yaml-lite.ts";
@@ -13,12 +14,34 @@ export const TESTED_SESSIONS_SCHEMA = 30;
 const ROOT_MARKERS = ["config.yaml", ".env", "state.db"];
 const PROFILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-const expandHome = (p: string, h: string) => (p === "~" ? h : p.startsWith("~/") ? join(h, p.slice(2)) : p);
+const expandHome = (p: string, h: string) => expandTilde(p, h, process.platform);
 
-export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.ProcessEnv; homedir: string }): { root: string; resolvedFrom: string } {
-  if (o.source) return { root: resolve(expandHome(o.source, o.homedir)), resolvedFrom: "flag:--source" };
-  if (o.env.HERMES_HOME?.trim()) return { root: resolve(expandHome(o.env.HERMES_HOME.trim(), o.homedir)), resolvedFrom: "env:HERMES_HOME" };
-  return { root: join(o.homedir, ".hermes"), resolvedFrom: "default" };
+/** The platform default (hermes_constants.py `_get_platform_default_hermes_home`): `%LOCALAPPDATA%\hermes` on Windows
+ *  (else `~\AppData\Local\hermes`), `~/.hermes` elsewhere. */
+export function defaultHermesHome(env: NodeJS.ProcessEnv, homedir: string, platform: NodeJS.Platform): string {
+  const P = pathFor(platform);
+  const home = userHome(env, homedir, platform);
+  if (platform !== "win32") return P.join(home, ".hermes");
+  const local = envGet(env, "LOCALAPPDATA", platform)?.trim();
+  return P.join(local || P.join(home, "AppData", "Local"), "hermes");
+}
+
+/** `--source`, else `HERMES_HOME` (expandvars + expanduser, as Hermes does), else the platform default. A
+ *  `HERMES_HOME` of `<root>/profiles/<name>` (profile mode) resolves to `<root>` plus that profile
+ *  (`get_default_hermes_root`). */
+export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.ProcessEnv; homedir: string; platform?: NodeJS.Platform | undefined }): { root: string; resolvedFrom: string; profile: string | null } {
+  const platform = o.platform ?? process.platform;
+  const P = pathFor(platform);
+  if (o.source) return { root: P.resolve(expandTilde(o.source, o.homedir, platform)), resolvedFrom: "flag:--source", profile: null };
+  const env = envGet(o.env, "HERMES_HOME", platform)?.trim();
+  if (env) {
+    const p = P.resolve(expandUser(expandVars(env, o.env, platform), o.env, o.homedir, platform));
+    const parent = P.dirname(p);
+    const isProfiles = platform === "win32" ? P.basename(parent).toLowerCase() === "profiles" : P.basename(parent) === "profiles";
+    if (isProfiles && P.basename(p)) return { root: P.dirname(parent), resolvedFrom: "env:HERMES_HOME", profile: P.basename(p) };
+    return { root: p, resolvedFrom: "env:HERMES_HOME", profile: null };
+  }
+  return { root: defaultHermesHome(o.env, o.homedir, platform), resolvedFrom: "default", profile: null };
 }
 
 interface ProfileFacts { agentId: string; dir: string; config: Record<string, any>; configVersion: number | null; unsupported: string[] }
@@ -50,8 +73,12 @@ function sessionsSchema(dir: string, warnings: string[]): number | null {
 }
 
 export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
-  const { root, resolvedFrom } = resolveHermesRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir });
+  const { root, resolvedFrom, profile: envProfile } = resolveHermesRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
   const warnings: string[] = [];
+  if (envProfile !== null && ctx.profile !== undefined && ctx.profile !== envProfile) {
+    throw new ImportError("E_INVALID_PARAMS", "profile-conflict", `HERMES_HOME selects profile ${JSON.stringify(envProfile)} but --profile says ${JSON.stringify(ctx.profile)}`);
+  }
+  ctx = envProfile !== null ? { ...ctx, profile: envProfile } : ctx;
   if (!isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
   if (!ROOT_MARKERS.some((m) => isFile(join(root, m)))) throw new ImportError("E_SOURCE_NOT_FOUND", "not-a-hermes-home", `${root} has none of ${ROOT_MARKERS.join(", ")}`);
   if (ctx.profile !== undefined && (!PROFILE_RE.test(ctx.profile) || !isDir(join(root, "profiles", ctx.profile)))) {
