@@ -20,8 +20,16 @@ struct Spec {
     uncompressed: u32,
     /// Unix mode in the external attributes' high half (version made by = Unix); `None` = MS-DOS, attributes 0.
     mode: Option<u32>,
-    /// Bit 3: sizes and CRC zero in the local header, followed by a data descriptor with this signature choice.
+    /// Bit 3: a data descriptor follows the data; sizes and CRC are zero in the local header unless `local_equal`.
     descriptor: bool,
+    /// The data descriptor carries its optional signature.
+    descriptor_sig: bool,
+    /// Under bit 3, the local header carries the real CRC and sizes instead of zeros.
+    local_equal: bool,
+    /// Local-header flags that differ from the central ones.
+    local_flags: Option<u16>,
+    central_extra: Vec<u8>,
+    local_extra: Vec<u8>,
 }
 
 fn crc(data: &[u8]) -> u32 {
@@ -40,6 +48,11 @@ fn stored(name: &str, data: &[u8]) -> Spec {
         uncompressed: data.len() as u32,
         mode: Some(0o100644),
         descriptor: false,
+        descriptor_sig: true,
+        local_equal: false,
+        local_flags: None,
+        central_extra: Vec::new(),
+        local_extra: Vec::new(),
     }
 }
 
@@ -67,14 +80,14 @@ fn build(specs: &[Spec]) -> Vec<u8> {
     for s in specs {
         let offset = out.len() as u32;
         let flags = s.flags | if s.descriptor { 0x0008 } else { 0 };
-        let (lcrc, lc, lu) = if s.descriptor {
+        let (lcrc, lc, lu) = if s.descriptor && !s.local_equal {
             (0, 0, 0)
         } else {
             (s.crc, s.data.len() as u32, s.uncompressed)
         };
         u32le(&mut out, 0x0403_4b50);
         u16le(&mut out, 20);
-        u16le(&mut out, flags);
+        u16le(&mut out, s.local_flags.unwrap_or(flags));
         u16le(&mut out, s.method);
         u16le(&mut out, 0);
         u16le(&mut out, 0x21);
@@ -82,11 +95,14 @@ fn build(specs: &[Spec]) -> Vec<u8> {
         u32le(&mut out, lc);
         u32le(&mut out, lu);
         u16le(&mut out, s.name.len() as u16);
-        u16le(&mut out, 0);
+        u16le(&mut out, s.local_extra.len() as u16);
         out.extend_from_slice(&s.name);
+        out.extend_from_slice(&s.local_extra);
         out.extend_from_slice(&s.data);
         if s.descriptor {
-            u32le(&mut out, 0x0807_4b50);
+            if s.descriptor_sig {
+                u32le(&mut out, 0x0807_4b50);
+            }
             u32le(&mut out, s.crc);
             u32le(&mut out, s.data.len() as u32);
             u32le(&mut out, s.uncompressed);
@@ -106,13 +122,14 @@ fn build(specs: &[Spec]) -> Vec<u8> {
         u32le(&mut central, s.data.len() as u32);
         u32le(&mut central, s.uncompressed);
         u16le(&mut central, s.name.len() as u16);
-        u16le(&mut central, 0);
+        u16le(&mut central, s.central_extra.len() as u16);
         u16le(&mut central, 0);
         u16le(&mut central, 0);
         u16le(&mut central, 0);
         u32le(&mut central, ext);
         u32le(&mut central, offset);
         central.extend_from_slice(&s.name);
+        central.extend_from_slice(&s.central_extra);
     }
     let cd_offset = out.len() as u32;
     out.extend_from_slice(&central);
@@ -376,6 +393,20 @@ fn refuses_parent_absolute_drive_backslash_and_control_names() {
         b"",
         b"payload/\xff.md",
         "payload/cafe\u{301}.md".as_bytes(),
+        b"payload/a.txt:stream",
+        b"payload/a:b",
+        b"payload/a<b",
+        b"payload/a>b",
+        b"payload/a\"b",
+        b"payload/a|b",
+        b"payload/a?b",
+        b"payload/a*b",
+        "payload/a\u{200e}.md".as_bytes(),
+        "payload/a\u{200f}.md".as_bytes(),
+        "payload/a\u{202a}.md".as_bytes(),
+        "payload/evil\u{202e}dm.exe".as_bytes(),
+        "payload/a\u{2066}.md".as_bytes(),
+        "payload/a\u{2069}.md".as_bytes(),
     ] {
         refused(named(name), reason::UNSAFE_ENTRY);
     }
@@ -407,6 +438,10 @@ fn refuses_windows_device_names_and_trailing_dot_or_space() {
         "payload/COM9.log",
         "payload/lpt1.x",
         "payload/LPT9",
+        "payload/COM\u{b9}",
+        "payload/com\u{b2}.txt",
+        "payload/LPT\u{b3}",
+        "payload/lpt\u{b9}.log",
         "payload/a.",
         "payload/a ",
         "payload/dir./x",
@@ -429,12 +464,17 @@ fn refuses_windows_device_names_and_trailing_dot_or_space() {
 fn refuses_case_and_nfc_collisions() {
     let bytes = build(&[stored("payload/A.md", b"1"), stored("payload/a.md", b"2")]);
     refused(audit(&bytes), reason::UNSAFE_ENTRY);
-    // Full names are compared: different files under directories that differ only by case do not collide.
+    // One directory spelled two ways: a case-insensitive file system merges them, a case-sensitive one does not.
     let bytes = build(&[
         stored("payload/Docs/x.md", b"1"),
         stored("payload/docs/y.md", b"2"),
     ]);
-    audit(&bytes).expect("different full names");
+    refused(audit(&bytes), reason::UNSAFE_ENTRY);
+    let bytes = build(&[
+        stored("payload/Docs/x.md", b"1"),
+        stored("payload/DOCS/sub/y.md", b"2"),
+    ]);
+    refused(audit(&bytes), reason::UNSAFE_ENTRY);
     let bytes = build(&[stored("payload/a.md", b"1"), stored("payload/a.md", b"2")]);
     refused(audit(&bytes), reason::UNSAFE_ENTRY);
     // NFC "é" beside NFD "e\u{301}".
@@ -673,4 +713,148 @@ fn audit_hashes_the_whole_stream() {
     // A re-zipped package with identical content hashes differently as a file, which is why `files` exists.
     let other = build(&two().into_iter().rev().collect::<Vec<_>>());
     assert_ne!(audit(&other).unwrap().sha256, a.sha256);
+}
+
+/// An extra field: header id, length, data.
+fn extra(id: u16, data: &[u8]) -> Vec<u8> {
+    let mut v = Vec::new();
+    u16le(&mut v, id);
+    u16le(&mut v, data.len() as u16);
+    v.extend_from_slice(data);
+    v
+}
+
+/// An Info-ZIP Unicode Path (0x7075) or Unicode Comment (0x6375) field whose CRC matches the header name, which the
+/// `zip` crate would honour by replacing the entry's name.
+fn unicode_extra(id: u16, header_name: &[u8], replacement: &[u8]) -> Vec<u8> {
+    let mut data = vec![1u8];
+    data.extend_from_slice(&crc(header_name).to_le_bytes());
+    data.extend_from_slice(replacement);
+    extra(id, &data)
+}
+
+#[test]
+fn refuses_unicode_path_and_comment_extra_fields_in_central_and_local_headers() {
+    let name = b"payload/a.md";
+    // A harmless field alongside is accepted (extended timestamp, 0x5455).
+    let ts = extra(0x5455, &[1, 0, 0, 0, 0]);
+    let ok = Spec {
+        central_extra: ts.clone(),
+        local_extra: ts.clone(),
+        ..stored("payload/a.md", b"abc")
+    };
+    audit(&build(&[ok])).expect("an extended timestamp is fine");
+    for id in [0x7075u16, 0x6375] {
+        let field = unicode_extra(id, name, b"payload/../../evil.sh");
+        let central = Spec {
+            central_extra: [ts.clone(), field.clone()].concat(),
+            ..stored("payload/a.md", b"abc")
+        };
+        let e = refused(audit(&build(&[central])), reason::UNSUPPORTED);
+        assert!(e.detail.contains("Unicode"), "{e:?}");
+        let local = Spec {
+            local_extra: [field.clone(), ts.clone()].concat(),
+            ..stored("payload/a.md", b"abc")
+        };
+        let e = refused(audit(&build(&[local])), reason::UNSUPPORTED);
+        assert!(e.detail.contains("Unicode"), "{e:?}");
+    }
+}
+
+#[test]
+fn refuses_a_zip64_extra_field_in_central_and_local_headers() {
+    let field = extra(0x0001, &3u64.to_le_bytes());
+    let central = Spec {
+        central_extra: field.clone(),
+        ..stored("payload/a.md", b"abc")
+    };
+    let e = refused(audit(&build(&[central])), reason::UNSUPPORTED);
+    assert!(e.detail.contains("ZIP64"), "{e:?}");
+    let local = Spec {
+        local_extra: field,
+        ..stored("payload/a.md", b"abc")
+    };
+    let e = refused(audit(&build(&[local])), reason::UNSUPPORTED);
+    assert!(e.detail.contains("ZIP64"), "{e:?}");
+}
+
+#[test]
+fn refuses_strong_encryption_and_an_encrypted_central_directory() {
+    for bit in [0x0040u16, 0x2000] {
+        let s = Spec {
+            flags: 0x0800 | bit,
+            ..stored("payload/a.md", b"abc")
+        };
+        refused(audit(&build(&[s])), reason::UNSUPPORTED);
+    }
+}
+
+#[test]
+fn accepts_data_descriptors_with_and_without_signature_and_with_equal_local_fields() {
+    for (descriptor_sig, local_equal) in [(false, false), (true, true), (false, true)] {
+        let s = Spec {
+            descriptor: true,
+            descriptor_sig,
+            local_equal,
+            ..deflated("payload/a.md", &b"descriptor ".repeat(20))
+        };
+        let bytes = build(&[s, stored("payload/b.md", b"after")]);
+        let a = audit(&bytes)
+            .unwrap_or_else(|e| panic!("sig={descriptor_sig} equal={local_equal}: {e:?}"));
+        let mut cur = Cursor::new(&bytes);
+        assert_eq!(hash_entry(&mut cur, &a.entries[0]).unwrap().size, 220);
+        assert_eq!(read_entry(&mut cur, &a.entries[1], 64).unwrap(), b"after");
+    }
+    // Without its signature, a descriptor that disagrees is still refused.
+    let s = Spec {
+        descriptor: true,
+        descriptor_sig: false,
+        ..stored("payload/a.md", b"abc")
+    };
+    let mut bytes = build(&[s]);
+    let desc = 30 + "payload/a.md".len() + 3;
+    bytes[desc + 4] ^= 1;
+    refused(audit(&bytes), reason::UNSUPPORTED);
+}
+
+#[test]
+fn refuses_bytes_left_in_the_central_directory_after_the_last_entry() {
+    let mut bytes = build(&two());
+    let at = eocd_at(&bytes);
+    let cd_size = u32::from_le_bytes(bytes[at + 12..at + 16].try_into().unwrap());
+    // Four junk bytes between the last central entry and the EOCD, counted into the central directory's size.
+    bytes.splice(at..at, *b"junk");
+    let at = eocd_at(&bytes);
+    patch_u32(&mut bytes, at + 12, cd_size + 4);
+    let e = refused(audit(&bytes), reason::UNSUPPORTED);
+    assert!(e.detail.contains("central directory"), "{e:?}");
+}
+
+#[test]
+fn refuses_local_flags_that_differ_from_the_central_ones() {
+    // Language-encoding bit 11 dropped in the local header only.
+    let s = Spec {
+        local_flags: Some(0),
+        ..stored("payload/a.md", b"abc")
+    };
+    let e = refused(audit(&build(&[s])), reason::UNSUPPORTED);
+    assert!(e.detail.contains("flags"), "{e:?}");
+}
+
+#[test]
+fn hash_entry_refuses_bytes_after_the_end_of_the_deflate_stream() {
+    let body = b"trailing trailing trailing".to_vec();
+    let mut s = deflated("payload/a.md", &body);
+    s.data.extend_from_slice(b"hidden");
+    let bytes = build(&[s]);
+    let a = audit(&bytes).expect("the audit does not inflate");
+    let e = refused(
+        hash_entry(&mut Cursor::new(&bytes), &a.entries[0]),
+        reason::DIGEST,
+    );
+    assert!(e.detail.contains("after the end"), "{e:?}");
+    refused(
+        read_entry(&mut Cursor::new(&bytes), &a.entries[0], 1 << 20),
+        reason::DIGEST,
+    );
 }

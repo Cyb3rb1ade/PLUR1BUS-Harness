@@ -10,7 +10,7 @@ use crate::refusal::{reason, Refusal};
 use flate2::{read::DeflateDecoder, Crc};
 use icu_normalizer::ComposingNormalizerBorrowed;
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Seek, SeekFrom};
 
 const SIG_LOCAL: u32 = 0x0403_4b50;
@@ -25,6 +25,17 @@ const FLAGS_ENCRYPTED: u16 = 0x0001 | 0x0040 | 0x2000;
 const FLAG_DESCRIPTOR: u16 = 0x0008;
 /// The ZIP64 extended-information extra field.
 const EXTRA_ZIP64: u16 = 0x0001;
+/// Info-ZIP Unicode Path and Unicode Comment extra fields. The `zip` crate replaces an entry's name with the Unicode
+/// Path when its CRC matches the header name, and `install::archive` extracts by that name: a parser differential.
+const EXTRA_UNICODE_PATH: u16 = 0x7075;
+const EXTRA_UNICODE_COMMENT: u16 = 0x6375;
+/// Characters Windows refuses in a file name (besides `\\`, `/` and controls, checked on their own).
+const WINDOWS_FORBIDDEN: &[char] = &[':', '<', '>', '"', '|', '?', '*'];
+/// Unicode bidirectional marks, embeddings, overrides and isolates: they make a name display as another.
+const BIDI_CONTROLS: &[char] = &[
+    '\u{200e}', '\u{200f}', '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}', '\u{202e}', '\u{2066}',
+    '\u{2067}', '\u{2068}', '\u{2069}',
+];
 const S_IFMT: u32 = 0o170000;
 const S_IFREG: u32 = 0o100000;
 const S_IFLNK: u32 = 0o120000;
@@ -140,15 +151,20 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-fn has_zip64_extra(mut extra: &[u8]) -> bool {
+/// The first extra field `.p1x` refuses, named for the refusal's detail: ZIP64, or an Info-ZIP Unicode Path or
+/// Comment field (a second name for the entry).
+fn forbidden_extra(mut extra: &[u8]) -> Option<&'static str> {
     while extra.len() >= 4 {
         let (id, len) = (u16_at(extra, 0), u16_at(extra, 2) as usize);
-        if id == EXTRA_ZIP64 {
-            return true;
+        match id {
+            EXTRA_ZIP64 => return Some("ZIP64"),
+            EXTRA_UNICODE_PATH => return Some("an Info-ZIP Unicode Path extra field"),
+            EXTRA_UNICODE_COMMENT => return Some("an Info-ZIP Unicode Comment extra field"),
+            _ => {}
         }
         extra = &extra[(4 + len).min(extra.len())..];
     }
-    false
+    None
 }
 
 /// A central-directory entry as parsed, before its local header is checked.
@@ -265,9 +281,11 @@ pub fn audit_zip<R: Read + Seek>(r: &mut R, limits: &Limits) -> Result<Audited, 
             || uncompressed == u32::MAX
             || offset == u32::MAX
             || disk_start == 0xFFFF
-            || has_zip64_extra(extra)
         {
             return Err(unsupported(format!("{shown:?}: ZIP64")));
+        }
+        if let Some(what) = forbidden_extra(extra) {
+            return Err(unsupported(format!("{shown:?}: {what}")));
         }
         if disk_start != 0 {
             return Err(unsupported("a multi-disk archive"));
@@ -396,8 +414,11 @@ fn check_local<R: Read + Seek>(r: &mut R, c: &Central, limit: u64) -> Result<(u6
     if &tail[..n as usize] != c.name.as_bytes() {
         return Err(disagree("name"));
     }
-    if has_zip64_extra(&tail[n as usize..]) {
-        return Err(unsupported(format!("{:?}: ZIP64", c.name)));
+    if let Some(what) = forbidden_extra(&tail[n as usize..]) {
+        return Err(unsupported(format!(
+            "{:?}: {what} in the local header",
+            c.name
+        )));
     }
     if flags != c.flags {
         return Err(disagree("flags"));
@@ -447,13 +468,17 @@ fn is_reserved_device(segment: &str) -> bool {
         .unwrap_or("")
         .trim_end_matches(' ');
     let stem = stem.to_ascii_lowercase();
-    match stem.as_str() {
-        "con" | "prn" | "aux" | "nul" => true,
-        s if s.len() == 4 && (s.starts_with("com") || s.starts_with("lpt")) => {
-            matches!(s.as_bytes()[3], b'1'..=b'9')
-        }
-        _ => false,
+    if matches!(stem.as_str(), "con" | "prn" | "aux" | "nul") {
+        return true;
     }
+    // COM1–9 and LPT1–9, and the superscript digits Windows also reserves (COM¹²³, LPT¹²³).
+    let port = stem
+        .strip_prefix("com")
+        .or_else(|| stem.strip_prefix("lpt"));
+    matches!(
+        port,
+        Some("1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "\u{b9}" | "\u{b2}" | "\u{b3}")
+    )
 }
 
 fn check_name(
@@ -491,9 +516,18 @@ fn check_name(
     if name.chars().any(char::is_control) {
         return Err(unsafe_entry(name, "a NUL or control character"));
     }
+    if name.contains(BIDI_CONTROLS) {
+        return Err(unsafe_entry(name, "a Unicode bidirectional control"));
+    }
     let b = name.as_bytes();
     if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
         return Err(unsafe_entry(name, "a drive letter"));
+    }
+    if name.contains(WINDOWS_FORBIDDEN) {
+        return Err(unsafe_entry(
+            name,
+            "one of : < > \" | ? * (not allowed on Windows)",
+        ));
     }
     if !nfc.is_normalized(name) {
         return Err(unsafe_entry(name, "not in Unicode NFC"));
@@ -521,32 +555,48 @@ fn check_name(
     Ok(name.to_owned())
 }
 
-/// Names folded with `to_lowercase` + NFC: no two entries may fold equal, and no entry may fold equal to an implied
-/// directory of another (a file `a` beside `A/b` cannot be extracted on a case-insensitive file system).
+/// Names folded with `to_lowercase` + NFC. No two entries may fold equal; no entry may fold equal to an implied
+/// directory of another (a file `a` beside `A/b` cannot be extracted on a case-insensitive file system); and every
+/// implied directory has one spelling (`Docs/x` beside `docs/y` is one directory on a case-insensitive file system and
+/// two on a case-sensitive one).
 #[derive(Default)]
 struct Folded {
     files: HashSet<String>,
-    dirs: HashSet<String>,
+    /// Folded directory prefix → its first spelling.
+    dirs: HashMap<String, String>,
 }
 
 impl Folded {
     fn insert(&mut self, name: &str, nfc: &ComposingNormalizerBorrowed<'_>) -> Result<(), Refusal> {
-        let key = nfc.normalize(&name.to_lowercase()).into_owned();
-        if self.dirs.contains(&key) || !self.files.insert(key.clone()) {
-            return Err(unsafe_entry(
+        let fold = |s: &str| nfc.normalize(&s.to_lowercase()).into_owned();
+        let collides = || {
+            unsafe_entry(
                 name,
                 "collides with another entry by case or Unicode normalisation",
-            ));
+            )
+        };
+        let key = fold(name);
+        if self.dirs.contains_key(&key) || !self.files.insert(key) {
+            return Err(collides());
         }
-        for (i, _) in key.match_indices('/') {
-            let dir = &key[..i];
-            if self.files.contains(dir) {
-                return Err(unsafe_entry(
-                    name,
-                    "collides with another entry by case or Unicode normalisation",
-                ));
+        for (i, _) in name.match_indices('/') {
+            let dir = &name[..i];
+            let folded = fold(dir);
+            if self.files.contains(&folded) {
+                return Err(collides());
             }
-            self.dirs.insert(dir.to_owned());
+            match self.dirs.get(&folded) {
+                Some(first) if first != dir => {
+                    return Err(unsafe_entry(
+                        name,
+                        &format!("the directory {first:?} spelled differently"),
+                    ));
+                }
+                Some(_) => {}
+                None => {
+                    self.dirs.insert(folded, dir.to_owned());
+                }
+            }
         }
         Ok(())
     }
@@ -576,20 +626,12 @@ fn check_type(name: &str, external: u32) -> Result<bool, Refusal> {
     }
 }
 
-/// Streams the entry's uncompressed bytes into `sink`, at most `uncompressed + 1` of them, and checks the count and
-/// the CRC.
-fn stream<R: Read + Seek>(
-    r: &mut R,
+/// Reads `source` to its end into `sink`, counting and CRC-ing; a deflate error is the package's fault.
+fn pump(
+    source: &mut impl Read,
     e: &Entry,
-    mut sink: impl FnMut(&[u8]),
-) -> Result<(), Refusal> {
-    r.seek(SeekFrom::Start(e.data_offset)).map_err(read_err)?;
-    let raw = (&mut *r).take(e.compressed);
-    let source: Box<dyn Read + '_> = match e.method {
-        Method::Stored => Box::new(raw),
-        Method::Deflate => Box::new(DeflateDecoder::new(raw)),
-    };
-    let mut source = source.take(e.uncompressed.saturating_add(1));
+    sink: &mut impl FnMut(&[u8]),
+) -> Result<(u64, u32), Refusal> {
     let mut crc = Crc::new();
     let mut count = 0u64;
     let mut buf = vec![0u8; 64 * 1024];
@@ -618,6 +660,30 @@ fn stream<R: Read + Seek>(
         crc.update(&buf[..n]);
         sink(&buf[..n]);
     }
+    Ok((count, crc.sum()))
+}
+
+/// Streams the entry's uncompressed bytes into `sink`, at most `uncompressed + 1` of them, and checks the count, the
+/// CRC and, for deflate, that the stream ends exactly at the entry's compressed size.
+fn stream<R: Read + Seek>(
+    r: &mut R,
+    e: &Entry,
+    mut sink: impl FnMut(&[u8]),
+) -> Result<(), Refusal> {
+    r.seek(SeekFrom::Start(e.data_offset)).map_err(read_err)?;
+    let raw = (&mut *r).take(e.compressed);
+    let cap = e.uncompressed.saturating_add(1);
+    let (count, crc, consumed) = match e.method {
+        Method::Stored => {
+            let (count, crc) = pump(&mut raw.take(cap), e, &mut sink)?;
+            (count, crc, None)
+        }
+        Method::Deflate => {
+            let mut decoder = DeflateDecoder::new(raw);
+            let (count, crc) = pump(&mut (&mut decoder).take(cap), e, &mut sink)?;
+            (count, crc, Some(decoder.total_in()))
+        }
+    };
     if count != e.uncompressed {
         let more = if count > e.uncompressed {
             "more than "
@@ -632,11 +698,23 @@ fn stream<R: Read + Seek>(
             ),
         ));
     }
-    if crc.sum() != e.crc32 {
+    if crc != e.crc32 {
         return Err(Refusal::invalid(
             reason::DIGEST,
             format!("{:?}: CRC-32 mismatch", e.name),
         ));
+    }
+    if let Some(consumed) = consumed {
+        if consumed != e.compressed {
+            return Err(Refusal::invalid(
+                reason::DIGEST,
+                format!(
+                    "{:?}: {} compressed bytes after the end of the deflate stream",
+                    e.name,
+                    e.compressed.saturating_sub(consumed)
+                ),
+            ));
+        }
     }
     Ok(())
 }
@@ -687,21 +765,42 @@ mod tests {
             "LPT9.x",
             "nul ",
             "con .txt",
+            "COM\u{b9}",
+            "lpt\u{b3}.txt",
         ] {
             assert!(is_reserved_device(s), "{s}");
         }
-        for s in ["console", "com0", "com10", "lpt", "nul-x", ".con", "icon"] {
+        for s in [
+            "console",
+            "com0",
+            "com10",
+            "lpt",
+            "nul-x",
+            ".con",
+            "icon",
+            "com\u{b4}",
+            "lpt\u{b9}\u{b9}",
+        ] {
             assert!(!is_reserved_device(s), "{s}");
         }
     }
 
     #[test]
-    fn zip64_extra_fields_are_found_among_others() {
-        assert!(!has_zip64_extra(&[]));
-        assert!(!has_zip64_extra(&[0x55, 0x54, 1, 0, 0]));
-        assert!(has_zip64_extra(&[0x55, 0x54, 1, 0, 0, 0x01, 0x00, 0, 0]));
+    fn forbidden_extra_fields_are_found_among_others() {
+        assert_eq!(forbidden_extra(&[]), None);
+        assert_eq!(forbidden_extra(&[0x55, 0x54, 1, 0, 0]), None);
+        assert_eq!(
+            forbidden_extra(&[0x55, 0x54, 1, 0, 0, 0x01, 0x00, 0, 0]),
+            Some("ZIP64")
+        );
+        assert!(forbidden_extra(&[0x75, 0x70, 0, 0])
+            .unwrap()
+            .contains("Unicode Path"));
+        assert!(forbidden_extra(&[0x75, 0x63, 0, 0])
+            .unwrap()
+            .contains("Unicode Comment"));
         // A truncated trailing field ends the scan without panicking.
-        assert!(!has_zip64_extra(&[0x55, 0x54, 9, 0, 0]));
+        assert_eq!(forbidden_extra(&[0x55, 0x54, 9, 0, 0]), None);
     }
 
     #[test]
@@ -709,10 +808,13 @@ mod tests {
         let nfc = ComposingNormalizerBorrowed::new_nfc();
         let mut f = Folded::default();
         f.insert("payload/Docs/x.md", &nfc).unwrap();
-        f.insert("payload/docs/y.md", &nfc).unwrap();
-        assert!(f.insert("payload/DOCS/X.md", &nfc).is_err());
+        f.insert("payload/Docs/y.md", &nfc).unwrap();
+        assert!(f.insert("payload/docs/z.md", &nfc).is_err());
+        assert!(f.insert("payload/Docs/X.md", &nfc).is_err());
         assert!(f.insert("payload/docs", &nfc).is_err());
         assert!(f.insert("PAYLOAD", &nfc).is_err());
+        // The first spelling holds; a rejected entry leaves no second spelling behind.
+        f.insert("payload/Docs/sub/w.md", &nfc).unwrap();
     }
 
     #[test]
