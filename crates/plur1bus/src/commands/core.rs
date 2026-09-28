@@ -4,25 +4,37 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::process::Command;
 
-/// The Node runtime: $PLUR1BUS_NODE, then <home>/runtime/node-*/bin/node (installed by setup, H2), then `node` on
-/// PATH. Shared by `core run` and the supervisor.
+/// The Node runtime (HB8): $PLUR1BUS_NODE, then the install manifest's `node.path` (written by setup), then the
+/// first `<home>/runtime/node-*/bin/node` by name (never a staged `*.tmp-*` tree), then `node` on PATH. Shared by
+/// `core run`, `import` and the supervisor.
 pub(crate) fn locate_node(layout: &Layout) -> PathBuf {
-    std::env::var_os("PLUR1BUS_NODE")
+    locate_node_with(std::env::var_os("PLUR1BUS_NODE"), layout)
+}
+
+fn locate_node_with(env_node: Option<std::ffi::OsString>, layout: &Layout) -> PathBuf {
+    let exe = if cfg!(windows) { "node.exe" } else { "node" };
+    env_node
         .map(PathBuf::from)
         .or_else(|| {
-            std::fs::read_dir(layout.runtime())
+            crate::install::manifest::read(layout)
+                .ok()
+                .flatten()
+                .map(|m| PathBuf::from(m.node.path))
+                .filter(|p| p.is_file())
+        })
+        .or_else(|| {
+            let mut found: Vec<PathBuf> = std::fs::read_dir(layout.runtime())
                 .ok()?
                 .filter_map(Result::ok)
-                .map(|e| e.path())
-                .find(|p| {
-                    p.file_name()
-                        .map(|n| n.to_string_lossy().starts_with("node-"))
-                        .unwrap_or(false)
+                .filter(|e| {
+                    let n = e.file_name().to_string_lossy().into_owned();
+                    n.starts_with("node-") && !n.contains(".tmp-")
                 })
-                .map(|p| {
-                    p.join("bin")
-                        .join(if cfg!(windows) { "node.exe" } else { "node" })
-                })
+                .map(|e| e.path().join("bin").join(exe))
+                .filter(|p| p.is_file())
+                .collect();
+            found.sort();
+            found.into_iter().next()
         })
         .unwrap_or_else(|| PathBuf::from("node"))
 }
@@ -78,5 +90,85 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
                 1,
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::install::manifest::{self, CoreUnit, InstallManifest, NodeUnit, Unit};
+
+    fn touch(p: &std::path::Path) {
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, "").unwrap();
+    }
+
+    #[test]
+    fn locate_node_prefers_the_manifest_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().join("h"));
+        let exe = if cfg!(windows) { "node.exe" } else { "node" };
+        let first = layout.runtime().join("node-1.0.0").join("bin").join(exe);
+        touch(&first);
+        touch(
+            &layout
+                .runtime()
+                .join("node-0.9.0.tmp-7")
+                .join("bin")
+                .join(exe),
+        );
+        assert_eq!(
+            locate_node_with(None, &layout),
+            first,
+            "the first runtime/node-* by name, never a temp"
+        );
+
+        let pinned = dir.path().join("elsewhere").join(exe);
+        touch(&pinned);
+        let sha = "0".repeat(64);
+        manifest::write(
+            &layout,
+            &InstallManifest {
+                schema_version: 1,
+                installed_at: 1,
+                updated_at: 1,
+                channel: "stable".into(),
+                target: "linux-x64".into(),
+                binary: Unit {
+                    version: "0.1.0".into(),
+                    sha256: None,
+                },
+                node: NodeUnit {
+                    version: "24.21.0".into(),
+                    archive_sha256: sha.clone(),
+                    binary_sha256: sha,
+                    path: pinned.to_string_lossy().into_owned(),
+                },
+                core: CoreUnit {
+                    version: "0.1.0".into(),
+                    contract: "1.9.0".into(),
+                    rpc: "1.3.0".into(),
+                    sha256: None,
+                    source: "local".into(),
+                },
+                modules: vec![],
+                skills: vec![],
+            },
+        )
+        .unwrap();
+        assert_eq!(locate_node_with(None, &layout), pinned);
+        assert_eq!(
+            locate_node_with(Some("/opt/node".into()), &layout),
+            PathBuf::from("/opt/node"),
+            "PLUR1BUS_NODE wins"
+        );
+        std::fs::remove_file(&pinned).unwrap();
+        assert_eq!(
+            locate_node_with(None, &layout),
+            first,
+            "a vanished manifest path falls through"
+        );
+        std::fs::remove_dir_all(layout.runtime()).unwrap();
+        assert_eq!(locate_node_with(None, &layout), PathBuf::from("node"));
     }
 }
