@@ -77,28 +77,33 @@ fn setup_update_and_repair_answer_their_milestone_until_implemented() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("2a-H3b").not());
+    // `update --check` is implemented (2a-H3b-b Task 5); it is covered by `tests/update.rs` and by
+    // `update_check_reports_not_installed_and_writes_nothing` below, not by the shared stub loop.
     let dir = tempfile::tempdir().unwrap();
     let h = dir.path().to_str().unwrap();
     // `setup` is implemented (2a-H3b-b Task 4, tests/setup.rs).
-    for (args, command) in [
-        (
-            vec!["--json", "--home", h, "update", "--check"],
-            "update --check",
-        ),
-        (
-            vec!["--json", "--home", h, "1staid", "repair", "--dry-run"],
-            "1staid repair",
-        ),
-    ] {
-        let v = json_code(&args, &[], 2);
-        assert_eq!(v["error"], "E_NOT_AVAILABLE", "{args:?}");
-        assert_eq!(v["milestone"], "2a-H3b-b", "{args:?}");
-        assert_eq!(v["command"], command);
-    }
+    let args = ["--json", "--home", h, "1staid", "repair", "--dry-run"];
+    let v = json_code(&args, &[], 2);
+    assert_eq!(v["error"], "E_NOT_AVAILABLE", "{args:?}");
+    assert_eq!(v["milestone"], "2a-H3b-b", "{args:?}");
+    assert_eq!(v["command"], "1staid repair");
     assert!(
         std::fs::read_dir(dir.path()).unwrap().next().is_none(),
         "the stubs write nothing"
     );
+}
+
+/// `update --check` with no install manifest (2a-H3b-b Task 5, HB9): `E_NOT_AVAILABLE reason=not-installed`,
+/// the `plur1bus setup` hint, exit 1, and nothing written under `home` (full coverage: `tests/update.rs`).
+#[test]
+fn update_check_reports_not_installed_and_writes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let v = json_code(&["--json", "--home", h, "update", "--check"], &[], 1);
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["reason"], "not-installed");
+    assert!(v["message"].as_str().unwrap().contains("plur1bus setup"));
+    assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
 }
 
 #[test]
@@ -121,21 +126,22 @@ fn update_without_check_is_the_m8_stub() {
 fn setup_and_update_check_are_container_managed_in_container_mode() {
     let dir = tempfile::tempdir().unwrap();
     let h = dir.path().to_str().unwrap();
-    for args in [
-        vec!["--json", "--home", h, "setup", "--non-interactive"],
-        vec!["--json", "--home", h, "update", "--check"],
-    ] {
-        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "1")], 1);
-        assert_eq!(v["error"], "E_NOT_AVAILABLE", "{args:?}");
-        assert_eq!(v["reason"], "container-managed", "{args:?}");
-        if args.contains(&"setup") {
-            // Outside container mode setup would install for real (tests/setup.rs covers its container refusal).
-            continue;
-        }
-        // Only exactly "1" is container mode.
-        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "true")], 2);
-        assert_eq!(v["milestone"], "2a-H3b-b", "{args:?}");
-    }
+    // `setup` refuses in container mode; outside it, it would install for real (tests/setup.rs covers it).
+    let setup_args = vec!["--json", "--home", h, "setup", "--non-interactive"];
+    let v = json_code(&setup_args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["reason"], "container-managed");
+
+    let update_args = vec!["--json", "--home", h, "update", "--check"];
+    let v = json_code(&update_args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["reason"], "container-managed");
+    // Only exactly "1" is container mode: otherwise `update --check` runs for real (Task 5) and reports
+    // `not-installed` since this home has no install manifest.
+    let v = json_code(&update_args, &[("PLUR1BUS_CONTAINER", "true")], 1);
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["reason"], "not-installed");
+
     assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
 }
 
