@@ -22,7 +22,9 @@ describe("Hermes source", () => {
     const [s, h, u] = [resolve("/s"), resolve("/h"), resolve("/u")];
     assert.equal(resolveHermesRoot({ source: s, env: { HERMES_HOME: h }, homedir: u }).root, s);
     assert.deepEqual(resolveHermesRoot({ env: { HERMES_HOME: h }, homedir: u }), { root: h, resolvedFrom: "env:HERMES_HOME", profile: null });
-    assert.equal(resolveHermesRoot({ env: {}, homedir: u }).root, join(u, ".hermes"));
+    // The host's own default (G1): %LOCALAPPDATA%\hermes on Windows — here unset, so ~\AppData\Local\hermes.
+    const def = process.platform === "win32" ? join(u, "AppData", "Local", "hermes") : join(u, ".hermes");
+    assert.equal(resolveHermesRoot({ env: {}, homedir: u }).root, def);
   });
   it("leaves the source byte-identical", () => assert.equal(treeDigest(fx.base), digest));
   it("reads config and sessions versions", () => {

@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, symlinkSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { findSkillDirs, folderHash, scanSkill, scanSkills } from "../../src/import/skills-scan.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { FAKE_TOKEN, linkDir, needsFileSymlinks, POSIX, skill, write } from "./fixtures.ts";
@@ -83,7 +83,7 @@ describe("skill scan", () => {
     skill(join(d, "elsewhere", "linked"), "linked", "x");
     linkDir(join(d, "elsewhere", "linked"), join(d, "root", "linked"));
     skill(join(d, "root", ".hidden", "h"), "h", "x");
-    assert.deepEqual(findSkillDirs(join(d, "root")).map((p) => p.slice(d.length + 6)), ["cat/nested", "linked"]);
+    assert.deepEqual(findSkillDirs(join(d, "root")).map((p) => relative(join(d, "root"), p).replaceAll("\\", "/")), ["cat/nested", "linked"]);
     const linked = scanSkill(join(d, "root", "linked"), R);
     assert.equal(linked.rootIsSymlink, true);
     assert.deepEqual(linked.problems, []);
