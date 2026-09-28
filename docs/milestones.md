@@ -30,10 +30,10 @@
 | M0 | Phase 0 — analysis, ADR-001…011, matrices | — | done | Q1 (answered: B) |
 | M1a ✅ **done 2026-09-23** — merged as [openclaw-plur1bus-memory#184](https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory/pull/184) (`main` @ `01861add`); suite 5225/5222/0/3; contract 1.2.0; owner gate open (see `docs/superpowers/sdd-archive-m1a/whole-branch-review.md` §Owner-gate notes) | Engine extraction: platform, HostServices, index.js split · `Host` interface · golden-prefix corpus — **owner gate** | PR-01…PR-03 | **~14–20** (part of the 45–70 below) | ADR-002 Q1/Q2 (both answered 2026-09-22 — package names confirmed, recall budget "40/60" interpreted as 400/600 ms pending confirmation), **before PR-01** |
 | M1b | Recall/capture/jobs · core daemon · IPC · session store · in-process embedding · dreaming scheduler · CLI | PR-04…PR-09, PR-15 | **~31–50** (part of the 45–70 below) | Q8 (answered: keep `SOUL.md`, D14), Q9 (answered), Q10 (answered: four files, D15), Q11 (answered: measure first); ADR-009 Q1–Q7; ADR-010 Q6/Q7 |
-| M2 | Models, providers, auth, caching, budgets | PR-10, PR-11 | **30–46** | Q3; ADR-006 Q1–Q5; ADR-005 Q1–Q5; ADR-010 Q1–Q5 |
-| M3 | Harness API · users/roles · agents · web UI skeleton | PR-06 follow-up (`subject`/v2) | **32–48** | Q5; ADR-004 Q1–Q5; ADR-007 Q1–Q6 |
-| M4 | Channels: Telegram, Discord, Matrix, Buzz | PR-06 channel vocabulary (**M4 blocker**) | **22–34** | Q4; ADR-003 Q1–Q3 |
-| M5 | Collaboration: projects, consult/delegate, guardrails, trace | — | **18–28** | ADR-003 Q4/Q5 |
+| M2 | Models, providers, auth, caching, budgets · CLI direct chat (D92) | PR-10, PR-11 | **34–52** (+4–6 direct chat, 2026-09-28) | Q3; ADR-006 Q1–Q5; ADR-005 Q1–Q5; ADR-010 Q1–Q5 |
+| M3 | Harness API · users/roles · agents · web UI skeleton · web direct chat as first screen (D92/D93) | PR-06 follow-up (`subject`/v2) | **38–57** (+6–9 direct chat) | Q5; ADR-004 Q1–Q5; ADR-007 Q1–Q6 |
+| M4 | Channels: Telegram, Discord, Matrix, Buzz · `/web` chat handoff (D93) | PR-06 channel vocabulary (**M4 blocker**) | **23–36** (+1–2 handoff) | Q4; ADR-003 Q1–Q3 |
+| M5 | Collaboration: projects, consult/delegate, guardrails, trace · promote a chat to card/project (D92) | — | **19–30** (+1–2 promotion) | ADR-003 Q4/Q5 |
 | M6 | MCP/ACP/A2A · external coding agents · skills · plugins | — | **26–38** (skills/plugins UI moved to X3) | Q7; ADR-008 Q1–Q6; ADR-011 Q1–Q6 |
 | M7 | Importers: OpenClaw, Hermes (cross-platform sources: WSL discovery, snapshot producer, D90/D91) | PR-10 (identity migration path) | **17–27** (+3–5 for D90/D91, 2026-09-28) | ADR-007 Q4; plugin-distribution spec C7, C8, C12 |
 | M8 | Platform hardening · installers · services · release v0.1.0 | PR-12, PR-13, PR-14 | **20–32** | Q2; ADR-001 Q3/Q5 |
@@ -43,7 +43,7 @@
 | HM1–HM3 | **Host-mode plugins** (D86–D91, owner 2026-09-28): OpenClaw plugin distribution on five targets + installers (HM1, after 2a-H3b-b), Hermes host-mode adapter (HM2, beside 2b; moved from M8), importer cross-platform fixes now (HM3) | 2a-H3b-b; 2a RPC | **17–26** (in the total) | plugin-distribution spec §C C1–C6, C11 |
 | HM4 | Host-mode remainder: coexistence guards, Hermes on an existing harness, host → harness upgrade, Hermes catalogue listing | HM2; M3 | **2–3** (not in the total) | spec §C C4, C9 |
 | X4–X5 | Extensions remainder: signed web catalogue + per-item updates + revocation (X4, target v0.2), publishing tooling + first packages (X5) | X1–X3 | **8–13** (not in the total) | extensions spec §13 Q2–Q4, Q11–Q13 |
-| | **Total** | | **262–401** (was 242–370; +17–26 track HM, +3–5 M7, 2026-09-28) | |
+| | **Total** | | **274–420** (was 242–370; +17–26 track HM, +3–5 M7, +12–19 direct chat D92/D93, 2026-09-28) | |
 
 ### M0 — Phase 0 (done, awaiting approval)
 
@@ -100,12 +100,14 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 - **Prompt-cache-aware layout:** four zones (tools → system → frozen memory snapshot → conversation) with the six engine blocks delivered **after** the last breakpoint; R1–R8 incl. per-model minimum table, per-(agent,model) prefixes, sticky `session_id` on OpenRouter, TTL awareness, telemetry. ADR-010 §1; D7.
 - **Budgets:** per agent / project / user, per-zone allocation, typed retry budgets, subagent return cap ~2 000 tokens. ADR-010 §4.
 - **Engine PRs:** PR-10 multi-identity recall (per-route dimension, one query vector per identity, RRF fusion, share re-embeds into the **target** identity, identity in the cache key) — behaviour-changing, owner decision; PR-11 Windows named-pipe embedding IPC.
+- **Direct chat, CLI half (D92/D93, 2026-09-28):** direct-session attributes in the 2c store (owner, title, pin, archive, memory mode, model override, links, fork, usage; FTS5 over titles), the `session.*` additions except promote/handoff, core-derived `TurnRecord.incognito`, auto-title on the `summarize` role, export md/json; **`plur1bus chat`** (REPL with streaming, single turn `--json`/`--stream`, `--new|--continue|--session`, `--no-memory`, `--model`, `--attach`) and `plur1bus chats`. Spec `docs/superpowers/specs/2026-09-28-direct-chat-design.md`.
 - Compatibility probe, calibration run, re-embedding migration driven from the CLI (`plan/apply/resume/rollback/status/switch`), model preparation with SHA-256-pinned artefacts and an offline mirror bundle. ADR-006 §"Embedding identity", actions 6/7/10.
 
 **Acceptance** (§12 M2 re-cut)
 1. **Device-code login headless over SSH** succeeds for a profile that documents one; where none exists, the loopback+`ssh -L` and paste-callback paths succeed instead and the CLI says which was used (§12 M2, re-cut because no frontier vendor documents a usable device code — ADR-005). For the **Anthropic via Claude Code / Agent SDK** profile there is no harness-managed login step to test headless at all: the user runs the vendor's own `claude setup-token` (or interactive `claude login`) themselves over their own SSH session, and the harness backend only then spawns the already-authenticated binary/SDK — the CLI surfaces this as "run `claude setup-token`, then attach" rather than as a harness-driven flow.
 2. Refresh survives a daemon restart; rotating refresh tokens are single-use with exactly one refresh owner (§12 M2).
-3. One turn **with a tool call** over each of the three chat wire formats against recorded fixtures (§12 M2).
+3. One turn **with a tool call** over each of the three chat wire formats against recorded fixtures (§12 M2) — **run through `plur1bus chat --json`** end to end (principal → session → recall → zones → provider → tool call → capture), D92.
+3a. **Direct-chat recall:** a fact stated in one direct chat is recalled in a new one with a real model (fixture and live smoke); a fact stated in an incognito chat is not captured and not recalled (D93).
 4. Embedding over one remote endpoint and two local servers; rerank locally (BGE or Qwen3) and over one remote adapter (§12 M2).
 5. **Two agents with different embedding identities in parallel; `/share` into a pool re-embeds in the target identity** (§12 M2; PR-10 gate).
 6. Model change by migration with rollback; **compatibility probe refuses a wrong model** and says why (§12 M2).
@@ -117,7 +119,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Blocking questions:** Q3 (confirm ADR-005's replacement of the opt-in default), ADR-006 Q1 (default embedding model) and Q2 (default reranker) and Q4 (multi-identity in v0.1 — if deferred, PR-10 moves to post-v0.1 and §12 M2 criterion 5 moves with it), ADR-005 Q3 (encrypted-file key), Q5 (per-user credentials), ADR-010 Q1–Q3.
 
-**Effort 30–46 ad.** Three wire formats 7–10, embedding/rerank adapters + live smoke 5–8, auth engine + pools + secret store 8–12, prompt builder + zone tests + budgets 5–8, PR-10 5–8 (L, ranking-affecting).
+**Effort 34–52 ad.** Direct chat CLI + store additions 4–6 (D92), three wire formats 7–10, embedding/rerank adapters + live smoke 5–8, auth engine + pools + secret store 8–12, prompt builder + zone tests + budgets 5–8, PR-10 5–8 (L, ranking-affecting).
 
 **Exit:** demo guide (login headless, three wire formats, migrate a store), test report incl. B5/B6/B7, frozen rerank field-mapping table, `docs/provider-matrix.md` updated with the cache-capability columns, first dated policy re-check scheduled (2026-12-21).
 
@@ -133,6 +135,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 - **Web UI skeleton** (framework decided by the 2-day spike): Memory area first (health, cards, search-with-explain, reviews, conflicts, migration, compact) with **Dreams** sub-area, then Models, then Agents/Users/My area/Doctor/Settings. Theme from the `--oc-*` bridge with the verbatim MIT attribution header, dark default + light per OS, `data-density` comfortable, **settings search** over label/key/help/value, routed pages instead of one long page. ADR-004 §"Theme", §"Pages".
 - **Responsive layout (binding, desktop spec §13.7, canvas `RspRules`, 2026-09-28):** compact < 1024 / normal 1024–1600 / wide > 1600 by content width in CSS px; minimums text 12 px, targets 44 px (conflict C22 for normal width), window 800 × 600; compact works down to 400 CSS px (200 % text zoom); per-pattern layouts for kanban, chat, list + detail, settings (nav 224, content ≤ 880), graph, wizard and the browser panel; collapse order right panel → sheet, sidebar 256 → rail 64 (overlay 288), list + detail → push, browser split → overlay, kanban → snap scroll, header actions → More; max widths (reading ≤ 72ch, transcript ≤ 820, dialogs ≤ 680); inline SVG icons, rasters 1×/2×/3×. Example boards `RspB-*` per page (desktop spec §13.6). *Effort not re-estimated:* the example boards add compact/wide work to every M3 page; the owner may want the UI shell line (6–10 ad) revisited.
 - **Search everything (`V2Search`, ⌘K / Ctrl+K):** the ADR-004 settings search and palette, extended on the canvas to agents, Switchboard, memories, tasks & sessions (tasks with M5) and actions, filtered by what the caller may see, with voice input. The cross-entity part is **new scope** with no spec or RPC today (desktop spec §13.3 B11): a harness search endpoint or a client fan-out — owner call.
+- **Direct chat (D92/D93, 2026-09-28) — the first screen built and the default landing route (owner call O2):** Chat page (history, transcript, context), empty state, agent picker, incognito state, fork, sidebar *Chat* entry + recents, ⌘K sessions scope, REST `/api/v1/chats` + SSE with `chat:*` token scopes, direct chats as metadata only in the Operator sessions view, transcripts by break-glass only. Spec `docs/superpowers/specs/2026-09-28-direct-chat-design.md` §6.1, §6.5, §8.
 - **First-run wizard:** owner bootstrap one-time token → embedding/reranker choice **with licence gate** (NC only by explicit owner confirmation, audit-logged; non-interactive falls back to E5-small, never a silent acceptance) → first provider login → first agent → optional import. ADR-004 §"First-run wizard"; ADR-006 §"Installer default".
 
 **Acceptance** (§12 M3 re-cut)
@@ -148,7 +151,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Blocking questions:** Q5 (five roles vs slim), ADR-004 Q1 (framework, after the spike), Q2 (density default), Q3 (built-in TLS in v0.1), Q5 (logo package scope), ADR-007 Q2–Q6.
 
-**Effort 32–48 ad.** API + authN/RBAC/audit 10–14, identity linking + pairing + engine follow-up 5–8, agent lifecycle saga + AgentScope 5–7, UI framework spike 2, UI shell + theme + settings search 6–10, Memory/Dreams/Models pages 4–7.
+**Effort 38–57 ad.** Web direct chat 6–9 (D92), API + authN/RBAC/audit 10–14, identity linking + pairing + engine follow-up 5–8, agent lifecycle saga + AgentScope 5–7, UI framework spike 2, UI shell + theme + settings search 6–10, Memory/Dreams/Models pages 4–7.
 
 **Exit:** demo guide (wizard, two agents, Member isolation, break-glass), test report, `docs/api-surface.md` frozen, `docs/ui/reference/*.png` pipeline with visual diff, theme file with attribution header.
 
@@ -166,7 +169,9 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Blocking questions:** Q4 — confirm "one agent, many bot connections" for M4 and mention routing no earlier than M6; ADR-003 Q2 (fifth per-chat layer), Q3 (group capture default).
 
-**Effort 22–34 ad.** Telegram 3–4, Discord 3–5, Matrix incl. E2EE and verification 7–11, Buzz/Nostr 4–6, identity linking + commands + delivery 5–8.
+**Direct-chat continuity (D93, 2026-09-28):** a channel DM and a web chat stay separate threads sharing the agent's memory; `/web` returns a single-use handoff link for a linked person (new web chat seeded with the channel summary), and the person's channel DMs appear read-only in the web chat history with *Continue in web*.
+
+**Effort 23–36 ad.** Direct-chat handoff 1–2, Telegram 3–4, Discord 3–5, Matrix incl. E2EE and verification 7–11, Buzz/Nostr 4–6, identity linking + commands + delivery 5–8.
 
 **Exit:** demo guide (one agent on four channels, pairing, cron delivery), test report incl. channel E2E against fakes, per-channel setup docs.
 
@@ -186,7 +191,9 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Blocking questions:** ADR-003 Q4 (own store for external agents), Q5 (depth 1 vs two-level chain).
 
-**Effort 18–28 ad.** Projects + board + worktrees 6–9, six tools + contract + provenance 5–8, guardrails + budget gate 3–5, trace UI + mirroring 3–5, fan-out eval 1–2.
+**Direct chat promotion (D92, 2026-09-28):** promote a direct chat to a card (as soon as D36 `tasks.*` exists, possibly M3) or to a new project, or link it to an existing one; the chat stays private, content moves only by explicit choice (summary / selected / transcript).
+
+**Effort 19–30 ad.** Chat promotion 1–2, projects + board + worktrees 6–9, six tools + contract + provenance 5–8, guardrails + budget gate 3–5, trace UI + mirroring 3–5, fan-out eval 1–2.
 
 **Exit:** demo guide, test report incl. guardrail suite and the fan-out eval numbers, `docs/architecture.md` isolation table updated.
 
@@ -264,7 +271,7 @@ The desktop app (Tauri) ships the harness as containers: one `plur1bus-harness` 
 | M | Content | Depends on | Effort (ad) |
 |---|---|---|---|
 | **D1** (v0.1.0) | Container bundle + thin shell: harness image, **two installer variants per OS (complete offline, small online, desktop spec DS30)**, runtime detection and both adapters, wizard, start/stop/status, auto-pair, tray, host CLI shim, host bridge (`host.keyUnlock`), D78 update flow with snapshot, health gate and automatic rollback (patch updates **on** by default, desktop spec §11 Q8), release gate, **the signed `updates.plur1bus.app` manifest indirecting to GitHub Releases/GHCR (desktop spec DS28)**, **SignPath Foundation signing (submitted, pending) plus a Microsoft Store MSIX channel (desktop spec DS31, DS32)**, **a Flathub Flatpak on Linux (desktop spec DS34)**, domain `app.plur1bus.desktop`/`plur1bus://`/`plur1bus.app` (desktop spec DS33) | M3; M2 secret store | 20–30 |
-| D2 | Native integration + OS-signed `beta`/`stable` on the direct channel; **plus (2026-09-28, D87/D90):** host-bridge `host.importSnapshot` and WSL enumeration so the container bundle can import host-side sources, and "Install PLUR1BUS into my OpenClaw/Hermes" driving the D87 scripts | D1; HM1–HM2 | 10–15 (was 8–12) |
+| D2 | Native integration + OS-signed `beta`/`stable` on the direct channel; **plus (2026-09-28, D87/D90):** host-bridge `host.importSnapshot` and WSL enumeration so the container bundle can import host-side sources, and "Install PLUR1BUS into my OpenClaw/Hermes" driving the D87 scripts; **plus (2026-09-28, D92):** a quick-chat window on the global shortcut, push-to-talk into Talk (+1–2, not in the total; D1 gets the tray *New chat* item and `plur1bus://chat/*` deep links, absorbed) | D1; HM1–HM2 | 10–15 (was 8–12) |
 | D3 | Browser container (windowless cases only), native panel — WebView2 on Windows, CEF on macOS/Linux — and egress (owner 2026-09-27, desktop spec DS37–DS39, §11 Q4 re-decided; was: Windows keeps a container-browser panel, DS35) | D2; Tauri 3 gate; D72–D74 | 12–18 |
 | D4 | Computer use + WebMCP bridge; the D1 Flatpak's CEF sandbox work | D3; D62 | 6–10 |
 
