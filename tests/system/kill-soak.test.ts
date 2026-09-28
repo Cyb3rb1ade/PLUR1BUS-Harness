@@ -318,7 +318,12 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       }));
       t.diagnostic(`journaled facts replayed more than once, per third: ${perThird.map((x, k) => `${["first", "middle", "last"][k]} ${x.twice}/${x.journaled}`).join(", ")}`);
       // Engine E4.1 (PR #195): the turn guard records on rows settled, not before, so a core SIGKILLed while a line
-      // replays no longer stores it twice. Exactly-once, no tolerance.
+      // replays no longer stores it twice. Exactly-once, no tolerance. A SIGKILL after a row's LanceDB commit and
+      // before the guard file's write used to store that line twice (it failed once on ubuntu CI, seed 3846737509,
+      // fact 160; packages/core/test/core.test.ts reproduces it with a real SIGKILL, "... before its turn guard
+      // recorded it ..."). Engine E4.3 (PR #199) closed that window too: the guard now persists the turn as pending,
+      // with its planned row ids, before the first row is written, and a replay of a pending turn deletes those rows
+      // before it stores again.
       assert.deepEqual(replayedTwice, [], `journaled facts not present exactly once: ${JSON.stringify(replayedTwice)}`);
 
       // Exactly one supervisor and one core remain, and only the core holds LanceDB files.

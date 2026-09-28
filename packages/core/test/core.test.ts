@@ -1,7 +1,9 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { CORE_FEATURES } from "../src/capabilities.ts";
@@ -11,6 +13,7 @@ import { layout } from "../src/paths.ts";
 import { flatEmbedder, flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
+const killAfterStore = fileURLToPath(new URL("./helpers/kill-after-store.ts", import.meta.url));
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 
 function newHome(): string {
@@ -305,6 +308,36 @@ describe("core journal backlog (Task 15, E4)", () => {
       assert.deepEqual(readdirSync(l.journal), [], "the duplicate line left the journal");
       const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
       assert.equal(items.filter((x: any) => /gutter cleaning/.test(x.text)).length, 1, JSON.stringify(items.map((x: any) => x.text)));
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
+  // Kill soak, ubuntu CI (seed 3846737509, fact 160 stored twice): a core SIGKILLed while it replays a line, after the
+  // engine committed the line's row to LanceDB and before its turn guard (`<lancedb>/_capture-turns/<agent>.json`)
+  // recorded the turn, left the row stored, the guard without the turn and the line in its `.replaying-<pid>` file;
+  // the next core stored it again. E4.3 (engine PR #199) closed the window: the guard now persists the turn as
+  // *pending*, with its planned row ids, before the first row is written (fsync + atomic rename), and a replay of a
+  // pending turn deletes those ids before it stores again — so the kill this test forces, on the engine's "stored
+  // memory" log line right after a row's commit, always lands inside the pending window, not before it.
+  // The child core SIGKILLs itself on that log line; the fresh core that replays the line must store it exactly once.
+  it("a core SIGKILLed after a replayed line's row was stored, before its turn guard recorded it, stores the line once", async () => {
+    const home = newHome(); const l = layout(home);
+    const text = "Please remember that the chimney sweep comes on Tuesday at eight.";
+    appendJournalLine(l.journal, jline("77777777-7777-4777-8777-777777777777", text));
+    const child = spawn(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings", killAfterStore, home], { stdio: ["ignore", "ignore", "inherit"] });
+    const exit = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((res) => child.once("exit", (code, signal) => res({ code, signal })));
+    // Windows has no signals: process.kill ends the child with exit code 1; the marker names the kill either way.
+    assert.ok(existsSync(join(home, "killed-at-store")), `the child died on its own kill: ${JSON.stringify(exit)}`);
+    if (process.platform === "win32") assert.notEqual(exit.code, 0, JSON.stringify(exit));
+    else assert.equal(exit.signal, "SIGKILL", `the child died on its own kill: ${JSON.stringify(exit)}`);
+    assert.deepEqual(readdirSync(l.journal), [`bernd.jsonl.replaying-${child.pid}`], "the line stayed in the replay's file");
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      await replayDone(core, (x) => x.journalBacklog === 0);
+      assert.deepEqual(readdirSync(l.journal), [], "the line left the journal");
+      const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
+      assert.equal(items.filter((x: any) => /chimney sweep/.test(x.text)).length, 1, JSON.stringify(items.map((x: any) => x.text)));
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 });
