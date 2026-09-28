@@ -1,5 +1,5 @@
 //! Compatibility of a manifest with this host (spec §5.2 `compat`, §8.4 step 5; X1-R20).
-use crate::manifest::P1xManifest;
+use crate::manifest::{Kind, P1xManifest};
 use crate::refusal::{reason, Refusal};
 use semver::{Version, VersionReq};
 use serde_json::Value;
@@ -41,7 +41,10 @@ pub fn harness_req(range: &str) -> Result<VersionReq, String> {
     VersionReq::parse(&parts.join(", ")).map_err(|e| format!("{range:?}: {e}"))
 }
 
-/// A release triple: pre-release and build metadata of a dev build do not keep it out of a range.
+/// The host version reduced to its release triple. The `semver` crate never matches a pre-release against a range
+/// whose comparators carry no pre-release tag, which would lock a dev build (`0.3.0-dev.4`) out of `>=0.2.0`. Dropping
+/// pre-release and build metadata makes `0.3.0-dev` satisfy both `>=0.2.0` and `>=0.3.0`, because it is treated as
+/// `0.3.0`: a dev build of a release counts as that release. Only the host side is reduced; ranges are untouched.
 fn release(v: &str) -> Result<Version, String> {
     let mut v = Version::parse(v).map_err(|e| format!("{v:?}: {e}"))?;
     v.pre = semver::Prerelease::EMPTY;
@@ -79,7 +82,13 @@ pub fn check_compat(m: &P1xManifest, host: &HostFacts) -> Result<(), Refusal> {
     if let Some(r) = c.get("harness").and_then(Value::as_str) {
         range_check("compat.harness", r, &host.harness_version)?;
     }
-    if let Some(list) = c.get("moduleApi").and_then(Value::as_array) {
+    // `moduleApi` is only meaningful for kinds that speak the module API (§5.2); a skill's is ignored.
+    let module_kind = matches!(m.kind, Kind::Module | Kind::Channel);
+    if let Some(list) = c
+        .get("moduleApi")
+        .and_then(Value::as_array)
+        .filter(|_| module_kind)
+    {
         let cur = host.module_api_current.to_string();
         if !list.iter().any(|v| v.as_str() == Some(cur.as_str())) {
             return Err(no(

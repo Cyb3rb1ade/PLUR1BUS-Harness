@@ -4,6 +4,20 @@
   "title": "PLUR1BUS extension package manifest (p1x.json)",
   "x-stability": "experimental",
   "type": "object",
+  "$defs": {
+    "range": {
+      "type": "string",
+      "pattern": "^(?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?(?: (?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?)*$",
+      "maxLength": 200
+    },
+    "langMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
+      }
+    }
+  },
   "properties": {
     "$schema": {
       "const": "https://plur1bus.app/schema/p1x/1/p1x.schema.json"
@@ -36,11 +50,7 @@
       ]
     },
     "title": {
-      "type": "object",
-      "minProperties": 1,
-      "propertyNames": {
-        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
-      },
+      "$ref": "#/$defs/langMap",
       "additionalProperties": {
         "type": "string",
         "minLength": 1,
@@ -48,11 +58,7 @@
       }
     },
     "summary": {
-      "type": "object",
-      "minProperties": 1,
-      "propertyNames": {
-        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
-      },
+      "$ref": "#/$defs/langMap",
       "additionalProperties": {
         "type": "string",
         "minLength": 1,
@@ -102,9 +108,7 @@
       "type": "object",
       "properties": {
         "harness": {
-          "type": "string",
-          "pattern": "^(?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?(?: (?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?)*$",
-          "maxLength": 200
+          "$ref": "#/$defs/range"
         },
         "moduleApi": {
           "type": "array",
@@ -116,9 +120,7 @@
           "uniqueItems": true
         },
         "rpc": {
-          "type": "string",
-          "pattern": "^(?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?(?: (?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?)*$",
-          "maxLength": 200
+          "$ref": "#/$defs/range"
         },
         "platforms": {
           "type": "array",
@@ -234,9 +236,7 @@
             "pattern": "^[a-z][a-z0-9-]{0,31}(\\.[a-z0-9-]{1,32})*/[a-z][a-z0-9]*(-[a-z0-9]+)*$"
           },
           "range": {
-            "type": "string",
-            "pattern": "^(?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?(?: (?:>=|<=|>|<|=|\\^|~)?[0-9]+(?:\\.[0-9]+){0,2}(?:-[0-9A-Za-z.-]+)?)*$",
-            "maxLength": 200
+            "$ref": "#/$defs/range"
           }
         },
         "additionalProperties": false,
@@ -374,11 +374,7 @@
                 "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
               },
               "label": {
-                "type": "object",
-                "minProperties": 1,
-                "propertyNames": {
-                  "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
-                },
+                "$ref": "#/$defs/langMap",
                 "additionalProperties": {
                   "type": "string",
                   "minLength": 1,
@@ -608,11 +604,7 @@
       "additionalProperties": false
     },
     "notes": {
-      "type": "object",
-      "minProperties": 1,
-      "propertyNames": {
-        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)*$"
-      },
+      "$ref": "#/$defs/langMap",
       "additionalProperties": {
         "type": "string",
         "minLength": 1,

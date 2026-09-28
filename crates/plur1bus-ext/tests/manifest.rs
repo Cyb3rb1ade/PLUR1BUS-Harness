@@ -318,12 +318,40 @@ fn compat_refuses_harness_module_api_rpc_platform_and_container_each_with_its_fi
             Box::new(|h| h.platform = Some("darwin-x64".into())),
         ),
     ];
-    for (field, mutate) in cases {
+    // (moduleApi is covered below for module/channel; the example is a skill.)
+    for (field, mutate) in cases.into_iter().filter(|(f, _)| *f != "compat.moduleApi") {
         let mut h = host();
         mutate(&mut h);
         let e = check_compat(&m, &h).expect_err(field);
         assert_eq!(e.reason, reason::INCOMPATIBLE, "{field}");
         assert!(e.detail.contains(field), "{field}: {}", e.detail);
+    }
+    // A real host id (Target::id) against a manifest that lists only linux targets.
+    let mut lin = example();
+    lin["compat"]["platforms"] = json!(["linux-x64", "linux-arm64"]);
+    let ml = parse_manifest(&raw(&lin), &[]).unwrap();
+    let mut h = host();
+    h.platform = Some("darwin-arm64".into());
+    let e = check_compat(&ml, &h).unwrap_err();
+    assert_eq!(e.reason, reason::INCOMPATIBLE);
+    assert!(e.detail.contains("compat.platforms"), "{}", e.detail);
+    h.platform = Some("linux-arm64".into());
+    check_compat(&ml, &h).expect("listed platform");
+    // moduleApi binds module and channel only; a skill's list is ignored.
+    let mut h = host();
+    h.module_api_current = 2;
+    check_compat(&m, &h).expect("a skill ignores moduleApi");
+    for kind in ["module", "channel"] {
+        let mut mv = example();
+        mv["kind"] = json!(kind);
+        let mm = parse_manifest(&raw(&mv), &[]).unwrap();
+        assert!(
+            check_compat(&mm, &h)
+                .unwrap_err()
+                .detail
+                .contains("compat.moduleApi"),
+            "{kind}"
+        );
     }
     let mut v = example();
     v["compat"]["container"] = json!(false);
@@ -390,4 +418,65 @@ fn capability_hash_ignores_key_order() {
         capability_hash(&json!({"b": 1, "a": [true]})),
         hex(br#"{"a":[true],"b":1}"#)
     );
+}
+
+fn ok(v: &Value) -> bool {
+    parse_manifest(&raw(v), &[]).is_ok()
+}
+
+#[test]
+fn conditional_required_rules() {
+    // allowlist needs hosts
+    let mut v = example();
+    v["capabilities"]["network"] = json!({ "mode": "allowlist" });
+    assert!(!ok(&v));
+    v["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["a.example"] });
+    assert!(ok(&v));
+    v["capabilities"]["network"] = json!({ "mode": "any" });
+    assert!(ok(&v), "hosts are not needed outside allowlist");
+    // scoped needs rpc
+    let mut v = example();
+    v["capabilities"]["harness"] = json!({ "authority": "scoped" });
+    assert!(!ok(&v));
+    v["capabilities"]["harness"] = json!({ "authority": "scoped", "rpc": ["ext.list"] });
+    assert!(ok(&v));
+    v["capabilities"]["harness"] = json!({ "authority": "full" });
+    assert!(ok(&v));
+    // scope path needs path
+    let mut v = example();
+    v["capabilities"]["filesystem"] = json!([{ "scope": "path", "access": "read" }]);
+    assert!(!ok(&v));
+    v["capabilities"]["filesystem"] =
+        json!([{ "scope": "path", "access": "read", "path": "/srv/x" }]);
+    assert!(ok(&v));
+    v["capabilities"]["filesystem"] = json!([{ "scope": "home", "access": "read" }]);
+    assert!(ok(&v));
+}
+
+#[test]
+fn length_caps_hold_on_both_sides() {
+    let cases: [(&str, usize); 4] = [
+        ("summary", 280),
+        ("notes", 1200),
+        ("title", 120),
+        ("licence", 200),
+    ];
+    for (field, max) in cases {
+        let mk = |n: usize| {
+            let mut v = example();
+            let s = "x".repeat(n);
+            v[field] = if field == "licence" {
+                json!(s)
+            } else {
+                json!({ "en": s })
+            };
+            v
+        };
+        assert!(ok(&mk(max)), "{field} at {max}");
+        assert!(!ok(&mk(max + 1)), "{field} at {}", max + 1);
+    }
+    // Characters, not bytes: 280 two-byte characters are within the summary cap.
+    let mut v = example();
+    v["summary"] = json!({ "en": "ä".repeat(280) });
+    assert!(ok(&v));
 }
