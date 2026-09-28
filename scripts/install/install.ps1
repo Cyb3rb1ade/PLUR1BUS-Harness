@@ -35,11 +35,26 @@ function Get-Target {
   }
 }
 
+# SHA-256 of <file>, lower-case hex, straight from .NET. Not Get-FileHash: in Windows PowerShell 5.1 that is a script
+# function of the Microsoft.PowerShell.Utility module, and when 5.1 starts from pwsh 7 it inherits pwsh's PSModulePath,
+# cannot load that module and reports "The term 'Get-FileHash' is not recognized".
+function Get-Sha256([string]$file) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $stream = [System.IO.File]::OpenRead($file)
+  try {
+    return ([System.BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+  } finally {
+    $stream.Dispose()
+    $sha.Dispose()
+  }
+}
+
 # Copies <uri> to <file>: https:// through Invoke-WebRequest, file:// from the local path.
 function Get-Resource([string]$uri, [string]$file) {
-  $u = [Uri]$uri
+  $u = [Uri]::new($uri)
   if ($u.Scheme -eq 'file') {
-    Copy-Item -LiteralPath $u.LocalPath -Destination $file -Force
+    # A local release (tests, air-gapped installs): LocalPath decodes the URL (%7E in an 8.3 name such as RUNNER~1).
+    [System.IO.File]::Copy($u.LocalPath, $file, $true)
   } elseif ($u.Scheme -eq 'https') {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $ProgressPreference = 'SilentlyContinue'
@@ -92,7 +107,7 @@ try {
 
   [Console]::Error.WriteLine("plur1bus install: downloading $url ($target)")
   try { Get-Resource $url $tmp } catch { Fail "could not download ${url}: $($_.Exception.Message)" }
-  $got = (Get-FileHash -LiteralPath $tmp -Algorithm SHA256).Hash.ToLowerInvariant()
+  $got = Get-Sha256 $tmp
   if ($got -ne $want) { Fail "checksum mismatch for ${url}: expected $want, got $got (nothing installed)" }
 
   Move-Item -LiteralPath $tmp -Destination $dest -Force

@@ -88,18 +88,18 @@ function installed(f: Fixture): string {
 }
 
 /** Runs the platform's installer against the fixture. `extraPath` goes first on PATH (shims). */
-function run(f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string) {
+function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string) {
   const base: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_INSTALL_FEED: f.feed, PLUR1BUS_CHANNEL: "stable" };
   if (WIN) {
     // Only LOCALAPPDATA moves into the temp home; PowerShell itself also writes caches below it
     // (Microsoft\Windows\PowerShell), which is why the checks look only at the install root (`ours`).
     base.LOCALAPPDATA = join(f.home, "AppData", "Local");
-    const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", INSTALL_PS1, ...args], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000 });
+    const r = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", INSTALL_PS1, ...args], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000 });
     return { status: r.status, stdout: r.stdout, stderr: r.stderr };
   }
   base.HOME = f.home;
   if (extraPath) base.PATH = `${extraPath}:${process.env.PATH}`;
-  const r = spawnSync("sh", [INSTALL_SH, ...args], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000, stdio: ["ignore", "pipe", "pipe"] });
+  const r = spawnSync(shell, [INSTALL_SH, ...args], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000, stdio: ["ignore", "pipe", "pipe"] });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
@@ -121,12 +121,18 @@ function filesUnder(dir: string): string[] {
 }
 
 const NAME = WIN ? "install.ps1" : "install.sh";
+/** Windows: Windows PowerShell 5.1 always, and pwsh 7 when installed (windows-2025 has both; this test is started from
+ *  a pwsh step, so 5.1 inherits pwsh's PSModulePath, as it does for a user who starts it from pwsh). */
+const SHELLS = WIN
+  ? ["powershell.exe", ...(spawnSync("pwsh", ["-NoProfile", "-Command", "exit 0"]).status === 0 ? ["pwsh"] : [])]
+  : ["sh"];
 
-describe(`one-line installer (${NAME})`, () => {
+for (const shell of SHELLS)
+describe(`one-line installer (${NAME}, ${shell})`, () => {
   it(`${NAME} installs the verified binary and runs setup with the given flags`, () => {
     const f = fixture();
     try {
-      const r = run(f, FLAGS);
+      const r = run(shell, f, FLAGS);
       assert.equal(r.status, 0, `exit 0\n${r.stdout}\n${r.stderr}`);
       const lines = r.stdout.trim().split(/\r?\n/);
       assert.deepEqual(lines, ["fake-plur1bus", "[setup]", ...FLAGS.map((a) => `[${a}]`)], "setup runs with the flags, word boundaries kept");
@@ -142,7 +148,7 @@ describe(`one-line installer (${NAME})`, () => {
   it(`${NAME} reads a compact feed with keys in any order and escaped slashes`, () => {
     const f = fixture({ compact: true });
     try {
-      const r = run(f, ["--non-interactive"]);
+      const r = run(shell, f, ["--non-interactive"]);
       assert.equal(r.status, 0, `exit 0\n${r.stdout}\n${r.stderr}`);
       assert.match(r.stdout, /\[setup\]\r?\n\[--non-interactive\]/);
       assert.ok(existsSync(installed(f)));
@@ -154,7 +160,7 @@ describe(`one-line installer (${NAME})`, () => {
   it(`${NAME} refuses a sha mismatch and installs nothing`, () => {
     const f = fixture({ recorded: sha("something else") });
     try {
-      const r = run(f, FLAGS);
+      const r = run(shell, f, FLAGS);
       assert.equal(r.status, 1, `exit 1\n${r.stdout}\n${r.stderr}`);
       assert.match(r.stderr, /checksum mismatch/i);
       assert.doesNotMatch(r.stdout, /fake-plur1bus/, "nothing ran");
@@ -169,14 +175,14 @@ describe(`one-line installer (${NAME})`, () => {
     try {
       let r;
       if (WIN) {
-        r = run(f, FLAGS, { PROCESSOR_ARCHITECTURE: "x86", PROCESSOR_ARCHITEW6432: undefined });
+        r = run(shell, f, FLAGS, { PROCESSOR_ARCHITECTURE: "x86", PROCESSOR_ARCHITEW6432: undefined });
       } else {
         // A `uname` shim: a host outside the release matrix.
         const shim = join(f.root, "shim");
         mkdirSync(shim);
         writeFileSync(join(shim, "uname"), '#!/bin/sh\ncase "$1" in -m) echo riscv64 ;; *) echo FreeBSD ;; esac\n');
         chmodSync(join(shim, "uname"), 0o755);
-        r = run(f, FLAGS, {}, shim);
+        r = run(shell, f, FLAGS, {}, shim);
       }
       assert.equal(r.status, 1, `exit 1\n${r.stdout}\n${r.stderr}`);
       assert.match(r.stderr, /unsupported target/i);
