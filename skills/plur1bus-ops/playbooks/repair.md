@@ -19,7 +19,7 @@ plur1bus 1staid repair --dry-run --json
 | `runtime.node.reinstall` | `runtime.node` | Reinstalls the pinned Node runtime from the mirror, verified against its hash | medium |
 | `runtime.core.reinstall` | `runtime.core` | Reinstalls the core payload from the release source; with no source configured it is `skipped` with reason `core-source-missing` | medium |
 | `unit.terminate-hung` | a lock or state file held by a process whose socket accepts but does not answer `*.status` within 2 s, and no supervisor answers | Terminates it through its pinned peer (the peer pid taken from the live connection, never the pid file alone — never a foreign process that merely happens to share that pid) and removes its run files | high |
-| `store.migrate` | `core.status.engine.storeSchema.current != required` | Runs `admin.migrate` over the core to bring the on-disk store schema up to what this core version requires | high |
+| `store.migrate` | `core.status.engine.storeSchema.current != expected` | Runs `admin.migrate` over the core to bring the on-disk store schema up to what this core version requires | high |
 | `service.silent-exit` | a `supervisor.log` record showing the supervisor exited 0 where it should have exited non-zero (ADR-012 §10.7) | Reports the evidence; changes nothing | none |
 | `service.restart-loop` | repeated `supervisor started` records inside a short window | Reports the evidence (how many restarts, over what window); changes nothing | none |
 

@@ -18,8 +18,9 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(45);
 
 /// `admin.migrate`: the engine sets no budget on a migration (AdminOps.migrate at the pinned SHA runs every step to the
 /// end, with no signal or deadline), so the CLI waits long rather than leave a migration it cannot see finishing (a
-/// retry after a timeout would answer E_CONFLICT). The human output reports progress while it waits.
-const MIGRATE_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+/// retry after a timeout would answer E_CONFLICT). The human output reports progress while it waits. `1staid repair`'s
+/// `store.migrate` uses the same bound.
+pub(crate) const MIGRATE_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const MIGRATE_PROGRESS_EVERY: Duration = Duration::from_secs(10);
 
 /// Calls `method` on the core and returns its result; any failure prints the error and exits.

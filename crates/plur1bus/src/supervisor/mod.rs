@@ -592,6 +592,12 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             ),
         );
     }
+    // HB17: one record per start, before anything can fail with a remapped exit, so `1staid repair` can tell a
+    // restart loop (under launchd, systemd or Task Scheduler alike) from the log. Opened like `fail`'s ad hoc log.
+    Log::open(&layout.log_file("supervisor"), u64::MAX, 1).info(
+        "supervisor started",
+        json!({ "pid": std::process::id(), "manager": std::env::var("PLUR1BUS_SERVICE_MANAGER").ok() }),
+    );
     // HB5: before anything is probed, adopted or spawned, `run/` gets its protected, inheritable user-and-SYSTEM ACL,
     // so every file a child creates in it is private from its first byte. Logged once the log is open.
     let run_acl = secure_run_dir(&layout.run(), allow);

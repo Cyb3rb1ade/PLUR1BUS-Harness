@@ -854,3 +854,396 @@ fn windows_permissions_fix_resets_run_files_made_by_the_core_to_inherit_the_run_
         }
     }
 }
+
+// ---- 2a-H3b-b Task 8: the hung unit, store migration and the HB17 reports ------------------------------------------
+
+/// The events `fake-core.mjs` appended under `name`.
+fn events(e: &Env, name: &str) -> Vec<Value> {
+    fs::read_to_string(&e.events)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|v| v["event"] == name)
+        .collect()
+}
+
+/// A process this test started, killed and reaped on drop.
+struct Proc(std::process::Child);
+
+impl Proc {
+    fn pid(&self) -> u32 {
+        self.0.id()
+    }
+    /// Polls `try_wait` (which reaps an exited child, so a zombie never counts as alive).
+    fn alive(&mut self) -> bool {
+        matches!(self.0.try_wait(), Ok(None))
+    }
+}
+
+impl Drop for Proc {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// A fake core started by hand (no supervisor, no lifeline) in `mode`; waits until it listens.
+fn hand_core(e: &Env, mode: &str) -> Proc {
+    let child = Command::new("node")
+        .arg(fixture())
+        .arg("--home")
+        .arg(&e.home)
+        .env("FAKE_CORE_MODE", mode)
+        .env("FAKE_CORE_EVENTS", &e.events)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let p = Proc(child);
+    let pid = u64::from(p.pid());
+    wait_until("the hand-started core listening", WAIT, || {
+        events(e, "listening")
+            .iter()
+            .any(|v| v["pid"].as_u64() == Some(pid))
+    });
+    // Windows: its run files are secured by an icacls child after listen; a test that rewrites one waits for it.
+    if cfg!(windows) {
+        wait_until("the hand-started core's run files secured", WAIT, || {
+            events(e, "secured")
+                .iter()
+                .any(|v| v["pid"].as_u64() == Some(pid))
+        });
+    }
+    p
+}
+
+/// A live process that has nothing to do with PLUR1BUS.
+fn bystander() -> Proc {
+    Proc(
+        Command::new("node")
+            .args(["-e", "setInterval(() => {}, 1000)"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap(),
+    )
+}
+
+/// Whether `state/core.lock` can be taken right now, the way the core takes it (SQLite EXCLUSIVE, no busy wait).
+#[cfg(unix)] // the SIGSTOP test's check
+fn core_lock_free(home: &Path) -> bool {
+    let script = "const { DatabaseSync } = require('node:sqlite');\
+        const db = new DatabaseSync(process.argv[1]);\
+        try { db.exec('PRAGMA busy_timeout=0; PRAGMA locking_mode=EXCLUSIVE; BEGIN EXCLUSIVE'); process.exit(0); }\
+        catch { process.exit(3); }";
+    let status = Command::new("node")
+        .args(["-e", script])
+        .arg(home.join("state").join("core.lock"))
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .unwrap();
+    status.code() == Some(0)
+}
+
+/// `core.status` straight from the core (its token and address, no supervisor in between).
+fn core_status(home: &Path) -> Value {
+    let token = fs::read_to_string(home.join("run").join("core.token")).unwrap();
+    let address = if cfg!(windows) {
+        let h = format!(
+            "{:x}",
+            Sha256::digest(home.to_string_lossy().to_lowercase().as_bytes())
+        );
+        format!(r"\\.\pipe\plur1bus-{}-core", &h[..16])
+    } else {
+        format!("{}/run/core.sock", home.display())
+    };
+    let opts = ConnectOptions {
+        connect_timeout: Duration::from_secs(2),
+        call_timeout: Duration::from_secs(10),
+        endpoint: Endpoint::Core,
+        expected_server_pid: None,
+    };
+    let mut c = Client::connect(&address, token.trim(), opts).unwrap();
+    c.call("core.status", json!({})).unwrap()
+}
+
+/// Windows: `service install` created run/ (the task XML lives there) with the temp dir's inherited ACL, which
+/// `run.permissions` rightly fails; the fix is applied first so the plan under test is the only one. Elsewhere a no-op.
+fn secure_run_first(e: &Env) {
+    if cfg!(windows) {
+        let (code, v) = e.repair(&["--yes", "--only", "run.permissions.fix"]);
+        assert_eq!(code, 0, "{v}");
+    }
+}
+
+fn write_supervisor_log(e: &Env, records: &[Value]) {
+    let logs = e.home.join("logs");
+    fs::create_dir_all(&logs).unwrap();
+    let mut text = String::new();
+    for (i, r) in records.iter().enumerate() {
+        text.push_str(&r.to_string());
+        // A CRLF line among them, as an editor on Windows may leave one.
+        text.push_str(if i == 0 { "\r\n" } else { "\n" });
+    }
+    fs::write(logs.join("supervisor.log"), text).unwrap();
+}
+
+fn log_record(at: &str, msg: &str) -> Value {
+    json!({ "at": at, "level": "info", "role": "supervisor", "msg": msg })
+}
+
+/// ADR-012 §10.7: a core that holds `state/core.lock` and whose socket accepts but never answers, with no supervisor.
+/// The step is `high`, needs its own confirmation, and terminates the process the OS names as the socket's server
+/// (pinned with the instance id of `run/core.pid`), then removes its run files.
+#[cfg(unix)]
+#[test]
+fn a_hung_core_holding_the_lock_is_terminated_by_its_pinned_peer_after_confirmation() {
+    use std::os::unix::fs::PermissionsExt;
+    let e = Env::new();
+    e.install_service();
+    // run/ as the real core leaves it (the fixture's own mkdir takes the umask), so the plan is the hung unit only.
+    let run = e.home.join("run");
+    fs::create_dir_all(&run).unwrap();
+    fs::set_permissions(&run, fs::Permissions::from_mode(0o700)).unwrap();
+    let child = e
+        .cmd(&["core", "run"])
+        .env("PLUR1BUS_CORE_JS", fixture())
+        .env("PLUR1BUS_NODE", "node")
+        .env("FAKE_CORE_MODE", "ok")
+        .env("FAKE_CORE_EVENTS", &e.events)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut core = Proc(child);
+    let pid = u64::from(core.pid());
+    wait_until("the core listening", WAIT, || {
+        events(&e, "listening")
+            .iter()
+            .any(|v| v["pid"].as_u64() == Some(pid))
+    });
+    assert!(!core_lock_free(&e.home), "the core holds state/core.lock");
+    // SAFETY: stops the core this test started; the socket keeps accepting in the kernel, nothing answers.
+    assert_eq!(unsafe { libc::kill(pid as libc::pid_t, libc::SIGSTOP) }, 0);
+
+    let (code, v) = e.repair(&["--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(ids(&v), ["unit.terminate-hung"], "{v}");
+    let s = step(&v, "unit.terminate-hung");
+    assert_eq!(s["status"], "planned", "{s}");
+    assert_eq!(s["risk"], "high", "{s}");
+    assert_eq!(s["needsConfirmation"], true, "{s}");
+    assert_eq!(s["detail"]["pid"].as_u64(), Some(pid), "{s}");
+    assert_eq!(s["detail"]["role"], "core", "{s}");
+    assert_eq!(s["reason"], "core.lock", "{s}");
+    assert!(core.alive(), "a dry run terminated the core");
+
+    let (code, v) = e.repair(&["--yes"]);
+    let s = step(&v, "unit.terminate-hung");
+    assert_eq!(s["status"], "done", "{v}");
+    assert_eq!(code, 0, "{v}");
+    wait_until("the hung core gone", WAIT, || !core.alive());
+    assert!(core_lock_free(&e.home), "state/core.lock is still held");
+    for f in ["core.pid", "core.token", "core.sock"] {
+        assert!(!e.home.join("run").join(f).exists(), "run/{f} is left");
+    }
+    let audit: Vec<String> = e
+        .audit_lines()
+        .iter()
+        .map(|l| l["action"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(audit, ["repair.unit.terminate-hung"]);
+}
+
+/// The pid file names a live process that does not serve the core's address: the step is listed, skipped with
+/// `peer-mismatch`, and neither that process nor the socket's server is touched.
+#[test]
+fn a_foreign_process_on_the_core_socket_is_never_terminated_by_pid_file_alone() {
+    let e = Env::new();
+    e.install_service();
+    let mut core = hand_core(&e, "hang-after:0");
+    wait_until("the core hung", WAIT, || !events(&e, "hung").is_empty());
+    let mut other = bystander();
+    let pid_file = e.home.join("run").join("core.pid");
+    let instance = fs::read_to_string(&pid_file)
+        .unwrap()
+        .split_whitespace()
+        .nth(1)
+        .unwrap()
+        .to_string();
+    fs::write(&pid_file, format!("{} {instance}\n", other.pid())).unwrap();
+
+    let (_code, v) = e.repair(&["--yes"]);
+    let s = step(&v, "unit.terminate-hung");
+    assert_eq!(s["status"], "skipped", "{v}");
+    assert_eq!(s["detail"]["reason"], "peer-mismatch", "{v}");
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(
+        other.alive(),
+        "the process the pid file names was terminated"
+    );
+    assert!(
+        core.alive(),
+        "the socket's server was terminated by a pid file"
+    );
+}
+
+/// G5: `core.status.engine.storeSchema.current` differs from the version this core expects → `store.migrate` runs
+/// `admin.migrate { from, to }` over the core.
+#[test]
+fn a_store_schema_mismatch_plans_and_applies_admin_migrate() {
+    let e = Env::new();
+    e.install_service();
+    let _s = supervise(
+        &e,
+        &fixture(),
+        &[("FAKE_CORE_MODE", "ok"), ("FAKE_CORE_STORE_SCHEMA", "1:2")],
+    );
+    let mut c = supervisor_client(&e.home);
+    wait_until("the core to become ready", WAIT, || {
+        core_state(&mut c) == "ready"
+    });
+    let (code, v) = e.repair(&["--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(ids(&v), ["store.migrate"], "{v}");
+    let s = step(&v, "store.migrate");
+    assert_eq!(s["target"], "1→2", "{s}");
+    assert_eq!(s["risk"], "high", "{s}");
+    assert_eq!(s["reason"], "core.state", "{s}");
+    assert_eq!(s["needsConfirmation"], true, "{s}");
+
+    let (code, v) = e.repair(&["--yes"]);
+    let s = step(&v, "store.migrate");
+    assert_eq!(s["status"], "done", "{v}");
+    assert_eq!(s["detail"]["applied"], true, "{v}");
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(
+        core_status(&e.home)["engine"]["storeSchema"]["current"],
+        "2"
+    );
+    let audit: Vec<String> = e
+        .audit_lines()
+        .iter()
+        .map(|l| l["action"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(audit, ["repair.store.migrate"]);
+}
+
+/// HB17: under launchd a non-transient failure exits 0 and says so in its last log record. Reported, not fixed.
+#[test]
+fn a_silent_launchd_exit_is_reported() {
+    let e = Env::new();
+    e.install_service();
+    secure_run_first(&e);
+    write_supervisor_log(
+        &e,
+        &[
+            log_record("2026-09-28T10:00:00.000Z", "supervisor started"),
+            log_record(
+                "2026-09-28T10:00:00.120Z",
+                "exiting 0 instead of 3 so launchd does not restart a non-transient failure",
+            ),
+        ],
+    );
+    let (code, v) = e.repair(&["--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(ids(&v), ["service.silent-exit"], "{v}");
+    let s = step(&v, "service.silent-exit");
+    assert_eq!(s["status"], "done", "{v}");
+    assert_eq!(s["action"], "report", "{v}");
+    assert_eq!(s["risk"], "none", "{v}");
+    assert_eq!(s["reason"], "supervisor.state", "{v}");
+    assert_eq!(s["needsConfirmation"], false, "{v}");
+    assert_eq!(s["detail"]["code"], 3, "{v}");
+    assert_eq!(s["detail"]["at"], "2026-09-28T10:00:00.120Z", "{v}");
+}
+
+/// HB17: at least five `supervisor started` records within ten minutes, and nothing answers now.
+#[test]
+fn a_restart_loop_is_reported_from_the_supervisor_log() {
+    let e = Env::new();
+    e.install_service();
+    secure_run_first(&e);
+    let mut records = vec![
+        // An old start well outside the window.
+        log_record("2026-09-28T08:00:00.000Z", "supervisor started"),
+        log_record("2026-09-28T08:00:01.000Z", "supervisor ready"),
+    ];
+    for i in 0..6 {
+        records.push(log_record(
+            &format!("2026-09-28T10:0{i}:00.000Z"),
+            "supervisor started",
+        ));
+    }
+    write_supervisor_log(&e, &records);
+    let (code, v) = e.repair(&["--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(ids(&v), ["service.restart-loop"], "{v}");
+    let s = step(&v, "service.restart-loop");
+    assert_eq!(s["status"], "done", "{v}");
+    assert_eq!(s["action"], "report", "{v}");
+    assert_eq!(s["detail"]["starts"], 6, "{v}");
+    assert_eq!(s["detail"]["windowMs"], 300_000, "{v}");
+    assert!(s["detail"]
+        .as_object()
+        .unwrap()
+        .contains_key("lastExitCode"));
+}
+
+/// Report steps change nothing, so they never ask: with no terminal and no `--yes` the plan still runs (exit 0, not
+/// the exit 2 of a plan that needs a confirmation), and each report is `done`.
+#[test]
+fn report_steps_never_prompt() {
+    let e = Env::new();
+    e.install_service();
+    secure_run_first(&e);
+    let mut records: Vec<Value> = (0..5)
+        .map(|i| log_record(&format!("2026-09-28T10:0{i}:00.000Z"), "supervisor started"))
+        .collect();
+    records.push(log_record(
+        "2026-09-28T10:04:00.100Z",
+        "exiting 0 instead of 2 so launchd does not restart a non-transient failure",
+    ));
+    write_supervisor_log(&e, &records);
+    let (code, v) = e.repair(&[]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(
+        ids(&v),
+        ["service.silent-exit", "service.restart-loop"],
+        "{v}"
+    );
+    for s in v["steps"].as_array().unwrap() {
+        assert_eq!(s["status"], "done", "{s}");
+        assert_eq!(s["needsConfirmation"], false, "{s}");
+    }
+    assert_eq!(
+        step(&v, "service.restart-loop")["detail"]["lastExitCode"],
+        2
+    );
+}
+
+/// With a supervisor that answers, the log's history is not today's problem: nothing is reported.
+#[test]
+fn a_running_supervisor_suppresses_the_reports() {
+    let e = Env::new();
+    e.install_service();
+    let records: Vec<Value> = (0..6)
+        .map(|i| log_record(&format!("2026-09-28T10:0{i}:00.000Z"), "supervisor started"))
+        .chain([log_record(
+            "2026-09-28T10:06:00.000Z",
+            "exiting 0 instead of 3 so launchd does not restart a non-transient failure",
+        )])
+        .collect();
+    write_supervisor_log(&e, &records);
+    let _s = supervise(&e, &fixture(), &[("FAKE_CORE_MODE", "ok")]);
+    let mut c = supervisor_client(&e.home);
+    wait_until("the core to become ready", WAIT, || {
+        core_state(&mut c) == "ready"
+    });
+    let (code, v) = e.repair(&["--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["steps"], json!([]), "{v}");
+}
