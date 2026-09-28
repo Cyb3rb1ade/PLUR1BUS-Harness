@@ -1,6 +1,6 @@
 # Milestones — PLUR1BUS Harness (Variant B)
 
-**Status:** Phase 0 deliverable, awaiting owner approval; **amended 2026-09-28 (owner requirements on host-mode plugin packages and cross-platform migration, D86–D91: §2 table, track HM, M7 effort, M8 host adapters, D2, §3 graph)**; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7); **amended 2026-09-27 for the extensions ecosystem (core spec D79–D85): track X in §2, M6 scope and effort, §3**; **amended 2026-09-28 for the design canvas page `v2 · Desktop & responsive`: Track D UI source, M3 scope and acceptance 9 (binding responsive rules, `V2Search`), X3 row** · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
+**Status:** Phase 0 deliverable, awaiting owner approval; **amended 2026-09-28 (owner requirements on host-mode plugin packages and cross-platform migration, D86–D91: §2 table, track HM, M7 effort, M8 host adapters, D2, §3 graph)**; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7); **amended 2026-09-27 for the extensions ecosystem (core spec D79–D85): track X in §2, M6 scope and effort, §3**; **amended 2026-09-28 for the basics quality bar (D94–D102): M2 scope, acceptance 12–14 and effort, M5, M6, M8 acceptance 8, track D D1/D3, §6.1**; **amended 2026-09-28 for the design canvas page `v2 · Desktop & responsive`: Track D UI source, M3 scope and acceptance 9 (binding responsive rules, `V2Search`), X3 row** · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
 **Re-cut of** `docs/phase0/auftrag-original-2026-09-21.md` §12 (M0–M8) for **Variant B** per `docs/phase0/brief.md` D1–D11 and ADR-001 (K4 tripped, K3 red on Windows arm64). Every §12 acceptance criterion reappears below, re-cut; the 16 operational criteria of `docs/learnings-hermes-openclaw.md` §3 are mapped as **L1–L16**; ADR-001's targets T1–T7, ADR-009's A1–A8 and ADR-010's B1–B10 are milestone exit criteria. Engine work is PRs in the **PLUR1BUS repo** (`docs/engine-extraction.md` §c, PR-01…PR-15; ADR-002's P0–P10 is the same plan at coarser grain).
 
 ---
@@ -129,6 +129,7 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 - **Budgets:** per agent / project / user, per-zone allocation, typed retry budgets, subagent return cap ~2 000 tokens. ADR-010 §4.
 - **Engine PRs:** PR-10 multi-identity recall (per-route dimension, one query vector per identity, RRF fusion, share re-embeds into the **target** identity, identity in the cache key) — behaviour-changing, owner decision; PR-11 Windows named-pipe embedding IPC.
 - **Direct chat, CLI half (D92/D93, 2026-09-28):** direct-session attributes in the 2c store (owner, title, pin, archive, memory mode, model override, links, fork, usage; FTS5 over titles), the `session.*` additions except promote/handoff, core-derived `TurnRecord.incognito`, auto-title on the `summarize` role, export md/json; **`plur1bus chat`** (REPL with streaming, single turn `--json`/`--stream`, `--new|--continue|--session`, `--no-memory`, `--model`, `--attach`) and `plur1bus chats`. Spec `docs/superpowers/specs/2026-09-28-direct-chat-design.md`.
+- **Web and tool basics (D94, D95, D97, 2026-09-28):** `web.fetch` (egress + SSRF guard, cache, Readability → Markdown, PDF/Office, headless render fallback, sections + cursor, typed failures, provenance envelope), `web.search` (SearXNG/Brave/Tavily/Exa/native, per agent), tool-call validation with one repair round, per-provider schema dialects, structured and capped results, parallel/idempotent calls, the per-model quirks table and the `tool-eval` suite (fixtures per PR, live nightly). Spec `docs/superpowers/specs/2026-09-28-basics-quality-bar-design.md`.
 - Compatibility probe, calibration run, re-embedding migration driven from the CLI (`plan/apply/resume/rollback/status/switch`), model preparation with SHA-256-pinned artefacts and an offline mirror bundle. ADR-006 §"Embedding identity", actions 6/7/10.
 
 **Acceptance** (§12 M2 re-cut)
@@ -144,10 +145,13 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 9. **L7/L9:** memory is live within a session without breaking the cache (frozen snapshot in zone 3, recall as `tool_result` in the tail); a model switch warns and confirms, per-model prefixes preserved. **B5 ≥ 0.90** cache-read share from turn 3, **B6** zone hashes byte-identical across two renders and two process starts.
 10. **L8:** budget checked before every model call; a breach refuses rather than truncates silently.
 11. PR-10 single-identity configuration produces byte-identical recall order on the frozen corpus (RRF over one list = original order).
+12. **`web.fetch` (D94):** the fixture corpus (≥ 60 pages incl. SPA, PDF, scanned PDF, DOCX, 500-page manual, paywall, cookie wall, redirect chain) keeps ≥ 95 % of each golden's main-text tokens and every heading and table; every typed failure is produced by a fixture; the SSRF suite refuses private, loopback, link-local and metadata addresses on direct and redirected requests.
+13. **`web.search` (D95):** each provider against a recorded fixture, normalised results, `no-provider` path; SearXNG live in the nightly run.
+14. **Tool use (D97):** an invalid-argument call is repaired in one round on each wire format and a second failure yields `tool-call-invalid`; `tool-eval` fixture scenarios green per PR; live pass rates per default model published nightly.
 
 **Blocking questions:** Q3 (confirm ADR-005's replacement of the opt-in default), ADR-006 Q1 (default embedding model) and Q2 (default reranker) and Q4 (multi-identity in v0.1 — if deferred, PR-10 moves to post-v0.1 and §12 M2 criterion 5 moves with it), ADR-005 Q3 (encrypted-file key), Q5 (per-user credentials), ADR-010 Q1–Q3.
 
-**Effort 34–52 ad.** Direct chat CLI + store additions 4–6 (D92), three wire formats 7–10, embedding/rerank adapters + live smoke 5–8, auth engine + pools + secret store 8–12, prompt builder + zone tests + budgets 5–8, PR-10 5–8 (L, ranking-affecting).
+**Effort 48–73 ad.** Web fetch 5–8 and web search 2–3 (D94, D95), tool-use reliability 4–6 + `tool-eval` 3–4 (D97), direct chat CLI + store additions 4–6 (D92), three wire formats 7–10, embedding/rerank adapters + live smoke 5–8, auth engine + pools + secret store 8–12, prompt builder + zone tests + budgets 5–8, PR-10 5–8 (L, ranking-affecting).
 
 **Exit:** demo guide (login headless, three wire formats, migrate a store), test report incl. B5/B6/B7, frozen rerank field-mapping table, `docs/provider-matrix.md` updated with the cache-capability columns, first dated policy re-check scheduled (2026-12-21).
 
@@ -219,9 +223,11 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Blocking questions:** ADR-003 Q4 (own store for external agents), Q5 (depth 1 vs two-level chain).
 
+**Coding and documentation standards gate (D98, 2026-09-28):** project conventions first, shipped `coding-standards`/`documentation-standards` skills otherwise; `task.complete` of a coding task refused until the project's formatter, linter, type checker and tests ran green in the worktree (override leaves a note); doc gaps listed; reviewer pass above 200 changed lines. Acceptance: refusal and override on a fixture repo; command detection over five toolchains.
+
 **Direct chat promotion (D92, 2026-09-28):** promote a direct chat to a card (as soon as D36 `tasks.*` exists, possibly M3) or to a new project, or link it to an existing one; the chat stays private, content moves only by explicit choice (summary / selected / transcript).
 
-**Effort 19–30 ad.** Chat promotion 1–2, projects + board + worktrees 6–9, six tools + contract + provenance 5–8, guardrails + budget gate 3–5, trace UI + mirroring 3–5, fan-out eval 1–2.
+**Effort 22–35 ad.** Coding gate 3–5 (D98), chat promotion 1–2, projects + board + worktrees 6–9, six tools + contract + provenance 5–8, guardrails + budget gate 3–5, trace UI + mirroring 3–5, fan-out eval 1–2.
 
 **Exit:** demo guide, test report incl. guardrail suite and the fan-out eval numbers, `docs/architecture.md` isolation table updated.
 
@@ -244,7 +250,9 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Blocking questions:** Q7 (minimum CLI set), ADR-008 Q1 (drop A2A 0.3), Q2 (push notifications off), Q3 (MCP default exposure), Q4 (memory tools read-only), Q5 (ACP v2), ADR-011 Q1–Q6. Prerequisite spikes: ADR-008 action 10 (0.5 d) and action 11 (Windows stdio audit), ADR-011 spikes 1–11 (≈10 ad, counted below).
 
-**Effort 26–38 ad.** MCP client+server 6–9, ACP both directions 5–7, A2A server+client+TCK 6–9, external-agent tiers + descriptors + nightly matrix 8–12, spikes 1–2 (rest absorbed). The former "skills + plugins UI 4–6" line moved to track X3 (D85).
+**Agency-grade documents (D100, 2026-09-28):** `document-design` skill (OFL type system, WCAG-AA tokens, templates, charts in style), HTML/CSS + Paged.js → Chromium `printToPDF`, Typst second engine, mandatory visual review (automatic page checks + vision model, ≤ 3 rounds), brand kit; golden set with visual diff in CI from here. Acceptance: seeded overflow, contrast and widow defects are caught by the automatic checks; golden set within the diff threshold.
+
+**Effort 32–48 ad.** Documents 6–10 (D100), MCP client+server 6–9, ACP both directions 5–7, A2A server+client+TCK 6–9, external-agent tiers + descriptors + nightly matrix 8–12, spikes 1–2 (rest absorbed). The former "skills + plugins UI 4–6" line moved to track X3 (D85).
 
 **Exit:** demo guide (Zed, foreign A2A client, four CLIs), test report incl. TCK/ITK results, nightly per-CLI integration matrix live with the auto-degrade rule.
 
@@ -283,6 +291,7 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 5. Docs complete: README, per-platform quickstart, admin and user handbook, provider/model/channel guides, import guide, architecture, ADRs (original §11).
 6. `npm audit` clean at the agreed severity, TypeScript strict, lint clean, licence attribution (MIT for OpenClaw tokens, Apache-2.0 for Buzz/A2A SDKs) present.
 7. Release checklist §6.2 fully ticked; v0.1.0 tagged.
+8. **Basics (D94, D97, D100):** `web.fetch` corpus gate green on the release build; `tool-eval` ≥ 95 % for every shipped default model (a model below is labelled "limited tool use"); the document rubric rated by the owner on the golden set.
 
 **Blocking questions:** Q2 (macOS x64 required or best-effort — decides whether we own a Rust source build in CI), ADR-001 Q3 (non-PTY degradation on win32-arm64, now largely moot since the prebuild is confirmed), Q5 (built-in TLS vs reverse proxy only).
 
@@ -298,9 +307,9 @@ The desktop app (Tauri) ships the harness as containers: one `plur1bus-harness` 
 
 | M | Content | Depends on | Effort (ad) |
 |---|---|---|---|
-| **D1** (v0.1.0) | Container bundle + thin shell: harness image, **two installer variants per OS (complete offline, small online, desktop spec DS30)**, runtime detection and both adapters, wizard, start/stop/status, auto-pair, tray, host CLI shim, host bridge (`host.keyUnlock`), D78 update flow with snapshot, health gate and automatic rollback (patch updates **on** by default, desktop spec §11 Q8), release gate, **the signed `updates.plur1bus.app` manifest indirecting to GitHub Releases/GHCR (desktop spec DS28)**, **SignPath Foundation signing (submitted, pending) plus a Microsoft Store MSIX channel (desktop spec DS31, DS32)**, **a Flathub Flatpak on Linux (desktop spec DS34)**, domain `app.plur1bus.desktop`/`plur1bus://`/`plur1bus.app` (desktop spec DS33) | M3; M2 secret store | 20–30 |
+| **D1** (v0.1.0) | Container bundle + thin shell: harness image, **two installer variants per OS (complete offline, small online, desktop spec DS30)**, runtime detection and both adapters, wizard, start/stop/status, auto-pair, tray, host CLI shim, host bridge (`host.keyUnlock`), D78 update flow with snapshot, health gate and automatic rollback (patch updates **on** by default, desktop spec §11 Q8), release gate, **the signed `updates.plur1bus.app` manifest indirecting to GitHub Releases/GHCR (desktop spec DS28)**, **SignPath Foundation signing (submitted, pending) plus a Microsoft Store MSIX channel (desktop spec DS31, DS32)**, **a Flathub Flatpak on Linux (desktop spec DS34)**, domain `app.plur1bus.desktop`/`plur1bus://`/`plur1bus.app` (desktop spec DS33), **installer shortcuts and autostart opt-out on every channel (D101, 2026-09-28: NSIS *Options* page with desktop icon, Start menu, start with Windows all ticked; MSIX `desktop7:Shortcut` + `StartupTask`; first-run toggles on macOS/Linux; Flatpak Background portal; updates never re-create a deleted icon; +2–3)** | M3; M2 secret store | 22–33 (was 20–30) |
 | D2 | Native integration + OS-signed `beta`/`stable` on the direct channel; **plus (2026-09-28, D87/D90):** host-bridge `host.importSnapshot` and WSL enumeration so the container bundle can import host-side sources, and "Install PLUR1BUS into my OpenClaw/Hermes" driving the D87 scripts; **plus (2026-09-28, D92):** a quick-chat window on the global shortcut, push-to-talk into Talk (+1–2, not in the total; D1 gets the tray *New chat* item and `plur1bus://chat/*` deep links, absorbed) | D1; HM1–HM2 | 10–15 (was 8–12) |
-| D3 | Browser container (windowless cases only), native panel — WebView2 on Windows, CEF on macOS/Linux — and egress (owner 2026-09-27, desktop spec DS37–DS39, §11 Q4 re-decided; was: Windows keeps a container-browser panel, DS35) | D2; Tauri 3 gate; D72–D74 | 12–18 |
+| D3 | Browser tools with a fixed contract incl. `browser.scroll {untilStable}` and handover (D96, +3–5, 2026-09-28); browser container (windowless cases only), native panel — WebView2 on Windows, CEF on macOS/Linux — and egress (owner 2026-09-27, desktop spec DS37–DS39, §11 Q4 re-decided; was: Windows keeps a container-browser panel, DS35) | D2; Tauri 3 gate; D72–D74 | 15–23 (was 12–18) |
 | D4 | Computer use + WebMCP bridge; the D1 Flatpak's CEF sandbox work | D3; D62 | 6–10 |
 
 ### Track X — Extensions: skills and plugins (D79–D85; X1–X3 in v0.1.0, X4–X5 after)
@@ -456,6 +465,7 @@ Install → **load the local embedding and reranker model** → create owner →
 8. An **independent reviewer subagent** (P6) has re-run the acceptance list and reported findings; findings are closed or explicitly deferred with an owner decision.
 9. Documentation for every new surface exists (CLI help, API surface entry, UI page, or a docs page).
 10. **Owner approval recorded** before the next milestone starts.
+11. **Basics stay green (D94, D97, from M2):** the `web.fetch` corpus and the `tool-eval` fixture scenarios pass; no milestone may lower either (2026-09-28).
 
 ### 6.2 Release checklist — v0.1.0
 
