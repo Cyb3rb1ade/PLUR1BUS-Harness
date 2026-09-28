@@ -86,7 +86,7 @@ export async function startFakeSupervisor(o: { home: string; config: Record<stri
         const fail = (error: string, reason: string) => sock.write(encodeLine({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: error, data: { error, reason } } }));
         if (msg.method === "supervisor.auth") {
           authed = msg.params?.token === p.token;
-          if (authed) reply({ rpc: "1.3.0", instanceId: "fake-supervisor", pid: process.pid }); else fail("E_UNAUTHORIZED", "bad-token");
+          if (authed) reply({ rpc: "1.4.0", instanceId: "fake-supervisor", pid: process.pid }); else fail("E_UNAUTHORIZED", "bad-token");
           continue;
         }
         if (!authed) { fail("E_UNAUTHORIZED", "auth-required"); continue; }

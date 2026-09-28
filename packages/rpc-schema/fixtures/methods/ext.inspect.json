@@ -1,0 +1,13 @@
+{ "params": { "source": { "path": "/tmp/demo-skill.p1x" } },
+  "result": {
+    "inspectionId": "insp-7f3a9c",
+    "expiresAt": "2026-09-28T12:10:00Z",
+    "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "manifest": { "id": "local/demo-skill", "name": "demo-skill", "version": "1.0.0", "kind": "skill" },
+    "trust": { "tier": "unsigned" },
+    "checks": [ { "id": "archive", "status": "pass", "detail": "3 files" }, { "id": "signature", "status": "warn", "detail": "unsigned" } ],
+    "capabilities": {},
+    "scripts": [],
+    "requires": {},
+    "replaces": { "version": "0.9.0", "capabilityDiff": { "changed": false } }
+  } }

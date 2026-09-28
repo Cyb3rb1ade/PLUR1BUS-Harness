@@ -408,3 +408,48 @@ fn write_atomic_is_private_reports_the_final_stamp_and_stale_temps_are_removed()
     assert!(!stale.exists() && p.exists());
     assert!(remove_stale_temps(&p).is_empty());
 }
+
+#[test]
+fn extension_keys_have_restart_classes_tiers_and_defaults() {
+    assert_eq!(restart_class_of("extensions.trashDays"), RestartClass::Live);
+    assert_eq!(
+        restart_class_of("extensions.allowUnsigned"),
+        RestartClass::Live
+    );
+    assert_eq!(
+        restart_class_of("extensions.limits.packageBytes"),
+        RestartClass::Live
+    );
+    assert_eq!(
+        restart_class_of("agents.bernd.skills.blocked"),
+        RestartClass::Live
+    );
+    assert_eq!(tier_of("agents.bernd.skills.blocked"), Tier::Advanced);
+    assert_eq!(tier_of("extensions.trashDays"), Tier::Advanced);
+    let d = defaults();
+    assert_eq!(d["extensions"]["allowUnsigned"], true);
+    assert_eq!(d["extensions"]["trashDays"], 14);
+    assert_eq!(d["extensions"]["limits"]["packageBytes"], 268435456);
+    assert_eq!(d["extensions"]["limits"]["skillBytes"], 16777216);
+}
+
+#[test]
+fn extension_and_agent_skills_values_are_validated() {
+    let mut c = defaults();
+    c["agents"]["bernd"] =
+        json!({ "skills": { "blocked": ["demo-skill"], "pinned": [], "applyAt": "next-session" } });
+    assert!(validate(&c).is_ok());
+    c["agents"]["bernd"]["skills"]["applyAt"] = json!("never");
+    assert!(validate(&c).is_err());
+    let mut c = defaults();
+    c["extensions"]["trashDays"] = json!(0);
+    assert!(validate(&c).is_err());
+    c["extensions"]["trashDays"] = json!(366);
+    assert!(validate(&c).is_err());
+    let mut c = defaults();
+    c["extensions"]["limits"]["packageBytes"] = json!(1048575);
+    assert!(validate(&c).is_err());
+    let mut c = defaults();
+    c["extensions"]["bogus"] = json!(1);
+    assert!(validate(&c).is_err());
+}

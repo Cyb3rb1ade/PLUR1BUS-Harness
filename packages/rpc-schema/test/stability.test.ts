@@ -44,7 +44,7 @@ describe("rpc-schema stability annotations", () => {
     for (const [name, def] of Object.entries(notifications) as [string, { "x-server"?: string }][]) {
       assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor", `${name} x-server`);
     }
-    assert.deepEqual([...NOTIFICATIONS_BY_SERVER.supervisor], ["config.changed", "module.state"]);
+    assert.deepEqual([...NOTIFICATIONS_BY_SERVER.supervisor], ["config.changed", "module.state", "ext.changed"]);
     assert.deepEqual([...NOTIFICATIONS_BY_SERVER.core, ...NOTIFICATIONS_BY_SERVER.supervisor].sort(), [...NOTIFICATIONS].sort());
   });
 
@@ -65,9 +65,9 @@ describe("rpc-schema stability annotations", () => {
     assert.ok(core.methods["core.adopt"]);
     assert.equal(core.methods["daemon.status"], undefined);
     const supervisor = buildCapabilities(["lifelines", "adoption"], "supervisor");
-    const supervisorMethods = ["config.get", "config.set", "config.watch", "daemon.start", "daemon.status", "daemon.stop", "module.graph", "module.install", "module.list", "module.restart", "module.start", "module.stop", "module.uninstall", "module.watch", "supervisor.auth"];
+    const supervisorMethods = ["config.get", "config.set", "config.watch", "daemon.start", "daemon.status", "daemon.stop", "ext.disable", "ext.enable", "ext.inspect", "ext.install", "ext.list", "ext.restore", "ext.show", "ext.uninstall", "ext.watch", "module.graph", "module.install", "module.list", "module.restart", "module.start", "module.stop", "module.uninstall", "module.watch", "supervisor.auth"];
     assert.deepEqual(Object.keys(supervisor.methods).sort(), supervisorMethods);
-    assert.deepEqual(Object.keys(supervisor.notifications), ["config.changed", "module.state"]);
+    assert.deepEqual(Object.keys(supervisor.notifications), ["config.changed", "module.state", "ext.changed"]);
     assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);
     assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), supervisorMethods);
     assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module].sort(), [...METHODS].sort());
@@ -82,9 +82,9 @@ describe("rpc-schema stability annotations", () => {
     }
   });
 
-  it("RPC_VERSION is 1.3.0 and matches the $id", () => {
-    assert.equal(RPC_VERSION, "1.3.0");
-    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.3.0/rpc.schema.json");
+  it("RPC_VERSION is 1.4.0 and matches the $id", () => {
+    assert.equal(RPC_VERSION, "1.4.0");
+    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.4.0/rpc.schema.json");
   });
 
   it("core.status journalReplay (1.3.0) is optional, closed and experimental", () => {

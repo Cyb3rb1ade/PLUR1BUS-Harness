@@ -390,7 +390,7 @@ fn setup_non_interactive_installs_everything_but_the_service() {
     assert_eq!(m["core"]["source"], "local");
     assert_eq!(m["core"]["version"], "0.1.0");
     assert_eq!(m["core"]["contract"], "1.9.0");
-    assert_eq!(m["core"]["rpc"], "1.3.0");
+    assert_eq!(m["core"]["rpc"], "1.4.0");
     let skills: Vec<&str> = m["skills"]
         .as_array()
         .unwrap()

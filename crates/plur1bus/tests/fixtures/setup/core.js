@@ -193,7 +193,7 @@ function engineStatus() {
 
 function coreStatus() {
   return {
-    process: { state: reportedState(), since: started }, contract: "1.9.0", rpc: "1.3.0", instanceId, pid: process.pid,
+    process: { state: reportedState(), since: started }, contract: "1.9.0", rpc: "1.4.0", instanceId, pid: process.pid,
     uptimeMs: Date.now() - started, engine: engineStatus(), agents: [],
     ...(process.env.FAKE_CORE_JOBS ? { jobs: JSON.parse(process.env.FAKE_CORE_JOBS) } : {}),
     ...(restartPending === null ? {} : { config: { revision: null, source: "file", restartPending } }),
@@ -232,7 +232,7 @@ const server = net.createServer((sock) => {
         return;
       }
       authed = true;
-      send({ id, result: { contract: "1.9.0", rpc: "1.3.0", instanceId, pid: process.pid } });
+      send({ id, result: { contract: "1.9.0", rpc: "1.4.0", instanceId, pid: process.pid } });
       return;
     }
     if (!authed) {

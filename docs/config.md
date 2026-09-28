@@ -29,6 +29,10 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `supervisor.healthIntervalMs` | integer | `5000` | live |  |
 | `logs.maxBytes` | integer | `20971520` | live |  |
 | `logs.keep` | integer | `5` | live |  |
+| `extensions.allowUnsigned` | boolean | `true` | live |  |
+| `extensions.trashDays` | integer | `14` | live |  |
+| `extensions.limits.packageBytes` | integer | `268435456` | live |  |
+| `extensions.limits.skillBytes` | integer | `16777216` | live |  |
 | `embedding.acceptedNcLicence` | boolean | `false` | core |  |
 | `embedding.acceptedNcLicenceAt` | string |  | core |  |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [55 engine keys, all advanced and core](config-engine-keys.md). |

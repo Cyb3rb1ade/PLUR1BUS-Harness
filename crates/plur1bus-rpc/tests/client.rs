@@ -454,7 +454,7 @@ fn a_supervisor_hello_with_the_wrong_shape_is_a_protocol_error() {
 #[test]
 fn connect_endpoint_module_uses_module_auth_and_checks_its_shape() {
     let hello = json!({
-        "rpc": "1.3.0",
+        "rpc": "1.4.0",
         "instanceId": "m",
         "pid": 8,
         "module": {"name": "fixture", "version": "0.1.0", "apiVersion": "1"},
@@ -478,7 +478,7 @@ fn connect_endpoint_module_uses_module_auth_and_checks_its_shape() {
     assert!(c.supports("module.status"));
     assert!(!c.supports("core.status"));
     // A hello without `module` is not a module's.
-    let (addr2, _) = recording_server(json!({"rpc": "1.3.0", "instanceId": "m", "pid": 8}));
+    let (addr2, _) = recording_server(json!({"rpc": "1.4.0", "instanceId": "m", "pid": 8}));
     let e = Client::connect(&addr2, TOKEN, opts)
         .err()
         .expect("a hello without module must fail");
