@@ -1,12 +1,14 @@
 // assemble-payload.mjs (2a-H3b-b Task 10, HB18): the per-target core payload `core-<ver>-<target>.tar.gz` that
 // `setup` installs to `runtime/core`. The deployed tree comes from a fixture here (the workflow runs the real
-// `pnpm deploy`); the archive is listed with the system `tar`, which reads the same ustar/pax format as the Rust
-// extractor (`install::archive`).
+// `pnpm deploy`). Names, types, modes and contents are read from the archive's own headers (`readTar`, platform
+// independent: Windows has no exec bit and bsdtar prints CRLF); the system `tar` lists it too, as an independent reader
+// of the same ustar/pax format the Rust extractor (`install::archive`) reads.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 // @ts-expect-error: a plain .mjs script without type declarations
@@ -17,9 +19,48 @@ const put = (p: string, body: string) => {
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, body);
 };
-/** `tar -tzvf`-style listing without dates: `<type><mode> <name>[ -> target]`. */
+const WIN = process.platform === "win32";
+type TarEntry = { name: string; type: string; mode: number; data: Buffer };
+/** Every entry of a `.tar.gz` as its headers record it (ustar plus pax `path`/`linkpath` records). Directory names
+ *  lose their trailing `/`. */
+function readTar(archive: string): TarEntry[] {
+  const buf = gunzipSync(readFileSync(archive));
+  const out: TarEntry[] = [];
+  const str = (b: Buffer) => b.toString("utf8").replace(/\0.*$/s, "");
+  let pax: Record<string, string> = {};
+  for (let off = 0; off + 512 <= buf.length; ) {
+    const h = buf.subarray(off, off + 512);
+    if (h.every((b) => b === 0)) break;
+    const size = Number.parseInt(str(h.subarray(124, 136)).trim() || "0", 8);
+    const type = String.fromCharCode(h[156] || 48);
+    const data = buf.subarray(off + 512, off + 512 + size);
+    off += 512 + Math.ceil(size / 512) * 512;
+    if (type === "x") {
+      pax = {};
+      for (const rec of data.toString("utf8").split("\n").filter(Boolean)) {
+        const kv = rec.slice(rec.indexOf(" ") + 1);
+        pax[kv.slice(0, kv.indexOf("="))] = kv.slice(kv.indexOf("=") + 1);
+      }
+      continue;
+    }
+    const prefix = str(h.subarray(345, 500));
+    const name = pax.path ?? (prefix ? `${prefix}/${str(h.subarray(0, 100))}` : str(h.subarray(0, 100)));
+    out.push({ name: name.replace(/\/$/, ""), type, mode: Number.parseInt(str(h.subarray(100, 108)).trim(), 8), data: Buffer.from(data) });
+    pax = {};
+  }
+  return out;
+}
+/** The system `tar`'s listing (bsdtar on Windows prints CRLF). */
+function systemList(archive: string): string[] {
+  return execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split(/\r?\n/).map((l) => l.trim().replace(/\/$/, "")).filter(Boolean);
+}
 function list(archive: string): string[] {
-  return execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n").filter(Boolean).map((l) => l.replace(/\/$/, ""));
+  return readTar(archive).map((e) => e.name);
+}
+function entry(archive: string, name: string): TarEntry {
+  const e = readTar(archive).find((x) => x.name === name);
+  assert.ok(e, `${name} in the archive`);
+  return e;
 }
 /** A fake `pnpm deploy --prod` tree of the core. */
 function deployed(root: string): string {
@@ -33,7 +74,9 @@ function deployed(root: string): string {
   put(join(d, "node_modules/@plur1bus/rpc-schema/schema/rpc.schema.json"), JSON.stringify({ "x-rpc-version": "1.3.0" }));
   put(join(d, "node_modules/semver/bin/semver.js"), "#!/usr/bin/env node\n");
   mkdirSync(join(d, "node_modules/.bin"), { recursive: true });
-  if (process.platform !== "win32") symlinkSync("../semver/bin/semver.js", join(d, "node_modules/.bin/semver"));
+  // pnpm writes links on unix and `.cmd` shims on Windows; `.bin` is skipped either way.
+  if (WIN) put(join(d, "node_modules/.bin/semver.cmd"), "@node ..\\semver\\bin\\semver.js %*");
+  else symlinkSync("../semver/bin/semver.js", join(d, "node_modules/.bin/semver"));
   return d;
 }
 
@@ -52,23 +95,27 @@ describe("assemble-payload", () => {
       const long = `node_modules/${"a".repeat(35)}/${"b".repeat(35)}/${"c".repeat(35)}/index.js`;
       put(join(src, long), "long");
       put(join(src, "bin/run"), "#!/bin/sh\n");
-      if (process.platform !== "win32") chmodSync(join(src, "bin/run"), 0o755);
+      if (!WIN) chmodSync(join(src, "bin/run"), 0o755);
       mkdirSync(join(src, "empty"));
       const a = join(root, "a.tar.gz");
       const b = join(root, "b.tar.gz");
       await writeTarGz(src, a);
       await writeTarGz(src, b);
       assert.equal(sha(a), sha(b), "same tree, same bytes");
-      const names = list(a);
+      const entries = readTar(a);
+      const names = entries.map((e) => e.name);
       assert.ok(names.includes(long), `long name kept: ${names.join(", ")}`);
-      assert.ok(names.includes("empty"));
-      const out = join(root, "x");
-      mkdirSync(out);
-      execFileSync("tar", ["-xzf", a, "-C", out]);
-      assert.equal(readFileSync(join(out, long), "utf8"), "long");
-      if (process.platform !== "win32") {
-        const verbose = execFileSync("tar", ["-tvzf", a], { encoding: "utf8" });
-        assert.match(verbose, /^-rwxr-xr-x .* bin\/run$/m);
+      assert.equal(entry(a, long).data.toString("utf8"), "long");
+      assert.equal(entry(a, "empty").type, "5");
+      assert.deepEqual(systemList(a).sort(), [...names].sort(), "the system tar reads the same entries");
+      for (const e of entries) {
+        assert.ok(e.type === "0" || e.type === "5", `${e.name}: only files and directories (type ${e.type})`);
+        // Modes as the archive carries them: directories 0755; files 0644, or 0755 where the file system has an exec
+        // bit (not on Windows, where the builder records none).
+        const exec = e.name === "bin/run" && !WIN;
+        assert.equal(e.mode, e.type === "5" || exec ? 0o755 : 0o644, `${e.name} mode ${e.mode.toString(8)}`);
+      }
+      if (!WIN) {
         // A symlink outside node_modules/.bin is refused: the Rust extractor cannot create links on Windows.
         symlinkSync("run", join(src, "bin/link"));
         await assert.rejects(writeTarGz(src, join(root, "c.tar.gz")), /symlink/);
@@ -94,10 +141,9 @@ describe("assemble-payload", () => {
         assert.ok(names.includes(n), `${n} in ${names.join(", ")}`);
       }
       for (const n of names) assert.ok(!/^(src|test|dist)(\/|$)/.test(n) && !n.includes(".bin"), `${n} is not shipped`);
-      const x = join(root, "x");
-      mkdirSync(x);
-      execFileSync("tar", ["-xzf", out, "-C", x]);
-      const pkg = JSON.parse(readFileSync(join(x, "package.json"), "utf8"));
+      for (const e of readTar(out)) assert.ok(e.type === "0" || e.type === "5", `${e.name}: no links (type ${e.type})`);
+      assert.deepEqual(systemList(out).sort(), [...names].sort(), "the system tar reads the same entries");
+      const pkg = JSON.parse(entry(out, "package.json").data.toString("utf8"));
       assert.deepEqual(pkg.plur1bus, { contract: "1.9.0", rpc: "1.3.0" }, "setup reads the contract and rpc from here");
       assert.equal(pkg.version, "0.1.0");
     } finally {

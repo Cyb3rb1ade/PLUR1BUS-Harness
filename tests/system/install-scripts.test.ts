@@ -28,7 +28,10 @@ function fakeWindowsBinary(dir: string): Buffer {
   if (fakeExe) return fakeExe;
   const out = join(dir, "fake-plur1bus.exe");
   const src = 'public static class P { public static int Main(string[] a) { System.Console.WriteLine("fake-plur1bus"); foreach (string s in a) System.Console.WriteLine("[" + s + "]"); return 0; } }';
-  execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `Add-Type -OutputType ConsoleApplication -OutputAssembly '${out}' -TypeDefinition '${src}'`], { stdio: "pipe" });
+  // The source goes through a file, not the command line: no quoting between Node, CreateProcess and PowerShell.
+  const cs = join(dir, "fake-plur1bus.cs");
+  writeFileSync(cs, src);
+  execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `Add-Type -OutputType ConsoleApplication -OutputAssembly '${out}' -Path '${cs}'`], { stdio: "pipe" });
   fakeExe = readFileSync(out);
   return fakeExe;
 }
@@ -88,7 +91,9 @@ function installed(f: Fixture): string {
 function run(f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string) {
   const base: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_INSTALL_FEED: f.feed, PLUR1BUS_CHANNEL: "stable" };
   if (WIN) {
-    Object.assign(base, { USERPROFILE: f.home, LOCALAPPDATA: join(f.home, "AppData", "Local") });
+    // Only LOCALAPPDATA moves into the temp home; PowerShell itself also writes caches below it
+    // (Microsoft\Windows\PowerShell), which is why the checks look only at the install root (`ours`).
+    base.LOCALAPPDATA = join(f.home, "AppData", "Local");
     const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", INSTALL_PS1, ...args], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000 });
     return { status: r.status, stdout: r.stdout, stderr: r.stderr };
   }
@@ -98,8 +103,14 @@ function run(f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
-/** Every file below the home (an install that refused must leave none, temp files included). */
+/** Every file the installer may have written: below the home on unix, below %LOCALAPPDATA%\PLUR1BUS on Windows (an
+ *  install that refused must leave none, temp files included). */
+function ours(f: Fixture): string[] {
+  return filesUnder(WIN ? join(f.home, "AppData", "Local", "PLUR1BUS") : f.home);
+}
+
 function filesUnder(dir: string): string[] {
+  if (!existsSync(dir)) return [];
   const out: string[] = [];
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
@@ -122,7 +133,7 @@ describe(`one-line installer (${NAME})`, () => {
       const bin = installed(f);
       assert.deepEqual(readFileSync(bin), f.binary);
       if (!WIN) assert.equal(statSync(bin).mode & 0o777, 0o755);
-      assert.deepEqual(filesUnder(f.home), [bin], "only the binary is left behind");
+      assert.deepEqual(ours(f), [bin], "only the binary is left behind");
     } finally {
       rmSync(f.root, { recursive: true, force: true });
     }
@@ -147,7 +158,7 @@ describe(`one-line installer (${NAME})`, () => {
       assert.equal(r.status, 1, `exit 1\n${r.stdout}\n${r.stderr}`);
       assert.match(r.stderr, /checksum mismatch/i);
       assert.doesNotMatch(r.stdout, /fake-plur1bus/, "nothing ran");
-      assert.deepEqual(filesUnder(f.home), [], "nothing installed, no temp file left");
+      assert.deepEqual(ours(f), [], "nothing installed, no temp file left");
     } finally {
       rmSync(f.root, { recursive: true, force: true });
     }
@@ -170,7 +181,7 @@ describe(`one-line installer (${NAME})`, () => {
       assert.equal(r.status, 1, `exit 1\n${r.stdout}\n${r.stderr}`);
       assert.match(r.stderr, /unsupported target/i);
       assert.doesNotMatch(r.stdout, /fake-plur1bus/);
-      assert.deepEqual(filesUnder(f.home), [], "nothing installed");
+      assert.deepEqual(ours(f), [], "nothing installed");
     } finally {
       rmSync(f.root, { recursive: true, force: true });
     }
