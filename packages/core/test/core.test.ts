@@ -1,7 +1,9 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { CORE_FEATURES } from "../src/capabilities.ts";
@@ -11,6 +13,7 @@ import { layout } from "../src/paths.ts";
 import { flatEmbedder, flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
+const killAfterStore = fileURLToPath(new URL("./helpers/kill-after-store.ts", import.meta.url));
 const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
 
 function newHome(): string {
@@ -305,6 +308,34 @@ describe("core journal backlog (Task 15, E4)", () => {
       assert.deepEqual(readdirSync(l.journal), [], "the duplicate line left the journal");
       const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
       assert.equal(items.filter((x: any) => /gutter cleaning/.test(x.text)).length, 1, JSON.stringify(items.map((x: any) => x.text)));
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
+
+  // Kill soak, ubuntu CI (seed 3846737509, fact 160 stored twice): a core SIGKILLed while it replays a line, after the
+  // engine committed the line's row to LanceDB and before its turn guard (`<lancedb>/_capture-turns/<agent>.json`)
+  // recorded the turn, leaves the row stored, the guard without the turn and the line in its `.replaying-<pid>` file;
+  // the next core stores it again. The row and the guard are two separate writes, and under live turns served while
+  // the journal replays (B2) the commit's continuation waits behind other work, so the window reaches tens of ms.
+  // Here the kill lands there on purpose: the child core SIGKILLs itself on the engine's "stored memory" log line.
+  // The harness cannot close it: only the engine knows a turn's rows (chunking stores the whole text and its parts, so
+  // a lookup of stored rows by turn cannot tell a finished turn from a SIGKILLed half), and its public surface carries
+  // no turn id. `todo` until the engine records a turn durably before its first row (engine follow-up).
+  it("a core SIGKILLed after a replayed line's row was stored, before its turn guard recorded it, stores the line once", { todo: "engine: the turn guard is written after the row commit, not atomically with it" }, async () => {
+    const home = newHome(); const l = layout(home);
+    const text = "Please remember that the chimney sweep comes on Tuesday at eight.";
+    appendJournalLine(l.journal, jline("77777777-7777-4777-8777-777777777777", text));
+    const child = spawn(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings", killAfterStore, home], { stdio: ["ignore", "ignore", "inherit"] });
+    const exit = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((res) => child.once("exit", (code, signal) => res({ code, signal })));
+    assert.equal(exit.signal, "SIGKILL", `the child died on its own kill: ${JSON.stringify(exit)}`);
+    assert.deepEqual(readdirSync(l.journal), [`bernd.jsonl.replaying-${child.pid}`], "the line stayed in the replay's file");
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      await replayDone(core, (x) => x.journalBacklog === 0);
+      assert.deepEqual(readdirSync(l.journal), [], "the line left the journal");
+      const { items } = await c.call<any>("memory.list", { caller, agentId: "bernd", since: 0, limit: 100 });
+      assert.equal(items.filter((x: any) => /chimney sweep/.test(x.text)).length, 1, JSON.stringify(items.map((x: any) => x.text)));
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
 });
