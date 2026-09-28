@@ -167,6 +167,8 @@ export interface PortabilityReport {
   movedFrom: string[];
   mapped: { key: string; value: string; path: string; how: MapHow }[];
   unmapped: { key: string; value: string; reason: UnmappedReason }[];
+  /** Names the target volume cannot hold apart or at all (§B.6), e.g. Hermes profiles `Work` and `work`. */
+  problems: { kind: "case-collision" | "unportable-name"; subject: string; names: string[] }[];
 }
 
 /** `--map <source-prefix>=<local-prefix>` entries (split at the first `=`). */
@@ -197,6 +199,7 @@ export class SourcePathMapper {
   private readonly env: NodeJS.ProcessEnv | undefined;
   private readonly mapped: PortabilityReport["mapped"] = [];
   private readonly unmapped: PortabilityReport["unmapped"] = [];
+  private readonly problems: PortabilityReport["problems"] = [];
 
   /** `vars`: `${NAME}` values the source binds itself; `env`: the source-side environment, for sources that expand
    *  `$VAR`/`${VAR}` (and `%VAR%` on Windows) in paths — only ever the environment captured on the source side. */
@@ -222,9 +225,11 @@ export class SourcePathMapper {
     return r;
   }
 
+  problem(p: PortabilityReport["problems"][number]): void { this.problems.push(p); }
+
   report(): PortabilityReport {
     const l = this.loc;
-    return { origin: l.origin, flavour: l.flavour, sourceRoot: l.sourceRoot, sourceHome: l.sourceHome, movedFrom: [...this.movedFrom], mapped: [...this.mapped], unmapped: [...this.unmapped] };
+    return { origin: l.origin, flavour: l.flavour, sourceRoot: l.sourceRoot, sourceHome: l.sourceHome, movedFrom: [...this.movedFrom], mapped: [...this.mapped], unmapped: [...this.unmapped], problems: [...this.problems] };
   }
 
   private access(base: string, rel: readonly string[], how: MapHow, source: string): MapResult {
@@ -296,6 +301,7 @@ export class SourcePathMapper {
 export function portabilityOf(m: SourcePathMapper, warnings: string[]): PortabilityReport {
   const r = m.report();
   if (r.movedFrom.length) warnings.push(`the source root was moved or copied from ${r.movedFrom.join(", ")}; config paths under it were rebased onto ${m.loc.accessRoot}`);
+  for (const p of r.problems) warnings.push(`${p.kind} in ${p.subject}: ${p.names.join(", ")} (the target volume cannot hold ${p.kind === "case-collision" ? "them apart" : "these names"}; rename on the source before M7 imports them)`);
   if (r.unmapped.length) warnings.push(`${r.unmapped.length} config path(s) could not be mapped to a local path (portability.unmapped); pass --map <source-prefix>=<local-prefix>`);
   return r;
 }

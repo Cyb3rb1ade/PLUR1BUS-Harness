@@ -12,7 +12,7 @@ export type OnConflict = "skip" | "rename" | "replace";
 export type SkillAction = "import" | "adopt" | "skip-identical" | "conflict-skip" | "rename" | "replace" | "refuse";
 export interface PlannedSkill { skill: ScannedSkill; action: SkillAction; targetId: string | null; reason: string | null; harness: HarnessSkillState }
 
-interface Taken { sha: string | null; origin: "harness" | "run"; state: HarnessSkillState }
+interface Taken { sha: string | null; text: string | null; origin: "harness" | "run"; state: HarnessSkillState }
 
 function renameTarget(id: string, sourceType: SourceType, taken: Map<string, Taken>): string {
   for (let n = 1; n < 10_000; n++) {
@@ -29,28 +29,30 @@ export function planSkills(scanned: readonly ScannedSkill[], home: string, sourc
   const none: HarnessSkillState = { exists: false, indexed: false, sha256: null };
   for (const id of new Set([...idx.skills.map((e) => e.id), ...storedIds(home)])) {
     const state = harnessSkillState(home, id, idx);
-    taken.set(id, { sha: state.sha256, origin: "harness", state });
+    taken.set(id, { sha: state.sha256, text: state.textSha256 ?? null, origin: "harness", state });
   }
   const out: PlannedSkill[] = [];
   for (const skill of scanned) {
     const t = taken.get(skill.id);
     const harness = t?.origin === "harness" ? t.state : none;
     if (skill.problems.length) { out.push({ skill, action: "refuse", targetId: null, reason: skill.problems.join(","), harness }); continue; }
-    const claim = (id: string) => taken.set(id, { sha: skill.sha256, origin: "run", state: none });
+    const claim = (id: string) => taken.set(id, { sha: skill.sha256, text: skill.textSha256, origin: "run", state: none });
     if (!t) { claim(skill.id); out.push({ skill, action: "import", targetId: skill.id, reason: null, harness }); continue; }
-    if (t.sha === skill.sha256) {
+    // Same bytes, or the same text up to CRLF/BOM (a Windows checkout of the same skill, §9.2 text hash).
+    const textTwin = t.sha !== skill.sha256 && t.text !== null && t.text === skill.textSha256;
+    if (t.sha === skill.sha256 || textTwin) {
       if (t.origin === "run") out.push({ skill, action: "skip-identical", targetId: skill.id, reason: "duplicate-in-source", harness });
       else if (t.state.exists && !t.state.indexed) out.push({ skill, action: "adopt", targetId: skill.id, reason: "folder-present-not-indexed", harness });
       else if (!t.state.exists) { out.push({ skill, action: "import", targetId: skill.id, reason: "index-entry-without-folder", harness }); t.state = { ...t.state, exists: true }; }
-      else out.push({ skill, action: "skip-identical", targetId: skill.id, reason: null, harness });
+      else out.push({ skill, action: "skip-identical", targetId: skill.id, reason: textTwin ? "line-endings-differ" : null, harness });
       continue;
     }
     if (t.origin === "harness" && !t.state.exists) {
       // Indexed but no folder, different hash: nothing on disk to protect.
-      out.push({ skill, action: "import", targetId: skill.id, reason: "index-entry-without-folder", harness }); taken.set(skill.id, { sha: skill.sha256, origin: "run", state: none }); continue;
+      out.push({ skill, action: "import", targetId: skill.id, reason: "index-entry-without-folder", harness }); taken.set(skill.id, { sha: skill.sha256, text: skill.textSha256, origin: "run", state: none }); continue;
     }
     if (onConflict === "rename") { const id = renameTarget(skill.id, sourceType, taken); claim(id); out.push({ skill, action: "rename", targetId: id, reason: t.origin === "run" ? "shadowed-in-source" : "id-taken", harness }); continue; }
-    if (onConflict === "replace" && t.origin === "harness") { taken.set(skill.id, { sha: skill.sha256, origin: "run", state: none }); out.push({ skill, action: "replace", targetId: skill.id, reason: "id-taken", harness }); continue; }
+    if (onConflict === "replace" && t.origin === "harness") { taken.set(skill.id, { sha: skill.sha256, text: skill.textSha256, origin: "run", state: none }); out.push({ skill, action: "replace", targetId: skill.id, reason: "id-taken", harness }); continue; }
     out.push({ skill, action: "conflict-skip", targetId: null, reason: t.origin === "run" ? "shadowed-in-source" : "id-taken", harness });
   }
   return out;
@@ -186,7 +188,9 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
             renameSync(staged, dest);
           }
           const entries = idx.skills.filter((x) => x.id !== targetId);
-          entries.push({ id: targetId, source: o.sourceType, sourcePath: p.skill.path, sha256: p.skill.sha256!, enabled: o.enable, importedAt: now().toISOString() });
+          // An adopted folder may be the CRLF/LF twin of the source: the index records the bytes on disk.
+          const sha256 = p.action === "adopt" ? p.harness.sha256 ?? p.skill.sha256! : p.skill.sha256!;
+          entries.push({ id: targetId, source: o.sourceType, sourcePath: p.skill.path, sha256, enabled: o.enable, importedAt: now().toISOString() });
           idx.skills = entries;
           writeIndex(home, idx);
           e.enabled = o.enable;

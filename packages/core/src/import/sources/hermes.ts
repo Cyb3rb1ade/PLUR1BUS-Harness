@@ -5,6 +5,7 @@
 import { join, resolve } from "node:path";
 import { envGet, expandTilde, expandUser, expandVars, locateSource, pathFor, portabilityOf, SourcePathMapper, userHome } from "../paths.ts";
 import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables } from "../readonly.ts";
+import { caseCollisions, caseInsensitiveTarget, unportableName } from "../skills-scan.ts";
 import { subdirs } from "../store-scan.ts";
 import { readYaml } from "../yaml-lite.ts";
 import { ImportError, secretConfigKeys, type AgentInfo, type SecretsReport, type SkillRoot, type SourceCtx, type SourceReport } from "../types.ts";
@@ -102,6 +103,11 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
   const SP = pathFor(loc.flavour);
   const base = SP.basename(loc.sourceRoot);
   const mapper = new SourcePathMapper(loc, { maps: ctx.maps, rootNames: base === ".hermes" || base === "hermes" ? [".hermes", "hermes"] : [], env: loc.origin === "native" ? ctx.env : undefined });
+  // Profile names become agent ids on the target: a case-insensitive volume (Windows, default macOS) merges `Work`
+  // and `work`; Windows cannot hold `con` or `work.` at all (§B.6).
+  const target = ctx.targetPlatform ?? ctx.platform ?? process.platform;
+  if (caseInsensitiveTarget(target)) for (const [a, b] of caseCollisions(names)) mapper.problem({ kind: "case-collision", subject: "profiles", names: [a, b] });
+  if (target === "win32") { const bad = names.filter((n) => unportableName(n)); if (bad.length) mapper.problem({ kind: "unportable-name", subject: "profiles", names: bad }); }
   const skillRoots: SkillRoot[] = [];
   for (const p of profiles) {
     skillRoots.push({ dir: join(p.dir, "skills"), tier: "profile", agentId: p.agentId, precedence: 3 });

@@ -54,14 +54,15 @@ export function storedIds(home: string): string[] {
 
 function readdirSafe(d: string): string[] { try { return readdirSync(d); } catch { return []; } }
 
-export interface HarnessSkillState { exists: boolean; indexed: boolean; sha256: string | null }
+export interface HarnessSkillState { exists: boolean; indexed: boolean; sha256: string | null; textSha256?: string | null }
 /** The harness's own copy of `id`: present on disk and/or in the index, and its folder hash (from disk). */
 export function harnessSkillState(home: string, id: string, idx: SkillIndex = readIndex(home)): HarnessSkillState {
   const dir = join(skillsDir(home), id);
   const exists = isDir(dir);
   const entry = idx.skills.find((e) => e.id === id);
-  const sha256 = exists ? scanSkill(dir, { tier: "harness", agentId: null, precedence: 0 }, { maxBytes: 1024 * 1024 * 1024, maxFiles: 1_000_000 }).sha256 : entry?.sha256 ?? null;
-  return { exists, indexed: !!entry, sha256 };
+  if (!exists) return { exists, indexed: !!entry, sha256: entry?.sha256 ?? null, textSha256: null };
+  const s = scanSkill(dir, { tier: "harness", agentId: null, precedence: 0 }, { maxBytes: 1024 * 1024 * 1024, maxFiles: 1_000_000, targetPlatform: "linux" });
+  return { exists, indexed: !!entry, sha256: s.sha256, textSha256: s.textSha256 };
 }
 
 export const importsDir = (home: string) => join(home, "imports");

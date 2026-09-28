@@ -18,6 +18,8 @@ export interface SourceCtx {
   homedir: string;
   /** The host platform whose path rules apply (injected by tests; default: this process's). */
   platform?: NodeJS.Platform | undefined;
+  /** The platform of the volume the harness copies to, for name hazards (default: `platform`). */
+  targetPlatform?: NodeJS.Platform | undefined;
   /** `--map <source-prefix>=<local-prefix>` rules (§B.4). */
   maps?: Mount[] | undefined;
   /** The harness home the target is read from (never written by detect). */

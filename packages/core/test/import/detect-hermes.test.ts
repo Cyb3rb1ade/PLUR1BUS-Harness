@@ -79,6 +79,26 @@ describe("Hermes external skill dirs through the path mapper (G3)", () => {
   });
 });
 
+describe("Hermes profile names on case-insensitive or Windows targets (G9)", () => {
+  it("reports Work/work and names Windows cannot hold", async () => {
+    const d = tempDir("p1b-imp-");
+    writeFileSync(join(d, "config.yaml"), "_config_version: 45\n");
+    // `con` only where the OS can hold it (on Windows it would leave a device-name directory Explorer cannot delete).
+    for (const n of ["Work", "work", ...(process.platform === "win32" ? [] : ["con"])]) {
+      try { mkdirSync(join(d, "profiles", n), { recursive: true }); } catch { /* a case-insensitive volume holds one of Work/work */ }
+    }
+    const names = (await detectHermes(ctxFor(d))).agents.map((a) => a.agentId).filter((n) => n !== "default");
+    // What this volume could hold: Windows refuses `con`, a case-insensitive volume keeps one of Work/work.
+    const expected: unknown[] = names.includes("Work") && names.includes("work") ? [{ kind: "case-collision", subject: "profiles", names: ["Work", "work"] }] : [];
+    if (names.includes("con")) expected.push({ kind: "unportable-name", subject: "profiles", names: ["con"] });
+    const onWin = await detectHermes({ ...ctxFor(d), targetPlatform: "win32" });
+    assert.deepEqual(onWin.portability.problems, expected);
+    assert.deepEqual((await detectHermes({ ...ctxFor(d), targetPlatform: "linux" })).portability.problems, []);
+    if (names.includes("con")) assert.ok(onWin.warnings.some((w) => w.startsWith("unportable-name in profiles: con")));
+    else console.log("# unportable-name on disk not asserted here: Windows cannot hold a profile named con (skills-hazards tests the rule)");
+  });
+});
+
 describe("Hermes refusals", () => {
   const code = async (p: Promise<unknown>) => { try { await p; return "resolved"; } catch (e) { return `${(e as ImportError).code}/${(e as ImportError).reason}`; } };
   it("refuses an empty dir, a missing profile and an unreadable config version", async () => {
