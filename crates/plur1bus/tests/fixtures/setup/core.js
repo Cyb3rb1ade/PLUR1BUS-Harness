@@ -155,6 +155,10 @@ let lifeline = null; // "stdin" or the adopting socket
 let graceTimer = null;
 
 function lost(source) {
+  // A hung core's event loop answers nothing, so it cannot notice its lifeline either: it never exits by itself, only
+  // the supervisor's kill ends it. (Reacting here let a late kill on a loaded Windows runner lose the race to the
+  // orphan grace, and the core "exited by itself".)
+  if (hung) return;
   if (stopping || lifeline !== source) return;
   lifeline = null;
   if (graceTimer) return;
