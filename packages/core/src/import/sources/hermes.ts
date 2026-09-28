@@ -3,7 +3,9 @@
 // sessions schema (hermes_state_common.py SCHEMA_VERSION), skill dirs (get_skills_dir, skills.external_dirs,
 // HERMES_OPTIONAL_SKILLS). Read-only throughout; each profile is its own agent (§3.3).
 import { join, resolve } from "node:path";
-import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables } from "../readonly.ts";
+import { envGet, expandTilde, expandUser, expandVars, locateSource, pathFor, portabilityOf, SourcePathMapper, userHome } from "../paths.ts";
+import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables, sqliteWarning } from "../readonly.ts";
+import { caseCollisions, caseInsensitiveTarget, unportableName } from "../skills-scan.ts";
 import { subdirs } from "../store-scan.ts";
 import { readYaml } from "../yaml-lite.ts";
 import { ImportError, secretConfigKeys, type AgentInfo, type SecretsReport, type SkillRoot, type SourceCtx, type SourceReport } from "../types.ts";
@@ -13,12 +15,32 @@ export const TESTED_SESSIONS_SCHEMA = 30;
 const ROOT_MARKERS = ["config.yaml", ".env", "state.db"];
 const PROFILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-const expandHome = (p: string, h: string) => (p === "~" ? h : p.startsWith("~/") ? join(h, p.slice(2)) : p);
+/** The platform default (hermes_constants.py `_get_platform_default_hermes_home`): `%LOCALAPPDATA%\hermes` on Windows
+ *  (else `~\AppData\Local\hermes`), `~/.hermes` elsewhere. */
+export function defaultHermesHome(env: NodeJS.ProcessEnv, homedir: string, platform: NodeJS.Platform): string {
+  const P = pathFor(platform);
+  const home = userHome(env, homedir, platform);
+  if (platform !== "win32") return P.join(home, ".hermes");
+  const local = envGet(env, "LOCALAPPDATA", platform)?.trim();
+  return P.join(local || P.join(home, "AppData", "Local"), "hermes");
+}
 
-export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.ProcessEnv; homedir: string }): { root: string; resolvedFrom: string } {
-  if (o.source) return { root: resolve(expandHome(o.source, o.homedir)), resolvedFrom: "flag:--source" };
-  if (o.env.HERMES_HOME?.trim()) return { root: resolve(expandHome(o.env.HERMES_HOME.trim(), o.homedir)), resolvedFrom: "env:HERMES_HOME" };
-  return { root: join(o.homedir, ".hermes"), resolvedFrom: "default" };
+/** `--source`, else `HERMES_HOME` (expandvars + expanduser, as Hermes does), else the platform default. A
+ *  `HERMES_HOME` of `<root>/profiles/<name>` (profile mode) resolves to `<root>` plus that profile
+ *  (`get_default_hermes_root`). */
+export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.ProcessEnv; homedir: string; platform?: NodeJS.Platform | undefined }): { root: string; resolvedFrom: string; profile: string | null } {
+  const platform = o.platform ?? process.platform;
+  const P = pathFor(platform);
+  if (o.source) return { root: P.resolve(expandTilde(o.source, o.homedir, platform)), resolvedFrom: "flag:--source", profile: null };
+  const env = envGet(o.env, "HERMES_HOME", platform)?.trim();
+  if (env) {
+    const p = P.resolve(expandUser(expandVars(env, o.env, platform), o.env, o.homedir, platform));
+    const parent = P.dirname(p);
+    const isProfiles = platform === "win32" ? P.basename(parent).toLowerCase() === "profiles" : P.basename(parent) === "profiles";
+    if (isProfiles && P.basename(p)) return { root: P.dirname(parent), resolvedFrom: "env:HERMES_HOME", profile: P.basename(p) };
+    return { root: p, resolvedFrom: "env:HERMES_HOME", profile: null };
+  }
+  return { root: defaultHermesHome(o.env, o.homedir, platform), resolvedFrom: "default", profile: null };
 }
 
 interface ProfileFacts { agentId: string; dir: string; config: Record<string, any>; configVersion: number | null; unsupported: string[] }
@@ -40,7 +62,7 @@ function sessionsSchema(dir: string, warnings: string[]): number | null {
     try {
       if (!sqliteTables(h.db).includes("schema_version")) return null;
       const row = h.db.prepare("SELECT version FROM schema_version LIMIT 1").get() as { version?: unknown } | undefined;
-      if (h.mode === "immutable") warnings.push("state.db is larger than the copy limit; read without its WAL");
+      const w = sqliteWarning(h, "state.db"); if (w) warnings.push(w);
       return Number.isSafeInteger(Number(row?.version)) && row?.version !== null ? Number(row!.version) : null;
     } finally { h.close(); }
   } catch (e) {
@@ -50,8 +72,12 @@ function sessionsSchema(dir: string, warnings: string[]): number | null {
 }
 
 export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
-  const { root, resolvedFrom } = resolveHermesRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir });
+  const { root, resolvedFrom, profile: envProfile } = resolveHermesRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
   const warnings: string[] = [];
+  if (envProfile !== null && ctx.profile !== undefined && ctx.profile !== envProfile) {
+    throw new ImportError("E_INVALID_PARAMS", "profile-conflict", `HERMES_HOME selects profile ${JSON.stringify(envProfile)} but --profile says ${JSON.stringify(ctx.profile)}`);
+  }
+  ctx = envProfile !== null ? { ...ctx, profile: envProfile } : ctx;
   if (!isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
   if (!ROOT_MARKERS.some((m) => isFile(join(root, m)))) throw new ImportError("E_SOURCE_NOT_FOUND", "not-a-hermes-home", `${root} has none of ${ROOT_MARKERS.join(", ")}`);
   if (ctx.profile !== undefined && (!PROFILE_RE.test(ctx.profile) || !isDir(join(root, "profiles", ctx.profile)))) {
@@ -73,14 +99,30 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
 
   const agents: AgentInfo[] = profiles.map((p) => ({ agentId: p.agentId, workspace: p.dir, workspaceSource: p.agentId === "default" ? "root" : "profile", agentDir: p.dir, foundIn: [p.agentId === "default" ? "root" : "profiles"] }));
 
+  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir });
+  const SP = pathFor(loc.flavour);
+  const base = SP.basename(loc.sourceRoot);
+  const mapper = new SourcePathMapper(loc, { maps: ctx.maps, rootNames: base === ".hermes" || base === "hermes" ? [".hermes", "hermes"] : [], env: loc.origin === "native" ? ctx.env : undefined });
+  // Profile names become agent ids on the target: a case-insensitive volume (Windows, default macOS) merges `Work`
+  // and `work`; Windows cannot hold `con` or `work.` at all (§B.6).
+  const target = ctx.targetPlatform ?? ctx.platform ?? process.platform;
+  if (caseInsensitiveTarget(target)) for (const [a, b] of caseCollisions(names)) mapper.problem({ kind: "case-collision", subject: "profiles", names: [a, b] });
+  if (target === "win32") { const bad = names.filter((n) => unportableName(n)); if (bad.length) mapper.problem({ kind: "unportable-name", subject: "profiles", names: bad }); }
   const skillRoots: SkillRoot[] = [];
   for (const p of profiles) {
     skillRoots.push({ dir: join(p.dir, "skills"), tier: "profile", agentId: p.agentId, precedence: 3 });
     const ext = p.config.skills?.external_dirs;
-    if (Array.isArray(ext)) for (const d of ext) if (typeof d === "string" && d.trim() && !/\$\{/.test(d)) skillRoots.push({ dir: resolve(p.dir, expandHome(d.trim(), ctx.homedir)), tier: "external", agentId: p.agentId, precedence: 2 });
+    const rel = p.agentId === "default" ? "" : `profiles/${p.agentId}/`;
+    const sourceDir = p.agentId === "default" ? loc.sourceRoot : SP.join(loc.sourceRoot, "profiles", p.agentId);
+    if (Array.isArray(ext)) ext.forEach((d, i) => {
+      if (typeof d !== "string" || !d.trim()) return;
+      const m = mapper.map(d, `${rel}config.yaml:skills.external_dirs[${i}]`, sourceDir);
+      if (m.path !== null) skillRoots.push({ dir: m.path, tier: "external", agentId: p.agentId, precedence: 2 });
+    });
   }
+  // A host environment variable describes the host's Hermes, not one read over WSL or from a copy on another OS.
   const optional = ctx.env.HERMES_OPTIONAL_SKILLS?.trim();
-  if (optional) skillRoots.push({ dir: resolve(expandHome(optional, ctx.homedir)), tier: "optional", agentId: null, precedence: 1 });
+  if (optional && loc.origin === "native") skillRoots.push({ dir: resolve(expandTilde(optional, ctx.homedir, process.platform)), tier: "optional", agentId: null, precedence: 1 });
   skillRoots.sort((a, b) => a.precedence - b.precedence);
 
   const secrets: SecretsReport = { files: [], envKeys: [], configKeys: [] };
@@ -110,6 +152,6 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
       note: "Hermes keeps no PLUR1BUS store (the Hermes MemoryProvider adapter is M8); stores and reranker are not applicable",
     },
     rerankers: [],
-    skillRoots, secrets, other, warnings,
+    skillRoots, secrets, other, portability: portabilityOf(mapper, warnings), warnings,
   };
 }

@@ -26,6 +26,10 @@ c" }`), { s: "a\nbAc" });
 });
 
 describe("readYaml", () => {
+  it("reads a file saved with a BOM and CRLF line ends (Windows editors)", () => {
+    const { value, unsupported } = readYaml("\ufeff_config_version: 45\r\nskills:\r\n  external_dirs:\r\n    - C:\\x\r\n");
+    assert.deepEqual([value, unsupported], [{ _config_version: 45, skills: { external_dirs: ["C:\\x"] } }, []]);
+  });
   it("reads nested maps, block and flow lists, quoted scalars, numbers and booleans", () => {
     const { value, unsupported } = readYaml(`# comment
 _config_version: 45

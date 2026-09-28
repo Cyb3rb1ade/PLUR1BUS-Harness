@@ -2,7 +2,8 @@
 // `{version: 1, skills: [{id, source, sourcePath, sha256, enabled, importedAt}]}`. Kept minimal on purpose for the
 // extensions-ecosystem spec to adopt: writers preserve fields they do not own, the file is replaced atomically.
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { renameRetry, rmRetry } from "./fs-retry.ts";
 import { join } from "node:path";
 import { isDir } from "./readonly.ts";
 import { scanSkill, SKILL_ID } from "./skills-scan.ts";
@@ -40,7 +41,7 @@ export function writeIndex(home: string, idx: SkillIndex): void {
   const p = indexPath(home);
   const tmp = `${p}.tmp-${process.pid}`;
   writeFileSync(tmp, `${JSON.stringify(sorted, null, 2)}\n`, { mode: 0o600 });
-  renameSync(tmp, p);
+  renameRetry(tmp, p);
 }
 
 /** Skill folder ids present in the store (not the reserved names). */
@@ -54,14 +55,15 @@ export function storedIds(home: string): string[] {
 
 function readdirSafe(d: string): string[] { try { return readdirSync(d); } catch { return []; } }
 
-export interface HarnessSkillState { exists: boolean; indexed: boolean; sha256: string | null }
+export interface HarnessSkillState { exists: boolean; indexed: boolean; sha256: string | null; textSha256?: string | null }
 /** The harness's own copy of `id`: present on disk and/or in the index, and its folder hash (from disk). */
 export function harnessSkillState(home: string, id: string, idx: SkillIndex = readIndex(home)): HarnessSkillState {
   const dir = join(skillsDir(home), id);
   const exists = isDir(dir);
   const entry = idx.skills.find((e) => e.id === id);
-  const sha256 = exists ? scanSkill(dir, { tier: "harness", agentId: null, precedence: 0 }, { maxBytes: 1024 * 1024 * 1024, maxFiles: 1_000_000 }).sha256 : entry?.sha256 ?? null;
-  return { exists, indexed: !!entry, sha256 };
+  if (!exists) return { exists, indexed: !!entry, sha256: entry?.sha256 ?? null, textSha256: null };
+  const s = scanSkill(dir, { tier: "harness", agentId: null, precedence: 0 }, { maxBytes: 1024 * 1024 * 1024, maxFiles: 1_000_000, targetPlatform: "linux" });
+  return { exists, indexed: !!entry, sha256: s.sha256, textSha256: s.textSha256 };
 }
 
 export const importsDir = (home: string) => join(home, "imports");
@@ -77,13 +79,13 @@ export function acquireLock(home: string): () => void {
       const fd = openSync(p, "wx", 0o600);
       writeFileSync(fd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
       closeSync(fd);
-      return () => { try { const cur = JSON.parse(readFileSync(p, "utf8")) as { pid?: number }; if (cur.pid === process.pid) rmSync(p, { force: true }); } catch { /* gone */ } };
+      return () => { try { const cur = JSON.parse(readFileSync(p, "utf8")) as { pid?: number }; if (cur.pid === process.pid) rmRetry(p, { force: true }); } catch { /* gone */ } };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
       let pid: number | undefined;
       try { pid = (JSON.parse(readFileSync(p, "utf8")) as { pid?: number }).pid; } catch { /* unreadable: treat as stale */ }
       if (pid !== undefined && pid !== process.pid && alive(pid)) throw new ImportError("E_LOCKED", "skills-locked", `another import (pid ${pid}) holds ${p}`, 3);
-      rmSync(p, { force: true });
+      rmRetry(p, { force: true });
     }
   }
   throw new ImportError("E_LOCKED", "skills-locked", `could not take ${p}`, 3);

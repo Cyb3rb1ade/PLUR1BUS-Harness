@@ -1,4 +1,5 @@
 // Shared importer types (docs/import.md §8, §9).
+import type { Mount, PortabilityReport } from "./paths.ts";
 import type { Comparison, Identity, RerankerComparison, RerankerInfo, TargetIdentity } from "./identity.ts";
 
 export type SourceType = "openclaw" | "hermes";
@@ -15,6 +16,12 @@ export interface SourceCtx {
   profile?: string | undefined;
   env: NodeJS.ProcessEnv;
   homedir: string;
+  /** The host platform whose path rules apply (injected by tests; default: this process's). */
+  platform?: NodeJS.Platform | undefined;
+  /** The platform of the volume the harness copies to, for name hazards (default: `platform`). */
+  targetPlatform?: NodeJS.Platform | undefined;
+  /** `--map <source-prefix>=<local-prefix>` rules (§B.4). */
+  maps?: Mount[] | undefined;
   /** The harness home the target is read from (never written by detect). */
   home: string;
   target: TargetIdentity;
@@ -67,6 +74,8 @@ export interface SourceReport {
   skillRoots: SkillRoot[];
   secrets: SecretsReport;
   other: Record<string, unknown>;
+  /** How the source's config paths were mapped onto this host (plugin-distribution spec §B.4). */
+  portability: PortabilityReport;
   warnings: string[];
 }
 

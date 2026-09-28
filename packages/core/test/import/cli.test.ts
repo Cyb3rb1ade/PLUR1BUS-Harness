@@ -24,10 +24,12 @@ describe("importer argv", () => {
     assert.equal(await reason(["hermes", "--detect", "--bogus", ...h]), "E_INVALID_PARAMS/bad-arguments/2");
     assert.equal(await reason(["hermes", "--detect"]), "E_INVALID_PARAMS/home-missing/2");
     assert.equal(await reason(["hermes", "--rollback", "r.json", "--source", "/s", ...h]), "E_INVALID_PARAMS/rollback-takes-report-only/2");
+    assert.equal(await reason(["hermes", "--rollback", "r.json", "--map", "/a=/b", ...h]), "E_INVALID_PARAMS/rollback-takes-report-only/2");
+    assert.equal(await reason(["hermes", "--detect", "--map", "nope", ...h]), "E_INVALID_PARAMS/map/2");
   });
   it("runs detect, skills and rollback end to end through the envelope", async () => {
     const fx = hermesFixture(); const home = tempDir("p1b-imp-home-");
-    const d = await runImport(["hermes", "--detect", "--source", fx.root, "--home", home], {}, "/nonexistent-home");
+    const d = await runImport(["hermes", "--detect", "--source", fx.root, "--home", home, "--map", "/x=/y", "--map", "C:\\a=/b"], {}, "/nonexistent-home");
     assert.ok(d.ok && d.schema === "import.detect/1" && !("schema" in d.value));
     const s = await runImport(["hermes", "--skills", "--apply", "--source", fx.root, "--home", home], {}, "/nonexistent-home");
     assert.ok(s.ok && s.schema === "import.skills/1");

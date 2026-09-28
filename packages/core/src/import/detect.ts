@@ -8,7 +8,7 @@ import type { SourceReport } from "./types.ts";
 
 export interface DetectSkill {
   id: string; name: string | null; description: string | null; path: string; tier: string; agentId: string | null;
-  bytes: number; files: number; sha256: string | null; hasScripts: boolean; scripts: number;
+  bytes: number; files: number; sha256: string | null; textSha256: string | null; hasScripts: boolean; scripts: number;
   skipped: ScannedSkill["skipped"]; problems: string[]; shadowedBy: string | null;
   existsInHarness: boolean; harnessSha256: string | null; plannedAction: string; targetId: string | null; reason: string | null;
 }
@@ -25,7 +25,7 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
   const planned = planSkills(skills, o.home, o.sourceType, "skip");
   const detectSkills: DetectSkill[] = planned.map(({ skill: s, action, targetId, reason, harness }) => ({
     id: s.id, name: s.name, description: s.description, path: s.path, tier: s.tier, agentId: s.agentId,
-    bytes: s.bytes, files: s.files, sha256: s.sha256, hasScripts: s.hasScripts, scripts: s.scripts,
+    bytes: s.bytes, files: s.files, sha256: s.sha256, textSha256: s.textSha256, hasScripts: s.hasScripts, scripts: s.scripts,
     skipped: s.skipped, problems: s.problems, shadowedBy: s.shadowedBy,
     existsInHarness: harness.exists || harness.indexed, harnessSha256: harness.sha256, plannedAction: action, targetId, reason,
   }));

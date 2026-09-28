@@ -2,10 +2,10 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { detect, type DetectReport } from "../../src/import/detect.ts";
 import { renderDetect } from "../../src/import/render.ts";
-import { CONTENT_MARKER, FAKE_TOKEN, harnessHome, hermesFixture, openclawFixture, POSIX, type OpenclawFixture } from "./fixtures.ts";
+import { CONTENT_MARKER, FAKE_TOKEN, harnessHome, hermesFixture, openclawFixture, SYMLINKS, type OpenclawFixture } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
 
-const TOP = ["agents", "counts", "other", "plur1bus", "rerankers", "secrets", "skillRoots", "skills", "source", "sourceType", "target", "version", "warnings"];
+const TOP = ["agents", "counts", "other", "plur1bus", "portability", "rerankers", "secrets", "skillRoots", "skills", "source", "sourceType", "target", "version", "warnings"];
 
 describe("detect (OpenClaw)", () => {
   let fx: OpenclawFixture; let home: string; let r: DetectReport; let homeDigest: string; let srcDigest: string;
@@ -28,7 +28,7 @@ describe("detect (OpenClaw)", () => {
     const shadow = r.skills.filter((s) => s.id === "notes")[1]!;
     assert.deepEqual([shadow.plannedAction, shadow.reason], ["conflict-skip", "shadowed-in-source"]);
     assert.equal(by("runner").hasScripts, true);
-    assert.deepEqual(by("escape").skipped.symlinkEscapes, POSIX ? ["leak.txt"] : []);
+    assert.deepEqual(by("escape").skipped.symlinkEscapes, SYMLINKS.file ? ["leak.txt"] : []);
     assert.equal(by("escape").skipped.secretFiles, 1);
     const c = by("conflict");
     assert.deepEqual([c.existsInHarness, c.plannedAction, c.reason], [true, "conflict-skip", "id-taken"]);

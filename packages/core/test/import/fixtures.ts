@@ -14,9 +14,27 @@ export const CONTENT_MARKER = "CONTENT-MARKER-do-not-report";
 export const E5 = "intfloat/multilingual-e5-small";
 export const NANO = "jinaai/jina-embeddings-v5-text-nano-retrieval";
 export const SHARED_KEY = `w-${"ab".repeat(31)}`;
-/** Symlinks and POSIX exec bits: Windows runners create neither without privileges, so those cases are POSIX-only. */
+/** POSIX exec bits: Windows has none, so exec-bit assertions are POSIX-only. */
 export const POSIX = process.platform !== "win32";
-const link = (target: string, path: string) => { if (POSIX) symlinkSync(target, path); };
+
+/** Whether this process can create file symlinks, probed rather than assumed from the platform: on Windows that needs
+ *  SeCreateSymbolicLinkPrivilege or Developer Mode (GitHub's Windows runners run elevated, so they have it). Directory
+ *  links use junctions on Windows, which need no privilege (`linkDir`). */
+export const SYMLINKS: { file: boolean; reason: string | null } = (() => {
+  const d = tempDir("p1b-imp-probe-");
+  writeFileSync(join(d, "t"), "x");
+  try { symlinkSync(join(d, "t"), join(d, "l"), "file"); return { file: true, reason: null }; } catch (e) {
+    return { file: false, reason: `cannot create file symlinks here (${(e as NodeJS.ErrnoException).code ?? e}): needs SeCreateSymbolicLinkPrivilege or Developer Mode` };
+  }
+})();
+if (!SYMLINKS.file) console.log(`# ${SYMLINKS.reason}; symlink cases are skipped or assert the no-link outcome`);
+/** node:test options that skip a case needing file symlinks, with the probed reason. */
+export const needsFileSymlinks = SYMLINKS.file ? {} : { skip: SYMLINKS.reason! };
+
+/** A file symlink when this process may create one (see SYMLINKS), else nothing. */
+export const link = (target: string, path: string) => { if (SYMLINKS.file) symlinkSync(target, path, "file"); };
+/** A directory link: a junction on Windows (no privilege needed; an absolute target), a symlink elsewhere. */
+export const linkDir = (target: string, path: string) => symlinkSync(target, path, "junction");
 
 export function write(path: string, text: string, mode?: number): void {
   mkdirSync(dirname(path), { recursive: true });
