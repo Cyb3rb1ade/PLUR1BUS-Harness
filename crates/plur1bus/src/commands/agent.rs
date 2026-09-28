@@ -187,7 +187,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
 /// for this one call site. Days-from-civil / civil-from-days (Howard Hinnant,
 /// http://howardhinnant.github.io/date_algorithms.html) converts the day count since the Unix
 /// epoch into a proleptic-Gregorian (y, m, d).
-fn rfc3339_now() -> String {
+pub(crate) fn rfc3339_now() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()

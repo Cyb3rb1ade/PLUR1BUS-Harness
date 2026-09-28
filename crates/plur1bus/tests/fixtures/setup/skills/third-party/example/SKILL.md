@@ -1,0 +1,1 @@
+TEST ONLY: a synthetic third-party skill file, pinned by CHECKSUMS; kept on one line without a newline so a CRLF checkout cannot change its hash.

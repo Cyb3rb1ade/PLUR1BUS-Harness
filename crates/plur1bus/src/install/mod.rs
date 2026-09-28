@@ -9,4 +9,6 @@ pub mod archive;
 pub mod fetch;
 pub mod manifest;
 pub mod pins;
+pub mod setup;
+pub mod skills;
 pub mod targets;

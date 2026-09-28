@@ -79,11 +79,8 @@ fn setup_update_and_repair_answer_their_milestone_until_implemented() {
         .stderr(predicate::str::contains("2a-H3b").not());
     let dir = tempfile::tempdir().unwrap();
     let h = dir.path().to_str().unwrap();
+    // `setup` is implemented (2a-H3b-b Task 4, tests/setup.rs).
     for (args, command) in [
-        (
-            vec!["--json", "--home", h, "setup", "--non-interactive"],
-            "setup",
-        ),
         (
             vec!["--json", "--home", h, "update", "--check"],
             "update --check",
@@ -131,6 +128,10 @@ fn setup_and_update_check_are_container_managed_in_container_mode() {
         let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "1")], 1);
         assert_eq!(v["error"], "E_NOT_AVAILABLE", "{args:?}");
         assert_eq!(v["reason"], "container-managed", "{args:?}");
+        if args.contains(&"setup") {
+            // Outside container mode setup would install for real (tests/setup.rs covers its container refusal).
+            continue;
+        }
         // Only exactly "1" is container mode.
         let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "true")], 2);
         assert_eq!(v["milestone"], "2a-H3b-b", "{args:?}");
@@ -690,7 +691,7 @@ fn every_json_document_carries_a_schema_id() {
             ],
             0,
         ),
-        (vec!["--json", "setup"], 2),
+        (vec!["--json", "update"], 2),
     ];
     for (args, code) in cases {
         let assert = bin().args(&args).assert();

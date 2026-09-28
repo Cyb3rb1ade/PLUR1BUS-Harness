@@ -37,7 +37,7 @@ fn modules_config(layout: &Layout) -> Value {
 /// I2: an offline change of `modules/` holds the supervisor's single-instance lock (`run/supervisor.lock`) until it is
 /// done, so a supervisor cannot start (and scan `modules/`) half-way through it. A supervisor that holds the lock but
 /// did not answer is starting (or stopping): the command is refused and changes nothing.
-fn offline_lock(out: &Out, layout: &Layout) -> std::fs::File {
+pub(crate) fn offline_lock(out: &Out, layout: &Layout) -> std::fs::File {
     let run = layout.run();
     let created = !run.exists();
     let lock = std::fs::create_dir_all(&run)
