@@ -45,6 +45,14 @@ From auftrag §4.2 (binding per brief §1, "everything not touched by D1–D11 r
 
 ## 2. OpenClaw source
 
+### 2.0 Source root per OS
+
+From the plugin-distribution spec §B.1 (`docs/superpowers/specs/2026-09-28-plugin-distribution-and-migration-design.md`); the importer's resolution is §8.3, path mapping §8.6.
+
+| Linux / macOS | Windows native | WSL-hosted, read from Windows | Windows-hosted, read from WSL |
+|---|---|---|---|
+| `$OPENCLAW_STATE_DIR` → `<home>/.openclaw-<profile>` → `<home>/.openclaw` → legacy `<home>/.clawdbot`; `<home>` = `$OPENCLAW_HOME` → `$HOME` → `os.homedir()` | the same, `<home>` = `%OPENCLAW_HOME%` → `%HOME%` (Git Bash) → `%USERPROFILE%` → `os.homedir()`: normally `C:\Users\<u>\.openclaw` | `--source \\wsl.localhost\<distro>\home\<u>\.openclaw` (or `\\wsl$\…`), incl. the Hub's `OpenClawGateway` distro; overrides set inside the distro are not seen until the M7 WSL probe | `--source /mnt/c/Users/<u>/.openclaw`; automatic discovery is M7 |
+
 ### 2.1 Version detection
 
 | Signal | Value / format | Source | Use |
@@ -148,6 +156,12 @@ Source-side identity fields: `channel`, `accountId`, `userId`, hashed as `userPr
 ---
 
 ## 3. Hermes source
+
+### 3.0 Source root per OS
+
+| Linux / macOS | Windows native | WSL-hosted, read from Windows | Windows-hosted, read from WSL |
+|---|---|---|---|
+| `$HERMES_HOME` (expandvars + expanduser; `…/profiles/<name>` → its root, narrowed to that profile) → `~/.hermes` | `%HERMES_HOME%` → `%LOCALAPPDATA%\hermes` → `%USERPROFILE%\AppData\Local\hermes` | `--source \\wsl.localhost\<distro>\home\<u>\.hermes` | `--source /mnt/c/Users/<u>/AppData/Local/hermes` |
 
 ### 3.1 Version detection
 
