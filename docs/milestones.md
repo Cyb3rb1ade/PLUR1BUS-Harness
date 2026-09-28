@@ -87,6 +87,34 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Status — M1b-2a-H1 (harness foundation) — done 2026-09-25:** acceptance 1 (two-session recall via the CLI with a core SIGKILL and journal replay, `tests/system/two-session-recall.test.ts`; rerank asserted in the nightly real-model run, `.github/workflows/nightly.yml`), spec criteria 6, 7, 8 (B1 `--help` p95 < 100 ms and B11 `core.status` p95 < 5 ms as gates in `pnpm bench`, B8 advisory; B9 in `packages/core/test/b9-no-syscalls.test.ts`), 10 (docs half); H2 carries 2, 3, 4, 5, 9, 11, 12.
 
+**Status — M1b-2a — done 2026-09-28** (H1 → H2 → H3a → H3b-a → H3b-b, PRs #1–#40; Task 8 of H3b-b, riskier
+`1staid repair` steps, in flight in a parallel worktree and not reflected below). All twelve §10 acceptance
+criteria are met on this codebase:
+
+1. Two-session recall with rerank — done (H1).
+2. Kill soak (1 000 turns, `tests/system/kill-soak.test.ts`) — done (H3a).
+3. Reconnect not respawn (`tests/system/reconnect.test.ts`) — done (H3a).
+4. Config restart classes (`tests/system/config-restart.test.ts`) — done (H3b-a).
+5. Module isolation (`tests/system/modules.test.ts`) — done (H3b-a).
+6. No OpenClaw object in the core (`scripts/lint-hygiene.mjs`) — done (H1, extended each batch).
+7. Contract fixtures (Rust/TypeScript `rpc-schema` parity) — done (H1).
+8. **Benchmarks** — B1/B9/B11 gates green, B8 advisory; see `docs/reports/2026-m1b-2a-baseline.md` for the
+   sandbox numbers and what still needs the owner's reference hardware (O6, open).
+9. Service install/status/uninstall on five targets — done (H3a; native binaries for all five built by
+   H3b-b Task 10's `harness-release.yml`, Windows OS-restart-after-kill still pending PR-11 per the spec).
+10. Skill freshness test (`skills/plur1bus-ops`) — done (H3b-b Task 9).
+11. **Engine side E1–E6:** E1 (`MemoryOps`), E2 (`admin.*`), E3 (`embedding.probe`/`serve`), E4 (`status()`
+    health) and E5 (host-neutral `engine-config.schema.json`) are merged; the engine is pinned at `b0e149b8`
+    (E4.3), contract **1.9.0**. **E6** (`HostServices` neutralised, contract 2.0, observable/breaking) is **not
+    yet started** — it is scheduled before M4 per the spec, and this milestone does not depend on it.
+12. Fixture module, zero-edit install (`packages/module-fixture`, `module list`/`module graph`) — done (H3b-a).
+
+**Next: M1b-2b** (MCP transport, ADR-014 per Bernd's spec draft — spec §12 "Exit") starts from this stack once
+this milestone's owner gate closes. **Open going into it:** decision O6 (reference hardware for the HB4
+real-model timing and the Windows module-ready figure); Task 8's riskier repair steps; the desktop-canvas and
+extensions-ecosystem design conflicts tracked separately in this document's own tracks (D, X). See
+`CHANGELOG.md` `[0.1.0]` and `docs/demo-guide.md` for what a person can actually run today.
+
 ### M2 — Models, providers, auth, caching, budgets
 
 **Goal.** Three chat wire formats, remote embedding/rerank, a data-driven auth engine that ships no `prohibited` profile, and a cache-stable prompt layout that is CI-enforced.
