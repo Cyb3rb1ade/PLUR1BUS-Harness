@@ -325,7 +325,10 @@ describe("core journal backlog (Task 15, E4)", () => {
     appendJournalLine(l.journal, jline("77777777-7777-4777-8777-777777777777", text));
     const child = spawn(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings", killAfterStore, home], { stdio: ["ignore", "ignore", "inherit"] });
     const exit = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((res) => child.once("exit", (code, signal) => res({ code, signal })));
-    assert.equal(exit.signal, "SIGKILL", `the child died on its own kill: ${JSON.stringify(exit)}`);
+    // Windows has no signals: process.kill ends the child with exit code 1; the marker names the kill either way.
+    assert.ok(existsSync(join(home, "killed-at-store")), `the child died on its own kill: ${JSON.stringify(exit)}`);
+    if (process.platform === "win32") assert.notEqual(exit.code, 0, JSON.stringify(exit));
+    else assert.equal(exit.signal, "SIGKILL", `the child died on its own kill: ${JSON.stringify(exit)}`);
     assert.deepEqual(readdirSync(l.journal), [`bernd.jsonl.replaying-${child.pid}`], "the line stayed in the replay's file");
     const core = createCore({ home, testInternals: flatTestInternals() });
     await core.start();
