@@ -29,7 +29,7 @@ impl Home {
     }
 
     /// Writes `<home>/manifest.json`, the install manifest `update --check` reads (HB9). `patch` overrides fields
-    /// of the base fixture (target `linux-x64`, matching this test host, Task 3's `Target::current`).
+    /// of the base fixture (target [`HOST`], this test host, Task 3's `Target::current`).
     fn write_manifest(&self, patch: impl FnOnce(&mut Value)) {
         let mut doc = base_manifest();
         patch(&mut doc);
@@ -61,13 +61,34 @@ impl Home {
     }
 }
 
+/// The target id of this test host, as `install::targets::Target::current` names it. The fixtures are written for
+/// it: a release entry keyed by another target is (rightly) not this host's binary.
+const HOST: &str = if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+    "linux-x64"
+} else if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
+    "linux-arm64"
+} else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+    "darwin-arm64"
+} else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+    "win-x64"
+} else if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+    "win-arm64"
+} else {
+    "unsupported"
+};
+
+/// `doc` with every `linux-x64` (the fixtures' spelling) replaced by [`HOST`].
+fn for_host(doc: Value) -> Value {
+    serde_json::from_str(&doc.to_string().replace("linux-x64", HOST)).unwrap()
+}
+
 const SHA_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 /// The installed side: binary 0.1.0 (sha `SHA_A`), core 0.1.0 (contract 1.9.0, rpc 1.3.0), node 24.21.0, channel
-/// stable, target `linux-x64` (this test host).
+/// stable, target [`HOST`] (this test host).
 fn base_manifest() -> Value {
-    json!({
+    for_host(json!({
         "schemaVersion": 1,
         "installedAt": 1_790_000_000_000u64,
         "updatedAt": 1_790_000_000_000u64,
@@ -78,14 +99,14 @@ fn base_manifest() -> Value {
         "core": { "version": "0.1.0", "contract": "1.9.0", "rpc": "1.3.0", "sha256": SHA_A, "source": "local" },
         "modules": [],
         "skills": [],
-    })
+    }))
 }
 
 /// The release side, matching `base_manifest()` exactly (so by default nothing has changed): version 0.1.0
 /// (not newer), `native` unchanged from the installed unit for unit, including the `fixture` module at 0.1.0/"1".
 /// A test bumps `head.version` (and whatever unit it means to change) to make an update visible.
 fn base_release() -> Value {
-    json!({
+    for_host(json!({
         "version": "0.1.0",
         "channel": "stable",
         "kind": "patch",
@@ -104,7 +125,7 @@ fn base_release() -> Value {
             "modules": [{ "name": "fixture", "version": "0.1.0", "apiVersion": "1" }],
             "configSchemaVersion": 1,
         },
-    })
+    }))
 }
 
 fn write_json(dir: &Path, name: &str, doc: &Value) -> PathBuf {
@@ -272,7 +293,7 @@ fn a_binary_change_sets_supervisor_restart() {
     h.write_module("fixture", "0.1.0", "1");
     let mut release = base_release();
     release["version"] = json!("0.2.0");
-    release["native"]["binary"]["linux-x64"]["sha256"] = json!(SHA_B);
+    release["native"]["binary"][HOST]["sha256"] = json!(SHA_B);
     let path = write_json(h._dir.path(), "stable.json", &release);
     let (code, doc) = run(update_cmd(&h).args(["--manifest", path.to_str().unwrap()]));
     assert_eq!(code, 0, "{doc}");
