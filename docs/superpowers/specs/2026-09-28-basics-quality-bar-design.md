@@ -1,6 +1,6 @@
 # The basics everyone expects: a quality bar — design
 
-**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D104 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
+**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D105 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
 
 **Owner requirements, 2026-09-28 (translated from German, condensed):**
 
@@ -16,6 +16,8 @@
 9. Why `CLAUDE.md`?
 10. A **nightly routine that writes all skills (once at the start, then the new ones) into a database** in a short, fast-to-read form, **sorted into categories**, so that the decision model (Jev, Laya) looks at a task and tells the agent "70 % you need tools from category range 130–160, 30 % from 1–30" — a quick pre-selection so the agent finds its tool more reliably.
 11. Installer and design system approved as proposed; agent language dropped, but **a fixed hand-off format is wanted — "you are an agent yourself and know exactly what you need when accepting and handing over work"**.
+
+12. (Rev 3.) Since the decision model already analyses the prompt, it should also say **whether a message holds one task or several**, and **recommend a small, medium or large model per task** — knowing the classes of each provider (e.g. Claude Haiku, Sonnet, Opus, Fable) so it can say "this needs a Haiku-class model with x % probability, that one a Fable-class model"; "it makes all these decisions super fast, so we should use it".
 
 The owner asked for this spec ("Ja") after the controller's summary of the gaps, and approved D94–D101 on rev 1 with the changes above. Nothing here is implemented.
 
@@ -311,6 +313,54 @@ Written from the agent side (owner item 11). When an agent takes over work, what
 - **Readable for people:** the activity feed and the Kanban card render a hand-off as a card — objective, the `doneWhen` checklist, state, next steps, open questions — with the JSON behind a toggle; `plur1bus task show --handoff` prints it as Markdown. A person picking up an agent's work reads the same card.
 - **Reuse:** the same format carries a Kanban card moving between agents (D36), MoA fan-out (D50), external coding agents over ACP (as `_meta`), a context hand-over to a fresh session when a model switches or a window fills (D23), and the evidence of a mined skill (D99). It replaces the loose field list of the M5 "typed delegation contract" (objective, scope, forbidden actions, output schema, citation requirement, ≤ 2 k cap, model tier, deadline), all of which it contains.
 
+### D105 — Message triage: one fast decision call per message (extends D30 and D103)
+
+D30 already routes the model by the decision service, and D103 pre-selects capabilities. The owner's point (item 12) is to let the same fast model do all of it **in one call**, before the agent's own model starts: split the message into tasks, and for each task say which capabilities and **which model class** it needs.
+
+**One call, one result.** For every new human message (and when an agent receives a hand-off, D104) the decision service returns:
+
+```jsonc
+{
+  "schema": "plur1bus.triage/1",
+  "shape": "multi",                 // chat | single | multi | followup (continues the current task)
+  "tasks": [
+    { "id": "k1", "summary": "Find three reviews of the Framework 16 and summarise them",
+      "categories": { "web.research": 0.8, "docs.create": 0.2 },          // D103
+      "modelClass": { "small": 0.10, "medium": 0.75, "large": 0.12, "frontier": 0.03 },
+      "effort": "medium",           // reasoning effort, D30's second axis
+      "dependsOn": [], "confidence": 0.84 },
+    { "id": "k2", "summary": "Turn the summary into a two-page PDF report",
+      "categories": { "docs.create": 0.9, "media.image": 0.1 },
+      "modelClass": { "small": 0.05, "medium": 0.45, "large": 0.45, "frontier": 0.05 },
+      "effort": "low", "dependsOn": ["k1"], "confidence": 0.78 }
+  ]
+}
+```
+
+**Model classes, not model names.** The decision model knows four abstract classes — `small`, `medium`, `large`, `frontier` — and a **class table as data** maps them per provider from the D15 provider profiles, for example:
+
+| Class | Anthropic | Local (example) |
+|---|---|---|
+| `small` | Claude Haiku | a 3–8 B model |
+| `medium` | Claude Sonnet | a 14–32 B model |
+| `large` | Claude Opus | a 70 B+ model |
+| `frontier` | Claude Fable / Mythos class, where the account has access | — |
+
+OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in the table; a new model generation is a data update, not a retraining of the decision model. The table only offers models the agent may use (its allowed profiles, D30; local-only agents see local rows only, D45).
+
+**Choosing from the distribution.** The rule: **pick the smallest class *c* with P(the task needs a class above *c*) ≤ 0.2.** For `k1`: P(above small) = 0.90, P(above medium) = 0.12 + 0.03 = 0.15 ≤ 0.2 → `medium` (Sonnet class); for `k2`: P(above medium) = 0.50, P(above large) = 0.05 → `large` (Opus class). A per-agent **cost preference** moves the threshold (`economy` 0.35, `balanced` 0.2, `quality` 0.1; with `quality`, `k1` runs on `large`). Low confidence (below 0.5) picks one class higher. The chosen class resolves to a model through the class table and the agent's provider order.
+
+**What happens with several tasks.**
+- `single` / `followup`: the conversation continues on its model; the class recommendation applies at the next **task boundary**, not mid-task (ADR-010: the cache key includes the model; D30's "per session by default" stays — a class change starts a new cache prefix and is shown in the trace).
+- `multi`: the agent gets the task list in its turn (as a visible checklist in the UI). Independent tasks can run as **delegations** with their own class (D104 `budget.modelTier`), in parallel where `dependsOn` allows; the main conversation keeps its model and its cache. Dependent tasks run in order. The person can say "do it all yourself" — then they run one after another in the conversation.
+- `chat`: small talk and quick answers go to the agent's default model with no capability shortlist beyond the core set.
+
+**Escalation and learning.** A task that fails its verification (tests, D98; visual review, D100; `doneWhen`, D104) or where the agent reports low confidence is retried **one class up**, once, and the trace says so. The nightly pass compares recommended class with outcome (success, escalations, the person's corrections) and calibrates per agent — under-provisioning (a task that needed an escalation) weighs more than over-provisioning.
+
+**Cost of the call.** Triage replaces the separate D103 category call — one call, not three — within the same 200 ms p95 local budget; it is skipped for a `followup` detected by a cheap heuristic (short reply inside an open task) and runs on Jev with an API key, else Kev or Laya.
+
+**Gates.** On the triage eval set (German and English, mixed single/multi messages): task segmentation F1 ≥ 0.9; under-provisioning (class later escalated) ≤ 5 %; over-provisioning reported. Every routing decision (shape, class distribution, chosen model, reason) is in the turn event.
+
 ## 3. Placement and effort
 
 | Decision | Milestone | Effort (ad) | Acceptance added |
@@ -325,9 +375,10 @@ Written from the agent side (owner item 11). When an agent takes over work, what
 | D101 installer | **D1** | 2–3 | per-channel checks: choices applied, silent flags, update keeps a deleted icon deleted, uninstall removes entries |
 | D102 | record only | 0 | — |
 | D103 capability index + category routing | **M2** with D97 (index, taxonomy, keyword/embedding tiers, `capabilities.search`); decision-model tier with the D18/D70 decision service | 4–6 | routing recall ≥ 95 % on `tool-eval`; new skill routable right after install; decision call ≤ 200 ms p95 locally; stable category prefix |
+| D105 message triage | **M2** with D30 and D103 (one decision call) | 2–4 | segmentation F1 ≥ 0.9; under-provisioning ≤ 5 %; escalation one class up once; class change only at task boundaries |
 | D104 hand-off format | **M5** (replaces the typed delegation contract's field list; D36/D50 consume it) | 2–3 | schema validation and repair; `ack` round trip; `approvalsHeld` verified against the approval store; a forged approval reference is refused; Markdown rendering |
 
-**Total +36–56 ad** across M2 (+18–27), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
+**Total +38–60 ad** across M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
 
 ## 4. Owner choices (defaults the design runs on)
 
@@ -343,6 +394,7 @@ Written from the agent side (owner item 11). When an agent takes over work, what
 | Q8 | Windows opt-out flags for silent install | `/NODESKTOP /NOSTARTMENU /NOAUTOSTART` | as written |
 | Q9 | Shortlist size and split rule (D103) | 12 items, proportional to the category probabilities | as written; tune on `tool-eval` |
 | Q10 | Is the hand-off `ack` mandatory for every `delegate`? | yes, except `consult` and hand-offs under 1 k tokens of budget | yes |
+| Q11 | Default cost preference for model classes (D105) | `balanced` (P(needs more) ≤ 0.2) | `balanced` |
 
 ## 5. Risks
 
