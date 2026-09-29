@@ -258,6 +258,53 @@ Plan 2a-H3b-b (this repository @ `main`, `049b9a3` at this record, PRs #17–#46
 
 The zigbuild target split (HB7) and the one-liner's signature limit (HB19) are added to the "Deviations from the spec" table below.
 
+#### 10.14 X1: extensions from file (implementation record)
+
+Plan X1 (`docs/superpowers/plans/2026-09-28-x1-extensions-from-file.md`, integration branch `feat/x1-extensions`; user-facing description in `docs/extensions.md`) adds the `.p1x` package pipeline and the `skill`, `plugin` and `ext` commands. This subsection records the process-model and supervision decisions and the rulings taken while building it.
+
+**The worker process boundary (X1-R2).** The extensions spec §10.2 puts `ext.*` on the supervisor, and §4's dependency budget forbids `zip`, `flate2` and `minisign_verify` there (the supervisor has no heavy dependencies and no reason to crash). Parsing untrusted ZIPs in it would add both, so **the supervisor never touches package bytes**. `ext.inspect` and the staging half of `ext.install` run in a child, `plur1bus ext __worker inspect|stage` (`std::env::current_exe()`, a hidden command; `crates/plur1bus/src/ext/worker.rs`). The child prints exactly one JSON line, `{ok:true,result}` or `{ok:false,error:{code,reason,message,data}}`; a deadline of 60 s (inspect) and 300 s (stage) kills it, and a crash, an overrun, an unparseable answer or a reason outside its known list becomes `E_INTERNAL reason=worker-failed`. A crashing parser fails the call and nothing else. A crashed or timed-out stage also discards the inspection (X1-C20: a crash on a package is itself suspicious), so the package is inspected again; answered refusals keep it. The supervisor then commits (renames, state, index, config) in-process under one process-wide `try_lock` mutex (a second mutation is `E_CONFLICT reason=busy`; the module queue's own `busy` keeps its meaning). On stop the supervisor calls `worker::stop_all`, which kills running workers and refuses new ones. The offline CLI calls the same functions in-process.
+
+`plur1bus-ext` **audits and never extracts** (X1-R3): its own central-directory parser checks every rule and streams each entry once to hash it, with no write. The worker extracts with the shared `install::archive::extract` into staging, then walks the staged tree (symlinks, special files, extra or missing files, hash and size mismatch), so ⟂EXT 1's single extractor holds and the time-of-check gap is closed. The audit hashes at inspection (X1-R7), so a hash mismatch, a lying size and a deflate bomb are refused before the person confirms.
+
+**The lint rule.** `scripts/lint-hygiene.mjs` classifies every file under `crates/plur1bus/src/ext/` as supervisor-safe (`mod, paths, state, index, overlays, host, worker, record, commit, lifecycle, remove, list`) or worker-only (`inspect, stage`); an unclassified file fails the lint. The supervisor-safe files, and `crates/plur1bus/src/supervisor/**`, must not match `plur1bus_ext::(zipaudit|verify|pack|normalise)`, `install::archive`, `zip::`, `flate2` or `minisign_verify`, including grouped imports. Package bytes reach the supervisor-side code only as an opaque file, moved by rename (X1-C22: the spool into the cache, the cache into the trash and back; a copy only across devices; the cache and the trash never both hold a package).
+
+**Start-time overlays.** At supervisor start (`supervisor/ext.rs`) `ext::recover` runs first (it re-hashes every enabled packaged module against `extensions/state.json`); the overlays (revoked, tampered, incompatible) are then computed for packaged modules and computed again after every ext mutation, and a module whose overlay changed is reconciled. A failing module is `stopped` with reason `ext-revoked`, `ext-tampered` or `ext-incompatible`, evaluated after `disabled` so its dependents become `needs-unavailable`, and `module.start`/`module.restart` answer `E_NOT_AVAILABLE` with the same reason. The start-up re-hash covers enabled modules only (X1-C21); a disabled one is re-hashed at enable. An unreadable `state.json` holds back every packaged module known from the cache manifests as `ext-tampered`, fail closed (X1-C23; a packaged module whose cache files are also gone looks local, which `1staid check extensions.consistency` reports).
+
+**Exit codes (X1-C26).** `plur1bus module` keeps exit 1 for `supervisor-running` and `supervisor-not-running`. The extension commands exit 2 for every `E_NOT_AVAILABLE` and `E_APPROVAL_REQUIRED` (G18), 3 for `E_LOCKED`, 1 otherwise, so `supervisor-running` exits 2 there. `supervisor-lacks-method` (the running supervisor predates `ext.*`) is a CLI-only reason and exit 2.
+
+**Test seams** (all gated by `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, listed in `AGENTS.md`): `PLUR1BUS_TEST_EXT_PUBKEYS`, `PLUR1BUS_TEST_EXT_REVOCATIONS`, `PLUR1BUS_TEST_EXT_FAIL_AT` (`<step>` or `kill:<point>`), `PLUR1BUS_TEST_EXT_INSPECT_TTL_MS`, `PLUR1BUS_TEST_HARNESS_VERSION`, `PLUR1BUS_TEST_EXT_WORKER_ARGS` (`<op>:<args>` separated by `;`), `PLUR1BUS_TEST_EXT_WORKER_DEADLINE_MS` (`<op>:<ms>`) and the hidden worker arguments `--sleep-ms` and `--crash`.
+
+**Rulings taken during X1** (X1-R1 to X1-R32 are in the plan; these are the ones the build added):
+
+| # | Ruling | Cost if wrong |
+|---|---|---|
+| X1-C1 | The `.p1x` schema keeps all four capability keys (`network`, `filesystem`, `processes`, `harness`) required, so a missing key never reads as "none" in the disclosure; a normalised skill emits an explicit block (no scripts: none/none/no spawn/no harness; with scripts: network any, spawn, workspace read-write, no harness) | A later relaxation is non-breaking |
+| X1-C2 | Normalising a skill truncates the summary to 280 characters and the title to 120, maps a non-semver version to `0.0.0` with a warning, and uses licence `unspecified` when there is none | None |
+| X1-C3 | The excluded names grow by the importer's secret-file list (refused), and `.hg/`, `.svn/`, `__pycache__/` are skipped with a warning by normalise and refused in a `.p1x`; a parity test keeps Rust a superset of the TS importer's lists | None (stricter) |
+| X1-C4 | The disclosure's "has scripts" also counts the importer's script extensions; `scripts[]` stays the derived set | None |
+| X1-C5 | On Windows a folder's `exec` bit is derived from the script rule (NTFS has none); on unix the mode bit | None |
+| X1-C6 | The whole `Cmd::Ext` group stayed hidden until the CLI task unhid it | None |
+| X1-C7 | The stored inspection record may carry `sourcePath`, `normalised`, `nameTakenBy`; the RPC maps it to the closed `ExtInspection` and drops them | None |
+| X1-C8 | The extra `E_STORAGE` reasons `index-invalid`, `index-newer`, `state-invalid` are accepted and listed in the RPC descriptions and the docs | None |
+| X1-C9 | A replaced module keeps its enable state (X1-R29 wins over the plan's config step) | A replaced module stays enabled |
+| X1-C10 | A skill's index entry (disabled, `package` set) is written before its folder moves into place, and `ext::recover` reconciles a kill between the two, so a folder never lies in `skills/` without an entry (X1-R12 would list it enabled) | None |
+| X1-C11 | Shared rules (name check, `allowUnsigned` policy, kind names, id validity, spool paths, pruning, `InspectionRecord`) live in the supervisor-safe `ext/record.rs` | None |
+| X1-C12 | Replacing a currently enabled item whose capabilities widen needs the acknowledgment `capabilities` at install | An extra prompt |
+| X1-C13 | `ext.show` never writes (integrity is computed for the answer, stored only by mutations), so it takes no mutation lock | None |
+| X1-C14 | The offline config rollback restores `config.json` byte for byte (the raw bytes, or absence) | None |
+| X1-C15 | A skill replace killed between old-folder-to-trash and new-folder-in-place leaves a record, a disabled entry and no folder; `recover` puts the trash copy back | The item looks installed with missing files until uninstall |
+| X1-C16 | The trash is pruned only once a mutation has passed its refusal checks and is about to write (not before a refusal, not on a no-op), so a refusal writes nothing | Expired entries linger until the next writing mutation |
+| X1-C17 | Cascade-disabled dependents stay disabled when the uninstall then fails on I/O (all refusals precede the cascade); the error data lists them | Re-enable by hand after a rare I/O failure |
+| X1-C18 | A missing code folder on enable is `E_NOT_AVAILABLE reason=tampered` with `data.paths`: RPC 1.4.0 has no other value | A slightly less precise reason |
+| X1-C19 | Refusal data travels in a new optional `error.data.ext` object, because `ErrorObject.data` is closed; the spec's `data.capabilities` and `data.dependents` are `error.data.ext.capabilities` and `error.data.ext.dependents` | None |
+| X1-C20 | A crashed or timed-out stage worker also discards the inspection | One extra inspect |
+| X1-C21 | The start-up integrity re-hash covers enabled modules only | `ext-tampered` on a disabled module shows late |
+| X1-C22 | The package moves between spool, cache and trash by rename; cache and trash never both hold it | None |
+| X1-C23 | An unreadable `state.json` at start holds back every packaged module as `ext-tampered` | A rare unheld module whose cache is also gone |
+| X1-C24 | A package needing no acknowledgment installs without `--yes` outside a terminal (it ends disabled; nothing runs) | A silent disabled install in scripts |
+| X1-C25 | An identical unsigned reinstall outside a terminal still needs `--allow-unsigned` (online = offline) | One flag in scripts |
+| X1-C26 | `plur1bus module` keeps exit 1 for supervisor-running; the ext commands exit 2 | Two exit codes for one reason |
+
 ### 11. Container mode (amendment 2026-09-27, owner decision D77)
 
 The desktop app now ships the harness as a container image (spec D77; `docs/superpowers/specs/2026-09-27-desktop-app-design.md` DS1, DS14–DS23, §6.15), and the same image runs on a VPS. Process model B is unchanged *inside* the image; what changes is who plays the role of the OS service manager, and a few commands that do not make sense in a container.

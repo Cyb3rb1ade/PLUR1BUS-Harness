@@ -2596,7 +2596,7 @@ Every installed module (modules/<name>/module.json) in directory order, with its
 
 **Served by:** supervisor
 
-Clears the module's backoff and starts it (a no-op while it runs); ends a module.stop. E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+Clears the module's backoff and starts it (a no-op while it runs); ends a module.stop. E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled, needs-unavailable, ext-revoked, ext-tampered or ext-incompatible when it cannot run (the last three: a module installed from a .p1x package is revoked, its installed files changed, or its compat no longer holds).
 
 **params**
 
@@ -2700,7 +2700,7 @@ Stops the module within budgetMs (default 10000); it stays stopped (reason stopp
 
 **Served by:** supervisor
 
-Stops the module within budgetMs (default 10000) and starts it again (a requested restart: it never counts toward the give-up budget). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+Stops the module within budgetMs (default 10000) and starts it again (a requested restart: it never counts toward the give-up budget). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled, needs-unavailable, ext-revoked, ext-tampered or ext-incompatible when it cannot run (the last three: a module installed from a .p1x package is revoked, its installed files changed, or its compat no longer holds).
 
 **params**
 
