@@ -993,3 +993,63 @@ fn revoked_fails_for_an_installed_revoked_item() {
     // Without the seam nothing is revoked.
     assert_eq!(ext_check(&h, None)["extensions.revoked"]["status"], "ok");
 }
+
+#[test]
+fn a_removed_by_user_tombstone_is_skipped_by_all_three_rows() {
+    let h = Home::new();
+    // Code gone, file edited nowhere, and revoked: a live record would fail every row.
+    install_skill(&h, "gone", "1.0.0", "# gone\n", false, false);
+    let path = h.home.join("extensions/state.json");
+    let mut st: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    st["items"]["gone"]["removedByUser"] = json!(true);
+    fs::write(&path, st.to_string()).unwrap();
+    let rev = h.home.join("rev.json");
+    fs::write(
+        &rev,
+        r#"[{"id":"local/gone","versions":"*","action":"disable","reason":"x"}]"#,
+    )
+    .unwrap();
+    let c = ext_check(&h, Some(&rev));
+    for id in EXT_IDS {
+        assert_eq!(c[id]["status"], "ok", "{id}: {}", c[id]);
+    }
+}
+
+#[test]
+fn an_index_entry_named_like_a_tombstone_counts_as_an_orphan() {
+    let h = Home::new();
+    install_skill(&h, "gone", "1.0.0", "# gone\n", false, true);
+    let path = h.home.join("extensions/state.json");
+    let mut st: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    st["items"]["gone"]["removedByUser"] = json!(true);
+    fs::write(&path, st.to_string()).unwrap();
+    let c = ext_check(&h, None);
+    let row = &c["extensions.consistency"];
+    assert_eq!(row["status"], "warn", "{row}");
+    assert!(row["detail"].to_string().contains("gone"), "{row}");
+}
+
+#[test]
+fn an_unreadable_state_json_fails_all_three_rows() {
+    let h = Home::new();
+    fs::create_dir_all(h.home.join("extensions")).unwrap();
+    fs::write(h.home.join("extensions/state.json"), "{ not json").unwrap();
+    let c = ext_check(&h, None);
+    for id in EXT_IDS {
+        assert_eq!(c[id]["status"], "fail", "{id}: {}", c[id]);
+    }
+}
+
+#[test]
+fn an_unreadable_skills_index_warns_on_consistency() {
+    let h = Home::new();
+    fs::create_dir_all(h.home.join("skills")).unwrap();
+    fs::write(h.home.join("skills/index.json"), "{ not json").unwrap();
+    let c = ext_check(&h, None);
+    assert_eq!(
+        c["extensions.consistency"]["status"], "warn",
+        "{}",
+        c["extensions.consistency"]
+    );
+    assert_eq!(c["extensions.integrity"]["status"], "ok");
+}

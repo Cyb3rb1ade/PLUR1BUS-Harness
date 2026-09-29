@@ -50,7 +50,14 @@ pub(crate) fn check_ext_integrity(layout: &Layout) -> Check {
         Ok(s) => s,
         Err(c) => return c,
     };
-    let items: Vec<_> = st.items.values().filter(|r| !r.removed_by_user).collect();
+    // The same kinds as `check_ext_consistency`: only skills, modules and channels have a payload directory here;
+    // mcp-server and bundle records are not re-hashed.
+    let items: Vec<_> = st
+        .items
+        .values()
+        .filter(|r| !r.removed_by_user)
+        .filter(|r| matches!(r.kind.as_str(), "skill" | "module" | "channel"))
+        .collect();
     if items.is_empty() {
         return row(INTEGRITY, Status::Ok, "no packaged extensions", None, None);
     }

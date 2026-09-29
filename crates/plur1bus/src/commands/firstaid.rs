@@ -343,7 +343,11 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         layout,
         core_status.as_ref(),
     ));
-    // X1-R30: extensions from file; read-only, no lock, report only.
+    // X1-R30: extensions from file; read-only, no lock, report only. The re-hash reads every payload file, so it
+    // respects the budget like the rows before it.
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
     checks.push(super::firstaid_ext::check_ext_integrity(layout));
     checks.push(super::firstaid_ext::check_ext_consistency(layout));
     checks.push(super::firstaid_ext::check_ext_revoked(layout));
