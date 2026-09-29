@@ -80,6 +80,26 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus project`↴](#plur1bus-project)
 * [`plur1bus import`↴](#plur1bus-import)
 * [`plur1bus uninstall`↴](#plur1bus-uninstall)
+* [`plur1bus skill`↴](#plur1bus-skill)
+* [`plur1bus skill list`↴](#plur1bus-skill-list)
+* [`plur1bus skill show`↴](#plur1bus-skill-show)
+* [`plur1bus skill install`↴](#plur1bus-skill-install)
+* [`plur1bus skill uninstall`↴](#plur1bus-skill-uninstall)
+* [`plur1bus skill restore`↴](#plur1bus-skill-restore)
+* [`plur1bus skill enable`↴](#plur1bus-skill-enable)
+* [`plur1bus skill disable`↴](#plur1bus-skill-disable)
+* [`plur1bus plugin`↴](#plur1bus-plugin)
+* [`plur1bus plugin list`↴](#plur1bus-plugin-list)
+* [`plur1bus plugin show`↴](#plur1bus-plugin-show)
+* [`plur1bus plugin install`↴](#plur1bus-plugin-install)
+* [`plur1bus plugin uninstall`↴](#plur1bus-plugin-uninstall)
+* [`plur1bus plugin restore`↴](#plur1bus-plugin-restore)
+* [`plur1bus plugin enable`↴](#plur1bus-plugin-enable)
+* [`plur1bus plugin disable`↴](#plur1bus-plugin-disable)
+* [`plur1bus ext`↴](#plur1bus-ext)
+* [`plur1bus ext inspect`↴](#plur1bus-ext-inspect)
+* [`plur1bus ext pack`↴](#plur1bus-ext-pack)
+* [`plur1bus ext verify`↴](#plur1bus-ext-verify)
 
 ## `plur1bus`
 
@@ -108,6 +128,9 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `project` — Projects — M3
 * `import` — [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
 * `uninstall` — Uninstall — M8
+* `skill` — Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
+* `plugin` — Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
+* `ext` — Extension packages (`.p1x`): inspect, pack, verify
 
 ###### **Options:**
 
@@ -1083,6 +1106,332 @@ Uninstall — M8
 ###### **Arguments:**
 
 * `<REST>`
+
+
+
+## `plur1bus skill`
+
+Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
+
+**Usage:** `plur1bus skill <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the installed skills: version, state, source, trust and the agents that have each
+* `show` — [experimental] Show one skill: its package, trust, capabilities, scripts, files and trash entries
+* `install` — [experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+* `uninstall` — [experimental] Uninstall a skill into the trash (a bundled skill is hidden instead)
+* `restore` — [experimental] Restore a skill from the trash (disabled)
+* `enable` — [experimental] Enable a skill, for every agent or only the listed ones (prints its capabilities first)
+* `disable` — [experimental] Disable a skill, everywhere or only for the listed agents
+
+
+
+## `plur1bus skill list`
+
+[experimental] List the installed skills: version, state, source, trust and the agents that have each
+
+**Usage:** `plur1bus skill list [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <ID>` — Only the skills this agent has
+* `--source <SOURCE>` — Only the skills from this source (file, bundled, local, or an import source)
+* `--state <STATE>`
+
+  Possible values: `installed`, `enabled`
+
+
+
+
+## `plur1bus skill show`
+
+[experimental] Show one skill: its package, trust, capabilities, scripts, files and trash entries
+
+**Usage:** `plur1bus skill show <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+
+
+## `plur1bus skill install`
+
+[experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+
+Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher, licence, every capability, every script with its size and first line, the runtime, the secrets and what it replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. `--enable` enables it in the same step (for the listed agents only, with `--enable=bernd,anna`).
+
+**Usage:** `plur1bus skill install [OPTIONS] <PATH>`
+
+###### **Arguments:**
+
+* `<PATH>` — `.p1x`, `.skill`, `.zip`, a skill folder, or `-` for a `.p1x` on stdin
+
+###### **Options:**
+
+* `--enable <AGENT>` — Enable it right away, for every agent or (with `=<agent,…>`) only for those
+* `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
+* `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
+* `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
+* `--dry-run` — Only inspect: print the disclosure (`ext.inspect/1` with --json) and install nothing
+* `--yes` — Do not ask (required outside a terminal); acknowledges the capabilities, but never a trust tier or a downgrade: those need their --allow-* flag
+
+
+
+## `plur1bus skill uninstall`
+
+[experimental] Uninstall a skill into the trash (a bundled skill is hidden instead)
+
+**Usage:** `plur1bus skill uninstall [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--purge` — Also move its data (data/ext/<name>) and its configuration to the trash (asks separately)
+* `--cascade` — Disable the enabled extensions that need it first, instead of refusing
+* `--yes` — Do not ask (required outside a terminal)
+
+
+
+## `plur1bus skill restore`
+
+[experimental] Restore a skill from the trash (disabled)
+
+**Usage:** `plur1bus skill restore <TRASH_ID>`
+
+###### **Arguments:**
+
+* `<TRASH_ID>`
+
+
+
+## `plur1bus skill enable`
+
+[experimental] Enable a skill, for every agent or only the listed ones (prints its capabilities first)
+
+**Usage:** `plur1bus skill enable [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--agent <ID>` — Only for this agent (repeatable); every other configured agent has it blocked
+* `--yes` — Acknowledge the capabilities without asking (required outside a terminal)
+
+
+
+## `plur1bus skill disable`
+
+[experimental] Disable a skill, everywhere or only for the listed agents
+
+**Usage:** `plur1bus skill disable [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--agent <ID>` — Only for this agent (repeatable)
+* `--yes` — Do not ask (required outside a terminal)
+
+
+
+## `plur1bus plugin`
+
+Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
+
+**Usage:** `plur1bus plugin <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the installed modules and channels: version, state, source, trust and overlays
+* `show` — [experimental] Show one module or channel: its package, trust, capabilities, files, dependents and trash entries
+* `install` — [experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+* `uninstall` — [experimental] Stop and uninstall a module or channel into the trash
+* `restore` — [experimental] Restore a module or channel from the trash (disabled)
+* `enable` — [experimental] Enable a module or channel: prints its capabilities and the restart plan first
+* `disable` — [experimental] Disable a module or channel: prints the modules that will be held back first
+
+
+
+## `plur1bus plugin list`
+
+[experimental] List the installed modules and channels: version, state, source, trust and overlays
+
+**Usage:** `plur1bus plugin list [OPTIONS]`
+
+###### **Options:**
+
+* `--kind <KIND>`
+
+  Possible values: `module`, `channel`
+
+* `--state <STATE>`
+
+  Possible values: `installed`, `enabled`
+
+
+
+
+## `plur1bus plugin show`
+
+[experimental] Show one module or channel: its package, trust, capabilities, files, dependents and trash entries
+
+**Usage:** `plur1bus plugin show <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+
+
+## `plur1bus plugin install`
+
+[experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+
+Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package.
+
+**Usage:** `plur1bus plugin install [OPTIONS] <PATH>`
+
+###### **Arguments:**
+
+* `<PATH>` — `.p1x`, or `-` for one on stdin
+
+###### **Options:**
+
+* `--enable` — Enable it right away
+* `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
+* `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
+* `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
+* `--dry-run` — Only inspect: print the disclosure (`ext.inspect/1` with --json) and install nothing
+* `--yes` — Do not ask (required outside a terminal); acknowledges the capabilities, but never a trust tier or a downgrade: those need their --allow-* flag
+
+
+
+## `plur1bus plugin uninstall`
+
+[experimental] Stop and uninstall a module or channel into the trash
+
+**Usage:** `plur1bus plugin uninstall [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--purge` — Also move its data (data/ext/<name>) and its configuration section to the trash (asks separately)
+* `--cascade` — Disable the enabled modules that need it first, instead of refusing
+* `--yes` — Do not ask (required outside a terminal)
+
+
+
+## `plur1bus plugin restore`
+
+[experimental] Restore a module or channel from the trash (disabled)
+
+**Usage:** `plur1bus plugin restore <TRASH_ID>`
+
+###### **Arguments:**
+
+* `<TRASH_ID>`
+
+
+
+## `plur1bus plugin enable`
+
+[experimental] Enable a module or channel: prints its capabilities and the restart plan first
+
+**Usage:** `plur1bus plugin enable [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--yes` — Acknowledge the capabilities without asking (required outside a terminal)
+
+
+
+## `plur1bus plugin disable`
+
+[experimental] Disable a module or channel: prints the modules that will be held back first
+
+**Usage:** `plur1bus plugin disable [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--yes` — Do not ask (required outside a terminal)
+
+
+
+## `plur1bus ext`
+
+Extension packages (`.p1x`): inspect, pack, verify
+
+**Usage:** `plur1bus ext <COMMAND>`
+
+###### **Subcommands:**
+
+* `inspect` — [experimental] Inspect a package (`.p1x`, skill folder, `.zip`, `.skill`, or `-`) and print the disclosure
+* `pack` — [experimental] Build a `.p1x` from a directory holding p1x.template.json and payload/ (or a skill folder)
+* `verify` — [experimental] Verify a `.p1x` without a home: layout, hashes, signature, manifest and compatibility
+
+
+
+## `plur1bus ext inspect`
+
+[experimental] Inspect a package (`.p1x`, skill folder, `.zip`, `.skill`, or `-`) and print the disclosure
+
+**Usage:** `plur1bus ext inspect <PATH>`
+
+###### **Arguments:**
+
+* `<PATH>` — `.p1x`, `.skill`, `.zip`, a skill folder, or `-` for a `.p1x` on stdin
+
+
+
+## `plur1bus ext pack`
+
+[experimental] Build a `.p1x` from a directory holding p1x.template.json and payload/ (or a skill folder)
+
+Fills `files`, `scripts` and `created`, and writes the package deterministically. A directory with a SKILL.md and no template is normalised into an unsigned skill package. Needs no home. Signing is a separate step.
+
+**Usage:** `plur1bus ext pack [OPTIONS] <DIR>`
+
+###### **Arguments:**
+
+* `<DIR>`
+
+###### **Options:**
+
+* `-o`, `--output <FILE>` — Where to write the package (default: ./<name>-<version>.p1x)
+
+
+
+## `plur1bus ext verify`
+
+[experimental] Verify a `.p1x` without a home: layout, hashes, signature, manifest and compatibility
+
+Trusts only the pinned keys, checks no revocations and no installed names. Exit 1 with the reason when the package is refused.
+
+**Usage:** `plur1bus ext verify <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>`
 
 
 

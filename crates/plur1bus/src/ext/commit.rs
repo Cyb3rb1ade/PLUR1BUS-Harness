@@ -616,15 +616,8 @@ fn commit_locked(
             .get(&name)
             .filter(|p| p.id == staged.record.id && p.package_sha256 == rec.sha256)
         {
+            // An `enable` it skips shows as `state: "installed"`; the CLI says so (the supervisor's stderr is a log).
             let on = enabled_now(layout, &cfg, &name, kind);
-            if opts.enable.is_some() && !on {
-                eprintln!(
-                    "plur1bus: note: {name} {} is already installed from this very package, so nothing was \
-                     installed or enabled; enable it with `plur1bus {} enable {name}`",
-                    p.version,
-                    if kind == "skill" { "skill" } else { "plugin" }
-                );
-            }
             return Ok(json!({
                 "name": name, "version": p.version, "kind": kind, "replaced": false,
                 "state": if on { "enabled" } else { "installed" }

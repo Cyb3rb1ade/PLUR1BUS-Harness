@@ -107,8 +107,17 @@ pub enum Cmd {
     Import(ImportArgs),
     /// Uninstall — M8
     Uninstall(StubArgs),
-    /// Extensions (internal until the visible `ext` commands land: only the hidden package worker)
-    #[command(hide = true)]
+    /// Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
+    Skill {
+        #[command(subcommand)]
+        sub: SkillCmd,
+    },
+    /// Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
+    Plugin {
+        #[command(subcommand)]
+        sub: PluginCmd,
+    },
+    /// Extension packages (`.p1x`): inspect, pack, verify
     Ext {
         #[command(subcommand)]
         cmd: ExtCmd,
@@ -616,9 +625,196 @@ pub enum DaemonCmd {
     Status,
 }
 
+/// `--state` of `skill list` and `plugin list`.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExtState {
+    Installed,
+    Enabled,
+}
+
+/// `--kind` of `plugin list`.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PluginKind {
+    Module,
+    Channel,
+}
+
+/// The install flags `skill install` and `plugin install` share.
+#[derive(Args, Debug, Clone)]
+pub struct InstallFlags {
+    /// Acknowledge that the package is not signed (with --yes; a terminal asks instead)
+    #[arg(long)]
+    pub allow_unsigned: bool,
+    /// Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
+    #[arg(long)]
+    pub allow_unknown_signer: bool,
+    /// Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
+    #[arg(long)]
+    pub allow_downgrade: bool,
+    /// Only inspect: print the disclosure (`ext.inspect/1` with --json) and install nothing
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Do not ask (required outside a terminal); acknowledges the capabilities, but never a trust tier or a downgrade:
+    /// those need their --allow-* flag
+    #[arg(long)]
+    pub yes: bool,
+}
+
+/// `plur1bus skill` (spec §10.1).
+#[derive(Subcommand, Debug)]
+pub enum SkillCmd {
+    /// [experimental] List the installed skills: version, state, source, trust and the agents that have each
+    List {
+        /// Only the skills this agent has
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+        /// Only the skills from this source (file, bundled, local, or an import source)
+        #[arg(long, value_name = "SOURCE")]
+        source: Option<String>,
+        #[arg(long, value_enum)]
+        state: Option<ExtState>,
+    },
+    /// [experimental] Show one skill: its package, trust, capabilities, scripts, files and trash entries
+    Show { name: String },
+    /// [experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+    ///
+    /// Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher,
+    /// licence, every capability, every script with its size and first line, the runtime, the secrets and what it
+    /// replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer
+    /// or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. `--enable` enables it in the
+    /// same step (for the listed agents only, with `--enable=bernd,anna`).
+    Install {
+        /// `.p1x`, `.skill`, `.zip`, a skill folder, or `-` for a `.p1x` on stdin
+        path: String,
+        /// Enable it right away, for every agent or (with `=<agent,…>`) only for those
+        #[arg(long, num_args = 0..=1, require_equals = true, value_delimiter = ',', value_name = "AGENT")]
+        enable: Option<Vec<String>>,
+        #[command(flatten)]
+        flags: InstallFlags,
+    },
+    /// [experimental] Uninstall a skill into the trash (a bundled skill is hidden instead)
+    Uninstall {
+        name: String,
+        /// Also move its data (data/ext/<name>) and its configuration to the trash (asks separately)
+        #[arg(long)]
+        purge: bool,
+        /// Disable the enabled extensions that need it first, instead of refusing
+        #[arg(long)]
+        cascade: bool,
+        /// Do not ask (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Restore a skill from the trash (disabled)
+    Restore {
+        #[arg(value_name = "TRASH_ID")]
+        trash_id: String,
+    },
+    /// [experimental] Enable a skill, for every agent or only the listed ones (prints its capabilities first)
+    Enable {
+        name: String,
+        /// Only for this agent (repeatable); every other configured agent has it blocked
+        #[arg(long = "agent", value_name = "ID")]
+        agents: Vec<String>,
+        /// Acknowledge the capabilities without asking (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Disable a skill, everywhere or only for the listed agents
+    Disable {
+        name: String,
+        /// Only for this agent (repeatable)
+        #[arg(long = "agent", value_name = "ID")]
+        agents: Vec<String>,
+        /// Do not ask (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+/// `plur1bus plugin` (spec §10.1): modules and channels from packages.
+#[derive(Subcommand, Debug)]
+pub enum PluginCmd {
+    /// [experimental] List the installed modules and channels: version, state, source, trust and overlays
+    List {
+        #[arg(long, value_enum)]
+        kind: Option<PluginKind>,
+        #[arg(long, value_enum)]
+        state: Option<ExtState>,
+    },
+    /// [experimental] Show one module or channel: its package, trust, capabilities, files, dependents and trash entries
+    Show { name: String },
+    /// [experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+    ///
+    /// Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full
+    /// authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an
+    /// unsigned, unknown-signer or downgrade package.
+    Install {
+        /// `.p1x`, or `-` for one on stdin
+        path: String,
+        /// Enable it right away
+        #[arg(long)]
+        enable: bool,
+        #[command(flatten)]
+        flags: InstallFlags,
+    },
+    /// [experimental] Stop and uninstall a module or channel into the trash
+    Uninstall {
+        name: String,
+        /// Also move its data (data/ext/<name>) and its configuration section to the trash (asks separately)
+        #[arg(long)]
+        purge: bool,
+        /// Disable the enabled modules that need it first, instead of refusing
+        #[arg(long)]
+        cascade: bool,
+        /// Do not ask (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Restore a module or channel from the trash (disabled)
+    Restore {
+        #[arg(value_name = "TRASH_ID")]
+        trash_id: String,
+    },
+    /// [experimental] Enable a module or channel: prints its capabilities and the restart plan first
+    Enable {
+        name: String,
+        /// Acknowledge the capabilities without asking (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Disable a module or channel: prints the modules that will be held back first
+    Disable {
+        name: String,
+        /// Do not ask (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
 /// `plur1bus ext`.
 #[derive(Subcommand, Debug)]
 pub enum ExtCmd {
+    /// [experimental] Inspect a package (`.p1x`, skill folder, `.zip`, `.skill`, or `-`) and print the disclosure
+    Inspect {
+        /// `.p1x`, `.skill`, `.zip`, a skill folder, or `-` for a `.p1x` on stdin
+        path: String,
+    },
+    /// [experimental] Build a `.p1x` from a directory holding p1x.template.json and payload/ (or a skill folder)
+    ///
+    /// Fills `files`, `scripts` and `created`, and writes the package deterministically. A directory with a SKILL.md
+    /// and no template is normalised into an unsigned skill package. Needs no home. Signing is a separate step.
+    Pack {
+        dir: PathBuf,
+        /// Where to write the package (default: ./<name>-<version>.p1x)
+        #[arg(short = 'o', long = "output", value_name = "FILE")]
+        output: Option<PathBuf>,
+    },
+    /// [experimental] Verify a `.p1x` without a home: layout, hashes, signature, manifest and compatibility
+    ///
+    /// Trusts only the pinned keys, checks no revocations and no installed names. Exit 1 with the reason when the
+    /// package is refused.
+    Verify { file: PathBuf },
     /// Package worker (internal: the supervisor's child for inspect and stage, X1-R2)
     #[command(name = "__worker", hide = true)]
     Worker {

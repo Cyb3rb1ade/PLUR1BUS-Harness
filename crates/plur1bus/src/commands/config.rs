@@ -41,6 +41,7 @@ fn unresponsive(detail: String) -> RpcError {
         reason: Some("supervisor-unresponsive".into()),
         detail: Some(detail),
         ids: None,
+        ext: None,
     }
 }
 
@@ -103,11 +104,12 @@ fn conflict(current: &str) -> RpcError {
         message: "config.json changed since the given revision".into(),
         reason: Some("config-changed".into()),
         detail: None,
-        ids: Some(
+        ids: Some(Box::new(
             [("currentRevision".to_string(), current.to_string())]
                 .into_iter()
                 .collect(),
-        ),
+        )),
+        ext: None,
     }
 }
 
@@ -494,6 +496,7 @@ mod tests {
             reason: Some("config-changed".into()),
             detail: None,
             ids: None,
+            ext: None,
         };
         assert_eq!(
             fail_message(&from_supervisor),

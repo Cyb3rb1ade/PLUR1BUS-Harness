@@ -63,5 +63,8 @@ fn main() {
         Cmd::Ext {
             cmd: cli::ExtCmd::Worker { op },
         } => ext::stage::worker_main(&layout, op),
+        Cmd::Ext { cmd } => commands::ext::run(&out, &layout, cmd),
+        Cmd::Skill { sub } => commands::skill::run(&out, &layout, sub),
+        Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),
     }
 }

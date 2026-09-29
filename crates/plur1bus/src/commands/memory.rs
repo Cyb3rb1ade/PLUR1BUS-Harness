@@ -316,6 +316,7 @@ mod tests {
             reason: Some("core-stopping".into()),
             detail: None,
             ids: None,
+            ext: None,
         };
         assert!(refused_as_unavailable(&call(ErrorCode::ECoreUnavailable)));
         assert!(!refused_as_unavailable(&call(ErrorCode::EInvalidParams)));

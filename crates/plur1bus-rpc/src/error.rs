@@ -11,7 +11,11 @@ pub enum RpcError {
         reason: Option<String>,
         detail: Option<String>,
         /// `error.data.ids`: non-secret ids a caller needs to recover (e.g. a half-finished shared-copy refresh).
-        ids: Option<BTreeMap<String, String>>,
+        /// Boxed, with `ext`, so `RpcError` stays small (clippy `result_large_err`).
+        ids: Option<Box<BTreeMap<String, String>>>,
+        /// `error.data.ext` (X1-C19): what an `ext.*` refusal must show, e.g. an install's inspection, the capabilities
+        /// an enable needs acknowledged, the dependents that block an uninstall, the paths that no longer match.
+        ext: Option<Box<serde_json::Value>>,
     },
     Unavailable {
         reason: String,
@@ -90,7 +94,15 @@ impl RpcError {
     /// `error.data.ids` of a `Call` error, when the core sent any.
     pub fn ids(&self) -> Option<&BTreeMap<String, String>> {
         match self {
-            RpcError::Call { ids, .. } => ids.as_ref(),
+            RpcError::Call { ids, .. } => ids.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// `error.data.ext` of a `Call` error (X1-C19), when the server sent one.
+    pub fn ext(&self) -> Option<&serde_json::Value> {
+        match self {
+            RpcError::Call { ext, .. } => ext.as_deref(),
             _ => None,
         }
     }

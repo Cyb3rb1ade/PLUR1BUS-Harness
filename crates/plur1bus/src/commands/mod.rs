@@ -4,6 +4,7 @@ pub mod config;
 pub mod core;
 pub mod daemon;
 pub mod dreams;
+pub mod ext;
 pub mod firstaid;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
@@ -11,9 +12,11 @@ pub mod import;
 pub mod memory;
 pub mod memory_ops;
 pub mod module;
+pub mod plugin;
 pub mod repair;
 pub mod service;
 pub mod setup;
+pub mod skill;
 pub mod stubs;
 pub mod update;
 
@@ -91,6 +94,7 @@ mod tests {
             reason: reason.map(str::to_string),
             detail: None,
             ids: None,
+            ext: None,
         };
         assert!(is_server_mismatch(&call(
             ErrorCode::EUnauthorized,
