@@ -289,6 +289,44 @@ pub fn set(
     if_revision: Option<&str>,
     dry_run: bool,
 ) -> Result<Value, SetError> {
+    set_inner(shared, layout, changes, if_revision, dry_run, false)
+}
+
+/// [`set`] for the ext layer's `SupervisorHost` (`ModuleHost::set_config`): a `null` value removes the key instead of
+/// writing `null`, which is how a rollback restores a key that was absent (a fresh install's `modules.<name>`).
+pub fn set_removing_nulls(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    changes: Vec<(String, Value)>,
+    dry_run: bool,
+) -> Result<Value, SetError> {
+    set_inner(shared, layout, changes, None, dry_run, true)
+}
+
+/// The plan of `changes` over `running`, a `null` value removing its key (validated once at the end).
+fn plan_removing_nulls(
+    running: &Value,
+    changes: &[(String, Value)],
+) -> Result<cfg::Plan, SetError> {
+    let after = crate::ext::commit::apply_changes(running, changes)
+        .map_err(|e| SetError::Invalid(vec![e.message]))?;
+    let p = cfg::restart_plan(running, &after);
+    Ok(cfg::Plan {
+        before: running.clone(),
+        after,
+        changed: p.changed,
+        restart: p.restart,
+    })
+}
+
+fn set_inner(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    changes: Vec<(String, Value)>,
+    if_revision: Option<&str>,
+    dry_run: bool,
+    remove_nulls: bool,
+) -> Result<Value, SetError> {
     let started = Instant::now();
     // Serialised by the config mutex. It is released at the end of this block: a later step that waits for a
     // restart job (Task 5) must wait without it, because the restarted core's own `config.watch` needs it (H3B-R6).
@@ -309,10 +347,14 @@ pub fn set(
                 return Err(SetError::Conflict { current });
             }
         }
-        let plan = cfg::set_many(&running, &changes).map_err(|e| match e {
-            cfg::ConfigError::Invalid(v) => SetError::Invalid(v),
-            other => SetError::Invalid(vec![other.to_string()]),
-        })?;
+        let plan = if remove_nulls {
+            plan_removing_nulls(&running, &changes)?
+        } else {
+            cfg::set_many(&running, &changes).map_err(|e| match e {
+                cfg::ConfigError::Invalid(v) => SetError::Invalid(v),
+                other => SetError::Invalid(vec![other.to_string()]),
+            })?
+        };
         // B13: a changed `modules.<name>` must satisfy its manifest's configSchema.
         let module_errors =
             crate::modules::config_errors(&crate::modules::scan(layout), &running, &plan.after);

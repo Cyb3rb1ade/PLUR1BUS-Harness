@@ -865,7 +865,7 @@ fn uninstall_of_a_bundled_skill_hides_it_and_purge_is_denied() {
     let v = rm(&l, "ops", false, false).unwrap();
     assert_eq!(
         v,
-        json!({"name": "ops", "removed": true, "trashId": "", "purged": false})
+        json!({"name": "ops", "removed": true, "trashId": null, "purged": false})
     );
     // Hidden, not moved: the folder stays for `setup` to find, the index entry is disabled, the record a tombstone.
     assert_eq!(tree_hash(&dir), code);

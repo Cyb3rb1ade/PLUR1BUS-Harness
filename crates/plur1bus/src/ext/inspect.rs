@@ -244,6 +244,17 @@ fn changed_keys(old: &Value, new: &Value) -> Vec<String> {
 /// Spools, verifies and checks a package (see the module documentation) and writes its record. `id` comes from
 /// [`super::worker::new_inspection_id`].
 pub fn inspect(layout: &Layout, src: Source, id: &str) -> Result<InspectionRecord, ExtError> {
+    inspect_with(layout, src, id, false)
+}
+
+/// [`inspect`], aborting the process right after the package is spooled when `crash` (the worker's `--crash` test
+/// seam: a parser that crashes leaves its spool behind).
+pub(crate) fn inspect_with(
+    layout: &Layout,
+    src: Source,
+    id: &str,
+    crash: bool,
+) -> Result<InspectionRecord, ExtError> {
     if !valid_id(id) {
         return Err(ExtError::new(
             "E_INTERNAL",
@@ -267,6 +278,9 @@ pub fn inspect(layout: &Layout, src: Source, id: &str) -> Result<InspectionRecor
     };
     let cfg = ext_config(layout)?;
     let normalised = spool(&src, &pending.p1x, &cfg)?;
+    if crash {
+        std::process::abort();
+    }
 
     let store = trust_store();
     let host = host_facts();

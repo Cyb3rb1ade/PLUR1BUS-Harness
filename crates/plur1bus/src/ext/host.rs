@@ -49,3 +49,17 @@ pub fn inspect_ttl() -> Duration {
         .and_then(|s| s.parse::<u64>().ok())
         .map_or(INSPECT_TTL, Duration::from_millis)
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn host_rpc_version_is_the_schema_version() {
+        let schema: serde_json::Value =
+            serde_json::from_str(plur1bus_rpc::SCHEMA_JSON).expect("the RPC schema parses");
+        assert_eq!(
+            super::host_facts().rpc_version,
+            schema["x-rpc-version"].as_str().unwrap()
+        );
+        assert_eq!(plur1bus_rpc::RPC_VERSION, "1.4.0");
+    }
+}

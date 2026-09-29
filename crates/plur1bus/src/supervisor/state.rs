@@ -83,6 +83,12 @@ pub const STOPPED_BY_REQUEST: &str = "stopped-by-request";
 /// A module whose `needs` names a module that is not started (disabled, agent-scoped, an unsupported API version, or
 /// itself held back): stopped, transitively (H3B-R25).
 pub const STOPPED_NEEDS_UNAVAILABLE: &str = "needs-unavailable";
+/// A packaged module (X1) held back by an overlay (X1-R17): its id and version are on the revocation list, an installed
+/// file no longer matches the package, or its manifest's `compat` no longer fits this host. Its dependents are held
+/// back as `needs-unavailable`.
+pub const STOPPED_EXT_REVOKED: &str = "ext-revoked";
+pub const STOPPED_EXT_TAMPERED: &str = "ext-tampered";
+pub const STOPPED_EXT_INCOMPATIBLE: &str = "ext-incompatible";
 
 impl CrashReason {
     pub fn as_str(self) -> &'static str {

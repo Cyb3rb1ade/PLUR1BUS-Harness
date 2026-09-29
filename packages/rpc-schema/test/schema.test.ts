@@ -149,6 +149,17 @@ describe("rpc-schema", () => {
     assert.equal(validateNotification("ext.changed", { name: "demo-skill", kind: "skill", state: "enabled", version: "1.0.0" }).ok, false);
   });
 
+  it("an uninstall that hid a bundled skill answers trashId null, and ext refusals carry data.ext", () => {
+    assert.equal(validateResult("ext.uninstall", { name: "ops", removed: true, trashId: null, purged: false }).ok, true);
+    assert.equal(validateResult("ext.uninstall", { name: "ops", removed: true, trashId: 7, purged: false }).ok, false);
+    const refusal = { code: -32000, message: "acknowledge", data: { error: "E_APPROVAL_REQUIRED", reason: "acknowledge-capabilities", ext: { name: "fixture", capabilities: {}, authority: "full" } } };
+    assert.deepEqual(validateErrorObject(refusal), { ok: true });
+    assert.equal(validateErrorObject({ ...refusal, data: { ...refusal.data, ext: "no" } }).ok, false);
+    const disable = (SCHEMA as any).$defs.methods["ext.disable"].description as string;
+    assert.equal(disable.includes("required-by"), false);
+    for (const m of ["ext.enable", "ext.disable"]) assert.match((SCHEMA as any).$defs.methods[m].description, /dryRun runs every refusal/, m);
+  });
+
   it("core.auth never lists ext methods and supervisor.auth lists all nine", () => {
     const core = buildCapabilities([], "core");
     const supervisor = buildCapabilities([], "supervisor");

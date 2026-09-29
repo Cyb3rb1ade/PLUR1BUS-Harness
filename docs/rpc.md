@@ -3118,7 +3118,7 @@ Lists installed extensions (skills, modules, channels), optionally filtered by k
 
 **Served by:** supervisor
 
-One extension in detail. E_NOT_FOUND reason=extension-unknown when nothing of that name is installed.
+One extension in detail. E_NOT_FOUND reason=extension-unknown when nothing of that name is installed. E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read).
 
 **params**
 
@@ -3152,7 +3152,7 @@ One extension in detail. E_NOT_FOUND reason=extension-unknown when nothing of th
 
 **Served by:** supervisor
 
-Audits a package file (.p1x, or a skill folder, .zip or .skill normalised to an unsigned package) in a worker process and keeps it for ten minutes; writes nothing under skills/, modules/ or extensions/. E_INVALID_PARAMS reason=package-invalid|signature-invalid|scripts-mismatch|archive-unsafe-entry|archive-unsupported|download-too-large|digest-mismatch|reserved-name|socket-path-too-long; E_CONFLICT reason=name-taken; E_NOT_AVAILABLE reason=incompatible|kind-unsupported; E_DENIED reason=policy-unsigned-disallowed|revoked; E_INTERNAL reason=worker-failed.
+Audits a package file (.p1x, or a skill folder, .zip or .skill normalised to an unsigned package) in a worker process and keeps it for ten minutes; writes nothing under skills/, modules/ or extensions/. E_INVALID_PARAMS reason=package-invalid|signature-invalid|scripts-mismatch|archive-unsafe-entry|archive-unsupported|download-too-large|digest-mismatch|reserved-name|socket-path-too-long; E_CONFLICT reason=name-taken; E_NOT_AVAILABLE reason=incompatible|kind-unsupported; E_DENIED reason=policy-unsigned-disallowed|revoked; E_INTERNAL reason=worker-failed (the worker crashed or overran its 60 s; what it left is removed)|io; E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read). What a refusal must show is in error.data.ext.
 
 **params**
 
@@ -3195,7 +3195,7 @@ Audits a package file (.p1x, or a skill folder, .zip or .skill normalised to an 
 
 **Served by:** supervisor
 
-Installs an inspected package, disabled unless enable is given (which needs acknowledge capabilities). Installing the identical package again is a no-op with replaced false. E_NOT_FOUND reason=inspection-expired; E_APPROVAL_REQUIRED reason=acknowledge-unsigned|acknowledge-unknown-signer|acknowledge-downgrade|acknowledge-capabilities; E_CONFLICT reason=busy|name-taken; E_DENIED reason=revoked|policy-unsigned-disallowed; E_INVALID_PARAMS reason=digest-mismatch|package-invalid|agents-not-supported; E_INTERNAL reason=worker-failed. E_LOCKED reason=skills-locked (another writer holds the skills index).
+Installs an inspected package, disabled unless enable is given (which needs acknowledge capabilities). Installing the identical package again is a no-op with replaced false. E_NOT_FOUND reason=inspection-expired; E_APPROVAL_REQUIRED reason=acknowledge-unsigned|acknowledge-unknown-signer|acknowledge-downgrade|acknowledge-capabilities; E_CONFLICT reason=busy|name-taken; E_DENIED reason=revoked|policy-unsigned-disallowed; E_INVALID_PARAMS reason=digest-mismatch|package-invalid|agents-not-supported; E_NOT_AVAILABLE reason=kind-unsupported; E_INTERNAL reason=worker-failed (the staging worker crashed or overran its 300 s; its staging and the inspection are removed, inspect again)|io; E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_LOCKED reason=skills-locked (another writer holds the skills index). What a refusal must show is in error.data.ext.
 
 **params**
 
@@ -3280,7 +3280,7 @@ Installs an inspected package, disabled unless enable is given (which needs ackn
 
 **Served by:** supervisor
 
-Moves an extension into the trash (kept extensions.trashDays days); purge also moves its data. E_NOT_FOUND reason=extension-unknown; E_CONFLICT reason=required-by|busy; E_DENIED reason=bundled (purge of a bundled item). E_LOCKED reason=skills-locked (another writer holds the skills index).
+Moves an extension into the trash (kept extensions.trashDays days); purge also moves its data. E_NOT_FOUND reason=extension-unknown; E_CONFLICT reason=required-by|busy; E_DENIED reason=bundled (purge of a bundled item). E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back). trashId is null when nothing went into the trash: a bundled skill is hidden, not moved. What a refusal must show is in error.data.ext.
 
 **params**
 
@@ -3326,7 +3326,11 @@ Moves an extension into the trash (kept extensions.trashDays days); purge also m
       "const": true
     },
     "trashId": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The trash entry to restore from; null for a bundled skill, which is hidden, not moved."
     },
     "purged": {
       "type": "boolean"
@@ -3341,7 +3345,7 @@ Moves an extension into the trash (kept extensions.trashDays days); purge also m
 
 **Served by:** supervisor
 
-Restores an extension from the trash. E_NOT_FOUND reason=trash-expired; E_CONFLICT reason=name-taken|busy. E_LOCKED reason=skills-locked (another writer holds the skills index).
+Restores an extension from the trash. E_NOT_FOUND reason=trash-expired; E_CONFLICT reason=name-taken|busy. E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back).
 
 **params**
 
@@ -3395,7 +3399,7 @@ Restores an extension from the trash. E_NOT_FOUND reason=trash-expired; E_CONFLI
 
 **Served by:** supervisor
 
-Enables an extension, for the given agents (skills only) or everywhere; dryRun reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_APPROVAL_REQUIRED reason=acknowledge-capabilities; E_NOT_AVAILABLE reason=needs-setup|incompatible|tampered; E_DENIED reason=revoked; E_INVALID_PARAMS reason=agents-not-supported (modules and channels); E_CONFLICT reason=busy. E_LOCKED reason=skills-locked (another writer holds the skills index).
+Enables an extension, for the given agents (skills only) or everywhere; dryRun runs every refusal and reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_APPROVAL_REQUIRED reason=acknowledge-capabilities; E_NOT_AVAILABLE reason=needs-setup|incompatible|tampered; E_DENIED reason=revoked; E_INVALID_PARAMS reason=agents-not-supported (modules and channels); E_CONFLICT reason=busy. E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back). What a refusal must show is in error.data.ext.
 
 **params**
 
@@ -3482,7 +3486,7 @@ Enables an extension, for the given agents (skills only) or everywhere; dryRun r
 
 **Served by:** supervisor
 
-Disables an extension, for the given agents (skills only) or everywhere; dryRun reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_CONFLICT reason=required-by|busy; E_INVALID_PARAMS reason=agents-not-supported (modules and channels). E_LOCKED reason=skills-locked (another writer holds the skills index).
+Disables an extension, for the given agents (skills only) or everywhere; dryRun runs every refusal and reports restart and heldBack without writing. Disabling a module holds back the enabled modules that need it (listed in heldBack); it is never refused for them. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_CONFLICT reason=busy; E_INVALID_PARAMS reason=agents-not-supported (modules and channels). E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back).
 
 **params**
 
@@ -4259,6 +4263,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "detail": {
           "type": "string"
+        },
+        "ext": {
+          "type": "object",
+          "description": "Experimental (1.4.0). What an ext.* refusal shows: the capability disclosure of acknowledge-capabilities (name, id, version, kind, trust, capabilities, scripts, authority; an install's acknowledge-* carries the ExtInspection instead, plus authority and previousCapabilities), dependents of required-by, paths of tampered, name, installedKind and installedId of name-taken, disabledDependents of an uninstall that failed after its cascade."
         },
         "ids": {
           "type": "object",

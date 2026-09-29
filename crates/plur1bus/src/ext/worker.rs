@@ -67,8 +67,31 @@ const REASONS: &[&str] = &[
     "io",
     "state-invalid",
     "index-invalid",
+    "index-newer",
     "skills-locked",
 ];
+
+/// The test seam `PLUR1BUS_TEST_EXT_WORKER_ARGS=<op>:<arg> [<arg>…]` (test internals only): extra arguments the
+/// supervisor passes to the worker for `op` (`inspect` or `stage`), such as `stage:--crash` or
+/// `inspect:--sleep-ms 1500`. Empty otherwise.
+pub fn seam_args(op: &str) -> Vec<String> {
+    if std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() != Ok("1") {
+        return Vec::new();
+    }
+    std::env::var("PLUR1BUS_TEST_EXT_WORKER_ARGS")
+        .ok()
+        .and_then(|v| {
+            let (which, rest) = v.split_once(':')?;
+            (which == op).then(|| rest.split_whitespace().map(str::to_string).collect())
+        })
+        .unwrap_or_default()
+}
+
+/// Whether `e` is the worker itself failing (a crash, a kill after its deadline, an answer that could not be read),
+/// as opposed to a refusal it answered.
+pub fn is_worker_failure(e: &ExtError) -> bool {
+    e.code == "E_INTERNAL" && e.reason == Some("worker-failed")
+}
 
 fn failed(message: impl Into<String>) -> ExtError {
     ExtError::new("E_INTERNAL", "worker-failed", message)

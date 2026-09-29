@@ -55,6 +55,10 @@ pub enum WorkerArgs {
         /// Test seam: sleep first (needs PLUR1BUS_ALLOW_TEST_INTERNALS=1)
         #[arg(long, hide = true)]
         sleep_ms: Option<u64>,
+        /// Test seam: abort once the package is spooled, as a crashing parser would (needs
+        /// PLUR1BUS_ALLOW_TEST_INTERNALS=1)
+        #[arg(long, hide = true)]
+        crash: bool,
     },
     /// Stage an inspected package into `extensions/staging/`
     Stage {
@@ -63,6 +67,10 @@ pub enum WorkerArgs {
         /// Test seam: sleep first (needs PLUR1BUS_ALLOW_TEST_INTERNALS=1)
         #[arg(long, hide = true)]
         sleep_ms: Option<u64>,
+        /// Test seam: abort once the package is extracted into staging, leaving it half-checked (needs
+        /// PLUR1BUS_ALLOW_TEST_INTERNALS=1)
+        #[arg(long, hide = true)]
+        crash: bool,
     },
 }
 
@@ -337,6 +345,11 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
 
 /// Extracts and checks an inspected package in staging (see the module documentation).
 pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
+    stage_with(layout, id, false)
+}
+
+/// [`stage`], aborting the process right after the extraction when `crash` (the worker's `--crash` test seam).
+fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtError> {
     let rec = super::record::load(layout, id)?;
     let pkg = spool_path(layout, id);
     let actual = archive::sha256_file(&pkg).map_err(|e| io_error("cannot read", &pkg, &e))?;
@@ -372,6 +385,9 @@ pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
         ExtError::new(code, e.reason(), e.to_string())
     })?;
     cleanup.dest_created = true;
+    if crash {
+        std::process::abort();
+    }
     check_tree(&cleanup.dest, &m)?;
     let dir = cleanup.dest.join("payload");
     check_kind(&dir, &m)?;
@@ -424,17 +440,24 @@ pub fn worker_main(layout: &Layout, args: WorkerArgs) -> ! {
             path,
             stdin,
             sleep_ms,
+            crash,
         } => {
             sleep(sleep_ms);
             let src = match (stdin, path) {
                 (false, Some(p)) => Source::Path(p),
                 _ => Source::Stdin,
             };
-            inspect::inspect(layout, src, &id).and_then(|r| to_json("inspection", r))
+            inspect::inspect_with(layout, src, &id, crash && allow_internals())
+                .and_then(|r| to_json("inspection", r))
         }
-        WorkerArgs::Stage { id, sleep_ms } => {
+        WorkerArgs::Stage {
+            id,
+            sleep_ms,
+            crash,
+        } => {
             sleep(sleep_ms);
-            stage(layout, &id).and_then(|s| to_json("staged item", s))
+            stage_with(layout, &id, crash && allow_internals())
+                .and_then(|s| to_json("staged item", s))
         }
     };
     let (line, code) = match result {

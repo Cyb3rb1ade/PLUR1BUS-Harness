@@ -468,6 +468,31 @@ pub fn install_commit(
     staged: StagedItem,
     opts: &InstallOpts,
 ) -> Result<Value, ExtError> {
+    let guard = super::try_mutation();
+    commit_and_clean(layout, host, rec, staged, opts, guard.as_ref().map(drop))
+}
+
+/// [`install_commit`] for a caller that already holds the ext mutation lock: the supervisor's `ext.install` takes it
+/// before the worker stages the package, so the stage and the commit are one mutation (X1-R15).
+pub fn install_commit_held(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    rec: &InspectionRecord,
+    staged: StagedItem,
+    opts: &InstallOpts,
+    _held: &super::MutationGuard,
+) -> Result<Value, ExtError> {
+    commit_and_clean(layout, host, rec, staged, opts, Ok(()))
+}
+
+fn commit_and_clean(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    rec: &InspectionRecord,
+    staged: StagedItem,
+    opts: &InstallOpts,
+    locked: Result<(), &ExtError>,
+) -> Result<Value, ExtError> {
     let paths = ExtPaths::of(layout);
     let staging_dir = staged
         .dir
@@ -475,9 +500,9 @@ pub fn install_commit(
         .filter(|d| d.starts_with(&paths.staging))
         .map(Path::to_path_buf);
     KILLED.store(false, Ordering::SeqCst);
-    let result = match super::try_mutation() {
-        Ok(_guard) => commit_locked(layout, &paths, host, rec, staged, opts),
-        Err(e) => Err(e),
+    let result = match locked {
+        Ok(()) => commit_locked(layout, &paths, host, rec, staged, opts),
+        Err(e) => Err(e.clone()),
     };
     if KILLED.load(Ordering::SeqCst) {
         // A killed process cleans nothing up; `ext::recover` does, at the next start.

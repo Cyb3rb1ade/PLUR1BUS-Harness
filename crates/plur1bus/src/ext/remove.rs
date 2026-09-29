@@ -14,7 +14,7 @@
 //!   skill (`E_DENIED bundled`); a module that enabled modules still need ([`dependents`], the same list `ext.show`
 //!   names) without `cascade` (`E_CONFLICT required-by`, `data.dependents`). `cascade` disables them first.
 //! - **Bundled skills** (X1-R18) are hidden, not moved: a tombstone record (`removedByUser: true`) in `state.json` and
-//!   a disabled index entry. The answer's `trashId` is empty: nothing went into the trash.
+//!   a disabled index entry. The answer's `trashId` is `null`: nothing went into the trash.
 //! - **Restore** brings an entry back as installed(disabled), replaying the install's order after marking the entry
 //!   (`restoring`): the module's config section first (`enabled: false`, merged with a purged section the entry
 //!   holds), the skill's index entry (disabled, before the folder, X1-C10), the code, the state record, the cached
@@ -593,7 +593,7 @@ fn hide_bundled(
     host.notify(json!({
         "name": name, "kind": "skill", "state": "removed", "version": version, "overlays": []
     }));
-    Ok(json!({ "name": name, "removed": true, "trashId": "", "purged": false }))
+    Ok(json!({ "name": name, "removed": true, "trashId": null, "purged": false }))
 }
 
 // ---- restore --------------------------------------------------------------------------------------------------------

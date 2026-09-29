@@ -11,6 +11,7 @@
 pub mod adopt;
 pub mod child;
 pub mod config;
+pub mod ext;
 pub mod logfile;
 pub mod modules;
 #[cfg(windows)]
@@ -21,7 +22,7 @@ pub mod subscribers;
 
 use crate::paths::{supervisor_address, Layout};
 use logfile::RotatingFile;
-pub use modules::{module_list, push_module_op, ModuleOp, ModuleVerb, OpError};
+pub use modules::{module_list, ModuleOp, ModuleVerb, OpError};
 use modules::{reconcile_start, reconcile_stop, run_module_op, start_modules};
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
@@ -122,6 +123,9 @@ pub struct SupervisorState {
     /// `run/`'s protected, inheritable ACL was set at start (HB5): every spawned child gets `PLUR1BUS_RUN_ACL=inherited`
     /// ([`child::child_env`]). Always `false` off Windows.
     pub run_acl_inherited: bool,
+    /// The held-back overlay of every packaged module that has one (X1-R17): computed at start after `ext::recover`
+    /// and again after every ext mutation ([`ext`]); `modules::modules_view` holds such a module back.
+    pub ext_overlays: BTreeMap<String, crate::ext::overlays::Overlay>,
 }
 
 impl SupervisorState {
@@ -678,6 +682,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     if !recovered.is_empty() {
         log.info("module staging recovered", json!({ "actions": recovered }));
     }
+    // X1: what a killed ext command left, then the integrity of the enabled packaged modules and their overlays,
+    // before any module starts.
+    let ext_overlays = ext::at_start(layout, config_state.running.as_ref(), &log);
     // A write that crashed before its rename left its temp file; this process owns config.json now.
     let stale = plur1bus_config::remove_stale_temps(&layout.config_path());
     if !stale.is_empty() {
@@ -714,6 +721,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             core_ready_ms: None,
             module_ops: VecDeque::new(),
             run_acl_inherited: run_acl.is_ok(),
+            ext_overlays,
         }),
         wake: Condvar::new(),
         log,
@@ -1184,6 +1192,7 @@ pub(crate) fn test_state() -> SupervisorState {
         core_ready_ms: None,
         module_ops: VecDeque::new(),
         run_acl_inherited: false,
+        ext_overlays: BTreeMap::new(),
     }
 }
 
@@ -1255,6 +1264,7 @@ mod tests {
             core_ready_ms: None,
             module_ops: VecDeque::new(),
             run_acl_inherited: false,
+            ext_overlays: BTreeMap::new(),
         };
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {
