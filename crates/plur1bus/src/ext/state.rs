@@ -173,6 +173,22 @@ pub(crate) fn remove_dir_all_retrying(path: &Path) -> io::Result<()> {
     }
 }
 
+/// `fs::remove_dir` (an empty directory), retried like [`rename_retrying`]; a directory that is already gone is success.
+pub(crate) fn remove_empty_dir_retrying(path: &Path) -> io::Result<()> {
+    match retrying(|| std::fs::remove_dir(path)) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        r => r,
+    }
+}
+
+/// `fs::create_dir`, retried like [`rename_retrying`]; a directory that already exists is success.
+pub(crate) fn create_dir_retrying(path: &Path) -> io::Result<()> {
+    match retrying(|| std::fs::create_dir(path)) {
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists && path.is_dir() => Ok(()),
+        r => r,
+    }
+}
+
 /// The atomic private write every ext file uses (global constraints): `<name>.tmp-<pid>` created private to the user
 /// (0600, a protected DACL on Windows), `fsync`, `rename`. Creates the parent directory. A failed write leaves no
 /// temp file behind.

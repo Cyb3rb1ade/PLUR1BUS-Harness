@@ -414,10 +414,43 @@ fn trash_stamp(iso: &str) -> String {
     format!("{digits}Z")
 }
 
+/// One part of a trash id, safe as a path segment: characters outside `[A-Za-z0-9._+-]` become `_`, `..` collapses to
+/// `.`, `.tmp-` (a temp entry's mark) becomes `-tmp-`, no leading `.`, at most 64 characters; empty → `fallback`. The
+/// name and version come from records, index entries or the install manifest, which may hold anything.
+fn id_part(s: &str, fallback: &str) -> String {
+    let mut out: String = s
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '-') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(64)
+        .collect();
+    while out.contains("..") {
+        out = out.replace("..", ".");
+    }
+    out = out.replace(".tmp-", "-tmp-");
+    let out = out.trim_start_matches('.');
+    if out.is_empty() {
+        fallback.to_string()
+    } else {
+        out.to_string()
+    }
+}
+
 /// A fresh `extensions/trash/<name>-<version>-<YYYYMMDDTHHMMSSZ>` (X1-R19); a second one in the same second gets `-2`,
-/// `-3`, …
+/// `-3`, … Name and version are made safe ([`id_part`]), so every id passes the restore's check
+/// (`super::remove::valid_trash_id`) and never leaves `extensions/trash/`.
 pub(crate) fn trash_id(paths: &ExtPaths, name: &str, version: &str, at: &str) -> String {
-    let base = format!("{name}-{version}-{}", trash_stamp(at));
+    let base = format!(
+        "{}-{}-{}",
+        id_part(name, "item"),
+        id_part(version, "0.0.0"),
+        trash_stamp(at)
+    );
     let mut id = base.clone();
     let mut n = 2;
     while fs::symlink_metadata(paths.trash.join(&id)).is_ok() {
@@ -489,7 +522,6 @@ fn commit_locked(
     let name = staged.name.clone();
     let kind = kind_name(staged.kind);
     let cfg = host.config();
-    super::remove::prune_for(layout, &cfg);
 
     // Review Focus 5: the identical package again is a no-op that writes nothing.
     {
@@ -534,6 +566,8 @@ fn commit_locked(
     if let Some(agents) = &opts.enable {
         enable_prechecks(&name, kind, &staged.record.required_secrets, &cfg, agents)?;
     }
+    // Every refusal and the no-op are behind us: the first write (X1-C16).
+    super::remove::prune_for(layout, &cfg);
 
     let mut rb = Rollback::default();
     let ctx = Ctx {

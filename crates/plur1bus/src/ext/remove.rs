@@ -15,16 +15,21 @@
 //!   names) without `cascade` (`E_CONFLICT required-by`, `data.dependents`). `cascade` disables them first.
 //! - **Bundled skills** (X1-R18) are hidden, not moved: a tombstone record (`removedByUser: true`) in `state.json` and
 //!   a disabled index entry. The answer's `trashId` is empty: nothing went into the trash.
-//! - **Restore** brings an entry back as installed(disabled), replaying the install's order: `modules.<name>.enabled:
-//!   false` first, the skill's index entry (disabled, before the folder, X1-C10), the code, the state record, the
-//!   cached package, the data, and the saved config section (disabled). An entry older than `extensions.trashDays`
-//!   (or missing) is `E_NOT_FOUND trash-expired`; a name that is taken is `E_CONFLICT name-taken`.
-//! - **Pruning** ([`prune_trash`]) removes entries older than `extensions.trashDays` by their recorded `removedAt`. It
-//!   runs first in every mutation (install, enable, disable, uninstall, restore); no timer runs.
+//! - **Restore** brings an entry back as installed(disabled), replaying the install's order after marking the entry
+//!   (`restoring`): the module's config section first (`enabled: false`, merged with a purged section the entry
+//!   holds), the skill's index entry (disabled, before the folder, X1-C10), the code, the state record, the cached
+//!   package and the data. An entry older than `extensions.trashDays` (or missing) is `E_NOT_FOUND trash-expired`; a
+//!   name that is taken is `E_CONFLICT name-taken`.
+//! - **Pruning** ([`prune_trash`]) removes entries older than `extensions.trashDays` by their recorded `removedAt`.
+//!   Every mutation prunes once it has passed its refusal checks and is about to write, never on a refusal or a no-op
+//!   (X1-C16); no timer runs.
+//! - **Cascade** (X1-C17): dependents it disabled stay disabled if the uninstall then fails; the error names them in
+//!   `data.disabledDependents`.
 //!
 //! Every step registers its undo; a failure undoes the steps done so far (the tree ends byte-identical, no audit line).
 //! A kill between steps (`PLUR1BUS_TEST_EXT_FAIL_AT=kill:<point>`) is reconciled by [`super::recover`]: code that
-//! moved into the trash while its record stayed is put back (X1-C15).
+//! moved into the trash while its record stayed is put back (X1-C15), with its cached package; a marked restore is
+//! finished when its code is in place, else undone so the entry keeps its code.
 //!
 //! Supervisor-safe (X1-R2): no package bytes are opened here; the package is moved as an opaque file.
 use super::commit::{
@@ -131,7 +136,7 @@ fn name_ok(n: &str) -> bool {
 
 /// A trash id is one path segment: `<name>-<version>-<stamp>[-n]` in `[A-Za-z0-9._+-]`, never `.`/`..` or a temp
 /// entry.
-fn valid_trash_id(id: &str) -> bool {
+pub(crate) fn valid_trash_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 200
         && !id.starts_with('.')
@@ -211,6 +216,24 @@ fn roll_back(mut e: ExtError, rb: Rollback<'_>, host: &mut dyn ModuleHost) -> Ex
     e
 }
 
+/// X1-C17: an uninstall error after a cascade names the dependents it disabled (`data.disabledDependents`), which stay
+/// disabled.
+fn with_disabled(mut e: ExtError, disabled: &[String]) -> ExtError {
+    if disabled.is_empty() {
+        return e;
+    }
+    if !e.data.is_object() {
+        e.data = json!({});
+    }
+    e.data["disabledDependents"] = json!(disabled);
+    e.message = format!(
+        "{}; the dependents disabled first stay disabled: {}",
+        e.message,
+        disabled.join(", ")
+    );
+    e
+}
+
 fn audit(layout: &Layout, action: &str, name: &str, detail: Value) {
     if let Err(e) = crate::audit::append(layout, action, name, detail) {
         eprintln!("plur1bus: warning: cannot write the audit line for {action} {name}: {e}");
@@ -242,7 +265,6 @@ pub fn uninstall(
     let _guard = super::try_mutation()?;
     reset_kill();
     let cfg = host.config();
-    prune_for(layout, &cfg);
     let paths = ExtPaths::of(layout);
     let st = state::read(&paths).map_err(state_invalid)?;
     let t = resolve(layout, &st, name)?;
@@ -277,8 +299,15 @@ pub fn uninstall(
     } else {
         None
     };
+    // Every refusal is behind us: the first write (X1-C16).
+    prune_for(layout, &cfg);
+    // X1-C17: dependents the cascade disabled stay disabled if the uninstall then fails; the error names them.
+    let mut disabled: Vec<String> = Vec::new();
     for d in &deps {
-        disable_locked(layout, host, d, &ToggleOpts::default())?;
+        if let Err(e) = disable_locked(layout, host, d, &ToggleOpts::default()) {
+            return Err(with_disabled(e, &disabled));
+        }
+        disabled.push(d.clone());
     }
     if bundled {
         return hide_bundled(layout, &paths, host, &t);
@@ -287,7 +316,7 @@ pub fn uninstall(
     let mut rb = Rollback::default();
     let (tid, moved) = match move_to_trash(layout, &paths, host, &t, o, &mut rb) {
         Ok(x) => x,
-        Err(e) => return Err(roll_back(e, rb, host)),
+        Err(e) => return Err(with_disabled(roll_back(e, rb, host), &disabled)),
     };
     drop(rb);
     let mut detail = json!({
@@ -338,7 +367,7 @@ fn purge_lists(cfg: &Value, name: &str) -> (Changes, Changes) {
     (changes, restore)
 }
 
-/// The uninstall's writes, each registering its undo: trash entry, code, cached package, state record, index entry,
+/// The uninstall's writes, each registering its undo: trash entry, code, state record, cached package, index entry,
 /// then (purge) data and config. The record goes right after the code, so a kill leaves either the item installed
 /// with its code in the trash (which `ext::recover` puts back, X1-C15) or the item uninstalled. Returns the trash id
 /// and what a purge moved or deleted.
@@ -415,18 +444,6 @@ fn move_to_trash<'a>(
     }
     fail_at("uninstall.code")?;
 
-    // cache: the package now lives in the trash entry.
-    if let Some(sha) = &sha {
-        let cached = paths.cached(sha);
-        let copy = tdir.join("package.p1x");
-        if cached.is_file() && copy.is_file() {
-            remove_retrying(&cached).map_err(|e| io_err("cannot remove", &cached, e))?;
-            rb.push("cache", move |_| {
-                copy_atomic(&copy, &cached).map_err(|e| e.to_string())
-            });
-        }
-    }
-
     // state
     if t.record.is_some() {
         let mut st = state::read(paths).map_err(state_invalid)?;
@@ -435,6 +452,20 @@ fn move_to_trash<'a>(
         state::write(paths, &st).map_err(|e| io_err("cannot write", &paths.state, e))?;
         rb.push("state", restore_file(paths.state.clone(), before));
         fail_at("uninstall.state")?;
+    }
+
+    // cache: the package now lives in the trash entry. Only once the record is gone: a kill before that leaves the
+    // item installed with its cached package (recover puts the code back and drops the entry).
+    if let Some(sha) = &sha {
+        let cached = paths.cached(sha);
+        let copy = tdir.join("package.p1x");
+        if cached.is_file() && copy.is_file() {
+            remove_retrying(&cached).map_err(|e| io_err("cannot remove", &cached, e))?;
+            rb.push("cache", move |_| {
+                copy_atomic(&copy, &cached).map_err(|e| e.to_string())
+            });
+            fail_at("uninstall.cache")?;
+        }
     }
 
     // index (skills)
@@ -586,6 +617,9 @@ fn data_in_the_way(layout: &Layout, name: &str) -> bool {
         || fs::symlink_metadata(layout.ext_data(name)).is_ok_and(|m| !m.is_dir())
 }
 
+/// The file that marks a trash entry whose restore is running (or was killed): `ext::recover` finishes or undoes it.
+pub(crate) const RESTORING: &str = "restoring";
+
 /// What a trash entry says about the item in it.
 struct Trashed {
     name: String,
@@ -646,7 +680,6 @@ pub fn restore(
     reset_kill();
     let cfg = host.config();
     let days = trash_days(&cfg);
-    prune_trash(layout, days);
     let paths = ExtPaths::of(layout);
     if !valid_trash_id(trash_id) {
         return Err(trash_expired(trash_id));
@@ -670,6 +703,8 @@ pub fn restore(
             ),
         ));
     }
+    // Every refusal is behind us: the first write (X1-C16). This entry is not expired, so it stays.
+    prune_trash(layout, days);
 
     let mut rb = Rollback::default();
     if let Err(e) = restore_steps(layout, &paths, host, &tdir, &t, &mut rb) {
@@ -727,18 +762,39 @@ fn restore_steps<'a>(
     let is_skill = t.kind == "skill";
     let now = now_iso();
 
-    // config: a module comes back disabled.
+    // A restore in progress is marked in its entry, so `ext::recover` can finish or undo one a kill interrupted.
+    let marker = tdir.join(RESTORING);
+    state::write_private_atomic(&marker, now.as_bytes())
+        .map_err(|e| io_err("cannot write", &marker, e))?;
+    rb.push("marker", move |_| {
+        remove_retrying(&marker).map_err(|e| e.to_string())
+    });
+
+    // config: a module comes back disabled, with its purged section if the entry holds one (only this item's own
+    // section is taken from the entry). One write, first, so a kill after it never strands the section.
     if !is_skill {
-        let section = host.config()["modules"]
+        let key = format!("modules.{name}");
+        let current = host.config()["modules"]
             .get(name)
             .cloned()
             .unwrap_or(Value::Null);
-        if section.get("enabled") != Some(&json!(false)) {
+        let saved = read_json(&tdir.join("config.json"))
+            .and_then(|v| v.get(&key).cloned())
+            .filter(Value::is_object);
+        let mut section = saved.unwrap_or_else(|| {
+            if current.is_object() {
+                current.clone()
+            } else {
+                json!({})
+            }
+        });
+        section["enabled"] = json!(false);
+        if section != current {
             config_change(
                 host,
                 "config",
-                vec![(format!("modules.{name}.enabled"), json!(false))],
-                vec![(format!("modules.{name}"), section)],
+                vec![(key.clone(), section)],
+                vec![(key, current)],
                 rb,
             )?;
         }
@@ -824,10 +880,11 @@ fn restore_steps<'a>(
     if fs::symlink_metadata(&moved).is_ok() {
         if fs::symlink_metadata(&data).is_ok() {
             // Checked empty before any write.
-            fs::remove_dir(&data).map_err(|e| io_err("cannot replace", &data, e))?;
+            state::remove_empty_dir_retrying(&data)
+                .map_err(|e| io_err("cannot replace", &data, e))?;
             let d = data.clone();
             rb.push("data", move |_| {
-                fs::create_dir(&d).map_err(|e| format!("{}: {e}", d.display()))
+                state::create_dir_retrying(&d).map_err(|e| format!("{}: {e}", d.display()))
             });
         }
         if let Some(parent) = data.parent() {
@@ -843,25 +900,134 @@ fn restore_steps<'a>(
         ensure_dir(&data, "data", rb)?;
     }
 
-    // config: the purged section back, disabled. Only this item's own section is taken from the entry.
-    let key = format!("modules.{name}");
-    if let Some(saved) = read_json(&tdir.join("config.json")).and_then(|v| v.get(&key).cloned()) {
-        if !is_skill && saved.is_object() {
-            let mut section = saved;
-            section["enabled"] = json!(false);
-            let current = host.config()["modules"]
-                .get(name)
-                .cloned()
-                .unwrap_or(Value::Null);
-            config_change(
-                host,
-                "config",
-                vec![(key.clone(), section)],
-                vec![(key, current)],
-                rb,
-            )?;
-            fail_at("restore.section")?;
+    Ok(())
+}
+
+// ---- recovery -------------------------------------------------------------------------------------------------------
+
+/// Puts a trash entry's `package.p1x` back into the cache when the cache has lost it (an uninstall killed after the
+/// cache step, then undone by recover). True when the cache holds the package afterwards, or there is none to keep.
+pub(crate) fn keep_cached_package(paths: &ExtPaths, entry: &Path, sha256: &str) -> bool {
+    let pkg = entry.join("package.p1x");
+    let cached = paths.cached(sha256);
+    if !pkg.is_file() || cached.is_file() {
+        return true;
+    }
+    fs::create_dir_all(&paths.cache).is_ok() && copy_atomic(&pkg, &cached).is_ok()
+}
+
+/// A restore a kill interrupted leaves its entry marked ([`RESTORING`]). With the item's code in place the restore is
+/// finished: the record, the cached package, the data and the index entry (disabled), then the entry goes. Without
+/// it the restore is undone: a skill's index entry that has no folder and no record is removed, the mark goes, and
+/// the entry keeps its code for a later restore. Runs under the mutation lock (skipped while a mutation runs).
+pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
+    let mut done = Vec::new();
+    let paths = ExtPaths::of(layout);
+    let Ok(entries) = fs::read_dir(&paths.trash) else {
+        return done;
+    };
+    let marked: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.join(RESTORING).is_file())
+        .filter(|p| !p.to_string_lossy().contains(".tmp-"))
+        .collect();
+    if marked.is_empty() {
+        return done;
+    }
+    let Ok(_guard) = super::try_mutation() else {
+        return done;
+    };
+    for entry in marked {
+        let Some(body) = read_json(&entry.join("record.json")) else {
+            continue;
+        };
+        let record: Option<ItemRecord> = serde_json::from_value(body["record"].clone()).ok();
+        let Some(name) = body["name"]
+            .as_str()
+            .or_else(|| record.as_ref().map(|r| r.name.as_str()))
+            .filter(|n| name_ok(n))
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        let kind = body["kind"].as_str().unwrap_or("skill").to_string();
+        if !matches!(kind.as_str(), "skill" | "module" | "channel") {
+            continue;
+        }
+        let is_skill = kind == "skill";
+        let dir = if is_skill {
+            layout.skills().join(&name)
+        } else {
+            layout.modules_dir().join(&name)
+        };
+        let Ok(st) = state::read(&paths) else {
+            continue;
+        };
+        let Ok(_lock) = lock_skills(layout) else {
+            continue;
+        };
+        if dir.is_dir() {
+            // Finish.
+            let mut ok = true;
+            if let Some(rec) = &record {
+                if !st.items.contains_key(&name) {
+                    let mut rec = rec.clone();
+                    rec.removed_by_user = false;
+                    rec.integrity = None;
+                    let mut next = st.clone();
+                    next.items.insert(name.clone(), rec);
+                    ok &= state::write(&paths, &next).is_ok();
+                }
+                ok &= keep_cached_package(&paths, &entry, &rec.package_sha256);
+            }
+            let data = layout.ext_data(&name);
+            let moved = entry.join("data");
+            if moved.is_dir() && fs::symlink_metadata(&data).is_err() {
+                ok &= data.parent().is_some_and(|p| fs::create_dir_all(p).is_ok())
+                    && rename_retrying(&moved, &data).is_ok();
+            } else if !moved.exists() {
+                let _ = fs::create_dir_all(&data);
+            }
+            if is_skill {
+                if let Ok(mut idx) = index::read_index(layout) {
+                    if idx.entry(&name).is_none() {
+                        let now = now_iso();
+                        idx.upsert(match &record {
+                            Some(r) => index::package_entry(r, "-", false, &now, None),
+                            None => index::local_entry(layout, &name, "local", false, &now),
+                        });
+                        ok &= index::write_index(layout, &idx).is_ok();
+                    }
+                }
+            }
+            if ok && !entry.join("data").exists() && remove_dir_all_retrying(&entry).is_ok() {
+                done.push(format!(
+                    "finished the interrupted restore of {name} from {}",
+                    entry.display()
+                ));
+            } else {
+                done.push(format!(
+                    "could not finish the interrupted restore of {name}; {} stays marked",
+                    entry.display()
+                ));
+            }
+        } else {
+            // Undo: the code never moved in.
+            if is_skill && !st.items.contains_key(&name) {
+                if let Ok(mut idx) = index::read_index(layout) {
+                    if idx.remove(&name).is_some() && index::write_index(layout, &idx).is_err() {
+                        continue;
+                    }
+                }
+            }
+            if remove_retrying(&entry.join(RESTORING)).is_ok() {
+                done.push(format!(
+                    "undid the interrupted restore of {name}; {} keeps its code",
+                    entry.display()
+                ));
+            }
         }
     }
-    Ok(())
+    done
 }

@@ -16,7 +16,7 @@
 //! `tampered` → `E_NOT_AVAILABLE`), then a missing capability acknowledgment (`E_APPROVAL_REQUIRED
 //! acknowledge-capabilities` with the disclosure in `data`). Disable is always allowed. `dry_run` runs every check,
 //! asks the host for its plan without writing, and returns the same shape. A toggle that changes nothing writes
-//! nothing but the trash pruning every mutation starts with (`super::remove::prune_for`), and no audit line.
+//! nothing, and no audit line; a toggle that writes prunes the expired trash first (X1-C16).
 //!
 //! Supervisor-safe (X1-R2): no package bytes are opened here (`scripts/lint-hygiene.mjs`).
 use super::commit::{
@@ -412,12 +412,11 @@ fn toggle(
     o: &ToggleOpts,
     on: bool,
 ) -> Result<Value, ExtError> {
-    // A plan writes nothing, so it does not wait for (or block) a mutation, and prunes nothing.
+    // A plan writes nothing, so it does not wait for (or block) a mutation.
     if o.dry_run {
         return toggle_locked(layout, host, name, o, on);
     }
     let _guard = super::try_mutation()?;
-    super::remove::prune_for(layout, &host.config());
     toggle_locked(layout, host, name, o, on)
 }
 
@@ -594,6 +593,8 @@ fn toggle_locked(
     if o.dry_run || noop {
         return Ok(result(&plan));
     }
+    // Every refusal and the no-op are behind us: the first write (X1-C16).
+    super::remove::prune_for(layout, &cfg);
 
     // The writes, each with its undo: the record (enable), config, the index.
     let mut rb = Rollback::default();

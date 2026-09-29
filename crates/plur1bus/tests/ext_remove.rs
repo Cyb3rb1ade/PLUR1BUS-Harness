@@ -739,8 +739,8 @@ fn restore_after_the_window_is_trash_expired() {
     assert_eq!(reason(&e), ("E_NOT_FOUND", "trash-expired"));
     assert!(!l.skills().join("demo-skill").exists());
     assert!(!has_record(&l, "demo-skill"));
-    // The expired entry was pruned by the attempt itself (every mutation prunes first).
-    assert!(!trash(&l).join(&tid).exists());
+    // A refusal writes nothing, not even the pruning (X1-C16): the expired entry stays until a writing mutation.
+    assert!(trash(&l).join(&tid).is_dir());
 
     for missing in [
         "no-such-entry-1.0.0-20260101T000000Z",
@@ -1145,7 +1145,6 @@ fn a_failed_uninstall_or_restore_rolls_back_to_a_byte_identical_tree() {
             "restore.code",
             "restore.state",
             "restore.data",
-            "restore.section",
         ] {
             let (d, l) = home();
             two_agents(&l);
@@ -1162,7 +1161,7 @@ fn a_failed_uninstall_or_restore_rolls_back_to_a_byte_identical_tree() {
             std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", step);
             let r = back(&l, &tid);
             std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
-            let skipped = (kind == "skill" && matches!(step, "restore.config" | "restore.section"))
+            let skipped = (kind == "skill" && step == "restore.config")
                 || (kind == "module" && step == "restore.index");
             if skipped {
                 if r.is_err() {
@@ -1270,4 +1269,292 @@ fn recover_puts_back_the_code_of_a_replace_killed_between_trash_and_place() {
     let it = listed(&l, "demo-skill").unwrap();
     assert_eq!(it["state"], "installed");
     on(&l, "demo-skill", &toggle(None, false, false)).unwrap();
+}
+
+// ---- review round 1 -------------------------------------------------------------------------------------------------
+
+fn tid_of(v: &Value) -> String {
+    v["trashId"].as_str().unwrap().to_string()
+}
+
+/// X1-C16: a refusal or a no-op writes nothing, not even the trash pruning, so an expired entry survives it.
+#[test]
+fn refusals_and_no_ops_leave_an_expired_trash_entry() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    // One build of the package, so a second install of it is the identical package (Review Focus 5).
+    let taken_pkg = skill_pkg("demo-taken", &key);
+    let taken = {
+        install(d.path(), &l, "t.p1x", &taken_pkg, &plain()).unwrap();
+        let t = tid_of(&rm(&l, "demo-taken", false, false).unwrap());
+        install(d.path(), &l, "t.p1x", &taken_pkg, &plain()).unwrap();
+        t
+    };
+    install(
+        d.path(),
+        &l,
+        "m.p1x",
+        &module_pkg("fixture", &key),
+        &plain(),
+    )
+    .unwrap();
+    on(&l, "fixture", &toggle(None, true, false)).unwrap();
+    // An expired entry, made last so no writing mutation above pruned it.
+    let t = "demo-old-1.0.0-20200101T000000Z".to_string();
+    fs::create_dir_all(trash(&l).join(&t).join("code")).unwrap();
+    fs::write(
+        trash(&l).join(&t).join("record.json"),
+        json!({"removedAt": "2020-01-01T00:00:00.000Z", "name": "demo-old", "kind": "skill", "version": "1.0.0"})
+            .to_string(),
+    )
+    .unwrap();
+    local_module(&l, "fixture-b", &["fixture"]);
+    fs::write(
+        l.install_manifest(),
+        json!({"skills": [{"name": "ops", "source": "bundled", "version": "1.2.0"}]}).to_string(),
+    )
+    .unwrap();
+    fs::create_dir_all(l.skills().join("ops")).unwrap();
+    fs::write(l.skills().join("ops/SKILL.md"), skill_md("ops")).unwrap();
+
+    let alive = |what: &str| assert!(trash(&l).join(&t).is_dir(), "{what} pruned");
+    let before = guarded(&l);
+    assert!(rm(&l, "no-such", false, false).is_err());
+    alive("an unknown uninstall");
+    assert_eq!(
+        reason(&rm(&l, "fixture", false, false).unwrap_err()),
+        ("E_CONFLICT", "required-by")
+    );
+    alive("a required-by refusal");
+    assert_eq!(
+        reason(&rm(&l, "ops", true, false).unwrap_err()),
+        ("E_DENIED", "bundled")
+    );
+    alive("a bundled purge");
+    assert_eq!(
+        reason(&back(&l, &taken).unwrap_err()),
+        ("E_CONFLICT", "name-taken")
+    );
+    alive("a name-taken restore");
+    assert!(back(&l, "no-such-1.0.0-20260101T000000Z").is_err());
+    alive("a trash-expired restore");
+    // The identical package again: a no-op.
+    let v = install(d.path(), &l, "t.p1x", &taken_pkg, &plain()).unwrap();
+    assert_eq!(v["replaced"], false);
+    alive("an identical-package install");
+    // A lower version without the acknowledgment: refused.
+    let e = install(
+        d.path(),
+        &l,
+        "old.p1x",
+        &skill_pkg_caps("demo-taken", "0.9.0", base_caps(), &key),
+        &plain(),
+    )
+    .unwrap_err();
+    assert_eq!(reason(&e), ("E_APPROVAL_REQUIRED", "acknowledge-downgrade"));
+    alive("a refused install");
+    // An enable without the acknowledgment: refused; a disable of a disabled item: a no-op.
+    let e = on(&l, "demo-taken", &toggle(None, false, false)).unwrap_err();
+    assert_eq!(
+        reason(&e),
+        ("E_APPROVAL_REQUIRED", "acknowledge-capabilities")
+    );
+    alive("a refused enable");
+    disable(
+        &l,
+        &mut OfflineHost::new(&l),
+        "demo-taken",
+        &toggle(None, false, false),
+    )
+    .unwrap();
+    alive("a no-op disable");
+    assert_eq!(guarded(&l), before);
+}
+
+/// X1-C17: an uninstall that fails after its cascade names the dependents it disabled, which stay disabled.
+#[test]
+fn a_cascade_uninstall_that_fails_names_the_dependents_it_disabled() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    enabled_module(d.path(), &l, &key);
+    local_module(&l, "fixture-b", &["fixture"]);
+    local_module(&l, "fixture-c", &["fixture-b"]);
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "uninstall.code");
+    let e = rm(&l, "fixture", false, true).unwrap_err();
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    assert_eq!(
+        e.data["disabledDependents"],
+        json!(["fixture-b", "fixture-c"])
+    );
+    assert!(e.message.contains("fixture-b"), "{}", e.message);
+    let c = config(&l);
+    assert_eq!(c["modules"]["fixture-b"]["enabled"], false);
+    assert_eq!(c["modules"]["fixture-c"]["enabled"], false);
+    assert!(l.modules_dir().join("fixture").is_dir());
+    assert!(has_record(&l, "fixture"));
+}
+
+/// The cached package leaves the cache only after the record: a kill before that keeps it, a kill after it leaves the
+/// item uninstalled with the package in its trash entry, and recover puts a lost cache file back before it drops an
+/// entry.
+#[test]
+fn a_killed_uninstall_never_loses_the_cached_package() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg("demo-skill", &key),
+        &plain(),
+    )
+    .unwrap();
+    let sha = record(&l, "demo-skill").package_sha256;
+    let cached = ExtPaths::of(&l).cached(&sha);
+
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:uninstall.code");
+    assert!(rm(&l, "demo-skill", false, false).is_err());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    assert!(cached.is_file(), "the cache went before the record");
+    // Even if the cache file is lost meanwhile, recover keeps the entry's copy.
+    fs::remove_file(&cached).unwrap();
+    ext::recover(&l);
+    assert!(cached.is_file());
+    assert!(trash_ids(&l).is_empty());
+    assert_eq!(listed(&l, "demo-skill").unwrap()["state"], "installed");
+
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:uninstall.cache");
+    assert!(rm(&l, "demo-skill", false, false).is_err());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    ext::recover(&l);
+    assert!(!has_record(&l, "demo-skill"));
+    assert!(!cached.exists());
+    let tid = trash_ids(&l).pop().unwrap();
+    assert!(trash(&l).join(&tid).join("package.p1x").is_file());
+    back(&l, &tid).unwrap();
+    assert!(cached.is_file());
+}
+
+/// Every trash id is one safe path segment the restore accepts, whatever version an index entry or the install
+/// manifest names.
+#[test]
+fn a_trash_id_is_safe_whatever_the_version_says() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (_d, l) = home();
+    write_config(&l, |_| {});
+    for (n, version) in [
+        ("odd-one", "1.0 beta"),
+        ("odd-two", "../x"),
+        ("odd-three", "a\\b/..c"),
+    ] {
+        let dir = l.skills().join(n);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("SKILL.md"), skill_md(n)).unwrap();
+        let _lock = index::lock_skills(&l).unwrap();
+        let mut idx = index::read_index(&l).unwrap();
+        idx.upsert(json!({
+            "id": n, "source": "imported", "sourcePath": "-", "sha256": "sha256:00", "enabled": true,
+            "importedAt": "2026-09-28T10:00:00.000Z", "package": {"id": format!("x/{n}"), "version": version, "trust": "unsigned"}
+        }));
+        index::write_index(&l, &idx).unwrap();
+        drop(_lock);
+        let tid = tid_of(&rm(&l, n, false, false).unwrap());
+        for bad in ["/", "\\", "..", " "] {
+            assert!(!tid.contains(bad), "{tid:?} contains {bad:?}");
+        }
+        assert!(trash(&l).join(&tid).join("code").is_dir(), "{tid}");
+        assert_eq!(trash(&l).join(&tid).parent().unwrap(), trash(&l));
+        let v = back(&l, &tid).unwrap();
+        assert_eq!(v["version"], version);
+        assert!(dir.is_dir());
+    }
+}
+
+/// A restore killed after its code moved in is finished by `ext::recover` (record, data, index entry); one killed
+/// before is undone, and the entry keeps its code.
+#[test]
+fn a_killed_restore_is_finished_or_undone_by_recover() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for kind in ["skill", "module"] {
+        let (d, l) = home();
+        two_agents(&l);
+        let name = if kind == "skill" {
+            enabled_skill(d.path(), &l, &key);
+            "demo-skill"
+        } else {
+            enabled_module(d.path(), &l, &key);
+            "fixture"
+        };
+        let rec = record(&l, name);
+        let tid = tid_of(&rm(&l, name, true, false).unwrap());
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:restore.code");
+        assert!(back(&l, &tid).is_err());
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        let done = ext::recover(&l);
+        assert!(
+            done.iter()
+                .any(|x| x.contains("finished the interrupted restore")),
+            "{kind}: {done:?}"
+        );
+        assert_eq!(record(&l, name).files, rec.files, "{kind}");
+        assert!(ExtPaths::of(&l).cached(&rec.package_sha256).is_file());
+        assert!(l.ext_data(name).join("notes.txt").is_file(), "{kind}");
+        assert!(trash_ids(&l).is_empty(), "{kind}: {:?}", trash_ids(&l));
+        let it = listed(&l, name).unwrap();
+        assert_eq!(
+            (&it["state"], &it["enabled"]),
+            (&json!("installed"), &json!(false))
+        );
+        if kind == "module" {
+            assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
+        }
+    }
+
+    // Killed before the code moved: undone.
+    let (d, l) = home();
+    two_agents(&l);
+    enabled_skill(d.path(), &l, &key);
+    let tid = tid_of(&rm(&l, "demo-skill", false, false).unwrap());
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:restore.index");
+    assert!(back(&l, &tid).is_err());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    let done = ext::recover(&l);
+    assert!(done.iter().any(|x| x.contains("undid")), "{done:?}");
+    assert!(index_enabled(&l, "demo-skill").is_none());
+    assert!(trash(&l).join(&tid).join("code").is_dir());
+    assert!(!trash(&l).join(&tid).join("restoring").exists());
+    back(&l, &tid).unwrap();
+    assert_eq!(listed(&l, "demo-skill").unwrap()["state"], "installed");
+}
+
+/// `ext.show` lists only trash entries that still hold code (a restore of one without would be `trash-expired`).
+#[test]
+fn show_lists_only_trash_entries_with_code() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg("demo-skill", &key),
+        &plain(),
+    )
+    .unwrap();
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:uninstall.trash");
+    assert!(rm(&l, "demo-skill", false, false).is_err());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    ext::recover(&l);
+    assert_eq!(trash_ids(&l).len(), 1);
+    let detail = show_item(&l, &config(&l), "demo-skill").unwrap();
+    assert_eq!(detail["trash"], json!([]));
 }

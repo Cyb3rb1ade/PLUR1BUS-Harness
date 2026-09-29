@@ -379,8 +379,8 @@ fn trash_of(paths: &ExtPaths, name: &str) -> Vec<Value> {
         let Ok(tid) = e.file_name().into_string() else {
             continue;
         };
-        if tid.contains(".tmp-") {
-            continue; // an entry still being built
+        if tid.contains(".tmp-") || !e.path().join("code").is_dir() {
+            continue; // an entry still being built, or one with no code to restore
         }
         let Some(rj) = std::fs::read_to_string(e.path().join("record.json"))
             .ok()

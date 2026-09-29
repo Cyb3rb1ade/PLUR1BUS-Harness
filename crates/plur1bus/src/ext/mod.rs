@@ -109,7 +109,8 @@ fn dead_temp(name: &str) -> bool {
 /// offline command: every entry of `extensions/staging/` (a stage or commit that did not finish; the supervisor
 /// stages and commits under the ext mutation lock, and the offline CLI runs only when no supervisor does) and the
 /// directory itself, temp files of dead writers in `extensions/`, `extensions/cache/` and `skills/`, expired
-/// inspections in `run/inspect/`, unfinished trash entries, the skills index entries a killed commit left without a
+/// inspections in `run/inspect/`, unfinished trash entries, interrupted restores (finished or undone) and code a
+/// killed replace or uninstall left in the trash (X1-C15), the skills index entries a killed commit left without a
 /// folder or a folder without an entry (X1-C10), and the module staging directories of dead installs
 /// (`modules::install::recover`). Returns what was done, for the log. Best effort: a failure is skipped.
 pub fn recover(layout: &Layout) -> Vec<String> {
@@ -166,6 +167,7 @@ pub fn recover(layout: &Layout) -> Vec<String> {
             }
         }
     }
+    done.extend(remove::reconcile_restores(layout));
     done.extend(restore_missing_code(layout, &p));
     done.extend(reconcile_skills(layout, &p));
     done.extend(crate::modules::install::recover(layout));
@@ -175,8 +177,9 @@ pub fn recover(layout: &Layout) -> Vec<String> {
 /// X1-C15: a recorded item whose code directory is missing while a trash entry for that very name and version still
 /// holds `code/` was interrupted between moving its code into the trash and the next step (a replace killed before
 /// the new code moved into place, or an uninstall killed before the record went). The code moves back; the trash
-/// entry goes unless it holds purged data or config. A skill's index entry is rewritten from the record, disabled,
-/// so it names the version whose code is back (fails safe: nothing ends enabled that was not acknowledged again).
+/// entry goes (once its package is back in the cache, if the cache lost it) unless it holds purged data or config.
+/// A skill's index entry is rewritten from the record, disabled, so it names the version whose code is back (fails
+/// safe: nothing ends enabled that was not acknowledged again).
 fn restore_missing_code(layout: &Layout, p: &paths::ExtPaths) -> Vec<String> {
     let mut done = Vec::new();
     let Ok(st) = state::read(p) else {
@@ -209,7 +212,9 @@ fn restore_missing_code(layout: &Layout, p: &paths::ExtPaths) -> Vec<String> {
         if data.is_dir() && std::fs::symlink_metadata(layout.ext_data(&rec.name)).is_err() {
             let _ = state::rename_retrying(&data, &layout.ext_data(&rec.name));
         }
-        if !entry.join("data").exists() && !entry.join("config.json").exists() {
+        // The package's only copy may be the entry's (an uninstall killed after the cache step).
+        let package_kept = remove::keep_cached_package(p, &entry, &rec.package_sha256);
+        if package_kept && !entry.join("data").exists() && !entry.join("config.json").exists() {
             let _ = state::remove_dir_all_retrying(&entry);
         }
         if rec.kind == "skill" {
