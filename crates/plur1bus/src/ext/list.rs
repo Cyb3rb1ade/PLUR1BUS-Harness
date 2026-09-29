@@ -47,7 +47,7 @@ fn warn(msg: String) {
 }
 
 /// `{manifest, scripts}` from `extensions/cache/<sha256>.json`, if the install wrote one.
-fn cached_meta(paths: &ExtPaths, sha256: &str) -> Option<Value> {
+pub(crate) fn cached_meta(paths: &ExtPaths, sha256: &str) -> Option<Value> {
     std::fs::read_to_string(paths.cached_meta(sha256))
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
@@ -55,7 +55,7 @@ fn cached_meta(paths: &ExtPaths, sha256: &str) -> Option<Value> {
 
 /// `name → (source, version)` of the install manifest's `skills[]` or `modules[]` (`<home>/manifest.json`, read as
 /// plain JSON).
-fn install_units(layout: &Layout, key: &str) -> BTreeMap<String, (String, String)> {
+pub(crate) fn install_units(layout: &Layout, key: &str) -> BTreeMap<String, (String, String)> {
     let v: Value = std::fs::read_to_string(layout.install_manifest())
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
@@ -423,6 +423,27 @@ fn trash_of(paths: &ExtPaths, name: &str) -> Vec<Value> {
     out.into_iter().map(|(_, v)| v).collect()
 }
 
+/// The derived script set of a packaged item as `[{path, size, firstLine?}]` with payload-relative paths: the cache's
+/// `<sha256>.json` (the worker's inspection), else the record's script paths.
+pub(crate) fn scripts_of(meta: Option<&Value>, rec: &ItemRecord) -> Vec<Value> {
+    match meta.and_then(|m| m["scripts"].as_array().cloned()) {
+        Some(list) => list
+            .into_iter()
+            .map(|mut s| {
+                if let Some(p) = s["path"].as_str() {
+                    s["path"] = json!(p.strip_prefix("payload/").unwrap_or(p));
+                }
+                s
+            })
+            .collect(),
+        None => rec
+            .scripts
+            .iter()
+            .map(|p| json!({ "path": p, "size": rec.files.get(p).map_or(0, |f| f.size) }))
+            .collect(),
+    }
+}
+
 /// `ext.show`: the `ExtDetail` of one item. A packaged item's files are re-hashed (X1-R17) for the answer's `integrity`
 /// and `overlays`; `ext.show` never writes and takes no lock (X1-C13): mutations store integrity results. Unknown →
 /// `E_NOT_FOUND extension-unknown`.
@@ -468,22 +489,7 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
     if let Some(l) = &rec.key_label {
         trust["label"] = json!(l);
     }
-    let scripts: Vec<Value> = match meta.as_ref().and_then(|m| m["scripts"].as_array().cloned()) {
-        Some(list) => list
-            .into_iter()
-            .map(|mut s| {
-                if let Some(p) = s["path"].as_str() {
-                    s["path"] = json!(p.strip_prefix("payload/").unwrap_or(p));
-                }
-                s
-            })
-            .collect(),
-        None => rec
-            .scripts
-            .iter()
-            .map(|p| json!({ "path": p, "size": rec.files.get(p).map_or(0, |f| f.size) }))
-            .collect(),
-    };
+    let scripts = scripts_of(meta.as_ref(), &rec);
     let capabilities = if rec.capabilities.is_object() {
         rec.capabilities.clone()
     } else {

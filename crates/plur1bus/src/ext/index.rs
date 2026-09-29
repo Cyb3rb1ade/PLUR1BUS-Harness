@@ -90,6 +90,64 @@ pub(crate) fn package_entry(
     entry
 }
 
+/// `(POSIX relative path, SHA-256 hex)` of every regular file under `dir` (symlinks and special files skipped), for the
+/// folder hash of a skill that has no package record.
+fn folder_files(dir: &std::path::Path) -> Vec<(String, String)> {
+    use sha2::{Digest, Sha256};
+    let mut out = Vec::new();
+    let mut stack = vec![(dir.to_path_buf(), String::new())];
+    while let Some((d, prefix)) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in entries.flatten() {
+            let Ok(name) = e.file_name().into_string() else {
+                continue;
+            };
+            let rel = if prefix.is_empty() {
+                name
+            } else {
+                format!("{prefix}/{name}")
+            };
+            match std::fs::symlink_metadata(e.path()) {
+                Ok(m) if m.is_dir() => stack.push((e.path(), rel)),
+                Ok(m) if m.is_file() => {
+                    if let Ok(bytes) = std::fs::read(e.path()) {
+                        let hex = Sha256::digest(&bytes)
+                            .iter()
+                            .map(|b| format!("{b:02x}"))
+                            .collect();
+                        out.push((rel, hex));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    out
+}
+
+/// The first index entry of a skill folder that had none (X1-R12): `source` is `bundled` or `local`, `sourcePath` the
+/// folder itself, `sha256` the folder hash over its regular files, `package: null`.
+pub(crate) fn local_entry(
+    layout: &Layout,
+    name: &str,
+    source: &str,
+    enabled: bool,
+    at: &str,
+) -> Value {
+    let dir = layout.skills().join(name);
+    json!({
+        "id": name,
+        "source": source,
+        "sourcePath": dir.to_string_lossy(),
+        "sha256": plur1bus_ext::folder_hash::skill_folder_hash(&folder_files(&dir)),
+        "enabled": enabled,
+        "importedAt": at,
+        "package": null,
+    })
+}
+
 pub(crate) fn index_path(layout: &Layout) -> PathBuf {
     layout.skills().join("index.json")
 }

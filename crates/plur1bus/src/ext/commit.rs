@@ -18,6 +18,7 @@
 //! Config and module work go through a [`ModuleHost`], so the same code runs in the supervisor (Task 11) and in the
 //! offline CLI ([`OfflineHost`]).
 use super::index::{self, lock_skills, package_entry, ImportLock};
+use super::lifecycle::{capabilities_acknowledged, enable_prechecks, skill_enable_changes};
 use super::overlays::{load_revocations, overlays_of, revoked};
 use super::paths::ExtPaths;
 use super::record::{
@@ -95,7 +96,7 @@ pub struct InstallOpts {
     pub enable: Option<Agents>,
 }
 
-fn io_err(what: &str, path: &Path, e: impl std::fmt::Display) -> ExtError {
+pub(crate) fn io_err(what: &str, path: &Path, e: impl std::fmt::Display) -> ExtError {
     ExtError::new(
         "E_INTERNAL",
         "io",
@@ -158,12 +159,12 @@ type Undo<'a> = Box<dyn FnOnce(&mut dyn ModuleHost) -> Result<(), String> + 'a>;
 
 /// The undo actions of the steps done so far, run in reverse on failure.
 #[derive(Default)]
-struct Rollback<'a> {
+pub(crate) struct Rollback<'a> {
     undos: Vec<(&'static str, Undo<'a>)>,
 }
 
 impl<'a> Rollback<'a> {
-    fn push(
+    pub(crate) fn push(
         &mut self,
         step: &'static str,
         f: impl FnOnce(&mut dyn ModuleHost) -> Result<(), String> + 'a,
@@ -172,7 +173,7 @@ impl<'a> Rollback<'a> {
     }
 
     /// Runs every undo, last first; returns the ones that failed.
-    fn run(self, host: &mut dyn ModuleHost) -> Vec<String> {
+    pub(crate) fn run(self, host: &mut dyn ModuleHost) -> Vec<String> {
         let mut failed = Vec::new();
         for (step, undo) in self.undos.into_iter().rev() {
             if let Err(e) = undo(host) {
@@ -208,12 +209,12 @@ fn ensure_dir(dir: &Path, step: &'static str, rb: &mut Rollback<'_>) -> Result<(
     Ok(())
 }
 
-fn read_bytes(p: &Path) -> Option<Vec<u8>> {
+pub(crate) fn read_bytes(p: &Path) -> Option<Vec<u8>> {
     fs::read(p).ok()
 }
 
 /// Puts a file back as it was: the saved bytes, or no file.
-fn restore_file(
+pub(crate) fn restore_file(
     path: PathBuf,
     before: Option<Vec<u8>>,
 ) -> impl FnOnce(&mut dyn ModuleHost) -> Result<(), String> {
@@ -225,7 +226,7 @@ fn restore_file(
 
 /// Changes config through the host and registers the undo: the raw bytes back when the host offers them (X1-C14),
 /// else each touched section set back to its value before (`null`: absent).
-fn config_change<'a>(
+pub(crate) fn config_change<'a>(
     host: &mut dyn ModuleHost,
     step: &'static str,
     changes: Vec<(String, Value)>,
@@ -370,49 +371,6 @@ fn acknowledgments(
     Ok(out)
 }
 
-/// The enable pre-checks that must refuse before any write: agents on a module, an unknown agent, a required secret
-/// slot (X1-R9: `needs-setup` until the secret store lands).
-fn enable_prechecks(staged: &StagedItem, cfg: &Value, agents: &Agents) -> Result<(), ExtError> {
-    let is_skill = staged.kind == Kind::Skill;
-    if let Agents::Some(list) = agents {
-        if !is_skill {
-            return Err(ExtError::new(
-                "E_INVALID_PARAMS",
-                "agents-not-supported",
-                format!(
-                    "{} is a {}; modules.{}.enabled is its only switch",
-                    staged.name,
-                    kind_name(staged.kind),
-                    staged.name
-                ),
-            ));
-        }
-        if let Some(unknown) = list
-            .iter()
-            .find(|a| cfg["agents"].get(a.as_str()).is_none())
-        {
-            return Err(ExtError {
-                code: "E_AGENT_UNKNOWN",
-                reason: None,
-                message: format!("no agent {unknown:?} is configured"),
-                data: json!({ "agentId": unknown }),
-            });
-        }
-    }
-    if !staged.record.required_secrets.is_empty() {
-        return Err(ExtError::new(
-            "E_NOT_AVAILABLE",
-            "needs-setup",
-            format!(
-                "{} needs secrets ({}) that cannot be set up yet; it installs, but cannot be enabled",
-                staged.name,
-                staged.record.required_secrets.join(", ")
-            ),
-        ));
-    }
-    Ok(())
-}
-
 /// Whether an installed item is enabled now: a skill's index entry (an unindexed folder counts as enabled, X1-R12), a
 /// module's `modules.<name>.enabled` (absent means enabled) while its directory exists.
 pub(crate) fn enabled_now(layout: &Layout, cfg: &Value, name: &str, kind: &str) -> bool {
@@ -550,13 +508,14 @@ fn commit_locked(
     let prev = st.items.get(&name).cloned();
     recheck(layout, paths, &st, &staged, &cfg)?;
     let prev_enabled = prev.is_some() && enabled_now(layout, &cfg, &name, kind);
+    // X1-C12, with the comparison `ext.enable` uses: the new capabilities against the acknowledged hash.
     let widened = prev_enabled
-        && prev
-            .as_ref()
-            .is_some_and(|p| p.capabilities != staged.record.capabilities);
+        && prev.as_ref().is_some_and(|p| {
+            !capabilities_acknowledged(&staged.record.capabilities, p.capabilities_ack.as_deref())
+        });
     let acknowledged = acknowledgments(rec, &staged, prev.as_ref(), widened, opts)?;
     if let Some(agents) = &opts.enable {
-        enable_prechecks(&staged, &cfg, agents)?;
+        enable_prechecks(&name, kind, &staged.record.required_secrets, &cfg, agents)?;
     }
 
     let mut rb = Rollback::default();
@@ -895,36 +854,7 @@ fn enable_now<'a>(
         index::write_index(layout, &idx).map_err(|e| io_err("cannot write", &ipath, e))?;
         rb.push("enable", restore_file(ipath, before));
 
-        let mut changes = Vec::new();
-        let mut restore = Vec::new();
-        if let Some(map) = cfg["agents"].as_object() {
-            for (id, a) in map {
-                let blocked: Vec<String> = a["skills"]["blocked"]
-                    .as_array()
-                    .map(|l| {
-                        l.iter()
-                            .filter_map(|x| x.as_str().map(str::to_string))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                let wanted = match agents {
-                    Agents::All => true,
-                    Agents::Some(list) => list.iter().any(|x| x == id),
-                };
-                let mut next: Vec<String> =
-                    blocked.iter().filter(|b| *b != name).cloned().collect();
-                if !wanted {
-                    next.push(name.to_string());
-                }
-                if next != blocked {
-                    changes.push((format!("agents.{id}.skills.blocked"), json!(next)));
-                    restore.push((
-                        format!("agents.{id}.skills"),
-                        a.get("skills").cloned().unwrap_or(Value::Null),
-                    ));
-                }
-            }
-        }
+        let (changes, restore) = skill_enable_changes(&cfg, name, agents);
         if !changes.is_empty() {
             config_change(host, "enable", changes, restore, rb)?;
         }

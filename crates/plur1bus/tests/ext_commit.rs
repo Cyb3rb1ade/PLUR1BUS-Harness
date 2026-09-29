@@ -16,15 +16,20 @@ mod audit;
 mod container;
 #[path = "../src/identity.rs"]
 mod identity;
+#[path = "../src/modules/graph.rs"]
+pub(crate) mod modules_graph;
 #[path = "../src/modules/install.rs"]
 pub(crate) mod modules_install;
 #[path = "../src/modules/manifest.rs"]
 pub(crate) mod modules_manifest;
+// `graph.rs` names its sibling as `super::manifest`.
+pub(crate) use modules_manifest as manifest;
 #[path = "../src/paths.rs"]
 mod paths;
 #[path = "../src/proc.rs"]
 mod proc;
 mod modules {
+    pub(crate) use super::modules_graph as graph;
     pub(crate) use super::modules_install as install;
     pub(crate) use super::modules_manifest as manifest;
 }
