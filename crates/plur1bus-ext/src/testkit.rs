@@ -84,6 +84,71 @@ pub fn build_package_from(
     checked_zip(&entries_of(&p, sig)).expect("the package audits clean")
 }
 
+/// The filled `p1x.json` bytes (`files`, `scripts` and `created` set, exactly as [`build_package_from`] writes them)
+/// and the files sorted, for tests that change the manifest before signing and assembling it.
+pub fn filled_manifest(template: &Value, files: Vec<PayloadFile>) -> (Vec<u8>, Vec<PayloadFile>) {
+    let p = prepare(template, files, CREATED).expect("the template is a valid manifest");
+    (p.raw, p.files)
+}
+
+/// A signature file over `manifest_raw` with the binding trusted comment, the id and version read from the bytes
+/// (which need not pass the schema).
+pub fn sign_p1x(key: &TestKey, manifest_raw: &[u8]) -> Vec<u8> {
+    let v: Value = serde_json::from_slice(manifest_raw).expect("manifest JSON");
+    let id = v["id"].as_str().expect("id");
+    let version = v["version"].as_str().expect("version");
+    signature_for(key, id, version, manifest_raw)
+}
+
+/// An archive of `p1x.json`, the optional `p1x.json.minisig` and `payload/<rel>` for each file, in that order,
+/// written without the audit or any consistency check (the pieces may disagree on purpose).
+pub fn assemble(manifest_raw: &[u8], minisig: Option<&[u8]>, files: &[PayloadFile]) -> Vec<u8> {
+    let mut entries = vec![file("p1x.json", manifest_raw.to_vec())];
+    if let Some(sig) = minisig {
+        entries.push(file("p1x.json.minisig", sig.to_vec()));
+    }
+    entries.extend(files.iter().map(|f| ZipEntry {
+        name: format!("payload/{}", f.rel),
+        bytes: f.bytes.clone(),
+        kind: ZipKind::File { exec: f.exec },
+    }));
+    crate::pack::write_zip(&entries).expect("write the archive")
+}
+
+/// The signature file with its algorithm rewritten to the legacy, non-prehashed `Ed` (minisign before 0.8). The
+/// Ed25519 bytes are left as they are: the verifier must refuse the algorithm itself.
+pub fn legacy_signature(minisig: &[u8]) -> Vec<u8> {
+    let text = std::str::from_utf8(minisig).expect("UTF-8 signature file");
+    let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
+    let mut bin = crate::trust::base64_decode(&lines[1]).expect("base64 signature line");
+    bin[1] = b'd';
+    lines[1] = base64_encode(&bin);
+    let mut out = lines.join("\n");
+    out.push('\n');
+    out.into_bytes()
+}
+
+fn base64_encode(bytes: &[u8]) -> String {
+    const A: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::new();
+    for chunk in bytes.chunks(3) {
+        let b = [
+            chunk[0],
+            chunk.get(1).copied().unwrap_or(0),
+            chunk.get(2).copied().unwrap_or(0),
+        ];
+        let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
+        for i in 0..4 {
+            if i <= chunk.len() {
+                out.push(A[(n >> (18 - 6 * i) & 63) as usize] as char);
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
 /// The eight ways a signed package can be broken.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tamper {

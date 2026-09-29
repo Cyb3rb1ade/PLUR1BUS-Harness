@@ -1098,6 +1098,7 @@ dependencies = [
  "jsonschema",
  "minisign",
  "minisign-verify",
+ "plur1bus-ext",
  "semver",
  "serde",
  "serde_json",

@@ -58,4 +58,6 @@ pub mod reason {
     pub const DIGEST: &str = "digest-mismatch";
     pub const RESERVED: &str = "reserved-name";
     pub const KIND_UNSUPPORTED: &str = "kind-unsupported";
+    /// With `E_DENIED`: the id and version are on the revocation list (§8.5).
+    pub const REVOKED: &str = "revoked";
 }

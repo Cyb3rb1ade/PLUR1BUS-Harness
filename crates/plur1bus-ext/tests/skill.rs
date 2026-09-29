@@ -633,6 +633,36 @@ fn rust_excluded_and_skip_cover_the_ts_importer_lists() {
 }
 
 #[test]
+fn rust_script_ext_equals_the_ts_scan_script_ext() {
+    use plur1bus_ext::scripts::{has_script_extension, SCRIPT_EXT};
+    let ts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/src/import");
+    let scan = std::fs::read_to_string(ts.join("skills-scan.ts")).unwrap();
+    let mut from_ts: Vec<String> = quoted(between(&scan, "SCRIPT_EXT = new Set([", "]"))
+        .into_iter()
+        .map(|e| {
+            e.strip_prefix('.')
+                .unwrap_or_else(|| panic!("{e:?} has no dot"))
+                .to_string()
+        })
+        .collect();
+    assert!(from_ts.len() >= 10, "{from_ts:?}");
+    let mut from_rust: Vec<String> = SCRIPT_EXT.iter().map(|e| e.to_string()).collect();
+    from_ts.sort();
+    from_rust.sort();
+    assert_eq!(
+        from_rust, from_ts,
+        "scripts::SCRIPT_EXT and skills-scan.ts SCRIPT_EXT differ"
+    );
+    for e in &from_ts {
+        assert!(has_script_extension(&format!("d/x.{e}")), "{e}");
+        assert!(
+            has_script_extension(&format!("x.{}", e.to_uppercase())),
+            "{e} in upper case"
+        );
+    }
+}
+
+#[test]
 fn an_unindented_sequence_belongs_to_the_key_above_it() {
     let raw = "---\nname: demo\nallowed-tools:\n- Bash\n- Read\ndescription: d\n---\n";
     let f = validate_skill_md(raw, "demo").unwrap();

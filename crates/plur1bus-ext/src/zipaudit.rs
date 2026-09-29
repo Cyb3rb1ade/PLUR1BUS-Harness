@@ -721,11 +721,20 @@ fn stream<R: Read + Seek>(
 
 /// Streams one audited entry once, with no write: SHA-256, size and first ≤ 4 bytes (X1-R7).
 pub fn hash_entry<R: Read + Seek>(r: &mut R, e: &Entry) -> Result<EntryDigest, Refusal> {
+    hash_entry_head(r, e, 4)
+}
+
+/// [`hash_entry`] keeping the first ≤ `head_len` bytes (the inspection shows a script's first line, §8.3).
+pub fn hash_entry_head<R: Read + Seek>(
+    r: &mut R,
+    e: &Entry,
+    head_len: usize,
+) -> Result<EntryDigest, Refusal> {
     let mut hasher = Sha256::new();
-    let mut head = Vec::with_capacity(4);
+    let mut head = Vec::with_capacity(head_len.min(4096));
     stream(r, e, |chunk| {
-        if head.len() < 4 {
-            let take = (4 - head.len()).min(chunk.len());
+        if head.len() < head_len {
+            let take = (head_len - head.len()).min(chunk.len());
             head.extend_from_slice(&chunk[..take]);
         }
         hasher.update(chunk);

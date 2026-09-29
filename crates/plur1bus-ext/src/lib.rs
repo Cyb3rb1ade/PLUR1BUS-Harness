@@ -10,4 +10,6 @@ pub mod scripts;
 pub mod skill;
 #[cfg(feature = "testkit")]
 pub mod testkit;
+pub mod trust;
+pub mod verify;
 pub mod zipaudit;
