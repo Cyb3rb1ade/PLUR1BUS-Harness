@@ -22,6 +22,8 @@ export interface ModuleManifest {
   lifeline: boolean;
   priority: number;
   configSchema?: Record<string, unknown>;
+  /** X1-R22: absent means `module`. */
+  kind?: "module" | "channel";
 }
 
 /** `n` and `n−1` (B12): `v` must be a canonical decimal (no sign, no leading zero). */

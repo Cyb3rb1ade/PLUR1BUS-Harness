@@ -107,6 +107,12 @@ pub enum Cmd {
     Import(ImportArgs),
     /// Uninstall — M8
     Uninstall(StubArgs),
+    /// Extensions (internal until the visible `ext` commands land: only the hidden package worker)
+    #[command(hide = true)]
+    Ext {
+        #[command(subcommand)]
+        cmd: ExtCmd,
+    },
     /// Print the CLI reference as Markdown (used by scripts/gen-docs.mjs)
     #[command(hide = true, name = "__markdown")]
     Markdown,
@@ -608,6 +614,17 @@ pub enum DaemonCmd {
     /// answers), `service` the registration, and `sharedMemory` the core's shared-memory support when the core
     /// answers.
     Status,
+}
+
+/// `plur1bus ext`.
+#[derive(Subcommand, Debug)]
+pub enum ExtCmd {
+    /// Package worker (internal: the supervisor's child for inspect and stage, X1-R2)
+    #[command(name = "__worker", hide = true)]
+    Worker {
+        #[command(subcommand)]
+        op: crate::ext::stage::WorkerArgs,
+    },
 }
 
 #[derive(Subcommand, Debug)]

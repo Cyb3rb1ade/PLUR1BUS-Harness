@@ -16,6 +16,8 @@ mod audit;
 mod container;
 #[path = "../src/identity.rs"]
 mod identity;
+#[path = "../src/modules/install.rs"]
+pub(crate) mod modules_install;
 #[path = "../src/modules/manifest.rs"]
 pub(crate) mod modules_manifest;
 #[path = "../src/paths.rs"]
@@ -23,11 +25,15 @@ mod paths;
 #[path = "../src/proc.rs"]
 mod proc;
 mod modules {
+    pub(crate) use super::modules_install as install;
     pub(crate) use super::modules_manifest as manifest;
 }
+#[path = "../src/install/archive.rs"]
+pub(crate) mod install_archive;
 #[path = "../src/install/targets.rs"]
 pub(crate) mod install_targets;
 mod install {
+    pub(crate) use super::install_archive as archive;
     pub(crate) use super::install_targets as targets;
 }
 #[path = "../src/ext/mod.rs"]

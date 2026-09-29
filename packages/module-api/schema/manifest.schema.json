@@ -53,7 +53,8 @@
       "minimum": 0,
       "maximum": 999
     },
-    "configSchema": { "description": "JSON Schema for this module's `modules.<name>` config object.", "type": "object" }
+    "configSchema": { "description": "JSON Schema for this module's `modules.<name>` config object.", "type": "object" },
+    "kind": { "description": "What the module is (X1-R22): `module` (the default when absent) or `channel`. A module installed from a `.p1x` package must name the same kind as the package manifest.", "enum": ["module", "channel"] }
   },
   "$defs": {
     "names": {

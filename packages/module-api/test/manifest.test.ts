@@ -27,6 +27,21 @@ describe("module manifest", () => {
     assert.equal("restart" in input, false);
   });
 
+  it("kind accepts module and channel and refuses others", () => {
+    const base = { name: "fixture", version: "0.1.0", apiVersion: "1", entry: "index.js", scope: "installation", priority: 500 };
+    for (const kind of ["module", "channel"]) {
+      const r = validateManifest({ ...base, kind });
+      assert.ok(r.ok, `${kind}: ${r.ok ? "" : r.errors.join("; ")}`);
+      assert.equal(r.manifest.kind, kind);
+    }
+    const absent = validateManifest(base);
+    assert.ok(absent.ok);
+    assert.equal("kind" in absent.manifest, false, "kind has no default: absent means module");
+    for (const kind of ["skill", "mcp-server", "bundle", "", "Module", 1, null]) {
+      assert.equal(validateManifest({ ...base, kind }).ok, false, String(kind));
+    }
+  });
+
   it("api version policy: the current and the previous major (B12)", () => {
     assert.equal(MODULE_API_VERSION, 1);
     assert.equal(apiVersionSupported("1"), true);

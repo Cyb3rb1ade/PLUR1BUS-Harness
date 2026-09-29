@@ -88,6 +88,10 @@ pub struct Manifest {
     pub priority: u16,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config_schema: Option<Value>,
+    /// `module` or `channel` (X1-R22); absent means `module`. A packaged module's `module.json` must agree with its
+    /// `.p1x` manifest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
 }
 fn default_restart() -> String {
     "on-failure".into()

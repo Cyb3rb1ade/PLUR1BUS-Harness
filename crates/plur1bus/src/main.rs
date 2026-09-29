@@ -60,5 +60,8 @@ fn main() {
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
+        Cmd::Ext {
+            cmd: cli::ExtCmd::Worker { op },
+        } => ext::stage::worker_main(&layout, op),
     }
 }
