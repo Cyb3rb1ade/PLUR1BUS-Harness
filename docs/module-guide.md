@@ -51,6 +51,7 @@ languages can never drift on what a manifest may contain (ruling H3B-R11).
 | `lifeline` | boolean | no (default `true`) | Whether the module is started with `--lifeline stdin` and exits when that pipe closes and its grace expires (§5). `false` omits the flag entirely — the module runs with no lifeline at all, and only `module.shutdown`/a signal stops it. |
 | `priority` | integer, 0–999 | yes | Start order and priority band (§2.2). |
 | `configSchema` | object (a JSON Schema) | no | Schema for this module's own `modules.<name>` configuration section (§6 of ADR-013, §8 below). |
+| `kind` | `"module"` \| `"channel"` | no | Additive under module API `"1"` (X1): whether this is a plain module or a channel (D60), so `module list` can show it without the package. The `.p1x` manifest stays the authority for a packaged item's kind; a `module.json` whose `name`, `version` or `kind` disagrees with the package is refused at staging (`package-invalid`). Nothing dispatches on it. |
 
 ### 2.1 Reserved names and the entry-path rule
 
@@ -131,6 +132,12 @@ install, an explicit `start`/`stop`):
   applies when the need was stopped by a person** (`module stop <name>`, ruling H3B-R28): a
   dependent of a module stopped by request becomes `needs-unavailable` until that module is started
   again, even though nothing about its manifest or configuration changed.
+- **`ext-revoked`**, **`ext-tampered`**, **`ext-incompatible`** (X1, `docs/extensions.md` §4): a module
+  installed from a `.p1x` package is held back when a revocation matches its id and version, when its
+  installed files no longer match `extensions/state.json` (or `state.json` itself is unreadable), or when
+  the package's `compat` no longer holds. Shown `stopped` with that reason, checked after `disabled`, so
+  its dependents become `needs-unavailable`. `module start` and `module restart` answer `E_NOT_AVAILABLE`
+  with the same reason until the condition clears (a revoked item stays held back).
 
 ## 4. `runModule` and `ModuleContext`
 
@@ -315,6 +322,17 @@ supervisor to have anything to act on:
 | `module uninstall <name>` | Removes the directory directly | Routed; stops the module first if it is running |
 | `module start\|stop\|restart <name>` | `E_NOT_AVAILABLE reason=supervisor-not-running`, exit 1 | The only way these three verbs work |
 
+`module install <dir>` remains the **developer** path (trust `dev`, no manifest, no signature). To install a
+module or channel from a package with a manifest, per-file hashes, a trust tier, a capability disclosure and
+a trash, use `plur1bus plugin install <file.p1x>` (X1, `docs/extensions.md`); it commits through the same
+`modules::install::{stage, commit}` described below.
+
+**Exit codes when a supervisor is in the way differ between the two command families.** `plur1bus module`
+answers `E_NOT_AVAILABLE reason=supervisor-running` (an offline change while a supervisor holds
+`run/supervisor.lock`) and `supervisor-not-running` with **exit 1**. The extension commands (`plugin`, `skill`,
+`ext`) answer the same `supervisor-running` with **exit 2**, because every `E_NOT_AVAILABLE` and
+`E_APPROVAL_REQUIRED` from them exits 2 (G18; X1-C26). `module` keeps exit 1 for compatibility (ADR-012 §10.14).
+
 **Install refusals** (`InstallError`, `crates/plur1bus/src/modules/install.rs`) — every one of these
 is checked *before* anything is copied, so a refused install always leaves `modules/` byte-for-byte
 unchanged:
@@ -408,8 +426,9 @@ own tests against a freshly built `dist/`.
 
 `plur1bus setup` and `1staid repair` (`crates/plur1bus/src/install/`, `docs/adr/ADR-012-process-model-and-languages.md`
 §10.13) are how a module (or a skill) first gets onto disk in a real installation, as opposed to the
-manual `cp`/`module install` path §11 covers for development. The `docs/extensions-ecosystem` spec
-(not yet written) will add skill and plugin enable/disable/install on top of this; this plan fixed
+manual `cp`/`module install` path §11 covers for development. The extensions-ecosystem spec
+(`docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md`, built by X1 as
+`docs/extensions.md`) adds skill and plugin enable/disable/install on top of this; this plan fixed
 five points so that spec extends this installer instead of building a second one. All five are
 verified against the code on this branch, not merely asserted by the plan:
 
@@ -419,15 +438,33 @@ verified against the code on this branch, not merely asserted by the plan:
    one SHA-256 check, one `.tar.gz` (`flate2` + `tar`) or `.zip` (`zip`) extractor, shared by every
    caller. A future ecosystem spec's plugin install must reuse this function rather than add a second
    download client or archive reader.
+   *As built (X1):* `.p1x` packages are **audited** by `plur1bus-ext` (its own central-directory parser
+   streams and hashes every entry, and writes nothing) and **extracted** by
+   `install::archive::extract` into staging, so there is still one extractor. `verify_and_extract`'s
+   SHA-256 check is replaced for `.p1x` by the inspection's whole-file hash and the manifest's per-file
+   hashes, re-checked on the staged tree.
 2. **The refusal vocabulary is stable, and additive only.** A module install already refuses with one
    of seven fixed reasons (`modules::install::InstallError::reason()`, §9 above): `not-a-directory`,
-   `manifest-invalid`, `symlink`, `special-file`, `entry-outside`, `reserved-name`,
+   `manifest-invalid`, `symlink`, `not-a-regular-file`, `entry-outside`, `reserved-name`,
    `socket-path-too-long`. This plan's own installer adds four more, from `install::archive`/`fetch`:
    `digest-mismatch` (a downloaded or bundled package's hash does not match), `archive-unsafe-entry`
    and `archive-unsupported` (`ArchiveError::UnsafeEntry`/`Unsupported`, `install/archive.rs`), and
    `download-too-large` (`FetchError::TooLarge`/`ArchiveError::TooLarge`, `install/fetch.rs`,
    `install/archive.rs`). A later plugin install reports one of these eleven reasons, or a new one
    added the same additive way (ADR-016 §2) — none is ever renamed.
+
+   *As built (X1):* the code is the authority, and the code says `not-a-regular-file` for a FIFO, device
+   node or junction (`InstallError::SpecialFile`'s reason), and the list above says so; an earlier draft of it
+   said `special-file` (ruling X1-R5). The frozen names are kept for the package pipeline — an unsafe entry, a link or
+   a special entry is `archive-unsafe-entry`, an unsupported ZIP feature `archive-unsupported`, any size cap
+   `download-too-large`, any hash mismatch `digest-mismatch` — and X1 adds, additively: `package-invalid`,
+   `signature-invalid`, `scripts-mismatch`, `incompatible`, `name-taken`, `kind-unsupported`,
+   `policy-unsigned-disallowed`, `revoked`, `inspection-expired`, `acknowledge-unsigned`,
+   `acknowledge-unknown-signer`, `acknowledge-downgrade`, `acknowledge-capabilities`, `busy`, `required-by`,
+   `extension-unknown`, `trash-expired`, `bundled`, `needs-setup`, `tampered`, `agents-not-supported`,
+   `worker-failed`, `skills-locked`, and the `E_STORAGE` reasons `state-invalid`, `index-invalid` and
+   `index-newer`. `supervisor-lacks-method` is CLI-only (no RPC answers it: the running supervisor predates
+   `ext.*`). See `docs/extensions.md` §6.
 3. **One commit path for modules.** `setup`'s `modules.bundled` step and `1staid repair`'s runtime
    reinstall steps both install through the same `modules::install::{stage, commit}` §9 already
    describes: staging into `modules/<name>.tmp-<pid>`, the `run/supervisor.lock` rule for an offline
@@ -439,6 +476,8 @@ verified against the code on this branch, not merely asserted by the plan:
    `skills: PackageUnit[]`, each entry `{ name, version, source, sha256 }` with `source` one of
    `"bundled"`, `"local"` or **`"catalog"`** — reserved for the ecosystem spec and written by nothing
    in this plan (`manifest.rs`'s own doc comment on `PackageUnit`).
+   *As built (X1):* unchanged. X1 writes `extensions/state.json` (schema `ext-state`) for package
+   records and never touches `manifest.json`; `source: "catalog"` stays unwritten until X4.
 5. **Skill layout.** Setup's `skills` step (HB13, `crates/plur1bus/src/install/skills.rs`) copies
    `<payload>/skills/<name>/` to `<home>/skills/<name>/`; a bundled third-party skill additionally
    lives under `skills/third-party/` and is checked against `skills/third-party/CHECKSUMS`
@@ -448,6 +487,8 @@ verified against the code on this branch, not merely asserted by the plan:
    (`SKILL.md` plus `playbooks/{diagnose,configure,repair}.md`), is installed through this same path.
    Enable/disable of an installed skill is the ecosystem spec's job and must not move this directory
    layout.
+   *As built (X1):* enable/disable, install and uninstall of a skill keep `skills/<name>/`, and the enabled
+   flag lives in `skills/index.json` (`docs/extensions.md` §4).
 
 **What `setup` installs, beyond modules and skills.** `setup` (spec §6.5, HB8–HB13) runs nine fixed
 steps in order — `state-root`, `runtime.node`, `runtime.core`, `modules.bundled`, `config`, `skills`,
