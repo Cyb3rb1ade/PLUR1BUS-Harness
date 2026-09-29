@@ -395,9 +395,55 @@ fn a_skill_named_like_an_installed_module_is_name_taken_at_inspect() {
         Some(&key),
     );
     let path = write_pkg(d2.path(), "fixture-mod.p1x", &pkg);
+    let before = guarded(&l2);
     let e = inspect::inspect(&l2, Source::Path(path), &self::id()).unwrap_err();
     assert_eq!(reason(&e), ("E_CONFLICT", "name-taken"), "{e}");
     assert!(e.message.contains("skill"), "{e}");
+    assert_eq!(guarded(&l2), before);
+
+    // Through a state record: the same id installed as another kind.
+    let (d3, l3) = home();
+    let mut st = ext::state::ExtState::default();
+    st.items.insert(
+        "fixture".into(),
+        installed_record("demo/fixture", "fixture", "module"),
+    );
+    ext::state::write(&ext::paths::ExtPaths::of(&l3), &st).unwrap();
+    let before = guarded(&l3);
+    let path = write_pkg(
+        d3.path(),
+        "fixture-skill.p1x",
+        &skill_pkg("fixture", "fixture", Some(&key)),
+    );
+    let id = self::id();
+    let e = inspect::inspect(&l3, Source::Path(path), &id).unwrap_err();
+    assert_eq!(reason(&e), ("E_CONFLICT", "name-taken"), "{e}");
+    assert_eq!(e.data["installedKind"], "module");
+    assert_eq!(e.data["installedId"], "demo/fixture");
+    assert_eq!(guarded(&l3), before);
+    assert!(!inspect_dir(&l3).join(format!("{id}.p1x")).exists());
+}
+
+fn installed_record(id: &str, name: &str, kind: &str) -> ext::state::ItemRecord {
+    ext::state::ItemRecord {
+        id: id.into(),
+        name: name.into(),
+        kind: kind.into(),
+        version: "0.9.0".into(),
+        source: "file".into(),
+        trust: "first-party".into(),
+        key_id: None,
+        package_sha256: "ab".repeat(32),
+        installed_at: "2026-09-28T10:00:00.000Z".into(),
+        previous_version: None,
+        files: Default::default(),
+        capabilities: json!({}),
+        capabilities_ack: None,
+        scripts: vec![],
+        required_secrets: vec![],
+        removed_by_user: false,
+        integrity: None,
+    }
 }
 
 #[cfg(unix)]
@@ -427,6 +473,8 @@ fn a_module_whose_socket_path_does_not_fit_is_refused_at_inspect() {
         Some(&key),
     );
     let path = write_pkg(d.path(), "fixture.p1x", &pkg);
+    populate(&l);
+    let before = guarded(&l);
     let id = id();
     let e = inspect::inspect(&l, Source::Path(path), &id).unwrap_err();
     assert_eq!(
@@ -434,6 +482,7 @@ fn a_module_whose_socket_path_does_not_fit_is_refused_at_inspect() {
         ("E_INVALID_PARAMS", "socket-path-too-long"),
         "{e}"
     );
+    assert_eq!(guarded(&l), before);
     assert!(!inspect_dir(&l).join(format!("{id}.p1x")).exists());
 
     // A skill has no socket: the same home inspects it.
@@ -871,6 +920,37 @@ fn a_refused_stage_removes_its_staging_directory() {
     assert!(other.is_dir());
 }
 
+#[test]
+fn a_restage_replaces_a_leftover_of_the_same_inspection() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    let path = write_pkg(
+        d.path(),
+        "s.p1x",
+        &skill_pkg("demo-skill", "demo-skill", Some(&key)),
+    );
+    let id = id();
+    inspect::inspect(&l, Source::Path(path), &id).unwrap();
+    let dest = l
+        .extensions()
+        .join("staging")
+        .join(format!("demo-skill-{id}"));
+    // A killed earlier stage left a partial tree.
+    fs::create_dir_all(dest.join("payload")).unwrap();
+    fs::write(dest.join("payload/junk.txt"), "left over").unwrap();
+    let s = stage::stage(&l, &id).unwrap();
+    assert!(s.dir.join("SKILL.md").is_file());
+    assert!(!s.dir.join("junk.txt").exists(), "never merged into");
+    // Staging again (a retried call) replaces the previous result, and a leftover file is replaced too.
+    let s = stage::stage(&l, &id).unwrap();
+    assert!(s.dir.join("SKILL.md").is_file());
+    fs::remove_dir_all(&dest).unwrap();
+    fs::write(&dest, "not a directory").unwrap();
+    let s = stage::stage(&l, &id).unwrap();
+    assert!(s.dir.join("SKILL.md").is_file());
+}
+
 // ---- the worker process -------------------------------------------------------------------------------------------
 
 fn bin() -> &'static str {
@@ -1028,4 +1108,39 @@ fn worker_is_killed_after_its_deadline() {
     )
     .unwrap();
     assert_eq!(v["trust"]["tier"], "unknown-signer");
+}
+
+#[test]
+fn the_worker_runs_under_a_home_with_a_space_and_non_ascii() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let d = tempfile::tempdir().unwrap();
+    let l = Layout::new(d.path().join("p1x A").join("Jürgen"));
+    fs::create_dir_all(&l.home).unwrap();
+    let pkg = module_pkg(
+        "fixture",
+        "module",
+        module_json("fixture", "1.0.0", None),
+        Some(&key),
+    );
+    let path = write_pkg(d.path(), "fixture.p1x", &pkg);
+    let id = id();
+    let v = worker::spawn_worker_with(
+        Path::new(bin()),
+        &l,
+        &["inspect", "--id", &id, "--path", path.to_str().unwrap()],
+        Duration::from_secs(60),
+    )
+    .unwrap();
+    assert_eq!(v["inspectionId"], id.as_str());
+    let v = worker::spawn_worker_with(
+        Path::new(bin()),
+        &l,
+        &["stage", "--id", &id],
+        Duration::from_secs(60),
+    )
+    .unwrap();
+    assert_eq!(v["name"], "fixture");
+    let dir = PathBuf::from(v["dir"].as_str().unwrap());
+    assert!(dir.starts_with(&l.home) && dir.join("module.json").is_file());
 }

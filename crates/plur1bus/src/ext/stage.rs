@@ -77,9 +77,12 @@ fn io_error(what: &str, path: &Path, e: &std::io::Error) -> ExtError {
     )
 }
 
-/// Removes what a refused stage created.
+/// Removes what a refused stage created: the staging directory once the extraction has created it, then
+/// `extensions/staging/` and `extensions/` when they are left empty.
 struct Cleanup {
     dest: PathBuf,
+    /// Set once `extract` has created `dest`.
+    dest_created: bool,
     staging: PathBuf,
     root: Option<PathBuf>,
     armed: bool,
@@ -88,7 +91,9 @@ struct Cleanup {
 impl Drop for Cleanup {
     fn drop(&mut self) {
         if self.armed {
-            let _ = std::fs::remove_dir_all(&self.dest);
+            if self.dest_created {
+                let _ = std::fs::remove_dir_all(&self.dest);
+            }
             // `remove_dir` removes only an empty directory.
             let _ = std::fs::remove_dir(&self.staging);
             if let Some(root) = &self.root {
@@ -348,10 +353,14 @@ pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
     let paths = ExtPaths::of(layout);
     let mut cleanup = Cleanup {
         dest: paths.staging.join(format!("{}-{id}", m.name)),
+        dest_created: false,
         staging: paths.staging.clone(),
         root: (!paths.root.exists()).then(|| paths.root.clone()),
         armed: true,
     };
+    // A leftover of an earlier stage of this same inspection (its name carries the inspection id) is this stage's
+    // own: it is replaced, never merged into.
+    remove_leftover(&cleanup.dest)?;
     archive::extract(&pkg, &cleanup.dest, 0).map_err(|e| {
         let code = if e.reason() == "io" {
             "E_INTERNAL"
@@ -360,6 +369,7 @@ pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
         };
         ExtError::new(code, e.reason(), e.to_string())
     })?;
+    cleanup.dest_created = true;
     check_tree(&cleanup.dest, &m)?;
     let dir = cleanup.dest.join("payload");
     check_kind(&dir, &m)?;
@@ -372,6 +382,26 @@ pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
     };
     cleanup.armed = false;
     Ok(item)
+}
+
+/// Removes `dest` if something is there (a directory tree, or a file or symlink, which is never followed).
+fn remove_leftover(dest: &Path) -> Result<(), ExtError> {
+    let r = match std::fs::symlink_metadata(dest) {
+        Err(_) => return Ok(()),
+        Ok(m) if m.is_dir() => std::fs::remove_dir_all(dest),
+        Ok(_) => std::fs::remove_file(dest),
+    };
+    r.map_err(|e| io_error("cannot remove the leftover", dest, &e))
+}
+
+fn to_json<T: Serialize>(what: &str, v: T) -> Result<Value, ExtError> {
+    serde_json::to_value(v).map_err(|e| {
+        ExtError::new(
+            "E_INTERNAL",
+            "worker-failed",
+            format!("cannot serialise the {what}: {e}"),
+        )
+    })
 }
 
 fn allow_internals() -> bool {
@@ -398,11 +428,11 @@ pub fn worker_main(layout: &Layout, args: WorkerArgs) -> ! {
                 (false, Some(p)) => Source::Path(p),
                 _ => Source::Stdin,
             };
-            inspect::inspect(layout, src, &id).map(|r| serde_json::to_value(r).unwrap_or_default())
+            inspect::inspect(layout, src, &id).and_then(|r| to_json("inspection", r))
         }
         WorkerArgs::Stage { id, sleep_ms } => {
             sleep(sleep_ms);
-            stage(layout, &id).map(|s| serde_json::to_value(s).unwrap_or_default())
+            stage(layout, &id).and_then(|s| to_json("staged item", s))
         }
     };
     let (line, code) = match result {

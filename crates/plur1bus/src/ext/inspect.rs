@@ -271,11 +271,36 @@ fn spool(src: &Source, to: &Path, cfg: &ExtConfig) -> Result<bool, ExtError> {
             if meta.len() > cap {
                 return Err(too_large(meta.len(), cap));
             }
-            let mut f = std::fs::File::open(path).map_err(|e| io_error("cannot read", path, &e))?;
+            let mut f = open_regular(path)?;
             spool_capped(&mut f, to, cap)?;
             Ok(false)
         }
     }
+}
+
+/// Opens `path` for reading without following a symlink (`O_NOFOLLOW` on unix) and checks the opened handle is a
+/// regular file, so a path swapped for a symlink or special file after the `symlink_metadata` check is refused.
+fn open_regular(path: &Path) -> Result<std::fs::File, ExtError> {
+    let mut o = std::fs::OpenOptions::new();
+    o.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        o.custom_flags(libc::O_NOFOLLOW);
+    }
+    let f = o
+        .open(path)
+        .map_err(|e| io_error("cannot read", path, &e))?;
+    let meta = f
+        .metadata()
+        .map_err(|e| io_error("cannot stat", path, &e))?;
+    if !meta.is_file() {
+        return Err(invalid(
+            reason::PACKAGE_INVALID,
+            format!("{} is not a regular file", path.display()),
+        ));
+    }
+    Ok(f)
 }
 
 fn trust_json(t: &plur1bus_ext::trust::Trust) -> Value {

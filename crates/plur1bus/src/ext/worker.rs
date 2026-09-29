@@ -102,7 +102,7 @@ fn drain(r: Option<impl Read + Send + 'static>, cap: u64) -> std::thread::JoinHa
 /// `result` is returned; its refusal becomes the same [`ExtError`]. A worker that overruns is killed; one that exits
 /// without a readable answer (a crash, a panic) is `E_INTERNAL reason=worker-failed` with its exit status and the
 /// tail of its stderr.
-pub fn spawn_worker_with(
+pub(crate) fn spawn_worker_with(
     exe: &Path,
     layout: &Layout,
     args: &[&str],
@@ -142,6 +142,7 @@ pub fn spawn_worker_with(
             Err(e) => {
                 let _ = child.kill();
                 let _ = child.wait();
+                let _ = (out.join(), err.join());
                 return Err(failed(format!("cannot wait for the ext worker: {e}")));
             }
         }
