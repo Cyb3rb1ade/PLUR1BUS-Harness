@@ -2,7 +2,7 @@
 //!
 //! - **Uninstall** moves an item's code into a fresh `extensions/trash/<name>-<version>-<YYYYMMDDTHHMMSSZ>/` (built
 //!   atomically by [`build_trash_entry`], the same builder and layout a replacing install uses): `code/`,
-//!   `package.p1x` (the cached package, which leaves the cache) and `record.json` (`{removedAt, reason, name, kind,
+//!   `package.p1x` (the cached package, moved out of the cache by rename once the record is gone) and `record.json` (`{removedAt, reason, name, kind,
 //!   version, record, index, purged}`: the state record and the index entry as they were). A skill's folder moves by
 //!   rename; a module goes through [`ModuleHost::remove_module`] (which stops it first). The state record and the
 //!   index entry are removed. Kept: `data/ext/<name>/` and the config section (`modules.<name>` stays, D14).
@@ -33,8 +33,9 @@
 //!
 //! Supervisor-safe (X1-R2): no package bytes are opened here; the package is moved as an opaque file.
 use super::commit::{
-    build_trash_entry, config_change, copy_atomic, ensure_dir, fail_at, install_err, io_err,
-    killed, put_code_back, read_bytes, reset_kill, restore_file, ModuleHost, Rollback,
+    build_trash_entry, config_change, ensure_dir, fail_at, install_err, io_err, killed,
+    move_package, package_into_trash, put_code_back, read_bytes, reset_kill, restore_file,
+    ModuleHost, Rollback,
 };
 use super::index::{self, lock_skills, ImportLock};
 use super::lifecycle::{dependents, disable_locked, resolve, Target, ToggleOpts};
@@ -429,7 +430,7 @@ fn move_to_trash<'a>(
 
     // trash: the entry, whose one undo puts code and data back and removes it only once that worked.
     ensure_dir(&paths.trash, "trash", rb)?;
-    let (tid, tdir) = build_trash_entry(paths, name, version, &now, &body, sha.as_deref(), &extra)?;
+    let (tid, tdir) = build_trash_entry(paths, name, version, &now, &body, &extra)?;
     {
         let (entry, n, data) = (tdir.clone(), name.to_string(), layout.ext_data(name));
         rb.push("trash", move |h| {
@@ -474,13 +475,8 @@ fn move_to_trash<'a>(
     // cache: the package now lives in the trash entry. Only once the record is gone: a kill before that leaves the
     // item installed with its cached package (recover puts the code back and drops the entry).
     if let Some(sha) = &sha {
-        let cached = paths.cached(sha);
-        let copy = tdir.join("package.p1x");
-        if cached.is_file() && copy.is_file() {
-            remove_retrying(&cached).map_err(|e| io_err("cannot remove", &cached, e))?;
-            rb.push("cache", move |_| {
-                copy_atomic(&copy, &cached).map_err(|e| e.to_string())
-            });
+        if paths.cached(sha).is_file() {
+            package_into_trash(paths, sha, &tdir, "cache", rb)?;
             fail_at("uninstall.cache")?;
         }
     }
@@ -909,9 +905,10 @@ fn restore_steps<'a>(
         let cached = paths.cached(&sha);
         if pkg.is_file() && !cached.exists() {
             ensure_dir(&paths.cache, "cache", rb)?;
-            copy_atomic(&pkg, &cached)?;
+            // Moved, and moved back on undo: the entry keeps it until the restore is done.
+            move_package(&pkg, &cached)?;
             rb.push("cache", move |_| {
-                remove_retrying(&cached).map_err(|e| e.to_string())
+                move_package(&cached, &pkg).map_err(|e| e.to_string())
             });
         }
     }
@@ -968,7 +965,7 @@ pub(crate) fn keep_cached_package(paths: &ExtPaths, entry: &Path, sha256: &str) 
     if !pkg.is_file() || cached.is_file() {
         return true;
     }
-    fs::create_dir_all(&paths.cache).is_ok() && copy_atomic(&pkg, &cached).is_ok()
+    fs::create_dir_all(&paths.cache).is_ok() && move_package(&pkg, &cached).is_ok()
 }
 
 /// A restore a kill interrupted leaves its entry marked ([`RESTORING`]). With the item's code in place the restore is

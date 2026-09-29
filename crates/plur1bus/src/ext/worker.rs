@@ -182,12 +182,14 @@ pub(crate) fn spawn_worker_with(
     args: &[&str],
     deadline: Duration,
 ) -> Result<Value, ExtError> {
+    // Counted before the stop flag is read: a `stop_all` that sees no worker running has set the flag first, so this
+    // spawn then sees it and starts nothing.
+    let _running = Running::start();
     if STOPPING.load(Ordering::SeqCst) {
         return Err(failed(
             "the supervisor is stopping; no ext worker is started",
         ));
     }
-    let _running = Running::start();
     let mut child = Command::new(exe)
         .args(["ext", "__worker"])
         .args(args)

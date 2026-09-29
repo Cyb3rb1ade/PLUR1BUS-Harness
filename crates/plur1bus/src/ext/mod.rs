@@ -115,7 +115,9 @@ fn dead_temp(name: &str) -> bool {
 /// (`modules::install::recover`). Returns what was done, for the log. Best effort: a failure is skipped.
 pub fn recover(layout: &Layout) -> Vec<String> {
     let p = paths::ExtPaths::of(layout);
-    let mut done = Vec::new();
+    // The module staging directories of dead installs first (a copy moved aside goes back before anything reads
+    // `modules/`).
+    let mut done = crate::modules::install::recover(layout);
     if let Ok(entries) = std::fs::read_dir(&p.staging) {
         for e in entries.flatten() {
             let path = e.path();
@@ -154,7 +156,7 @@ pub fn recover(layout: &Layout) -> Vec<String> {
             p.inspect.display()
         ));
     }
-    // Trash entries a killed commit was still building (`<trashId>.tmp-<pid>`: `record.json` and `package.p1x` only;
+    // Trash entries a killed commit was still building (`<trashId>.tmp-<pid>`: `record.json` and the extra files only;
     // the code moves in after the rename).
     if let Ok(entries) = std::fs::read_dir(&p.trash) {
         for e in entries.flatten() {
@@ -170,7 +172,6 @@ pub fn recover(layout: &Layout) -> Vec<String> {
     done.extend(remove::reconcile_restores(layout));
     done.extend(restore_missing_code(layout, &p));
     done.extend(reconcile_skills(layout, &p));
-    done.extend(crate::modules::install::recover(layout));
     done
 }
 

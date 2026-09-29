@@ -1398,9 +1398,8 @@ fn a_cascade_uninstall_that_fails_names_the_dependents_it_disabled() {
     assert!(has_record(&l, "fixture"));
 }
 
-/// The cached package leaves the cache only after the record: a kill before that keeps it, a kill after it leaves the
-/// item uninstalled with the package in its trash entry, and recover puts a lost cache file back before it drops an
-/// entry.
+/// The cached package leaves the cache (by rename, X1-C22) only after the record: a kill before that keeps it in the
+/// cache, a kill after it leaves the item uninstalled with the package in its trash entry, and a restore moves it back.
 #[test]
 fn a_killed_uninstall_never_loses_the_cached_package() {
     let key = test_key("test");
@@ -1422,8 +1421,9 @@ fn a_killed_uninstall_never_loses_the_cached_package() {
     assert!(rm(&l, "demo-skill", false, false).is_err());
     std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
     assert!(cached.is_file(), "the cache went before the record");
-    // Even if the cache file is lost meanwhile, recover keeps the entry's copy.
-    fs::remove_file(&cached).unwrap();
+    // X1-C22: the package is moved, never copied, so the entry holds none yet; recover puts the code back and drops it.
+    let tid = trash_ids(&l).pop().unwrap();
+    assert!(!trash(&l).join(&tid).join("package.p1x").exists());
     ext::recover(&l);
     assert!(cached.is_file());
     assert!(trash_ids(&l).is_empty());

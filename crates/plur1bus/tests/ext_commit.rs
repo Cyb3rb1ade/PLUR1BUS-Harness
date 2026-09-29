@@ -1790,3 +1790,41 @@ fn a_staged_item_naming_other_paths_is_worker_failed() {
         }
     }
 }
+
+/// X1-C22: a replace moves the old version's cached package into its trash entry by rename (no second copy stays in
+/// the cache), and a replace that fails afterwards moves it back.
+#[test]
+fn a_replace_moves_the_old_package_into_the_trash_and_a_failure_moves_it_back() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    let p = ext::paths::ExtPaths::of(&l);
+    let sha = |bytes: &[u8]| -> String {
+        Sha256::digest(bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    };
+    let v1 = module_pkg_v("fixture", "1.0.0", Some(&key));
+    install(d.path(), &l, "v1.p1x", &v1, &opts(&[], None)).unwrap();
+    let old = p.cached(&sha(&v1));
+    assert!(old.is_file());
+    let entries = |dir: &Path| -> Vec<PathBuf> {
+        fs::read_dir(dir)
+            .map(|r| r.flatten().map(|e| e.path()).collect())
+            .unwrap_or_default()
+    };
+
+    let v2 = module_pkg_v("fixture", "2.0.0", Some(&key));
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "state");
+    assert!(install(d.path(), &l, "v2.p1x", &v2, &opts(&[], None)).is_err());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    assert!(old.is_file(), "the old package is back in the cache");
+    assert!(entries(&p.trash).is_empty(), "{:?}", entries(&p.trash));
+
+    install(d.path(), &l, "v2.p1x", &v2, &opts(&[], None)).unwrap();
+    assert!(!old.exists(), "the old package left the cache");
+    let trashed = entries(&p.trash);
+    assert_eq!(trashed.len(), 1, "{trashed:?}");
+    assert_eq!(fs::read(trashed[0].join("package.p1x")).unwrap(), v1);
+}

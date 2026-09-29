@@ -271,14 +271,39 @@ fn derived_staging(layout: &Layout, rec: &InspectionRecord) -> Option<PathBuf> {
     (plain && valid_id(&rec.inspection_id)).then(|| staging_dir(layout, name, &rec.inspection_id))
 }
 
-/// Moves the spooled package `from` into the cache at `to` (X1-C22: the supervisor never opens package bytes): a
-/// rename, retried on Windows; an opaque copy through `<to>.tmp-<pid>` only when the two are on different devices.
+/// Moves a package file `from` to `to` (X1-C22: the supervisor never opens package bytes): the spool into the cache,
+/// the cache into a trash entry and back. A rename, retried on Windows; only when the two are on different devices an
+/// opaque copy through `<to>.tmp-<pid>`, after which `from` is removed.
 pub(crate) fn move_package(from: &Path, to: &Path) -> Result<(), ExtError> {
     match rename_retrying(from, to) {
         Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => copy_atomic(from, to),
+        Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => {
+            copy_atomic(from, to)?;
+            remove_retrying(from).map_err(|e| io_err("cannot remove", from, e))
+        }
         Err(e) => Err(io_err("cannot move the package to", to, e)),
     }
+}
+
+/// Moves the cached package `sha256` into the trash entry `tdir` as `package.p1x` (X1-R19, X1-C22), and registers the
+/// undo that moves it back into the cache. Nothing to do when the cache does not hold it.
+pub(crate) fn package_into_trash<'a>(
+    paths: &ExtPaths,
+    sha256: &str,
+    tdir: &Path,
+    step: &'static str,
+    rb: &mut Rollback<'a>,
+) -> Result<(), ExtError> {
+    let cached = paths.cached(sha256);
+    let into = tdir.join("package.p1x");
+    if !cached.is_file() || into.exists() {
+        return Ok(());
+    }
+    move_package(&cached, &into)?;
+    rb.push(step, move |_| {
+        move_package(&into, &cached).map_err(|e| e.to_string())
+    });
+    Ok(())
 }
 
 /// Copies `from` to `to` through `<to>.tmp-<pid>` and a rename.
@@ -779,6 +804,8 @@ fn run_steps<'a>(
         } else if modinstall::installed_dir(layout, &name).is_some() {
             host.remove_module(&name, &code)?;
         }
+        // Its package follows the code (a kill in between: `ext::recover` puts both back, X1-C15).
+        package_into_trash(paths, &old.package_sha256, &tdir, "code", rb)?;
         fail_at("code.trash")?;
     }
     if is_skill {
@@ -876,17 +903,16 @@ fn source_path(rec: &InspectionRecord) -> String {
     rec.source_path.clone().unwrap_or_else(|| "-".into())
 }
 
-/// Builds `extensions/trash/<trashId>/` atomically (X1-R19): `<trashId>.tmp-<pid>` with `record.json` (`body`),
-/// `package.p1x` (a copy of the cached package `<package_sha256>.p1x`, when there is one) and the `extra` files, then
-/// one rename. `code/` (and a purge's `data/`) move in afterwards. The trash directory must exist. Returns the trash id
-/// and the entry's directory; a failure leaves nothing behind.
+/// Builds `extensions/trash/<trashId>/` atomically (X1-R19): `<trashId>.tmp-<pid>` with `record.json` (`body`) and
+/// the `extra` files, then one rename. `code/`, the cached package (`package.p1x`, [`package_into_trash`], moved once
+/// the code is in) and a purge's `data/` move in afterwards. The trash directory must exist. Returns the trash id and
+/// the entry's directory; a failure leaves nothing behind.
 pub(crate) fn build_trash_entry(
     paths: &ExtPaths,
     name: &str,
     version: &str,
     now: &str,
     body: &Value,
-    package_sha256: Option<&str>,
     extra: &[(&str, Vec<u8>)],
 ) -> Result<(String, PathBuf), ExtError> {
     let tid = trash_id(paths, name, version, now);
@@ -900,13 +926,6 @@ pub(crate) fn build_trash_entry(
         text.push('\n');
         let rj = tmp.join("record.json");
         write_private_atomic(&rj, text.as_bytes()).map_err(|e| io_err("cannot write", &rj, e))?;
-        if let Some(sha) = package_sha256 {
-            let cached = paths.cached(sha);
-            if cached.is_file() {
-                fs::copy(&cached, tmp.join("package.p1x"))
-                    .map_err(|e| io_err("cannot copy", &cached, e))?;
-            }
-        }
         for (file, bytes) in extra {
             let p = tmp.join(file);
             write_private_atomic(&p, bytes).map_err(|e| io_err("cannot write", &p, e))?;
@@ -939,15 +958,7 @@ fn new_trash_entry<'a>(
         "removedAt": now, "reason": "replaced", "name": name, "kind": old.kind, "version": old.version,
         "record": old, "index": old_index,
     });
-    let (_, tdir) = build_trash_entry(
-        paths,
-        &name,
-        &old.version,
-        now,
-        &body,
-        Some(&old.package_sha256),
-        &[],
-    )?;
+    let (_, tdir) = build_trash_entry(paths, &name, &old.version, now, &body, &[])?;
     let t = tdir.clone();
     rb.push("code", move |h| {
         put_code_back(layout, h, is_skill, &name, &t.join("code"))?;
