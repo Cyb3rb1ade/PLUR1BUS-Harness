@@ -239,7 +239,7 @@ export async function reapHome(h: string): Promise<void> {
 /** The directory `cargo run -p plur1bus-ext --features testkit --example make-fixtures -- <dir>` wrote (X1 Task 14):
  *  PLUR1BUS_EXT_FIXTURES, and the environment that makes the code under test trust the throwaway key in its
  *  `pubkeys.env` (`PLUR1BUS_TEST_EXT_PUBKEYS=test=<base64>`, honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1). No key
- *  is committed: the generator makes a new one per run. */
+ *  is committed: the generator makes a new one per run. Lazy: it throws when called, never at import. */
 export function fixtures(): { dir: string; path: (name: string) => string; env: NodeJS.ProcessEnv } {
   const dir = process.env.PLUR1BUS_EXT_FIXTURES;
   if (!dir) throw new Error("PLUR1BUS_EXT_FIXTURES is not set: run the make-fixtures example first (see .github/workflows/ci.yml)");

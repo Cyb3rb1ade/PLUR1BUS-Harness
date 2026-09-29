@@ -6,9 +6,11 @@ import { join } from "node:path";
 import { readIndex } from "../../packages/core/src/import/skills-registry.ts";
 import { cli, coreEnv, fixtures, reapHome, startDaemon, waitFor } from "./helpers.ts";
 
-const fx = fixtures();
-const ENV = coreEnv(fx.env);
-const run = (h: string, args: string[], allowFail = false): any => cli(h, args, { env: ENV, allowFail });
+// Lazy: fixtures() reads PLUR1BUS_EXT_FIXTURES when the first test asks, not when the file is imported.
+let cached: ReturnType<typeof fixtures> | undefined;
+const fxs = () => (cached ??= fixtures());
+const ENV = (): NodeJS.ProcessEnv => coreEnv(fxs().env);
+const run = (h: string, args: string[], allowFail = false): any => cli(h, args, { env: ENV(), allowFail });
 /** A failed `--json` run: `{ exit, doc }`, the error document parsed from stdout. */
 const fail = (h: string, args: string[]): { exit: number; doc: any } => {
   const r = run(h, args, true);
@@ -16,8 +18,8 @@ const fail = (h: string, args: string[]): { exit: number; doc: any } => {
   return { exit: r.exit, doc: JSON.parse(r.stdout) };
 };
 
-/** SHA-256 over every file under skills/, modules/, extensions/ (relative path and bytes; a tree that does not exist
- *  hashes as empty). Runtime state (`run/`, `data/`, `config.json`) is not part of a refusal's promise here. */
+/** SHA-256 over every file under skills/, modules/, extensions/ and config.json (relative path and bytes; a tree that does not exist
+ *  hashes as empty). Runtime state (`run/`, `data/`) is not part of a refusal's promise here. */
 function treeHash(h: string): string {
   const out = createHash("sha256");
   const walk = (rel: string): void => {
@@ -27,7 +29,7 @@ function treeHash(h: string): string {
     if (st.isDirectory()) { for (const n of readdirSync(abs).sort()) walk(`${rel}/${n}`); return; }
     out.update(`${rel}\0`).update(readFileSync(abs)).update("\0");
   };
-  for (const d of ["skills", "modules", "extensions"]) walk(d);
+  for (const d of ["skills", "modules", "extensions", "config.json"]) walk(d);
   return out.digest("hex");
 }
 
@@ -35,30 +37,35 @@ const child = (h: string, role: string): any => run(h, ["daemon", "status"]).chi
 const ready = (h: string, role: string, timeoutMs = 30_000) =>
   waitFor(`${role} ready`, () => { const c = child(h, role); return c?.process?.state === "ready" && c; }, timeoutMs);
 
-// Spec §12 acceptance 1–5 end to end through the real binary and a real core: only the CLI is used, and the home's path
+// Spec §12 acceptance 1–5 end to end through the real binary and a real core: only the CLI is used, and every home's path
 // holds a space and a non-ASCII letter (Review Focus 4). The base is /tmp, so the module sockets stay under macOS's
-// sun_path limit (104 bytes).
+// sun_path limit (104 bytes). Each test owns its home (and daemon), so an early failure cannot cascade.
 describe("X1 acceptance — extensions from a file", { skip: process.platform === "win32" && "POSIX system job" }, () => {
-  let base = "";
-  let h = "";
-  before(async () => {
-    base = mkdtempSync(join("/tmp", "p1x A-"));
-    h = join(base, "Jürgen");
+  const bases: string[] = [];
+  const homes: string[] = [];
+  /** A fresh home under `/tmp/p1x A-XXXXXX/Jürgen` with agents bernd and anna; the daemon runs unless `daemon: false`. */
+  async function fresh(opts: { daemon?: boolean } = {}): Promise<string> {
+    const base = mkdtempSync(join("/tmp", "p1x A-"));
+    const h = join(base, "Jürgen");
     mkdirSync(h);
+    bases.push(base); homes.push(h);
     run(h, ["agent", "create", "bernd"]);
     run(h, ["agent", "create", "anna"]);
     run(h, ["config", "set", "supervisor.graceMs", "15000", "--yes"]);
-    startDaemon(h, fx.env);
-    await ready(h, "core");
-  });
+    if (opts.daemon !== false) { startDaemon(h, fxs().env); await ready(h, "core"); }
+    return h;
+  }
   after(async () => {
-    try { cli(h, ["daemon", "stop"], { allowFail: true }); } catch { /* best effort */ }
-    await reapHome(h);
-    rmSync(base, { recursive: true, force: true });
+    for (const h of homes) {
+      try { cli(h, ["daemon", "stop"], { allowFail: true }); } catch { /* best effort */ }
+      await reapHome(h);
+    }
+    for (const b of bases) rmSync(b, { recursive: true, force: true });
   });
 
-  it("a signed skill installs disabled, enables for bernd only, disables again, and the importer reads the index", () => {
-    const installed = run(h, ["skill", "install", fx.path("signed-skill.p1x"), "--yes"]);
+  it("a signed skill installs disabled, enables for bernd only, disables again, and the importer reads the index", async () => {
+    const h = await fresh();
+    const installed = run(h, ["skill", "install", fxs().path("signed-skill.p1x"), "--yes"]);
     assert.equal(installed.schema, "skill.install/1");
     assert.equal(installed.name, "demo-skill");
     assert.equal(installed.state, "installed");
@@ -84,8 +91,9 @@ describe("X1 acceptance — extensions from a file", { skip: process.platform ==
     assert.equal(entry()?.enabled, false);
   });
 
-  it("an unsigned folder skill needs --allow-unsigned and lists its script", () => {
-    const dir = fx.path("unsigned-folder-skill");
+  it("an unsigned folder skill needs --allow-unsigned and lists its script", async () => {
+    const h = await fresh();
+    const dir = fxs().path("unsigned-folder-skill");
     const r = fail(h, ["skill", "install", dir, "--yes"]);
     assert.equal(r.exit, 2, JSON.stringify(r.doc));
     assert.equal(r.doc.error, "E_APPROVAL_REQUIRED");
@@ -97,12 +105,16 @@ describe("X1 acceptance — extensions from a file", { skip: process.platform ==
   });
 
   it("a module package installs disabled, plugin enable starts it and fixture-b, plugin disable holds fixture-b back and prints the plan", async () => {
+    const h = await fresh();
     for (const p of ["module-fixture.p1x", "fixture-b.p1x"]) {
-      const v = run(h, ["plugin", "install", fx.path(p), "--yes"]);
+      const v = run(h, ["plugin", "install", fxs().path(p), "--yes"]);
       assert.equal(v.schema, "plugin.install/1");
       assert.equal(v.state, "installed");
     }
-    assert.notEqual(child(h, "fixture")?.process?.state, "ready", "installed disabled: nothing runs");
+    const c0 = child(h, "fixture");
+    assert.ok(c0, "the supervisor lists the installed module");
+    assert.equal(c0.process.state, "stopped", "installed disabled: nothing runs");
+    assert.equal(c0.process.reason, "disabled");
     for (const name of ["fixture", "fixture-b"]) {
       const v = run(h, ["plugin", "enable", name, "--yes"]);
       assert.equal(v.state, "enabled", JSON.stringify(v));
@@ -110,15 +122,29 @@ describe("X1 acceptance — extensions from a file", { skip: process.platform ==
     await ready(h, "fixture");
     await ready(h, "fixture-b");
 
-    const text: string = cli(h, ["plugin", "disable", "fixture", "--yes"], { json: false, env: ENV });
-    assert.match(text, /will be held back: .*fixture-b/, text);
-    await waitFor("fixture-b to stop running", () => child(h, "fixture-b")?.process?.state !== "ready", 30_000);
-    const list = run(h, ["plugin", "list"]).items;
-    assert.equal(list.find((i: any) => i.name === "fixture")?.state, "installed");
+    // The plan is printed before the change is applied, and the dependent is held back with its own reason.
+    const text: string = cli(h, ["plugin", "disable", "fixture", "--yes"], { json: false, env: ENV() });
+    const plan = text.search(/will be held back: .*fixture-b/);
+    assert.ok(plan >= 0, text);
+    assert.ok(plan < text.indexOf("disabled fixture"), `the plan comes before the applied result: ${text}`);
+    const held = await waitFor("fixture-b held back", () => { const c = child(h, "fixture-b"); return c?.process?.state === "stopped" && c; }, 30_000);
+    assert.equal(held.process.reason, "needs-unavailable", JSON.stringify(held));
+    const fixture = child(h, "fixture");
+    assert.ok(fixture, "fixture is still listed");
+    assert.equal(fixture.process.state, "stopped");
+    assert.equal(fixture.process.reason, "disabled");
+    assert.equal(run(h, ["plugin", "list"]).items.find((i: any) => i.name === "fixture")?.state, "installed");
+
+    // Enabling fixture again brings both back.
+    assert.equal(run(h, ["plugin", "enable", "fixture", "--yes"]).state, "enabled");
+    await ready(h, "fixture");
+    await ready(h, "fixture-b");
   });
 
-  it("uninstall keeps data and config, purge removes them, restore brings the item back disabled", () => {
+  it("uninstall keeps data and config, purge removes them after its own confirmation, restore brings the item back disabled", async () => {
+    const h = await fresh();
     // A skill: uninstall moves it to the trash, restore brings it back disabled.
+    run(h, ["skill", "install", fxs().path("signed-skill.p1x"), "--yes"]);
     const u = run(h, ["skill", "uninstall", "demo-skill", "--yes"]);
     assert.equal(u.schema, "skill.uninstall/1");
     assert.equal(u.purged, false);
@@ -128,28 +154,37 @@ describe("X1 acceptance — extensions from a file", { skip: process.platform ==
     assert.equal(r.schema, "skill.restore/1");
     assert.equal(readIndex(h).skills.find((e) => e.id === "demo-skill")?.enabled, false);
 
-    // A module: uninstall keeps its data directory and config section; a purge removes both.
-    run(h, ["plugin", "uninstall", "fixture-b", "--yes"]);
+    // A module: uninstall keeps its data directory and config section, and restore brings the item back disabled with
+    // the section intact.
+    run(h, ["plugin", "install", fxs().path("module-fixture.p1x"), "--yes"]);
     run(h, ["config", "set", "modules.fixture.greeting", "\"hello\"", "--yes"]);
     mkdirSync(join(h, "data", "ext", "fixture"), { recursive: true });
     const marker = join(h, "data", "ext", "fixture", "keep.txt");
     writeFileSync(marker, "kept\n");
+    const greeting = (): unknown => JSON.parse(readFileSync(join(h, "config.json"), "utf8")).modules?.fixture?.greeting;
     const kept = run(h, ["plugin", "uninstall", "fixture", "--yes"]);
     assert.equal(kept.purged, false);
     assert.equal(readFileSync(marker, "utf8"), "kept\n");
-    assert.equal(run(h, ["config", "get", "modules.fixture.greeting"]).value, "hello");
+    assert.equal(greeting(), "hello", "uninstall keeps the config section");
     const back = run(h, ["plugin", "restore", kept.trashId]);
     assert.equal(back.schema, "plugin.restore/1");
     assert.equal(run(h, ["plugin", "list"]).items.find((i: any) => i.name === "fixture")?.state, "installed");
+    assert.equal(greeting(), "hello", "restore brings the config section back");
+    assert.equal(readFileSync(marker, "utf8"), "kept\n");
 
+    // Purge asks first: outside a terminal, without --yes it is refused and removes nothing; with --yes it removes both.
+    const refused = run(h, ["plugin", "uninstall", "fixture", "--purge"], true);
+    assert.ok("exit" in refused && refused.exit !== 0, "a purge without --yes must not run outside a terminal");
+    assert.equal(readFileSync(marker, "utf8"), "kept\n");
+    assert.equal(greeting(), "hello");
+    assert.equal(run(h, ["plugin", "list"]).items.find((i: any) => i.name === "fixture")?.state, "installed");
     const purged = run(h, ["plugin", "uninstall", "fixture", "--purge", "--yes"]);
     assert.equal(purged.purged, true);
     assert.throws(() => readFileSync(marker), /ENOENT/);
-    const cfg = JSON.parse(readFileSync(join(h, "config.json"), "utf8"));
-    assert.equal(cfg.modules?.fixture?.greeting, undefined, "the purge removed the configuration section");
+    assert.equal(greeting(), undefined, "the purge removed the configuration section");
   });
 
-  it("every tampered variant is refused with its reason and skills/, modules/, extensions/ stay byte-identical", () => {
+  it("every tampered variant is refused with its reason and skills/, modules/, extensions/ and config.json stay byte-identical", async () => {
     const expected: Record<string, string> = {
       "payload-byte": "digest-mismatch",
       "extra-entry": "package-invalid",
@@ -160,13 +195,18 @@ describe("X1 acceptance — extensions from a file", { skip: process.platform ==
       "foreign-id": "signature-invalid",
       "append-after-eocd": "archive-unsupported",
     };
-    const before = treeHash(h);
-    for (const [slug, reason] of Object.entries(expected)) {
-      const r = fail(h, ["skill", "install", fx.path(`tampered-${slug}.p1x`), "--yes"]);
-      assert.equal(r.doc.schema, "error/1", `${slug}: ${JSON.stringify(r.doc)}`);
-      assert.equal(r.doc.reason, reason, `${slug}: ${JSON.stringify(r.doc)}`);
-      assert.notEqual(r.exit, 0, slug);
-      assert.equal(treeHash(h), before, `${slug}: the tree changed`);
+    // Through the running supervisor (skill install) and offline, with no daemon (plugin install: the same audit runs
+    // before the kind is looked at).
+    for (const [online, verb] of [[true, "skill"], [false, "plugin"]] as const) {
+      const h = await fresh({ daemon: online });
+      const before = treeHash(h);
+      for (const [slug, reason] of Object.entries(expected)) {
+        const r = fail(h, [verb, "install", fxs().path(`tampered-${slug}.p1x`), "--yes"]);
+        assert.equal(r.doc.schema, "error/1", `${online} ${slug}: ${JSON.stringify(r.doc)}`);
+        assert.equal(r.doc.reason, reason, `${online} ${slug}: ${JSON.stringify(r.doc)}`);
+        assert.notEqual(r.exit, 0, slug);
+        assert.equal(treeHash(h), before, `${online} ${slug}: the tree changed`);
+      }
     }
   });
 });
