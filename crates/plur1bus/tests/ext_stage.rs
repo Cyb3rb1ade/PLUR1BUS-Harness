@@ -40,6 +40,7 @@ mod install {
 mod ext;
 
 use ext::inspect::{self, Source};
+use ext::record;
 use ext::stage;
 use ext::worker;
 use ext::ExtError;
@@ -314,7 +315,7 @@ fn inspect_writes_only_under_run_inspect() {
         }
     }
     // load() reads it back.
-    let back = inspect::load(&l, &id).unwrap();
+    let back = record::load(&l, &id).unwrap();
     assert_eq!(back.sha256, rec.sha256);
 }
 
@@ -351,7 +352,7 @@ fn inspect_of_each_tampered_variant_refuses_and_leaves_the_tree_byte_identical()
                 && !inspect_dir(&l).join(format!("{id}.json")).exists(),
             "{how:?}: a refused inspection leaves no spool or record"
         );
-        assert!(inspect::load(&l, &id).is_err());
+        assert!(record::load(&l, &id).is_err());
     }
 }
 
@@ -433,6 +434,7 @@ fn installed_record(id: &str, name: &str, kind: &str) -> ext::state::ItemRecord 
         source: "file".into(),
         trust: "first-party".into(),
         key_id: None,
+        key_label: None,
         package_sha256: "ab".repeat(32),
         installed_at: "2026-09-28T10:00:00.000Z".into(),
         previous_version: None,
@@ -611,6 +613,7 @@ fn inspect_fills_replaces_for_an_installed_id() {
             source: "file".into(),
             trust: "first-party".into(),
             key_id: None,
+            key_label: None,
             package_sha256: "ab".repeat(32),
             installed_at: "2026-09-28T10:00:00.000Z".into(),
             previous_version: None,
@@ -671,17 +674,17 @@ fn an_expired_inspection_is_inspection_expired() {
     let id = id();
     inspect::inspect(&l, Source::Path(path.clone()), &id).unwrap();
     std::thread::sleep(Duration::from_millis(20));
-    let e = inspect::load(&l, &id).unwrap_err();
+    let e = record::load(&l, &id).unwrap_err();
     assert_eq!(reason(&e), ("E_NOT_FOUND", "inspection-expired"), "{e}");
     let e = stage::stage(&l, &id).unwrap_err();
     assert_eq!(reason(&e), ("E_NOT_FOUND", "inspection-expired"), "{e}");
     // A missing or malformed id is the same answer.
-    let e = inspect::load(&l, "no-such-id").unwrap_err();
+    let e = record::load(&l, "no-such-id").unwrap_err();
     assert_eq!(reason(&e), ("E_NOT_FOUND", "inspection-expired"), "{e}");
-    let e = inspect::load(&l, "../../etc/passwd").unwrap_err();
+    let e = record::load(&l, "../../etc/passwd").unwrap_err();
     assert_eq!(reason(&e), ("E_NOT_FOUND", "inspection-expired"), "{e}");
     // prune removes the expired pair.
-    inspect::prune(&l);
+    record::prune(&l);
     assert!(fs::read_dir(inspect_dir(&l)).unwrap().next().is_none());
     // A fresh inspection prunes the old ones first.
     std::env::remove_var("PLUR1BUS_TEST_EXT_INSPECT_TTL_MS");

@@ -92,6 +92,7 @@ fn record(name: &str, kind: &str) -> ItemRecord {
         source: "file".into(),
         trust: "unsigned".into(),
         key_id: None,
+        key_label: None,
         package_sha256: "ab".repeat(32),
         installed_at: "2026-09-28T10:00:00.000Z".into(),
         previous_version: None,

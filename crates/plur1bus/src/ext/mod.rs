@@ -17,6 +17,7 @@ pub mod lifecycle;
 pub mod list;
 pub mod overlays;
 pub mod paths;
+pub mod record;
 pub mod remove;
 pub mod stage;
 pub mod state;
@@ -108,7 +109,8 @@ fn dead_temp(name: &str) -> bool {
 /// offline command: every entry of `extensions/staging/` (a stage or commit that did not finish; the supervisor
 /// stages and commits under the ext mutation lock, and the offline CLI runs only when no supervisor does) and the
 /// directory itself, temp files of dead writers in `extensions/`, `extensions/cache/` and `skills/`, expired
-/// inspections in `run/inspect/`, and the module staging directories of dead installs
+/// inspections in `run/inspect/`, unfinished trash entries, the skills index entries a killed commit left without a
+/// folder or a folder without an entry (X1-C10), and the module staging directories of dead installs
 /// (`modules::install::recover`). Returns what was done, for the log. Best effort: a failure is skipped.
 pub fn recover(layout: &Layout) -> Vec<String> {
     let p = paths::ExtPaths::of(layout);
@@ -143,7 +145,7 @@ pub fn recover(layout: &Layout) -> Vec<String> {
     }
     let count = |d: &std::path::Path| std::fs::read_dir(d).map_or(0, |r| r.count());
     let before = count(&p.inspect);
-    inspect::prune(layout);
+    record::prune(layout);
     let pruned = before.saturating_sub(count(&p.inspect));
     if pruned > 0 {
         done.push(format!(
@@ -151,7 +153,78 @@ pub fn recover(layout: &Layout) -> Vec<String> {
             p.inspect.display()
         ));
     }
+    // Trash entries a killed commit was still building (`<trashId>.tmp-<pid>`: `record.json` and `package.p1x` only;
+    // the code moves in after the rename).
+    if let Ok(entries) = std::fs::read_dir(&p.trash) {
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if dead_temp(&name) && state::remove_dir_all_retrying(&e.path()).is_ok() {
+                done.push(format!(
+                    "removed the unfinished trash entry {}",
+                    e.path().display()
+                ));
+            }
+        }
+    }
+    done.extend(reconcile_skills(layout, &p));
     done.extend(crate::modules::install::recover(layout));
+    done
+}
+
+/// X1-C10: what a commit killed between its steps left in `skills/index.json`, under the importer's lock (skipped when
+/// another writer holds it, or when the index or the state cannot be read). An entry with `package` set whose folder
+/// is gone and that has no state record is removed (a fresh install killed before its folder moved in). A recorded
+/// skill whose folder is there but has no entry gets one back, disabled, so X1-R12 never lists it as enabled.
+fn reconcile_skills(layout: &Layout, p: &paths::ExtPaths) -> Vec<String> {
+    let mut done = Vec::new();
+    let Ok(st) = state::read(p) else {
+        return done;
+    };
+    let Ok(_lock) = index::lock_skills(layout) else {
+        return done;
+    };
+    let Ok(mut idx) = index::read_index(layout) else {
+        return done;
+    };
+    let orphans: Vec<String> = idx.0["skills"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|e| e["package"].is_object())
+        .filter_map(|e| e["id"].as_str().map(str::to_string))
+        .filter(|id| {
+            !st.items.contains_key(id)
+                && std::fs::symlink_metadata(layout.skills().join(id)).is_err()
+        })
+        .collect();
+    for id in &orphans {
+        idx.remove(id);
+        done.push(format!(
+            "removed the index entry of {id}: no folder and no record (an interrupted install)"
+        ));
+    }
+    let now = now_iso();
+    let mut restored = Vec::new();
+    for rec in st.items.values() {
+        if rec.kind == "skill"
+            && !rec.removed_by_user
+            && idx.entry(&rec.name).is_none()
+            && layout.skills().join(&rec.name).is_dir()
+        {
+            idx.upsert(index::package_entry(rec, "-", false, &now, None));
+            restored.push(rec.name.clone());
+            done.push(format!(
+                "restored the index entry of {} (disabled)",
+                rec.name
+            ));
+        }
+    }
+    if (!orphans.is_empty() || !restored.is_empty()) && index::write_index(layout, &idx).is_err() {
+        done.push(
+            "could not write skills/index.json; the reconciliation is retried at the next start"
+                .into(),
+        );
+    }
     done
 }
 

@@ -9,8 +9,9 @@
 //! the package name; a module's or channel's `module.json` is valid and names the package's name, version and kind
 //! (default `module`), and its entry file exists. Any refusal removes the staging directory, `extensions/staging/`
 //! when that is left empty, and `extensions/` when this stage created it and it is empty.
-use super::inspect::{self, kind_name, spool_path, InspectionRecord, Source};
+use super::inspect::{self, Source};
 use super::paths::ExtPaths;
+use super::record::{kind_name, spool_path, InspectionRecord};
 use super::state::ItemRecord;
 use super::ExtError;
 use crate::install::archive;
@@ -313,6 +314,7 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
         source: "file".into(),
         trust: rec.trust["tier"].as_str().unwrap_or("unsigned").to_string(),
         key_id: rec.trust["keyId"].as_str().map(str::to_string),
+        key_label: rec.trust["label"].as_str().map(str::to_string),
         package_sha256: rec.sha256.clone(),
         installed_at: super::now_iso(),
         previous_version: rec
@@ -335,7 +337,7 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
 
 /// Extracts and checks an inspected package in staging (see the module documentation).
 pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
-    let rec = inspect::load(layout, id)?;
+    let rec = super::record::load(layout, id)?;
     let pkg = spool_path(layout, id);
     let actual = archive::sha256_file(&pkg).map_err(|e| io_error("cannot read", &pkg, &e))?;
     if actual != rec.sha256 {

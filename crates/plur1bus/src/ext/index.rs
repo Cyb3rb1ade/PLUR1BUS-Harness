@@ -1,7 +1,7 @@
 //! `skills/index.json` written from Rust, and the importer's lock (X1-R14). The TS importer
 //! (`packages/core/src/import/skills-registry.ts`) is the reference: this module reads with the same refusals, writes
 //! the same bytes and takes the same lock, so the two writers can never interleave.
-use super::state::{remove_retrying, write_private_atomic};
+use super::state::{remove_retrying, write_private_atomic, ItemRecord};
 use super::ExtError;
 use crate::paths::Layout;
 use crate::proc::pid_alive;
@@ -62,7 +62,35 @@ impl SkillIndex {
     }
 }
 
-fn index_path(layout: &Layout) -> PathBuf {
+/// The index entry of a skill installed from a package (X1-R14): the importer's fields (`sha256` is the folder hash
+/// over the record's files, `plur1bus-skill-sha256/v1`) plus `package`, over the other fields of `prev`.
+pub(crate) fn package_entry(
+    rec: &ItemRecord,
+    source_path: &str,
+    enabled: bool,
+    at: &str,
+    prev: Option<&Value>,
+) -> Value {
+    let mut entry = prev
+        .filter(|e| e.is_object())
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let pairs: Vec<(String, String)> = rec
+        .files
+        .iter()
+        .map(|(k, v)| (k.clone(), v.sha256.clone()))
+        .collect();
+    entry["id"] = json!(rec.name);
+    entry["source"] = json!(rec.source);
+    entry["sourcePath"] = json!(source_path);
+    entry["sha256"] = json!(plur1bus_ext::folder_hash::skill_folder_hash(&pairs));
+    entry["enabled"] = json!(enabled);
+    entry["importedAt"] = json!(at);
+    entry["package"] = json!({ "id": rec.id, "version": rec.version, "trust": rec.trust });
+    entry
+}
+
+pub(crate) fn index_path(layout: &Layout) -> PathBuf {
     layout.skills().join("index.json")
 }
 

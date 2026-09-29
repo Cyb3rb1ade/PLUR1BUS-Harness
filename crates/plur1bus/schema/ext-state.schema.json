@@ -29,6 +29,7 @@
         "source": { "enum": ["file", "catalog", "bundled", "local"], "description": "Where it came from; X1 writes `file`." },
         "trust": { "enum": ["release", "first-party", "unknown-signer", "unsigned", "imported", "dev"] },
         "keyId": { "type": ["string", "null"], "description": "The signing key id (16 upper-case hex digits), when the package is signed." },
+        "keyLabel": { "type": ["string", "null"], "description": "The label of the trusted key that verified the signature, when one did." },
         "packageSha256": { "$ref": "#/$defs/sha256" },
         "installedAt": { "type": "string", "minLength": 1, "description": "UTC, ISO 8601." },
         "previousVersion": { "type": ["string", "null"] },

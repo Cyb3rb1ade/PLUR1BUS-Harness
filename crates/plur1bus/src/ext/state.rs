@@ -38,6 +38,9 @@ pub struct ItemRecord {
     pub trust: String,
     #[serde(default)]
     pub key_id: Option<String>,
+    /// The label of the trusted key that verified the signature (`ExtTrust.label`), when one did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_label: Option<String>,
     pub package_sha256: String,
     pub installed_at: String,
     #[serde(default)]
@@ -157,6 +160,14 @@ pub(crate) fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
 /// `fs::remove_file`, retried like [`rename_retrying`]; a file that is already gone is success.
 pub(crate) fn remove_retrying(path: &Path) -> io::Result<()> {
     match retrying(|| std::fs::remove_file(path)) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        r => r,
+    }
+}
+
+/// `fs::remove_dir_all`, retried like [`rename_retrying`]; a directory that is already gone is success.
+pub(crate) fn remove_dir_all_retrying(path: &Path) -> io::Result<()> {
+    match retrying(|| std::fs::remove_dir_all(path)) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
         r => r,
     }

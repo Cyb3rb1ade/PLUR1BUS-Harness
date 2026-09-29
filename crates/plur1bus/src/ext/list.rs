@@ -1,8 +1,9 @@
 //! `ext.list` and `ext.show` (spec §6.2, §10.2; X1-R12, X1-R17, X1-R26): `extensions/state.json`, `skills/index.json`,
 //! the skill folders without an index entry, `modules::scan` and `config.json` joined into what a person sees.
 //!
-//! Supervisor-safe (X1-R2): what `ext.show` says about a package (its manifest, trust verdict and scripts) comes from
-//! the cache's `<sha256>.json`, written at install from the worker's inspection; package bytes are never opened.
+//! Supervisor-safe (X1-R2): what `ext.show` says about a package's bytes (its manifest and scripts) comes from the
+//! cache's `<sha256>.json`, written at install from the worker's inspection, and its trust verdict from the record;
+//! package bytes are never opened.
 use super::commit::enabled_now;
 use super::index::{self, SkillIndex};
 use super::overlays::{load_revocations, overlays_of, rehash, Revocation};
@@ -45,7 +46,7 @@ fn warn(msg: String) {
     eprintln!("plur1bus: warning: {msg}");
 }
 
-/// `{manifest, trust, scripts}` from `extensions/cache/<sha256>.json`, if the install wrote one.
+/// `{manifest, scripts}` from `extensions/cache/<sha256>.json`, if the install wrote one.
 fn cached_meta(paths: &ExtPaths, sha256: &str) -> Option<Value> {
     std::fs::read_to_string(paths.cached_meta(sha256))
         .ok()
@@ -422,30 +423,9 @@ fn trash_of(paths: &ExtPaths, name: &str) -> Vec<Value> {
     out.into_iter().map(|(_, v)| v).collect()
 }
 
-/// Stores a fresh integrity result in `state.json` (X1-R17), when no ext mutation runs and the record is still the
-/// same package. Best effort: `ext.show` answers either way.
-fn store_integrity(paths: &ExtPaths, rec: &ItemRecord) {
-    let Ok(_guard) = super::try_mutation() else {
-        return;
-    };
-    let Ok(mut st) = state::read(paths) else {
-        return;
-    };
-    if let Some(r) = st.items.get_mut(&rec.name) {
-        if r.package_sha256 == rec.package_sha256 && r.integrity != rec.integrity {
-            r.integrity = rec.integrity.clone();
-            if let Err(e) = state::write(paths, &st) {
-                warn(format!(
-                    "cannot record the integrity check in {}: {e}",
-                    paths.state.display()
-                ));
-            }
-        }
-    }
-}
-
-/// `ext.show`: the `ExtDetail` of one item. A packaged item's files are re-hashed first (X1-R17) and the result is
-/// stored in its record and reflected in `integrity` and `overlays`. Unknown → `E_NOT_FOUND extension-unknown`.
+/// `ext.show`: the `ExtDetail` of one item. A packaged item's files are re-hashed (X1-R17) for the answer's `integrity`
+/// and `overlays`; `ext.show` never writes and takes no lock (X1-C13): mutations store integrity results. Unknown →
+/// `E_NOT_FOUND extension-unknown`.
 pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtError> {
     let paths = ExtPaths::of(layout);
     let entry = collect(layout, cfg)
@@ -472,7 +452,6 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
         }));
     };
     rec.integrity = Some(rehash(layout, &rec));
-    store_integrity(&paths, &rec);
     let host = super::host::host_facts();
     let revs = load_revocations(&paths);
     let item = record_item(layout, &paths, cfg, &rec, &host, &revs);
@@ -482,14 +461,12 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
         .map(|m| m["manifest"].clone())
         .filter(Value::is_object)
         .unwrap_or(Value::Null);
-    let mut trust = meta
-        .as_ref()
-        .map(|m| m["trust"].clone())
-        .filter(Value::is_object)
-        .unwrap_or_else(|| json!({}));
-    trust["tier"] = json!(rec.trust);
+    let mut trust = json!({ "tier": rec.trust });
     if let Some(k) = &rec.key_id {
         trust["keyId"] = json!(k);
+    }
+    if let Some(l) = &rec.key_label {
+        trust["label"] = json!(l);
     }
     let scripts: Vec<Value> = match meta.as_ref().and_then(|m| m["scripts"].as_array().cloned()) {
         Some(list) => list
