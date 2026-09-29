@@ -90,7 +90,7 @@ A skill folder with no index entry (the setup-copied bundled skills) lists as en
 
 **Install commit.** Six steps in order, each registering its own undo: `config`, `code`, `state`, `cache`, `index`, `enable`. A failure at any step undoes the earlier ones in reverse, so the tree is byte-identical again and no audit line is written. Before the first write the commit re-checks what the inspection checked (name, socket address, revocations, `extensions.allowUnsigned`), because an inspection may be ten minutes old. A skill's index entry (disabled, `package` set) is written **before** its folder moves into place, so a kill never leaves a skill folder without an entry (which would list as enabled). `ext::recover` runs at every supervisor start and before every offline command: it removes `extensions/staging/`, expired inspections, dead writers' temp files and unfinished module staging, reconciles an index entry without a folder (or the reverse), puts code back that a killed replace or uninstall left in the trash, and finishes or undoes an interrupted restore.
 
-**Reinstall rules.** The identical package (same id, same sha256) is a no-op: `replaced: false`, nothing written, no audit line. The same id at another version replaces; a lower version needs the acknowledgment `downgrade`. A replace keeps the enable state; if the capabilities widen while the item is enabled, the install itself needs `capabilities`. The same name under another id or kind is `name-taken`. One process-wide lock serialises `install`, `uninstall`, `restore`, `enable` and `disable`; a second one gets `E_CONFLICT reason=busy` and changes nothing.
+**Reinstall rules.** The identical package (same id, same sha256) is a no-op: `replaced: false`, nothing written, no audit line. The engine treats it as a no-op, but the CLI is stricter (X1-C25): outside a terminal an identical **unsigned** reinstall still needs `--allow-unsigned --yes`, and without them exits 2 with `E_APPROVAL_REQUIRED acknowledge-unsigned`, the same online and offline. The same id at another version replaces; a lower version needs the acknowledgment `downgrade`. A replace keeps the enable state; if the capabilities widen while the item is enabled, the install itself needs `capabilities`. The same name under another id or kind is `name-taken`. One process-wide lock serialises `install`, `uninstall`, `restore`, `enable` and `disable`; a second one gets `E_CONFLICT reason=busy` and changes nothing.
 
 **Enable and capabilities.** The first enable of an item, and any later enable after its capabilities changed, needs the acknowledgment `capabilities`; without it `E_APPROVAL_REQUIRED reason=acknowledge-capabilities` carries the capabilities, scripts and authority in `error.data.ext` (`"full"` for every module and channel). The acknowledged capabilities' SHA-256 is recorded in `state.json`. Items with trust `release` or `dev` and no package record need none. Enable also re-hashes the installed files (a mismatch is `tampered`; a **missing folder is also reported as `tampered`**, with the paths, because RPC 1.4.0 has no other value).
 
@@ -98,8 +98,8 @@ A skill folder with no index entry (the setup-copied bundled skills) lists as en
 
 **Uninstall, purge, restore, trash.**
 
-- *Uninstall* stops a module first, moves the code into a fresh trash entry (`code/`, `package.p1x`, `record.json`) and removes the state record and index entry. Kept: `data/ext/<name>/` and the config section, so a reinstall resumes.
-- *Purge* also moves `data/ext/<name>/` (`data/`) and the config section (`config.json`) into the entry. X1 has no secret store, so no secret is deleted, and the confirmation says so.
+- *Uninstall* stops a module first, moves the code into a fresh trash entry (`code/`, `package.p1x`, `record.json`) and removes the state record and index entry. Kept: `data/ext/<name>/` and, for a module or channel, its `modules.<name>` config section, so a reinstall resumes.
+- *Purge* also moves `data/ext/<name>/` (`data/`) into the entry. For a **module or channel** the `modules.<name>` section moves into the entry's `config.json`. For a **skill** there is no section: purge removes the name from `agents.*.skills.{blocked,pinned}` and writes no `config.json`. X1 has no secret store, so no secret is deleted, and the confirmation says so.
 - *The package is in exactly one place.* It moves from `extensions/cache/` into the trash entry and back by rename; the cache and the trash never both hold it (a copy only when the two are on different devices).
 - *Restore* brings an entry back as installed(disabled) within `extensions.trashDays` (default 14; older is `E_NOT_FOUND reason=trash-expired`); a taken name is `name-taken`.
 - *Pruning* removes expired entries, and it runs **only in a mutation that has passed its refusal checks and is about to write** (never before a refusal, never on a no-op). No timer runs, so an expired entry lingers until the next writing mutation.
@@ -138,9 +138,21 @@ plur1bus --home /tmp/p1x-demo skill restore demo-skill-0.0.0-<UTC time>   # the 
 plur1bus --home /tmp/p1x-demo skill uninstall demo-skill --purge --yes # also data/ext/demo-skill and its configuration
 ```
 
-Modules and channels use `plugin install|list|show|enable|disable|uninstall|restore` the same way (`plugin install` takes a `.p1x` or `-` for stdin; `ext pack` on a directory holding `p1x.template.json` and `payload/` builds one):
+Modules and channels use `plugin install|list|show|enable|disable|uninstall|restore` the same way (`plugin install` takes a `.p1x` or `-` for stdin). `ext pack` builds one from a directory holding `p1x.template.json` (a manifest without `files`, `scripts` and `created`, which pack fills) and `payload/`. A minimal module:
 
 ```bash
+mkdir -p demo/hello-mod/payload
+cat > demo/hello-mod/payload/module.json <<'EOF'
+{"name":"hello-mod","version":"1.0.0","apiVersion":"1","entry":"main.mjs","scope":"installation","priority":500,"kind":"module"}
+EOF
+echo 'console.log("hi")' > demo/hello-mod/payload/main.mjs
+cat > demo/hello-mod/p1x.template.json <<'EOF'
+{"$schema":"https://plur1bus.app/schema/p1x/1/p1x.schema.json","format":1,"id":"local/hello-mod","name":"hello-mod","version":"1.0.0","kind":"module",
+ "title":{"en":"Hello module"},"summary":{"en":"A module that does nothing."},"publisher":{"id":"local","name":"Local"},"licence":"MIT",
+ "compat":{"harness":">=0.0.0","moduleApi":["1"]},"requires":{"runtime":{"type":"node","range":">=24"}},
+ "capabilities":{"network":{"mode":"none"},"filesystem":[],"processes":{"spawn":false},"harness":{"authority":"full"}}}
+EOF
+
 plur1bus ext pack demo/hello-mod -o demo/hello-mod.p1x
 plur1bus --home /tmp/p1x-demo plugin install demo/hello-mod.p1x --allow-unsigned --yes
 plur1bus --home /tmp/p1x-demo plugin enable hello-mod --yes            # prints the restart plan first
@@ -155,13 +167,13 @@ Every file argument accepts `-` for a package on stdin (spooled to `run/inspect/
 `install` inspects first and prints the disclosure: trust tier and why, the signer key id, id, version, publisher (marked *unverified* below `first-party`), licence, summary, every capability in plain language, every script with its size and first line, the runtime, the secrets, and what it replaces with the capability diff.
 
 - **On a terminal:** one `[y/N]` question names the tier (and, with `--enable`, the capabilities), and acknowledges what the inspection shows. If the engine still asks for an acknowledgment (an enabled item whose capabilities widen), the CLI discloses and asks again.
-- **Outside a terminal:** an acknowledgment that is *due* needs its flag **and** `--yes`: `--allow-unsigned`, `--allow-unknown-signer` or `--allow-downgrade` acknowledge only their tier or downgrade, and `--yes` acknowledges the capabilities. Without them the command exits 2 with `E_APPROVAL_REQUIRED acknowledge-<x>` and the inspection in the error data; it never acknowledges on its own. A package that needs no acknowledgment (a signed first-party package, installed disabled) installs without `--yes`, because nothing runs.
+- **Outside a terminal:** an acknowledgment that is *due* needs its flag **and** `--yes`: `--allow-unsigned`, `--allow-unknown-signer` or `--allow-downgrade` acknowledge only their tier or downgrade, and `--yes` acknowledges the capabilities. Without them the command exits 2 with `E_APPROVAL_REQUIRED acknowledge-<x>` and the inspection in the error data; it never acknowledges on its own. A package that needs no acknowledgment (a signed first-party package, installed disabled) installs without `--yes`, because nothing runs. This does not extend to an identical unsigned reinstall: that still needs `--allow-unsigned --yes` (X1-C25).
 - **Enable** follows a five-step flow: a *dry run* (`dryRun: true` runs every refusal and writes nothing) answers `acknowledge-capabilities` with the disclosure; the CLI shows it; a *confirmation* (or `--yes`) follows; a *dry run with the acknowledgment* returns the restart plan (a module's `will restart` and `will be held back` lines); then the change is *applied*.
 - **Uninstall** asks once (a purge asks again and names what goes); `--yes` is required outside a terminal.
 
 ### Routing and exit codes
 
-With a supervisor that answers, every verb is its `ext.*` method; without one, the CLI takes the supervisor's single-instance lock, runs `ext::recover`, and calls the same functions in-process (offline). A lock held by a starting supervisor is `E_NOT_AVAILABLE reason=supervisor-running`. A supervisor that predates extensions is the CLI-only refusal `E_NOT_AVAILABLE reason=supervisor-lacks-method` (restart it with `plur1bus daemon restart`); it is not an RPC error.
+With a supervisor that answers, every verb is its `ext.*` method; without one, the CLI takes the supervisor's single-instance lock, runs `ext::recover`, and calls the same functions in-process (offline). A lock held by a starting supervisor is `E_NOT_AVAILABLE reason=supervisor-running`, and a supervisor that holds its socket but does not answer is `supervisor-unresponsive` (both exit 2). A supervisor that predates extensions is the CLI-only refusal `E_NOT_AVAILABLE reason=supervisor-lacks-method` (restart it with `plur1bus daemon restart`); it is not an RPC error.
 
 Exit codes of the ext commands: `E_LOCKED` (an importer holds `skills/index.json`, `reason=skills-locked`) exits 3; `E_NOT_AVAILABLE` and `E_APPROVAL_REQUIRED` exit 2 (so **`supervisor-running` exits 2** here); everything else exits 1. `plur1bus module` differs: its `supervisor-running` and `supervisor-not-running` refusals exit 1 (module-guide §9).
 
