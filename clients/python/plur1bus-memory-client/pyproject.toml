@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plur1bus-memory-client"
+# The harness version (HM2-R22): one release, one number.
+version = "0.1.0"
+description = "Stdlib-only client for the PLUR1BUS core RPC (NDJSON JSON-RPC over the home's Unix socket or named pipe), for host adapters."
+readme = "README.md"
+license = "MIT"
+# No upper bound (HM2-R25): the host's own interpreter decides; CI covers 3.11 to 3.14.
+requires-python = ">=3.11"
+dependencies = []
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+]
+
+[project.urls]
+Source = "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness"
+
+[tool.setuptools.packages.find]
+where = ["src"]

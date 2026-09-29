@@ -1,0 +1,14 @@
+[
+  { "platform": "linux", "env": {}, "homeDir": "/Users/c", "cwd": "/work", "home": "/Users/c/.plur1bus" },
+  { "platform": "darwin", "env": {}, "homeDir": "/Users/c/", "cwd": "/work", "home": "/Users/c/.plur1bus" },
+  { "platform": "linux", "env": { "PLUR1BUS_HOME": "/y" }, "homeDir": "/h", "cwd": "/work", "home": "/y" },
+  { "platform": "linux", "env": { "PLUR1BUS_HOME": "rel/h" }, "homeDir": "/h", "cwd": "/work", "home": "/work/rel/h" },
+  { "platform": "linux", "env": { "PLUR1BUS_HOME": "/a/./b/../c/" }, "homeDir": "/h", "cwd": "/work", "home": "/a/c" },
+  { "platform": "win32", "env": {}, "homeDir": "C:\\Users\\c", "localAppData": "C:\\Users\\c\\AppData\\Local", "cwd": "C:\\work", "home": "C:\\Users\\c\\AppData\\Local\\PLUR1BUS" },
+  { "platform": "win32", "env": { "LOCALAPPDATA": "C:\\Users\\Jürgen A\\AppData\\Local" }, "homeDir": "C:\\Users\\Jürgen A", "cwd": "C:\\work", "home": "C:\\Users\\Jürgen A\\AppData\\Local\\PLUR1BUS" },
+  { "platform": "win32", "env": {}, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\Users\\c\\AppData\\Local\\PLUR1BUS" },
+  { "platform": "win32", "env": { "LOCALAPPDATA": "C:\\L\\" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\L\\PLUR1BUS" },
+  { "platform": "win32", "env": { "PLUR1BUS_HOME": "D:/p1b/home" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "D:\\p1b\\home" },
+  { "platform": "win32", "env": { "PLUR1BUS_HOME": "rel" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\work\\rel" },
+  { "platform": "win32", "env": { "PLUR1BUS_HOME": "C:\\a\\.\\b\\..\\c" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\a\\c" }
+]

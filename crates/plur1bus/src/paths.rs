@@ -558,6 +558,63 @@ mod tests {
         );
     }
 
+    /// The vectors use `sys.platform`/`process.platform` ids; this crate says `windows`/`posix` (F22).
+    fn rust_platform(p: &str) -> &'static str {
+        if p == "win32" {
+            "windows"
+        } else {
+            "posix"
+        }
+    }
+
+    #[test]
+    fn address_matches_the_shared_vectors() {
+        // Hand-committed, hashes computed independently; the Python client and module-api read the same file.
+        let vectors: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../../../clients/python/plur1bus-memory-client/tests/fixtures/address-vectors.json"
+        ))
+        .unwrap();
+        assert!(vectors.len() >= 10);
+        for v in &vectors {
+            let home = v["home"].as_str().unwrap();
+            let platform = rust_platform(v["platform"].as_str().unwrap());
+            assert_eq!(
+                core_address(Path::new(home), platform),
+                v["address"].as_str().unwrap(),
+                "{platform} {home:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_home_matches_the_shared_vectors() {
+        let vectors: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../../../clients/python/plur1bus-memory-client/tests/fixtures/home-vectors.json"
+        ))
+        .unwrap();
+        for v in &vectors {
+            let env: HashMap<String, String> = v["env"]
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(k, s)| (k.clone(), s.as_str().unwrap().to_string()))
+                .collect();
+            let lad = v
+                .get("localAppData")
+                .and_then(|s| s.as_str())
+                .map(Path::new);
+            let got = resolve_home(
+                None,
+                &env,
+                rust_platform(v["platform"].as_str().unwrap()),
+                Path::new(v["homeDir"].as_str().unwrap()),
+                lad,
+                Path::new(v["cwd"].as_str().unwrap()),
+            );
+            assert_eq!(got, PathBuf::from(v["home"].as_str().unwrap()), "{v}");
+        }
+    }
+
     #[test]
     fn recorded_pid_reads_the_first_field_of_each_pid_file() {
         use plur1bus_rpc::Endpoint;

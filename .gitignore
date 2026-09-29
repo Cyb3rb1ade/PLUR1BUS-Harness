@@ -150,3 +150,8 @@ packages/*/generated/
 
 # Local agent worktrees (Claude Code)
 .claude/worktrees/
+
+# Python bytecode (clients/, hosts/)
+__pycache__/
+*.py[cod]
+*.egg-info/

@@ -122,3 +122,30 @@ test("every file under ext/ is supervisor-safe or worker-side", () => {
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stderr, /ext\/newfile\.rs:1: ext file is in neither EXT_SAFE nor EXT_WORKER/);
 });
+
+// HM2 (F23): the Python client under clients/ and the host adapters under hosts/ are scanned too, .py included.
+// The forbidden names are assembled at run time, so this file does not trip the rule it tests.
+const HOST = ["Open", "Claw"].join("");
+test("flags the host name in clients/ and hosts/, .py and README.md included", () => {
+  for (const [rel, text] of [
+    ["hosts/hermes/plur1bus/mapping.py", `import os\nHOST = '${HOST}'\n`],
+    ["clients/python/plur1bus-memory-client/README.md", `# client\nWorks like the ${HOST.toLowerCase()} plugin.\n`],
+    ["clients/python/plur1bus-memory-client/src/plur1bus_memory_client/client.py", `x = 1\nENV = '${HOST.toUpperCase()}_STATE_DIR'\n`],
+    ["hosts/hermes/tests/test_x.py", "import os\nCMD = \"/forget\"\n"],
+  ]) {
+    const r = lintTree({ [rel]: text });
+    assert.equal(r.status, 1, `${rel}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, new RegExp(`${rel.replaceAll(".", "\\.")}:2: `));
+  }
+});
+
+test("a clean clients/ and hosts/ tree passes, bytecode caches are skipped", () => {
+  const r = lintTree({
+    "clients/python/plur1bus-memory-client/src/plur1bus_memory_client/client.py": "import socket\n# Hermes host mode\n",
+    "clients/python/plur1bus-memory-client/README.md": "# plur1bus-memory-client\n",
+    "hosts/hermes/plur1bus/plugin.yaml": "name: plur1bus\n",
+    "hosts/hermes/plur1bus/__pycache__/cached.py": `HOST = '${HOST.toLowerCase()}'\n`,
+  });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /hygiene ok/);
+});

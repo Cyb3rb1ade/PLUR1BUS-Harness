@@ -1,13 +1,13 @@
 // Hygiene lint (spec criterion 6): no OpenClaw idiom anywhere in the harness's own source —
-// crates, packages, tests, scripts — except the few lines explicitly allow-listed below (the
+// crates, packages, tests, scripts, and the host clients and adapters under clients/ and hosts/ (HM2) — except the few lines explicitly allow-listed below (the
 // engine dependency line, a documented parity import, and the lines in this file and the
 // import-hygiene test that name the very patterns being checked for).
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
-const ROOTS = ["packages", "crates", "tests", "scripts"];
-const SKIP_DIRS = new Set(["node_modules", "dist", "target", "generated", ".git"]);
-const EXT = new Set([".ts", ".mjs", ".js", ".rs", ".json", ".md", ".toml", ".yaml", ".yml"]);
+const ROOTS = ["packages", "crates", "tests", "scripts", "clients", "hosts"];
+const SKIP_DIRS = new Set(["node_modules", "dist", "target", "generated", ".git", "__pycache__", ".venv", "venv"]);
+const EXT = new Set([".ts", ".mjs", ".js", ".rs", ".json", ".md", ".toml", ".yaml", ".yml", ".py"]);
 const PATTERNS = [
   { re: /openclaw/i, why: "no OpenClaw idiom in the harness (spec D9)" },
   { re: /OPENCLAW_/, why: "no host env names" },
