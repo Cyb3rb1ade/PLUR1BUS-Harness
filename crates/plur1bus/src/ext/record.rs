@@ -42,6 +42,28 @@ pub struct InspectionRecord {
     pub name_taken_by: Option<String>,
 }
 
+/// A package extracted and checked in staging, ready for the commit (Task 7): the worker's `stage` answer. Defined here,
+/// in a supervisor-safe file, because the supervisor reads it; the supervisor re-derives `dir` and `package` from the
+/// inspection ([`staging_dir`], [`spool_path`]) and refuses an answer that names other paths.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagedItem {
+    pub name: String,
+    pub kind: Kind,
+    /// `extensions/staging/<name>-<id>/payload`.
+    pub dir: PathBuf,
+    /// The state record the commit writes (its `installedAt` is the staging time).
+    pub record: state::ItemRecord,
+    /// `run/inspect/<id>.p1x`: the verified package bytes, for the cache.
+    pub package: PathBuf,
+}
+
+/// `extensions/staging/<name>-<id>`: where the worker stages inspection `id` of the item `name` (its payload is the
+/// `payload/` directory inside).
+pub(crate) fn staging_dir(layout: &Layout, name: &str, id: &str) -> PathBuf {
+    ExtPaths::of(layout).staging.join(format!("{name}-{id}"))
+}
+
 pub(crate) fn expired() -> ExtError {
     ExtError::new(
         "E_NOT_FOUND",

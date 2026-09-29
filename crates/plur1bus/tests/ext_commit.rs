@@ -1689,6 +1689,25 @@ fn a_module_whose_socket_no_longer_fits_is_refused_at_commit() {
     let (rec, staged) = prepare(d.path(), &l, "m.p1x", &module_pkg("fixture", Some(&key)));
     let long = Layout::new(d.path().join("h".repeat(120)));
     fs::create_dir_all(&long.home).unwrap();
+    // The inspection and the staging move with it (the commit derives both paths from the home it commits into).
+    let id = &rec.inspection_id;
+    let (from, to) = (
+        ext::paths::ExtPaths::of(&l),
+        ext::paths::ExtPaths::of(&long),
+    );
+    fs::create_dir_all(&to.inspect).unwrap();
+    fs::create_dir_all(&to.staging).unwrap();
+    for ext_name in ["p1x", "json"] {
+        let f = format!("{id}.{ext_name}");
+        fs::rename(from.inspect.join(&f), to.inspect.join(&f)).unwrap();
+    }
+    let dir = format!("fixture-{id}");
+    fs::rename(from.staging.join(&dir), to.staging.join(&dir)).unwrap();
+    let staged = StagedItem {
+        dir: to.staging.join(&dir).join("payload"),
+        package: to.inspect.join(format!("{id}.p1x")),
+        ..staged
+    };
     let e = install_commit(
         &long,
         &mut OfflineHost::new(&long),
@@ -1733,4 +1752,41 @@ fn show_of_a_module_names_its_dependents_and_matches_the_schema() {
     assert_eq!(detail["dependents"], json!(["fixture-b"]));
     assert_eq!(detail["item"]["kind"], "module");
     assert_eq!(detail["trust"]["label"], "test");
+}
+
+/// Review finding 4 (Task 11): the staged item's paths come from the worker's answer; the commit derives the staging
+/// directory and the spool from the inspection and refuses an item that names others (`worker-failed`), writing
+/// nothing.
+#[test]
+fn a_staged_item_naming_other_paths_is_worker_failed() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    let before = guarded(&l);
+    let (rec, staged) = prepare(d.path(), &l, "m.p1x", &module_pkg("fixture", Some(&key)));
+    let elsewhere = d.path().join("elsewhere");
+    fs::create_dir_all(&elsewhere).unwrap();
+    for (i, bad) in [
+        StagedItem {
+            dir: elsewhere.clone(),
+            ..staged.clone()
+        },
+        StagedItem {
+            package: d.path().join("m.p1x"),
+            ..staged.clone()
+        },
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let e =
+            install_commit(&l, &mut OfflineHost::new(&l), &rec, bad, &opts(&[], None)).unwrap_err();
+        assert_eq!(reason(&e), ("E_INTERNAL", "worker-failed"));
+        assert!(elsewhere.is_dir() && d.path().join("m.p1x").is_file());
+        // Nothing written; the (derived) staging directory is spent.
+        assert_eq!(guarded(&l), before, "a refusal writes nothing");
+        if i == 0 {
+            let _ = stage::stage(&l, &rec.inspection_id).unwrap();
+        }
+    }
 }

@@ -24,9 +24,9 @@ use crate::ext::lifecycle::{self, ToggleOpts};
 use crate::ext::list::{cached_meta, list_items, show_item, ListFilter};
 use crate::ext::overlays::{load_revocations, overlays_of, rehash, Overlay};
 use crate::ext::paths::ExtPaths;
+use crate::ext::record::StagedItem;
 use crate::ext::record::{self, InspectionRecord};
 use crate::ext::remove::{self, RemoveOpts};
-use crate::ext::stage::StagedItem;
 use crate::ext::{self, state, worker, ExtError};
 use crate::modules::install::Staged;
 use crate::paths::Layout;
@@ -182,11 +182,19 @@ impl ModuleHost for SupervisorHost<'_> {
 // ---- overlays and start --------------------------------------------------------------------------------------------
 
 /// The held-back overlay of every packaged module and channel (X1-R17): `revoked` first, then `tampered` (the record's
-/// last integrity result), then `incompatible` (the cached manifest's `compat`).
+/// last integrity result), then `incompatible` (the cached manifest's `compat`). When `extensions/state.json` cannot be
+/// read, the check fails closed (X1-C23): every module a cached package names (`extensions/cache/<sha256>.json`, kind
+/// `module` or `channel`) is held back as `tampered`.
 pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
     let paths = ExtPaths::of(layout);
-    let Ok(st) = state::read(&paths) else {
-        return BTreeMap::new();
+    let st = match state::read(&paths) {
+        Ok(st) => st,
+        Err(_) => {
+            return cached_modules(&paths)
+                .into_iter()
+                .map(|n| (n, Overlay::Tampered))
+                .collect()
+        }
     };
     let host = ext::host::host_facts();
     let revs = load_revocations(&paths);
@@ -208,18 +216,30 @@ pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
     out
 }
 
-/// At supervisor start, before any module starts: `ext::recover` (what a killed command left, X1-R16, Review Focus 3),
-/// then the integrity re-hash of every enabled packaged module and channel (X1-R17), stored in `state.json`. Returns
-/// the overlays; what was done goes to the log.
+/// The module and channel names the cached package manifests name (`extensions/cache/*.json`): which installed
+/// modules came from a package when `state.json` cannot say.
+fn cached_modules(paths: &ExtPaths) -> BTreeSet<String> {
+    let Ok(entries) = std::fs::read_dir(&paths.cache) else {
+        return BTreeSet::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
+        .filter_map(|e| std::fs::read_to_string(e.path()).ok())
+        .filter_map(|t| serde_json::from_str::<Value>(&t).ok())
+        .filter(|m| matches!(m["manifest"]["kind"].as_str(), Some("module" | "channel")))
+        .filter_map(|m| m["manifest"]["name"].as_str().map(str::to_string))
+        .collect()
+}
+
+/// At supervisor start, after `ext::recover` (which runs before config.json is loaded) and before any module starts:
+/// the integrity re-hash of every enabled packaged module and channel (X1-R17, X1-C21), stored in `state.json`.
+/// Returns the overlays; what was done goes to the log.
 pub fn at_start(
     layout: &Layout,
     config: Option<&Value>,
     log: &super::Log,
 ) -> BTreeMap<String, Overlay> {
-    let done = ext::recover(layout);
-    if !done.is_empty() {
-        log.info("extensions recovered", json!({ "actions": done }));
-    }
     let paths = ExtPaths::of(layout);
     match state::read(&paths) {
         Ok(mut st) => {
@@ -251,7 +271,7 @@ pub fn at_start(
             }
         }
         Err(e) => log.warn(
-            "extensions/state.json is unreadable; packaged modules are not checked",
+            "extensions/state.json is unreadable; every module a cached package names is held back as ext-tampered",
             json!({ "err": e }),
         ),
     }
@@ -265,9 +285,10 @@ pub fn at_start(
     overlays
 }
 
-/// After an ext mutation: the overlays again; a module whose overlay changed is reconciled (held back, or released
+/// After an ext mutation, while its caller still holds the mutation lock (so no later mutation's overlays can be
+/// overwritten by these): the overlays again; a module whose overlay changed is reconciled (held back, or released
 /// and started when it may run).
-fn refresh_overlays(shared: &Shared, layout: &Layout) {
+fn refresh_overlays(shared: &Shared, layout: &Layout, _held: &ext::MutationGuard) {
     let now = module_overlays(layout);
     let changed: BTreeSet<String> = {
         let mut st = shared.lock();
@@ -393,14 +414,26 @@ fn clean_after_worker(layout: &Layout, id: &str, root_existed: bool) {
     }
 }
 
-/// `ext.inspect { source: { path } }`: the worker inspects; the answer is the stored record as `ExtInspection`.
+/// `ext.inspect { source: { path } }`: the worker inspects; the answer is the stored record as `ExtInspection`. The
+/// path must be absolute (a relative one would resolve against the supervisor's working directory, not the caller's);
+/// it reaches the worker as `--path=<p>`, so a path that starts with `-` is never read as a flag.
 pub fn inspect(layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let path = params["source"]["path"].as_str().unwrap_or_default();
+    if !Path::new(path).is_absolute() {
+        return Err(invalid(format!(
+            "source.path must be an absolute path, got {path:?}"
+        )));
+    }
     let id = worker::new_inspection_id();
+    let path_arg = format!("--path={path}");
     let seam = worker::seam_args("inspect");
-    let mut args = vec!["inspect", "--id", &id, "--path", path];
+    let mut args = vec!["inspect", "--id", &id, path_arg.as_str()];
     args.extend(seam.iter().map(String::as_str));
-    match worker::spawn_worker(layout, &args, worker::INSPECT_DEADLINE) {
+    match worker::spawn_worker(
+        layout,
+        &args,
+        worker::deadline("inspect", worker::INSPECT_DEADLINE),
+    ) {
         Ok(v) => {
             let rec: InspectionRecord = serde_json::from_value(v).map_err(|e| {
                 clean_after_worker(layout, &id, true);
@@ -421,8 +454,38 @@ pub fn inspect(layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     }
 }
 
+/// The stage half of `ext.install`, under the caller's mutation lock: the worker stages inspection `rec`. Only the
+/// staged item's name, kind and record are taken from its answer; the commit checks its paths against the ones derived
+/// from the inspection (worker-failed otherwise).
+fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
+    let root_existed = ExtPaths::of(layout).root.exists();
+    let seam = worker::seam_args("stage");
+    let mut args = vec!["stage", "--id", id];
+    args.extend(seam.iter().map(String::as_str));
+    let staged = worker::spawn_worker(
+        layout,
+        &args,
+        worker::deadline("stage", worker::STAGE_DEADLINE),
+    )
+    .and_then(|v| {
+        serde_json::from_value::<StagedItem>(v).map_err(|e| {
+            ExtError::new(
+                "E_INTERNAL",
+                "worker-failed",
+                format!("the ext worker answered an unreadable staged item: {e}"),
+            )
+        })
+    });
+    if let Err(e) = &staged {
+        if worker::is_worker_failure(e) {
+            clean_after_worker(layout, id, root_existed);
+        }
+    }
+    staged
+}
+
 /// `ext.install { inspectionId, acknowledge?, enable? }`: under the mutation lock, the worker stages the inspected
-/// package, then the commit puts it in place with a [`SupervisorHost`].
+/// package, then the commit puts it in place with a [`SupervisorHost`], and the overlays are refreshed.
 pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let opts = InstallOpts {
         acknowledge: strings(&params["acknowledge"]),
@@ -435,36 +498,13 @@ pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<
         .as_str()
         .unwrap_or_default()
         .to_string();
-    let result = (|| {
-        let guard = ext::try_mutation()?;
-        let rec = record::load(layout, &id)?;
-        let root_existed = ExtPaths::of(layout).root.exists();
-        let seam = worker::seam_args("stage");
-        let mut args = vec!["stage", "--id", id.as_str()];
-        args.extend(seam.iter().map(String::as_str));
-        let staged = match worker::spawn_worker(layout, &args, worker::STAGE_DEADLINE) {
-            Ok(v) => serde_json::from_value::<StagedItem>(v).map_err(|e| {
-                ExtError::new(
-                    "E_INTERNAL",
-                    "worker-failed",
-                    format!("the ext worker answered an unreadable staged item: {e}"),
-                )
-            }),
-            Err(e) => Err(e),
-        };
-        let staged = match staged {
-            Ok(s) => s,
-            Err(e) => {
-                if worker::is_worker_failure(&e) {
-                    clean_after_worker(layout, &id, root_existed);
-                }
-                return Err(e);
-            }
-        };
+    let guard = ext::try_mutation()?;
+    let result = record::load(layout, &id).and_then(|rec| {
+        let staged = stage(layout, &id)?;
         let mut host = SupervisorHost::new(shared, layout);
         install_commit_held(layout, &mut host, &rec, staged, &opts, &guard)
-    })();
-    refresh_overlays(shared, layout);
+    });
+    refresh_overlays(shared, layout, &guard);
     result
 }
 
@@ -476,26 +516,38 @@ fn toggle_opts(params: &Value) -> Result<ToggleOpts, ExtError> {
     })
 }
 
-/// `ext.enable { name, agents?, acknowledge?, dryRun? }`.
-pub fn enable(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
+/// `ext.enable` (`on`) or `ext.disable`: a dry run takes no lock and refreshes nothing; otherwise under the mutation
+/// lock, with the overlays refreshed before it is released.
+fn toggle(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    params: &Value,
+    on: bool,
+) -> Result<Value, ExtError> {
     let o = toggle_opts(params)?;
     let name = params["name"].as_str().unwrap_or_default();
-    let r = lifecycle::enable(layout, &mut SupervisorHost::new(shared, layout), name, &o);
-    if !o.dry_run {
-        refresh_overlays(shared, layout);
+    let mut host = SupervisorHost::new(shared, layout);
+    if o.dry_run {
+        return if on {
+            lifecycle::enable(layout, &mut host, name, &o)
+        } else {
+            lifecycle::disable(layout, &mut host, name, &o)
+        };
     }
+    let guard = ext::try_mutation()?;
+    let r = lifecycle::toggle_held(layout, &mut host, name, &o, on, &guard);
+    refresh_overlays(shared, layout, &guard);
     r
+}
+
+/// `ext.enable { name, agents?, acknowledge?, dryRun? }`.
+pub fn enable(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
+    toggle(shared, layout, params, true)
 }
 
 /// `ext.disable { name, agents?, dryRun? }` (a disable holds the enabled modules that need it back).
 pub fn disable(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
-    let o = toggle_opts(params)?;
-    let name = params["name"].as_str().unwrap_or_default();
-    let r = lifecycle::disable(layout, &mut SupervisorHost::new(shared, layout), name, &o);
-    if !o.dry_run {
-        refresh_overlays(shared, layout);
-    }
-    r
+    toggle(shared, layout, params, false)
 }
 
 /// `ext.uninstall { name, purge?, cascade? }`.
@@ -505,16 +557,29 @@ pub fn uninstall(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Resul
         cascade: params["cascade"].as_bool().unwrap_or(false),
     };
     let name = params["name"].as_str().unwrap_or_default();
-    let r = remove::uninstall(layout, &mut SupervisorHost::new(shared, layout), name, &o);
-    refresh_overlays(shared, layout);
+    let guard = ext::try_mutation()?;
+    let r = remove::uninstall_held(
+        layout,
+        &mut SupervisorHost::new(shared, layout),
+        name,
+        &o,
+        &guard,
+    );
+    refresh_overlays(shared, layout, &guard);
     r
 }
 
 /// `ext.restore { trashId }`.
 pub fn restore(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let tid = params["trashId"].as_str().unwrap_or_default();
-    let r = remove::restore(layout, &mut SupervisorHost::new(shared, layout), tid);
-    refresh_overlays(shared, layout);
+    let guard = ext::try_mutation()?;
+    let r = remove::restore_held(
+        layout,
+        &mut SupervisorHost::new(shared, layout),
+        tid,
+        &guard,
+    );
+    refresh_overlays(shared, layout, &guard);
     r
 }
 

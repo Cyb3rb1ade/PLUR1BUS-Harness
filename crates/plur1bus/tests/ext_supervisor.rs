@@ -183,6 +183,8 @@ fn call(home: &Path, method: &str, params: Value) -> Value {
         loop {
             line.clear();
             if r.read_line(&mut line).unwrap_or(0) == 0 {
+                // The connection closed without a reply (a supervisor that stopped): `null`.
+                let _ = tx.send(Value::Null);
                 return;
             }
             let v: Value = serde_json::from_str(&line).unwrap();
@@ -579,14 +581,17 @@ fn daemon_status_text(h: &Home) -> String {
 }
 
 /// Acceptance 7, second half: a module revoked after it was installed and enabled is held back at the next supervisor
-/// start (`ext-revoked`), and `daemon status` says so.
+/// start (`ext-revoked`), its dependent as `needs-unavailable`, and `daemon status` says so.
 #[test]
 fn a_revoked_installed_module_is_held_back_at_start() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
     install(&h, "fixture", &[]);
+    install(&h, "fixture-b", &["fixture"]);
     enable(&h, "fixture");
+    enable(&h, "fixture-b");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
+    wait_for(&h.home, "fixture-b", "ready", is("ready", ""));
     stop(&mut s, &h.home);
     drop(s);
 
@@ -600,6 +605,13 @@ fn a_revoked_installed_module_is_held_back_at_start() {
     let mut s = h.start_with_core(&[("PLUR1BUS_TEST_EXT_REVOCATIONS", &revs)]);
     let c = wait_for(&h.home, "fixture", "revoked", is("stopped", "ext-revoked"));
     assert_eq!(c["pid"], Value::Null);
+    // Its dependent (not revoked itself) is held back behind it.
+    wait_for(
+        &h.home,
+        "fixture-b",
+        "held back",
+        is("stopped", "needs-unavailable"),
+    );
     std::thread::sleep(Duration::from_millis(300));
     assert!(!h.home.join("run/module-fixture.pid").exists());
     let text = daemon_status_text(&h);
@@ -649,13 +661,17 @@ fn a_tampered_module_is_held_back_at_start() {
     stop(&mut s, &h.home);
 }
 
-/// X1-R2: the supervisor never opens a package file; only the worker does. Its open files are sampled for the length
-/// of an `ext.inspect` (slowed down by the worker's `--sleep-ms` seam).
+/// X1-R2, X1-C22: the supervisor never opens a package file; only the worker does, and the commit moves the spooled
+/// package into the cache with a rename. The supervisor's open files are sampled for the length of an `ext.inspect`
+/// and an `ext.install` (both slowed down by the worker's `--sleep-ms` seam).
 #[cfg(target_os = "linux")]
 #[test]
 fn the_supervisor_process_never_opens_the_package() {
     let h = Home::new();
-    let mut s = h.start_no_core(&[("PLUR1BUS_TEST_EXT_WORKER_ARGS", "inspect:--sleep-ms 800")]);
+    let mut s = h.start_no_core(&[(
+        "PLUR1BUS_TEST_EXT_WORKER_ARGS",
+        "inspect:--sleep-ms 800;stage:--sleep-ms 800",
+    )]);
     let pid = s.child.id();
     let pkg = h.write("fixture.p1x", &module_pkg(&h, "fixture", "1.0.0", &[]));
     let (done_tx, done_rx) = mpsc::channel::<()>();
@@ -667,7 +683,7 @@ fn the_supervisor_process_never_opens_the_package() {
                 for fd in fds.flatten() {
                     if let Ok(target) = std::fs::read_link(fd.path()) {
                         let t = target.to_string_lossy().into_owned();
-                        if t.ends_with(".p1x") || t.contains("/run/inspect/") {
+                        if t.ends_with(".p1x") || t.contains(".p1x.") {
                             seen.push(t);
                         }
                     }
@@ -685,13 +701,20 @@ fn the_supervisor_process_never_opens_the_package() {
         "ext.inspect",
         json!({ "source": { "path": pkg.to_string_lossy() } }),
     );
+    // The worker did its work: the spool is there.
+    let id = insp["inspectionId"].as_str().unwrap().to_string();
+    let spool = h.home.join(format!("run/inspect/{id}.p1x"));
+    assert!(spool.is_file());
+    let r = ok(&h.home, "ext.install", json!({ "inspectionId": id }));
     done_tx.send(()).unwrap();
     let (samples, seen) = sampler.join().unwrap();
-    assert!(samples > 50, "only {samples} samples");
+    assert_eq!(r["state"], "installed");
+    assert!(samples > 100, "only {samples} samples");
     assert!(seen.is_empty(), "the supervisor opened {seen:?}");
-    // The worker did its work: the spool is there.
-    let id = insp["inspectionId"].as_str().unwrap();
-    assert!(h.home.join(format!("run/inspect/{id}.p1x")).is_file());
+    // The spool moved into the cache.
+    assert!(!spool.exists());
+    let sha = insp["sha256"].as_str().unwrap();
+    assert!(h.home.join(format!("extensions/cache/{sha}.p1x")).is_file());
     stop(&mut s, &h.home);
 }
 
@@ -832,5 +855,155 @@ fn a_failed_fresh_install_under_the_supervisor_leaves_no_modules_key() {
     );
     assert!(!h.home.join("modules/fixture").exists());
     assert_eq!(ok(&h.home, "ext.list", json!({}))["items"], json!([]));
+    stop(&mut s, &h.home);
+}
+
+/// X1-R2: a worker that overruns its deadline (shortened by a test seam; the stage sleeps longer) is killed: the call
+/// is `worker-failed`, nothing staged or inspected is left, and the supervisor keeps serving.
+#[test]
+fn a_worker_past_its_deadline_is_killed_and_leaves_nothing() {
+    let h = Home::new();
+    let mut s = h.start_no_core(&[
+        ("PLUR1BUS_TEST_EXT_WORKER_ARGS", "stage:--sleep-ms 20000"),
+        ("PLUR1BUS_TEST_EXT_WORKER_DEADLINE_MS", "stage:700"),
+    ]);
+    let insp = inspect(&h, "fixture", &[]);
+    let id = insp["inspectionId"].as_str().unwrap().to_string();
+    let started = Instant::now();
+    let (e, r, _) = refused(&h.home, "ext.install", json!({ "inspectionId": id }));
+    assert_eq!((e.as_str(), r.as_str()), ("E_INTERNAL", "worker-failed"));
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "{:?}",
+        started.elapsed()
+    );
+    assert!(!h.home.join("extensions").exists());
+    assert!(!entries(&h.home.join("run/inspect"))
+        .iter()
+        .any(|n| n.starts_with(&id)));
+    #[cfg(target_os = "linux")]
+    assert!(workers_of(&h.home).is_empty(), "{:?}", workers_of(&h.home));
+    assert_eq!(ok(&h.home, "ext.list", json!({}))["items"], json!([]));
+    stop(&mut s, &h.home);
+}
+
+/// The pids of `ext __worker` processes of this home.
+#[cfg(target_os = "linux")]
+fn workers_of(home: &Path) -> Vec<u32> {
+    let home = home.to_string_lossy().into_owned();
+    std::fs::read_dir("/proc")
+        .unwrap()
+        .flatten()
+        .filter_map(|e| e.file_name().to_string_lossy().parse::<u32>().ok())
+        .filter(|pid| {
+            let cmd = std::fs::read(format!("/proc/{pid}/cmdline")).unwrap_or_default();
+            let cmd = String::from_utf8_lossy(&cmd);
+            cmd.contains("__worker") && cmd.contains(&home)
+        })
+        .collect()
+}
+
+/// Finding 9: `daemon.stop` during an install kills the running stage worker and waits for it; the supervisor exits
+/// promptly and no worker is left writing into staging.
+#[test]
+fn daemon_stop_kills_a_running_worker() {
+    let h = Home::new();
+    let mut s = h.start_no_core(&[("PLUR1BUS_TEST_EXT_WORKER_ARGS", "stage:--sleep-ms 30000")]);
+    let insp = inspect(&h, "fixture", &[]);
+    let home = h.home.clone();
+    let id = insp["inspectionId"].clone();
+    let installing =
+        std::thread::spawn(move || call(&home, "ext.install", json!({ "inspectionId": id })));
+    #[cfg(target_os = "linux")]
+    common::wait_until("the stage worker runs", WAIT, || {
+        workers_of(&h.home).len() == 1
+    });
+    #[cfg(not(target_os = "linux"))]
+    std::thread::sleep(Duration::from_millis(1500));
+    let started = Instant::now();
+    stop(&mut s, &h.home);
+    assert!(
+        started.elapsed() < Duration::from_secs(15),
+        "{:?}",
+        started.elapsed()
+    );
+    #[cfg(target_os = "linux")]
+    assert!(workers_of(&h.home).is_empty(), "{:?}", workers_of(&h.home));
+    // The install answers worker-failed, unless the supervisor exited before the answer went out.
+    let reply = installing.join().unwrap();
+    assert!(
+        reply.is_null() || reply["error"]["data"]["reason"] == "worker-failed",
+        "{reply}"
+    );
+    assert!(!h.home.join("modules/fixture").exists());
+}
+
+/// X1-R17: the overlays are refreshed after every mutation. A revocation that appears while the supervisor runs holds
+/// the running module back at the next mutation (here: installing another module); once it is lifted, the next
+/// mutation releases and starts it again.
+#[test]
+fn overlays_are_refreshed_after_a_mutation() {
+    let h = Home::new();
+    let revs = h.write("revocations.json", b"{\"revocations\": []}");
+    let revs_path = revs.to_string_lossy().into_owned();
+    let mut s = h.start_with_core(&[("PLUR1BUS_TEST_EXT_REVOCATIONS", &revs_path)]);
+    install(&h, "fixture", &[]);
+    enable(&h, "fixture");
+    wait_for(&h.home, "fixture", "ready", is("ready", ""));
+
+    std::fs::write(
+        &revs,
+        json!({ "revocations": [{ "id": "demo/fixture", "versions": "*", "action": "disable" }] })
+            .to_string(),
+    )
+    .unwrap();
+    install(&h, "fixture-c", &[]);
+    wait_for(&h.home, "fixture", "revoked", is("stopped", "ext-revoked"));
+
+    std::fs::write(&revs, b"{\"revocations\": []}").unwrap();
+    ok(&h.home, "ext.uninstall", json!({ "name": "fixture-c" }));
+    wait_for(&h.home, "fixture", "released", is("ready", ""));
+    stop(&mut s, &h.home);
+}
+
+/// X1-C23: when `extensions/state.json` cannot be read at start, the check fails closed: every module a cached
+/// package names is held back as `ext-tampered`, and the log says why.
+#[test]
+fn an_unreadable_state_file_holds_packaged_modules_back_at_start() {
+    let h = Home::new();
+    let mut s = h.start_with_core(&[]);
+    install(&h, "fixture", &[]);
+    enable(&h, "fixture");
+    wait_for(&h.home, "fixture", "ready", is("ready", ""));
+    stop(&mut s, &h.home);
+    drop(s);
+
+    std::fs::write(h.home.join("extensions/state.json"), b"{ not json").unwrap();
+    let mut s = h.start_with_core(&[]);
+    wait_for(
+        &h.home,
+        "fixture",
+        "held back",
+        is("stopped", "ext-tampered"),
+    );
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(!h.home.join("run/module-fixture.pid").exists());
+    let log = std::fs::read_to_string(h.home.join("logs/supervisor.log")).unwrap();
+    assert!(log.contains("state.json is unreadable"), "{log}");
+    stop(&mut s, &h.home);
+}
+
+/// Finding 5: `source.path` must be absolute (it would resolve against the supervisor's working directory).
+#[test]
+fn a_relative_inspect_path_is_invalid_params() {
+    let h = Home::new();
+    let mut s = h.start_no_core(&[]);
+    let (e, _, err) = refused(
+        &h.home,
+        "ext.inspect",
+        json!({ "source": { "path": "fixture.p1x" } }),
+    );
+    assert_eq!(e, "E_INVALID_PARAMS", "{err}");
+    assert_eq!(entries(&h.home.join("run/inspect")), Vec::<String>::new());
     stop(&mut s, &h.home);
 }

@@ -22,10 +22,9 @@ use super::lifecycle::{capabilities_acknowledged, enable_prechecks, skill_enable
 use super::overlays::{load_revocations, overlays_of, revoked};
 use super::paths::ExtPaths;
 use super::record::{
-    check_name, check_unsigned_policy, kind_name, record_path, spool_path, valid_id,
-    InspectionRecord,
+    check_name, check_unsigned_policy, kind_name, record_path, spool_path, staging_dir, valid_id,
+    InspectionRecord, StagedItem,
 };
-use super::stage::StagedItem;
 use super::state::{
     self, remove_dir_all_retrying, remove_retrying, rename_retrying, write_private_atomic,
     ItemRecord,
@@ -261,6 +260,27 @@ pub(crate) fn config_change<'a>(
     Ok(plan)
 }
 
+/// `extensions/staging/<name>-<id>` of inspection `rec`, when its id and manifest name are plain file-name parts.
+fn derived_staging(layout: &Layout, rec: &InspectionRecord) -> Option<PathBuf> {
+    let name = rec.manifest["name"].as_str()?;
+    let plain = !name.is_empty()
+        && name.bytes().all(|b| {
+            b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'_' | b'-')
+        })
+        && !name.starts_with('.');
+    (plain && valid_id(&rec.inspection_id)).then(|| staging_dir(layout, name, &rec.inspection_id))
+}
+
+/// Moves the spooled package `from` into the cache at `to` (X1-C22: the supervisor never opens package bytes): a
+/// rename, retried on Windows; an opaque copy through `<to>.tmp-<pid>` only when the two are on different devices.
+pub(crate) fn move_package(from: &Path, to: &Path) -> Result<(), ExtError> {
+    match rename_retrying(from, to) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => copy_atomic(from, to),
+        Err(e) => Err(io_err("cannot move the package to", to, e)),
+    }
+}
+
 /// Copies `from` to `to` through `<to>.tmp-<pid>` and a rename.
 pub(crate) fn copy_atomic(from: &Path, to: &Path) -> Result<(), ExtError> {
     let mut name = to.file_name().unwrap_or_default().to_os_string();
@@ -469,7 +489,13 @@ pub fn install_commit(
     opts: &InstallOpts,
 ) -> Result<Value, ExtError> {
     let guard = super::try_mutation();
-    commit_and_clean(layout, host, rec, staged, opts, guard.as_ref().map(drop))
+    // Only whether the lock was taken is passed on; `guard` itself stays alive (and the lock held) until this
+    // function returns.
+    let locked: Result<(), &ExtError> = match &guard {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    };
+    commit_and_clean(layout, host, rec, staged, opts, locked)
 }
 
 /// [`install_commit`] for a caller that already holds the ext mutation lock: the supervisor's `ext.install` takes it
@@ -494,11 +520,8 @@ fn commit_and_clean(
     locked: Result<(), &ExtError>,
 ) -> Result<Value, ExtError> {
     let paths = ExtPaths::of(layout);
-    let staging_dir = staged
-        .dir
-        .parent()
-        .filter(|d| d.starts_with(&paths.staging))
-        .map(Path::to_path_buf);
+    // Derived from the inspection, never from the staged item's own paths (the worker's answer).
+    let staging = derived_staging(layout, rec);
     KILLED.store(false, Ordering::SeqCst);
     let result = match locked {
         Ok(()) => commit_locked(layout, &paths, host, rec, staged, opts),
@@ -509,7 +532,7 @@ fn commit_and_clean(
         return result;
     }
     // The staging directory is spent whichever way it went (a refusal must leave `extensions/` as it was).
-    if let Some(d) = staging_dir {
+    if let Some(d) = staging {
         let _ = remove_dir_all_retrying(&d);
         let _ = fs::remove_dir(&paths.staging);
         let _ = fs::remove_dir(&paths.root);
@@ -542,6 +565,18 @@ fn commit_locked(
             "E_INTERNAL",
             "worker-failed",
             "the staged item does not belong to this inspection",
+        ));
+    }
+    // The staged item's paths come from the worker's answer: they must be exactly the ones derived from the inspection
+    // (`extensions/staging/<name>-<id>/payload`, `run/inspect/<id>.p1x`), else nothing is moved.
+    let derived = derived_staging(layout, rec).map(|d| d.join("payload"));
+    if derived.as_deref() != Some(staged.dir.as_path())
+        || staged.package != spool_path(layout, &rec.inspection_id)
+    {
+        return Err(ExtError::new(
+            "E_INTERNAL",
+            "worker-failed",
+            "the staged item names paths other than this inspection's staging directory and package",
         ));
     }
     let name = staged.name.clone();
@@ -784,9 +819,13 @@ fn run_steps<'a>(
     ensure_dir(&paths.cache, "cache", rb)?;
     let cached = paths.cached(&c.rec.sha256);
     if !cached.is_file() {
-        copy_atomic(&staged.package, &cached)?;
-        let cc = cached.clone();
+        move_package(&staged.package, &cached)?;
+        let (cc, spool) = (cached.clone(), staged.package.clone());
+        // Undo: the package goes back to the spool (the inspection stays usable), or is removed when that fails.
         rb.push("cache", move |_| {
+            if !spool.exists() && rename_retrying(&cc, &spool).is_ok() {
+                return Ok(());
+            }
             remove_retrying(&cc).map_err(|e| e.to_string())
         });
     }

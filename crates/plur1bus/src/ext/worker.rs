@@ -9,6 +9,7 @@ use serde_json::Value;
 use std::io::Read;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 /// How long an inspection may take (X1-R2).
@@ -71,20 +72,70 @@ const REASONS: &[&str] = &[
     "skills-locked",
 ];
 
-/// The test seam `PLUR1BUS_TEST_EXT_WORKER_ARGS=<op>:<arg> [<arg>…]` (test internals only): extra arguments the
-/// supervisor passes to the worker for `op` (`inspect` or `stage`), such as `stage:--crash` or
-/// `inspect:--sleep-ms 1500`. Empty otherwise.
+/// The test seam `PLUR1BUS_TEST_EXT_WORKER_ARGS=<op>:<arg> [<arg>…][;<op>:…]` (test internals only): extra arguments
+/// the supervisor passes to the worker for `op` (`inspect` or `stage`), such as `stage:--crash` or
+/// `inspect:--sleep-ms 800;stage:--sleep-ms 800`. Empty otherwise.
 pub fn seam_args(op: &str) -> Vec<String> {
     if std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() != Ok("1") {
         return Vec::new();
     }
-    std::env::var("PLUR1BUS_TEST_EXT_WORKER_ARGS")
+    let Ok(v) = std::env::var("PLUR1BUS_TEST_EXT_WORKER_ARGS") else {
+        return Vec::new();
+    };
+    v.split(';')
+        .filter_map(|part| part.trim().split_once(':'))
+        .filter(|(which, _)| *which == op)
+        .flat_map(|(_, rest)| rest.split_whitespace().map(str::to_string))
+        .collect()
+}
+
+/// `default`, or the test seam `PLUR1BUS_TEST_EXT_WORKER_DEADLINE_MS=<op>:<ms>` for `op` (test internals only).
+pub fn deadline(op: &str, default: Duration) -> Duration {
+    if std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() != Ok("1") {
+        return default;
+    }
+    std::env::var("PLUR1BUS_TEST_EXT_WORKER_DEADLINE_MS")
         .ok()
         .and_then(|v| {
-            let (which, rest) = v.split_once(':')?;
-            (which == op).then(|| rest.split_whitespace().map(str::to_string).collect())
+            let (which, ms) = v.split_once(':')?;
+            (which == op)
+                .then(|| ms.trim().parse::<u64>().ok())
+                .flatten()
         })
-        .unwrap_or_default()
+        .map_or(default, Duration::from_millis)
+}
+
+/// Set by [`stop_all`]: a running worker is killed and no new one starts.
+static STOPPING: AtomicBool = AtomicBool::new(false);
+/// Workers started and not yet reaped.
+static RUNNING: AtomicUsize = AtomicUsize::new(0);
+
+/// Counts a running worker until it is reaped.
+struct Running;
+impl Running {
+    fn start() -> Running {
+        RUNNING.fetch_add(1, Ordering::SeqCst);
+        Running
+    }
+}
+impl Drop for Running {
+    fn drop(&mut self) {
+        RUNNING.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// The supervisor is stopping: every running worker is killed (its caller gets `worker-failed` and cleans up), none
+/// starts from now on, and this waits up to `within` for them to be reaped. Returns whether none is left.
+pub fn stop_all(within: Duration) -> bool {
+    STOPPING.store(true, Ordering::SeqCst);
+    let start = Instant::now();
+    while RUNNING.load(Ordering::SeqCst) > 0 {
+        if start.elapsed() >= within {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    true
 }
 
 /// Whether `e` is the worker itself failing (a crash, a kill after its deadline, an answer that could not be read),
@@ -131,6 +182,12 @@ pub(crate) fn spawn_worker_with(
     args: &[&str],
     deadline: Duration,
 ) -> Result<Value, ExtError> {
+    if STOPPING.load(Ordering::SeqCst) {
+        return Err(failed(
+            "the supervisor is stopping; no ext worker is started",
+        ));
+    }
+    let _running = Running::start();
     let mut child = Command::new(exe)
         .args(["ext", "__worker"])
         .args(args)
@@ -152,6 +209,14 @@ pub(crate) fn spawn_worker_with(
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
+            Ok(None) if STOPPING.load(Ordering::SeqCst) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = (out.join(), err.join());
+                return Err(failed(
+                    "the supervisor is stopping; the ext worker was stopped",
+                ));
+            }
             Ok(None) if start.elapsed() >= deadline => {
                 let _ = child.kill();
                 let _ = child.wait();

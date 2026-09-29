@@ -267,7 +267,19 @@ pub fn uninstall(
     name: &str,
     o: &RemoveOpts,
 ) -> Result<Value, ExtError> {
-    let _guard = super::try_mutation()?;
+    let guard = super::try_mutation()?;
+    uninstall_held(layout, host, name, o, &guard)
+}
+
+/// [`uninstall`] for a caller that already holds the ext mutation lock (the supervisor, which refreshes its overlays
+/// before it lets the lock go).
+pub fn uninstall_held(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    name: &str,
+    o: &RemoveOpts,
+    _held: &super::MutationGuard,
+) -> Result<Value, ExtError> {
     reset_kill();
     let cfg = host.config();
     let paths = ExtPaths::of(layout);
@@ -681,7 +693,17 @@ pub fn restore(
     host: &mut dyn ModuleHost,
     trash_id: &str,
 ) -> Result<Value, ExtError> {
-    let _guard = super::try_mutation()?;
+    let guard = super::try_mutation()?;
+    restore_held(layout, host, trash_id, &guard)
+}
+
+/// [`restore`] for a caller that already holds the ext mutation lock.
+pub fn restore_held(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    trash_id: &str,
+    _held: &super::MutationGuard,
+) -> Result<Value, ExtError> {
     reset_kill();
     let cfg = host.config();
     let days = trash_days(&cfg);

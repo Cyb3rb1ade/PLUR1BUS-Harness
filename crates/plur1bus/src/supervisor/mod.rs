@@ -646,6 +646,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         let _ = fs::remove_file(&address);
     }
 
+    // M6 and X1: what a killed module install or uninstall (`modules::install::recover`, run once, inside) and a
+    // killed ext command left, before config.json is loaded: an undone restore may put a module's config section back.
+    let recovered = crate::ext::recover(layout);
     let config_state = config::initial(layout);
     let config = config::supervisor_config(config_state.running.as_ref());
     let log = Log::open(
@@ -677,13 +680,13 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             json!({ "errors": config_state.module_errors }),
         );
     }
-    // M6: an install or uninstall that crashed left staging directories; a copy moved aside goes back.
-    let recovered = crate::modules::install::recover(layout);
     if !recovered.is_empty() {
-        log.info("module staging recovered", json!({ "actions": recovered }));
+        log.info(
+            "module and extension staging recovered",
+            json!({ "actions": recovered }),
+        );
     }
-    // X1: what a killed ext command left, then the integrity of the enabled packaged modules and their overlays,
-    // before any module starts.
+    // X1: the integrity of the enabled packaged modules and their overlays, before any module starts.
     let ext_overlays = ext::at_start(layout, config_state.running.as_ref(), &log);
     // A write that crashed before its rename left its temp file; this process owns config.json now.
     let stale = plur1bus_config::remove_stale_temps(&layout.config_path());
@@ -826,6 +829,14 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
     };
+    // X1: a stage or inspect worker still running is killed and reaped; its caller answers worker-failed and removes
+    // what it left (anything a late clean-up misses, `ext::recover` removes at the next start).
+    if !crate::ext::worker::stop_all(Duration::from_secs(5)) {
+        shared.log.warn(
+            "an ext worker was not reaped within 5 s of the stop",
+            json!({}),
+        );
+    }
     // A job or module call still queued is not run: dropping its sender tells the waiting caller so.
     {
         let mut st = shared.lock();

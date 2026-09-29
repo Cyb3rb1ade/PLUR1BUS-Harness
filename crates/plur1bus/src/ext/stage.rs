@@ -11,7 +11,8 @@
 //! when that is left empty, and `extensions/` when this stage created it and it is empty.
 use super::inspect::{self, Source};
 use super::paths::ExtPaths;
-use super::record::{kind_name, spool_path, InspectionRecord};
+pub use super::record::StagedItem;
+use super::record::{kind_name, spool_path, staging_dir, InspectionRecord};
 use super::state::ItemRecord;
 use super::ExtError;
 use crate::install::archive;
@@ -19,25 +20,11 @@ use crate::paths::Layout;
 use plur1bus_ext::manifest::{parse_manifest, Kind, P1xManifest};
 use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::skill::validate_skill_md;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-
-/// A package extracted and checked in staging, ready for the commit (Task 7).
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StagedItem {
-    pub name: String,
-    pub kind: Kind,
-    /// `extensions/staging/<name>-<id>/payload`.
-    pub dir: PathBuf,
-    /// The state record the commit writes (its `installedAt` is the staging time).
-    pub record: ItemRecord,
-    /// `run/inspect/<id>.p1x`: the verified package bytes, for the cache.
-    pub package: PathBuf,
-}
 
 /// The hidden `plur1bus ext __worker` operations.
 #[derive(clap::Subcommand, Debug, Clone)]
@@ -367,7 +354,7 @@ fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtE
 
     let paths = ExtPaths::of(layout);
     let mut cleanup = Cleanup {
-        dest: paths.staging.join(format!("{}-{id}", m.name)),
+        dest: staging_dir(layout, &m.name, id),
         dest_created: false,
         staging: paths.staging.clone(),
         root: (!paths.root.exists()).then(|| paths.root.clone()),

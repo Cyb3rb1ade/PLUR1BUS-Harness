@@ -420,6 +420,19 @@ fn toggle(
     toggle_locked(layout, host, name, o, on)
 }
 
+/// `ext.enable` (`on`) or `ext.disable` for a caller that already holds the mutation lock (the supervisor, which
+/// refreshes its overlays before it lets the lock go). A dry run needs no lock, and is run the same way.
+pub fn toggle_held(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    name: &str,
+    o: &ToggleOpts,
+    on: bool,
+    _held: &super::MutationGuard,
+) -> Result<Value, ExtError> {
+    toggle_locked(layout, host, name, o, on)
+}
+
 /// `ext.disable` for a caller that already holds the mutation lock: `ext.uninstall { cascade }` disables the
 /// dependents first (X1-R19, spec §6.4).
 pub(crate) fn disable_locked(
