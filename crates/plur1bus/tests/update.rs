@@ -277,15 +277,39 @@ fn a_host_profile_does_not_plan_the_release_modules() {
     );
     assert_eq!(doc["restart"]["core"], true);
 
-    // A module the host user installed is still compared: the host release carries none.
+    // A module the host user installed (here even one the release ships) is theirs: listed as installed, never
+    // planned as an update or a removal.
     h.write_module("mine", "1.0.0", "1");
+    h.write_module("fixture", "0.0.9", "1");
     let (_, doc) = run(update_cmd(&h).args(["--manifest", path.to_str().unwrap()]));
     assert_eq!(
         doc["changes"],
-        json!([
-            { "unit": "core", "from": "0.1.0", "to": "0.2.0" },
-            { "unit": "module:mine", "from": "1.0.0", "to": null },
-        ])
+        json!([{ "unit": "core", "from": "0.1.0", "to": "0.2.0" }])
+    );
+    assert_eq!(doc["restart"]["modules"], json!([]));
+    let installed: Vec<&str> = doc["installed"]["modules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(installed, ["fixture", "mine"]);
+}
+
+/// The same installed module on a full profile is still planned for removal when the release drops it (unchanged).
+#[test]
+fn a_full_profile_still_plans_removing_a_module_the_release_drops() {
+    let h = Home::new();
+    h.write_manifest(|_| {});
+    h.write_module("mine", "1.0.0", "1");
+    let mut release = base_release();
+    release["version"] = json!("0.2.0");
+    release["native"]["modules"] = json!([]);
+    let path = write_json(h._dir.path(), "stable.json", &release);
+    let (_, doc) = run(update_cmd(&h).args(["--manifest", path.to_str().unwrap()]));
+    assert_eq!(
+        doc["changes"],
+        json!([{ "unit": "module:mine", "from": "1.0.0", "to": null }])
     );
 }
 
