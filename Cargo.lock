@@ -1099,6 +1099,7 @@ dependencies = [
  "minisign",
  "minisign-verify",
  "plur1bus-ext",
+ "ring",
  "semver",
  "serde",
  "serde_json",

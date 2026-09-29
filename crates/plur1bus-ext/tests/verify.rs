@@ -382,6 +382,27 @@ fn a_trusted_signature_with_another_trusted_comment_or_garbage_is_signature_inva
 }
 
 #[test]
+fn an_untrusted_signature_whose_trusted_comment_names_another_hash_is_signature_invalid() {
+    let trusted = test_key("test");
+    let stranger = test_key("stranger");
+    let store = store_for(&[&trusted]);
+    let (raw, files) = filled_manifest(&template("demo", "skill"), skill_files());
+    // The stranger's signature is well-formed but cannot be checked; its comment must still describe these bytes.
+    for comment in [
+        format!("p1x demo/demo 1.0.0 sha256(p1x.json)={}", "0".repeat(64)),
+        "hello".to_string(),
+    ] {
+        let sig = sign_manifest(&stranger, &raw, &comment);
+        let e = refusal(&assemble(&raw, Some(&sig), &files), &store);
+        assert_eq!(e.reason, reason::SIGNATURE_INVALID, "{comment}: {e}");
+    }
+    // With the right comment the same stranger is unknown-signer.
+    let sig = sign_p1x(&stranger, &raw);
+    let i = inspect(&assemble(&raw, Some(&sig), &files), &store).unwrap();
+    assert_eq!(i.trust.tier, Tier::UnknownSigner);
+}
+
+#[test]
 fn trusted_comment_has_the_binding_shape() {
     let raw = b"{}\n";
     assert_eq!(
@@ -714,6 +735,10 @@ fn first_line_is_printable_and_at_most_120_characters() {
     assert_eq!(first_line(b"MZ\x90\0"), None);
     assert_eq!(first_line(b""), None);
     assert_eq!(first_line(b"\n#!/bin/sh"), None);
+    // A character cut short by the end of the head is dropped; one cut short by the line end makes it not text.
+    assert_eq!(first_line(b"#!/bin/\xc3").as_deref(), Some("#!/bin/"));
+    assert_eq!(first_line(b"#!/bin/\xc3\nrest"), None);
+    assert_eq!(first_line(b"#!/bin/\xc3\r\nrest"), None);
     assert_eq!(first_line("#!/bin/sh \u{202e}hs.exe".as_bytes()), None);
     let long = format!("#!/bin/{}", "a".repeat(300));
     let l = first_line(long.as_bytes()).unwrap();

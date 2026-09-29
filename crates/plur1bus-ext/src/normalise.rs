@@ -98,7 +98,31 @@ fn read_dir_input(dir: &Path) -> Result<Input, Refusal> {
         },
         keep,
     )?;
+    // X1-C5: NTFS has no exec bit, so on Windows a folder's exec flags are derived from the script rules.
+    let no_exec_bit = cfg!(windows);
+    let files = files
+        .into_iter()
+        .map(|mut f| {
+            f.exec = folder_exec(&f.rel, (!no_exec_bit).then_some(f.exec), &f.bytes);
+            f
+        })
+        .collect();
     Ok((Some(dir_name_of(dir)?), files, skipped))
+}
+
+/// The exec flag of a skill-folder file (X1-C5). `mode_exec` is the file's exec bit where the file system has one
+/// (unix); `None` where it has none (Windows), and then the flag is [`is_script`]'s verdict on the path (a `scripts/`
+/// or `bin/` segment) and the first bytes (a shebang or a native-binary magic number), so a folder normalises to the
+/// same `files` on every platform as the `.zip` of it made on unix.
+fn folder_exec(rel: &str, mode_exec: Option<bool>, bytes: &[u8]) -> bool {
+    match mode_exec {
+        Some(bit) => bit,
+        None => is_script(
+            &format!("payload/{rel}"),
+            false,
+            &bytes[..bytes.len().min(4)],
+        ),
+    }
 }
 
 /// Audits the archive, finds the skill root, and reads its files. The top folder's name is the directory name; an
@@ -267,4 +291,29 @@ pub fn normalise_skill(
     out: &mut (impl Write + Seek),
 ) -> Result<P1xManifest, Refusal> {
     normalise_skill_with_warnings(input, created, out).map(|(m, _)| m)
+}
+
+#[cfg(test)]
+mod exec_tests {
+    use super::folder_exec;
+
+    #[test]
+    fn a_unix_folder_keeps_the_mode_bit() {
+        assert!(folder_exec("scripts/run.sh", Some(true), b"#!/bin/sh"));
+        assert!(!folder_exec("scripts/run.sh", Some(false), b"#!/bin/sh"));
+        assert!(folder_exec("notes.txt", Some(true), b"text"));
+    }
+
+    /// The Windows branch (no exec bit), exercised on every platform.
+    #[test]
+    fn without_an_exec_bit_the_script_rules_decide() {
+        assert!(folder_exec("scripts/run.sh", None, b"echo hi"));
+        assert!(folder_exec("tools/bin/x", None, b"data"));
+        assert!(folder_exec("run", None, b"#!/usr/bin/env python3"));
+        assert!(folder_exec("tool", None, b"\x7fELF\x02"));
+        assert!(folder_exec("tool.exe", None, b"MZ\x90\0"));
+        assert!(!folder_exec("SKILL.md", None, b"---\nname"));
+        assert!(!folder_exec("references/scripts.md", None, b"# scripts"));
+        assert!(!folder_exec("empty", None, b""));
+    }
 }

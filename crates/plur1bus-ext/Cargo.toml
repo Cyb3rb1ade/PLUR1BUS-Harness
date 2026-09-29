@@ -29,6 +29,8 @@ required-features = ["testkit"]
 
 [dev-dependencies]
 tempfile.workspace = true
+# Deterministic Ed25519 for the seeded fuzz corpus (tests/fuzz.rs); already in the lock through rustls.
+ring = "0.17"
 # Itself with `testkit`, so the plain `cargo test --workspace` of PR CI builds and runs the `verify` and `fuzz` tests
 # (`fuzz_smoke` in every `cargo test`). Dev-dependency features never reach a normal build (resolver 2).
 plur1bus-ext = { path = ".", features = ["testkit"] }

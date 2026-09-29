@@ -136,12 +136,16 @@ fn kind_name(k: Kind) -> &'static str {
 /// cut to 120 characters. `None` when it is empty or holds a control, bidirectional or other invisible formatting
 /// character (a binary, or a line that would display as something else).
 pub fn first_line(head: &[u8]) -> Option<String> {
-    let line = head.split(|b| *b == b'\n').next().unwrap_or(&[]);
+    let newline = head.iter().position(|b| *b == b'\n');
+    let line = &head[..newline.unwrap_or(head.len())];
     let line = line.strip_suffix(b"\r").unwrap_or(line);
     let text = match std::str::from_utf8(line) {
         Ok(t) => t,
-        // Cut inside a character by the head's length: keep the valid prefix. Anything else is not text.
-        Err(e) if e.error_len().is_none() => std::str::from_utf8(&line[..e.valid_up_to()]).ok()?,
+        // The head ended inside a character before any line end: keep the valid prefix. A sequence cut short by
+        // the line end itself is not text.
+        Err(e) if e.error_len().is_none() && newline.is_none() => {
+            std::str::from_utf8(&line[..e.valid_up_to()]).ok()?
+        }
         Err(_) => return None,
     };
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
