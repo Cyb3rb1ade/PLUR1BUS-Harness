@@ -292,7 +292,7 @@ pub fn recover(layout: &Layout) -> Vec<String> {
         let Some((name, pid, suffix)) = parse_staging(&dir) else {
             continue;
         };
-        if pid == std::process::id() || crate::commands::firstaid::pid_alive(pid) {
+        if pid == std::process::id() || crate::proc::pid_alive(pid) {
             continue;
         }
         let path = e.path();

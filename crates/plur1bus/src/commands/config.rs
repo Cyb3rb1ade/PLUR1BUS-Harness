@@ -53,7 +53,7 @@ pub(crate) fn route(layout: &Layout) -> Result<Route, RpcError> {
     };
     if layout
         .recorded_pid(Endpoint::Supervisor)
-        .is_some_and(|pid| !super::firstaid::pid_alive(pid))
+        .is_some_and(|pid| !crate::proc::pid_alive(pid))
     {
         return Ok(Route::Direct);
     }

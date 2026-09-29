@@ -9,6 +9,7 @@ mod journal;
 mod modules;
 mod output;
 mod paths;
+mod proc;
 mod repair;
 mod service;
 mod supervisor;

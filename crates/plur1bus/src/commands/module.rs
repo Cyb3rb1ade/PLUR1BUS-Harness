@@ -87,7 +87,7 @@ fn running_pid(layout: &Layout, name: &str) -> Option<u32> {
     std::fs::read_to_string(layout.run().join(format!("module-{name}.pid")))
         .ok()
         .and_then(|s| s.split_whitespace().next()?.parse::<u32>().ok())
-        .filter(|p| super::firstaid::pid_alive(*p))
+        .filter(|p| crate::proc::pid_alive(*p))
 }
 
 fn module_running(out: &Out, name: &str, pid: u32) -> ! {

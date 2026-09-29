@@ -104,3 +104,20 @@ pub(crate) fn now_iso() -> String {
         .unwrap_or(0);
     iso8601(ms)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::iso8601;
+
+    #[test]
+    fn iso8601_matches_javascript_to_iso_string() {
+        assert_eq!(iso8601(0), "1970-01-01T00:00:00.000Z");
+        // 2024-02-29 (a leap day) 12:34:56.789 UTC.
+        assert_eq!(iso8601(1_709_210_096_789), "2024-02-29T12:34:56.789Z");
+        // The day after a leap day, and the end of a year.
+        assert_eq!(iso8601(1_709_251_200_000), "2024-03-01T00:00:00.000Z");
+        assert_eq!(iso8601(1_767_225_599_999), "2025-12-31T23:59:59.999Z");
+        // Milliseconds are zero-padded.
+        assert_eq!(iso8601(5_007), "1970-01-01T00:00:05.007Z");
+    }
+}

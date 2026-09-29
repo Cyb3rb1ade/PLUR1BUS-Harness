@@ -120,32 +120,45 @@ pub fn write(p: &ExtPaths, s: &ExtState) -> io::Result<()> {
     write_private_atomic(&p.state, text.as_bytes())
 }
 
-/// How long a rename is retried: about 2 s on Windows, where Defender or the indexer can hold a handle on a fresh file
-/// for a moment (M8); not at all elsewhere.
-fn rename_retry_budget() -> std::time::Duration {
+/// How long a rename or removal is retried: 10 s on Windows (`fs-retry.ts` `rmRetry`, where Defender or the indexer
+/// can hold a handle on a fresh file for a moment, M8); not at all elsewhere.
+fn retry_budget() -> std::time::Duration {
     if cfg!(windows) {
-        std::time::Duration::from_secs(2)
+        std::time::Duration::from_secs(10)
     } else {
         std::time::Duration::ZERO
     }
 }
 
-/// `fs::rename`, retried every 100 ms within [`rename_retry_budget`] while the failure is a transient handle on
-/// Windows (access denied, sharing or lock violation).
-pub(crate) fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
-    let deadline = std::time::Instant::now() + rename_retry_budget();
+/// A failure a transient handle on Windows causes: access denied, a sharing violation or a lock violation.
+fn transient(e: &io::Error) -> bool {
+    e.kind() == io::ErrorKind::PermissionDenied
+        || e.kind() == io::ErrorKind::ResourceBusy
+        || (cfg!(windows) && matches!(e.raw_os_error(), Some(5 | 32 | 33)))
+}
+
+fn retrying(mut op: impl FnMut() -> io::Result<()>) -> io::Result<()> {
+    let deadline = std::time::Instant::now() + retry_budget();
     loop {
-        match std::fs::rename(from, to) {
-            Err(e)
-                if (e.kind() == io::ErrorKind::PermissionDenied
-                    || e.kind() == io::ErrorKind::ResourceBusy
-                    || (cfg!(windows) && matches!(e.raw_os_error(), Some(5 | 32 | 33))))
-                    && std::time::Instant::now() < deadline =>
-            {
+        match op() {
+            Err(e) if transient(&e) && std::time::Instant::now() < deadline => {
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
             r => return r,
         }
+    }
+}
+
+/// `fs::rename`, retried while the failure is a transient handle on Windows.
+pub(crate) fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
+    retrying(|| std::fs::rename(from, to))
+}
+
+/// `fs::remove_file`, retried like [`rename_retrying`]; a file that is already gone is success.
+pub(crate) fn remove_retrying(path: &Path) -> io::Result<()> {
+    match retrying(|| std::fs::remove_file(path)) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        r => r,
     }
 }
 

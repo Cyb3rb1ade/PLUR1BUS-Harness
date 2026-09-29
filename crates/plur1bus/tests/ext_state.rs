@@ -20,6 +20,8 @@ mod identity;
 pub(crate) mod modules_manifest;
 #[path = "../src/paths.rs"]
 mod paths;
+#[path = "../src/proc.rs"]
+mod proc;
 mod modules {
     pub(crate) use super::modules_manifest as manifest;
 }
@@ -31,7 +33,7 @@ mod install {
 #[path = "../src/ext/mod.rs"]
 mod ext;
 
-use ext::index::{self, SkillIndex};
+use ext::index;
 use ext::overlays::{self, Overlay, Revocation};
 use ext::paths::ExtPaths;
 use ext::state::{self, ExtState, Integrity, ItemRecord};
@@ -393,6 +395,19 @@ fn revocations_match_by_id_and_semver_range_and_ignore_warn() {
     assert!(overlays::revoked(&revs, "io.github.jdoe/baz", "1.0.1").is_none());
     // A pre-release build of a revoked release is revoked too.
     assert!(overlays::revoked(&revs, "io.github.jdoe/foo", "1.1.3-rc.1").is_some());
+    // `*` matches every version.
+    let star = json!([{"id": "s/t", "versions": "*", "action": "disable", "reason": "all"}]);
+    fs::write(&p.revocations, star.to_string()).unwrap();
+    let revs = overlays::load_revocations(&p);
+    assert_eq!(revs.len(), 1);
+    assert_eq!(
+        overlays::revoked(&revs, "s/t", "0.0.1").as_deref(),
+        Some("all")
+    );
+    assert_eq!(
+        overlays::revoked(&revs, "s/t", "12.3.4").as_deref(),
+        Some("all")
+    );
     // A version that is not semver is never revoked (and never panics).
     assert_eq!(
         overlays::revoked(&revs, "io.github.jdoe/foo", "not-a-version"),
@@ -405,7 +420,7 @@ fn revocations_match_by_id_and_semver_range_and_ignore_warn() {
 
     // The test seam: honoured only with test internals, and added to the file's entries.
     let seam = l.home.join("seam.json");
-    fs::write(&seam, json!({"revocations": [{"id": "x/y", "versions": ">=0.0.0", "action": "disable", "reason": {"en": "seam"}}]}).to_string()).unwrap();
+    fs::write(&seam, json!({"revocations": [{"id": "x/y", "versions": "*", "action": "disable", "reason": {"en": "seam"}}]}).to_string()).unwrap();
     std::env::set_var("PLUR1BUS_TEST_EXT_REVOCATIONS", &seam);
     assert!(
         overlays::load_revocations(&p).is_empty(),
@@ -417,12 +432,6 @@ fn revocations_match_by_id_and_semver_range_and_ignore_warn() {
         overlays::revoked(&revs, "x/y", "9.9.9").as_deref(),
         Some("seam")
     );
-    let _ = Revocation {
-        id: String::new(),
-        versions: semver::VersionReq::STAR,
-        action: String::new(),
-        reason: Value::Null,
-    };
 }
 
 fn skill_with_files(l: &Layout, name: &str, files: &[(&str, &[u8])]) -> ItemRecord {
@@ -701,5 +710,44 @@ fn paths_ttl_reserved_names_and_error_conversion() {
     assert!(e.data.is_null() || e.data.is_object());
 }
 
-// Kept so the compiler checks the imports the assertions above use.
-fn _touch(_: SkillIndex) {}
+#[test]
+fn index_writer_orders_known_fields_first_and_the_rest_alphabetically() {
+    let (_d, l) = home();
+    fs::create_dir_all(l.skills()).unwrap();
+    // An unknown field before every known one, and a `package` whose keys are not in the documented order.
+    let text = r#"{"zextra":1,"skills":[{"zzz":true,"aaa":{"y":1,"x":2},"package":{"trust":"unsigned","version":"1.0.0","id":"local/a","extra":[]},"enabled":true,"id":"a"}],"version":1,"aextra":{"b":1,"a":{"d":1,"c":2}}}"#;
+    fs::write(l.skills().join("index.json"), text).unwrap();
+    let idx = index::read_index(&l).unwrap();
+    index::write_index(&l, &idx).unwrap();
+    let got = fs::read_to_string(l.skills().join("index.json")).unwrap();
+    let want = r#"{
+  "version": 1,
+  "skills": [
+    {
+      "id": "a",
+      "enabled": true,
+      "package": {
+        "id": "local/a",
+        "version": "1.0.0",
+        "trust": "unsigned",
+        "extra": []
+      },
+      "aaa": {
+        "x": 2,
+        "y": 1
+      },
+      "zzz": true
+    }
+  ],
+  "aextra": {
+    "a": {
+      "c": 2,
+      "d": 1
+    },
+    "b": 1
+  },
+  "zextra": 1
+}
+"#;
+    assert_eq!(got, want);
+}

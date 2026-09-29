@@ -1,9 +1,10 @@
 //! `skills/index.json` written from Rust, and the importer's lock (X1-R14). The TS importer
 //! (`packages/core/src/import/skills-registry.ts`) is the reference: this module reads with the same refusals, writes
 //! the same bytes and takes the same lock, so the two writers can never interleave.
-use super::state::write_private_atomic;
+use super::state::{remove_retrying, write_private_atomic};
 use super::ExtError;
 use crate::paths::Layout;
+use crate::proc::pid_alive;
 use serde_json::{json, Value};
 use std::io::Write;
 use std::path::PathBuf;
@@ -253,7 +254,12 @@ impl Drop for ImportLock {
             .and_then(|v| v["pid"].as_u64())
             == Some(u64::from(self.pid));
         if ours {
-            let _ = std::fs::remove_file(&self.path);
+            if let Err(e) = remove_retrying(&self.path) {
+                eprintln!(
+                    "plur1bus: warning: could not release {}: {e}",
+                    self.path.display()
+                );
+            }
         }
     }
 }
@@ -299,7 +305,13 @@ pub fn lock_skills(layout: &Layout) -> Result<ImportLock, ExtError> {
                         path.display()
                     )));
                 }
-                let _ = std::fs::remove_file(&path);
+                remove_retrying(&path).map_err(|e| {
+                    ExtError::new(
+                        "E_INTERNAL",
+                        "io",
+                        format!("cannot take over the stale lock {}: {e}", path.display()),
+                    )
+                })?;
             }
             Err(e) => {
                 return Err(ExtError::new(
@@ -311,46 +323,4 @@ pub fn lock_skills(layout: &Layout) -> Result<ImportLock, ExtError> {
         }
     }
     Err(locked(format!("could not take {}", path.display())))
-}
-
-/// Whether `pid` names a live process (the same check as `1staid`'s `pid_alive`, kept here so this module does not
-/// depend on a command).
-///
-/// Windows: a process object outlives its process for as long as anyone holds a handle to it, so only an unsignalled
-/// handle means the process still runs.
-fn pid_alive(pid: u32) -> bool {
-    #[cfg(unix)]
-    {
-        // SAFETY: signal 0 only checks that the pid exists; no signal is actually delivered.
-        let r = unsafe { libc::kill(pid as libc::pid_t, 0) };
-        r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
-    }
-    #[cfg(windows)]
-    {
-        use windows_sys::Win32::Foundation::{CloseHandle, WAIT_TIMEOUT};
-        use windows_sys::Win32::System::Threading::{
-            OpenProcess, WaitForSingleObject, PROCESS_QUERY_LIMITED_INFORMATION,
-            PROCESS_SYNCHRONIZE,
-        };
-        // SAFETY: a standard open/wait/close on a handle owned here; a null handle means the process could not be
-        // opened.
-        unsafe {
-            let h = OpenProcess(
-                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE,
-                0,
-                pid,
-            );
-            if h.is_null() {
-                return false;
-            }
-            let running = WaitForSingleObject(h, 0) == WAIT_TIMEOUT;
-            CloseHandle(h);
-            running
-        }
-    }
-    #[cfg(not(any(unix, windows)))]
-    {
-        let _ = pid;
-        false
-    }
 }

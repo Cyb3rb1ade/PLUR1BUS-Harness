@@ -58,6 +58,7 @@ test("the installer itself and a clean supervisor pass", () => {
 // `supervisor/`, minus the installer names the ext layer may not need either; the worker-side files (`inspect.rs`,
 // `stage.rs`) are the only ones that may name the parser crates.
 const EXT_SAFE = ["mod", "paths", "state", "index", "overlays", "host", "worker", "commit", "lifecycle", "remove", "list"];
+const EXT_WORKER = ["inspect", "stage"];
 
 test("flags package-parsing names in the supervisor-safe ext files", () => {
   for (const line of [
@@ -87,4 +88,37 @@ test("the worker-side ext files and the light plur1bus_ext modules pass", () => 
   });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /hygiene ok/);
+});
+
+test("flags grouped imports, also over several lines", () => {
+  for (const text of [
+    "use plur1bus_ext::{compat, verify};\n",
+    "use plur1bus_ext::{\n    compat::HostFacts,\n    zipaudit,\n};\n",
+    "use plur1bus_ext::{pack::pack_dir, refusal::Refusal};\n",
+    "use zip::{ZipArchive, ZipWriter};\n",
+    "use crate::install::{archive, fetch};\n",
+    "use crate::install::{\n    fetch,\n    archive::extract,\n};\n",
+  ]) {
+    for (const f of EXT_SAFE) {
+      const r = lintTree({ [`crates/plur1bus/src/ext/${f}.rs`]: text });
+      assert.equal(r.status, 1, `${f}.rs: ${text}: ${r.stdout}${r.stderr}`);
+      assert.match(r.stderr, /supervisor must not parse package bytes/);
+    }
+    const w = lintTree({ "crates/plur1bus/src/ext/stage.rs": text });
+    assert.equal(w.status, 0, `stage.rs: ${text}: ${w.stderr}`);
+  }
+  const ok = lintTree({
+    "crates/plur1bus/src/ext/state.rs": "use plur1bus_ext::{\n    manifest::FileEntry,\n    refusal::Refusal,\n};\nuse crate::install::{targets, pins};\n",
+  });
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+});
+
+test("every file under ext/ is supervisor-safe or worker-side", () => {
+  for (const f of [...EXT_SAFE, ...EXT_WORKER]) {
+    const r = lintTree({ [`crates/plur1bus/src/ext/${f}.rs`]: "//! placeholder\n" });
+    assert.equal(r.status, 0, `${f}.rs: ${r.stdout}${r.stderr}`);
+  }
+  const r = lintTree({ "crates/plur1bus/src/ext/newfile.rs": "//! not classified\n" });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /ext\/newfile\.rs:1: ext file is in neither EXT_SAFE nor EXT_WORKER/);
 });

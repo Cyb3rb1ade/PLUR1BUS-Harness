@@ -61,7 +61,12 @@ fn parse_list(v: &Value, source: &Path) -> Vec<Revocation> {
             ));
             continue;
         };
-        match harness_req(range) {
+        let parsed = if range.trim() == "*" {
+            Ok(semver::VersionReq::STAR)
+        } else {
+            harness_req(range)
+        };
+        match parsed {
             Ok(versions) => out.push(Revocation {
                 id: id.to_string(),
                 versions,
