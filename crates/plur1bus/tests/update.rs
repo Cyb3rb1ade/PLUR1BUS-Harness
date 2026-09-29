@@ -252,6 +252,32 @@ fn a_module_version_change_restarts_only_that_module() {
     assert_eq!(doc["supervisorRestart"], false);
 }
 
+/// HM2-R9, F35: the host profile installs no bundled modules, so the release's modules are neither added nor removed
+/// for it; its other units are compared as usual.
+#[test]
+fn a_host_profile_does_not_plan_the_release_modules() {
+    let h = Home::new();
+    h.write_manifest(|m| m["profile"] = json!("host"));
+    let mut release = base_release();
+    release["version"] = json!("0.2.0");
+    release["native"]["modules"][0]["version"] = json!("0.2.0");
+    let path = write_json(h._dir.path(), "stable.json", &release);
+    let (code, doc) = run(update_cmd(&h).args(["--manifest", path.to_str().unwrap()]));
+    assert_eq!(code, 0, "{doc}");
+    assert_eq!(doc["available"]["version"], "0.2.0");
+    assert_eq!(doc["changes"], json!([]), "{doc}");
+    assert_eq!(doc["restart"]["modules"], json!([]));
+
+    release["native"]["core"]["version"] = json!("0.2.0");
+    let path = write_json(h._dir.path(), "stable.json", &release);
+    let (_, doc) = run(update_cmd(&h).args(["--manifest", path.to_str().unwrap()]));
+    assert_eq!(
+        doc["changes"],
+        json!([{ "unit": "core", "from": "0.1.0", "to": "0.2.0" }])
+    );
+    assert_eq!(doc["restart"]["core"], true);
+}
+
 #[test]
 fn a_new_module_reports_from_null_and_no_restart() {
     let h = Home::new();

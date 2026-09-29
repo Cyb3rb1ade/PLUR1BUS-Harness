@@ -45,7 +45,8 @@
       }
     },
     "modules": { "type": "array", "items": { "$ref": "#/$defs/package" } },
-    "skills": { "type": "array", "items": { "$ref": "#/$defs/package" } }
+    "skills": { "type": "array", "items": { "$ref": "#/$defs/package" } },
+    "profile": { "enum": ["host", "full"], "description": "The install profile (HM2-R9): `host` installs the supervisor and the core only (Hermes host mode), `full` everything. Absent reads as `full`." }
   },
   "$defs": {
     "target": { "enum": ["linux-x64", "linux-arm64", "darwin-arm64", "win-x64", "win-arm64"] },

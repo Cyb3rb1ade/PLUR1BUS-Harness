@@ -5,7 +5,9 @@
 //! the next run's `state-root` step removes the stray temps (Review Focus 1).
 use super::archive::{self, sha256_file};
 use super::fetch::{self, FetchError};
-use super::manifest::{self, CoreUnit, InstallManifest, NodeUnit, PackageUnit, Unit};
+use super::manifest::{
+    self, CoreUnit, InstallManifest, NodeUnit, PackageUnit, Unit, PROFILE_FULL, PROFILE_HOST,
+};
 use super::pins::{self, NODE_VERSION};
 use super::skills;
 use super::targets::Target;
@@ -69,6 +71,8 @@ pub struct SetupOpts {
     pub channel: String,
     pub use_class: Option<String>,
     pub agent: Option<String>,
+    /// `--profile`: `host` or `full`; `None` keeps the recorded profile (`full` for a new home, HM2-R9).
+    pub profile: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -201,6 +205,8 @@ pub enum CoreSource {
 struct Ctx {
     target: Option<Target>,
     prev: Option<InstallManifest>,
+    /// The profile this run installs ([`effective_profile`], settled by `state-root` before any write).
+    profile: &'static str,
     node: Option<NodeUnit>,
     core: Option<CoreUnit>,
     modules: Vec<PackageUnit>,
@@ -237,6 +243,7 @@ pub fn run_steps(
     let mut ctx = Ctx {
         target: Target::current(),
         prev: manifest::read(layout).ok().flatten(),
+        profile: PROFILE_FULL,
         node: None,
         core: None,
         modules: Vec::new(),
@@ -250,11 +257,11 @@ pub fn run_steps(
         }
         maybe_pause(layout, id);
         let r = match id {
-            "state-root" => step_state_root(layout),
+            "state-root" => step_state_root(layout, o, &mut ctx),
             "runtime.node" => step_node(layout, &mut ctx),
             "runtime.core" => step_core(layout, o, &mut ctx),
             "modules.bundled" => step_modules(out, layout, &mut ctx),
-            "config" => step_config(out, layout, o, ask),
+            "config" => step_config(out, layout, o, ctx.profile, ask),
             "skills" => step_skills(layout, &mut ctx),
             "service" => step_service(out, layout, o),
             "start" => step_start(out, layout, &mut ctx),
@@ -294,13 +301,14 @@ fn finish(layout: &Layout, o: &SetupOpts, ctx: &Ctx) -> Result<(), StepError> {
         core,
         modules: ctx.modules.clone(),
         skills: ctx.skills.clone(),
+        profile: Some(ctx.profile.to_string()),
     };
     manifest::write(layout, &m).map_err(|e| StepError::io(&layout.install_manifest(), e))?;
     crate::audit::append(
         layout,
         "setup.complete",
         &layout.home.to_string_lossy(),
-        json!({ "target": m.target, "channel": m.channel, "core": m.core.source }),
+        json!({ "target": m.target, "channel": m.channel, "core": m.core.source, "profile": ctx.profile }),
     )
     .map_err(|e| StepError::io(&layout.audit_log(), e))
 }
@@ -314,9 +322,56 @@ fn now_ms() -> u64 {
 
 // ---- state-root ------------------------------------------------------------------------------------------------
 
-/// Creates the home tree (§6.1) with `run/` private, and removes what a killed setup left: every `*.tmp-*` entry in
-/// the home, `runtime/` and `skills/` (never this process's own).
-fn step_state_root(layout: &Layout) -> Result<StepResult, StepError> {
+/// The profile a run installs (HM2-R9): the requested one, else the recorded one (`full` when the manifest has none),
+/// else `full` for a new home. A request that differs from the recorded profile fails with
+/// `profile-change-unsupported` (HB16 vocabulary): until HM4 an installation cannot change profile in place.
+pub fn effective_profile(
+    requested: Option<&str>,
+    recorded: Option<&InstallManifest>,
+) -> Result<&'static str, StepError> {
+    fn known(p: &str) -> Option<&'static str> {
+        match p {
+            PROFILE_HOST => Some(PROFILE_HOST),
+            PROFILE_FULL => Some(PROFILE_FULL),
+            _ => None,
+        }
+    }
+    let requested = match requested {
+        Some(r) => Some(known(r).ok_or_else(|| {
+            StepError::new(
+                "profile-invalid",
+                format!("unknown install profile {r:?} (host or full)"),
+            )
+        })?),
+        None => None,
+    };
+    let Some(recorded) = recorded.map(|m| known(m.profile()).unwrap_or(PROFILE_FULL)) else {
+        return Ok(requested.unwrap_or(PROFILE_FULL));
+    };
+    match requested {
+        None => Ok(recorded),
+        Some(r) if r == recorded => Ok(recorded),
+        Some(r) => {
+            let e = StepError::new(
+                "profile-change-unsupported",
+                format!(
+                    "this home is installed with profile {recorded}; changing it to {r} is not supported"
+                ),
+            );
+            Err(if recorded == PROFILE_HOST {
+                e.hint("host \u{2192} full arrives with HM4")
+            } else {
+                e.hint("Hermes on an existing full installation arrives with HM4")
+            })
+        }
+    }
+}
+
+/// Settles the profile first (a refused profile change writes nothing), then creates the home tree (§6.1) with `run/`
+/// private, and removes what a killed setup left: every `*.tmp-*` entry in the home, `runtime/` and `skills/` (never
+/// this process's own).
+fn step_state_root(layout: &Layout, o: &SetupOpts, ctx: &mut Ctx) -> Result<StepResult, StepError> {
+    ctx.profile = effective_profile(o.profile.as_deref(), ctx.prev.as_ref())?;
     for d in [
         layout.home.clone(),
         layout.state(),
@@ -343,7 +398,7 @@ fn step_state_root(layout: &Layout) -> Result<StepResult, StepError> {
     }
     Ok(StepResult::done(
         "state-root",
-        json!({ "home": layout.home, "removedTemps": removed }),
+        json!({ "home": layout.home, "removedTemps": removed, "profile": ctx.profile }),
     ))
 }
 
@@ -677,6 +732,13 @@ pub(crate) fn copy_tree(from: &Path, to: &Path) -> Result<(), StepError> {
 /// Every `runtime/core/modules/*/module.json` is installed through the one module commit path (⟂EXT 3): the
 /// supervisor's `module.install` when one answers, else `modules::install::{stage, commit}` under the offline lock.
 fn step_modules(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, StepError> {
+    if ctx.profile == PROFILE_HOST {
+        return Ok(StepResult::skipped(
+            "modules.bundled",
+            "profile-host",
+            json!({}),
+        ));
+    }
     let bundled = layout.runtime().join("core").join("modules");
     let mut dirs: Vec<PathBuf> = fs::read_dir(&bundled)
         .map(|rd| {
@@ -732,7 +794,8 @@ fn step_modules(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult,
 /// The answers to setup's questions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigAnswers {
-    pub agent: String,
+    /// `None`: no first agent (the host profile without `--agent`, HM2-R9).
+    pub agent: Option<String>,
     pub use_class: String,
     pub accept_nc: bool,
 }
@@ -749,15 +812,29 @@ fn valid_agent_id(id: &str) -> bool {
 
 /// Asks [`PROMPTS`] in order (flags give the defaults), or takes the flags and the defaults with
 /// `--non-interactive`, then the NC-licence gate: asked only when the use class is not `commercial`, and
-/// `--non-interactive` accepts only with `--accept-nc-licence` (HB11).
-pub fn answer_config(o: &SetupOpts, ask: &mut dyn Prompter) -> Result<ConfigAnswers, StepError> {
+/// `--non-interactive` accepts only with `--accept-nc-licence` (HB11). Without `--use-class` the default is the
+/// `recorded_use_class` of the existing configuration, so a re-run never switches the licence class silently (HM2
+/// F3); `general` only for a new home. The host profile creates no first agent unless `--agent` names one and never
+/// asks for it (HM2-R9).
+pub fn answer_config(
+    o: &SetupOpts,
+    profile: &str,
+    recorded_use_class: Option<&str>,
+    ask: &mut dyn Prompter,
+) -> Result<ConfigAnswers, StepError> {
+    let host = profile == PROFILE_HOST;
     let mut agent = o.agent.clone().unwrap_or_else(|| DEFAULT_AGENT.to_string());
-    let mut use_class = o
-        .use_class
-        .clone()
-        .unwrap_or_else(|| DEFAULT_USE_CLASS.to_string());
+    let mut use_class = o.use_class.clone().unwrap_or_else(|| {
+        recorded_use_class
+            .filter(|c| USE_CLASSES.contains(c))
+            .unwrap_or(DEFAULT_USE_CLASS)
+            .to_string()
+    });
     if !o.non_interactive {
         for (key, question) in PROMPTS {
+            if host && *key == "agents" {
+                continue;
+            }
             let (slot, valid): (&mut String, fn(&str) -> bool) = match *key {
                 "agents" => (&mut agent, valid_agent_id),
                 "embedding.useClass" => (&mut use_class, |v| USE_CLASSES.contains(&v)),
@@ -775,7 +852,12 @@ pub fn answer_config(o: &SetupOpts, ask: &mut dyn Prompter) -> Result<ConfigAnsw
             }
         }
     }
-    if !valid_agent_id(&agent) {
+    let agent = if host && o.agent.is_none() {
+        None
+    } else {
+        Some(agent)
+    };
+    if let Some(agent) = agent.as_deref().filter(|a| !valid_agent_id(a)) {
         return Err(StepError::new(
             "agent-id-invalid",
             format!("agent id {agent:?} must match ^[a-z0-9][a-z0-9_-]{{0,63}}$"),
@@ -794,8 +876,12 @@ pub fn answer_config(o: &SetupOpts, ask: &mut dyn Prompter) -> Result<ConfigAnsw
 /// the use class when it differs, the licence fields only for a new acceptance (an existing one is never revoked).
 fn config_changes(config: &Value, a: &ConfigAnswers, now: &str) -> Vec<(String, Value)> {
     let mut changes = Vec::new();
-    if config["agents"].get(&a.agent).is_none() {
-        changes.push((format!("agents.{}", a.agent), json!({ "createdAt": now })));
+    if let Some(agent) = a
+        .agent
+        .as_deref()
+        .filter(|id| config["agents"].get(id).is_none())
+    {
+        changes.push((format!("agents.{agent}"), json!({ "createdAt": now })));
     }
     if config["embedding"]["useClass"].as_str() != Some(a.use_class.as_str()) {
         changes.push(("embedding.useClass".to_string(), json!(a.use_class)));
@@ -811,14 +897,15 @@ fn step_config(
     out: &Out,
     layout: &Layout,
     o: &SetupOpts,
+    profile: &str,
     ask: &mut dyn Prompter,
 ) -> Result<StepResult, StepError> {
-    let answers = answer_config(o, ask)?;
     let config = match plur1bus_config::read(&layout.config_path()) {
         Ok(c) => c,
         Err(_) if !layout.config_path().exists() => Value::Null,
         Err(e) => return Err(StepError::new("config-invalid", e.to_string())),
     };
+    let answers = answer_config(o, profile, config["embedding"]["useClass"].as_str(), ask)?;
     let now = crate::commands::agent::rfc3339_now();
     let changes = config_changes(&config, &answers, &now);
     let accepted = changes
@@ -839,8 +926,10 @@ fn step_config(
         )
         .map_err(|e| StepError::io(&layout.audit_log(), e))?;
     }
-    let ws = layout.workspace_dir(&answers.agent);
-    fs::create_dir_all(&ws).map_err(|e| StepError::io(&ws, e))?;
+    if let Some(agent) = answers.agent.as_deref() {
+        let ws = layout.workspace_dir(agent);
+        fs::create_dir_all(&ws).map_err(|e| StepError::io(&ws, e))?;
+    }
     Ok(StepResult::done(
         "config",
         json!({
@@ -856,6 +945,9 @@ fn step_config(
 // ---- skills ----------------------------------------------------------------------------------------------------
 
 fn step_skills(layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, StepError> {
+    if ctx.profile == PROFILE_HOST {
+        return Ok(StepResult::skipped("skills", "profile-host", json!({})));
+    }
     let from = layout.runtime().join("core").join("skills");
     if !from.is_dir() {
         return Ok(StepResult::skipped("skills", "none", json!({})));
@@ -1016,6 +1108,7 @@ mod tests {
             channel: "stable".into(),
             use_class: None,
             agent: None,
+            profile: None,
         }
     }
 
@@ -1060,7 +1153,7 @@ mod tests {
         assert_eq!(keys, prompt_keys, "every basic-tier key needs a prompt");
 
         let mut p = scripted(vec!["bernd", "commercial"], true);
-        let a = answer_config(&opts(false), &mut p).unwrap();
+        let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
         let expected: Vec<(String, String)> = PROMPTS
             .iter()
             .map(|(k, q)| (k.to_string(), q.to_string()))
@@ -1073,7 +1166,7 @@ mod tests {
         assert_eq!(
             a,
             ConfigAnswers {
-                agent: "bernd".into(),
+                agent: Some("bernd".into()),
                 use_class: "commercial".into(),
                 accept_nc: false
             }
@@ -1083,36 +1176,36 @@ mod tests {
     #[test]
     fn the_nc_question_is_asked_unless_commercial_and_invalid_answers_are_asked_again() {
         let mut p = scripted(vec!["Not An Id", "anna", "sometimes", "research"], true);
-        let a = answer_config(&opts(false), &mut p).unwrap();
+        let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
         assert_eq!(p.asked.len(), 4);
         assert_eq!(p.confirms, [NC_QUESTION]);
         assert_eq!(
-            (a.agent.as_str(), a.use_class.as_str(), a.accept_nc),
-            ("anna", "research", true)
+            (a.agent.as_deref(), a.use_class.as_str(), a.accept_nc),
+            (Some("anna"), "research", true)
         );
     }
 
     #[test]
     fn non_interactive_takes_flags_and_defaults_and_never_asks() {
         let mut p = scripted(vec![], true);
-        let a = answer_config(&opts(true), &mut p).unwrap();
+        let a = answer_config(&opts(true), "full", None, &mut p).unwrap();
         assert!(p.asked.is_empty() && p.confirms.is_empty());
         assert_eq!(
-            (a.agent.as_str(), a.use_class.as_str(), a.accept_nc),
-            ("main", "general", false)
+            (a.agent.as_deref(), a.use_class.as_str(), a.accept_nc),
+            (Some("main"), "general", false)
         );
         let mut o = opts(true);
         o.accept_nc = true;
         o.use_class = Some("commercial".into());
         assert!(
-            !answer_config(&o, &mut p).unwrap().accept_nc,
+            !answer_config(&o, "full", None, &mut p).unwrap().accept_nc,
             "commercial needs no NC licence"
         );
         o.use_class = Some("research".into());
-        assert!(answer_config(&o, &mut p).unwrap().accept_nc);
+        assert!(answer_config(&o, "full", None, &mut p).unwrap().accept_nc);
         o.agent = Some("Bad Id".into());
         assert_eq!(
-            answer_config(&o, &mut p).unwrap_err().reason,
+            answer_config(&o, "full", None, &mut p).unwrap_err().reason,
             "agent-id-invalid"
         );
     }
@@ -1120,7 +1213,7 @@ mod tests {
     #[test]
     fn config_changes_add_only_what_is_missing_and_never_revoke() {
         let a = ConfigAnswers {
-            agent: "main".into(),
+            agent: Some("main".into()),
             use_class: "general".into(),
             accept_nc: true,
         };
@@ -1141,6 +1234,131 @@ mod tests {
             ..a
         };
         assert!(config_changes(&done, &not_accepting, "x").is_empty());
+        let no_agent = ConfigAnswers {
+            agent: None,
+            ..not_accepting
+        };
+        assert_eq!(
+            keys(config_changes(&Value::Null, &no_agent, "x")),
+            ["embedding.useClass"],
+            "the host profile adds no agent"
+        );
+    }
+
+    fn manifest_with(profile: Option<&str>) -> InstallManifest {
+        let h = "a".repeat(64);
+        InstallManifest {
+            schema_version: 1,
+            installed_at: 1,
+            updated_at: 1,
+            channel: "stable".into(),
+            target: "linux-x64".into(),
+            binary: Unit {
+                version: "0.1.0".into(),
+                sha256: None,
+            },
+            node: NodeUnit {
+                version: NODE_VERSION.into(),
+                archive_sha256: h.clone(),
+                binary_sha256: h,
+                path: "/n".into(),
+            },
+            core: CoreUnit {
+                version: "0.1.0".into(),
+                contract: "1.9.0".into(),
+                rpc: "1.4.0".into(),
+                sha256: None,
+                source: "local".into(),
+            },
+            modules: vec![],
+            skills: vec![],
+            profile: profile.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn effective_profile_keeps_the_recorded_one_and_refuses_a_change() {
+        let host = manifest_with(Some("host"));
+        let full = manifest_with(Some("full"));
+        let legacy = manifest_with(None);
+        for (requested, recorded, want) in [
+            (None, None, Ok("full")),
+            (Some("host"), None, Ok("host")),
+            (Some("full"), None, Ok("full")),
+            (None, Some(&host), Ok("host")),
+            (Some("host"), Some(&host), Ok("host")),
+            (None, Some(&full), Ok("full")),
+            (Some("full"), Some(&full), Ok("full")),
+            (None, Some(&legacy), Ok("full")),
+            (Some("full"), Some(&legacy), Ok("full")),
+            (Some("full"), Some(&host), Err("profile-change-unsupported")),
+            (Some("host"), Some(&full), Err("profile-change-unsupported")),
+            (
+                Some("host"),
+                Some(&legacy),
+                Err("profile-change-unsupported"),
+            ),
+            (Some("tiny"), None, Err("profile-invalid")),
+        ] {
+            let got = effective_profile(requested, recorded).map_err(|e| e.reason);
+            assert_eq!(
+                got,
+                want.map_err(str::to_string),
+                "{requested:?} over {:?}",
+                recorded.map(|m| &m.profile)
+            );
+        }
+        let e = effective_profile(Some("full"), Some(&host)).unwrap_err();
+        assert_eq!(
+            e.hint.as_deref(),
+            Some("host \u{2192} full arrives with HM4")
+        );
+    }
+
+    #[test]
+    fn the_host_profile_asks_no_agent_and_creates_none_unless_named() {
+        let mut p = scripted(vec!["commercial"], true);
+        let a = answer_config(&opts(false), "host", None, &mut p).unwrap();
+        let asked: Vec<&str> = p.asked.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(asked, ["embedding.useClass"]);
+        assert_eq!((a.agent, a.use_class.as_str()), (None, "commercial"));
+        let mut o = opts(true);
+        o.agent = Some("hermes-default".into());
+        let a = answer_config(&o, "host", None, &mut p).unwrap();
+        assert_eq!(a.agent.as_deref(), Some("hermes-default"));
+        o.agent = Some("Bad Id".into());
+        assert_eq!(
+            answer_config(&o, "host", None, &mut p).unwrap_err().reason,
+            "agent-id-invalid"
+        );
+    }
+
+    /// HM2 F3: without `--use-class` a re-run keeps the recorded class; an explicit class still wins.
+    #[test]
+    fn the_recorded_use_class_is_the_default() {
+        let mut p = scripted(vec![], false);
+        let a = answer_config(&opts(true), "host", Some("commercial"), &mut p).unwrap();
+        assert_eq!((a.use_class.as_str(), a.accept_nc), ("commercial", false));
+        let mut o = opts(true);
+        o.use_class = Some("research".into());
+        assert_eq!(
+            answer_config(&o, "full", Some("commercial"), &mut p)
+                .unwrap()
+                .use_class,
+            "research"
+        );
+        let mut p = scripted(vec![], false);
+        let a = answer_config(&opts(false), "full", Some("research"), &mut p).unwrap();
+        assert_eq!(
+            a.use_class, "research",
+            "the prompt's default is the recorded class"
+        );
+        assert_eq!(
+            answer_config(&opts(true), "full", Some("bogus"), &mut p)
+                .unwrap()
+                .use_class,
+            "general"
+        );
     }
 
     #[test]

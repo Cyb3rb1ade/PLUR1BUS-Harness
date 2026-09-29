@@ -306,6 +306,16 @@ fn plan_changes(
         }
     }
 
+    // The host profile installs no bundled modules (HM2-R9): the release's modules are not drift for it (F35).
+    if manifest.profile() == install::manifest::PROFILE_HOST {
+        return (
+            changes,
+            restart_core,
+            restart_modules.into_iter().collect(),
+            supervisor_restart,
+        );
+    }
+
     let installed_by_name: std::collections::BTreeMap<&str, (&str, &str)> = installed_modules
         .iter()
         .filter_map(|m| {

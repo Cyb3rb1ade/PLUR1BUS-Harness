@@ -281,6 +281,7 @@ mod tests {
             },
             modules: vec![],
             skills: vec![],
+            profile: None,
         }
     }
 

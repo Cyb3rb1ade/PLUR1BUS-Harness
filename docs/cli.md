@@ -159,11 +159,15 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
   Possible values: `stable`, `beta`
 
-* `--use-class <CLASS>` — Embedding use class (default: general)
+* `--use-class <CLASS>` — Embedding use class (default: general for a new home; an existing home keeps its recorded class)
 
   Possible values: `general`, `research`, `commercial`
 
 * `--agent <ID>` — The first agent's id (default: main)
+* `--profile <PROFILE>` — Install profile: host (supervisor and core only, for Hermes host mode) or full (default for a new home; an existing home keeps its profile)
+
+  Possible values: `host`, `full`
+
 
 
 
