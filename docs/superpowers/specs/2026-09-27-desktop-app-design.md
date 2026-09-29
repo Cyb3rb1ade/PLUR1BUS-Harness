@@ -65,7 +65,7 @@ Decisions this spec makes (numbered **DS**, so they do not collide with the core
 - A local-model container **on macOS**: both Apple `container`'s and Docker Desktop's Linux VM have no access to the Mac's GPU/Metal (§4.17), so large models stay on the host there and are reached through the host bridge (DS17, §6.15.4). On Linux and Windows a GPU-backed `plur1bus-model-runtime` sidecar is supported instead (DS26).
 - macOS x64 (D8 drops it) and Linux musl builds.
 - Telemetry. The updater's request to a static manifest is the only automatic network call the shell makes, and it can be turned off.
-- Computer use on a laptop driven by a harness on **another host**. Computer use for the bundled local harness goes through the host bridge (DS17) in D4; the same bridge could later serve a remote harness, but that is not part of track D.
+- ~~Computer use on a laptop driven by a harness on **another host**.~~ **Lifted 2026-09-29 by core spec D108** (owner): the desktop dials out to the person's own harness over their own network; consent, indicator, stop control and scopes per `docs/superpowers/specs/2026-09-28-basics-quality-bar-design.md` §D108; lands in D4.
 - Imitating other clients. The panel keeps CEF's default user agent. The shell does no fingerprint evasion, and it never offers a claude.ai sign-in (D52).
 
 ## 4. Evidence (researched 2026-09-27)

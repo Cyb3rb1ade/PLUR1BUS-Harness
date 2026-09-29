@@ -1,6 +1,6 @@
 # The basics everyone expects: a quality bar — design
 
-**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D105 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
+**Status:** Draft rev 2 for owner review (rev 2, same day: owner feedback — D94 failure hints and the CAPTCHA question, D98 file names, new D103 capability index with category routing, new D104 hand-off format; rev 3: new D105 message triage; rev 4: new D106 host toolset; rev 5: new D107 OS ecosystem layer; rev 6: new D108 remote desktop control by the person's own harness) · **Date:** 2026-09-28 · **Owner:** Christian (Cyb3rb1ade) · **Decision rows:** core spec D94–D108 (`2026-09-24-m1b-2a-core-daemon-cli-design.md` §2) · **Milestones:** additions to M2, M5, M6, M8, track D (D1, D3) and §6.1 (`docs/milestones.md`) · **Amends:** D49 (skill mining), D65 (PDF skill: creating designed documents moves to D100), D75 (SearXNG becomes one `web.search` provider) · **Inputs:** ADR-003 (collaboration, typed delegation contract), ADR-010 (cache rules R1–R8), core spec D21, D36, D47, D54, D57, D58, D64, D69, D72–D76, desktop spec §4.6, §6.5, DS30–DS39, desktop D1 plan DR4
 
 **Owner requirements, 2026-09-28 (translated from German, condensed):**
 
@@ -361,6 +361,85 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 
 **Gates.** On the triage eval set (German and English, mixed single/multi messages): task segmentation F1 ≥ 0.9; under-provisioning (class later escalated) ≤ 5 %; over-provisioning reported. Every routing decision (shape, class distribution, chosen model, reason) is in the turn event.
 
+### D106 — Host toolset: operating the person's computer with first-party, tested tools
+
+**Owner, 2026-09-28 (translated):** "I definitely do not want to host anything remotely. If there is an alternative to Desktop Commander, I would take the alternative. I just want the agents to have a strict, well-working, tested skill set to manage and operate their human's computer competently."
+
+**Why first-party and not a third-party MCP server.** Desktop Commander (MIT, widely used) was the D38 reference case. It is not adopted as the default because: its `allowedDirectories` is by its own documentation not a boundary for terminal commands; telemetry is on by default; its usual install path tracks `@latest`; its hosted remote mode is exactly what the owner excludes; and the harness needs its own approval, audit, principal and risk model on every call, which a foreign server cannot carry. Computer control is too central to depend on another project's semantics. D62 (`cua-driver` for GUI control, local, pinned) stays: it does one thing the harness should not rebuild.
+
+**Tool families** (harness code, like `web.fetch`; each call schema-validated per D97):
+
+| Family | Calls | Default class |
+|---|---|---|
+| `fs` | `list`, `stat`, `read` (ranges, encodings, binary → reference), `search` (names with globs, content with ripgrep semantics), `write`, `edit` (exact-string replacement with uniqueness check), `mkdir`, `copy`, `move`, `trash`, `delete` | read: allowed · write/edit inside roots: allowed · move out of roots, `delete`: approval |
+| `shell` | `run { command, cwd, timeoutMs, env }` with output cap and exit code; `session.open/send/read/close` (PTY; REPLs, long builds, SSH through the person's own client) | allowed inside roots for commands on the per-OS read-only allowlist; everything else approval unless the person granted the agent "shell inside workspace" |
+| `proc` | `list`, `inspect`, `signal`, `kill` | read: allowed · signal/kill: approval |
+| `sys` | `info`, `disks`, `memory`, `battery`, `network`, `startupItems`, `services`, `updates` | read-only, allowed |
+| `pkg` | `search`, `list`, `install`, `upgrade`, `remove` over Homebrew, winget/Scoop, apt/dnf/pacman, Flatpak | read: allowed · changes: approval, one per batch with the full list |
+| `apps` | `list`, `open`, `focus`, `quit` | allowed; `quit` of an app with unsaved state: approval |
+| `clipboard`, `notify` | read/write clipboard, desktop notification | clipboard read: approval per session |
+
+**Rules enforced in the tool layer.**
+- **Roots** per agent: default the agent's workspace; further folders only by an explicit grant the person gives in settings or at an approval prompt ("allow for this task / always").
+- **Credential deny-list**, never readable even inside roots: OS keychains and credential stores, `~/.ssh`, `~/.gnupg`, browser profiles, password-manager data, cloud-CLI credential files, `.env` and token files by pattern — existence probes only (the same rule as ADR-011's coding-agent discovery).
+- **Privilege** (`sudo`, UAC, polkit) is never silent: always an approval with the exact command, and the password is typed by the person into the OS prompt, never by the agent.
+- **Trash, not delete:** `fs.trash` uses the OS trash; `fs.delete` exists only for explicit requests and needs approval.
+- **Dry run** for batch changes (more than 20 files or any package change) shows the full plan first.
+- **Audit:** one line per mutating call (who, which agent, what, result), redacted like the other logs.
+- **OS sandbox for `shell`**, decided per OS by a spike: Linux Landlock (or bubblewrap), macOS a Seatbelt profile, Windows a restricted token in a job object. Where none holds, the approval rules alone apply and the UI says "not sandboxed on this system".
+- **Nothing hosted:** the toolset runs inside the harness on the person's machine. External MCP clients can use it only through the harness's own MCP server (D25) with the same approvals; no relay service of any vendor.
+
+**Tested.** A per-OS conformance suite (macOS arm64, Linux x64/arm64, Windows x64/arm64) runs every family against a scratch home in CI — never the runner's real home — and a nightly run on the owner's Windows 11 VM; host-control scenarios (free disk space, find and move files, install a package with approval, restart a hung app, read logs) are part of `tool-eval` (D97) with the same ≥ 95 % bar. A `host-ops` skill teaches the playbooks (diagnose, clean up, install, organise files) on top of the tools, in the style of D66.
+
+**Placement and effort:** with M1b-2b (tool execution under a principal), 7–11 ad (tool families 4–6, sandbox spike and per-OS work 2–3, conformance suite and eval scenarios 1–2).
+
+### D107 — OS ecosystem layer: permissions, system apps and OS services on macOS, Windows and Linux (extends D106, D27, D62, DS17)
+
+**Owner, 2026-09-28 (condensed):** the agents also need the operating systems' own ecosystems. On macOS that means the TCC permissions — Accessibility, Automation (Apple Events to Mail, Safari, Finder, Calendar, Music …), Full Disk Access (Mail database, Messages, protected user paths, the unified log), Screen Recording, Input Monitoring, Files and Folders, Camera, Microphone, Contacts, Calendars, Photos — without which stock apps cannot be controlled reliably; MDM can pre-set part of them on supervised devices, a private Mac cannot. Stock apps are driven by three legitimate routes, not "every function": (1) Shortcuts / App Intents — typed, declared actions, often with confirmation, the route Apple intends for agents; (2) AppleScript / Scripting Bridge — Finder, Mail, Safari, Music, Calendar, Notes, System Events, needs Automation consent per target app, many newer apps are weakly scriptable or not at all; (3) Accessibility — the fallback when no scripting API exists, brittle under UI changes, and (owner) more restrictive for UI-less background services since macOS 27. The same is needed on Windows and Linux.
+
+**The architectural consequence: permissions belong to a signed host process, never to the containers.** macOS TCC grants attach to the code signature and bundle id of the responsible process; Windows privacy toggles and Linux portals likewise act for a desktop app identity. The bundled harness runs in containers (D77), which can hold none of these grants. So:
+- The desktop app ships a small **signed native helper, `PLUR1BUS Host`** (inside `app.plur1bus.desktop`, Developer ID-signed and notarised on macOS, SignPath/MSIX on Windows, Flatpak on Linux). It holds the OS grants and offers named capabilities to the harness over the **host bridge (DS17)** — the same channel as `host.keyUnlock`. D27's Swift `pim-apple` helper becomes part of it.
+- A CLI-only installation without the desktop app has no helper: the ecosystem tools report `host-helper-missing`; run from a terminal, macOS would attribute grants to the terminal app, which PLUR1BUS never relies on.
+- Every capability is additionally gated per agent (D106 risk classes and D38 approvals); an OS grant is necessary, never sufficient.
+
+**Routes, in order of preference — typed first, UI last:**
+
+| | macOS | Windows | Linux (GNOME/KDE) |
+|---|---|---|---|
+| 1. Declared actions | **Shortcuts / App Intents**: list and run shortcuts (`shortcuts` CLI or the Shortcuts framework), parameters typed, the system's own confirmations kept | **COM automation and WinRT APIs** of system and Office apps (Outlook, Excel, Word object models; `Windows.ApplicationModel.Appointments`/`Contacts`, toast notifications), PowerShell modules | **D-Bus services** (`org.freedesktop.Notifications`, systemd user units, NetworkManager, UPower, logind), **xdg-desktop-portal** (ScreenCast, Screenshot, Background, FileChooser, Camera), Evolution Data Server / Akonadi for PIM |
+| 2. Scripting | **AppleScript / JXA** via OSA with Automation consent per target app (Finder, Mail, Safari, Music, Calendar, Notes, System Events) | PowerShell against COM/WMI/CIM (system settings read, scheduled tasks, services) | KWin scripts and GNOME Shell D-Bus for windows; CLI tools per desktop |
+| 3. Native frameworks for data | **EventKit** (calendars, reminders), **Contacts**, **PhotoKit**, **ScreenCaptureKit** — preferred over AppleScript where they exist (D27) | the WinRT data APIs above, **Windows.Graphics.Capture** for the screen | portals and EDS/Akonadi as above |
+| 4. UI fallback | **Accessibility** (AX) through D62 `cua-driver` | **UI Automation** through D62 | **AT-SPI** through D62; X11 where Wayland offers no route |
+
+**Permission handling.**
+- **Just in time, never up front:** a capability asks for its OS grant the first time a person uses a feature that needs it, with one sentence why; nothing is requested at install.
+- A **Permissions page** (Settings › Computer access) lists every OS grant with status (granted / denied / not asked), which features need it, and a button that opens the exact system pane (macOS `x-apple.systempreferences:` deep links, Windows `ms-settings:privacy-*` URIs, Linux the portal or desktop settings); after a change the helper re-checks.
+- **Full Disk Access** is opt-in per purpose (e.g. "read Mail and Messages databases, read-only"), and reading those stores is read-only and always an approval-class call with a visible scope.
+- **Input Monitoring / keystroke capture is not used.** Recording the person's keystrokes is a keylogger by function, is heavily scrutinised in notarisation and review, and no planned feature needs it (voice input uses the microphone, D44; UI control sends events through Accessibility, which does not require reading keys). Recorded as an exclusion.
+- **Managed fleets:** documented PPPC/configuration-profile keys for organisations that pre-approve the helper on supervised Macs and Intune/GPO equivalents on Windows; never required, never assumed on a private machine.
+- The owner's note on macOS 27 (Accessibility stricter for UI-less background services) is taken into the D2 spike: the helper is a real app with a UI (menu-bar / tray presence), not a faceless daemon, so it stays eligible; the spike verifies this on the current macOS before the design is frozen.
+
+**Tools** (on top of D106, through the host bridge): `os.shortcuts.list/run`, `os.script.run` (AppleScript/JXA, PowerShell-COM; the script is shown on approval, per target app consent tracked), `os.permissions.status/request`, `screen.capture` (per call or per session, with a visible indicator), `pim.*` (D27 domains, local route first), and the D62 `ui.*` actions for the fallback. Each has a capability entry in D103's index with its OS route, so triage picks the typed route before UI automation.
+
+**Tested.** The D106 conformance suite gains an ecosystem leg per OS on real desktops: macOS on the owner's Mac (manual gate per release) and a CI job for everything that runs without TCC prompts; Windows on the Windows 11 VM (nightly); Linux on a GNOME and a KDE VM. Scenarios: create a calendar event, run a named shortcut, move files in Finder/Explorer, read today's mail headers (with FDA or via Mail scripting), take a screenshot, change a setting through the declared route — each also in `tool-eval`.
+
+**Placement and effort:** desktop track **D2** (native integration), 10–15 ad (helper and host-bridge capabilities 3–4, macOS routes 3–4, Windows routes 2–3, Linux routes 2–3, permissions page and tests 1–2). D27's `pim-apple` helper effort is absorbed.
+
+### D108 — Remote desktop control: the person's own harness drives their computer from another host (extends D62, D107, DS17, D35)
+
+**Owner, 2026-09-29:** "Is remote control of the desktop possible with us then?" — yes, and the owner asked for it to be planned. Until now computer use covered only a bundled harness on the same machine (desktop spec §2 non-goal: "computer use on a laptop driven by a harness on another host … not part of track D"); this decision lifts that non-goal.
+
+**Shape.** A harness on another host the person owns — the VPS running Bernd, a NAS, a second computer — uses the D106/D107 host tools and the D62 computer-use actions on the person's desktop.
+- **The desktop dials out, nothing is hosted.** The desktop app on the controlled machine opens the host-bridge connection (DS17) **to the person's own harness** over their own network — Tailscale/WireGuard or LAN (D35, D72) — with the paired device token. No vendor relay, no open port on the desktop, no third-party service; this satisfies the owner's "nothing hosted remotely".
+- **Pairing and scope.** The desktop is paired with that harness once (D35 pairing code/QR). Per paired harness the person picks which capability families it may use remotely (e.g. files and shell yes, screen and UI control only on request); defaults are **off** for screen, UI control, clipboard and Full-Disk-Access reads.
+- **Session consent.** A remote control session starts only after a prompt on the controlled machine ("Bernd on vps wants to control this Mac for: <task> — Allow for this task / Deny"), unless the person has granted "unattended" for that harness explicitly in settings (for their own servers; shown in red, revocable).
+- **Visible and stoppable.** While a remote session runs, the desktop shows a persistent indicator (menu bar / tray and a screen-edge frame) with the controlling harness and agent, and a **stop control plus a global stop shortcut** that ends the session immediately and revokes it until the person re-allows. The system's own screen-recording indicator stays on as well.
+- **Same rules as local.** Every call goes through D106 roots, the credential deny-list, risk classes and D38 approvals; approval prompts appear **on the controlled machine and in the harness's chat**, whichever the person answers first. Privilege is never silent. Each action is logged on both ends (harness audit and a local session log on the desktop the person can open).
+- **Screen data stays scoped.** Screenshots travel only to the controlling harness for the running step, are not captured into memory (D93-style `incognito` for screen content by default) and are dropped after the step unless the person asks to keep them.
+- **Headless targets.** A Linux server without a desktop has no remote *desktop*; there the harness uses its own local host tools, or SSH through the person's own client (D106 `shell.session`).
+
+**Placement and effort:** desktop track **D4** (with computer use and the WebMCP bridge), 4–6 ad on top of D4: remote pairing scopes, session consent and indicator, stop control, dual-ended audit, screenshot scoping, a two-machine test (VPS harness in CI → desktop app on the Windows 11 VM; manual gate on the owner's Mac).
+
 ## 3. Placement and effort
 
 | Decision | Milestone | Effort (ad) | Acceptance added |
@@ -376,9 +455,12 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 | D102 | record only | 0 | — |
 | D103 capability index + category routing | **M2** with D97 (index, taxonomy, keyword/embedding tiers, `capabilities.search`); decision-model tier with the D18/D70 decision service | 4–6 | routing recall ≥ 95 % on `tool-eval`; new skill routable right after install; decision call ≤ 200 ms p95 locally; stable category prefix |
 | D105 message triage | **M2** with D30 and D103 (one decision call) | 2–4 | segmentation F1 ≥ 0.9; under-provisioning ≤ 5 %; escalation one class up once; class change only at task boundaries |
+| D106 host toolset | **M1b-2b** (tool execution under a principal) | 7–11 | per-OS conformance on five targets + Windows VM nightly; credential deny-list suite; approvals for every destructive/privileged call; host scenarios in `tool-eval` ≥ 95 % |
+| D107 OS ecosystem layer | **D2** (signed `PLUR1BUS Host` helper over DS17) | 10–15 | per-OS ecosystem leg (owner's Mac per release, Windows VM nightly, GNOME + KDE VMs); just-in-time grants; no Input Monitoring; FDA reads approval-gated; typed route chosen before UI fallback |
+| D108 remote desktop control | **D4** | 4–6 | desktop dials out to the person's own harness only; per-harness capability scopes; session consent on the controlled machine; indicator + stop; dual audit; two-machine test |
 | D104 hand-off format | **M5** (replaces the typed delegation contract's field list; D36/D50 consume it) | 2–3 | schema validation and repair; `ack` round trip; `approvalsHeld` verified against the approval store; a forged approval reference is refused; Markdown rendering |
 
-**Total +38–60 ad** across M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
+**Total +59–92 ad** across M1b-2b (+7–11), D2 (+10–15), D4 (+4–6), M2 (+20–31), M5 (+5–8), M6 (+6–10), D1 (+2–3), D3 (+3–5), and D49's milestone (+2–3, not yet placed in `milestones.md`; D49 itself has no milestone row today).
 
 ## 4. Owner choices (defaults the design runs on)
 
