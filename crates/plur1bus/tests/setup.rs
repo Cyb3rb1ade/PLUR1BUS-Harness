@@ -10,9 +10,11 @@ mod common;
 
 mod setup_env;
 
+#[cfg(unix)]
 use serde_json::Value;
 use setup_env::*;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use std::process::Stdio;
 use std::time::Duration;
 
