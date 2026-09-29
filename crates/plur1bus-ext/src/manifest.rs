@@ -22,7 +22,7 @@ pub enum Kind {
 }
 
 /// One payload file: its SHA-256 (lower-case hex), size, and whether it is executable.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileEntry {
     pub sha256: String,

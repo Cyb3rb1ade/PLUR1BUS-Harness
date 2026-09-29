@@ -2,6 +2,7 @@ mod audit;
 mod cli;
 mod commands;
 mod container;
+mod ext;
 mod identity;
 mod install;
 mod journal;

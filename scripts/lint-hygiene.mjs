@@ -25,6 +25,21 @@ const SCOPED = [
       { re: /\b(tar|zip)::[{*]/, why: "supervisor dependency budget (spec §4)" },
     ],
   },
+  {
+    // X1-R2: the supervisor never parses package bytes. `ext.inspect` and the staging half of `ext.install` run in a
+    // child process (`plur1bus ext __worker`, files `inspect.rs` and `stage.rs`, which are not listed here); every
+    // other ext file is reachable from the supervisor and must not name the parser, verifier, packer, extractor or
+    // the crates they stand on.
+    files: ["mod", "paths", "state", "index", "overlays", "host", "worker", "commit", "lifecycle", "remove", "list"].map(
+      (n) => `crates/plur1bus/src/ext/${n}.rs`,
+    ),
+    patterns: [
+      {
+        re: /\b(plur1bus_ext::(zipaudit|verify|pack|normalise)|install::archive|zip::|flate2|minisign_verify)\b/,
+        why: "supervisor must not parse package bytes (X1-R2)",
+      },
+    ],
+  },
 ];
 // Path -> the whole file is exempt (never scanned).
 const ALLOW_FILES = new Set([
@@ -70,7 +85,7 @@ function walk(dir) {
     const rel = relative(process.cwd(), p).replaceAll("\\", "/");
     if (ALLOW_FILES.has(rel) || ALLOW_DIRS.some((d) => rel.startsWith(d))) continue;
     const allow = ALLOW.get(rel) ?? [];
-    const patterns = [...PATTERNS, ...SCOPED.filter((s) => rel.startsWith(s.prefix)).flatMap((s) => s.patterns)];
+    const patterns = [...PATTERNS, ...SCOPED.filter((s) => (s.files ? s.files.includes(rel) : rel.startsWith(s.prefix))).flatMap((s) => s.patterns)];
     readFileSync(p, "utf8")
       .split(/\r?\n/) // a Windows checkout (core.autocrlf) has CRLF; anchored allow-list regexes must still match
       .forEach((line, i) => {

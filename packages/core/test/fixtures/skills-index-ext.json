@@ -1,0 +1,56 @@
+{
+  "input": {
+    "version": 1,
+    "skills": [
+      {
+        "id": "zeta",
+        "source": "file",
+        "sourcePath": "/tmp/demo/zeta.p1x",
+        "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "enabled": true,
+        "importedAt": "2026-09-28T10:00:00.000Z",
+        "package": {
+          "id": "local/zeta",
+          "version": "1.2.0",
+          "trust": "unsigned"
+        },
+        "zzz": {
+          "keep": [
+            1,
+            2,
+            "ü"
+          ]
+        }
+      },
+      {
+        "id": "alpha",
+        "source": "import",
+        "sourcePath": "/tmp/src/alpha",
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "enabled": false,
+        "importedAt": "2026-09-27T08:30:00.000Z",
+        "package": null,
+        "note": "kept"
+      },
+      {
+        "id": "demo-skill",
+        "source": "file",
+        "sourcePath": "/tmp/demo/demo-skill",
+        "sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "enabled": true,
+        "importedAt": "2026-09-28T09:00:00.000Z",
+        "package": {
+          "id": "local/demo-skill",
+          "version": "0.0.0",
+          "trust": "unsigned"
+        }
+      }
+    ],
+    "extra": {
+      "a": 1,
+      "b": [],
+      "c": {}
+    }
+  },
+  "outputText": "{\n  \"version\": 1,\n  \"skills\": [\n    {\n      \"id\": \"alpha\",\n      \"source\": \"import\",\n      \"sourcePath\": \"/tmp/src/alpha\",\n      \"sha256\": \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"enabled\": false,\n      \"importedAt\": \"2026-09-27T08:30:00.000Z\",\n      \"package\": null,\n      \"note\": \"kept\"\n    },\n    {\n      \"id\": \"demo-skill\",\n      \"source\": \"file\",\n      \"sourcePath\": \"/tmp/demo/demo-skill\",\n      \"sha256\": \"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n      \"enabled\": true,\n      \"importedAt\": \"2026-09-28T09:00:00.000Z\",\n      \"package\": {\n        \"id\": \"local/demo-skill\",\n        \"version\": \"0.0.0\",\n        \"trust\": \"unsigned\"\n      }\n    },\n    {\n      \"id\": \"zeta\",\n      \"source\": \"file\",\n      \"sourcePath\": \"/tmp/demo/zeta.p1x\",\n      \"sha256\": \"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n      \"enabled\": true,\n      \"importedAt\": \"2026-09-28T10:00:00.000Z\",\n      \"package\": {\n        \"id\": \"local/zeta\",\n        \"version\": \"1.2.0\",\n        \"trust\": \"unsigned\"\n      },\n      \"zzz\": {\n        \"keep\": [\n          1,\n          2,\n          \"ü\"\n        ]\n      }\n    }\n  ],\n  \"extra\": {\n    \"a\": 1,\n    \"b\": [],\n    \"c\": {}\n  }\n}\n"
+}
