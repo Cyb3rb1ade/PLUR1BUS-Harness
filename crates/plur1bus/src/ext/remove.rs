@@ -100,7 +100,8 @@ fn removed_at_ms(dir: &Path) -> Option<u64> {
 }
 
 /// Removes the trash entries older than `days` days (X1-R19), by their recorded `removedAt`. An entry still being built
-/// (`<trashId>.tmp-<pid>`) is left to [`super::recover`]. Returns the removed trash ids, sorted. Best effort.
+/// (`<trashId>.tmp-<pid>`) or marked by a restore ([`RESTORING`]) is left to [`super::recover`]. Returns the removed
+/// trash ids, sorted. Best effort.
 pub fn prune_trash(layout: &Layout, days: u32) -> Vec<String> {
     let dir = ExtPaths::of(layout).trash;
     let Ok(entries) = fs::read_dir(&dir) else {
@@ -111,7 +112,11 @@ pub fn prune_trash(layout: &Layout, days: u32) -> Vec<String> {
         let Ok(tid) = e.file_name().into_string() else {
             continue;
         };
-        if tid.contains(".tmp-") || !e.file_type().is_ok_and(|t| t.is_dir()) {
+        // An entry still being built is `ext::recover`'s, and so is one a restore is using (or a kill left marked).
+        if tid.contains(".tmp-")
+            || !e.file_type().is_ok_and(|t| t.is_dir())
+            || e.path().join(RESTORING).exists()
+        {
             continue;
         }
         let old = removed_at_ms(&e.path()).is_some_and(|t| is_expired(t, days));
@@ -762,9 +767,24 @@ fn restore_steps<'a>(
     let is_skill = t.kind == "skill";
     let now = now_iso();
 
-    // A restore in progress is marked in its entry, so `ext::recover` can finish or undo one a kill interrupted.
+    // A restore in progress is marked in its entry, so `ext::recover` can finish or undo one a kill interrupted. For a
+    // module the mark carries the config section as it was (`null`: absent), which an undo puts back.
+    let previous = if is_skill {
+        None
+    } else {
+        Some(
+            host.config()["modules"]
+                .get(name)
+                .cloned()
+                .unwrap_or(Value::Null),
+        )
+    };
+    let mut mark = json!({ "at": now });
+    if let Some(prev) = &previous {
+        mark["previousSection"] = prev.clone();
+    }
     let marker = tdir.join(RESTORING);
-    state::write_private_atomic(&marker, now.as_bytes())
+    state::write_private_atomic(&marker, &pretty(&mark))
         .map_err(|e| io_err("cannot write", &marker, e))?;
     rb.push("marker", move |_| {
         remove_retrying(&marker).map_err(|e| e.to_string())
@@ -905,6 +925,19 @@ fn restore_steps<'a>(
 
 // ---- recovery -------------------------------------------------------------------------------------------------------
 
+/// Sets `modules.<name>` in config.json to `section` (`null`: removes it), with no host: `ext::recover` runs before
+/// the supervisor serves config and while no offline command does. Unchanged config is not rewritten.
+fn restore_section(layout: &Layout, name: &str, section: Value) -> Result<(), String> {
+    let path = layout.config_path();
+    let before = plur1bus_config::read(&path).map_err(|e| e.to_string())?;
+    let after = super::commit::apply_changes(&before, &[(format!("modules.{name}"), section)])
+        .map_err(|e| e.to_string())?;
+    if after != before {
+        plur1bus_config::write_atomic(&path, &after).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Puts a trash entry's `package.p1x` back into the cache when the cache has lost it (an uninstall killed after the
 /// cache step, then undone by recover). True when the cache holds the package afterwards, or there is none to keep.
 pub(crate) fn keep_cached_package(paths: &ExtPaths, entry: &Path, sha256: &str) -> bool {
@@ -918,8 +951,9 @@ pub(crate) fn keep_cached_package(paths: &ExtPaths, entry: &Path, sha256: &str) 
 
 /// A restore a kill interrupted leaves its entry marked ([`RESTORING`]). With the item's code in place the restore is
 /// finished: the record, the cached package, the data and the index entry (disabled), then the entry goes. Without
-/// it the restore is undone: a skill's index entry that has no folder and no record is removed, the mark goes, and
-/// the entry keeps its code for a later restore. Runs under the mutation lock (skipped while a mutation runs).
+/// it the restore is undone: a module's config section goes back to what the mark recorded, a skill's index entry
+/// that has no folder and no record is removed, the mark goes, and the entry keeps its code for a later restore. An
+/// empty `data/ext/<name>` in the way of purged data is replaced, as the restore does. Runs under the mutation lock (skipped while a mutation runs).
 pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
     let mut done = Vec::new();
     let paths = ExtPaths::of(layout);
@@ -983,10 +1017,15 @@ pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
             }
             let data = layout.ext_data(&name);
             let moved = entry.join("data");
-            if moved.is_dir() && fs::symlink_metadata(&data).is_err() {
-                ok &= data.parent().is_some_and(|p| fs::create_dir_all(p).is_ok())
+            if moved.is_dir() {
+                // An empty `data/ext/<name>` is replaced, as the restore itself does; one with content is not merged.
+                if fs::symlink_metadata(&data).is_ok() && !data_in_the_way(layout, &name) {
+                    ok &= state::remove_empty_dir_retrying(&data).is_ok();
+                }
+                ok &= fs::symlink_metadata(&data).is_err()
+                    && data.parent().is_some_and(|p| fs::create_dir_all(p).is_ok())
                     && rename_retrying(&moved, &data).is_ok();
-            } else if !moved.exists() {
+            } else {
                 let _ = fs::create_dir_all(&data);
             }
             if is_skill {
@@ -1013,7 +1052,21 @@ pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
                 ));
             }
         } else {
-            // Undo: the code never moved in.
+            // Undo: the code never moved in. A module's config section goes back to what the mark recorded, as the
+            // restore's own rollback does.
+            if !is_skill {
+                let prev = read_json(&entry.join(RESTORING))
+                    .and_then(|m| m.get("previousSection").cloned());
+                if let Some(prev) = prev {
+                    if restore_section(layout, &name, prev).is_err() {
+                        done.push(format!(
+                            "could not put back the config section of {name}; {} stays marked",
+                            entry.display()
+                        ));
+                        continue;
+                    }
+                }
+            }
             if is_skill && !st.items.contains_key(&name) {
                 if let Ok(mut idx) = index::read_index(layout) {
                     if idx.remove(&name).is_some() && index::write_index(layout, &idx).is_err() {

@@ -1558,3 +1558,74 @@ fn show_lists_only_trash_entries_with_code() {
     let detail = show_item(&l, &config(&l), "demo-skill").unwrap();
     assert_eq!(detail["trash"], json!([]));
 }
+
+// ---- re-review ----------------------------------------------------------------------------------------------------
+
+/// A killed restore's marked entry is never pruned, and recover finishes it even when an empty `data/ext/<name>` is in
+/// the way of the purged data (it replaces it, as the restore does).
+#[test]
+fn a_marked_entry_is_not_pruned_and_recover_replaces_an_empty_data_dir() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    enabled_skill(d.path(), &l, &key);
+    let tid = tid_of(&rm(&l, "demo-skill", true, false).unwrap());
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:restore.code");
+    assert!(back(&l, &tid).is_err());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    backdate(&l, &tid, 30);
+    assert_eq!(prune_trash(&l, 14), Vec::<String>::new());
+    assert!(trash(&l).join(&tid).is_dir());
+
+    fs::create_dir_all(l.ext_data("demo-skill")).unwrap();
+    let done = ext::recover(&l);
+    assert!(
+        done.iter()
+            .any(|x| x.contains("finished the interrupted restore")),
+        "{done:?}"
+    );
+    assert_eq!(
+        fs::read_to_string(l.ext_data("demo-skill").join("notes.txt")).unwrap(),
+        "kept\n"
+    );
+    assert!(has_record(&l, "demo-skill"));
+    assert!(trash_ids(&l).is_empty());
+}
+
+/// A module restore killed after its config write is undone by recover with the config section as it was before the
+/// restore: kept (uninstall) or absent again (purge).
+#[test]
+fn recover_undoes_a_module_restore_killed_after_the_config_step() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for purge in [false, true] {
+        let (d, l) = home();
+        write_config(&l, |_| {});
+        enabled_module(d.path(), &l, &key);
+        let tid = tid_of(&rm(&l, "fixture", purge, false).unwrap());
+        let before = config(&l)["modules"].get("fixture").cloned();
+        assert_eq!(before.is_none(), purge);
+        let config_bytes = fs::read(l.config_path()).unwrap();
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:restore.config");
+        assert!(back(&l, &tid).is_err());
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        assert_ne!(config(&l)["modules"].get("fixture").cloned(), before);
+
+        let done = ext::recover(&l);
+        assert!(done.iter().any(|x| x.contains("undid")), "{done:?}");
+        assert_eq!(
+            config(&l)["modules"].get("fixture").cloned(),
+            before,
+            "purge={purge}"
+        );
+        if !purge {
+            assert_eq!(fs::read(l.config_path()).unwrap(), config_bytes);
+        }
+        assert!(!trash(&l).join(&tid).join("restoring").exists());
+        assert!(trash(&l).join(&tid).join("code").is_dir());
+        back(&l, &tid).unwrap();
+        assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
+        assert!(l.modules_dir().join("fixture").is_dir());
+    }
+}
