@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 18] = [
+const CHECK_IDS: [&str; 21] = [
     "config.valid",
     "run.permissions",
     "run.stale-files",
@@ -52,6 +52,9 @@ const CHECK_IDS: [&str; 18] = [
     "runtime.node",
     "runtime.core",
     "models.cache",
+    "extensions.integrity",
+    "extensions.consistency",
+    "extensions.revoked",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -340,6 +343,14 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         layout,
         core_status.as_ref(),
     ));
+    // X1-R30: extensions from file; read-only, no lock, report only. The re-hash reads every payload file, so it
+    // respects the budget like the rows before it.
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    checks.push(super::firstaid_ext::check_ext_integrity(layout));
+    checks.push(super::firstaid_ext::check_ext_consistency(layout));
+    checks.push(super::firstaid_ext::check_ext_revoked(layout));
     checks
 }
 
