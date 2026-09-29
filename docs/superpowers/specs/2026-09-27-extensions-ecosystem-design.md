@@ -372,6 +372,22 @@ The order is binding, and every step runs on the file before anything is written
 
 Refusals map to `E_INVALID_PARAMS` with `reason` ∈ `package-invalid`, `signature-invalid`, `hash-mismatch`, `path-unsafe`, `too-large`, `zip-unsupported`, `scripts-mismatch`, `incompatible`, `name-taken`, `reserved-name`, `socket-path-too-long`. Any refusal leaves the tree byte-identical (the D14 guarantee, extended). The parser and verifier live in one Rust crate (`crates/plur1bus-ext`, on the `zip` crate in its strictest mode plus our own central-directory checks, and `minisign-verify`) and are fuzzed in CI (§12).
 
+> **Amended by the X1 plan (X1-R4, X1-C18, X1-C19; shipped in RPC 1.4.0, `docs/extensions.md` §2, ADR-016).** The reasons above are not the shipped vocabulary, and not all of them are `E_INVALID_PARAMS`.
+>
+> | This section | Shipped `reason` | Code |
+> |---|---|---|
+> | `path-unsafe` (unsafe name, symlink, hard link, special or explicit directory entry) | `archive-unsafe-entry` | `E_INVALID_PARAMS` |
+> | `zip-unsupported` | `archive-unsupported` | `E_INVALID_PARAMS` |
+> | `too-large` (any size, count or ratio cap) | `download-too-large` | `E_INVALID_PARAMS` |
+> | `hash-mismatch` (per-file, whole-file, CRC) | `digest-mismatch` | `E_INVALID_PARAMS` |
+> | `package-invalid`, `signature-invalid`, `scripts-mismatch`, `reserved-name`, `socket-path-too-long` | unchanged | `E_INVALID_PARAMS` |
+> | `incompatible` | unchanged | `E_NOT_AVAILABLE` |
+> | `name-taken` | unchanged | `E_CONFLICT` |
+> | (new) `kind-unsupported` | an `mcp-server` or `bundle` package, or an `.mcpb`/`.dxt`/Claude Code plugin input, before X2 | `E_NOT_AVAILABLE` |
+> | (new) `revoked`, `policy-unsigned-disallowed` | at inspection and again at install | `E_DENIED` |
+>
+> The renames follow the frozen vocabulary of the installer (module-guide §12 point 2; no name is ever renamed, ADR-016 §2), which wins over this list. Reasons for a state the shipped enum has no value for reuse the nearest one: a missing code folder on enable is `tampered` (X1-C18). **Wherever this spec says `data.capabilities` or `data.dependents`, the shipped field is `error.data.ext.capabilities` and `error.data.ext.dependents`** (X1-C19: `ErrorObject.data` is closed and gained one optional `ext` object). §8.4's ordering also changed in one place (X1-R7): the audit streams every entry once at inspection, so a hash mismatch, a lying size and a deflate bomb are refused at inspection, not at extraction; extraction re-hashes.
+
 ### 8.5 Revocation
 
 - **Listing.** An entry in `revocations` with `action: disable` matches installed items by `id` + semver range, whatever their source (a file-installed copy of a revoked catalogue package is revoked too, matched by id and version).

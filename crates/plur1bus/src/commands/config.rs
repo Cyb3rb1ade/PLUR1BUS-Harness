@@ -41,6 +41,7 @@ fn unresponsive(detail: String) -> RpcError {
         reason: Some("supervisor-unresponsive".into()),
         detail: Some(detail),
         ids: None,
+        ext: None,
     }
 }
 
@@ -53,7 +54,7 @@ pub(crate) fn route(layout: &Layout) -> Result<Route, RpcError> {
     };
     if layout
         .recorded_pid(Endpoint::Supervisor)
-        .is_some_and(|pid| !super::firstaid::pid_alive(pid))
+        .is_some_and(|pid| !crate::proc::pid_alive(pid))
     {
         return Ok(Route::Direct);
     }
@@ -103,11 +104,12 @@ fn conflict(current: &str) -> RpcError {
         message: "config.json changed since the given revision".into(),
         reason: Some("config-changed".into()),
         detail: None,
-        ids: Some(
+        ids: Some(Box::new(
             [("currentRevision".to_string(), current.to_string())]
                 .into_iter()
                 .collect(),
-        ),
+        )),
+        ext: None,
     }
 }
 
@@ -494,6 +496,7 @@ mod tests {
             reason: Some("config-changed".into()),
             detail: None,
             ids: None,
+            ext: None,
         };
         assert_eq!(
             fail_message(&from_supervisor),

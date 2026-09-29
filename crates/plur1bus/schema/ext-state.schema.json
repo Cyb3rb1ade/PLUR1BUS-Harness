@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.dev/schema/ext-state/1/ext-state.schema.json",
+  "title": "PLUR1BUS extension state (<home>/extensions/state.json)",
+  "description": "The package record of every extension installed from a file (spec §6.2): id, version, kind, source, trust tier, signer, package digest, install time, previous version, the payload's file digests and the acknowledged capability hash. Written only by the supervisor or the offline ext commands, atomically, mode 0600. `skills/index.json` and `modules.<name>.enabled` stay the owners of the enabled flags.",
+  "x-stability": "experimental",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "items"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "items": {
+      "type": "object",
+      "description": "Keyed by the item's name (the skill folder, the module name).",
+      "additionalProperties": { "$ref": "#/$defs/item" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind", "version", "source", "trust", "packageSha256", "installedAt", "files", "capabilities", "scripts", "requiredSecrets", "removedByUser"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "The package id (`publisher/name`, `local/<name>` for a normalised folder)." },
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+        "kind": { "enum": ["skill", "module", "channel", "mcp-server", "bundle"] },
+        "version": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["file", "catalog", "bundled", "local"], "description": "Where it came from; X1 writes `file`." },
+        "trust": { "enum": ["release", "first-party", "unknown-signer", "unsigned", "imported", "dev"] },
+        "keyId": { "type": ["string", "null"], "description": "The signing key id (16 upper-case hex digits), when the package is signed." },
+        "keyLabel": { "type": ["string", "null"], "description": "The label of the trusted key that verified the signature, when one did." },
+        "packageSha256": { "$ref": "#/$defs/sha256" },
+        "installedAt": { "type": "string", "minLength": 1, "description": "UTC, ISO 8601." },
+        "previousVersion": { "type": ["string", "null"] },
+        "files": {
+          "type": "object",
+          "description": "Payload-relative path to digest, size and exec bit.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sha256", "size"],
+            "properties": {
+              "sha256": { "$ref": "#/$defs/sha256" },
+              "size": { "type": "integer", "minimum": 0 },
+              "exec": { "type": "boolean" }
+            }
+          }
+        },
+        "capabilities": { "type": "object", "description": "The manifest's capability block as installed." },
+        "capabilitiesAck": { "type": ["string", "null"], "description": "SHA-256 of the capability set a person acknowledged (X1-R13)." },
+        "scripts": { "type": "array", "items": { "type": "string" } },
+        "requiredSecrets": { "type": "array", "items": { "type": "string" } },
+        "removedByUser": { "type": "boolean", "description": "A bundled item the person uninstalled (X1-R18)." },
+        "integrity": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["checkedAt", "ok", "paths"],
+          "properties": {
+            "checkedAt": { "type": "string", "minLength": 1 },
+            "ok": { "type": "boolean" },
+            "paths": { "type": "array", "items": { "type": "string" }, "description": "Payload-relative paths that changed or went missing." }
+          }
+        }
+      }
+    }
+  }
+}

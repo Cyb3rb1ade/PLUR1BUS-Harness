@@ -23,6 +23,8 @@ pub enum Topic {
     Config,
     /// `module.state` (Task 9).
     Modules,
+    /// `ext.changed` (X1-R8).
+    Ext,
 }
 
 /// A connection's writer, shared by its request loop (replies) and its subscribers' writer threads (notifications),

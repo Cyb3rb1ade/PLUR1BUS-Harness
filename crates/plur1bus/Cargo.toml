@@ -29,6 +29,8 @@ flate2 = "1"
 tar = { version = "0.4", default-features = false }
 zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
 minisign-verify = "0.2"
+plur1bus-ext = { path = "../plur1bus-ext" }
+semver = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -44,3 +46,4 @@ tempfile.workspace = true
 proptest = "1"
 roxmltree = "0.21"
 minisign = "0.10.0"
+plur1bus-ext = { path = "../plur1bus-ext", features = ["testkit"] }

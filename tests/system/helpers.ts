@@ -235,3 +235,20 @@ export async function reapHome(h: string): Promise<void> {
   for (const pid of left) { try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
   for (const pid of left) { try { await waitFor(`pid ${pid} to exit`, () => !alive(pid), 5000, 20); } catch { /* reported by the test itself */ } }
 }
+
+/** The directory `cargo run -p plur1bus-ext --features testkit --example make-fixtures -- <dir>` wrote (X1 Task 14):
+ *  PLUR1BUS_EXT_FIXTURES, and the environment that makes the code under test trust the throwaway key in its
+ *  `pubkeys.env` (`PLUR1BUS_TEST_EXT_PUBKEYS=test=<base64>`, honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1). No key
+ *  is committed: the generator makes a new one per run. Lazy: it throws when called, never at import. */
+export function fixtures(): { dir: string; path: (name: string) => string; env: NodeJS.ProcessEnv } {
+  const dir = process.env.PLUR1BUS_EXT_FIXTURES;
+  if (!dir) throw new Error("PLUR1BUS_EXT_FIXTURES is not set: run the make-fixtures example first (see .github/workflows/ci.yml)");
+  const root = resolve(dir);
+  const line = readFileSync(join(root, "pubkeys.env"), "utf8").split(/\r?\n/).find((l) => l.startsWith("PLUR1BUS_TEST_EXT_PUBKEYS="));
+  if (!line) throw new Error(`${join(root, "pubkeys.env")} has no PLUR1BUS_TEST_EXT_PUBKEYS line`);
+  return {
+    dir: root,
+    path: (name) => join(root, name),
+    env: { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_EXT_PUBKEYS: line.slice("PLUR1BUS_TEST_EXT_PUBKEYS=".length).trim() },
+  };
+}

@@ -321,6 +321,9 @@ fn check_json_validates_the_document_shape() {
         "runtime.node",
         "runtime.core",
         "models.cache",
+        "extensions.integrity",
+        "extensions.consistency",
+        "extensions.revoked",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -340,9 +343,9 @@ fn check_json_validates_the_document_shape() {
     }
 }
 
-/// HB15: `CHECK_IDS` grows from 15 to 18 with the installer checks appended at the end, in order.
+/// HB15: the installer checks come after the first fifteen ids, in order (X1 appends three more after them).
 #[test]
-fn check_json_lists_18_ids_in_order_with_the_three_new_ones_last() {
+fn check_json_lists_the_installer_ids_after_the_first_fifteen() {
     let h = Home::new();
     let out = check_cmd(&h).output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{out:?}");
@@ -353,9 +356,9 @@ fn check_json_lists_18_ids_in_order_with_the_three_new_ones_last() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 18, "{v}");
+    assert_eq!(ids.len(), 21, "{v}");
     assert_eq!(
-        &ids[15..],
+        &ids[15..18],
         &["runtime.node", "runtime.core", "models.cache"],
         "{v}"
     );
@@ -790,4 +793,263 @@ fn loose_run_permissions_fail() {
     assert_eq!(v["ok"], false, "{v}");
     let checks = checks_by_id(&v);
     assert_eq!(checks["run.permissions"]["status"], "fail", "{v}");
+}
+
+// ---- X1 Task 13: extensions.integrity, extensions.consistency, extensions.revoked ---------------------------------
+
+const EXT_IDS: [&str; 3] = [
+    "extensions.integrity",
+    "extensions.consistency",
+    "extensions.revoked",
+];
+
+fn sha_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// Installs a skill record for `name` (content `body`) into the home's `extensions/state.json`, the payload under
+/// `skills/<name>/SKILL.md` and, when `index`, an index entry carrying `package`.
+fn install_skill(h: &Home, name: &str, version: &str, body: &str, code: bool, index: bool) {
+    let ext = h.home.join("extensions");
+    fs::create_dir_all(&ext).unwrap();
+    let state_path = ext.join("state.json");
+    let mut state: Value = fs::read_to_string(&state_path)
+        .ok()
+        .map(|t| serde_json::from_str(&t).unwrap())
+        .unwrap_or_else(|| json!({ "schemaVersion": 1, "items": {} }));
+    state["items"][name] = json!({
+        "id": format!("local/{name}"),
+        "name": name,
+        "kind": "skill",
+        "version": version,
+        "source": "file",
+        "trust": "unsigned",
+        "packageSha256": "ab".repeat(32),
+        "installedAt": "2026-09-28T10:00:00.000Z",
+        "files": { "SKILL.md": { "sha256": sha_hex(body.as_bytes()), "size": body.len() } },
+        "capabilities": { "network": { "mode": "none" } },
+        "scripts": [],
+        "requiredSecrets": [],
+        "removedByUser": false
+    });
+    fs::write(&state_path, serde_json::to_string_pretty(&state).unwrap()).unwrap();
+    if code {
+        let dir = h.home.join("skills").join(name);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("SKILL.md"), body).unwrap();
+    }
+    if index {
+        write_index_entry(
+            h,
+            name,
+            Some(json!({ "id": format!("local/{name}"), "version": version, "trust": "unsigned" })),
+        );
+    }
+}
+
+fn write_index_entry(h: &Home, id: &str, package: Option<Value>) {
+    let dir = h.home.join("skills");
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("index.json");
+    let mut idx: Value = fs::read_to_string(&path)
+        .ok()
+        .map(|t| serde_json::from_str(&t).unwrap())
+        .unwrap_or_else(|| json!({ "version": 1, "skills": [] }));
+    let mut entry = json!({ "id": id, "source": "file", "sourcePath": "x", "sha256": "0".repeat(64), "enabled": false, "importedAt": "2026-09-28T10:00:00.000Z" });
+    if let Some(p) = package {
+        entry["package"] = p;
+    }
+    idx["skills"].as_array_mut().unwrap().push(entry);
+    fs::write(&path, serde_json::to_string_pretty(&idx).unwrap()).unwrap();
+}
+
+fn ext_check(h: &Home, revocations: Option<&Path>) -> BTreeMap<String, Value> {
+    let mut c = check_cmd(h);
+    if let Some(r) = revocations {
+        c.env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+            .env("PLUR1BUS_TEST_EXT_REVOCATIONS", r);
+    }
+    let out = c.output().unwrap();
+    let v = json_stdout(&out);
+    checks_by_id(&v)
+}
+
+#[test]
+fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
+    let h = Home::new();
+    let out = check_cmd(&h).output().unwrap();
+    let v = json_stdout(&out);
+    let ids: Vec<String> = v["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(ids.len(), 21, "{v}");
+    assert_eq!(
+        &ids[15..18],
+        &["runtime.node", "runtime.core", "models.cache"]
+    );
+    assert_eq!(&ids[18..], &EXT_IDS, "{v}");
+}
+
+#[test]
+fn extension_rows_are_ok_on_a_fresh_home() {
+    let h = Home::new();
+    let c = ext_check(&h, None);
+    for id in EXT_IDS {
+        assert_eq!(c[id]["status"], "ok", "{id}: {}", c[id]);
+    }
+    assert_eq!(
+        c["extensions.integrity"]["summary"],
+        "no packaged extensions"
+    );
+    assert!(
+        !h.home.join("extensions").exists(),
+        "the check must not create anything"
+    );
+}
+
+#[test]
+fn integrity_fails_after_an_installed_skill_file_is_edited() {
+    let h = Home::new();
+    install_skill(&h, "notes", "1.0.0", "# notes\n", true, true);
+    let c = ext_check(&h, None);
+    assert_eq!(
+        c["extensions.integrity"]["status"], "ok",
+        "{}",
+        c["extensions.integrity"]
+    );
+    let state_before = fs::read(h.home.join("extensions/state.json")).unwrap();
+    fs::write(h.home.join("skills/notes/SKILL.md"), "# edited\n").unwrap();
+    let c = ext_check(&h, None);
+    let row = &c["extensions.integrity"];
+    assert_eq!(row["status"], "fail", "{row}");
+    assert!(
+        row["detail"].to_string().contains("notes: SKILL.md"),
+        "{row}"
+    );
+    assert_eq!(c["extensions.consistency"]["status"], "ok");
+    assert_eq!(
+        fs::read(h.home.join("extensions/state.json")).unwrap(),
+        state_before,
+        "the check never writes integrity back into state.json"
+    );
+}
+
+#[test]
+fn consistency_warns_on_an_orphan_index_package_entry_and_fails_on_missing_code() {
+    let h = Home::new();
+    write_index_entry(
+        &h,
+        "ghost",
+        Some(json!({ "id": "local/ghost", "version": "1.0.0", "trust": "unsigned" })),
+    );
+    // An imported skill (no `package`) is not an orphan.
+    write_index_entry(&h, "imported", None);
+    let c = ext_check(&h, None);
+    let row = &c["extensions.consistency"];
+    assert_eq!(row["status"], "warn", "{row}");
+    assert!(row["detail"].to_string().contains("ghost"), "{row}");
+    assert!(!row["detail"].to_string().contains("imported"), "{row}");
+
+    // A record whose code directory is gone fails, whatever the index says.
+    install_skill(&h, "notes", "1.0.0", "# notes\n", false, false);
+    let c = ext_check(&h, None);
+    let row = &c["extensions.consistency"];
+    assert_eq!(row["status"], "fail", "{row}");
+    assert!(row["detail"].to_string().contains("notes"), "{row}");
+    assert_eq!(
+        c["extensions.integrity"]["status"], "fail",
+        "missing files are an integrity failure too"
+    );
+}
+
+#[test]
+fn revoked_fails_for_an_installed_revoked_item() {
+    let h = Home::new();
+    install_skill(&h, "notes", "1.2.0", "# notes\n", true, true);
+    install_skill(&h, "other", "1.0.0", "# other\n", true, true);
+    let rev = h.home.join("revocations-seam.json");
+    fs::write(
+        &rev,
+        r#"[{"id":"local/notes","versions":"<2.0.0","action":"disable","reason":{"en":"leaks tokens"}},
+            {"id":"local/other","versions":"*","action":"warn","reason":"only a warning"}]"#,
+    )
+    .unwrap();
+    let c = ext_check(&h, Some(&rev));
+    let row = &c["extensions.revoked"];
+    assert_eq!(row["status"], "fail", "{row}");
+    let text = row["detail"].to_string();
+    assert!(
+        text.contains("local/notes") && text.contains("leaks tokens"),
+        "{row}"
+    );
+    assert!(!text.contains("local/other"), "{row}");
+    // Without the seam nothing is revoked.
+    assert_eq!(ext_check(&h, None)["extensions.revoked"]["status"], "ok");
+}
+
+#[test]
+fn a_removed_by_user_tombstone_is_skipped_by_all_three_rows() {
+    let h = Home::new();
+    // Code gone, file edited nowhere, and revoked: a live record would fail every row.
+    install_skill(&h, "gone", "1.0.0", "# gone\n", false, false);
+    let path = h.home.join("extensions/state.json");
+    let mut st: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    st["items"]["gone"]["removedByUser"] = json!(true);
+    fs::write(&path, st.to_string()).unwrap();
+    let rev = h.home.join("rev.json");
+    fs::write(
+        &rev,
+        r#"[{"id":"local/gone","versions":"*","action":"disable","reason":"x"}]"#,
+    )
+    .unwrap();
+    let c = ext_check(&h, Some(&rev));
+    for id in EXT_IDS {
+        assert_eq!(c[id]["status"], "ok", "{id}: {}", c[id]);
+    }
+}
+
+#[test]
+fn an_index_entry_named_like_a_tombstone_counts_as_an_orphan() {
+    let h = Home::new();
+    install_skill(&h, "gone", "1.0.0", "# gone\n", false, true);
+    let path = h.home.join("extensions/state.json");
+    let mut st: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    st["items"]["gone"]["removedByUser"] = json!(true);
+    fs::write(&path, st.to_string()).unwrap();
+    let c = ext_check(&h, None);
+    let row = &c["extensions.consistency"];
+    assert_eq!(row["status"], "warn", "{row}");
+    assert!(row["detail"].to_string().contains("gone"), "{row}");
+}
+
+#[test]
+fn an_unreadable_state_json_fails_all_three_rows() {
+    let h = Home::new();
+    fs::create_dir_all(h.home.join("extensions")).unwrap();
+    fs::write(h.home.join("extensions/state.json"), "{ not json").unwrap();
+    let c = ext_check(&h, None);
+    for id in EXT_IDS {
+        assert_eq!(c[id]["status"], "fail", "{id}: {}", c[id]);
+    }
+}
+
+#[test]
+fn an_unreadable_skills_index_warns_on_consistency() {
+    let h = Home::new();
+    fs::create_dir_all(h.home.join("skills")).unwrap();
+    fs::write(h.home.join("skills/index.json"), "{ not json").unwrap();
+    let c = ext_check(&h, None);
+    assert_eq!(
+        c["extensions.consistency"]["status"], "warn",
+        "{}",
+        c["extensions.consistency"]
+    );
+    assert_eq!(c["extensions.integrity"]["status"], "ok");
 }

@@ -89,10 +89,15 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      # X1 Task 14: the extension fixtures (signed and tampered packages, the module fixture) are generated per run with a
+      # throwaway in-memory key; only its public half reaches the tests, through pubkeys.env. Nothing is committed.
+      - name: extension fixtures
+        shell: bash
+        run: cargo run -q -p plur1bus-ext --features testkit --example make-fixtures -- "$RUNNER_TEMP/p1x-fx"
       # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
-      - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts tests/system/setup.test.ts tests/system/install-scripts.test.ts
+      - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts tests/system/setup.test.ts tests/system/install-scripts.test.ts tests/system/extensions.test.ts
         timeout-minutes: 10
-        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware
+        env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_CI_RECALL_HARD_MS: "3000", PLUR1BUS_EXT_FIXTURES: "${{ runner.temp }}/p1x-fx" } # H3-R26: shared runners are not reference hardware
       # H3-R22: the same acceptance with a cold flat embedder (the first 2 query embeddings of each core process take
       # 350 ms, one at a time), so a recall that does not wait for the model warm-up overruns the 600 ms hard budget.
       - name: two-session recall (cold flat embedder)

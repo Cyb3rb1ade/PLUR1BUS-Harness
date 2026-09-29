@@ -169,7 +169,8 @@ mod tests {
             message: "shared-copy refresh failed halfway".into(),
             reason: Some("storage".into()),
             detail: Some("write failed".into()),
-            ids: Some(ids),
+            ids: Some(Box::new(ids)),
+            ext: None,
         };
         // Build the same document from_rpc_error would emit, without exercising process::exit.
         let extra = rpc_error_extra(&e);

@@ -1,0 +1,9 @@
+{
+  "algorithm": "plur1bus-skill-sha256/v1",
+  "sha256": "sha256:4a0a6e163d9e9ac83239d98ed3c6951425d392f5df2373cc2a2e6403404cc463",
+  "files": {
+    "SKILL.md": "29cb88da1f6b6588910fea3d933fc78566c9ff13c51c5c298fe09f0a18d7ccd3",
+    "references/a.md": "5fc0e765644c5dc1f0e2986f9ba155b1de428a6a9898ed56e6a7578831dd3d10",
+    "scripts/run.sh": "e6ce20e1e89529a102995d6c459796cb9128c366e4bed7cbfbf89e6aaf4b7b88"
+  }
+}

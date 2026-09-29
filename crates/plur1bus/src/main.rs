@@ -2,12 +2,14 @@ mod audit;
 mod cli;
 mod commands;
 mod container;
+mod ext;
 mod identity;
 mod install;
 mod journal;
 mod modules;
 mod output;
 mod paths;
+mod proc;
 mod repair;
 mod service;
 mod supervisor;
@@ -58,5 +60,11 @@ fn main() {
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
+        Cmd::Ext {
+            cmd: cli::ExtCmd::Worker { op },
+        } => ext::stage::worker_main(&layout, op),
+        Cmd::Ext { cmd } => commands::ext::run(&out, &layout, cmd),
+        Cmd::Skill { sub } => commands::skill::run(&out, &layout, sub),
+        Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),
     }
 }

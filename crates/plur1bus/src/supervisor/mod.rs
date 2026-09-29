@@ -11,6 +11,7 @@
 pub mod adopt;
 pub mod child;
 pub mod config;
+pub mod ext;
 pub mod logfile;
 pub mod modules;
 #[cfg(windows)]
@@ -21,7 +22,7 @@ pub mod subscribers;
 
 use crate::paths::{supervisor_address, Layout};
 use logfile::RotatingFile;
-pub use modules::{module_list, push_module_op, ModuleOp, ModuleVerb, OpError};
+pub use modules::{module_list, ModuleOp, ModuleVerb, OpError};
 use modules::{reconcile_start, reconcile_stop, run_module_op, start_modules};
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Map, Value};
@@ -122,6 +123,12 @@ pub struct SupervisorState {
     /// `run/`'s protected, inheritable ACL was set at start (HB5): every spawned child gets `PLUR1BUS_RUN_ACL=inherited`
     /// ([`child::child_env`]). Always `false` off Windows.
     pub run_acl_inherited: bool,
+    /// The held-back overlay of every packaged module that has one (X1-R17): computed at start after `ext::recover`
+    /// and again after every ext mutation ([`ext`]); `modules::modules_view` holds such a module back.
+    pub ext_overlays: BTreeMap<String, crate::ext::overlays::Overlay>,
+    /// Set while a stop waits for an ext mutation in flight ([`drain_ext`]): the module ops that mutation queues through
+    /// its host are still run, so it finishes (or rolls back) instead of failing half-way with `stopping`.
+    pub ext_draining: bool,
 }
 
 impl SupervisorState {
@@ -642,6 +649,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         let _ = fs::remove_file(&address);
     }
 
+    // M6 and X1: what a killed module install or uninstall (`modules::install::recover`, run once, inside) and a
+    // killed ext command left, before config.json is loaded: an undone restore may put a module's config section back.
+    let recovered = crate::ext::recover(layout);
     let config_state = config::initial(layout);
     let config = config::supervisor_config(config_state.running.as_ref());
     let log = Log::open(
@@ -673,11 +683,14 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             json!({ "errors": config_state.module_errors }),
         );
     }
-    // M6: an install or uninstall that crashed left staging directories; a copy moved aside goes back.
-    let recovered = crate::modules::install::recover(layout);
     if !recovered.is_empty() {
-        log.info("module staging recovered", json!({ "actions": recovered }));
+        log.info(
+            "module and extension staging recovered",
+            json!({ "actions": recovered }),
+        );
     }
+    // X1: the integrity of the enabled packaged modules and their overlays, before any module starts.
+    let ext_overlays = ext::at_start(layout, config_state.running.as_ref(), &log);
     // A write that crashed before its rename left its temp file; this process owns config.json now.
     let stale = plur1bus_config::remove_stale_temps(&layout.config_path());
     if !stale.is_empty() {
@@ -714,6 +727,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             core_ready_ms: None,
             module_ops: VecDeque::new(),
             run_acl_inherited: run_acl.is_ok(),
+            ext_overlays,
+            ext_draining: false,
         }),
         wake: Condvar::new(),
         log,
@@ -818,6 +833,17 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
     };
+    // X1: a stage or inspect worker still running is killed and reaped; its caller answers worker-failed and removes
+    // what it left (anything a late clean-up misses, `ext::recover` removes at the next start).
+    if !crate::ext::worker::stop_all(Duration::from_secs(5)) {
+        shared.log.warn(
+            "an ext worker was not reaped within 5 s of the stop",
+            json!({}),
+        );
+    }
+    // Then an ext mutation still committing finishes or rolls back first, never half-way (its module ops are still
+    // run); held to the exit, so no other one starts.
+    let _ext_quiet = drain_ext(&shared, layout, &token, &mut monitors, EXT_DRAIN_BOUND);
     // A job or module call still queued is not run: dropping its sender tells the waiting caller so.
     {
         let mut st = shared.lock();
@@ -875,6 +901,62 @@ type Monitors = BTreeMap<String, child::Monitor>;
 
 /// Spawns `role`'s child: through its monitor, or by building the monitor (and its spawn spec) first. A spec that
 /// cannot be built marks the child unspawnable (H3-R11).
+/// How long a stop waits for an ext mutation in flight ([`drain_ext`]): its commit's module ops each have their own
+/// stop budget, so this bounds the whole wait.
+const EXT_DRAIN_BOUND: Duration = Duration::from_secs(60);
+
+/// Waits, at most `bound`, until no ext mutation holds the ext mutation lock (X1-R15), and returns the lock, held for
+/// the rest of the stop so no other mutation starts. While it waits, the module ops the mutation queues (a module put
+/// in place or moved aside, `ModuleHost`) are still run here, so the commit finishes or its rollback completes instead
+/// of failing with `stopping` and leaving code without its record. `None` when the bound passed (logged).
+fn drain_ext(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    token: &str,
+    monitors: &mut Monitors,
+    bound: Duration,
+) -> Option<crate::ext::MutationGuard> {
+    let start = Instant::now();
+    shared.lock().ext_draining = true;
+    let mut logged = false;
+    let guard = loop {
+        if let Ok(g) = crate::ext::try_mutation() {
+            break Some(g);
+        }
+        if !logged {
+            shared.log.info(
+                "waiting for the extension change in flight before stopping",
+                json!({ "boundMs": bound.as_millis() as u64 }),
+            );
+            logged = true;
+        }
+        if start.elapsed() >= bound {
+            shared.log.warn(
+                "an extension change was still running when the stop stopped waiting for it",
+                json!({ "boundMs": bound.as_millis() as u64 }),
+            );
+            break None;
+        }
+        let op = {
+            let st = shared.lock();
+            let mut st = if st.module_ops.is_empty() {
+                match shared.wake.wait_timeout(st, Duration::from_millis(20)) {
+                    Ok((g, _)) => g,
+                    Err(e) => e.into_inner().0,
+                }
+            } else {
+                st
+            };
+            st.module_ops.pop_front()
+        };
+        if let Some(op) = op {
+            run_module_op(shared, layout, token, monitors, op);
+        }
+    };
+    shared.lock().ext_draining = false;
+    guard
+}
+
 fn spawn_child(shared: &Arc<Shared>, layout: &Layout, role: &Role, monitors: &mut Monitors) {
     match monitors.get_mut(&role.name) {
         Some(m) => m.spawn(),
@@ -1184,6 +1266,8 @@ pub(crate) fn test_state() -> SupervisorState {
         core_ready_ms: None,
         module_ops: VecDeque::new(),
         run_acl_inherited: false,
+        ext_overlays: BTreeMap::new(),
+        ext_draining: false,
     }
 }
 
@@ -1255,6 +1339,8 @@ mod tests {
             core_ready_ms: None,
             module_ops: VecDeque::new(),
             run_acl_inherited: false,
+            ext_overlays: BTreeMap::new(),
+            ext_draining: false,
         };
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.stopping = Some(StopRequest {

@@ -1,0 +1,2 @@
+{ "params": { "name": "demo-skill", "purge": false, "cascade": false },
+  "result": { "name": "demo-skill", "removed": true, "trashId": "demo-skill-1.0.0-20260928T120000Z", "purged": false } }

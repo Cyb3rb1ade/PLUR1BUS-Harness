@@ -2,9 +2,9 @@
 //! runtime reinstalls. None of them touches `state/`. Each returns the evidence of what it did as the step's `detail`.
 use super::{Ctx, Step};
 use crate::commands::config::{self as config_cmd, Route};
-use crate::commands::firstaid::pid_alive;
 use crate::install::setup::{self, CoreSource};
 use crate::install::{manifest, pins, targets::Target};
+use crate::proc::pid_alive;
 use plur1bus_config as cfg;
 use serde_json::{json, Value};
 use std::fs;

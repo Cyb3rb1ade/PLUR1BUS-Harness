@@ -46,7 +46,34 @@
       "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
       "additionalProperties": {
         "type": "object", "additionalProperties": false,
-        "properties": { "createdAt": { "type": "string", "format": "date-time" }, "displayName": { "type": "string", "maxLength": 128 } }
+        "properties": {
+          "createdAt": { "type": "string", "format": "date-time" },
+          "displayName": { "type": "string", "maxLength": 128 },
+          "skills": {
+            "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` is stored and shown, not interpreted before D69; `applyAt` says when a change reaches a running agent.",
+            "type": "object", "additionalProperties": false, "x-restart": "live", "x-tier": "advanced",
+            "properties": {
+              "blocked": { "type": "array", "items": { "type": "string" }, "default": [] },
+              "pinned": { "type": "array", "items": { "type": "string" }, "default": [] },
+              "applyAt": { "enum": ["next-turn", "next-session"], "default": "next-turn" }
+            }
+          }
+        }
+      }
+    },
+    "extensions": {
+      "description": "Extension management (X1-R21): whether unsigned packages may be installed, how many days uninstalled items stay in the trash, and the size caps for packages and skill folders.",
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "allowUnsigned": { "type": "boolean", "default": true, "x-restart": "live", "x-tier": "advanced" },
+        "trashDays": { "type": "integer", "minimum": 1, "maximum": 365, "default": 14, "x-restart": "live", "x-tier": "advanced" },
+        "limits": {
+          "type": "object", "additionalProperties": false, "default": {},
+          "properties": {
+            "packageBytes": { "type": "integer", "minimum": 1048576, "maximum": 1073741824, "default": 268435456, "x-restart": "live", "x-tier": "advanced" },
+            "skillBytes": { "type": "integer", "minimum": 1048576, "maximum": 1073741824, "default": 16777216, "x-restart": "live", "x-tier": "advanced" }
+          }
+        }
       }
     },
     "embedding": {

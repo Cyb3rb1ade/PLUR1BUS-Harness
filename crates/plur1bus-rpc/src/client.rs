@@ -299,6 +299,7 @@ fn check_server_pid(expected: Option<u32>, actual: Option<u32>) -> Result<(), Rp
             None => format!("the OS does not name the server, expected pid {expected}"),
         }),
         ids: None,
+        ext: None,
     })
 }
 
@@ -322,8 +323,12 @@ fn call_error(err: &Value) -> RpcError {
                 .iter()
                 .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                 .collect();
-            (!ids.is_empty()).then_some(ids)
+            (!ids.is_empty()).then(|| Box::new(ids))
         }),
+        ext: err["data"]
+            .get("ext")
+            .filter(|v| v.is_object())
+            .map(|v| Box::new(v.clone())),
     }
 }
 
@@ -339,6 +344,25 @@ mod tests {
                 ..
             }) => reason,
             other => panic!("expected E_UNAUTHORIZED, got {other:?}"),
+        }
+    }
+
+    /// X1-C19: `error.data.ext` reaches the caller as `RpcError::ext()`; an error without one (or with a non-object)
+    /// has none.
+    #[test]
+    fn error_data_ext_survives_on_a_call_error() {
+        let e = call_error(&json!({
+            "code": -32000, "message": "needs an acknowledgment",
+            "data": { "error": "E_APPROVAL_REQUIRED", "reason": "acknowledge-capabilities",
+                      "ext": { "capabilities": { "network": { "mode": "none" } }, "authority": "full" } }
+        }));
+        assert_eq!(e.code_name(), "E_APPROVAL_REQUIRED");
+        let ext = e.ext().expect("ext survives");
+        assert_eq!(ext["authority"], "full");
+        assert_eq!(ext["capabilities"]["network"]["mode"], "none");
+        for data in [json!({ "error": "E_INTERNAL" }), json!({ "ext": "x" })] {
+            let e = call_error(&json!({ "code": -32000, "message": "m", "data": data }));
+            assert!(e.ext().is_none(), "{e:?}");
         }
     }
 

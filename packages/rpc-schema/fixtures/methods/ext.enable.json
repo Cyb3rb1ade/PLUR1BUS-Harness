@@ -1,0 +1,2 @@
+{ "params": { "name": "demo-skill", "agents": ["bernd"], "acknowledge": ["capabilities"], "dryRun": false },
+  "result": { "name": "demo-skill", "state": "enabled", "restart": { "modules": [] }, "heldBack": [] } }

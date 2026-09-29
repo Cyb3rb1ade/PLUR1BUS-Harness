@@ -12,9 +12,11 @@ use crate::paths::{supervisor_address, Layout};
 use plur1bus_rpc::client::MAX_LINE;
 use plur1bus_rpc::types::{
     ConfigGetParams, ConfigGetParamsTier, ConfigSetParams, ConfigWatchParams, DaemonStartParams,
-    DaemonStatusParams, DaemonStopParams, ModuleGraphParams, ModuleInstallParams, ModuleListParams,
-    ModuleRestartParams, ModuleStartParams, ModuleStopParams, ModuleUninstallParams,
-    ModuleWatchParams, SupervisorAuthParams,
+    DaemonStatusParams, DaemonStopParams, ExtDisableParams, ExtEnableParams, ExtInspectParams,
+    ExtInstallParams, ExtListParams, ExtRestoreParams, ExtShowParams, ExtUninstallParams,
+    ExtWatchParams, ModuleGraphParams, ModuleInstallParams, ModuleListParams, ModuleRestartParams,
+    ModuleStartParams, ModuleStopParams, ModuleUninstallParams, ModuleWatchParams,
+    SupervisorAuthParams,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -143,6 +145,8 @@ struct Conn {
     config_sub: Option<String>,
     /// The `module.watch` subscription among them, reused by a second `module.watch`.
     module_sub: Option<String>,
+    /// The `ext.watch` subscription among them, reused by a second `ext.watch`.
+    ext_sub: Option<String>,
 }
 
 enum Line {
@@ -239,11 +243,24 @@ fn set_error_reply(id: &Value, e: SetError) -> Value {
     }
 }
 
-/// Room a `module.*` call leaves, beyond the module's stop, for a restart job the main thread runs before it.
-const MODULE_OP_SLACK: Duration = Duration::from_secs(30);
-
 fn op_error_reply(id: &Value, e: OpError) -> Value {
     error_reply(id, e.error, &e.message, e.reason.as_deref(), e.detail, None)
+}
+
+/// An `ext.*` failure: its code, reason and message, and what the refusal must show in `error.data.ext`.
+fn ext_error_reply(id: &Value, e: crate::ext::ExtError) -> Value {
+    let mut r = error_reply(id, e.code, &e.message, e.reason, None, None);
+    if let Some(ext) = super::ext::error_data(&e.data) {
+        r["error"]["data"]["ext"] = ext;
+    }
+    r
+}
+
+fn ext_reply(id: &Value, r: Result<Value, crate::ext::ExtError>) -> Value {
+    match r {
+        Ok(v) => result_reply(id, v),
+        Err(e) => ext_error_reply(id, e),
+    }
 }
 
 fn invalid_params(id: &Value, detail: String) -> Value {
@@ -330,6 +347,7 @@ impl ConnCtx {
             subscriptions: Vec::new(),
             config_sub: None,
             module_sub: None,
+            ext_sub: None,
         };
         // Watchdog: closes the connection unless `authed_tx` is dropped (auth succeeded, or the connection ended)
         // within AUTH_IDLE.
@@ -521,6 +539,48 @@ impl ConnCtx {
         (Value::Null, After::Queued)
     }
 
+    /// `ext.watch`: under the ext watch lock (so no `ext.changed` can come in between), subscribe the connection and
+    /// queue the reply, holding every installed extension, as the subscription's first line.
+    fn ext_watch(&self, id: &Value, conn: &mut Conn) -> (Value, After) {
+        let watched = super::ext::watch(&self.shared, &self.layout, |items| {
+            let reply = |sub: &str| {
+                let mut line =
+                    result_reply(id, json!({ "subscriptionId": sub, "items": items })).to_string();
+                line.push('\n');
+                line
+            };
+            if let Some(sub) = conn.ext_sub.clone() {
+                // A second ext.watch on this connection reuses its subscription (no duplicate notifications).
+                if !self.shared.subscribers.send_to(&sub, reply(&sub)) {
+                    (conn.closer)(); // the read loop then ends
+                }
+                return (Value::Null, After::Queued);
+            }
+            let closer = conn.closer.clone();
+            let sub = self.shared.subscribers.add(
+                Topic::Ext,
+                conn.writer.clone(),
+                Box::new(move || closer()),
+            );
+            if !self.shared.subscribers.send_to(&sub, reply(&sub)) {
+                self.shared.subscribers.remove(&sub);
+                let reply = error_reply(
+                    id,
+                    "E_INTERNAL",
+                    "cannot start the subscription",
+                    None,
+                    None,
+                    None,
+                );
+                return (reply, After::Continue);
+            }
+            conn.subscriptions.push(sub.clone());
+            conn.ext_sub = Some(sub);
+            (Value::Null, After::Queued)
+        });
+        watched.unwrap_or_else(|e| (ext_error_reply(id, e), After::Continue))
+    }
+
     fn config_get(&self, id: &Value, p: ConfigGetParams) -> Value {
         if p.key.is_some() && p.tier.is_some() {
             return invalid_params(id, "key and tier are exclusive".into());
@@ -581,8 +641,7 @@ impl ConnCtx {
         }
     }
 
-    /// Queues a `module.*` control call for the main thread and waits for its result: the stop budget, the stop grace
-    /// and room for a restart job running before it.
+    /// Queues a `module.*` control call for the main thread and waits for its result ([`super::modules::run_op`]).
     fn module_op(&self, id: &Value, name: &str, verb: ModuleVerb, budget_ms: Option<i64>) -> Value {
         if budget_ms.is_some_and(|b| !(0..=MAX_BUDGET_MS).contains(&b)) {
             return invalid_params(
@@ -593,44 +652,9 @@ impl ConnCtx {
         let budget = budget_ms
             .map(|b| Duration::from_millis(b as u64))
             .unwrap_or(DEFAULT_STOP_BUDGET);
-        let scale = self.shared.lock().time_scale;
-        let wait = budget + super::child::stop_grace(scale) + MODULE_OP_SLACK;
-        let op = match super::push_module_op(&self.shared, name, verb, budget) {
-            Ok(op) => op,
-            Err(e) => return op_error_reply(id, e),
-        };
-        let stopping = || {
-            op_error_reply(
-                id,
-                OpError::new(
-                    "E_NOT_AVAILABLE",
-                    "the supervisor is stopping",
-                    Some("stopping"),
-                ),
-            )
-        };
-        match op.rx.recv_timeout(wait) {
-            Ok(Ok(v)) => return result_reply(id, v),
-            Ok(Err(e)) => return op_error_reply(id, e),
-            Err(mpsc::RecvTimeoutError::Disconnected) => return stopping(),
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-        }
-        // M5: not started yet → cancelled, it never runs; already running → its result is waited for (the call
-        // itself is bounded by its stop budget), so a reported failure never runs afterwards.
-        if super::modules::cancel_op(&op.state) {
-            return error_reply(
-                id,
-                "E_NOT_AVAILABLE",
-                "the supervisor was busy; the call was cancelled and nothing changed",
-                Some("busy"),
-                None,
-                None,
-            );
-        }
-        match op.rx.recv() {
-            Ok(Ok(v)) => result_reply(id, v),
-            Ok(Err(e)) => op_error_reply(id, e),
-            Err(_) => stopping(),
+        match super::modules::run_op(&self.shared, name, verb, budget) {
+            Ok(v) => result_reply(id, v),
+            Err(e) => op_error_reply(id, e),
         }
     }
 
@@ -794,7 +818,79 @@ impl ConnCtx {
             "module.uninstall" => match parse::<ModuleUninstallParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(p) => (
-                    self.module_op(&id, &p.name, ModuleVerb::Uninstall, None),
+                    self.module_op(&id, &p.name, ModuleVerb::Uninstall { into: None }, None),
+                    After::Continue,
+                ),
+            },
+            "ext.watch" => match parse::<ExtWatchParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => self.ext_watch(&id, conn),
+            },
+            "ext.list" => match parse::<ExtListParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(&id, super::ext::list(&self.shared, &self.layout, &params)),
+                    After::Continue,
+                ),
+            },
+            "ext.show" => match parse::<ExtShowParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(&id, super::ext::show(&self.shared, &self.layout, &params)),
+                    After::Continue,
+                ),
+            },
+            "ext.inspect" => match parse::<ExtInspectParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(&id, super::ext::inspect(&self.layout, &params)),
+                    After::Continue,
+                ),
+            },
+            "ext.install" => match parse::<ExtInstallParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(
+                        &id,
+                        super::ext::install(&self.shared, &self.layout, &params),
+                    ),
+                    After::Continue,
+                ),
+            },
+            "ext.uninstall" => match parse::<ExtUninstallParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(
+                        &id,
+                        super::ext::uninstall(&self.shared, &self.layout, &params),
+                    ),
+                    After::Continue,
+                ),
+            },
+            "ext.restore" => match parse::<ExtRestoreParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(
+                        &id,
+                        super::ext::restore(&self.shared, &self.layout, &params),
+                    ),
+                    After::Continue,
+                ),
+            },
+            "ext.enable" => match parse::<ExtEnableParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(&id, super::ext::enable(&self.shared, &self.layout, &params)),
+                    After::Continue,
+                ),
+            },
+            "ext.disable" => match parse::<ExtDisableParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(
+                        &id,
+                        super::ext::disable(&self.shared, &self.layout, &params),
+                    ),
                     After::Continue,
                 ),
             },

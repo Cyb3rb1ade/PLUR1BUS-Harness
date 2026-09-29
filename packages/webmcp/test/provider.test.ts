@@ -70,6 +70,24 @@ describe("tool naming and selection", () => {
     for (const m of include) assert.equal(byName(tools, m), undefined, m);
   });
 
+  it("ext mutations are refused even as a hypothetical core method", () => {
+    const mutations = ["ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update"];
+    const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
+    const fakeSchema = structuredClone(SCHEMA) as any;
+    for (const m of mutations) {
+      assert.ok(isForbiddenMethod(m), m);
+      fakeCaps.methods[m] = { stability: "stable", since: "1.4.0", server: "core" };
+      fakeSchema.$defs.methods[m] = { "x-stability": "stable", "x-since": "1.4.0", "x-server": "core", params: { type: "object", additionalProperties: false, properties: {} } };
+    }
+    assert.deepEqual(selectMethods({ capabilities: fakeCaps, schema: fakeSchema, include: mutations }).filter((m) => m.startsWith("ext.")), []);
+    const tools = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include: mutations });
+    for (const m of mutations) assert.equal(byName(tools, m), undefined, m);
+  });
+
+  it("ext.list and ext.inspect are not refused by the deny list", () => {
+    for (const m of ["ext.list", "ext.inspect", "ext.show"]) assert.equal(isForbiddenMethod(m), false, m);
+  });
+
   it("filters by x-server when present (capability entry or schema def)", () => {
     const fakeCaps = { methods: { ...caps.methods, "memory.recall": { ...caps.methods["memory.recall"]!, server: "supervisor" } } as Record<string, any> };
     assert.ok(!selectMethods({ capabilities: fakeCaps, schema: SCHEMA }).includes("memory.recall"));

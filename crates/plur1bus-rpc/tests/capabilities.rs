@@ -34,6 +34,15 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
             "daemon.start",
             "daemon.status",
             "daemon.stop",
+            "ext.disable",
+            "ext.enable",
+            "ext.inspect",
+            "ext.install",
+            "ext.list",
+            "ext.restore",
+            "ext.show",
+            "ext.uninstall",
+            "ext.watch",
             "module.graph",
             "module.install",
             "module.list",
@@ -49,7 +58,8 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
         caps["notifications"],
         json!({
             "config.changed": { "stability": "experimental", "since": "1.3.0" },
-            "module.state": { "stability": "experimental", "since": "1.3.0" }
+            "module.state": { "stability": "experimental", "since": "1.3.0" },
+            "ext.changed": { "stability": "experimental", "since": "1.4.0" }
         })
     );
     assert_eq!(caps["extensionPoints"], json!({}));

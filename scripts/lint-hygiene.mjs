@@ -14,7 +14,11 @@ const PATTERNS = [
   { re: /["'`]\/(state|forget)["'`]/, why: "no slash-command emulation" },
   { re: /adapter\/openclaw|host-services\.js|plugin-runtime/, why: "no adapter or host-services import" },
 ];
-// Path prefix -> patterns checked only under it.
+// The ext files the supervisor can reach (X1-R2) and the two that only the worker process runs. Every file under
+// crates/plur1bus/src/ext/ must be in exactly one list, so a new file cannot slip past the rule unclassified.
+const EXT_SAFE = ["mod", "paths", "state", "index", "overlays", "host", "worker", "commit", "lifecycle", "remove", "list", "record"];
+const EXT_WORKER = ["inspect", "stage"];
+// Path prefix (or `files`) -> patterns checked only under it.
 const SCOPED = [
   {
     // Spec §4: the supervisor's dependency budget. Downloads, archives and signatures belong to the installer
@@ -23,6 +27,32 @@ const SCOPED = [
     patterns: [
       { re: /\b(ureq|flate2|tar::|zip::|minisign_verify|install::fetch|install::archive)\b/, why: "supervisor dependency budget (spec §4)" },
       { re: /\b(tar|zip)::[{*]/, why: "supervisor dependency budget (spec §4)" },
+    ],
+  },
+  {
+    // X1-R2: the supervisor never parses package bytes. `ext.inspect` and the staging half of `ext.install` run in a
+    // child process (`plur1bus ext __worker`, the EXT_WORKER files below, which are not listed here); every other ext
+    // file is reachable from the supervisor and must not name the parser, verifier, packer, extractor or the crates
+    // they stand on. The `multi` patterns catch grouped imports (`use plur1bus_ext::{compat, verify};`), also when
+    // rustfmt spreads them over several lines.
+    files: EXT_SAFE.map((n) => `crates/plur1bus/src/ext/${n}.rs`),
+    patterns: [
+      {
+        re: /\b(plur1bus_ext::(zipaudit|verify|pack|normalise)|install::archive|zip::|flate2|minisign_verify)\b/,
+        why: "supervisor must not parse package bytes (X1-R2)",
+      },
+      // `zip::` ends in a non-word character, so `\b` after it does not match before `{` or `*`.
+      { re: /\bzip::[{*]/, why: "supervisor must not parse package bytes (X1-R2)" },
+      {
+        multi: true,
+        re: /\bplur1bus_ext::\{[^;]*?\b(zipaudit|verify|pack|normalise)\b/,
+        why: "supervisor must not parse package bytes (X1-R2)",
+      },
+      {
+        multi: true,
+        re: /\binstall::\{[^;]*?\barchive\b/,
+        why: "supervisor must not parse package bytes (X1-R2)",
+      },
     ],
   },
 ];
@@ -70,18 +100,39 @@ function walk(dir) {
     const rel = relative(process.cwd(), p).replaceAll("\\", "/");
     if (ALLOW_FILES.has(rel) || ALLOW_DIRS.some((d) => rel.startsWith(d))) continue;
     const allow = ALLOW.get(rel) ?? [];
-    const patterns = [...PATTERNS, ...SCOPED.filter((s) => rel.startsWith(s.prefix)).flatMap((s) => s.patterns)];
-    readFileSync(p, "utf8")
+    const patterns = [...PATTERNS, ...SCOPED.filter((s) => (s.files ? s.files.includes(rel) : rel.startsWith(s.prefix))).flatMap((s) => s.patterns)];
+    const text = readFileSync(p, "utf8");
+    for (const { re, why, multi } of patterns) {
+      const m = multi ? re.exec(text) : null;
+      if (m) {
+        const at = text.slice(0, m.index).split(/\r?\n/).length;
+        console.error(`${rel}:${at}: ${why}: ${m[0].replace(/\s+/g, " ").slice(0, 120)}`);
+        bad += 1;
+      }
+    }
+    text
       .split(/\r?\n/) // a Windows checkout (core.autocrlf) has CRLF; anchored allow-list regexes must still match
       .forEach((line, i) => {
-        for (const { re, why } of patterns) {
-          if (re.test(line) && !allow.some((a) => a.test(line))) {
+        for (const { re, why, multi } of patterns) {
+          if (!multi && re.test(line) && !allow.some((a) => a.test(line))) {
             console.error(`${rel}:${i + 1}: ${why}: ${line.trim().slice(0, 120)}`);
             bad += 1;
           }
         }
       });
   }
+}
+const EXT_DIR = "crates/plur1bus/src/ext";
+try {
+  for (const name of readdirSync(EXT_DIR)) {
+    const stem = name.replace(/\.rs$/, "");
+    if (name.endsWith(".rs") && !EXT_SAFE.includes(stem) && !EXT_WORKER.includes(stem)) {
+      console.error(`${EXT_DIR}/${name}:1: ext file is in neither EXT_SAFE nor EXT_WORKER (scripts/lint-hygiene.mjs, X1-R2)`);
+      bad += 1;
+    }
+  }
+} catch {
+  /* no ext directory */
 }
 for (const r of ROOTS) {
   try {

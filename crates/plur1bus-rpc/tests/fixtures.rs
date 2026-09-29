@@ -63,6 +63,15 @@ fn method_fixture(name: &str, f: &Value) {
         "module.status" => pair::<ModuleStatusParams, ModuleStatusResult>(name, f),
         "module.adopt" => pair::<ModuleAdoptParams, ModuleAdoptResult>(name, f),
         "module.shutdown" => pair::<ModuleShutdownParams, ModuleShutdownResult>(name, f),
+        "ext.list" => pair::<ExtListParams, ExtListResult>(name, f),
+        "ext.show" => pair::<ExtShowParams, ExtShowResult>(name, f),
+        "ext.inspect" => pair::<ExtInspectParams, ExtInspectResult>(name, f),
+        "ext.install" => pair::<ExtInstallParams, ExtInstallResult>(name, f),
+        "ext.uninstall" => pair::<ExtUninstallParams, ExtUninstallResult>(name, f),
+        "ext.restore" => pair::<ExtRestoreParams, ExtRestoreResult>(name, f),
+        "ext.enable" => pair::<ExtEnableParams, ExtEnableResult>(name, f),
+        "ext.disable" => pair::<ExtDisableParams, ExtDisableResult>(name, f),
+        "ext.watch" => pair::<ExtWatchParams, ExtWatchResult>(name, f),
         "memory.recall" => pair::<MemoryRecallParams, MemoryRecallResult>(name, f),
         "memory.capture" => pair::<MemoryCaptureParams, MemoryCaptureResult>(name, f),
         "memory.checkpoint" => pair::<MemoryCheckpointParams, MemoryCheckpointResult>(name, f),
@@ -180,6 +189,15 @@ fn every_method_fixture_round_trips() {
         "admin.migrate",
         "admin.embedding.probe",
         "admin.embedding.serve",
+        "ext.list",
+        "ext.show",
+        "ext.inspect",
+        "ext.install",
+        "ext.uninstall",
+        "ext.restore",
+        "ext.enable",
+        "ext.disable",
+        "ext.watch",
     ] {
         assert!(names.contains(m), "fixtures/methods/{m}.json is missing");
     }
@@ -237,6 +255,7 @@ fn every_notification_fixture_round_trips() {
             }
             "config.changed" => round_trip::<types::ConfigChangedNotification>(v, name),
             "module.state" => round_trip::<types::ModuleStateNotification>(v, name),
+            "ext.changed" => round_trip::<types::ExtChangedNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }
@@ -247,4 +266,25 @@ fn journal_line_type_matches_schema_fixture_shape() {
     let v = serde_json::json!({ "v": 1, "id": "11111111-1111-4111-8111-111111111111", "at": 1, "agentId": "bernd", "sessionKey": "s1",
         "caller": { "channel": "cli", "accountId": "h", "userId": "u" }, "messages": [{ "role": "user", "content": "x" }] });
     round_trip::<types::JournalLine>(&v, "journal line");
+}
+
+#[test]
+fn rpc_version_const_matches_the_schema() {
+    let schema: Value = serde_json::from_str(
+        &fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../packages/rpc-schema/schema/rpc.schema.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        plur1bus_rpc::RPC_VERSION,
+        schema["x-rpc-version"].as_str().unwrap()
+    );
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.4.0");
+    assert!(schema["$id"]
+        .as_str()
+        .unwrap()
+        .contains(&format!("/{}/", plur1bus_rpc::RPC_VERSION)));
 }

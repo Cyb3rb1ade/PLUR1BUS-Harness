@@ -22,7 +22,11 @@ pub enum ModuleVerb {
     /// A module already copied into its staging directory (B14): committed on the main thread, around a stop and a
     /// start of the module when it runs.
     Install(Box<crate::modules::install::Staged>),
-    Uninstall,
+    /// `into: None` removes the module's directory (`module.uninstall`); `Some(dir)` moves it there instead
+    /// (`ext.uninstall` puts it into the trash, X1-R19).
+    Uninstall {
+        into: Option<std::path::PathBuf>,
+    },
 }
 
 /// A queued `module.*` control call: run by the main thread, which sends the result on `done`.
@@ -85,8 +89,20 @@ pub fn push_module_op(
     verb: ModuleVerb,
     budget: Duration,
 ) -> Result<OpHandle, OpError> {
+    push_op(shared, name, verb, budget, false)
+}
+
+/// [`push_module_op`]; `ext` marks an op of an ext mutation, which a stop still runs while it waits for that mutation
+/// (`SupervisorState::ext_draining`).
+fn push_op(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+    ext: bool,
+) -> Result<OpHandle, OpError> {
     let mut st = shared.lock();
-    if st.stopping.is_some() {
+    if st.stopping.is_some() && !(ext && st.ext_draining) {
         return Err(OpError::new(
             "E_NOT_AVAILABLE",
             "the supervisor is stopping",
@@ -104,6 +120,64 @@ pub fn push_module_op(
     });
     shared.wake.notify_all();
     Ok(OpHandle { rx, state })
+}
+
+/// Room a `module.*` call leaves, beyond the module's stop, for a restart job the main thread runs before it.
+const MODULE_OP_SLACK: Duration = Duration::from_secs(30);
+
+/// Queues a `module.*` control call for the main thread and waits for its result: the stop budget, the stop grace and
+/// room for a restart job running before it. An op that has not started by then is cancelled (it never runs, M5) and
+/// answers `E_NOT_AVAILABLE reason=busy`; one already running is waited for, so a reported failure never runs
+/// afterwards. The `module.*` handlers and the ext layer's `SupervisorHost` share it.
+pub fn run_op(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+) -> Result<Value, OpError> {
+    run_op_as(shared, name, verb, budget, false)
+}
+
+/// [`run_op`] for an ext mutation's host (`ext::commit::ModuleHost`): a stop that waits for the mutation still runs it.
+pub fn run_ext_op(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+) -> Result<Value, OpError> {
+    run_op_as(shared, name, verb, budget, true)
+}
+
+fn run_op_as(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+    ext: bool,
+) -> Result<Value, OpError> {
+    let scale = shared.lock().time_scale;
+    let wait = budget + child::stop_grace(scale) + MODULE_OP_SLACK;
+    let op = push_op(shared, name, verb, budget, ext)?;
+    let stopping = || {
+        OpError::new(
+            "E_NOT_AVAILABLE",
+            "the supervisor is stopping",
+            Some("stopping"),
+        )
+    };
+    match op.rx.recv_timeout(wait) {
+        Ok(r) => return r,
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Err(stopping()),
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+    }
+    if cancel_op(&op.state) {
+        return Err(OpError::new(
+            "E_NOT_AVAILABLE",
+            "the supervisor was busy; the call was cancelled and nothing changed",
+            Some("busy"),
+        ));
+    }
+    op.rx.recv().unwrap_or_else(|_| Err(stopping()))
 }
 
 /// A queued op as its caller holds it: the result channel and the op's state ([`cancel_op`]).
@@ -180,13 +254,21 @@ fn modules_view(shared: &Shared, layout: &Layout) -> ModulesView {
     // one pass makes it transitive, H3B-R25).
     let mut held_back: BTreeMap<String, String> = BTreeMap::new();
     // H3B-R28: a module stopped by `module.stop` holds its dependents back too (it may still be started itself).
-    let requested_stops: BTreeSet<String> = shared
-        .lock()
-        .slots
-        .iter()
-        .filter(|s| s.child.as_ref().is_some_and(stopped_by_request))
-        .map(|s| s.role.name.clone())
-        .collect();
+    let (requested_stops, ext_overlays): (BTreeSet<String>, BTreeMap<String, &'static str>) = {
+        let st = shared.lock();
+        let stops = st
+            .slots
+            .iter()
+            .filter(|s| s.child.as_ref().is_some_and(stopped_by_request))
+            .map(|s| s.role.name.clone())
+            .collect();
+        let overlays = st
+            .ext_overlays
+            .iter()
+            .filter_map(|(n, o)| super::ext::overlay_reason(*o).map(|r| (n.clone(), r)))
+            .collect();
+        (stops, overlays)
+    };
     for name in &order {
         let Some(Ok(m)) = installed
             .iter()
@@ -200,6 +282,9 @@ fn modules_view(shared: &Shared, layout: &Layout) -> ModulesView {
         };
         let h = if !crate::modules::enabled(&modules_config, name) {
             Some((stopped(state::STOPPED_DISABLED), vec![]))
+        } else if let Some(reason) = ext_overlays.get(name) {
+            // X1-R17: a packaged module that is revoked, tampered with or incompatible is held back.
+            Some((stopped(reason), vec![]))
         } else if m.scope == "agent" {
             Some((stopped(state::STOPPED_SCOPE_AGENT), vec![]))
         } else if !crate::modules::api_version_supported(&m.api_version, current) {
@@ -427,6 +512,9 @@ fn wants_start(slot: &Slot, has_monitor: bool, in_plan: bool) -> bool {
                 state::STOPPED_DISABLED
                     | state::STOPPED_SCOPE_AGENT
                     | state::STOPPED_NEEDS_UNAVAILABLE
+                    | state::STOPPED_EXT_REVOKED
+                    | state::STOPPED_EXT_TAMPERED
+                    | state::STOPPED_EXT_INCOMPATIBLE
             )
         );
     let held_crash = !has_monitor
@@ -546,7 +634,7 @@ pub(super) fn run_module_op(
         ModuleVerb::Stop => "stop",
         ModuleVerb::Restart => "restart",
         ModuleVerb::Install(_) => "install",
-        ModuleVerb::Uninstall => "uninstall",
+        ModuleVerb::Uninstall { .. } => "uninstall",
     };
     shared.log.info(
         &format!("module.{verb_name}"),
@@ -556,7 +644,15 @@ pub(super) fn run_module_op(
         ModuleVerb::Install(staged) => {
             install_module(shared, layout, token, monitors, *staged, budget)
         }
-        ModuleVerb::Uninstall => uninstall_module(shared, layout, token, monitors, &name, budget),
+        ModuleVerb::Uninstall { into } => uninstall_module(
+            shared,
+            layout,
+            token,
+            monitors,
+            &name,
+            into.as_deref(),
+            budget,
+        ),
         verb => control_module(shared, layout, token, monitors, &name, verb, budget),
     };
     if let Err(e) = &result {
@@ -690,13 +786,15 @@ fn install_module(
 }
 
 /// `module.uninstall` with a supervisor (B14): the module is stopped, its directory and slot removed (its
-/// `modules.<name>` stays in config.json), and the modules reconciled (a dependent is held back).
+/// `modules.<name>` stays in config.json), and the modules reconciled (a dependent is held back). With `into`
+/// (`ext.uninstall`), the directory is moved there instead of removed (`modules::install::remove_to`).
 fn uninstall_module(
     shared: &Arc<Shared>,
     layout: &Layout,
     token: &str,
     monitors: &mut Monitors,
     name: &str,
+    into: Option<&std::path::Path>,
     budget: Duration,
 ) -> Result<Value, OpError> {
     if crate::modules::install::installed_dir(layout, name).is_none() {
@@ -705,7 +803,11 @@ fn uninstall_module(
     if let Some(m) = monitors.get_mut(name) {
         m.stop(budget);
     }
-    if let Err(e) = crate::modules::install::uninstall(layout, name) {
+    let removed = match into {
+        None => crate::modules::install::uninstall(layout, name),
+        Some(dir) => crate::modules::install::remove_to(layout, name, dir),
+    };
+    if let Err(e) = removed {
         let mut err = OpError::new("E_INTERNAL", "the module could not be removed", None);
         err.detail = Some(e.to_string());
         return Err(err);

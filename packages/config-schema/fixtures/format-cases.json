@@ -29,6 +29,14 @@
           "createdAt": "2026-09-24T00:00:00Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -70,6 +78,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24T00:00:00.123+02:00"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -115,6 +131,14 @@
           "createdAt": "2026-09-24t10:20:30z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -156,6 +180,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24 10:20:30Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -201,6 +233,14 @@
           "createdAt": "2026-09-24T10:20:30+0200"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -242,6 +282,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24T10:20:30+02"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -287,6 +335,14 @@
           "createdAt": "2026-09-24T10:20:30.123456789012345-05:30"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -328,6 +384,14 @@
       "agents": {
         "bernd": {
           "createdAt": "yesterday"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -373,6 +437,14 @@
           "createdAt": ""
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -414,6 +486,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -459,6 +539,14 @@
           "createdAt": "2026-09-24T10:20:30"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -500,6 +588,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24T10:20Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -545,6 +641,14 @@
           "createdAt": "2026-9-24T10:20:30Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -586,6 +690,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2024-02-29T00:00:00Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -631,6 +743,14 @@
           "createdAt": "2026-02-29T00:00:00Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -672,6 +792,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-04-31T00:00:00Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -717,6 +845,14 @@
           "createdAt": "2026-13-01T00:00:00Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -758,6 +894,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24T24:00:00Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -803,6 +947,14 @@
           "createdAt": "2026-09-24T10:60:00Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -844,6 +996,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24T10:20:30+24:00"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -889,6 +1049,14 @@
           "createdAt": "2026-09-24T10:20:30+02:60"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -930,6 +1098,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24T10:20:30.Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -975,6 +1151,14 @@
           "createdAt": "2026-09-24T10:20:30Zjunk"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -1016,6 +1200,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-09-24TT10:20:30Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -1061,6 +1253,14 @@
           "createdAt": "2026-12-31T23:59:60Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -1102,6 +1302,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2026-12-31T12:59:60Z"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -1147,6 +1355,14 @@
           "createdAt": "2026-12-31T23:59:60+01:00"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -1188,6 +1404,14 @@
       "agents": {
         "bernd": {
           "createdAt": "2027-01-01T00:59:60+01:00"
+        }
+      },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
         }
       },
       "embedding": {
@@ -1233,6 +1457,14 @@
           "createdAt": "2026-12-31T23:59:61Z"
         }
       },
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
@@ -1272,6 +1504,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false,
@@ -1312,6 +1552,14 @@
         "keep": 5
       },
       "agents": {},
+      "extensions": {
+        "allowUnsigned": true,
+        "trashDays": 14,
+        "limits": {
+          "packageBytes": 268435456,
+          "skillBytes": 16777216
+        }
+      },
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false,

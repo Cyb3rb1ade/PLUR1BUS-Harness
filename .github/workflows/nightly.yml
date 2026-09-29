@@ -75,3 +75,15 @@ jobs:
         with:
           path: ${{ github.workspace }}/.models-cache
           key: ${{ steps.models.outputs.cache-primary-key }}
+  # Spec 2026-09-27 §8.4/§12, acceptance 8: ten minutes of mutants of valid .p1x packages through the inspect pipeline
+  # (no panic, no mutant accepted as first-party). The seed is printed; replay a failure with PLUR1BUS_FUZZ_SEED.
+  ext-fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@v2
+      - name: fuzz the inspect pipeline (600 s)
+        run: PLUR1BUS_FUZZ_SECONDS=600 cargo test -p plur1bus-ext --features testkit --test fuzz -- --ignored --nocapture

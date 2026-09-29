@@ -5,7 +5,7 @@
 //! `modules/<name>.tmp-<pid>` (which [`super::scan`] skips) and renamed to `modules/<name>`, so a reader never sees a
 //! half-copied module. [`stage`] and [`commit`] are the two halves, so the supervisor can stop a running module in
 //! between.
-use super::manifest::{parse_manifest, Manifest, RESERVED_NAMES};
+use crate::modules::manifest::{parse_manifest, Manifest, RESERVED_NAMES};
 use crate::paths::Layout;
 use serde_json::Value;
 use std::fs;
@@ -210,6 +210,19 @@ fn check_socket_path(address: String, limit: Option<usize>) -> Result<(), Instal
     }
 }
 
+/// M7 for a module that is not on disk yet (X1 inspect, Review Focus 4): whether `run/module-<name>.sock` under this
+/// home fits a socket address on this platform.
+pub fn check_socket_fits(layout: &Layout, name: &str) -> Result<(), InstallError> {
+    check_socket_path(
+        crate::paths::module_address(
+            &layout.home,
+            if cfg!(windows) { "windows" } else { "posix" },
+            name,
+        ),
+        socket_path_limit(),
+    )
+}
+
 /// Checks `src` (nothing is copied when it is refused), copies it into `modules/<name>.tmp-<pid>`, and checks the
 /// copy again (M1): the tree has no symlink or special file, and its `module.json` is valid and names the same module.
 /// What is installed is what was checked, even if the source changed while it was copied.
@@ -224,14 +237,7 @@ pub fn stage(layout: &Layout, src: &Path) -> Result<Staged, InstallError> {
     let mut tree = Vec::new();
     walk(src, &mut tree)?;
     let manifest = check_manifest(src)?;
-    check_socket_path(
-        crate::paths::module_address(
-            &layout.home,
-            if cfg!(windows) { "windows" } else { "posix" },
-            &manifest.name,
-        ),
-        socket_path_limit(),
-    )?;
+    check_socket_fits(layout, &manifest.name)?;
     let modules = layout.home.join("modules");
     fs::create_dir_all(&modules).map_err(|e| io_err("cannot create", &modules, e))?;
     recover(layout);
@@ -292,7 +298,7 @@ pub fn recover(layout: &Layout) -> Vec<String> {
         let Some((name, pid, suffix)) = parse_staging(&dir) else {
             continue;
         };
-        if pid == std::process::id() || crate::commands::firstaid::pid_alive(pid) {
+        if pid == std::process::id() || crate::proc::pid_alive(pid) {
             continue;
         }
         let path = e.path();
@@ -397,6 +403,24 @@ pub fn uninstall(layout: &Layout, name: &str) -> Result<(), InstallError> {
     fs::remove_dir_all(&gone).map_err(|e| io_err("cannot remove", &gone, e))
 }
 
+/// Moves `modules/<name>` to `dest` with one rename (an ext uninstall moves the code into the trash, X1-R19). `dest`
+/// must not exist and its parent must; the module stays in place on any failure. The caller stops a running module
+/// first and answers `E_MODULE_UNKNOWN` when [`installed_dir`] finds none.
+#[allow(dead_code)] // the ext uninstall (X1 Task 9)
+pub fn remove_to(layout: &Layout, name: &str, dest: &Path) -> Result<(), InstallError> {
+    let Some(dir) = installed_dir(layout, name) else {
+        return Err(InstallError::Io(format!("module {name} is not installed")));
+    };
+    if fs::symlink_metadata(dest).is_ok() {
+        return Err(InstallError::Io(format!(
+            "cannot move {} to {}: the destination exists",
+            dir.display(),
+            dest.display()
+        )));
+    }
+    rename_retrying(&dir, dest).map_err(|e| io_err("cannot move", &dir, e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -449,6 +473,30 @@ mod tests {
         assert!(!dst.exists());
         assert!(installed_dir(&layout, "mod-a").is_none());
         assert!(installed_dir(&layout, "../h").is_none());
+    }
+
+    #[test]
+    fn remove_to_moves_the_module_and_refuses_an_existing_dest() {
+        let tmp = tempfile::tempdir().unwrap();
+        let layout = Layout::new(tmp.path().join("h"));
+        let src = module_dir(tmp.path(), &manifest("mod-a", "index.js"));
+        install(&layout, &src).unwrap();
+        let trash = layout.home.join("extensions/trash/mod-a-0.1.0-x");
+        fs::create_dir_all(&trash).unwrap();
+        let dest = trash.join("code");
+        remove_to(&layout, "mod-a", &dest).unwrap();
+        assert!(installed_dir(&layout, "mod-a").is_none());
+        assert!(dest.join("module.json").is_file() && dest.join("lib/util.js").is_file());
+
+        // An existing destination is refused and the module stays where it is.
+        install(&layout, &src).unwrap();
+        let e = remove_to(&layout, "mod-a", &dest).unwrap_err();
+        assert!(e.is_io() && e.to_string().contains("exists"), "{e}");
+        assert!(installed_dir(&layout, "mod-a").is_some());
+        // An unknown module and a name that is not one segment are refused.
+        assert!(remove_to(&layout, "mod-b", &trash.join("b")).is_err());
+        assert!(remove_to(&layout, "../h", &trash.join("c")).is_err());
+        assert!(!trash.join("b").exists() && !trash.join("c").exists());
     }
 
     #[test]

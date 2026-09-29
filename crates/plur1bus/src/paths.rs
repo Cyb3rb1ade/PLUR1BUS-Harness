@@ -240,6 +240,21 @@ impl Layout {
     pub fn skills(&self) -> PathBuf {
         self.home.join("skills")
     }
+    /// `<home>/extensions`: `state.json`, the package cache, staging, the trash and the catalogue cache (X1).
+    #[allow(dead_code)] // the ext state layer (X1 Task 5)
+    pub fn extensions(&self) -> PathBuf {
+        self.home.join("extensions")
+    }
+    /// `<home>/data/ext/<name>`: an extension's own data, kept at uninstall (X1-R31).
+    #[allow(dead_code)] // the ext lifecycle (X1 Tasks 7, 9)
+    pub fn ext_data(&self, name: &str) -> PathBuf {
+        self.home.join("data").join("ext").join(name)
+    }
+    /// `<home>/imports`: the skills importer's lock and its rollback data; the ext code takes the same lock (X1-R14).
+    #[allow(dead_code)] // the ext state layer (X1 Task 5)
+    pub fn imports(&self) -> PathBuf {
+        self.home.join("imports")
+    }
     /// `<home>/models`: the embedding and reranker model cache.
     #[allow(dead_code)] // the models.cache check (2a-H3b-b Task 6)
     pub fn models(&self) -> PathBuf {

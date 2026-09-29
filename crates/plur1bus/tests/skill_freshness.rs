@@ -66,6 +66,16 @@ fn sh_command_lines(text: &str) -> Vec<String> {
     lines
 }
 
+/// The text of every inline code span of `text` that starts with `plur1bus ` (outside fences too).
+fn inline_command_spans(text: &str) -> Vec<String> {
+    text.split('`')
+        .skip(1)
+        .step_by(2)
+        .filter(|s| s.starts_with("plur1bus "))
+        .map(str::to_string)
+        .collect()
+}
+
 /// The command path of a collected line: the subcommand words after `plur1bus`, stopping at the
 /// first token that is a flag (`-...`), a placeholder (`<...>`) or a quoted value (`"..."`/`'...'`)
 /// — exactly the "strips arguments that are not flags or subcommands" rule (Task 9 interfaces).
@@ -134,6 +144,38 @@ fn skill_names_only_real_json_commands_and_covers_every_check_crash_reason_error
         assert_eq!(
             code, 0,
             "`plur1bus {} --help` failed (stale command in the skill?): stdout={stdout:?} stderr={stderr:?}",
+            path.join(" ")
+        );
+    }
+
+    // (a') every inline `plur1bus …` code span in prose and tables (the hints a person follows) names a real command
+    // path too, for each `a|b` alternative of a word.
+    let mut inline_paths: BTreeSet<Vec<String>> = BTreeSet::new();
+    for (_, text) in &files {
+        for span in inline_command_spans(text) {
+            let mut alts: Vec<Vec<String>> = vec![vec![]];
+            for word in command_path(&span) {
+                alts = alts
+                    .into_iter()
+                    .flat_map(|p| {
+                        word.split('|').map(move |w| {
+                            let mut p = p.clone();
+                            p.push(w.to_string());
+                            p
+                        })
+                    })
+                    .collect();
+            }
+            inline_paths.extend(alts.into_iter().filter(|p| !p.is_empty()));
+        }
+    }
+    for path in inline_paths.difference(&paths) {
+        let mut cmd = Command::new(bin());
+        cmd.args(path).arg("--help");
+        let (code, stdout, stderr) = run(cmd);
+        assert_eq!(
+            code, 0,
+            "`plur1bus {} --help` failed (an inline command in the skill names no real command): stdout={stdout:?} stderr={stderr:?}",
             path.join(" ")
         );
     }

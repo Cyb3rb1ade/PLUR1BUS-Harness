@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.3.0)
+# RPC reference (rpc 1.4.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -2596,7 +2596,7 @@ Every installed module (modules/<name>/module.json) in directory order, with its
 
 **Served by:** supervisor
 
-Clears the module's backoff and starts it (a no-op while it runs); ends a module.stop. E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+Clears the module's backoff and starts it (a no-op while it runs); ends a module.stop. E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled, needs-unavailable, ext-revoked, ext-tampered or ext-incompatible when it cannot run (the last three: a module installed from a .p1x package is revoked, its installed files changed, or its compat no longer holds).
 
 **params**
 
@@ -2700,7 +2700,7 @@ Stops the module within budgetMs (default 10000); it stays stopped (reason stopp
 
 **Served by:** supervisor
 
-Stops the module within budgetMs (default 10000) and starts it again (a requested restart: it never counts toward the give-up budget). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled or needs-unavailable when it cannot run.
+Stops the module within budgetMs (default 10000) and starts it again (a requested restart: it never counts toward the give-up budget). E_MODULE_UNKNOWN when no module of that name is installed; E_NOT_AVAILABLE with reason manifest-invalid, api-version-unsupported, scope-agent-unsupported, disabled, needs-unavailable, ext-revoked, ext-tampered or ext-incompatible when it cannot run (the last three: a module installed from a .p1x package is revoked, its installed files changed, or its compat no longer holds).
 
 **params**
 
@@ -3050,6 +3050,552 @@ Asks the module to stop within budgetMs; the process removes its run files and e
   "properties": {
     "accepted": {
       "const": true
+    }
+  }
+}
+```
+
+### `ext.list`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Lists installed extensions (skills, modules, channels), optionally filtered by kind, plain state and the agent that has them. E_STORAGE reason=state-invalid when extensions/state.json cannot be read; an unreadable skills/index.json lists every skill as not enabled.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtKind"
+      }
+    },
+    "state": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "installed",
+          "enabled"
+        ]
+      }
+    },
+    "agent": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtItem"
+      }
+    }
+  }
+}
+```
+
+### `ext.show`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+One extension in detail. E_NOT_FOUND reason=extension-unknown when nothing of that name is installed. E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ExtDetail"
+}
+```
+
+### `ext.inspect`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Audits a package file (.p1x, or a skill folder, .zip or .skill normalised to an unsigned package) in a worker process and keeps it for ten minutes; writes nothing under skills/, modules/ or extensions/. E_INVALID_PARAMS reason=package-invalid|signature-invalid|scripts-mismatch|archive-unsafe-entry|archive-unsupported|download-too-large|digest-mismatch|reserved-name|socket-path-too-long; E_CONFLICT reason=name-taken; E_NOT_AVAILABLE reason=incompatible|kind-unsupported; E_DENIED reason=policy-unsigned-disallowed|revoked; E_INTERNAL reason=worker-failed (the worker crashed or overran its 60 s; what it left is removed)|io; E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read). What a refusal must show is in error.data.ext.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source"
+  ],
+  "properties": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ExtInspection"
+}
+```
+
+### `ext.install`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Installs an inspected package, disabled unless enable is given (which needs acknowledge capabilities). Installing the identical package again is a no-op with replaced false. E_NOT_FOUND reason=inspection-expired; E_APPROVAL_REQUIRED reason=acknowledge-unsigned|acknowledge-unknown-signer|acknowledge-downgrade|acknowledge-capabilities; E_CONFLICT reason=busy|name-taken; E_DENIED reason=revoked|policy-unsigned-disallowed; E_INVALID_PARAMS reason=digest-mismatch|package-invalid|agents-not-supported; E_NOT_AVAILABLE reason=kind-unsupported; E_INTERNAL reason=worker-failed (the staging worker crashed or overran its 300 s; its staging and the inspection are removed, inspect again)|io; E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_LOCKED reason=skills-locked (another writer holds the skills index). What a refusal must show is in error.data.ext.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inspectionId"
+  ],
+  "properties": {
+    "inspectionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "acknowledge": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "unsigned",
+          "unknown-signer",
+          "downgrade",
+          "capabilities"
+        ]
+      }
+    },
+    "enable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agents"
+      ],
+      "properties": {
+        "agents": {
+          "$ref": "#/$defs/ExtAgents"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version",
+    "kind",
+    "replaced",
+    "state"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ExtKind"
+    },
+    "replaced": {
+      "type": "boolean"
+    },
+    "state": {
+      "enum": [
+        "installed",
+        "enabled"
+      ]
+    }
+  }
+}
+```
+
+### `ext.uninstall`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Moves an extension into the trash (kept extensions.trashDays days); purge also moves its data. E_NOT_FOUND reason=extension-unknown; E_CONFLICT reason=required-by|busy; E_DENIED reason=bundled (purge of a bundled item). E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back). trashId is null when nothing went into the trash: a bundled skill is hidden, not moved. What a refusal must show is in error.data.ext.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "purge": {
+      "type": "boolean"
+    },
+    "cascade": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "removed",
+    "trashId",
+    "purged"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "removed": {
+      "const": true
+    },
+    "trashId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The trash entry to restore from; null for a bundled skill, which is hidden, not moved."
+    },
+    "purged": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `ext.restore`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Restores an extension from the trash. E_NOT_FOUND reason=trash-expired; E_CONFLICT reason=name-taken|busy. E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "trashId"
+  ],
+  "properties": {
+    "trashId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version",
+    "state"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "installed",
+        "enabled"
+      ]
+    }
+  }
+}
+```
+
+### `ext.enable`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Enables an extension, for the given agents (skills only) or everywhere; dryRun runs every refusal and reports restart and heldBack without writing. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_APPROVAL_REQUIRED reason=acknowledge-capabilities; E_NOT_AVAILABLE reason=needs-setup|incompatible|tampered; E_DENIED reason=revoked; E_INVALID_PARAMS reason=agents-not-supported (modules and channels); E_CONFLICT reason=busy. E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back). What a refusal must show is in error.data.ext.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "agents": {
+      "$ref": "#/$defs/ExtAgents"
+    },
+    "acknowledge": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "capabilities"
+        ]
+      }
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "state",
+    "restart",
+    "heldBack"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "installed",
+        "enabled"
+      ]
+    },
+    "restart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modules"
+      ],
+      "properties": {
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "heldBack": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `ext.disable`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Disables an extension, for the given agents (skills only) or everywhere; dryRun runs every refusal and reports restart and heldBack without writing. Disabling a module holds back the enabled modules that need it (listed in heldBack); it is never refused for them. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_CONFLICT reason=busy; E_INVALID_PARAMS reason=agents-not-supported (modules and channels). E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "agents": {
+      "$ref": "#/$defs/ExtAgents"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "state",
+    "restart",
+    "heldBack"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "installed",
+        "enabled"
+      ]
+    },
+    "restart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modules"
+      ],
+      "properties": {
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "heldBack": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `ext.watch`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+Returns every installed extension and subscribes this connection to ext.changed. E_STORAGE reason=state-invalid (extensions/state.json cannot be read; nothing is subscribed).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subscriptionId",
+    "items"
+  ],
+  "properties": {
+    "subscriptionId": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtItem"
+      }
     }
   }
 }
@@ -3596,6 +4142,57 @@ A module child's health changed (spawned, ready, degraded, orphaned, stopping, s
 }
 ```
 
+### `ext.changed`
+
+**Stability:** experimental · since 1.4.0
+
+**Served by:** supervisor
+
+An extension's kind, state, version or overlays changed (install, uninstall, restore, enable, disable, integrity), sent on connections that called ext.watch. `state` is installed or enabled, or removed once the extension was uninstalled (then version is the removed version and overlays is empty).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "x-server": "supervisor",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "An extension's kind, state, version or overlays changed (install, uninstall, restore, enable, disable, integrity), sent on connections that called ext.watch. `state` is installed or enabled, or removed once the extension was uninstalled (then version is the removed version and overlays is empty).",
+  "required": [
+    "name",
+    "kind",
+    "state",
+    "version",
+    "overlays"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "kind": {
+      "$ref": "#/$defs/ExtKind"
+    },
+    "state": {
+      "enum": [
+        "installed",
+        "enabled",
+        "removed"
+      ]
+    },
+    "version": {
+      "type": "string"
+    },
+    "overlays": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtOverlay"
+      }
+    }
+  }
+}
+```
+
 ## Definitions
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
@@ -3658,6 +4255,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         },
         "detail": {
           "type": "string"
+        },
+        "ext": {
+          "type": "object",
+          "description": "Experimental (1.4.0). What an ext.* refusal shows: the capability disclosure of acknowledge-capabilities (name, id, version, kind, trust, capabilities, scripts, authority; an install's acknowledge-* carries the ExtInspection instead, plus authority and previousCapabilities), dependents of required-by, paths of tampered, name, installedKind and installedId of name-taken, disabledDependents of an uninstall that failed after its cascade."
         },
         "ids": {
           "type": "object",
@@ -5111,6 +5712,406 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/Message"
+      }
+    }
+  }
+}
+```
+
+### `ExtKind`
+
+```json
+{
+  "description": "Experimental (1.4.0). The kind of an extension (X1). X2 extends the enum additively (mcp-server, bundle).",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "enum": [
+    "skill",
+    "module",
+    "channel"
+  ]
+}
+```
+
+### `ExtOverlay`
+
+```json
+{
+  "description": "Experimental (1.4.0). A derived condition shown instead of the plain state; it never changes the configuration: `needs-setup` (a required secret slot is unfilled), `tampered` (installed files differ from state.json), `revoked` (a revocation matches), `incompatible` (compat no longer holds), `error` (an item in an error state, e.g. a module that gave up, spec 6.2).",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "enum": [
+    "needs-setup",
+    "incompatible",
+    "revoked",
+    "tampered",
+    "error"
+  ]
+}
+```
+
+### `ExtTrustTier`
+
+```json
+{
+  "description": "Experimental (1.4.0). Where an item stands on trust: release (bundled with a release), first-party (signed by a pinned key), unknown-signer (signed by a key the harness does not trust), unsigned, imported (from a skills import) or dev (a local module directory).",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "enum": [
+    "release",
+    "first-party",
+    "unknown-signer",
+    "unsigned",
+    "imported",
+    "dev"
+  ]
+}
+```
+
+### `ExtAgents`
+
+```json
+{
+  "description": "Experimental (1.4.0). `\"all\"` or the agents an item is enabled for.",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "oneOf": [
+    {
+      "const": "all"
+    },
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AgentId"
+      }
+    }
+  ]
+}
+```
+
+### `ExtScript`
+
+```json
+{
+  "description": "Experimental (1.4.0). One executable file of a package: its path inside the package, its size in bytes, and its first line when it starts with a shebang.",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "path",
+    "size"
+  ],
+  "properties": {
+    "path": {
+      "type": "string"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "firstLine": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `ExtTrust`
+
+```json
+{
+  "description": "Experimental (1.4.0). The trust verdict of a package: the tier, the signing key id when a signature was present, and the label of the trusted key that verified it.",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tier"
+  ],
+  "properties": {
+    "tier": {
+      "$ref": "#/$defs/ExtTrustTier"
+    },
+    "keyId": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `ExtItem`
+
+```json
+{
+  "description": "Experimental (1.4.0). One installed extension (ext.list, ext.watch): name, package id (null without a package), kind, version, source (file, bundled, local, ...), trust tier, plain state, derived overlays, whether it is enabled at all, and the agents that effectively have it (skills; \"all\" for modules and channels).",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "id",
+    "kind",
+    "version",
+    "source",
+    "trust",
+    "state",
+    "overlays",
+    "enabled",
+    "agents"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "$ref": "#/$defs/ExtKind"
+    },
+    "version": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "trust": {
+      "$ref": "#/$defs/ExtTrustTier"
+    },
+    "state": {
+      "enum": [
+        "installed",
+        "enabled"
+      ]
+    },
+    "overlays": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtOverlay"
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "agents": {
+      "$ref": "#/$defs/ExtAgents"
+    },
+    "integrity": {
+      "enum": [
+        "ok",
+        "tampered",
+        "unchecked"
+      ]
+    }
+  }
+}
+```
+
+### `ExtDetail`
+
+```json
+{
+  "description": "Experimental (1.4.0). ext.show: the item, its manifest, capabilities and scripts, the trust verdict, a files summary, the extensions that depend on it, and its trash entries.",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "item",
+    "manifest",
+    "capabilities",
+    "scripts",
+    "trust",
+    "files",
+    "dependents",
+    "trash"
+  ],
+  "properties": {
+    "item": {
+      "$ref": "#/$defs/ExtItem"
+    },
+    "manifest": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "capabilities": {
+      "type": "object"
+    },
+    "scripts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtScript"
+      }
+    },
+    "trust": {
+      "$ref": "#/$defs/ExtTrust"
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "count",
+        "bytes"
+      ],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "dependents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trash": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trashId",
+          "version",
+          "removedAt"
+        ],
+        "properties": {
+          "trashId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "removedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `ExtInspection`
+
+```json
+{
+  "description": "Experimental (1.4.0). ext.inspect (spec 10.2): the id to install with and its expiry (RFC 3339 UTC), the package sha256, the manifest, the trust verdict, the checks (pass, warn or fail), the declared capabilities, the executable files, the requirements, and what an install would replace (with the capability changes).",
+  "x-stability": "experimental",
+  "x-since": "1.4.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inspectionId",
+    "expiresAt",
+    "sha256",
+    "manifest",
+    "trust",
+    "checks",
+    "capabilities",
+    "scripts",
+    "requires"
+  ],
+  "properties": {
+    "inspectionId": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "manifest": {
+      "type": "object"
+    },
+    "trust": {
+      "$ref": "#/$defs/ExtTrust"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "detail"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object"
+    },
+    "scripts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtScript"
+      }
+    },
+    "requires": {
+      "type": "object"
+    },
+    "replaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "capabilityDiff"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "capabilityDiff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed"
+          ],
+          "properties": {
+            "changed": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
       }
     }
   }

@@ -1,0 +1,4 @@
+{ "params": {},
+  "result": { "subscriptionId": "sub-3", "items": [
+    { "name": "demo-skill", "id": "local/demo-skill", "kind": "skill", "version": "1.0.0", "source": "file", "trust": "unsigned", "state": "enabled", "overlays": [], "enabled": true, "agents": "all" }
+  ] } }
