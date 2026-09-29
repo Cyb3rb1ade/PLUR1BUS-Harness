@@ -17,6 +17,15 @@ minisign-verify = "0.2"
 jsonschema = { version = "0.26", default-features = false }
 semver = "1"
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
+# Test and fixture signing only (feature `testkit`): keys are generated in memory per run, none is committed.
+minisign = { version = "0.10", optional = true }
+
+[features]
+testkit = ["dep:minisign"]
+
+[[example]]
+name = "make-fixtures"
+required-features = ["testkit"]
 
 [dev-dependencies]
-minisign = "0.10"
+tempfile.workspace = true
