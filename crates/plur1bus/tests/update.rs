@@ -276,6 +276,17 @@ fn a_host_profile_does_not_plan_the_release_modules() {
         json!([{ "unit": "core", "from": "0.1.0", "to": "0.2.0" }])
     );
     assert_eq!(doc["restart"]["core"], true);
+
+    // A module the host user installed is still compared: the host release carries none.
+    h.write_module("mine", "1.0.0", "1");
+    let (_, doc) = run(update_cmd(&h).args(["--manifest", path.to_str().unwrap()]));
+    assert_eq!(
+        doc["changes"],
+        json!([
+            { "unit": "core", "from": "0.1.0", "to": "0.2.0" },
+            { "unit": "module:mine", "from": "1.0.0", "to": null },
+        ])
+    );
 }
 
 #[test]

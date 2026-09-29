@@ -205,6 +205,8 @@ pub enum CoreSource {
 struct Ctx {
     target: Option<Target>,
     prev: Option<InstallManifest>,
+    /// Why an existing `manifest.json` could not be read; `state-root` then fails with `manifest-invalid` (HM2-R27).
+    prev_error: Option<String>,
     /// The profile this run installs ([`effective_profile`], settled by `state-root` before any write).
     profile: &'static str,
     node: Option<NodeUnit>,
@@ -240,9 +242,14 @@ pub fn run_steps(
     o: &SetupOpts,
     ask: &mut dyn Prompter,
 ) -> Vec<StepResult> {
+    let (prev, prev_error) = match manifest::read(layout) {
+        Ok(m) => (m, None),
+        Err(e) => (None, Some(e)),
+    };
     let mut ctx = Ctx {
         target: Target::current(),
-        prev: manifest::read(layout).ok().flatten(),
+        prev,
+        prev_error,
         profile: PROFILE_FULL,
         node: None,
         core: None,
@@ -367,10 +374,19 @@ pub fn effective_profile(
     }
 }
 
-/// Settles the profile first (a refused profile change writes nothing), then creates the home tree (§6.1) with `run/`
+/// Refuses an unreadable install manifest and settles the profile first (neither refusal writes anything, HM2-R27),
+/// then creates the home tree (§6.1) with `run/`
 /// private, and removes what a killed setup left: every `*.tmp-*` entry in the home, `runtime/` and `skills/` (never
 /// this process's own).
 fn step_state_root(layout: &Layout, o: &SetupOpts, ctx: &mut Ctx) -> Result<StepResult, StepError> {
+    if let Some(e) = &ctx.prev_error {
+        // An unreadable manifest hides the recorded profile: installing `full` over a host home would be a silent
+        // profile change (HM2-R27).
+        return Err(StepError::new("manifest-invalid", e.clone()).hint(
+            "restore manifest.json from a backup, or move it aside to install from scratch \
+             (the recorded profile is then lost)",
+        ));
+    }
     ctx.profile = effective_profile(o.profile.as_deref(), ctx.prev.as_ref())?;
     for d in [
         layout.home.clone(),

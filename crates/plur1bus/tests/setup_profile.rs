@@ -253,14 +253,63 @@ fn firstaid_check_passes_on_a_host_profile() {
     let (code, v) = e.setup(&HOST);
     assert_eq!(code, 0, "{v:#}");
     assert_eq!(v["check"]["fail"], 0, "{v:#}");
+    // Every row that is not `ok` is one a full `--no-service` install shows as well: a module or skill row reporting
+    // drift as a warning would not pass.
+    const EXPECTED: [(&str, &str); 4] = [
+        ("service.registration", "warn"),
+        ("models.cache", "warn"),
+        ("memory.shared", "skip"),
+        ("windows.pipe-acl", "skip"),
+    ];
     let check = e.json(&["1staid", "check"]);
-    let failing: Vec<&Value> = check["checks"]
+    let unexpected: Vec<&Value> = check["checks"]
         .as_array()
         .unwrap()
         .iter()
-        .filter(|c| c["status"] == "fail")
+        .filter(|c| c["status"] != "ok")
+        .filter(|c| {
+            !EXPECTED
+                .iter()
+                .any(|(id, status)| c["id"] == *id && c["status"] == *status)
+        })
         .collect();
-    assert!(failing.is_empty(), "{failing:#?}");
+    assert!(unexpected.is_empty(), "{unexpected:#?}");
+}
+
+/// HM2-R27: an unreadable install manifest hides the recorded profile, so setup refuses before any write instead of
+/// installing `full` over a host home, with and without `--profile`.
+#[test]
+fn an_invalid_manifest_is_refused_and_changes_nothing() {
+    let e = Env::new();
+    let (code, v) = e.setup(&HOST);
+    assert_success(code, &v);
+    let stop = e.cmd(&["daemon", "stop"]).output().unwrap();
+    assert!(stop.status.success(), "{stop:?}");
+    std::fs::write(e.home.join("manifest.json"), "garbage").unwrap();
+    let before = tree(&e.home);
+    for extra in [
+        &[][..],
+        &["--profile", "host"][..],
+        &["--profile", "full"][..],
+    ] {
+        let mut args = vec!["--non-interactive", "--no-service"];
+        args.extend_from_slice(extra);
+        let (code, v) = e.setup(&args);
+        assert_eq!(code, 1, "{extra:?}: {v:#}");
+        let first = step(&v, "state-root");
+        assert_eq!(first["status"], "failed", "{v:#}");
+        assert_eq!(first["reason"], "manifest-invalid", "{v:#}");
+        assert!(
+            first["detail"]["hint"]
+                .as_str()
+                .is_some_and(|h| h.contains("manifest.json")),
+            "{v:#}"
+        );
+        for s in &v["steps"].as_array().unwrap()[1..] {
+            assert_eq!(s["reason"], "after-failure", "{s}");
+        }
+        assert_eq!(tree(&e.home), before, "{extra:?} changed the home");
+    }
 }
 
 /// F35: a fresh host install is not drift for `update --check`: the release's bundled modules are not planned, and
