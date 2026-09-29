@@ -1269,3 +1269,40 @@ fn a_dry_run_succeeds_while_another_mutation_holds_the_lock() {
     assert_eq!(guarded(&l), before);
     drop(guard);
 }
+
+/// X1-C15 guard: an item whose code folder is missing (a kill between steps that `ext::recover` has not seen yet) is
+/// refused at enable with `E_NOT_AVAILABLE tampered`, and nothing is written.
+#[test]
+fn enable_refuses_an_item_whose_code_folder_is_missing() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg("demo-skill", &key),
+        &plain(),
+    )
+    .unwrap();
+    fs::remove_dir_all(l.skills().join("demo-skill")).unwrap();
+    let before = guarded(&l);
+    let e = on(&l, "demo-skill", &toggle(None, true, false)).unwrap_err();
+    assert_eq!(reason(&e), ("E_NOT_AVAILABLE", "tampered"));
+    assert!(e.message.contains("missing"), "{}", e.message);
+    assert_eq!(guarded(&l), before);
+
+    // An index entry without a folder or record (an imported skill whose folder was deleted) is refused the same way.
+    let mut idx = index::read_index(&l).unwrap();
+    let mut entry = idx.entry("demo-skill").cloned().unwrap();
+    entry["id"] = json!("imported-one");
+    entry["package"] = Value::Null;
+    entry["source"] = json!("imported");
+    idx.upsert(entry);
+    index::write_index(&l, &idx).unwrap();
+    let e = on(&l, "imported-one", &toggle(None, false, false)).unwrap_err();
+    assert_eq!(reason(&e), ("E_NOT_AVAILABLE", "tampered"));
+    // Disable stays allowed.
+    off(&l, "demo-skill", &toggle(None, false, false)).unwrap();
+}

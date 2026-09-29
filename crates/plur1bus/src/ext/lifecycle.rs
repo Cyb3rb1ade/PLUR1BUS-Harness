@@ -12,11 +12,11 @@
 //!   ([`dependents`]), so the offline plan names them too. `agents` is `E_INVALID_PARAMS agents-not-supported`.
 //!
 //! Enable refuses, before any write and in this order: an unknown name (`E_NOT_FOUND extension-unknown`), bad agents,
-//! the overlays of a packaged item from a fresh re-hash (`revoked` → `E_DENIED`; `needs-setup`, `incompatible`,
+//! a missing code folder (`E_NOT_AVAILABLE tampered`, X1-C15), the overlays of a packaged item from a fresh re-hash (`revoked` → `E_DENIED`; `needs-setup`, `incompatible`,
 //! `tampered` → `E_NOT_AVAILABLE`), then a missing capability acknowledgment (`E_APPROVAL_REQUIRED
 //! acknowledge-capabilities` with the disclosure in `data`). Disable is always allowed. `dry_run` runs every check,
 //! asks the host for its plan without writing, and returns the same shape. A toggle that changes nothing writes
-//! nothing, and no audit line.
+//! nothing but the trash pruning every mutation starts with (`super::remove::prune_for`), and no audit line.
 //!
 //! Supervisor-safe (X1-R2): no package bytes are opened here (`scripts/lint-hygiene.mjs`).
 use super::commit::{
@@ -187,15 +187,15 @@ pub fn dependents(layout: &Layout, cfg: &Value, name: &str) -> Vec<String> {
     found.into_iter().collect()
 }
 
-/// An installed item as a toggle sees it.
-struct Target {
-    name: String,
-    kind: String,
-    record: Option<ItemRecord>,
-    version: String,
+/// An installed item as a toggle (or an uninstall) sees it.
+pub(crate) struct Target {
+    pub(crate) name: String,
+    pub(crate) kind: String,
+    pub(crate) record: Option<ItemRecord>,
+    pub(crate) version: String,
 }
 
-fn unknown(name: &str) -> ExtError {
+pub(crate) fn unknown(name: &str) -> ExtError {
     ExtError::new(
         "E_NOT_FOUND",
         "extension-unknown",
@@ -204,7 +204,11 @@ fn unknown(name: &str) -> ExtError {
 }
 
 /// The package record (unless hidden, X1-R18), else an index entry or skill folder, else a module directory.
-fn resolve(layout: &Layout, st: &state::ExtState, name: &str) -> Result<Target, ExtError> {
+pub(crate) fn resolve(
+    layout: &Layout,
+    st: &state::ExtState,
+    name: &str,
+) -> Result<Target, ExtError> {
     if let Some(rec) = st.items.get(name) {
         if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
             return Err(unknown(name));
@@ -408,12 +412,63 @@ fn toggle(
     o: &ToggleOpts,
     on: bool,
 ) -> Result<Value, ExtError> {
-    // A plan writes nothing, so it does not wait for (or block) a mutation.
-    let _guard = if o.dry_run {
-        None
+    // A plan writes nothing, so it does not wait for (or block) a mutation, and prunes nothing.
+    if o.dry_run {
+        return toggle_locked(layout, host, name, o, on);
+    }
+    let _guard = super::try_mutation()?;
+    super::remove::prune_for(layout, &host.config());
+    toggle_locked(layout, host, name, o, on)
+}
+
+/// `ext.disable` for a caller that already holds the mutation lock: `ext.uninstall { cascade }` disables the
+/// dependents first (X1-R19, spec §6.4).
+pub(crate) fn disable_locked(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    name: &str,
+    o: &ToggleOpts,
+) -> Result<Value, ExtError> {
+    toggle_locked(layout, host, name, o, false)
+}
+
+/// The code directory of an item: `skills/<name>` or `modules/<name>`.
+pub(crate) fn code_dir(layout: &Layout, name: &str, kind: &str) -> std::path::PathBuf {
+    if kind == "skill" {
+        layout.skills().join(name)
     } else {
-        Some(super::try_mutation()?)
-    };
+        layout.modules_dir().join(name)
+    }
+}
+
+/// X1-C15: an item whose code folder is missing (a kill between steps that `ext::recover` has not reconciled yet, or
+/// a folder deleted by hand) cannot be enabled. The overlay vocabulary has no "missing" value; `tampered` (installed
+/// files no longer match what was installed) is the closest, and `data.paths` lists every recorded file.
+fn refuse_missing_code(layout: &Layout, t: &Target) -> Result<(), ExtError> {
+    let dir = code_dir(layout, &t.name, &t.kind);
+    if std::fs::symlink_metadata(&dir).is_ok_and(|m| m.is_dir()) {
+        return Ok(());
+    }
+    let paths: Vec<&String> = t.record.iter().flat_map(|r| r.files.keys()).collect();
+    Err(ExtError::new(
+        "E_NOT_AVAILABLE",
+        "tampered",
+        format!(
+            "the code folder {} of {} is missing; restore it from the trash or reinstall it",
+            dir.display(),
+            t.name
+        ),
+    )
+    .with_data(json!({ "paths": paths })))
+}
+
+fn toggle_locked(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    name: &str,
+    o: &ToggleOpts,
+    on: bool,
+) -> Result<Value, ExtError> {
     let paths = ExtPaths::of(layout);
     let st = state::read(&paths).map_err(state_invalid)?;
     let cfg = host.config();
@@ -421,9 +476,10 @@ fn toggle(
     let agents = o.agents.clone().unwrap_or(Agents::All);
     check_agents(name, &t.kind, &cfg, &agents)?;
 
-    // Enable: overlays from a fresh re-hash, then the acknowledgment.
+    // Enable: the code folder, overlays from a fresh re-hash, then the acknowledgment.
     let mut record = t.record.clone();
     if on {
+        refuse_missing_code(layout, &t)?;
         if let Some(rec) = record.as_mut() {
             rec.integrity = Some(rehash(layout, rec));
             let found = overlays(&paths, Some(rec));

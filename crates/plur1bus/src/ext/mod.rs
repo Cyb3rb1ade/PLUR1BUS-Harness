@@ -166,8 +166,77 @@ pub fn recover(layout: &Layout) -> Vec<String> {
             }
         }
     }
+    done.extend(restore_missing_code(layout, &p));
     done.extend(reconcile_skills(layout, &p));
     done.extend(crate::modules::install::recover(layout));
+    done
+}
+
+/// X1-C15: a recorded item whose code directory is missing while a trash entry for that very name and version still
+/// holds `code/` was interrupted between moving its code into the trash and the next step (a replace killed before
+/// the new code moved into place, or an uninstall killed before the record went). The code moves back; the trash
+/// entry goes unless it holds purged data or config. A skill's index entry is rewritten from the record, disabled,
+/// so it names the version whose code is back (fails safe: nothing ends enabled that was not acknowledged again).
+fn restore_missing_code(layout: &Layout, p: &paths::ExtPaths) -> Vec<String> {
+    let mut done = Vec::new();
+    let Ok(st) = state::read(p) else {
+        return done;
+    };
+    for rec in st.items.values() {
+        if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
+            continue;
+        }
+        let dir = lifecycle::code_dir(layout, &rec.name, &rec.kind);
+        if std::fs::symlink_metadata(&dir).is_ok() {
+            continue;
+        }
+        let Some(entry) = remove::newest_trash_with_code(p, &rec.name, &rec.version) else {
+            continue;
+        };
+        if let Some(parent) = dir.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if state::rename_retrying(&entry.join("code"), &dir).is_err() {
+            continue;
+        }
+        done.push(format!(
+            "put the code of {} {} back from the trash entry {} (an interrupted replace or uninstall)",
+            rec.name,
+            rec.version,
+            entry.display()
+        ));
+        let data = entry.join("data");
+        if data.is_dir() && std::fs::symlink_metadata(layout.ext_data(&rec.name)).is_err() {
+            let _ = state::rename_retrying(&data, &layout.ext_data(&rec.name));
+        }
+        if !entry.join("data").exists() && !entry.join("config.json").exists() {
+            let _ = state::remove_dir_all_retrying(&entry);
+        }
+        if rec.kind == "skill" {
+            let fixed = index::lock_skills(layout).ok().and_then(|_lock| {
+                let mut idx = index::read_index(layout).ok()?;
+                let prev = idx.entry(&rec.name).cloned();
+                let source = prev
+                    .as_ref()
+                    .and_then(|e| e["sourcePath"].as_str().map(str::to_string))
+                    .unwrap_or_else(|| "-".into());
+                idx.upsert(index::package_entry(
+                    rec,
+                    &source,
+                    false,
+                    &now_iso(),
+                    prev.as_ref(),
+                ));
+                index::write_index(layout, &idx).ok()
+            });
+            if fixed.is_none() {
+                done.push(format!(
+                    "could not rewrite the index entry of {} (the skills index is locked or unreadable)",
+                    rec.name
+                ));
+            }
+        }
+    }
     done
 }
 

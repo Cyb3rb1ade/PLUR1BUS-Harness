@@ -369,24 +369,6 @@ fn count_files(dir: &Path) -> (u64, u64) {
     (n, bytes)
 }
 
-/// The installed modules whose `needs` reach `name`, directly or through other modules, sorted.
-fn dependents(layout: &Layout, name: &str) -> Vec<String> {
-    let needs: BTreeMap<String, Vec<String>> = crate::modules::manifest::scan(layout)
-        .into_iter()
-        .filter_map(|m| m.manifest.ok().map(|x| (m.name, x.needs)))
-        .collect();
-    let mut found: BTreeSet<String> = BTreeSet::new();
-    let mut frontier = vec![name.to_string()];
-    while let Some(target) = frontier.pop() {
-        for (m, n) in &needs {
-            if m != name && n.contains(&target) && found.insert(m.clone()) {
-                frontier.push(m.clone());
-            }
-        }
-    }
-    found.into_iter().collect()
-}
-
 /// The trash entries of `name` (X1-R19): `extensions/trash/<name>-<version>-<stamp>/record.json`, newest first.
 fn trash_of(paths: &ExtPaths, name: &str) -> Vec<Value> {
     let mut out: Vec<(String, Value)> = Vec::new();
@@ -397,14 +379,18 @@ fn trash_of(paths: &ExtPaths, name: &str) -> Vec<Value> {
         let Ok(tid) = e.file_name().into_string() else {
             continue;
         };
+        if tid.contains(".tmp-") {
+            continue; // an entry still being built
+        }
         let Some(rj) = std::fs::read_to_string(e.path().join("record.json"))
             .ok()
             .and_then(|t| serde_json::from_str::<Value>(&t).ok())
         else {
             continue;
         };
-        let rec_name = rj["record"]["name"]
+        let rec_name = rj["name"]
             .as_str()
+            .or_else(|| rj["record"]["name"].as_str())
             .or_else(|| rj["index"]["id"].as_str());
         if rec_name != Some(name) {
             continue;
@@ -414,7 +400,10 @@ fn trash_of(paths: &ExtPaths, name: &str) -> Vec<Value> {
             removed.clone(),
             json!({
                 "trashId": tid,
-                "version": rj["record"]["version"].as_str().unwrap_or(""),
+                "version": rj["version"]
+                    .as_str()
+                    .or_else(|| rj["record"]["version"].as_str())
+                    .unwrap_or(""),
                 "removedAt": removed,
             }),
         ));
@@ -468,7 +457,7 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
             "scripts": [],
             "trust": { "tier": entry.item["trust"] },
             "files": { "count": count, "bytes": bytes },
-            "dependents": dependents(layout, name),
+            "dependents": super::lifecycle::dependents(layout, cfg, name),
             "trash": trash_of(&paths, name),
         }));
     };
@@ -502,7 +491,7 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
         "scripts": scripts,
         "trust": trust,
         "files": { "count": rec.files.len(), "bytes": rec.files.values().map(|f| f.size).sum::<u64>() },
-        "dependents": if rec.kind == "skill" { vec![] } else { dependents(layout, name) },
+        "dependents": if rec.kind == "skill" { vec![] } else { super::lifecycle::dependents(layout, cfg, name) },
         "trash": trash_of(&paths, name),
     }))
 }

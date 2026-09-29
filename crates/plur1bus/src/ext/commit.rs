@@ -42,8 +42,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// The commit steps in order. `PLUR1BUS_TEST_EXT_FAIL_AT=<step>` fails the named one after its own writes, so its undo
 /// runs too; `PLUR1BUS_TEST_EXT_FAIL_AT=kill:<point>` stops there with no rollback and no clean-up, as a killed
-/// process would (the points are the steps plus `code.index`, between a skill's index entry and its folder move).
-/// Test internals only.
+/// process would (the points are the steps plus `code.index`, between a skill's index entry and its folder move, and
+/// `code.trash`, between a replaced item's old code moving into the trash and the new code moving into place). The
+/// uninstall and restore of `super::remove` name their own points (`uninstall.*`, `restore.*`). Test internals only.
 pub const COMMIT_STEPS: [&str; 6] = ["config", "code", "state", "cache", "index", "enable"];
 
 /// What an ext mutation needs from whoever owns config.json and the module processes: the supervisor (Task 11) or the
@@ -104,7 +105,7 @@ pub(crate) fn io_err(what: &str, path: &Path, e: impl std::fmt::Display) -> ExtE
     )
 }
 
-fn install_err(e: modinstall::InstallError) -> ExtError {
+pub(crate) fn install_err(e: modinstall::InstallError) -> ExtError {
     let code = if e.is_io() {
         "E_INTERNAL"
     } else {
@@ -120,8 +121,18 @@ fn allow_internals() -> bool {
 /// Set when the kill seam fired: the commit then returns without rollback or clean-up.
 static KILLED: AtomicBool = AtomicBool::new(false);
 
+/// Clears the kill mark at the start of a mutation.
+pub(crate) fn reset_kill() {
+    KILLED.store(false, Ordering::SeqCst);
+}
+
+/// The kill seam fired in this mutation: undo nothing, clean nothing up.
+pub(crate) fn killed() -> bool {
+    KILLED.load(Ordering::SeqCst)
+}
+
 /// The test seam `PLUR1BUS_TEST_EXT_FAIL_AT=<step>|kill:<point>` (global constraints, X1-C10).
-fn fail_at(point: &str) -> Result<(), ExtError> {
+pub(crate) fn fail_at(point: &str) -> Result<(), ExtError> {
     if !allow_internals() {
         return Ok(());
     }
@@ -185,7 +196,11 @@ impl<'a> Rollback<'a> {
 }
 
 /// Creates `dir` and its missing ancestors, and registers their removal (only while empty) for the rollback.
-fn ensure_dir(dir: &Path, step: &'static str, rb: &mut Rollback<'_>) -> Result<(), ExtError> {
+pub(crate) fn ensure_dir(
+    dir: &Path,
+    step: &'static str,
+    rb: &mut Rollback<'_>,
+) -> Result<(), ExtError> {
     let mut missing = Vec::new();
     let mut at = Some(dir);
     while let Some(p) = at {
@@ -247,7 +262,7 @@ pub(crate) fn config_change<'a>(
 }
 
 /// Copies `from` to `to` through `<to>.tmp-<pid>` and a rename.
-fn copy_atomic(from: &Path, to: &Path) -> Result<(), ExtError> {
+pub(crate) fn copy_atomic(from: &Path, to: &Path) -> Result<(), ExtError> {
     let mut name = to.file_name().unwrap_or_default().to_os_string();
     name.push(format!(".tmp-{}", std::process::id()));
     let tmp = to.with_file_name(name);
@@ -401,7 +416,7 @@ fn trash_stamp(iso: &str) -> String {
 
 /// A fresh `extensions/trash/<name>-<version>-<YYYYMMDDTHHMMSSZ>` (X1-R19); a second one in the same second gets `-2`,
 /// `-3`, …
-fn trash_id(paths: &ExtPaths, name: &str, version: &str, at: &str) -> String {
+pub(crate) fn trash_id(paths: &ExtPaths, name: &str, version: &str, at: &str) -> String {
     let base = format!("{name}-{version}-{}", trash_stamp(at));
     let mut id = base.clone();
     let mut n = 2;
@@ -474,6 +489,7 @@ fn commit_locked(
     let name = staged.name.clone();
     let kind = kind_name(staged.kind);
     let cfg = host.config();
+    super::remove::prune_for(layout, &cfg);
 
     // Review Focus 5: the identical package again is a no-op that writes nothing.
     {
@@ -669,6 +685,7 @@ fn run_steps<'a>(
         } else if modinstall::installed_dir(layout, &name).is_some() {
             host.remove_module(&name, &code)?;
         }
+        fail_at("code.trash")?;
     }
     if is_skill {
         let dest = layout.skills().join(&name);
@@ -761,10 +778,53 @@ fn source_path(rec: &InspectionRecord) -> String {
     rec.source_path.clone().unwrap_or_else(|| "-".into())
 }
 
-/// Builds `extensions/trash/<trashId>/` for a replaced item atomically (`<trashId>.tmp-<pid>` with `record.json` and
-/// `package.p1x`, then one rename) and registers its one undo: put `code/` back where it came from if it is there,
-/// and remove the entry only once that worked. A failed restore keeps the entry, so no code is lost. The caller then
-/// moves the old code to `<trashId>/code`.
+/// Builds `extensions/trash/<trashId>/` atomically (X1-R19): `<trashId>.tmp-<pid>` with `record.json` (`body`),
+/// `package.p1x` (a copy of the cached package `<package_sha256>.p1x`, when there is one) and the `extra` files, then
+/// one rename. `code/` (and a purge's `data/`) move in afterwards. The trash directory must exist. Returns the trash id
+/// and the entry's directory; a failure leaves nothing behind.
+pub(crate) fn build_trash_entry(
+    paths: &ExtPaths,
+    name: &str,
+    version: &str,
+    now: &str,
+    body: &Value,
+    package_sha256: Option<&str>,
+    extra: &[(&str, Vec<u8>)],
+) -> Result<(String, PathBuf), ExtError> {
+    let tid = trash_id(paths, name, version, now);
+    let tdir = paths.trash.join(&tid);
+    let tmp = paths
+        .trash
+        .join(format!("{tid}.tmp-{}", std::process::id()));
+    let built = (|| -> Result<(), ExtError> {
+        fs::create_dir(&tmp).map_err(|e| io_err("cannot create", &tmp, e))?;
+        let mut text = serde_json::to_string_pretty(body).unwrap_or_default();
+        text.push('\n');
+        let rj = tmp.join("record.json");
+        write_private_atomic(&rj, text.as_bytes()).map_err(|e| io_err("cannot write", &rj, e))?;
+        if let Some(sha) = package_sha256 {
+            let cached = paths.cached(sha);
+            if cached.is_file() {
+                fs::copy(&cached, tmp.join("package.p1x"))
+                    .map_err(|e| io_err("cannot copy", &cached, e))?;
+            }
+        }
+        for (file, bytes) in extra {
+            let p = tmp.join(file);
+            write_private_atomic(&p, bytes).map_err(|e| io_err("cannot write", &p, e))?;
+        }
+        rename_retrying(&tmp, &tdir).map_err(|e| io_err("cannot create", &tdir, e))
+    })();
+    if let Err(e) = built {
+        let _ = remove_dir_all_retrying(&tmp);
+        return Err(e);
+    }
+    Ok((tid, tdir))
+}
+
+/// Builds the trash entry of a replaced item ([`build_trash_entry`]) and registers its one undo: put `code/` back
+/// where it came from if it is there, and remove the entry only once that worked. A failed restore keeps the entry, so
+/// no code is lost. The caller then moves the old code to `<trashId>/code`.
 fn new_trash_entry<'a>(
     c: &Ctx<'a>,
     old: &ItemRecord,
@@ -775,63 +835,55 @@ fn new_trash_entry<'a>(
     let name = old.name.clone();
     let is_skill = old.kind == "skill";
     ensure_dir(&paths.trash, "code", rb)?;
-    let tid = trash_id(paths, &name, &old.version, now);
-    let tdir = paths.trash.join(&tid);
-    let tmp = paths
-        .trash
-        .join(format!("{tid}.tmp-{}", std::process::id()));
-    let built = (|| -> Result<(), ExtError> {
-        fs::create_dir(&tmp).map_err(|e| io_err("cannot create", &tmp, e))?;
-        // The entry as it stood before this commit (the code step has already rewritten a skill's entry).
-        let old_index = if is_skill { c.prev_index.clone() } else { None };
-        let body =
-            json!({ "removedAt": now, "reason": "replaced", "record": old, "index": old_index });
-        let mut text = serde_json::to_string_pretty(&body).unwrap_or_default();
-        text.push('\n');
-        let rj = tmp.join("record.json");
-        write_private_atomic(&rj, text.as_bytes()).map_err(|e| io_err("cannot write", &rj, e))?;
-        let cached = paths.cached(&old.package_sha256);
-        if cached.is_file() {
-            fs::copy(&cached, tmp.join("package.p1x"))
-                .map_err(|e| io_err("cannot copy", &cached, e))?;
-        }
-        rename_retrying(&tmp, &tdir).map_err(|e| io_err("cannot create", &tdir, e))
-    })();
-    if let Err(e) = built {
-        let _ = remove_dir_all_retrying(&tmp);
-        return Err(e);
-    }
+    // The entry as it stood before this commit (the code step has already rewritten a skill's entry).
+    let old_index = if is_skill { c.prev_index.clone() } else { None };
+    let body = json!({
+        "removedAt": now, "reason": "replaced", "name": name, "kind": old.kind, "version": old.version,
+        "record": old, "index": old_index,
+    });
+    let (_, tdir) = build_trash_entry(
+        paths,
+        &name,
+        &old.version,
+        now,
+        &body,
+        Some(&old.package_sha256),
+        &[],
+    )?;
     let t = tdir.clone();
     rb.push("code", move |h| {
-        let code = t.join("code");
-        if fs::symlink_metadata(&code).is_ok() {
-            if is_skill {
-                let dir = layout.skills().join(&name);
-                rename_retrying(&code, &dir).map_err(|e| {
-                    format!(
-                        "cannot put {} back to {} (it stays in the trash): {e}",
-                        code.display(),
-                        dir.display()
-                    )
-                })?;
-            } else {
-                let s = modinstall::stage(layout, &code).map_err(|e| {
-                    format!(
-                        "cannot put {} back (it stays in the trash): {e}",
-                        code.display()
-                    )
-                })?;
-                h.install_module(s).map(drop).map_err(|e| {
-                    format!(
-                        "cannot put {} back (it stays in the trash): {e}",
-                        code.display()
-                    )
-                })?;
-            }
-        }
+        put_code_back(layout, h, is_skill, &name, &t.join("code"))?;
         remove_dir_all_retrying(&t).map_err(|e| format!("{}: {e}", t.display()))
     });
     Ok(tdir)
+}
+
+/// Puts code that moved into a trash entry back in place, if it is there: a skill folder by rename, a module through
+/// the host (`modules::install::stage` copies it, [`ModuleHost::install_module`] puts it in place). The trash copy
+/// stays; the caller removes the entry once this worked.
+pub(crate) fn put_code_back(
+    layout: &Layout,
+    host: &mut dyn ModuleHost,
+    is_skill: bool,
+    name: &str,
+    code: &Path,
+) -> Result<(), String> {
+    if fs::symlink_metadata(code).is_err() {
+        return Ok(());
+    }
+    let stays = |e: &dyn std::fmt::Display| {
+        format!(
+            "cannot put {} back (it stays in the trash): {e}",
+            code.display()
+        )
+    };
+    if is_skill {
+        let dir = layout.skills().join(name);
+        rename_retrying(code, &dir).map_err(|e| stays(&e))
+    } else {
+        let s = modinstall::stage(layout, code).map_err(|e| stays(&e))?;
+        host.install_module(s).map(drop).map_err(|e| stays(&e))
+    }
 }
 
 /// Enables a just-installed item (X1-R11, X1-R13): a skill's index entry and every agent's `blocked` list, a module's
