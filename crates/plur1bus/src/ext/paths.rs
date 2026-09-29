@@ -40,4 +40,10 @@ impl ExtPaths {
     pub fn cached(&self, sha256: &str) -> PathBuf {
         self.cache.join(format!("{sha256}.p1x"))
     }
+
+    /// `extensions/cache/<sha256>.json`: `{manifest, trust, scripts}` of the cached package as the worker's inspection
+    /// found them, written at install so `ext.show` never opens package bytes in the supervisor (X1-R2).
+    pub fn cached_meta(&self, sha256: &str) -> PathBuf {
+        self.cache.join(format!("{sha256}.json"))
+    }
 }
