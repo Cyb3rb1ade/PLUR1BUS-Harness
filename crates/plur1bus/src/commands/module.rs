@@ -38,6 +38,19 @@ fn modules_config(layout: &Layout) -> Value {
 /// done, so a supervisor cannot start (and scan `modules/`) half-way through it. A supervisor that holds the lock but
 /// did not answer is starting (or stopping): the command is refused and changes nothing.
 pub(crate) fn offline_lock(out: &Out, layout: &Layout) -> std::fs::File {
+    try_offline_lock(layout).unwrap_or_else(|e| out.fail(e.code, &e.message, e.extra, 1))
+}
+
+/// Why [`try_offline_lock`] could not take the lock: an error name, a message and the `--json` extras.
+pub(crate) struct LockError {
+    pub code: &'static str,
+    pub message: String,
+    pub extra: Value,
+}
+
+/// [`offline_lock`] as a `Result`, for a caller that maps the refusal to its own exit code (the ext verbs: G18,
+/// `E_NOT_AVAILABLE` → 2). `module` keeps exit 1 through [`offline_lock`].
+pub(crate) fn try_offline_lock(layout: &Layout) -> Result<std::fs::File, LockError> {
     let run = layout.run();
     let created = !run.exists();
     let lock = std::fs::create_dir_all(&run)
@@ -55,28 +68,25 @@ pub(crate) fn offline_lock(out: &Out, layout: &Layout) -> std::fs::File {
                 .truncate(false)
                 .open(layout.supervisor_lock())
         })
-        .unwrap_or_else(|e| {
-            out.fail(
-                "E_INTERNAL",
-                &format!("cannot open {}: {e}", layout.supervisor_lock().display()),
-                json!({}),
-                1,
-            )
-        });
+        .map_err(|e| LockError {
+            code: "E_INTERNAL",
+            message: format!("cannot open {}: {e}", layout.supervisor_lock().display()),
+            extra: json!({}),
+        })?;
     match lock.try_lock() {
-        Ok(()) => lock,
-        Err(std::fs::TryLockError::WouldBlock) => out.fail(
-            "E_NOT_AVAILABLE",
-            "a supervisor is starting or stopping; nothing was changed, re-run in a moment",
-            json!({ "reason": "supervisor-running" }),
-            1,
-        ),
-        Err(std::fs::TryLockError::Error(e)) => out.fail(
-            "E_INTERNAL",
-            &format!("cannot lock {}: {e}", layout.supervisor_lock().display()),
-            json!({}),
-            1,
-        ),
+        Ok(()) => Ok(lock),
+        Err(std::fs::TryLockError::WouldBlock) => Err(LockError {
+            code: "E_NOT_AVAILABLE",
+            message:
+                "a supervisor is starting or stopping; nothing was changed, re-run in a moment"
+                    .into(),
+            extra: json!({ "reason": "supervisor-running" }),
+        }),
+        Err(std::fs::TryLockError::Error(e)) => Err(LockError {
+            code: "E_INTERNAL",
+            message: format!("cannot lock {}: {e}", layout.supervisor_lock().display()),
+            extra: json!({}),
+        }),
     }
 }
 

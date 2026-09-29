@@ -286,6 +286,27 @@ fn entries(dir: &Path) -> Vec<String> {
     v
 }
 
+/// Every file under `skills/`, `modules/`, `extensions/` and `config.json`, with its bytes: what a refusal or a dry
+/// run must leave as it was.
+fn guarded(home: &Path) -> Vec<(String, Vec<u8>)> {
+    fn walk(root: &Path, p: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+        if p.is_dir() {
+            for e in std::fs::read_dir(p).unwrap().flatten() {
+                walk(root, &e.path(), out);
+            }
+        } else if p.exists() {
+            let rel = p.strip_prefix(root).unwrap().to_string_lossy().into_owned();
+            out.push((rel, std::fs::read(p).unwrap_or_default()));
+        }
+    }
+    let mut out = Vec::new();
+    for d in ["skills", "modules", "extensions", "config.json"] {
+        walk(home, &home.join(d), &mut out);
+    }
+    out.sort();
+    out
+}
+
 // ---- tests ---------------------------------------------------------------------------------------------------------
 
 /// Acceptance 1 through the CLI, offline and through a running supervisor: a signed skill installs disabled, enables
@@ -410,60 +431,74 @@ fn an_unsigned_folder_skill_without_allow_unsigned_exits_2_with_its_scripts_list
 /// `install --dry-run` prints the inspection as `ext.inspect/1` and writes nothing outside `run/inspect/`.
 #[test]
 fn install_dry_run_prints_ext_inspect_1_and_writes_nothing() {
-    let h = Home::new();
-    let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
-    let v = ok_doc(
-        &h.run(&["--json", "skill", "install", p(&pkg), "--dry-run"]),
-        "ext.inspect/1",
-    );
-    assert!(v["inspectionId"].is_string(), "{v}");
-    assert_eq!(v["manifest"]["name"], "demo-skill");
-    assert_eq!(v["trust"]["tier"], "first-party");
-    for d in ["skills", "modules", "extensions", "config.json"] {
-        assert!(!h.home.join(d).exists(), "{d} was written");
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let before = guarded(&h.home);
+        let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+        let v = ok_doc(
+            &h.run(&["--json", "skill", "install", p(&pkg), "--dry-run"]),
+            "ext.inspect/1",
+        );
+        assert!(v["inspectionId"].is_string(), "{v}");
+        assert_eq!(v["manifest"]["name"], "demo-skill");
+        assert_eq!(v["trust"]["tier"], "first-party");
+        assert!(
+            guarded(&h.home) == before,
+            "online={online}: the dry run wrote"
+        );
+        // The human dry run shows the disclosure and says that nothing was installed.
+        let o = h.run(&["skill", "install", p(&pkg), "--dry-run"]);
+        assert_eq!(code(&o), 0, "{}", stderr(&o));
+        assert!(stdout(&o).contains("demo/demo-skill"), "{}", stdout(&o));
+        assert!(stdout(&o).contains("dry run"), "{}", stdout(&o));
+        assert!(
+            guarded(&h.home) == before,
+            "online={online}: the dry run wrote"
+        );
     }
-    // The human dry run shows the disclosure and says that nothing was installed.
-    let o = h.run(&["skill", "install", p(&pkg), "--dry-run"]);
-    assert_eq!(code(&o), 0, "{}", stderr(&o));
-    assert!(stdout(&o).contains("demo/demo-skill"), "{}", stdout(&o));
-    assert!(!h.home.join("skills").exists());
 }
 
 /// `plugin install` refuses a skill package and `skill install` a module package, before anything is written.
 #[test]
 fn plugin_install_refuses_a_skill_package_and_skill_install_refuses_a_module_package() {
-    let h = Home::new();
-    let skill = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
-    let module = h.write("fixture.p1x", &module_pkg(&h, "fixture", &["core"]));
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let before = guarded(&h.home);
+        let skill = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+        let module = h.write("fixture.p1x", &module_pkg(&h, "fixture", &["core"]));
 
-    let v = err_doc(
-        &h.run(&["--json", "plugin", "install", p(&skill), "--yes"]),
-        1,
-        "E_INVALID_PARAMS",
-        "package-invalid",
-    );
-    assert!(
-        v["detail"]
-            .as_str()
-            .unwrap_or("")
-            .contains("use skill install"),
-        "{v}"
-    );
-    let v = err_doc(
-        &h.run(&["--json", "skill", "install", p(&module), "--yes"]),
-        1,
-        "E_INVALID_PARAMS",
-        "package-invalid",
-    );
-    assert!(
-        v["detail"]
-            .as_str()
-            .unwrap_or("")
-            .contains("use plugin install"),
-        "{v}"
-    );
-    for d in ["skills", "modules", "extensions"] {
-        assert!(!h.home.join(d).exists(), "{d} was written");
+        let v = err_doc(
+            &h.run(&["--json", "plugin", "install", p(&skill), "--yes"]),
+            1,
+            "E_INVALID_PARAMS",
+            "package-invalid",
+        );
+        assert!(
+            v["detail"]
+                .as_str()
+                .unwrap_or("")
+                .contains("use skill install"),
+            "{v}"
+        );
+        let v = err_doc(
+            &h.run(&["--json", "skill", "install", p(&module), "--yes"]),
+            1,
+            "E_INVALID_PARAMS",
+            "package-invalid",
+        );
+        assert!(
+            v["detail"]
+                .as_str()
+                .unwrap_or("")
+                .contains("use plugin install"),
+            "{v}"
+        );
+        assert!(
+            guarded(&h.home) == before,
+            "online={online}: a wrong-kind install wrote"
+        );
     }
 }
 
@@ -494,7 +529,8 @@ fn offline_install_takes_the_supervisor_lock_and_a_starting_supervisor_is_refuse
         let v = doc(&o);
         assert_eq!(v["error"], "E_NOT_AVAILABLE", "{v}");
         assert_eq!(v["reason"], "supervisor-running", "{v}");
-        assert_ne!(code(&o), 0);
+        // G18: E_NOT_AVAILABLE exits 2, as online (`supervisor-unresponsive`).
+        assert_eq!(code(&o), 2, "{v}");
         assert!(!h.home.join("skills").exists());
         assert!(!h.home.join("extensions").exists());
     }
@@ -572,37 +608,45 @@ fn enable_without_yes_on_a_non_tty_exits_2_with_the_capabilities() {
 /// A module enable prints its dry-run plan (`will restart: …`, `will be held back: …`) before it applies.
 #[test]
 fn module_enable_prints_the_restart_plan_before_applying() {
-    let h = Home::new();
-    let pkg = h.write("fixture.p1x", &module_pkg(&h, "fixture", &["core"]));
-    // `--enable` needs the capabilities acknowledged: a module has the full authority of a harness process.
-    let v = err_doc(
-        &h.run(&["--json", "plugin", "install", p(&pkg), "--enable"]),
-        2,
-        "E_APPROVAL_REQUIRED",
-        "acknowledge-capabilities",
-    );
-    assert_eq!(v["data"]["authority"], "full", "{v}");
-    assert!(!h.home.join("modules").exists());
-    ok_doc(
-        &h.run(&["--json", "plugin", "install", p(&pkg), "--yes"]),
-        "plugin.install/1",
-    );
-    assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let pkg = h.write("fixture.p1x", &module_pkg(&h, "fixture", &["core"]));
+        // `--enable` needs the capabilities acknowledged: a module has the full authority of a harness process.
+        let v = err_doc(
+            &h.run(&["--json", "plugin", "install", p(&pkg), "--enable"]),
+            2,
+            "E_APPROVAL_REQUIRED",
+            "acknowledge-capabilities",
+        );
+        assert_eq!(v["data"]["authority"], "full", "{v}");
+        assert!(!h.home.join("modules").exists());
+        ok_doc(
+            &h.run(&["--json", "plugin", "install", p(&pkg), "--yes"]),
+            "plugin.install/1",
+        );
+        assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
 
-    let o = h.run(&["plugin", "enable", "fixture", "--yes"]);
-    assert_eq!(code(&o), 0, "{}", stderr(&o));
-    let out = stdout(&o);
-    let plan = out.find("will restart:").unwrap_or_else(|| panic!("{out}"));
-    assert!(out.contains("will be held back:"), "{out}");
-    let applied = out
-        .find("enabled fixture")
-        .unwrap_or_else(|| panic!("{out}"));
-    assert!(plan < applied, "{out}");
-    assert_eq!(h.config()["modules"]["fixture"]["enabled"], true);
+        let o = h.run(&["plugin", "enable", "fixture", "--yes"]);
+        assert_eq!(code(&o), 0, "{}", stderr(&o));
+        let out = stdout(&o);
+        let plan = out.find("will restart:").unwrap_or_else(|| panic!("{out}"));
+        assert!(out.contains("will be held back:"), "{out}");
+        let applied = out
+            .find("enabled fixture")
+            .unwrap_or_else(|| panic!("{out}"));
+        assert!(plan < applied, "{out}");
+        assert_eq!(h.config()["modules"]["fixture"]["enabled"], true);
 
-    let v = ok_doc(&h.run(&["--json", "plugin", "list"]), "plugin.list/1");
-    assert_eq!(v["items"][0]["name"], "fixture", "{v}");
-    assert_eq!(v["items"][0]["state"], "enabled", "{v}");
+        let v = ok_doc(&h.run(&["--json", "plugin", "list"]), "plugin.list/1");
+        assert_eq!(v["items"][0]["name"], "fixture", "{v}");
+        assert_eq!(v["items"][0]["state"], "enabled", "{v}");
+        if online {
+            // Stop it over RPC, so no module process outlives the test.
+            let o = h.run(&["--json", "plugin", "disable", "fixture", "--yes"]);
+            ok_doc(&o, "plugin.disable/1");
+        }
+    }
 }
 
 /// `-` reads the package from stdin, offline and through the supervisor (which gets a spooled copy).
@@ -897,4 +941,114 @@ fn an_uninstall_blocked_by_dependents_names_them() {
         );
         assert!(h.home.join("modules/fixture/module.json").is_file());
     }
+}
+
+/// Spec §8.3, X1-C24: outside a terminal a due tier or downgrade acknowledgment needs its `--allow-*` flag and `--yes`;
+/// the flag alone is refused (exit 2, the hint names `--yes`) and writes nothing, offline and online.
+#[test]
+fn an_allow_flag_without_yes_outside_a_terminal_is_refused() {
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let before = guarded(&h.home);
+        let dir = skill_folder(&h, "demo-scripts");
+        let v = err_doc(
+            &h.run(&["--json", "skill", "install", p(&dir), "--allow-unsigned"]),
+            2,
+            "E_APPROVAL_REQUIRED",
+            "acknowledge-unsigned",
+        );
+        assert_eq!(v["data"]["trust"]["tier"], "unsigned", "{v}");
+        let o = h.run(&["skill", "install", p(&dir), "--allow-unsigned"]);
+        assert_eq!(code(&o), 2, "{}", stderr(&o));
+        assert!(
+            stderr(&o).contains("--allow-unsigned --yes"),
+            "{}",
+            stderr(&o)
+        );
+        assert!(
+            guarded(&h.home) == before,
+            "online={online}: a refusal wrote"
+        );
+    }
+}
+
+/// Uninstall looks the name up before it asks: an unknown or invalid name is its own error, not "re-run with --yes";
+/// the question for a bundled skill says it is hidden.
+#[test]
+fn uninstall_checks_the_name_before_asking_and_names_a_bundled_hide() {
+    let h = Home::new();
+    err_doc(
+        &h.run(&["--json", "skill", "uninstall", "nope"]),
+        1,
+        "E_NOT_FOUND",
+        "extension-unknown",
+    );
+    let o = h.run(&["--json", "skill", "uninstall", "Bad Name"]);
+    assert_eq!(
+        (code(&o), doc(&o)["error"].clone()),
+        (1, json!("E_INVALID_PARAMS"))
+    );
+    std::fs::write(
+        h.home.join("manifest.json"),
+        json!({"skills": [{"name": "ops", "source": "bundled", "version": "1.2.0"}]}).to_string(),
+    )
+    .unwrap();
+    std::fs::create_dir_all(h.home.join("skills/ops")).unwrap();
+    std::fs::write(h.home.join("skills/ops/SKILL.md"), skill_md("ops")).unwrap();
+    let o = h.run(&["skill", "uninstall", "ops"]);
+    assert_eq!(code(&o), 2);
+    assert!(
+        stderr(&o).contains("hide the bundled skill ops"),
+        "{}",
+        stderr(&o)
+    );
+    assert!(!stderr(&o).contains("trash"), "{}", stderr(&o));
+    // A module name under `skill uninstall` points to `plugin uninstall`.
+    let pkg = h.write("fixture.p1x", &module_pkg(&h, "fixture", &["core"]));
+    ok_doc(
+        &h.run(&["--json", "plugin", "install", p(&pkg), "--yes"]),
+        "plugin.install/1",
+    );
+    let v = err_doc(
+        &h.run(&["--json", "skill", "uninstall", "fixture", "--yes"]),
+        1,
+        "E_NOT_FOUND",
+        "extension-unknown",
+    );
+    assert_eq!(v["detail"], "use plugin uninstall fixture", "{v}");
+    assert!(h.home.join("modules/fixture").is_dir());
+}
+
+/// Review Focus 5: `install --enable=<agent>` of the identical package on a skill already enabled for every agent is a
+/// no-op; the CLI says the agent restriction was not applied and names `skill enable --agent`.
+#[test]
+fn a_no_op_install_with_an_agent_restriction_says_it_was_not_applied() {
+    let h = Home::new();
+    h.two_agents();
+    let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+    ok_doc(
+        &h.run(&["--json", "skill", "install", p(&pkg), "--enable", "--yes"]),
+        "skill.install/1",
+    );
+    let o = h.run(&[
+        "--json",
+        "skill",
+        "install",
+        p(&pkg),
+        "--enable=bernd",
+        "--yes",
+    ]);
+    let v = ok_doc(&o, "skill.install/1");
+    assert_eq!(v["state"], "enabled", "{v}");
+    let e = stderr(&o);
+    assert!(
+        e.contains("agent restriction (bernd) was not applied")
+            && e.contains("plur1bus skill enable demo-skill --agent bernd"),
+        "{e}"
+    );
+    assert_eq!(
+        h.config()["agents"]["anna"]["skills"]["blocked"],
+        Value::Null
+    );
 }
