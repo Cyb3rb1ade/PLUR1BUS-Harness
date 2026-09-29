@@ -225,16 +225,17 @@ pub(crate) fn restore_file(
 }
 
 /// Changes config through the host and registers the undo: the raw bytes back when the host offers them (X1-C14),
-/// else each touched section set back to its value before (`null`: absent).
+/// else each touched section set back to its value before (`null`: absent). Returns the host's plan
+/// (`{restart: {modules}, heldBack}`).
 pub(crate) fn config_change<'a>(
     host: &mut dyn ModuleHost,
     step: &'static str,
     changes: Vec<(String, Value)>,
     restore: Vec<(String, Value)>,
     rb: &mut Rollback<'a>,
-) -> Result<(), ExtError> {
+) -> Result<Value, ExtError> {
     let snapshot = host.config_bytes();
-    host.set_config(changes, false)?;
+    let plan = host.set_config(changes, false)?;
     rb.push(step, move |h| match snapshot {
         Some(bytes) => h.restore_config_bytes(bytes).map_err(|e| e.to_string()),
         None => h
@@ -242,7 +243,7 @@ pub(crate) fn config_change<'a>(
             .map(drop)
             .map_err(|e| e.to_string()),
     });
-    Ok(())
+    Ok(plan)
 }
 
 /// Copies `from` to `to` through `<to>.tmp-<pid>` and a rename.

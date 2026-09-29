@@ -20,7 +20,8 @@
 //!
 //! Supervisor-safe (X1-R2): no package bytes are opened here (`scripts/lint-hygiene.mjs`).
 use super::commit::{
-    capabilities_hash, io_err, read_bytes, restore_file, Agents, ModuleHost, Rollback,
+    capabilities_hash, config_change, io_err, read_bytes, restore_file, Agents, ModuleHost,
+    Rollback,
 };
 use super::index::{self, lock_skills, ImportLock};
 use super::list::{cached_meta, install_units, scripts_of};
@@ -318,11 +319,10 @@ fn refuse_overlays(paths: &ExtPaths, rec: &ItemRecord, found: &[Overlay]) -> Res
     Ok(())
 }
 
-/// X1-R13: the first enable, or an enable after the capabilities changed, needs `capabilities`. Items with trust
-/// `release` or `dev` need none.
+/// X1-R13: the first enable of a packaged item, or an enable after its capabilities changed, needs `capabilities`.
+/// Items without a package record (bundled, local, imported) never reach this check, so they need none.
 fn check_acknowledged(paths: &ExtPaths, rec: &ItemRecord, o: &ToggleOpts) -> Result<(), ExtError> {
-    if matches!(rec.trust.as_str(), "release" | "dev")
-        || capabilities_acknowledged(&rec.capabilities, rec.capabilities_ack.as_deref())
+    if capabilities_acknowledged(&rec.capabilities, rec.capabilities_ack.as_deref())
         || o.acknowledge.iter().any(|a| a == "capabilities")
     {
         return Ok(());
@@ -454,6 +454,12 @@ fn toggle(
                     e["enabled"] = json!(enabled);
                     Some(e)
                 }
+                // A packaged skill whose entry a kill lost (normally reconciled by `ext::recover`) gets its package
+                // entry back, never a local one.
+                None if t.record.is_some() => t
+                    .record
+                    .as_ref()
+                    .map(|r| index::package_entry(r, "-", enabled, &now_iso(), None)),
                 None => {
                     let source = match install_units(layout, "skills").get(name) {
                         Some((s, _)) if s == "bundled" => "bundled",
@@ -476,6 +482,12 @@ fn toggle(
         } else {
             match &o.agents {
                 Some(Agents::Some(list)) => {
+                    // The entry stays as it is, but an unindexed skill gets its first one (X1-R12), enabled.
+                    index_entry = if entry.is_none() {
+                        set_entry(true)
+                    } else {
+                        None
+                    };
                     let (c, r) = skill_disable_changes(&cfg, name, list);
                     (c, r, was_on)
                 }
@@ -542,16 +554,7 @@ fn toggle(
         }
         let mut applied = plan.clone();
         if !changes.is_empty() {
-            let snapshot = host.config_bytes();
-            applied = host.set_config(changes.clone(), false)?;
-            let restore = restore.clone();
-            rb.push("config", move |h| match snapshot {
-                Some(bytes) => h.restore_config_bytes(bytes).map_err(|e| e.to_string()),
-                None => h
-                    .set_config(restore, false)
-                    .map(drop)
-                    .map_err(|e| e.to_string()),
-            });
+            applied = config_change(host, "config", changes.clone(), restore.clone(), &mut rb)?;
         }
         if let Some(entry) = &index_entry {
             let ipath = index::index_path(layout);

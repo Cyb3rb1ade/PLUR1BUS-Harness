@@ -1139,3 +1139,133 @@ fn a_failed_enable_rolls_back_what_it_wrote() {
     assert_eq!(guarded(&l), before);
     assert!(host.inner.notified.is_empty());
 }
+
+// ---- review round 1 -------------------------------------------------------------------------------------------------
+
+/// X1-R12: an unindexed skill the install manifest names as bundled gets `source: "bundled"` at its first toggle; a
+/// per-agent disable of an unindexed skill also writes its first entry (enabled).
+#[test]
+fn an_unindexed_bundled_skill_gets_source_bundled() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (_d, l) = home();
+    two_agents(&l);
+    fs::write(
+        l.install_manifest(),
+        json!({"skills": [{"name": "ops", "source": "bundled", "version": "1.2.0"}]}).to_string(),
+    )
+    .unwrap();
+    for n in ["ops", "hand-made"] {
+        let dir = l.skills().join(n);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("SKILL.md"), skill_md(n)).unwrap();
+    }
+    let v = off(&l, "ops", &toggle(None, false, false)).unwrap();
+    assert_eq!(v["state"], "installed");
+    let e = index::read_index(&l)
+        .unwrap()
+        .entry("ops")
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        (&e["source"], &e["enabled"]),
+        (&json!("bundled"), &json!(false))
+    );
+    assert_eq!(item(&l, "ops")["version"], "1.2.0");
+
+    let v = off(&l, "hand-made", &toggle(some(&["anna"]), false, false)).unwrap();
+    assert_eq!(v["state"], "enabled");
+    let e = index::read_index(&l)
+        .unwrap()
+        .entry("hand-made")
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        (&e["source"], &e["enabled"]),
+        (&json!("local"), &json!(true))
+    );
+    assert_eq!(blocked(&l, "anna"), json!(["hand-made"]));
+    assert_eq!(item(&l, "hand-made")["agents"], json!(["bernd"]));
+}
+
+/// A packaged skill whose index entry is missing gets its package entry back at a toggle, not a local one.
+#[test]
+fn a_packaged_skill_without_an_entry_gets_its_package_entry_back() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg("demo-skill", &key),
+        &plain(),
+    )
+    .unwrap();
+    let mut idx = index::read_index(&l).unwrap();
+    idx.remove("demo-skill");
+    index::write_index(&l, &idx).unwrap();
+    on(&l, "demo-skill", &toggle(None, true, false)).unwrap();
+    let e = index::read_index(&l)
+        .unwrap()
+        .entry("demo-skill")
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        (&e["source"], &e["enabled"]),
+        (&json!("file"), &json!(true))
+    );
+    assert_eq!(
+        e["package"],
+        json!({"id": "demo/demo-skill", "version": "1.0.0", "trust": "first-party"})
+    );
+}
+
+/// `agents: "all"` on a module means everywhere and is accepted (only a list is `agents-not-supported`).
+#[test]
+fn agents_all_on_a_module_is_accepted() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    install(
+        d.path(),
+        &l,
+        "m.p1x",
+        &module_pkg("fixture", &key),
+        &plain(),
+    )
+    .unwrap();
+    let v = on(&l, "fixture", &toggle(Some(Agents::All), true, false)).unwrap();
+    assert_eq!(v["state"], "enabled");
+    let v = off(&l, "fixture", &toggle(Some(Agents::All), false, false)).unwrap();
+    assert_eq!(v["state"], "installed");
+    assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
+}
+
+/// A plan writes nothing, so it neither waits for nor is refused by a running mutation.
+#[test]
+fn a_dry_run_succeeds_while_another_mutation_holds_the_lock() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    install(
+        d.path(),
+        &l,
+        "m.p1x",
+        &module_pkg("fixture", &key),
+        &plain(),
+    )
+    .unwrap();
+    let guard = ext::try_mutation().unwrap();
+    let before = guarded(&l);
+    let v = on(&l, "fixture", &toggle(None, true, true)).unwrap();
+    assert_eq!(v["state"], "enabled");
+    assert_eq!(v["restart"]["modules"], json!(["fixture"]));
+    let e = on(&l, "fixture", &toggle(None, true, false)).unwrap_err();
+    assert_eq!(reason(&e), ("E_CONFLICT", "busy"));
+    assert_eq!(guarded(&l), before);
+    drop(guard);
+}
