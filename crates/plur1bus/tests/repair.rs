@@ -1247,3 +1247,36 @@ fn a_running_supervisor_suppresses_the_reports() {
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["steps"], json!([]), "{v}");
 }
+
+/// X1-R30: the extension rows are report-only; repair plans nothing for a tampered or revoked extension.
+#[test]
+fn repair_plans_nothing_for_extension_checks() {
+    let e = Env::new();
+    let body = "# notes\n";
+    let hex: String = Sha256::digest(body.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let ext = e.home.join("extensions");
+    fs::create_dir_all(&ext).unwrap();
+    let state = json!({ "schemaVersion": 1, "items": { "notes": {
+        "id": "local/notes", "name": "notes", "kind": "skill", "version": "1.0.0", "source": "file",
+        "trust": "unsigned", "packageSha256": "ab".repeat(32), "installedAt": "2026-09-28T10:00:00.000Z",
+        "files": { "SKILL.md": { "sha256": hex, "size": body.len() } },
+        "capabilities": {}, "scripts": [], "requiredSecrets": [], "removedByUser": false } } });
+    fs::write(ext.join("state.json"), state.to_string()).unwrap();
+    let dir = e.home.join("skills").join("notes");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("SKILL.md"), "# tampered\n").unwrap();
+    let before = fs::read(ext.join("state.json")).unwrap();
+    let (code, v) = e.repair(&["--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(ids(&v).iter().all(|i| !i.contains("ext")), "{v}");
+    let (_, v) = e.repair(&["--yes"]);
+    assert!(ids(&v).iter().all(|i| !i.contains("ext")), "{v}");
+    assert_eq!(fs::read(ext.join("state.json")).unwrap(), before);
+    assert_eq!(
+        fs::read_to_string(dir.join("SKILL.md")).unwrap(),
+        "# tampered\n"
+    );
+}
