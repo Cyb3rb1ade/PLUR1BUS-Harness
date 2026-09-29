@@ -63,9 +63,82 @@ in this repository.
 
 - [ ] Linux and macOS: `curl -fsSL <host>/install.sh | sh -s -- --non-interactive --accept-nc-licence` (the licence
       flag only when the use class needs it). Windows:
-      `& ([scriptblock]::Create((irm <host>/install.ps1))) --non-interactive`.
+      `$s = (Invoke-WebRequest -UseBasicParsing <host>/install.ps1).Content; if ($s -is [byte[]]) { $s = [Text.Encoding]::UTF8.GetString($s) }; & ([scriptblock]::Create($s.TrimStart([char]0xFEFF))) --non-interactive`
+      (a bare `irm` or `iwr ... .Content` returns `byte[]` under PowerShell 7 when the host serves the script with a
+      content type it does not treat as text, and `[scriptblock]::Create` then receives the byte values; the form above
+      yields text on Windows PowerShell 5.1 and 7 alike).
 - [ ] The installer prints the verified hash, installs to `~/.local/bin/plur1bus` (`%LOCALAPPDATA%\PLUR1BUS\bin`),
       and `setup` ends with every step `done` or `skipped`.
 - [ ] `plur1bus update --check --json` reports `verified: true` and `available: null`.
 - [ ] `plur1bus 1staid check` shows `runtime.node`, `runtime.core` and `models.cache` without `fail`.
+- [ ] Record the run URL and the results in the release notes.
+
+## 6. Plugin feed and one-liners (HM1)
+
+The OpenClaw plugin (`openclaw-plur1bus-memory`, plugin repository) is released by its own workflow,
+`plugin-release.yml`. CI there holds no signing key and no npm token; everything below that signs or publishes is the
+owner's. Release 7.17.0 is the first: OpenClaw minimum `2026.8.1`, latest tested `2026.9.6`.
+
+### 6.1 One-time setup (owner, plugin repository)
+
+- [ ] **Public keys (P4).** Repository variables `PLUR1BUS_RELEASE_PUBKEY_STABLE` and `PLUR1BUS_RELEASE_PUBKEY_BETA` of
+      the plugin repository must equal this repository's variables of the same names (the base64 key line of the
+      `.pub` file), because the plugin bootstraps and the installer bundle embed them. A dry run without them renders
+      `TEST ONLY` bootstraps and warns; a real run without them fails, and so does a real run that would carry a
+      `TEST ONLY` bootstrap.
+- [ ] **npm publish (P5, optional, off by default).** Skip this and the release builds the feed with `--no-npm`,
+      publishing nothing to npmjs.org. To enable it: (1) on npmjs.org configure a **trusted publisher** for the
+      package (`@cyb3rb1ade/plur1bus-memory`; repository = the plugin repository, workflow `plugin-release.yml`,
+      environment `npm-publish`); no npm token is stored anywhere. (2) Create the GitHub **environment `npm-publish`**
+      in the plugin repository (owner as required reviewer is advised). (3) Set the repository variable
+      **`PLUR1BUS_NPM_PUBLISH` to `yes`**; any other value or none means no npm publish. The job runs
+      `npm publish --provenance --access public --tag <dist-tag>`: `latest` for the stable channel, `beta` for the
+      beta channel, so a beta never becomes `latest`.
+- [ ] **Where `plugin-release.yml` can run.** GitHub offers a `workflow_dispatch` workflow only once it is on the
+      default branch of the plugin repository. Merge the HM1 branch first; before that, only the tag push trigger
+      (`v*`, a real stable run) exists, so do the dry run after the merge.
+
+### 6.2 Dry run
+
+- [ ] Plugin repository → Actions → plugin-release → Run workflow on the default branch with `dry-run` checked (the
+      default), channel `stable`. Green means: `check` (tag, `package.json`, manifest and lockfile versions agree),
+      `dist` (the `plugin-dist.yml` install matrix and the full suite), `assemble` (bootstraps, unsigned feed,
+      `SHA256SUMS`). A dry run creates no release, publishes nothing to npm and records no attestation.
+
+### 6.3 Real run, ClawHub, signing
+
+- [ ] Real run: push the tag `v7.17.0` (always the stable channel), or dispatch with `dry-run` unchecked (channel
+      `beta` for a beta release, dispatched on the tag). The `github-release` job publishes the tarball,
+      `plur1bus-plugin-installer.mjs`, `install-plugin.sh`, `install-plugin.ps1`, `SHA256SUMS` and the **unsigned** feed
+      `plugin-<channel>.unsigned.json`; the tarball, installer and both bootstraps get build attestations; `npm-publish`
+      runs only if 6.1 enabled it, then checks that the registry's integrity equals the feed's.
+- [ ] Publish the package to ClawHub by hand (the workflow does not) and note the ClawPack sha256. If the feed should
+      carry it (`clawpackDigest`, enables the ClawHub install source), dispatch again with the `clawpack-digest`
+      input (64 hex) to rebuild the feed before signing; without a digest the bootstrap falls back to installing the
+      feed's SHA-256-verified tarball.
+- [ ] **Sign offline with the same per-channel secret key as `release.json`** (this repository's §1 keys): download
+      `plugin-stable.unsigned.json`, rename it to `plugin-stable.json`, then
+      `minisign -S -s stable.key -m plugin-stable.json` (beta: `beta.key`, `plugin-beta.json`). Verify with
+      `minisign -V -p stable.pub -m plugin-stable.json`.
+- [ ] Publish `plugin-stable.json` and `plugin-stable.json.minisig` at
+      `https://updates.plur1bus.app/plugin/stable.json` and `.../stable.json.minisig` (beta: `beta.json`), beside the
+      harness feed's own paths. Publish `install-plugin.sh` and `install-plugin.ps1` **from the plugin release** (not
+      rebuilt) at `https://plur1bus.app/`, beside `install.sh` and `install.ps1`. The files' bytes must equal the
+      release's `SHA256SUMS` and the feed's `bootstrap` hashes.
+- [ ] Promotion beta to stable re-signs **identical bytes**: publish the same feed content under the stable name and
+      sign it with the stable key; never edit it.
+- [ ] Trust model: the plugin bootstrap verifies the feed's minisign signature itself, with Node, before it trusts any
+      URL or hash in the feed (HM1-R3). The harness one-liner (`install.sh`/`install.ps1`) still does not (HB19); it
+      relies on HTTPS plus SHA-256 and `plur1bus update --check` verifies the signature afterwards.
+
+### 6.4 Smoke test (fresh user account or VM, OpenClaw installed)
+
+- [ ] Linux and macOS: `curl -fsSL https://plur1bus.app/install-plugin.sh | sh -s -- --non-interactive`
+      (`--accept-nc-licence` only when the use class needs it). Windows PowerShell 5.1 or 7, a text-safe form:
+      `$s = (Invoke-WebRequest -UseBasicParsing https://plur1bus.app/install-plugin.ps1).Content; if ($s -is [byte[]]) { $s = [Text.Encoding]::UTF8.GetString($s) }; & ([scriptblock]::Create($s.TrimStart([char]0xFEFF))) --non-interactive`.
+      The plugin repository's docs show the shorter `irm` form; it is fine only where the host serves the script as
+      text, so check `curl -sI https://plur1bus.app/install-plugin.ps1` for a `text/*` content type and use the form
+      above when it is not.
+- [ ] The installer verifies the feed signature, installs through OpenClaw's own `plugins install`, and its
+      `openclaw plur1bus selftest` step passes; `--update --check` on the same machine reports the published version.
 - [ ] Record the run URL and the results in the release notes.
