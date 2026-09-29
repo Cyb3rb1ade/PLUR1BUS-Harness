@@ -31,6 +31,13 @@ class FakeError:
         self.code, self.reason, self.message = code, reason, message
 
 
+class Raw:
+    """Answer with these bytes as the line (for protocol-error tests)."""
+
+    def __init__(self, line: bytes) -> None:
+        self.line = line
+
+
 DROP = object()  # close the connection without answering
 SILENT = object()  # never answer this request (the connection stays open)
 
@@ -195,6 +202,9 @@ class FakeCore:
                     return
                 if outcome is SILENT:
                     continue
+                if isinstance(outcome, Raw):
+                    conn.sendall(outcome.line + b"\n")
+                    continue
                 if isinstance(outcome, FakeError):
                     reply = {
                         "jsonrpc": "2.0",
@@ -308,4 +318,4 @@ if __name__ == "__main__":
     raise SystemExit(_main(sys.argv[1:]))
 
 
-__all__ = ["DROP", "SILENT", "FakeCore", "FakeCoreProcess", "FakeError", "fixture_result", "default_capabilities"]
+__all__ = ["DROP", "SILENT", "Raw", "FakeCore", "FakeCoreProcess", "FakeError", "fixture_result", "default_capabilities"]

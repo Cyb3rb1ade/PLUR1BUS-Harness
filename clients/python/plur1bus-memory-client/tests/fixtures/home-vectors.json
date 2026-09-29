@@ -10,5 +10,8 @@
   { "platform": "win32", "env": { "LOCALAPPDATA": "C:\\L\\" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\L\\PLUR1BUS" },
   { "platform": "win32", "env": { "PLUR1BUS_HOME": "D:/p1b/home" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "D:\\p1b\\home" },
   { "platform": "win32", "env": { "PLUR1BUS_HOME": "rel" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\work\\rel" },
+  { "platform": "linux", "env": { "PLUR1BUS_HOME": "" }, "homeDir": "/h", "cwd": "/work", "home": "/h/.plur1bus", "note": "HM2-R26: empty counts as unset" },
+  { "platform": "win32", "env": { "PLUR1BUS_HOME": "" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\Users\\c\\AppData\\Local\\PLUR1BUS", "note": "HM2-R26: empty counts as unset" },
+  { "platform": "win32", "env": { "LOCALAPPDATA": "" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\Users\\c\\AppData\\Local\\PLUR1BUS", "note": "HM2-R26: empty LOCALAPPDATA counts as unset" },
   { "platform": "win32", "env": { "PLUR1BUS_HOME": "C:\\a\\.\\b\\..\\c" }, "homeDir": "C:\\Users\\c", "cwd": "C:\\work", "home": "C:\\a\\c" }
 ]

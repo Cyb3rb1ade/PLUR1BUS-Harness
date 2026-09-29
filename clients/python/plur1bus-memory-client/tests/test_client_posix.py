@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import unittest
 
 from tests.fakes import DROP, SILENT, FakeCore, FakeCoreProcess, default_capabilities
@@ -313,6 +314,106 @@ class ClientPosixTest(unittest.TestCase):
         sent = [p for m, p in core.calls if m == "memory.recall"][0]["query"]
         self.assertEqual(len(sent), 32000)
         self.assertTrue(sent.endswith("tail"))
+
+    # -- review fixes -----------------------------------------------------------------------------------
+
+    def test_the_token_is_read_only_after_the_s11_check(self) -> None:
+        self.fake(pid=os.getpid() + 100000)
+        with open(os.path.join(self.home, "run", "core.token"), "w") as f:
+            f.write("not-a-token")  # would be E_CORE_UNAVAILABLE token-invalid if it were read first
+        with self.assertRaises(RpcError) as cm:
+            self.client().connect()
+        self.assertEqual((cm.exception.code, cm.exception.reason), ("E_SERVER_IDENTITY", "server-pid-mismatch"))
+
+    def test_no_traceback_frame_holds_the_token(self) -> None:
+        # A locals-capturing formatter (Sentry, rich show_locals) must not find the token after a failure.
+        core = self.fake(pid=os.getpid() + 100000)
+        with self.assertRaises(RpcError) as cm:
+            self.client().connect()
+        text = "".join(traceback.TracebackException.from_exception(cm.exception, capture_locals=True).format())
+        self.assertNotIn(core.token, text)
+
+        class BrokenSend:
+            def peer_pid(self) -> int | None:
+                return None
+
+            def send(self, data: bytes, deadline: float) -> None:
+                raise RpcError("E_TRANSPORT", "send failed", {"reason": "send-failed"})
+
+            def recv_line(self, deadline: float) -> bytes:
+                raise AssertionError("not reached")
+
+            def close(self) -> None:
+                pass
+
+        os.unlink(os.path.join(self.home, "run", "core.pid"))
+        c = self.client(transport_factory=lambda address, *, connect_timeout: BrokenSend())
+        with self.assertRaises(RpcError) as cm:
+            c.connect()
+        exc = cm.exception
+        text = "".join(traceback.TracebackException.from_exception(exc, capture_locals=True).format())
+        self.assertNotIn(core.token, text)
+        self.assertIsNone(exc.__context__, "no chained exception carries the send frame")
+
+    def test_close_waits_at_most_its_deadline_and_aborts_the_call_without_retry(self) -> None:
+        core = self.fake(handlers={"memory.recall": SILENT})
+        c = self.client(call_timeout=5.0)
+        c.connect()
+        errors: list[RpcError] = []
+
+        def call() -> None:
+            try:
+                c.recall(CALLER, "a", "q")
+            except RpcError as e:
+                errors.append(e)
+
+        t = threading.Thread(target=call)
+        t.start()
+        time.sleep(0.1)
+        t0 = time.monotonic()
+        c.close(deadline_s=0.3)
+        self.assertLess(time.monotonic() - t0, 0.3 + 0.25)
+        t.join(2)
+        self.assertFalse(t.is_alive())
+        self.assertEqual((errors[0].code, errors[0].reason), ("E_TRANSPORT", "closed"))
+        self.assertEqual(core.methods().count("memory.recall"), 1, "a closed client does not re-send")
+        self.assertIsInstance(c.status(), dict, "the client reconnects on the next call after close()")
+
+    def test_close_default_fits_the_session_end_budget(self) -> None:
+        self.fake(handlers={"memory.recall": SILENT})
+        c = self.client(call_timeout=5.0)
+        c.connect()
+        t = threading.Thread(target=lambda: self.assertRaises(RpcError, c.recall, CALLER, "a", "q"))
+        t.start()
+        time.sleep(0.1)
+        t0 = time.monotonic()
+        c.close()
+        self.assertLess(time.monotonic() - t0, 2.0)
+        t.join(2)
+
+    def test_supports_stays_valid_during_a_reconnect(self) -> None:
+        caps = default_capabilities()
+        caps["methods"]["memory.checkpoint"] = {"stability": "experimental", "since": "1.0.0"}
+        gate = threading.Event()
+        release = threading.Event()
+        core = self.fake(capabilities=caps)
+        c = self.client()
+        c.connect()
+        self.assertTrue(c.supports("memory.checkpoint"))
+
+        def slow_auth(params: dict) -> object:
+            gate.set()
+            release.wait(2)
+            return core._auth(params)
+
+        core.handlers["core.auth"] = slow_auth
+        core.handlers["core.status"] = DROP
+        t = threading.Thread(target=lambda: self.assertRaises(RpcError, c.status))
+        t.start()
+        self.assertTrue(gate.wait(2), "the reconnect handshake started")
+        self.assertTrue(c.supports("memory.checkpoint"), "the previous hello stays until a new one is accepted")
+        release.set()
+        t.join(3)
 
     def test_a_relative_home_is_refused(self) -> None:
         with self.assertRaises(ValueError):

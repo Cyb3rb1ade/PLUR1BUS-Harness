@@ -166,16 +166,6 @@ class ConformanceOfflineTest(unittest.TestCase):
         self.assertEqual(METHODS["core.auth"][1], "stable")
         self.assertEqual(METHODS["core.status"][1], "stable")
 
-    def test_generated_schema_module_is_fresh(self) -> None:
-        with open(SCHEMA_PATH, "rb") as f:
-            raw = f.read().replace(b"\r\n", b"\n")
-        self.assertEqual(SCHEMA_SHA256, hashlib.sha256(raw).hexdigest(), "run `pnpm gen`")
-        self.assertEqual(RPC_VERSION, self.schema["x-rpc-version"])
-        expected = {
-            name: (d["x-server"], d["x-stability"], d["x-since"]) for name, d in self.schema["$defs"]["methods"].items()
-        }
-        self.assertEqual(METHODS, expected)
-
     def test_the_recorded_auth_request_carries_the_token_only_in_the_request(self) -> None:
         self.client.connect()
         self.assertEqual(self.sent[0], {"jsonrpc": "2.0", "id": 1, "method": "core.auth", "params": {"token": TOKEN}})
@@ -189,6 +179,21 @@ class ConformanceOfflineTest(unittest.TestCase):
             self.client.capture(CALLER, "hermes-default", big)
         self.assertEqual(cm.exception.code, "E_PROTOCOL")
         self.assertEqual(len(self.sent), before)
+
+
+class GeneratedSchemaTest(unittest.TestCase):
+    """Needs no dev dependency, so the stale-_schema.py guard runs on every interpreter."""
+
+    def test_generated_schema_module_is_fresh(self) -> None:
+        with open(SCHEMA_PATH, "rb") as f:
+            raw = f.read().replace(b"\r\n", b"\n")
+        self.assertEqual(SCHEMA_SHA256, hashlib.sha256(raw).hexdigest(), "run `pnpm gen`")
+        schema = json.loads(raw)
+        self.assertEqual(RPC_VERSION, schema["x-rpc-version"])
+        expected = {
+            name: (d["x-server"], d["x-stability"], d["x-since"]) for name, d in schema["$defs"]["methods"].items()
+        }
+        self.assertEqual(METHODS, expected)
 
 
 if __name__ == "__main__":

@@ -124,13 +124,15 @@ pub fn resolve_home(
     if let Some(h) = cli_home {
         return resolve_and_normalize(platform, cwd, &h.to_string_lossy());
     }
-    if let Some(h) = env.get("PLUR1BUS_HOME") {
+    // An empty variable counts as unset, as in packages/core/src/paths.ts and the Python client (HM2-R26).
+    if let Some(h) = env.get("PLUR1BUS_HOME").filter(|s| !s.is_empty()) {
         return resolve_and_normalize(platform, cwd, h);
     }
     if platform == "windows" {
         let lad = local_app_data
             .map(|p| p.to_string_lossy().to_string())
-            .or_else(|| env.get("LOCALAPPDATA").cloned())
+            .filter(|s| !s.is_empty())
+            .or_else(|| env.get("LOCALAPPDATA").filter(|s| !s.is_empty()).cloned())
             .unwrap_or_else(|| join_with('\\', &home_dir.to_string_lossy(), &["AppData", "Local"]));
         return PathBuf::from(join_with('\\', &lad, &["PLUR1BUS"]));
     }

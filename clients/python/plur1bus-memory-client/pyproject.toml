@@ -9,7 +9,8 @@ version = "0.1.0"
 description = "Stdlib-only client for the PLUR1BUS core RPC (NDJSON JSON-RPC over the home's Unix socket or named pipe), for host adapters."
 readme = "README.md"
 license = "MIT"
-# No upper bound (HM2-R25): the host's own interpreter decides; CI covers 3.11 to 3.14.
+# No upper bound (HM2-R25): the host's own interpreter decides. Tested locally on 3.11-3.13 and 3.14.0rc2;
+# CI legs (including 3.14 final, which Hermes main pins) arrive with HM2 Task 6.
 requires-python = ">=3.11"
 dependencies = []
 classifiers = [

@@ -99,6 +99,7 @@ class MemoryClient:
         self._stream: Any = None
         self._hello: dict | None = None
         self._next_id = 1
+        self._close_gen = 0
 
     # -- connection -------------------------------------------------------------------------------
 
@@ -119,9 +120,23 @@ class MemoryClient:
         methods = caps.get("methods") if isinstance(caps, dict) else None
         return isinstance(methods, dict) and method in methods
 
-    def close(self) -> None:
-        with self._lock:
-            self._drop_locked()
+    def close(self, *, deadline_s: float = 1.0) -> None:
+        """Close the connection. Waits at most ``deadline_s`` (default 1 s, inside F14's 2 s session-end
+        budget) for an in-flight call; past that the connection is shut down under it, and that call fails
+        with ``E_TRANSPORT`` (reason ``closed``) without a retry."""
+        self._close_gen += 1
+        if self._lock.acquire(timeout=max(0.0, deadline_s)):
+            try:
+                self._drop_locked()
+            finally:
+                self._lock.release()
+            return
+        stream = self._stream
+        if stream is not None:
+            try:
+                stream.close()
+            except Exception:  # noqa: BLE001 - best effort
+                pass
 
     def __enter__(self) -> MemoryClient:
         return self
@@ -319,12 +334,28 @@ class MemoryClient:
             raise RpcError("E_SERVER_IDENTITY", "run/core.pid is malformed", {"reason": "pid-file-invalid"})
         return int(fields[0])
 
+    def _send_auth(self, stream: Any, req_id: int, deadline: float) -> None:
+        """Read the token and send ``core.auth``, only after the S11 check. The token and the encoded line
+        live in this frame alone and are cleared before any error leaves it, so no traceback holds them."""
+        token: str | None = self._read_token()
+        line: bytes | None = encode_request(req_id, "core.auth", {"token": token})
+        failure: tuple[str, str, dict] | None = None
+        try:
+            stream.send(line, deadline)
+        except RpcError as e:
+            failure = (e.code, e.message, e.data)  # re-raised below, outside this handler: no chained traceback
+        finally:
+            token = line = None
+        if failure is not None:
+            raise RpcError(*failure)
+
     def _connect_locked(self, deadline: float) -> dict:
+        # The previous hello stays readable (supports()) until a new one is accepted.
         self._drop_locked()
-        self._hello = None
         self._check_run_dir()
-        token = self._read_token()
         expected = self._read_expected_pid()
+        if not os.path.exists(core_token_path(self.home)):
+            raise RpcError("E_CORE_UNAVAILABLE", "run/core.token does not exist", {"reason": "token-missing"})
         left = deadline - time.monotonic()
         if left <= 0:
             raise RpcError("E_TIMEOUT", "no time left to connect", {"reason": "deadline"})
@@ -341,8 +372,7 @@ class MemoryClient:
                         {"reason": "server-pid-mismatch", "expected": expected, "actual": actual},
                     )
             req_id = self._take_id()
-            stream.send(encode_request(req_id, "core.auth", {"token": token}), deadline)
-            del token
+            self._send_auth(stream, req_id, deadline)
             try:
                 hello = read_response(stream, req_id, deadline)
             except RpcError as e:
@@ -353,6 +383,7 @@ class MemoryClient:
                 raise RpcError("E_PROTOCOL", "core.auth returned no object", {"reason": "bad-hello"})
             major, minor, _ = parse_rpc_version(hello.get("rpc"))
             if major != RPC_MAJOR or minor < RPC_MIN_MINOR:
+                self._hello = None  # an incompatible core: its capabilities do not apply
                 raise RpcError(
                     "E_RPC_VERSION",
                     f"the core speaks rpc {hello.get('rpc')}; this client needs {RPC_MAJOR}.{RPC_MIN_MINOR} or a later 1.x",
@@ -371,6 +402,7 @@ class MemoryClient:
     def _call(self, method: str, params: dict, deadline_s: float | None) -> Any:
         deadline = time.monotonic() + (self.call_timeout if deadline_s is None else deadline_s)
         with self._locked(deadline):
+            gen = self._close_gen
             line_id = self._take_id()
             line = encode_request(line_id, method, params)  # E_PROTOCOL before anything is sent
             retried = False
@@ -389,6 +421,8 @@ class MemoryClient:
                         self._drop_locked()  # mid-line or holding a late answer: never reuse
                     if e.code != "E_TRANSPORT":
                         raise
+                    if gen != self._close_gen:
+                        raise RpcError("E_TRANSPORT", "the client was closed during the call", {"reason": "closed"}) from None
                     if retried:
                         raise RpcError(
                             "E_CORE_UNAVAILABLE", "the core dropped the call again after a reconnect", {"reason": "retry-failed"}

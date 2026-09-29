@@ -74,25 +74,19 @@ class PosixStream:
             self._buf += chunk
 
     def is_stale(self) -> bool:
-        """True when the peer already closed an idle connection (nothing was sent on it yet for this call)."""
+        """True when an idle connection (nothing of the next call sent yet) cannot be trusted: the peer closed
+        it, or it holds unsolicited bytes (a late answer, a notification, data followed by EOF). The client
+        then connects afresh instead of sending into it."""
         sock = self._sock
         if sock is None:
             return True
         if self._buf:
-            return False
+            return True
         try:
             readable, _, _ = select.select([sock], [], [], 0)
-            if not readable:
-                return False
-            sock.setblocking(False)
-            try:
-                return sock.recv(1, socket.MSG_PEEK) == b""
-            finally:
-                sock.setblocking(True)
-        except BlockingIOError:
-            return False
         except (OSError, ValueError):
             return True
+        return bool(readable)
 
     def peer_pid(self) -> int | None:
         sock = self._sock
@@ -114,6 +108,10 @@ class PosixStream:
     def close(self) -> None:
         sock, self._sock = self._sock, None
         if sock is not None:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)  # wakes a recv blocked in another thread
+            except OSError:
+                pass
             try:
                 sock.close()
             except OSError:

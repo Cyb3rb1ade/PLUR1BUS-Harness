@@ -31,7 +31,11 @@ class PathsTest(unittest.TestCase):
         self.assertTrue(any(h.endswith("/") and h.startswith("/") for h in homes), "a POSIX home with a trailing '/'")
 
     def test_default_home_mirrors_resolve_home(self) -> None:
-        for v in _load("home-vectors.json"):
+        vectors = _load("home-vectors.json")
+        # HM2-R26: the empty-value cases are pinned in the shared file, so Rust checks them too.
+        self.assertTrue(any(v["env"].get("PLUR1BUS_HOME") == "" for v in vectors))
+        self.assertTrue(any(v["env"].get("LOCALAPPDATA") == "" for v in vectors))
+        for v in vectors:
             with self.subTest(v=v):
                 got = default_home(v["env"], v["platform"], v["homeDir"], v.get("localAppData"), cwd=v["cwd"])
                 self.assertEqual(got, v["home"])
@@ -39,9 +43,6 @@ class PathsTest(unittest.TestCase):
     @unittest.skipIf(sys.platform == "win32", "a POSIX cwd")
     def test_default_home_uses_the_process_cwd_for_a_relative_home(self) -> None:
         self.assertEqual(default_home({"PLUR1BUS_HOME": "rel"}, "linux", "/h"), os.path.join(os.getcwd(), "rel"))
-
-    def test_an_empty_plur1bus_home_counts_as_unset(self) -> None:
-        self.assertEqual(default_home({"PLUR1BUS_HOME": ""}, "linux", "/h", cwd="/w"), "/h/.plur1bus")
 
     def test_run_files_live_under_run(self) -> None:
         self.assertEqual(core_token_path("/h/.plur1bus"), os.path.join("/h/.plur1bus", "run", "core.token"))
