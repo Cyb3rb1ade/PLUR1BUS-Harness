@@ -12,8 +12,8 @@ use super::host::{host_facts, inspect_ttl, reserved_names, trust_store};
 use super::overlays::{load_revocations, revoked};
 use super::paths::ExtPaths;
 use super::record::{
-    check_name, check_unsigned_policy, kind_name, now_ms, prune, record_path, spool_path, valid_id,
-    InspectionRecord,
+    check_name, check_unsigned_policy, io_err as io_error, kind_name, now_ms, prune, record_path,
+    spool_path, valid_id, InspectionRecord,
 };
 use super::state::{self, write_private_atomic};
 use super::{iso8601, ExtError};
@@ -32,14 +32,6 @@ use std::path::{Path, PathBuf};
 pub enum Source {
     Path(PathBuf),
     Stdin,
-}
-
-fn io_error(what: &str, path: &Path, e: &io::Error) -> ExtError {
-    ExtError::new(
-        "E_INTERNAL",
-        "io",
-        format!("{what} {}: {e}", path.display()),
-    )
 }
 
 fn invalid(r: &'static str, detail: impl Into<String>) -> ExtError {
@@ -343,7 +335,6 @@ pub(crate) fn inspect_with(
         scripts: Value::Array(scripts),
         requires: m.requires.clone(),
         replaces,
-        name_taken_by: None,
     };
     let mut text = serde_json::to_string_pretty(&rec).map_err(|e| {
         ExtError::new(

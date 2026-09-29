@@ -786,7 +786,7 @@
       },
       "ext.list": {
         "x-stability": "experimental", "x-since": "1.4.0", "x-server": "supervisor",
-        "description": "Lists installed extensions (skills, modules, channels), optionally filtered by kind, plain state and the agent that has them. Never errors on content.",
+        "description": "Lists installed extensions (skills, modules, channels), optionally filtered by kind, plain state and the agent that has them. E_STORAGE reason=state-invalid when extensions/state.json cannot be read; an unreadable skills/index.json lists every skill as not enabled.",
         "params": {"type": "object", "additionalProperties": false, "properties": {"kind": {"type": "array", "items": {"$ref": "#/$defs/ExtKind"}}, "state": {"type": "array", "items": {"enum": ["installed", "enabled"]}}, "agent": {"$ref": "#/$defs/AgentId"}}},
         "result": {"type": "object", "additionalProperties": false, "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/$defs/ExtItem"}}}}
       },
@@ -829,12 +829,12 @@
       "ext.disable": {
         "x-stability": "experimental", "x-since": "1.4.0", "x-server": "supervisor",
         "description": "Disables an extension, for the given agents (skills only) or everywhere; dryRun runs every refusal and reports restart and heldBack without writing. Disabling a module holds back the enabled modules that need it (listed in heldBack); it is never refused for them. E_NOT_FOUND reason=extension-unknown; E_AGENT_UNKNOWN; E_CONFLICT reason=busy; E_INVALID_PARAMS reason=agents-not-supported (modules and channels). E_LOCKED reason=skills-locked (another writer holds the skills index); E_STORAGE reason=state-invalid|index-invalid|index-newer (extensions/state.json or skills/index.json cannot be read); E_INTERNAL reason=io (a file could not be written; the change was rolled back).",
-        "params": {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"}, "agents": {"$ref": "#/$defs/ExtAgents"}, "acknowledge": {"type": "array", "items": {"enum": ["capabilities"]}}, "dryRun": {"type": "boolean"}}},
+        "params": {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"}, "agents": {"$ref": "#/$defs/ExtAgents"}, "dryRun": {"type": "boolean"}}},
         "result": {"type": "object", "additionalProperties": false, "required": ["name", "state", "restart", "heldBack"], "properties": {"name": {"type": "string"}, "state": {"enum": ["installed", "enabled"]}, "restart": {"type": "object", "additionalProperties": false, "required": ["modules"], "properties": {"modules": {"type": "array", "items": {"type": "string"}}}}, "heldBack": {"type": "array", "items": {"type": "string"}}}}
       },
       "ext.watch": {
         "x-stability": "experimental", "x-since": "1.4.0", "x-server": "supervisor",
-        "description": "Returns every installed extension and subscribes this connection to ext.changed.",
+        "description": "Returns every installed extension and subscribes this connection to ext.changed. E_STORAGE reason=state-invalid (extensions/state.json cannot be read; nothing is subscribed).",
         "params": {"type": "object", "additionalProperties": false, "properties": {}},
         "result": {"type": "object", "additionalProperties": false, "required": ["subscriptionId", "items"], "properties": {"subscriptionId": {"type": "string"}, "items": {"type": "array", "items": {"$ref": "#/$defs/ExtItem"}}}}
       }

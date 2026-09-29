@@ -2,7 +2,8 @@
 //!
 //! - **Uninstall** moves an item's code into a fresh `extensions/trash/<name>-<version>-<YYYYMMDDTHHMMSSZ>/` (built
 //!   atomically by [`build_trash_entry`], the same builder and layout a replacing install uses): `code/`,
-//!   `package.p1x` (the cached package, moved out of the cache by rename once the record is gone) and `record.json` (`{removedAt, reason, name, kind,
+//!   `package.p1x` and `package.json` (the cached package and its cache meta, moved out of the cache by rename once the
+//!   record is gone, and back by a restore) and `record.json` (`{removedAt, reason, name, kind,
 //!   version, record, index, purged}`: the state record and the index entry as they were). A skill's folder moves by
 //!   rename; a module goes through [`ModuleHost::remove_module`] (which stops it first). The state record and the
 //!   index entry are removed. Kept: `data/ext/<name>/` and the config section (`modules.<name>` stays, D14).
@@ -34,15 +35,17 @@
 //! Supervisor-safe (X1-R2): no package bytes are opened here; the package is moved as an opaque file.
 use super::commit::{
     build_trash_entry, config_change, ensure_dir, fail_at, install_err, io_err, killed,
-    move_package, package_into_trash, put_code_back, read_bytes, reset_kill, restore_file,
-    ModuleHost, Rollback,
+    meta_from_trash, move_package, package_into_trash, put_code_back, read_bytes, reset_kill,
+    restore_file, ModuleHost, Rollback, TRASH_META, TRASH_PACKAGE,
 };
 use super::index::{self, lock_skills, ImportLock};
 use super::lifecycle::{dependents, disable_locked, resolve, Target, ToggleOpts};
 use super::list::{cached_meta, install_units};
 use super::overlays::{load_revocations, overlays_of};
 use super::paths::ExtPaths;
-use super::record::{module_dir_kind, name_taken, now_ms, parse_iso_ms};
+use super::record::{
+    module_dir_kind, name_taken, now_ms, parse_iso_ms, skill_id_ok, state_invalid,
+};
 use super::state::{self, remove_dir_all_retrying, remove_retrying, rename_retrying, ItemRecord};
 use super::{now_iso, ExtError};
 use crate::modules::install as modinstall;
@@ -129,17 +132,6 @@ pub fn prune_trash(layout: &Layout, days: u32) -> Vec<String> {
     pruned
 }
 
-/// The importer's `SKILL_ID`, which every extension name satisfies.
-fn name_ok(n: &str) -> bool {
-    let b = n.as_bytes();
-    !b.is_empty()
-        && b.len() <= 64
-        && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
-        && b[1..].iter().all(|c| {
-            c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'.' | b'_' | b'-')
-        })
-}
-
 /// A trash id is one path segment: `<name>-<version>-<stamp>[-n]` in `[A-Za-z0-9._+-]`, never `.`/`..` or a temp
 /// entry.
 pub(crate) fn valid_trash_id(id: &str) -> bool {
@@ -183,10 +175,6 @@ pub(crate) fn newest_trash_with_code(
         }
     }
     best.map(|(_, p)| p)
-}
-
-fn state_invalid(e: String) -> ExtError {
-    ExtError::new("E_STORAGE", "state-invalid", e)
 }
 
 fn trash_expired(id: &str) -> ExtError {
@@ -475,7 +463,7 @@ fn move_to_trash<'a>(
     // cache: the package now lives in the trash entry. Only once the record is gone: a kill before that leaves the
     // item installed with its cached package (recover puts the code back and drops the entry).
     if let Some(sha) = &sha {
-        if paths.cached(sha).is_file() {
+        if paths.cached(sha).is_file() || paths.cached_meta(sha).is_file() {
             package_into_trash(paths, sha, &tdir, "cache", rb)?;
             fail_at("uninstall.cache")?;
         }
@@ -656,7 +644,7 @@ fn read_entry(tdir: &Path, id: &str, days: u32) -> Result<Trashed, ExtError> {
         .as_str()
         .or_else(|| record.as_ref().map(|r| r.name.as_str()))
         .or_else(|| body["index"]["id"].as_str())
-        .filter(|n| name_ok(n))
+        .filter(|n| skill_id_ok(n))
         .ok_or_else(|| trash_expired(id))?
         .to_string();
     let kind = body["kind"]
@@ -901,7 +889,7 @@ fn restore_steps<'a>(
         rb.push("state", restore_file(paths.state.clone(), before));
         fail_at("restore.state")?;
 
-        let pkg = tdir.join("package.p1x");
+        let pkg = tdir.join(TRASH_PACKAGE);
         let cached = paths.cached(&sha);
         if pkg.is_file() && !cached.exists() {
             ensure_dir(&paths.cache, "cache", rb)?;
@@ -909,6 +897,16 @@ fn restore_steps<'a>(
             move_package(&pkg, &cached)?;
             rb.push("cache", move |_| {
                 move_package(&cached, &pkg).map_err(|e| e.to_string())
+            });
+        }
+        // The cache meta travels with its package.
+        let tmeta = tdir.join(TRASH_META);
+        let meta = paths.cached_meta(&sha);
+        if tmeta.is_file() && !meta.exists() {
+            ensure_dir(&paths.cache, "cache", rb)?;
+            rename_retrying(&tmeta, &meta).map_err(|e| io_err("cannot restore", &tmeta, e))?;
+            rb.push("cache", move |_| {
+                rename_retrying(&meta, &tmeta).map_err(|e| format!("{}: {e}", meta.display()))
             });
         }
     }
@@ -960,12 +958,13 @@ fn restore_section(layout: &Layout, name: &str, section: Value) -> Result<(), St
 /// Puts a trash entry's `package.p1x` back into the cache when the cache has lost it (an uninstall killed after the
 /// cache step, then undone by recover). True when the cache holds the package afterwards, or there is none to keep.
 pub(crate) fn keep_cached_package(paths: &ExtPaths, entry: &Path, sha256: &str) -> bool {
-    let pkg = entry.join("package.p1x");
+    let meta_kept = meta_from_trash(paths, entry, sha256);
+    let pkg = entry.join(TRASH_PACKAGE);
     let cached = paths.cached(sha256);
     if !pkg.is_file() || cached.is_file() {
-        return true;
+        return meta_kept;
     }
-    fs::create_dir_all(&paths.cache).is_ok() && move_package(&pkg, &cached).is_ok()
+    meta_kept && fs::create_dir_all(&paths.cache).is_ok() && move_package(&pkg, &cached).is_ok()
 }
 
 /// A restore a kill interrupted leaves its entry marked ([`RESTORING`]). With the item's code in place the restore is
@@ -999,7 +998,7 @@ pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
         let Some(name) = body["name"]
             .as_str()
             .or_else(|| record.as_ref().map(|r| r.name.as_str()))
-            .filter(|n| name_ok(n))
+            .filter(|n| skill_id_ok(n))
             .map(str::to_string)
         else {
             continue;

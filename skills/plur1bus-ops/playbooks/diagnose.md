@@ -30,9 +30,9 @@ The result is `{"schema":"1staid.check/1","ok":<bool>,"checks":[{"id","status","
 | `runtime.node` | The installed Node runtime's hash matches what `setup`/`update` expects | Corrupted or hand-modified | `1staid repair` step `runtime.node.reinstall` |
 | `runtime.core` | The installed core payload's hash matches what `setup`/`update` expects | Corrupted or hand-modified | `1staid repair` step `runtime.core.reinstall` |
 | `models.cache` | The embedding/reranker model files are present in the local cache | Missing (first run downloads them at warm-up) | Usually informational; only actionable if you expect them already cached and network is unavailable |
-| `extensions.integrity` | Every file of an installed extension (from a package) still matches the digest recorded at install | A payload file was edited, deleted or replaced (detail lists `<name>: <path>`) | Reinstall the package (`plur1bus ext install <file>`); report only, `1staid repair` changes nothing here |
+| `extensions.integrity` | Every file of an installed extension (from a package) still matches the digest recorded at install | A payload file was edited, deleted or replaced (detail lists `<name>: <path>`) | Reinstall the package (`plur1bus skill install <file>` for a skill, `plur1bus plugin install <file>` for a module or channel); report only, `1staid repair` changes nothing here |
 | `extensions.consistency` | Extension records, their code directories and the skills index agree | `fail`: a record whose skill/module directory is missing; `warn`: an index entry that names a package but has no record | Reinstall the package, or drop the stray index entry |
-| `extensions.revoked` | No installed extension is on the revocation list | An installed extension was revoked (detail gives the reason); it is held back and cannot be enabled | `plur1bus ext remove <name>`; look for a fixed version |
+| `extensions.revoked` | No installed extension is on the revocation list | An installed extension was revoked (detail gives the reason); it is held back and cannot be enabled | `plur1bus skill uninstall <name>` or `plur1bus plugin uninstall <name>`; look for a fixed version |
 
 ## 2. Cross-check with process status and logs
 

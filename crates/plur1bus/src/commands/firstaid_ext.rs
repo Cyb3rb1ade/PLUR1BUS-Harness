@@ -10,6 +10,12 @@ use crate::ext::state::{self, ExtState};
 use crate::paths::Layout;
 use serde_json::{json, Value};
 
+/// The hint of a failed integrity or consistency row: the install command of the item's kind (`skill` or `plugin`).
+const HINT_REINSTALL: &str =
+    "reinstall the extension from its package: plur1bus skill|plugin install <file>";
+/// The hint of a failed revocation row.
+const HINT_REMOVE: &str = "remove it: plur1bus skill|plugin uninstall <name>";
+
 const INTEGRITY: &str = "extensions.integrity";
 const CONSISTENCY: &str = "extensions.consistency";
 const REVOKED: &str = "extensions.revoked";
@@ -81,7 +87,7 @@ pub(crate) fn check_ext_integrity(layout: &Layout) -> Check {
             Status::Fail,
             format!("{} installed file(s) differ from their records", bad.len()),
             Some(json!({ "files": bad })),
-            Some("reinstall the extension from its package: plur1bus ext install <file>"),
+            Some(HINT_REINSTALL),
         )
     }
 }
@@ -113,7 +119,7 @@ pub(crate) fn check_ext_consistency(layout: &Layout) -> Check {
                 missing.len()
             ),
             Some(json!({ "missingCode": missing })),
-            Some("reinstall the extension from its package: plur1bus ext install <file>"),
+            Some(HINT_REINSTALL),
         );
     }
     let index = match read_index(layout) {
@@ -190,7 +196,46 @@ pub(crate) fn check_ext_revoked(layout: &Layout) -> Check {
             Status::Fail,
             format!("{} installed extension(s) are revoked", hits.len()),
             Some(json!({ "revoked": hits })),
-            Some("remove it: plur1bus ext remove <name>"),
+            Some(HINT_REMOVE),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HINT_REINSTALL, HINT_REMOVE};
+    use clap::Parser;
+
+    /// Every command a hint names parses with the real CLI, for each `a|b` alternative of a word (placeholders
+    /// filled in).
+    #[test]
+    fn every_command_a_hint_names_parses() {
+        for hint in [HINT_REINSTALL, HINT_REMOVE] {
+            let cmd = &hint[hint.find("plur1bus ").expect(hint)..];
+            let mut lines: Vec<Vec<String>> = vec![vec![]];
+            for word in cmd.split_whitespace() {
+                let word = match word {
+                    "<file>" => "x.p1x",
+                    "<name>" => "demo",
+                    w => w,
+                };
+                lines = lines
+                    .into_iter()
+                    .flat_map(|l| {
+                        word.split('|').map(move |alt| {
+                            let mut l = l.clone();
+                            l.push(alt.to_string());
+                            l
+                        })
+                    })
+                    .collect();
+            }
+            assert_eq!(lines.len(), 2, "{hint}");
+            for argv in lines {
+                if let Err(e) = crate::cli::Cli::try_parse_from(&argv) {
+                    panic!("hint {hint:?}: `{}` does not parse: {e}", argv.join(" "));
+                }
+            }
+        }
     }
 }

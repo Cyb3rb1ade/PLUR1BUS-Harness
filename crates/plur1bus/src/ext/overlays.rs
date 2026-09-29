@@ -1,5 +1,6 @@
 //! Revocations, integrity and overlays (X1-R17): what makes an installed item unusable even though it is installed.
 use super::paths::ExtPaths;
+use super::record::warn;
 use super::state::{Integrity, ItemRecord};
 use crate::paths::Layout;
 use plur1bus_ext::compat::{check_compat, harness_req, HostFacts};
@@ -33,10 +34,6 @@ pub struct Revocation {
     pub versions: semver::VersionReq,
     pub action: String,
     pub reason: Value,
-}
-
-fn warn(msg: String) {
-    eprintln!("plur1bus: warning: {msg}");
 }
 
 fn parse_list(v: &Value, source: &Path) -> Vec<Revocation> {

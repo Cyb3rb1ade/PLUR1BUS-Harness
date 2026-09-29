@@ -542,7 +542,7 @@ impl ConnCtx {
     /// `ext.watch`: under the ext watch lock (so no `ext.changed` can come in between), subscribe the connection and
     /// queue the reply, holding every installed extension, as the subscription's first line.
     fn ext_watch(&self, id: &Value, conn: &mut Conn) -> (Value, After) {
-        super::ext::watch(&self.shared, &self.layout, |items| {
+        let watched = super::ext::watch(&self.shared, &self.layout, |items| {
             let reply = |sub: &str| {
                 let mut line =
                     result_reply(id, json!({ "subscriptionId": sub, "items": items })).to_string();
@@ -577,7 +577,8 @@ impl ConnCtx {
             conn.subscriptions.push(sub.clone());
             conn.ext_sub = Some(sub);
             (Value::Null, After::Queued)
-        })
+        });
+        watched.unwrap_or_else(|e| (ext_error_reply(id, e), After::Continue))
     }
 
     fn config_get(&self, id: &Value, p: ConfigGetParams) -> Value {
@@ -828,7 +829,7 @@ impl ConnCtx {
             "ext.list" => match parse::<ExtListParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(_) => (
-                    result_reply(&id, super::ext::list(&self.shared, &self.layout, &params)),
+                    ext_reply(&id, super::ext::list(&self.shared, &self.layout, &params)),
                     After::Continue,
                 ),
             },

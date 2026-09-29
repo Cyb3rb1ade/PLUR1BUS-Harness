@@ -341,7 +341,7 @@ fn some(ids: &[&str]) -> Option<Agents> {
 }
 
 fn item(l: &Layout, name: &str) -> Value {
-    let list = list_items(l, &config(l), &ListFilter::default());
+    let list = list_items(l, &config(l), &ListFilter::default()).unwrap();
     list["items"]
         .as_array()
         .unwrap()
@@ -432,7 +432,7 @@ fn iso(ms: u64) -> String {
 }
 
 fn listed(l: &Layout, name: &str) -> Option<Value> {
-    list_items(l, &config(l), &ListFilter::default())["items"]
+    list_items(l, &config(l), &ListFilter::default()).unwrap()["items"]
         .as_array()
         .unwrap()
         .iter()
@@ -1628,4 +1628,43 @@ fn recover_undoes_a_module_restore_killed_after_the_config_step() {
         assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
         assert!(l.modules_dir().join("fixture").is_dir());
     }
+}
+
+/// The cache meta (`extensions/cache/<sha256>.json`) travels with its package: an uninstall moves both into the trash
+/// entry, a restore moves both back, and pruning the entry removes both, so the cache never keeps the meta of an
+/// uninstalled version.
+#[test]
+fn the_cache_meta_travels_with_its_package() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    let pkg = module_pkg("fixture", &key);
+    install(d.path(), &l, "m.p1x", &pkg, &plain()).unwrap();
+    let paths = ext::paths::ExtPaths::of(&l);
+    let sha = sha_hex(&pkg);
+    assert!(paths.cached(&sha).is_file() && paths.cached_meta(&sha).is_file());
+
+    let v = rm(&l, "fixture", false, false).unwrap();
+    let tid = v["trashId"].as_str().unwrap().to_string();
+    assert!(!paths.cached(&sha).exists() && !paths.cached_meta(&sha).exists());
+    assert!(trash(&l).join(&tid).join("package.p1x").is_file());
+    assert!(trash(&l).join(&tid).join("package.json").is_file());
+
+    back(&l, &tid).unwrap();
+    assert!(paths.cached(&sha).is_file() && paths.cached_meta(&sha).is_file());
+    let shown = ext::list::show_item(&l, &config(&l), "fixture").unwrap();
+    assert_eq!(shown["manifest"]["id"], "demo/fixture");
+
+    let v = rm(&l, "fixture", false, false).unwrap();
+    let tid = v["trashId"].as_str().unwrap().to_string();
+    backdate(&l, &tid, 30);
+    assert_eq!(prune_trash(&l, 14), vec![tid]);
+    let left: Vec<String> = fs::read_dir(&paths.cache)
+        .map(|r| {
+            r.flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    assert!(left.is_empty(), "{left:?}");
 }

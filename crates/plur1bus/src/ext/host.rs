@@ -7,9 +7,7 @@ use std::time::Duration;
 /// Extensions are inspected for 10 minutes before the inspection expires (spec §9.2).
 const INSPECT_TTL: Duration = Duration::from_secs(10 * 60);
 
-fn allow_internals() -> bool {
-    std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1")
-}
+use super::record::allow_internals;
 
 /// The facts `plur1bus_ext::compat::check_compat` checks a manifest against (X1-R20): the harness version (the crate's
 /// own, or the seam `PLUR1BUS_TEST_HARNESS_VERSION=<semver>`), the module API this build speaks (with its own seam),

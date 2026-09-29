@@ -89,8 +89,20 @@ pub fn push_module_op(
     verb: ModuleVerb,
     budget: Duration,
 ) -> Result<OpHandle, OpError> {
+    push_op(shared, name, verb, budget, false)
+}
+
+/// [`push_module_op`]; `ext` marks an op of an ext mutation, which a stop still runs while it waits for that mutation
+/// (`SupervisorState::ext_draining`).
+fn push_op(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+    ext: bool,
+) -> Result<OpHandle, OpError> {
     let mut st = shared.lock();
-    if st.stopping.is_some() {
+    if st.stopping.is_some() && !(ext && st.ext_draining) {
         return Err(OpError::new(
             "E_NOT_AVAILABLE",
             "the supervisor is stopping",
@@ -123,9 +135,29 @@ pub fn run_op(
     verb: ModuleVerb,
     budget: Duration,
 ) -> Result<Value, OpError> {
+    run_op_as(shared, name, verb, budget, false)
+}
+
+/// [`run_op`] for an ext mutation's host (`ext::commit::ModuleHost`): a stop that waits for the mutation still runs it.
+pub fn run_ext_op(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+) -> Result<Value, OpError> {
+    run_op_as(shared, name, verb, budget, true)
+}
+
+fn run_op_as(
+    shared: &Shared,
+    name: &str,
+    verb: ModuleVerb,
+    budget: Duration,
+    ext: bool,
+) -> Result<Value, OpError> {
     let scale = shared.lock().time_scale;
     let wait = budget + child::stop_grace(scale) + MODULE_OP_SLACK;
-    let op = push_module_op(shared, name, verb, budget)?;
+    let op = push_op(shared, name, verb, budget, ext)?;
     let stopping = || {
         OpError::new(
             "E_NOT_AVAILABLE",

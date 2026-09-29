@@ -1,6 +1,7 @@
 //! `skills/index.json` written from Rust, and the importer's lock (X1-R14). The TS importer
 //! (`packages/core/src/import/skills-registry.ts`) is the reference: this module reads with the same refusals, writes
 //! the same bytes and takes the same lock, so the two writers can never interleave.
+use super::record::skill_id_ok;
 use super::state::{remove_retrying, write_private_atomic, ItemRecord};
 use super::ExtError;
 use crate::paths::Layout;
@@ -150,17 +151,6 @@ pub(crate) fn local_entry(
 
 pub(crate) fn index_path(layout: &Layout) -> PathBuf {
     layout.skills().join("index.json")
-}
-
-/// The importer's `SKILL_ID`: `^[a-z0-9][a-z0-9._-]{0,63}$`.
-fn skill_id_ok(id: &str) -> bool {
-    let b = id.as_bytes();
-    !b.is_empty()
-        && b.len() <= 64
-        && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
-        && b[1..].iter().all(|c| {
-            c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'.' | b'_' | b'-')
-        })
 }
 
 fn bad(reason: &'static str, path: &std::path::Path, why: impl std::fmt::Display) -> ExtError {

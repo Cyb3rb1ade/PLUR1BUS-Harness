@@ -47,15 +47,9 @@ pub(crate) enum Backend<'a> {
     },
 }
 
-/// The name rule of `ext.*` params (the importer's SKILL_ID pattern): checked here so both paths refuse alike.
-pub(super) fn valid_name(name: &str) -> bool {
-    let b = name.as_bytes();
-    !b.is_empty()
-        && b.len() <= 64
-        && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
-        && b.iter()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || b"._-".contains(c))
-}
+/// The name rule of `ext.*` params (the importer's SKILL_ID pattern, `ext::record::skill_id_ok`): checked here so both
+/// paths refuse alike.
+pub(super) use crate::ext::record::skill_id_ok as valid_name;
 
 pub(super) fn check_name(name: &str) -> Result<(), Failure> {
     if valid_name(name) {
@@ -151,7 +145,7 @@ impl<'a> Backend<'a> {
                 Self::rpc(c, "ext.list", params)
             }
             Backend::Offline { layout, .. } => {
-                Ok(list_items(layout, &offline_config(layout), filter))
+                list_items(layout, &offline_config(layout), filter).map_err(Failure::from_ext)
             }
         }
     }

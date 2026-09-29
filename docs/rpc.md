@@ -3061,7 +3061,7 @@ Asks the module to stop within budgetMs; the process removes its run files and e
 
 **Served by:** supervisor
 
-Lists installed extensions (skills, modules, channels), optionally filtered by kind, plain state and the agent that has them. Never errors on content.
+Lists installed extensions (skills, modules, channels), optionally filtered by kind, plain state and the agent that has them. E_STORAGE reason=state-invalid when extensions/state.json cannot be read; an unreadable skills/index.json lists every skill as not enabled.
 
 **params**
 
@@ -3505,14 +3505,6 @@ Disables an extension, for the given agents (skills only) or everywhere; dryRun 
     "agents": {
       "$ref": "#/$defs/ExtAgents"
     },
-    "acknowledge": {
-      "type": "array",
-      "items": {
-        "enum": [
-          "capabilities"
-        ]
-      }
-    },
     "dryRun": {
       "type": "boolean"
     }
@@ -3573,7 +3565,7 @@ Disables an extension, for the given agents (skills only) or everywhere; dryRun 
 
 **Served by:** supervisor
 
-Returns every installed extension and subscribes this connection to ext.changed.
+Returns every installed extension and subscribes this connection to ext.changed. E_STORAGE reason=state-invalid (extensions/state.json cannot be read; nothing is subscribed).
 
 **params**
 

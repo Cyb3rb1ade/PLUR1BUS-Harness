@@ -12,7 +12,9 @@
 use super::inspect::{self, Source};
 use super::paths::ExtPaths;
 pub use super::record::StagedItem;
-use super::record::{kind_name, spool_path, staging_dir, InspectionRecord};
+use super::record::{
+    allow_internals, io_err as io_error, kind_name, spool_path, staging_dir, InspectionRecord,
+};
 use super::state::ItemRecord;
 use super::ExtError;
 use crate::install::archive;
@@ -63,14 +65,6 @@ pub enum WorkerArgs {
 
 fn invalid(r: &'static str, detail: impl Into<String>) -> ExtError {
     ExtError::from(Refusal::invalid(r, detail))
-}
-
-fn io_error(what: &str, path: &Path, e: &std::io::Error) -> ExtError {
-    ExtError::new(
-        "E_INTERNAL",
-        "io",
-        format!("{what} {}: {e}", path.display()),
-    )
 }
 
 /// Removes what a refused stage created: the staging directory once the extraction has created it, then
@@ -407,10 +401,6 @@ fn to_json<T: Serialize>(what: &str, v: T) -> Result<Value, ExtError> {
             format!("cannot serialise the {what}: {e}"),
         )
     })
-}
-
-fn allow_internals() -> bool {
-    std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1")
 }
 
 /// `plur1bus ext __worker …`: runs one operation and prints exactly one JSON line, `{"ok":true,"result":…}` (exit 0)

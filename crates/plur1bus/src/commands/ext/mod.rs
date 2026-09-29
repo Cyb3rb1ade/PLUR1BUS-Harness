@@ -122,13 +122,7 @@ impl Failure {
     }
 }
 
-pub(super) fn strings(v: &Value) -> Vec<String> {
-    v.as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|x| x.as_str().map(str::to_string))
-        .collect()
-}
+pub(super) use crate::ext::record::strings;
 
 /// The human lines a refusal's data adds: who blocks an uninstall, who was disabled first, which files changed.
 pub(super) fn data_lines(data: Option<&Value>) -> Vec<String> {

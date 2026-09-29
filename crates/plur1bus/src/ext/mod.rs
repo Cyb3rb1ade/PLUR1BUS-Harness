@@ -6,8 +6,6 @@
 //!
 //! The supervisor never parses package bytes (X1-R2): the files of this module that it can reach must not name the
 //! parser, verifier, packer or extractor (`scripts/lint-hygiene.mjs`). `inspect.rs` and `stage.rs` run in the worker.
-// Each later X1 task starts using more of this layer; until then only the tests call it.
-#![allow(dead_code)]
 
 pub mod commit;
 pub mod host;
@@ -111,16 +109,23 @@ fn dead_temp(name: &str) -> bool {
 /// directory itself, temp files of dead writers in `extensions/`, `extensions/cache/` and `skills/`, expired
 /// inspections in `run/inspect/`, unfinished trash entries, interrupted restores (finished or undone) and code a
 /// killed replace or uninstall left in the trash (X1-C15), the skills index entries a killed commit left without a
-/// folder or a folder without an entry (X1-C10), and the module staging directories of dead installs
-/// (`modules::install::recover`). Returns what was done, for the log. Best effort: a failure is skipped.
+/// folder or a folder without an entry (X1-C10), the module staging directories of dead installs
+/// (`modules::install::recover`), and commits killed after they began to move code into place ([`reconcile_commits`]:
+/// finished when their record was written, else their new code removed). Returns what was done, for the log. Best effort: a failure is skipped.
 pub fn recover(layout: &Layout) -> Vec<String> {
     let p = paths::ExtPaths::of(layout);
     // The module staging directories of dead installs first (a copy moved aside goes back before anything reads
     // `modules/`).
     let mut done = crate::modules::install::recover(layout);
+    // Commits killed after they began to move code into place (their mark), before the staging they name goes.
+    let (reconciled, keep) = reconcile_commits(layout, &p);
+    done.extend(reconciled);
     if let Ok(entries) = std::fs::read_dir(&p.staging) {
         for e in entries.flatten() {
             let path = e.path();
+            if keep.contains(&path) {
+                continue;
+            }
             let gone = match std::fs::symlink_metadata(&path) {
                 Ok(m) if m.is_dir() => std::fs::remove_dir_all(&path),
                 Ok(_) => std::fs::remove_file(&path),
@@ -175,6 +180,95 @@ pub fn recover(layout: &Layout) -> Vec<String> {
     done
 }
 
+/// A commit killed after its mark ([`commit::COMMIT_MARK`]): the new code may lie under the final name. When the state
+/// record names this very package (a kill after the state step) the install is finished: the package moves from the
+/// inspection's spool into the cache and the cache meta is written from the inspection (both only if still missing and
+/// still there), and `data/ext/<name>/` is created. Otherwise (a kill before the state step) the code under the final
+/// name is the new code and is removed: nothing is left that has no record; a replaced item's code then comes back
+/// from the trash ([`restore_missing_code`], X1-C15), and a fresh skill's index entry, now without a folder, goes
+/// ([`reconcile_skills`]). Returns what was done and the staging entries to keep for the next start (the state could
+/// not be read, so nothing could be judged).
+fn reconcile_commits(
+    layout: &Layout,
+    p: &paths::ExtPaths,
+) -> (Vec<String>, Vec<std::path::PathBuf>) {
+    let mut done = Vec::new();
+    let mut keep = Vec::new();
+    let Ok(entries) = std::fs::read_dir(&p.staging) else {
+        return (done, keep);
+    };
+    for e in entries.flatten() {
+        let dir = e.path();
+        let Some(mark) = std::fs::read(dir.join(commit::COMMIT_MARK))
+            .ok()
+            .and_then(|b| serde_json::from_slice::<commit::CommitMark>(&b).ok())
+        else {
+            continue;
+        };
+        if !record::skill_id_ok(&mark.name)
+            || !matches!(mark.kind.as_str(), "skill" | "module" | "channel")
+            || !record::valid_id(&mark.inspection_id)
+        {
+            continue;
+        }
+        let st = match state::read(p) {
+            Ok(st) => st,
+            Err(_) => {
+                keep.push(dir);
+                continue;
+            }
+        };
+        let code = record::code_dir(layout, &mark.name, &mark.kind);
+        let finished = st
+            .items
+            .get(&mark.name)
+            .is_some_and(|r| r.package_sha256 == mark.sha256 && !r.removed_by_user);
+        if finished {
+            let spool = record::spool_path(layout, &mark.inspection_id);
+            let cached = p.cached(&mark.sha256);
+            if !cached.is_file()
+                && spool.is_file()
+                && std::fs::create_dir_all(&p.cache).is_ok()
+                && commit::move_package(&spool, &cached).is_err()
+            {
+                done.push(format!(
+                    "could not move the package of {} into the cache",
+                    mark.name
+                ));
+            }
+            let meta = p.cached_meta(&mark.sha256);
+            let insp = std::fs::read_to_string(record::record_path(layout, &mark.inspection_id))
+                .ok()
+                .and_then(|t| serde_json::from_str::<record::InspectionRecord>(&t).ok())
+                .filter(|r| r.sha256 == mark.sha256);
+            if let (false, Some(r)) = (meta.is_file(), insp) {
+                let body = serde_json::json!({ "manifest": r.manifest, "scripts": r.scripts });
+                let mut text = serde_json::to_string_pretty(&body).unwrap_or_default();
+                text.push('\n');
+                let _ = std::fs::create_dir_all(&p.cache);
+                let _ = state::write_private_atomic(&meta, text.as_bytes());
+            }
+            let _ = std::fs::create_dir_all(layout.ext_data(&mark.name));
+            let _ = state::remove_retrying(&record::record_path(layout, &mark.inspection_id));
+            let _ = state::remove_retrying(&record::spool_path(layout, &mark.inspection_id));
+            done.push(format!(
+                "finished the interrupted install of {} (its record was written)",
+                mark.name
+            ));
+        } else if std::fs::symlink_metadata(&code).is_ok() {
+            if state::remove_dir_all_retrying(&code).is_ok() {
+                done.push(format!(
+                    "removed {}: an interrupted install left it without its record",
+                    code.display()
+                ));
+            } else {
+                keep.push(dir);
+            }
+        }
+    }
+    (done, keep)
+}
+
 /// X1-C15: a recorded item whose code directory is missing while a trash entry for that very name and version still
 /// holds `code/` was interrupted between moving its code into the trash and the next step (a replace killed before
 /// the new code moved into place, or an uninstall killed before the record went). The code moves back; the trash
@@ -190,7 +284,7 @@ fn restore_missing_code(layout: &Layout, p: &paths::ExtPaths) -> Vec<String> {
         if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
             continue;
         }
-        let dir = lifecycle::code_dir(layout, &rec.name, &rec.kind);
+        let dir = record::code_dir(layout, &rec.name, &rec.kind);
         if std::fs::symlink_metadata(&dir).is_ok() {
             continue;
         }

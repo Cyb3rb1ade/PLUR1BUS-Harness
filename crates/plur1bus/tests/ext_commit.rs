@@ -467,7 +467,7 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
     assert_eq!(host.notified[0]["name"], "demo-skill");
 
     // Listed installed, not enabled, for no agent.
-    let list = list_items(&l, &config(&l), &ListFilter::default());
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     let it = item(&list, "demo-skill");
     assert_eq!(it["state"], "installed");
     assert_eq!(it["enabled"], false);
@@ -513,7 +513,7 @@ fn a_module_package_installs_disabled_and_config_says_so() {
         .collect();
     assert!(left.iter().all(|n| !n.contains(".tmp-")), "{left:?}");
 
-    let list = list_items(&l, &config(&l), &ListFilter::default());
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     let it = item(&list, "fixture");
     assert_eq!(
         (&it["kind"], &it["state"], &it["enabled"], &it["agents"]),
@@ -1010,7 +1010,7 @@ fn list_shows_unindexed_bundled_and_local_skills_as_enabled() {
             .to_string(),
     )
     .unwrap();
-    let list = list_items(&l, &config(&l), &ListFilter::default());
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     let ops = item(&list, "plur1bus-ops");
     assert_eq!(
         (
@@ -1048,7 +1048,8 @@ fn list_shows_unindexed_bundled_and_local_skills_as_enabled() {
             kind: Some(vec!["module".into()]),
             ..Default::default()
         },
-    );
+    )
+    .unwrap();
     assert_eq!(only_modules["items"], json!([]));
 }
 
@@ -1078,7 +1079,7 @@ fn list_reports_per_agent_effective_sets() {
         &opts(&[], None),
     )
     .unwrap();
-    let list = list_items(&l, &config(&l), &ListFilter::default());
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     assert_eq!(item(&list, "demo-skill")["agents"], "all");
     assert_eq!(item(&list, "demo-off")["agents"], json!([]));
 
@@ -1087,10 +1088,10 @@ fn list_reports_per_agent_effective_sets() {
         c["agents"]["anna"]["skills"] = json!({"blocked": ["demo-skill"]});
     });
     let cfg = config(&l);
-    let list = list_items(&l, &cfg, &ListFilter::default());
+    let list = list_items(&l, &cfg, &ListFilter::default()).unwrap();
     assert_eq!(item(&list, "demo-skill")["agents"], json!(["bernd"]));
     let names = |f: &ListFilter| -> Vec<String> {
-        list_items(&l, &cfg, f)["items"]
+        list_items(&l, &cfg, f).unwrap()["items"]
             .as_array()
             .unwrap()
             .iter()
@@ -1140,10 +1141,28 @@ fn show_reports_tampered_after_a_file_edit() {
     assert_eq!(detail["files"]["count"], 3);
     let bytes = skill_md("demo-skill").len() + "a reference for 1.0.0".len() + RUN_SH.len();
     assert_eq!(detail["files"]["bytes"], bytes);
+    // X1-C27: the path inside the package, as `ext.inspect` shows it (and so does the record fallback).
     assert_eq!(
         detail["scripts"],
-        json!([{"path": "scripts/run.sh", "size": RUN_SH.len(), "firstLine": "#!/bin/sh"}])
+        json!([{"path": "payload/scripts/run.sh", "size": RUN_SH.len(), "firstLine": "#!/bin/sh"}])
     );
+    let insp = inspect::inspect(
+        &l,
+        Source::Path(d.path().join("s.p1x")),
+        &worker::new_inspection_id(),
+    )
+    .unwrap();
+    assert_eq!(insp.scripts, detail["scripts"]);
+    let paths = ext::paths::ExtPaths::of(&l);
+    let meta = paths.cached_meta(&sha_hex(&pkg));
+    let kept = fs::read(&meta).unwrap();
+    fs::remove_file(&meta).unwrap();
+    let bare = show_item(&l, &config(&l), "demo-skill").unwrap();
+    assert_eq!(
+        bare["scripts"],
+        json!([{"path": "payload/scripts/run.sh", "size": RUN_SH.len()}])
+    );
+    fs::write(&meta, kept).unwrap();
     assert_eq!(detail["dependents"], json!([]));
     assert_eq!(detail["trash"], json!([]));
 
@@ -1161,7 +1180,7 @@ fn show_reports_tampered_after_a_file_edit() {
     assert!(show_item(&l, &config(&l), "demo-skill").is_ok());
     drop(running);
     // `ext.list` shows the last stored result: none yet.
-    let list = list_items(&l, &config(&l), &ListFilter::default());
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     assert_eq!(item(&list, "demo-skill")["integrity"], "unchecked");
 
     let e = show_item(&l, &config(&l), "nope").unwrap_err();
@@ -1423,7 +1442,7 @@ fn a_kill_between_steps_never_lists_a_skill_folder_enabled_without_a_record() {
             }
             let check = |when: &str, failed: &mut Vec<String>| {
                 let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
-                let list = list_items(&l, &config(&l), &ListFilter::default());
+                let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
                 let listed = list["items"]
                     .as_array()
                     .unwrap()
@@ -1489,7 +1508,7 @@ fn recover_restores_a_missing_index_entry_disabled() {
         .cloned()
         .unwrap();
     assert_eq!(e["package"]["id"], "demo/demo-skill");
-    let list = list_items(&l, &config(&l), &ListFilter::default());
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     assert_eq!(item(&list, "demo-skill")["enabled"], false);
 }
 
@@ -1657,7 +1676,7 @@ fn commit_time_rechecks_refuse_and_write_nothing() {
     assert_eq!(reason(&e), ("E_NOT_AVAILABLE", "needs-setup"));
     assert!(!written(&l));
     install(d.path(), &l, "s.p1x", &pkg, &opts(&[], None)).unwrap();
-    let list = list_items(&l, &config(&l), &ListFilter::default());
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     assert_eq!(
         item(&list, "demo-skill")["overlays"],
         json!(["needs-setup"])
@@ -1827,4 +1846,201 @@ fn a_replace_moves_the_old_package_into_the_trash_and_a_failure_moves_it_back() 
     let trashed = entries(&p.trash);
     assert_eq!(trashed.len(), 1, "{trashed:?}");
     assert_eq!(fs::read(trashed[0].join("package.p1x")).unwrap(), v1);
+}
+
+/// A commit killed between moving the new code into place and writing its record (`kill:code`), or between the record
+/// and the cache (`kill:state`), for a skill and a module, fresh and replacing: `ext::recover` either finishes the
+/// install (the record is there: the cache gets the package and its meta) or removes the new code (it is not: a
+/// replaced item's code comes back from the trash). Never code without a record, and a fresh name stays installable.
+#[test]
+fn recover_finishes_or_rolls_back_a_commit_killed_between_code_and_state() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let mut failed = Vec::new();
+    for kind in ["skill", "module"] {
+        for replace in [false, true] {
+            for point in ["code", "state"] {
+                let label = format!("{kind}/replace={replace}/kill:{point}");
+                let (d, l) = home();
+                populate(&l);
+                let name = if kind == "skill" {
+                    "demo-skill"
+                } else {
+                    "fixture"
+                };
+                let pkg = |v: &str| {
+                    if kind == "skill" {
+                        skill_pkg_v(name, v, Some(&key))
+                    } else {
+                        module_pkg_v(name, v, Some(&key))
+                    }
+                };
+                if replace {
+                    install(d.path(), &l, "old.p1x", &pkg("1.0.0"), &opts(&[], None)).unwrap();
+                }
+                let new = pkg("1.1.0");
+                let (rec, staged) = prepare(d.path(), &l, "new.p1x", &new);
+                std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("kill:{point}"));
+                let r = install_commit(
+                    &l,
+                    &mut OfflineHost::new(&l),
+                    &rec,
+                    staged,
+                    &opts(&[], None),
+                );
+                std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+                if r.is_ok() {
+                    failed.push(format!("{label}: the seam did not fire"));
+                    continue;
+                }
+                let dir = if kind == "skill" {
+                    l.skills().join(name)
+                } else {
+                    l.modules_dir().join(name)
+                };
+                ext::recover(&l);
+                let paths = ext::paths::ExtPaths::of(&l);
+                let st = state::read(&paths).unwrap();
+                let recorded = st.items.get(name);
+                if dir.exists() != recorded.is_some() {
+                    failed.push(format!(
+                        "{label}: code {} but record {}",
+                        dir.exists(),
+                        recorded.is_some()
+                    ));
+                }
+                if !staging_empty(&l) {
+                    failed.push(format!("{label}: recover left staging"));
+                }
+                match (point, replace) {
+                    ("state", _) => {
+                        let ok = recorded.is_some_and(|r| r.version == "1.1.0")
+                            && paths.cached(&sha_hex(&new)).is_file()
+                            && paths.cached_meta(&sha_hex(&new)).is_file();
+                        if !ok {
+                            failed.push(format!("{label}: the install was not finished"));
+                        }
+                    }
+                    ("code", true) => {
+                        let Some(r) = recorded else {
+                            failed.push(format!("{label}: the replaced item lost its record"));
+                            continue;
+                        };
+                        if r.version != "1.0.0" || !ext::overlays::rehash(&l, r).ok {
+                            failed.push(format!(
+                                "{label}: the old code did not come back ({})",
+                                r.version
+                            ));
+                        }
+                        if kind == "skill" && index_enabled(&l, name) != Some(false) {
+                            failed.push(format!(
+                                "{label}: the index entry is not the disabled old one"
+                            ));
+                        }
+                    }
+                    _ => {
+                        if kind == "skill" && index_enabled(&l, name).is_some() {
+                            failed.push(format!("{label}: an index entry stayed"));
+                        }
+                        // The name is free again.
+                        if let Err(e) = install(d.path(), &l, "again.p1x", &new, &opts(&[], None)) {
+                            failed.push(format!("{label}: a reinstall was refused: {e}"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(failed.is_empty(), "{}", failed.join("\n"));
+}
+
+/// X1-C29: an unreadable `extensions/state.json` is `E_STORAGE state-invalid` for list, show and uninstall (never
+/// `extension-unknown`, never a packaged item listed as local); an unreadable `skills/index.json` lists no skill as
+/// enabled.
+#[test]
+fn an_unreadable_state_is_state_invalid_and_an_unreadable_index_enables_nothing() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg("demo-skill", Some(&key)),
+        &opts(&["capabilities"], Some(Agents::All)),
+    )
+    .unwrap();
+    install(
+        d.path(),
+        &l,
+        "m.p1x",
+        &module_pkg("fixture", Some(&key)),
+        &opts(&[], None),
+    )
+    .unwrap();
+    let paths = ext::paths::ExtPaths::of(&l);
+    let good = fs::read(&paths.state).unwrap();
+    fs::write(&paths.state, b"{ not json").unwrap();
+    let is_state_invalid = |e: ExtError| e.code == "E_STORAGE" && e.reason == Some("state-invalid");
+    let e = list_items(&l, &config(&l), &ListFilter::default()).unwrap_err();
+    assert!(is_state_invalid(e.clone()), "{e}");
+    for name in ["demo-skill", "fixture", "other-skill"] {
+        let e = show_item(&l, &config(&l), name).unwrap_err();
+        assert!(is_state_invalid(e.clone()), "{name}: {e}");
+    }
+    let e = ext::remove::uninstall(
+        &l,
+        &mut OfflineHost::new(&l),
+        "fixture",
+        &ext::remove::RemoveOpts::default(),
+    )
+    .unwrap_err();
+    assert!(is_state_invalid(e.clone()), "{e}");
+
+    fs::write(&paths.state, good).unwrap();
+    fs::write(index::index_path(&l), b"[broken").unwrap();
+    let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
+    for i in list["items"].as_array().unwrap() {
+        if i["kind"] == "skill" {
+            assert_eq!(i["enabled"], false, "{i}");
+        }
+    }
+    let names: Vec<&str> = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["name"].as_str().unwrap())
+        .collect();
+    assert!(
+        names.contains(&"demo-skill") && names.contains(&"other-skill"),
+        "{names:?}"
+    );
+    let detail = show_item(&l, &config(&l), "demo-skill").unwrap();
+    assert_eq!(detail["item"]["enabled"], false);
+}
+
+/// `install --enable` writes the acknowledgment into the record before it enables (the order of `ext.enable`): a kill
+/// in between leaves the module acknowledged and disabled, never enabled without its acknowledgment.
+#[test]
+fn install_and_enable_acknowledges_before_it_enables() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let (rec, staged) = prepare(d.path(), &l, "m.p1x", &module_pkg("fixture", Some(&key)));
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "kill:enable.state");
+    let r = install_commit(
+        &l,
+        &mut OfflineHost::new(&l),
+        &rec,
+        staged,
+        &opts(&["capabilities"], Some(Agents::All)),
+    );
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    assert!(r.is_err());
+    ext::recover(&l);
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert!(st.items["fixture"].capabilities_ack.is_some());
+    assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
 }

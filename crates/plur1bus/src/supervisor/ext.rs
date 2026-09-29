@@ -25,7 +25,7 @@ use crate::ext::list::{cached_meta, list_items, show_item, ListFilter};
 use crate::ext::overlays::{load_revocations, overlays_of, rehash, Overlay};
 use crate::ext::paths::ExtPaths;
 use crate::ext::record::StagedItem;
-use crate::ext::record::{self, InspectionRecord};
+use crate::ext::record::{self, strings, InspectionRecord};
 use crate::ext::remove::{self, RemoveOpts};
 use crate::ext::{self, state, worker, ExtError};
 use crate::modules::install::Staged;
@@ -137,7 +137,7 @@ impl ModuleHost for SupervisorHost<'_> {
 
     fn install_module(&mut self, staged: Staged) -> Result<bool, ExtError> {
         let name = staged.manifest.name.clone();
-        let v = super::modules::run_op(
+        let v = super::modules::run_ext_op(
             self.shared,
             &name,
             ModuleVerb::Install(Box::new(staged)),
@@ -148,7 +148,7 @@ impl ModuleHost for SupervisorHost<'_> {
     }
 
     fn remove_module(&mut self, name: &str, into: &Path) -> Result<(), ExtError> {
-        super::modules::run_op(
+        super::modules::run_ext_op(
             self.shared,
             name,
             ModuleVerb::Uninstall {
@@ -311,8 +311,8 @@ fn refresh_overlays(shared: &Shared, layout: &Layout, _held: &ext::MutationGuard
 
 // ---- the handlers --------------------------------------------------------------------------------------------------
 
-/// `ExtInspection` from a stored inspection record: exactly the schema's closed keys (X1-C7: `sourcePath`,
-/// `normalised` and `nameTakenBy` are dropped).
+/// `ExtInspection` from a stored inspection record: exactly the schema's closed keys (X1-C7: `sourcePath` and
+/// `normalised` are dropped).
 pub fn inspection_result(rec: &InspectionRecord) -> Value {
     let mut v = json!({
         "inspectionId": rec.inspection_id,
@@ -359,14 +359,6 @@ fn invalid(message: impl Into<String>) -> ExtError {
         message: message.into(),
         data: Value::Null,
     }
-}
-
-fn strings(v: &Value) -> Vec<String> {
-    v.as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|x| x.as_str().map(str::to_string))
-        .collect()
 }
 
 /// `ExtAgents`: `"all"` or a list of agent ids; absent → `None`.
@@ -591,7 +583,7 @@ fn running_config(shared: &Shared) -> Value {
 }
 
 /// `ext.list { kind?, state?, agent? }`.
-pub fn list(shared: &Shared, layout: &Layout, params: &Value) -> Value {
+pub fn list(shared: &Shared, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let filter = ListFilter {
         kind: params.get("kind").map(strings),
         state: params.get("state").map(strings),
@@ -607,12 +599,17 @@ pub fn show(shared: &Shared, layout: &Layout, params: &Value) -> Result<Value, E
 }
 
 /// `ext.watch`: under the watch lock, `subscribe(items)` subscribes the connection and queues its reply, so no
-/// `ext.changed` sent after the listing can overtake it.
-pub fn watch<T>(shared: &Shared, layout: &Layout, subscribe: impl FnOnce(Value) -> T) -> T {
+/// `ext.changed` sent after the listing can overtake it. An unreadable `extensions/state.json` subscribes nothing
+/// (`E_STORAGE state-invalid`, X1-C29).
+pub fn watch<T>(
+    shared: &Shared,
+    layout: &Layout,
+    subscribe: impl FnOnce(Value) -> T,
+) -> Result<T, ExtError> {
     let _one = relock(&WATCH);
     let items =
-        list_items(layout, &running_config(shared), &ListFilter::default())["items"].clone();
-    subscribe(items)
+        list_items(layout, &running_config(shared), &ListFilter::default())?["items"].clone();
+    Ok(subscribe(items))
 }
 
 #[cfg(test)]
@@ -646,7 +643,6 @@ mod tests {
             scripts: json!([{ "path": "payload/run.sh", "size": 3 }]),
             requires: json!({}),
             replaces,
-            name_taken_by: Some("module".into()),
         }
     }
 
@@ -662,7 +658,7 @@ mod tests {
             let out = inspection_result(&record(replaces.clone()));
             let errors: Vec<String> = v.iter_errors(&out).map(|e| e.to_string()).collect();
             assert!(errors.is_empty(), "{errors:?} in {out}");
-            for k in ["sourcePath", "normalised", "nameTakenBy"] {
+            for k in ["sourcePath", "normalised"] {
                 assert!(out.get(k).is_none(), "{k} leaked: {out}");
             }
             assert_eq!(out.get("replaces").is_some(), replaces.is_some());

@@ -1007,3 +1007,67 @@ fn a_relative_inspect_path_is_invalid_params() {
     assert_eq!(entries(&h.home.join("run/inspect")), Vec::<String>::new());
     stop(&mut s, &h.home);
 }
+
+/// X1-C29: with `extensions/state.json` unreadable, `ext.show`, `ext.list` and `ext.watch` answer `E_STORAGE
+/// state-invalid` (never `extension-unknown`, never the packaged module listed as a local one).
+#[test]
+fn an_unreadable_state_json_is_state_invalid_over_rpc() {
+    let h = Home::new();
+    let mut s = h.start_no_core(&[]);
+    install(&h, "fixture", &[]);
+    std::fs::write(h.home.join("extensions/state.json"), b"{ broken").unwrap();
+    for (method, params) in [
+        ("ext.show", json!({ "name": "fixture" })),
+        ("ext.list", json!({})),
+        ("ext.watch", json!({})),
+        ("ext.uninstall", json!({ "name": "fixture" })),
+    ] {
+        let (e, r, _) = refused(&h.home, method, params);
+        assert_eq!(
+            (e.as_str(), r.as_str()),
+            ("E_STORAGE", "state-invalid"),
+            "{method}"
+        );
+    }
+    stop(&mut s, &h.home);
+}
+
+/// A `daemon.stop` while an install is committing waits for it (bounded), still running the module ops it queues: the
+/// install ends complete (code, record, config disabled), never as code without its record.
+#[test]
+fn a_stop_during_a_commit_waits_for_it() {
+    for point in ["config", "code"] {
+        let h = Home::new();
+        let seam = format!("sleep:{point}:2000");
+        let mut s = h.start_no_core(&[("PLUR1BUS_TEST_EXT_FAIL_AT", seam.as_str())]);
+        let insp = inspect(&h, "fixture", &[]);
+        let home = h.home.clone();
+        let id = insp["inspectionId"].clone();
+        let installing =
+            std::thread::spawn(move || call(&home, "ext.install", json!({ "inspectionId": id })));
+        // The commit is in its pause once its step is done: the config section written, then the module in place.
+        let paused = || {
+            let cfg: Value = std::fs::read(h.home.join("config.json"))
+                .ok()
+                .and_then(|b| serde_json::from_slice(&b).ok())
+                .unwrap_or(Value::Null);
+            cfg["modules"]["fixture"]["enabled"] == false
+                && (point == "config" || h.home.join("modules/fixture").is_dir())
+        };
+        common::wait_until("the commit's pause", WAIT, paused);
+        stop(&mut s, &h.home);
+        let reply = installing.join().unwrap();
+        let st: Value = serde_json::from_slice(
+            &std::fs::read(h.home.join("extensions/state.json")).unwrap_or_default(),
+        )
+        .unwrap_or(Value::Null);
+        let recorded = st["items"]["fixture"].is_object();
+        let code = h.home.join("modules/fixture").is_dir();
+        assert!(
+            recorded && code,
+            "sleep:{point}: record {recorded}, code {code}; install answered {reply}; log: {}",
+            std::fs::read_to_string(h.home.join("logs/supervisor.log")).unwrap_or_default()
+        );
+        assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
+    }
+}

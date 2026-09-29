@@ -27,6 +27,7 @@ use super::index::{self, lock_skills, ImportLock};
 use super::list::{cached_meta, install_units, scripts_of};
 use super::overlays::{load_revocations, overlays_of, rehash, revoked, Overlay};
 use super::paths::ExtPaths;
+use super::record::{code_dir, state_invalid, strings};
 use super::state::{self, ItemRecord};
 use super::{now_iso, ExtError};
 use crate::paths::Layout;
@@ -362,20 +363,8 @@ fn check_acknowledged(paths: &ExtPaths, rec: &ItemRecord, o: &ToggleOpts) -> Res
     })))
 }
 
-fn state_invalid(e: String) -> ExtError {
-    ExtError::new("E_STORAGE", "state-invalid", e)
-}
-
 fn empty_plan() -> Value {
     json!({ "restart": { "modules": [] }, "heldBack": [] })
-}
-
-fn strings(v: &Value) -> Vec<String> {
-    v.as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|x| x.as_str().map(str::to_string))
-        .collect()
 }
 
 /// Adds the enabled modules that need `name` to a plan's `heldBack` (sorted, once each).
@@ -442,15 +431,6 @@ pub(crate) fn disable_locked(
     o: &ToggleOpts,
 ) -> Result<Value, ExtError> {
     toggle_locked(layout, host, name, o, false)
-}
-
-/// The code directory of an item: `skills/<name>` or `modules/<name>`.
-pub(crate) fn code_dir(layout: &Layout, name: &str, kind: &str) -> std::path::PathBuf {
-    if kind == "skill" {
-        layout.skills().join(name)
-    } else {
-        layout.modules_dir().join(name)
-    }
 }
 
 /// X1-C15: an item whose code folder is missing (a kill between steps that `ext::recover` has not reconciled yet, or

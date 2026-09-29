@@ -342,7 +342,7 @@ fn some(ids: &[&str]) -> Option<Agents> {
 }
 
 fn item(l: &Layout, name: &str) -> Value {
-    let list = list_items(l, &config(l), &ListFilter::default());
+    let list = list_items(l, &config(l), &ListFilter::default()).unwrap();
     list["items"]
         .as_array()
         .unwrap()
@@ -626,7 +626,8 @@ fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
         .iter()
         .map(|s| s["path"].as_str().unwrap())
         .collect();
-    assert_eq!(scripts, ["scripts/run.sh"]);
+    // X1-C27: the path inside the package, as `ext.inspect` shows it.
+    assert_eq!(scripts, ["payload/scripts/run.sh"]);
     // A dry run asks the same.
     let e = on(&l, "demo-scripts", &toggle(None, false, true)).unwrap_err();
     assert_eq!(

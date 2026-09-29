@@ -1052,3 +1052,32 @@ fn a_no_op_install_with_an_agent_restriction_says_it_was_not_applied() {
         Value::Null
     );
 }
+
+/// X1-C29: with `extensions/state.json` unreadable, `skill show|list|uninstall` answer `E_STORAGE state-invalid`,
+/// offline and online alike (never `extension-unknown`), and change nothing.
+#[test]
+fn an_unreadable_state_json_is_state_invalid_for_show_list_and_uninstall() {
+    for online in [false, true] {
+        let h = Home::new();
+        let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+        ok_doc(
+            &h.run(&["--json", "skill", "install", p(&pkg), "--yes"]),
+            "skill.install/1",
+        );
+        std::fs::write(h.home.join("extensions/state.json"), b"{ broken").unwrap();
+        let _s = online.then(|| h.start());
+        let before = guarded(&h.home);
+        for args in [
+            &["--json", "skill", "show", "demo-skill"][..],
+            &["--json", "skill", "list"][..],
+            &["--json", "plugin", "list"][..],
+            &["--json", "skill", "uninstall", "demo-skill", "--yes"][..],
+        ] {
+            err_doc(&h.run(args), 1, "E_STORAGE", "state-invalid");
+        }
+        assert!(
+            guarded(&h.home) == before,
+            "online={online}: something changed"
+        );
+    }
+}

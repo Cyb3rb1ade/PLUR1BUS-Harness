@@ -295,7 +295,7 @@ fn inspect_writes_only_under_run_inspect() {
     assert_eq!(rec.scripts[0]["path"], "payload/scripts/run.sh");
     assert_eq!(rec.scripts[0]["firstLine"], "#!/bin/sh");
     assert_eq!(rec.requires["runtime"]["type"], "none");
-    assert!(rec.replaces.is_none() && rec.name_taken_by.is_none());
+    assert!(rec.replaces.is_none());
     assert!(rec.expires_at.ends_with('Z'), "{}", rec.expires_at);
 
     // What was written: the spooled package (the same bytes) and the record, both private.

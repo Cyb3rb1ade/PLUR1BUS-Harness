@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// An inspection as `run/inspect/<inspectionId>.json` holds it. The RPC layer answers `ExtInspection` from it
-/// (`sourcePath`, `normalised` and `nameTakenBy` are not part of that closed shape and are dropped there).
+/// (`sourcePath` and `normalised` are not part of that closed shape and are dropped there). A name clash is refused at
+/// inspect (`E_CONFLICT name-taken`, X1-R29), so a stored record never names one.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InspectionRecord {
@@ -36,10 +37,6 @@ pub struct InspectionRecord {
     pub requires: Value,
     /// `{ version, capabilityDiff: { changed: [key] } }` when the same id is installed.
     pub replaces: Option<Value>,
-    /// Reserved for the installed kind a name clash names. A clash is refused at inspect (`E_CONFLICT name-taken`,
-    /// X1-R29), so a stored record never carries one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name_taken_by: Option<String>,
 }
 
 /// A package extracted and checked in staging, ready for the commit (Task 7): the worker's `stage` answer. Defined here,
@@ -56,6 +53,62 @@ pub struct StagedItem {
     pub record: state::ItemRecord,
     /// `run/inspect/<id>.p1x`: the verified package bytes, for the cache.
     pub package: PathBuf,
+}
+
+// ---- small helpers the ext files share (X1-C11) ---------------------------------------------------------------
+
+/// The importer's `SKILL_ID` (the `ExtItem` name pattern, which every extension name satisfies):
+/// `^[a-z0-9][a-z0-9._-]{0,63}$`.
+pub(crate) fn skill_id_ok(n: &str) -> bool {
+    let b = n.as_bytes();
+    !b.is_empty()
+        && b.len() <= 64
+        && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
+        && b[1..].iter().all(|c| {
+            c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'.' | b'_' | b'-')
+        })
+}
+
+/// The code directory of an item: `skills/<name>` or `modules/<name>`.
+pub(crate) fn code_dir(layout: &Layout, name: &str, kind: &str) -> PathBuf {
+    if kind == "skill" {
+        layout.skills().join(name)
+    } else {
+        layout.modules_dir().join(name)
+    }
+}
+
+/// The strings of a JSON array (anything else: none).
+pub(crate) fn strings(v: &Value) -> Vec<String> {
+    v.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.as_str().map(str::to_string))
+        .collect()
+}
+
+/// `E_STORAGE state-invalid`: `extensions/state.json` cannot be read.
+pub(crate) fn state_invalid(e: String) -> ExtError {
+    ExtError::new("E_STORAGE", "state-invalid", e)
+}
+
+/// `E_INTERNAL io`: `<what> <path>: <e>`.
+pub(crate) fn io_err(what: &str, path: &Path, e: impl std::fmt::Display) -> ExtError {
+    ExtError::new(
+        "E_INTERNAL",
+        "io",
+        format!("{what} {}: {e}", path.display()),
+    )
+}
+
+/// The test seams are honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`.
+pub(crate) fn allow_internals() -> bool {
+    std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1")
+}
+
+/// A warning on stderr (the supervisor's log).
+pub(crate) fn warn(msg: impl std::fmt::Display) {
+    eprintln!("plur1bus: warning: {msg}");
 }
 
 /// `extensions/staging/<name>-<id>`: where the worker stages inspection `id` of the item `name` (its payload is the

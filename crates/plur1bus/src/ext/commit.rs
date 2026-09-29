@@ -22,8 +22,8 @@ use super::lifecycle::{capabilities_acknowledged, enable_prechecks, skill_enable
 use super::overlays::{load_revocations, overlays_of, revoked};
 use super::paths::ExtPaths;
 use super::record::{
-    check_name, check_unsigned_policy, kind_name, record_path, spool_path, staging_dir, valid_id,
-    InspectionRecord, StagedItem,
+    allow_internals, check_name, check_unsigned_policy, kind_name, record_path, spool_path,
+    staging_dir, state_invalid, valid_id, InspectionRecord, StagedItem,
 };
 use super::state::{
     self, remove_dir_all_retrying, remove_retrying, rename_retrying, write_private_atomic,
@@ -42,8 +42,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// The commit steps in order. `PLUR1BUS_TEST_EXT_FAIL_AT=<step>` fails the named one after its own writes, so its undo
 /// runs too; `PLUR1BUS_TEST_EXT_FAIL_AT=kill:<point>` stops there with no rollback and no clean-up, as a killed
 /// process would (the points are the steps plus `code.index`, between a skill's index entry and its folder move, and
-/// `code.trash`, between a replaced item's old code moving into the trash and the new code moving into place). The
-/// uninstall and restore of `super::remove` name their own points (`uninstall.*`, `restore.*`). Test internals only.
+/// `code.trash`, between a replaced item's old code moving into the trash and the new code moving into place, and
+/// `enable.state`, between an enable's acknowledgment in the record and its config or index write; `kill:code`
+/// leaves the new code without its record, `kill:state` the record without its cache, both reconciled by
+/// `ext::recover` through the commit mark); `sleep:<point>:<ms>` pauses there and goes on. The uninstall and restore of
+/// `super::remove` name their own points (`uninstall.*`, `restore.*`). Test internals only.
+// The binary names the steps only in `fail_at` calls; the integration tests loop over this list.
+#[allow(dead_code)]
 pub const COMMIT_STEPS: [&str; 6] = ["config", "code", "state", "cache", "index", "enable"];
 
 /// What an ext mutation needs from whoever owns config.json and the module processes: the supervisor (Task 11) or the
@@ -96,13 +101,7 @@ pub struct InstallOpts {
     pub enable: Option<Agents>,
 }
 
-pub(crate) fn io_err(what: &str, path: &Path, e: impl std::fmt::Display) -> ExtError {
-    ExtError::new(
-        "E_INTERNAL",
-        "io",
-        format!("{what} {}: {e}", path.display()),
-    )
-}
+pub(crate) use super::record::io_err;
 
 pub(crate) fn install_err(e: modinstall::InstallError) -> ExtError {
     let code = if e.is_io() {
@@ -111,10 +110,6 @@ pub(crate) fn install_err(e: modinstall::InstallError) -> ExtError {
         "E_INVALID_PARAMS"
     };
     ExtError::new(code, e.reason(), e.to_string())
-}
-
-fn allow_internals() -> bool {
-    std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1")
 }
 
 /// Set when the kill seam fired: the commit then returns without rollback or clean-up.
@@ -130,7 +125,7 @@ pub(crate) fn killed() -> bool {
     KILLED.load(Ordering::SeqCst)
 }
 
-/// The test seam `PLUR1BUS_TEST_EXT_FAIL_AT=<step>|kill:<point>` (global constraints, X1-C10).
+/// The test seam `PLUR1BUS_TEST_EXT_FAIL_AT=<step>|kill:<point>|sleep:<point>:<ms>` (global constraints, X1-C10).
 pub(crate) fn fail_at(point: &str) -> Result<(), ExtError> {
     if !allow_internals() {
         return Ok(());
@@ -144,6 +139,15 @@ pub(crate) fn fail_at(point: &str) -> Result<(), ExtError> {
             "io",
             format!("test seam: the {point} step failed"),
         ));
+    }
+    // `sleep:<point>:<ms>`: the step pauses, then goes on (a mutation in flight, for a stop to meet).
+    if let Some((p, ms)) = seam.strip_prefix("sleep:").and_then(|r| r.rsplit_once(':')) {
+        if p == point {
+            if let Ok(ms) = ms.parse::<u64>() {
+                std::thread::sleep(std::time::Duration::from_millis(ms));
+            }
+        }
+        return Ok(());
     }
     if seam.strip_prefix("kill:") == Some(point) {
         KILLED.store(true, Ordering::SeqCst);
@@ -285,8 +289,10 @@ pub(crate) fn move_package(from: &Path, to: &Path) -> Result<(), ExtError> {
     }
 }
 
-/// Moves the cached package `sha256` into the trash entry `tdir` as `package.p1x` (X1-R19, X1-C22), and registers the
-/// undo that moves it back into the cache. Nothing to do when the cache does not hold it.
+/// Moves the cached package `sha256` into the trash entry `tdir` as `package.p1x` (X1-R19, X1-C22), with its cache
+/// meta (`<sha256>.json`, as `package.json`: the meta travels with its package, so the cache never keeps the meta of an
+/// uninstalled version), and registers the undos that move them back into the cache. What the cache does not hold is
+/// skipped.
 pub(crate) fn package_into_trash<'a>(
     paths: &ExtPaths,
     sha256: &str,
@@ -295,15 +301,39 @@ pub(crate) fn package_into_trash<'a>(
     rb: &mut Rollback<'a>,
 ) -> Result<(), ExtError> {
     let cached = paths.cached(sha256);
-    let into = tdir.join("package.p1x");
-    if !cached.is_file() || into.exists() {
-        return Ok(());
+    let into = tdir.join(TRASH_PACKAGE);
+    if cached.is_file() && !into.exists() {
+        move_package(&cached, &into)?;
+        rb.push(step, move |_| {
+            move_package(&into, &cached).map_err(|e| e.to_string())
+        });
     }
-    move_package(&cached, &into)?;
-    rb.push(step, move |_| {
-        move_package(&into, &cached).map_err(|e| e.to_string())
-    });
+    let meta = paths.cached_meta(sha256);
+    let meta_into = tdir.join(TRASH_META);
+    if meta.is_file() && !meta_into.exists() {
+        rename_retrying(&meta, &meta_into)
+            .map_err(|e| io_err("cannot move to the trash", &meta, e))?;
+        rb.push(step, move |_| {
+            rename_retrying(&meta_into, &meta).map_err(|e| format!("{}: {e}", meta.display()))
+        });
+    }
     Ok(())
+}
+
+/// A trash entry's copy of the cached package ([`package_into_trash`]).
+pub(crate) const TRASH_PACKAGE: &str = "package.p1x";
+/// A trash entry's copy of the package's cache meta ([`package_into_trash`]).
+pub(crate) const TRASH_META: &str = "package.json";
+
+/// Moves a trash entry's cache meta back into the cache (a restore, or `ext::recover` undoing a killed uninstall)
+/// unless the cache holds one already. True when the cache holds the meta afterwards, or there is none to keep.
+pub(crate) fn meta_from_trash(paths: &ExtPaths, entry: &Path, sha256: &str) -> bool {
+    let from = entry.join(TRASH_META);
+    let meta = paths.cached_meta(sha256);
+    if !from.is_file() || meta.is_file() {
+        return true;
+    }
+    fs::create_dir_all(&paths.cache).is_ok() && rename_retrying(&from, &meta).is_ok()
 }
 
 /// Copies `from` to `to` through `<to>.tmp-<pid>` and a rename.
@@ -432,14 +462,31 @@ fn acknowledgments(
     Ok(out)
 }
 
-/// Whether an installed item is enabled now: a skill's index entry (an unindexed folder counts as enabled, X1-R12), a
-/// module's `modules.<name>.enabled` (absent means enabled) while its directory exists.
+/// Whether an installed item is enabled now: a skill's index entry (an unindexed folder counts as enabled, X1-R12; an
+/// unreadable index counts as not enabled, X1-C29), a module's `modules.<name>.enabled` (absent means enabled) while
+/// its directory exists.
 pub(crate) fn enabled_now(layout: &Layout, cfg: &Value, name: &str, kind: &str) -> bool {
+    let idx = if kind == "skill" {
+        index::read_index(layout).ok()
+    } else {
+        None
+    };
+    enabled_in(layout, idx.as_ref(), cfg, name, kind)
+}
+
+/// [`enabled_now`] with the skills index already read (`None`: it could not be read, so no skill is enabled).
+pub(crate) fn enabled_in(
+    layout: &Layout,
+    idx: Option<&index::SkillIndex>,
+    cfg: &Value,
+    name: &str,
+    kind: &str,
+) -> bool {
     if kind == "skill" {
-        match index::read_index(layout)
-            .ok()
-            .and_then(|i| i.entry(name).cloned())
-        {
+        let Some(idx) = idx else {
+            return false;
+        };
+        match idx.entry(name) {
             Some(e) => e["enabled"] == true,
             None => layout.skills().join(name).is_dir(),
         }
@@ -610,7 +657,7 @@ fn commit_locked(
 
     // Review Focus 5: the identical package again is a no-op that writes nothing.
     {
-        let st = state::read(paths).map_err(|e| ExtError::new("E_STORAGE", "state-invalid", e))?;
+        let st = state::read(paths).map_err(state_invalid)?;
         if let Some(p) = st
             .items
             .get(&name)
@@ -631,7 +678,7 @@ fn commit_locked(
     } else {
         None
     };
-    let st = state::read(paths).map_err(|e| ExtError::new("E_STORAGE", "state-invalid", e))?;
+    let st = state::read(paths).map_err(state_invalid)?;
     let prev = st.items.get(&name).cloned();
     recheck(layout, paths, &st, &staged, &cfg)?;
     let prev_enabled = prev.is_some() && enabled_now(layout, &cfg, &name, kind);
@@ -801,6 +848,9 @@ fn run_steps<'a>(
         package_into_trash(paths, &old.package_sha256, &tdir, "code", rb)?;
         fail_at("code.trash")?;
     }
+    // From here a kill can leave the new code under its final name without its record: the mark tells
+    // `ext::recover` to finish the install (the record is there) or to remove that code (it is not).
+    write_commit_mark(staged, &c.rec.inspection_id)?;
     if is_skill {
         let dest = layout.skills().join(&name);
         rename_retrying(&staged.dir, &dest)
@@ -890,6 +940,37 @@ fn run_steps<'a>(
     // `data/ext/<name>/` (X1-R31); kept if an earlier install left it.
     ensure_dir(&layout.ext_data(&name), "data", rb)?;
     Ok((record, state_name))
+}
+
+/// The commit mark (`extensions/staging/<name>-<id>/commit.json`) a commit writes right before it moves the new code
+/// into place, once a replaced item's old code is in the trash: whatever lies under the final name after a kill past
+/// this point is the new code. The staging directory goes with the commit, so only a killed one leaves the mark;
+/// [`super::recover`] reads it ([`CommitMark`]).
+pub(crate) const COMMIT_MARK: &str = "commit.json";
+
+/// What [`COMMIT_MARK`] holds.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CommitMark {
+    pub name: String,
+    pub kind: String,
+    pub sha256: String,
+    pub inspection_id: String,
+}
+
+fn write_commit_mark(staged: &StagedItem, inspection_id: &str) -> Result<(), ExtError> {
+    let Some(dir) = staged.dir.parent() else {
+        return Ok(());
+    };
+    let mark = CommitMark {
+        name: staged.name.clone(),
+        kind: kind_name(staged.kind).to_string(),
+        sha256: staged.record.package_sha256.clone(),
+        inspection_id: inspection_id.to_string(),
+    };
+    let path = dir.join(COMMIT_MARK);
+    let text = serde_json::to_vec(&mark).unwrap_or_default();
+    write_private_atomic(&path, &text).map_err(|e| io_err("cannot write", &path, e))
 }
 
 fn source_path(rec: &InspectionRecord) -> String {
@@ -988,9 +1069,10 @@ pub(crate) fn put_code_back(
     }
 }
 
-/// Enables a just-installed item (X1-R11, X1-R13): a skill's index entry and every agent's `blocked` list, a module's
-/// `modules.<name>.enabled`; then `capabilitiesAck` in the record. Task 8's `ext.enable` owns the same semantics for
-/// installed items.
+/// Enables a just-installed item (X1-R11, X1-R13): first `capabilitiesAck` in the record, then a skill's index entry
+/// and every agent's `blocked` list, a module's `modules.<name>.enabled` (the order of `ext.enable`: a kill in between
+/// leaves an acknowledged item disabled, never an enabled one without its acknowledgment). Task 8's `ext.enable` owns
+/// the same semantics for installed items.
 fn enable_now<'a>(
     c: &Ctx<'a>,
     host: &mut dyn ModuleHost,
@@ -1000,6 +1082,14 @@ fn enable_now<'a>(
 ) -> Result<(), ExtError> {
     let (layout, paths) = (c.layout, c.paths);
     let name = c.staged.name.as_str();
+    let mut st = state::read(paths).map_err(state_invalid)?;
+    record.capabilities_ack = Some(capabilities_hash(&record.capabilities));
+    st.items.insert(name.to_string(), record.clone());
+    let before = read_bytes(&paths.state);
+    state::write(paths, &st).map_err(|e| io_err("cannot write", &paths.state, e))?;
+    rb.push("enable", restore_file(paths.state.clone(), before));
+    fail_at("enable.state")?;
+
     let cfg = host.config();
     if c.staged.kind == Kind::Skill {
         let ipath = index::index_path(layout);
@@ -1023,12 +1113,6 @@ fn enable_now<'a>(
             rb,
         )?;
     }
-    let mut st = state::read(paths).map_err(|e| ExtError::new("E_STORAGE", "state-invalid", e))?;
-    record.capabilities_ack = Some(capabilities_hash(&record.capabilities));
-    st.items.insert(name.to_string(), record.clone());
-    let before = read_bytes(&paths.state);
-    state::write(paths, &st).map_err(|e| io_err("cannot write", &paths.state, e))?;
-    rb.push("enable", restore_file(paths.state.clone(), before));
     Ok(())
 }
 
