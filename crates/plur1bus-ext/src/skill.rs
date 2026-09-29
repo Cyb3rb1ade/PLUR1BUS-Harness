@@ -18,7 +18,25 @@ pub const EXCLUDED: &[&str] = &[
     "id_rsa*",
     ".git/",
     ".DS_Store",
+    // The TS importer's `isSecretFileName` also treats these as credentials (X1-C3).
+    ".netrc",
+    ".npmrc",
+    ".pypirc",
+    "id_ed25519*",
+    "id_ecdsa*",
 ];
+
+/// Names the TS importer's scan leaves out silently (`SKIP_NAMES` in `skills-scan.ts`, besides `.git` and `.DS_Store`,
+/// which are in [`EXCLUDED`]). `normalise_skill` drops them with a warning so its folder hash equals the TS scan's;
+/// a `.p1x` skill package holding one is refused (X1-C3). Matched case-sensitively, at any depth, as a file or a
+/// directory.
+pub const SKIP: &[&str] = &[".hg/", ".svn/", "__pycache__/"];
+
+/// Whether a `/`-separated path is, or lies inside, a [`SKIP`] name.
+pub fn is_skipped(path: &str) -> bool {
+    path.split('/')
+        .any(|seg| SKIP.iter().any(|s| s.trim_end_matches('/') == seg))
+}
 
 /// Whether a `/`-separated path (relative to the skill root, or `payload/…`) names an [`EXCLUDED`] file, or a file
 /// inside an excluded directory.
@@ -28,7 +46,7 @@ pub fn is_excluded(path: &str) -> bool {
     let (name, dirs) = segments
         .split_last()
         .map_or(("", &[][..]), |(n, d)| (*n, d));
-    if dirs.contains(&".git") || name == ".git" {
+    if name == ".git" || dirs.iter().any(|d| *d == ".git" || *d == ".ds_store") {
         return true;
     }
     EXCLUDED.iter().any(|pat| {
@@ -69,6 +87,18 @@ fn valid_skill_name(n: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
 }
 
+/// Leading ASCII spaces and tabs only, so slicing by it never lands inside a multibyte character (Unicode whitespace
+/// such as U+3000 is content, not indentation). Tabs are accepted as indentation, which YAML does not allow: the
+/// reader is lenient where that cannot change the meaning of the fields it reads.
+fn indent_of(l: &str) -> usize {
+    l.bytes().take_while(|b| *b == b' ' || *b == b'\t').count()
+}
+
+/// A YAML null (`~`, `null`, `Null`, `NULL`) reads as an absent value.
+fn is_null(s: &str) -> bool {
+    matches!(s, "~" | "null" | "Null" | "NULL")
+}
+
 /// A parsed top-level entry: its key, its inline value and its indented continuation lines.
 struct Entry<'a> {
     key: &'a str,
@@ -97,10 +127,6 @@ fn split_frontmatter(raw: &str) -> Result<Vec<&str>, Refusal> {
 fn entries<'a>(lines: &[&'a str]) -> Result<Vec<Entry<'a>>, Refusal> {
     let mut out: Vec<Entry<'a>> = Vec::new();
     for l in lines {
-        if l.contains('\t') && l.trim_start().len() != l.trim_start_matches('\t').len() {
-            // A tab in the indentation is not YAML.
-            return Err(invalid("the SKILL.md frontmatter is indented with a tab"));
-        }
         let indented = l.starts_with(' ') || l.starts_with('\t');
         if l.trim().is_empty() {
             if let Some(last) = out.last_mut() {
@@ -118,8 +144,12 @@ fn entries<'a>(lines: &[&'a str]) -> Result<Vec<Entry<'a>>, Refusal> {
         } else if l.trim_start().starts_with('#') {
             continue;
         } else if l.starts_with("- ") {
-            // A top-level sequence is not a mapping.
-            return Err(invalid("the SKILL.md frontmatter is not a mapping"));
+            // An unindented sequence belongs to the key above it (`allowed-tools:\n- Bash`); before any key the
+            // frontmatter is a sequence, not a mapping.
+            match out.last_mut() {
+                Some(last) => last.body.push(l),
+                None => return Err(invalid("the SKILL.md frontmatter is not a mapping")),
+            }
         } else {
             let Some((key, rest)) = l.split_once(':') else {
                 return Err(invalid(format!(
@@ -188,13 +218,13 @@ fn text_value(e: &Entry<'_>) -> Result<Option<String>, Refusal> {
             .body
             .iter()
             .filter(|l| !l.trim().is_empty())
-            .map(|l| l.len() - l.trim_start().len())
+            .map(|l| indent_of(l))
             .min()
             .unwrap_or(0);
         let lines: Vec<&str> = e
             .body
             .iter()
-            .map(|l| if l.len() >= indent { &l[indent..] } else { "" })
+            .map(|l| l.get(indent..).unwrap_or(""))
             .collect();
         let text = if style == '|' {
             lines.join("\n")
@@ -215,6 +245,9 @@ fn text_value(e: &Entry<'_>) -> Result<Option<String>, Refusal> {
             None
         });
     }
+    if is_null(inline) && e.body.iter().all(|l| l.trim().is_empty()) {
+        return Ok(Some(String::new()));
+    }
     let mut parts = vec![unquote(inline)?];
     if !inline.starts_with('"') && !inline.starts_with('\'') {
         parts.extend(
@@ -233,17 +266,17 @@ fn nested_text(e: &Entry<'_>, key: &str) -> Result<Option<String>, Refusal> {
         .body
         .iter()
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.len() - l.trim_start().len())
+        .map(|l| indent_of(l))
         .min()
         .unwrap_or(0);
     for l in &e.body {
-        if l.trim().is_empty() || l.len() - l.trim_start().len() != base {
+        if l.trim().is_empty() || indent_of(l) != base {
             continue;
         }
         if let Some((k, v)) = l.trim().split_once(':') {
             if k.trim() == key {
                 let v = strip_comment(v.trim());
-                if v.is_empty() || v.starts_with(['|', '>', '[', '{']) {
+                if v.is_empty() || is_null(v) || v.starts_with(['|', '>', '[', '{']) {
                     return Ok(None);
                 }
                 return Ok(Some(unquote(v)?));

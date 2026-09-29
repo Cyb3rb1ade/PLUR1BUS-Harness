@@ -68,7 +68,8 @@ fn signature_for(key: &TestKey, id: &str, version: &str, raw: &[u8]) -> Vec<u8> 
 /// Builds a package from a payload directory: `p1x.json`, `p1x.json.minisig` when `key` is given (trusted comment
 /// `p1x <id> <version> sha256(p1x.json)=<hex>`), then `payload/…`. Panics on a refusal: it is for tests.
 pub fn build_package(template: &Value, payload: &Path, key: Option<&TestKey>) -> Vec<u8> {
-    let files = collect_dir(payload, &DirLimits::default(), |_| Ok(())).expect("read the payload");
+    let (files, _) =
+        collect_dir(payload, &DirLimits::default(), |_| Ok(true)).expect("read the payload");
     build_package_from(template, files, key)
 }
 

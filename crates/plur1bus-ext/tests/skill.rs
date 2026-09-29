@@ -4,7 +4,7 @@ use plur1bus_ext::folder_hash::skill_folder_hash;
 use plur1bus_ext::manifest::{parse_manifest, P1xManifest};
 use plur1bus_ext::normalise::{normalise_skill, normalise_skill_with_warnings, SkillInput};
 use plur1bus_ext::refusal::reason;
-use plur1bus_ext::skill::{is_excluded, validate_skill_md, EXCLUDED};
+use plur1bus_ext::skill::{is_excluded, is_skipped, validate_skill_md, EXCLUDED, SKIP};
 use plur1bus_ext::zipaudit::{audit_zip, read_entry, Limits};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -120,7 +120,7 @@ fn validate_skill_md_reads_yaml_block_scalars_quotes_crlf_and_metadata_version()
 
 #[test]
 fn excluded_names_match_docs_import_9_3() {
-    assert_eq!(EXCLUDED.len(), 9);
+    assert_eq!(EXCLUDED.len(), 14);
     for p in [
         ".env",
         "a/.env.local",
@@ -135,8 +135,21 @@ fn excluded_names_match_docs_import_9_3() {
         ".DS_Store",
         "a/.DS_Store",
         "A/.ENV",
+        ".netrc",
+        "a/.npmrc",
+        ".pypirc",
+        "id_ed25519",
+        "id_ed25519.pub",
+        "x/id_ecdsa_sk",
     ] {
         assert!(is_excluded(p), "{p}");
+    }
+    assert_eq!(SKIP, [".hg/", ".svn/", "__pycache__/"]);
+    for p in [".hg", "a/.svn/x", "__pycache__/m.pyc", "x/__pycache__"] {
+        assert!(is_skipped(p) && !is_excluded(p), "{p}");
+    }
+    for p in ["hg", "a.svn", "my__pycache__/x", "SKILL.md"] {
+        assert!(!is_skipped(p), "{p}");
     }
     for p in [
         "SKILL.md",
@@ -554,4 +567,167 @@ fn folder_hash_sorts_like_the_ts_reference_and_hashes_the_empty_set() {
         a,
         "sha256:e620e1be920c6d8b6bf65c649b814dfbed075dd6cae709ff67704475e196a2c2"
     );
+}
+
+// ---- fix round 1 --------------------------------------------------------------------------------------------------
+
+/// Every quoted string in `s`.
+fn quoted(s: &str) -> Vec<String> {
+    s.split('"')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_string)
+        .collect()
+}
+
+/// The text between `start` and the next `end` after it.
+fn between<'a>(src: &'a str, start: &str, end: &str) -> &'a str {
+    let a = src
+        .find(start)
+        .unwrap_or_else(|| panic!("{start} not found"))
+        + start.len();
+    &src[a..a + src[a..].find(end).unwrap()]
+}
+
+#[test]
+fn rust_excluded_and_skip_cover_the_ts_importer_lists() {
+    let ts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/src/import");
+    let readonly = std::fs::read_to_string(ts.join("readonly.ts")).unwrap();
+    let scan = std::fs::read_to_string(ts.join("skills-scan.ts")).unwrap();
+    // isSecretFileName: the SECRET_NAMES set plus the startsWith / endsWith tests in its body.
+    let names = quoted(between(&readonly, "SECRET_NAMES = new Set([", "]"));
+    assert!(names.len() >= 6, "{names:?}");
+    for n in &names {
+        assert!(is_excluded(n), "SECRET_NAMES entry {n:?}");
+        assert!(is_excluded(&n.to_uppercase()), "{n:?} in upper case");
+    }
+    let body = between(
+        &readonly,
+        "export function isSecretFileName",
+        "
+}",
+    );
+    let (mut prefixes, mut suffixes) = (0, 0);
+    for part in body.split("n.startsWith(").skip(1) {
+        let p = quoted(part.split(')').next().unwrap())[0].clone();
+        assert!(is_excluded(&format!("{p}x")), "startsWith({p:?})");
+        prefixes += 1;
+    }
+    for part in body.split("n.endsWith(").skip(1) {
+        let p = quoted(part.split(')').next().unwrap())[0].clone();
+        assert!(is_excluded(&format!("x{p}")), "endsWith({p:?})");
+        suffixes += 1;
+    }
+    assert!(prefixes >= 3 && suffixes >= 2, "{prefixes} {suffixes}");
+    // SKIP_NAMES: refused (EXCLUDED) or skipped (SKIP), as a file and as a directory.
+    let skip = quoted(between(&scan, "SKIP_NAMES = new Set([", "]"));
+    assert!(skip.len() >= 5, "{skip:?}");
+    for n in &skip {
+        for path in [n.clone(), format!("d/{n}/x")] {
+            assert!(
+                is_excluded(&path) || is_skipped(&path),
+                "SKIP_NAMES {path:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn an_unindented_sequence_belongs_to_the_key_above_it() {
+    let raw = "---\nname: demo\nallowed-tools:\n- Bash\n- Read\ndescription: d\n---\n";
+    let f = validate_skill_md(raw, "demo").unwrap();
+    assert_eq!(f.description, "d");
+    // Only a sequence entry before any key is an error.
+    let e = validate_skill_md("---\n- a\nname: demo\n---\n", "demo").unwrap_err();
+    assert_eq!(e.reason, reason::PACKAGE_INVALID);
+}
+
+#[test]
+fn untrusted_frontmatter_never_panics_on_multibyte_whitespace() {
+    // A block scalar whose second line is indented with one space and U+3000 (3 bytes).
+    let raw = "---\nname: demo\ndescription: |\n  x\n \u{3000}y\n---\n";
+    let f = validate_skill_md(raw, "demo").unwrap();
+    assert!(
+        f.description.starts_with('x') && f.description.contains('y'),
+        "{:?}",
+        f.description
+    );
+    let raw = "---\nname: demo\ndescription: >\n \u{3000}\u{3000}a\n  b\nmetadata:\n \u{3000}version: 1\n  version: 2.0.0\n---\n";
+    let _ = validate_skill_md(raw, "demo");
+}
+
+#[test]
+fn yaml_nulls_read_as_absent() {
+    let raw = "---\nname: demo\ndescription: d\nlicense: ~\nversion: null\nmetadata:\n  version: Null\n---\n";
+    let f = validate_skill_md(raw, "demo").unwrap();
+    assert_eq!((f.license, f.version), (None, None));
+    let e = validate_skill_md("---\nname: demo\ndescription: null\n---\n", "demo").unwrap_err();
+    assert_eq!(
+        e.reason,
+        reason::PACKAGE_INVALID,
+        "a null description is empty"
+    );
+    // A quoted "null" is the string.
+    let f = validate_skill_md(
+        "---\nname: demo\ndescription: d\nlicense: \"null\"\n---\n",
+        "demo",
+    )
+    .unwrap();
+    assert_eq!(f.license.as_deref(), Some("null"));
+}
+
+#[test]
+fn normalise_skips_the_scan_skip_names_with_a_warning_and_keeps_the_hash_of_what_remains() {
+    let tmp = tempfile::tempdir().unwrap();
+    let d = tmp.path().join("demo-skip");
+    write(&d, "SKILL.md", md("demo-skip", "d", "").as_bytes());
+    write(&d, "references/a.md", b"a");
+    write(&d, "__pycache__/m.pyc", b"junk");
+    write(&d, "sub/.hg/store", b"junk");
+    write(&d, ".svn", b"file");
+    let mut out = Cursor::new(Vec::new());
+    let (m, warnings) =
+        normalise_skill_with_warnings(&SkillInput::Dir(d), CREATED, &mut out).unwrap();
+    assert_eq!(
+        m.files.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["payload/SKILL.md", "payload/references/a.md"]
+    );
+    for p in ["__pycache__", "sub/.hg", ".svn"] {
+        assert!(warnings.iter().any(|w| w.contains(p)), "{p}: {warnings:?}");
+    }
+    // The same in a ZIP.
+    let z = tmp.path().join("z.zip");
+    let mut w = zip::ZipWriter::new(std::fs::File::create(&z).unwrap());
+    let o = zip::write::SimpleFileOptions::default();
+    for (n, b) in [
+        ("demo-skip/SKILL.md", md("demo-skip", "d", "")),
+        ("demo-skip/__pycache__/m.pyc", "x".into()),
+    ] {
+        w.start_file(n, o).unwrap();
+        w.write_all(b.as_bytes()).unwrap();
+    }
+    w.finish().unwrap();
+    let (m, warnings) =
+        normalise_skill_with_warnings(&SkillInput::Zip(z), CREATED, &mut Cursor::new(Vec::new()))
+            .unwrap();
+    assert_eq!(m.files.len(), 1);
+    assert!(warnings.iter().any(|w| w.contains("__pycache__")));
+}
+
+#[test]
+fn a_script_extension_without_the_exec_bit_gets_the_scripts_capability_block() {
+    let tmp = tempfile::tempdir().unwrap();
+    let d = tmp.path().join("demo-helper");
+    write(&d, "SKILL.md", md("demo-helper", "d", "").as_bytes());
+    write(&d, "helper.py", b"print('hi')\n");
+    let mut out = Cursor::new(Vec::new());
+    let m = normalise_skill(&SkillInput::Dir(d), CREATED, &mut out).unwrap();
+    assert!(
+        m.scripts.is_empty(),
+        "scripts[] stays the brief's set: {:?}",
+        m.scripts
+    );
+    assert_eq!(m.capabilities["network"], json!({ "mode": "any" }));
+    assert_eq!(m.capabilities["processes"], json!({ "spawn": true }));
+    reparse(&out.into_inner());
 }

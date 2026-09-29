@@ -4,8 +4,8 @@
 use crate::manifest::P1xManifest;
 use crate::pack::{checked_zip, collect_dir, entries_of, prepare, DirLimits, PayloadFile};
 use crate::refusal::{reason, Refusal};
-use crate::scripts::is_script;
-use crate::skill::{is_excluded, parse_skill_md, validate_skill_md, SkillFront};
+use crate::scripts::{has_script_extension, is_script};
+use crate::skill::{is_excluded, is_skipped, parse_skill_md, validate_skill_md, SkillFront};
 use crate::zipaudit::{audit_zip, read_entry, Limits};
 use serde_json::{json, Value};
 use std::io::{Seek, Write};
@@ -32,14 +32,22 @@ fn invalid(detail: impl Into<String>) -> Refusal {
     Refusal::invalid(reason::PACKAGE_INVALID, detail)
 }
 
-fn excluded(rel: &str) -> Result<(), Refusal> {
+/// `Ok(false)` for a name the TS scan leaves out ([`is_skipped`]), an error for a credential or VCS file.
+fn keep(rel: &str) -> Result<bool, Refusal> {
     if is_excluded(rel) {
         return Err(Refusal::invalid(
             reason::UNSAFE_ENTRY,
             format!("{rel:?} is a credential or VCS file that a skill never carries"),
         ));
     }
-    Ok(())
+    Ok(!is_skipped(rel))
+}
+
+fn skipped_warnings(skipped: &[String]) -> Vec<String> {
+    skipped
+        .iter()
+        .map(|p| format!("left out {p:?}: the importer's scan skips it too"))
+        .collect()
 }
 
 /// Truncates to `max` characters, ending in `…` when it cut. Whitespace runs collapse to one space first.
@@ -69,7 +77,9 @@ fn dir_name_of(path: &Path) -> Result<String, Refusal> {
 }
 
 /// Files of a skill folder plus its directory name.
-fn read_dir_input(dir: &Path) -> Result<(Option<String>, Vec<PayloadFile>), Refusal> {
+type Input = (Option<String>, Vec<PayloadFile>, Vec<String>);
+
+fn read_dir_input(dir: &Path) -> Result<Input, Refusal> {
     let meta = std::fs::symlink_metadata(dir).map_err(|e| Refusal::io(&e))?;
     if meta.file_type().is_symlink() {
         return Err(Refusal::invalid(
@@ -80,20 +90,20 @@ fn read_dir_input(dir: &Path) -> Result<(Option<String>, Vec<PayloadFile>), Refu
     if !meta.is_dir() {
         return Err(invalid(format!("{} is not a directory", dir.display())));
     }
-    let files = collect_dir(
+    let (files, skipped) = collect_dir(
         dir,
         &DirLimits {
             max_bytes: MAX_SKILL_BYTES,
             max_files: MAX_SKILL_FILES,
         },
-        excluded,
+        keep,
     )?;
-    Ok((Some(dir_name_of(dir)?), files))
+    Ok((Some(dir_name_of(dir)?), files, skipped))
 }
 
 /// Audits the archive, finds the skill root, and reads its files. The top folder's name is the directory name; an
 /// archive with `SKILL.md` at its root has none.
-fn read_zip_input(path: &Path) -> Result<(Option<String>, Vec<PayloadFile>), Refusal> {
+fn read_zip_input(path: &Path) -> Result<Input, Refusal> {
     let mut f = std::fs::File::open(path).map_err(|e| Refusal::io(&e))?;
     let limits = Limits {
         package_bytes: MAX_SKILL_BYTES,
@@ -121,9 +131,13 @@ fn read_zip_input(path: &Path) -> Result<(Option<String>, Vec<PayloadFile>), Ref
         }
     };
     let mut files = Vec::new();
+    let mut skipped = Vec::new();
     for e in &audited.entries {
         let rel = &e.name[prefix.len()..];
-        excluded(rel)?;
+        if !keep(rel)? {
+            skipped.push(rel.to_string());
+            continue;
+        }
         let bytes = read_entry(&mut f, e, MAX_SKILL_BYTES)?;
         files.push(PayloadFile {
             rel: rel.to_string(),
@@ -134,7 +148,7 @@ fn read_zip_input(path: &Path) -> Result<(Option<String>, Vec<PayloadFile>), Ref
     if !files.iter().any(|f| f.rel == "SKILL.md") {
         return Err(invalid("the archive has no SKILL.md"));
     }
-    Ok((dir_name, files))
+    Ok((dir_name, files, skipped))
 }
 
 /// The explicit capability block of an unsigned skill (X1-C1). All four keys are always present, so a missing key can
@@ -211,7 +225,7 @@ pub fn normalise_skill_with_warnings(
     created: &str,
     out: &mut (impl Write + Seek),
 ) -> Result<(P1xManifest, Vec<String>), Refusal> {
-    let (dir_name, files) = match input {
+    let (dir_name, files, skipped) = match input {
         SkillInput::Dir(d) => read_dir_input(d)?,
         SkillInput::Zip(z) => read_zip_input(z)?,
     };
@@ -225,14 +239,16 @@ pub fn normalise_skill_with_warnings(
         Some(d) => validate_skill_md(raw, d)?,
         None => parse_skill_md(raw)?,
     };
+    // The capability disclosure is wider than `scripts`: it also counts the importer's script extensions (X1-C4).
     let has_scripts = files.iter().any(|f| {
-        is_script(
-            &format!("payload/{}", f.rel),
-            f.exec,
-            &f.bytes[..f.bytes.len().min(4)],
-        )
+        has_script_extension(&f.rel)
+            || is_script(
+                &format!("payload/{}", f.rel),
+                f.exec,
+                &f.bytes[..f.bytes.len().min(4)],
+            )
     });
-    let mut warnings = Vec::new();
+    let mut warnings = skipped_warnings(&skipped);
     let template = template(&front, has_scripts, &mut warnings);
     let p = prepare(&template, files, created)?;
     let bytes = checked_zip(&entries_of(&p, None))?;

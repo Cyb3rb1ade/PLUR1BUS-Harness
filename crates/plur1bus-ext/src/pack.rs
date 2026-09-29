@@ -163,6 +163,19 @@ pub fn pack_files(
     created: &str,
     out: &mut (impl Write + Seek),
 ) -> Result<P1xManifest, Refusal> {
+    if template.get("kind").and_then(Value::as_str) == Some("skill") {
+        for f in &files {
+            if crate::skill::is_excluded(&f.rel) || crate::skill::is_skipped(&f.rel) {
+                return Err(Refusal::invalid(
+                    reason::UNSAFE_ENTRY,
+                    format!(
+                        "{:?} is a credential, VCS or cache file; a skill package never carries it, remove it from the payload",
+                        f.rel
+                    ),
+                ));
+            }
+        }
+    }
     let p = prepare(template, files, created)?;
     let bytes = checked_zip(&entries_of(&p, None))?;
     out.write_all(&bytes).map_err(io_refusal)?;
@@ -181,7 +194,7 @@ pub fn pack_dir(
     created: &str,
     out: &mut (impl Write + Seek),
 ) -> Result<P1xManifest, Refusal> {
-    let files = collect_dir(payload, &DirLimits::default(), |_| Ok(()))?;
+    let (files, _) = collect_dir(payload, &DirLimits::default(), |_| Ok(true))?;
     pack_files(template, files, created, out)
 }
 
@@ -200,19 +213,27 @@ impl Default for DirLimits {
     }
 }
 
-/// Reads every regular file below `root` into memory, sorted by path. `check` sees each entry's relative path (files
-/// and directories) and may refuse it. A symlink or special file is `archive-unsafe-entry`; an empty directory is
+/// Reads every regular file below `root` into memory, sorted by path, and the paths that were left out. `check` sees
+/// each entry's relative path (files and directories): it may refuse it, or answer `false` to leave it (and, for a
+/// directory, everything below it) out. A symlink or special file is `archive-unsafe-entry`; an empty directory is
 /// dropped, as a ZIP holds no directory entries.
 pub(crate) fn collect_dir(
     root: &Path,
     limits: &DirLimits,
-    check: impl Fn(&str) -> Result<(), Refusal>,
-) -> Result<Vec<PayloadFile>, Refusal> {
-    let mut out = Vec::new();
-    let mut total = 0u64;
-    walk(root, "", 0, limits, &check, &mut total, &mut out)?;
-    out.sort_by(|a: &PayloadFile, b| a.rel.cmp(&b.rel));
-    Ok(out)
+    check: impl Fn(&str) -> Result<bool, Refusal>,
+) -> Result<(Vec<PayloadFile>, Vec<String>), Refusal> {
+    let mut acc = Acc::default();
+    walk(root, "", 0, limits, &check, &mut acc)?;
+    acc.out.sort_by(|a: &PayloadFile, b| a.rel.cmp(&b.rel));
+    Ok((acc.out, acc.skipped))
+}
+
+/// What a directory walk has collected so far.
+#[derive(Default)]
+struct Acc {
+    total: u64,
+    out: Vec<PayloadFile>,
+    skipped: Vec<String>,
 }
 
 fn unsafe_entry(rel: &str, why: &str) -> Refusal {
@@ -224,9 +245,8 @@ fn walk(
     rel: &str,
     depth: usize,
     limits: &DirLimits,
-    check: &dyn Fn(&str) -> Result<(), Refusal>,
-    total: &mut u64,
-    out: &mut Vec<PayloadFile>,
+    check: &dyn Fn(&str) -> Result<bool, Refusal>,
+    acc: &mut Acc,
 ) -> Result<(), Refusal> {
     if depth > MAX_DEPTH {
         return Err(Refusal::invalid(
@@ -251,16 +271,19 @@ fn walk(
         } else {
             format!("{rel}/{name}")
         };
-        check(&r)?;
+        if !check(&r)? {
+            acc.skipped.push(r);
+            continue;
+        }
         let meta = std::fs::symlink_metadata(&path).map_err(|e| Refusal::io(&e))?;
         let ft = meta.file_type();
         if ft.is_symlink() {
             return Err(unsafe_entry(&r, "a symbolic link"));
         } else if ft.is_dir() {
-            walk(&path, &r, depth + 1, limits, check, total, out)?;
+            walk(&path, &r, depth + 1, limits, check, acc)?;
         } else if ft.is_file() {
-            *total += meta.len();
-            if *total > limits.max_bytes || out.len() >= limits.max_files {
+            acc.total += meta.len();
+            if acc.total > limits.max_bytes || acc.out.len() >= limits.max_files {
                 return Err(Refusal::invalid(
                     reason::TOO_LARGE,
                     format!(
@@ -270,7 +293,7 @@ fn walk(
                 ));
             }
             let bytes = std::fs::read(&path).map_err(|e| Refusal::io(&e))?;
-            out.push(PayloadFile {
+            acc.out.push(PayloadFile {
                 rel: r,
                 bytes,
                 exec: exec_bit(&meta),

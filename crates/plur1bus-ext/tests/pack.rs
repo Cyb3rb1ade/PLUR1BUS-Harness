@@ -125,6 +125,49 @@ fn pack_refuses_an_invalid_template() {
 }
 
 #[test]
+fn pack_refuses_credential_vcs_and_cache_names_in_a_skill_payload() {
+    for bad in [
+        ".env",
+        "sub/id_rsa",
+        ".netrc",
+        "a/.git/config",
+        "__pycache__/m.pyc",
+        ".hg/x",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        write(dir.path(), "SKILL.md", b"x");
+        write(dir.path(), bad, b"secret");
+        let e = pack_dir(
+            &template("demo"),
+            dir.path(),
+            "2026-01-02T03:04:05Z",
+            &mut Cursor::new(Vec::new()),
+        )
+        .unwrap_err();
+        assert_eq!(
+            (e.code, e.reason),
+            ("E_INVALID_PARAMS", reason::UNSAFE_ENTRY),
+            "{bad}"
+        );
+        assert!(e.detail.contains("never carries"), "{}", e.detail);
+    }
+    // A module payload is not held to the skill rule.
+    let dir = tempfile::tempdir().unwrap();
+    write(dir.path(), "module.json", b"{}");
+    write(dir.path(), ".env", b"x");
+    let mut t = template("demo");
+    t["kind"] = json!("module");
+    t["compat"] = json!({ "harness": ">=0.0.0", "moduleApi": ["1"] });
+    pack_dir(
+        &t,
+        dir.path(),
+        "2026-01-02T03:04:05Z",
+        &mut Cursor::new(Vec::new()),
+    )
+    .unwrap();
+}
+
+#[test]
 fn script_derivation_finds_exec_shebang_scripts_dir_bin_dir_and_native_magic() {
     assert!(is_script("payload/a.txt", true, b"x"), "exec bit");
     assert!(

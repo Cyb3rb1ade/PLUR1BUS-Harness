@@ -29,3 +29,19 @@ pub fn is_script(path: &str, exec: bool, head: &[u8]) -> bool {
         .skip(usize::from(segments.first() == Some(&"payload")))
         .any(|s| *s == "scripts" || *s == "bin")
 }
+
+/// File extensions the TS importer's scan counts as scripts (`SCRIPT_EXT` in `skills-scan.ts`).
+pub const SCRIPT_EXT: &[&str] = &[
+    "sh", "bash", "zsh", "fish", "py", "js", "mjs", "cjs", "ts", "rb", "pl", "php", "ps1", "psm1",
+    "bat", "cmd", "exe", "bin",
+];
+
+/// Whether the file name has one of the [`SCRIPT_EXT`] extensions (case-insensitive; a leading dot is not an
+/// extension, like Node's `extname`). This widens the capability disclosure only; `scripts` stays [`is_script`].
+pub fn has_script_extension(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    match name.rfind('.') {
+        Some(i) if i > 0 => SCRIPT_EXT.contains(&name[i + 1..].to_lowercase().as_str()),
+        _ => false,
+    }
+}
