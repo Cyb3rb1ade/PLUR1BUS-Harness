@@ -13,7 +13,7 @@
 //   plur1bus/LICENSE                              the repository licence
 //   plur1bus/MANIFEST.json                        { schema, version, files: { "<archive path>": "<sha256>" } }
 // `__pycache__`, `tests`, dotfiles and compiled files are left out; a symbolic link anywhere in either source tree
-// fails the build. The provider, the client's pyproject.toml and __version__, and Cargo.toml must carry one version
+// (the roots included) fails the build, and so does a carriage return in any shipped file. The provider, the client's pyproject.toml and __version__, and Cargo.toml must carry one version
 // (HM2-R22), which names the file. Only `node:` builtins; nothing is fetched.
 import { createHash } from "node:crypto";
 import { lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -92,6 +92,12 @@ const skipFile = (name) => name.startsWith(".") || /\.(pyc|pyo)$/.test(name);
 
 /** Regular files under `dir` as [relative posix path, absolute path], sorted; throws on a link or special file. */
 function collect(dir, rel = "") {
+  if (!rel) {
+    // The root itself: a symlinked hosts/hermes/plur1bus (or client package) would otherwise be followed.
+    const st = lstatSync(dir);
+    if (st.isSymbolicLink()) throw new Error(`refusing a symbolic link as a provider source root: ${dir}`);
+    if (!st.isDirectory()) throw new Error(`not a directory: ${dir}`);
+  }
   const out = [];
   for (const name of readdirSync(join(dir, rel)).sort()) {
     const r = rel ? `${rel}/${name}` : name;
@@ -117,6 +123,9 @@ export function providerFiles(src, version = harnessVersion(src)) {
     if (!/^[A-Za-z0-9._/-]+$/.test(path)) throw new Error(`archive path outside [A-Za-z0-9._/-]: ${path}`);
     const key = path.toLowerCase();
     for (const p of files.keys()) if (p.toLowerCase() === key) throw new Error(`duplicate or case-fold duplicate path: ${path}`);
+    // Every shipped file is text with LF line ends (.gitattributes `eol=lf`); a CR means a CRLF checkout, whose
+    // tarball would differ from the CI one byte for byte.
+    if (buf.includes(0x0d)) throw new Error(`carriage return (CRLF checkout?) in ${path}; the shipped files must use LF`);
     files.set(path, buf);
   };
   const provider = collect(src.provider);

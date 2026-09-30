@@ -86,6 +86,21 @@ test("two builds are byte-identical", () => {
   assert.deepEqual([...gz.subarray(0, 10)], [0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 2, 0xff]);
 });
 
+/** Git's view of `paths`: index blob id per tracked path, minus the files with uncommitted edits (null outside git). */
+function gitBlobs(paths) {
+  const git = (args) => spawnSync("git", ["-C", REPO, ...args], { encoding: "utf8" });
+  const ls = git(["ls-files", "-s", "-z", "--", ...paths]);
+  if (ls.status !== 0) return null;
+  const edited = new Set(git(["diff", "--name-only", "-z", "--", ...paths]).stdout.split("\0").filter(Boolean));
+  const out = new Map();
+  for (const rec of ls.stdout.split("\0").filter(Boolean)) {
+    const [meta, path] = rec.split("\t");
+    if (!edited.has(path)) out.set(path, meta.split(" ")[1]);
+  }
+  return out;
+}
+const blobId = (buf) => createHash("sha1").update(`blob ${buf.length}\0`).update(buf).digest("hex");
+
 test("the vendored client equals clients/python sources byte for byte", () => {
   const prefix = "plur1bus/_vendor/plur1bus_memory_client/";
   const walk = (dir, rel = "") =>
@@ -97,10 +112,54 @@ test("the vendored client equals clients/python sources byte for byte", () => {
   const source = walk(SRC.client).sort();
   const vendored = [...files.keys()].filter((p) => p.startsWith(prefix)).map((p) => p.slice(prefix.length)).sort();
   assert.deepEqual(vendored, source);
-  for (const r of source) assert.ok(files.get(prefix + r).equals(readFileSync(join(SRC.client, r))), r);
   assert.ok(files.has("plur1bus/_vendor/__init__.py"));
-  // Every provider source file is in the tarball unchanged.
-  for (const r of walk(SRC.provider)) assert.ok(files.get(`plur1bus/${r}`)?.equals(readFileSync(join(SRC.provider, r))), r);
+  // Archive path -> repository path of every shipped file that comes from the checkout.
+  const clientRel = "clients/python/plur1bus-memory-client/src/plur1bus_memory_client";
+  const origin = new Map([["plur1bus/LICENSE", "LICENSE"]]);
+  for (const r of source) origin.set(prefix + r, `${clientRel}/${r}`);
+  for (const r of walk(SRC.provider)) origin.set(`plur1bus/${r}`, `hosts/hermes/plur1bus/${r}`);
+  for (const [arc, rel] of origin) {
+    const shipped = files.get(arc);
+    assert.ok(shipped, `${arc} shipped`);
+    // The working tree copy, and LF only: a CRLF checkout cannot pass as the source.
+    assert.ok(shipped.equals(readFileSync(join(REPO, rel))), `${arc} equals ${rel}`);
+    assert.ok(!shipped.includes(0x0d), `${arc} has no CR`);
+  }
+  // Git's own bytes (the index blob, which .gitattributes keeps LF): every shipped file whose working copy has no
+  // uncommitted edit must hash to that blob, so a checkout that rewrote line ends is caught even if the tree agrees
+  // with itself.
+  const blobs = gitBlobs([...new Set([...origin.values()])]);
+  if (blobs) {
+    let checked = 0;
+    for (const [arc, rel] of origin) {
+      if (!blobs.has(rel)) continue;
+      assert.equal(blobId(files.get(arc)), blobs.get(rel), `${arc} is git's blob of ${rel}`);
+      checked++;
+    }
+    assert.ok(checked > 0, "at least one shipped file compared with its git blob");
+  }
+});
+
+test(".gitattributes keeps every shipped file LF on every checkout", () => {
+  const r = spawnSync("git", ["-C", REPO, "check-attr", "eol", "--", "hosts/hermes/plur1bus/cli.py", "clients/python/plur1bus-memory-client/src/plur1bus_memory_client/client.py", "LICENSE", "clients/python/plur1bus-memory-client/LICENSE"], { encoding: "utf8" });
+  if (r.status !== 0) return;
+  for (const line of r.stdout.trim().split("\n")) assert.match(line, /: eol: lf$/, line);
+});
+
+test("a carriage return in a shipped file and a symlinked source root fail the build", () => {
+  const root = fresh();
+  const provider = join(root, "provider");
+  cpSync(SRC.provider, provider, { recursive: true, filter: (s) => !s.includes("__pycache__") });
+  const src = { ...SRC, provider };
+  writeFileSync(join(provider, "mapping.py"), readFileSync(join(provider, "mapping.py"), "utf8").replace(/\n/g, "\r\n"));
+  assert.throws(() => buildProvider({ out: join(root, "out"), src }), /carriage return.*plur1bus\/mapping\.py/);
+  const client = join(root, "client");
+  cpSync(SRC.client, client, { recursive: true, filter: (s) => !s.includes("__pycache__") });
+  writeFileSync(join(client, "paths.py"), readFileSync(join(client, "paths.py"), "utf8").replace(/\n/g, "\r\n"));
+  assert.throws(() => buildProvider({ out: join(root, "out"), src: { ...SRC, client } }), /carriage return.*_vendor\/plur1bus_memory_client\/paths\.py/);
+  const linked = join(root, "linked");
+  symlinkSync(SRC.provider, linked, "dir");
+  assert.throws(() => buildProvider({ out: join(root, "out"), src: { ...SRC, provider: linked } }), /symbolic link as a provider source root/);
 });
 
 test("no __pycache__, tests, dotfiles or links in the tarball", () => {
@@ -244,46 +303,53 @@ test("the lock seed carries real hashes, nodeVersion from the harness pin and pl
   assert.throws(() => buildLock({ artifacts: art, baseUrl: "https://example.invalid" }), /plur1bus-darwin-arm64 is missing/);
 });
 
-// ---- the release workflow (F7, F8): line scans, no YAML parser ---------------------------------------------------
+// ---- the release workflows (F7, F8; review finding 1): line scans, no YAML parser -------------------------------
 
-const WF = readFileSync(join(REPO, ".github/workflows/harness-release.yml"), "utf8").replace(/\r\n/g, "\n");
+const readWf = (name) => readFileSync(join(REPO, ".github/workflows", name), "utf8").replace(/\r\n/g, "\n");
+const WF = readWf("harness-release.yml");
+const RELEASE = readWf("release.yml");
 
 /** The lines of top-level job `name` (two-space indent) up to the next job. */
-function job(name) {
-  const lines = WF.split("\n");
+function job(name, wf = WF) {
+  const lines = wf.split("\n");
   const start = lines.indexOf(`  ${name}:`);
   assert.ok(start > 0, `job ${name} exists`);
   let end = start + 1;
   while (end < lines.length && !/^ {2}[A-Za-z0-9_-]+:\s*$/.test(lines[end]) && !/^\S/.test(lines[end])) end++;
   return lines.slice(start, end);
 }
+const code = (wf) => wf.split("\n").filter((l) => !/^\s*#/.test(l));
+const SHA_USES = /uses: [\w.-]+\/[\w.-]+(\/[\w.-]+)*@[0-9a-f]{40} # v\d+(\.\d+)*$/;
+const usesLines = (lines) => lines.filter((l) => /^\s*(- )?uses:/.test(l));
 
 test("harness-release.yml parses, pins every action by SHA and lists the three new files in SHA256SUMS", () => {
   // "Parses": tabs are illegal YAML indentation; every job line is inside the jobs map.
   assert.ok(!/\t/.test(WF), "no tabs");
   assert.match(WF, /^permissions:\n {2}contents: read\n/m, "workflow-wide permissions stay read-only");
+  // A called workflow's job permissions are checked against the caller's grant before any job `if`, so no job here
+  // may ask for more than contents: read (dry runs and callers without OIDC would fail at startup).
+  for (const l of code(WF)) assert.ok(!/^\s+(id-token|attestations|packages|actions|pull-requests|issues|deployments|statuses|checks|security-events|pages|discussions|repository-projects):/.test(l), `harness-release requests no extra permission: ${l.trim()}`);
+  for (const l of code(WF)) assert.ok(!/^\s+contents: write/.test(l), l.trim());
+  assert.ok(!code(WF).some((l) => /attest-build-provenance/.test(l)), "no attestation inside the called workflow");
   const hermes = job("hermes-artefacts");
-  const uses = hermes.filter((l) => /^\s*(- )?uses:/.test(l));
-  assert.ok(uses.length >= 5, "checkout, setup-node, setup-python, attest, upload");
-  for (const l of uses) assert.match(l, /uses: [\w.-]+\/[\w.-]+(\/[\w.-]+)*@[0-9a-f]{40} # v\d+(\.\d+)*$/, l.trim());
-  assert.ok(uses.some((l) => /actions\/attest-build-provenance@/.test(l)), "attestation step");
+  const uses = usesLines(hermes);
+  assert.ok(uses.length >= 4, "checkout, setup-node, setup-python, upload");
+  for (const l of uses) assert.match(l, SHA_USES, l.trim());
   const text = hermes.join("\n");
-  assert.match(text, /\n {4}permissions:\n {6}contents: read\n {6}id-token: write\n {6}attestations: write\n/, "job-scoped attest permissions");
+  assert.match(text, /\n {4}permissions:\n {6}contents: read\n {4}env:/, "job-scoped read-only permissions");
   assert.match(text, /runs-on: ubuntu-24\.04\n/);
   assert.match(text, /persist-credentials: false/);
   assert.match(text, /node scripts\/build-hermes-provider\.mjs --out /);
   assert.match(text, /--require-hashes -r clients\/python\/plur1bus-memory-client\/requirements-dev\.txt/);
   assert.match(text, / -m build --no-isolation --outdir hermes clients\/python\/plur1bus-memory-client\n/);
   const v = "${VERSION}";
-  for (const f of [tarballName(v), wheelName(v), sdistName(v)]) {
-    assert.ok(text.includes(f), `hermes-artefacts names ${f}`);
-  }
-  // attest: subject-path lists all three.
-  const subject = text.slice(text.indexOf("attest-build-provenance@"));
-  for (const glob of ["plur1bus-hermes-provider-*.tar.gz", "plur1bus_memory_client-*.whl", "plur1bus_memory_client-*.tar.gz"]) {
-    assert.ok(subject.includes(glob), `attested: ${glob}`);
-  }
+  for (const f of [tarballName(v), wheelName(v), sdistName(v)]) assert.ok(text.includes(f), `hermes-artefacts names ${f}`);
+  assert.match(text, /name: hermes-artefacts\n/, "uploads artefact hermes-artefacts");
   assert.ok(!/pypi|twine|upload-pypi/i.test(text), "nothing goes to PyPI");
+  // A direct dispatch may only dry-run; a real run goes through release.yml, which attests.
+  const meta = job("meta").join("\n");
+  assert.match(meta, /DRY_RUN: \$\{\{ inputs\.dry-run \}\}/);
+  assert.match(meta, /if \[ -z "\$INPUT_VERSION" \] && \[ "\$DRY_RUN" != true \]; then\n\s+echo "::error::a real release runs through release\.yml/);
 
   const native = job("native").join("\n");
   assert.match(native, /needs: \[meta, payload, binary, sign-macos, hermes-artefacts\]/);
@@ -297,6 +363,44 @@ test("harness-release.yml parses, pins every action by SHA and lists the three n
   const i = native.indexOf("name: hermes-artefacts");
   assert.ok(i > 0, "native downloads the hermes-artefacts artefact");
   assert.match(native.slice(native.lastIndexOf("uses:", i), i), /@[0-9a-f]{40} # v/);
+});
+
+test("release.yml is the real-release entry point and its attest job alone holds the attestation permissions", () => {
+  assert.ok(!/\t/.test(RELEASE), "no tabs");
+  assert.match(RELEASE, /^on:\n {2}workflow_dispatch:\n/m, "dispatched only");
+  assert.ok(!/workflow_call|pull_request|push:|schedule:/.test(code(RELEASE).join("\n")), "no other trigger");
+  assert.ok(!/dry-run: true|dry-run: \$\{\{/.test(RELEASE), "no dry-run path through the attesting caller");
+  assert.match(RELEASE, /^permissions:\n {2}contents: read\n/m);
+  const harness = job("harness", RELEASE).join("\n");
+  assert.match(harness, /\n {4}permissions:\n {6}contents: read\n {4}uses: \.\/\.github\/workflows\/harness-release\.yml\n/);
+  assert.match(harness, /\n {6}dry-run: false\n/);
+  const attest = job("attest", RELEASE);
+  const at = attest.join("\n");
+  assert.match(at, /needs: harness\n/);
+  assert.match(at, /\n {4}permissions:\n {6}contents: read\n {6}id-token: write\n {6}attestations: write\n {4}steps:/);
+  for (const l of usesLines(attest)) assert.match(l, SHA_USES, l.trim());
+  assert.ok(usesLines(attest).some((l) => /actions\/attest-build-provenance@/.test(l)), "attestation step");
+  assert.match(at, /name: hermes-artefacts\n/, "downloads the hermes-artefacts artefact");
+  const subject = at.slice(at.indexOf("attest-build-provenance@"));
+  for (const glob of ["plur1bus-hermes-provider-*.tar.gz", "plur1bus_memory_client-*.whl", "plur1bus_memory_client-*.tar.gz"]) {
+    assert.ok(subject.includes(glob), `attested: ${glob}`);
+  }
+  // Only the attest job asks for id-token or attestations.
+  const holders = code(RELEASE).map((l, n) => [l, n]).filter(([l]) => /^\s+(id-token|attestations): write/.test(l));
+  assert.equal(holders.length, 2);
+  const lines = RELEASE.split("\n");
+  const attestStart = lines.indexOf("  attest:");
+  for (const [l] of holders) assert.ok(lines.indexOf(l, attestStart) > attestStart, l);
+  // The requirement is documented.
+  const doc = readFileSync(join(REPO, "docs/manual-release.md"), "utf8");
+  assert.match(doc, /release\.yml/);
+  assert.match(doc, /id-token: write/);
+  assert.match(WF, /^# .*release\.yml/m);
+});
+
+test("the client sdist ships no tests (MANIFEST.in)", () => {
+  const m = readFileSync(join(REPO, "clients/python/plur1bus-memory-client/MANIFEST.in"), "utf8");
+  assert.match(m, /^prune tests$/m);
 });
 
 test("the root lint script runs this test (F8)", () => {

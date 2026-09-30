@@ -28,6 +28,14 @@ in this repository.
   - Environment variable `MACOS_SIGNING_IDENTITY`: the certificate's common name,
     `Developer ID Application: <name> (<team id>)`.
   - When D78's `release.yml` in another repository calls this workflow, the environment must exist there too.
+- [ ] **Workflow permissions for attestations (HM2 Task 7).** Real releases run through `.github/workflows/release.yml`,
+      which calls `harness-release.yml` with `dry-run: false` and then runs its `attest` job: the only job that holds
+      `id-token: write` and `attestations: write`, and attests the Hermes provider tarball and the client wheel and
+      sdist (build provenance). `harness-release.yml` itself requests `contents: read` only, in every job: GitHub
+      checks a called workflow's job permissions against the caller's grant when it creates the run, before any job
+      condition, so one job asking for `id-token: write` would make every caller without that grant (dry runs
+      included) fail at startup. Any other caller (D78's) must keep attestation in its own job the same way. For a
+      private repository, artefact attestations need a plan that supports them.
 
 ## 2. Dry run
 
@@ -41,12 +49,18 @@ in this repository.
 
 - [ ] Set the version in `Cargo.toml` (`[workspace.package] version`); the workflow refuses a release version that
       differs, because `setup` downloads `core-<binary version>-<target>.tar.gz`.
-- [ ] Run the workflow with `dry-run` unchecked (or call it from D78's `release.yml` with `version` and `channel`).
+- [ ] Actions → release → Run workflow with `version` and `channel`. It calls `harness-release` with `dry-run: false`
+      and then attests the Hermes artefacts. `harness-release` dispatched directly with `dry-run` unchecked refuses to
+      run: an unattested real run is not possible from there.
 - [ ] Approve the `macos-signing` deployment when asked. `sign-macos` signs with the hardened runtime and a timestamp,
       notarises (`notarytool --wait`) and uploads `signed-darwin-arm64`. A bare Mach-O cannot be stapled: Gatekeeper
       fetches the ticket online.
 - [ ] Download the artefact `harness-release-<version>`: five `plur1bus-<target>[.exe]`, five
-      `core-<version>-<target>.tar.gz` with `.sha256`, `release-native.json` and `SHA256SUMS`.
+      `core-<version>-<target>.tar.gz` with `.sha256`, `release-native.json`, `SHA256SUMS`, the Hermes provider
+      `plur1bus-hermes-provider-<version>.tar.gz`, the client `plur1bus_memory_client-<version>-py3-none-any.whl` and
+      `plur1bus_memory_client-<version>.tar.gz` (not uploaded to PyPI), and `hermes-sidecar.lock.json` (the seed of
+      the plugin repository's lock).
+- [ ] `gh attestation verify <file> --repo Cyb3rb1ade/PLUR1BUS-Harness` accepts each of the three Hermes files.
 
 ## 4. Checks before publishing
 

@@ -1,0 +1,5 @@
+# Files shipped in the Hermes provider tarball and the client wheel/sdist are built byte for byte from the
+# checkout (scripts/build-hermes-provider.mjs refuses CR); a Windows autocrlf checkout must not change them.
+hosts/hermes/plur1bus/** text eol=lf
+clients/python/**/src/** text eol=lf
+LICENSE text eol=lf

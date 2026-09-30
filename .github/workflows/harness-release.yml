@@ -12,6 +12,15 @@ name: harness-release
 #   APPLE_API_KEY_ID, APPLE_API_ISSUER, and the variable MACOS_SIGNING_IDENTITY ("Developer ID Application: … (TEAMID)").
 #   Repository variables (public values): PLUR1BUS_RELEASE_PUBKEY_STABLE, PLUR1BUS_RELEASE_PUBKEY_BETA (minisign public
 #   keys, the base64 line) and optionally PLUR1BUS_RELEASE_BASE_URL. Repository secret GH_ENGINE_READ_TOKEN as in ci.yml.
+#
+# Permissions (HM2 Task 7): every job here needs only `contents: read`, and none may ask for more. GitHub checks a
+# called workflow's job permissions against what the caller grants when it loads the run, before any job `if` is
+# evaluated, so a job requesting `id-token: write` would fail every caller that does not grant it, dry runs included
+# (startup failure "... is requesting 'id-token: write', but is only allowed 'id-token: none'").
+# The build-provenance attestation of the Hermes artefacts therefore lives in the caller: `release.yml` calls this
+# workflow with `dry-run: false` and runs the `attest` job, the only job with `id-token: write` and
+# `attestations: write`. A direct dispatch of this workflow is a dry run; a real run dispatched here is refused, so
+# every real release goes through `release.yml` and is attested. See docs/manual-release.md.
 on:
   workflow_call:
     inputs:
@@ -77,6 +86,7 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_CHANNEL: ${{ inputs.channel }}
+          DRY_RUN: ${{ inputs.dry-run }}
           BASE_URL_VAR: ${{ vars.PLUR1BUS_RELEASE_BASE_URL }}
         run: |
           cargo_version="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)"
@@ -86,6 +96,12 @@ jobs:
           # setup downloads core-<binary version>-<target>.tar.gz: the release version is the binary's version.
           if [ "$version" != "$cargo_version" ]; then
             echo "::error::release version $version is not the Cargo workspace version $cargo_version"
+            exit 1
+          fi
+          # A direct dispatch has no version input; only release.yml (or another caller) may run a real release,
+          # because only it attests (see the header).
+          if [ -z "$INPUT_VERSION" ] && [ "$DRY_RUN" != true ]; then
+            echo "::error::a real release runs through release.yml (it attests the Hermes artefacts); dispatch this workflow only as a dry run"
             exit 1
           fi
           channel="${INPUT_CHANNEL:-stable}"
@@ -101,16 +117,13 @@ jobs:
   # HM2 Task 7 (HM2-R4, R21, rulings F7, F8): the Hermes provider tarball (the provider with the client vendored
   # under _vendor/, built by scripts/build-hermes-provider.mjs) and the client's wheel and sdist, built with the
   # hash-pinned dev requirements and no build isolation. Nothing goes to PyPI (Q2 is an owner step). This job's
-  # actions are pinned by commit SHA and only this job may mint the OIDC token the build-provenance attestation needs;
-  # a caller of this workflow must grant `id-token: write` and `attestations: write` for it.
+  # actions are pinned by commit SHA. release.yml's `attest` job attests the three files of the uploaded artefact.
   hermes-artefacts:
     needs: meta
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write
-      attestations: write
     env:
       SOURCE_DATE_EPOCH: "0"
       PYTHONDONTWRITEBYTECODE: "1"
@@ -146,13 +159,6 @@ jobs:
           assert not bad, bad
           PY
           (cd hermes && sha256sum -- * | tee -a "$GITHUB_STEP_SUMMARY")
-      - if: ${{ !inputs.dry-run }}
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: |
-            hermes/plur1bus-hermes-provider-*.tar.gz
-            hermes/plur1bus_memory_client-*.whl
-            hermes/plur1bus_memory_client-*.tar.gz
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hermes-artefacts

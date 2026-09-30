@@ -1,0 +1,69 @@
+name: release
+# The only entry point for a real harness release (HM2 Task 7). It calls harness-release.yml with `dry-run: false`
+# and then attests the Hermes artefacts (provider tarball, client wheel and sdist; HM2-R4, R21) with GitHub's
+# build-provenance attestation. The `attest` job is the only job in either workflow with `id-token: write` and
+# `attestations: write`: GitHub validates a called workflow's job permissions against the caller's grant when the run
+# is created, before job conditions, so harness-release.yml asks for `contents: read` only and stays callable and
+# dispatchable as a dry run without these permissions. Dry runs never come here: dispatch harness-release.yml
+# directly (it refuses a direct real run). This workflow publishes nothing; merging release-native.json into
+# release.json, signing and publishing stay the owner steps of docs/manual-release.md until D78 automates them.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version; must equal the Cargo workspace version.
+        type: string
+        required: true
+      channel:
+        description: Release channel.
+        type: choice
+        options: [stable, beta]
+        default: stable
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  harness:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/harness-release.yml
+    with:
+      version: ${{ inputs.version }}
+      channel: ${{ inputs.channel }}
+      dry-run: false
+    secrets:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+
+  attest:
+    needs: harness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: hermes-artefacts
+          path: hermes
+      - name: the three Hermes artefacts of this version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="${INPUT_VERSION#v}"
+          for f in "plur1bus-hermes-provider-${version}.tar.gz" "plur1bus_memory_client-${version}-py3-none-any.whl" "plur1bus_memory_client-${version}.tar.gz"; do
+            [ -f "hermes/$f" ] || { echo "::error::missing hermes/$f"; ls -l hermes; exit 1; }
+          done
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            hermes/plur1bus-hermes-provider-*.tar.gz
+            hermes/plur1bus_memory_client-*.whl
+            hermes/plur1bus_memory_client-*.tar.gz
