@@ -18,7 +18,7 @@ import { builtinModules } from "node:module";
 import { createHash } from "node:crypto";
 import { closeSync, createWriteStream, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, posix, relative, resolve, sep, win32 } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -282,8 +282,21 @@ function bundledModules(dir) {
   return out;
 }
 
+/** Where `deploy()` makes its temp directory: the system temp directory when it is on the same volume as the
+ *  workspace `root`, else `<root>/target` (gitignored, Cargo's). pnpm's hoisted linker places the workspace packages
+ *  of a deploy with a join of the workspace directory and a path relative to it, and across Windows drives that
+ *  relative path is absolute: a `D:` checkout with `%TEMP%` on `C:` failed with `ENOENT: mkdir
+ *  'D:\\a\\...\\C:\\Users\\...\\core\\node_modules\\@plur1bus'` (windows-2025, HM2 CI round 2). */
+export function deployParent(root, tmp, platform = process.platform) {
+  const p = platform === "win32" ? win32 : posix;
+  const volume = (d) => p.parse(p.resolve(d)).root.toLowerCase();
+  return volume(tmp) === volume(root) ? tmp : p.join(root, "target");
+}
+
 function deploy() {
-  const dir = mkdtempSync(join(tmpdir(), "p1b-deploy-"));
+  const parent = deployParent(ROOT, tmpdir());
+  mkdirSync(parent, { recursive: true });
+  const dir = mkdtempSync(join(parent, "p1b-deploy-"));
   const into = join(dir, "core");
   execFileSync("pnpm", ["--filter", "@plur1bus/core", "deploy", "--legacy", "--prod", "--config.node-linker=hoisted", into], {
     cwd: ROOT,

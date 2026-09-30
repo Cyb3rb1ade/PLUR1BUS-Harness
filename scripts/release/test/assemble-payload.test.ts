@@ -12,7 +12,7 @@ import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 // @ts-expect-error: a plain .mjs script without type declarations
-import { assemble, readEngineContract, unresolvedDependencies, writeTarGz } from "../assemble-payload.mjs";
+import { assemble, deployParent, readEngineContract, unresolvedDependencies, writeTarGz } from "../assemble-payload.mjs";
 
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const put = (p: string, body: string) => {
@@ -85,6 +85,15 @@ describe("assemble-payload", () => {
     assert.equal(readEngineContract('a\n    contract: "1.9.0",\nb contract: "1.9.0"'), "1.9.0");
     assert.throws(() => readEngineContract('contract: "1.9.0" contract: "1.8.0"'), /ambiguous/);
     assert.throws(() => readEngineContract("nothing here"), /not found/);
+  });
+
+  it("deploys on the workspace's own volume: pnpm's hoisted linker breaks across Windows drives (HM2 CI round 2)", () => {
+    // windows-2025: the checkout on D:, %TEMP% on C: gave `mkdir 'D:\\a\\...\\C:\\Users\\...\\node_modules\\@plur1bus'`.
+    assert.equal(deployParent("D:\\a\\repo\\repo", "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp", "win32"), "D:\\a\\repo\\repo\\target");
+    assert.equal(deployParent("D:\\a\\repo", "d:\\a\\_temp", "win32"), "d:\\a\\_temp", "the same drive in another case");
+    assert.equal(deployParent("C:\\src\\repo", "C:\\Temp", "win32"), "C:\\Temp");
+    assert.equal(deployParent("\\\\srv\\share\\repo", "C:\\Temp", "win32"), "\\\\srv\\share\\repo\\target", "a UNC checkout");
+    assert.equal(deployParent("/home/u/repo", "/tmp", "linux"), "/tmp", "one POSIX tree has no drives");
   });
 
   it("writes a deterministic tar.gz with long names, modes and no links", async () => {
