@@ -58,15 +58,13 @@ class Caller:
 
 
 def _default_factory(platform: str) -> TransportFactory:
+    """``transport_win.open_stream`` on ``win32`` (imported lazily, so POSIX never loads it), else
+    ``transport_posix.open_stream``."""
     if platform == "win32":
 
         def open_windows(address: str, *, connect_timeout: float) -> Any:
-            try:
-                from . import transport_win  # Task 3; imported only on Windows
-            except ImportError:
-                raise RpcError(
-                    "E_TRANSPORT", "no named-pipe transport in this build", {"reason": "no-windows-transport"}
-                ) from None
+            from . import transport_win
+
             return transport_win.open_stream(address, connect_timeout=connect_timeout)
 
         return open_windows

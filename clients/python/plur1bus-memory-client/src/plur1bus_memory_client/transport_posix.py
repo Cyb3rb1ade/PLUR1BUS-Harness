@@ -11,21 +11,14 @@ import select
 import socket
 import struct
 import sys
-import time
 
-from .protocol import MAX_LINE, RpcError
+from .protocol import RpcError, read_line
+from .protocol import remaining as _remaining
 
 __all__ = ["open_stream", "PosixStream"]
 
 _SOL_LOCAL = 0  # <sys/un.h> on macOS
 _LOCAL_PEERPID = 0x002
-
-
-def _remaining(deadline: float) -> float:
-    left = deadline - time.monotonic()
-    if left <= 0:
-        raise RpcError("E_TIMEOUT", "the call deadline passed", {"reason": "deadline"})
-    return left
 
 
 class PosixStream:
@@ -52,26 +45,17 @@ class PosixStream:
 
     def recv_line(self, deadline: float) -> bytes:
         sock = self._live()
-        while True:
-            nl = self._buf.find(b"\n")
-            if nl >= 0:
-                line = bytes(self._buf[:nl])
-                del self._buf[: nl + 1]
-                if len(line) > MAX_LINE:
-                    raise RpcError("E_PROTOCOL", "response line exceeds the limit", {"reason": "line-too-long"})
-                return line.rstrip(b"\r")
-            if len(self._buf) > MAX_LINE:
-                raise RpcError("E_PROTOCOL", "response line exceeds the limit", {"reason": "line-too-long"})
+
+        def chunk() -> bytes:
             try:
                 sock.settimeout(_remaining(deadline))
-                chunk = sock.recv(65536)
+                return sock.recv(65536)
             except socket.timeout:
                 raise RpcError("E_TIMEOUT", "no response before the deadline", {"reason": "recv-timeout"}) from None
             except OSError as e:
                 raise RpcError("E_TRANSPORT", f"receiving failed ({_errname(e)})", {"reason": "recv-failed"}) from None
-            if not chunk:
-                raise RpcError("E_TRANSPORT", "the core closed the connection", {"reason": "eof"})
-            self._buf += chunk
+
+        return read_line(self._buf, chunk)
 
     def is_stale(self) -> bool:
         """True when an idle connection (nothing of the next call sent yet) cannot be trusted: the peer closed
