@@ -199,6 +199,9 @@ class MemoryListParamsTest(unittest.TestCase):
         client.memory_list(CALLER, "hermes-default", since=1700000000000, limit=3)
         lists = [r["params"] for r in sent if r["method"] == "memory.list"]
         self.assertEqual([("topic" in p, p.get("since")) for p in lists], [(False, 0), (True, None), (False, 1700000000000)])
+        with self.assertRaises(ValueError):
+            client.memory_list(CALLER, "hermes-default", topic="review", since=5)
+        self.assertEqual(len([r for r in sent if r["method"] == "memory.list"]), 3, "nothing sent for topic plus since")
 
 
 class GeneratedSchemaTest(unittest.TestCase):

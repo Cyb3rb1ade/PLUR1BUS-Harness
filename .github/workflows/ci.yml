@@ -170,7 +170,6 @@ jobs:
     continue-on-error: ${{ matrix.informational == true }}
     timeout-minutes: 45
     env:
-      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@v4
@@ -210,21 +209,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@v2
-      # As in the unit job: the lockfile names the engine repo as git@github.com:...; runners have no SSH key.
-      - name: engine git access over https
-        shell: bash
-        run: |
-          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
-            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
-            git config --global --add "url.${base}.insteadOf" "https://github.com/"
-          else
-            base="https://github.com/"
-          fi
-          git config --global --add "url.${base}.insteadOf" "git@github.com:"
-          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      # The engine read token exists in this step only; the git@github.com: -> HTTPS rewrite is step-scoped
+      # (GIT_CONFIG_*), never the global gitconfig, so the test steps after it never see the token.
       - name: build plur1bus and the core
         shell: bash
-        run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
       # PLUR1BUS_LIVE_REQUIRED: a live suite that cannot run fails here instead of skipping.
       - name: live RPC conformance and provider against a real core
         shell: bash

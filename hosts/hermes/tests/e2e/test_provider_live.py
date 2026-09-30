@@ -169,6 +169,39 @@ class ProviderLiveTest(unittest.TestCase):
         self.assertEqual(r.get("reason"), "duplicate-turn", r)
         self.assertEqual(len(self.memories_with("Iwu lab badge")), 1)
 
+    def test_a_replayed_turn_with_its_run_id_collapses_and_two_identical_turns_are_both_kept(self) -> None:
+        """T6 review C2: the provider mints a runId per turn in sync_turn. A crash mid-batch replays the journaled
+        entry with the same runId (one row); a genuinely repeated turn in the same session has its own runId and
+        is stored again (two rows), which the runId-less key would have collapsed."""
+        p = self.provider("live-sess-4")
+        journal = CaptureJournal.for_home(self.hermes_home)
+        messages = [{"role": "user", "content": "Please remember that the Oduya ferry pass is kept in the blue folder."}, {"role": "assistant", "content": "Noted."}]
+        entry = {"v": 1, "agentId": AGENT, "caller": _caller().to_rpc(), "sessionKey": "live-sess-4", "runId": "3f0c6a1e9b2d4c5f8a7e6d5c4b3a2910", "messages": messages}
+        journal.append(dict(entry))
+
+        class Crash(BaseException):
+            pass
+
+        def send_then_die(e: dict) -> None:
+            p._send_entry(e)
+            raise Crash()
+
+        with self.assertRaises(Crash):
+            journal.drain(send_then_die)
+        self.assertEqual(journal.drain(p._send_entry), 1)
+        self.settle("live-sess-4a")
+        self.assertEqual(len(self.wait_memory("Oduya ferry pass")), 1, "the replay with the same runId is stored once")
+        r = self.stack_client().capture(_caller(), AGENT, messages, session_key="live-sess-4", run_id=entry["runId"], wait=True, deadline_s=60.0)
+        self.assertEqual(r.get("reason"), "duplicate-turn", r)
+
+        user = "Please remember that the Mensah choir rehearsal is on Friday evening."
+        p.sync_turn(user, "Noted.", session_id="live-sess-4")
+        p.sync_turn(user, "Noted.", session_id="live-sess-4")
+        self.assertTrue(p._wait_idle(30.0))
+        self.settle("live-sess-4b")
+        stack_mod.wait_until("both identical turns stored", lambda: len(self.memories_with("Mensah choir rehearsal")) == 2, SETTLE_S, every=0.25)
+        self.assertEqual(p.journal.counts()["queued"], 0)
+
 
 def _caller():  # noqa: ANN202
     from plur1bus._client import pmc

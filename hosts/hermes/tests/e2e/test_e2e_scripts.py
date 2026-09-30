@@ -61,6 +61,15 @@ class LineEditTest(unittest.TestCase):
             self.assertEqual(f.read(), "model:\n  provider: custom\nmemory:\n  provider: plur1bus\n")
 
 
+class RecalledFenceTest(unittest.TestCase):
+    def test_the_fact_counts_only_inside_a_memory_record_fence(self) -> None:
+        fenced = '<relevant-memories>\n  <memory-record id="x" epistemic="observed"><quoted-evidence>' + dt.FACT_PROMPT + "</quoted-evidence></memory-record>\n</relevant-memories>\n" + dt.QUESTION
+        self.assertTrue(dt.recalled_in({"messages": [{"role": "system", "content": "s"}, {"role": "user", "content": fenced}]}))
+        self.assertTrue(dt.recalled_in({"messages": [{"role": "user", "content": [{"type": "text", "text": fenced}]}]}))
+        self.assertFalse(dt.recalled_in({"messages": [{"role": "user", "content": dt.FACT_PROMPT + " " + dt.QUESTION}]}), "unfenced")
+        self.assertFalse(dt.recalled_in({"messages": [{"role": "user", "content": '<memory-record id="y">other</memory-record> pier four'}]}))
+
+
 class StubModelTest(unittest.TestCase):
     def setUp(self) -> None:
         d = tempfile.mkdtemp(prefix="p1b-stub-")

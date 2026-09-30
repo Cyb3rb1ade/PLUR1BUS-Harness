@@ -222,7 +222,10 @@ class MemoryClient:
         deadline_s: float | None = None,
     ) -> dict:
         """``memory.list``. The core takes exactly one of ``topic`` and ``since`` (``E_INVALID_PARAMS``, reason
-        ``topic-xor-since``); without either, ``since`` is 0 (everything, newest first)."""
+        ``topic-xor-since``); without either, ``since`` is 0 (everything, newest first); both raise ``ValueError``
+        before anything is sent."""
+        if topic is not None and since is not None:
+            raise ValueError("memory_list takes topic or since, not both (the core refuses topic-xor-since)")
         params: dict = {"caller": caller.to_rpc(), "agentId": agent_id}
         if topic is not None:
             params["topic"] = topic

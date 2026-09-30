@@ -9,7 +9,8 @@ Hook mapping (HM2-R5, R12-R15, rulings F5, F6, F14):
 * ``system_prompt_block`` returns fixed text; ``prefetch`` runs ``memory.recall`` within
   ``recallHardMs + 400 ms`` and returns ``""`` with one warning per session when the core is down.
 * ``sync_turn`` queues the turn for one background worker (started with ``spawn_context_thread``),
-  which captures in order (``wait=false``). A transport-class failure goes to the bounded journal,
+  which captures in order (``wait=false``) with a ``runId`` minted per turn, sent again unchanged on every
+  journal replay (the engine answers a replay with ``duplicate-turn``). A transport-class failure goes to the bounded journal,
   replayed before the next capture and after the next successful recall. Only ``agent_context ==
   "primary"`` is captured.
 * ``on_pre_compress`` / ``on_session_end`` (2 s budget) wait for pending captures and checkpoint when
@@ -36,6 +37,7 @@ import json
 import logging
 import threading
 import time
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -256,7 +258,9 @@ class Plur1busMemoryProvider(MemoryProvider):
         turn = turn_messages(user_content, assistant_content, messages)
         if not turn:
             return
-        entry = {"v": 1, "agentId": b.agent_id, "caller": self._caller.to_rpc(), "sessionKey": self._session_key, "messages": turn}
+        # runId is minted here, once per turn, and travels with the entry (worker, journal, every replay): a replay
+        # of this turn is the engine's `duplicate-turn`, while a genuinely repeated turn gets its own id and is kept.
+        entry = {"v": 1, "agentId": b.agent_id, "caller": self._caller.to_rpc(), "sessionKey": self._session_key, "runId": uuid.uuid4().hex, "messages": turn}
         with self._cv:
             if self._stopped:
                 return
@@ -347,6 +351,7 @@ class Plur1busMemoryProvider(MemoryProvider):
             str(entry["agentId"]),
             list(entry["messages"]),
             session_key=entry.get("sessionKey") or None,
+            run_id=entry.get("runId") if isinstance(entry.get("runId"), str) and entry.get("runId") else None,
             wait=False,
             deadline_s=CAPTURE_DEADLINE_S,
         )

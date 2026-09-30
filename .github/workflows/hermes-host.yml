@@ -7,8 +7,18 @@
 # The provider directory is the real release tarball (scripts/build-hermes-provider.mjs, ruling F9) and exists
 # before memory.provider names it (HM2-R17a); memory.provider is set by a line edit, never `hermes config set`
 # (HM2-R24, 0.21.4 strips config.yaml). The model is a local stub (no key anywhere). Turn 1 says a synthetic
-# fact; the sidecar must hold it; turn 2's request to the model must carry it (the capture round trip runs here
-# only, never in installer verify: HM2-R23, ruling F26).
+# fact; the sidecar must hold it; turn 2's request to the model must carry it inside the recall's <memory-record>
+# fence (the capture round trip runs here only, never in installer verify: HM2-R23, ruling F26).
+#
+# Secrets: GH_ENGINE_READ_TOKEN (the private engine repo) exists only in the "build harness" step, and its URL
+# rewrite is step-scoped (GIT_CONFIG_COUNT/KEY/VALUE), never written to the global gitconfig: the Hermes installer,
+# its dependency installs and Hermes itself never see it.
+#
+# Windows: USERPROFILE, LOCALAPPDATA and APPDATA are NOT redirected. install.ps1 adds $HermesHome\bin to the user
+# PATH in the registry (HKCU\Environment) and uv/pip/git cache under the real profile; Windows tools resolve those
+# folders through the shell API as well as the environment, so an env-only redirect would be partial and unverified.
+# The disposable boundary on Windows is the ephemeral GitHub-hosted runner itself: the leg refuses to run on a
+# self-hosted runner (for example the owner's Windows VM).
 name: hermes-host
 on:
   pull_request:
@@ -16,6 +26,8 @@ on:
       - "clients/**"
       - "hosts/**"
       - "crates/plur1bus/src/install/**"
+      - "packages/core/**"
+      - "scripts/build-hermes-provider.mjs"
       - ".github/workflows/hermes-host.yml"
   schedule:
     - cron: '41 3 * * *'
@@ -45,7 +57,6 @@ jobs:
     continue-on-error: ${{ matrix.os == 'windows-2025' }}
     timeout-minutes: 60
     env:
-      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_ALLOW_TEST_INTERNALS: "1"
       PLUR1BUS_TEST_INTERNALS: flat-embedder
       PYTHONDONTWRITEBYTECODE: "1"
@@ -65,18 +76,6 @@ jobs:
           python-version: "3.11"
       - uses: dtolnay/rust-toolchain@46817827a5bfabe028bf34e1cce71fd40e2ff697 # 1.95.0
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      # As in ci.yml: the lockfile names the engine repo as git@github.com:...; runners have no SSH key.
-      - name: engine git access over https
-        shell: bash
-        run: |
-          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
-            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
-            git config --global --add "url.${base}.insteadOf" "https://github.com/"
-          else
-            base="https://github.com/"
-          fi
-          git config --global --add "url.${base}.insteadOf" "git@github.com:"
-          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - name: paths
         shell: bash
         run: |
@@ -91,12 +90,23 @@ jobs:
             echo "PLUR1BUS_SERVICE_FAKE=$RUNNER_TEMP/service-fake"
           } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/service-fake" "$RUNNER_TEMP/fakehome" "$RUNNER_TEMP/logs"
+      # The engine read token exists in this step only. The lockfile names the engine repo as git@github.com:... and
+      # runners have no SSH key, so git rewrites it to HTTPS through step-scoped GIT_CONFIG_* variables (never the
+      # global gitconfig, which later steps and the Hermes installer would inherit).
       - name: build harness
         shell: bash
-        run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
-      - name: core payload
-        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
         run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
           pnpm --filter @plur1bus/core deploy --legacy --prod "$RUNNER_TEMP/core"
           cp -R packages/core/dist/. "$RUNNER_TEMP/core/"
           test -f "$RUNNER_TEMP/core/core.js"
@@ -127,7 +137,30 @@ jobs:
         env:
           HERMES_HOME: ${{ env.HH }}
         run: python "$E2E/assert_disposable.py" --path "$HERMES_DIR" --path "$FAKE_HOME" --path "$P1B_HOME"
-      # Hermes facts §1: that commit's own installer, --dir and --hermes-home under the temp root, HOME/XDG too.
+      # Hermes facts §1: that commit's own installer, taken with `git show <sha>:scripts/install.*` from a shallow fetch of
+      # exactly that commit (retried; no raw.githubusercontent download).
+      - name: fetch the Hermes ${{ matrix.hermes }} installer
+        shell: bash
+        env:
+          COMMIT: ${{ matrix.hermes-commit }}
+        run: |
+          src="$RUNNER_TEMP/hermes-src"
+          git init -q "$src"
+          for i in 1 2 3 4 5; do
+            git -C "$src" fetch -q --depth 1 https://github.com/NousResearch/hermes-agent "$COMMIT" && break
+            [ "$i" = 5 ] && { echo "::error::could not fetch hermes-agent $COMMIT"; exit 1; }
+            sleep $((i * 10))
+          done
+          git -C "$src" show "$COMMIT:scripts/install.sh" > "$RUNNER_TEMP/hermes-install.sh"
+          git -C "$src" show "$COMMIT:scripts/install.ps1" > "$RUNNER_TEMP/hermes-install.ps1"
+          rm -rf "$src"
+      - name: the Windows leg runs on GitHub-hosted runners only
+        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+        shell: bash
+        run: |
+          echo "::error::real-hermes on Windows changes the user PATH in the registry and caches under the real profile; it runs only on an ephemeral GitHub-hosted runner"
+          exit 1
+      # Then install with --dir and --hermes-home under the temp root, HOME/XDG too.
       - name: install Hermes ${{ matrix.hermes }} (POSIX)
         if: runner.os != 'Windows'
         shell: bash
@@ -141,7 +174,6 @@ jobs:
           HERMES_HOME: ${{ env.HH }}
           COMMIT: ${{ matrix.hermes-commit }}
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/$COMMIT/scripts/install.sh" -o "$RUNNER_TEMP/hermes-install.sh"
           bash "$RUNNER_TEMP/hermes-install.sh" --branch main --commit "$COMMIT" --force-commit --dir "$HERMES_DIR" --hermes-home "$HH" \
             --skip-setup --non-interactive --skip-browser --skip-computer-use --no-skills < /dev/null
           echo "HERMES_BIN=$HERMES_DIR/venv/bin/hermes" >> "$GITHUB_ENV"
@@ -155,7 +187,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $script = Join-Path $env:RUNNER_TEMP 'hermes-install.ps1'
-          Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/NousResearch/hermes-agent/$env:COMMIT/scripts/install.ps1" -OutFile $script
+          # Writes the user PATH (HKCU\Environment) and caches under the real profile: see the header comment.
           & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Commit $env:COMMIT -ForceCommit -HermesHome $env:HH -InstallDir $env:HERMES_DIR -NonInteractive -SkipSetup -SkipComputerUse
           if ($LASTEXITCODE -ne 0) { throw "install.ps1 exited $LASTEXITCODE" }
           $cands = @("$env:HERMES_DIR\venv\Scripts\hermes.exe", "$env:HH\bin\hermes.exe", "$env:HH\bin\hermes.cmd")

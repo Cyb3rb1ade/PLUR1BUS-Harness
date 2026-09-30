@@ -150,6 +150,20 @@ def stub_requests(log: str) -> list[dict]:
     return out
 
 
+_RECORD_RE = re.compile(r"<memory-record\b[^>]*>(.*?)</memory-record>", re.S)
+
+
+def recalled_in(request: dict) -> bool:
+    """The fact arrived through the provider's prefetch: inside a ``<memory-record ...>`` fence of the recall text
+    (``memory.recall`` joined text, observed in the user message), not merely anywhere in the request."""
+    for m in request.get("messages") or []:
+        content = m.get("content") if isinstance(m, dict) else None
+        text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+        if any(KEYWORD in body for body in _RECORD_RE.findall(text)):
+            return True
+    return False
+
+
 def chat(hermes: str, text: str) -> dict:
     t0 = time.monotonic()
     p = run(hermes_argv(hermes, ["chat", "-q", text, "-Q"]), TURN_TIMEOUT_S)
@@ -223,8 +237,8 @@ def cmd_turns(a: argparse.Namespace) -> dict:
     turn = [r for r in reqs if isinstance(r, dict) and r.get("stream") and QUESTION in json.dumps(r, ensure_ascii=False)]
     if not turn:
         raise Failure(f"the stub saw no streaming request carrying turn 2's question ({len(reqs)} request(s) after turn 1)")
-    if not any(KEYWORD in json.dumps(r, ensure_ascii=False) for r in turn):
-        raise Failure(f"turn 2's request to the model does not carry the recalled {KEYWORD!r}: prefetch did not reach the prompt")
+    if not any(recalled_in(r) for r in turn):
+        raise Failure(f"turn 2's request to the model carries no <memory-record> holding {KEYWORD!r}: prefetch did not reach the prompt")
     summary["recalledInTurn2"] = True
     return summary
 

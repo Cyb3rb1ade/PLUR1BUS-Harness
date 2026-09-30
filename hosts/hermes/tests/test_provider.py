@@ -291,6 +291,31 @@ class ProviderTest(unittest.TestCase):
         self.assertEqual(users, ["turn A question", "turn B question", "turn C question"], "order preserved")
         self.assertEqual(p.journal.counts()["queued"], 0)
 
+    def test_each_turn_gets_a_run_id_that_its_journal_replay_repeats(self) -> None:
+        """Ledger carry (T6 review, C2): the runId is minted per turn in sync_turn, journaled with the entry and
+        sent unchanged on the replay, so the engine collapses a replay (duplicate-turn) but keeps a repeated turn."""
+        self.sb.bind()
+        core = self.sb.start_core()
+        self.sb.stop_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        p.sync_turn("the same words", "the same answer")
+        p.sync_turn("the same words", "the same answer")
+        p._wait_idle(5)
+        self.assertEqual(p.journal.counts()["queued"], 2)
+        journaled = [json.loads(line)["runId"] for line in p.journal._read_lines()]
+        self.assertEqual(len(set(journaled)), 2, "two identical turns, two run ids")
+        self.assertTrue(all(isinstance(r, str) and r for r in journaled))
+        core.start()
+        self.assertEqual(p.prefetch("when is the roadmap review"), RECALL_TEXT)
+        self.assertTrue(wait_until(lambda: p.journal.counts()["queued"] == 0, 3))
+        self.assertEqual([c.get("runId") for c in self.sb.captures()], journaled, "the replay sends the journaled ids")
+        p.sync_turn("a live turn", "answer")
+        p._wait_idle(5)
+        live = self.sb.captures()[-1]
+        self.assertRegex(live.get("runId", ""), r"^[0-9a-f]{32}$")
+        self.assertNotIn(live["runId"], journaled)
+
     def test_journal_is_replayed_after_a_successful_recall(self) -> None:
         self.sb.bind()
         core = self.sb.start_core()

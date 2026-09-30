@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import unittest
 
@@ -16,6 +17,7 @@ from tests import RPC_SCHEMA_DIR
 from tests.live.stack import RECALL_HARD_MS, LiveStack, requirements
 
 from plur1bus_memory_client import Caller, MemoryClient, RpcError
+from plur1bus_memory_client import client as client_module
 from plur1bus_memory_client.client import _default_factory
 
 try:
@@ -27,6 +29,13 @@ AGENT = "hermes-default"
 CALLER = Caller("hermes:cli", "local")
 FACT = "Please remember that the harbour tour for the Lindqvist visit starts at nine from pier four."
 SCHEMA_PATH = os.path.join(RPC_SCHEMA_DIR, "schema", "rpc.schema.json")
+#: Called unconditionally (stable at RPC 1.3, HM2-R5).
+STABLE_CALLED = frozenset({"core.auth", "core.status", "memory.capture", "memory.recall"})
+#: Every experimental method MemoryClient implements; each is called when the core advertises it.
+CLIENT_EXPERIMENTAL = frozenset({
+    "agent.open", "agent.status", "agent.close", "memory.list", "memory.show", "memory.correct", "memory.share",
+    "memory.forget", "memory.checkpoint",
+})
 
 
 def _messages(text: str) -> list[dict]:
@@ -116,6 +125,8 @@ class ConformanceLiveTest(unittest.TestCase):
     # -- tests ------------------------------------------------------------------------------------
 
     def test_every_client_method_round_trips_and_validates_against_the_schema(self) -> None:
+        """Self-contained (no other test's memories): three facts are captured here first, so every id the D21
+        methods need exists. Every method the core advertises and the client implements must be called."""
         c = self.client
         hello = c.connect()
         caps = hello.get("capabilities", {}).get("methods", {})
@@ -125,13 +136,15 @@ class ConformanceLiveTest(unittest.TestCase):
 
         self.assertIsInstance(c.status(), dict)
         called.add("core.status")
-        cap = c.capture(CALLER, AGENT, _messages(FACT), session_key="conf-1", wait=True, deadline_s=30.0)
-        self.assertGreaterEqual(cap.get("stored", 0), 1, cap)
+        facts = [FACT, "Please remember that the archive room key is blue.", "Please remember that the Tanaka review moved to room 12."]
+        for i, fact in enumerate(facts):
+            cap = c.capture(CALLER, AGENT, _messages(fact), session_key=f"conf-{i}", wait=True, deadline_s=30.0)
+            self.assertGreaterEqual(cap.get("stored", 0), 1, cap)
         called.add("memory.capture")
         # wait=false returns the handle only
-        handle = c.capture(CALLER, AGENT, _messages("Please remember that the archive room key is blue."), wait=False)
+        handle = c.capture(CALLER, AGENT, _messages("Please remember that the loading dock opens at six."), session_key="conf-h", wait=False)
         self.assertIn("id", handle)
-        rec = c.recall(CALLER, AGENT, "when does the harbour tour start", session_key="conf-2", hard_ms=RECALL_HARD_MS)
+        rec = c.recall(CALLER, AGENT, "when does the harbour tour start", session_key="conf-r", hard_ms=RECALL_HARD_MS)
         self.assertIn("harbour tour", rec["joined"]["text"])
         called.add("memory.recall")
 
@@ -143,21 +156,23 @@ class ConformanceLiveTest(unittest.TestCase):
             called.add("agent.status")
         ids: list[str] = []
         if c.supports("memory.list"):
-            listed = c.memory_list(CALLER, AGENT, limit=20)
-            ids = [i["id"] for i in listed.get("items", [])]
-            self.assertTrue(ids, listed)
+            listed = c.memory_list(CALLER, AGENT, limit=50)
+            mine = [i for i in listed.get("items", []) if any(i.get("text") == f for f in facts)]
+            ids = [i["id"] for i in mine]
+            self.assertEqual(len(ids), 3, listed)
             c.memory_list(CALLER, AGENT, topic="harbour", limit=5)
             called.add("memory.list")
-        if ids and c.supports("memory.show"):
+        if c.supports("memory.show"):
+            self.assertTrue(ids, "memory.show needs memory.list for an id")
             shown = c.memory_show(CALLER, AGENT, ids[0])
             self.assertEqual(shown["card"]["id"], ids[0])
             called.add("memory.show")
         corrected_id = ids[0] if ids else None
-        if ids and c.supports("memory.correct"):
+        if c.supports("memory.correct"):
             corrected = c.memory_correct(CALLER, AGENT, ids[0], "The harbour tour for the Lindqvist visit starts at ten.")
             corrected_id = corrected.get("id", corrected_id)
             called.add("memory.correct")
-        if corrected_id and c.supports("memory.share"):
+        if c.supports("memory.share"):
             try:
                 c.memory_share(CALLER, AGENT, corrected_id, "user")
             except RpcError as e:
@@ -165,8 +180,8 @@ class ConformanceLiveTest(unittest.TestCase):
                 if sys.platform != "win32" or e.code not in ("E_STORAGE", "E_NOT_AVAILABLE"):
                     raise
             called.add("memory.share")
-        if len(ids) > 1 and c.supports("memory.forget"):
-            c.memory_forget(CALLER, AGENT, ids[-1])
+        if c.supports("memory.forget"):
+            c.memory_forget(CALLER, AGENT, ids[2])  # never the corrected one
             called.add("memory.forget")
         if c.supports("memory.checkpoint"):
             c.checkpoint(CALLER, AGENT, "manual")
@@ -176,9 +191,14 @@ class ConformanceLiveTest(unittest.TestCase):
             called.add("agent.close")
 
         self.assert_wire_conforms()
-        sent = {r["method"] for r in self.rec.sent}
-        self.assertEqual(sent, called)
-        # The stable turn path is always there (HM2-R5); report what the core advertised.
+        self.assertEqual({r["method"] for r in self.rec.sent}, called)
+        # Not self-consistency only: the stable surface plus every advertised method the client implements.
+        want = STABLE_CALLED | {m for m in CLIENT_EXPERIMENTAL if c.supports(m)}
+        self.assertEqual(called, want)
+        # The two lists above cover every method the client can send (a new client method must be added there).
+        with open(os.path.join(os.path.dirname(os.path.abspath(client_module.__file__)), "client.py"), encoding="utf-8") as f:
+            sendable = set(re.findall(r'self\._call\(\s*"([a-z]+\.[a-zA-Z]+)"', f.read()))
+        self.assertEqual(sendable | {"core.auth"}, STABLE_CALLED | CLIENT_EXPERIMENTAL)
         print(f"live conformance: called {sorted(called)}", file=sys.stderr)
 
     def test_capture_then_recall_finds_the_memory(self) -> None:
