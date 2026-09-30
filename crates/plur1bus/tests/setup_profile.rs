@@ -8,6 +8,7 @@ use setup_env::*;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 const HOST: [&str; 4] = ["--non-interactive", "--no-service", "--profile", "host"];
 
@@ -261,7 +262,27 @@ fn firstaid_check_passes_on_a_host_profile() {
         ("memory.shared", "skip"),
         ("windows.pipe-acl", "skip"),
     ];
-    let check = e.json(&["1staid", "check"]);
+    // A row the pass never reached before its 3 s budget reads `warn` "time budget exhausted". That is no finding
+    // (repair plans nothing for it), and the loaded windows-2025 runner hit it on the last three rows while the
+    // other setup tests ran in parallel (CI round 1: node.exe's re-hash alone is slow there). So the pass is repeated
+    // until it reaches every row, bounded at 90 s; the assertion below still covers every row of a complete pass.
+    let started = Instant::now();
+    let check = loop {
+        let check = e.json(&["1staid", "check"]);
+        let unreached = check["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["summary"] == "time budget exhausted");
+        if !unreached {
+            break check;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(90),
+            "no complete 1staid pass within 90 s: {check:#}"
+        );
+        std::thread::sleep(Duration::from_secs(2));
+    };
     let unexpected: Vec<&Value> = check["checks"]
         .as_array()
         .unwrap()
