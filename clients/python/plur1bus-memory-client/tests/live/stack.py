@@ -30,6 +30,15 @@ WARM_TIMEOUT_S = 60.0
 #: The recall hard budget the live suites use: shared CI runners are not reference hardware (H3-R26).
 RECALL_HARD_MS = int(os.environ.get("PLUR1BUS_CI_RECALL_HARD_MS") or "3000")
 FLAT_INTERNALS = os.environ.get("PLUR1BUS_SYSTEM_INTERNALS") or "flat-embedder"
+#: ``supervisor.healthIntervalMs`` for the stack, or ``None`` for the default (5 s). Windows only, a documented wait
+#: for an engine finding: the engine reads a shared store's directory ACL with a synchronous ``powershell.exe`` run
+#: (lib/platform.js readDirectoryAcl, ``execFileSync``, 30 s timeout) that blocks the core's event loop, so no health
+#: poll succeeds meanwhile. The supervisor calls a core hung after ``max(30 s, 3 x interval)`` without a successful
+#: poll (ADR-012) and shuts it down: on windows-11-arm (HM2 CI round 2) the ``memory.share`` call returned after
+#: about 30 s and every later call of the class, the next test's included, got ``E_CORE_UNAVAILABLE`` "core is
+#: stopping". At 20 s the hang threshold is 60 s, above the worst case of one interval since the last poll, the 30 s
+#: block and a 2 s poll deadline (52 s). Remove with the engine's asynchronous ACL read.
+HEALTH_INTERVAL_MS: int | None = 20_000 if sys.platform == "win32" else None
 
 
 def requirements() -> tuple[str, str]:
@@ -120,6 +129,8 @@ class LiveStack:
             self.cli("agent", "create", agent)
         self.cli("config", "set", "engine.duplicateThreshold", "1.01", "--yes")
         self.cli("config", "set", "core.recall.hardBudgetMs", str(RECALL_HARD_MS), "--yes")
+        if HEALTH_INTERVAL_MS is not None:
+            self.cli("config", "set", "supervisor.healthIntervalMs", str(HEALTH_INTERVAL_MS), "--yes")
         self.cli("daemon", "start")
         self.wait_warm()
 
