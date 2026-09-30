@@ -181,6 +181,26 @@ class ConformanceOfflineTest(unittest.TestCase):
         self.assertEqual(len(self.sent), before)
 
 
+class MemoryListParamsTest(unittest.TestCase):
+    """The core takes exactly one of topic and since (E_INVALID_PARAMS topic-xor-since, found by the live run)."""
+
+    def test_memory_list_sends_exactly_one_of_topic_and_since(self) -> None:
+        home = tempfile.mkdtemp(prefix="p1b-")
+        self.addCleanup(shutil.rmtree, home, ignore_errors=True)
+        os.makedirs(os.path.join(home, "run"), mode=0o700)
+        os.chmod(os.path.join(home, "run"), 0o700)
+        with open(os.path.join(home, "run", "core.token"), "w") as f:
+            f.write(TOKEN)
+        sent: list[dict] = []
+        client = MemoryClient(home, transport_factory=lambda address, *, connect_timeout: RecordingStream(sent))
+        self.addCleanup(client.close)
+        client.memory_list(CALLER, "hermes-default")
+        client.memory_list(CALLER, "hermes-default", topic="review")
+        client.memory_list(CALLER, "hermes-default", since=1700000000000, limit=3)
+        lists = [r["params"] for r in sent if r["method"] == "memory.list"]
+        self.assertEqual([("topic" in p, p.get("since")) for p in lists], [(False, 0), (True, None), (False, 1700000000000)])
+
+
 class GeneratedSchemaTest(unittest.TestCase):
     """Needs no dev dependency, so the stale-_schema.py guard runs on every interpreter."""
 

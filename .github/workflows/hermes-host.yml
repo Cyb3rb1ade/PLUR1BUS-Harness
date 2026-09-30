@@ -1,0 +1,223 @@
+# HM2 Task 6 (D88): one real Hermes turn through the host-mode sidecar, on disposable runners only.
+#
+# The harness is built from this commit; `plur1bus setup --profile host --no-service` installs the core under
+# $RUNNER_TEMP/p1b with the flat-embedder test seam (no model download, ruling F21) and starts the supervisor
+# itself (no extra `daemon start`). A pinned Hermes (HM2-R22a: by commit, installed with that commit's own
+# installer, Hermes facts §1) goes under $RUNNER_TEMP with a fake HOME; assert_disposable.py guards every path.
+# The provider directory is the real release tarball (scripts/build-hermes-provider.mjs, ruling F9) and exists
+# before memory.provider names it (HM2-R17a); memory.provider is set by a line edit, never `hermes config set`
+# (HM2-R24, 0.21.4 strips config.yaml). The model is a local stub (no key anywhere). Turn 1 says a synthetic
+# fact; the sidecar must hold it; turn 2's request to the model must carry it (the capture round trip runs here
+# only, never in installer verify: HM2-R23, ruling F26).
+name: hermes-host
+on:
+  pull_request:
+    paths:
+      - "clients/**"
+      - "hosts/**"
+      - "crates/plur1bus/src/install/**"
+      - ".github/workflows/hermes-host.yml"
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hermes-host-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-hermes:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        hermes: ["0.21.4"]
+        include:
+          # min: the interface HM2 was written against (743ee72 reports 0.21.4; there is no v0.21.4 tag).
+          - hermes: "0.21.4"
+            hermes-commit: 743ee72596e7a9f23bc7cd5c570a6ebd958043e4
+          # tested: tag v2026.9.24 (0.21.5), Linux only.
+          - os: ubuntu-24.04
+            hermes: "0.21.5"
+            hermes-commit: f97608f178d1ffeca59860195ab7da295f7c8e5f
+    runs-on: ${{ matrix.os }}
+    # T9-b pattern: the Windows leg is informational until its first green run, then required.
+    continue-on-error: ${{ matrix.os == 'windows-2025' }}
+    timeout-minutes: 60
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_ALLOW_TEST_INTERNALS: "1"
+      PLUR1BUS_TEST_INTERNALS: flat-embedder
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - uses: dtolnay/rust-toolchain@46817827a5bfabe028bf34e1cce71fd40e2ff697 # 1.95.0
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      # As in ci.yml: the lockfile names the engine repo as git@github.com:...; runners have no SSH key.
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - name: paths
+        shell: bash
+        run: |
+          exe=""; [ "$RUNNER_OS" = "Windows" ] && exe=".exe"
+          {
+            echo "P1B_HOME=$RUNNER_TEMP/p1b"
+            echo "P1B_BIN=$GITHUB_WORKSPACE/target/release/plur1bus$exe"
+            echo "HH=$RUNNER_TEMP/hh"
+            echo "HERMES_DIR=$RUNNER_TEMP/hermes-agent"
+            echo "FAKE_HOME=$RUNNER_TEMP/fakehome"
+            echo "E2E=$GITHUB_WORKSPACE/hosts/hermes/tests/e2e"
+            echo "PLUR1BUS_SERVICE_FAKE=$RUNNER_TEMP/service-fake"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/service-fake" "$RUNNER_TEMP/fakehome" "$RUNNER_TEMP/logs"
+      - name: build harness
+        shell: bash
+        run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      - name: core payload
+        shell: bash
+        run: |
+          pnpm --filter @plur1bus/core deploy --legacy --prod "$RUNNER_TEMP/core"
+          cp -R packages/core/dist/. "$RUNNER_TEMP/core/"
+          test -f "$RUNNER_TEMP/core/core.js"
+      # Setup starts the supervisor itself (no `daemon start` after it); the flat-embedder seam comes from the job env
+      # and PLUR1BUS_SERVICE_FAKE keeps even the service status calls off the real manager (--no-service, HM2-R19).
+      - name: plur1bus setup --profile host
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          "$P1B_BIN" --json --home "$P1B_HOME" setup --profile host --non-interactive --no-service --core-from "$RUNNER_TEMP/core" \
+            | tee "$RUNNER_TEMP/logs/setup.json"
+          for _ in $(seq 1 120); do
+            if "$P1B_BIN" --json --home "$P1B_HOME" daemon status > "$RUNNER_TEMP/logs/daemon-status.json" 2>&1 \
+              && python -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if any(c.get('role') == 'core' and (c.get('process') or {}).get('state') == 'ready' for c in d.get('children') or []) else 1)" "$RUNNER_TEMP/logs/daemon-status.json"; then
+              cat "$RUNNER_TEMP/logs/daemon-status.json"; exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/logs/daemon-status.json"; exit 1
+      - name: provider tarball (scripts/build-hermes-provider.mjs)
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          node scripts/build-hermes-provider.mjs --out "$RUNNER_TEMP/dist" | tee "$RUNNER_TEMP/logs/provider.sha256"
+          ls "$RUNNER_TEMP"/dist/plur1bus-hermes-provider-*.tar.gz
+      - name: guard (assert_disposable)
+        shell: bash
+        env:
+          HERMES_HOME: ${{ env.HH }}
+        run: python "$E2E/assert_disposable.py" --path "$HERMES_DIR" --path "$FAKE_HOME" --path "$P1B_HOME"
+      # Hermes facts §1: that commit's own installer, --dir and --hermes-home under the temp root, HOME/XDG too.
+      - name: install Hermes ${{ matrix.hermes }} (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        timeout-minutes: 20
+        env:
+          HOME: ${{ env.FAKE_HOME }}
+          XDG_CONFIG_HOME: ${{ env.FAKE_HOME }}/.config
+          XDG_DATA_HOME: ${{ env.FAKE_HOME }}/.local/share
+          XDG_STATE_HOME: ${{ env.FAKE_HOME }}/.local/state
+          XDG_CACHE_HOME: ${{ env.FAKE_HOME }}/.cache
+          HERMES_HOME: ${{ env.HH }}
+          COMMIT: ${{ matrix.hermes-commit }}
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/$COMMIT/scripts/install.sh" -o "$RUNNER_TEMP/hermes-install.sh"
+          bash "$RUNNER_TEMP/hermes-install.sh" --branch main --commit "$COMMIT" --force-commit --dir "$HERMES_DIR" --hermes-home "$HH" \
+            --skip-setup --non-interactive --skip-browser --skip-computer-use --no-skills < /dev/null
+          echo "HERMES_BIN=$HERMES_DIR/venv/bin/hermes" >> "$GITHUB_ENV"
+      - name: install Hermes ${{ matrix.hermes }} (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 30
+        env:
+          HERMES_HOME: ${{ env.HH }}
+          COMMIT: ${{ matrix.hermes-commit }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $script = Join-Path $env:RUNNER_TEMP 'hermes-install.ps1'
+          Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/NousResearch/hermes-agent/$env:COMMIT/scripts/install.ps1" -OutFile $script
+          & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Commit $env:COMMIT -ForceCommit -HermesHome $env:HH -InstallDir $env:HERMES_DIR -NonInteractive -SkipSetup -SkipComputerUse
+          if ($LASTEXITCODE -ne 0) { throw "install.ps1 exited $LASTEXITCODE" }
+          $cands = @("$env:HERMES_DIR\venv\Scripts\hermes.exe", "$env:HH\bin\hermes.exe", "$env:HH\bin\hermes.cmd")
+          $bin = $cands | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $bin) { Get-ChildItem -Recurse -Depth 3 $env:HH, $env:HERMES_DIR -Filter 'hermes*' | Select-Object FullName; throw 'no hermes launcher found' }
+          "HERMES_BIN=$bin" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: hermes --version
+        shell: bash
+        env:
+          HOME: ${{ env.FAKE_HOME }}
+          HERMES_HOME: ${{ env.HH }}
+        run: '"$HERMES_BIN" --version | tee "$RUNNER_TEMP/logs/hermes-version.txt"'
+      - name: one real Hermes turn through the sidecar
+        shell: bash
+        timeout-minutes: 20
+        env:
+          HOME: ${{ env.FAKE_HOME }}
+          XDG_CONFIG_HOME: ${{ env.FAKE_HOME }}/.config
+          XDG_DATA_HOME: ${{ env.FAKE_HOME }}/.local/share
+          XDG_STATE_HOME: ${{ env.FAKE_HOME }}/.local/state
+          XDG_CACHE_HOME: ${{ env.FAKE_HOME }}/.cache
+          HERMES_HOME: ${{ env.HH }}
+        run: |
+          set -euo pipefail
+          python "$E2E/assert_disposable.py" --path "$HERMES_DIR" --path "$FAKE_HOME" --path "$P1B_HOME"
+          # The provider directory first (HM2-R17a): the real tarball, extracted with tarfile's data filter.
+          mkdir -p "$HH/plugins"
+          python -c "import glob,sys,tarfile; tarfile.open(glob.glob(sys.argv[1])[0]).extractall(sys.argv[2], filter='data')" \
+            "$RUNNER_TEMP/dist/plur1bus-hermes-provider-*.tar.gz" "$HH/plugins"
+          test -f "$HH/plugins/plur1bus/_vendor/plur1bus_memory_client/client.py"
+          python "$E2E/stub_model_server.py" --port-file "$RUNNER_TEMP/stub.port" --log "$RUNNER_TEMP/logs/stub-requests.ndjson" > "$RUNNER_TEMP/logs/stub.out" 2>&1 &
+          stub=$!
+          trap 'kill $stub 2>/dev/null || true' EXIT
+          for _ in $(seq 1 50); do [ -s "$RUNNER_TEMP/stub.port" ] && break; sleep 0.2; done
+          port="$(cat "$RUNNER_TEMP/stub.port")"
+          python "$E2E/drive_turn.py" configure --hermes-home "$HH" --base-url "http://127.0.0.1:$port/v1"
+          python "$E2E/drive_turn.py" activate --hermes-home "$HH" --hermes "$HERMES_BIN"
+          "$HERMES_BIN" plur1bus bind --json --home "$P1B_HOME" --bin "$P1B_BIN" | tee "$RUNNER_TEMP/logs/bind.json"
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get('ok') else 1)" "$RUNNER_TEMP/logs/bind.json"
+          python "$E2E/drive_turn.py" recall-budget --hermes-home "$HH" --hard-ms 3000
+          "$HERMES_BIN" plur1bus selftest --json | tee "$RUNNER_TEMP/logs/selftest.json"
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get('ok') else 1)" "$RUNNER_TEMP/logs/selftest.json"
+          "$HERMES_BIN" memory status | tee "$RUNNER_TEMP/logs/memory-status.txt"
+          python "$E2E/drive_turn.py" turns --hermes "$HERMES_BIN" --hermes-home "$HH" --plur1bus-bin "$P1B_BIN" --plur1bus-home "$P1B_HOME" \
+            --stub-log "$RUNNER_TEMP/logs/stub-requests.ndjson" | tee "$RUNNER_TEMP/logs/turns.json"
+          "$HERMES_BIN" plur1bus status --json | tee "$RUNNER_TEMP/logs/status.json"
+      - name: stop the sidecar
+        if: always()
+        shell: bash
+        run: '[ -x "$P1B_BIN" ] && "$P1B_BIN" --home "$P1B_HOME" daemon stop || true'
+      # Synthetic data only; never run/ (the core token) and never the Hermes checkout.
+      - name: collect logs
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs/p1b" "$RUNNER_TEMP/logs/hermes"
+          cp -R "$P1B_HOME/logs/." "$RUNNER_TEMP/logs/p1b/" 2>/dev/null || true
+          cp -R "$HH/logs/." "$RUNNER_TEMP/logs/hermes/" 2>/dev/null || true
+          cp "$HH/config.yaml" "$HH/plur1bus.json" "$RUNNER_TEMP/logs/hermes/" 2>/dev/null || true
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: real-hermes-${{ matrix.os }}-${{ matrix.hermes }}
+          path: ${{ runner.temp }}/logs/
+          retention-days: 7

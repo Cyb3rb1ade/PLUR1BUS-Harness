@@ -217,12 +217,17 @@ class MemoryClient:
         agent_id: str,
         *,
         topic: str | None = None,
+        since: int | None = None,
         limit: int | None = None,
         deadline_s: float | None = None,
     ) -> dict:
+        """``memory.list``. The core takes exactly one of ``topic`` and ``since`` (``E_INVALID_PARAMS``, reason
+        ``topic-xor-since``); without either, ``since`` is 0 (everything, newest first)."""
         params: dict = {"caller": caller.to_rpc(), "agentId": agent_id}
         if topic is not None:
             params["topic"] = topic
+        if since is not None or topic is None:
+            params["since"] = int(since or 0)
         if limit is not None:
             params["limit"] = int(limit)
         return self._call("memory.list", params, deadline_s)
