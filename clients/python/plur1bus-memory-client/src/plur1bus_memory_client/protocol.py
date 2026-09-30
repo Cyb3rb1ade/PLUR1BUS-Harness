@@ -1,12 +1,15 @@
 """NDJSON JSON-RPC 2.0 framing of the core RPC (docs/rpc.md): one JSON value per line, at most 4 MiB.
 
 No I/O here except :func:`read_response`, which reads lines from a transport ``Stream``
-(``send(data, deadline)``, ``recv_line(deadline)``, ``peer_pid()``, ``close()``).
+(``send(data, deadline)``, ``recv_line(deadline)``, ``peer_pid()``, ``close()``), and :func:`read_line`,
+the line framing both transports share over their own chunk reader.
 """
 
 from __future__ import annotations
 
 import json
+import time
+from collections.abc import Callable
 from typing import Any, Protocol
 
 __all__ = [
@@ -20,6 +23,9 @@ __all__ = [
     "result_of",
     "read_response",
     "parse_rpc_version",
+    "remaining",
+    "take_line",
+    "read_line",
 ]
 
 #: Maximum bytes in one NDJSON line, newline not counted (crates/plur1bus-rpc/src/client.rs ``MAX_LINE``).
@@ -70,6 +76,49 @@ class Stream(Protocol):
     def peer_pid(self) -> int | None: ...
 
     def close(self) -> None: ...
+
+
+def remaining(deadline: float) -> float:
+    """Seconds left until the monotonic ``deadline``; ``RpcError("E_TIMEOUT")`` once it has passed."""
+    left = deadline - time.monotonic()
+    if left <= 0:
+        raise RpcError("E_TIMEOUT", "the call deadline passed", {"reason": "deadline"})
+    return left
+
+
+def _line_too_long() -> RpcError:
+    return RpcError("E_PROTOCOL", "response line exceeds the limit", {"reason": "line-too-long"})
+
+
+def take_line(buf: bytearray) -> bytes | None:
+    """Remove and return the first complete line of ``buf`` (without ``LF``/``CRLF``), or ``None`` when no
+    ``LF`` has arrived yet. Both oversize cases are ``RpcError("E_PROTOCOL", reason "line-too-long")``: a
+    complete line over ``MAX_LINE``, and an unterminated buffer already past ``MAX_LINE`` (so a reader stops
+    at ``MAX_LINE`` plus one chunk). Shared by every transport."""
+    nl = buf.find(b"\n")
+    if nl >= 0:
+        line = bytes(buf[:nl])
+        del buf[: nl + 1]
+        if len(line) > MAX_LINE:
+            raise _line_too_long()
+        return line.rstrip(b"\r")
+    if len(buf) > MAX_LINE:
+        raise _line_too_long()
+    return None
+
+
+def read_line(buf: bytearray, read_chunk: Callable[[], bytes]) -> bytes:
+    """The next line from ``buf``, refilled by ``read_chunk()`` (at least one byte, or ``b""`` at the end
+    of the stream, which is ``RpcError("E_TRANSPORT", reason "eof")``). ``read_chunk`` enforces the
+    deadline itself. Bytes after the returned line stay in ``buf``."""
+    while True:
+        line = take_line(buf)
+        if line is not None:
+            return line
+        chunk = read_chunk()
+        if not chunk:
+            raise RpcError("E_TRANSPORT", "the core closed the connection", {"reason": "eof"})
+        buf += chunk
 
 
 def encode_request(req_id: int, method: str, params: dict) -> bytes:
