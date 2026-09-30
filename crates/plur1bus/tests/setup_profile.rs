@@ -263,9 +263,11 @@ fn firstaid_check_passes_on_a_host_profile() {
         ("windows.pipe-acl", "skip"),
     ];
     // A row the pass never reached before its 3 s budget reads `warn` "time budget exhausted". That is no finding
-    // (repair plans nothing for it), and the loaded windows-2025 runner hit it on the last three rows while the
-    // other setup tests ran in parallel (CI round 1: node.exe's re-hash alone is slow there). So the pass is repeated
-    // until it reaches every row, bounded at 90 s; the assertion below still covers every row of a complete pass.
+    // (repair plans nothing for it). On windows-2025 the last three rows read it on every pass for 90 s (CI round 2):
+    // runtime/node is the real node.exe there (about 80 MB, `setup_env::build_archive`), and `runtime.node` hashed it
+    // with an unoptimised sha2 (about 17 MB/s), so no pass ever finished. The workspace Cargo.toml now builds sha2
+    // optimised in the dev/test profile. A pass that still runs out under load is repeated until it reaches every
+    // row, bounded at 90 s; the assertion below still covers every row of a complete pass.
     let started = Instant::now();
     let check = loop {
         let check = e.json(&["1staid", "check"]);

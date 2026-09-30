@@ -13,3 +13,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 clap = { version = "4.6", features = ["derive"] }
 tempfile = "3"
+
+# SHA-256 at opt-level 0 hashes about 17 MB/s (80 MB in 4.8 s on a fast x64 host). The test profile inherits `dev`, and
+# on Windows the setup tests install the real `node.exe` (about 80 MB) as runtime/node, so `1staid check`'s
+# `runtime.node` re-hash alone ran past the pass's 3 s budget on every pass and the extension rows after it read "time
+# budget exhausted" (windows-2025, HM2 CI round 2: `firstaid_check_passes_on_a_host_profile`). Optimising this one
+# crate brings the 80 MB to about 0.4 s; release builds are unaffected.
+[profile.dev.package.sha2]
+opt-level = 3
