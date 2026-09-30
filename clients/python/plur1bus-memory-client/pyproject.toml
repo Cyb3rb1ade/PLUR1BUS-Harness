@@ -4,11 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "plur1bus-memory-client"
-# The harness version (HM2-R22): one release, one number.
+# The harness version (HM2-R22): one release, one number. scripts/build-hermes-provider.mjs refuses to build when
+# this, __version__, hosts/hermes/plur1bus/plugin.yaml and the Cargo workspace version disagree.
 version = "0.1.0"
 description = "Stdlib-only client for the PLUR1BUS core RPC (NDJSON JSON-RPC over the home's Unix socket or named pipe), for host adapters."
 readme = "README.md"
 license = "MIT"
+# A copy of the repository LICENSE (PEP 639 keeps licence files inside the project directory); a test in
+# scripts/build-hermes-provider.test.mjs keeps the two byte-identical.
+license-files = ["LICENSE"]
 # No upper bound (HM2-R25): the host's own interpreter decides. Tested locally on 3.11-3.13 and 3.14.0rc2;
 # CI legs (including 3.14 final, which Hermes main pins) arrive with HM2 Task 6.
 requires-python = ">=3.11"

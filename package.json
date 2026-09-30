@@ -10,7 +10,8 @@
     "build": "pnpm -r --workspace-concurrency=1 build",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
-    "lint": "pnpm typecheck && node scripts/lint-hygiene.mjs && node --test scripts/lint-hygiene.test.mjs",
+    "lint": "pnpm typecheck && node scripts/lint-hygiene.mjs && node --test scripts/lint-hygiene.test.mjs scripts/build-hermes-provider.test.mjs",
+    "build:hermes": "node scripts/build-hermes-provider.mjs --out dist/hermes",
     "docs:gen": "cargo build -q -p plur1bus && node scripts/gen-engine-keys.mjs && node scripts/gen-docs.mjs",
     "docs:check": "cargo build -q -p plur1bus && node scripts/gen-docs.mjs --check",
     "bench": "node scripts/bench.mjs"
