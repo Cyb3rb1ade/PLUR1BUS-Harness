@@ -97,6 +97,11 @@ class HermesHostWorkflowTest(EngineTokenScopeMixin, unittest.TestCase):
         self.assertIn('PLUR1BUS_ALLOW_TEST_INTERNALS: "1"', t)
         self.assertIn("PLUR1BUS_TEST_INTERNALS: flat-embedder", t)
         self.assertRegex(t, r"setup --profile host --non-interactive --no-service --core-from")
+        # The core payload comes from the release assembler (hoisted, link-free, resolvability-checked), never a raw
+        # `pnpm deploy` tree whose deps resolve only through links (CI round 1, windows-2025: 'ajv' not found).
+        self.assertIn("node scripts/release/assemble-payload.mjs --target", t)
+        self.assertIsNone(re.search(r"pnpm[^\n]*\bdeploy\b", t), "no raw pnpm deploy for the core payload")
+        self.assertIn('--core-from "$P1B_CORE_PAYLOAD"', t)
         self.assertIsNone(re.search(r"daemon start", t), "no daemon start after setup (F21)")
         # F9: the real provider tarball; R22a: Hermes pinned by a full commit with that commit's own installer.
         self.assertIn("scripts/build-hermes-provider.mjs", t)

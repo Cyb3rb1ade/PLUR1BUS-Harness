@@ -28,6 +28,7 @@ on:
       - "crates/plur1bus/src/install/**"
       - "packages/core/**"
       - "scripts/build-hermes-provider.mjs"
+      - "scripts/release/assemble-payload.mjs"
       - ".github/workflows/hermes-host.yml"
   schedule:
     - cron: '41 3 * * *'
@@ -107,16 +108,23 @@ jobs:
           export GIT_CONFIG_COUNT=$n
           unset GH_ENGINE_READ_TOKEN base
           pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
-          pnpm --filter @plur1bus/core deploy --legacy --prod "$RUNNER_TEMP/core"
-          cp -R packages/core/dist/. "$RUNNER_TEMP/core/"
-          test -f "$RUNNER_TEMP/core/core.js"
+          # The core payload exactly as harness-release builds it (hoisted, link-free, resolvability-checked), not a
+          # plain `pnpm deploy`: that tree reaches the workspace packages' deps (ajv) only through pnpm's links, which
+          # setup dereferences on Windows (CI round 1: ERR_MODULE_NOT_FOUND 'ajv' from @plur1bus/config-schema).
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64) target=linux-x64 ;; Linux-ARM64) target=linux-arm64 ;; macOS-ARM64) target=darwin-arm64 ;;
+            Windows-X64) target=win-x64 ;; Windows-ARM64) target=win-arm64 ;;
+            *) echo "::error::no release target for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+          node scripts/release/assemble-payload.mjs --target "$target" --out "$RUNNER_TEMP/payload/core-ci-$target.tar.gz"
+          echo "P1B_CORE_PAYLOAD=$RUNNER_TEMP/payload/core-ci-$target.tar.gz" >> "$GITHUB_ENV"
       # Setup starts the supervisor itself (no `daemon start` after it); the flat-embedder seam comes from the job env
       # and PLUR1BUS_SERVICE_FAKE keeps even the service status calls off the real manager (--no-service, HM2-R19).
       - name: plur1bus setup --profile host
         shell: bash
         timeout-minutes: 10
         run: |
-          "$P1B_BIN" --json --home "$P1B_HOME" setup --profile host --non-interactive --no-service --core-from "$RUNNER_TEMP/core" \
+          "$P1B_BIN" --json --home "$P1B_HOME" setup --profile host --non-interactive --no-service --core-from "$P1B_CORE_PAYLOAD" \
             | tee "$RUNNER_TEMP/logs/setup.json"
           for _ in $(seq 1 120); do
             if "$P1B_BIN" --json --home "$P1B_HOME" daemon status > "$RUNNER_TEMP/logs/daemon-status.json" 2>&1 \
