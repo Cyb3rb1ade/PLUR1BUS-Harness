@@ -221,7 +221,8 @@ jobs:
           python "$E2E/stub_model_server.py" --port-file "$RUNNER_TEMP/stub.port" --log "$RUNNER_TEMP/logs/stub-requests.ndjson" > "$RUNNER_TEMP/logs/stub.out" 2>&1 &
           stub=$!
           trap 'kill $stub 2>/dev/null || true' EXIT
-          for _ in $(seq 1 50); do [ -s "$RUNNER_TEMP/stub.port" ] && break; sleep 0.2; done
+          for _ in $(seq 1 150); do [ -s "$RUNNER_TEMP/stub.port" ] && break; sleep 0.2; done
+          [ -s "$RUNNER_TEMP/stub.port" ] || { echo "::error::the stub model wrote no port within 30 s"; cat "$RUNNER_TEMP/logs/stub.out"; exit 1; }
           port="$(cat "$RUNNER_TEMP/stub.port")"
           python "$E2E/drive_turn.py" configure --hermes-home "$HH" --base-url "http://127.0.0.1:$port/v1"
           python "$E2E/drive_turn.py" activate --hermes-home "$HH" --hermes "$HERMES_BIN"
@@ -247,6 +248,12 @@ jobs:
           cp -R "$P1B_HOME/logs/." "$RUNNER_TEMP/logs/p1b/" 2>/dev/null || true
           cp -R "$HH/logs/." "$RUNNER_TEMP/logs/hermes/" 2>/dev/null || true
           cp "$HH/config.yaml" "$HH/plur1bus.json" "$RUNNER_TEMP/logs/hermes/" 2>/dev/null || true
+          # The sidecar's own logs in the job log too (synthetic data; run/ is never read): a core that fails to start
+          # says why only in logs/core.out.log.
+          for f in "$P1B_HOME/logs/core.out.log" "$P1B_HOME/logs/supervisor.log"; do
+            [ -f "$f" ] && { echo "::group::tail $f"; tail -n 120 "$f"; echo "::endgroup::"; }
+          done
+          true
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
