@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import unittest
 import urllib.request
+from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 
 import drive_turn as dt
@@ -100,6 +101,19 @@ class StubModelTest(unittest.TestCase):
         self.assertEqual([r["request"].get("stream") for r in logged], [True, None])
         with open(self.log, encoding="utf-8") as f:
             self.assertNotIn("no-key-required", f.read(), "headers are never logged")
+
+    def test_binding_does_no_reverse_lookup(self) -> None:
+        # macos-15 (CI round 1): HTTPServer.server_bind's getfqdn(127.0.0.1) outlasted the job's wait for the port.
+        def no_dns(*_a: object) -> str:
+            raise AssertionError("socket.getfqdn called while binding the stub")
+
+        with mock.patch("socket.getfqdn", no_dns):
+            srv = sms.serve(0, None)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        self.assertEqual(srv.server_name, "127.0.0.1")
+        with urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/v1/models", timeout=10) as r:
+            self.assertEqual(json.loads(r.read())["data"][0]["id"], sms.MODEL)
 
 
 if __name__ == "__main__":

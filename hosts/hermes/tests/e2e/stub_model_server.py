@@ -19,6 +19,7 @@ import os
 import sys
 import threading
 import time
+import socketserver
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 MODEL = "stub-model"
@@ -97,10 +98,26 @@ def make_handler(log_path: str | None):  # noqa: ANN201
     return Handler
 
 
-def serve(port: int = 0, log_path: str | None = None) -> ThreadingHTTPServer:
+class LoopbackServer(ThreadingHTTPServer):
+    """``ThreadingHTTPServer`` without the reverse lookup in ``HTTPServer.server_bind``.
+
+    ``HTTPServer.server_bind`` sets ``server_name = socket.getfqdn(host)``, a reverse DNS lookup of 127.0.0.1.
+    On the macos-15 runner that lookup outlasted the job's 10 s wait for the port file (CI round 1: "stub.port:
+    No such file or directory"). The stub never uses ``server_name``, so it is set to the bound address.
+    """
+
+    daemon_threads = True
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = port
+
+
+def serve(port: int = 0, log_path: str | None = None) -> LoopbackServer:
     """A started-in-a-thread server on 127.0.0.1 (tests); ``server_address[1]`` is the port."""
-    srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(log_path))
-    srv.daemon_threads = True
+    srv = LoopbackServer(("127.0.0.1", port), make_handler(log_path))
     threading.Thread(target=srv.serve_forever, name="stub-model", daemon=True).start()
     return srv
 
@@ -111,8 +128,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--port-file", required=True, help="written (atomically) with the bound port once listening")
     ap.add_argument("--log", default=None, help="append every chat request body here (one JSON line each)")
     args = ap.parse_args(argv)
-    srv = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(args.log))
-    srv.daemon_threads = True
+    srv = LoopbackServer(("127.0.0.1", args.port), make_handler(args.log))
     tmp = args.port_file + ".tmp"
     with open(tmp, "w", encoding="ascii") as f:
         f.write(str(srv.server_address[1]))
