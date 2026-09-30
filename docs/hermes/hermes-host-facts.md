@@ -15,7 +15,7 @@ the line says `743ee72`; the cited code is the same in both unless noted.
 `$HOME/.hermes`, `<install-dir>` is the Hermes checkout, `<tmp>` is the
 scratch dir, `<session-id>` is a Hermes session id. Captured files are in
 `hosts/hermes/tests/fixtures/hermes-cli/`. The provider used to capture them
-is `hosts/hermes/tests/scratch_provider/` (logs every hook and its arguments
+is `docs/hermes/scratch/` (logs every hook and its arguments
 to `$SCRATCH_LOG`, no network, `is_available()` is False while
 `SCRATCH_UNAVAILABLE=1`; its provider name is its directory name).
 
@@ -183,7 +183,7 @@ other edits).
 
 ## (d) `hermes memory status` with a user provider
 
-Setup: `cp -r hosts/hermes/tests/scratch_provider <hermes-home>/plugins/scratch`
+Setup: `cp -r docs/hermes/scratch <hermes-home>/plugins/scratch`
 (and a copy as `plugins/plur1bus` with `name: plur1bus`). Observed, identical
 on both instances except that 0.21.4 also lists the bundled `hindsight`:
 
