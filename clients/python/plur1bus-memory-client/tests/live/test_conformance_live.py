@@ -173,8 +173,14 @@ class ConformanceLiveTest(unittest.TestCase):
             corrected_id = corrected.get("id", corrected_id)
             called.add("memory.correct")
         if c.supports("memory.share"):
+            # Windows: the engine reads the shared store's directory ACL with a synchronous `powershell.exe` run
+            # (lib/platform.js readDirectoryAcl, execFileSync, 30 s timeout), which blocks the core's event loop.
+            # On windows-11-arm that took longer than the 10 s call timeout (CI round 1), and the core then missed
+            # the next test's 2 s handshake too. The deadline here matches the engine's own 30 s bound plus slack;
+            # the event-loop block itself is an engine finding (task-6-report.md, CI round 1).
+            share_deadline = 35.0 if sys.platform == "win32" else None
             try:
-                c.memory_share(CALLER, AGENT, corrected_id, "user")
+                c.memory_share(CALLER, AGENT, corrected_id, "user", deadline_s=share_deadline)
             except RpcError as e:
                 # An elevated Windows runner: the verified-path owner check refuses (engine ADR 0001, E4-R12).
                 if sys.platform != "win32" or e.code not in ("E_STORAGE", "E_NOT_AVAILABLE"):
