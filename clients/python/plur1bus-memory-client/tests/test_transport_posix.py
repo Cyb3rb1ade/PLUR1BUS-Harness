@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 from tests.fakes import FakeCore, Raw
 
@@ -144,7 +145,59 @@ class PosixStreamTest(unittest.TestCase):
         t.join(2)
         self.assertFalse(t.is_alive())
         self.assertLess(time.monotonic() - t0, 1.0)
-        self.assertEqual(errors[0].code, "E_TRANSPORT")
+        self.assertEqual((errors[0].code, errors[0].reason), ("E_TRANSPORT", "closed"))
+
+    def test_close_wakes_a_blocked_recv_even_when_shutdown_does_not(self) -> None:
+        # macOS (CI round 1, macos-15): shutdown(SHUT_RDWR) on an AF_UNIX socket does not wake a poll() on it in
+        # another thread. With shutdown a no-op here, the wake-up has to come from the stream's own wake pipe.
+        errors: list[RpcError] = []
+
+        def blocked() -> None:
+            try:
+                self.stream.recv_line(_deadline(5))
+            except RpcError as e:
+                errors.append(e)
+
+        with mock.patch.object(socket.socket, "shutdown", lambda *_a, **_k: None):
+            t = threading.Thread(target=blocked)
+            t.start()
+            time.sleep(0.1)
+            t0 = time.monotonic()
+            self.stream.close()
+            t.join(2)
+        self.assertFalse(t.is_alive())
+        self.assertLess(time.monotonic() - t0, 1.0)
+        self.assertEqual((errors[0].code, errors[0].reason), ("E_TRANSPORT", "closed"))
+        self.assertIsNone(self.stream._sock, "the call that was woken released the socket as it left")
+
+    def test_close_wakes_a_blocked_send(self) -> None:
+        # The peer never reads: the send buffer fills and send() waits for POLLOUT until close() wakes it.
+        errors: list[RpcError] = []
+
+        def blocked() -> None:
+            try:
+                self.stream.send(b"s" * (8 << 20), _deadline(5))
+            except RpcError as e:
+                errors.append(e)
+
+        with mock.patch.object(socket.socket, "shutdown", lambda *_a, **_k: None):
+            t = threading.Thread(target=blocked)
+            t.start()
+            time.sleep(0.2)
+            self.assertTrue(t.is_alive(), "send is blocked on a full buffer")
+            self.stream.close()
+            t.join(2)
+        self.assertFalse(t.is_alive())
+        self.assertEqual((errors[0].code, errors[0].reason), ("E_TRANSPORT", "closed"))
+
+    def test_a_closed_stream_refuses_calls_and_close_is_idempotent(self) -> None:
+        self.stream.close()
+        self.stream.close()
+        for call in (lambda: self.stream.send(b"x\n", _deadline()), lambda: self.stream.recv_line(_deadline())):
+            with self.assertRaises(RpcError) as cm:
+                call()
+            self.assertEqual((cm.exception.code, cm.exception.reason), ("E_TRANSPORT", "closed"))
+        self.assertTrue(self.stream.is_stale())
 
 
 @unittest.skipIf(sys.platform == "win32" or not hasattr(socket, "AF_UNIX"), "POSIX transport")
