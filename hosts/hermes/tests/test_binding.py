@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -63,7 +64,7 @@ class BindingTest(unittest.TestCase):
         self.assertEqual(agent_id_for(custom, "default", default_root=r), ids(custom))
         self.assertNotEqual(ids(custom), ids(self._dir("srv", "other")))
         # A symlink resolves to the same agent (realpath), including a symlinked default root.
-        if hasattr(os, "symlink"):
+        if hasattr(os, "symlink") and sys.platform != "win32":  # Windows symlinks need a privilege
             link = os.path.join(self.root, "link-to-custom")
             os.symlink(custom, link)
             self.assertEqual(ids(link), ids(custom))
@@ -130,6 +131,27 @@ class BindingTest(unittest.TestCase):
         with open(os.path.join(p1home, "hosts", "hermes-bindings.json"), encoding="utf-8") as f:
             self.assertEqual(json.load(f)["schema"], REGISTRY_SCHEMA)
 
+    def test_concurrent_registrations_are_all_kept(self) -> None:
+        import threading
+
+        p1home = self._dir("p")
+        homes = [self._dir("srv", f"h{i}") for i in range(12)]
+        errors: list = []
+
+        def reg(i: int) -> None:
+            try:
+                register_binding(p1home, f"hermes-home-{i:08d}", homes[i])
+            except Exception as e:  # noqa: BLE001
+                errors.append(e)
+
+        threads = [threading.Thread(target=reg, args=(i,)) for i in range(len(homes))]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(20)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(read_registry(p1home)), len(homes), "the file lock serialises read-modify-write")
+
     def test_binding_written_atomically_0600(self) -> None:
         home = self._dir("h")
         b = Binding(home="/opt/p1b", agent_id="hermes-work", bin="/usr/local/bin/plur1bus", version="0.1.0", installed_by="installer")
@@ -180,11 +202,11 @@ class BindingTest(unittest.TestCase):
             write_binding(home, Binding(home="rel", agent_id="hermes-x"))
 
     def test_resolve_hermes_home_order(self) -> None:
-        self.assertEqual(resolve_hermes_home("/x/y"), "/x/y")
+        self.assertEqual(resolve_hermes_home("/x/y"), os.path.abspath("/x/y"))
         installed = os.path.join(self.root, "hh", "plugins", "plur1bus", "__init__.py")
         self.assertEqual(resolve_hermes_home(module_file=installed, env={"HERMES_HOME": "/elsewhere"}), os.path.join(self.root, "hh"))
         dev = os.path.join(self.root, "hosts", "hermes", "plur1bus", "__init__.py")
-        self.assertEqual(resolve_hermes_home(module_file=dev, env={"HERMES_HOME": "/elsewhere"}), "/elsewhere")
+        self.assertEqual(resolve_hermes_home(module_file=dev, env={"HERMES_HOME": "/elsewhere"}), os.path.abspath("/elsewhere"))
         self.assertEqual(resolve_hermes_home(module_file=dev, env={"HOME": "/home/u"}, platform="linux"), "/home/u/.hermes")
 
 

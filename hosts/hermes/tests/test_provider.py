@@ -15,7 +15,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from tests import CLIENT_SRC, PROVIDER_DIR
-from tests.fake_client import SILENT, FakeError, Sandbox, capabilities, requires_posix, wait_until
+from tests.fake_client import SILENT, FakeError, Sandbox, capabilities, requires_core, wait_until
 
 import plur1bus
 from plur1bus import Plur1busMemoryProvider, register
@@ -58,7 +58,7 @@ def _warnings(h: _Records) -> list[str]:
     return [r.getMessage() for r in h.records if r.name == "plur1bus" and r.levelno >= logging.WARNING]
 
 
-@requires_posix
+@requires_core
 class ProviderTest(unittest.TestCase):
     def setUp(self) -> None:
         self.sb = Sandbox(self)
@@ -212,7 +212,7 @@ class ProviderTest(unittest.TestCase):
         self.assertEqual(len(hints), 1, _warnings(logs))
         self.assertIn("hermes-ghost", hints[0])
         self.assertEqual(p.journal.counts()["queued"], 1, "E_AGENT_UNKNOWN is fixable by bind: journaled (F5)")
-        self.assertEqual(p.journal.last_error(), "E_AGENT_UNKNOWN")
+        self.assertTrue(wait_until(lambda: p.journal.last_error() == "E_AGENT_UNKNOWN", 3), "the worker persists the last error")
 
     def test_no_binding_leaves_the_provider_inert_with_one_warning(self) -> None:
         logs = _capture_logs(self)
@@ -261,7 +261,7 @@ class ProviderTest(unittest.TestCase):
     def test_sync_turn_is_skipped_for_cron_and_subagent(self) -> None:
         self.sb.bind()
         self.sb.start_core()
-        for ctx in ("cron", "subagent", "flush"):
+        for ctx in ("cron", "subagent", "flush", "some-future-context"):
             p = self.sb.provider()
             p.initialize("s", **self.sb.init_kwargs(agent_context=ctx))
             p.sync_turn("scheduled report text", "done")
@@ -282,11 +282,11 @@ class ProviderTest(unittest.TestCase):
         p.initialize("s", **self.sb.init_kwargs())
         p.sync_turn("turn A question", "turn A answer")
         p.sync_turn("turn B question", "turn B answer")
-        p._wait_for_sync(5)
+        p._wait_idle(5)
         self.assertEqual(p.journal.counts()["queued"], 2)
         core.start()
         p.sync_turn("turn C question", "turn C answer")
-        p._wait_for_sync(5)
+        p._wait_idle(5)
         users = [c["messages"][0]["content"] for c in self.sb.captures()]
         self.assertEqual(users, ["turn A question", "turn B question", "turn C question"], "order preserved")
         self.assertEqual(p.journal.counts()["queued"], 0)
@@ -298,7 +298,7 @@ class ProviderTest(unittest.TestCase):
         p = self.sb.provider()
         p.initialize("s", **self.sb.init_kwargs())
         p.sync_turn("while the core was down", "noted")
-        p._wait_for_sync(5)
+        p._wait_idle(5)
         self.assertEqual(p.journal.counts()["queued"], 1)
         core.start()
         self.assertEqual(p.prefetch("when is the roadmap review"), RECALL_TEXT)
@@ -311,8 +311,9 @@ class ProviderTest(unittest.TestCase):
         p = self.sb.provider()
         p.initialize("s", **self.sb.init_kwargs())
         p.sync_turn("a turn the core refuses", "answer")
-        p._wait_for_sync(5)
-        self.assertEqual(p.journal.counts(), {"queued": 0, "dropped": 0, "rejected": 1})
+        p._wait_idle(5)
+        self.assertTrue(wait_until(lambda: p.journal.counts()["rejected"] == 1, 3))
+        self.assertEqual(p.journal.counts(), {"queued": 0, "dropped": 0, "rejected": 1, "lost": 0})
 
     def test_oversized_turn_is_trimmed_to_fit_one_rpc_line(self) -> None:
         self.sb.bind()
@@ -321,7 +322,7 @@ class ProviderTest(unittest.TestCase):
         p.initialize("s", **self.sb.init_kwargs())
         huge = "x" * (5 * 1024 * 1024)
         p.sync_turn("summarise the log", huge)
-        p._wait_for_sync(10)
+        p._wait_idle(10)
         self.assertEqual(len(self.sb.captures()), 1, p.journal.counts())
         cap = self.sb.captures()[0]
         line = pmc.encode_request(99, "memory.capture", cap)
@@ -347,7 +348,7 @@ class ProviderTest(unittest.TestCase):
             for i in range(10):
                 p.sync_turn(f"{tag} question {i}", f"{tag} answer {i}")
                 p.prefetch(f"{tag} what about item {i}")
-            p._wait_for_sync(10)
+            p._wait_idle(10)
 
         threads = [threading.Thread(target=run, args=(pa, "A")), threading.Thread(target=run, args=(pb, "B"))]
         for t in threads:
@@ -450,15 +451,15 @@ class ProviderTest(unittest.TestCase):
         p.initialize("s", **self.sb.init_kwargs(warning_callback=seen.append))
         p.prefetch(secret_text)
         p.sync_turn(secret_text, "noted " + secret_text)
-        p._wait_for_sync(5)
+        p._wait_idle(5)
         self.sb.stop_core()
         p.prefetch(secret_text + " again")
         p.sync_turn(secret_text + " (offline)", "noted")
-        p._wait_for_sync(5)
+        p._wait_idle(5)
         core.handlers["memory.capture"] = FakeError("E_INVALID_PARAMS", "bad")
         core.start()
         p.sync_turn(secret_text + " (refused)", "noted")
-        p._wait_for_sync(5)
+        p._wait_idle(5)
         p.on_session_end([])
         from plur1bus.cli import selftest_doc, status_doc
 
@@ -485,7 +486,7 @@ class ProviderTest(unittest.TestCase):
         p = self.sb.provider()
         p.initialize("s", **self.sb.init_kwargs())
         p.sync_turn("offline secret 5-5-5", "ok")
-        p._wait_for_sync(5)
+        p._wait_idle(5)
         with open(p.journal.path, encoding="utf-8") as f:
             self.assertIn("offline secret 5-5-5", f.read())
         if os.name == "posix":
@@ -563,6 +564,166 @@ class ProviderTest(unittest.TestCase):
                         )
 
 
+@requires_core
+class RobustnessTest(unittest.TestCase):
+    """T5 review: no journal I/O on hook paths, shutdown journals undelivered turns, one ordered worker."""
+
+    def setUp(self) -> None:
+        self.sb = Sandbox(self)
+
+    def _hold_journal_lock(self):  # noqa: ANN202
+        """Take the journal's OS lock on a separate descriptor, as another process would."""
+        from plur1bus import _filelock
+
+        d = os.path.join(self.sb.hermes_home, "plur1bus")
+        os.makedirs(d, exist_ok=True)
+        fd = os.open(os.path.join(d, ".lock"), os.O_RDWR | os.O_CREAT, 0o600)
+        self.assertTrue(_filelock._try_lock(fd))
+
+        held = [True]
+
+        def release() -> None:
+            if held[0]:
+                held[0] = False
+                _filelock._unlock(fd)
+                os.close(fd)
+
+        self.addCleanup(release)
+        return release
+
+    def _users(self, entries: list) -> list:
+        return [e["messages"][0]["content"] for e in entries]
+
+    def _journal_entries(self, p: Plur1busMemoryProvider) -> list:
+        if not os.path.exists(p.journal.path):
+            return []
+        with open(p.journal.path, encoding="utf-8") as f:
+            return [json.loads(line) for line in f if line.strip()]
+
+    def test_prefetch_stays_within_budget_when_the_journal_is_locked(self) -> None:
+        from plur1bus.journal import CaptureJournal
+
+        self.sb.bind(recall_hard_ms=300)
+        core = self.sb.start_core()
+        CaptureJournal.for_home(self.sb.hermes_home).append({"v": 1, "agentId": "hermes-test", "messages": [{"role": "user", "content": "left over"}]})
+        release = self._hold_journal_lock()
+        p = self.sb.provider()
+        t0 = time.monotonic()
+        p.initialize("s", **self.sb.init_kwargs())
+        self.assertLess(time.monotonic() - t0, 1.3)
+        for _ in range(3):
+            t0 = time.monotonic()
+            self.assertEqual(p.prefetch("when is the roadmap review"), RECALL_TEXT)
+            self.assertLess(time.monotonic() - t0, 0.7 + 0.3, "hardMs 300 + 400 ms, plus slack")
+        t0 = time.monotonic()
+        p.sync_turn("a turn while the journal is locked", "ok")
+        self.assertLess(time.monotonic() - t0, 0.2)
+        self.sb.stop_core()
+        for _ in range(2):
+            t0 = time.monotonic()
+            self.assertEqual(p.prefetch("and while the core is down"), "")
+            self.assertLess(time.monotonic() - t0, 1.0)
+        core.start()
+        release()
+        p.prefetch("the next successful recall wakes the replay")
+        self.assertTrue(wait_until(lambda: "left over" in self._users(self.sb.captures()), 15), "replayed once the lock is free")
+
+    def test_slow_state_writes_do_not_delay_prefetch(self) -> None:
+        from plur1bus import journal as journal_mod
+
+        self.sb.bind(recall_hard_ms=300)
+        self.sb.start_core(handlers={"memory.recall": FakeError("E_INTERNAL", "boom")})
+        real = journal_mod.atomic_write_text
+
+        def slow(*a, **kw):  # noqa: ANN002, ANN003
+            time.sleep(1.5)
+            return real(*a, **kw)
+
+        p = self.sb.provider()
+        with mock.patch.object(journal_mod, "atomic_write_text", slow):
+            p.initialize("s", **self.sb.init_kwargs())
+            for i in range(3):
+                if i == 1:
+                    del self.sb.core.handlers["memory.recall"]
+                t0 = time.monotonic()
+                p.prefetch("error state flips each time")
+                self.assertLess(time.monotonic() - t0, 1.0)
+            self.assertTrue(wait_until(lambda: p.journal.last_error() is None, 8))
+
+    def test_shutdown_journals_captures_that_are_still_running(self) -> None:
+        self.sb.bind()
+        self.sb.start_core(handlers={"memory.capture": SILENT})
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        with mock.patch.object(plur1bus, "CAPTURE_DEADLINE_S", 30.0):
+            p.sync_turn("turn one, in flight at exit", "a1")
+            p.sync_turn("turn two, still queued", "a2")
+            self.assertTrue(wait_until(lambda: len(self.sb.captures()) == 1, 3))
+            t0 = time.monotonic()
+            p.shutdown()
+            self.assertLess(time.monotonic() - t0, 2.3, "shutdown budget 2 s")
+        self.assertTrue(wait_until(lambda: len(self._journal_entries(p)) == 2, 3))
+        self.assertEqual(self._users(self._journal_entries(p)), ["turn one, in flight at exit", "turn two, still queued"])
+        self.assertEqual(p.lost, 0)
+
+    def test_shutdown_counts_what_it_cannot_journal(self) -> None:
+        logs = _capture_logs(self)
+        self.sb.bind()
+        self.sb.start_core(handlers={"memory.capture": SILENT})
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        with mock.patch.object(plur1bus, "CAPTURE_DEADLINE_S", 30.0):
+            p.sync_turn("in flight", "a1")
+            p.sync_turn("queued", "a2")
+            self.assertTrue(wait_until(lambda: len(self.sb.captures()) == 1, 3))
+            self._hold_journal_lock()
+            t0 = time.monotonic()
+            p.shutdown()
+            self.assertLess(time.monotonic() - t0, 2.3)
+        self.assertTrue(wait_until(lambda: p.lost == 2, 12), p.lost)
+        self.assertTrue(any("could not be journaled" in w for w in _warnings(logs)))
+        self.assertNotIn("in flight", logs.text())
+
+    def test_a_journal_append_failure_in_the_worker_is_counted(self) -> None:
+        logs = _capture_logs(self)
+        self.sb.bind()
+        self.sb.start_core()
+        self.sb.stop_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        with mock.patch.object(type(p.journal), "append", side_effect=OSError("disk full")):
+            p.sync_turn("cannot be journaled", "ok")
+            p._wait_idle(5)
+        self.assertEqual(p.lost, 1)
+        self.assertTrue(any("could not be journaled" in w for w in _warnings(logs)))
+
+    def test_order_is_kept_when_a_capture_times_out(self) -> None:
+        self.sb.bind()
+        core = self.sb.start_core(handlers={"memory.capture": SILENT})
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        with mock.patch.object(plur1bus, "CAPTURE_DEADLINE_S", 0.3):
+            for tag in "ABC":
+                p.sync_turn(f"turn {tag}", "ok")
+            self.assertTrue(p._wait_idle(10))
+        self.assertEqual(self._users(self._journal_entries(p)), ["turn A", "turn B", "turn C"])
+        del core.handlers["memory.capture"]
+        p.sync_turn("turn D", "ok")
+        self.assertTrue(p._wait_idle(10))
+        self.assertEqual(self._users(self.sb.captures())[-4:], ["turn A", "turn B", "turn C", "turn D"])
+
+    def test_tools_follow_the_core_once_it_is_reachable(self) -> None:
+        self.sb.bind()
+        core = self.sb.start_core(capabilities=capabilities("memory.list"))
+        self.sb.stop_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        self.assertEqual(p.get_tool_schemas(), [], "core down at initialize: no tools")
+        core.start()
+        self.assertEqual(p.prefetch("when is the roadmap review"), RECALL_TEXT)
+        self.assertEqual([s["name"] for s in p.get_tool_schemas()], ["plur1bus_memory_list"], "offered again if Hermes re-asks")
+
+
 class HermesImportTest(unittest.TestCase):
     """Ruling F13: load the provider the way Hermes does (``plugins/memory/__init__.py`` @ ``743ee72``)."""
 
@@ -572,12 +733,12 @@ class HermesImportTest(unittest.TestCase):
         root = tempfile.mkdtemp(prefix="p1h-imp-")
         self.addCleanup(shutil.rmtree, root, ignore_errors=True)
         dest = os.path.join(root, "hermes-home", "plugins", "plur1bus")
-        shutil.copytree(PROVIDER_DIR, dest, ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(PROVIDER_DIR, dest, ignore=shutil.ignore_patterns("__pycache__"), copy_function=shutil.copyfile)
         if vendored:
             vend = os.path.join(dest, "_vendor")
             os.makedirs(vend)
             open(os.path.join(vend, "__init__.py"), "w").close()
-            shutil.copytree(os.path.join(CLIENT_SRC, "plur1bus_memory_client"), os.path.join(vend, "plur1bus_memory_client"), ignore=shutil.ignore_patterns("__pycache__"))
+            shutil.copytree(os.path.join(CLIENT_SRC, "plur1bus_memory_client"), os.path.join(vend, "plur1bus_memory_client"), ignore=shutil.ignore_patterns("__pycache__"), copy_function=shutil.copyfile)
         return dest
 
     def _synthetic(self, name: str, locations: list[str]) -> None:

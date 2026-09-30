@@ -29,6 +29,8 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
+from ._filelock import FileLock
+
 __all__ = [
     "AGENT_ID_MAX",
     "AGENT_ID_RE",
@@ -351,14 +353,20 @@ def check_binding(plur1bus_home: str, agent_id: str, hermes_home: str, *, platfo
     return agent_id in bindings
 
 
+REGISTRY_LOCK_TIMEOUT_S = 10.0
+
+
 def register_binding(plur1bus_home: str, agent_id: str, hermes_home: str, *, platform: str = sys.platform) -> None:
     """Record ``agent_id -> realpath(hermes_home)``. Re-registering the same pair is a no-op; an id
-    already bound to another home raises ``BindingConflict`` naming both homes."""
-    bindings = read_registry(plur1bus_home)
-    updated = registry_add(bindings, agent_id, _real(hermes_home), platform)
-    if updated == bindings:
-        return
+    already bound to another home raises ``BindingConflict`` naming both homes. The read-modify-write
+    runs under a file lock (``hosts/.hermes-bindings.lock``) so concurrent binds cannot lose an entry;
+    ``LockTimeout`` (an ``OSError``) after 10 s."""
     path = _registry_path(plur1bus_home)
-    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
-    doc = {"schema": REGISTRY_SCHEMA, "bindings": dict(sorted(updated.items()))}
-    atomic_write_text(path, json.dumps(doc, indent=2) + "\n")
+    lock = FileLock(os.path.join(os.path.dirname(path), ".hermes-bindings.lock"))
+    with lock.hold(REGISTRY_LOCK_TIMEOUT_S):
+        bindings = read_registry(plur1bus_home)
+        updated = registry_add(bindings, agent_id, _real(hermes_home), platform)
+        if updated == bindings:
+            return
+        doc = {"schema": REGISTRY_SCHEMA, "bindings": dict(sorted(updated.items()))}
+        atomic_write_text(path, json.dumps(doc, indent=2) + "\n")

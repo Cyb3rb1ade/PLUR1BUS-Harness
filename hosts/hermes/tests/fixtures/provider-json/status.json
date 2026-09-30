@@ -22,7 +22,8 @@
     "path": "<hermes-home>/plur1bus/journal.ndjson",
     "queued": 1,
     "dropped": 0,
-    "rejected": 0
+    "rejected": 0,
+    "lost": 0
   },
   "lastError": "E_CORE_UNAVAILABLE"
 }

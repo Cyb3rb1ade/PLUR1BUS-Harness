@@ -14,7 +14,8 @@
     "path": "<hermes-home>/plur1bus/journal.ndjson",
     "queued": 0,
     "dropped": 0,
-    "rejected": 0
+    "rejected": 0,
+    "lost": 0
   },
   "lastError": null
 }

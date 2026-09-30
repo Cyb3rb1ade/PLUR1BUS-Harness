@@ -10,7 +10,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from tests import FIXTURES_DIR, PROVIDER_DIR, REPO_ROOT
-from tests.fake_client import FakeError, Sandbox, capabilities, requires_posix
+from tests.fake_client import FakeError, Sandbox, capabilities, requires_core
 
 from plur1bus import cli
 from plur1bus.binding import BINDING_SCHEMA, REGISTRY_SCHEMA, Binding, read_binding, read_registry, write_binding
@@ -34,8 +34,8 @@ def check_status(tc: unittest.TestCase, doc: dict) -> None:
     tc.assertIsInstance(doc["bindingError"], _OPT_STR)
     tc.assertEqual(set(doc["core"]), {"reachable", "rpc", "contract", "instanceId", "error"})
     tc.assertIsInstance(doc["core"]["reachable"], bool)
-    tc.assertEqual(set(doc["journal"]), {"path", "queued", "dropped", "rejected"})
-    for k in ("queued", "dropped", "rejected"):
+    tc.assertEqual(set(doc["journal"]), {"path", "queued", "dropped", "rejected", "lost"})
+    for k in ("queued", "dropped", "rejected", "lost"):
         tc.assertIsInstance(doc["journal"][k], int)
     tc.assertIsInstance(doc["lastError"], _OPT_STR)
 
@@ -92,7 +92,7 @@ class FixtureShapeTest(unittest.TestCase):
         self.assertTrue(all(isinstance(k, str) and isinstance(v, str) for k, v in reg["bindings"].items()))
 
 
-@requires_posix
+@requires_core
 class CliTest(unittest.TestCase):
     def setUp(self) -> None:
         self.sb = Sandbox(self)
@@ -111,7 +111,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(doc["binding"]["agentId"], "hermes-work")
         self.assertEqual(doc["binding"]["home"], self.sb.p1home)
         self.assertEqual(doc["core"], {"reachable": True, "rpc": "1.4.0", "contract": "1.4.1", "instanceId": "inst-fixture", "error": None})
-        self.assertEqual(doc["journal"], {"path": j.path, "queued": 1, "dropped": 0, "rejected": 1})
+        self.assertEqual(doc["journal"], {"path": j.path, "queued": 1, "dropped": 0, "rejected": 1, "lost": 0})
         self.assertEqual(doc["lastError"], "E_CORE_UNAVAILABLE")
         self.assertNotIn("queued turn", out)
         self.assertNotIn(self.sb.core.token, out)
@@ -181,8 +181,8 @@ class CliTest(unittest.TestCase):
         d = os.path.join(self.sb.root, "shim")
         os.makedirs(d, exist_ok=True)
         log = os.path.join(d, "argv.log")
-        path = os.path.join(d, "plur1bus")
-        with open(path, "w", encoding="utf-8") as f:
+        script = os.path.join(d, "plur1bus.py")
+        with open(script, "w", encoding="utf-8") as f:
             f.write(
                 f"#!{sys.executable}\n"
                 "import json, sys\n"
@@ -190,11 +190,21 @@ class CliTest(unittest.TestCase):
                 f"print({reply!r})\n"
                 f"sys.exit(0 if 'agent.create/1' in {reply!r} else 1)\n"
             )
-        os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
-        return path, log
+        if sys.platform == "win32":
+            path = os.path.join(d, "plur1bus.bat")
+            with open(path, "w", encoding="ascii") as f:
+                f.write(f'@echo off\r\n"{sys.executable}" "{script}" %*\r\n')
+            return path, log
+        os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR)
+        return script, log
+
+    def _root_env(self) -> dict:
+        """Environment that makes <sandbox>/u the user home, so its Hermes default root is the one below."""
+        u = os.path.join(self.sb.root, "u")
+        return {"LOCALAPPDATA": u} if sys.platform == "win32" else {"HOME": u}
 
     def _hermes_profile(self, name: str) -> tuple[str, str]:
-        root = os.path.join(self.sb.root, "u", ".hermes")
+        root = os.path.join(self.sb.root, "u", "hermes" if sys.platform == "win32" else ".hermes")
         home = os.path.join(root, "profiles", name)
         os.makedirs(home, exist_ok=True)
         return root, home
@@ -202,7 +212,7 @@ class CliTest(unittest.TestCase):
     def test_bind_runs_plur1bus_agent_create_with_the_folded_id(self) -> None:
         root, home = self._hermes_profile("Work.v2")
         exe, log = self._shim('{"schema":"agent.create/1","agentId":"hermes-work-v2","created":true,"opened":false}')
-        with mock.patch.dict(os.environ, {"HOME": os.path.dirname(root)}):
+        with mock.patch.dict(os.environ, self._root_env()):
             rc, out = _run(["bind", "--json", "--hermes-home", home, "--home", self.sb.p1home, "--bin", exe])
         doc = json.loads(out)
         check_bind(self, doc)
@@ -220,7 +230,7 @@ class CliTest(unittest.TestCase):
         root, home = self._hermes_profile("work")
         write_binding(home, Binding(home=self.sb.p1home, agent_id="hermes-work", recall_hard_ms=900, capture=False, version="0.1.0", installed_by="installer"))
         exe, _ = self._shim('{"schema":"error/1","error":"E_INVALID_PARAMS","message":"agent hermes-work already exists"}')
-        with mock.patch.dict(os.environ, {"HOME": os.path.dirname(root)}):
+        with mock.patch.dict(os.environ, self._root_env()):
             rc, out = _run(["bind", "--json", "--hermes-home", home, "--bin", exe])
         doc = json.loads(out)
         self.assertEqual(rc, 0, doc)
@@ -234,7 +244,7 @@ class CliTest(unittest.TestCase):
         if os.path.samefile(upper, lower):
             self.skipTest("case-insensitive file system")
         exe, log = self._shim('{"schema":"agent.create/1","agentId":"hermes-work","created":true,"opened":false}')
-        with mock.patch.dict(os.environ, {"HOME": os.path.dirname(root)}):
+        with mock.patch.dict(os.environ, self._root_env()):
             self.assertEqual(_run(["bind", "--json", "--hermes-home", upper, "--home", self.sb.p1home, "--bin", exe])[0], 0)
             rc, out = _run(["bind", "--json", "--hermes-home", lower, "--home", self.sb.p1home, "--bin", exe])
         doc = json.loads(out)
@@ -257,6 +267,19 @@ class CliTest(unittest.TestCase):
         self.assertIsNone(read_binding(home))
         rc, out = _run(["bind", "--json", "--hermes-home", home, "--home", self.sb.p1home, "--bin", os.path.join(self.sb.root, "missing")])
         self.assertEqual(json.loads(out)["error"]["code"], "E_AGENT_CREATE")
+
+    def test_bind_turns_a_write_failure_into_an_error_document(self) -> None:
+        _, home = self._hermes_profile("w")
+        exe, _ = self._shim('{"schema":"agent.create/1","agentId":"x","created":true,"opened":false}')
+        with mock.patch.object(cli, "write_binding", side_effect=PermissionError(13, "denied")):
+            rc, out = _run(["bind", "--json", "--hermes-home", home, "--home", self.sb.p1home, "--bin", exe])
+        doc = json.loads(out)
+        check_bind(self, doc)
+        self.assertEqual(rc, 1)
+        self.assertEqual(doc["error"]["code"], "E_BINDING_WRITE")
+        with mock.patch.object(cli, "register_binding", side_effect=OSError("registry locked")):
+            doc = json.loads(_run(["bind", "--json", "--hermes-home", home, "--home", self.sb.p1home, "--bin", exe])[1])
+        self.assertEqual(doc["error"]["code"], "E_BINDING_WRITE")
 
     # -- plugin.yaml ------------------------------------------------------------------------------
 

@@ -271,6 +271,9 @@ def bind(
     if proc.returncode == 0 and out.get("schema") == "agent.create/1":
         doc["created"] = True
     elif out.get("schema") == "error/1" and "already exists" in str(out.get("message", "")):
+        # TODO(HM2 T5 review m7): `plur1bus agent create` answers an existing agent with E_INVALID_PARAMS and
+        # no reason (crates/plur1bus/src/commands/agent.rs); key on a reason code (e.g. "agent-exists")
+        # once the CLI emits one, and keep this text match only as a fallback for older binaries.
         doc["created"] = False
     else:
         code = out.get("error") if isinstance(out.get("error"), str) else "E_AGENT_CREATE"
@@ -278,20 +281,26 @@ def bind(
         return doc
     try:
         register_binding(home, agent_id, hermes_home)
+        base = existing or Binding(home=home, agent_id=agent_id)
+        write_binding(
+            hermes_home,
+            base.with_(
+                home=home,
+                agent_id=agent_id,
+                bin=exe,
+                version=version or base.version,
+                installed_by=installed_by or base.installed_by or INSTALLED_BY_BIND,
+            ),
+        )
     except BindingConflict as e:
         doc["error"] = {"code": "E_BINDING_CONFLICT", "message": str(e), "otherHome": e.other_home}
         return doc
-    base = existing or Binding(home=home, agent_id=agent_id)
-    write_binding(
-        hermes_home,
-        base.with_(
-            home=home,
-            agent_id=agent_id,
-            bin=exe,
-            version=version or base.version,
-            installed_by=installed_by or base.installed_by or INSTALLED_BY_BIND,
-        ),
-    )
+    except BindingInvalid as e:
+        doc["error"] = {"code": "E_REGISTRY_INVALID", "message": str(e)}
+        return doc
+    except OSError as e:
+        doc["error"] = {"code": "E_BINDING_WRITE", "message": f"could not write the binding or registry ({type(e).__name__})"}
+        return doc
     doc["ok"] = True
     return doc
 

@@ -22,5 +22,12 @@ Files it uses in the Hermes home:
 | `plur1bus/state.json` | journal counters and the last error code |
 
 When the core is stopped, recall returns nothing (one warning per session) and completed turns wait in
-the journal. The core token is never logged or stored; turn text is written only to the journal.
+the journal. Captures run on one background worker, in order; no Hermes hook touches the journal
+except `shutdown`, which journals every turn not yet delivered within its 2 s budget and counts (as
+`lost` in `status`) any it could not write.
+
+The `plur1bus_memory_*` tools follow what the core advertises. Hermes asks for the model's tool list
+once, right after the provider starts (and again only when it rebuilds its tool list, e.g. an MCP
+refresh), so if the core is down when a session starts, no memory tools are offered for that session;
+they return with the next session once the core is running. The core token is never logged or stored; turn text is written only to the journal.
 Design: `docs/superpowers/plans/2026-09-29-hm2-hermes-host-mode-adapter.md` (Task 5).
