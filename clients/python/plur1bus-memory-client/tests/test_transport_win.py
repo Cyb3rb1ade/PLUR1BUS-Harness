@@ -30,6 +30,7 @@ from plur1bus_memory_client import MAX_LINE, Caller, MemoryClient, RpcError, cor
 from plur1bus_memory_client import transport_win
 from plur1bus_memory_client.transport_win import (
     ERROR_IO_PENDING,
+    ERROR_NOT_FOUND,
     ERROR_OPERATION_ABORTED,
     OPEN_EXISTING,
     OPEN_FLAGS,
@@ -218,6 +219,30 @@ class Kernel32BindingTest(unittest.TestCase):
         self.assertEqual(dll.calls[-1], ("CloseHandle", (55,)))
 
 
+    def test_cancel_not_found_after_the_read_completed_keeps_its_bytes(self) -> None:
+        api, dll = self.api()
+        line = b'{"a":1}\n'
+        dll.returns["CreateEventW"] = 77
+        dll.last_error = ERROR_IO_PENDING
+
+        def read(_h: object, buf: object, *_a: object) -> int:
+            ctypes.memmove(buf, line, len(line))  # the data lands just as the wait times out
+            return 0
+
+        def cancel(*_a: object) -> int:
+            dll.last_error = ERROR_NOT_FOUND  # nothing pending any more
+            return 0
+
+        def result(_h: object, _ov: object, n_ref: object, _wait: object) -> int:
+            n_ref._obj.value = len(line)  # type: ignore[attr-defined]
+            return 1
+
+        dll.returns.update({"ReadFile": read, "WaitForSingleObject": WAIT_TIMEOUT, "CancelIoEx": cancel, "GetOverlappedResult": result})
+        stream = WinPipeStream(api, 55)
+        self.assertEqual(stream.recv_line(_deadline(0.05)), b'{"a":1}')
+        self.assertEqual([n for n, _ in dll.calls][-3:], ["CancelIoEx", "GetOverlappedResult", "CloseHandle"])
+        stream.close()
+
 # -- the overlapped state machine against FakeKernel32 (any OS) ---------------------------------------------
 
 
@@ -318,6 +343,96 @@ class FakePipeClientTest(_FakeClientCase):
         stream = WinPipeStream(k, k.open_pipe("x"))
         self.addCleanup(stream.close)
         self.assertEqual(stream.recv_line(_deadline(0.05)), b'{"late":1}')
+
+    # -- asynchronous exceptions and races (review of T3) ------------------------------------------------
+
+    def _pending_read_stream(self) -> tuple[FakeKernel32, WinPipeStream]:
+        k = self.fake()
+        stream = WinPipeStream(k, k.open_pipe("x"))
+        self.addCleanup(stream.close)
+        return k, stream
+
+    def test_keyboard_interrupt_between_wait_and_cancel_cancels_and_awaits_before_freeing(self) -> None:
+        k, stream = self._pending_read_stream()
+        real_wait = k.wait
+
+        def wait_then_interrupt(op: object, ms: int) -> int:
+            real_wait(op, ms)  # a genuine WAIT_TIMEOUT; Ctrl-C lands at the next bytecode
+            raise KeyboardInterrupt
+
+        k.wait = wait_then_interrupt  # type: ignore[method-assign]
+        with self.assertRaises(KeyboardInterrupt):
+            stream.recv_line(_deadline(0.05))
+        op_id = k.calls("new_op")[0][1]
+        cancel_i = k.log.index(("cancel", k.last().handle, op_id))
+        result_i = k.log.index(("result", k.last().handle, op_id, True))
+        free_i = k.log.index(("free_op", op_id))
+        self.assertLess(cancel_i, result_i)
+        self.assertLess(result_i, free_i, "nothing is freed while the read is pending")
+        self.assertEqual(k.last().pending, [])
+        self.assertEqual(transport_win._PARKED, [])  # noqa: SLF001
+
+    def test_a_second_interrupt_during_the_cleanup_parks_the_operation_unfreed(self) -> None:
+        k, stream = self._pending_read_stream()
+        real_wait, real_cancel = k.wait, k.cancel
+        interrupts = {"cancel": 1}
+
+        def wait_then_interrupt(op: object, ms: int) -> int:
+            real_wait(op, ms)
+            raise KeyboardInterrupt
+
+        def cancel_interrupted(h: int, op: object) -> int:
+            if interrupts["cancel"]:
+                interrupts["cancel"] -= 1
+                raise KeyboardInterrupt  # hits before CancelIoEx: the read stays pending
+            return real_cancel(h, op)  # type: ignore[arg-type]
+
+        k.wait = wait_then_interrupt  # type: ignore[method-assign]
+        k.cancel = cancel_interrupted  # type: ignore[method-assign]
+        with self.assertRaises(KeyboardInterrupt):
+            stream.recv_line(_deadline(0.05))
+        op = k.last().pending[0]
+        self.assertFalse(op.done, "the read is still queued in the kernel")
+        self.assertEqual(k.calls("free_op"), [], "a pending operation is never freed")
+        self.assertIn(op, transport_win._PARKED)  # noqa: SLF001
+        # Tidy up the fake: the parked read ends when the handle is closed.
+        transport_win._PARKED.remove(op)  # noqa: SLF001
+        real_cancel(k.last().handle, op)
+        k.free_op(op)
+
+    def test_close_before_the_operation_starts_ends_the_call_at_once(self) -> None:
+        k, stream = self._pending_read_stream()
+        real_new_op = k.new_op
+
+        def new_op_then_close(kind: str, payload: object) -> object:
+            op = real_new_op(kind, payload)  # type: ignore[arg-type]
+            stream.close()  # close() lands after _enter() and before ReadFile
+            return op
+
+        k.new_op = new_op_then_close  # type: ignore[method-assign]
+        t0 = time.monotonic()
+        with self.assertRaises(RpcError) as cm:
+            stream.recv_line(_deadline(5))
+        self.assertLess(time.monotonic() - t0, 0.5, "not left to run to its deadline")
+        self.assertEqual((cm.exception.code, cm.exception.reason), ("E_TRANSPORT", "closed"))
+        self.assertEqual(k.calls("start"), [], "the read never started")
+        self.assertEqual(k.calls("close"), [("close", k.last().handle)])
+
+    def test_wait_failed_cancels_and_awaits_then_is_a_transport_error(self) -> None:
+        k, stream = self._pending_read_stream()
+        k.wait_failed = True
+        with self.assertRaises(RpcError) as cm:
+            stream.recv_line(_deadline(2))
+        self.assertEqual((cm.exception.code, cm.exception.reason), ("E_TRANSPORT", "wait-failed"))
+        op_id = k.calls("new_op")[0][1]
+        self.assertLess(k.log.index(("cancel", k.last().handle, op_id)), k.log.index(("result", k.last().handle, op_id, True)))
+
+    def test_cancel_not_found_after_the_read_completed_still_counts(self) -> None:
+        k, stream = self._pending_read_stream()
+        k.complete_before_cancel = b'{"done":1}\n'
+        self.assertEqual(stream.recv_line(_deadline(0.05)), b'{"done":1}')
+        op_id = k.calls("new_op")[0][1]
+        self.assertIn(("cancel", k.last().handle, op_id, "not-found"), k.log)
 
     def test_send_deadline_cancels_a_stalled_write(self) -> None:
         k = self.fake()

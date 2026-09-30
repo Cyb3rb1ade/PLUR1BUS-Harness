@@ -46,6 +46,7 @@ ERROR_MORE_DATA = 234
 ERROR_OPERATION_ABORTED = 995
 ERROR_IO_INCOMPLETE = 996
 ERROR_IO_PENDING = 997
+ERROR_NOT_FOUND = 1168
 
 WAIT_OBJECT_0 = 0x0
 WAIT_TIMEOUT = 0x102
@@ -197,8 +198,10 @@ class Kernel32Api:
     def wait(self, op: _Op, timeout_ms: int) -> int:
         return int(self._WaitForSingleObject(op.event, timeout_ms))
 
-    def cancel(self, h: int, op: _Op | None) -> None:
-        self._CancelIoEx(h, self._ct.byref(op.ov) if op is not None else None)
+    def cancel(self, h: int, op: _Op | None) -> int:
+        """0, or ``GetLastError`` (``ERROR_NOT_FOUND``: nothing was pending). Callers do not depend on it."""
+        ok = self._CancelIoEx(h, self._ct.byref(op.ov) if op is not None else None)
+        return 0 if ok else int(self._last_error())
 
     def result(self, h: int, op: _Op, wait: bool) -> tuple[int, int]:
         """``(bytes moved, 0)`` or ``(bytes moved, GetLastError)``; ``wait`` blocks until the operation ends."""
@@ -233,22 +236,63 @@ def _default_api() -> Kernel32Api:
 # -- the overlapped state machine ------------------------------------------------------------------------
 
 
-def _complete(api: Any, h: int, op: _Op, deadline: float) -> tuple[int, int, bool]:
-    """Runs ``op`` on ``h`` under ``deadline``: ``(bytes, error, cancelled)``. ``error`` is 0 on success;
-    ``cancelled`` says the wait ended without the operation and it was cancelled. After a cancel the
-    operation is awaited (``GetOverlappedResult(wait=TRUE)``), so ``op`` is idle whenever this returns."""
-    err = api.start(h, op)
-    if err in (0, ERROR_MORE_DATA):
-        n, e = api.result(h, op, False)
-        return n, e, False
-    if err != ERROR_IO_PENDING:
-        return 0, err, False
-    if api.wait(op, _timeout_ms(deadline)) == WAIT_OBJECT_0:
-        n, e = api.result(h, op, False)
-        return n, e, False
-    api.cancel(h, op)
-    n, e = api.result(h, op, True)
-    return n, e, True
+#: Operations whose end could not be awaited (an exception hit while they were pending and the cancel
+#: could not be confirmed). Their OVERLAPPED, buffer and event are kept alive for the life of the process,
+#: because the kernel may still write into them: a leak, never a use-after-free.
+_PARKED: list[Any] = []
+
+#: Why a wait ended without the operation (``_complete``'s third result).
+TIMED_OUT = "timeout"
+WAIT_FAILED_WHY = "wait-failed"
+
+
+class _Settled:
+    """Set by :func:`_complete` once ``op`` is known idle; only then may its memory be released."""
+
+    __slots__ = ("idle",)
+
+    def __init__(self) -> None:
+        self.idle = False
+
+
+def _complete(api: Any, h: int, op: _Op, deadline: float, start: Any, settled: _Settled) -> tuple[int, int, str | None]:
+    """Runs ``op`` on ``h`` under ``deadline``: ``(bytes, error, why)``. ``error`` is 0 on success; ``why``
+    is ``None`` when the operation ended by itself, else ``TIMED_OUT`` or ``WAIT_FAILED_WHY`` (the wait
+    ended without it and it was cancelled). ``start()`` issues the operation (under the stream's lock).
+
+    ``settled.idle`` becomes True only once the kernel is done with ``op``. On any exception while it is
+    pending (``KeyboardInterrupt`` between the wait and the cancel included) it is cancelled and awaited
+    before the exception leaves; if even that cannot be confirmed, ``settled.idle`` stays False and the
+    caller parks ``op`` instead of freeing it."""
+    err: int | None = None
+    try:
+        err = start()
+        if err in (0, ERROR_MORE_DATA):
+            n, e = api.result(h, op, False)
+            settled.idle = True
+            return n, e, None
+        if err != ERROR_IO_PENDING:
+            settled.idle = True  # nothing was queued
+            return 0, err, None
+        waited = api.wait(op, _timeout_ms(deadline))
+        if waited == WAIT_OBJECT_0:
+            n, e = api.result(h, op, False)
+            settled.idle = True
+            return n, e, None
+        api.cancel(h, op)  # ERROR_NOT_FOUND (it completed meanwhile) is fine: the result below tells
+        # Unbounded on purpose: NPFS completes a cancelled pipe IRP itself, whatever the server does.
+        n, e = api.result(h, op, True)
+        settled.idle = True
+        return n, e, (TIMED_OUT if waited == WAIT_TIMEOUT else WAIT_FAILED_WHY)
+    except BaseException:
+        if err == ERROR_IO_PENDING and not settled.idle:
+            try:
+                api.cancel(h, op)
+                api.result(h, op, True)
+                settled.idle = True
+            except BaseException:  # noqa: BLE001 - a second interrupt: leave op parked, re-raise the first
+                pass
+        raise
 
 
 def _winerr(code: int) -> str:
@@ -293,44 +337,58 @@ class WinPipeStream:
         except Exception:  # noqa: BLE001 - closing is best effort
             pass
 
-    def _io(self, kind: str, payload: bytes | int, deadline: float) -> tuple[int, int, bool, bytes]:
+    def _start(self, h: int, op: _Op) -> int:
+        """Issues ``op`` under the state lock, so ``close()`` either sees it pending (and cancels it) or has
+        already closed the stream (and it never starts)."""
+        with self._state:
+            if self._closed:
+                return ERROR_OPERATION_ABORTED
+            return self._api.start(h, op)
+
+    def _io(self, kind: str, payload: bytes | int, deadline: float) -> tuple[int, int, str | None, bytes]:
         h = self._enter()
         try:
             try:
                 op = self._api.new_op(kind, payload)
             except Win32Error as e:
                 raise RpcError("E_TRANSPORT", f"no event for the pipe ({_winerr(e.code)})", {"reason": "no-event"}) from None
+            settled = _Settled()
             try:
-                n, err, cancelled = _complete(self._api, h, op, deadline)
+                n, err, why = _complete(self._api, h, op, deadline, lambda: self._start(h, op), settled)
                 data = self._api.data(op, n) if kind == READ and err in (0, ERROR_MORE_DATA, ERROR_OPERATION_ABORTED) else b""
             finally:
-                self._api.free_op(op)
+                if settled.idle:
+                    self._api.free_op(op)
+                else:
+                    _PARKED.append(op)  # the kernel may still own it: never free it
         finally:
             self._leave()
-        return n, err, cancelled, data
+        return n, err, why, data
 
-    def _aborted(self, cancelled: bool, timeout_reason: str, message: str) -> RpcError:
-        if self._closed or not cancelled:
-            # cancelled by close() in another thread
+    def _aborted(self, why: str | None, timeout_reason: str, message: str) -> RpcError:
+        if self._closed or why is None:
+            # cancelled by close() in another thread, or never started because the stream was closed
             return RpcError("E_TRANSPORT", "the connection was closed during the call", {"reason": "closed"})
+        if why == WAIT_FAILED_WHY:
+            return RpcError("E_TRANSPORT", "waiting for the pipe failed", {"reason": "wait-failed"})
         return RpcError("E_TIMEOUT", message, {"reason": timeout_reason})
 
     def send(self, data: bytes, deadline: float) -> None:
         view = memoryview(data)
         while view:
             _remaining(deadline)
-            n, err, cancelled, _ = self._io(WRITE, bytes(view), deadline)
+            n, err, why, _ = self._io(WRITE, bytes(view), deadline)
             if err == 0:
                 view = view[n:]
                 continue
             if err == ERROR_OPERATION_ABORTED:
-                raise self._aborted(cancelled, "send-timeout", "sending timed out")
+                raise self._aborted(why, "send-timeout", "sending timed out")
             raise RpcError("E_TRANSPORT", f"sending failed ({_winerr(err)})", {"reason": "send-failed"})
 
     def _read_chunk(self, deadline: float) -> bytes:
         while True:
             _remaining(deadline)
-            n, err, cancelled, data = self._io(READ, _CHUNK, deadline)
+            n, err, why, data = self._io(READ, _CHUNK, deadline)
             if data:
                 return data  # also a read that completed while it was being cancelled, or ERROR_MORE_DATA
             if err == 0 or err == ERROR_MORE_DATA:
@@ -338,7 +396,7 @@ class WinPipeStream:
             if err in _EOF_ERRORS:
                 return b""
             if err == ERROR_OPERATION_ABORTED:
-                raise self._aborted(cancelled, "recv-timeout", "no response before the deadline")
+                raise self._aborted(why, "recv-timeout", "no response before the deadline")
             raise RpcError("E_TRANSPORT", f"receiving failed ({_winerr(err)})", {"reason": "recv-failed"})
 
     def recv_line(self, deadline: float) -> bytes:

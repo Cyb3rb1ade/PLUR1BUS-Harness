@@ -35,10 +35,12 @@ from plur1bus_memory_client.transport_win import (
     ERROR_IO_PENDING,
     ERROR_MORE_DATA,
     ERROR_NO_DATA,
+    ERROR_NOT_FOUND,
     ERROR_OPERATION_ABORTED,
     ERROR_PIPE_BUSY,
     ERROR_SEM_TIMEOUT,
     READ,
+    WAIT_FAILED,
     WAIT_OBJECT_0,
     WAIT_TIMEOUT,
     Win32Error,
@@ -160,7 +162,9 @@ class FakeKernel32:
     read smaller than the queued message returns ``ERROR_MORE_DATA``. ``sync``: operations that can
     finish at once complete synchronously instead of through the event. ``stall_writes``: writes stay
     pending (a server that does not read). ``complete_on_cancel``: bytes a read delivers while it is
-    being cancelled (the race a real pipe can have).
+    being cancelled (the race a real pipe can have). ``complete_before_cancel``: bytes a read delivers
+    just before ``CancelIoEx`` runs, which then fails with ``ERROR_NOT_FOUND``. ``wait_failed``:
+    ``WaitForSingleObject`` returns ``WAIT_FAILED`` at once.
     """
 
     def __init__(
@@ -182,6 +186,8 @@ class FakeKernel32:
         self.sync = sync
         self.stall_writes = False
         self.complete_on_cancel: bytes | None = None
+        self.complete_before_cancel: bytes | None = None
+        self.wait_failed = False
         self.responder = Responder(token=token, pid=server_pid or 0, rpc=rpc, handlers=handlers)
         self.log: list[tuple] = []
         self.addresses: list[str] = []
@@ -336,25 +342,34 @@ class FakeKernel32:
 
     def wait(self, op: FakeOp, timeout_ms: int) -> int:
         self.log.append(("wait", op.id, timeout_ms))
+        if self.wait_failed:
+            return WAIT_FAILED
         return WAIT_OBJECT_0 if op.event.wait(timeout_ms / 1000.0) else WAIT_TIMEOUT
 
-    def cancel(self, h: int, op: FakeOp | None) -> None:
+    def cancel(self, h: int, op: FakeOp | None) -> int:
+        """``CancelIoEx``: 0, or ``ERROR_NOT_FOUND`` when nothing matching was pending."""
         with self._lock:
-            self.log.append(("cancel", h, op.id if op is not None else None))
             c = self.conns.get(h)
-            if c is None:
-                return
-            targets = [op] if op is not None else list(c.pending)
-            for t in targets:
-                if t.done:
-                    continue
-                if t in c.pending:
-                    c.pending.remove(t)
+            if c is not None and self.complete_before_cancel is not None:
+                data = self.complete_before_cancel
+                for t in [op] if op is not None else list(c.pending):
+                    if not t.done and t.kind == READ:
+                        if t in c.pending:
+                            c.pending.remove(t)
+                        t.finish(len(data), 0, data)
+            targets = ([op] if op is not None else list(c.pending)) if c is not None else []
+            live = [t for t in targets if not t.done]
+            outcome = 0 if live else ERROR_NOT_FOUND
+            self.log.append(("cancel", h, op.id if op is not None else None) + (() if live else ("not-found",)))
+            for t in live:
+                if t in c.pending:  # type: ignore[union-attr]
+                    c.pending.remove(t)  # type: ignore[union-attr]
                 if t.kind == READ and self.complete_on_cancel is not None:
                     data = self.complete_on_cancel
                     t.finish(len(data), 0, data)
                 else:
                     t.finish(0, ERROR_OPERATION_ABORTED)
+            return outcome
 
     def result(self, h: int, op: FakeOp, wait: bool) -> tuple[int, int]:
         self.log.append(("result", h, op.id, bool(wait)))
