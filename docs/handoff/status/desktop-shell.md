@@ -130,6 +130,10 @@ Branch: `feat/desktop-shell-wp02-mock-harness`, base `1cc0df6`.
   core import concurrent-writer SQLite `database disk image malformed` test;
   the unchanged targeted retry passed all 10 and the unchanged full retry
   passed. No harness code was changed for it.
+- Review note: the fresh task-review agent could not complete because the
+  Codex usage limit was reached; the controller performed a read-only review
+  of the full WP2 diff and recorded no blocking finding. CI remains the
+  authoritative runtime review for Docker and Podman smoke.
 
 ### Next
 
