@@ -1,8 +1,9 @@
 # Desktop shell
 
 The desktop shell is an optional Tauri 2.12 client. WP1 provides an empty native
-window and static UI bundle; harness connections, runtime control and pairing are
-not implemented. The binding work sequence is in
+window and static UI bundle. WP2 adds a provisional, test-only Rust mock harness,
+fake executable surfaces, and a Linux stub image. The shell's connection,
+runtime control, and pairing UI arrive in later work packages. The binding work sequence is in
 [the handoff](handoff/2026-09-30-desktop-shell-codex.md).
 
 ## Development
@@ -20,6 +21,26 @@ cargo test --locked --workspace --no-fail-fast
 pnpm tauri dev
 ```
 
+`pnpm tauri dev` builds and starts the mock at `http://127.0.0.1:18700`
+with temporary state, then stops it and removes that state when Tauri exits.
+It does not yet connect the empty WP1 window to the mock. WP4 adds the
+connection flow; WP5 adds the SPA window and native `shell_info` bridge.
+For a standalone
+server, run `cargo run --locked -p plur1bus-mock-harness -- --port 18700`
+from `apps/desktop`; bind defaults to loopback. Its test-only pairing endpoint
+is `POST /__test/pair` with body `{}`. The executable contract and state rules
+are in [CONTRACT.md](../apps/desktop/mock-harness/CONTRACT.md).
+
+The fake Rust binaries (`fake-plur1bus`, `fake-container`) run on all desktop
+test targets and accept exact JSON scenario files through
+`PLUR1BUS_FAKE_SCENARIO`. Each invocation records argv to the scratch path in
+`PLUR1BUS_FAKE_RECORD`; no bearer token belongs in an exec argument.
+
+The [stub image instructions](../apps/desktop/stub-image/README.md) provide
+`build.mjs` and an opt-in Docker/Podman `smoke.mjs`. The smoke creates only
+named, labeled test objects and checks loopback publishing, `/meta`, the
+daemon-status fixture, and stop time. Do not point it at a personal runtime.
+
 Linux requires `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
 libsecret-1-dev patchelf`. The desktop is a separate Cargo workspace with its own
 lockfile at `apps/desktop/Cargo.lock`; the root workspace excludes `apps`.
@@ -34,7 +55,7 @@ key handling exists. No release signing credentials are needed for WP1.
 
 The bundled shell has a restrictive CSP and no granted native IPC commands.
 No native plugins, networking, permissions, telemetry or keychain integration
-are enabled. The window stays hidden until its page finishes loading. Stable
+are enabled in the shell yet. The window stays hidden until its page finishes loading. Stable
 integration identifiers live in `src-tauri/src/ids.rs`.
 
 The icons are explicit synthetic placeholders pending DskIcons exports. The

@@ -2,7 +2,7 @@
 
 ## WP1 — Scaffold, workspace, hygiene, desktop CI
 
-Status: DESKTOP GREEN — draft PR open; root system/service CI still pending.
+Status: GREEN — draft PR open; root and desktop CI passed at the WP1 head.
 Branch: `feat/desktop-shell-wp01-scaffold`.
 Base: `origin/main` at `e515dde` (no previous WP).
 PR: [#59](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/59).
@@ -45,9 +45,15 @@ This follow-up commit records verification only.
   and [push run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36804288008).
   All five targets produced unsigned preview packages.
 - PASS: root unit jobs on macOS/Linux/Windows at `7dd54fe`.
-- Pending: root system/service jobs in
+- PASS: root system/service jobs in
   [ci](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36804333621).
-  WP2 remains gated on a completely green root workflow.
+  The full WP1 root workflow is green.
+- PASS: follow-up docs head `1cc0df6`: all five desktop targets in
+  [desktop](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36805238055),
+  and all root jobs in
+  [ci attempt 2](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36805238108).
+  Attempt 1 timed out in the existing importer concurrent-writer SQLite test;
+  attempt 2 passed with no root code change.
 - PASS: manual packaged-app startup on macOS arm64 with HOME,
   CFFIXED_USER_HOME, XDG config/cache/data and TMPDIR redirected to scratch.
   Native accessibility inspection showed the PLUR1BUS window and HTML container
@@ -84,6 +90,48 @@ This follow-up commit records verification only.
 
 ### Next
 
-1. Finish CI on the open draft PR and record the result.
-2. Record CI results and exact tested commit. Do not start WP2 before WP1 is green.
-3. WP2: provisional harness contract and isolated mock; no real harness server.
+1. WP2: provisional harness contract and isolated mock; no real harness server.
+
+## WP2 — Provisional mock harness, fake binaries and stub image
+
+Status: IMPLEMENTED LOCALLY; controller owns final root and CI gates.
+Branch: `feat/desktop-shell-wp02-mock-harness`, base `1cc0df6`.
+
+- `apps/desktop/mock-harness`: in-process `MockHarness::start` control, standalone
+  loopback binary, provisional HTTP/SSE/WS session and host-bridge routes,
+  hashed persistent device/session state, injected clock and upgrade failure.
+- `apps/desktop/test-bins`: real Rust `fake-plur1bus` and `fake-container`
+  processes with exact scenario matching, argv recording, fixture documents and
+  explicit unknown-command errors. Pair/revoke share the mock's state.
+- `apps/desktop/stub-image`: two pinned Docker Hub manifest-list digests,
+  non-root read-only test image, opt-in Docker/Podman build and smoke scripts.
+  Runtime smoke creates namespaced labeled objects and checks loopback/meta,
+  fixture exec and stop time. The controller owns the matching CI workflow edit.
+- `pnpm tauri dev` now starts/stops a temporary standalone mock. The empty WP1
+  shell has no connection UI yet; WP4 supplies it. The SPA calls `shell_info`
+  only when Tauri IPC is exposed; WP5 will add the native command and
+  `spa-bridge` capability, so inside-app invocation remains untested in WP2.
+
+### Local verification
+
+- PASS: focused red/green cycles for pairing, fake process scenarios, rate
+  limit, event replay/restart, bridge grant and bridge call/result.
+- PASS: desktop `cargo test --locked --workspace --no-fail-fast` (WP1 8,
+  fake process 4, mock HTTP/WS 16); `cargo clippy --locked --workspace
+  --all-targets -- -D warnings`; UI build/test (1); standalone mock meta and
+  SIGTERM in 0.002 s; Node script syntax and no-opt-in skip.
+- PASS: minimal Docker build-context Cargo metadata and verified builder/runtime
+  manifest-list digests via the Docker Hub registry API on 2026-10-01.
+- Local container build/run: unavailable; Docker's selected daemon socket is
+  absent and Podman is not installed. The opt-in CI smoke must supply actual
+  Docker and Podman runtime evidence before the WP2 gate closes.
+- Root validation: controller observed frozen install, toolchain check, gen,
+  build, lint, Rust fmt/Clippy/tests PASS. First `pnpm test` hit the unchanged
+  core import concurrent-writer SQLite `database disk image malformed` test;
+  the unchanged targeted retry passed all 10 and the unchanged full retry
+  passed. No harness code was changed for it.
+
+### Next
+
+1. Controller runs the real-runtime stub smoke on disposable Docker and Podman CI.
+2. Controller completes root test/CI review, then WP3 can start.

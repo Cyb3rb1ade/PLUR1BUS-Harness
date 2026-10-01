@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><title>PLUR1BUS mock</title></head><body>
+<main><h1>PLUR1BUS mock harness</h1><p id="identity">Not signed in</p><p id="bridge"></p></main>
+<script>
+async function main() {
+  const ticket = new URLSearchParams(location.hash.slice(1)).get('t');
+  if (ticket && location.pathname === '/auth/ticket') {
+    await fetch('/api/v1/auth/ticket/redeem', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ticket})});
+    history.replaceState(null, '', '/');
+  }
+  const res = await fetch('/api/v1/auth/whoami');
+  if (res.ok) { const user = await res.json(); document.getElementById('identity').textContent = user.userId; }
+  if (window.__TAURI_INTERNALS__?.invoke) {
+    try { const info = await window.__TAURI_INTERNALS__.invoke('shell_info'); document.getElementById('bridge').textContent = JSON.stringify(info); } catch (_) {}
+  }
+}
+main();
+</script></body></html>

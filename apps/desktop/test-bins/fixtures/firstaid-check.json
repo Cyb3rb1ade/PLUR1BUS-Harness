@@ -1,0 +1,1 @@
+{"schema":"1staid.check/1","checks":[{"name":"container","ok":true},{"name":"storage","ok":true},{"name":"engine.storeSchema","ok":true,"current":1,"required":1}]}
