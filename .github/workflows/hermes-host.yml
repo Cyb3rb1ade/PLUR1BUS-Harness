@@ -192,8 +192,15 @@ jobs:
         env:
           HERMES_HOME: ${{ env.HH }}
           COMMIT: ${{ matrix.hermes-commit }}
+          # CI round 3: install.ps1 clones the branch tip under Git for Windows' system core.autocrlf=true, sets
+          # core.autocrlf=false in the clone only afterwards and then checks out the pinned commit, which aborts on the
+          # clone's racily-clean CRLF files ("Your local changes ... would be overwritten by checkout"). A step-scoped
+          # global config with autocrlf off makes the clone LF from the start (what the installer pins anyway) and
+          # keeps the installer's own `git config --global` write out of the real profile.
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/hermes-gitconfig
         run: |
           $ErrorActionPreference = 'Stop'
+          Set-Content -LiteralPath $env:GIT_CONFIG_GLOBAL -Encoding ascii -Value "[core]`n`tautocrlf = false"
           $script = Join-Path $env:RUNNER_TEMP 'hermes-install.ps1'
           # Writes the user PATH (HKCU\Environment) and caches under the real profile: see the header comment.
           & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Commit $env:COMMIT -ForceCommit -HermesHome $env:HH -InstallDir $env:HERMES_DIR -NonInteractive -SkipSetup -SkipComputerUse

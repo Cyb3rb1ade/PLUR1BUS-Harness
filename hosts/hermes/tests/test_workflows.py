@@ -78,6 +78,23 @@ class HermesHostWorkflowTest(EngineTokenScopeMixin, unittest.TestCase):
         self.assertIn('show "$COMMIT:scripts/install.ps1"', code)
         self.assertIn("runner.environment != 'github-hosted'", code)
 
+    def test_windows_installer_clones_without_crlf_conversion(self) -> None:
+        """CI round 3 (windows-2025): install.ps1 clones the branch tip under Git for Windows' system
+        ``core.autocrlf=true``, pins ``core.autocrlf=false`` in the clone only afterwards, and then checks out the
+        commit; the racily-clean files of the clone now differ from the index and the checkout aborts ("Your local
+        changes ... would be overwritten"). The step gives git a step-scoped global config with autocrlf off, so the
+        clone is written with LF; it also keeps the installer's own ``git config --global`` out of the real profile."""
+        head, steps = _steps(_job(self.text, "real-hermes"))
+        win = next(st for st in steps if _step_name(st) == "install Hermes ${{ matrix.hermes }} (Windows)")
+        body = "\n".join(win)
+        self.assertIn("GIT_CONFIG_GLOBAL: ${{ runner.temp }}/hermes-gitconfig", body)
+        code = [ln for ln in win if not ln.lstrip().startswith("#")]
+        write = next(i for i, ln in enumerate(code) if "Set-Content -LiteralPath $env:GIT_CONFIG_GLOBAL" in ln)
+        self.assertIn("autocrlf = false", code[write])
+        run_installer = next(i for i, ln in enumerate(code) if "-File $script" in ln)
+        self.assertLess(write, run_installer, "the config exists before the installer clones")
+        self.assertFalse([ln for st in steps if st is not win for ln in st if "GIT_CONFIG_GLOBAL" in ln], "step-scoped")
+
     def test_triggers_permissions_and_checkout(self) -> None:
         for needle in ('"clients/**"', '"hosts/**"', '"crates/plur1bus/src/install/**"', '"packages/core/**"', '"scripts/build-hermes-provider.mjs"', "cron: '41 3 * * *'", "workflow_dispatch:"):
             self.assertIn(needle, self.text)
