@@ -1,7 +1,7 @@
 # Desktop app shell: handoff to Codex
 
 **Status:** Handoff brief · **Date:** 2026-09-30 · **Amended:** 2026-10-02 (owner decisions C13–C17 and C19–C22: §7.4,
-WP3, WP6, WP8, WP12, WP13; then C8, C9, C12: §3 rule 12, WP4, WP5, §6.2, §7.4, §8, §9) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
+WP3, WP6, WP8, WP12, WP13; then C8, C9, C12: §3 rule 12, WP4, WP5, §6.2, §7.4, §8, §9; then the owner's follow-up: `pair-proof` decided, the SPA proxy — §3 rule 13, §4.1, §4.2, WP5, §7.4, §8) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
 for OpenAI Codex · **Start prompt:** `docs/handoff/codex-start-prompt.md`.
 
 **Binding sources.** Read these; the ones marked *in full* must be read end to end.
@@ -297,6 +297,13 @@ These apply to every WP. A violation blocks the PR.
      environment variable or `exec` argument (plan Global Constraints).
    - `assert_no_token_on_disk` and the redaction test enforce this.
    - The same holds for the secret-store key of `host.keyUnlock`.
+13. **The `spa` webview never opens a connection to a harness** (owner 2026-10-02, spec §6.2 *SPA proxy*, DS6).
+    - It loads the SPA from `plur1bus-harness://localhost` (Windows `http://plur1bus-harness.localhost`); the Rust
+      SPA proxy forwards HTTP, SSE and WebSocket to the connection's origin over the app's rustls client (pin or OS
+      trust), for bundled, local and remote connections alike — one code path.
+    - The proxy serves only the `spa` webview (403 for any other label), forwards only to the connection's origin,
+      never adds `Authorization` or the device token, drops page-set `Authorization`/`Cookie`, keeps the session
+      cookie in an in-memory jar (the webview cookie store stays empty) and adds no IPC.
 9. **Pinned dependencies.** Exact versions, committed lockfiles, `--locked`/`--frozen-lockfile`. In new
    workflows, Actions are pinned by full commit SHA. Images are pinned by digest.
 10. **IPC is a closed allow-list** (DS7).
@@ -341,11 +348,11 @@ These apply to every WP. A violation blocks the PR.
 │ updates (feed verify, decide, Tauri updater) · install (shortcuts, CLI shim, target.json)    │
 ├───────────────┬───────────────────────────┬─────────────────────────┬────────────────────────┤
 │ webview       │ webview "spa" (incognito) │ child process           │ tray / menu bar         │
-│ "shell"       │ origin = paired harness   │ plur1bus-host (D107)    │ native menus            │
+│ "shell"       │ plur1bus-harness://       │ plur1bus-host (D107)    │ native menus            │
 │ bundled pages │ SPA of the harness        │ stdio JSON lines,       │                         │
 │ IPC: shell-ui │ IPC: spa-bridge (shell_info)│ capabilities: [] in D1 │                         │
 └───────────────┴───────────────────────────┴─────────────────────────┴────────────────────────┘
-       │ runtime API/CLI (never from JS)   │ HTTP to harness origin      │ ws://127.0.0.1:<p>/ws
+       │ runtime API/CLI (never from JS)   │ SPA proxy (Rust) → harness  │ ws://127.0.0.1:<p>/ws
        ▼                                   ▼                             ▼
  container runtime ── plur1bus-harness container (real: D1 Task 4; now: stub image / mock harness)
 ```
@@ -378,7 +385,8 @@ These apply to every WP. A violation blocks the PR.
 - **Capabilities:**
   - `capabilities/shell-ui.json` binds the `shell` webview to the shell commands.
   - `spa-bridge` is added at run time with `add_capability`: `webviews: ["spa"]`,
-    `remote.urls: ["<exact origin>/*"]`, and only `shell_info` in D1.
+    scoped to the SPA's app-internal origin `plur1bus-harness://localhost` (spec §6.9; whether Tauri treats it as
+    local or needs it under `remote.urls` is a Task 13 Step 0 finding), and only `shell_info` in D1.
   - The runtime capability is replaced on every connection switch.
   - No capability lists a `panel-*` label.
 - **The command table.** One table in `commands.rs`, tested. Labels are shown here as "window → commands".
@@ -405,7 +413,8 @@ These apply to every WP. A violation blocks the PR.
   - The SPA's CSP is the harness's own.
 - **Isolation between shell pages and the SPA.** They are different webviews with different origins:
   - `shell` loads `tauri://localhost` or `http://tauri.localhost`, is persistent and holds no secrets;
-  - `spa` loads the harness origin, is `incognito`, has `drag_drop_enabled(false)`, `on_navigation` limited to
+  - `spa` loads `plur1bus-harness://localhost` (Windows `http://plur1bus-harness.localhost`) through the SPA proxy
+    (rule 13), never the harness origin itself, is `incognito`, has `drag_drop_enabled(false)`, `on_navigation` limited to
     the same origin, other `http(s)`/`mailto` links opened externally, and `window.open` to foreign origins
     blocked.
 
@@ -634,7 +643,8 @@ follow the D1 plan where it has them, so Claude can map them.
 
 ### WP5 — SPA window: incognito, ticket login, navigation guard, `spa-bridge` *(first)*
 
-- **Goal.** *Open* shows the harness SPA logged in, without the token ever entering the webview.
+- **Goal.** *Open* shows the harness SPA logged in, without the token ever entering the webview, through the Rust
+  SPA proxy (rule 13).
 - **Files:** `src-tauri/src/{policy,spa}.rs`, `tests/{policy,spa}.rs`; the error view for
   `/auth/ticket-failed`.
 - **Interfaces:** plan Task 13: `spa_navigation`, `check_spa_caller`, `open_spa`, and `shell_info` returning
@@ -642,17 +652,19 @@ follow the D1 plan where it has them, so Claude can map them.
   `http:` and `mailto:` URLs, and is implemented in Rust (no opener plugin).
 - **Accept:**
   - `navigation_table`, `caller_check_rejects_other_webview_and_other_origin`;
-  - `shell_info_is_the_only_spa_command`, `spa_bridge_capability_is_scoped_to_the_connection_origin`;
+  - `shell_info_is_the_only_spa_command`, `spa_bridge_capability_is_scoped_to_the_spa_origin`;
   - `switching_connection_replaces_the_capability`. If the Tauri mock runtime cannot express this, test through
     `policy.rs` plus a recorded manual check, and say so;
   - `a_replayed_ticket_page_is_retried_once_then_shows_the_error`;
   - `no_cookie_database_in_app_dirs` + `assert_no_token_on_disk` after an open/close cycle;
   - against the mock: quit and restart logs in again through a fresh ticket (acceptance 11).
-- **Webview pin (C8, DR27):** first the plan Task 13 Step 0 spike — per target, whether the `spa` webview can accept
-  exactly the pinned leaf (WKWebView server-trust challenge, WebView2 `ServerCertificateErrorDetected`, WebKitGTK
-  TLS-error signal + allow-certificate-for-host) through wry/Tauri 2.12. Where it cannot, refuse pinned connections with
-  the message naming `tailnet` or `company-ca`. Report before patching wry.
-- **Pointers:** DS3, DS5, DS6, DS7, §6.9; D1 plan Task 13; acceptance 8a, 10 and 11.
+- **SPA proxy (C8, DR27; owner 2026-10-02):** `spa_proxy.rs` as plan Task 13. First the Step 0 spike on WebView2,
+  WKWebView and WebKitGTK: SSE streaming and WebSocket through the custom protocol (Tauri's responder is expected to
+  buffer whole bodies and no engine to route WebSocket upgrades to a custom scheme — both unverified), latency budget
+  (proxy overhead p95 ≤ 5 ms on loopback, first SSE event unbuffered), the page's `Origin`, CSP `'self'`, and how Tauri
+  classifies the custom-scheme page for the capability. If SSE or WebSocket cannot pass on a target, report before
+  building the loopback fallback (spec §6.2). Accept: the plan Task 13 `spa_proxy` list.
+- **Pointers:** DS3, DS5, DS6, DS7, §6.2 *SPA proxy*, §6.9; D1 plan Task 13, DR27; acceptance 8a, 10, 10a and 11.
 
 ### WP6 — App lifecycle: single instance, windows, tray, quit, autostart, logging, crash *(first)*
 
@@ -1339,6 +1351,12 @@ Other conflicts that touch you (§13.5):
   - The fingerprint of a self-signed certificate travels in the pairing payload; a typed code goes through
     `pair-proof` first (§6.2). DS6 changed: accept a pinned self-signed leaf or an OS-trusted CA, still refuse
     unpinned self-signed and plain http. DS16 extended (TLS port on a host interface) — D2.
+  - The typed-code `pair-proof` design is an owner decision (2026-10-02). Rejected: a manual fingerprint check for
+    typed codes, the fingerprint in the redeem response alone, a PAKE.
+  - Owner follow-up (2026-10-02): the `spa` webview never opens TLS to a harness; the Rust SPA proxy serves it
+    under `plur1bus-harness://localhost` and forwards HTTP, SSE and WebSocket — one code path for every connection
+    kind (rule 13).
+  - At `remote.publish` = `local` the SPA hides its pairing card (M3).
   - For you: WP4 and WP5 as above; `create_spec_is_exact` stays loopback-only.
 - **C9 Where connections live.** *Decided 2026-10-02: reading 1.* The per-row *Switch* in the SPA's *Devices &
   Remote* is removed; one *Manage in the app* opens the app's *Connections* page through the C20 handover command
@@ -1368,9 +1386,10 @@ M3), and Claude closes those.
 | 6 | Host CLI (`--help` local, forwarded `--json` byte for byte) | — / WP13 (`target.json`) | forwarder is Task 10, out |
 | 7 | Host bridge: locked until the app reconnects; switch off stays locked; ungranted capability refused | WP9 | mock; full after Task 2 |
 | 8 | Remote pairing by code; non-loopback `http://` refused before any request | WP4, WP5 | mock; full after M3 |
-| 8a | Pinned self-signed remote (C8): pin from `pair-proof`, changed or unpinned certificate refused before any code or token is sent, webview pin per target or the named refusal | WP4, WP5 | mock with generated certificates; full after M3 |
+| 8a | Pinned self-signed remote (C8): pin from `pair-proof`, changed or unpinned certificate refused before any code or token is sent; the SPA reaches it only through the SPA proxy | WP4, WP5 | mock with generated certificates; full after M3 |
 | 9 | Revoke → pairing screen, keychain entry gone | WP4, WP6 | mock |
 | 10 | SPA can call `shell_info` only; other origin or navigated page refused; foreign links open externally | WP5 | full (shell-side) |
+| 10a | SPA proxy: every connection kind through `plur1bus-harness://`; SSE and `/ws` through the proxy (or the approved fallback); 403 for other webviews; no `Authorization`/device token; only the connection's origin; empty webview cookie store; overhead within budget | WP5 | full (shell-side) against the mock |
 | 11 | Restart → fresh ticket login, no cookie on disk; ticket single use and 60 s | WP5 | shell-side full; ticket rules mock |
 | 12 | Tampered update refused; signed beta installs after *Jetzt*; other-channel key refused | WP10 | full with test keys; the macOS install is a recorded manual check |
 | 13 | `desktop.yml` five targets; `container.yml` image build, sign, size gate; Tauri 3 canary reported | WP1, WP14 | desktop yes; the real image pipeline is Task 4 |
