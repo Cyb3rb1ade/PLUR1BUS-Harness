@@ -568,7 +568,8 @@ follow the D1 plan where it has them, so Claude can map them.
 - **Interfaces:**
   - `ipc.ts` is the only module that calls `invoke` (bundled `@tauri-apps/api/core`).
   - `tokens.css` is the single provisional token source, from §13.1: the light Glow values and the dark shell
-    set. It carries a header saying it gets replaced by the M3 theme file (C1 open, §7.4).
+    set. It carries a header saying it gets replaced by the M3 theme file, which is generated from §13.1 (C1
+    decided 2026-10-01, §7.4).
   - Themes follow `prefers-color-scheme`, dark as the fallback, with a three-state override
     (system/light/dark) stored in `settings.json` (default of G-3 in §9).
   - Locale follows the OS (German systems → `de`, everything else → `en`), with a manual override (owner,
@@ -579,7 +580,7 @@ follow the D1 plan where it has them, so Claude can map them.
     - Windows dialogs get a footer band;
     - GNOME compact buttons fill the width;
     - OS words: *menu bar*, *notification area*, *top bar*, *system tray*.
-  - Wordmark as drawn (`SETT1NGS`, `CONNECT1ONS`, C4 open). `prefers-reduced-motion` stops every animation.
+  - Wordmark as drawn (`SETT1NGS`, `CONNECT1ONS`, C4 decided 2026-10-01). `prefers-reduced-motion` stops every animation.
 - **Accept:**
   - `i18n: en and de have identical key sets and no empty strings`;
   - `layout: breakpoints follow content width (compact < 1024, wide > 1600)`;
@@ -662,8 +663,10 @@ follow the D1 plan where it has them, so Claude can map them.
     - *Connections…*;
     - *Settings…*;
     - *Quit PLUR1BUS*.
-  - Icons: the four glyph classes of C18 (ring = busy, dot = update, triangle = attention, plain = ready),
-    template images on macOS, light and dark `.ico` on Windows, symbolic SVG on Linux.
+  - Icons (owner, 2026-10-01; §7.3): the red `1` with the four badge classes of C18 (ring = busy, dot =
+    update, amber triangle = attention, no badge = running), `-light`/`-dark` per state; a coloured status
+    item on macOS (`iconAsTemplate: false`, template set only as fallback), light and dark `.ico` on Windows,
+    light/dark plus symbolic SVG on Linux.
   - Quit dialog: a shell-page modal, not a native dialog (no dialog plugin). Default *keep PLUR1BUS running*
     (DR9).
   - Linux without an AppIndicator host: the window stays in the taskbar, with a one-time hint (C17 default).
@@ -1117,13 +1120,18 @@ base64url, never logged. There is no generic "run this" operation, ever. The hel
 ### 7.1 The canvas
 
 - **URL:** https://claude.ai/artifact/CRjk86mofQ9vqhb2twu8wS (the owner's Design artifact).
-- **Pages:**
-  - **`v2 · Desktop & responsive`** (id `desk`, 63 boards): every D1 shell page in the native frames of macOS
-    15, Windows 11, GNOME 47 and KDE Plasma 6, light and dark, at normal (1280 window), compact 960 and wide
-    2560. Also the tray, the icon set `DskIcons` and the responsive rules `RspRules`;
-  - **`v2 · Glow`** (56 boards): the harness SPA (M3 onward). You need it only for the visual language and the
-    approvals card (`V2Inbox`, `V2Approvals`);
-  - `v1` is superseded.
+- **Pages** (regrouped by the owner 2026-10-01; board file names unchanged, so every board name below holds):
+  - **`v3 · Glow`** (id `v3`, the launch page, 119 boards, in labelled sections):
+    - the desktop sections (64 boards, formerly page `v2 · Desktop & responsive`, id `desk`): every D1 shell
+      page in the native frames of macOS 15, Windows 11, GNOME 47 and KDE Plasma 6, light and dark, at normal
+      (1280 window), compact 960 and wide 2560. Also the tray, the icon sets `DskIcons` and `DskTrayIcons`, and
+      the responsive rules `RspRules`;
+    - the SPA sections (55 `V2*` boards, formerly page `v2 · Glow`): the harness SPA (M3 onward). You need them
+      only for the visual language and the approvals card (`V2Inbox`, `V2Approvals`);
+  - **`Building blocks & open`** (id `parts`): the component files (`DskWin`, `DskDesk`, `DskIcon`,
+    `DskInstall`, `DskUpdate`, `DskSettings`, `DskSidecars`, `DskConnections`, `DskP1x`, `DskTray`,
+    `V2BrowserPanel`) and `V2Sidecars` (open under C20);
+  - `v1 · Original & concepts` is the archive.
 - **Behaviour vs looks.** The canvas owns how screens look and what they contain. The spec, the D1 plan and
   ADR-004 own behaviour, security and decisions (§13).
 - **If you cannot open the artifact** (it needs a claude.ai login): §13.1, §13.6, §13.7 and §13.8 carry the
@@ -1140,6 +1148,7 @@ base64url, never logged. There is no generic "run this" operation, ever. The hel
 | `DskB-Connections-*` | list, add-remote, add-error, repair, revoked, no-keychain | WP4 |
 | `DskB-Tray-{mac,win,gnome,kde}` | ready, starting, error, update | WP6 |
 | `DskIcons` | — | WP1, WP6, WP13 |
+| `DskTrayIcons` | running, starting/busy, attention, update × light, dark, template | WP6 |
 | `RspRules` | — | WP3, WP15 |
 
 Not D1:
@@ -1179,19 +1188,28 @@ Not D1:
 
 ### 7.3 Icon set (§13.8)
 
-- **Master artwork:** `icons/master.svg` (1024 grid), `small.svg` (≤ 32 px, ring dropped at ≤ 24), `glyph.svg`
-  (tray, never a 1 px stroke).
+- **Brand rule (owner, 2026-10-01):** the red Lilita One "1" (`#E5484D`) is the brand core. The tray icon, the
+  macOS menu-bar icon and **every icon below 48 px** (including the 40 px `.ico` frame and `Square44x44Logo`
+  scale-100) use the **red `1` alone** (no plate). **From 48 px up** the app icon uses **"P1B"**: P and B light
+  on the dark plate inside the duo ring, the 1 red.
+- **Master artwork:** `icons/master.svg` (1024 grid), `small.svg` (≤ 32 px, ring dropped at ≤ 24; superseded by
+  the red `1` alone above), `glyph.svg` (tray, never a 1 px stroke).
 - **Tauri `bundle.icon`:** `32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns` (16–512 at 1×/@2×),
   `icon.ico` (16, 20, 24, 32, 40, 48, 64, 256).
-- **macOS tray:** template PNG per state at 16/18 pt, 1×/2×/3×.
+- **Tray icon (owner, 2026-10-01; `DskTrayIcons`):** the red `1` alone; state by badge shape: none = running,
+  ring = starting/busy, amber triangle = needs attention, dot = update available. Badge ink follows the bar
+  (dark on light bars, white on dark), so each state ships `-light` and `-dark` files. SVG masters in the
+  artifact: `assets/tray/red-1-<state>-<light|dark|template>.svg`.
+- **macOS tray:** a coloured status item (Tauri `iconAsTemplate: false`) per state at 16/18 pt, 1×/2×/3×; the
+  black template set is kept only as a fallback.
 - **Windows tray:** `.ico` per state, light and dark, 16/20/24/32.
 - **MSIX:** `Square44x44Logo` scale-100/150/200/400 + targetsize-16/24/32/48/256 unplated, `StoreLogo`
   50/75/100/200, `Square150x150Logo`, `Square310x310Logo`. Check what Tauri's MSIX target requires beyond these.
 - **Linux:** hicolor `{16,22,24,32,48,64,128,256,512}` `app.plur1bus.desktop.png`, plus `scalable` and
-  `symbolic` SVG. Tray icons are symbolic SVG at 16/22/24.
-- **Tray states:** four glyph classes, told apart by shape (C18).
+  `symbolic` SVG. Tray icons at 16/22/24: the red `1` `-light`/`-dark` per state, plus `-symbolic` SVGs.
+- **Tray states:** four glyph classes, told apart by shape (C18, settled by the owner 2026-10-01).
 
-### 7.4 Open owner conflicts C13–C18, quoted from §13.5, with the default you implement
+### 7.4 Owner conflicts C13–C18 (C18 settled 2026-10-01), quoted from §13.5, with the default you implement
 
 Across all six the rule is DR26: **the spec's behaviour, the board's layout and copy**, until the owner decides.
 
@@ -1232,7 +1250,7 @@ Across all six the rule is DR26: **the spec's behaviour, the board's layout and 
 
   **Default:** reading 2. The Flatpak Background portal request (D101) is still made for autostart.
 
-- **C18 Tray states.**
+- **C18 Tray states.** *Settled 2026-10-01 toward reading 1 by the owner's icon decision (§7.3).*
 
   > DR10 / Task 14: 8 harness × 3 runtime states in words, *Start/Stop harness*, *Start runtime* (Apple), one icon per state. Board: 4 states — *Running*, *Starting* (models warming, *Stop* disabled), *Needs attention* (*Start PLUR1BUS*, *Show log…*, *Copy details*), *Update available* — and 4 glyph badges told apart by shape (ring = busy, dot = update, triangle = attention; macOS tints template icons, so colour is lost). *Reading 1:* the 4 glyphs are icon classes onto which DR10's states map (`starting`/`updating` → ring, `degraded`/`down`/`unpaired`/`crashed`/`rollback` → triangle, update → dot), the header keeps all states in words, and the rest is gap G2. *Reading 2:* the tray is reduced to four states, which changes DR10.
 
@@ -1240,9 +1258,12 @@ Across all six the rule is DR26: **the spec's behaviour, the board's layout and 
 
 Other conflicts that touch you (§13.5):
 
-- **C1** token source: the provisional `tokens.css` from the Glow values.
-- **C2** default theme: follow the OS, dark as fallback.
-- **C4** wordmark: the morph as drawn, isolated in one component.
+- **C1** token source — **decided by the owner 2026-10-01 (reading 1):** `tokens.css` from the Glow values
+  (§13.1), no `--oc-*`.
+- **C2** default theme — **decided by the owner 2026-10-01:** follow the OS, dark as fallback, three-state
+  override (system/light/dark).
+- **C4** wordmark — **decided by the owner 2026-10-01 (reading 1):** the morph as drawn, isolated in one
+  component.
 - **C9** and **C20**: no `shell_*` command beyond `shell_info`.
 - **C22** 44 px targets: on shell pages, yes.
 
@@ -1285,7 +1306,7 @@ WP11.
 |---|---|---|
 | G-1 | Build the shell now against a provisional contract and a mock, although D1 formally starts after M3? | **Yes.** Everything harness-facing sits behind constants and the mock; the DR1 mapping happens when M3 lands. |
 | G-2 | D109 names the desktop app a **T3** approval surface, but no scope or endpoint lets the app decide approvals. The SPA inside the app is a normal cookie session that the harness cannot tell apart from a browser. Add a device scope `approvals.decide` plus a decision route, or mark ticket-redeemed sessions as `surface: desktop`? | The native approvals window lists requests and opens the SPA route to decide. Decide buttons exist against the mock only, behind `PLUR1BUS_DESKTOP_APPROVALS_DECIDE=1`. M3/D109 picks the mechanism. |
-| G-3 | Theme default: ADR-004 says dark default with light per OS; the canvas draws light as default (C2). | Follow the OS; dark when the OS states no preference; three-state override. |
+| G-3 | Theme default: ADR-004 says dark default with light per OS; the canvas draws light as default (C2). | Follow the OS; dark when the OS states no preference; three-state override. **Decided by the owner 2026-10-01 (C2, ADR-004 amendment).** |
 | G-4 | Deep links: §6.3/DR2 put `plur1bus://pair\|open` in D2, milestones put `plur1bus://chat/*` (D92) in D1, and X3 needs `plur1bus://install` and `.p1x` in D1. | Scheme registration, parsing and validation in D1 (WP12). `pair`/`open` active; `chat`/`install`/`.p1x` answer "not available yet". |
 | G-5 | D101 says "the app's *Settings › General* toggles own" the desktop icon and autostart after install, but the shell's settings have no *General* section (that is the SPA's `V2General`). | *Start PLUR1BUS when I log in* in shell Settings → Runtime (as drawn); a Windows-only *Desktop icon* toggle in Settings → Advanced. No new `shell_*` command. |
 | G-6 | Accessibility gates reference "the M3 axe-core runner", which does not exist. | The shell ships its own pinned axe-core runner in `desktop-ui` tests; M3 can adopt or replace it. |
@@ -1294,7 +1315,7 @@ WP11.
 | G-9 | Linux without Secret Service (DR8, memory-only token store): `host.keyUnlock` would provision a key that is lost at the next app restart, leaving the harness's encrypted store permanently locked. | Refuse to provision on memory-only. The harness stays `secrets-locked` with a banner naming the fix (install or unlock a Secret Service keyring), or ADR-005's operator choice. Owner may pick otherwise. |
 | G-10 | Hygiene: §6.12/Task 18 want every `uses:` pinned by SHA, but the existing `ci.yml`, `nightly.yml` and `harness-release.yml` use tags (`actions/checkout@v4`). A global lint would break `main`. | The SHA lint applies to `desktop.yml`, `container-shell.yml` and `apple-container.yml` only. Pinning the existing workflows is a separate owner call. |
 | G-11 | Workspace location: DS13 and the plan put the lockfile in `src-tauri/`. The mock, helper and test binaries want to share it. | One desktop workspace at `apps/desktop/Cargo.toml`, lockfile `apps/desktop/Cargo.lock`, still outside the root workspace (DS13's intent kept). |
-| G-12 | Codex may be unable to open the claude.ai canvas. | Work from spec §13's copied values. Owner exports the `desk` boards as PNGs into `docs/ui/desk/` if pixel checks are wanted. |
+| G-12 | Codex may be unable to open the claude.ai canvas. | Work from spec §13's copied values. Owner exports the desktop-section boards of `v3 · Glow` as PNGs into `docs/ui/desk/` if pixel checks are wanted. |
 | G-13 | Crash handling has no spec text. | Local crash file, *Copy details* at the next start, no upload (§4.2). |
 | G-14 | The D107 helper is placed in D2, but the brief asks for its frame now. | The frame ships in D1 with zero capabilities and a stdio protocol. Signing and entitlements are wired through the WP13 hooks; notarisation is D2. |
 | C13–C18 | See §7.4. | As written there. |
