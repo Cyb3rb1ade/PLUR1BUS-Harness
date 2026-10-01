@@ -41,6 +41,15 @@ FLAT_INTERNALS = os.environ.get("PLUR1BUS_SYSTEM_INTERNALS") or "flat-embedder"
 HEALTH_INTERVAL_MS: int | None = 20_000 if sys.platform == "win32" else None
 
 
+#: How long an observer read (``LiveStack.memories``) retries a core that answers ``E_CORE_UNAVAILABLE`` (busy, not down).
+BUSY_RETRY_S = 15.0
+
+
+def _core_unavailable(err: CliError) -> bool:
+    """Whether a failed CLI call reported the core unavailable (keyed on the error code, never the message)."""
+    return isinstance(err.doc, dict) and err.doc.get("error") == "E_CORE_UNAVAILABLE"
+
+
 def requirements() -> tuple[str, str]:
     """``(bin, core_js)`` from ``PLUR1BUS_BIN`` / ``PLUR1BUS_CORE_JS``; raises ``unittest.SkipTest`` (and prints the
     reason) when either is unset or missing."""
@@ -170,10 +179,23 @@ class LiveStack:
         with open(os.path.join(self.home, "run", "core.token"), encoding="ascii") as f:
             return f.read().strip()
 
-    def memories(self, agent: str) -> list[dict]:
-        doc = self.cli("memory", "list", "--agent", agent)
-        assert isinstance(doc, dict)
-        return list(doc.get("items") or [])
+    def memories(self, agent: str, *, busy_s: float = BUSY_RETRY_S) -> list[dict]:
+        """The agent's memories through ``plur1bus memory list`` (an observer independent of the client under test).
+
+        The CLI's memory commands give the core 300 ms to answer ``core.auth`` (``commands/memory.rs``: fail fast, so
+        ``memory add`` falls back to its journal). A core whose event loop is busy for longer, as right after a
+        replayed capture on a slow Windows runner (HM2 CI round 3, windows-2025: ``handshake-timeout`` with the core
+        ready), answers ``E_CORE_UNAVAILABLE`` although it is up. The observer then reads again for up to ``busy_s``;
+        a core that stays unavailable still fails the read with the last error."""
+        end = time.monotonic() + busy_s
+        while True:
+            doc = self.cli("memory", "list", "--agent", agent, check=False)
+            if not isinstance(doc, CliError):
+                assert isinstance(doc, dict)
+                return list(doc.get("items") or [])
+            if not _core_unavailable(doc) or time.monotonic() >= end:
+                raise doc
+            time.sleep(0.25)
 
     def close(self) -> None:
         """``daemon stop``; then kill whatever still runs against the home; then remove it."""
