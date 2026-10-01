@@ -150,3 +150,8 @@ packages/*/generated/
 
 # Local agent worktrees (Claude Code)
 .claude/worktrees/
+
+# Desktop workspace build outputs
+/apps/desktop/target/
+/apps/desktop/ui/dist/
+/apps/desktop/src-tauri/gen/
