@@ -1,6 +1,7 @@
 # Desktop app shell: handoff to Codex
 
-**Status:** Handoff brief · **Date:** 2026-09-30 · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
+**Status:** Handoff brief · **Date:** 2026-09-30 · **Amended:** 2026-10-02 (owner decisions C13–C17 and C19–C22: §7.4,
+WP3, WP6, WP8, WP12, WP13) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
 for OpenAI Codex · **Start prompt:** `docs/handoff/codex-start-prompt.md`.
 
 **Binding sources.** Read these; the ones marked *in full* must be read end to end.
@@ -288,7 +289,7 @@ These apply to every WP. A violation blocks the PR.
    - Nothing pipes a credential into a subprocess (D109 §9, `credential.entry` = never).
 7. **OS permissions just in time.**
    - Nothing is requested at install or first start beyond what the feature in hand needs. Keychain access
-     happens at pairing; notifications are D2.
+     happens at pairing; notifications are D2, except the GNOME no-tray banners (C17, WP6).
    - The permissions page shows status and opens the exact system pane; it never pre-requests (D107).
 8. **The device token lives only in the OS keychain**, and in Rust memory as a `SecretString`
    (zeroized, `Debug` prints `***`).
@@ -388,7 +389,8 @@ These apply to every WP. A violation blocks the PR.
     - `harness_upgrade_status`, `harness_rollback`;
     - `update_check|install|later|skip`, `update_settings`;
     - `settings_get|set`, `bridge_settings`, `helper_status`, `permissions_open_pane`, `approvals_list`;
-    - `uninstall_containers|images|volumes`, `quit_decision`, `diagnostics_copy`.
+    - `uninstall_summary|run` (closed level enum `app_only|app_and_images|everything`; `everything` requires the
+      typed `plur1bus-state`, checked in Rust; C16), `quit_decision`, `diagnostics_copy`.
   - `spa` → `shell_info`.
 
   Adding a command means a spec reference, a row in the table and a test. Everything else is refused.
@@ -585,7 +587,7 @@ follow the D1 plan where it has them, so Claude can map them.
   - `i18n: en and de have identical key sets and no empty strings`;
   - `layout: breakpoints follow content width (compact < 1024, wide > 1600)`;
   - `layout: 400 CSS px has no horizontal scroll`;
-  - `layout: text ≥ 12 px, targets ≥ 44 px on shell pages`;
+  - `layout: text ≥ 12 px, targets ≥ 44 px on shell pages` (at every width; C22 decided 2026-10-02);
   - `layout: dialogs are min(680, window − 48)`;
   - axe-core WCAG 2.1 AA clean on a sample view in both themes and both locales;
   - full keyboard traversal;
@@ -649,7 +651,7 @@ follow the D1 plan where it has them, so Claude can map them.
   - autostart is a real toggle;
   - logs are redacted;
   - crashes are recorded locally.
-- **Files:** `src-tauri/src/{tray,events,logging,crash,settings}.rs`, `controller/autostart.rs` (plugin
+- **Files:** `src-tauri/src/{tray,events,logging,crash,settings,notify}.rs`, `controller/autostart.rs` (plugin
   wrapper behind a trait), `tests/{events,tray_state,logging,crash}.rs`, `ui/src/views/quit-dialog.ts`.
 - **Interfaces:**
   - `TrayState`, `map_status`, `combine`, `EventStream` (plan Task 14): `GET /events?topics=harness.status`,
@@ -669,7 +671,10 @@ follow the D1 plan where it has them, so Claude can map them.
     light/dark plus symbolic SVG on Linux.
   - Quit dialog: a shell-page modal, not a native dialog (no dialog plugin). Default *keep PLUR1BUS running*
     (DR9).
-  - Linux without an AppIndicator host: the window stays in the taskbar, with a one-time hint (C17 default).
+  - Linux without an AppIndicator host (GNOME; C17 decided 2026-10-02, §7.4): a notification banner
+    (`tauri-plugin-notification`, `notify.rs`) for every tray-state change with the drawn actions (*Open/Dismiss*,
+    *Show log/Start again*, *Later/Update…*); the Flatpak build is listed under *Background Apps* (XDG Background
+    portal); deb/rpm/AppImage keep the window in the dash, with a one-time hint.
   - `autostart::set_enabled` and `on_login` (start minimised to the tray). The runtime and harness start is
     wired in WP8.
   - `logging::init`/`redact`, and the crash hook as in §4.2.
@@ -677,6 +682,7 @@ follow the D1 plan where it has them, so Claude can map them.
   - `map_status_table`, `combine_table`;
   - `stream_reconnects_with_backoff_and_last_event_id`, `revoked_stream_goes_unpaired_and_stops`;
   - `quit_asks_and_defaults_to_keep_running`;
+  - `gnome_without_appindicator_notifies_every_state_change` (injected notifier);
   - `second_instance_focuses_the_first`;
   - `autostart_toggle_calls_the_launcher` (fake);
   - `redact_removes_tokens_tickets_cookies_keys_and_url_fragments`,
@@ -714,7 +720,7 @@ follow the D1 plan where it has them, so Claude can map them.
 
 ### WP8 — Controller, bundled install and auto-pair, wizard, Settings → Runtime
 
-- **Goal.** "Weiter, weiter, fertig" against the stub image:
+- **Goal.** The wizard (Welcome → Licences → Runtime → Installing → Done; C13) against the stub image:
   - detect;
   - acquire by digest;
   - create volumes and the container;
@@ -738,7 +744,8 @@ follow the D1 plan where it has them, so Claude can map them.
     and revoking the old device after the new token is stored;
   - `target.json` writer (plan Task 10 format).
 
-  Wizard: follow the §6.15.10 behaviour with the board layout, per the C13/C14 defaults in §7.4. Error kinds as
+  Wizard: §6.15.10 as decided (C13, C14, C15; §7.4) — the board's steps, no *Resources* and no offline/online
+  step, "Checksums verified". Error kinds as
   plan Task 12.
 
   Settings → Runtime:
@@ -756,13 +763,13 @@ follow the D1 plan where it has them, so Claude can map them.
     Docker's policy, wake-gap handling, `docker_socket_wait_is_bounded_to_120s`);
   - the plan Task 9 bundled list (`pair_bundled_*`, `the_token_is_never_in_an_exec_argument_or_env`,
     `bundled_revoked_repairs_once_then_asks`);
-  - `wizard-model: happy path is three primary actions` (or the count the C13 default gives; record it), and
+  - `wizard-model: happy path is four primary actions and never asks offline or online`, and
     every error kind maps to a message and a retry target;
   - `controller_e2e` on the stub image with Docker and Podman: install → ready → kill PID 1 → restarted → stop
     → uninstall; the port is bound only on `127.0.0.1` (probe the non-loopback addresses).
 - **Pointers:** DS1, DS14–DS20, §6.1 "Bundled", §6.2 step 0, §6.15.3–§6.15.7, §6.15.10; D1 plan Tasks 7, 9, 12;
   acceptance 1 (mock level), 3, 4 (controller half); boards `DskB-Install-*` (all states), `DskB-Settings-*`
-  runtime / runtime-crashed; C13, C14, C15, G1.
+  runtime / runtime-crashed; C13, C14, C15 (decided 2026-10-02), G1.
 
 ### WP9 — Host bridge, `host.keyUnlock`, helper frame, Computer access and Approvals frames
 
@@ -890,8 +897,8 @@ follow the D1 plan where it has them, so Claude can map them.
   - `open` accepts only a relative path matching the SPA route allow-list, on the active connection.
   - `chat/*` (D92, milestones D1 row) and `install` (X3, catalogue ids only, D84) are parsed and answered with
     "not available in this version" until their features land.
-  - A `.p1x` file opens a confirm view with *not available yet*. The X3 hook fills it later (`DskB-P1x-*`,
-    C19).
+  - A `.p1x` file opens a confirm view with *not available yet*. The X3 hook fills it later (`DskB-P1x-*`;
+    C19 decided 2026-10-02 for D80: *Install* ends installed (disabled), primary *Install and enable for <agent> ▾*).
   - Everything else is ignored and logged without arguments. The same rules apply to argv.
 - **Accept:**
   - `pair_link_prefills_and_never_pairs`;
@@ -905,7 +912,7 @@ follow the D1 plan where it has them, so Claude can map them.
 ### WP13 — Packaging per OS, installer choices, runtime install help, uninstall, signing hooks
 
 - **Goal.** Build installable bundles per target and channel, with D101's choices, the runtime-install flows
-  and a staged uninstall.
+  and a tiered uninstall.
 - **Files:**
   - `tauri.conf.json` bundle sections;
   - `src-tauri/windows/nsis/installer.nsi` (the custom template) + `hooks.nsh`;
@@ -935,7 +942,8 @@ follow the D1 plan where it has them, so Claude can map them.
   - **Podman socket:** fixed argv, `flatpak-spawn --host` when `FLATPAK_ID` is set.
   - **CLI shim:** copies the bundled host `plur1bus` from the root release artefacts (placeholder in CI), adds a
     `PATH` line with a marker, and never overwrites a foreign file.
-  - **Uninstall:** follows the C16 default in §7.4.
+  - **Uninstall** (C16 decided 2026-10-02, §6.15.10, §7.4): one tiered choice (*App only* default · *App and
+    images* · *Everything*), one summary, a typed `plur1bus-state` for *Everything*, a progress list.
   - **Signing hooks** (no credentials):
     - macOS `signingIdentity` from an environment variable, else ad-hoc;
     - Windows `signCommand` hook left empty until SignPath (DS31);
@@ -947,7 +955,8 @@ follow the D1 plan where it has them, so Claude can map them.
     `vendor_installer_never_passes_silent_flags`, `vendor_installer_shows_the_vendor_licence_before_download`,
     `podman_socket_uses_fixed_argv`, `cli_shim_never_overwrites_a_foreign_file`,
     `path_line_is_added_once_with_marker_and_removed_on_uninstall`, `target_json_matches_the_forwarder_format`,
-    `offline_variant_uses_the_bundled_tarball`);
+    `offline_variant_uses_the_bundled_tarball`, `uninstall_default_is_app_only_and_keeps_data`,
+    `everything_requires_typed_plur1bus_state`);
   - D101 per channel (`nsis_options_page_writes_the_choices`, `silent_flags_opt_out`,
     `update_keeps_a_deleted_icon_deleted`, `uninstall_removes_created_entries`, `msix_manifest_has_startup_task_and_shortcut`,
     `flatpak_requests_background`);
@@ -955,7 +964,7 @@ follow the D1 plan where it has them, so Claude can map them.
   - a manual install of each available bundle, with click count and time recorded.
 - **Pointers:** §6.10, §6.15.10, DS27, DS30–DS34, DS39 (`webviewInstallMode`: online `downloadBootstrapper`,
   offline `offlineInstaller`), D101; D1 plan Task 17, DR4, DR22, DR23; boards `DskB-Install-*` licence,
-  install runtime, mode; `DskB-Settings-*` uninstall-1..3; C14, C16, G6.
+  install runtime; `DskB-Settings-*` uninstall-1..3; C14, C16 (decided 2026-10-02), G6.
 
 ### WP14 — CI extension: container e2e on the stub image, Apple scaffold, canary
 
@@ -1130,7 +1139,8 @@ base64url, never logged. There is no generic "run this" operation, ever. The hel
       only for the visual language and the approvals card (`V2Inbox`, `V2Approvals`);
   - **`Building blocks & open`** (id `parts`): the component files (`DskWin`, `DskDesk`, `DskIcon`,
     `DskInstall`, `DskUpdate`, `DskSettings`, `DskSidecars`, `DskConnections`, `DskP1x`, `DskTray`,
-    `V2BrowserPanel`) and `V2Sidecars` (open under C20);
+    `V2BrowserPanel`); `V2Sidecars` sat here under C20 until it was redrawn and moved back to `v3 · Glow`
+    (2026-10-02);
   - `v1 · Original & concepts` is the archive.
 - **Behaviour vs looks.** The canvas owns how screens look and what they contain. The spec, the D1 plan and
   ADR-004 own behaviour, security and decisions (§13).
@@ -1142,7 +1152,7 @@ base64url, never logged. There is no generic "run this" operation, ever. The hel
 
 | Board family | States | WP |
 |---|---|---|
-| `DskB-Install-*` | welcome, licence, detect, detect-none, runtime, mode, progress-online, progress-offline, done, error | WP8, WP13 |
+| `DskB-Install-*` | welcome, licence, detect, detect-none, runtime, progress-online, progress-offline, done, error (`mode` removed 2026-10-02, C14) | WP8, WP13 |
 | `DskB-Update-*` | offer, security, major, progress, done, rolled, recovery, store | WP10, WP11 |
 | `DskB-Settings-*` | runtime, runtime-crashed, updates, version, rollback-confirm, advanced, uninstall-1..3 | WP8–WP11, WP13 |
 | `DskB-Connections-*` | list, add-remote, add-error, repair, revoked, no-keychain | WP4 |
@@ -1168,7 +1178,8 @@ Not D1:
 ### 7.2 Responsive rules (binding, §13.7, condensed; read the full 12 rules)
 
 - **Logical px.** Layout follows the window's content width.
-- **Minimums:** text 12 px, targets 44 px on shell pages, window 800 × 600.
+- **Minimums:** text 12 px, targets 44 px on shell pages at every width (the SPA: 44 px compact, 24 px normal and
+  wide; C22), window 800 × 600.
 - **Breakpoints:**
   - compact < 1024 (must work down to 400);
   - normal 1024–1600;
@@ -1209,52 +1220,77 @@ Not D1:
   `symbolic` SVG. Tray icons at 16/22/24: the red `1` `-light`/`-dark` per state, plus `-symbolic` SVGs.
 - **Tray states:** four glyph classes, told apart by shape (C18, settled by the owner 2026-10-01).
 
-### 7.4 Owner conflicts C13–C18 (C18 settled 2026-10-01), quoted from §13.5, with the default you implement
+### 7.4 Owner conflicts C13–C22, quoted from §13.5, with the owner's decisions
 
-Across all six the rule is DR26: **the spec's behaviour, the board's layout and copy**, until the owner decides.
+All of them are decided (C18 settled 2026-10-01, the rest 2026-10-02). Implement the decision; the quotes keep
+both readings as the record. The spec (§6.8, §6.15.10, §13.5–§13.7) and the D1 plan (DR2, DR4, DR6, DR26,
+Tasks 7, 12, 14, 17, 19) already follow them.
 
-- **C13 Wizard steps (shell).**
+- **C13 Wizard steps (shell).** *Decided 2026-10-02: reading 1, without the Offline or online step (C14).*
 
   > §6.15.10 / D1 plan DR6: *Welcome → Runtime → (Install runtime) → Resources → Installing* (image, volumes, network, container, start, owner, pairing) *→ Done*, three primary clicks. Board: *Welcome → Licences* ("I agree") *→ Runtime → Install runtime → Offline or online → Installing* (copy/download, verify, unpack, volumes, start, health check) *→ Done*; no *Resources* step (fixed 3 GB · 4 processors at install; the 2–16 GB limit, default 3 GB, sits in *Settings → Runtime*); owner creation and pairing are folded into the health check ("sign-in works"). With a runtime present this is five actions. *Reading 1:* the board replaces the §6.15.10 list and the D77 licence screen is its own step. *Reading 2:* the spec order stands; licences fold into *Welcome*, *Resources* returns.
 
-  **Default:** reading 2.
-  - Steps: Welcome (with the licence summary and an *I agree* checkbox gating *Weiter*) → Runtime → (Install
-    runtime) → Resources (defaults, *Advanced* collapsed) → Installing → Done. Three primary actions with a
-    runtime present.
-  - The progress list shows the board's six rows and reports network, owner and pairing as sub-steps.
-  - The `wizard-model` keeps the step list in one table, so switching to reading 1 is data, not code.
+  - Steps: Welcome → Licences (own step; *I agree* gates *Continue*) → Runtime → Install runtime (only when
+    none is found) → Installing → Done. Four primary actions with a runtime present.
+  - No *Resources* step: install with `Resources { memory_mib: 3072, cpus: min(4, host cores) }`; the 2–16 GB
+    limit lives in *Settings → Runtime*.
+  - The progress list shows the board's six rows; owner creation and pairing are part of the health check
+    ("sign-in works"), and the controller still reports network, owner and pairing as sub-steps.
 
-- **C14 Offline or online.**
+- **C14 Offline or online.** *Decided 2026-10-02: no question in the wizard.*
 
   > DS30 / DR4: two separate installers; the online one carries no image. Board: one wizard step "Offline or online?" choosing where the image comes from. *Reading 1:* the step appears only in the offline installer (it can still pull), the online installer skips it. *Reading 2:* one installer carries both paths, which changes DS30 and DR4 (the small installer is no longer small).
 
-  **Default:** reading 1. The step is shown only when `bundle.tarball[arch]` is present.
+  Two installers as in DS30/DR4: the online installer downloads the image, the offline installer carries it;
+  the installer type decides (`bundle.tarball[arch]` present → load it, else pull by digest). The board's
+  *Offline or online?* step is removed (canvas updated 2026-10-02); build no `mode` view.
 
-- **C15 Online verification.**
+- **C15 Online verification.** *Decided 2026-10-02: reading 1.*
 
   > DS20: the app checks image digests against `bundle.json`; cosign and SBOM serve VPS and audits, "without a cosign verifier in the app". Board (*Offline/online*): "cosign signature and SBOM verified". *Reading 1:* copy error; the app shows the digest check only. *Reading 2:* the app verifies cosign signatures too (new dependency; DS20 changes).
 
-  **Default:** reading 1. The copy says "checked against the signed list (digest)". No cosign dependency.
+  Copy error. The verify row says "Checksums verified" (digests against `bundle.json`). No cosign dependency;
+  DS20 unchanged.
 
-- **C16 Uninstall.**
+- **C16 Uninstall.** *Decided 2026-10-02: reading 1.*
 
   > §6.15.10 / Task 17: three confirmations in order — containers, images, volumes with size, keep data by default. Board: one choice of three levels (*App only* keeps data · *App and images* · *Everything, including your data* — adds the pre-update backup volume and the keychain entries), one summary, typed `plur1bus-state` only for *Everything*, then a progress list; default *App only*. *Reading 1:* the tiered choice plus typed confirmation replaces the three confirmations. *Reading 2:* the three confirmations stand and the board is redrawn.
 
-  **Default:** reading 2 in behaviour (containers, images and volumes each confirmed separately, data kept by
-  default), laid out with the board's summary and progress list (D1 plan Task 17). Keep the three scopes as
-  separate commands, so reading 1 is a UI change only.
+  - One tiered choice: *App only* (default; containers, network, CLI shim and its `PATH` line; keeps images,
+    volumes and keychain entries) · *App and images* · *Everything, including your data* (adds the volumes
+    with their size, the pre-update backup volume and the keychain entries).
+  - One summary of what goes and what stays; a typed `plur1bus-state` only for *Everything*, checked again in
+    Rust; then a progress list. Commands `uninstall_summary|run` with a closed level enum (§4.2).
 
-- **C17 GNOME without a tray.**
+- **C17 GNOME without a tray.** *Decided 2026-10-02: reading 1; D1, pulled forward from D2.*
 
   > §6.8 / Task 14: no AppIndicator host → the window stays in the taskbar with a one-time hint; notifications are D2 (DR2). Board: a notification banner for **every** state change (*Open/Dismiss*, *Show log/Start again*, *Later/Update…*) plus the *Background Apps* section of Quick Settings (GNOME 44+, Flatpak build only, × = *Quit PLUR1BUS…*); deb/rpm/AppImage keep the window in the dash and say so once; with the AppIndicator extension the KDE-style menu appears. *Reading 1:* adopt; `tauri-plugin-notification` and the XDG Background portal move into D1 for GNOME. *Reading 2:* D1 keeps the one-time hint; banners arrive with D2's notifications.
 
-  **Default:** reading 2. The Flatpak Background portal request (D101) is still made for autostart.
+  - A notification banner (`tauri-plugin-notification`) for every tray-state change, with the drawn actions.
+  - The Flatpak build is listed under *Background Apps* (GNOME 44+, XDG Background portal; × = *Quit
+    PLUR1BUS…*, the same quit dialog). The D101 Background portal request for autostart is the same portal.
+  - deb/rpm/AppImage keep the window in the dash and say so once.
 
 - **C18 Tray states.** *Settled 2026-10-01 toward reading 1 by the owner's icon decision (§7.3).*
 
   > DR10 / Task 14: 8 harness × 3 runtime states in words, *Start/Stop harness*, *Start runtime* (Apple), one icon per state. Board: 4 states — *Running*, *Starting* (models warming, *Stop* disabled), *Needs attention* (*Start PLUR1BUS*, *Show log…*, *Copy details*), *Update available* — and 4 glyph badges told apart by shape (ring = busy, dot = update, triangle = attention; macOS tints template icons, so colour is lost). *Reading 1:* the 4 glyphs are icon classes onto which DR10's states map (`starting`/`updating` → ring, `degraded`/`down`/`unpaired`/`crashed`/`rollback` → triangle, update → dot), the header keeps all states in words, and the rest is gap G2. *Reading 2:* the tray is reduced to four states, which changes DR10.
 
-  **Default:** reading 1.
+  Reading 1.
+
+- **C19 `.p1x` install flow.** *Decided 2026-10-02: the plan wins (D80).* An install ends *installed
+  (disabled)*; the dialog offers *Install and enable for …* with an agent picker in the same flow. Canvas
+  updated: secondary *Install*, primary split button *Install and enable for <agent> ▾*, state `enable-picker`.
+  For you: WP12's hook view only; X3 builds the dialog.
+- **C20 *Sidecars & Folders*.** *Decided 2026-10-02: reading 1.* The shell page edits (native folder picker,
+  bind mounts, container recreate); `V2Sidecars` shows state and hands over with *Change in the app*, which
+  needs a `shell_*` handover command beyond `shell_info` (a DS7 extension, §6.9). Both land in D2: in D1 the
+  `spa` webview still gets `shell_info` only and the shell hides the *Sidecars & Folders* nav entry.
+- **C21 Container browser sidecar.** *Decided 2026-10-02: reading 1.* One name, *Agent browser*; *Remote*
+  omitted is within DS25; following a run happens on the harness side, no in-app streamed view (§11 Q9 (a)).
+  D3; nothing for you.
+- **C22 Touch targets.** *Decided 2026-10-02: reading 2 for the web UI.* ≥ 44 px in compact (< 1024), ≥ 24 px
+  at normal and wide (WCAG 2.2 SC 2.5.8 AA). Native app windows, i.e. every shell page: ≥ 44 px at every
+  width, as drawn. Native OS menus (tray, menu bar) follow platform metrics.
 
 Other conflicts that touch you (§13.5):
 
@@ -1264,8 +1300,7 @@ Other conflicts that touch you (§13.5):
   override (system/light/dark).
 - **C4** wordmark — **decided by the owner 2026-10-01 (reading 1):** the morph as drawn, isolated in one
   component.
-- **C9** and **C20**: no `shell_*` command beyond `shell_info`.
-- **C22** 44 px targets: on shell pages, yes.
+- **C9**: no `shell_*` command beyond `shell_info` in D1 (its per-row *Switch* residual is still open).
 
 ---
 
@@ -1318,7 +1353,7 @@ WP11.
 | G-12 | Codex may be unable to open the claude.ai canvas. | Work from spec §13's copied values. Owner exports the desktop-section boards of `v3 · Glow` as PNGs into `docs/ui/desk/` if pixel checks are wanted. |
 | G-13 | Crash handling has no spec text. | Local crash file, *Copy details* at the next start, no upload (§4.2). |
 | G-14 | The D107 helper is placed in D2, but the brief asks for its frame now. | The frame ships in D1 with zero capabilities and a stdio protocol. Signing and entitlements are wired through the WP13 hooks; notarisation is D2. |
-| C13–C18 | See §7.4. | As written there. |
+| C13–C22 | Decided by the owner (C18 settled 2026-10-01, the rest 2026-10-02); see §7.4. | The decisions. |
 
 ---
 
