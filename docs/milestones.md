@@ -1,6 +1,6 @@
 # Milestones — PLUR1BUS Harness (Variant B)
 
-**Status:** Phase 0 deliverable, awaiting owner approval; **amended 2026-09-30 (D109 permission and approval model: M1b-2b, before D106)**; **amended 2026-09-28 (owner requirements on host-mode plugin packages and cross-platform migration, D86–D91: §2 table, track HM, M7 effort, M8 host adapters, D2, §3 graph)**; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7); **amended 2026-09-27 for the extensions ecosystem (core spec D79–D85): track X in §2, M6 scope and effort, §3**; **amended 2026-09-28 for the basics quality bar (D94–D108): M2 scope, acceptance 12–14 and effort, M5, M6, M8 acceptance 8, track D D1/D3, §6.1**; **amended 2026-09-30 for OpenAI auth (D110): M2 scope, policy catalogue, acceptance 15–17, effort, §2 table**; **amended 2026-09-28 for the design canvas page `v2 · Desktop & responsive`: Track D UI source, M3 scope and acceptance 9 (binding responsive rules, `V2Search`), X3 row** · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
+**Status:** Phase 0 deliverable, awaiting owner approval; **amended 2026-10-01 (D111 logging and diagnostics: foundation first in M1b-2b, later parts in M2, M3, M8, D2; §2 table M1b row and total)**; **amended 2026-09-30 (D109 permission and approval model: M1b-2b, before D106)**; **amended 2026-09-28 (owner requirements on host-mode plugin packages and cross-platform migration, D86–D91: §2 table, track HM, M7 effort, M8 host adapters, D2, §3 graph)**; amended 2026-09-27 (track D, owner decisions D77 and D78: §2 track D, M8, §6.2 row 14, §6.3, §7); **amended again 2026-09-27, closing desktop spec §11: D1 now gates v0.1.0** (§2, Track D, M8, §7); **amended 2026-09-27 for the extensions ecosystem (core spec D79–D85): track X in §2, M6 scope and effort, §3**; **amended 2026-09-28 for the basics quality bar (D94–D108): M2 scope, acceptance 12–14 and effort, M5, M6, M8 acceptance 8, track D D1/D3, §6.1**; **amended 2026-09-30 for OpenAI auth (D110): M2 scope, policy catalogue, acceptance 15–17, effort, §2 table**; **amended 2026-09-28 for the design canvas page `v2 · Desktop & responsive`: Track D UI source, M3 scope and acceptance 9 (binding responsive rules, `V2Search`), X3 row** · **Date:** 2026-09-22 · **Owner:** Christian (Cyb3rb1ade)
 **Re-cut of** `docs/phase0/auftrag-original-2026-09-21.md` §12 (M0–M8) for **Variant B** per `docs/phase0/brief.md` D1–D11 and ADR-001 (K4 tripped, K3 red on Windows arm64). Every §12 acceptance criterion reappears below, re-cut; the 16 operational criteria of `docs/learnings-hermes-openclaw.md` §3 are mapped as **L1–L16**; ADR-001's targets T1–T7, ADR-009's A1–A8 and ADR-010's B1–B10 are milestone exit criteria. Engine work is PRs in the **PLUR1BUS repo** (`docs/engine-extraction.md` §c, PR-01…PR-15; ADR-002's P0–P10 is the same plan at coarser grain).
 
 ---
@@ -29,21 +29,21 @@
 |---|---|---|---|---|
 | M0 | Phase 0 — analysis, ADR-001…011, matrices | — | done | Q1 (answered: B) |
 | M1a ✅ **done 2026-09-23** — merged as [openclaw-plur1bus-memory#184](https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory/pull/184) (`main` @ `01861add`); suite 5225/5222/0/3; contract 1.2.0; owner gate open (see `docs/superpowers/sdd-archive-m1a/whole-branch-review.md` §Owner-gate notes) | Engine extraction: platform, HostServices, index.js split · `Host` interface · golden-prefix corpus — **owner gate** | PR-01…PR-03 | **~14–20** (part of the 45–70 below) | ADR-002 Q1/Q2 (both answered 2026-09-22 — package names confirmed, recall budget "40/60" interpreted as 400/600 ms pending confirmation), **before PR-01** |
-| M1b | Recall/capture/jobs · core daemon · IPC · session store · in-process embedding · dreaming scheduler · CLI | PR-04…PR-09, PR-15 | **~31–50** (part of the 45–70 below) | Q8 (answered: keep `SOUL.md`, D14), Q9 (answered), Q10 (answered: four files, D15), Q11 (answered: measure first); ADR-009 Q1–Q7; ADR-010 Q6/Q7 |
-| M2 | Models, providers, auth, caching, budgets · CLI direct chat (D92) | PR-10, PR-11 | **34–52** (+4–6 direct chat, 2026-09-28; +8–12 OpenAI auth D110, 2026-09-30) | Q3; ADR-006 Q1–Q5; ADR-005 Q1–Q5; ADR-010 Q1–Q5 |
-| M3 | Harness API · users/roles · agents · web UI skeleton · web direct chat as first screen (D92/D93) | PR-06 follow-up (`subject`/v2) | **38–57** (+6–9 direct chat) | Q5; ADR-004 Q1–Q5; ADR-007 Q1–Q6 |
+| M1b | Recall/capture/jobs · core daemon · IPC · session store · in-process embedding · dreaming scheduler · CLI | PR-04…PR-09, PR-15 | **~31–50** (part of the 45–70 below; +4–6 logging foundation D111, 2026-10-01) | Q8 (answered: keep `SOUL.md`, D14), Q9 (answered), Q10 (answered: four files, D15), Q11 (answered: measure first); ADR-009 Q1–Q7; ADR-010 Q6/Q7 |
+| M2 | Models, providers, auth, caching, budgets · CLI direct chat (D92) | PR-10, PR-11 | **34–52** (+4–6 direct chat, 2026-09-28; +8–12 OpenAI auth D110, 2026-09-30; +2–3 provider/model logging, usage table, payload capture D111, 2026-10-01) | Q3; ADR-006 Q1–Q5; ADR-005 Q1–Q5; ADR-010 Q1–Q5 |
+| M3 | Harness API · users/roles · agents · web UI skeleton · web direct chat as first screen (D92/D93) | PR-06 follow-up (`subject`/v2) | **38–57** (+6–9 direct chat; +2–3 log viewer, activity feed D111) | Q5; ADR-004 Q1–Q5; ADR-007 Q1–Q6 |
 | M4 | Channels: Telegram, Discord, Matrix, Buzz · `/web` chat handoff (D93) | PR-06 channel vocabulary (**M4 blocker**) | **23–36** (+1–2 handoff) | Q4; ADR-003 Q1–Q3 |
 | M5 | Collaboration: projects, consult/delegate, guardrails, trace · promote a chat to card/project (D92) | — | **19–30** (+1–2 promotion) | ADR-003 Q4/Q5 |
 | M6 | MCP/ACP/A2A · external coding agents · skills · plugins | — | **26–38** (skills/plugins UI moved to X3) | Q7; ADR-008 Q1–Q6; ADR-011 Q1–Q6 |
 | M7 | Importers: OpenClaw, Hermes (cross-platform sources: WSL discovery, snapshot producer, D90/D91) | PR-10 (identity migration path) | **17–27** (+3–5 for D90/D91, 2026-09-28) | ADR-007 Q4; plugin-distribution spec C7, C8, C12 |
-| M8 | Platform hardening · installers · services · release v0.1.0 | PR-12, PR-13, PR-14 | **20–32** | Q2; ADR-001 Q3/Q5 |
+| M8 | Platform hardening · installers · services · release v0.1.0 | PR-12, PR-13, PR-14 | **20–32** (+1–2 `1staid bundle`, OTLP export D111) | Q2; ADR-001 Q3/Q5 |
 | D1 | **Part of v0.1.0** (desktop spec §11 Q5, decided 2026-09-27): container bundle + thin shell, after M3 | M3; M2 | **20–30** (in the total) |
 | D2–D4 | Track D remainder: native integration + OS-signed releases, browser container/CEF panel, computer use + WebMCP — after D1, beside M4–M8 | D1 | **26–40** (not in the total) | — |
 | X1–X3 | **Extensions, part of v0.1.0** (D79–D85): file install, enable/disable, uninstall for skills and plugins (X1, after 2a-H3b-b), MCP servers and bundles (X2, with 2b), web UI + D1 hooks (X3, with M3) | 2a-H3b-b; 2b; M3 | **15–22** (in the total; 4–6 of X3 moved from M6) | extensions spec §13 Q1–Q17 |
 | HM1–HM3 | **Host-mode plugins** (D86–D91, owner 2026-09-28): OpenClaw plugin distribution on five targets + installers (HM1, after 2a-H3b-b), Hermes host-mode adapter (HM2, beside 2b; moved from M8), importer cross-platform fixes now (HM3) | 2a-H3b-b; 2a RPC | **17–26** (in the total) | plugin-distribution spec §C C1–C6, C11 |
 | HM4 | Host-mode remainder: coexistence guards, Hermes on an existing harness, host → harness upgrade, Hermes catalogue listing | HM2; M3 | **2–3** (not in the total) | spec §C C4, C9 |
 | X4–X5 | Extensions remainder: signed web catalogue + per-item updates + revocation (X4, target v0.2), publishing tooling + first packages (X5) | X1–X3 | **8–13** (not in the total) | extensions spec §13 Q2–Q4, Q11–Q13 |
-| | **Total** | | **282–432** (was 242–370; +17–26 track HM, +3–5 M7, +12–19 direct chat D92/D93, 2026-09-28; +8–12 OpenAI auth D110, 2026-09-30) | |
+| | **Total** | | **291–446** (was 242–370; +17–26 track HM, +3–5 M7, +12–19 direct chat D92/D93, 2026-09-28; +8–12 OpenAI auth D110, 2026-09-30; +9–14 logging and diagnostics D111, 2026-10-01) | |
 
 ### M0 — Phase 0 (done, awaiting approval)
 
@@ -81,7 +81,7 @@ Delivered: `brief.md`, `host-contract.md`, `engine-extraction.md`, `learnings-he
 
 **Blocking questions:** Q8 (persona file name), Q9 (default embedding model — needed for warm-up and store creation), Q10 (promotion target `KNOWLEDGE.md`), Q11 (cost cap); ADR-002 Q1 (package names) and Q2 (400/1 200 budget) **before PR-01**; ADR-009 Q1–Q7; ADR-010 Q6 (pre-warm) and Q7 (gate strictness). ADR-009 action item 1 (does anything read REM trends?) is **blocking for giving REM a schedule**.
 
-**Effort 45–70 ad.** Engine PR-01…09+15 28–42 (PR-02/03/06/10 are L, 4 × L in the plan), core daemon + IPC + session store 8–12, scheduler + guards + ledger 6–10, CLI skeleton + bundling 3–6. High end assumes boundary rework in PR-03 (risk R1 §4).
+**Effort 45–70 ad** (+4–6 for the D111 logging foundation in M1b-2b, amended 2026-10-01). Engine PR-01…09+15 28–42 (PR-02/03/06/10 are L, 4 × L in the plan), core daemon + IPC + session store 8–12, scheduler + guards + ledger 6–10, CLI skeleton + bundling 3–6. High end assumes boundary rework in PR-03 (risk R1 §4).
 
 **Exit:** demo guide (two-session recall, kill-the-engine, `dreams run deep`), test report incl. B1–B10 baseline, CI matrix skeleton green on five targets with the three named degradations, open-points list, CHANGELOG, `docs/embedding-identity.md`.
 
@@ -109,11 +109,13 @@ criteria are met on this codebase:
     yet started** — it is scheduled before M4 per the spec, and this milestone does not depend on it.
 12. Fixture module, zero-edit install (`packages/module-fixture`, `module list`/`module graph`) — done (H3b-a).
 
+**Logging and diagnostics foundation (D111, owner 2026-10-01) lands first in M1b-2b, before D109 and D106:** the shared `log-schema` (record schema, event catalogue, levels, redaction data, Rust/TS parity); writers that emit `ts, level, source{kind,id,version}, event, msg, trace_id, …` with per-source live levels (`logs.levels`, time-limited `trace`), writer-side redaction, truncation, dedup and retention by days; third-party stdout/stderr wrapped, sanitised, redacted and rate-limited with levels from hard signals only; `logs/audit.log` extended (v2 optional fields, `config.set`); trace context over RPC `_meta.traceparent`; `plur1bus logs`. Acceptance: spec §8 tests 1–10 and 12–15 on five targets, including the redaction test over every foundation output (+4–6 ad; provider/model/usage/payload with M2 +2–3, viewer and activity feed with M3 +2–3, `1staid bundle` and OTLP with M8 +1–2, desktop viewer with D2 +1). Spec: `docs/superpowers/specs/2026-10-01-logging-and-diagnostics-design.md`.
+
 **Permission and approval model (D109, owner 2026-09-29) lands with M1b-2b, before D106:** one `policy.decide` in the tool dispatcher (allowed / approval / never) for every tool, MCP, ACP and host-bridge call; capability taxonomy with one effect axis (maps D103 `sideEffects`, extension tool effects, ADR-008 modes); roots with approval outside them, deny-list precedence and per-OS path canonicalisation; grants once/task/session/always; the approval store (HMAC-chained, replay-bound, `approvalsHeld` verified for D104); `grant`/`approval` RPC and CLI, refused to agents; surface trust levels with channel nonces; headless jobs on job-scoped standing grants only; no password route for the agent. Acceptance: per-OS path conformance, store tamper/replay tests, surface-trust matrix, `permission-eval` with zero escapes (+6–9 ad; later surfaces with M2, M3, M4, D2, D4, +3–4 ad). Spec: `docs/superpowers/specs/2026-09-28-basics-quality-bar-design.md` §D109.
 
 **Host toolset (D106, owner 2026-09-28) lands with M1b-2b, on the D109 model:** first-party `fs.*`, `shell.*`, `proc.*`, `sys.*`, `pkg.*`, `apps.*`, `clipboard.*`, `notify` under a principal, with roots, credential deny-list, risk classes and D38 approvals as defined by D109, audit, OS sandbox per spike, a per-OS conformance suite on the five CI targets plus the Windows 11 VM, and host scenarios in `tool-eval`; nothing hosted remotely, Desktop Commander not bundled (+7–11 ad).
 
-**Next: M1b-2b** (MCP transport, ADR-014 per Bernd's spec draft — spec §12 "Exit"; tool execution under a principal with the D109 permission model and the D106 host toolset) starts from this stack once
+**Next: M1b-2b** (MCP transport, ADR-014 per Bernd's spec draft — spec §12 "Exit"; tool execution under a principal with the D109 permission model and the D106 host toolset, on the D111 logging foundation) starts from this stack once
 this milestone's owner gate closes. **Open going into it:** decision O6 (reference hardware for the HB4
 real-model timing and the Windows module-ready figure); Task 8's riskier repair steps; the desktop-canvas and
 extensions-ecosystem design conflicts tracked separately in this document's own tracks (D, X). See
@@ -159,7 +161,7 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Blocking questions:** Q3 (confirm ADR-005's replacement of the opt-in default), ADR-006 Q1 (default embedding model) and Q2 (default reranker) and Q4 (multi-identity in v0.1 — if deferred, PR-10 moves to post-v0.1 and §12 M2 criterion 5 moves with it), ADR-005 Q3 (encrypted-file key), Q5 (per-user credentials), ADR-010 Q1–Q3.
 
-**Effort 62–95 ad** (54–83 before D110). OpenAI auth 8–12 (D110), web fetch 5–8 and web search 2–3 (D94, D95), tool-use reliability 4–6 + `tool-eval` 3–4 (D97), capability index and routing 4–6 (D103), message triage 2–4 (D105), direct chat CLI + store additions 4–6 (D92), three wire formats 7–10, embedding/rerank adapters + live smoke 5–8, auth engine + pools + secret store 8–12, prompt builder + zone tests + budgets 5–8, PR-10 5–8 (L, ranking-affecting).
+**Effort 64–98 ad** (62–95 before D111, 54–83 before D110). D111 provider/model/CLI log events, the usage table for budgets, payload capture and HTTP/env trace propagation 2–3. OpenAI auth 8–12 (D110), web fetch 5–8 and web search 2–3 (D94, D95), tool-use reliability 4–6 + `tool-eval` 3–4 (D97), capability index and routing 4–6 (D103), message triage 2–4 (D105), direct chat CLI + store additions 4–6 (D92), three wire formats 7–10, embedding/rerank adapters + live smoke 5–8, auth engine + pools + secret store 8–12, prompt builder + zone tests + budgets 5–8, PR-10 5–8 (L, ranking-affecting).
 
 **Exit:** demo guide (login headless, three wire formats, migrate a store), test report incl. B5/B6/B7, frozen rerank field-mapping table, `docs/provider-matrix.md` updated with the cache-capability columns, first dated policy re-check scheduled (2026-12-21).
 
@@ -191,7 +193,7 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Blocking questions:** Q5 (five roles vs slim), ADR-004 Q1 (framework, after the spike), Q2 (density default), Q3 (built-in TLS in v0.1), Q5 (logo package scope), ADR-007 Q2–Q6.
 
-**Effort 38–57 ad.** Web direct chat 6–9 (D92), API + authN/RBAC/audit 10–14, identity linking + pairing + engine follow-up 5–8, agent lifecycle saga + AgentScope 5–7, UI framework spike 2, UI shell + theme + settings search 6–10, Memory/Dreams/Models pages 4–7.
+**Effort 40–60 ad** (38–57 before D111; +2–3 D111 log viewer, activity feed, `logs.tail`). Web direct chat 6–9 (D92), API + authN/RBAC/audit 10–14, identity linking + pairing + engine follow-up 5–8, agent lifecycle saga + AgentScope 5–7, UI framework spike 2, UI shell + theme + settings search 6–10, Memory/Dreams/Models pages 4–7.
 
 **Exit:** demo guide (wizard, two agents, Member isolation, break-glass), test report, `docs/api-surface.md` frozen, `docs/ui/reference/*.png` pipeline with visual diff, theme file with attribution header.
 
@@ -305,7 +307,7 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Blocking questions:** Q2 (macOS x64 required or best-effort — decides whether we own a Rust source build in CI), ADR-001 Q3 (non-PTY degradation on win32-arm64, now largely moot since the prebuild is confirmed), Q5 (built-in TLS vs reverse proxy only).
 
-**Effort 20–32 ad.** Installers + non-interactive 5–8, services three OSes 3–5, CI matrix hardening + smoke E2E per target 5–8, PR-12/13/14 4–7, backup/restore 2–3, docs 3–5 (written incrementally from M1 and consolidated here).
+**Effort 21–34 ad** (20–32 before D111; +1–2 D111 `1staid bundle` and OTLP export). Installers + non-interactive 5–8, services three OSes 3–5, CI matrix hardening + smoke E2E per target 5–8, PR-12/13/14 4–7, backup/restore 2–3, docs 3–5 (written incrementally from M1 and consolidated here).
 
 **Exit:** signed release, demo guide, full test report, known-issues list, `UPSTREAM.md`-equivalent compatibility matrix (harness × engine × OpenClaw).
 
