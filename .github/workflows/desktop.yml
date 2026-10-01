@@ -77,3 +77,25 @@ jobs:
             apps/desktop/target/release/bundle/**/*.AppImage
           if-no-files-found: error
           retention-days: 7
+  stub-smoke:
+    name: stub smoke (${{ matrix.runtime }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [docker, podman]
+    env:
+      PLUR1BUS_DESKTOP_E2E_RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.21.0
+      - name: Install Podman for the isolated CI runtime
+        if: matrix.runtime == 'podman'
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Build test-only stub image
+        run: node apps/desktop/stub-image/build.mjs --runtime "${{ matrix.runtime }}"
+      - name: Verify stub lifecycle and container restrictions
+        run: node apps/desktop/stub-image/smoke.mjs --runtime "${{ matrix.runtime }}"
