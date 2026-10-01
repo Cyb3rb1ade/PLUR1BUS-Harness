@@ -1,7 +1,7 @@
 # Desktop app shell: handoff to Codex
 
 **Status:** Handoff brief · **Date:** 2026-09-30 · **Amended:** 2026-10-02 (owner decisions C13–C17 and C19–C22: §7.4,
-WP3, WP6, WP8, WP12, WP13) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
+WP3, WP6, WP8, WP12, WP13; then C8, C9, C12: §3 rule 12, WP4, WP5, §6.2, §7.4, §8, §9) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
 for OpenAI Codex · **Start prompt:** `docs/handoff/codex-start-prompt.md`.
 
 **Binding sources.** Read these; the ones marked *in full* must be read end to end.
@@ -315,7 +315,8 @@ These apply to every WP. A violation blocks the PR.
 
     The Docker path spawns nothing.
 12. **Container rules** (DS16, §6.15.7), asserted by `create_spec_is_exact`:
-    - loopback-only publish on `127.0.0.1:<18700–18799>`;
+    - loopback-only publish on `127.0.0.1:<18700–18799>` (the `network` publish of DS16 as amended 2026-10-02 is D2, not
+      yours; C8 in §7.4);
     - no runtime socket, `--privileged`, host network, device or home mount;
     - user `10001:10001`, read-only root file system, `tmpfs /tmp`;
     - Docker: `CapDrop ALL`, `no-new-privileges`, `PidsLimit 1024`, `unless-stopped`, `StopTimeout 150`;
@@ -620,8 +621,16 @@ follow the D1 plan where it has them, so Claude can map them.
     `redeem_stores_the_token_in_the_token_store_only` + `assert_no_token_on_disk`, `redirects_are_not_followed`,
     `pair_code_rejects_insecure_remote_before_any_request`, `discover_*`, `pair_local_*`);
   - UI: the `pairing-model` table, `origin-input: same table as Rust`.
-- **Pointers:** §6.1, §6.2, DS4, DS6; D1 plan Tasks 8 and 9; boards `DskB-Connections-*` (list, add-remote,
-  add-error, repair, revoked, no-keychain).
+- **Pinned self-signed remote (C8, decided 2026-10-02; D1 plan DR27):** `Connection.cert_pin`, a rustls verifier
+  that accepts exactly the pinned leaf, `ClientError::{CertChanged, Untrusted, ProofMismatch}`, and
+  `HarnessClient::pair_proof` (§6.2 *Pairing payload*: the code is sent only after the proof matches the leaf the
+  client saw). Accept: the plan Task 9 pinned-remote list (`pinned_origin_accepts_exactly_the_pinned_leaf`,
+  `unpinned_self_signed_is_untrusted_before_any_request`, `changed_certificate_is_cert_changed_and_marks_pairing_needed`,
+  `pair_proof_pins_on_match_and_never_sends_the_code_on_mismatch`, `pair_proof_for_another_certificate_is_refused`,
+  `os_trusted_origin_skips_pair_proof`, `the_pin_is_never_taken_from_a_typed_field`), against the mock with generated
+  certificates.
+- **Pointers:** §6.1, §6.2, DS4, DS6 (amended 2026-10-02); D1 plan Tasks 8 and 9, DR27; boards `DskB-Connections-*`
+  (list, add-remote, add-error, repair, revoked, no-keychain; *Add error* to be redrawn for C8).
 
 ### WP5 — SPA window: incognito, ticket login, navigation guard, `spa-bridge` *(first)*
 
@@ -639,7 +648,11 @@ follow the D1 plan where it has them, so Claude can map them.
   - `a_replayed_ticket_page_is_retried_once_then_shows_the_error`;
   - `no_cookie_database_in_app_dirs` + `assert_no_token_on_disk` after an open/close cycle;
   - against the mock: quit and restart logs in again through a fresh ticket (acceptance 11).
-- **Pointers:** DS3, DS5, DS7, §6.9; D1 plan Task 13; acceptance 10 and 11.
+- **Webview pin (C8, DR27):** first the plan Task 13 Step 0 spike — per target, whether the `spa` webview can accept
+  exactly the pinned leaf (WKWebView server-trust challenge, WebView2 `ServerCertificateErrorDetected`, WebKitGTK
+  TLS-error signal + allow-certificate-for-host) through wry/Tauri 2.12. Where it cannot, refuse pinned connections with
+  the message naming `tailnet` or `company-ca`. Report before patching wry.
+- **Pointers:** DS3, DS5, DS6, DS7, §6.9; D1 plan Task 13; acceptance 8a, 10 and 11.
 
 ### WP6 — App lifecycle: single instance, windows, tray, quit, autostart, logging, crash *(first)*
 
@@ -1053,6 +1066,7 @@ Keep every path, field name and scope in constants so this is a small diff.
 | Route | Auth | Request → response | Notes |
 |---|---|---|---|
 | `GET /api/v1/meta` | none | → `{ apiVersion: "1.x.y", version: "<product semver>", installationId, capabilities: string[] }` | the shell needs `desktop.sessionTicket` and `host.bridge`. A different API major is refused, naming both versions (ADR-016 §3) |
+| `POST /api/v1/devices/pair-proof` | none (rate-limited per source and per open code) | `{ clientNonce }` → `{ salt, serverNonce, proof }` | C8, §6.2 *Pairing payload*: only for an origin whose certificate the OS does not trust; `proof = HMAC-SHA256(Argon2id(code, salt), "plur1bus-pair-v1" ‖ fp ‖ origin ‖ clientNonce ‖ serverNonce)`; the client checks it against the leaf it saw and only then redeems. Provisional until M3 |
 | `POST /api/v1/devices/redeem` | none (rate-limited) | `{ code, name, kind: "desktop" }` → `{ deviceId, token }` | code: 8 characters shown as `XXXX-XXXX`, single use, about 1 h (C10 settled). The token goes straight into the keychain |
 | `POST /api/v1/auth/session-ticket` | `Bearer <device token>` with `ui.session` | → `{ ticket, expiresAt }` | single use, 60 s, device-bound, at most 5 open per device |
 | `GET /auth/ticket#t=<ticket>` | none | SPA page: POSTs the ticket, then `replaceState` | the fragment never reaches server logs |
@@ -1220,9 +1234,10 @@ Not D1:
   `symbolic` SVG. Tray icons at 16/22/24: the red `1` `-light`/`-dark` per state, plus `-symbolic` SVGs.
 - **Tray states:** four glyph classes, told apart by shape (C18, settled by the owner 2026-10-01).
 
-### 7.4 Owner conflicts C13–C22, quoted from §13.5, with the owner's decisions
+### 7.4 Owner conflicts C8, C9, C12 and C13–C22, quoted from §13.5, with the owner's decisions
 
-All of them are decided (C18 settled 2026-10-01, the rest 2026-10-02). Implement the decision; the quotes keep
+All of them are decided (C18 settled 2026-10-01, the rest 2026-10-02); with C8, C9 and C12 decided on 2026-10-02,
+every C1–C22 is decided or settled. Implement the decision; the quotes keep
 both readings as the record. The spec (§6.8, §6.15.10, §13.5–§13.7) and the D1 plan (DR2, DR4, DR6, DR26,
 Tasks 7, 12, 14, 17, 19) already follow them.
 
@@ -1300,7 +1315,27 @@ Other conflicts that touch you (§13.5):
   override (system/light/dark).
 - **C4** wordmark — **decided by the owner 2026-10-01 (reading 1):** the morph as drawn, isolated in one
   component.
-- **C9**: no `shell_*` command beyond `shell_info` in D1 (its per-row *Switch* residual is still open).
+- **C8 Remote access.** *Decided 2026-10-02: a new decision (owner: "it must work in companies with MPLS networks,
+  and with self-signed certificates").*
+
+  > DS16: the API is published on host loopback only; DS6: the desktop app refuses self-signed pinned TLS and recommends `tailscale serve`. […] *Residual:* `V2Advanced` shows `remote.publish` = `local | tailnet | public (funnel)`. D72 allows funnel only per item for harness *outputs*.
+
+  - Harness exposure `remote.publish` = `local | tailnet | network`, default `tailnet`; `network` for organisations
+    without Tailscale, TLS mandatory, `remote.tls` = `self-signed` (default) or `company-ca`, optional subnet
+    allow-list, pairing for every device, a security notice and a `1staid check` `warn`. Never public: no Funnel for
+    the API; outputs only per item (`outputs.publicSharing`).
+  - The fingerprint of a self-signed certificate travels in the pairing payload; a typed code goes through
+    `pair-proof` first (§6.2). DS6 changed: accept a pinned self-signed leaf or an OS-trusted CA, still refuse
+    unpinned self-signed and plain http. DS16 extended (TLS port on a host interface) — D2.
+  - For you: WP4 and WP5 as above; `create_spec_is_exact` stays loopback-only.
+- **C9 Where connections live.** *Decided 2026-10-02: reading 1.* The per-row *Switch* in the SPA's *Devices &
+  Remote* is removed; one *Manage in the app* opens the app's *Connections* page through the C20 handover command
+  (D2). For you: no `shell_*` command beyond `shell_info` in D1; `shell_info.features` stays empty, so the SPA hides
+  the button.
+- **C12 Setup steps.** *Decided 2026-10-02: the canvas order stands* — *Name & persona → Main model → Switchboard →
+  Memory* (licence filter inside) *→ Backups →* optional *Import*; the bundled installer creates the owner (C13);
+  native and VPS installations add *Your account* first (7 steps; boards `V2SetupAccount`, `V2SetupRail
+  mode="native"`). M3's SPA wizard; nothing for you.
 
 ---
 
@@ -1321,6 +1356,7 @@ M3), and Claude closes those.
 | 6 | Host CLI (`--help` local, forwarded `--json` byte for byte) | — / WP13 (`target.json`) | forwarder is Task 10, out |
 | 7 | Host bridge: locked until the app reconnects; switch off stays locked; ungranted capability refused | WP9 | mock; full after Task 2 |
 | 8 | Remote pairing by code; non-loopback `http://` refused before any request | WP4, WP5 | mock; full after M3 |
+| 8a | Pinned self-signed remote (C8): pin from `pair-proof`, changed or unpinned certificate refused before any code or token is sent, webview pin per target or the named refusal | WP4, WP5 | mock with generated certificates; full after M3 |
 | 9 | Revoke → pairing screen, keychain entry gone | WP4, WP6 | mock |
 | 10 | SPA can call `shell_info` only; other origin or navigated page refused; foreign links open externally | WP5 | full (shell-side) |
 | 11 | Restart → fresh ticket login, no cookie on disk; ticket single use and 60 s | WP5 | shell-side full; ticket rules mock |
@@ -1353,7 +1389,7 @@ WP11.
 | G-12 | Codex may be unable to open the claude.ai canvas. | Work from spec §13's copied values. Owner exports the desktop-section boards of `v3 · Glow` as PNGs into `docs/ui/desk/` if pixel checks are wanted. |
 | G-13 | Crash handling has no spec text. | Local crash file, *Copy details* at the next start, no upload (§4.2). |
 | G-14 | The D107 helper is placed in D2, but the brief asks for its frame now. | The frame ships in D1 with zero capabilities and a stdio protocol. Signing and entitlements are wired through the WP13 hooks; notarisation is D2. |
-| C13–C22 | Decided by the owner (C18 settled 2026-10-01, the rest 2026-10-02); see §7.4. | The decisions. |
+| C8, C9, C12, C13–C22 | Decided by the owner (C18 settled 2026-10-01, the rest 2026-10-02); see §7.4. | The decisions. |
 
 ---
 
