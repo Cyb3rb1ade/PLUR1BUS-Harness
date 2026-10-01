@@ -1,2 +1,4 @@
 packages:
   - "packages/*"
+  - apps/desktop
+  - apps/desktop/ui

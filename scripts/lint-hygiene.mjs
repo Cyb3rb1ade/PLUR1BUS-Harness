@@ -1,11 +1,18 @@
 // Hygiene lint (spec criterion 6): no OpenClaw idiom anywhere in the harness's own source —
-// crates, packages, tests, scripts, and the host clients and adapters under clients/ and hosts/ (HM2) — except the few lines explicitly allow-listed below (the
+// crates, packages, tests, scripts, apps (desktop shell), and the host clients and adapters under clients/ and hosts/ (HM2) — except the few lines explicitly allow-listed below (the
 // engine dependency line, a documented parity import, and the lines in this file and the
 // import-hygiene test that name the very patterns being checked for).
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { join, relative } from "node:path";
 
-const ROOTS = ["packages", "crates", "tests", "scripts", "clients", "hosts"];
+if (process.argv.includes("--self-test")) {
+  const result = spawnSync(process.execPath, ["--test", fileURLToPath(new URL("./lint-hygiene.test.mjs", import.meta.url))], { stdio: "inherit" });
+  process.exit(result.status ?? 1);
+}
+
+const ROOTS = ["packages", "crates", "tests", "scripts", "apps", "clients", "hosts"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "target", "generated", ".git", "__pycache__", ".venv", "venv"]);
 const EXT = new Set([".ts", ".mjs", ".js", ".rs", ".json", ".md", ".toml", ".yaml", ".yml", ".py"]);
 const PATTERNS = [
@@ -87,6 +94,39 @@ const ALLOW = new Map([
 ]);
 
 let bad = 0;
+// Check all tracked paths, including documentation, independently of source exemptions.
+// Read index blobs: a staged secret must fail even if the working copy was cleaned.
+const tracked = spawnSync("git", ["ls-files", "--stage", "-z"], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+if (tracked.status !== 0) {
+  console.error("hygiene: cannot inspect tracked files");
+  process.exit(1);
+}
+for (const entry of tracked.stdout.split("\0").filter(Boolean)) {
+  const [metadata, ...parts] = entry.split("\t");
+  const path = parts.join("\t");
+  if (/\.(p12|p8|pfx|key|pem|keystore|oci\.tar)$/i.test(path)) {
+    console.error(`${path}: forbidden tracked file`);
+    bad += 1;
+  }
+  const [mode, hash] = metadata.split(" ");
+  if (mode === "160000") continue; // A submodule has no blob in this repository.
+  const blob = spawnSync("git", ["cat-file", "blob", hash], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  if (blob.status !== 0) {
+    console.error(`${path}: cannot inspect tracked blob`);
+    bad += 1;
+    continue;
+  }
+  // The binding plan quotes this header to specify this very check. Exempt only
+  // that quoted literal in that one document; an actual header there still fails.
+  const text = path === "docs/superpowers/plans/2026-09-27-desktop-app-d1.md"
+    ? blob.stdout.replaceAll("`untrusted comment: " + "minisign secret key`", "[documented header]")
+    : blob.stdout;
+  if (/-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----|untrusted comment: minisign (?:encrypted )?secret key/i.test(text)) {
+    console.error(`${path}: private key header`);
+    bad += 1;
+  }
+}
+
 function walk(dir) {
   for (const name of readdirSync(dir)) {
     if (SKIP_DIRS.has(name)) continue;

@@ -1,0 +1,79 @@
+name: desktop
+on:
+  pull_request:
+    paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
+  push:
+    paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            bundles: dmg
+          - os: windows-2025
+            bundles: nsis
+          - os: windows-11-arm
+            bundles: nsis
+          - os: ubuntu-24.04
+            bundles: deb,rpm,appimage
+          - os: ubuntu-24.04-arm
+            bundles: deb,rpm,appimage
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY: "1"
+      # Process-scoped transport rewrite; no git config files are changed.
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
+      GIT_CONFIG_VALUE_0: "git@github.com:"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable snapshot; explicit toolchain below
+        with:
+          toolchain: "1.95"
+          components: clippy, rustfmt
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @plur1bus/desktop-ui build
+      - run: pnpm --filter @plur1bus/desktop-ui test
+      - run: cargo fmt --all -- --check
+        working-directory: apps/desktop
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+        working-directory: apps/desktop
+      - run: cargo test --locked --workspace --no-fail-fast
+        working-directory: apps/desktop
+      - run: pnpm tauri build --debug --no-bundle -- --locked
+        working-directory: apps/desktop
+      - name: Unsigned online bundles
+        run: pnpm tauri build --bundles "${{ matrix.bundles }}" -- --locked
+        working-directory: apps/desktop
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-unsigned-${{ matrix.os }}
+          path: |
+            apps/desktop/target/release/bundle/**/*.dmg
+            apps/desktop/target/release/bundle/**/*.exe
+            apps/desktop/target/release/bundle/**/*.deb
+            apps/desktop/target/release/bundle/**/*.rpm
+            apps/desktop/target/release/bundle/**/*.AppImage
+          if-no-files-found: error
+          retention-days: 7

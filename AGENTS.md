@@ -358,3 +358,18 @@ update, M8), `user`, `model`, `login`, `channel`, `project` and `uninstall` (M8)
 (`import` is real for `--detect`/`--skills`/`--rollback`; its full scope is M7) — `config`, `module`,
 `daemon`, `service`, `1staid check`, `admin`, `setup`, `update --check` and `1staid repair`
 are all real now.
+
+## Desktop shell (`apps/desktop`)
+
+The desktop is a separate Cargo workspace, excluded from the root build. Its
+lockfile lives at `apps/desktop/Cargo.lock`. Use exact direct dependency versions
+and `--locked` for desktop CI. Build the static UI before invoking Cargo directly:
+`pnpm --filter @plur1bus/desktop-ui build`. See `docs/desktop.md` for commands and
+`docs/handoff/2026-09-30-desktop-shell-codex.md` for work-package boundaries.
+
+Never add shell, filesystem, HTTP, dialog or opener Tauri plugins. Native IPC
+commands need explicit capabilities and caller origin checks. Do not put tokens
+in JavaScript or files; future tests use injected seams and scratch state. The
+root hygiene check scans desktop sources and all tracked blobs for private keys
+and forbidden secret/image filenames; `node scripts/lint-hygiene.mjs --self-test`
+runs its regression suite. Do not commit generated native/UI build outputs.
