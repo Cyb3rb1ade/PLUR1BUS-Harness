@@ -682,6 +682,18 @@ follow the D1 plan where it has them, so Claude can map them.
   - manual record: tray follows the mock's `harness.status` on each available OS.
 - **Pointers:** §6.8, DR9, DR10, D101 "Autostart starts minimised"; D1 plan Tasks 14 and 15 (logging half);
   boards `DskB-Tray-{mac,win,gnome,kde}`; C17, C18, G2.
+- **Logging follows D111** *(amended 2026-10-01 (D111); spec
+  `docs/superpowers/specs/2026-10-01-logging-and-diagnostics-design.md`)*:
+  - JSONL, keys in order `ts` (RFC 3339 UTC, ms), `level`, `source{kind:"desktop",id:"shell"|"controller"|"updater",version}`,
+    `event` (registered `desktop.*` codes, spec §3.2), `msg` (constant per event), then optional `trace_id`, `span_id`,
+    `duration_ms`, `err{code,reason,retryable,hint}`, `attrs`; files `0600` / user-only DACL.
+  - Levels `trace|debug|info|warn|error|fatal` (default `info`, `trace` only time-limited); a panic is `fatal`
+    (`desktop.app.crashed`, written at the next start beside the crash file, which stays as specified in §4.2).
+  - Harness and runtime output shown by `harness_logs_tail` is foreign text: rendered as plain text, never parsed for
+    levels or events.
+  - Redaction stays in the one formatter and adds D111 §4: URL userinfo, vendor key shapes, JWTs, PEM keys, deny-list
+    paths; base64url runs of ≥ 43 characters are redacted **unless pure hex** (hashes stay readable).
+    `the_log_file_never_contains_a_planted_token_or_key` also asserts the record schema.
 
 ### WP7 — Runtime detection and adapters
 
