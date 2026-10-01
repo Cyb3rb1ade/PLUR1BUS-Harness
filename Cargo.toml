@@ -1,4 +1,5 @@
 [workspace]
+exclude = ["apps"]
 resolver = "2"
 members = ["crates/*"]
 

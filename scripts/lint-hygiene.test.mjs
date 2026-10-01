@@ -18,6 +18,10 @@ function lintTree(files) {
       mkdirSync(join(p, ".."), { recursive: true });
       writeFileSync(p, text);
     }
+    for (const args of [["init", "--quiet"], ["add", "--all"]]) {
+      const git = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+      assert.equal(git.status, 0, git.stderr);
+    }
     return spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -121,4 +125,33 @@ test("every file under ext/ is supervisor-safe or worker-side", () => {
   const r = lintTree({ "crates/plur1bus/src/ext/newfile.rs": "//! not classified\n" });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stderr, /ext\/newfile\.rs:1: ext file is in neither EXT_SAFE nor EXT_WORKER/);
+});
+
+// Only synthetic headers are constructed here; no key material is stored.
+test("rejects tracked secret and image files without printing their contents", () => {
+  for (const name of ["x.p12", "x.p8", "x.pfx", "x.key", "x.pem", "x.keystore", "x.oci.tar"]) {
+    const r = lintTree({ [name]: "synthetic-sensitive-content" });
+    assert.equal(r.status, 1, name);
+    assert.match(r.stderr, /forbidden tracked file/);
+    assert.doesNotMatch(r.stderr, /synthetic-sensitive-content/);
+  }
+});
+test("rejects private key headers regardless of extension or directory", () => {
+  for (const header of ["-----BEGIN " + "PRIVATE KEY-----", "-----BEGIN RSA " + "PRIVATE KEY-----", "untrusted comment: " + "minisign secret key"]) {
+    const r = lintTree({ "docs/synthetic.txt": header });
+    assert.equal(r.status, 1, header);
+    assert.match(r.stderr, /private key header/);
+    assert.doesNotMatch(r.stderr, /BEGIN/);
+  }
+});
+test("allows a public key and applies existing source hygiene to apps", () => {
+  assert.equal(lintTree({ "apps/desktop/keys/update.pub": "synthetic-public-value" }).status, 0);
+  assert.equal(lintTree({ "apps/desktop/src/test.rs": "use host_services; // " + "open" + "claw" }).status, 1);
+});
+
+test("allows the plan's quoted header example but still rejects a key in that file", () => {
+  const path = "docs/superpowers/plans/2026-09-27-desktop-app-d1.md";
+  const header = "untrusted comment: " + "minisign secret key";
+  assert.equal(lintTree({ [path]: `Example: \`${header}\`` }).status, 0);
+  assert.equal(lintTree({ [path]: `Example: \`${header}\`\n${header}` }).status, 1);
 });

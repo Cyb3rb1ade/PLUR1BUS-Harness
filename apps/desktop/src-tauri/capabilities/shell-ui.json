@@ -1,0 +1,9 @@
+{
+  "identifier": "shell-ui",
+  "description": "Bundled shell; no native commands are granted in WP1.",
+  "local": true,
+  "windows": [
+    "shell"
+  ],
+  "permissions": []
+}
