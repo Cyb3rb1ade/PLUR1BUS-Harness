@@ -2,10 +2,12 @@
 
 ## WP1 — Scaffold, workspace, hygiene, desktop CI
 
-Status: LOCAL GREEN — draft PR and five-target CI pending.
+Status: DESKTOP GREEN — draft PR open; root system/service CI still pending.
 Branch: `feat/desktop-shell-wp01-scaffold`.
 Base: `origin/main` at `e515dde` (no previous WP).
-PR: pending. Head: initial WP1 commit containing this record; CI SHA will be recorded after push.
+PR: [#59](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/59).
+Implementation head: `7dd54fed81f2ef1f1857b9f05fe2c921d6ef82e3`.
+This follow-up commit records verification only.
 
 ### Done and interfaces
 
@@ -37,12 +39,27 @@ PR: pending. Head: initial WP1 commit containing this record; CI SHA will be rec
   `-- --locked`. DMG is approximately 2.69 MiB; no notarization was attempted.
 - PASS: fresh independent WP1 review found no critical/important bug. Its request
   for explicit locked Tauri builds was incorporated and exercised locally.
-- Pending: `ci.yml` and all five `desktop.yml` targets at the pushed SHA.
-- Not run: interactive window launch; Windows/Linux local execution unavailable.
-  No screenshot or cross-platform runtime claim. No real keychain/home/service tests.
+- PASS: `desktop.yml` on macos-15, windows-2025, windows-11-arm,
+  ubuntu-24.04 and ubuntu-24.04-arm at implementation head `7dd54fe`:
+  [PR run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36804333554)
+  and [push run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36804288008).
+  All five targets produced unsigned preview packages.
+- PASS: root unit jobs on macOS/Linux/Windows at `7dd54fe`.
+- Pending: root system/service jobs in
+  [ci](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36804333621).
+  WP2 remains gated on a completely green root workflow.
+- PASS: manual packaged-app startup on macOS arm64 with HOME,
+  CFFIXED_USER_HOME, XDG config/cache/data and TMPDIR redirected to scratch.
+  Native accessibility inspection showed the PLUR1BUS window and HTML container
+  at `tauri://localhost`; screenshot showed the expected blank WP1 shell at
+  1100 × 800 logical pixels. Empty launch log; Command-Q exited cleanly.
+  Screenshot is in the Codex run transcript; no personal data shown.
+- Not run: Windows/Linux interactive execution (not available locally).
+  No real keychain/service tests or personal home used for the desktop smoke.
 - Not applicable: docs:check (no clap/schema/generated-doc inputs changed),
   WP3 a11y/layout, WP14 container e2e, real image pipeline (outside scope).
-- Acceptance §8 row 13: desktop CI pending; real harness image remains out of scope.
+- Acceptance §8 row 13: desktop matrix PASS (full build/package level); real harness
+  image remains out of scope. Interactive startup checked on macOS only.
 - Local logs: `/tmp/desktop-wp01-{root,lint,tests,root-rust,rust,clippy,locked-build,locked-bundle,staged-lint}.log`.
 
 ### Deviations, defaults and open questions
@@ -67,6 +84,6 @@ PR: pending. Head: initial WP1 commit containing this record; CI SHA will be rec
 
 ### Next
 
-1. Commit the reviewed local-green scaffold and open draft WP1 PR.
+1. Finish CI on the open draft PR and record the result.
 2. Record CI results and exact tested commit. Do not start WP2 before WP1 is green.
 3. WP2: provisional harness contract and isolated mock; no real harness server.
