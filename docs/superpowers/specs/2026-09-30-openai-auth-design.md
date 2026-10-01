@@ -152,6 +152,8 @@ SIP transports and the desktop's direct WebRTC client ride with M3/D1 (the broke
 
 ---
 
+**Canvas (2026-10-02):** board `V2SignInOpenAI` (desktop spec §13.6) draws §2's routes and the *Sign in with ChatGPT* flow; `V2Settings` and `V2Setup` step 2 link to it. Example values on the board (callback port, account, workspace) are illustrative. Not specified here and therefore not drawn: a *denied* or *workspace not allowed* error, and where the workspace is chosen (the board says "the ones you sign in with").
+
 ## 5. Tests and acceptance
 
 No test uses a real OpenAI or ChatGPT account. Live OpenAI calls run **only** in a gated job (`workflow_dispatch` or nightly, environment protection) and only when the owner has provided a secret for it; the job is skipped, not failed, when the secret is absent, and it never runs on pull requests from forks.
