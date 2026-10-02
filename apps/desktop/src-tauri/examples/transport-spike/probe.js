@@ -14,7 +14,7 @@ addEventListener('DOMContentLoaded', async () => {
   };
   const wsProbe = target => new Promise(resolve => {
     const start = performance.now(); let socket;
-    const finish = result => {clearTimeout(timer); if(socket) socket.close(); resolve(result);};
+    const finish = result => {clearTimeout(timer); if(socket) socket.close(); resolve({target: target.split('?')[0], ...result});};
     const timer = setTimeout(() => finish({outcome: 'timeout'}), 2500);
     try {
       socket = new WebSocket(target);
@@ -56,7 +56,8 @@ addEventListener('DOMContentLoaded', async () => {
   out.postOrigin = await attempt(async () => (await fetch(url(SPIKE.base, '/ping'), {method: 'POST', signal: AbortSignal.timeout(5000)})).json());
   out.sse = await sseProbe(url(SPIKE.base,'/events'));
   out.directSse = await sseProbe(url(SPIKE.direct,'/events'));
-  out.websocket = await wsProbe(url(SPIKE.base.replace(/^http/,'ws'),'/ws'));
+  const websocketBase = SPIKE.kind==='custom' ? 'plur1bus-harness://localhost' : SPIKE.base.replace(/^http/,'ws');
+  out.websocket = await wsProbe(url(websocketBase,'/ws'));
   if (SPIKE.kind==='custom') out.mappedWebsocket = await wsProbe(url('ws://plur1bus-harness.localhost','/ws'));
   out.download = await attempt(async()=>{
     const result=await fetchTimed(url(SPIKE.base,'/download'));

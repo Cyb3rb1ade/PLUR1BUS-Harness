@@ -39,6 +39,23 @@ process exit fail collection. Unsupported custom transports are measured results
 not failures of collection and certainly not transport passes. The CI uploads
 these artifacts from the existing five-target `desktop.yml` matrix.
 
+On Windows MSVC, the desktop build script also links Tauri's already generated
+`OUT_DIR/resource.lib` into this package's diagnostic examples. It contains the
+default Common Controls 6 manifest; pinned `embed-resource` otherwise emits only
+a main-binary link instruction. A missing or nonregular resource fails the build.
+The existing main-binary resource and private CRT shim handling are preserved.
+This addresses a source-backed Windows startup prerequisite hypothesis. Actual
+post-change Windows native CI must establish whether it resolves `0xC0000139`.
+Microsoft documents that [TaskDialogIndirect requires Comctl32 version 6](https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-taskdialogindirect)
+and [an application manifest selects that version](https://learn.microsoft.com/en-us/windows/win32/controls/cookbook-overview).
+
+`websocket` always attempts the literal `plur1bus-harness://localhost/ws` URI for
+the custom case; `mappedWebsocket` separately attempts
+`ws://plur1bus-harness.localhost/ws`. Each result records its target without the
+diagnostic key. This distinction also holds on Windows, where the custom HTTP/SSE
+base is already mapped to HTTP. Earlier Windows runs failed before either probe;
+historical native results below are retained.
+
 ## What the experiment measures
 
 - A real fixture emits SSE event 0 immediately, event 1 after 1,500 ms, then EOF.
