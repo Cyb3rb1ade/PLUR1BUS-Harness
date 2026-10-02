@@ -177,6 +177,30 @@ test("200% text-only enlargement retains the 1440 viewport without clipping", as
   });
 });
 
+test("Chromium 2x display scale keeps 1440 physical pixels while all shell pages fit 720 CSS pixels", async () => {
+  for (const scale of [1, 2]) {
+    await withShell(async page => {
+      const metrics = await page.evaluate(() => ({ cssWidth: innerWidth, cssHeight: innerHeight, dpr: devicePixelRatio }));
+      const pixels = await page.screenshot({ scale: "device" });
+      assert.deepEqual(metrics, { cssWidth: 1440 / scale, cssHeight: 900 / scale, dpr: scale });
+      assert.deepEqual([pixels.readUInt32BE(16), pixels.readUInt32BE(20)], [1440, 900]);
+      for (const [section, subpage] of [["home", "runtime"], ["connections", "runtime"], ["settings", "runtime"], ["settings", "updates"], ["settings", "version"], ["settings", "advanced"]] as const) {
+        await page.evaluate(([section, subpage]) => (window as any).testShell.navigate(section, subpage), [section, subpage]);
+        const layout = await page.evaluate(() => {
+          const small = Array.from(document.querySelectorAll<HTMLElement>("button,a,input,select")).filter(element => {
+            const box = element.getBoundingClientRect();
+            return box.width > 0 && box.height > 0 && (box.width < 44 || box.height < 44);
+          }).map(element => element.textContent?.trim());
+          return { scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth, sidebar: document.querySelector(".sidebar")?.getBoundingClientRect().width, small };
+        });
+        assert.ok(layout.scroll <= layout.client, `${scale}x ${section}/${subpage} overflow: ${JSON.stringify(layout)}`);
+        assert.deepEqual(layout.small, [], `${scale}x ${section}/${subpage} targets`);
+        assert.equal(layout.sidebar, scale === 2 ? 64 : 256);
+      }
+    }, { physicalWidth: 1440, physicalHeight: 900, scale });
+  }
+});
+
 test("top-level wordmark collapses to a red pivot while route content changes immediately", async () => {
   await withShell(async page => {
     await page.emulateMedia({ reducedMotion: "no-preference" });

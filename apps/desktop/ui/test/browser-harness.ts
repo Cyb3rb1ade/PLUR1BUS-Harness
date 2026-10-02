@@ -9,7 +9,9 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-export async function withShell(run: (page: Page) => Promise<void>): Promise<void> {
+type DisplayScale = { physicalWidth: number; physicalHeight: number; scale: number };
+
+export async function withShell(run: (page: Page) => Promise<void>, display?: DisplayScale): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "p1t-browser-"));
   let context: BrowserContext | undefined;
   let server: Server | undefined;
@@ -32,7 +34,9 @@ export async function withShell(run: (page: Page) => Promise<void>): Promise<voi
     await new Promise<void>(resolve => server!.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("local browser server unavailable");
-    context = await chromium.launchPersistentContext(join(dir, "profile"), { headless: true, viewport: { width: 1440, height: 900 } });
+    context = await chromium.launchPersistentContext(join(dir, "profile"), display
+      ? { headless: true, viewport: null, args: [`--force-device-scale-factor=${display.scale}`, `--window-size=${display.physicalWidth / display.scale},${display.physicalHeight / display.scale}`] }
+      : { headless: true, viewport: { width: 1440, height: 900 } });
     const page = context.pages()[0] ?? await context.newPage();
     await page.goto(`http://127.0.0.1:${address.port}/`);
     await page.getByRole("navigation").waitFor({ timeout: 5000 });
