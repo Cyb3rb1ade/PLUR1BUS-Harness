@@ -12,7 +12,7 @@ import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 // @ts-expect-error: a plain .mjs script without type declarations
-import { assemble, readEngineContract, writeTarGz } from "../assemble-payload.mjs";
+import { assemble, deployParent, readEngineContract, unresolvedDependencies, writeTarGz } from "../assemble-payload.mjs";
 
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const put = (p: string, body: string) => {
@@ -87,6 +87,15 @@ describe("assemble-payload", () => {
     assert.throws(() => readEngineContract("nothing here"), /not found/);
   });
 
+  it("deploys on the workspace's own volume: pnpm's hoisted linker breaks across Windows drives (HM2 CI round 2)", () => {
+    // windows-2025: the checkout on D:, %TEMP% on C: gave `mkdir 'D:\\a\\...\\C:\\Users\\...\\node_modules\\@plur1bus'`.
+    assert.equal(deployParent("D:\\a\\repo\\repo", "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp", "win32"), "D:\\a\\repo\\repo\\target");
+    assert.equal(deployParent("D:\\a\\repo", "d:\\a\\_temp", "win32"), "d:\\a\\_temp", "the same drive in another case");
+    assert.equal(deployParent("C:\\src\\repo", "C:\\Temp", "win32"), "C:\\Temp");
+    assert.equal(deployParent("\\\\srv\\share\\repo", "C:\\Temp", "win32"), "\\\\srv\\share\\repo\\target", "a UNC checkout");
+    assert.equal(deployParent("/home/u/repo", "/tmp", "linux"), "/tmp", "one POSIX tree has no drives");
+  });
+
   it("writes a deterministic tar.gz with long names, modes and no links", async () => {
     const root = mkdtempSync(join(tmpdir(), "p1b-tar-"));
     try {
@@ -146,6 +155,47 @@ describe("assemble-payload", () => {
       const pkg = JSON.parse(entry(out, "package.json").data.toString("utf8"));
       assert.deepEqual(pkg.plur1bus, { contract: "1.9.0", rpc: "1.3.0" }, "setup reads the contract and rpc from here");
       assert.equal(pkg.version, "0.1.0");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a deployed tree whose workspace packages resolve their deps only through links (CI round 1)", async () => {
+    // windows-2025: setup's copy of a plain (isolated) `pnpm deploy` tree failed with ERR_MODULE_NOT_FOUND 'ajv'
+    // imported from node_modules/@plur1bus/config-schema/dist/index.js. In that layout ajv sits next to the package's
+    // real path under .pnpm, which only a link reaches; installed without links, Node's lookup from the package's own
+    // directory up to the payload root never finds it.
+    const root = mkdtempSync(join(tmpdir(), "p1b-res-"));
+    try {
+      const workspacePkg = (d: string) => {
+        put(join(d, "node_modules/@plur1bus/config-schema/package.json"), JSON.stringify({ name: "@plur1bus/config-schema", type: "module", dependencies: { ajv: "8.20.0" } }));
+        put(join(d, "node_modules/@plur1bus/config-schema/dist/index.js"), 'import Ajv from "ajv";\nimport { readFileSync } from "node:fs";\nimport "./local.js";\nexport const msg = "please import \\", \\" here";\n');
+      };
+      const isolated = deployed(join(root, "isolated"));
+      workspacePkg(isolated);
+      put(join(isolated, "node_modules/.pnpm/ajv@8.20.0/node_modules/ajv/package.json"), JSON.stringify({ name: "ajv" }));
+      const missing = unresolvedDependencies(isolated);
+      assert.deepEqual(
+        missing.map((m: { from: string; name: string }) => `${m.name} <- ${m.from}`).sort(),
+        ["ajv <- node_modules/@plur1bus/config-schema", "ajv <- node_modules/@plur1bus/config-schema/dist/index.js"],
+        "the declared dependency and the import both, and nothing for node:, relative or string text",
+      );
+      await assert.rejects(
+        assemble({ target: "win-x64", out: join(root, "bad.tar.gz"), deployed: isolated, skills: join(root, "no-skills"), modules: join(root, "no-modules") }),
+        /does not resolve without links: ajv \(from node_modules\/@plur1bus\/config-schema/,
+      );
+
+      // The hoisted layout harness-release deploys (--config.node-linker=hoisted): ajv at the root resolves.
+      const hoisted = deployed(join(root, "hoisted"));
+      workspacePkg(hoisted);
+      put(join(hoisted, "node_modules/ajv/package.json"), JSON.stringify({ name: "ajv" }));
+      assert.deepEqual(unresolvedDependencies(hoisted), []);
+      await assemble({ target: "win-x64", out: join(root, "ok.tar.gz"), deployed: hoisted, skills: join(root, "no-skills"), modules: join(root, "no-modules") });
+
+      // A dependency the root package declares is checked from the root, and a nested copy satisfies its owner only.
+      put(join(hoisted, "package.json"), JSON.stringify({ name: "@plur1bus/core", version: "0.1.0", type: "module", dependencies: { "left-pad": "1" } }));
+      put(join(hoisted, "node_modules/@plur1bus/config-schema/node_modules/left-pad/package.json"), JSON.stringify({ name: "left-pad" }));
+      assert.deepEqual(unresolvedDependencies(hoisted), [{ from: ".", name: "left-pad" }]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -28,6 +28,14 @@ in this repository.
   - Environment variable `MACOS_SIGNING_IDENTITY`: the certificate's common name,
     `Developer ID Application: <name> (<team id>)`.
   - When D78's `release.yml` in another repository calls this workflow, the environment must exist there too.
+- [ ] **Workflow permissions for attestations (HM2 Task 7).** Real releases run through `.github/workflows/release.yml`,
+      which calls `harness-release.yml` with `dry-run: false` and then runs its `attest` job: the only job that holds
+      `id-token: write` and `attestations: write`, and attests the Hermes provider tarball and the client wheel and
+      sdist (build provenance). `harness-release.yml` itself requests `contents: read` only, in every job: GitHub
+      checks a called workflow's job permissions against the caller's grant when it creates the run, before any job
+      condition, so one job asking for `id-token: write` would make every caller without that grant (dry runs
+      included) fail at startup. Any other caller (D78's) must keep attestation in its own job the same way. For a
+      private repository, artefact attestations need a plan that supports them.
 
 ## 2. Dry run
 
@@ -41,12 +49,18 @@ in this repository.
 
 - [ ] Set the version in `Cargo.toml` (`[workspace.package] version`); the workflow refuses a release version that
       differs, because `setup` downloads `core-<binary version>-<target>.tar.gz`.
-- [ ] Run the workflow with `dry-run` unchecked (or call it from D78's `release.yml` with `version` and `channel`).
+- [ ] Actions → release → Run workflow with `version` and `channel`. It calls `harness-release` with `dry-run: false`
+      and then attests the Hermes artefacts. `harness-release` dispatched directly with `dry-run` unchecked refuses to
+      run: an unattested real run is not possible from there.
 - [ ] Approve the `macos-signing` deployment when asked. `sign-macos` signs with the hardened runtime and a timestamp,
       notarises (`notarytool --wait`) and uploads `signed-darwin-arm64`. A bare Mach-O cannot be stapled: Gatekeeper
       fetches the ticket online.
 - [ ] Download the artefact `harness-release-<version>`: five `plur1bus-<target>[.exe]`, five
-      `core-<version>-<target>.tar.gz` with `.sha256`, `release-native.json` and `SHA256SUMS`.
+      `core-<version>-<target>.tar.gz` with `.sha256`, `release-native.json`, `SHA256SUMS`, the Hermes provider
+      `plur1bus-hermes-provider-<version>.tar.gz`, the client `plur1bus_memory_client-<version>-py3-none-any.whl` and
+      `plur1bus_memory_client-<version>.tar.gz` (not uploaded to PyPI), and `hermes-sidecar.lock.json` (the seed of
+      the plugin repository's lock).
+- [ ] `gh attestation verify <file> --repo Cyb3rb1ade/PLUR1BUS-Harness` accepts each of the three Hermes files.
 
 ## 4. Checks before publishing
 
@@ -142,3 +156,39 @@ owner's. Release 7.17.0 is the first: OpenClaw minimum `2026.8.1`, latest tested
 - [ ] The installer verifies the feed signature, installs through OpenClaw's own `plugins install`, and its
       `openclaw plur1bus selftest` step passes; `--update --check` on the same machine reports the published version.
 - [ ] Record the run URL and the results in the release notes.
+
+## 7. Hermes host mode (HM2)
+
+The Hermes adapter spans both repositories. This repository's release (sections 1 to 4) builds the sidecar binaries, the
+provider tarball `plur1bus-hermes-provider-<version>.tar.gz`, the client wheel and sdist, and `hermes-sidecar.lock.json`;
+the plugin repository's installer (`install-plugin.sh --host hermes`, `install-plugin.ps1 -Host hermes`, plugin PR #204,
+release 7.18.0 planned) installs them. The plugin feed's `hosts.hermes` section is **not** written by hand: it is generated
+from the plugin repository's `scripts/dist/hermes-sidecar.lock.json`, so the harness release has to come first.
+
+- [ ] Harness release done and its Hermes artefacts attested (section 3). The release's `hermes-sidecar.lock.json` lists the
+      sidecar binary per target and the provider tarball with URL and SHA-256.
+- [ ] **Set the tested Hermes version.** The feed's `minHermesVersion` and `testedHermesVersion` are read from the lock
+      file itself. The release job (`harness-release.yml`) has no input for it and does not pass `--tested-hermes`, so the
+      lock it produces says `testedHermesVersion: "0.21.4"`, the same as the minimum. Raise it by hand to the latest Hermes
+      version you actually ran the `hermes-host.yml` legs against: either regenerate the lock from the downloaded
+      artefacts with `node scripts/build-hermes-provider.mjs lock --artifacts <dir> --base-url <url> --out <file> --tested-hermes <version>`,
+      or edit `testedHermesVersion` in the copy before committing it. Check that `minHermesVersion` is `0.21.4` (HM2-R22).
+- [ ] **Bump the lock.** Copy that file to `scripts/dist/hermes-sidecar.lock.json` in the plugin repository, review the diff
+      (versions, URLs, hashes against this release's `SHA256SUMS`, the two Hermes versions above), and commit it.
+- [ ] **Then release the plugin** as in section 6 (dry run, tag `v7.18.0`, sign offline, publish). The installer bundle's
+      pinned Node (24.21.0, `scripts/dist/node-pins.json`) must still equal the harness's Node pin (`pins.rs`); the plugin's
+      `node-pins` CI check compares it with nodejs.org `SHASUMS256.txt`.
+- [ ] Native Windows stays labelled beta (feed `hosts.hermes.windowsNativeBeta: true`) until the Windows legs of
+      `hermes-host.yml` and the plugin's `plugin-dist.yml` have been green for four weeks (plan Q7). The feed builder only
+      carries the previous feed's value forward (`true` for the first feed); no option flips it yet, so ending the beta
+      label needs a change to the feed builder, and re-signing alone does nothing.
+- [ ] **Before the first real release:** the `real-hermes` Windows leg of `hermes-host.yml` is `continue-on-error` until its
+      first green run, and the plugin's Hermes legs stay non-blocking until a harness pre-release carrying the sidecar
+      binaries exists (plan P4, Q8: cut it on the `beta` channel, signed offline as above).
+- [ ] Smoke test on a machine with Hermes installed: `curl -fsSL https://plur1bus.app/install-plugin.sh | sh -s -- --host hermes --non-interactive`
+      (`--accept-nc-licence` only when the use class needs it; `--replace-provider` only to replace another memory
+      provider). Then `hermes memory status` names `plur1bus`, `hermes plur1bus selftest` passes, a second run reports
+      `up-to-date`, and `--uninstall` restores the previous `memory.provider` and leaves the store. Record the run URL in
+      the release notes.
+- [ ] Nothing is uploaded to PyPI (plan Q2); `plur1bus-memory-client` exists only as the wheel and sdist attached to the
+      release and as the copy vendored into the provider.

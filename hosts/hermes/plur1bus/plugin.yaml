@@ -1,0 +1,6 @@
+name: plur1bus
+version: 0.1.0
+description: "PLUR1BUS long-term memory: recall and capture through the local PLUR1BUS core."
+hooks:
+  - on_session_end
+  - on_pre_compress

@@ -316,7 +316,13 @@ fn plan_changes(
         })
         .collect();
 
-    for nm in &native.modules {
+    // The host profile installs no bundled modules (HM2-R9): for it the release carries none, so they are not drift
+    // (F35). A module a host user installed is theirs: the release has no update information for it and does not
+    // remove it, so it stays out of the diff (it is still listed under `installed.modules`).
+    let host = manifest.profile() == install::manifest::PROFILE_HOST;
+    let release_modules: &[install::manifest::ReleaseModule] =
+        if host { &[] } else { &native.modules };
+    for nm in release_modules {
         match installed_by_name.get(nm.name.as_str()) {
             None => {
                 changes.push(json!({ "unit": format!("module:{}", nm.name), "from": Value::Null, "to": nm.version }));
@@ -340,9 +346,9 @@ fn plan_changes(
     }
 
     let in_release: std::collections::BTreeSet<&str> =
-        native.modules.iter().map(|m| m.name.as_str()).collect();
+        release_modules.iter().map(|m| m.name.as_str()).collect();
     for (name, (version, _)) in &installed_by_name {
-        if !in_release.contains(name) {
+        if !host && !in_release.contains(name) {
             changes.push(
                 json!({ "unit": format!("module:{name}"), "from": *version, "to": Value::Null }),
             );

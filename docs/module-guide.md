@@ -502,3 +502,11 @@ both fetched and verified through point 1 above. `config` asks only the `basic`-
 `1staid repair`'s `runtime.node.reinstall`/`runtime.core.reinstall` steps (HB16, §7 of the
 2a-H3b-b plan) re-run the same fetch-and-verify path when `1staid check`'s `runtime.node`/
 `runtime.core` rows fail.
+
+*As built (HM2):* `setup --profile host|full` (HM2-R9) installs the supervisor and the core only for `host`:
+`modules.bundled` and `skills` finish `skipped` with reason `profile-host`, and `config` creates no first agent unless
+`--agent` is given. The profile is recorded in the install manifest (`profile`; absent reads as `full`) and kept when
+`--profile` is omitted. The `state-root` step adds three refusals to the frozen HB16 reason vocabulary, each before
+anything is written: `profile-invalid` (a value other than `host` or `full`), `profile-change-unsupported` (the requested
+profile differs from the recorded one; host to full arrives with HM4) and `manifest-invalid` (`manifest.json` exists but
+cannot be read, HM2-R27). A host home has no guaranteed `config.json`. See `docs/hermes-host-mode.md`.

@@ -14,10 +14,11 @@
 // bundled modules; empty today). The archive is deterministic: sorted entries, uid/gid 0, mtime SOURCE_DATE_EPOCH or 0,
 // ustar with pax records for long names, no links, no special files.
 import { execFileSync } from "node:child_process";
+import { builtinModules } from "node:module";
 import { createHash } from "node:crypto";
-import { closeSync, createWriteStream, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { closeSync, createWriteStream, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, posix, relative, resolve, sep, win32 } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -175,6 +176,98 @@ export async function writeTarGz(source, out) {
   return hash.digest("hex");
 }
 
+// ---- resolvability ----------------------------------------------------------------------------------------------
+
+const BUILTINS = new Set(builtinModules.flatMap((m) => [m, m.replace(/^node:/, "")]));
+
+/** The package name of a bare specifier (`@a/b/c` → `@a/b`, `x/y` → `x`), or null for relative, absolute, URL and
+ *  builtin specifiers. */
+function packageOf(spec) {
+  // Not a package name (relative, absolute, `node:`/URL, or text inside a string that merely follows the word "import").
+  if (!/^(?:@[a-z0-9~][a-z0-9._~-]*\/)?[a-z0-9~][a-z0-9._~-]*(?:\/[^\s"':]*)?$/i.test(spec)) return null;
+  const parts = spec.split("/");
+  const name = spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
+  return BUILTINS.has(name) || BUILTINS.has(spec) ? null : name;
+}
+
+/** Node's package lookup from `fromDir` up to `root` (inclusive), on the paths as they are: no realpath. A payload is
+ *  installed without links (the Rust extractor creates none, and `--core-from <dir>` dereferences them on Windows), so
+ *  a dependency that pnpm's isolated layout reaches only through a link's real path is missing once installed. */
+function reachable(root, fromDir, name) {
+  for (let dir = fromDir; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, "node_modules", ...name.split("/"), "package.json"))) return true;
+    if (dir === root || !(dir + sep).startsWith(root + sep)) return false;
+  }
+}
+
+function isDir(p) {
+  try {
+    return statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** Every package directory in the `node_modules` tree under `dir` (scoped ones included, dot entries such as `.bin`
+ *  and `.pnpm` skipped), nested `node_modules` too. */
+function packageDirs(dir, out = []) {
+  const nm = join(dir, "node_modules");
+  if (!isDir(nm)) return out;
+  for (const name of readdirSync(nm).sort()) {
+    if (name.startsWith(".")) continue;
+    const dirs = name.startsWith("@") ? readdirSync(join(nm, name)).sort().map((n) => join(nm, name, n)) : [join(nm, name)];
+    for (const d of dirs) {
+      if (!existsSync(join(d, "package.json"))) continue;
+      out.push(d);
+      packageDirs(d, out);
+    }
+  }
+  return out;
+}
+
+function jsFiles(dir, out = []) {
+  if (!isDir(dir)) return out;
+  for (const name of readdirSync(dir).sort()) {
+    const p = join(dir, name);
+    if (name === "node_modules") continue;
+    if (isDir(p)) jsFiles(p, out);
+    else if (/\.(m?js|cjs)$/.test(name)) out.push(p);
+  }
+  return out;
+}
+
+const IMPORT_RE = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)["']([^"'\n]+)["']/g;
+
+/** What a payload tree cannot resolve once installed without links: every `dependencies` entry of the root package
+ *  and of every package under `node_modules`, and every bare import in the shipped code of the root (`dist/`) and of
+ *  the workspace packages (`node_modules/@plur1bus/*`, whose imports esbuild leaves external). Each item is
+ *  `{ from, name }` with `from` relative to `root`. */
+export function unresolvedDependencies(root) {
+  root = resolve(root);
+  const missing = [];
+  const need = (fromDir, name, from) => {
+    if (!reachable(root, fromDir, name)) missing.push({ from: relative(root, from).split(sep).join("/") || ".", name });
+  };
+  for (const dir of [root, ...packageDirs(root)]) {
+    const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    for (const name of Object.keys(pkg.dependencies ?? {})) need(dir, name, dir);
+  }
+  const workspace = join(root, "node_modules", "@plur1bus");
+  const shipped = [join(root, "dist"), ...(isDir(workspace) ? readdirSync(workspace).sort().map((n) => join(workspace, n)) : [])];
+  for (const top of shipped) {
+    for (const file of jsFiles(top)) {
+      const seen = new Set();
+      for (const m of readFileSync(file, "utf8").matchAll(IMPORT_RE)) {
+        const name = packageOf(m[1]);
+        if (name === null || seen.has(name)) continue;
+        seen.add(name);
+        need(dirname(file), name, file);
+      }
+    }
+  }
+  return missing;
+}
+
 // ---- payload -------------------------------------------------------------------------------------------------------
 
 function bundledModules(dir) {
@@ -189,8 +282,21 @@ function bundledModules(dir) {
   return out;
 }
 
+/** Where `deploy()` makes its temp directory: the system temp directory when it is on the same volume as the
+ *  workspace `root`, else `<root>/target` (gitignored, Cargo's). pnpm's hoisted linker places the workspace packages
+ *  of a deploy with a join of the workspace directory and a path relative to it, and across Windows drives that
+ *  relative path is absolute: a `D:` checkout with `%TEMP%` on `C:` failed with `ENOENT: mkdir
+ *  'D:\\a\\...\\C:\\Users\\...\\core\\node_modules\\@plur1bus'` (windows-2025, HM2 CI round 2). */
+export function deployParent(root, tmp, platform = process.platform) {
+  const p = platform === "win32" ? win32 : posix;
+  const volume = (d) => p.parse(p.resolve(d)).root.toLowerCase();
+  return volume(tmp) === volume(root) ? tmp : p.join(root, "target");
+}
+
 function deploy() {
-  const dir = mkdtempSync(join(tmpdir(), "p1b-deploy-"));
+  const parent = deployParent(ROOT, tmpdir());
+  mkdirSync(parent, { recursive: true });
+  const dir = mkdtempSync(join(parent, "p1b-deploy-"));
   const into = join(dir, "core");
   execFileSync("pnpm", ["--filter", "@plur1bus/core", "deploy", "--legacy", "--prod", "--config.node-linker=hoisted", into], {
     cwd: ROOT,
@@ -209,6 +315,11 @@ export async function assemble({ target, out, deployed, skills = join(ROOT, "ski
   try {
     const root = d.into;
     if (!existsSync(join(root, "dist", "core.js"))) throw new Error(`${root}/dist/core.js is missing: run pnpm build first`);
+    const missing = unresolvedDependencies(root);
+    if (missing.length > 0) {
+      const shown = missing.slice(0, 20).map((m) => `${m.name} (from ${m.from})`).join(", ");
+      throw new Error(`the deployed tree does not resolve without links: ${shown}${missing.length > 20 ? `, and ${missing.length - 20} more` : ""}`);
+    }
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
     const contract = readEngineContract(readFileSync(join(root, ENGINE_JS), "utf8"));
     const rpc = JSON.parse(readFileSync(join(root, RPC_SCHEMA), "utf8"))["x-rpc-version"];
