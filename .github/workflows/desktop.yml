@@ -32,6 +32,7 @@ jobs:
         shell: bash
     env:
       PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY: "1"
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/plur1bus-playwright
       # Process-scoped transport rewrite; no git config files are changed.
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
@@ -53,6 +54,12 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf
       - run: pnpm install --frozen-lockfile
+      - name: Install UI test browser (Linux)
+        if: runner.os == 'Linux'
+        run: pnpm --filter @plur1bus/desktop-ui exec playwright install --with-deps chromium --only-shell
+      - name: Install UI test browser (macOS and Windows)
+        if: runner.os != 'Linux'
+        run: pnpm --filter @plur1bus/desktop-ui exec playwright install chromium --only-shell
       - run: pnpm --filter @plur1bus/desktop-ui build
       - run: pnpm --filter @plur1bus/desktop-ui test
       - run: cargo fmt --all -- --check

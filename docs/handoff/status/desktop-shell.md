@@ -97,7 +97,7 @@ This follow-up commit records verification only.
 Status: GREEN — implementation, independent review and full CI passed at `ad6f0f7`.
 Branch: `feat/desktop-shell-wp02-mock-harness`.
 PR: [#60](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/60), base `main`.
-Ready-for-review transition follows the report-only commit's CI; no merge authorized.
+READY FOR REVIEW since 2026-10-02; not merged.
 Original verified head: `5c5038281c6597d18f38d9d78cb0c2a0554f7666`.
 Part A implementation head: `8131a85f2a3df916a2cdd839b5da0401f3ae60e9`
 (initial fixes `7517ccc`, independent-review fixes `8131a85`).
@@ -198,6 +198,11 @@ on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
   All root unit, system and service jobs in
   [root CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36948367260)
   passed. No rerun was needed for this head.
+- PASS at final report-only head `2998d35a7badeb69a28b33e7072adc6de053d20e`:
+  [desktop CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36949748139)
+  (five platforms, Docker and Podman) and
+  [root CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36949748146)
+  (all unit/system/service jobs). PR #60 was then marked ready; owner merges.
 
 ### Acceptance matrix (CI head `ad6f0f7`, implementation `8131a85`)
 
@@ -241,5 +246,151 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 - [x] Fresh local root and desktop gates.
 - [x] Independent review and scoped fix verification.
 - [x] Full CI at final implementation/report head `ad6f0f7`; record results here.
-- [ ] Await this report-only commit's CI, then mark PR #60 ready; owner merges.
-- [ ] Start WP3, then WP4–WP6, only after the previous WP is green.
+- [x] Report-only commit CI passed; PR #60 marked ready; owner merges.
+- [x] Start WP3 after the complete WP2 gate.
+- [ ] WP4–WP6 remain sequential, each after the preceding WP is green.
+
+## WP3 — Shell UI frame
+
+Status: IN PROGRESS.
+Branch: `feat/desktop-shell-wp03-ui-frame`.
+Base: `feat/desktop-shell-wp02-mock-harness` at
+`2998d35a7badeb69a28b33e7072adc6de053d20e`; PR #60 is ready but not merged.
+PR: not yet created. Local implementation checks are passing; independent review
+and CI are pending. Code review fixes are approved; actual zoom coverage remains
+open before final acceptance.
+Implementation head: `f6f3e7e7ebb59981c962e56eac0289a42c8bf224`
+(initial frame `c392a63`, review fixes `f6f3e7e`).
+
+### Scope and decisions
+
+- Frameworkless frame, reusable accessible components, Glow token source,
+  bundled OFL fonts, de/en, OS defaults and persisted appearance/language.
+- Minimal typed `settings_get`/`settings_set` and platform information are
+  necessary for WP3 persistence; later command surfaces remain later WPs.
+- G-12: the canvas could not be retrieved. The owner's explicit fallback is
+  spec §13.1 and §13.6–§13.8. Artwork follows those values; no pixel match to
+  unobserved canvas exports is claimed.
+- C1/C2/C3/C4/C22: Glow-only tokens, system theme with dark fallback, 12 px
+  text floor, isolated wordmark morph and 44 px targets at every shell width.
+- Existing app icon assets follow red `1` below 48 px, `P1B` at 48 px up.
+  Stateful tray icons and remaining installer/MSIX assets belong to WP6/WP13.
+
+### Verification so far
+
+- PASS: frozen pnpm install and toolchain check after adding the pinned UI test
+  dependencies (`playwright` 1.63.0, `axe-core` 4.13.0, Tauri JS API 2.10.1).
+  Browser binaries are installed under `/tmp/plur1bus-wp03-playwright`, with
+  a matching temporary location in CI. No personal browser profile is used.
+- Browser target caveat: Playwright 1.63.0 maps Windows hosts to its `win64`
+  Chromium headless-shell build. Windows 11 ARM will exercise the UI through
+  x64 emulation; the Tauri application remains a separate ARM64 build. Runner
+  success has not yet been observed for WP3.
+- PASS: root `pnpm gen`, `pnpm build`, `pnpm lint`, `pnpm test`: 576 passed,
+  five existing platform/filesystem skips; no desktop skips. Hygiene tests:
+  11 passed. Log: `/tmp/desktop-wp03-root-node.log`.
+- PASS: unchanged root Rust fmt/Clippy/test. Log:
+  `/tmp/desktop-wp03-root-rust.log`.
+- PASS: 11 UI tests using an isolated Chromium browser and the production CSP:
+  both locales/themes with axe WCAG 2.1 AA, keyboard and save-failure focus,
+  responsive boundaries, 44 px targets, four platform dialog orders, and every
+  PNG/ICO/ICNS icon frame. Included in the root test result above.
+- PASS: final implementation UI suite 13/13, adding system-theme/reduced-motion
+  coverage and the related-panel sheet at narrow widths. Desktop locked
+  Clippy/fmt and 55 Rust tests pass; locked Tauri debug compile and `.app` bundle
+  pass. The final root test rerun is in progress.
+- Final root attempt 1: frozen install/toolchain/gen/build/lint passed, but the
+  pre-existing importer concurrent-writer SQLite test spun at approximately
+  99% CPU and stopped producing output. The controller terminated only that
+  test process after 44 seconds; the root test command failed. This matches
+  the previously observed WP1/WP2 importer instability. No importer source
+  was changed. Retry 1 finished with the same test failing at its `SELECT`
+  (line 96): `ERR_SQLITE_ERROR`, `database disk image is malformed`. The
+  earlier root pass remains recorded, but the final push gate is not green.
+  Another full root run will follow the pending WP3 review fixes. Logs:
+  `/tmp/desktop-wp03-root-final.log` and
+  `/tmp/desktop-wp03-root-test-retry.log`.
+- PASS: controller visual inspection of synthetic compact/normal/wide captures,
+  Advanced preferences, compact navigation, sheet, dialog and keyboard focus;
+  separate inspection of the 32 px and 256 px app icons. No canvas pixel-match
+  or screen-reader pass is claimed.
+- PASS: fresh locked, ad-hoc-signed debug `.app` on macOS arm64, built after
+  the last production source edit. At `tauri://localhost`, bundled fonts and
+  Glow styles rendered; native IPC saved Light/English into scratch settings
+  with POSIX mode 0600. Both choices survived a scratch-profile relaunch.
+  Keyboard traversal reached the dialog opener; Enter opened it, Tab wrapped
+  within its buttons and Escape returned focus to the opener. Launch/relaunch
+  logs were empty, and Command-Q exited with no remaining desktop process.
+  After the final sheet addition, another fresh bundle was launched with the
+  same scratch profile: preferences remained restored and the related sheet
+  opened/closed correctly. Its launch log was also empty.
+- Manual-test deviation: the UI tool's state read after the first Command-Q
+  automatically relaunched the app without the scratch environment. It was
+  immediately closed, with no preference changes or other actions performed.
+  The persistence verification then used a new explicit scratch launch. Future
+  quit checks use process inspection, never a post-quit UI state request.
+- Not run: actual VoiceOver/NVDA/Orca operation or Windows/Linux interactive
+  startup. Native accessibility-tree inspection is not a screen-reader pass.
+- Representative synthetic screenshots are under `docs/handoff/status/img/`
+  with prefix `wp03-`; they contain no real connections or personal data.
+
+### Delivered interfaces and WP3 acceptance
+
+- `apps/desktop/ui/src/{main,ipc,i18n,router,shell}.ts`: frame routes,
+  catalogues, native transport boundary and persisted preference controls.
+- `apps/desktop/ui/src/theme/`: one Glow token source, base layout and four
+  platform variants. `ui/assets/fonts/` bundles the three licensed font families.
+- `apps/desktop/ui/src/components/`: reusable button, segmented control, switch,
+  sidebar/rail, sheet, dialog, progress, chip, banner and isolated wordmark.
+- `apps/desktop/src-tauri/src/{commands,settings}.rs`: three guarded shell
+  commands, closed settings types and atomic native persistence. No harness
+  token, network request or arbitrary filesystem command enters the UI.
+
+| WP3 Accept | Result and observed target |
+|---|---|
+| en/de identical keys, no empty strings | PASS — Node 24.21, macOS arm64 |
+| Content-width breakpoints below 1024 and above 1600 | PASS — Chromium, all four platform variants, including exact boundaries |
+| 400 CSS px without horizontal scroll | PASS — Chromium compact views |
+| Text at least 12 px and targets at least 44 px | PASS — computed browser layout at tested widths and variants |
+| Dialog width min(680, window minus 48) | PASS — Chromium platform/width matrix |
+| axe WCAG 2.1 AA in both themes/locales | PASS at f6f3e7e — separate unobscured Advanced and dialog checks, all four theme/locale pairs |
+| Full keyboard traversal | PASS — browser tests; native macOS page/dialog path also observed |
+| Visible focus | PASS — browser assertions and inspected focus screenshot |
+| Text contrast at least 4.5:1 | PASS at f6f3e7e — unobscured page and dialog axe checks |
+
+CI target results and independent review remain pending. Acceptance §8 row 14
+is shell-side automated/keyboard coverage; actual screen-reader operation is
+still unperformed and must not be inferred from the accessibility tree.
+
+### Independent review round 1
+
+Needs fixes at `c392a63`: required red-1 pivot wordmark; independent platform
+loading when settings are unreadable; serialized preference changes to prevent
+lost updates; axe checks on the unobscured page as well as modal; actual text
+enlargement coverage; move hero gradient colors into the token source. The
+implementation worker is addressing these with regression tests. Existing
+passing tests do not supersede these findings.
+
+Fix commit `f6f3e7e` addresses these findings with an 18-test UI suite: red
+pivot with immediate page routing and delayed word opening; independently
+settled native reads; serialized field patches with failure rollback; separate
+axe runs on Advanced and its dialog; shared gradient tokens. Text enlargement
+keeps the viewport at 1440 px and doubles each element's original computed
+font size through the test fixture. This is text-only layout simulation, not
+an observed OS text-scaling or browser-zoom operation. Typecheck and a fresh
+locked debug `.app` build pass. The controller observed the corrected Home
+wordmark/Harness subtitle in the scratch app and a clean exit. Scoped re-review
+completed for the code fixes with no new Critical/Important breakage. It keeps
+actual browser/system zoom on all shell pages open; a test-only follow-up is
+in progress. The full root gen/build/lint/test at `f6f3e7e` then passed: 583
+tests passed, five existing platform/filesystem skips, plus 11 hygiene tests.
+Log: `/tmp/desktop-wp03-review-fixed-root.log`. The earlier SQLite failures
+remain recorded; a later pass does not claim to fix that existing instability.
+
+### Next
+
+- [x] Implement frame, native preferences and isolated IPC.
+- [x] Bundle fonts and update existing app icon assets.
+- [x] Real browser layout/keyboard/axe tests; browser prerequisites in CI.
+- [ ] Local gates, native visual check, independent review and draft PR.
+- [ ] Full root/desktop CI before WP4.
