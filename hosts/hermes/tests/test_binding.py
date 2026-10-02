@@ -207,16 +207,68 @@ class BindingTest(unittest.TestCase):
         self._plant_lock(p1home, 2**22 + 12345, "some-other-host", 5)
         self.assertIsNone(ExclusiveLockFile(self._lock_path(p1home))._judge_stale())
 
-    @unittest.skipIf(os.name == "nt", "pid probe is POSIX only")
     def test_dead_pid_lock_of_this_host_is_broken(self) -> None:
         import subprocess
 
+        # The Popen object keeps the process handle open on Windows: the probe must still see it exited.
         p = subprocess.Popen([sys.executable, "-c", "pass"])
         p.wait()
         p1home = self._dir("p")
         self._plant_lock(p1home, p.pid, socket.gethostname(), 2)  # >= 1 s old, pid gone
+        old = binding_mod.REGISTRY_LOCK_TIMEOUT_S
+        binding_mod.REGISTRY_LOCK_TIMEOUT_S = 5.0  # well below the 60 s age rule: only the pid rule can break it
+        self.addCleanup(setattr, binding_mod, "REGISTRY_LOCK_TIMEOUT_S", old)
         register_binding(p1home, "hermes-d", self._dir("srv", "h"))
         self.assertIn("hermes-d", read_registry(p1home))
+        # A live pid of this host (this process) and a pid Node would reject are never judged dead.
+        lock = ExclusiveLockFile(self._lock_path(p1home))
+        self._plant_lock(p1home, os.getpid(), socket.gethostname(), 2)
+        self.assertIsNone(lock._judge_stale())
+        self._plant_lock(p1home, 2**40, socket.gethostname(), 2)
+        self.assertIsNone(lock._judge_stale())
+        # Younger than 1 s: the dead pid is not enough yet.
+        self._plant_lock(p1home, p.pid, socket.gethostname(), 0)
+        self.assertIsNone(lock._judge_stale())
+
+    def test_failed_break_waits_and_times_out(self) -> None:
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        self._plant_lock(p1home, 1, "h", 120)
+        lock = ExclusiveLockFile(path)
+        calls = []
+
+        def failing_break(*a):
+            calls.append(a)
+            return False  # e.g. the rename keeps failing
+
+        lock._break = failing_break  # type: ignore[method-assign]
+        start = time.monotonic()
+        with self.assertRaises(LockTimeout):
+            with lock.hold(0.3):
+                self.fail("entered a lock that could not be broken")
+        elapsed = time.monotonic() - start
+        self.assertLess(elapsed, 2.0)
+        self.assertLess(len(calls), 0.3 / ExclusiveLockFile.POLL_S + 3, "a failed break sleeps one poll, no spin")
+        self.assertTrue(os.path.exists(path))
+
+    @unittest.skipUnless(os.name == "nt", "sharing violations exist on Windows only")
+    def test_release_retries_while_a_reader_holds_the_lock_file_open(self) -> None:
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        opened, done = threading.Event(), threading.Event()
+
+        def reader() -> None:
+            with open(path, "rb"):  # CPython opens without FILE_SHARE_DELETE: the rename fails meanwhile
+                opened.set()
+                time.sleep(0.3)
+            done.set()
+
+        with ExclusiveLockFile(path).hold(1):
+            threading.Thread(target=reader).start()
+            self.assertTrue(opened.wait(5))
+        self.assertTrue(done.is_set(), "the release waited for the reader")
+        self.assertFalse(os.path.exists(path), "the lock is gone after the retried release")
+        self.assertEqual([n for n in os.listdir(os.path.dirname(path)) if ".rel-" in n], [])
 
     def test_lock_file_content_and_flags(self) -> None:
         p1home = self._dir("p")
@@ -229,10 +281,12 @@ class BindingTest(unittest.TestCase):
             self.assertLess(abs(int(ms) / 1000 - time.time()), 5)
         self.assertFalse(os.path.exists(path))
 
-    def test_installer_and_provider_lock_protocols_exclude_each_other(self) -> None:
-        """A Python transcription of the Node installer's ``withRegistryLock`` (binding.mjs): ``openSync(lock,
-        "wx")``, content ``<pid> <hostname> <ms> <nonce>``, release by rename to ``<lock>.rel-<nonce>`` and unlink
-        only when the nonce is ours. It shares nothing with ``ExclusiveLockFile`` but the path and the format."""
+    def test_basic_o_excl_exclusion_against_a_transcription_of_the_installer_lock(self) -> None:
+        """Only the basic O_EXCL exclusion and the stolen-lock release, against a Python transcription of the
+        Node installer's ``withRegistryLock`` (binding.mjs): ``openSync(lock, "wx")``, content ``<pid> <hostname>
+        <ms> <nonce>``, release by rename to ``<lock>.rel-<nonce>`` and unlink only when the nonce is ours. It
+        shares nothing with ``ExclusiveLockFile`` but the path and the format, and has no stale or break path. A
+        real cross-language test (Node and Python workers on one lock, dying holders) is a plugin-repo follow-up."""
 
         def js_with_registry_lock(p1home: str, fn, deadline_s: float = 5.0):
             lock = os.path.join(p1home, "hosts", ".hermes-bindings.lock")
@@ -243,7 +297,9 @@ class BindingTest(unittest.TestCase):
                 try:
                     fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
                     break
-                except FileExistsError:
+                except (FileExistsError, PermissionError) as e:
+                    if isinstance(e, PermissionError) and os.name != "nt":  # win32: EPERM/EACCES = busy
+                        raise
                     if time.monotonic() > end:
                         raise RuntimeError("the bindings registry is locked")
                     time.sleep(0.025)
@@ -253,19 +309,25 @@ class BindingTest(unittest.TestCase):
                 return fn()
             finally:
                 rel = f"{lock}.rel-{nonce}"
-                try:
-                    os.rename(lock, rel)
-                except FileNotFoundError:
-                    return
-                with open(rel, encoding="utf-8") as f:
-                    if f.read().split()[3] == nonce:
-                        os.unlink(rel)
-                    else:
-                        try:
-                            os.link(rel, lock)
-                        except FileExistsError:
-                            pass
-                        os.unlink(rel)
+                give_up = time.monotonic() + 2.0
+                while True:  # the release-rename retry the installer must mirror (I1): sharing errors on win32
+                    try:
+                        os.rename(lock, rel)
+                        break
+                    except FileNotFoundError:
+                        return
+                    except PermissionError:
+                        if os.name != "nt" or time.monotonic() >= give_up:
+                            raise
+                        time.sleep(0.01)
+                with open(rel, encoding="utf-8") as f:  # closed before the unlink (Windows sharing)
+                    ours = f.read().split()[3] == nonce
+                if not ours:
+                    try:
+                        os.link(rel, lock)
+                    except FileExistsError:
+                        pass
+                os.unlink(rel)
 
         p1home = self._dir("p")
         path = self._lock_path(p1home)
@@ -292,20 +354,29 @@ class BindingTest(unittest.TestCase):
             with open(counter, "w", encoding="utf-8") as f:
                 f.write(str(n + 1))
 
+        errors: list[BaseException] = []
+
         def provider_side() -> None:
-            for _ in range(15):
-                with ExclusiveLockFile(path).hold(10):
-                    bump()
+            try:
+                for _ in range(15):
+                    with ExclusiveLockFile(path).hold(10):
+                        bump()
+            except BaseException as e:  # noqa: BLE001
+                errors.append(e)
 
         def installer_side() -> None:
-            for _ in range(15):
-                js_with_registry_lock(p1home, bump, 10)
+            try:
+                for _ in range(15):
+                    js_with_registry_lock(p1home, bump, 10)
+            except BaseException as e:  # noqa: BLE001
+                errors.append(e)
 
         threads = [threading.Thread(target=provider_side), threading.Thread(target=installer_side)]
         for t in threads:
             t.start()
         for t in threads:
             t.join(60)
+        self.assertEqual(errors, [])
         with open(counter, encoding="utf-8") as f:
             self.assertEqual(f.read(), "30")
         # Each side honours the other's stolen-lock rule: a lock holding a foreign nonce survives our release.
@@ -407,24 +478,40 @@ class BindingTest(unittest.TestCase):
             t.start()
         for t in reapers:
             t.join(90)
+        for p in procs:
+            if p.returncode is None:
+                p.kill()  # bounded: never leave a worker behind on failure
         self.assertTrue(all(p.returncode == 0 for p in procs), [p.returncode for p in procs])
-        holder = None
-        entries = deaths = 0
+        # The accepted put-back window: a waiter that judged a dead holder's lock stale can rename a fresh live lock
+        # aside (and put it back); a third process may enter meanwhile. The protocol's guarantee is that then the
+        # displaced holder's verify() fails (L) and it writes nothing. So an overlap is allowed only when every
+        # holder already inside logs L before its X.
+        inside: list[str] = []
+        must_lose: set[str] = set()
+        entries = deaths = lost = 0
         with open(log, encoding="utf-8") as f:
             for line in f:
                 tag, pid = line.split()
                 if tag == "E":
-                    self.assertIsNone(holder, f"double entry: {pid} entered while {holder} held the lock")
-                    holder, entries = pid, entries + 1
-                elif tag == "X":
-                    self.assertEqual(holder, pid)
-                    holder = None
-                elif tag == "D":
-                    self.assertEqual(holder, pid)
-                    holder, deaths = None, deaths + 1
+                    must_lose.update(inside)
+                    inside.append(pid)
+                    entries += 1
+                elif tag in ("X", "D"):
+                    self.assertIn(pid, inside)
+                    if tag == "X":  # a dying holder (D) writes nothing either way
+                        self.assertNotIn(pid, must_lose, f"double entry: {pid} overlapped another holder and verified")
+                    must_lose.discard(pid)
+                    inside.remove(pid)
+                    deaths += tag == "D"
+                elif tag == "L":
+                    self.assertIn(pid, inside)  # verify() refused the write: safe
+                    must_lose.discard(pid)
+                    lost += 1
                 else:
                     self.fail(f"unexpected log entry {line!r}")
+        self.assertEqual(inside, [])
         self.assertEqual(deaths, 2)
+        self.assertLessEqual(lost, 4 * deaths, "only a break of a dead holder's lock can displace a live lock")
         self.assertEqual(entries, 3 * 12 + 5 + 9, "every section ran exactly once (dying workers stop at their death)")
 
     def test_binding_written_atomically_0600(self) -> None:

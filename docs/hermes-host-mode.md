@@ -28,7 +28,7 @@ The provider imports Hermes' `agent.memory_provider` and nothing else from Herme
 
 ## RPC surface and stability
 
-The turn path uses **stable** methods only (HM2-R5): `core.auth`, `memory.recall`, `memory.capture`. At RPC 1.3.0 `agent.*`, `memory.checkpoint` and the D21 operations (`memory.list`, `memory.show`, `memory.forget`, `memory.correct`, `memory.share`) are not yet stable (ADR-016). The provider calls them only when `core.auth` lists them in its capabilities; their absence switches off that hook or tool, never the provider. Promotion to stable is open (plan Q3). This corrects the plugin-distribution spec's note (F12) that called them stable. No RPC change was made (HM2-R6); RPC stays 1.3.0 and the client accepts major 1 with minor 3 or later (`E_RPC_VERSION` otherwise).
+The turn path uses **stable** methods only (HM2-R5): `core.auth`, `memory.recall`, `memory.capture`. In the RPC schema (1.4.0 at merge) `agent.*`, `memory.checkpoint` and the D21 operations (`memory.list`, `memory.show`, `memory.forget`, `memory.correct`, `memory.share`) are not yet stable (ADR-016). The provider calls them only when `core.auth` lists them in its capabilities; their absence switches off that hook or tool, never the provider. Promotion to stable is open (plan Q3). This corrects the plugin-distribution spec's note (F12) that called them stable. HM2 made no RPC change (HM2-R6): the client needs rpc major 1 with minor 3 or later (`E_RPC_VERSION` otherwise); the schema is 1.4.0 at merge.
 
 ## Hook to RPC table (as implemented)
 
@@ -94,8 +94,8 @@ The agent is created with `plur1bus agent create <id>` (only the supervisor's `c
 The installer (Node) and the provider (Python, `hermes plur1bus bind`) both read-modify-write `hermes-bindings.json`, and Node has no `flock`. Both therefore take the same lock **file**, `<plur1bus home>/hosts/.hermes-bindings.lock`, by existence (details in `docs/hermes/hermes-host-facts.md` (k)):
 
 - create with `O_CREAT|O_EXCL`, mode 0600, content `<pid> <hostname> <ms> <nonce>` (128-bit hex nonce, new for every hold);
-- stale after 60 s, or when it names a dead pid of this host (POSIX, at least 1 s old); breaking renames it to `<lock>.break-<nonce>`, compares device/inode and content with what was judged stale, and puts it back with `link` if another process got there first; the lock path is never unlinked directly;
-- release renames to `<lock>.rel-<nonce>` and unlinks only if the content holds this holder's nonce;
+- stale after 60 s, or when it names a dead pid of this host and is at least 1 s old (POSIX `kill(pid, 0)`, Windows `OpenProcess`/`GetExitCodeProcess`, the same probe on both sides); breaking renames it to `<lock>.break-<nonce>`, compares device/inode and content with what was judged stale, and puts it back with `link` if another process got there first; the lock path is never unlinked directly;
+- release renames to `<lock>.rel-<nonce>` and unlinks only if the content holds this holder's nonce; on Windows a sharing or access error on that rename (a reader holding the file open) is retried for up to 2 s, and if the lock is missing because a waiter moved it aside, the holder waits for the put-back and then releases it;
 - before writing, the holder re-reads the lock and writes nothing if its nonce is gone (`LockLost`);
 - wait at most 10 s, then fail (`LockTimeout`).
 

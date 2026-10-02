@@ -40,7 +40,7 @@ for i in range(iters):
             try:
                 held.verify()
             except LockLost:
-                log("L")  # lost mid-section: must never be followed by a double entry
+                log("L")  # displaced mid-section: this holder writes nothing (the test allows an overlap only then)
             log("X")
     except Exception:  # noqa: BLE001
         log("T")
