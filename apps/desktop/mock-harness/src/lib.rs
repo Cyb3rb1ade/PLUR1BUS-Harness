@@ -31,6 +31,7 @@ use std::{
 use tokio::{net::TcpListener, sync::broadcast, task::AbortHandle};
 
 pub use plur1bus_desktop_contract::route;
+pub mod tls;
 
 #[derive(Clone)]
 pub struct MockOptions {
@@ -120,6 +121,7 @@ struct Shared {
     path: Option<PathBuf>,
     clock: Arc<AtomicI64>,
     api_version: Mutex<String>,
+    session_ticket_capability: AtomicBool,
     reported_id: Mutex<Option<String>>,
     failure: Mutex<Option<String>>,
     key_unlock_enabled: AtomicBool,
@@ -135,6 +137,12 @@ struct Shared {
     bridge_results: Mutex<BTreeMap<String, Value>>,
     origin: Mutex<Option<String>>,
     bound_ip: IpAddr,
+    tls: Mutex<Option<tls::TlsState>>,
+    proof_offer: Mutex<Option<tls::ProofOffer>>,
+    proof_attempts: Mutex<(i64, u32)>,
+    requests: Mutex<Vec<(String, bool)>>,
+    revoke_after: Mutex<Option<String>>,
+    redemption_token_length: Mutex<Option<usize>>,
 }
 #[derive(Clone)]
 enum Event {
@@ -190,6 +198,18 @@ impl Shared {
 }
 impl MockHarness {
     pub async fn start(options: MockOptions) -> io::Result<MockHandle> {
+        Self::start_inner(options, None).await
+    }
+    pub async fn start_tls(
+        options: MockOptions,
+        identity: tls::Identity,
+    ) -> io::Result<MockHandle> {
+        Self::start_inner(options, Some(identity)).await
+    }
+    async fn start_inner(
+        options: MockOptions,
+        identity: Option<tls::Identity>,
+    ) -> io::Result<MockHandle> {
         let path = if let Some(dir) = &options.state_dir {
             fs::create_dir_all(dir)?;
             Some(dir.join("mock-state.json"))
@@ -207,6 +227,7 @@ impl MockHarness {
             store: Mutex::new(store),
             path,
             clock: options.clock,
+            session_ticket_capability: AtomicBool::new(true),
             api_version: Mutex::new("1.0.0".into()),
             reported_id: Mutex::new(None),
             failure: Mutex::new(None),
@@ -223,13 +244,31 @@ impl MockHarness {
             bridge_results: Mutex::new(BTreeMap::new()),
             origin: Mutex::new(None),
             bound_ip: options.bind.ip(),
+            tls: Mutex::new(identity.map(tls::TlsState::new)),
+            proof_offer: Mutex::new(None),
+            proof_attempts: Mutex::new((0, 0)),
+            requests: Mutex::new(Vec::new()),
+            revoke_after: Mutex::new(None),
+            redemption_token_length: Mutex::new(None),
         });
         shared.save(&shared.store.lock().unwrap())?;
         let listener = TcpListener::bind(options.bind).await?;
-        let origin = format!("http://{}", listener.local_addr()?);
+        let origin = format!(
+            "{}://{}",
+            if shared.tls.lock().unwrap().is_some() {
+                "https"
+            } else {
+                "http"
+            },
+            listener.local_addr()?
+        );
         *shared.origin.lock().unwrap() = Some(origin.clone());
         let serving = shared.clone();
         let task = tokio::spawn(async move {
+            if serving.tls.lock().unwrap().is_some() {
+                tls::serve(listener, serving, options.test_control).await;
+                return;
+            }
             let _ = axum::serve(
                 listener,
                 router(serving, options.test_control)
@@ -247,6 +286,21 @@ impl MockHarness {
 }
 
 impl MockControl {
+    pub fn set_redemption_token_length(&self, length: usize) {
+        *self.shared.redemption_token_length.lock().unwrap() = Some(length);
+    }
+
+    pub fn revoke_after_route(&self, route: &str) {
+        *self.shared.revoke_after.lock().unwrap() = Some(route.into());
+    }
+
+    pub fn recorded_requests(&self) -> Vec<(String, bool)> {
+        self.shared.requests.lock().unwrap().clone()
+    }
+    pub fn clear_requests(&self) {
+        self.shared.requests.lock().unwrap().clear()
+    }
+
     pub fn create_approval(&self, id: &str, summary: &str) {
         let record = json!({
             "id":id,"state":"pending","summary":summary,
@@ -349,9 +403,12 @@ impl MockControl {
         self.create_pair_code_with_scopes_and_grant(scopes, true)
     }
     fn create_pair_code_with_scopes_and_grant(&self, scopes: &[&str], grant: bool) -> String {
-        let mut bytes = [0_u8; 4];
+        let mut bytes = [0_u8; 8];
         rand::rng().fill_bytes(&mut bytes);
-        let raw = format!("{:08X}", u32::from_be_bytes(bytes));
+        let raw: String = bytes
+            .iter()
+            .map(|b| plur1bus_desktop_contract::trust::CODE_ALPHABET[(b & 31) as usize] as char)
+            .collect();
         let code = format!("{}-{}", &raw[..4], &raw[4..]);
         let mut store = self.shared.store.lock().unwrap();
         store.pair_codes.insert(
@@ -363,6 +420,11 @@ impl MockControl {
             },
         );
         self.shared.save(&store).expect("persist pair code");
+        drop(store);
+        if self.shared.tls.lock().unwrap().is_some() {
+            *self.shared.proof_offer.lock().unwrap() =
+                Some(tls::ProofOffer::new(&code, self.shared.now() + 3600));
+        }
         code
     }
     pub fn revoke_device(&self, id: &str) -> bool {
@@ -395,6 +457,11 @@ impl MockControl {
         }
         self.shared.publish("harness.status", data);
     }
+    pub fn set_session_ticket_capability(&self, enabled: bool) {
+        self.shared
+            .session_ticket_capability
+            .store(enabled, Ordering::SeqCst);
+    }
     pub fn set_meta(&self, installation_id: Option<&str>, api_version: &str) {
         *self.shared.reported_id.lock().unwrap() = installation_id.map(str::to_owned);
         *self.shared.api_version.lock().unwrap() = api_version.into();
@@ -423,6 +490,13 @@ impl MockControl {
 fn router(shared: Arc<Shared>, test_control: bool) -> Router {
     let mut router = Router::new()
         .route(routes::META, get(meta))
+        .route(
+            plur1bus_desktop_contract::trust::PAIR_PROOF,
+            post(tls::proof).layer(axum::extract::DefaultBodyLimit::max(4096)),
+        )
+        .route(plur1bus_desktop_contract::trust::CA, get(tls::ca))
+        .route(plur1bus_desktop_contract::trust::TRUST, get(tls::trust))
+        .route(plur1bus_desktop_contract::trust::ACK, post(tls::ack))
         .route(routes::DEVICE_REDEEM, post(redeem_device))
         .route(routes::SESSION_TICKET, post(session_ticket))
         .route(routes::TICKET_REDEEM, post(redeem_ticket))
@@ -441,7 +515,41 @@ fn router(shared: Arc<Shared>, test_control: bool) -> Router {
             .route_layer(middleware::from_fn(loopback_test_control));
         router = router.merge(controls);
     }
-    router.with_state(shared)
+    router
+        .layer(middleware::from_fn_with_state(
+            shared.clone(),
+            record_request,
+        ))
+        .with_state(shared)
+}
+async fn record_request(
+    State(shared): State<Arc<Shared>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    shared.requests.lock().unwrap().push((
+        request.uri().path().into(),
+        request.headers().contains_key(header::AUTHORIZATION),
+    ));
+    let revoke = shared.revoke_after.lock().unwrap().as_deref() == Some(request.uri().path());
+    let token_hash = if revoke {
+        request
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .map(hash)
+    } else {
+        None
+    };
+    let response = next.run(request).await;
+    if let Some(hash) = token_hash {
+        let mut store = shared.store.lock().unwrap();
+        if let Some(device) = store.devices.values_mut().find(|d| d.token_hash == hash) {
+            device.revoked = true;
+        }
+    }
+    response
 }
 async fn loopback_test_control(request: Request, next: Next) -> Response {
     let loopback_peer = request
@@ -482,7 +590,7 @@ fn err(reason: &str, status: StatusCode) -> Response {
 async fn meta(State(s): State<Arc<Shared>>) -> Json<Value> {
     let store = s.store.lock().unwrap();
     Json(
-        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":[capability::SESSION_TICKET,capability::HOST_BRIDGE]}),
+        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":if s.session_ticket_capability.load(Ordering::SeqCst) { vec![capability::SESSION_TICKET,capability::HOST_BRIDGE] } else { vec![capability::HOST_BRIDGE] }}),
     )
 }
 
@@ -519,7 +627,10 @@ async fn redeem_device(State(s): State<Arc<Shared>>, Json(body): Json<RedeemDevi
         return err("code-expired", StatusCode::UNAUTHORIZED);
     }
     let id = random_id();
-    let token = random_id();
+    let mut token = random_id();
+    if let Some(length) = *s.redemption_token_length.lock().unwrap() {
+        token.truncate(length);
+    }
     store.devices.insert(
         id.clone(),
         Device {
@@ -751,10 +862,12 @@ async fn events(
         .split(',')
         .map(str::to_owned)
         .collect();
-    if topics
-        .iter()
-        .any(|topic| !matches!(topic.as_str(), "harness.status" | "approval"))
-    {
+    if topics.iter().any(|topic| {
+        !matches!(
+            topic.as_str(),
+            "harness.status" | "approval" | "devices.trust.next"
+        )
+    }) {
         return StatusCode::BAD_REQUEST.into_response();
     }
     let accepts = |topic: &str| {

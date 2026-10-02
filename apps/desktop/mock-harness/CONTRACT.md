@@ -94,3 +94,91 @@ bearer values, tickets, session cookies, and key bytes are never serialized.
 The state file is written owner-only (`0600`) on POSIX. Tickets use 32 random
 bytes. Scope, capability, route, and fixed exec-argv names are shared by the
 shell, mock and fake binaries through the independent `desktop-contract` crate.
+
+## WP4 pairing proof and trust (provisional until M3)
+
+`desktop-contract::trust` is the shared source for paths, DTOs, limits, encodings,
+code alphabet and cryptographic parameters. JSON objects are closed. Fields called
+pins below are canonical `sha256:` plus 43 unpadded base64url characters encoding
+SHA-256 of the complete DER certificate. CA pins hash the root DER, leaf pins hash
+the leaf DER. Generated certificates/private keys stay in test memory.
+
+| Route | Trust / authorization | Wire contract |
+|---|---|---|
+| `POST /api/v1/devices/pair-proof` | nonce only; temporary untrusted TLS, no code or bearer | `{clientNonce}` → `{salt,serverNonce,proof,caPin:null|string}`; request/response bounded to 4096 bytes |
+| `GET /api/v1/devices/ca?pin=sha256%3A…` | public DER; accepted only after exact SHA-256 match | `application/pkix-cert`; maximum 16384 bytes; selector allows current/next/retired CA refetch after restart |
+| `GET /api/v1/devices/trust` | verified current/next TLS plus device bearer, `ui.session` | `{certPin,caPin,nextCertPin,nextCaPin}`; explicit null for absent fields, at most one current and one next type |
+| `POST /api/v1/devices/trust/ack` | verified TLS plus device bearer, `ui.session` | `{nextCertPin,nextCaPin}` must exactly match staged trust; → `{ok:true}` |
+| `GET /events?topics=devices.trust.next` | verified TLS plus device bearer, `events.read` | `devices.trust.next` event with the same trust document; SSE reader is bounded to 65536 bytes per frame |
+
+Codes have eight uniformly sampled characters from Crockford's 32-character
+alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ` (40 random bits), displayed `XXXX-XXXX`.
+The mock replaces its previous **proof offer** when it issues a new code. Since
+nonce-only proof requests contain no code identifier, only the newest outstanding
+proof offer is answerable. Other unexpired redemption codes still work over
+already-trusted TLS. Concurrent proof offers need an M3 design decision; this is
+not a production harness policy. A proof offer expires after one hour; the mock
+limits proof attempts to ten per minute per origin and accepts a single active
+offer. Production per-source rate limiting remains M3's responsibility.
+
+`K = Argon2id(code, salt)`, version 0x13, memory 65536 KiB, iterations 3, lanes 1,
+output 32 bytes. Salt is 16 random bytes; each nonce and HMAC is 32 bytes. All are
+canonical unpadded base64url strings on the wire. No server-selected KDF parameters
+are accepted, and no phone timing is claimed. HMAC-SHA256 input is the literal
+concatenation of canonical UTF-8 strings, without separators or length prefixes:
+
+```
+plur1bus-pair-v1 || leafPin || [caPin if present] || normalizedOrigin || clientNonce || serverNonce
+```
+
+The prefix/fixed-length fields and `https:` origin make optional CA unambiguous.
+The client binds `leafPin` to `reqwest::tls::TlsInfo` on the **proof response's own
+TLS connection**, validates TLS CertificateVerify signatures even for bootstrap,
+and verifies HMAC in constant time before transmitting the code. Company CA is
+then hash-fetched, checked as a valid CA, and used with normal rustls hostname,
+chain and leaf-validity checks. There is no OS CA installation or on-disk CA cache.
+Production clients have no public accept-invalid-certificate option. Ambient
+proxies, redirects and cookie storage are disabled; ordinary HTTP bodies are
+bounded to 65536 bytes and requests to ten seconds.
+
+Every authenticated route first rechecks meta, supported API major, capability
+and installation identity. A new pairing immediately pulls trust, persists both
+current and next pins, then acknowledges; every open repeats that sequence.
+After the server switches, a response's current trust must match the locally
+stored current or previously authenticated next trust. Only then is next promoted.
+Both cert→CA and CA→cert work, including after reloading public metadata. Unannounced
+changes fail before bearer/code transmission. For initially OS-trusted pairing,
+proof is skipped; an authenticated current leaf must equal the served leaf, and
+an adopted current CA must validate the actual live origin chain.
+
+WP4 has a bounded authenticated SSE consumer. It treats the event as a wakeup,
+re-pulls the authenticated trust route, persists, then acks; event data alone cannot
+install pins. WP6 owns the persistent active-connection subscription/reconnect
+loop. WP4 does not claim continuously subscribed UI/tray behavior.
+
+`MockHarness::start_tls` takes a runtime-generated `tls::Identity`. `CompanyCa`
+issues renewed leaves; `stage_trust` keeps the old identity active and emits SSE;
+`switch_trust` swaps listener identity for new connections. Negative-control methods
+are in-process test APIs only, not network admin routes. No M3 admin upload API is
+implemented. Keys, bearer values and raw HTTP bodies are never request-trace data;
+traces contain only route and whether authorization was present.
+
+### WP4 owner corrections: required trust route and transient CA policy
+
+M3 must implement `GET /api/v1/devices/trust` for every desktop-capable origin,
+including loopback and OS-trusted origins. A successful empty trust document means
+OS trust is current; 404 is not an optional feature negotiation signal. Pairing and
+opening require this route before persisting/acknowledging trust.
+
+CA 404/5xx, timeout, oversized or malformed bytes are retryable `trust-unavailable`;
+they cannot invalidate a saved pin. A successful bounded response containing a
+valid CA certificate with a different SHA-256 hash is a trust mismatch and may
+require repair. A malformed successful response supplies no usable cryptographic
+proof, reconciling the review's transient-malformed rule with Part B's successful-
+proof rule. Real TLS verification rejection still requires repair. The `pin`
+query is retained because the harness must distinguish current/next CA objects
+while both are staged: it carries only a public digest, never a credential.
+
+Test controls `advertise_os_trust`, `ca_response` and
+`set_session_ticket_capability` operate only in the mock process. They inject
+OS-current announcements, transport/response failures, and capability removal.

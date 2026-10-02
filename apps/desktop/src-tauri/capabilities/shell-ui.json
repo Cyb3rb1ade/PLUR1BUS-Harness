@@ -1,9 +1,19 @@
 {
   "identifier": "shell-ui",
-  "description": "Bundled shell; no native commands are granted in WP1.",
+  "description": "Bundled shell preferences and platform information.",
   "local": true,
-  "windows": [
+  "webviews": [
     "shell"
   ],
-  "permissions": []
+  "permissions": [
+    "allow-app-info",
+    "allow-settings-get",
+    "allow-settings-set",
+    "allow-connections-list",
+    "allow-connections-rename",
+    "allow-connections-remove",
+    "allow-pair-code",
+    "allow-pair-local",
+    "allow-open-connection"
+  ]
 }

@@ -6,6 +6,6 @@ import { build } from "esbuild";
 async function buildUi(outdir = fileURLToPath(new URL("./dist", import.meta.url))) {
   await mkdir(outdir, { recursive: true });
   await copyFile(new URL("./index.html", import.meta.url), `${outdir}/index.html`);
-  await build({ entryPoints: [fileURLToPath(new URL("./src/main.ts", import.meta.url))], bundle: true, format: "esm", target: "es2022", outdir });
+  await build({ entryPoints: [fileURLToPath(new URL("./src/main.ts", import.meta.url))], bundle: true, format: "esm", target: "es2022", loader: { ".ttf": "file" }, outdir });
 }
 await buildUi(process.argv[2]);

@@ -43,9 +43,27 @@ fn min_window_is_800x600() {
     assert_eq!(windows[0]["visible"], false);
 }
 #[test]
-fn shell_capability_grants_no_native_commands() {
+fn shell_capability_is_local_only() {
     let c: Value = serde_json::from_str(include_str!("../capabilities/shell-ui.json")).unwrap();
-    assert_eq!(c["permissions"], serde_json::json!([]));
+    assert_eq!(
+        c["permissions"],
+        serde_json::json!([
+            "allow-app-info",
+            "allow-settings-get",
+            "allow-settings-set",
+            "allow-connections-list",
+            "allow-connections-rename",
+            "allow-connections-remove",
+            "allow-pair-code",
+            "allow-pair-local",
+            "allow-open-connection"
+        ])
+    );
+    assert_eq!(c["webviews"], serde_json::json!(["shell"]));
+    assert!(
+        c.get("windows").is_none(),
+        "do not grant sibling webviews by their parent window"
+    );
     assert_eq!(c["local"], true);
     assert!(c.get("remote").is_none());
     assert_eq!(
@@ -60,4 +78,60 @@ fn bundle_icons_exist() {
             .join(icon.as_str().unwrap())
             .is_file());
     }
+}
+#[test]
+fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_input() {
+    use plur1bus_desktop::commands::{
+        allowed_command, ConnectionIdRequest, PairCodeRequest, PairLocalRequest, RenameRequest,
+        SHELL_COMMANDS,
+    };
+    assert_eq!(
+        SHELL_COMMANDS,
+        [
+            "app_info",
+            "settings_get",
+            "settings_set",
+            "connections_list",
+            "connections_rename",
+            "connections_remove",
+            "pair_code",
+            "pair_local",
+            "open_connection"
+        ]
+    );
+    let registration = include_str!("../src/lib.rs");
+    for command in SHELL_COMMANDS {
+        assert!(registration.contains(&format!("commands::{command}")));
+        assert!(allowed_command("shell", command));
+        assert!(!allowed_command("spa", command));
+    }
+    assert!(serde_json::from_value::<PairLocalRequest>(
+        serde_json::json!({"name":"Desk","cli":"/tmp/arbitrary"})
+    )
+    .is_err());
+    assert!(serde_json::from_value::<PairCodeRequest>(serde_json::json!({"name":"Desk","origin":"https://harness.test","code":"invalid","caPin":"typed"})).is_err());
+    assert!(serde_json::from_value::<ConnectionIdRequest>(serde_json::json!({"id":"01940000-0000-7000-8000-000000000001","url":"https://harness.test"})).is_err());
+    assert!(serde_json::from_value::<RenameRequest>(
+        serde_json::json!({"id":"01940000-0000-7000-8000-000000000001","name":"Desk","extra":true})
+    )
+    .is_err());
+}
+
+#[test]
+fn registered_handlers_match_the_application_acl_table() {
+    let source = include_str!("../src/lib.rs");
+    let handlers = source
+        .split("tauri::generate_handler![")
+        .nth(1)
+        .unwrap()
+        .split(']')
+        .next()
+        .unwrap();
+    let actual: Vec<_> = handlers
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.strip_prefix("commands::").unwrap())
+        .collect();
+    assert_eq!(actual, plur1bus_desktop::commands::SHELL_COMMANDS);
 }

@@ -1,0 +1,2 @@
+:root[data-platform="win"] { --button-radius: 6px; }
+:root[data-platform="win"] .dialog-footer { background: var(--dialog-footer); border-top: 1px solid var(--line); }

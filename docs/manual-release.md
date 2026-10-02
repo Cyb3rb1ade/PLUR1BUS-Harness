@@ -59,7 +59,7 @@ in this repository.
       `core-<version>-<target>.tar.gz` with `.sha256`, `release-native.json`, `SHA256SUMS`, the Hermes provider
       `plur1bus-hermes-provider-<version>.tar.gz`, the client `plur1bus_memory_client-<version>-py3-none-any.whl` and
       `plur1bus_memory_client-<version>.tar.gz` (not uploaded to PyPI), and `hermes-sidecar.lock.json` (the seed of
-      the plugin repository's lock).
+      the lock in PLUR1BUS-Host-Addons, `scripts/dist/hermes-sidecar.lock.json`; section 7).
 - [ ] `gh attestation verify <file> --repo Cyb3rb1ade/PLUR1BUS-Harness` accepts each of the three Hermes files.
 
 ## 4. Checks before publishing
@@ -87,46 +87,54 @@ in this repository.
 - [ ] `plur1bus 1staid check` shows `runtime.node`, `runtime.core` and `models.cache` without `fail`.
 - [ ] Record the run URL and the results in the release notes.
 
-## 6. Plugin feed and one-liners (HM1)
+## 6. Add-on feed and one-liners (HM1)
 
-The OpenClaw plugin (`openclaw-plur1bus-memory`, plugin repository) is released by its own workflow,
-`plugin-release.yml`. CI there holds no signing key and no npm token; everything below that signs or publishes is the
-owner's. Release 7.17.0 is the first: OpenClaw minimum `2026.8.1`, latest tested `2026.9.6`.
+The installers, the two bootstraps, the signed install feed, `hermes-sidecar.lock.json` and `node-pins.json` live in the
+add-on repository `Cyb3rb1ade/PLUR1BUS-Host-Addons` (layout `scripts/dist/…`; add-on version `0.1.0`, unreleased), which
+is released by its own workflow, `addons-release.yml` (formerly the plugin repository's `plugin-release.yml`). The
+OpenClaw plugin (`openclaw-plur1bus-memory`, plugin repository) stays a standalone plugin with its own release line
+(tarball, GitHub Release, npm, ClawHub) and its release no longer involves Hermes. `addons-release.yml` is dispatched
+with a required `plugin-version` input and consumes that plugin release; it has no tag trigger. CI there holds no
+signing key and no npm token; everything below that signs or publishes is the owner's. The add-on repository's
+`docs/release-checklist.md` is the detailed list; this section is the harness-side summary. No add-on release exists
+yet.
 
-### 6.1 One-time setup (owner, plugin repository)
+### 6.1 One-time setup (owner, add-on repository)
 
 - [ ] **Public keys (P4).** Repository variables `PLUR1BUS_RELEASE_PUBKEY_STABLE` and `PLUR1BUS_RELEASE_PUBKEY_BETA` of
-      the plugin repository must equal this repository's variables of the same names (the base64 key line of the
-      `.pub` file), because the plugin bootstraps and the installer bundle embed them. A dry run without them renders
+      the add-on repository must equal this repository's variables of the same names (the base64 key line of the
+      `.pub` file), because the bootstraps and the installer bundle embed them. A dry run without them renders
       `TEST ONLY` bootstraps and warns; a real run without them fails, and so does a real run that would carry a
       `TEST ONLY` bootstrap.
 - [ ] **npm publish (P5, optional, off by default).** Skip this and the release builds the feed with `--no-npm`,
-      publishing nothing to npmjs.org. To enable it: (1) on npmjs.org configure a **trusted publisher** for the
-      package (`@cyb3rb1ade/plur1bus-memory`; repository = the plugin repository, workflow `plugin-release.yml`,
-      environment `npm-publish`); no npm token is stored anywhere. (2) Create the GitHub **environment `npm-publish`**
-      in the plugin repository (owner as required reviewer is advised). (3) Set the repository variable
-      **`PLUR1BUS_NPM_PUBLISH` to `yes`**; any other value or none means no npm publish. The job runs
-      `npm publish --provenance --access public --tag <dist-tag>`: `latest` for the stable channel, `beta` for the
-      beta channel, so a beta never becomes `latest`.
-- [ ] **Where `plugin-release.yml` can run.** GitHub offers a `workflow_dispatch` workflow only once it is on the
-      default branch of the plugin repository. Merge the HM1 branch first; before that, only the tag push trigger
-      (`v*`, a real stable run) exists, so do the dry run after the merge.
+      publishing nothing to npmjs.org. The npm publish itself (trusted publisher for `@cyb3rb1ade/plur1bus-memory`, the
+      `npm-publish` environment) belongs to the **plugin repository's** own release and is not described here. To enable
+      the feed side: in the add-on repository, set
+      the repository variable **`PLUR1BUS_NPM_PUBLISH` to `yes`** once the plugin is on npmjs.org: the feed then names
+      the npm locator and the `npm-check` job compares the registry's integrity with the feed's. Any other value or
+      none builds the feed with `--no-npm`.
+- [ ] **Where `addons-release.yml` can run.** GitHub offers a `workflow_dispatch` workflow only once it is on the
+      default branch of the add-on repository, and this workflow is dispatch-only, so merge the bootstrap branch there
+      first. The plugin release named by `plugin-version` must already exist in the plugin repository (its GitHub
+      Release `v<plugin-version>` with the tarball and `SHA256SUMS`).
 
 ### 6.2 Dry run
 
-- [ ] Plugin repository → Actions → plugin-release → Run workflow on the default branch with `dry-run` checked (the
-      default), channel `stable`. Green means: `check` (tag, `package.json`, manifest and lockfile versions agree),
-      `dist` (the `plugin-dist.yml` install matrix and the full suite), `assemble` (bootstraps, unsigned feed,
-      `SHA256SUMS`). A dry run creates no release, publishes nothing to npm and records no attestation.
+- [ ] Add-on repository → Actions → addons-release → Run workflow on the default branch with `plugin-version` set,
+      `dry-run` checked (the default), channel `stable`. Green means: `check` (add-on version in `package.json`, the
+      `plugin-version` input), `dist` (the `plugin-dist.yml` install matrix and the add-on suite against that plugin
+      release's tarball), `assemble` (bootstraps, unsigned feed, `SHA256SUMS`). A dry run creates no release, publishes
+      nothing to npm and records no attestation.
 
 ### 6.3 Real run, ClawHub, signing
 
-- [ ] Real run: push the tag `v7.17.0` (always the stable channel), or dispatch with `dry-run` unchecked (channel
-      `beta` for a beta release, dispatched on the tag). The `github-release` job publishes the tarball,
-      `plur1bus-plugin-installer.mjs`, `install-plugin.sh`, `install-plugin.ps1`, `SHA256SUMS` and the **unsigned** feed
-      `plugin-<channel>.unsigned.json`; the tarball, installer and both bootstraps get build attestations; `npm-publish`
-      runs only if 6.1 enabled it, then checks that the registry's integrity equals the feed's.
-- [ ] Publish the package to ClawHub by hand (the workflow does not) and note the ClawPack sha256. If the feed should
+- [ ] Real run: tag the add-on repository `v<addons-version>` (the `package.json` version, `0.1.0` for the first
+      release), then dispatch `addons-release.yml` on that tag with `dry-run` unchecked, the `plugin-version` to ship and
+      the channel (`beta` for a beta release). The `github-release` job publishes `plur1bus-plugin-installer.mjs`,
+      `install-plugin.sh`, `install-plugin.ps1`, `SHA256SUMS` and the **unsigned** feed `plugin-<channel>.unsigned.json`
+      as the add-on release; the installer and both bootstraps get build attestations; `npm-check` runs only if 6.1
+      enabled it. The plugin tarball itself stays on the plugin repository's release.
+- [ ] Publish the plugin package to ClawHub by hand (neither workflow does) and note the ClawPack sha256. If the feed should
       carry it (`clawpackDigest`, enables the ClawHub install source), dispatch again with the `clawpack-digest`
       input (64 hex) to rebuild the feed before signing; without a digest the bootstrap falls back to installing the
       feed's SHA-256-verified tarball.
@@ -136,12 +144,12 @@ owner's. Release 7.17.0 is the first: OpenClaw minimum `2026.8.1`, latest tested
       `minisign -V -p stable.pub -m plugin-stable.json`.
 - [ ] Publish `plugin-stable.json` and `plugin-stable.json.minisig` at
       `https://updates.plur1bus.app/plugin/stable.json` and `.../stable.json.minisig` (beta: `beta.json`), beside the
-      harness feed's own paths. Publish `install-plugin.sh` and `install-plugin.ps1` **from the plugin release** (not
+      harness feed's own paths. Publish `install-plugin.sh` and `install-plugin.ps1` **from the add-on release** (not
       rebuilt) at `https://plur1bus.app/`, beside `install.sh` and `install.ps1`. The files' bytes must equal the
       release's `SHA256SUMS` and the feed's `bootstrap` hashes.
 - [ ] Promotion beta to stable re-signs **identical bytes**: publish the same feed content under the stable name and
       sign it with the stable key; never edit it.
-- [ ] Trust model: the plugin bootstrap verifies the feed's minisign signature itself, with Node, before it trusts any
+- [ ] Trust model: the add-on bootstrap verifies the install feed's minisign signature itself, with Node, before it trusts any
       URL or hash in the feed (HM1-R3). The harness one-liner (`install.sh`/`install.ps1`) still does not (HB19); it
       relies on HTTPS plus SHA-256 and `plur1bus update --check` verifies the signature afterwards.
 
@@ -150,7 +158,7 @@ owner's. Release 7.17.0 is the first: OpenClaw minimum `2026.8.1`, latest tested
 - [ ] Linux and macOS: `curl -fsSL https://plur1bus.app/install-plugin.sh | sh -s -- --non-interactive`
       (`--accept-nc-licence` only when the use class needs it). Windows PowerShell 5.1 or 7, a text-safe form:
       `$s = (Invoke-WebRequest -UseBasicParsing https://plur1bus.app/install-plugin.ps1).Content; if ($s -is [byte[]]) { $s = [Text.Encoding]::UTF8.GetString($s) }; & ([scriptblock]::Create($s.TrimStart([char]0xFEFF))) --non-interactive`.
-      The plugin repository's docs show the shorter `irm` form; it is fine only where the host serves the script as
+      The add-on repository's docs show the shorter `irm` form; it is fine only where the host serves the script as
       text, so check `curl -sI https://plur1bus.app/install-plugin.ps1` for a `text/*` content type and use the form
       above when it is not.
 - [ ] The installer verifies the feed signature, installs through OpenClaw's own `plugins install`, and its
@@ -159,11 +167,14 @@ owner's. Release 7.17.0 is the first: OpenClaw minimum `2026.8.1`, latest tested
 
 ## 7. Hermes host mode (HM2)
 
-The Hermes adapter spans both repositories. This repository's release (sections 1 to 4) builds the sidecar binaries, the
-provider tarball `plur1bus-hermes-provider-<version>.tar.gz`, the client wheel and sdist, and `hermes-sidecar.lock.json`;
-the plugin repository's installer (`install-plugin.sh --host hermes`, `install-plugin.ps1 -Host hermes`, plugin PR #204,
-release 7.18.0 planned) installs them. The plugin feed's `hosts.hermes` section is **not** written by hand: it is generated
-from the plugin repository's `scripts/dist/hermes-sidecar.lock.json`, so the harness release has to come first.
+The Hermes adapter spans this repository and the add-on repository. The flow is: harness release → copy
+`hermes-sidecar.lock.json` into PLUR1BUS-Host-Addons `scripts/dist/` → add-on release via `addons-release.yml` for a
+given plugin version. This repository's release (sections 1 to 4) builds the sidecar binaries, the provider tarball
+`plur1bus-hermes-provider-<version>.tar.gz`, the client wheel and sdist, and `hermes-sidecar.lock.json`; the installers
+in `Cyb3rb1ade/PLUR1BUS-Host-Addons` (`install-plugin.sh --host hermes`, `install-plugin.ps1 -Host hermes`; add-on
+version 0.1.0, unreleased) install them. The feed's `hosts.hermes` section is **not** written by hand: it is generated
+from that repository's `scripts/dist/hermes-sidecar.lock.json`, so the harness release has to come first. The plugin's
+own release does not involve Hermes.
 
 - [ ] Harness release done and its Hermes artefacts attested (section 3). The release's `hermes-sidecar.lock.json` lists the
       sidecar binary per target and the provider tarball with URL and SHA-256.
@@ -173,17 +184,17 @@ from the plugin repository's `scripts/dist/hermes-sidecar.lock.json`, so the har
       version you actually ran the `hermes-host.yml` legs against: either regenerate the lock from the downloaded
       artefacts with `node scripts/build-hermes-provider.mjs lock --artifacts <dir> --base-url <url> --out <file> --tested-hermes <version>`,
       or edit `testedHermesVersion` in the copy before committing it. Check that `minHermesVersion` is `0.21.4` (HM2-R22).
-- [ ] **Bump the lock.** Copy that file to `scripts/dist/hermes-sidecar.lock.json` in the plugin repository, review the diff
-      (versions, URLs, hashes against this release's `SHA256SUMS`, the two Hermes versions above), and commit it.
-- [ ] **Then release the plugin** as in section 6 (dry run, tag `v7.18.0`, sign offline, publish). The installer bundle's
-      pinned Node (24.21.0, `scripts/dist/node-pins.json`) must still equal the harness's Node pin (`pins.rs`); the plugin's
-      `node-pins` CI check compares it with nodejs.org `SHASUMS256.txt`.
+- [ ] **Bump the lock.** Copy that file to `scripts/dist/hermes-sidecar.lock.json` in PLUR1BUS-Host-Addons, review the diff
+      (versions, URLs, hashes against this release's `SHA256SUMS`, the two Hermes versions above), and commit it there.
+- [ ] **Then release the add-ons** as in section 6 (`addons-release.yml` for a given `plugin-version`: dry run, tag, sign
+      offline, publish). The installer bundle's pinned Node (24.21.0, `scripts/dist/node-pins.json` in the add-on
+      repository) must still equal the harness's Node pin (`pins.rs`); the add-on repository's `node-pins` CI check compares it with nodejs.org `SHASUMS256.txt`.
 - [ ] Native Windows stays labelled beta (feed `hosts.hermes.windowsNativeBeta: true`) until the Windows legs of
-      `hermes-host.yml` and the plugin's `plugin-dist.yml` have been green for four weeks (plan Q7). The feed builder only
+      `hermes-host.yml` and the add-on repository's `plugin-dist.yml` have been green for four weeks (plan Q7). The feed builder only
       carries the previous feed's value forward (`true` for the first feed); no option flips it yet, so ending the beta
       label needs a change to the feed builder, and re-signing alone does nothing.
 - [ ] **Before the first real release:** the `real-hermes` Windows leg of `hermes-host.yml` is `continue-on-error` until its
-      first green run, and the plugin's Hermes legs stay non-blocking until a harness pre-release carrying the sidecar
+      first green run, and the add-on repository's Hermes legs stay non-blocking until a harness pre-release carrying the sidecar
       binaries exists (plan P4, Q8: cut it on the `beta` channel, signed offline as above).
 - [ ] Smoke test on a machine with Hermes installed: `curl -fsSL https://plur1bus.app/install-plugin.sh | sh -s -- --host hermes --non-interactive`
       (`--accept-nc-licence` only when the use class needs it; `--replace-provider` only to replace another memory

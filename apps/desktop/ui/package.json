@@ -7,7 +7,12 @@
     "test": "node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 test/*.test.ts"
   },
   "devDependencies": {
+    "axe-core": "4.13.0",
     "esbuild": "0.28.2",
+    "playwright": "1.63.0",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.0"
   }
 }

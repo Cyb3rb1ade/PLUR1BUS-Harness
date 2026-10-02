@@ -1,0 +1,110 @@
+[
+  {
+    "input": "https://HARNESS.test:443/",
+    "normalized": "https://harness.test"
+  },
+  {
+    "input": "https://bücher.test",
+    "normalized": "https://xn--bcher-kva.test"
+  },
+  {
+    "input": "http://127.0.0.1:80/",
+    "normalized": "http://127.0.0.1"
+  },
+  {
+    "input": "http://[::1]:18700",
+    "normalized": "http://[::1]:18700"
+  },
+  {
+    "input": "http://LOCALHOST",
+    "normalized": "http://localhost"
+  },
+  {
+    "input": "https://harness.test:8443",
+    "normalized": "https://harness.test:8443"
+  },
+  {
+    "input": "http://harness.test",
+    "normalized": null
+  },
+  {
+    "input": "http://127.1",
+    "normalized": null
+  },
+  {
+    "input": "http://2130706433",
+    "normalized": null
+  },
+  {
+    "input": "http://0177.0.0.1",
+    "normalized": null
+  },
+  {
+    "input": "http://0x7f000001",
+    "normalized": null
+  },
+  {
+    "input": "https://127.1",
+    "normalized": null
+  },
+  {
+    "input": "http://localhost.",
+    "normalized": null
+  },
+  {
+    "input": "http://[::ffff:127.0.0.1]",
+    "normalized": null
+  },
+  {
+    "input": "https://harness.test/path",
+    "normalized": null
+  },
+  {
+    "input": "https://harness.test/..",
+    "normalized": null
+  },
+  {
+    "input": "https://harness.test?",
+    "normalized": null
+  },
+  {
+    "input": "https://harness.test#",
+    "normalized": null
+  },
+  {
+    "input": "https://user@harness.test",
+    "normalized": null
+  },
+  {
+    "input": "https://@harness.test",
+    "normalized": null
+  },
+  {
+    "input": "https://harness.test\\evil",
+    "normalized": null
+  },
+  {
+    "input": " https://harness.test",
+    "normalized": null
+  },
+  {
+    "input": "https://harness.test\n",
+    "normalized": null
+  },
+  {
+    "input": "https:harness.test",
+    "normalized": null
+  },
+  {
+    "input": "ftp://harness.test",
+    "normalized": null
+  },
+  {
+    "input": "http://%6cocalhost",
+    "normalized": null
+  },
+  {
+    "input": "https://%68arness.test",
+    "normalized": null
+  }
+]

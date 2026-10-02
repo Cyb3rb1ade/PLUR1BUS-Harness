@@ -4,7 +4,7 @@ A Hermes memory provider directory (`$HERMES_HOME/plugins/plur1bus/`). It holds 
 model: every recall and capture goes to the local PLUR1BUS core over its RPC (socket or named pipe),
 through the vendored `plur1bus-memory-client` in `_vendor/` (added by the release build).
 
-Installed and bound by `install-plugin.sh --host hermes` (or `install-plugin.ps1 -Host hermes`), which
+Installed and bound by `install-plugin.sh --host hermes` (or `install-plugin.ps1 -Host hermes`) from `Cyb3rb1ade/PLUR1BUS-Host-Addons`, which
 also runs `hermes config set memory.provider plur1bus`. By hand:
 
 ```sh

@@ -2,6 +2,7 @@
 
 The harness edition of "how does an agent build, test and find things here." (The engine repo,
 `openclaw-plur1bus-memory`, has its own `AGENTS.md`; this one is for `PLUR1BUS-Harness`.)
+The HM1/HM2 installers, bootstraps, install feed, `hermes-sidecar.lock.json` and `node-pins.json` live in a third repository, `Cyb3rb1ade/PLUR1BUS-Host-Addons`.
 
 ## What this repo is
 
