@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join, dirname, win32 } from 'node:path';
 import { parsePe, isApiSet } from './windows-pe.mjs';
-import { diagnoseWindowsStartup, MAIN_MARKER, startupResult } from './windows-startup.mjs';
+import { diagnoseWindowsStartup, MAIN_MARKER, startupResult, windowsJsonProbeEnvironments } from './windows-startup.mjs';
 
 // Hand-authored PE fixtures with independent header/import/export layouts. No
 // compiler, Windows installation, or user DLL is needed for these parser tests.
@@ -490,6 +490,7 @@ test('Windows helper executes real compile/load/name phases with isolated profil
     assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
     const phases = readFileSync(join(root, 'native-loader-progress-0.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     assert.equal(phases[0].phase, 'script-entry');
+    assert.ok(phases.some(record => record.phase === 'utility-module-end'));
     assert.ok(phases.some(record => record.phase === 'compile-end'));
     assert.ok(phases.some(record => record.type === 'symbol' && record.name === 'GetCurrentProcess' && record.found === true));
     success = true;
@@ -662,6 +663,7 @@ test('Windows helper records entry/input/serialization before injected cmdlet fa
       assert.ok(progress.every(record => record.schema === 1));
       const phases = progress.filter(record => record.type === 'phase').map(record => record.phase);
       assert.ok(phases.includes('input-read-begin')); assert.ok(phases.includes('input-read-end'));
+      assert.ok(phases.includes('utility-module-begin')); assert.ok(phases.includes('utility-module-end'));
       assert.ok(phases.includes('input-parse-begin'));
       if (command === 'New-Object') {
         assert.equal(child.status, 0); assert.equal(phases.at(-1), 'complete');
@@ -675,3 +677,70 @@ test('Windows helper records entry/input/serialization before injected cmdlet fa
     }
     success = true;
   });
+
+
+test('system Utility module import checkpoints survive timeout without guessed parse or loader facts', t => {
+  for (const checkpoint of ['utility-module-begin', 'utility-module-end']) {
+    const fixture = diagnosticFixture(t, [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }]);
+    stalledHelper(fixture, [phase('script-entry'), phase('input-read-end'), phase(checkpoint)]);
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const saved = fixture.artifact('loader-exports');
+    assert.equal(saved.batches[0].progressStatus, 'validated');
+    assert.equal(saved.batches[0].helperPhase, checkpoint);
+    assert.equal(saved.batches[0].helperStage, 'utility');
+    assert.deepEqual(saved.batches[0].modules, []); assert.deepEqual(saved.findings, []);
+    assert.equal(report.diagnostics.status, 'partial-helper-failed');
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+  }
+});
+
+
+test('Windows known-JSON probes retain minimal and system-only environment outcomes without masking failure',
+  { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, t => {
+    const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-json-env-'));
+    let success = false;
+    t.after(() => { if (success) rmSync(root, { recursive: true, force: true }); });
+    const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
+    const powershellDirectory = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0');
+    const powershell = win32.join(powershellDirectory, 'powershell.exe');
+    const { minimal, systemOnly } = windowsJsonProbeEnvironments({ root, systemRoot });
+    const command = "[Console]::Out.WriteLine('parse-begin');$v='{\"public\":true}'|ConvertFrom-Json;if($v.public-eq$true){[Console]::Out.WriteLine('parse-end')}";
+    const args = ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(command, 'utf16le').toString('base64')];
+    const deadline = Date.now() + 45000;
+    const outcomes = [];
+    for (const [variant, env] of [['minimal', minimal], ['system-only', systemOnly]]) {
+      assert.ok(Date.now() < deadline, `Public JSON outcomes retained at ${root}`);
+      const child = spawnSync(powershell, args, { cwd: root, env, encoding: 'utf8', windowsHide: true,
+        timeout: Math.max(1, Math.min(12000, deadline - Date.now())), maxBuffer: 1024 * 1024 });
+      const phases = (child.stdout ?? '').split(/\r?\n/).filter(line => ['parse-begin', 'parse-end'].includes(line));
+      const outcome = { schema: 1, context: 'separate-PowerShell-known-JSON-probe', variant,
+        ...startupResult(child), phases, parsed: phases.includes('parse-end'), stderrBytes: Buffer.byteLength(child.stderr ?? '') };
+      outcomes.push(outcome);
+      writeFileSync(join(root, `native-json-environment-${variant}.json`), JSON.stringify(outcome, null, 2) + '\n');
+    }
+    // Record BOTH comparison outcomes before acceptance assertions. A diagnostic
+    // timeout or missing parse is still a test failure, never a successful probe.
+    assert.ok(outcomes.every(outcome => outcome.status === 0 && outcome.errorCode === null && outcome.parsed),
+      `Known JSON did not parse under both isolated environments; public outcomes retained at ${root}`);
+    success = true;
+  });
+
+
+test('JSON comparison fixtures ignore planted user toolchain/profile/credential values and construct only system paths', () => {
+  const root = 'C:\\fixture';
+  const planted = 'C:\\planted-user-profile\\private-toolchain';
+  const { minimal, systemOnly } = windowsJsonProbeEnvironments({ root, systemRoot: 'C:\\Windows',
+    env: { PATH: planted, ComSpec: planted, ProgramFiles: planted, SystemDrive: planted, WINDIR: planted,
+      HOME: planted, USERPROFILE: planted, APPDATA: planted, PSModulePath: planted, PRIVATE_TEST_SECRET: planted } });
+  assert.equal(JSON.stringify({ minimal, systemOnly }).includes('planted-user-profile'), false);
+  assert.deepEqual(Object.keys(systemOnly).sort(), ['SystemRoot', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP',
+    'PSModulePath', 'PSModuleAnalysisCachePath', 'PATH', 'ComSpec', 'SystemDrive', 'WINDIR', 'ProgramFiles'].sort());
+  assert.equal(minimal.PSModuleAnalysisCachePath, 'C:\\fixture\\minimal-module-cache');
+  assert.equal(systemOnly.PSModuleAnalysisCachePath, 'C:\\fixture\\system-module-cache');
+  assert.equal(minimal.PATH, undefined); assert.equal(minimal.ComSpec, undefined);
+  assert.equal(systemOnly.PATH, 'C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\WindowsPowerShell\\v1.0');
+  assert.equal(systemOnly.ComSpec, 'C:\\Windows\\System32\\cmd.exe');
+  assert.equal(systemOnly.SystemDrive, 'C:'); assert.equal(systemOnly.WINDIR, 'C:\\Windows');
+  assert.equal(systemOnly.ProgramFiles, 'C:\\Program Files');
+  assert.ok(['HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP'].every(key => systemOnly[key] === root));
+});

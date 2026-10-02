@@ -15,7 +15,22 @@ const windowsPathWithin = (path, root) => {
   return !relative.startsWith('..') && !win32.isAbsolute(relative);
 };
 
-const progressPhases = new Set(['script-entry', 'input-read-begin', 'input-read-end', 'input-parse-begin', 'input-parsed',
+// Comparison fixtures only: system values are constructed, never inherited.
+// The existing diagnostic/helper environment is unchanged until Windows evidence
+// identifies a necessary prerequisite rather than guessing from a timeout.
+export function windowsJsonProbeEnvironments({ root, systemRoot }) {
+  const powershellDirectory = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0');
+  const systemDrive = win32.parse(systemRoot).root.replace(/\\$/, '');
+  const minimal = { SystemRoot: systemRoot, HOME: root, USERPROFILE: root, APPDATA: root, LOCALAPPDATA: root, TEMP: root, TMP: root,
+    PSModulePath: win32.join(powershellDirectory, 'Modules'), PSModuleAnalysisCachePath: win32.join(root, 'minimal-module-cache') };
+  const systemOnly = { ...minimal, PSModuleAnalysisCachePath: win32.join(root, 'system-module-cache'),
+    PATH: [win32.join(systemRoot, 'System32'), systemRoot, powershellDirectory].join(';'),
+    ComSpec: win32.join(systemRoot, 'System32', 'cmd.exe'), SystemDrive: systemDrive,
+    WINDIR: systemRoot, ProgramFiles: win32.join(systemDrive + '\\', 'Program Files') };
+  return { minimal, systemOnly };
+}
+
+const progressPhases = new Set(['script-entry', 'input-read-begin', 'input-read-end', 'utility-module-begin', 'utility-module-end', 'input-parse-begin', 'input-parsed',
   'serialization-begin', 'serialization-end', 'compile-begin', 'compile-end',
   'architecture-begin', 'architecture-end', 'search-begin', 'search-end', 'module-begin',
   'load-begin', 'load-end', 'map-begin', 'map-end', 'path-begin', 'path-end',

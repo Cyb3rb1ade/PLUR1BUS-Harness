@@ -48,6 +48,12 @@ try {
   Write-LiteralPhase 'input-read-begin'
   $requestJson = [IO.File]::ReadAllText($InputPath)
   Write-LiteralPhase 'input-read-end'
+  # Isolate installed system-module loading from the JSON cmdlet body. This
+  # bypasses module-path discovery, not a failure or an import-error check.
+  Write-LiteralPhase 'utility-module-begin'
+  $utilityManifest = $PSHOME + '\Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'
+  Microsoft.PowerShell.Core\Import-Module -Name $utilityManifest -NoClobber -ErrorAction Stop
+  Write-LiteralPhase 'utility-module-end'
   Write-LiteralPhase 'input-parse-begin'
   $request = $requestJson | ConvertFrom-Json
   Write-LiteralPhase 'input-parsed'
