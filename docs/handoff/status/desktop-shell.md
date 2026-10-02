@@ -252,14 +252,13 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: VERIFYING — owner corrections and independent re-review complete at
-`c6527a9`, published as `7aeebbf` after main merge `4a5a8b` (`6a7d656`).
-Local gates, all five desktop CI targets and complete root CI now PASS at
-`7aeebbf`. Root attempt 1 failed an unchanged HM2 timing test; the one targeted
-retry passed at the same head. Readiness still waits for corrected WP4 Green.
+Status: GREEN — corrected published head `7aeebbf` passed complete root CI
+(after one documented unchanged HM2 timing retry) and all five desktop targets.
+Independent correction review and R1 scoped re-review passed. #63 is READY FOR
+REVIEW after corrected #64 also passed. No owner merge performed.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `main` (PR #60 merged with merge commit `e6c98cf`).
-PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), **draft**.
+PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), **ready for review**.
 The owner merges #63, then #64, using merge commits. Every new WP3 commit is
 merged forward into WP4 (and WP5 when it exists), without rebase or force-push.
 Implementation head: `c6527a9` (owner corrections plus overlay focus R1 fix).
@@ -602,19 +601,19 @@ GREEN at exact `7aeebbfdf3eddcda11ee6168541b72971daf0c97`: root37009940205 attem
 
 ## WP4 — Connections, keychain and pairing
 
-Status: VERIFYING — owner corrections delivered at `7e835bb` after normal
-forward merge `e9a5aa3` of corrected WP3 `7aeebbf`. Local gates pass;
-independent review found one Important CA-outage/rollover classification gap.
-Fix eb46737 and scoped re-review PASS; fresh published-head CI remains required.
+Status: GREEN — corrected published head `a1f0029` (source `eb46737`) passed
+root37015257791 and desktop37015257725/37015254463 on all five targets plus
+Docker/Podman. Independent correction review and R1 scoped review passed.
+#64 is READY FOR REVIEW; no owner merge performed.
 Branch: `feat/desktop-shell-wp04-connections`.
-Base: `feat/desktop-shell-wp03-ui-frame` at `7aeebbf`; PR #63 remains draft.
-PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), DRAFT.
+Base: `feat/desktop-shell-wp03-ui-frame` at `7aeebbf`; PR #63 is ready for review.
+PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), READY FOR REVIEW.
 Published historical head: `5713e7a9df1dae82b5b0f98e076e363681f69463`.
 Main `6a7d656` is included through WP3. The forward merge preserves the nine
 application-command permissions, Windows CRT isolation, focus/settings fixes,
 and restoration of the core importer test exactly to main. Config10/10 PASS.
 Current source head: `eb467376880cb679190c5b0edf97143fa2adfc3f`.
-Part B commits: `c7ee115`, `7e835bb`, `eb46737`; no push or GREEN claim yet.
+Part B commits: `c7ee115`, `7e835bb`, `eb46737`; report/published head `a1f0029f055efa77d4331ca815fc999644fc0277`, complete current-head CI PASS.
 
 ### Delivered scope and historical verification
 
@@ -1135,3 +1134,80 @@ fetched origin/main6a7d656. No gate was weakened.
 Publish the status checkpoint with corrected source, then observe exact final
 head root CI and five desktop targets/Docker/Podman before readiness/WP5.
 Both PRs remain draft until that complete gate. WP5 and WP6 are unstarted.
+
+### WP4 final corrected-head CI and readiness
+
+GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257791), [desktop PR37015257725](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257725), [desktop push37015254463](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015254463) all SUCCESS. Five native build/bundle targets and Docker/Podman PASS. No retry required for this WP4 head. Both corrected heads now GREEN; #63/#64 marked ready for review as owner requested. No merge into main, rebase, amend or force-push. Earlier checkpoints above remain history; real OS credential/manual limits still apply.
+
+## WP5 — SPA proxy and incognito session window
+
+Status: IN PROGRESS — mandatory D1 Task13 Step0 native transport spike first.
+Branch: feat/desktop-shell-wp05-spa-proxy.
+Base: feat/desktop-shell-wp04-connections at a1f0029f055efa77d4331ca815fc999644fc0277; #64 ready/unmerged.
+PR: not opened yet; remains draft when created.
+Starting head: a1f0029. Step0 diagnostics implemented; production WP5 is unfinished.
+
+Controller local root gates for the Step0 source: frozen install, toolchain check,
+generation, build, lint (29 hygiene/provider self-tests), and root Node tests
+PASS (567 passed, five existing skips; `/tmp/wp05-spike-root-node.log`). Root
+Rust fmt/clippy/workspace tests PASS (1036 passed, one existing ignore;
+`/tmp/wp05-spike-root-rust.log`). Root sources remain unchanged. Independent
+review and exact-head CI are pending.
+
+Native local WKWebView evidence (Darwin 27.2.0, arm64; not the macos-15 CI image):
+`apps/desktop/transport-spike/README.md` and its public observation JSON. Custom
+SSE events both arrived at 1503 ms, custom WebSocket constructor was rejected,
+and the custom handler received no `/ws` request. The observed target therefore
+requires the approved loopback fallback. Loopback SSE arrived at 2/1505 ms,
+WebSocket echoed at 5 ms, paired request-overhead p95 was 4 ms over 100 samples,
+and both paths returned the correct 10 MiB body. These are diagnostic results,
+not production proxy acceptance. CSP self script passed; foreign script was
+blocked. The custom page is LOCAL for Tauri capabilities; loopback is REMOTE.
+Custom POST Origin was absent; loopback POST/WS had the exact origin while
+GET/EventSource omitted it. A public diagnostic per-window UA marker arrived
+on GET/POST/EventSource/WS; no production launch-secret mechanism is selected yet.
+
+Five-target native CI is arranged in the existing desktop workflow, with isolated
+profiles, fixture tests, Linux Xvfb and raw native observations uploaded for seven
+days. Windows x64/arm64 and GTK x64/arm64 were not executable locally; their native
+results and the separate macos-15 image result are PENDING. A successful collector
+does not mean custom transport or production acceptance passed. Pinned Tauri/wry
+source consumes complete byte bodies on all wrappers; lower-level native stream
+delegate replacements were not executed. No HTTP/SSE/WS IPC transport is added.
+
+Step0: measure actual WKWebView/WebView2/WebKitGTK SSE first event, WebSocket
+custom-protocol routing, p95 overhead<=5ms,10MB download, actual Origin/CSPself,
+and capability local/remote classification. Record each target or exact reason
+it cannot run. Source/API analysis and Chromium simulations are distinct from
+real native execution. Approved fallback: ephemeral127.0.0.1 + per-launch secret
+on every request + Host/Origin checks; no IPC HTTP/SSE/WS transport.
+
+| WP5 Accept (exact name) | Test/file | Result | Target |
+|---|---|---|---|
+| navigation_table | pending Step0/design | NOT RUN | none |
+| caller_check_rejects_other_webview_and_other_origin | pending Step0/design | NOT RUN | none |
+| shell_info_is_the_only_spa_command | pending Step0/design | NOT RUN | none |
+| spa_bridge_capability_is_scoped_to_the_spa_origin | pending Step0/design | NOT RUN | none |
+| switching_connection_replaces_the_capability | pending Step0/design | NOT RUN | none |
+| a_replayed_ticket_page_is_retried_once_then_shows_the_error | pending Step0/design | NOT RUN | none |
+| no_cookie_database_in_app_dirs | pending Step0/design | NOT RUN | none |
+| assert_no_token_on_disk | pending Step0/design | NOT RUN | none |
+| quit and restart logs in again through a fresh ticket | pending Step0/design | NOT RUN | none |
+| only_the_spa_webview_is_served_others_get_403 | pending Step0/design | NOT RUN | none |
+| forwards_only_to_the_connection_origin_even_after_a_redirect | pending Step0/design | NOT RUN | none |
+| never_adds_authorization_or_the_device_token | pending Step0/design | NOT RUN | none |
+| page_cookies_and_authorization_are_dropped | pending Step0/design | NOT RUN | none |
+| set_cookie_stays_in_the_jar_and_the_webview_store_is_empty | pending Step0/design | NOT RUN | none |
+| origin_and_host_are_the_connection_origin | pending Step0/design | NOT RUN | none |
+| sse_events_stream_without_buffering | pending Step0/design | NOT RUN | none |
+| websocket_upgrade_is_forwarded | pending Step0/design | NOT RUN | none |
+| pinned_origin_with_a_changed_certificate_fails_closed | pending Step0/design | NOT RUN | none |
+| bundled_local_and_remote_use_the_same_path | pending Step0/design | NOT RUN | none |
+
+Unfinished:
+
+- [ ] Execute/review Step0 and record per-target findings/fallback rationale.
+- [ ] Implement proxy/policy/incognito window/ticket retry/origin-scoped bridge,
+      all acceptance tests, native manual check where available and Draft PR.
+- [ ] Complete local Green and exact-head root + five-target desktop CI.
+- [ ] WP6 lifecycle/events/tray/autostart/quit/D111 logs starts after WP5 Green.
