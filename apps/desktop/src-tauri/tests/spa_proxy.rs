@@ -41,6 +41,7 @@ async fn upstream(
             ([("content-type","text/event-stream")],Body::from_stream(stream)).into_response()
         },
         "/ws"=>ws.unwrap().on_upgrade(|mut socket|async move {while let Some(Ok(message))=socket.recv().await {if socket.send(message).await.is_err(){break}}}).into_response(),
+        "/ws-protocol"=>ws.unwrap().protocols(["pluribus.v1"]).on_upgrade(|mut socket|async move {while let Some(Ok(message))=socket.recv().await {if socket.send(message).await.is_err(){break}}}).into_response(),
         "/large"=>vec![b'x';10*1024*1024].into_response(),
         _=>"ok".into_response()
     }
@@ -234,6 +235,34 @@ async fn websocket_upgrade_is_forwarded() {
         .unwrap()
         .iter()
         .all(|(_, h)| !h.contains_key("authorization") && !h.contains_key("user-agent")));
+}
+
+#[tokio::test]
+async fn websocket_selected_subprotocol_is_mirrored_to_the_browser() {
+    let f = fixture(Kind::Local).await;
+    let url = format!(
+        "{}/ws-protocol",
+        f.proxy.origin().as_str().replacen("http", "ws", 1)
+    );
+    let mut req = url.into_client_request().unwrap();
+    req.headers_mut()
+        .insert("user-agent", f.proxy.user_agent().parse().unwrap());
+    req.headers_mut()
+        .insert("origin", f.proxy.origin().as_str().parse().unwrap());
+    req.headers_mut()
+        .insert("sec-websocket-protocol", "pluribus.v1".parse().unwrap());
+    let (mut ws, response) = tokio_tungstenite::connect_async(req).await.unwrap();
+    assert_eq!(response.headers()["sec-websocket-protocol"], "pluribus.v1");
+    ws.send(tokio_tungstenite::tungstenite::Message::Text(
+        "protocol-echo".into(),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(
+        ws.next().await.unwrap().unwrap().into_text().unwrap(),
+        "protocol-echo"
+    );
+    ws.close(None).await.unwrap();
 }
 #[tokio::test]
 async fn bundled_local_and_remote_use_the_same_path() {
@@ -695,4 +724,5 @@ async fn csp_nonce_hash_are_preserved_and_foreign_reporting_is_removed() {
     assert!(!response.headers().contains_key("reporting-endpoints"));
     assert!(!response.headers().contains_key("nel"));
     assert!(policies[1].contains("frame-src 'none'"));
+    assert!(policies[1].contains("default-src 'none'"));
 }

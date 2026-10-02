@@ -68,6 +68,7 @@ fn main() {
     let results = Arc::new(Mutex::new(Vec::<Value>::new()));
     let negatives = Arc::new(Mutex::new(Value::Null));
     let measurements = Arc::new(Mutex::new(Value::Null));
+    let first_origin = Arc::new(Mutex::new(None::<Origin>));
     let mut context = tauri::generate_context!();
     context.config_mut().app.windows.clear();
     context.config_mut().app.app_directories_override =
@@ -89,12 +90,13 @@ fn main() {
                 let step=if error{2}else{stage.fetch_add(1,Ordering::SeqCst)};if !error&&step>1{return}
                 progress("session-ready");let app=window.app_handle().clone();let proxy=app.state::<SpaState>().active_proxy().unwrap();progress("proxy-obtained");
                 let known=known.clone();let connection=connection.clone();let tokens=tokens.clone();let store=store.clone();let results=results.clone();let output=output.clone();let negatives=negatives.clone();let measurements=measurements.clone();
+                let first_origin=first_origin.clone();
                 tauri::async_runtime::spawn(async move{
                     progress("secrets-registering");proxy.register_memory_secrets(|s|known.lock().unwrap().push(SecretString::new(s.to_owned())));progress("secrets-registered");
                     if step<2 {let empty=window.cookies().is_ok_and(|v|v.is_empty());results.lock().unwrap().push(json!({"browser":value,"nativeCookieStoreEmpty":empty}));progress("cookies-checked");}
-                    if step==0 {let upstream=connection.lock().unwrap().origin.clone();progress("benchmark-start");let measured=benchmark(&proxy,&upstream).await;progress("benchmark-done");*measurements.lock().unwrap()=measured;let mut conn=connection.lock().unwrap().clone();if spa::open_spa(&app,&mut conn,tokens.as_ref(),store.as_ref()).await.is_err(){app.exit(3)}else{progress("second-window-opened")}return;}
+                    if step==0 {let upstream=connection.lock().unwrap().origin.clone();*first_origin.lock().unwrap()=Some(proxy.origin().clone());progress("benchmark-start");let measured=benchmark(&proxy,&upstream).await;progress("benchmark-done");*measurements.lock().unwrap()=measured;let mut conn=connection.lock().unwrap().clone();if spa::open_spa(&app,&mut conn,tokens.as_ref(),store.as_ref()).await.is_err(){app.exit(3)}else{progress("second-window-opened")}return;}
                     if step==1 {
-                        progress("negative-checks");let controls=negative_controls(&app,&proxy).await;*negatives.lock().unwrap()=controls;
+                        progress("negative-checks");let old_origin=first_origin.lock().unwrap().clone();let controls=negative_controls(&app,&proxy,old_origin).await;*negatives.lock().unwrap()=controls;
                         let upstream=connection.lock().unwrap().origin.clone();let response=reqwest::Client::new().post(format!("{}/__test/ticket-mode",upstream.as_str())).json(&json!({"reject":true})).send().await.unwrap();assert!(response.status().is_success());
                         progress("replay");let replay=known.lock().unwrap()[1].expose().to_owned();let mut url=url::Url::parse(&format!("{}/auth/ticket",proxy.origin().as_str())).unwrap();url.set_fragment(Some(&format!("t={replay}")));window.navigate(url).unwrap();return;
                     }
@@ -113,7 +115,11 @@ fn main() {
         }
     });
 }
-async fn negative_controls(app: &tauri::AppHandle, proxy: &SpaProxy) -> Value {
+async fn negative_controls(
+    app: &tauri::AppHandle,
+    proxy: &SpaProxy,
+    first_origin: Option<Origin>,
+) -> Value {
     let client = reqwest::Client::new();
     let url = format!("{}/", proxy.origin().as_str());
     let mut denied = true;
@@ -141,7 +147,40 @@ async fn negative_controls(app: &tauri::AppHandle, proxy: &SpaProxy) -> Value {
         .unwrap()
         .unwrap();
     other.destroy().unwrap();
-    json!({"missingWrongSecretHostOrigin":denied,"otherWebview":value})
+    let old_origin = if let Some(first_origin) = first_origin {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let sender = Mutex::new(Some(tx));
+        let old_url = format!("{}/", first_origin.as_str());
+        let old = WebviewWindowBuilder::new(
+            app,
+            "old-spa",
+            WebviewUrl::External(old_url.parse().unwrap()),
+        )
+        .incognito(true)
+        .initialization_script("addEventListener('DOMContentLoaded',async()=>{let denied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){denied=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='OLD:'+JSON.stringify({aclDenied:denied});});")
+        .on_document_title_changed(move |_, title| {
+            if let Some(value) = title
+                .strip_prefix("OLD:")
+                .and_then(|v| serde_json::from_str::<Value>(v).ok())
+            {
+                if let Some(tx) = sender.lock().unwrap().take() {
+                    let _ = tx.send(value);
+                }
+            }
+        })
+        .build()
+        .unwrap();
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), rx)
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .unwrap_or_else(|| json!({"aclDenied":false}));
+        old.destroy().unwrap();
+        result
+    } else {
+        json!({"aclDenied":false})
+    };
+    json!({"missingWrongSecretHostOrigin":denied,"otherWebview":value,"oldOriginWhileReplacementActive":old_origin})
 }
 async fn finish(
     app: &tauri::AppHandle,

@@ -363,7 +363,7 @@ async fn forward(
         .get(header::UPGRADE)
         .is_some_and(|v| v.as_bytes().eq_ignore_ascii_case(b"websocket"))
     {
-        let Ok(ws) = ws else {
+        let Ok(mut ws) = ws else {
             return StatusCode::BAD_REQUEST.into_response();
         };
         let mut ws_target = target.clone();
@@ -394,15 +394,68 @@ async fn forward(
         if !store_cookies(&s, response.headers(), &target) {
             return StatusCode::FORBIDDEN.into_response();
         }
-        return ws.on_upgrade(move |mut down|async move {
-            let mut up=socket;let mut shutdown=s.shutdown.subscribe();if *shutdown.borrow() { let _=up.close(None).await;return; }
-            loop {tokio::select! {
-                _=shutdown.changed()=>break,
-                incoming=down.recv()=>{let Some(Ok(m))=incoming else {break};let m=match m {axum::extract::ws::Message::Text(v)=>Message::Text(v.as_str().into()),axum::extract::ws::Message::Binary(v)=>Message::Binary(v),axum::extract::ws::Message::Ping(v)=>Message::Ping(v),axum::extract::ws::Message::Pong(v)=>Message::Pong(v),axum::extract::ws::Message::Close(_)=>Message::Close(None)};if up.send(m).await.is_err(){break}},
-                incoming=up.next()=>{let Some(Ok(m))=incoming else {break};let m=match m {Message::Text(v)=>axum::extract::ws::Message::Text(v.as_str().into()),Message::Binary(v)=>axum::extract::ws::Message::Binary(v),Message::Ping(v)=>axum::extract::ws::Message::Ping(v),Message::Pong(v)=>axum::extract::ws::Message::Pong(v),Message::Close(_)=>axum::extract::ws::Message::Close(None),Message::Frame(_)=>continue};if down.send(m).await.is_err(){break}}
-            }}
-            let _=down.close().await;let _=up.close(None).await;
-        }).into_response();
+        let mut selected = response
+            .headers()
+            .get_all(header::SEC_WEBSOCKET_PROTOCOL)
+            .iter();
+        let selected = match (selected.next(), selected.next()) {
+            (Some(value), None) => match value.to_str() {
+                Ok(value) if !value.trim().is_empty() && !value.contains(',') => {
+                    Some(value.trim().to_owned())
+                }
+                _ => return StatusCode::BAD_GATEWAY.into_response(),
+            },
+            (None, None) => None,
+            _ => return StatusCode::BAD_GATEWAY.into_response(),
+        };
+        // Axum mirrors only protocols offered by the browser. Reject an upstream
+        // selection outside that offer instead of acknowledging a mismatched socket.
+        if let Some(selected) = selected {
+            ws = ws.protocols([selected]);
+            if ws.selected_protocol().is_none() {
+                return StatusCode::BAD_GATEWAY.into_response();
+            }
+        }
+        return ws
+            .on_upgrade(move |mut down| async move {
+                let mut up = socket;
+                let mut shutdown = s.shutdown.subscribe();
+                if *shutdown.borrow() {
+                    let _ = up.close(None).await;
+                    return;
+                }
+                loop {
+                    tokio::select! {
+                        _ = shutdown.changed() => break,
+                        incoming = down.recv() => {
+                            let Some(Ok(message)) = incoming else { break };
+                            let message = match message {
+                                axum::extract::ws::Message::Text(value) => Message::Text(value.as_str().into()),
+                                axum::extract::ws::Message::Binary(value) => Message::Binary(value),
+                                axum::extract::ws::Message::Ping(value) => Message::Ping(value),
+                                axum::extract::ws::Message::Pong(value) => Message::Pong(value),
+                                axum::extract::ws::Message::Close(_) => Message::Close(None),
+                            };
+                            if up.send(message).await.is_err() { break }
+                        }
+                        incoming = up.next() => {
+                            let Some(Ok(message)) = incoming else { break };
+                            let message = match message {
+                                Message::Text(value) => axum::extract::ws::Message::Text(value.as_str().into()),
+                                Message::Binary(value) => axum::extract::ws::Message::Binary(value),
+                                Message::Ping(value) => axum::extract::ws::Message::Ping(value),
+                                Message::Pong(value) => axum::extract::ws::Message::Pong(value),
+                                Message::Close(_) => axum::extract::ws::Message::Close(None),
+                                Message::Frame(_) => continue,
+                            };
+                            if down.send(message).await.is_err() { break }
+                        }
+                    }
+                }
+                let _ = down.close().await;
+                let _ = up.close(None).await;
+            })
+            .into_response();
     }
     let http = match s.client.streaming_http() {
         Ok(v) => v,
@@ -486,7 +539,7 @@ async fn forward(
         headers.insert(header::LOCATION, value);
     }
     // Intersect with the harness nonce/hash policy. No external resource can carry the native UA secret.
-    let restriction=format!("script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:{} ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",s.origin.as_str().rsplit(':').next().unwrap());
+    let restriction = format!("default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:{} ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'", s.origin.as_str().rsplit(':').next().unwrap());
     headers.append(
         header::CONTENT_SECURITY_POLICY,
         restriction.parse().expect("fixed CSP"),

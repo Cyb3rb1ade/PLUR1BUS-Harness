@@ -280,10 +280,17 @@ installation is refused before saved session cookies are forwarded.
 All five measured engines use the approved ephemeral 127.0.0.1 fallback. Custom
 protocols buffered SSE and rejected WS in the recorded spike. Every request needs
 a fresh 256-bit per-window secret in the native User-Agent, exact Host and exact
-Origin when present. That carrier is dropped before upstream HTTP/WS. This is a
+Origin when present. That carrier is dropped from proxy-generated upstream
+headers and targets. This is a
 local bearer boundary shared with the paired SPA (its JavaScript can read the
 native User-Agent), with no claim of defense against a compromised OS user.
 Other app webviews use different native User-Agents.
+
+The proxy filters ambient header, target, redirect and resource forwarding, but
+cannot prevent page code from deliberately copying a renderer-readable carrier
+into an arbitrary request body or WebSocket frame; this follows the binding's
+"adds nothing the SPA could not send itself" boundary. The device bearer remains
+Rust-only and is never accepted or added by the proxy.
 
 A second CSP intersects the harness policy and limits resource destinations to
 the proxy origin, with IPC for shell_info. Harness nonce/hash rules remain in
