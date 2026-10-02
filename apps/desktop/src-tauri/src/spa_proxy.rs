@@ -7,7 +7,7 @@ use crate::{
 use axum::{
     body::Body,
     extract::{State, WebSocketUpgrade},
-    http::{header, HeaderMap, Request, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
     routing::any,
     Router,
@@ -17,6 +17,7 @@ use futures_util::{SinkExt, StreamExt};
 use rand::RngCore;
 use reqwest::cookie::{CookieStore, Jar};
 use std::{
+    borrow::Cow,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -37,6 +38,40 @@ struct Inner {
     error_settings: Mutex<crate::settings::Settings>,
     #[cfg(debug_assertions)]
     observed_secrets: Mutex<Vec<SecretString>>,
+}
+const SHELL_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
+
+fn shell_response(kind: &'static str, body: Cow<'static, str>) -> Response {
+    (
+        [
+            (header::CONTENT_TYPE, kind),
+            (header::CONTENT_SECURITY_POLICY, SHELL_CSP),
+        ],
+        body,
+    )
+        .into_response()
+}
+
+fn proxy_csp(origin: &crate::connections::Origin) -> String {
+    let port = origin.as_str().rsplit(':').next().unwrap();
+    format!(
+        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:{port} ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+    )
+}
+
+fn strip_reporting(value: &HeaderValue) -> Result<HeaderValue, ()> {
+    let policy = value.to_str().map_err(|_| ())?;
+    policy
+        .split(';')
+        .filter(|directive| {
+            !directive.split_whitespace().next().is_some_and(|name| {
+                name.eq_ignore_ascii_case("report-uri") || name.eq_ignore_ascii_case("report-to")
+            })
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+        .parse()
+        .map_err(|_| ())
 }
 /// One ephemeral listener and one memory-only session jar per SPA window.
 #[derive(Clone)]
@@ -342,7 +377,7 @@ async fn forward(
             ),
             _ => return StatusCode::NOT_FOUND.into_response(),
         };
-        return ([(header::CONTENT_TYPE,kind),(header::CONTENT_SECURITY_POLICY,"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")],body).into_response();
+        return shell_response(kind, body);
     }
     // A cookie is authentication too: refuse a replacement installation before sending it.
     match s.client.meta().await {
@@ -495,20 +530,7 @@ async fn forward(
                 || name.as_str() == "content-security-policy-report-only"
             {
                 // Reporting destinations can bypass connect-src and carry the native User-Agent.
-                let Ok(policy) = value.to_str() else {
-                    return StatusCode::BAD_GATEWAY.into_response();
-                };
-                let policy = policy
-                    .split(';')
-                    .filter(|directive| {
-                        !directive.split_whitespace().next().is_some_and(|name| {
-                            name.eq_ignore_ascii_case("report-uri")
-                                || name.eq_ignore_ascii_case("report-to")
-                        })
-                    })
-                    .collect::<Vec<_>>()
-                    .join(";");
-                let Ok(value) = policy.parse() else {
+                let Ok(value) = strip_reporting(value) else {
                     return StatusCode::BAD_GATEWAY.into_response();
                 };
                 headers.append(name.clone(), value);
@@ -543,7 +565,7 @@ async fn forward(
         headers.insert(header::LOCATION, value);
     }
     // Intersect with the harness nonce/hash policy. No external resource can carry the native UA secret.
-    let restriction = format!("default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:{} ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'", s.origin.as_str().rsplit(':').next().unwrap());
+    let restriction = proxy_csp(&s.origin);
     headers.append(
         header::CONTENT_SECURITY_POLICY,
         restriction.parse().expect("fixed CSP"),

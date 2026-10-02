@@ -27,6 +27,23 @@ struct Input {
     foreign_origin: String,
 }
 type Secrets = Arc<Mutex<Vec<SecretString>>>;
+
+fn old_origin_probe_script() -> &'static str {
+    r#"(async()=>{let aclDenied=false;let rustCallerDenied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){const message=String(e);aclDenied=/not allowed|denied|permissions/i.test(message);rustCallerDenied=message.includes('command unavailable for this window')}document.title='OLD:'+JSON.stringify({aclDenied,rustCallerDenied});})()"#
+}
+
+fn ticket_error_probe_script() -> &'static str {
+    "document.title='ERR:'+JSON.stringify({savedTheme:document.documentElement.dataset.theme,savedLocale:document.documentElement.lang,terminalError:location.pathname==='/__shell/ticket-error',fragmentGone:!location.hash,controls44:[...document.querySelectorAll('#copy,#retry')].every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44}),honestError:document.getElementById('detail').textContent.length>20&&document.getElementById('safe').textContent.length>10});"
+}
+
+fn session_probe_script(foreign_origin: &str) -> String {
+    format!(
+        "const FOREIGN={};\n{}",
+        serde_json::to_string(foreign_origin).unwrap(),
+        include_str!("production-spa/probe.js")
+    )
+}
+
 fn main() {
     progress("starting");
     const { assert!(cfg!(debug_assertions), "debug-only fixture") };
@@ -78,45 +95,176 @@ fn main() {
                 .join("native-profile"),
         ));
     let old_probe_for_title = old_probe.clone();
-    let app=tauri::Builder::default().manage(token_state).manage(SpaState::default()).invoke_handler(tauri::generate_handler![commands::shell_info,commands::app_info])
-        .on_page_load(move|webview,payload|{
-            if webview.label()!="spa"||!matches!(payload.event(),tauri::webview::PageLoadEvent::Finished){return}
-            if payload.url().query() == Some("wp05-old-check") {
-                let _ = webview.eval("(async()=>{let aclDenied=false;let rustCallerDenied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){const message=String(e);aclDenied=/not allowed|denied|permissions/i.test(message);rustCallerDenied=message.includes('command unavailable for this window')}document.title='OLD:'+JSON.stringify({aclDenied,rustCallerDenied});})()");
+    let app = tauri::Builder::default()
+        .manage(token_state)
+        .manage(SpaState::default())
+        .invoke_handler(tauri::generate_handler![
+            commands::shell_info,
+            commands::app_info
+        ])
+        .on_page_load(move |webview, payload| {
+            if webview.label() != "spa"
+                || !matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+            {
+                return;
             }
-            if payload.url().path()=="/auth/ticket"{let mut seen=loads.lock().unwrap();if seen.len()<2&&seen.insert(payload.url().origin().ascii_serialization()){let _=webview.eval(format!("const FOREIGN={};\n{}",serde_json::to_string(&input.foreign_origin).unwrap(),include_str!("production-spa/probe.js")));}}
-            if payload.url().path()=="/__shell/ticket-error"{let _=webview.eval("document.title='ERR:'+JSON.stringify({savedTheme:document.documentElement.dataset.theme,savedLocale:document.documentElement.lang,terminalError:location.pathname==='/__shell/ticket-error',fragmentGone:!location.hash,controls44:[...document.querySelectorAll('#copy,#retry')].every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44}),honestError:document.getElementById('detail').textContent.length>20&&document.getElementById('safe').textContent.length>10});");}
-        })
-        .setup(move|app|{
-            let old_probe_for_title = old_probe_for_title.clone();
-            let registering=known.clone();app.state::<SpaState>().set_native_secret_observer(Arc::new(move|s|registering.lock().unwrap().push(SecretString::new(s.to_owned()))));
-            let start_connection=connection.clone();let start_tokens=tokens.clone();let start_store=store.clone();
-            app.state::<SpaState>().set_native_probe(Arc::new(move|window,title|{
-                if let Some(value) = title.strip_prefix("OLD:").and_then(|s| serde_json::from_str::<Value>(s).ok()) {
-                    *old_probe_for_title.lock().unwrap() = Some(value);
-                    return;
+            if payload.url().query() == Some("wp05-old-check") {
+                let _ = webview.eval(old_origin_probe_script());
+            }
+            if payload.url().path() == "/auth/ticket" {
+                let mut seen = loads.lock().unwrap();
+                if seen.len() < 2 && seen.insert(payload.url().origin().ascii_serialization()) {
+                    let _ = webview.eval(session_probe_script(&input.foreign_origin));
                 }
-                let error=title.starts_with("ERR:");let prefix=if error{"ERR:"}else{"WP5:"};let Some(value)=title.strip_prefix(prefix).and_then(|s|serde_json::from_str::<Value>(s).ok())else{return};
-                let step=if error{2}else{stage.fetch_add(1,Ordering::SeqCst)};if !error&&step>1{return}
-                progress("session-ready");let app=window.app_handle().clone();let proxy=app.state::<SpaState>().active_proxy().unwrap();progress("proxy-obtained");
-                let known=known.clone();let connection=connection.clone();let tokens=tokens.clone();let store=store.clone();let results=results.clone();let output=output.clone();let negatives=negatives.clone();let measurements=measurements.clone();
-                let first_origin=first_origin.clone();
-                let old_probe_for_run=old_probe.clone();
-                tauri::async_runtime::spawn(async move{
-                    progress("secrets-registering");proxy.register_memory_secrets(|s|known.lock().unwrap().push(SecretString::new(s.to_owned())));progress("secrets-registered");
-                    if step<2 {let empty=window.cookies().is_ok_and(|v|v.is_empty());results.lock().unwrap().push(json!({"browser":value,"nativeCookieStoreEmpty":empty}));progress("cookies-checked");}
-                    if step==0 {let upstream=connection.lock().unwrap().origin.clone();*first_origin.lock().unwrap()=Some(proxy.origin().clone());progress("benchmark-start");let measured=benchmark(&proxy,&upstream).await;progress("benchmark-done");*measurements.lock().unwrap()=measured;let mut conn=connection.lock().unwrap().clone();if spa::open_spa(&app,&mut conn,tokens.as_ref(),store.as_ref()).await.is_err(){app.exit(3)}else{progress("second-window-opened")}return;}
-                    if step==1 {
-                        progress("negative-checks");let old_origin=first_origin.lock().unwrap().clone();let controls=negative_controls(&app,&proxy,old_origin,old_probe_for_run).await;*negatives.lock().unwrap()=controls;
-                        let upstream=connection.lock().unwrap().origin.clone();let response=reqwest::Client::new().post(format!("{}/__test/ticket-mode",upstream.as_str())).json(&json!({"reject":true})).send().await.unwrap();assert!(response.status().is_success());
-                        progress("replay");let replay=known.lock().unwrap()[1].expose().to_owned();let mut url=url::Url::parse(&format!("{}/auth/ticket",proxy.origin().as_str())).unwrap();url.set_fragment(Some(&format!("t={replay}")));window.navigate(url).unwrap();return;
+            }
+            if payload.url().path() == "/__shell/ticket-error" {
+                let _ = webview.eval(ticket_error_probe_script());
+            }
+        })
+        .setup(move |app| {
+            let old_probe_for_title = old_probe_for_title.clone();
+            let registering = known.clone();
+            app.state::<SpaState>()
+                .set_native_secret_observer(Arc::new(move |s| {
+                    registering
+                        .lock()
+                        .unwrap()
+                        .push(SecretString::new(s.to_owned()));
+                }));
+            let start_connection = connection.clone();
+            let start_tokens = tokens.clone();
+            let start_store = store.clone();
+            app.state::<SpaState>()
+                .set_native_probe(Arc::new(move |window, title| {
+                    if let Some(value) = title
+                        .strip_prefix("OLD:")
+                        .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                    {
+                        *old_probe_for_title.lock().unwrap() = Some(value);
+                        return;
                     }
-                    progress("error-page");let observations=json!({"ticketError":value,"productionBenchmark":*measurements.lock().unwrap()});finish(&app,proxy,output,results,known,negatives,observations).await;
-                });
-            }));
-            let start=app.handle().clone();tauri::async_runtime::spawn(async move{let mut conn=start_connection.lock().unwrap().clone();if spa::open_spa(&start,&mut conn,start_tokens.as_ref(),start_store.as_ref()).await.is_err(){start.exit(3)}});
-            let timeout=app.handle().clone();std::thread::spawn(move||{std::thread::sleep(std::time::Duration::from_secs(80));timeout.exit(2);});Ok(())
-        }).build(context).expect("native fixture");
+                    let error = title.starts_with("ERR:");
+                    let prefix = if error { "ERR:" } else { "WP5:" };
+                    let Some(value) = title
+                        .strip_prefix(prefix)
+                        .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                    else {
+                        return;
+                    };
+                    let step = if error {
+                        2
+                    } else {
+                        stage.fetch_add(1, Ordering::SeqCst)
+                    };
+                    if !error && step > 1 {
+                        return;
+                    }
+                    progress("session-ready");
+                    let app = window.app_handle().clone();
+                    let proxy = app.state::<SpaState>().active_proxy().unwrap();
+                    progress("proxy-obtained");
+                    let known = known.clone();
+                    let connection = connection.clone();
+                    let tokens = tokens.clone();
+                    let store = store.clone();
+                    let results = results.clone();
+                    let output = output.clone();
+                    let negatives = negatives.clone();
+                    let measurements = measurements.clone();
+                    let first_origin = first_origin.clone();
+                    let old_probe_for_run = old_probe.clone();
+                    tauri::async_runtime::spawn(async move {
+                        progress("secrets-registering");
+                        proxy.register_memory_secrets(|s| {
+                            known.lock().unwrap().push(SecretString::new(s.to_owned()));
+                        });
+                        progress("secrets-registered");
+                        if step < 2 {
+                            let empty = window.cookies().is_ok_and(|v| v.is_empty());
+                            results.lock().unwrap().push(json!({
+                                "browser": value,
+                                "nativeCookieStoreEmpty": empty
+                            }));
+                            progress("cookies-checked");
+                        }
+                        if step == 0 {
+                            let upstream = connection.lock().unwrap().origin.clone();
+                            *first_origin.lock().unwrap() = Some(proxy.origin().clone());
+                            app.state::<SpaState>()
+                                .set_fixture_old_origin(proxy.origin().clone());
+                            progress("benchmark-start");
+                            let measured = benchmark(&proxy, &upstream).await;
+                            progress("benchmark-done");
+                            *measurements.lock().unwrap() = measured;
+                            let mut conn = connection.lock().unwrap().clone();
+                            if spa::open_spa(&app, &mut conn, tokens.as_ref(), store.as_ref())
+                                .await
+                                .is_err()
+                            {
+                                app.exit(3)
+                            } else {
+                                progress("second-window-opened")
+                            }
+                            return;
+                        }
+                        if step == 1 {
+                            progress("negative-checks");
+                            let old_origin = first_origin.lock().unwrap().clone();
+                            let controls =
+                                negative_controls(&app, &proxy, old_origin, old_probe_for_run)
+                                    .await;
+                            *negatives.lock().unwrap() = controls;
+                            let upstream = connection.lock().unwrap().origin.clone();
+                            let response = reqwest::Client::new()
+                                .post(format!("{}/__test/ticket-mode", upstream.as_str()))
+                                .json(&json!({"reject": true}))
+                                .send()
+                                .await
+                                .unwrap();
+                            assert!(response.status().is_success());
+                            progress("replay");
+                            let replay = known.lock().unwrap()[1].expose().to_owned();
+                            let mut url = url::Url::parse(&format!(
+                                "{}/auth/ticket",
+                                proxy.origin().as_str()
+                            ))
+                            .unwrap();
+                            url.set_fragment(Some(&format!("t={replay}")));
+                            window.navigate(url).unwrap();
+                            return;
+                        }
+                        progress("error-page");
+                        let observations = json!({
+                            "ticketError": value,
+                            "productionBenchmark": *measurements.lock().unwrap()
+                        });
+                        finish(&app, proxy, output, results, known, negatives, observations).await;
+                    });
+                }));
+            let start = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut conn = start_connection.lock().unwrap().clone();
+                if spa::open_spa(
+                    &start,
+                    &mut conn,
+                    start_tokens.as_ref(),
+                    start_store.as_ref(),
+                )
+                .await
+                .is_err()
+                {
+                    start.exit(3)
+                }
+            });
+            let timeout = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(80));
+                timeout.exit(2);
+            });
+            Ok(())
+        })
+        .build(context)
+        .expect("native fixture");
     app.run(|_, event| {
         if let tauri::RunEvent::ExitRequested {
             code: None, api, ..

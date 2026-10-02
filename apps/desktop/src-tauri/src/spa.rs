@@ -22,6 +22,8 @@ pub struct SpaState {
     probe: Mutex<Option<NativeProbe>>,
     #[cfg(debug_assertions)]
     secrets: Mutex<Option<NativeSecretObserver>>,
+    #[cfg(debug_assertions)]
+    fixture_old_origin: Mutex<Option<Origin>>,
 }
 /// Test-only native title observer; adds no commands, transports, or release behavior.
 #[cfg(debug_assertions)]
@@ -47,6 +49,24 @@ impl SpaState {
             .unwrap()
             .as_ref()
             .map(|a| a.proxy.clone())
+    }
+    /// Register the one retained origin used by the debug native acceptance fixture.
+    #[cfg(debug_assertions)]
+    pub fn set_fixture_old_origin(&self, origin: Origin) {
+        self.fixture_old_origin.lock().unwrap().replace(origin);
+    }
+    /// Permit only the fixture's exact retained-origin marker after carrier checks.
+    #[cfg(debug_assertions)]
+    fn allows_fixture_old_origin(&self, url: &Url, carrier_is_clean: bool) -> bool {
+        if !carrier_is_clean {
+            return false;
+        }
+        let Some(origin) = self.fixture_old_origin.lock().unwrap().as_ref().cloned() else {
+            return false;
+        };
+        policy::same_origin(url, &origin)
+            && url.path() == "/"
+            && url.query() == Some("wp05-old-check")
     }
 }
 
@@ -153,14 +173,17 @@ pub async fn open_spa(
         .disable_drag_drop_handler()
         .user_agent(proxy.user_agent())
         .on_navigation(move |url| {
-            // The debug native fixture reuses the authentic `spa` label to probe a
-            // retired origin while the replacement capability remains active.
-            #[cfg(debug_assertions)]
-            if url.query() == Some("wp05-old-check") {
-                return true;
-            }
             if navigation_proxy.has_launch_secret_in_target(url.as_str()) {
                 return false;
+            }
+            // The debug native fixture reuses the authentic `spa` label to probe a
+            // registered retained origin while the replacement capability remains active.
+            #[cfg(debug_assertions)]
+            if handle
+                .state::<SpaState>()
+                .allows_fixture_old_origin(url, true)
+            {
+                return true;
             }
             if policy::same_origin(url, &origin) && url.path() == "/auth/ticket-failed" {
                 schedule_retry(&handle, &origin, url.query() == Some("retry=1"));
@@ -320,4 +343,41 @@ fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
             let _ = window.navigate(url);
         }
     });
+}
+
+#[cfg(all(test, debug_assertions))]
+mod fixture_navigation_tests {
+    use super::*;
+
+    fn url(value: &str) -> Url {
+        Url::parse(value).unwrap()
+    }
+
+    #[test]
+    fn fixture_marker_is_bound_to_registered_old_origin_and_clean_carrier() {
+        let state = SpaState::default();
+        state.set_fixture_old_origin(Origin::parse("http://127.0.0.1:30101").unwrap());
+        assert!(
+            state.allows_fixture_old_origin(&url("http://127.0.0.1:30101/?wp05-old-check"), true)
+        );
+        assert!(
+            !state.allows_fixture_old_origin(&url("http://127.0.0.1:30102/?wp05-old-check"), true)
+        );
+        assert!(
+            !state.allows_fixture_old_origin(&url("https://foreign.test/?wp05-old-check"), true)
+        );
+        assert!(!state
+            .allows_fixture_old_origin(&url("http://127.0.0.1:30101/other?wp05-old-check"), true));
+        assert!(
+            !state.allows_fixture_old_origin(&url("http://127.0.0.1:30101/?wp05-old-check"), false)
+        );
+    }
+
+    #[test]
+    fn fixture_marker_is_closed_without_registration() {
+        let state = SpaState::default();
+        assert!(
+            !state.allows_fixture_old_origin(&url("http://127.0.0.1:30101/?wp05-old-check"), true)
+        );
+    }
 }

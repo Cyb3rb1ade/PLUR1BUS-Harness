@@ -42,6 +42,7 @@ async fn upstream(
         },
         "/ws"=>ws.unwrap().on_upgrade(|mut socket|async move {while let Some(Ok(message))=socket.recv().await {if socket.send(message).await.is_err(){break}}}).into_response(),
         "/ws-protocol"=>ws.unwrap().protocols(["pluribus.v1"]).on_upgrade(|mut socket|async move {while let Some(Ok(message))=socket.recv().await {if socket.send(message).await.is_err(){break}}}).into_response(),
+        "/ws-protocol-unoffered"=>ws.unwrap().protocols(["unoffered.v1"]).on_upgrade(|mut socket|async move {while let Some(Ok(message))=socket.recv().await {if socket.send(message).await.is_err(){break}}}).into_response(),
         "/large"=>vec![b'x';10*1024*1024].into_response(),
         _=>"ok".into_response()
     }
@@ -263,6 +264,28 @@ async fn websocket_selected_subprotocol_is_mirrored_to_the_browser() {
         "protocol-echo"
     );
     ws.close(None).await.unwrap();
+}
+#[tokio::test]
+async fn websocket_unoffered_subprotocol_fails_closed() {
+    let f = fixture(Kind::Local).await;
+    let url = format!(
+        "{}/ws-protocol-unoffered",
+        f.proxy.origin().as_str().replacen("http", "ws", 1)
+    );
+    let mut req = url.into_client_request().unwrap();
+    req.headers_mut()
+        .insert("user-agent", f.proxy.user_agent().parse().unwrap());
+    req.headers_mut()
+        .insert("origin", f.proxy.origin().as_str().parse().unwrap());
+    req.headers_mut()
+        .insert("sec-websocket-protocol", "pluribus.v1".parse().unwrap());
+    let result = tokio_tungstenite::connect_async(req).await;
+    match result {
+        Err(tokio_tungstenite::tungstenite::Error::Http(response)) => {
+            assert_eq!(response.status(), reqwest::StatusCode::BAD_GATEWAY);
+        }
+        other => panic!("unexpected websocket result: {other:?}"),
+    }
 }
 #[tokio::test]
 async fn bundled_local_and_remote_use_the_same_path() {
