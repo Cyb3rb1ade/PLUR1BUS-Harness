@@ -267,3 +267,55 @@ the pre-WP13 native assumption and must be revisited before the shim ships.
 Store writes are serialized within this app process; cross-process serialization
 is deferred to the WP6 single-instance lifecycle. The existing Windows CRT shim
 relocation remains a documented build-system deviation needed by Windows x64.
+
+### SPA proxy and session (WP5)
+
+Opening a paired connection creates an incognito SPA window (minimum 800 × 600)
+and logs in through a fresh, single-use 60-second ticket in the URL fragment.
+Rust owns the device token, origin-bound HTTP/SSE/WebSocket transport and session
+cookie jar. Page Authorization and Cookie are dropped; Set-Cookie stays in Rust
+memory. Closing erases the jar; restarting needs a fresh ticket. A replacement
+installation is refused before saved session cookies are forwarded.
+
+All five measured engines use the approved ephemeral 127.0.0.1 fallback. Custom
+protocols buffered SSE and rejected WS in the recorded spike. Every request needs
+a fresh 256-bit per-window secret in the native User-Agent, exact Host and exact
+Origin when present. That carrier is dropped before upstream HTTP/WS. This is a
+local bearer boundary shared with the paired SPA (its JavaScript can read the
+native User-Agent), with no claim of defense against a compromised OS user.
+Other app webviews use different native User-Agents.
+
+A second CSP intersects the harness policy and limits resource destinations to
+the proxy origin, with IPC for shell_info. Harness nonce/hash rules remain in
+force. Foreign CSP reporting directives and Reporting/NEL destinations are removed
+to prevent native User-Agent disclosure. External CDN assets need safe origin-relative routing before a real SPA
+can use them. Foreign navigation uses the classified Rust http/https/mailto
+opener; popups are blocked. Failed tickets are retried once, then the error view
+offers Copy log and Retry with 44px controls. Runtime and data are untouched.
+
+Ticket retries add only the nonsecret `shell-retry=1` query to force a document
+reload; a fragment change alone would not rerun redemption. The error page uses
+the saved shell language and theme. No ticket or device token crosses shell IPC.
+
+The SPA command list contains only shell_info, guarded by exact label/current
+URL, with an empty features list. Tauri 2.12 capabilities are additive: on switch
+or close an origin-specific deny-shell-info retires the prior grant. Retired
+ports stay reserved for this process, preventing permission reuse. This costs
+one small retained listener per switch, until process exit.
+
+Run the native fixture with Node 24.21:
+`node apps/desktop/scripts/native-spa.mjs --output <dir>` from a GUI session
+(Linux under Xvfb). It builds the pinned Rust driver and native example. Rust owns pairing/redeem
+and credentials; Node only launches the driver. It isolates HOME/CFFIXED_USER_HOME,
+XDG and profiles, uses MemoryStore and stdin credentials, and runs two distinct
+app processes against the same mock. It writes sanitized browser/ACL/cookie/disk
+observations as `first.json`, `restart.json`, and `index.json`; raw native output
+is discarded. Each process opens two logged-in windows, tests actual old-origin
+and other-webview ACL denial, verifies all ten MiB download bytes, times 100
+paired direct/proxy asset requests with metadata and CSP filtering included, and
+checks a controlled foreign handler receives zero fetch/image/WS/redirect calls.
+It proves one ticket retry and a terminal 44px error, fresh tickets after full
+process restart, empty native cookie stores, no cookie databases, and no bearer,
+ticket, launch carrier, cookie, or browser CSRF on disk. No external browser or
+real keychain is opened. Production acceptance on the other four targets remains
+a separate CI gate; Step0 measurements are not production acceptance.

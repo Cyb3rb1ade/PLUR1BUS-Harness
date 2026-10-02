@@ -5,15 +5,19 @@ pub mod connections;
 pub mod discovery;
 pub mod ids;
 pub mod pair;
+pub mod policy;
 pub mod secrets;
 pub mod settings;
 mod shell_commands;
+pub mod spa;
+pub mod spa_proxy;
 pub use plur1bus_desktop_contract as contract;
 
 /// Start the shell with the three settings and app-information commands.
 pub fn run() {
     tauri::Builder::default()
         .manage(commands::ConnectionState::default())
+        .manage(spa::SpaState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::settings_get,
@@ -23,7 +27,8 @@ pub fn run() {
             commands::connections_remove,
             commands::pair_code,
             commands::pair_local,
-            commands::open_connection
+            commands::open_connection,
+            commands::shell_info
         ])
         .on_page_load(|webview, payload| {
             if webview.label() == "shell"

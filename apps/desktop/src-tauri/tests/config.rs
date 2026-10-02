@@ -133,5 +133,5 @@ fn registered_handlers_match_the_application_acl_table() {
         .filter(|s| !s.is_empty())
         .map(|s| s.strip_prefix("commands::").unwrap())
         .collect();
-    assert_eq!(actual, plur1bus_desktop::commands::SHELL_COMMANDS);
+    assert_eq!(actual, plur1bus_desktop::commands::APP_COMMANDS);
 }
