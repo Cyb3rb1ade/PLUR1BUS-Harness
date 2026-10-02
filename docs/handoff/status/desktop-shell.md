@@ -491,13 +491,14 @@ jobs and both 200-turn system soaks passed without reruns of these runs.
 
 ## WP4 — Connections, keychain and pairing
 
-Status: IN PROGRESS — implementation `aef74f1`, fix `41f46fd`; full local gates PASS; scoped re-review PASS; CI pending.
+Status: IN PROGRESS — implementation and reviewed CI fixes through `8c1750b`;
+full local gates PASS; new complete current-head CI required before WP5.
 Branch: `feat/desktop-shell-wp04-connections`.
 Base: `feat/desktop-shell-wp03-ui-frame` at
 `87915bb45e75c0b7e7f00fe035b0a25ee22840fa`; PR #63 is green, draft and unmerged.
 PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), DRAFT.
-Implementation head `41f46fd`; initial report head `c51d7fa`; current head is
-this PR-link report commit. Local root and desktop gates passed before push.
+Implementation/fix head `8c1750b`; the current PR head includes the latest
+verification report. Local root and desktop gates passed before every push.
 `origin/main` was fetched before branching and remains `d33961b`.
 
 ### Scope and pending acceptance
@@ -705,3 +706,82 @@ started root run36968518154 and desktop PR36968518124/push36968502969. This
 PR-link-only update creates a newer report head; those initial runs alone cannot
 prove final-head Green. Check current-head root and all desktop targets before
 starting WP5. No owner merge was performed.
+
+### CI follow-up at 3ff7e0f
+
+Draft PR64 remains unmerged and WP5 is unstarted. Current desktop run36968566226:
+Windows ARM and Docker/Podman PASS; Windows x64 failed linking the
+`fake-plur1bus` test executable. `src-tauri` build output supplied an invalid
+`msvcrt.lib` (LNK4003), followed by unresolved CRT symbols/LNK1120. Root Linux
+unit passed; other root/desktop jobs are still running or queued. This is not
+final-head Green. Exact sanitized failure log is
+`/tmp/desktop-wp04-windows-failure.log`; diagnosis/fix is in progress.
+
+Root run36968566221 also failed: macOS `pnpm test` reached the first six
+read-only SQLite primitive tests, then hung before concurrent-writer completion
+and hit the15-minute limit. Linux and Windows unit jobs passed; dependent
+service/system jobs were skipped after the macOS failure. The prior WP3
+test-only correction is present, so this remaining path needs diagnosis rather
+than an unqualified rerun. Log: `/tmp/desktop-wp04-macos-failure.log`. The older
+report head's unit jobs passed on all three OSes; that does not replace this
+failed current-head gate.
+
+### CI corrections awaiting the next complete gate
+
+- `cc2a5df`: isolates Tauri2.7.0's synthetic x86/x64 CRT shim in a private
+  linker directory while preserving static CRT options and the cross-crate
+  native integration test. Independent scoped review PASS; local desktop
+  fmt/clippy/tests PASS (102 passed, one ignored keychain test). Real Windows
+  link and packaging verification remains pending in CI.
+- `8c1750b`: test-only SQLite prerequisite. The live writer appends WAL during
+  probes, with automatic/final checkpoints held until IPC stop. A separate real
+  `afterCopy` write/checkpoint grows the main file on all four attempts and
+  requires `E_SOURCE_BUSY`, preserving the no-source-files assertion. Focused
+  file11/11 and typecheck passed under external process-group timeouts; full
+  root checks and independent review are in progress.
+- Exact native call behind the macOS hang is unproven. A copied live main/WAL
+  pair is not a supported atomic backup; production copy validation and detect's
+  changing-file `immutable=1` fallback remain an owner decision. This test change
+  does not claim to fix that production risk.
+- Completed prior-head desktop run36968566226: macOS, Linux x64/ARM, Windows ARM,
+  Docker and Podman PASS; Windows x64 FAIL. Root run36968566221: Linux/Windows
+  unit PASS, macOS timeout, dependent system/service jobs skipped. Neither run
+  proves Green for the two new corrections.
+
+### Reviewed CI-fix checkpoint (8c1750b plus this report)
+
+Both narrow corrections passed independent scoped review, with no Critical or
+Important findings. Full local gates completed before the next push:
+
+- Root build/lint/test:594 passed including28 UI, five existing platform skips;
+  hygiene self-tests11 passed.
+- Root Rust fmt/clippy/test:1,006 passed, one existing ignored test.
+- Desktop fmt/clippy/locked tests:102 passed, one explicitly ignored real-keychain
+  round trip. Windows adds the architecture-specific build-output assertion in CI.
+- Source/fmt/diff checks passed. Main fetched again: still `d33961b`; PR63 is
+  unmerged, so PR64 remains stacked on WP3 and draft.
+
+Logs: `/tmp/desktop-wp04-ci-fix-root-{node,rust}.log` and
+`/tmp/desktop-wp04-windows-fix-desktop-rust.log`. The initial frozen install,
+toolchain/gen checks and synthetic native screenshots remain recorded above;
+the CI follow-ups did not add dependencies or change UI behavior.
+
+Exact unfinished work at this clean commit boundary:
+
+- [ ] Verify the new PR64 head's complete root CI, including macOS Node plus
+      dependent service/system/soak jobs.
+- [ ] Verify all five desktop targets plus Docker/Podman; specifically Windows
+      x64 linking and both Windows packaging results after `cc2a5df`.
+- [ ] Resolve any new actual CI failure, with scoped review and local Green
+      before another push; do not treat earlier-head passes as a final pass.
+- [ ] WP5 remains unstarted. After full WP4 Green, begin its required D1 Task13
+      Step0 custom-protocol SSE/WebSocket spike for WKWebView/WebView2/WebKitGTK.
+- [ ] WP6 remains unstarted and follows green WP5. Carry M1–M3 into final review
+      (local repair kind, stale success notice, CRLF SSE framing).
+- [ ] Owner follow-up: production SQLite live-copy/immutable safety. New test
+      coverage does not resolve that risk. Nonblocking review note: a heavily
+      delayed runner may outlast the writer's1.5-second/500-insert cap; the test
+      does not prove overlap at each individual probe.
+
+The native test apps/mocks are stopped; real keychain and actual screen-reader
+checks were not run. No merge, rebase, amend or force-push was performed.
