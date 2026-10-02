@@ -252,7 +252,8 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: GREEN — independent review and full root/desktop CI passed at `39529e7`.
+Status: VERIFYING — full root/desktop CI passed at `39529e7`; the report-only
+head `2d6a75c` exposed a Windows ARM64 test portability failure described below.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `feat/desktop-shell-wp02-mock-harness` at
 `2998d35a7badeb69a28b33e7072adc6de053d20e`; PR #60 is ready but not merged.
@@ -454,6 +455,20 @@ Open follow-up for the owner: the documented detect-time immutable fallback can
 encounter this same live-checkpoint risk in production. The test correction
 does not resolve it. Choosing fail-closed or snapshot semantics would change
 the importer contract and remains outside this desktop work package.
+
+The report-only head `2d6a75c` exposed a second platform-specific test issue in
+[desktop CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36958260818).
+Windows ARM64 `frames_over_64k_close` received a rejected connection as Winsock
+10053 (`ConnectionAborted`), which its assertion did not yet accept. The server
+still enforces both 64 KiB limits. Commit `428ced1` adds a Windows-only guard
+requiring both that error kind and raw code 10053; unrelated I/O errors, EOF,
+timeouts and other frames still fail. Independent review approved the change.
+The focused test and full root/desktop local gates pass again (same counts
+above); logs: `/tmp/desktop-wp03-winarm-{root-node,root-rust,desktop-rust}.log`.
+Post-fix Windows behavior remains for CI to verify. Review minor retained:
+the test panic text still says "reset" without naming the Windows abort.
+The earlier green run remains historical evidence, not a pass for this head.
+WP4 remains unstarted until the corrected current head passes all gates.
 
 ### Next
 
