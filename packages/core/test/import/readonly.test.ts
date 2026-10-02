@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { spawn } from "node:child_process";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { ImportError } from "../../src/import/types.ts";
 import { join } from "node:path";
 import { envKeyNames, isSecretFileName, loadLanceDb, openSqliteReadOnly, readBounded } from "../../src/import/readonly.ts";
@@ -82,13 +82,42 @@ describe("read-only primitives", () => {
     writer.close();
   });
 
+  it("openSqliteReadOnly detects a checkpoint after every copy and reports source-busy", () => {
+    const d = tempDir("p1b-imp-");
+    const p = join(d, "checkpoint.db");
+    const writer = new DatabaseSync(p);
+    writer.exec("PRAGMA journal_mode=WAL; CREATE TABLE t(x BLOB);");
+    const names = readdirSync(d).sort();
+    const sizes = [statSync(p).size];
+    const attempts: number[] = [];
+    try {
+      assert.throws(() => openSqliteReadOnly(p, {
+        onBusy: "throw",
+        sleep: () => {},
+        afterCopy: (attempt) => {
+          attempts.push(attempt);
+          writer.exec("INSERT INTO t VALUES (zeroblob(8192)); PRAGMA wal_checkpoint(TRUNCATE);");
+          sizes.push(statSync(p).size);
+        },
+      }), (e: ImportError) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.reason === "source-busy");
+      assert.deepEqual(attempts, [1, 2, 3, 4]);
+      assert.equal(sizes.length, 5, "every checkpoint completed");
+      assert.ok(sizes.slice(1).every((size, i) => size > sizes[i]!), "each checkpoint grows the main database");
+      assert.deepEqual(readdirSync(d).sort(), names, "nothing but the writer's own files");
+    } finally { writer.close(); }
+  });
+
   it("openSqliteReadOnly never writes next to a database a child process keeps writing (busy source)", async () => {
     const d = tempDir("p1b-imp-");
     const p = join(d, "busy.db");
     const w = new DatabaseSync(p); w.exec("PRAGMA journal_mode=WAL; CREATE TABLE t(x);"); w.close();
+    // Checkpoint changes are covered above; keep this writer's WAL append-only until the probes finish.
     const child = spawn(process.execPath, ["-e", `const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(${JSON.stringify(p)});
+      db.exec("PRAGMA wal_autocheckpoint=0");
+      process.on("message", (message) => { if (message === "stop") { db.close(); process.exit(0); } });
       db.exec("INSERT INTO t VALUES (0)"); process.send("ready");
-      const end = Date.now() + 1500; let i = 1; while (Date.now() < end) { db.exec("INSERT INTO t VALUES (" + (i++) + ")"); if (i % 200 === 0) db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } db.close();`], { stdio: ["ignore", "ignore", "ignore", "ipc"] });
+      const end = Date.now() + 1500; const pause = new Int32Array(new SharedArrayBuffer(4)); let i = 1;
+      while (Date.now() < end && i < 500) { db.exec("INSERT INTO t VALUES (" + (i++) + ")"); Atomics.wait(pause, 0, 0, 5); }`], { stdio: ["ignore", "ignore", "ignore", "ipc"] });
     const ready = new Promise<boolean>((resolve) => {
       child.once("message", (message) => resolve(message === "ready"));
       child.once("error", () => resolve(false));
@@ -118,6 +147,7 @@ describe("read-only primitives", () => {
         }
         await new Promise((r) => setTimeout(r, 40));
       }
+      child.send("stop");
       assert.deepEqual(await exited, { code: 0, signal: null }, "writer exited cleanly");
       const h = openSqliteReadOnly(p, { onBusy: "throw" });
       try {
