@@ -269,6 +269,8 @@ The existing `native-*` artifact glob also captures:
   hashes, architecture and normal/delay import lists.
 - `native-loader-exports.json`: Windows helper resolution batches and named findings
   with selected static export/forwarder facts.
+- `native-loader-progress-*.jsonl`: flushed public phase checkpoints and completed
+  module/name/ordinal observations, retained after a helper timeout.
 - `native-loader-query-*.json`: the public module/symbol requests for each bounded
   helper invocation; no per-launch key, token or full environment is serialized.
 
@@ -296,3 +298,32 @@ is claimed at this checkpoint.** CI must supply that evidence before a fix is
 selected. Existing 47 UI tests and full root suites are reused from unchanged
 source; the new saved desktop/Node/native-WK gate records are listed in the ignored
 `wp05-windows-diagnostics-report.md`.
+
+The phase-retention extension checkpoints helper script entry before input parsing,
+input parsing, Add-Type compilation, architecture/search setup, DLL load/resource
+mapping/path lookup, each name/ordinal lookup, and module cleanup. Each complete
+JSONL record is flushed through the writer and file stream before the next boundary.
+Module load/mapping results and individual symbol answers are persisted immediately;
+a stalled later operation preserves their validated completed prefix. A last phase
+only identifies the helper boundary reached, never the original child's cause.
+A successful load awaiting its path creates no missing-module finding.
+
+The Node reader caps progress at 4 MiB, 64 KiB per line and 32,768 records. It checks
+closed record fields, machine agreement, requested modules/symbols, Win32 value
+types and observation ordering. Truncated/invalid tails are removed from uploaded
+JSONL, oversized files are rejected, and paths outside permitted metadata roots
+are redacted. Saved batch fields `helperPhase`, `lastPublicModule`, `progressStatus`
+and per-module `observationComplete` distinguish partial answers from complete
+module observations. Original child status and the 12-second helper/45-second
+scheduling bounds are preserved. Authorized optional static/version reads remain
+separate and cannot erase loader answers.
+
+The focused suite now contains 26 cases: the preceding 14, 11 additional behavior
+cases for phase retention, partial/zero/completed observations, bounded malformed
+progress, ordering and authorization, and one genuine helper test conditional on
+Windows. A failure of that runtime test retains `native-*` evidence under
+`RUNNER_TEMP/plur1bus-native-spike-run-helper-*` for the existing artifact upload.
+Local macOS verification passes 25 cases and skips only that unavailable Windows
+runtime test; PowerShell execution, hosted phase timings and native Windows
+transport behavior require actual Windows evidence. Current commands and raw
+logs are recorded in the ignored `wp05-windows-phases-report.md`.

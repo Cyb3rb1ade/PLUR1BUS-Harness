@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { parsePe, isApiSet } from './windows-pe.mjs';
 import { diagnoseWindowsStartup, MAIN_MARKER, startupResult } from './windows-startup.mjs';
 
@@ -317,4 +318,209 @@ test('optional version subprocess failure cannot discard the completed helper ba
   assert.equal(facts.batches[0].modules[0].versionStatus, 'version-metadata-unavailable');
   assert.equal(facts.findings[0].ordinal, 9);
   assert.equal(facts.findings[0].error, 127);
+});
+
+const progressRecord = (type, fields = {}) => ({ schema: 1, type, ...fields });
+function stalledHelper(fixture, records, tail = '') {
+  fixture.deps.spawnSync = (_, args) => {
+    const progress = args[args.indexOf('-ProgressPath') + 1];
+    assert.ok(args.includes('-ProgressPath'));
+    writeFileSync(progress, records.map(record => JSON.stringify(record) + '\n').join('') + tail);
+    return { status: null, signal: 'SIGTERM', error: { code: 'ETIMEDOUT' }, stdout: '', stderr: '' };
+  };
+}
+const phase = (phase, fields) => progressRecord('phase', { phase, ...fields });
+const moduleObservation = (dll, fields = {}) => progressRecord('module', { dll, resolvedPath: `C:\\Windows\\System32\\${dll}`,
+  lookup: dll, previouslyLoadedPath: null, executableMapping: true, loadError: null, mappingError: null, ...fields });
+const symbolObservation = (dll, symbol, found = false) => progressRecord('symbol', { dll, ...symbol, found, error: found ? null : 127 });
+
+test('helper timeouts retain the last public phase before compile and during a module, with no invented facts', t => {
+  for (const checkpoint of [phase('script-entry'), phase('compile-begin'), phase('load-begin', { dll: 'probe.dll' })]) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Entry' }] }]);
+    stalledHelper(fixture, [phase('script-entry'), checkpoint]);
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    assert.equal(report.diagnostics.status, 'partial-helper-failed');
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+    const batch = fixture.artifact('loader-exports').batches[0];
+    assert.equal(batch.helperPhase, checkpoint.phase);
+    assert.equal(batch.lastPublicModule, checkpoint.dll ?? null);
+    assert.deepEqual(batch.modules, []); assert.deepEqual(fixture.artifact('loader-exports').findings, []);
+  }
+});
+
+test('completed named and ordinal facts survive a later symbol stall and optional metadata failure', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Missing' }, { ordinal: 9 }, { name: 'Stalls' }] }]);
+  stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'),
+    symbolObservation('probe.dll', { name: 'Missing' }), symbolObservation('probe.dll', { ordinal: 9 }),
+    phase('symbol-begin', { dll: 'probe.dll', name: 'Stalls' })]);
+  const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const batch = fixture.artifact('loader-exports').batches[0];
+  assert.equal(report.diagnostics.status, 'partial-helper-failed'); assert.equal(batch.machine, 0x8664);
+  assert.equal(batch.helperPhase, 'symbol-begin'); assert.equal(batch.lastPublicModule, 'probe.dll');
+  assert.deepEqual(batch.modules[0].symbols.map(f => f.name ?? f.ordinal), ['Missing', 9]);
+  assert.equal(batch.modules[0].observationComplete, false);
+  assert.equal(batch.modules[0].metadataStatus, 'PE-metadata-unavailable');
+  assert.deepEqual(fixture.artifact('loader-exports').findings.map(f => f.name ?? f.ordinal), ['Missing', 9]);
+});
+
+test('a completed module survives a later module load stall and only authorized paths receive version reads', t => {
+  const fixture = diagnosticFixture(t, ['allowed', 'outside', 'stalls'].map(dll => ({ dll: `${dll}.dll`, symbols: [{ ordinal: 9 }] })));
+  const versionReads = [];
+  fixture.deps.readFileVersions = paths => { versionReads.push(...paths); return []; };
+  stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('allowed.dll'),
+    symbolObservation('allowed.dll', { ordinal: 9 }), phase('module-end', { dll: 'allowed.dll' }),
+    moduleObservation('outside.dll', { resolvedPath: 'C:\\outside\\outside.dll' }), symbolObservation('outside.dll', { ordinal: 9 }),
+    phase('module-end', { dll: 'outside.dll' }), phase('load-begin', { dll: 'stalls.dll' })]);
+  const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const facts = fixture.artifact('loader-exports');
+  assert.equal(report.diagnostics.status, 'partial-helper-failed'); assert.equal(facts.batches[0].modules.length, 2);
+  assert.ok(facts.batches[0].modules.every(m => m.observationComplete));
+  assert.equal(facts.batches[0].lastPublicModule, 'stalls.dll');
+  assert.deepEqual(versionReads, ['C:\\Windows\\System32\\allowed.dll']);
+  assert.equal(facts.findings.length, 2); assert.equal(report.child.unsignedStatus, 3221225785);
+});
+
+test('truncated and malformed progress retain only earlier complete validated records', t => {
+  for (const tail of ['{"schema":1,"type":"symbol","dll":"probe.dll"', '{bad-json}\n', JSON.stringify(symbolObservation('probe.dll', { ordinal: 9 }))]) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Missing' }, { ordinal: 9 }] }]);
+    stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'), symbolObservation('probe.dll', { name: 'Missing' })], tail);
+    diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const batch = fixture.artifact('loader-exports').batches[0];
+    assert.equal(batch.progressStatus, 'partial-invalid-record');
+    assert.deepEqual(batch.modules[0].symbols.map(f => f.name ?? f.ordinal), ['Missing']);
+  }
+});
+
+test('unexpected modules, symbols, phases and arbitrary fields are rejected without persisting private values', t => {
+  for (const bad of [moduleObservation('unexpected.dll'), symbolObservation('probe.dll', { name: 'Unrequested' }),
+    phase('load-begin', { dll: 'unexpected.dll' }), phase('compile-begin', { secret: 'do-not-persist-this-value' }),
+    moduleObservation('probe.dll', { loadError: 'not-an-error-number' })]) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Missing' }] }]);
+    stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), bad]);
+    diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const batch = fixture.artifact('loader-exports').batches[0];
+    assert.equal(batch.progressStatus, 'partial-invalid-record'); assert.deepEqual(batch.modules, []);
+    for (const file of readdirSync(fixture.root)) assert.equal(readFileSync(join(fixture.root, file), 'utf8').includes('do-not-persist-this-value'), false);
+  }
+});
+
+test('oversized progress, missing progress and mismatched machine preserve failure without observations', t => {
+  for (const kind of ['oversized', 'missing', 'machine']) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Missing' }] }]);
+    if (kind === 'missing') fixture.deps.spawnSync = () => ({ status: null, error: { code: 'ETIMEDOUT' } });
+    else stalledHelper(fixture, kind === 'machine' ? [phase('architecture-end', { machine: 0xaa64 }), moduleObservation('probe.dll')]
+      : [], kind === 'oversized' ? 'x'.repeat(4 * 1024 * 1024 + 1) : '');
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const batch = fixture.artifact('loader-exports').batches[0];
+    assert.equal(batch.progressStatus, kind === 'oversized' ? 'oversized' : kind === 'missing' ? 'unavailable' : 'partial-invalid-record');
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.deepEqual(batch.modules, []);
+  }
+});
+
+test('timeout after a zero-symbol failed load retains genuine module evidence, and diagnosis never exceeds its scheduling budget', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'missing.dll', symbols: [{ name: 'Missing' }] }]);
+  let clock = 0; fixture.deps.now = () => clock;
+  stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('missing.dll', {
+    resolvedPath: null, executableMapping: false, loadError: 126, mappingError: 126 }), phase('module-end', { dll: 'missing.dll' })]);
+  const run = fixture.deps.spawnSync;
+  fixture.deps.spawnSync = (...args) => { assert.equal(args[2].timeout, 12000); const result = run(...args); clock = 46000; return result; };
+  const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const facts = fixture.artifact('loader-exports');
+  assert.equal(report.diagnostics.status, 'partial-helper-failed'); assert.equal(facts.findings[0].kind, 'module-unresolved-by-helper');
+  assert.equal(facts.findings[0].loadError, 126); assert.deepEqual(facts.batches[0].modules[0].symbols, []);
+});
+
+
+test('load and map answers persist before path/symbol boundaries without inventing an unresolved module', t => {
+  for (const loaded of [true, false]) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Entry' }] }]);
+    stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll', {
+      resolvedPath: null, executableMapping: loaded, loadError: loaded ? null : 127 }),
+    phase(loaded ? 'path-begin' : 'map-begin', { dll: 'probe.dll' })]);
+    diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const saved = fixture.artifact('loader-exports');
+    assert.equal(saved.batches[0].modules[0].loadError, loaded ? null : 127);
+    assert.deepEqual(saved.batches[0].modules[0].symbols, []);
+    assert.deepEqual(saved.findings.map(f => f.kind), loaded ? [] : ['module-load-failed-metadata-unavailable']);
+  }
+});
+
+test('incremental load, map and path updates retain one module and nullable mapped symbol evidence', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Entry' }] }]);
+  const load = { resolvedPath: null, executableMapping: false, loadError: 127 };
+  stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll', load),
+    phase('map-end', { dll: 'probe.dll' }), moduleObservation('probe.dll', load),
+    moduleObservation('probe.dll', { executableMapping: false, loadError: 127 }),
+    progressRecord('symbol', { dll: 'probe.dll', name: 'Entry', found: null, error: null }), phase('module-end', { dll: 'probe.dll' })]);
+  diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const saved = fixture.artifact('loader-exports');
+  assert.equal(saved.batches[0].progressStatus, 'validated'); assert.equal(saved.batches[0].modules.length, 1);
+  assert.equal(saved.batches[0].modules[0].observationComplete, true);
+  assert.equal(saved.batches[0].modules[0].symbols[0].found, null);
+  assert.equal(saved.findings[0].kind, 'module-load-failed-metadata-mapped');
+});
+
+test('Windows helper executes real compile/load/name phases with isolated profile and preserves failure artifacts',
+  { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, t => {
+    const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-helper-'));
+    let success = false;
+    t.after(() => { if (success) rmSync(root, { recursive: true, force: true }); });
+    const executable = join(root, 'transport_spike.exe');
+    const machine = process.arch === 'arm64' ? 0xaa64 : process.arch === 'ia32' ? 0x14c : 0x8664;
+    const bytes = peFixture({ machine, wide: machine !== 0x14c, imports: [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }] });
+    writeFileSync(executable, bytes);
+    let helperResult;
+    const env = { SystemRoot: process.env.SystemRoot ?? process.env.SYSTEMROOT,
+      HOME: root, USERPROFILE: root, APPDATA: root, LOCALAPPDATA: root, TEMP: root, TMP: root,
+      PSModulePath: win32.join(process.env.SystemRoot ?? process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'Modules') };
+    const report = diagnoseWindowsStartup({ root, executable, cwd: root, env,
+      child: { status: 3221225785, stdout: '', stderr: '' } }, {
+      spawnSync: (...args) => { helperResult = spawnSync(...args); return helperResult; },
+      readPeBytes: path => { if (path === executable) return bytes; throw Error('Optional static DLL read omitted in runtime test'); },
+      readFileVersions: () => [],
+    });
+    const saved = JSON.parse(readFileSync(join(root, 'native-loader-exports.json'), 'utf8'));
+    assert.equal(helperResult?.status, 0, `Public helper artifacts retained at ${root}`);
+    assert.equal(saved.batches[0].progressStatus, 'validated');
+    assert.equal(saved.batches[0].helperPhase, 'complete');
+    assert.equal(saved.batches[0].architectureMatches, true);
+    assert.equal(saved.batches[0].modules[0].symbols[0].found, true);
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+    const phases = readFileSync(join(root, 'native-loader-progress-0.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    assert.equal(phases[0].phase, 'script-entry');
+    assert.ok(phases.some(record => record.phase === 'compile-end'));
+    assert.ok(phases.some(record => record.type === 'symbol' && record.name === 'GetCurrentProcess' && record.found === true));
+    success = true;
+  });
+
+
+test('invalid observation ordering, conflicting updates and incomplete module endings retain a safe prefix', t => {
+  const cases = [
+    [moduleObservation('probe.dll')],
+    [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'), phase('module-end', { dll: 'probe.dll' })],
+    [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'), moduleObservation('probe.dll', { executableMapping: false, loadError: 127 })],
+    [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'), symbolObservation('probe.dll', { name: 'Entry' }), symbolObservation('probe.dll', { name: 'Entry' }, true)],
+    [phase('architecture-end', { machine: 0x8664 }), phase('architecture-end', { machine: 0xaa64 })],
+  ];
+  for (const records of cases) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Entry' }] }]);
+    stalledHelper(fixture, records); diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const batch = fixture.artifact('loader-exports').batches[0];
+    assert.equal(batch.progressStatus, 'partial-invalid-record');
+    assert.ok(batch.modules.every(module => !module.observationComplete));
+    assert.ok(batch.modules.every(module => module.executableMapping && module.loadError === null));
+    assert.ok(batch.modules.every(module => module.symbols.every(symbol => symbol.found === false)));
+  }
+});
+
+test('an oversized record discards its tail and out-of-scope paths are redacted while completed symbol facts survive', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Entry' }] }]);
+  stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll', {
+    resolvedPath: 'C:\\outside-private-profile\\probe.dll', previouslyLoadedPath: 'C:\\outside-private-profile\\probe.dll' }),
+  symbolObservation('probe.dll', { name: 'Entry' })], JSON.stringify(phase('compile-begin', { padding: 'x'.repeat(65536) })) + '\n');
+  diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const batch = fixture.artifact('loader-exports').batches[0];
+  assert.equal(batch.progressStatus, 'partial-invalid-record'); assert.equal(batch.modules[0].symbols[0].found, false);
+  assert.equal(batch.modules[0].metadataStatus, 'resolved-path-outside-fixture-system-runtime-scope');
+  for (const file of readdirSync(fixture.root)) assert.equal(readFileSync(join(fixture.root, file), 'utf8').includes('outside-private-profile'), false);
 });
