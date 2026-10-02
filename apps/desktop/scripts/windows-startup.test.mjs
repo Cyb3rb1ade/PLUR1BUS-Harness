@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, win32 } from 'node:path';
+import { join, dirname, win32 } from 'node:path';
 import { parsePe, isApiSet } from './windows-pe.mjs';
 import { diagnoseWindowsStartup, MAIN_MARKER, startupResult } from './windows-startup.mjs';
 
@@ -472,6 +473,7 @@ test('Windows helper executes real compile/load/name phases with isolated profil
     let helperResult;
     const env = { SystemRoot: process.env.SystemRoot ?? process.env.SYSTEMROOT,
       HOME: root, USERPROFILE: root, APPDATA: root, LOCALAPPDATA: root, TEMP: root, TMP: root,
+      PSModuleAnalysisCachePath: join(root, 'module-cache'),
       PSModulePath: win32.join(process.env.SystemRoot ?? process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'Modules') };
     const report = diagnoseWindowsStartup({ root, executable, cwd: root, env,
       child: { status: 3221225785, stdout: '', stderr: '' } }, {
@@ -611,3 +613,65 @@ test('completed helper answers match name #9 and ordinal 9 separately in either 
     assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
   }
 });
+
+test('pre-autoload input and serialization checkpoints survive timeout without invented loader observations', t => {
+  for (const checkpoint of ['input-read-begin', 'input-read-end', 'input-parse-begin', 'serialization-begin', 'serialization-end']) {
+    const fixture = diagnosticFixture(t, [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }]);
+    stalledHelper(fixture, [phase('script-entry'), phase(checkpoint)]);
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const saved = fixture.artifact('loader-exports');
+    assert.equal(saved.batches[0].progressStatus, 'validated');
+    assert.equal(saved.batches[0].helperPhase, checkpoint);
+    assert.equal(saved.batches[0].lastPublicModule, null);
+    assert.deepEqual(saved.batches[0].modules, []); assert.deepEqual(saved.findings, []);
+    assert.equal(report.diagnostics.status, 'partial-helper-failed');
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+  }
+});
+
+
+test('Windows helper records entry/input/serialization before injected cmdlet faults and preserves unexpected failures',
+  { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, t => {
+    const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-boundary-'));
+    let success = false;
+    t.after(() => { if (success) rmSync(root, { recursive: true, force: true }); });
+    const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
+    const powershell = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const helper = join(dirname(fileURLToPath(import.meta.url)), 'windows-loader.ps1');
+    const queryPath = join(root, 'native-loader-query-boundary.json');
+    const machine = process.arch === 'arm64' ? 0xaa64 : process.arch === 'ia32' ? 0x14c : 0x8664;
+    writeFileSync(queryPath, JSON.stringify({ machine, executableDirectory: root,
+      modules: [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }] }));
+    const env = { SystemRoot: systemRoot, HOME: root, USERPROFILE: root, APPDATA: root, LOCALAPPDATA: root, TEMP: root, TMP: root,
+      PSModulePath: win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'Modules'),
+      PSModuleAnalysisCachePath: join(root, 'module-cache') };
+    const quote = value => "'" + value.replaceAll("'", "''") + "'";
+    const deadline = Date.now() + 45000;
+    for (const command of ['New-Object', 'ConvertFrom-Json', 'ConvertTo-Json']) {
+      const progressPath = join(root, `native-loader-progress-${command}.jsonl`);
+      const wrapper = `function ${command} { throw 'public-test-command-blocked' }; & ([ScriptBlock]::Create([IO.File]::ReadAllText(${quote(helper)}))) -InputPath ${quote(queryPath)} -ProgressPath ${quote(progressPath)}`;
+      assert.ok(Date.now() < deadline, `Public boundary artifacts retained at ${root}`);
+      const child = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(wrapper, 'utf16le').toString('base64')],
+        { cwd: root, env, encoding: 'utf8', timeout: Math.max(1, Math.min(12000, deadline - Date.now())), maxBuffer: 1024 * 1024, windowsHide: true });
+      writeFileSync(join(root, `native-helper-boundary-${command}.json`), JSON.stringify({ schema: 1,
+        context: 'separate-helper-injected-command-fault', command, ...startupResult(child), stderrBytes: Buffer.byteLength(child.stderr ?? '') }));
+      assert.notEqual(child.status, null, `Public boundary artifacts retained at ${root}`);
+      assert.equal(child.error, undefined, `Public boundary artifacts retained at ${root}`);
+      const progress = readFileSync(progressPath, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+      assert.equal(progress[0].phase, 'script-entry');
+      assert.ok(progress.every(record => record.schema === 1));
+      const phases = progress.filter(record => record.type === 'phase').map(record => record.phase);
+      assert.ok(phases.includes('input-read-begin')); assert.ok(phases.includes('input-read-end'));
+      assert.ok(phases.includes('input-parse-begin'));
+      if (command === 'New-Object') {
+        assert.equal(child.status, 0); assert.equal(phases.at(-1), 'complete');
+        assert.ok(phases.includes('serialization-end'));
+        assert.ok(progress.some(record => record.type === 'symbol' && record.name === 'GetCurrentProcess' && record.found === true));
+      } else {
+        assert.notEqual(child.status, 0);
+        assert.equal(phases.at(-1), command === 'ConvertFrom-Json' ? 'input-parse-begin' : 'serialization-begin');
+        assert.equal(progress.some(record => record.type === 'symbol' || record.type === 'module'), false);
+      }
+    }
+    success = true;
+  });

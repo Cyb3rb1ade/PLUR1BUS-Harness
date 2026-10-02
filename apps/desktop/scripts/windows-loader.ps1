@@ -4,10 +4,25 @@ $ErrorActionPreference = 'Stop'
 $stage = 'entry'
 $progressWriter = $null
 $progressStream = $null
+$script:serializerReady = $false
+# These callers pass fixed public phase literals only. No cmdlet/module autoload
+# or JSON serializer may run before the first durable script-entry checkpoint.
+function Write-LiteralPhase([string]$phase) {
+  if ($null -eq $progressWriter) { return }
+  $progressWriter.WriteLine('{"schema":1,"type":"phase","phase":"' + $phase + '"}')
+  $progressWriter.Flush()
+  $progressStream.Flush($true)
+}
 function Write-ProgressRecord($record) {
   if ($null -eq $progressWriter) { return }
   $record.schema = 1
-  $progressWriter.WriteLine(($record | ConvertTo-Json -Depth 6 -Compress))
+  if (-not $script:serializerReady) { Write-LiteralPhase 'serialization-begin' }
+  $json = $record | ConvertTo-Json -Depth 6 -Compress
+  if (-not $script:serializerReady) {
+    Write-LiteralPhase 'serialization-end'
+    $script:serializerReady = $true
+  }
+  $progressWriter.WriteLine($json)
   $progressWriter.Flush()
   $progressStream.Flush($true)
 }
@@ -24,14 +39,18 @@ try {
   if ($ProgressPath) {
     # Every complete line is durably flushed before entering another boundary.
     # No environment, exception message, pointer or arbitrary request field is logged.
-    $progressStream = New-Object IO.FileStream($ProgressPath, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::Read)
-    $progressWriter = New-Object IO.StreamWriter($progressStream, (New-Object Text.UTF8Encoding($false)))
+    $progressStream = [IO.FileStream]::new($ProgressPath, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::Read)
+    $progressWriter = [IO.StreamWriter]::new($progressStream, [Text.UTF8Encoding]::new($false))
   }
-  Write-Phase 'script-entry'
+  Write-LiteralPhase 'script-entry'
   $stage = 'input'
 
-  $request = Get-Content -LiteralPath $InputPath -Raw | ConvertFrom-Json
-  Write-Phase 'input-parsed'
+  Write-LiteralPhase 'input-read-begin'
+  $requestJson = [IO.File]::ReadAllText($InputPath)
+  Write-LiteralPhase 'input-read-end'
+  Write-LiteralPhase 'input-parse-begin'
+  $request = $requestJson | ConvertFrom-Json
+  Write-LiteralPhase 'input-parsed'
   # These paths come only from the Node caller's permitted-root decision, after
   # loader observations have already been persisted. Each optional read is local.
   if ($request.operation -eq 'file-versions') {

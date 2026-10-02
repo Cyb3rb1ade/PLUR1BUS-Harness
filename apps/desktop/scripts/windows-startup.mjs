@@ -15,7 +15,8 @@ const windowsPathWithin = (path, root) => {
   return !relative.startsWith('..') && !win32.isAbsolute(relative);
 };
 
-const progressPhases = new Set(['script-entry', 'input-parsed', 'compile-begin', 'compile-end',
+const progressPhases = new Set(['script-entry', 'input-read-begin', 'input-read-end', 'input-parse-begin', 'input-parsed',
+  'serialization-begin', 'serialization-end', 'compile-begin', 'compile-end',
   'architecture-begin', 'architecture-end', 'search-begin', 'search-end', 'module-begin',
   'load-begin', 'load-end', 'map-begin', 'map-end', 'path-begin', 'path-end',
   'symbol-begin', 'symbol-end', 'module-end', 'cleanup-begin', 'cleanup-end', 'complete']);
