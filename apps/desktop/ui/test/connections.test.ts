@@ -106,3 +106,15 @@ test("OS theme and late connection refresh preserve remote form focus and input"
         assert.equal(await page.getByLabel("Harness origin").inputValue(), "https://harness.test");
     });
 });
+
+test("native pairing displays both public API versions on incompatibility", async () => {
+    await withShell(async page => {
+        await page.getByRole("button", { name: "View connections" }).click();
+        await page.evaluate(() => (window as any).testShell.setPairingError("incompatible:2.3.4:1.0.0"));
+        await page.getByRole("button", { name: "Attach native local", exact: true }).click();
+        await page.getByLabel("Name", { exact: true }).fill("Scratch desk");
+        await page.getByRole("button", { name: "Attach native local", exact: true }).click();
+        await page.getByRole("alert").waitFor();
+        assert.match(await page.getByRole("alert").innerText(), /Server API: 2\.3\.4; client API: 1\.0\.0\./);
+    });
+});

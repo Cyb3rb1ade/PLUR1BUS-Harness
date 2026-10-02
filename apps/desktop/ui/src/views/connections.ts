@@ -58,7 +58,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             }
             catch (e) {
                 const failure = pairingFailure(e);
-                error = failure.error;
+                error = e;
                 mode = failure.retry === "code" ? "add" : "native";
                 paint();
                 formFocus();

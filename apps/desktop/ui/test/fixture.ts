@@ -21,7 +21,7 @@ const transport: DesktopTransport = {
  async connectionsRename(id,name){rows=rows.map(row=>row.id===id?{...row,name}:row);},
  async connectionsRemove(id){rows=rows.filter(row=>row.id!==id);},
  async pairCode(request){if(pairingError)throw pairingError;const connection={id:request.repairId??"fixture-row",name:request.name,origin:request.origin,kind:"remote" as const,installationId:"fixture-installation",deviceId:"fixture-device",tokenHint:"hint",certPin:null,caPin:null,nextCertPin:null,nextCaPin:null,observedCertPin:null,pairingNeeded:false};rows=[connection];return {connection,tokenStore:"memory-only"};},
- async pairLocal(){throw "denied";},
+ async pairLocal(){if(pairingError)throw pairingError;throw "denied";},
  async openConnection(id){if(pairingError)throw pairingError;active=id;return {selected:true,spa_available:false};},
   async appInfo() { await loaded; return { platform: boot?.platform ?? "mac", locale: boot?.locale ?? "en-US" }; },
   async settingsGet() { await loaded; if (boot?.failGet) throw new Error("fixture settings read failure"); return settings; },
