@@ -252,13 +252,13 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: LOCAL GREEN — independent review passed; remote CI pending.
+Status: GREEN — independent review and full root/desktop CI passed at `39529e7`.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `feat/desktop-shell-wp02-mock-harness` at
 `2998d35a7badeb69a28b33e7072adc6de053d20e`; PR #60 is ready but not merged.
 PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), draft,
-base `feat/desktop-shell-wp02-mock-harness`. Local implementation checks are passing; independent review
-and remote CI is pending. All WP3 and root-test review findings are addressed.
+base `feat/desktop-shell-wp02-mock-harness`. All WP3 and root-test review
+findings are addressed. The PR remains a draft; no merge was performed.
 Implementation head: `f6f3e7e7ebb59981c962e56eac0289a42c8bf224`
 (initial frame `c392a63`, review fixes `f6f3e7e`).
 Verified local head: `861a5ee8cf8f9510d5b6b6c2cc860790152bd124`, including
@@ -266,6 +266,9 @@ scale coverage `648a09f`, workflow correction `a634c9a` and the root-test fix.
 Final root gen/build/lint/test PASS: 584 passed, five existing skips; 11 hygiene
 tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remains
 55 passed with locked fmt/Clippy/build; UI is 19/19. No desktop test is skipped.
+Verified PR head: `39529e7d2ec283aa74313ffd67f9ed6f17159986`.
+This report-only follow-up records observed results and removes internal
+agent scratch reports from the tracked tree; their local copies are retained.
 
 ### Scope and decisions
 
@@ -281,7 +284,7 @@ tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remain
 - Existing app icon assets follow red `1` below 48 px, `P1B` at 48 px up.
   Stateful tray icons and remaining installer/MSIX assets belong to WP6/WP13.
 
-### Verification so far
+### Local verification history
 
 - PASS: frozen pnpm install and toolchain check after adding the pinned UI test
   dependencies (`playwright` 1.63.0, `axe-core` 4.13.0, Tauri JS API 2.10.1).
@@ -290,7 +293,7 @@ tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remain
 - Browser target caveat: Playwright 1.63.0 maps Windows hosts to its `win64`
   Chromium headless-shell build. Windows 11 ARM will exercise the UI through
   x64 emulation; the Tauri application remains a separate ARM64 build. Runner
-  success has not yet been observed for WP3.
+  success is now observed in the five-target desktop run linked below.
 - PASS: root `pnpm gen`, `pnpm build`, `pnpm lint`, `pnpm test`: 576 passed,
   five existing platform/filesystem skips; no desktop skips. Hygiene tests:
   11 passed. Log: `/tmp/desktop-wp03-root-node.log`.
@@ -303,7 +306,7 @@ tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remain
 - PASS: final implementation UI suite 13/13, adding system-theme/reduced-motion
   coverage and the related-panel sheet at narrow widths. Desktop locked
   Clippy/fmt and 55 Rust tests pass; locked Tauri debug compile and `.app` bundle
-  pass. The final root test rerun is in progress.
+  pass. Later review fixes and the final root result are recorded below.
 - Final root attempt 1: frozen install/toolchain/gen/build/lint passed, but the
   pre-existing importer concurrent-writer SQLite test spun at approximately
   99% CPU and stopped producing output. The controller terminated only that
@@ -311,8 +314,8 @@ tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remain
   the previously observed WP1/WP2 importer instability. No importer source
   was changed. Retry 1 finished with the same test failing at its `SELECT`
   (line 96): `ERR_SQLITE_ERROR`, `database disk image is malformed`. The
-  earlier root pass remains recorded, but the final push gate is not green.
-  Another full root run will follow the pending WP3 review fixes. Logs:
+  earlier root pass remains recorded; this attempt did not satisfy the push
+  gate. Later review fixes and the final passing run are recorded below. Logs:
   `/tmp/desktop-wp03-root-final.log` and
   `/tmp/desktop-wp03-root-test-retry.log`.
 - PASS: controller visual inspection of synthetic compact/normal/wide captures,
@@ -363,17 +366,34 @@ tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remain
 | Visible focus | PASS — browser assertions and inspected focus screenshot |
 | Text contrast at least 4.5:1 | PASS at f6f3e7e — unobscured page and dialog axe checks |
 
-CI target results and independent review remain pending. Acceptance §8 row 14
+The UI acceptance rows also passed on all five desktop CI targets at `39529e7`;
+independent reviews passed. Acceptance §8 row 14
 is shell-side automated/keyboard coverage; actual screen-reader operation is
 still unperformed and must not be inferred from the accessibility tree.
 
+### Remote verification
+
+- PASS at `39529e7d2ec283aa74313ffd67f9ed6f17159986`:
+  [desktop PR run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36956888806).
+  `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04` and
+  `ubuntu-24.04-arm` each passed UI tests, desktop fmt/Clippy/Rust tests,
+  locked debug compilation and unsigned packaging. All five expected preview
+  artifacts were observed, with seven-day retention. Docker and Podman stub
+  smoke jobs also passed.
+- PASS: root [CI run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36956888812):
+  all three unit jobs, both system jobs (including the 200-turn soak), and
+  all three service jobs passed at the same head.
+- The separate [desktop push run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36956885042)
+  also passed all five desktop jobs and Docker/Podman smoke at the same head.
+  No subsequent WP has started. No rerun was required for these three runs.
+
 ### Independent review round 1
 
-Needs fixes at `c392a63`: required red-1 pivot wordmark; independent platform
+Review at `c392a63` required fixes: red-1 pivot wordmark; independent platform
 loading when settings are unreadable; serialized preference changes to prevent
 lost updates; axe checks on the unobscured page as well as modal; actual text
 enlargement coverage; move hero gradient colors into the token source. The
-implementation worker is addressing these with regression tests. Existing
+implementation worker addressed these with regression tests below. Existing
 passing tests do not supersede these findings.
 
 Fix commit `f6f3e7e` addresses these findings with an 18-test UI suite: red
@@ -386,8 +406,8 @@ an observed OS text-scaling or browser-zoom operation. Typecheck and a fresh
 locked debug `.app` build pass. The controller observed the corrected Home
 wordmark/Harness subtitle in the scratch app and a clean exit. Scoped re-review
 completed for the code fixes with no new Critical/Important breakage. It keeps
-actual browser/system zoom on all shell pages open; a test-only follow-up is
-in progress. The full root gen/build/lint/test at `f6f3e7e` then passed: 583
+actual browser/system zoom on all shell pages open at that point; the test-only
+follow-up below closes it. The full root gen/build/lint/test at `f6f3e7e` then passed: 583
 tests passed, five existing platform/filesystem skips, plus 11 hygiene tests.
 Log: `/tmp/desktop-wp03-review-fixed-root.log`. The earlier SQLite failures
 remain recorded; a later pass does not claim to fix that existing instability.
@@ -411,9 +431,9 @@ observed native OS text-size setting or browser UI zoom command.
 
 The final root run after this test-only addition hung again in the unchanged
 concurrent-writer SQLite test (100% CPU, terminated after 70 seconds), so the
-next push is held. Log: `/tmp/desktop-wp03-final-scale-root.log`. A focused
-read-only investigation is checking the test's live-writer/immutable-read
-assumption; no root production changes have been made.
+next push was held. Log: `/tmp/desktop-wp03-final-scale-root.log`. A focused
+read-only investigation checked the test's live-writer/immutable-read
+assumption; no root production changes were made.
 
 Root-gate diagnosis: the test queries the live source through the default
 `immutable=1` fallback while its child writes/checkpoints. SQLite's immutable
@@ -441,4 +461,7 @@ the importer contract and remains outside this desktop work package.
 - [x] Bundle fonts and update existing app icon assets.
 - [x] Real browser layout/keyboard/axe tests; browser prerequisites in CI.
 - [x] Local gates, native visual check, independent review and draft PR.
-- [ ] Full root/desktop CI before WP4.
+- [x] Full root/desktop CI at `39529e7`.
+- [ ] Verify the report-only follow-up's CI, then start WP4 (connections,
+  keychain, pairing, trust rollover) on its own stacked branch. WP4–WP6 have
+  not been started; no implementation from those packages is hidden in WP3.
