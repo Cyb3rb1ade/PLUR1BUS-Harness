@@ -105,8 +105,9 @@ POST `/proxy/ping` (1), EventSource GET `/proxy/events` (1), and WebSocket
 GET `/proxy/ws`, `Upgrade: websocket` (1). Every record had
 `User-Agent: PLUR1BUS-Native-Spike/1`. These are actual incoming headers in
 `loopbackServerRequests`, not merely `navigator.userAgent`. The custom window
-retained the default WK user-agent. This only establishes the observed WK behavior;
-Windows/GTK and production launch-secret design are still pending.
+retained the default WK user-agent. This historical local run establishes WK
+behavior; the later CI table below adds GTK measurements. Windows observations
+and the production launch-secret design remain pending.
 
 The observed custom SSE buffering and missing WebSocket routing select the owner's
 **loopback fallback for this observed WKWebView target**. The production fallback
@@ -115,20 +116,45 @@ Host/Origin enforcement, the existing rustls trust policy, an in-memory cookie j
 and all remaining Task 13 acceptance tests. No IPC HTTP/SSE/WebSocket replacement
 is introduced or proposed.
 
-## Five-target observation status at source freeze
+## Five-target observations at exact 182cbc8
 
-| Existing CI target | Actual native engine | Current evidence | Carry-forward |
+Primary PR run [37021651202](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37021651202),
+head `182cbc8d5994b5753eb5442e28d04eb9652b1f07`, produced actual native results on
+three targets and completed startup failures on two. Each artifact's API metadata
+independently identifies that exact run/head. The local JSON above remains a
+historical observation and is not substituted for CI evidence.
+
+| Target / engine | Custom SSE first/second; WS routing | Loopback SSE first/second; WS echo; paired p95 | Native artifact |
 |---|---|---|---|
-| `macos-15` arm64 | WKWebView | CI image skipped locally: host is Darwin 27.2.0, not that image; native CI pending. Separate local WK evidence above. | Local WK result selects loopback; record CI OS-specific observation. |
-| `windows-2025` x64 | WebView2 | Environment skip locally: no Windows native process was launched; genuine existing-matrix CI arranged. | Await measured result; if either SSE or WS fails, loopback. |
-| `windows-11-arm` arm64 | WebView2 | Environment skip locally: no Windows native process was launched; genuine existing-matrix CI arranged. | Same rule, no x64-to-arm inference. |
-| `ubuntu-24.04` x64 | WebKitGTK | Environment skip locally: no GTK engine/display on this macOS host; CI uses `xvfb-run`. | Await measured result; if either SSE or WS fails, loopback. |
-| `ubuntu-24.04-arm` arm64 | WebKitGTK | Environment skip locally: no GTK engine/display on this macOS host; CI uses `xvfb-run`. | Same rule, no x64-to-arm inference. |
+| macos-15 arm64 / WKWebView | 1510/1510 ms; literal constructor rejected, mapped WS error, zero handler `/ws` hits | 4/1505 ms; echo 37 ms; p95 2 ms | [11232948229](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37021651202/artifacts/11232948229) |
+| ubuntu-24.04 x64 / WebKitGTK | 1504/1504 ms; literal constructor rejected, mapped WS error, zero handler `/ws` hits | 2/1504 ms; echo 3 ms; p95 3 ms | [11233098514](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37021651202/artifacts/11233098514) |
+| ubuntu-24.04-arm / WebKitGTK | 1504/1504 ms; literal constructor rejected, mapped WS error, zero handler `/ws` hits | 2/1503 ms; echo 3 ms; p95 2 ms | [11233888630](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37021651202/artifacts/11233888630) |
+| windows-2025 x64 / intended WebView2 | **No engine observation:** process immediately exited 3221225785 / `0xC0000139`; no JSON | Unknown; native prerequisite failed before results | [11233563460](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37021651202/artifacts/11233563460) |
+| windows-11-arm / intended WebView2 | **No engine observation:** same immediate process status; no JSON | Unknown; native prerequisite failed before results | [11233004315](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37021651202/artifacts/11233004315) |
 
-A skip is neither an engine failure nor a pass. The controller records actual CI
-artifact results and any environment failure before declaring Step 0 complete on
-all target platforms. A successful workflow collection step alone does not say
-that custom transport, streaming or the production proxy passed.
+Each successful native run downloaded 10 MiB with every byte correct. All three
+observed custom pages report `plur1bus-harness://localhost`, no GET/POST Origin
+header, and **local** Tauri capability classification. Loopback is **remote** for
+capabilities; navigation/fetch/EventSource GET has no Origin header, while POST
+and WebSocket have that run's exact loopback Origin. CSP self script loads and the
+foreign script is blocked on both pages. Each observed loopback server receives
+`PLUR1BUS-Native-Spike/1` on navigation GET, fetch GET, POST, EventSource and the
+WebSocket upgrade. Windows behavior remains unknown.
+
+The owner-selected loopback fallback applies to the three observed WK/GTK targets.
+Windows startup failures are not transport failures and do not select its fallback.
+Both Windows fixture tests and example builds passed before the native process
+failed; their uploaded `native-process.log` is only the runner's one-byte newline.
+The missing DLL/procedure is still unidentified. Production Task 13 stays stopped
+until the controller has actual Windows diagnostics, a reviewed correction if
+needed, and genuine native observations.
+
+Raw collection/index and complete per-target Origin/UA/capability findings are
+recorded in the ignored recovery report `wp05-spike-report.md`; downloaded raw
+files/index are under `/tmp/wp05-native-ci-37021651202-aWGqrQ/`. Collection/upload
+success is distinct from transport or performance success. GTK Xvfb DRI3 warnings
+were retained; neither target's successful native collection was replaced with
+Chromium simulation.
 
 ## Native stream API reachability — source analysis, not runtime passes
 
@@ -162,8 +188,8 @@ Local validation (desktop Cargo invocations were serial):
 | `pnpm lint` at root | Typecheck/hygiene PASS, 29 tooling tests PASS |
 | `node apps/desktop/scripts/transport-spike.mjs` | Native WK collection PASS; custom SSE and WS measured unsupported for required behavior |
 
-Five-target packaging/native CI remains controller-owned and pending at this source
-freeze. Production source was unchanged; the subsequent public UA diagnostic
+The exact-182cbc8 native CI observations and Windows execution failures are now
+recorded above. Subsequent diagnostics/packaging gates remain controller-owned. Production source was unchanged; the subsequent public UA diagnostic
 addition was rechecked with Clippy, focused fixture tests and real WK execution.
 
 All newly added dev-dependency pins reuse existing workspace versions. Live
@@ -180,3 +206,85 @@ The web tool could not open those endpoints; the actual HTTP fetch and checksum
 comparison succeeded. Exact pins and `--locked` builds are distinct evidence from
 that registry verification. Root `pnpm-lock.yaml`, the engine pin, production
 commands, CA/leaf rollover code and Windows private CRT shim were not edited.
+
+
+## Windows startup diagnostic checkpoint
+
+The original Windows process status alone identifies neither a particular DLL nor
+a procedure. The following **test-only** extension gathers that evidence on a
+subsequent Windows CI run; it changes no CRT policy, dependency, production command
+or transport implementation.
+
+`transport_spike` emits the fixed public stderr marker
+`PLUR1BUS_NATIVE_SPIKE_MAIN_ENTERED` as the first statement of Rust main. The runner
+writes `native-startup.json` with the actual executable SHA-256, PE architecture,
+original decimal/unsigned/hex process status, signal/error code, isolated cwd and
+whether that marker appeared. A missing marker distinguishes failure before that
+statement; it does not name a failing import. The native process still has its
+75-second timeout and an unsuccessful child still fails collection. The build has
+a 15-minute bound. Diagnostics can never turn that failed launch into a pass.
+
+On Windows failure, the runner's Node PE reader handles PE32/PE32+, normal and
+delay imports, names and ordinals, export tables and forwarded exports. A bounded
+PowerShell/C# helper calls public Windows `LoadLibraryExW`, `GetProcAddress`,
+`GetModuleFileNameW` and `IsWow64Process2`. It uses the Windows resolver for virtual
+API-set names; absence of a physical `api-ms-*.dll` is never treated as proof of
+failure. API-set contracts are traversed through their Windows-resolved host DLL.
+
+If a DLL cannot load normally, `LOAD_LIBRARY_AS_IMAGE_RESOURCE` maps its metadata
+without initializing it. `GetMappedFileNameW`/`QueryDosDeviceW` record the actual
+mapped file so the Node reader can inspect its transitive imports and export
+forwarders. A failed normal load remains recorded; static export inspection is
+not called a successful GetProcAddress lookup. A non-null ordinal result is also
+checked against the PE export table, because ordinal holes can give a misleading
+non-null result. See Microsoft's [LoadLibraryExW](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexw)
+and [GetProcAddress](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getprocaddress)
+contracts. The discouraged `DONT_RESOLVE_DLL_REFERENCES` flag is not used.
+
+The helper's process architecture is compared with the actual executable; a
+mismatch is explicitly limited/unavailable evidence. Each invocation is bounded
+to at most 12 seconds, within a 45-second helper scheduling budget. Recursion is
+bounded to 12 rounds/192 parsed modules, and file/table/string limits bound parsing.
+The helper inherits the same isolated HOME/USERPROFILE/TEMP/XDG/CFFIXED environment
+as the fixture, plus temporary APPDATA/LOCALAPPDATA and PowerShell module-cache
+paths. `-NoProfile -NonInteractive` avoids user profiles; no environment dump,
+Event Viewer, debugger, registry/IFEO/gflags changes, installs, DLL copying or
+machine-wide PATH change is used. The helper's SetDllDirectory/SetErrorMode affect
+only that disposable process.
+
+The helper is a **separate process**. Its preloaded modules and DLL search context
+can differ from the failed executable's loader. The diagnostic records previously
+loaded module paths, exact lookup/resolved paths, version, PE architecture/hash,
+missing name or ordinal, public Win32 errors and import/forwarder provenance.
+These are helper observations and static PE facts, not proof of the failed child's
+exact loaded-module state. Normal library loading can initialize runtime DLLs in
+the helper; no resolved export is invoked. Unsupported metadata paths, parse
+failures, mapping failures, mismatched architecture and exhausted budgets remain
+explicit limitations, never guessed missing DLLs or procedures.
+
+The existing `native-*` artifact glob also captures:
+
+- `native-startup.json`: original child outcome and diagnostic status/limitations.
+- `native-pe-imports.json`: actual executable and recursively resolved PE metadata,
+  hashes, architecture and normal/delay import lists.
+- `native-loader-exports.json`: Windows helper resolution batches and named findings
+  with selected static export/forwarder facts.
+- `native-loader-query-*.json`: the public module/symbol requests for each bounded
+  helper invocation; no per-launch key, token or full environment is serialized.
+
+Focused tests run with:
+
+```sh
+node --test apps/desktop/scripts/windows-startup.test.mjs
+```
+
+Ten tests cover PE32/PE32+, ARM64, malformed/truncated data, normal/delay/name/ordinal
+imports, API-set-host traversal, transitive missing names/ordinals, forwarded
+exports, ordinal holes, architecture mismatch, timeout/redaction/budget handling,
+main-marker detection and preservation of the original failure. PE parsing is
+executed locally against handcrafted fixtures; Win32 helper answers are injected
+in these tests. **No actual Windows helper execution or newly identified DLL/symbol
+is claimed at this checkpoint.** CI must supply that evidence before a fix is
+selected. Existing 47 UI tests and full root suites are reused from unchanged
+source; the new saved desktop/Node/native-WK gate records are listed in the ignored
+`wp05-windows-diagnostics-report.md`.

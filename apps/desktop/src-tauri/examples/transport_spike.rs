@@ -166,6 +166,7 @@ fn diagnostic_caller(webview: tauri::Webview) -> Result<(), &'static str> {
 }
 
 fn main() {
+    eprintln!("PLUR1BUS_NATIVE_SPIKE_MAIN_ENTERED");
     let output = std::env::args_os()
         .nth(1)
         .expect("usage: transport_spike <result.json in temporary directory>");
