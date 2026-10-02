@@ -19,7 +19,7 @@ Use Node 24.21.0, pnpm 10.28.0 and Rust 1.95. From the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
-PLAYWRIGHT_BROWSERS_PATH=/tmp/plur1bus-wp03-playwright pnpm exec playwright install chromium-headless-shell
+PLAYWRIGHT_BROWSERS_PATH=/tmp/plur1bus-wp03-playwright pnpm --filter @plur1bus/desktop-ui exec playwright install chromium --only-shell
 pnpm --filter @plur1bus/desktop-ui build
 PLAYWRIGHT_BROWSERS_PATH=/tmp/plur1bus-wp03-playwright pnpm --filter @plur1bus/desktop-ui test
 cd apps/desktop
@@ -34,8 +34,9 @@ Chromium headless shell and fail if it is absent. Browser tests launch a disposa
 profile in the OS temporary directory, serve the bundle with the same CSP as Tauri,
 and inject a test-only transport through a separate entry point. They do not call
 the real native commands or use personal browser data. Linux CI also installs
-Chromium's system packages with `pnpm exec playwright install --with-deps
-chromium-headless-shell`. Set `PLUR1BUS_SCREENSHOT_DIR` to retain the responsive
+Chromium's system packages with `pnpm --filter @plur1bus/desktop-ui exec playwright install --with-deps
+chromium --only-shell`. Root `pnpm test` excludes the desktop UI; desktop CI runs
+its browser suite separately. Set `PLUR1BUS_SCREENSHOT_DIR` to retain the responsive
 screenshots outside the checkout.
 
 `pnpm tauri dev` builds and starts the mock at `http://127.0.0.1:18700`
@@ -81,12 +82,26 @@ key handling exists. No release signing credentials are needed for WP1.
 
 The bundled shell has a restrictive CSP. Its only native commands are
 `app_info`, `settings_get`, and `settings_set`; all require the `shell` webview
-at the exact bundled top-level origin. The shell capability grants no plugin
-permissions. Preferences are closed `theme` (`system`/`light`/`dark`) and
+at the exact bundled top-level origin. Generated application ACL permissions bind
+exactly these commands to the `shell` webview, with Rust caller checks retained.
+The shell capability grants no plugin permissions. IPC preferences are closed `theme` (`system`/`light`/`dark`) and
 `locale` (`system`/`en`/`de`) values in `settings.json` under Tauri's
 `app_config_dir()` for `app.plur1bus.desktop`. Writes use a temporary file and
 atomic replacement; POSIX files are mode 0600. Only debug builds accept
 `PLUR1BUS_DESKTOP_CONFIG_DIR` to redirect this store to a scratch directory.
+Stored files allow future fields and default omitted fields; saves preserve unknown
+fields. Invalid or oversized files are moved to unique `settings-recovered-*.json`
+files before any later save. Filesystem read or preservation errors block saves.
+`app_info` supplies the OS locale through pinned `sys-locale`; the webview's UI
+language is not used as the system locale.
+
+Theme fallback to dark is covered by an explicit no-preference seam: real Chromium
+and WebKit generally report light when the OS supplies no preference. The browser
+suite checks 1× and 2× display scales; 150% and 250% remain unmeasured. Playwright's
+Chromium revision is pinned through Playwright 1.63.0, without a separately recorded
+archive hash. The red wordmark numeral uses the WCAG logotype contrast exception;
+functional text and focus indicators have separate contrast checks.
+
 No networking, telemetry or keychain integration is enabled. The window stays
 hidden until its page finishes loading. Stable
 integration identifiers live in `src-tauri/src/ids.rs`.

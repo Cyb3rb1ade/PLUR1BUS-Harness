@@ -5,6 +5,10 @@ export type LocaleChoice = "system" | "en" | "de";
 export type Locale = "en" | "de";
 export type MessageKey = keyof typeof en;
 
+export function platformPlace(locale: Locale, platform: "mac" | "win" | "gnome" | "kde"): string {
+  return translate(locale, `platform.${platform}`);
+}
+
 export function resolveLocale(choice: LocaleChoice, systemLanguage: string): Locale {
   if (choice !== "system") return choice;
   return /^de(?:[-_]|$)/i.test(systemLanguage) ? "de" : "en";

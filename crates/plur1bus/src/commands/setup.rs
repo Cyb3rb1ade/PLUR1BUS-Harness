@@ -31,6 +31,7 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
         channel: args.channel,
         use_class: args.use_class,
         agent: args.agent,
+        profile: args.profile,
     };
     let mut prompter: Box<dyn Prompter> = if opts.non_interactive {
         Box::new(NoPrompts)

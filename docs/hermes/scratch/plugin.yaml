@@ -1,0 +1,9 @@
+name: scratch
+version: 0.0.0
+description: "Scratch provider for the HM2 spike: logs hook calls to $SCRATCH_LOG, no network."
+hooks:
+  - initialize
+  - prefetch
+  - sync_turn
+  - on_session_end
+  - shutdown

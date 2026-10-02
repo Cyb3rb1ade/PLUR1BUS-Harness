@@ -204,6 +204,17 @@ fn agent_create_list_remove_without_a_core() {
         .args(["--home", h, "agent", "create", "bernd"])
         .assert()
         .code(1);
+    // The Hermes provider's `bind` keys on this reason (hosts/hermes/plur1bus/cli.py).
+    let out = bin()
+        .args(["--json", "--home", h, "agent", "create", "bernd"])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_INVALID_PARAMS");
+    assert_eq!(v["reason"], "agent-exists");
     let out = bin()
         .args(["--json", "--home", h, "agent", "list"])
         .assert()

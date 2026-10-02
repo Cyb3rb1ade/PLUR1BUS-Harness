@@ -7,6 +7,7 @@ pub mod ids;
 pub mod pair;
 pub mod secrets;
 pub mod settings;
+mod shell_commands;
 pub use plur1bus_desktop_contract as contract;
 
 /// Start the shell with the three settings and app-information commands.

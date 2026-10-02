@@ -28,6 +28,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const preferenceQueue: Array<{ change: Partial<Settings>; resolve: () => void }> = [];
   let saving = false;
   let platform: Platform = "mac";
+  let systemLocale = "en";
   let route = routeFromHash(window.location.hash);
   let notice: "load" | "save" | "saved" | null = null;
   let lastSection = route.section;
@@ -38,7 +39,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   lightMedia.addEventListener("change", render);
   window.addEventListener("hashchange", () => {
     const next = routeFromHash(window.location.hash);
-    if (next.section !== route.section || next.page !== route.page) { route = next; render(); }
+    if (next.section !== route.section || next.page !== route.page) { route = next; render(); focusPage(); }
   });
   let connectionStatus: import("./ipc.ts").ConnectionSnapshot = { status: "loading", data: null };
   let connectionRefresh: Promise<void> | null = null;
@@ -65,16 +66,18 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     settings = preferenceQueue.reduce((value, entry) => ({ ...value, ...entry.change }), stored);
     render();
   }).catch(() => { notice = "load"; render(); });
-  void transport.appInfo().then(info => { platform = info.platform; render(); }).catch(() => {});
+  void transport.appInfo().then(info => { platform = info.platform; systemLocale = info.locale; render(); }).catch(() => {});
   render();
   void refreshConnections();
 
-  function t(key: MessageKey, values?: Record<string, string>) { return translate(resolveLocale(settings.locale, navigator.language), key, values); }
+  function t(key: MessageKey, values?: Record<string, string>) { return translate(resolveLocale(settings.locale, systemLocale), key, values); }
+  function focusPage() { mount.querySelector<HTMLElement>("h1")?.focus(); }
   function navigate(section: Section, page: SettingsPage = "runtime") {
     const next = { section, page };
     window.location.hash = hashFor(next);
     route = next;
     render();
+    focusPage();
   }
   function renderWithFocus() {
     const focusedField = document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>("fieldset[data-preference]")?.dataset.preference : undefined;
@@ -82,7 +85,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     if (focusedField) root.querySelector<HTMLElement>(`fieldset[data-preference="${focusedField}"] button[aria-pressed="true"]`)?.focus();
   }
   function setPreferences(change: Partial<Settings>): Promise<void> {
-    root.querySelector(".toast")?.remove();
+    root.querySelector('.toast:not([role="alert"])')?.remove();
     settings = { ...settings, ...change };
     const completed = new Promise<void>(resolve => preferenceQueue.push({ change, resolve }));
     renderWithFocus();
@@ -122,6 +125,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   function relatedButton(label: string, body: string): HTMLButtonElement {
     const trigger = button(label, () => openSheet(label, element("p", undefined, body), t("panel.close")), "secondary");
     trigger.classList.add("related-button");
+    trigger.dataset.focusKey = "related";
     return trigger;
   }
   function pageCard(title: string, body: string, action?: HTMLButtonElement): HTMLElement {
@@ -151,10 +155,12 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       { value: "system", label: t("settings.system") }, { value: "light", label: t("settings.light") }, { value: "dark", label: t("settings.dark") },
     ] as const, settings.theme, value => void setPreferences({ theme: value }));
     theme.dataset.preference = "theme";
+    theme.querySelectorAll<HTMLButtonElement>("button").forEach((control, index) => { control.dataset.focusKey = `theme-${index}`; });
     const language = segmented(t("settings.language"), [
       { value: "system", label: t("settings.system") }, { value: "en", label: t("settings.english") }, { value: "de", label: t("settings.german") },
     ] as const, settings.locale, value => void setPreferences({ locale: value }));
     language.dataset.preference = "locale";
+    language.querySelectorAll<HTMLButtonElement>("button").forEach((control, index) => { control.dataset.focusKey = `locale-${index}`; });
     append(stack,
       preferenceCard(t("settings.appearance"), t("settings.appearanceBody"), theme),
       preferenceCard(t("settings.language"), t("settings.languageBody"), language));
@@ -171,6 +177,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       openSheet(t("nav.sections"), menu, t("panel.close"), () => root.querySelector<HTMLElement>(".sections-button")?.focus());
     }, "secondary");
     openSections.classList.add("sections-button");
+    openSections.dataset.focusKey = "sections";
     const layout = element("div", "settings-layout");
     const main = element("div", "settings-main");
     if (route.page === "advanced") {
@@ -195,18 +202,19 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     return container;
   }
   function render() {
-    const locale: Locale = resolveLocale(settings.locale, navigator.language);
+    const focusKey = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.focusKey : undefined;
+    const locale: Locale = resolveLocale(settings.locale, systemLocale);
     document.documentElement.lang = locale;
     document.documentElement.dataset.theme = resolvedTheme(settings.theme);
     document.documentElement.dataset.platform = platform;
     document.documentElement.dataset.section = route.section;
     const changingSection = lastSection !== route.section;
     const sectionLabel = route.section === "home" ? t("wordmark.home") : route.section === "connections" ? t("wordmark.connections") : t("wordmark.settings");
-    const spoken = route.section === "home" ? t("nav.home") : route.section === "connections" ? t("nav.connections") : t("nav.settings");
+    const spoken = t("nav.home");
     mark.set(sectionLabel, spoken, changingSection, route.section === "home" ? t("wordmark.subtitle") : undefined);
     lastSection = route.section;
     const app = element("div", "app-frame");
-    const sidebar = rail({ home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced") }, route.section, route.page, navigate, page => navigate("settings", page));
+    const sidebar = rail({ main: t("nav.main"), home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced") }, route.section, route.page, navigate, page => navigate("settings", page));
     const body = element("div", "app-body");
     const top = element("header", "app-top");
     const status = chip(connectionSummary());
@@ -220,12 +228,22 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     append(body, top, main, footer);
     append(app, sidebar, body);
     mount.replaceChildren(app);
+    const title = mount.querySelector<HTMLElement>("h1");
+    if (title) { title.tabIndex = -1; title.dataset.focusKey = "page-title"; }
+    mark.node.dataset.focusKey = "wordmark-home";
+    footer.querySelector<HTMLElement>("button")!.dataset.focusKey = "preferences-help";
+    mount.querySelectorAll<HTMLElement>(".home-cards button").forEach((control, index) => { control.dataset.focusKey = `home-action-${index}`; });
+    if (focusKey) Array.from(root.querySelectorAll<HTMLElement>("[data-focus-key]")).find(node => node.dataset.focusKey === focusKey)?.focus();
     if (notice) {
       const message = notice === "saved" ? t("settings.saved") : t(notice === "load" ? "settings.loadError" : "settings.saveError");
       const region = banner(message, notice === "saved" ? "info" : "error");
       region.classList.add("toast");
+      if (notice !== "saved") {
+        const dismiss = button(t("notice.dismiss"), () => { region.remove(); focusPage(); }, "quiet");
+        region.append(dismiss);
+      }
       root.append(region);
-      window.setTimeout(() => region.remove(), 3000);
+      if (notice === "saved") window.setTimeout(() => region.remove(), 3000);
       notice = null;
     }
   }

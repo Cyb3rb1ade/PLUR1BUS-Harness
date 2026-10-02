@@ -206,12 +206,15 @@ pub struct SetupArgs {
     /// Release channel recorded in the install manifest
     #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"], default_value = "stable")]
     pub channel: String,
-    /// Embedding use class (default: general)
+    /// Embedding use class (default: general for a new home; an existing home keeps its recorded class)
     #[arg(long, value_name = "CLASS", value_parser = ["general", "research", "commercial"])]
     pub use_class: Option<String>,
     /// The first agent's id (default: main)
     #[arg(long, value_name = "ID")]
     pub agent: Option<String>,
+    /// Install profile: host (supervisor and core only, for Hermes host mode) or full (default for a new home; an existing home keeps its profile)
+    #[arg(long, value_name = "PROFILE", value_parser = ["host", "full"])]
+    pub profile: Option<String>,
 }
 
 /// `plur1bus update` (spec §6.5, HB10).
@@ -918,6 +921,18 @@ mod tests {
         }
         assert!(Cli::try_parse_from(["plur1bus", "setup", "--use-class", "hobby"]).is_err());
         assert!(Cli::try_parse_from(["plur1bus", "setup", "--channel", "nightly"]).is_err());
+        // HM2-R9: `--profile host|full`, absent by default (an existing home keeps its profile).
+        for (args, want) in [
+            (&["setup"][..], None),
+            (&["setup", "--profile", "host"][..], Some("host")),
+            (&["setup", "--profile", "full"][..], Some("full")),
+        ] {
+            match parse(args).cmd {
+                Cmd::Setup(a) => assert_eq!(a.profile.as_deref(), want, "{args:?}"),
+                other => panic!("{other:?}"),
+            }
+        }
+        assert!(Cli::try_parse_from(["plur1bus", "setup", "--profile", "minimal"]).is_err());
 
         match parse(&["update"]).cmd {
             Cmd::Update(a) => assert!(!a.check && a.manifest.is_none() && a.channel.is_none()),

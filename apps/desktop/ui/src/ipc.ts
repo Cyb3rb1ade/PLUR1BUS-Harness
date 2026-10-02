@@ -17,7 +17,7 @@ export type DesktopTransport = {
   pairCode(request: PairRequest): Promise<Paired>;
   pairLocal(name: string): Promise<Paired>;
   openConnection(id: string): Promise<{ selected: boolean; spa_available: boolean }>;
-  appInfo(): Promise<{ platform: Platform }>;
+  appInfo(): Promise<{ platform: Platform; locale: string }>;
   settingsGet(): Promise<Settings>;
   settingsSet(value: Settings): Promise<Settings>;
 };

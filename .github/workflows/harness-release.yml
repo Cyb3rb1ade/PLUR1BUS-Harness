@@ -12,6 +12,15 @@ name: harness-release
 #   APPLE_API_KEY_ID, APPLE_API_ISSUER, and the variable MACOS_SIGNING_IDENTITY ("Developer ID Application: … (TEAMID)").
 #   Repository variables (public values): PLUR1BUS_RELEASE_PUBKEY_STABLE, PLUR1BUS_RELEASE_PUBKEY_BETA (minisign public
 #   keys, the base64 line) and optionally PLUR1BUS_RELEASE_BASE_URL. Repository secret GH_ENGINE_READ_TOKEN as in ci.yml.
+#
+# Permissions (HM2 Task 7): every job here needs only `contents: read`, and none may ask for more. GitHub checks a
+# called workflow's job permissions against what the caller grants when it loads the run, before any job `if` is
+# evaluated, so a job requesting `id-token: write` would fail every caller that does not grant it, dry runs included
+# (startup failure "... is requesting 'id-token: write', but is only allowed 'id-token: none'").
+# The build-provenance attestation of the Hermes artefacts therefore lives in the caller: `release.yml` calls this
+# workflow with `dry-run: false` and runs the `attest` job, the only job with `id-token: write` and
+# `attestations: write`. A direct dispatch of this workflow is a dry run; a real run dispatched here is refused, so
+# every real release goes through `release.yml` and is attested. See docs/manual-release.md.
 on:
   workflow_call:
     inputs:
@@ -77,6 +86,7 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_CHANNEL: ${{ inputs.channel }}
+          DRY_RUN: ${{ inputs.dry-run }}
           BASE_URL_VAR: ${{ vars.PLUR1BUS_RELEASE_BASE_URL }}
         run: |
           cargo_version="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)"
@@ -88,6 +98,12 @@ jobs:
             echo "::error::release version $version is not the Cargo workspace version $cargo_version"
             exit 1
           fi
+          # A direct dispatch has no version input; only release.yml (or another caller) may run a real release,
+          # because only it attests (see the header).
+          if [ -z "$INPUT_VERSION" ] && [ "$DRY_RUN" != true ]; then
+            echo "::error::a real release runs through release.yml (it attests the Hermes artefacts); dispatch this workflow only as a dry run"
+            exit 1
+          fi
           channel="${INPUT_CHANNEL:-stable}"
           case "$channel" in stable | beta) ;; *) echo "::error::unknown channel $channel"; exit 1 ;; esac
           base="${BASE_URL_VAR:-https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v$version}"
@@ -97,6 +113,58 @@ jobs:
             echo "base-url=${base%/}"
           } >> "$GITHUB_OUTPUT"
           echo "release $version ($channel), base $base, dry-run ${{ inputs.dry-run }}"
+
+  # HM2 Task 7 (HM2-R4, R21, rulings F7, F8): the Hermes provider tarball (the provider with the client vendored
+  # under _vendor/, built by scripts/build-hermes-provider.mjs) and the client's wheel and sdist, built with the
+  # hash-pinned dev requirements and no build isolation. Nothing goes to PyPI (Q2 is an owner step). This job's
+  # actions are pinned by commit SHA. release.yml's `attest` job attests the three files of the uploaded artefact.
+  hermes-artefacts:
+    needs: meta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      SOURCE_DATE_EPOCH: "0"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: provider tarball, wheel and sdist
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          mkdir -p hermes
+          node scripts/build-hermes-provider.mjs --out hermes --expect-version "$VERSION"
+          python -m venv "$RUNNER_TEMP/build-venv"
+          "$RUNNER_TEMP/build-venv/bin/python" -m pip install --require-hashes -r clients/python/plur1bus-memory-client/requirements-dev.txt
+          "$RUNNER_TEMP/build-venv/bin/python" -m build --no-isolation --outdir hermes clients/python/plur1bus-memory-client
+          for f in "plur1bus-hermes-provider-${VERSION}.tar.gz" "plur1bus_memory_client-${VERSION}-py3-none-any.whl" "plur1bus_memory_client-${VERSION}.tar.gz"; do
+            [ -f "hermes/$f" ] || { echo "::error::missing hermes/$f"; ls -l hermes; exit 1; }
+          done
+          # The wheel carries the licence and nothing but the package.
+          "$RUNNER_TEMP/build-venv/bin/python" - "hermes/plur1bus_memory_client-${VERSION}-py3-none-any.whl" <<'PY'
+          import sys, zipfile
+          names = zipfile.ZipFile(sys.argv[1]).namelist()
+          assert any(n.endswith(".dist-info/licenses/LICENSE") for n in names), names
+          bad = [n for n in names if not n.startswith(("plur1bus_memory_client/", "plur1bus_memory_client-"))]
+          assert not bad, bad
+          PY
+          (cd hermes && sha256sum -- * | tee -a "$GITHUB_STEP_SUMMARY")
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hermes-artefacts
+          path: hermes/
+          if-no-files-found: error
+          retention-days: 3
 
   payload:
     needs: meta
@@ -302,10 +370,11 @@ jobs:
           retention-days: 3
 
   native:
-    needs: [meta, payload, binary, sign-macos]
+    needs: [meta, payload, binary, sign-macos, hermes-artefacts]
     # Runs after a skipped sign-macos only in a dry run.
     if: >-
       ${{ always() && needs.payload.result == 'success' && needs.binary.result == 'success'
+      && needs.hermes-artefacts.result == 'success'
       && (needs.sign-macos.result == 'success' || (inputs.dry-run && needs.sign-macos.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -330,6 +399,11 @@ jobs:
         with:
           name: signed-darwin-arm64
           path: artifacts
+      # HM2 Task 7: the provider tarball, the client wheel and sdist join SHA256SUMS and the upload.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: hermes-artefacts
+          path: artifacts
       - name: release-native.json
         shell: bash
         env:
@@ -337,11 +411,18 @@ jobs:
           BASE_URL: ${{ needs.meta.outputs.base-url }}
         run: |
           node scripts/release/release-native.mjs --artifacts artifacts --version "$VERSION" --base-url "$BASE_URL" --out artifacts/release-native.json
-          (cd artifacts && sha256sum plur1bus-* core-*.tar.gz > SHA256SUMS)
+          # The plugin repo's hermes-sidecar.lock.json seed (HM2 Task 7, rulings F31, F33): provider and per-target
+          # binary URL + SHA-256 from these very files, nodeVersion from the harness Node pin, placeholder false.
+          node scripts/build-hermes-provider.mjs lock --artifacts artifacts --base-url "$BASE_URL" --out artifacts/hermes-sidecar.lock.json
+          (cd artifacts && sha256sum plur1bus-* plur1bus_memory_client-* core-*.tar.gz hermes-sidecar.lock.json > SHA256SUMS)
           {
             echo '### release-native.json'
             echo '```json'
             cat artifacts/release-native.json
+            echo '```'
+            echo '### hermes-sidecar.lock.json'
+            echo '```json'
+            cat artifacts/hermes-sidecar.lock.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - id: name
@@ -352,6 +433,8 @@ jobs:
           name: ${{ steps.name.outputs.artifact }}
           path: |
             artifacts/plur1bus-*
+            artifacts/plur1bus_memory_client-*
+            artifacts/hermes-sidecar.lock.json
             artifacts/core-*.tar.gz
             artifacts/core-*.tar.gz.sha256
             artifacts/release-native.json

@@ -412,7 +412,7 @@ async fn frames_over_64k_close() {
         Some(Err(tokio_tungstenite::tungstenite::Error::Protocol(
             tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
         ))) => {}
-        other => panic!("oversized frame must be rejected by close 1009 or a reset, got {other:?}"),
+        other => panic!("oversized frame must be rejected by close 1009, a reset, or Windows abort 10053, got {other:?}"),
     }
 }
 

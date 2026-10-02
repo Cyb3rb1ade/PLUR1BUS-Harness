@@ -37,15 +37,6 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile
-      - name: Isolate UI test browser storage
-        shell: bash
-        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
-      - name: Install UI test browser (Linux)
-        if: runner.os == 'Linux'
-        run: pnpm --filter @plur1bus/desktop-ui exec playwright install --with-deps chromium --only-shell
-      - name: Install UI test browser (macOS and Windows)
-        if: runner.os != 'Linux'
-        run: pnpm --filter @plur1bus/desktop-ui exec playwright install chromium --only-shell
       - run: node scripts/check-toolchain.mjs
       - run: pnpm gen
       - run: pnpm build
@@ -162,3 +153,85 @@ jobs:
         run: cargo test --release -p plur1bus --test service_real -- --test-threads=1
         timeout-minutes: 10
         env: { PLUR1BUS_SERVICE_TEST: "1" }
+  # HM2 Task 6: the Python client (Tasks 2, 3) and the Hermes provider (Task 5) offline, then live against a
+  # flat-embedder core built from this commit (no model download). windows-2025 is the gate for Task 3 (ruling F20):
+  # the six NamedPipeTest real-pipe tests must run there, not skip. windows-11-arm is informational.
+  python-host:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, python: "3.11" }
+          - { os: ubuntu-24.04, python: "3.13" }
+          - { os: macos-15, python: "3.13" }
+          - { os: windows-2025, python: "3.13" }
+          - { os: windows-11-arm, python: "3.13", informational: true }
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.informational == true }}
+    timeout-minutes: 45
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python }}" }
+      - name: dev requirements (hash-pinned, in a venv)
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then py="$RUNNER_TEMP/venv/Scripts/python.exe"; else py="$RUNNER_TEMP/venv/bin/python"; fi
+          "$py" -m pip install --require-hashes -r clients/python/plur1bus-memory-client/requirements-dev.txt
+          echo "PY=$py" >> "$GITHUB_ENV"
+      - name: client offline (Tasks 2, 3)
+        shell: bash
+        timeout-minutes: 10
+        run: '"$PY" -m unittest discover -v -s clients/python/plur1bus-memory-client/tests -t clients/python/plur1bus-memory-client'
+      - name: real named pipes ran (Task 3 gate, F20)
+        if: runner.os == 'Windows'
+        shell: bash
+        working-directory: clients/python/plur1bus-memory-client
+        run: |
+          "$PY" - <<'PY'
+          import sys, unittest
+          suite = unittest.defaultTestLoader.loadTestsFromName("tests.test_transport_win.NamedPipeTest")
+          r = unittest.TextTestRunner(verbosity=2).run(suite)
+          print(f"NamedPipeTest: ran {r.testsRun}, skipped {len(r.skipped)}, failures {len(r.failures)}, errors {len(r.errors)}")
+          sys.exit(0 if r.wasSuccessful() and r.testsRun == 6 and not r.skipped else 1)
+          PY
+      - name: provider offline (Task 5)
+        shell: bash
+        timeout-minutes: 10
+        run: '"$PY" -m unittest discover -v -s hosts/hermes/tests -t hosts/hermes'
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@v2
+      # The engine read token exists in this step only; the git@github.com: -> HTTPS rewrite is step-scoped
+      # (GIT_CONFIG_*), never the global gitconfig, so the test steps after it never see the token.
+      - name: build plur1bus and the core
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      # PLUR1BUS_LIVE_REQUIRED: a live suite that cannot run fails here instead of skipping.
+      - name: live RPC conformance and provider against a real core
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          exe=""; [ "$RUNNER_OS" = "Windows" ] && exe=".exe"
+          export PLUR1BUS_BIN="$GITHUB_WORKSPACE/target/release/plur1bus$exe" PLUR1BUS_CORE_JS="$GITHUB_WORKSPACE/packages/core/dist/core.js"
+          "$PY" -m unittest discover -v -s clients/python/plur1bus-memory-client/tests/live -t clients/python/plur1bus-memory-client
+          "$PY" -m unittest discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
+        env: { PLUR1BUS_LIVE_REQUIRED: "1", PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware

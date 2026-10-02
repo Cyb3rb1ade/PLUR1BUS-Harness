@@ -1,4 +1,4 @@
-import { element, append } from "./dom.ts";
+import { element, append, restoreFocus } from "./dom.ts";
 import { button } from "./button.ts";
 
 export function openSheet(title: string, body: Node, closeLabel: string, onClose?: () => void, side: "right" | "left" = "right"): void {
@@ -9,7 +9,7 @@ export function openSheet(title: string, body: Node, closeLabel: string, onClose
   sheet.setAttribute("role", "dialog");
   sheet.setAttribute("aria-modal", "true");
   const heading = element("h2", undefined, title);
-  heading.id = "sheet-title";
+  heading.id = `sheet-title-${crypto.randomUUID()}`;
   sheet.setAttribute("aria-labelledby", heading.id);
   const close = button(closeLabel, dismiss, "quiet");
   close.classList.add("sheet-close");
@@ -22,7 +22,7 @@ export function openSheet(title: string, body: Node, closeLabel: string, onClose
     scrim.remove();
     if (shell) shell.inert = false;
     document.removeEventListener("keydown", keydown);
-    queueMicrotask(() => { if (opener?.isConnected) opener.focus(); onClose?.(); });
+    queueMicrotask(() => { restoreFocus(opener); onClose?.(); });
   }
   function keydown(event: KeyboardEvent) {
     if (event.key === "Escape") { event.preventDefault(); dismiss(); }

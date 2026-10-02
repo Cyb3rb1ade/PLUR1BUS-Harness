@@ -5,19 +5,52 @@ import { withShell } from "./browser-harness.ts";
 test("sample shell and dialog pass axe WCAG 2.1 AA in both themes and locales", async () => {
   await withShell(async page => {
     await page.addScriptTag({ url: "/axe.js" });
-    await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
     for (const theme of ["light", "dark"]) for (const locale of ["en", "de"]) {
       await page.evaluate(({ theme, locale }) => (window as any).testShell.setPreferences({ theme, locale }), { theme, locale });
-      const pageViolations = await page.evaluate(async () => (await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } })).violations);
-      assert.deepEqual(pageViolations.map((v: { id: string, nodes: unknown[] }) => `${v.id} (${v.nodes.length})`), [], `unoccluded ${theme}/${locale}`);
+      for (const section of ["home", "connections", "settings"]) {
+        await page.evaluate(section => (window as any).testShell.navigate(section, "advanced"), section);
+        if (section === "home") {
+          const colors = await page.evaluate(() => {
+            const tokens = getComputedStyle(document.documentElement);
+            return [[".eyebrow", "--ink-3"], ["h1", "--ink"], [".lead", "--ink-2"], [".chip-ok", "--ok-ink"]].map(([selector, token]) => {
+              const node = document.querySelector<HTMLElement>(`.home-hero ${selector}`)!;
+              const expected = document.createElement("span");
+              expected.style.color = tokens.getPropertyValue(token!);
+              document.body.append(expected);
+              const pair = [getComputedStyle(node).color, getComputedStyle(expected).color];
+              expected.remove();
+              return pair;
+            });
+          });
+          for (const [actual, expected] of colors) assert.equal(actual, expected, "gradient allow-list must use the tested token pairs");
+        }
+        await page.locator(".toast").waitFor({ state: "detached", timeout: 4000 });
+        const results = await page.evaluate(async () => await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }));
+        assertAxe(results, `${section} ${theme}/${locale}`);
+      }
       await page.getByRole("button", { name: locale === "de" ? "So funktionieren Einstellungen" : "How preferences work" }).click();
-      const violations = await page.evaluate(async () => (await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } })).violations);
-      assert.deepEqual(violations.map((v: { id: string, nodes: unknown[] }) => `${v.id} (${v.nodes.length})`), [], `${theme}/${locale}`);
+      const results = await page.evaluate(async () => await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }));
+      assertAxe(results, `dialog ${theme}/${locale}`);
       await page.keyboard.press("Escape");
     }
   });
 });
+
+function assertAxe(results: { violations: Array<{ id: string; nodes: unknown[] }>; incomplete: Array<{ id: string; nodes: Array<{ target: string[] }> }> }, context: string) {
+  assert.deepEqual(results.violations.map(v => `${v.id} (${v.nodes.length})`), [], context);
+  const exceptions: Record<string, string> = {
+    ".wordmark-one": "WCAG 1.4.3 logotype exception: red brand numeral, never functional text.",
+    ...(context.startsWith("home ") ? {
+      ".eyebrow": "Home hero only: gradient extrema and interpolation verified for tertiary ink by contrast.test.ts.",
+      "h1": "Home hero only: gradient extrema and interpolation verified for ink by contrast.test.ts.",
+      ".lead": "Home hero only: gradient extrema and interpolation verified for secondary ink by contrast.test.ts.",
+      ".chip-ok": "Home hero only: ok ink/background pair is composited over every gradient interpolation in contrast.test.ts.",
+    } : {}),
+  };
+  const unreviewed = results.incomplete.filter(result => result.id === "color-contrast").flatMap(result => result.nodes)
+    .filter(node => node.target.length !== 1 || !exceptions[node.target[0]!]).map(node => node.target);
+  assert.deepEqual(unreviewed, [], `${context}: unreviewed incomplete contrast`);
+}
 
 test("settings read failure keeps independently loaded Windows and KDE chrome", async () => {
   await withShell(async page => {
@@ -26,6 +59,7 @@ test("settings read failure keeps independently loaded Windows and KDE chrome", 
       await page.reload();
       await page.getByRole("alert").waitFor();
       assert.equal(await page.locator("html").getAttribute("data-platform"), platform);
+      await page.getByRole("button", { name: "Dismiss message" }).click();
       await page.getByRole("button", { name: "How preferences work" }).click();
       assert.equal((await page.getByRole("dialog").getByRole("button").allTextContents())[0], "Got it");
       await page.keyboard.press("Escape");
@@ -65,7 +99,7 @@ test("a failed queued preference rolls back only that choice and reports failure
     await page.evaluate(() => (window as any).testShell.completeNextSave());
     await page.getByRole("alert").waitFor();
     assert.deepEqual(await page.evaluate(() => (window as any).testShell.storedSettings()), { theme: "system", locale: "de" });
-    assert.equal(await page.getByRole("alert").textContent(), "Die Einstellung konnte nicht gespeichert werden. Bitte erneut versuchen.");
+    assert.match(await page.getByRole("alert").textContent() ?? "", /^Die Einstellung konnte nicht gespeichert werden\. Bitte erneut versuchen\./);
   });
 });
 
@@ -91,7 +125,7 @@ test("failed native preference save keeps the old choice and keyboard focus", as
     await page.evaluate(() => (window as any).testShell.failNextSave());
     await page.getByRole("button", { name: "Light" }).click();
     assert.equal(await page.getByRole("button", { name: "System" }).first().getAttribute("aria-pressed"), "true");
-    assert.equal(await page.getByRole("alert").textContent(), "Could not save your preference. Try again.");
+    assert.match(await page.getByRole("alert").textContent() ?? "", /^Could not save your preference\. Try again\./);
     assert.equal(await page.getByRole("button", { name: "System" }).first().evaluate(node => document.activeElement === node), true);
   });
 });

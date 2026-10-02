@@ -124,13 +124,15 @@ pub fn resolve_home(
     if let Some(h) = cli_home {
         return resolve_and_normalize(platform, cwd, &h.to_string_lossy());
     }
-    if let Some(h) = env.get("PLUR1BUS_HOME") {
+    // An empty variable counts as unset, as in packages/core/src/paths.ts and the Python client (HM2-R26).
+    if let Some(h) = env.get("PLUR1BUS_HOME").filter(|s| !s.is_empty()) {
         return resolve_and_normalize(platform, cwd, h);
     }
     if platform == "windows" {
         let lad = local_app_data
             .map(|p| p.to_string_lossy().to_string())
-            .or_else(|| env.get("LOCALAPPDATA").cloned())
+            .filter(|s| !s.is_empty())
+            .or_else(|| env.get("LOCALAPPDATA").filter(|s| !s.is_empty()).cloned())
             .unwrap_or_else(|| join_with('\\', &home_dir.to_string_lossy(), &["AppData", "Local"]));
         return PathBuf::from(join_with('\\', &lad, &["PLUR1BUS"]));
     }
@@ -556,6 +558,63 @@ mod tests {
             ),
             PathBuf::from(r"C:\a\b")
         );
+    }
+
+    /// The vectors use `sys.platform`/`process.platform` ids; this crate says `windows`/`posix` (F22).
+    fn rust_platform(p: &str) -> &'static str {
+        if p == "win32" {
+            "windows"
+        } else {
+            "posix"
+        }
+    }
+
+    #[test]
+    fn address_matches_the_shared_vectors() {
+        // Hand-committed, hashes computed independently; the Python client and module-api read the same file.
+        let vectors: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../../../clients/python/plur1bus-memory-client/tests/fixtures/address-vectors.json"
+        ))
+        .unwrap();
+        assert!(vectors.len() >= 10);
+        for v in &vectors {
+            let home = v["home"].as_str().unwrap();
+            let platform = rust_platform(v["platform"].as_str().unwrap());
+            assert_eq!(
+                core_address(Path::new(home), platform),
+                v["address"].as_str().unwrap(),
+                "{platform} {home:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_home_matches_the_shared_vectors() {
+        let vectors: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../../../clients/python/plur1bus-memory-client/tests/fixtures/home-vectors.json"
+        ))
+        .unwrap();
+        for v in &vectors {
+            let env: HashMap<String, String> = v["env"]
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(k, s)| (k.clone(), s.as_str().unwrap().to_string()))
+                .collect();
+            let lad = v
+                .get("localAppData")
+                .and_then(|s| s.as_str())
+                .map(Path::new);
+            let got = resolve_home(
+                None,
+                &env,
+                rust_platform(v["platform"].as_str().unwrap()),
+                Path::new(v["homeDir"].as_str().unwrap()),
+                lad,
+                Path::new(v["cwd"].as_str().unwrap()),
+            );
+            assert_eq!(got, PathBuf::from(v["home"].as_str().unwrap()), "{v}");
+        }
     }
 
     #[test]

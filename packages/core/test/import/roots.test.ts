@@ -2,6 +2,7 @@
 // environment and the existence check are injected, so the Windows and macOS rules run on every CI OS.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { expandUser, expandVars } from "../../src/import/paths.ts";
 import { resolveHermesRoot } from "../../src/import/sources/hermes.ts";
 import { resolveOpenclawRoot } from "../../src/import/sources/openclaw.ts";
@@ -52,6 +53,17 @@ describe("Hermes root per OS (G1)", () => {
   });
   it("--source wins and is ~-expanded", () => {
     assert.deepEqual(resolveHermesRoot({ source: "~/copy", env: { HERMES_HOME: "/h" }, homedir: "/home/u", platform: "linux" }), { root: "/home/u/copy", resolvedFrom: "flag:--source", profile: null });
+  });
+});
+
+describe("Hermes root vectors shared with the Hermes provider and installer (HM2 F11)", () => {
+  it("hosts/hermes/tests/fixtures/hermes-home-vectors.json matches resolveHermesRoot", () => {
+    const url = new URL("../../../../hosts/hermes/tests/fixtures/hermes-home-vectors.json", import.meta.url);
+    const doc = JSON.parse(readFileSync(url, "utf8")) as { cases: { platform: NodeJS.Platform; env: NodeJS.ProcessEnv; homedir: string; root: string; resolvedFrom: string; profile: string | null }[] };
+    assert.ok(doc.cases.length >= 10);
+    for (const c of doc.cases) {
+      assert.deepEqual(resolveHermesRoot({ env: c.env, homedir: c.homedir, platform: c.platform }), { root: c.root, resolvedFrom: c.resolvedFrom, profile: c.profile }, JSON.stringify(c));
+    }
   });
 });
 
