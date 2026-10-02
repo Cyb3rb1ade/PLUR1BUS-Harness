@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { spawn } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import type { ImportError } from "../../src/import/types.ts";
+import { ImportError } from "../../src/import/types.ts";
 import { join } from "node:path";
 import { envKeyNames, isSecretFileName, loadLanceDb, openSqliteReadOnly, readBounded } from "../../src/import/readonly.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
@@ -87,19 +87,49 @@ describe("read-only primitives", () => {
     const p = join(d, "busy.db");
     const w = new DatabaseSync(p); w.exec("PRAGMA journal_mode=WAL; CREATE TABLE t(x);"); w.close();
     const child = spawn(process.execPath, ["-e", `const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(${JSON.stringify(p)});
-      const end = Date.now() + 1500; let i = 0; while (Date.now() < end) { db.exec("INSERT INTO t VALUES (" + (i++) + ")"); if (i % 200 === 0) db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } db.close();`], { stdio: "ignore" });
-    const exited = new Promise((r) => child.on("exit", r));
-    const modes = new Set<string>();
-    for (let k = 0; k < 15; k++) {
-      const h = openSqliteReadOnly(p, { sleep: () => {} });
-      modes.add(h.mode);
-      assert.ok(Number((h.db.prepare("SELECT count(*) AS n FROM t").get() as { n: number }).n) >= 0);
-      h.close();
-      await new Promise((r) => setTimeout(r, 40));
+      db.exec("INSERT INTO t VALUES (0)"); process.send("ready");
+      const end = Date.now() + 1500; let i = 1; while (Date.now() < end) { db.exec("INSERT INTO t VALUES (" + (i++) + ")"); if (i % 200 === 0) db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } db.close();`], { stdio: ["ignore", "ignore", "ignore", "ipc"] });
+    const ready = new Promise<boolean>((resolve) => {
+      child.once("message", (message) => resolve(message === "ready"));
+      child.once("error", () => resolve(false));
+      child.once("exit", () => resolve(false));
+    });
+    const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null; error?: Error }>((resolve) => {
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+      child.once("error", (error) => resolve({ code: null, signal: null, error }));
+    });
+    const watchdog = setTimeout(() => child.kill(), 5000);
+    try {
+      assert.equal(await ready, true, "writer started");
+      for (let k = 0; k < 15; k++) {
+        let h: ReturnType<typeof openSqliteReadOnly> | null = null;
+        try {
+          h = openSqliteReadOnly(p, { sleep: () => {}, onBusy: "throw" });
+        } catch (e) {
+          assert.ok(e instanceof ImportError);
+          assert.equal(e.code, "E_SOURCE_BUSY");
+          assert.equal(e.reason, "source-busy");
+        }
+        if (h) {
+          try {
+            assert.equal(h.mode, "copy");
+            assert.ok((h.db.prepare("SELECT count(*) AS n FROM t").get() as { n: number }).n >= 0);
+          } finally { h.close(); }
+        }
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      assert.deepEqual(await exited, { code: 0, signal: null }, "writer exited cleanly");
+      const h = openSqliteReadOnly(p, { onBusy: "throw" });
+      try {
+        assert.equal(h.mode, "copy");
+        assert.ok((h.db.prepare("SELECT count(*) AS n FROM t").get() as { n: number }).n > 0, "the stopped writer's rows are readable");
+      } finally { h.close(); }
+      assert.deepEqual(readdirSync(d).filter((n) => !["busy.db", "busy.db-wal", "busy.db-shm"].includes(n)), [], "nothing but the writer's own files");
+    } finally {
+      clearTimeout(watchdog);
+      if (child.exitCode === null && child.signalCode === null) child.kill();
+      await exited;
     }
-    await exited;
-    assert.deepEqual(readdirSync(d).filter((n) => !["busy.db", "busy.db-wal", "busy.db-shm"].includes(n)), [], "nothing but the writer's own files");
-    assert.ok(modes.size >= 1);
   });
 
   it("readBounded refuses directories, missing files and oversize files", () => {
