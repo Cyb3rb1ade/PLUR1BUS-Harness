@@ -252,14 +252,15 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: GREEN — full root/desktop CI passed at `87915bb`, including the reviewed
-Windows ARM64 test portability correction described below.
+Status: VERIFYING — prior head `87915bb` passed complete root and five-target
+Desktop CI. PR #60 is now merged into main at `e6c98cf`. This follow-up merges
+that main into WP3 and applies the independently reviewed SQLite test-only
+correction from WP4. The new head requires fresh local and CI gates.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
-Base: `feat/desktop-shell-wp02-mock-harness` at
-`2998d35a7badeb69a28b33e7072adc6de053d20e`; PR #60 is ready but not merged.
-PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), draft,
-base `feat/desktop-shell-wp02-mock-harness`. All WP3 and root-test review
-findings are addressed. The PR remains a draft; no merge was performed.
+Base: `main` (PR #60 merged with merge commit `e6c98cf`).
+PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), **draft**.
+The owner merges #63, then #64, using merge commits. Every new WP3 commit is
+merged forward into WP4 (and WP5 when it exists), without rebase or force-push.
 Implementation head: `f6f3e7e7ebb59981c962e56eac0289a42c8bf224`
 (initial frame `c392a63`, review fixes `f6f3e7e`).
 Verified local head: `861a5ee8cf8f9510d5b6b6c2cc860790152bd124`, including
@@ -785,3 +786,18 @@ Exact unfinished work at this clean commit boundary:
 
 The native test apps/mocks are stopped; real keychain and actual screen-reader
 checks were not run. No merge, rebase, amend or force-push was performed.
+
+### Owner-directed WP3 forward merge, 2026-10-02
+
+- Normal merge of `origin/main` (`e6c98cf`, containing merged PR #60) into WP3.
+- `58b6b58` applies the exact previously reviewed root SQLite test correction
+  from `8c1750b`; no WP4 feature is pulled into WP3. The production SQLite
+  live-copy/immutable risk remains unresolved; this is test-only.
+- Fresh local gates PASS: root check/build/lint/test, root Rust fmt/clippy/test,
+  desktop locked fmt/clippy/test including UI/a11y/layout via the root test run.
+  Logs: `/tmp/wp03-forward-{node,root-rust,desktop}.log`. CI must verify
+  the new head; earlier green runs are historical evidence only.
+- WP4 at `d2ea464` passed root run36971308959 and desktop runs36971308985 and
+  36971306303, including five desktop targets and Docker/Podman. It will receive
+  the new WP3 history by normal merge and then repeat the required gates.
+- WP5 and WP6 remain unstarted. Both #63 and #64 remain drafts.
