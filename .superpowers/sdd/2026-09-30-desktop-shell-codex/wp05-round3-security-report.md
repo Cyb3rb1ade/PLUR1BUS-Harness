@@ -33,6 +33,8 @@ test non_get_methods_require_exact_origin ... FAILED
 process exit: 101
 ```
 
+Raw RED log path: none was captured. The output above is transcript-only and was not reconstructed from a saved log.
+
 This demonstrated that a POST without Origin was admitted before the method-aware check.
 
 ## GREEN evidence
