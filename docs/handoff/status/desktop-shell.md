@@ -252,9 +252,11 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: VERIFYING — owner review corrections implemented at `a288fd7` after
-main merge `4a5a8b`. All required local gates pass; independent review and
-current published-head CI remain required before readiness.
+Status: VERIFYING — owner corrections and independent re-review complete at
+`c6527a9`, published as `7aeebbf` after main merge `4a5a8b` (`6a7d656`).
+Local gates, all five desktop CI targets and complete root CI now PASS at
+`7aeebbf`. Root attempt 1 failed an unchanged HM2 timing test; the one targeted
+retry passed at the same head. Readiness still waits for corrected WP4 Green.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `main` (PR #60 merged with merge commit `e6c98cf`).
 PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), **draft**.
@@ -268,8 +270,10 @@ ignored; desktop58/no skips; UI31/no skips; all required lint/fmt/Clippy/build a
 docs gates PASS. R1 adds four regressions and passes the full35-test UI suite; final typecheck
 passes. Native/root source remains unchanged by that UI-only fix.
 Historical verified PR head: `a735d2b` (all CI passed before owner review).
-Current owner-correction PR head/run links will be recorded after publishing
-and observing the final corrected head. It is not yet GREEN.
+Current published head: `7aeebbfdf3eddcda11ee6168541b72971daf0c97`.
+Desktop [run37009940311](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37009940311) PASS on five targets plus Docker/Podman.
+Root [run37009940205](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37009940205) PASS after one targeted retry of the unchanged HM2 macOS timing failure.
+WP3 is GREEN at this head; #63 remains draft until corrected #64 also passes.
 
 ### Scope and decisions
 
@@ -491,22 +495,128 @@ jobs and both 200-turn system soaks passed without reruns of these runs.
 - [x] Start WP4 on its own stacked branch only after that complete gate.
 - [ ] WP5–WP6 remain unstarted and follow WP4 sequentially.
 
+### Owner review correction scope, 2026-10-02
+
+WP3: application-command ACL, focus preservation, complete keyboard/focus/contrast
+and wide-boundary evidence, API2.12 pin, safe settings persistence and reporting.
+The importer test is restored to main: desktop PRs must not alter core tests.
+Root tests will exclude desktop-ui; the desktop workflow retains its browser
+accessibility/layout gates. New main is merged normally; HM2 work is preserved.
+
+Owner follow-up (core, separate scope): the live main/WAL ordinary-file copy is
+not an atomic SQLite backup; synchronous native validation cannot be bounded by
+a JavaScript watchdog, and immutable fallback on a changing original may be
+unsafe. Investigate a supported SQLite backup/snapshot plus bounded validation
+and fail-closed behavior in a separate core issue/PR. No production fix is claimed.
+
+Draft [Unreleased] changelog lines for owner review:
+- WP2: Add a provisional desktop harness contract, isolated mock/fake binaries
+  and digest-pinned Docker/Podman stub smoke coverage.
+- WP3: Add the responsive Glow desktop frame with local fonts, de/en preferences,
+  platform chrome, application-command ACL and accessibility/layout gates.
+
+WP4 fixes follow the corrected WP3 forward merge; WP5 and WP6 remain unstarted.
+After both corrected heads pass full CI, mark #63/#64 ready for owner review.
+The owner merges them with merge commits; do not merge into main.
+
+### WP3 owner-correction acceptance matrix (a288fd7, local macOS arm64)
+
+| Handoff Accept (verbatim) | Exact test/file | Observed result | Targets |
+|---|---|---|---|
+| i18n: en and de have identical key sets and no empty strings | `both catalogues cover the same nonempty messages`, ui/test/i18n.test.ts | PASS | Node24.21 on macOS arm64; portable desktop CI test |
+| layout: breakpoints follow content width (compact < 1024, wide > 1600) | `frame follows content-width boundaries without clipping text`, layout.test.ts; `layout: wide edge at 1600/1601 switches panel and trigger on Settings and Connections`, acceptance.test.ts | PASS (1023/1024 and1600/1601) | local Chromium; desktop CI pending |
+| layout: 400 CSS px has no horizontal scroll | `layout: all six pages retain 12 px text and 44 px targets at every acceptance width`, acceptance.test.ts | PASS all six pages at400 plus720/960/1440/2560 | local Chromium; desktop CI pending |
+| layout: text ≥ 12 px, targets ≥ 44 px on shell pages | same exact acceptance.test.ts test; `Chromium 2x display scale keeps 1440 physical pixels while all shell pages fit 720 CSS pixels`, layout.test.ts | PASS; 1×/2× only | local Chromium; desktop CI pending |
+| layout: dialogs are min(680, window − 48) | `dialog layout and DOM button order follow all four platforms`, layout.test.ts; `platform chrome: GNOME fills the 800 px footer row, Windows band and short dialog height`, acceptance.test.ts | PASS width680/352; height<=132 at180 viewport; ordering/radius all4 variants | local Chromium platform CSS simulation; native cross-OS pending |
+| axe-core WCAG 2.1 AA clean on a sample view in both themes and both locales | `sample shell and dialog pass axe WCAG 2.1 AA in both themes and locales`, a11y.test.ts | PASS Home/Connections/Advanced/dialog × light/dark × en/de; reviewed incompletes above | local Chromium+axe4.13.0; desktop CI pending |
+| full keyboard traversal | `full keyboard traversal: ordered accessible names, wrap and visible 3:1 focus on every page`, acceptance.test.ts; Enter/Space/native-late/theme tests in focus.test.ts; dialog/sheet trap and return in layout/a11y | PASS six pages ×3widths ×2themes; ordered Tab+document wrap, Enter/Space/ShiftTab/Escape | local Chromium; manual VoiceOver/NVDA/Orca not run |
+| visible focus | same full keyboard traversal test, acceptance.test.ts | PASS computed outline-style !=none, width>=2, contrast>=3 for each traversed control | local Chromium; desktop CI pending |
+| 4.5:1 contrast | `every semantic ink/background token pair meets 4.5:1 in both themes`, contrast.test.ts, plus expanded axe sample | PASS (Home eyebrow corrected to ink-3) | Node token math + local Chromium; logotype exemption above |
+
+
+Local gates: root567 passed/five existing skips; lint including hygiene/HM2
+self-tests, frozen install/toolchain/gen/build PASS; root Rust1036 passed/one
+existing ignored; root fmt/clippy/docs:check PASS. Desktop58 passed/no skips;
+UI31 passed/no skips; desktop fmt/lockedclippy and serial locked Tauri debug
+app+DMG build PASS. Final frozen install/lint repeated after source freeze.
+Logs: `/tmp/wp03-owner-root-{node,rust}.log`, `/tmp/wp03-owner-final-lint.log`,
+`/tmp/wp03-ui-full-final.log`, `/tmp/wp03-native-full.log`,
+`/tmp/wp03-tauri-build.log`. No native manual or cross-OS execution is inferred.
+
+Deviations/limits after corrections:
+- API pin deviation resolved: @tauri-apps/api exact2.12.0; engine lock entry
+  byte-identical. sys-locale exact0.3.2 supplies actual OS locale.
+- Authorized root scope correction: restore importer test exactly main; remove
+  only Chromium setup from ci.yml after excluding desktop-ui from root tests.
+  All HM2 content remains. Desktop CI retains browser/accessibility/layout tests.
+- Narrow Windows Winsock10053 oversized-frame abort acceptance in WP2 http.rs
+  remains a recorded portability deviation; stale panic text is fixed.
+- C22 measured at1×/2× and separate200% text enlargement only; native
+  WebKit/WebView2 and150%/250% remain unmeasured locally.
+- Playwright1.63.0 pins browser revision, not a separately verified archive hash
+  (M14). Real-engine no-preference dark fallback is unverified (M6).
+- VoiceOver/NVDA/Orca were not run. Browser platform CSS simulation is distinct
+  from executing on native macOS/Windows/Linux.
+- Wordmark red1 uses WCAG logotype exception only. Axe incomplete Home gradient
+  selectors have explicit narrow reasons and independent worst-case/composited
+  token contrast proof; unreviewed incomplete targets fail.
+
+Minors M1–M5/M7–M13/M15 fixed; M6/M14 documented limitations, accepted by the
+review's alternatives. Settings retains future disk fields but IPC remains closed;
+corrupt/read-failed files cannot be silently overwritten. Errors remain until
+dismissed; stable focus and unique overlay headings are tested.
+
+Current unfinished work: complete root CI retry at published WP3 head; finish
+WP4 owner corrections, independent review, local gates and current-head CI;
+then mark both ready for review and proceed to WP5/WP6 sequentially.
+
+WP3 independent review at a288fd7: I1/I3/I4/I5 and safe Minors approved;
+Important R1 remains: nonroute/theme renders detach dialog/sheet opener nodes,
+so Escape does not restore focus. Reproduced in isolated Chromium. Original
+implementer is correcting it with regressions for both overlays; no push yet.
+
+WP3 R1 correction `c6527a9`: shared stable-key return-focus resolver for dialog
+and sheet. Four regression cases (overlay type × theme/native late load) failed
+before the fix, then focused10/10 and fullUI35/35 passed,0skip. Finaltypecheck
+PASS. Logs `/tmp/wp03-r1-{red-focus,focus-final,ui-final,typecheck-final}.log`.
+Initial post-fix assertions ran before asynchronous native dialog close delivery;
+the final tests wait for overlay detachment and passed from the final source.
+No native/Rust change; scoped review remains pending, no current CI claim.
+
+WP3 correction review complete: initial task review approved I1/I3/I4/I5 and
+safe Minors; R1 fix scoped re-review PASS. All owner-requested implementation
+fixes now approved. Publish corrected head and observe its complete current CI;
+#63 stays draft until corrected #64 is also green, then both become ready.
+
+Current correction progress: WP3 reviewed source c6527a9 plus report7aeebbf published; desktop37009940311 ALL PASS. Normal forward merge into WP4 completed as e9a5aa3; Part B corrections are in progress. No WP4 push or WP5/WP6 start yet.
+
+### Current WP3 CI inherited HM2 timing failure
+
+At exact7aeebbf, root37009940205: all three unit jobs PASS, including the restored macOS importer test; Python host Linux3.11/3.13, Windowsx64/ARM PASS. Python-host macOS3.13 failed in unchanged hosts/hermes/tests/test_provider.py:707: test_shutdown_counts_what_it_cannot_journal took2.302102209s against2.3s. No desktop diff touches that test/provider. Focused unchanged local probe PASS on Python3.14.7 (different from CI3.13; not equivalent-target proof), log /tmp/wp03-owner-python-mac-focused.log. Exact CI log /tmp/wp03-owner-python-mac.log. Scheduling sensitivity is an inference, not a confirmed production diagnosis. No test threshold/source/workflow was weakened. Dependent system/service and desktop jobs continue. Record any targeted CI retry and result explicitly; WP3 is not GREEN while the gate fails.
+
+One targeted retry was requested with `gh run rerun 37009940205 --job 110846994108` after attempt 1 completed. Attempt 2 replacement macOS Python job is `110853803314`; provider step now PASS, remaining build/live-conformance steps are still running. All other root jobs succeeded in attempt 1. Desktop run37009940311 completed SUCCESS on all five targets and Docker/Podman. Final workflow completion remains required.
+
+### WP3 final corrected-head CI
+
+GREEN at exact `7aeebbfdf3eddcda11ee6168541b72971daf0c97`: root37009940205 attempt2 SUCCESS, replacement macOS Python job110853803314 SUCCESS; all other root jobs SUCCESS. Desktop37009940311 SUCCESS on macOS, Windows x64/ARM64, Linux x64/ARM64 and Docker/Podman smoke. The first HM2 timing failure above is retained; no source/threshold/workflow changed for the retry. PR #63 remains draft until the corrected WP4 head also passes all gates. WP3 head was already normally merged into WP4 as e9a5aa3.
+
 ## WP4 — Connections, keychain and pairing
 
-Status: VERIFYING — implementation and reviewed fixes at `d2ea464` passed
-complete root and five-target desktop CI. Owner-directed forward merge
-`9caced7` includes WP3 head `a735d2b` and current main `e6c98cf`; application
-source is unchanged. Fresh current-head CI is required before WP5.
+Status: VERIFYING — owner corrections delivered at `7e835bb` after normal
+forward merge `e9a5aa3` of corrected WP3 `7aeebbf`. Local gates pass;
+independent review found one Important CA-outage/rollover classification gap.
+Fix eb46737 and scoped re-review PASS; fresh published-head CI remains required.
 Branch: `feat/desktop-shell-wp04-connections`.
-Base: `feat/desktop-shell-wp03-ui-frame` at
-`a735d2b06fbe6a952221d4a3d721880654e23433`; PR #63 is draft and unmerged;
-its new head also requires fresh CI.
+Base: `feat/desktop-shell-wp03-ui-frame` at `7aeebbf`; PR #63 remains draft.
 PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), DRAFT.
-Implementation/fix head `8c1750b`; the current PR head includes the latest
-verification report. Local root and desktop gates passed before every push.
-`origin/main` is now `e6c98cf` (merged PR #60), included via WP3.
+Published historical head: `5713e7a9df1dae82b5b0f98e076e363681f69463`.
+Main `6a7d656` is included through WP3. The forward merge preserves the nine
+application-command permissions, Windows CRT isolation, focus/settings fixes,
+and restoration of the core importer test exactly to main. Config10/10 PASS.
+Current source head: `eb467376880cb679190c5b0edf97143fa2adfc3f`.
+Part B commits: `c7ee115`, `7e835bb`, `eb46737`; no push or GREEN claim yet.
 
-### Scope and pending acceptance
+### Delivered scope and historical verification
 
 - Connection store, shared Rust/TypeScript origin table, UUIDv7, closed schema,
   atomic owner-only writes and corruption preservation.
@@ -520,8 +630,9 @@ verification report. Local root and desktop gates passed before every push.
   company CA delivered by pairing, origin-scoped trust, renewal and rollover.
 - Connections/Add remote/repair/revoked/trust states in both locales and themes,
   reachable UI actions, 44 px targets, keyboard and accessibility tests.
-- Independent review, full local/CI gates, manual scratch-profile checks,
-  acceptance-by-acceptance results and draft PR remain pending.
+- The following older checkpoints are retained as history. Current owner
+  correction summary and its exact acceptance matrix override old head/counts
+  and pending checklists; current CI is required for the new source.
 
 ### Scope resolutions
 
@@ -586,7 +697,7 @@ Local logs: `/tmp/desktop-wp04-{preflight,root-node,root-rust,desktop-rust,nativ
 Initial local evidence above predates publication. Review was subsequently
 resolved below; PR64 is published as draft and current-head CI remains pending.
 
-### Acceptance matrix (local macOS, aef74f1)
+### Historical acceptance matrix (local macOS, aef74f1; superseded below)
 
 
 Paths below are relative to `apps/desktop/`.
@@ -643,7 +754,7 @@ not run. Five-target CI and independent review are still pending.
 - M3 must define concurrent proof offers and map provisional encodings/routes.
   Company-CA admin upload remains D2; no real M3 API/server was added.
 
-### Next and incomplete work
+### Historical next-work checklist (aef74f1)
 
 - [ ] Resolve independent WP4 review findings and perform scoped re-review.
 - [ ] Re-run checks affected by fixes, publish a draft PR and verify current-head
@@ -771,7 +882,7 @@ Logs: `/tmp/desktop-wp04-ci-fix-root-{node,rust}.log` and
 toolchain/gen checks and synthetic native screenshots remain recorded above;
 the CI follow-ups did not add dependencies or change UI behavior.
 
-Exact unfinished work at this clean commit boundary:
+Historical unfinished work at the d2ea464 commit boundary:
 
 - [ ] Verify the new PR64 head's complete root CI, including macOS Node plus
       dependent service/system/soak jobs.
@@ -817,96 +928,210 @@ checks were not run. No merge, rebase, amend or force-push was performed.
   including UI/a11y/layout. Logs: `/tmp/wp04-forward-{node,root-rust,desktop}.log`.
   New complete current-head CI remains required before WP5.
 
-### Owner review correction scope, 2026-10-02
+### Current WP4 owner corrections (source7e835bb)
 
-WP3: application-command ACL, focus preservation, complete keyboard/focus/contrast
-and wide-boundary evidence, API2.12 pin, safe settings persistence and reporting.
-The importer test is restored to main: desktop PRs must not alter core tests.
-Root tests will exclude desktop-ui; the desktop workflow retains its browser
-accessibility/layout gates. New main is merged normally; HM2 work is preserved.
+I1: staged next pins preserve the current OS trust path until the switch;
+explicit current leaf pins remain fail-closed. I2: changed certificates are
+tested through stored connection validation, including actual observed pin and
+no request/bearer after failed TLS; missing session-ticket capability and
+installation mismatch are refused before bearer. I3: debug-only real-keychain
+opt-in now overrides scratch Memory, uses a stable isolated random test service
+with explicit cleanup, and safe distinct errors. I4: CA404/5xx/timeout/malformed/
+oversized responses are retryable and preserve stored trust; a successful valid
+different CA or actual TLS rejection may mark repair.
 
-Owner follow-up (core, separate scope): the live main/WAL ordinary-file copy is
-not an atomic SQLite backup; synchronous native validation cannot be bounded by
-a JavaScript watchdog, and immutable fallback on a changing original may be
-unsafe. Investigate a supported SQLite backup/snapshot plus bounded validation
-and fail-closed behavior in a separate core issue/PR. No production fix is claimed.
+Local macOS arm64 gates: desktop Rust127 PASS/one ignored real-keychain test;
+UI47 PASS/zero skipped, including WP3 keyboard/focus integration and native
+version-error regression. Desktop locked fmt/clippy, UI build and root typecheck
+PASS. Serial Tauri debug app bundle passed twice (ad-hoc signed, not notarized or launched).
+Controller frozen install/check/gen/build/lint/root tests PASS:567 package tests
+plus29 lint/HM2 self-tests, five existing platform skips. Root Rust1036/one
+existing ignore, fmt/clippy/docscheck already PASS at the unchanged root source
+from corrected WP3; no core/crate/source alteration in Part B.
 
-Draft [Unreleased] changelog lines for owner review:
-- WP2: Add a provisional desktop harness contract, isolated mock/fake binaries
-  and digest-pinned Docker/Podman stub smoke coverage.
-- WP3: Add the responsive Glow desktop frame with local fonts, de/en preferences,
-  platform chrome, application-command ACL and accessibility/layout gates.
+Logs: `/tmp/wp04-desktop-tests.log`, `/tmp/wp04-ui-test.log`,
+`/tmp/wp04-{fmt,clippy,root-typecheck,ui-build}.log`,
+`/tmp/wp04-owner-root-node.log`; isolated worker logs additionally copied into
+ignored scratch for recovery. Initial I1/I4 regressions failed as expected,
+then passed after fixes; no acceptance assertion was weakened.
 
-WP4 fixes follow the corrected WP3 forward merge; WP5 and WP6 remain unstarted.
-After both corrected heads pass full CI, mark #63/#64 ready for owner review.
-The owner merges them with merge commits; do not merge into main.
+Manual evidence: the earlier synthetic native pair/restart check used
+**MemoryStore only**. This correction round ran tests and native packaging,
+without launching the native app or accessing the real OS keychain. Real
+macOS/Windows/Linux keychain roundtrip and native pair→restart→open remain
+UNVERIFIED; explicit opt-in ignored test refuses CI. No real service manager,
+real home directory, credentials or user data used. Native screen readers and
+additional DPI scales remain unverified.
 
-### WP3 owner-correction acceptance matrix (a288fd7, local macOS arm64)
+Keychain taxonomy: NoEntry→NotFound; typed permission denial/macOS cancel or
+permission OSStatus→AccessDenied; NoDefaultStore/unavailable service/generic
+platform failure→Unavailable; malformed/other→Other. Fixed safe messages never
+echo backend data. Windows native DWORD error type is private upstream, so
+unknown Windows platform failures remain Unavailable and never Memory fallback.
+Actual Windows cancellation taxonomy remains unverified. Production memory
+fallback is Linux-only; explicit scratch Memory remains available on all OSes.
 
-| Handoff Accept (verbatim) | Exact test/file | Observed result | Targets |
+### Current WP4 Accept → exact test(file) → result → target
+
+| Handoff Accept (verbatim) | Exact test and file | Result | Target |
 |---|---|---|---|
-| i18n: en and de have identical key sets and no empty strings | `both catalogues cover the same nonempty messages`, ui/test/i18n.test.ts | PASS | Node24.21 on macOS arm64; portable desktop CI test |
-| layout: breakpoints follow content width (compact < 1024, wide > 1600) | `frame follows content-width boundaries without clipping text`, layout.test.ts; `layout: wide edge at 1600/1601 switches panel and trigger on Settings and Connections`, acceptance.test.ts | PASS (1023/1024 and1600/1601) | local Chromium; desktop CI pending |
-| layout: 400 CSS px has no horizontal scroll | `layout: all six pages retain 12 px text and 44 px targets at every acceptance width`, acceptance.test.ts | PASS all six pages at400 plus720/960/1440/2560 | local Chromium; desktop CI pending |
-| layout: text ≥ 12 px, targets ≥ 44 px on shell pages | same exact acceptance.test.ts test; `Chromium 2x display scale keeps 1440 physical pixels while all shell pages fit 720 CSS pixels`, layout.test.ts | PASS; 1×/2× only | local Chromium; desktop CI pending |
-| layout: dialogs are min(680, window − 48) | `dialog layout and DOM button order follow all four platforms`, layout.test.ts; `platform chrome: GNOME fills the 800 px footer row, Windows band and short dialog height`, acceptance.test.ts | PASS width680/352; height<=132 at180 viewport; ordering/radius all4 variants | local Chromium platform CSS simulation; native cross-OS pending |
-| axe-core WCAG 2.1 AA clean on a sample view in both themes and both locales | `sample shell and dialog pass axe WCAG 2.1 AA in both themes and locales`, a11y.test.ts | PASS Home/Connections/Advanced/dialog × light/dark × en/de; reviewed incompletes above | local Chromium+axe4.13.0; desktop CI pending |
-| full keyboard traversal | `full keyboard traversal: ordered accessible names, wrap and visible 3:1 focus on every page`, acceptance.test.ts; Enter/Space/native-late/theme tests in focus.test.ts; dialog/sheet trap and return in layout/a11y | PASS six pages ×3widths ×2themes; ordered Tab+document wrap, Enter/Space/ShiftTab/Escape | local Chromium; manual VoiceOver/NVDA/Orca not run |
-| visible focus | same full keyboard traversal test, acceptance.test.ts | PASS computed outline-style !=none, width>=2, contrast>=3 for each traversed control | local Chromium; desktop CI pending |
-| 4.5:1 contrast | `every semantic ink/background token pair meets 4.5:1 in both themes`, contrast.test.ts, plus expanded axe sample | PASS (Home eyebrow corrected to ink-3) | Node token math + local Chromium; logotype exemption above |
+| `origin_accepts_https_and_loopback_http_only` | origin_uses_shared_case_table — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `origin_normalises_case_default_port_and_idn` | origin_uses_shared_case_table — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `store_round_trips_bundled_local_and_remote_and_writes_0600` | store_round_trips_all_three_connection_kinds; store_round_trips_and_writes_0600 — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `a_corrupt_file_is_kept_aside_not_overwritten` | corrupt_and_unknown_files_are_kept_aside — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `unknown_fields_are_refused` | corrupt_and_unknown_files_are_kept_aside — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `cert_pin_round_trips_and_refuses_a_malformed_value` | cert_pin_round_trips_refuses_malformed_and_only_remote_https — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `cert_pin_only_on_remote_https` | cert_pin_round_trips_refuses_malformed_and_only_remote_https — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `remove_keeps_the_row_when_the_token_delete_fails` | remove_keeps_the_row_when_token_delete_fails — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `remove_deletes_token_then_row` | store_round_trips_and_writes_0600; remove_keeps_the_row_when_token_delete_fails — src-tauri/tests/connections.rs | PASS | macOS ARM64 |
+| `secret_string_debug_and_display_are_redacted` | secret_string_debug_and_display_are_redacted — src-tauri/tests/secrets.rs | PASS | macOS ARM64 |
+| `memory_store_round_trip_and_delete_missing_is_ok` | memory_store_round_trip_and_delete_missing_is_ok — src-tauri/tests/secrets.rs | PASS | macOS ARM64 |
+| `access_denied_is_pairing_needed_not_a_crash` | access_denied_is_pairing_needed_not_a_crash — src-tauri/tests/secrets.rs | PASS | macOS ARM64 |
+| `open_default_falls_back_to_memory_when_the_probe_fails` | open_default_falls_back_to_memory_when_the_probe_fails; only_linux_may_fall_back_after_probe_failure — src-tauri/tests/secrets.rs | PASS | macOS ARM64 |
+| `meta_parses_and_rejects_an_unsupported_major` | meta_and_installation_identity_gate_bearer; unsupported_api_is_refused_before_bearer_and_errors_do_not_echo_server_data — src-tauri/tests/client.rs | PASS | macOS ARM64 |
+| `redeem_stores_the_token_in_the_token_store_only` | redeem_stores_the_token_in_the_token_store_only_and_revoked_removes_it — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `assert_no_token_on_disk` | common::assert_no_token_on_disk called by redemption test — src-tauri/tests/common/mod.rs | PASS | macOS ARM64 |
+| `a_different_installation_at_the_origin_gets_no_token` | a_different_installation_at_the_origin_gets_no_code_or_token; a_different_installation_at_the_origin_gets_no_token_on_validate — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `revoked_deletes_the_token_and_marks_pairing_needed` | redeem_stores_the_token_in_the_token_store_only_and_revoked_removes_it; revoked_during_trust_or_ack_and_ticket_clears_credentials — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `redirects_are_not_followed` | redirects_are_not_followed_and_bodies_are_bounded — src-tauri/tests/client.rs | PASS | macOS ARM64 |
+| `discover_ignores_a_stale_api_json` | discover_ignores_stale_non_loopback_and_unknown_fields_and_never_opens_tokens — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `discover_ignores_a_non_loopback_url_in_api_json` | discover_ignores_stale_non_loopback_and_unknown_fields_and_never_opens_tokens — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `discover_never_opens_token_files` | discover_never_opens_token_files — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `pair_local_spawns_fixed_args_and_parses_json` | pair_local_spawns_fixed_args_and_parses_json_and_denied_falls_back — src-tauri/tests/pairing.rs; native_pairing_client_spawns_known_binary_fixed_argv_and_never_records_token — test-bins/tests/exec.rs | PASS | macOS ARM64 |
+| `pair_local_denied_falls_back_to_code_flow` | pair_local_spawns_fixed_args_and_parses_json_and_denied_falls_back — src-tauri/tests/pairing.rs; native denial reaches code form; remote errors and repair retain accessible controls — ui/test/connections.test.ts | PASS | macOS ARM64 + Chromium |
+| `pair_code_rejects_insecure_remote_before_any_request` | pair_code_rejects_insecure_remote_before_any_request — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `pinned_origin_accepts_exactly_the_pinned_leaf` | pinned_origin_accepts_exactly_the_pinned_leaf_and_change_is_detected_before_http; explicit_current_leaf_pin_never_falls_back_to_os_trust — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `unpinned_self_signed_is_untrusted_before_any_request` | unpinned_self_signed_is_untrusted_before_any_request — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `changed_certificate_is_cert_changed_and_marks_pairing_needed` | changed_certificate_is_cert_changed_and_marks_pairing_needed — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `pair_proof_pins_on_match_and_never_sends_the_code_on_mismatch` | pair_proof_pins_on_match_and_never_sends_the_code_on_relay_mismatch; changed_certificate_is_cert_changed_and_marks_pairing_needed (stored original pin assertion) — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `pair_proof_for_another_certificate_is_refused` | pair_proof_pins_on_match_and_never_sends_the_code_on_relay_mismatch — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `os_trusted_origin_skips_pair_proof` | os_trusted_origin_skips_pair_proof_with_injected_roots_only — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `the_pin_is_never_taken_from_a_typed_field` | the_pin_is_never_taken_from_a_typed_field — src-tauri/tests/pairing.rs; every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_input — src-tauri/tests/config.rs | PASS | macOS ARM64 |
+| `company_ca_pin_is_anchor_for_this_origin_only` | company_ca_pin_is_anchor_for_this_origin_only — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `ca_from_devices_ca_endpoint_must_match_ca_pin` | successful_wrong_ca_response_marks_repair; company_ca_verifies_normal_chain_and_renewal_and_refuses_substitution — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `leaf_renewed_by_same_ca_needs_no_repair` | company_ca_verifies_normal_chain_and_renewal_and_refuses_substitution — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `company_ca_without_ca_pin_is_ca_not_known` | company_ca_verifies_normal_chain_and_renewal_and_refuses_substitution — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `next_trust_is_taken_only_over_the_current_pinned_connection_with_token` | rollover_cert_to_ca_and_ca_to_cert_is_authenticated_and_promoted; sse_event_cannot_inject_a_pin_detached_from_authenticated_trust_document — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `current_or_next_accepted_until_switch` | current_or_next_accepted_until_switch_with_os_trusted_current; rollover_cert_to_ca_and_ca_to_cert_is_authenticated_and_promoted — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `next_becomes_current_after_switch` | current_or_next_accepted_until_switch_with_os_trusted_current; rollover_cert_to_ca_and_ca_to_cert_is_authenticated_and_promoted — src-tauri/tests/tls.rs | PASS | macOS ARM64 |
+| `missed_rollover_is_cert_changed` | rollover_cert_to_ca_and_ca_to_cert_is_authenticated_and_promoted — src-tauri/tests/tls.rs (cert or CA trust failure as applicable) | PASS | macOS ARM64 |
+| `missing desktop.sessionTicket capability refused` | missing_desktop_session_ticket_is_refused_without_bearer — src-tauri/tests/pairing.rs | PASS | macOS ARM64 |
+| `real_keychain_round_trip` | real_keychain_round_trip — src-tauri/tests/secrets.rs | IGNORED, explicit opt-in; forbidden to worker / off CI | No real OS execution |
+| pairing-model table | pairing-model maps every reachable error and requires start before success — ui/test/pairing-model.test.ts | PASS | macOS Node 24.21 |
+| origin-input: same table as Rust | origin-input consumes the exact Rust case table — ui/test/pairing-model.test.ts | PASS | macOS Node 24.21 |
+| `pair_bundled_creates_owner_pairs_and_stores_a_bundled_connection` | Task 9 bundled controller acceptance explicitly assigned WP8 in task-4 brief | DEFERRED WP8; native no-token argv path is separately tested now | None for bundled path |
+| `pair_bundled_tolerates_an_existing_owner` | Task 9 bundled controller acceptance explicitly assigned WP8 in task-4 brief | DEFERRED WP8; native no-token argv path is separately tested now | None for bundled path |
+| `pair_bundled_revokes_the_previous_device_after_storing_the_new_token` | Task 9 bundled controller acceptance explicitly assigned WP8 in task-4 brief | DEFERRED WP8; native no-token argv path is separately tested now | None for bundled path |
+| `the_token_is_never_in_an_exec_argument_or_env` | Task 9 bundled controller acceptance explicitly assigned WP8 in task-4 brief | DEFERRED WP8; native no-token argv path is separately tested now | None for bundled path |
+| `bundled_revoked_repairs_once_then_asks` | Task 9 bundled controller acceptance explicitly assigned WP8 in task-4 brief | DEFERRED WP8; native no-token argv path is separately tested now | None for bundled path |
 
 
-Local gates: root567 passed/five existing skips; lint including hygiene/HM2
-self-tests, frozen install/toolchain/gen/build PASS; root Rust1036 passed/one
-existing ignored; root fmt/clippy/docs:check PASS. Desktop58 passed/no skips;
-UI31 passed/no skips; desktop fmt/lockedclippy and serial locked Tauri debug
-app+DMG build PASS. Final frozen install/lint repeated after source freeze.
-Logs: `/tmp/wp03-owner-root-{node,rust}.log`, `/tmp/wp03-owner-final-lint.log`,
-`/tmp/wp03-ui-full-final.log`, `/tmp/wp03-native-full.log`,
-`/tmp/wp03-tauri-build.log`. No native manual or cross-OS execution is inferred.
+### Current WP4 review Minors
 
-Deviations/limits after corrections:
-- API pin deviation resolved: @tauri-apps/api exact2.12.0; engine lock entry
-  byte-identical. sys-locale exact0.3.2 supplies actual OS locale.
-- Authorized root scope correction: restore importer test exactly main; remove
-  only Chromium setup from ci.yml after excluding desktop-ui from root tests.
-  All HM2 content remains. Desktop CI retains browser/accessibility/layout tests.
-- Narrow Windows Winsock10053 oversized-frame abort acceptance in WP2 http.rs
-  remains a recorded portability deviation; stale panic text is fixed.
-- C22 measured at1×/2× and separate200% text enlargement only; native
-  WebKit/WebView2 and150%/250% remain unmeasured locally.
-- Playwright1.63.0 pins browser revision, not a separately verified archive hash
-  (M14). Real-engine no-preference dark fallback is unverified (M6).
-- VoiceOver/NVDA/Orca were not run. Browser platform CSS simulation is distinct
-  from executing on native macOS/Windows/Linux.
-- Wordmark red1 uses WCAG logotype exception only. Axe incomplete Home gradient
-  selectors have explicit narrow reasons and independent worst-case/composited
-  token contrast proof; unreviewed incomplete targets fail.
+| Finding | Verdict | Detail |
+|---|---|---|
+| M1 fallback beyond Linux | FIXED | Only production Linux probes/falls back. macOS/Windows keep Keychain backend after cancellation; get/set failure surfaces pairing/keychain error. Explicit scratch Memory works on every platform. |
+| M2 versions in Incompatible | FIXED | Public numeric dotted server/client API versions included and displayed in DE/EN. Bounded validation refuses arbitrary server strings; tests verify no payload echo. |
+| M3 async blocking | FIXED | Argon2 uses `spawn_blocking`; native credential actions hold the owned serialization lock while synchronous keychain operations execute on blocking workers. A current-thread Tokio regression proves other async work progresses and mutations remain serialized. |
+| M4 native CLI/shim collision | DOCUMENTED OWNER QUESTION | No invented installer path or heuristic binary identification. Current native paths are pre-WP13 assumptions; installer-owned native identity/location contract must be settled before shipping WP13 shim. See `docs/desktop.md`. |
+| M5 trust route required | FIXED BY EXPLICIT CONTRACT | `CONTRACT.md` now names `/devices/trust` as mandatory M3 desktop capability contract even on loopback/OS trust. No 404-as-optional heuristic. |
+| M6 weak tests | FIXED | Injected discovery opener asserts the only opened file is `run/api.json`; token files cannot be touched. Held CA connection is refused by another origin's refresh/ack client before HTTP; CA does not become global. Changed installation on validation asserts no bearer. |
+| M7 local repair, stale notice, SSE CRLF | FIXED | Repair preserves existing Kind, failed/action transitions clear success notice; parser accepts LF and CRLF including split delimiters. Added Rust and UI regressions. |
+| M8 reporting | WORKER REPORT COMPLETE; CONTROLLER OWNS STATUS/PR | Full exact-name mapping, defaults, target distinctions and draft changelog below. Controller must update current head, final CI links, PR template and readiness. |
+| M9 robustness | PARTLY FIXED / EXPLICIT DEFERRAL | Rename trims; Unix EPERM means process alive. CA `?pin=` retained to select current/next public certificate by nonsecret digest. Cross-process store serialization deferred to WP6 single-instance lifecycle; app-process mutations remain serialized. |
 
-Minors M1–M5/M7–M13/M15 fixed; M6/M14 documented limitations, accepted by the
-review's alternatives. Settings retains future disk fields but IPC remains closed;
-corrupt/read-failed files cannot be silently overwritten. Errors remain until
-dismissed; stable focus and unique overlay headings are tested.
 
-Unfinished: independent review, any required fixes, status/PR final-head CI links,
-normal WP3 forward merge into WP4, WP4 owner corrections, then WP5/WP6.
+### Current WP4 defaults, deviations and owner questions
 
-WP3 independent review at a288fd7: I1/I3/I4/I5 and safe Minors approved;
-Important R1 remains: nonroute/theme renders detach dialog/sheet opener nodes,
-so Escape does not restore focus. Reproduced in isolated Chromium. Original
-implementer is correcting it with regressions for both overlays; no push yet.
+- §7.4 C1/C2/C4: incoming Glow tokens/isolated wordmark retained; theme follows OS with dark fallback and three choices. C8 typed proof, self-signed leaf pins, per-origin company CA, additive rollover remain the client contract; Rust SPA proxy stays WP5. C9 connections live in shell, no new SPA handover command. C22 ≥44px shell targets at every width; 1× and 2× Chromium scaling observed, no wider DPI/native-engine parity claim.
+- §9 G-1 provisional mock contract remains authoritative pending M3 mapping; G-3 OS theme; G-6 pinned axe runner; G-11 separate desktop workspace/lock; G-12 copied spec values, no canvas pixel-match claim. G-9 host.keyUnlock is unimplemented in this WP and no memory-only provisioning occurs. Other wizard/runtime/update/helper defaults belong to later WPs and were not implemented here.
+- Deviations preserved from prior branch: Windows CRT build-system helper; incoming mock aborted-socket compatibility, root desktop-test separation, settings changes. No new core/engine edits.
+- New owner question: authoritative native install identity/path distinct from WP13 app shim. Cross-process metadata serialization intentionally deferred to WP6; not silently claimed fixed.
+- Suggested draft `[Unreleased]` WP4 changelog: “Add native and remote desktop pairing with keychain-only persistent credentials, per-origin TLS trust and rollover; preserve OS trust during staged changes and retry transient CA failures without forcing re-pairing.” Controller owns PR changelog placement and WP2/WP3 lines.
+- Next WP: WP5 SPA proxy/session window after controller review and final-head CI. No SPA launch is claimed by `open_connection`; it selects/verifies the stored connection only. WP6 owns persistent event lifecycle and single-instance behavior. No new branch/PR was created by worker.
 
-WP3 R1 correction `c6527a9`: shared stable-key return-focus resolver for dialog
-and sheet. Four regression cases (overlay type × theme/native late load) failed
-before the fix, then focused10/10 and fullUI35/35 passed,0skip. Finaltypecheck
-PASS. Logs `/tmp/wp03-r1-{red-focus,focus-final,ui-final,typecheck-final}.log`.
-Initial post-fix assertions ran before asynchronous native dialog close delivery;
-the final tests wait for overlay detachment and passed from the final source.
-No native/Rust change; scoped review remains pending, no current CI claim.
 
-WP3 correction review complete: initial task review approved I1/I3/I4/I5 and
-safe Minors; R1 fix scoped re-review PASS. All owner-requested implementation
-fixes now approved. Publish corrected head and observe its complete current CI;
-#63 stays draft until corrected #64 is also green, then both become ready.
+The private Windows CRT shim relocation remains a build-system deviation beyond
+WP4's original file list, required by the observed Windows x64 linker failure.
+Both Windows CI targets must pass this head. No source/fixture/lockfile contains
+real secrets. No M3 API, harness runtime controller, SPA proxy or persistent tray
+subscription is claimed here.
 
-Current correction progress: WP3 reviewed source c6527a9 plus report7aeebbf published; CI root37009940205 and desktop37009940311 queued for exact7aeebbf. The forward merge into WP4 is being resolved; no WP4 push or WP5 start yet.
+Current unfinished checklist:
+
+- [x] Independent review and scoped R1 re-review complete; no open Critical/Important.
+- [ ] Publish reviewed status/PR body and verify exact final-head root plus
+      desktop five targets/Docker/Podman CI; retain every failed attempt.
+- [ ] When both corrected heads are GREEN, mark #63/#64 ready; owner merges.
+- [ ] WP5 unstarted: Step0 custom-protocol SSE/WebSocket/latency/origin/capability
+      spike per target, then proxy/incognito session/guard implementation and PR.
+- [ ] WP6 unstarted: single instance/tray/autostart/events/quit and D111 logging
+      after full WP5 Green.
+
+### WP4 owner-correction independent review and round1
+
+At source7e835bb, spec and quality: NEEDS FIXES. Important R1: loss of an
+authorized current/next CA during endpoint outage is discarded if another pin
+exists; when that other candidate does not match the active leaf, the incomplete
+verifier can still persist repair. This is a source-deterministic finding, not
+a new reviewer-run test result. The original implementer is adding both
+CA-current/staged-leaf-before-switch and leaf-current/staged-CA-after-switch
+404/503/timeout regressions, including no bearer, preserved flags/pins and
+success after recovery without re-pairing. No push yet.
+
+Minor M1: update stale desktop boundary documentation (three commands/no
+networking/keychain) to nine guarded commands and implemented WP4 networking/
+credentials. Minor M2: debug bundle emits expected notarization/signature
+diagnostics; it is ad-hoc signed, not release signed, notarized or warning-free.
+Test/Clippy logs were clean.
+
+Reviewer boundary: task-scoped diff excludes owner-merged HM2 outside desktop
+scope. Current-head CI/readiness remains controller-owned; native Windows/Linux
+and real OS credential behavior are unverified. Controller fetched main6a7d656
+and confirmed core readonly test is identical to main; no further core mutation.
+
+Round1 regression reproduced the exact reviewer path: CA-current + staged leaf with503 returned cert-changed instead of retryable trust-unavailable. Provenance fix now passes focused TLS32/32; six end-to-end404/503/timeout cases cover both directions, pin/flag preservation, no bearer and recovery without re-pairing. In-memory same-row state also remains unchanged on the transient failure. Full covering gates and scoped review remain pending.
+
+### WP4 round1 final source eb46737
+
+R1 fix complete; scoped re-review pending. Failed CA-candidate provenance stays
+with the verifier. If no available candidate validates and an authorized CA is
+unavailable, the result remains retryable TrustUnavailable. An available
+authorized candidate can still succeed; a valid mismatched CA and fully
+available unknown-leaf rejection remain fail-closed. Transient failure changes
+neither stored nor in-memory connection metadata; recovery uses the same row
+and device without re-pairing. Observed fingerprint is saved only for actual
+CertChanged/CaNotKnown.
+
+| Additional round1 regression (tests/tls.rs) | Result | Target |
+|---|---|---|
+| current_ca_before_switch_404_is_retryable_and_recovers_without_pairing | PASS | macOS arm64 |
+| current_ca_before_switch_503_is_retryable_and_recovers_without_pairing | PASS | macOS arm64 |
+| current_ca_before_switch_timeout_is_retryable_and_recovers_without_pairing | PASS | macOS arm64 |
+| next_ca_after_switch_404_is_retryable_and_recovers_without_pairing | PASS | macOS arm64 |
+| next_ca_after_switch_503_is_retryable_and_recovers_without_pairing | PASS | macOS arm64 |
+| next_ca_after_switch_timeout_is_retryable_and_recovers_without_pairing | PASS | macOS arm64 |
+| valid_wrong_ca_during_rollover_still_requires_repair | PASS both directions | macOS arm64 |
+| fully_available_rollover_trust_rejects_unknown_leaf_and_requires_repair | PASS both directions | macOS arm64 |
+| rollover_candidates_survive_unavailable_other_ca | PASS independent candidate | macOS arm64 |
+
+Final covering gates: focused TLS32 PASS, full desktop Rust135 PASS/one ignored
+real keychain, locked fmt/Clippy/diffcheck PASS. UI unchanged since full47PASS.
+Logs `/tmp/wp04-round1-{red,tls-green,desktop-tests,fmt,clippy}.log`. Final
+root lint and serial locked Tauri debug build are controller-running; current
+CI remains required after publication. Desktop docs now accurately list all
+nine commands and implemented native networking/keychain boundary.
+
+### WP4 reviewed publication checkpoint
+
+Source eb46737: scoped re-review R1/M1/M2 ADDRESSED, no new Critical/Important.
+Final controller root lint PASS and locked serial Tauri debug no-bundle build
+PASS at this Rust head, log `/tmp/wp04-owner-round1-native-build.log`. The two
+earlier app bundles are valid7e835bb packaging evidence; this final check builds
+the changed native executable, without claiming a new bundle or native launch.
+Root source still matches the prior full Green; importer test equals freshly
+fetched origin/main6a7d656. No gate was weakened.
+
+Publish the status checkpoint with corrected source, then observe exact final
+head root CI and five desktop targets/Docker/Podman before readiness/WP5.
+Both PRs remain draft until that complete gate. WP5 and WP6 are unstarted.
