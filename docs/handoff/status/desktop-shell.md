@@ -1143,26 +1143,44 @@ GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https
 
 ## WP5 — SPA proxy and incognito session window
 
-Status: IN PROGRESS — mandatory D1 Task13 Step0 native transport spike first.
+Status: IN PROGRESS — Step0 measured on all five native targets; Task13 source fixes independently approved at `32a0a53`. Whole-WP5 review and exact-head hosted production/diagnostic Green remain pending.
 Branch: feat/desktop-shell-wp05-spa-proxy.
-Base: main at5962e820046d0a881dc28fa779de03945e244590 after owner merged63/64.
+Base: cut from main at `5962e820046d0a881dc28fa779de03945e244590` after owner merged #63/#64; current main `d87f5ceb029ea163bc28327cec1af732221894c6` incorporated by authorized normal merge `7bee7d9`.
 Originally stacked onWP4a1f0029; authorized normal forward merge06062a7
 includes new main. Main tree equalsa1f0029 and merge tree equals90724e6: no
 source change from that integration. DraftPR65 retargeted main; no rebase/force-push.
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT.
-Published checkpoint:71c17e83825547f647ce94f78c454716f81be999.
-Current exact-head CI: root37042429783/desktopPR37042429764/push37042423712
-root37042429783 completed SUCCESS in attempt2 after one targeted unchanged
-MacPython retry; desktopPR37042429764 completed FAILURE solely at the
-separate Windows helper suites. Both Windows native children now exit0, reach main and deliver
-actual transport JSON; the manifest prerequisite correction is confirmed on both
-architectures. Their desktop jobs remain FAILED because separate diagnostic
-helper tests time out at the recorded input-parse-begin boundary. This is not an
-actual native startup failure. Root71 MacPythonjob110955558862 failed the unchanged
-HM2 shutdown timing test at2.348887333s versus<2.3s; raw/sanitized logs
-`/tmp/wp05-round2-root-mac-python{,-raw}.log`. All other root jobs completed SUCCESS. Exactly one targeted unchanged retry
-was requested after the whole71 attempt completed; attempt2 completed SUCCESS.
-No code or threshold was changed.
+Published checkpoint: `2f0de7f5e24ea8dba18a349be664afaeef96ad32`.
+Published checkpoint CI (2f0de7f; not the current unpublished source): [root37046948842](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37046948842),
+[desktop PR37046948764](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37046948764)
+and [desktop push37046941770](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37046941770).
+WP5 is NOT GREEN. Root attempt1 and its one targeted unchanged retry both
+failed the unchanged Hermes shutdown journal-lock timing assertion: 2.316365125
+and 2.340762791 seconds versus <2.3. All twelve other root jobs passed. The
+retry was requested only after the entire first attempt completed; no further
+retry, threshold change or root-source change has been made. Logs:
+`/tmp/wp05-system-env-root-mac-python{,-raw}.log` and
+`/tmp/wp05-system-env-root-mac-python-retry{,-raw}.log`.
+A read-only investigation is separating actual shutdown budgeting from test
+synchronization before any proposed correction.
+
+Both Windows actual native children exit0/mainEntered:true. Their separate
+helper suites each have 34 PASS/3 FAIL/0 skips: explicit system Utility import,
+JSON parsing, compilation and architecture checks complete, then execution
+stops after module-begin(kernel32.dll), before load-begin. No DLL-loading or
+missing-export cause is established. All four standalone known-JSON controls
+time out, including the constructed system-only environment. Verified artifact
+index: `/tmp/wp05-helper-ci-37046948764-zY0CxJ/verified-artifact-index.json`;
+SHA256 `748975b683cd3979a5371f006bc5745461b4a7d9cb32ccfc029912f67dc5f6f2`.
+Helper round4 remains a separate completion gate and preserves 12s/45s limits.
+
+Historical71 root37042429783 completed SUCCESS in attempt2 after one unchanged
+MacPython retry (first 2.348887333 seconds versus <2.3). Desktop37042429764
+failed only the diagnostic helper suites; all five genuine native Step0
+collections succeeded. First-failure raw/sanitized logs remain
+`/tmp/wp05-round2-root-mac-python{,-raw}.log`. Production Task13 is now active;
+its pre-freeze observations do not establish published-head acceptance.
+WP6 remains unstarted until full WP5 Green.
 
 Earlier301 root37038396217 attempt1 completed FAILURE solely at unchanged
 MacPythonjob110942156709 (2.340257375s versus<2.3s). Exactly one targeted
@@ -1489,3 +1507,104 @@ The compiled app was not launched. Root/desktop test inputs stay isolated.
 Independent scoped review71c17e8..a0d4c84:spec PASS,quality APPROVED,no findings;
 reviewer verified26 evidence hashes/three reconstructed source hashes. No full Windows helper or
 production session acceptance is claimed. Main5962e82 was fetched unchanged.
+
+
+### Task13 production acceptance ledger — current source locally verified
+
+Current source `32a0a53bafd732a8ddc77d62185bf219294e2091`: 170 desktop workspace Rust tests passed (one opt-in real-keychain ignore), plus two transport fixture tests. The unchanged UI suite has 48 passes. Independent scoped review closed I1/I3/I4, the three Minor findings and N1; I2 is the explicit source-precedence ruling below. Whole-branch review and hosted production results are pending. Step0 results remain separate transport-choice evidence.
+
+| Handoff / Task13 Accept | Covering file / exact test | Current result / targets |
+|---|---|---|
+| navigation_table | src-tauri/tests/policy.rs::navigation_table | Local 32a covering suite PASS; hosted production targets pending |
+| caller_check_rejects_other_webview_and_other_origin | src-tauri/tests/policy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+| shell_info_is_the_only_spa_command | src-tauri/tests/spa.rs, same name; real native IPC probe | Local 32a covering suite PASS; hosted production targets pending |
+| spa_bridge_capability_is_scoped_to_the_spa_origin | src-tauri/tests/spa.rs, same name; real native IPC probe | Local 32a covering suite PASS; hosted production targets pending |
+| switching_connection_replaces_the_capability | src-tauri/tests/spa.rs; examples/production_spa.rs | Local 32a source tests and genuine SPA-label old-origin ACL denial while replacement active PASS; Rust caller rejection distinguished; four other native targets pending |
+| a_replayed_ticket_page_is_retried_once_then_shows_the_error | src-tauri/tests/spa.rs, same name; UI ticket-error tests | Local 32a covering suite PASS; hosted production targets pending |
+| no_cookie_database_in_app_dirs | src-tauri/tests/spa_proxy.rs, same name; native profile audit | Local 32a covering suite PASS; hosted production targets pending |
+| assert_no_token_on_disk | src-tauri/tests/spa_proxy.rs, same name; Rust native secret audit | Local 32a covering suite PASS; hosted production targets pending |
+| quit and restart logs in again through a fresh ticket | examples/production_spa.rs; scripts/native-spa.mjs | Rust-only first/restart WKWebView PASS; four other production targets pending |
+| only_the_spa_webview_is_served_others_get_403 | src-tauri/tests/spa_proxy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+| forwards_only_to_the_connection_origin_even_after_a_redirect | src-tauri/tests/spa_proxy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+| never_adds_authorization_or_the_device_token | src-tauri/tests/spa_proxy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+| page_cookies_and_authorization_are_dropped | src-tauri/tests/spa_proxy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+| set_cookie_stays_in_the_jar_and_the_webview_store_is_empty | src-tauri/tests/spa_proxy.rs, same name; native cookie query | Local 32a covering suite PASS; hosted production targets pending |
+| origin_and_host_are_the_connection_origin | src-tauri/tests/spa_proxy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+| sse_events_stream_without_buffering | src-tauri/tests/spa_proxy.rs, same name; real native eleven-second stream | Local 32a covering suite PASS; hosted production targets pending |
+| websocket_upgrade_is_forwarded | src-tauri/tests/spa_proxy.rs, same name; real native echo | Local 32a covering suite PASS; hosted production targets pending |
+| pinned_origin_with_a_changed_certificate_fails_closed | src-tauri/tests/spa_proxy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+| bundled_local_and_remote_use_the_same_path | src-tauri/tests/spa_proxy.rs, same name | Local 32a covering suite PASS; hosted production targets pending |
+
+Unfinished checklist:
+- [x] Freeze and independently review Task13 production fixes (32a); whole-WP5 review pending.
+- [x] Verify Rust-only native credential fixture and sanitized artifacts locally; other targets and post-exit disk scan pending.
+- [ ] Wire and observe genuine signed-in native acceptance on all five CI targets.
+- [ ] Resolve the Windows helper diagnostic gate without widening budgets or masking failures.
+- [ ] Resolve or explicitly report the inherited Hermes root timing gate; do not claim Green while it fails.
+- [ ] Run fresh root/desktop/UI gates before the next push and verify all exact-head CI jobs.
+- [ ] Complete WP5 report/PR before starting WP6.
+
+
+### Inherited root shutdown timing — owner follow-up outside WP5
+
+Read-only inspection identifies three budget-composition issues in
+`hosts/hermes/plur1bus/__init__.py`: synchronous shutdown appends reuse a
+relative timeout per entry, impose a positive 50ms floor after expiry, and on
+failure `_count_lost` begins a fresh 200ms counter-persistence wait. The last
+wait is independent of the existing two-second shutdown deadline. Source proves
+that extra wait can occur; CI did not record per-phase timestamps, so the exact
+contribution to the observed 2.316/2.341 seconds is not measured.
+
+The test already waits for the in-flight capture and holds the journal lock
+before timing shutdown. No missing setup barrier was identified. A narrow
+candidate carries the existing absolute deadline through synchronous appends
+and counter persistence, recomputing the remaining allowance while preserving
+immediate loss counts/warnings, background-worker behavior, the two-second
+budget and the unchanged <2.3 assertion. Validate ordered journaling, exactly-once
+loss accounting and multiple entries with a controlled clock before claiming a
+fix. No Hermes source/test changes were made: handoff section2.1 excludes this
+path from WP5. This is an owner follow-up / separate scope exception, not a
+passed root gate or a reason to weaken Green. Future meaningful WP5 heads need
+their own complete CI results.
+
+Production CI integration is prepared in `.github/workflows/desktop.yml`: the real native SPA driver runs on all five existing targets (WebKitGTK under Xvfb), with seven-day sanitized observation artifacts. Workflow actionlint1.7.12 and whitespace checks PASS locally; final driver and hosted execution remain PENDING. Specific diagnostic test failures may still permit independent native collection, without masking the failed step/job.
+
+Current production-WIP local root check (before incoming main17c49f8 integration): frozen install/check/gen/build/lint/test EXIT0;567package tests PASS/five existing skips and29lint selftests PASS. Log `/tmp/wp05-production-root-node.log`. Root pnpm test excludes desktop UI as corrected in WP3; separate UI evidence48PASS/0skip is in `/tmp/wp05-ui-full.log`. These checks are local evidence, not a final frozen-head CI Green claim.
+
+
+### Current unpublished corrections and verification
+
+Current local base incorporates `origin/main` at `d87f5ceb029ea163bc28327cec1af732221894c6` through authorized normal merge `7bee7d9`; helper round 4 is frozen in `8c457c6`. PR #65 remains draft at published `2f0de7f`; no newer push or exact-head CI success is claimed. The helper explicitly imports the installed PowerShell Management prerequisite and records narrower path/lookup phases. Its local suite passed 35 tests, with five Windows-only tests unavailable on macOS. Independent scoped review confirmed all source/test findings addressed, with no new breakage; all 25 evidence hashes and 11 output files were verified. Actual Windows x64/ARM64 execution remains pending; the 12-second helper and 45-second scheduling bounds are unchanged.
+
+Production review of `2c973bf` requires corrections: (I1) a missing CSP default allowed foreign prefetch to receive a synthetic UA launch carrier in an isolated Chromium experiment; (I2) the renderer-readable carrier can be forwarded in arbitrary HTTP bodies or WebSocket messages; (I3) upstream-selected WebSocket subprotocol is not returned downstream; (I4) the native fixture proves final retirement, not old-origin denial while the replacement is active. Glow-token consistency, fetch-stream terminology and readability also require correction. No body-substring filter is accepted as proof of confidentiality against arbitrary encodings.
+
+Frozen WKWebView artifacts `/tmp/wp05-native-production-freeze2/{first,restart,index}.json` were independently hashed: first `f4d2e3066add5ce9fd3fd4961bb92b70b758e4d75842453938f275323c814e97`, restart `847ef65d903081e3469b2f5a60ec0c337ffed1c9d29a2f60b796d2a1946e6ae8`, index `9b18ac9f385f99f9f06247ece954027ac5a84b17079f2b5185ae9afd14693da1`. Recomputed 100-pair proxy overhead p95: 1.796207 / 1.608250 ms. These establish the tested frozen behavior; they do not close the review findings. Profile audits ran before process exit, so shutdown-only disk writes are not yet excluded. Actual OS opener remains unexecuted.
+
+Fresh local root checks after the owner engine/schema merge passed: frozen install/check/gen/build/lint/test, 567 package passes plus five existing skips and 29 lint selftests (`/tmp/wp05-production-main-root-node.log`, exit 0); root fmt/clippy with warnings denied/test/docs:check, 1036 Rust passes and one ignore (`/tmp/wp05-production-main-root-rust.log`, exit 0). Generated sources and lockfile showed no drift. Desktop covering checks must be renewed for the production fix before any push. Hosted root failure at the published head remains recorded above. WP6 has not started.
+
+
+**I2 source-precedence deviation:** The implementation task brief added an absolute promise that the launch nonce could never be sent upstream, including by deliberately encoding it in application payloads. The binding owner spec (§6.2, lines 316–322) requires a per-launch secret on every loopback request, Host/Origin checks, no device-token/Authorization additions, and a Rust-only session-cookie jar; it does not state that this admission nonce is hidden from the already-authorized paired SPA. The controller corrects that additional promise under the user's spec-precedence rule. The native UA nonce is readable by the paired SPA; hostile SPA code can deliberately encode it in HTTP/WebSocket payloads to its own server. This limitation must remain explicit. It grants only the current paired browser session, with no device-token scopes or shell-controller IPC. Ambient UA/header/resource forwarding still must be prevented, and device tokens and browser cookies remain Rust-only. No substring filter is treated as universal confidentiality. Implementation documentation and independent scoped review now record this ruling; it does not independently close native/CI gates.
+
+The intermediate fix-round native artifact (`/tmp/wp05-native-fix1`) records old-origin rejection from a window labelled `old-spa`. The production capability is restricted to label `spa`, so this can be a wrong-label denial and **does not close I4**. A probe using genuine SPA identity and the old origin, with the replacement proxy still current and a second-origin success control, is required. Intermediate p95 values (1.669875 / 1.734083 ms) were independently recomputed, but the ACL flag is not treated as origin-retirement proof.
+
+
+### Production fix-round 1 review and open round 2
+
+Intermediate local source `4ecb7b5259b21f25db7abdaba69ed98606fef1b9` passed the full local Green: 567 root package tests plus 29 lint selftests (five existing package skips), 1036 root Rust tests (one ignore), 167 desktop Rust tests (one opt-in keychain ignore), 48 UI/a11y/layout tests, two native transport fixture tests, and 37 Node diagnostic/probe tests with five explicit Windows-unavailable skips. Root/desktop fmt and Clippy, docs:check, workflow actionlint, whitespace checks, and locked release build passed. Logs and exit/hash index: `/tmp/wp05-final-local-gates-4ec.json`. These are local results, not hosted CI success.
+
+Independent scoped review addressed I1, I3, authentic-label I4, and the token/SSE terminology findings within the reported evidence limits; I2 remains the documented source-precedence ruling above. It found a new Important issue: `?wp05-old-check` bypassed normal navigation and carrier checks in every debug build, without restricting the URL to the retained fixture origin. This blocks publication until round 2 isolates the seam through trusted fixture registration, an exact retained origin/path, and the normal carrier check. Release builds omit the current debug branch, but that does not excuse the debug-build issue. The formatting Minor and Chromium probe provenance remain open. No new push, all-five production acceptance, Windows-helper remediation, or WP6 start is claimed.
+
+Corrected authentic-label macOS artifacts `/tmp/wp05-native-fix1-authentic2/{first,restart,index}.json` were independently verified by the scoped reviewer: first SHA `4511f926fbe54a2ea3842fac696f6b292db9429c3aeda528a458b5675ed75966`, restart `bc0c3f736c9ecd01b5f51e5b23ddf1447a41143bf711f8e606f26325eb8c94be`, index `9b18ac9f385f99f9f06247ece954027ac5a84b17079f2b5185ae9afd14693da1`; recomputed p95 1.260083 / 1.197375 ms, 100 pairs each. Actual old-origin Tauri ACL denial was distinguished from Rust caller rejection. The overbroad debug seam must be corrected and its covering evidence renewed before this becomes an accepted final source.
+
+
+### Production fix-round 2 — source approved, publication gates pending
+
+Final Task13 source `32a0a53bafd732a8ddc77d62185bf219294e2091` restricts the debug fixture seam to a trusted Rust registration of the exact retained origin, root path and fixed query. The normal launch-carrier guard runs first; ordinary debug builds have no registered exception, and release builds omit the seam. Behavioral unit tests cover missing registration, foreign origin, wrong port/path and dirty carrier. Independent scoped review PASS closed N1 and all source findings. The negative WebSocket test dynamically observes 502 for an upstream-selected unoffered subprotocol; valid negotiation remains covered. Security/lifecycle branches were expanded for readability, and the error view uses shared Glow tokens.
+
+The focused Rust report count is corrected to 28 (22 proxy + four SPA + two policy), without changing source. The saved N1 RED/GREEN file is a source comparison, not behavioral RED evidence. Behavioral GREEN is in the full workspace log. The reproducible isolated CSP experiment records source, invocation, Node24.21, Chromium153.0.8010.12 and both served policies: old foreign prefetch hits=1, amended hits=0. Source SHA256 `1f14fa99456be30c84d0b2b473752347c80a0df3b431f76f9a9d1088a1b9b4eb`; `/tmp/wp05-fix2-csp-prefetch.mjs` and companion log. Earlier incomplete TDD/probe provenance is not retroactively upgraded.
+
+Current local checks all exited 0: root frozen install/check/gen/build/lint/test (567 package passes, five existing skips; 29 lint selftests), root fmt/Clippy/test/docs:check (1036 passes, one ignore), desktop fmt/locked Clippy/workspace tests (170 passes, one real-keychain ignore), two transport example tests, renewed root lint and exact combined Node workflow tests (37 passes, five Windows-unavailable skips), actionlint/whitespace, and locked Tauri release build. UI/a11y/layout 48 passes are retained because UI source is unchanged since that run. Root suites likewise retain their previous full run because round2 changes only desktop source; renewed root lint covers that source. Log/hash/exit provenance: `/tmp/wp05-final-local-gates-32a.json`. None of these claims hosted CI Green.
+
+Actual isolated WKWebView first/restart runs at 32a passed. Artifacts `/tmp/wp05-native-fix2/{first,restart,index}.json`: SHA256 first `cad1254b1d434db6dd8704cd10fc4e01295c6e154a59d544a69b0bdd38206a9a`, restart `566aff520dc5d958c8fdeb4fffcce0f01d014e6154060a3902957b71d760b28f`, index `9b18ac9f385f99f9f06247ece954027ac5a84b17079f2b5185ae9afd14693da1`. Independently recomputed 100-pair overhead p95: 1.429041 / 2.627583 ms. Genuine SPA-label old-origin Tauri ACL denial while the second origin is current is distinct from Rust caller rejection; the second origin succeeds, and final retirement also rejects. Fresh tickets, eleven-second SSE, WebSocket echo, 10-MiB content, CSRF checks, empty browser cookie store and zero foreign sensor hits passed. Device/session secrets were absent from sanitized artifacts and the pre-exit fixture profile scan. Shutdown-only disk writes remain unverified.
+
+Four other production targets, actual Windows helper remediation, new exact-head root/desktop/container CI, actual OS opener launch and real keychain remain unverified. Previous failures remain above. PR65 stays draft; whole-WP5 final source review follows this checkpoint. WP6 has not started.

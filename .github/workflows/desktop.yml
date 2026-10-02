@@ -89,6 +89,20 @@ jobs:
           path: ${{ runner.temp }}/plur1bus-native-spike-run-*/native-*
           if-no-files-found: warn
           retention-days: 7
+      - name: Native SPA login, restart and isolation (WebKitGTK)
+        if: runner.os == 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        run: xvfb-run -a node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
+      - name: Native SPA login, restart and isolation (WKWebView and WebView2)
+        if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        run: node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
+      - name: Native SPA observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-native-spa-${{ matrix.os }}
+          path: ${{ runner.temp }}/plur1bus-native-spa-observations/
+          if-no-files-found: warn
+          retention-days: 7
       - run: pnpm tauri build --debug --no-bundle -- --locked
         working-directory: apps/desktop
       - name: Unsigned online bundles
