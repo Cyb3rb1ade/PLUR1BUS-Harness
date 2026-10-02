@@ -157,3 +157,40 @@ test("the wide related panel becomes a 360 px sheet and a full-width compact she
     assert.equal(await page.getByRole("button", { name: "About this page" }).count(), 0);
   });
 });
+
+test("200% text-only enlargement retains the 1440 viewport without clipping", async () => {
+  await withShell(async page => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole("button", { name: "Settings" }).first().click();
+    await page.getByRole("button", { name: "Advanced" }).first().click();
+    const before = await page.getByRole("heading", { name: "Settings" }).evaluate(node => node.getBoundingClientRect().height);
+    await page.evaluate(() => {
+      const originalSizes = Array.from(document.querySelectorAll<HTMLElement>(".shell-mount *")).map(element => [element, parseFloat(getComputedStyle(element).fontSize)] as const);
+      for (const [element, size] of originalSizes) element.style.fontSize = `${size * 2}px`;
+    });
+    const measured = await page.evaluate(() => ({ viewport: window.innerWidth, scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+    const after = await page.getByRole("heading", { name: "Settings" }).evaluate(node => node.getBoundingClientRect().height);
+    assert.equal(measured.viewport, 1440);
+    assert.ok(after >= before * 1.9, `text did not enlarge: ${before} -> ${after}`);
+    assert.ok(measured.scroll <= measured.client, `enlarged text overflow: ${JSON.stringify(measured)}`);
+    assert.equal(await page.getByRole("button", { name: "About this page" }).isVisible(), true);
+  });
+});
+
+test("top-level wordmark collapses to a red pivot while route content changes immediately", async () => {
+  await withShell(async page => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.getByRole("button", { name: "Settings" }).first().click();
+    assert.equal(await page.getByRole("heading", { name: "Settings" }).count(), 1);
+    assert.equal(await page.locator(".wordmark").getAttribute("aria-label"), "Settings");
+    assert.equal(await page.locator(".wordmark-one").textContent(), "1");
+    assert.ok(await page.locator(".wordmark-one").evaluate(node => node.getBoundingClientRect().width > 0 && getComputedStyle(node).opacity === "1"));
+    assert.ok(await page.locator(".wordmark-letter.is-collapsed").count() > 0);
+    assert.equal(await page.locator(".wordmark-collapsed").count(), 0);
+    await page.waitForFunction(() => document.querySelector(".wordmark")?.textContent?.includes("SETT1NGS"));
+    await page.getByRole("button", { name: "Settings" }).first().click();
+    await page.getByRole("button", { name: "Home" }).first().click();
+    await page.waitForFunction(() => document.querySelector(".wordmark")?.textContent?.includes("PLUR1BUS"));
+    assert.equal(await page.locator(".wordmark-subtitle").textContent(), "Harness");
+  });
+});

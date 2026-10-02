@@ -24,6 +24,9 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const mount = element("div", "shell-mount");
   root.append(mount);
   let settings: Settings = { theme: "system", locale: "system" };
+  let persisted: Settings = settings;
+  const preferenceQueue: Array<{ change: Partial<Settings>; resolve: () => void }> = [];
+  let saving = false;
   let platform: Platform = "mac";
   let route = routeFromHash(window.location.hash);
   let notice: "load" | "save" | "saved" | null = null;
@@ -37,11 +40,12 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     const next = routeFromHash(window.location.hash);
     if (next.section !== route.section || next.page !== route.page) { route = next; render(); }
   });
-  void Promise.all([transport.settingsGet(), transport.appInfo()]).then(([stored, info]) => {
-    settings = stored;
-    platform = info.platform;
+  const settingsLoad = transport.settingsGet().then(stored => {
+    persisted = stored;
+    settings = preferenceQueue.reduce((value, entry) => ({ ...value, ...entry.change }), stored);
     render();
   }).catch(() => { notice = "load"; render(); });
+  void transport.appInfo().then(info => { platform = info.platform; render(); }).catch(() => {});
   render();
 
   function t(key: MessageKey, values?: Record<string, string>) { return translate(resolveLocale(settings.locale, navigator.language), key, values); }
@@ -51,14 +55,37 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     route = next;
     render();
   }
-  async function setPreferences(value: Settings) {
+  function renderWithFocus() {
     const focusedField = document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>("fieldset[data-preference]")?.dataset.preference : undefined;
-    try {
-      settings = await transport.settingsSet(value);
-      notice = "saved";
-    } catch { notice = "save"; }
     render();
     if (focusedField) root.querySelector<HTMLElement>(`fieldset[data-preference="${focusedField}"] button[aria-pressed="true"]`)?.focus();
+  }
+  function setPreferences(change: Partial<Settings>): Promise<void> {
+    root.querySelector(".toast")?.remove();
+    settings = { ...settings, ...change };
+    const completed = new Promise<void>(resolve => preferenceQueue.push({ change, resolve }));
+    renderWithFocus();
+    void flushPreferences();
+    return completed;
+  }
+  async function flushPreferences() {
+    if (saving) return;
+    saving = true;
+    await settingsLoad;
+    let failed = false;
+    const completed: Array<() => void> = [];
+    while (preferenceQueue.length) {
+      const entry = preferenceQueue.shift()!;
+      try { persisted = await transport.settingsSet({ ...persisted, ...entry.change }); }
+      catch { failed = true; }
+      settings = preferenceQueue.reduce((value, queued) => ({ ...value, ...queued.change }), persisted);
+      renderWithFocus();
+      completed.push(entry.resolve);
+    }
+    saving = false;
+    notice = failed ? "save" : "saved";
+    renderWithFocus();
+    completed.forEach(resolve => resolve());
   }
   function setPlatform(value: Platform) { platform = value; render(); }
   function heading(title: string, lead: string): HTMLElement {
@@ -101,11 +128,11 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     const stack = element("div", "settings-stack");
     const theme = segmented(t("settings.appearance"), [
       { value: "system", label: t("settings.system") }, { value: "light", label: t("settings.light") }, { value: "dark", label: t("settings.dark") },
-    ] as const, settings.theme, value => void setPreferences({ ...settings, theme: value }));
+    ] as const, settings.theme, value => void setPreferences({ theme: value }));
     theme.dataset.preference = "theme";
     const language = segmented(t("settings.language"), [
       { value: "system", label: t("settings.system") }, { value: "en", label: t("settings.english") }, { value: "de", label: t("settings.german") },
-    ] as const, settings.locale, value => void setPreferences({ ...settings, locale: value }));
+    ] as const, settings.locale, value => void setPreferences({ locale: value }));
     language.dataset.preference = "locale";
     append(stack,
       preferenceCard(t("settings.appearance"), t("settings.appearanceBody"), theme),
@@ -163,7 +190,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     const changingSection = lastSection !== route.section;
     const sectionLabel = route.section === "home" ? t("wordmark.home") : route.section === "connections" ? t("wordmark.connections") : t("wordmark.settings");
     const spoken = route.section === "home" ? t("nav.home") : route.section === "connections" ? t("nav.connections") : t("nav.settings");
-    mark.set(sectionLabel, spoken, changingSection);
+    mark.set(sectionLabel, spoken, changingSection, route.section === "home" ? t("wordmark.subtitle") : undefined);
     lastSection = route.section;
     const app = element("div", "app-frame");
     const sidebar = rail({ home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced") }, route.section, route.page, navigate, page => navigate("settings", page));

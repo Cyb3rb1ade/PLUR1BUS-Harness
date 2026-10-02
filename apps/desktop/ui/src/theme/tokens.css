@@ -8,6 +8,7 @@
   --ok-bg: #E8F5EE; --ok-ink: #1E6A3E; --warn-bg: #FDF3E6; --warn-ink: #5C3400;
   --error-bg: #FDECEA; --error-ink: #A1231A; --info-bg: #E9EEFB; --info-ink: #1F4BB8;
   --wordmark-red: #E5484D; --scrim: rgba(14,14,18,.32); --glass: rgba(255,255,255,.60);
+  --hero-glow-teal: rgba(15,122,128,.20); --hero-glow-magenta: rgba(184,39,122,.09);
   --glass-edge: rgba(255,255,255,.9); --shadow: 0 18px 60px rgba(22,22,26,.08);
   --dialog-footer: #F0EFEC;
 }
@@ -20,6 +21,7 @@
   --ok-bg: rgba(34,165,91,.16); --ok-ink: #6FD49B; --warn-bg: rgba(245,165,36,.12); --warn-ink: #F7C46C;
   --error-bg: rgba(229,72,77,.14); --error-ink: #FF9C9F; --info-bg: rgba(91,124,255,.16); --info-ink: #A9BBFF;
   --wordmark-red: #FF5A5F; --scrim: rgba(0,0,0,.5); --glass: rgba(28,28,34,.72);
+  --hero-glow-teal: rgba(15,122,128,.20); --hero-glow-magenta: rgba(184,39,122,.09);
   --glass-edge: rgba(255,255,255,.08); --shadow: 0 24px 80px rgba(0,0,0,.18);
   --dialog-footer: #202024;
 }
