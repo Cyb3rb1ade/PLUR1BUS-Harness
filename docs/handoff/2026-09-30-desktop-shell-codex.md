@@ -1,7 +1,7 @@
 # Desktop app shell: handoff to Codex
 
 **Status:** Handoff brief · **Date:** 2026-09-30 · **Amended:** 2026-10-02 (owner decisions C13–C17 and C19–C22: §7.4,
-WP3, WP6, WP8, WP12, WP13; then C8, C9, C12: §3 rule 12, WP4, WP5, §6.2, §7.4, §8, §9; then the owner's follow-up: `pair-proof` decided, the SPA proxy — §3 rule 13, §4.1, §4.2, WP5, §7.4, §8) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
+WP3, WP6, WP8, WP12, WP13; then C8, C9, C12: §3 rule 12, WP4, WP5, §6.2, §7.4, §8, §9; then the owner's follow-up: `pair-proof` decided, the SPA proxy — §3 rule 13, §4.1, §4.2, WP5, §7.4, §8; then the loopback fallback decided, the company CA via pairing, the trust rollover — WP4, WP5, §8) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
 for OpenAI Codex · **Start prompt:** `docs/handoff/codex-start-prompt.md`.
 
 **Binding sources.** Read these; the ones marked *in full* must be read end to end.
@@ -638,8 +638,26 @@ follow the D1 plan where it has them, so Claude can map them.
   `pair_proof_pins_on_match_and_never_sends_the_code_on_mismatch`, `pair_proof_for_another_certificate_is_refused`,
   `os_trusted_origin_skips_pair_proof`, `the_pin_is_never_taken_from_a_typed_field`), against the mock with generated
   certificates.
+- **Company CA via pairing (owner 2026-10-02; spec §6.2 *Remote exposure* and *Pairing payload*):** `Connection.ca_pin`;
+  the pairing payload's `ca=sha256:…` (or `caPin` in the `pair-proof` answer, covered by the HMAC); the CA certificate
+  fetched from `GET /api/v1/devices/ca` and accepted only if its hash equals `ca_pin`; the verifier uses it as a trust
+  anchor **for this connection's origin only** (normal chain, host-name and validity checks; never added to the OS),
+  alongside the OS store. The app never stores a CA file of its own. `ClientError::CaNotKnown` when a company-CA
+  certificate arrives without a usable `ca_pin`. Extend the mock (WP2) with a generated CA, a leaf it issues and the
+  `devices/ca` route. Out of D1: the admin upload the app forwards to the harness (needs the M3 admin API; D2).
+  Accept: `company_ca_pin_is_anchor_for_this_origin_only`, `ca_from_devices_ca_endpoint_must_match_ca_pin`,
+  `leaf_renewed_by_same_ca_needs_no_repair`, `company_ca_without_ca_pin_is_ca_not_known`.
+- **Trust rollover (owner 2026-10-02; spec §6.2 *Trust rollover*):** the client takes a *next* pin (`nextCertPin` /
+  `nextCaPin`) **only** from `GET /api/v1/devices/trust` or the SSE event `devices.trust.next`, over the current,
+  already-verified connection with the device token; stores it beside the current pin; acks with
+  `POST /api/v1/devices/trust/ack`; accepts current or next until the switch, then next becomes current. Mock: a
+  staged change and a switch. Accept: `next_trust_is_taken_only_over_the_current_pinned_connection_with_token`,
+  `current_or_next_accepted_until_switch`, `next_becomes_current_after_switch`, `missed_rollover_is_cert_changed`.
 - **Pointers:** §6.1, §6.2, DS4, DS6 (amended 2026-10-02); D1 plan Tasks 8 and 9, DR27; boards `DskB-Connections-*`
-  (list, add-remote, add-error, repair, revoked, no-keychain; *Add error* to be redrawn for C8).
+  (list, add-remote, add-error, repair, revoked, no-keychain, and since 2026-10-02 `cert-changed`, `ca-untrusted`,
+  `ca-review`, `ca-not-ca`, `ca-expired`, `ca-added`, `trust-next`; `ca-review` and the refusals belong to the D2 admin
+  upload — in D1 draw only the states the client can reach: `cert-changed`, `ca-untrusted` without the admin card,
+  `ca-added`, `trust-next`).
 
 ### WP5 — SPA window: incognito, ticket login, navigation guard, `spa-bridge` *(first)*
 
@@ -662,8 +680,9 @@ follow the D1 plan where it has them, so Claude can map them.
   WKWebView and WebKitGTK: SSE streaming and WebSocket through the custom protocol (Tauri's responder is expected to
   buffer whole bodies and no engine to route WebSocket upgrades to a custom scheme — both unverified), latency budget
   (proxy overhead p95 ≤ 5 ms on loopback, first SSE event unbuffered), the page's `Origin`, CSP `'self'`, and how Tauri
-  classifies the custom-scheme page for the capability. If SSE or WebSocket cannot pass on a target, report before
-  building the loopback fallback (spec §6.2). Accept: the plan Task 13 `spa_proxy` list.
+  classifies the custom-scheme page for the capability. If SSE or WebSocket cannot pass on a target, that target uses the
+  loopback fallback (spec §6.2; decided by the owner 2026-10-02 — ephemeral `127.0.0.1` port, per-launch secret on
+  every request, `Host`/`Origin` checked; **no** Tauri IPC transport) and you report the spike result in the WP report. Accept: the plan Task 13 `spa_proxy` list.
 - **Pointers:** DS3, DS5, DS6, DS7, §6.2 *SPA proxy*, §6.9; D1 plan Task 13, DR27; acceptance 8a, 10, 10a and 11.
 
 ### WP6 — App lifecycle: single instance, windows, tray, quit, autostart, logging, crash *(first)*
@@ -1386,7 +1405,7 @@ M3), and Claude closes those.
 | 6 | Host CLI (`--help` local, forwarded `--json` byte for byte) | — / WP13 (`target.json`) | forwarder is Task 10, out |
 | 7 | Host bridge: locked until the app reconnects; switch off stays locked; ungranted capability refused | WP9 | mock; full after Task 2 |
 | 8 | Remote pairing by code; non-loopback `http://` refused before any request | WP4, WP5 | mock; full after M3 |
-| 8a | Pinned self-signed remote (C8): pin from `pair-proof`, changed or unpinned certificate refused before any code or token is sent; the SPA reaches it only through the SPA proxy | WP4, WP5 | mock with generated certificates; full after M3 |
+| 8a | Pinned self-signed remote (C8): pin from `pair-proof`, changed or unpinned certificate refused before any code or token is sent; the SPA reaches it only through the SPA proxy; company CA pinned from the pairing and trust rollover without re-pairing (2026-10-02) | WP4, WP5 | mock with generated certificates; full after M3 |
 | 9 | Revoke → pairing screen, keychain entry gone | WP4, WP6 | mock |
 | 10 | SPA can call `shell_info` only; other origin or navigated page refused; foreign links open externally | WP5 | full (shell-side) |
 | 10a | SPA proxy: every connection kind through `plur1bus-harness://`; SSE and `/ws` through the proxy (or the approved fallback); 403 for other webviews; no `Authorization`/device token; only the connection's origin; empty webview cookie store; overhead within budget | WP5 | full (shell-side) against the mock |
