@@ -1145,18 +1145,25 @@ Status: IN PROGRESS — mandatory D1 Task13 Step0 native transport spike first.
 Branch: feat/desktop-shell-wp05-spa-proxy.
 Base: feat/desktop-shell-wp04-connections at a1f0029f055efa77d4331ca815fc999644fc0277; #64 ready/unmerged.
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT.
-Published checkpoint: 182cbc8d5994b5753eb5442e28d04eb9652b1f07.
-Published checkpoint CI: root 37021651156 completed SUCCESS in attempt2;
-desktop PR 37021651202 completed FAILURE because both Windows native processes
-failed at startup. The push runs 37021631131/37021629460 retain the same source.
-Root attempt1: macOS15/Python3.13 job110885955033 failed unchanged HM2
+Published checkpoint: b95902928a18f74042c67a972078c4681b4983a7.
+Current exact-head CI: root37030629835 SUCCESS on the first attempt; desktop
+PR37030630045 completed FAILURE because both Windows native processes failed
+before main. All three WK/GTK native collections completed, and all 14 diagnostic
+seam tests passed on the five targets. Windows helper round0 also timed out after
+12 seconds, without phase/machine/module/symbol answers. No missing DLL/procedure
+has been identified on either hosted target. Next diagnostic work persists public
+phase checkpoints and partial validated answers before selecting a runtime fix.
+
+Earlier checkpoint182cbc8: root37021651156 completed SUCCESS in attempt2;
+desktop PR37021651202 and push37021631131/37021629460 failed both Windows starts.
+Earlier root attempt1: macOS15/Python3.13 job110885955033 failed unchanged HM2
 `test_shutdown_counts_what_it_cannot_journal` at test_provider.py:707:
 2.316702416 seconds versus its <2.3 assertion. Log:
 `/tmp/wp05-spike-root-ci-mac-python.log`. Desktop source does not edit this
 test/provider. Scheduling sensitivity is an inference. After the complete
 attempt, one targeted unchanged job retry was executed; both outcomes are
 retained, with no source/threshold weakening.
-Root attempt2 completed SUCCESS: targeted replacement macOS job110895661346
+Earlier root attempt2 completed SUCCESS: targeted replacement macOS job110895661346
 passed; all other root jobs passed in attempt1. Exact182cbc8 root is GREEN
 with the first inherited timing failure retained transparently.
 Starting head: a1f0029. Step0 diagnostics implemented; production WP5 is unfinished.
@@ -1172,9 +1179,10 @@ Step0 source commits: 4b868e1 (diagnostics) and c782a41 (native CI/status).
 Independent review: spec PASS and task quality APPROVED for Step0 source freeze;
 no Critical/Important findings. Reviewer independently checked raw WK data/hash,
 p95 arithmetic and supported pinned wrapper source. Five exact-target runtime
-observations remain a completion gate. Minor M1: Windows currently repeats the
-mapped WS attempt in both diagnostic fields; correct literal/mapped distinction
-before final WP5 measurements. Desktop covering gates: 135 workspace tests PASS,
+observations remain a completion gate. Minor M1 at the earlier freeze: Windows repeated the mapped WS attempt in both
+diagnostic fields. Commit95d3f84 now distinguishes literal custom URI and mapped
+WebSocket target, with two behavioral probe tests; native Windows remeasurement
+is still pending. Desktop covering gates: 135 workspace tests PASS,
 one existing real-keychain opt-in ignore, two fixture tests PASS, 47 UI tests
 PASS, fmt/clippy/UI build/native locked debug build PASS. Non-native gate stdout
 was retained in worker tool sessions, not saved as raw files; this limitation is
@@ -1217,8 +1225,8 @@ original process status and writes `native-startup.json`, actual import metadata
 resolved DLL paths/hashes/architecture and missing export/ordinal observations.
 API-set mapping and transitive imports are covered; helper search/architecture
 limitations are reported rather than presented as child-loader proof. No CRT,
-dependency or production change is guessed. Windows helper runtime is NOT RUN
-locally and the particular missing DLL/procedure remains unknown until new CI.
+dependency or production change is guessed. At this source freeze Windows helper
+runtime was NOT RUN locally; the hosted missing DLL/procedure remains unknown.
 Covering gates PASS: ten Node diagnostics, 135 Rust workspace tests/one existing
 keychain ignore, two fixtures, fmt/clippy, and real WK collection with main marker.
 All new gate stdout is saved under `/tmp/wp05-windows-diagnostics-logs/`; controller
@@ -1243,6 +1251,70 @@ Actionlint and diff hygiene PASS. Native WK collection with the unchanged Rust
 main marker remains the previously observed local result; no new Windows runtime
 result is claimed. Publication of the reviewed diagnostic checkpoint follows;
 exact-head Windows CI remains a required next step.
+
+Current hosted artifacts at b959029 confirm both native failures before main and
+both helper timeouts, with 26 requested DLLs/357 symbols per query. All five
+artifacts are verified under `/tmp/wp05-native-ci-37030630045-kTa8Z8/`; Windows
+provides requested imports, not identified missing exports. The next diagnostic
+task retains flushed public phase and completed module/symbol facts on timeout.
+
+Additional local Windows11 ARM VM probes (10.0.26200.9457, separate from hosted CI):
+same-source empty-query helper through ScriptBlock completed in 1.333s, machine
+43620/architecture matched. A scoped Common-Controls lookup completed in 1.361s:
+local DLL5.82 did not export `TaskDialogIndirect` (Win32 error127), while the other
+three requested subclass functions resolved. No export was invoked; temporary
+profile/cache and system DLL metadata only. Logs: `/tmp/wp05-windows-arm-{empty-helper-scriptblock,comctl-helper}-probe.log`.
+Local `-File` execution was blocked by its unchanged Restricted policy; direct
+ScriptBlock execution changed no policy/registry. Full-query transfer failed in
+Parallels' execution interface and never supplied symbol observations.
+
+Concrete prerequisite hypothesis: the diagnostic example imports
+`TaskDialogIndirect`, which requires Common-Controls6; the pinned resource producer
+links Tauri's default manifest only to regular binaries. Link the same generated
+resource to examples, preserving production/CRT/pins, then require genuine native
+Windows CI to confirm. Local DLL observations and pinned source inspection do not
+prove the failed hosted child's loader context. Production WP5/WP6 remain unstarted.
+
+New reviewed source checkpoint: phase retention8771a42, manifest/M1
+95d3f84, and scoped phase identity fix a07768f. The helper flushes bounded public
+phase/module/symbol records; a 12-second timeout retains only a validated prefix,
+without fabricating facts or changing the original native failure. Independent
+phase review found Important I1: name '#9' and ordinal9 shared an identity key.
+The original implementer fixed all shared key uses with a discriminated key and
+four behavioral regressions. Covering result: 29 PASS/one unavailable-Windows
+skip on macOS; raw RED/GREEN evidence `/tmp/wp05-windows-phases-i1/`.
+Scoped rereview: spec PASS, quality APPROVED; Important I1 and workflow-path
+W1 resolved, no open findings. No actual new-helper Windows pass is claimed.
+
+The example manifest fix links only Tauri's existing generated MSVC resource.lib
+into Rust examples. Missing/directory/symlink artifacts fail explicitly; production
+binary resource handling and private CRT shim remain unchanged. Native manifest
+acceptance remains Windows-CI-only. Five added build-link tests plus three existing
+CRT checks PASS; literal/mapped probe tests 2 PASS. Independent manifest package
+review: spec PASS, quality APPROVED, no Critical/Important/Minor findings. Its
+source/check evidence is saved under `/tmp/wp05-example-manifest-logs/`.
+Desktop fmt/locked clippy/tests PASS (140 passed, one existing real-keychain
+opt-in ignore); two fixture tests PASS. Fresh actual isolated WKWebView collector
+exit0: custom SSE1504/1504ms and no custom WS handler; loopback SSE2/1504ms,
+WS9ms, p95 overhead3ms/100pairs, both10MiB bodies correct. Windows startup is
+still a hypothesis pending actual CI, independent of this WK observation.
+
+Fresh controller root install/check/gen/build/lint and tests PASS:567 Node tests,
+five existing skips plus29 lint checks; Rust fmt/clippy/workspace1036 PASS/one
+existing ignore. UI47 PASS, locked native main debug build PASS. Logs:
+`/tmp/wp05-manifest-phase-{root-node,root-rust,ui,native-main}.log`.
+Final root lint (29) and the exact corrected CI Node invocation PASS after the
+phase source fix:32 total/31 PASS (29 diagnostics + two probe tests)/one Windows
+unavailable skip; `/tmp/wp05-manifest-phase-final-node.log`. Integration review
+found an omitted src-tauri segment in the initial workflow test path; corrected
+before publication, no native test was skipped. Desktop workflow
+runs both Node diagnostic/probe suites before actual native collection on all five
+targets; no native requirement is skipped. Actionlint1.7.12 and diff hygiene PASS.
+PR63/64 were freshly verified OPEN/READY at unchanged7aeebbf/a1f0029; main remains
+6a7d656. This report/integration commit follows both independent reviews and
+fresh local Green. New exact-head CI remains pending publication; the published
+b959 results above are historical evidence, not a pass for this checkpoint.
+Production Task13 and WP6 have not started.
 
 Five-target native CI is arranged in the existing desktop workflow, with isolated
 profiles, fixture tests, Linux Xvfb and raw native observations uploaded for seven
