@@ -77,7 +77,8 @@ fn strip_reporting(value: &HeaderValue) -> Result<HeaderValue, ()> {
 #[derive(Clone)]
 pub struct SpaProxy {
     inner: Arc<Inner>,
-    reservation: Arc<std::net::TcpListener>,
+    lifetime: Arc<()>,
+    port: u16,
 }
 impl SpaProxy {
     /// Start with the same already-prepared origin-bound client as native API calls.
@@ -91,11 +92,12 @@ impl SpaProxy {
         listener
             .set_nonblocking(true)
             .map_err(|_| ClientError::Network)?;
-        let origin = crate::connections::Origin::parse(&format!(
-            "http://{}",
-            listener.local_addr().map_err(|_| ClientError::Network)?
-        ))
-        .map_err(|_| ClientError::Protocol)?;
+        let port = listener
+            .local_addr()
+            .map_err(|_| ClientError::Network)?
+            .port();
+        let origin = crate::connections::Origin::parse(&format!("http://127.0.0.1:{port}"))
+            .map_err(|_| ClientError::Protocol)?;
         let mut random = [0; 32];
         rand::rng().fill_bytes(&mut random);
         let user_agent =
@@ -113,10 +115,12 @@ impl SpaProxy {
             #[cfg(debug_assertions)]
             observed_secrets: Mutex::new(Vec::new()),
         });
-        let serving = tokio::net::TcpListener::from_std(
-            listener.try_clone().map_err(|_| ClientError::Network)?,
-        )
-        .map_err(|_| ClientError::Network)?;
+        // On Windows, handing Tokio a duplicated std listener leaves the two
+        // socket handles in a state where accepts can stall. Move the original
+        // listener into Tokio; the serving task retains the port for the full
+        // process lifetime, including after this handle is retired.
+        let serving =
+            tokio::net::TcpListener::from_std(listener).map_err(|_| ClientError::Network)?;
         let router = Router::new()
             .fallback(any(forward))
             .with_state(inner.clone());
@@ -125,7 +129,8 @@ impl SpaProxy {
         });
         Ok(Self {
             inner,
-            reservation: Arc::new(listener),
+            lifetime: Arc::new(()),
+            port,
         })
     }
     /// Owned error pages use the same saved language and theme as the local shell.
@@ -183,15 +188,12 @@ impl SpaProxy {
     }
     /// Reserved port (retired origins cannot be leased again by this process).
     pub fn port(&self) -> u16 {
-        self.reservation
-            .local_addr()
-            .expect("bound listener")
-            .port()
+        self.port
     }
 }
 impl Drop for SpaProxy {
     fn drop(&mut self) {
-        if Arc::strong_count(&self.reservation) == 1 {
+        if Arc::strong_count(&self.lifetime) == 1 {
             self.retire();
         }
     }

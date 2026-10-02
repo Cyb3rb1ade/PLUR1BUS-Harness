@@ -714,8 +714,10 @@ async fn dropped_proxy_fails_closed_and_secret_is_rejected_in_external_targets()
     assert!(!proxy.has_launch_secret_in_target("https://foreign.test/"));
     let ua = proxy.user_agent().to_owned();
     let url = proxy.origin().as_str().to_owned();
+    let port = proxy.port();
     drop(proxy);
     drop(f);
+    assert!(std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).is_err());
     assert_eq!(
         reqwest::Client::new()
             .get(url)
