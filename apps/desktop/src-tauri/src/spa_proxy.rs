@@ -7,14 +7,14 @@ use crate::{
 use axum::{
     body::Body,
     extract::{State, WebSocketUpgrade},
-    http::{header, HeaderMap, HeaderValue, Request, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, Request, StatusCode},
     response::{IntoResponse, Response},
     routing::any,
     Router,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use futures_util::{SinkExt, StreamExt};
-use rand::RngCore;
+use rand::{rngs::OsRng, TryRngCore};
 use reqwest::cookie::{CookieStore, Jar};
 use std::{
     borrow::Cow,
@@ -55,7 +55,7 @@ fn shell_response(kind: &'static str, body: Cow<'static, str>) -> Response {
 fn proxy_csp(origin: &crate::connections::Origin) -> String {
     let port = origin.as_str().rsplit(':').next().unwrap();
     format!(
-        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:{port} ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:{port}; img-src 'self' data:; font-src 'self'; media-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
     )
 }
 
@@ -99,7 +99,10 @@ impl SpaProxy {
         let origin = crate::connections::Origin::parse(&format!("http://127.0.0.1:{port}"))
             .map_err(|_| ClientError::Protocol)?;
         let mut random = [0; 32];
-        rand::rng().fill_bytes(&mut random);
+        let mut os_rng = OsRng;
+        os_rng
+            .try_fill_bytes(&mut random)
+            .map_err(|_| ClientError::Network)?;
         let user_agent =
             SecretString::new(format!("PLUR1BUS-SPA/1 {}", URL_SAFE_NO_PAD.encode(random)));
         let (shutdown, _) = tokio::sync::watch::channel(false);
@@ -216,6 +219,7 @@ fn singleton_header(
     values.next().is_none() && value.to_str().ok() == Some(expected)
 }
 fn authorized(req: &Request<Body>, s: &Inner) -> bool {
+    let origin_optional = req.method() == Method::GET || req.method() == Method::HEAD;
     s.active.load(Ordering::SeqCst)
         && singleton_header(
             req.headers(),
@@ -232,7 +236,12 @@ fn authorized(req: &Request<Body>, s: &Inner) -> bool {
                 .expect("bound HTTP listener"),
             false,
         )
-        && singleton_header(req.headers(), header::ORIGIN, s.origin.as_str(), true)
+        && singleton_header(
+            req.headers(),
+            header::ORIGIN,
+            s.origin.as_str(),
+            origin_optional,
+        )
 }
 
 fn hop_header(name: &str, headers: &HeaderMap) -> bool {
@@ -527,6 +536,7 @@ async fn forward(
                 name.as_str(),
                 "set-cookie" | "location" | "reporting-endpoints" | "report-to" | "nel"
             )
+            && !name.as_str().starts_with("access-control-")
         {
             if name == header::CONTENT_SECURITY_POLICY
                 || name.as_str() == "content-security-policy-report-only"
