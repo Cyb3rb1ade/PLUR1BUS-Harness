@@ -1,5 +1,6 @@
 //! Native desktop shell. Harness services are introduced by later work packages.
 pub mod ids;
+pub use plur1bus_desktop_contract as contract;
 
 /// Start the shell with no application IPC commands or native plugins enabled.
 pub fn run() {

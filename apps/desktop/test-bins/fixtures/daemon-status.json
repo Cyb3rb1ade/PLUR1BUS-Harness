@@ -1,0 +1,1 @@
+{"schema":"daemon.status/1","supervisor":{"process":{"state":"stopped"}},"children":[],"service":{"registered":false,"running":false,"manager":"systemd","name":"p1t-synthetic-service","path":"/p1t/synthetic/service"}}

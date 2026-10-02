@@ -13,6 +13,7 @@ name = "plur1bus_desktop"
 tauri-build = { version = "=2.7.0", features = [] }
 
 [dependencies]
+plur1bus-desktop-contract = { path = "../desktop-contract", version = "=0.1.0" }
 tauri = { version = "=2.12.0", features = [] }
 
 [dev-dependencies]

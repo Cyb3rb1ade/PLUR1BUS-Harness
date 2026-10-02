@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["src-tauri"]
+members = ["src-tauri", "mock-harness", "test-bins", "desktop-contract"]

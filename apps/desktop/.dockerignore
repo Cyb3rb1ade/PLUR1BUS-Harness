@@ -1,0 +1,17 @@
+target/
+**/target/
+node_modules/
+**/node_modules/
+ui/
+src-tauri/icons/
+src-tauri/capabilities/
+.git/
+**/.git/
+*.log
+*.pem
+*.key
+*.p12
+*.p8
+*.pfx
+*.keystore
+*.oci.tar

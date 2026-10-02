@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "node scripts/tauri.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.0"
