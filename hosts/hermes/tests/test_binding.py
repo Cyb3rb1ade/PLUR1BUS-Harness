@@ -183,7 +183,15 @@ class BindingTest(unittest.TestCase):
         self.assertEqual(read_registry(p1home), {})
         # Released while register_binding waits: it proceeds and removes its own lock afterwards.
         binding_mod.REGISTRY_LOCK_TIMEOUT_S = 5.0
-        threading.Timer(0.2, os.unlink, args=(path,)).start()
+        def unlink_retrying() -> None:  # Windows: a waiter's open() makes a plain unlink fail with a sharing error
+            for _ in range(200):
+                try:
+                    os.unlink(path)
+                    return
+                except PermissionError:
+                    time.sleep(0.01)
+
+        threading.Timer(0.2, unlink_retrying).start()
         register_binding(p1home, "hermes-x", home)
         self.assertEqual(read_registry(p1home), {"hermes-x": os.path.realpath(home)})
         self.assertFalse(os.path.exists(path), "the lock file is removed on release")
@@ -229,6 +237,31 @@ class BindingTest(unittest.TestCase):
         # Younger than 1 s: the dead pid is not enough yet.
         self._plant_lock(p1home, p.pid, socket.gethostname(), 0)
         self.assertIsNone(lock._judge_stale())
+
+    def test_release_never_raises_when_the_moved_file_cannot_be_removed(self) -> None:
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        lock = ExclusiveLockFile(path)
+
+        def failing_unlink(_p: str) -> None:
+            raise PermissionError(13, "denied")
+
+        lock._unlink = failing_unlink  # type: ignore[method-assign]
+        # Own nonce -> unlink fails: the body's exception is not masked, and nothing escapes on success.
+        with self.assertRaises(ValueError):
+            with lock.hold(1):
+                raise ValueError("body")
+        with lock.hold(1):
+            pass
+        # Foreign nonce (stolen) -> put-back path; its unlink fails too: still no exception, the new lock stays.
+        foreign = f"4242 {socket.gethostname()} {int(time.time() * 1000)} {'ab' * 16}\n"
+        with lock.hold(1):
+            os.unlink(path)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(foreign)
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), foreign)
+        self.assertTrue(any(".rel-" in n for n in os.listdir(os.path.dirname(path))), "left to the sweep")
 
     def test_failed_break_waits_and_times_out(self) -> None:
         p1home = self._dir("p")
@@ -488,12 +521,13 @@ class BindingTest(unittest.TestCase):
         # holder already inside logs L before its X.
         inside: list[str] = []
         must_lose: set[str] = set()
+        refused: set[str] = set()  # logged L in its current section: it writes nothing, never re-flagged
         entries = deaths = lost = 0
         with open(log, encoding="utf-8") as f:
             for line in f:
                 tag, pid = line.split()
                 if tag == "E":
-                    must_lose.update(inside)
+                    must_lose.update(h for h in inside if h not in refused)
                     inside.append(pid)
                     entries += 1
                 elif tag in ("X", "D"):
@@ -501,11 +535,13 @@ class BindingTest(unittest.TestCase):
                     if tag == "X":  # a dying holder (D) writes nothing either way
                         self.assertNotIn(pid, must_lose, f"double entry: {pid} overlapped another holder and verified")
                     must_lose.discard(pid)
+                    refused.discard(pid)
                     inside.remove(pid)
                     deaths += tag == "D"
                 elif tag == "L":
                     self.assertIn(pid, inside)  # verify() refused the write: safe
                     must_lose.discard(pid)
+                    refused.add(pid)
                     lost += 1
                 else:
                     self.fail(f"unexpected log entry {line!r}")
