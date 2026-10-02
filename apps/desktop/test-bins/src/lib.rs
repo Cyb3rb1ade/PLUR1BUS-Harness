@@ -30,6 +30,12 @@ pub fn run(kind: &str) -> ! {
     if let Err(error) = record(&argv) {
         fail("E_RECORD", &error.to_string());
     }
+    let args: Vec<&str> = argv.iter().map(String::as_str).collect();
+    let classified = if kind == "container" {
+        None
+    } else {
+        Some(exec::classify(&args).unwrap_or_else(|| fail("E_ARGV", "unsupported argv")))
+    };
     if let Ok(file) = env::var("PLUR1BUS_FAKE_SCENARIO") {
         let scenario = fs::read(&file)
             .ok()
@@ -46,8 +52,7 @@ pub fn run(kind: &str) -> ! {
     if kind == "container" {
         fail("E_ARGV", "unsupported container argv")
     }
-    let args: Vec<&str> = argv.iter().map(String::as_str).collect();
-    let result = match exec::classify(&args) {
+    let result = match classified {
         Some(Command::DaemonStatus) => {
             serde_json::from_str(include_str!("../fixtures/daemon-status.json")).unwrap()
         }

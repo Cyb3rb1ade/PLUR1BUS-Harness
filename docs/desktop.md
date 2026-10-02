@@ -27,7 +27,8 @@ It does not yet connect the empty WP1 window to the mock. WP4 adds the
 connection flow; WP5 adds the SPA window and native `shell_info` bridge.
 For a standalone
 server, run `cargo run --locked -p plur1bus-mock-harness -- --port 18700`
-from `apps/desktop`; bind defaults to loopback. The test-only pairing endpoint
+from `apps/desktop`; bind defaults to loopback, and public binds are refused
+outside the stub image's explicit `PLUR1BUS_CONTAINER=1` mode. The test-only pairing endpoint
 is absent by default. For a scratch test, add `--test-control`, then call
 `POST /__test/pair` with a known-scope body. `pnpm tauri dev` enables this seam
 for its local fake CLI. Approval decision calls additionally need a debug build

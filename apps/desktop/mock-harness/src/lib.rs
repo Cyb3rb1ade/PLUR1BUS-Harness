@@ -2,9 +2,10 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Path, Query, State,
+        ConnectInfo, Path, Query, Request, State,
     },
     http::{header, HeaderMap, StatusCode},
+    middleware::{self, Next},
     response::{Html, IntoResponse, Response, Sse},
     routing::{get, post},
     Json, Router,
@@ -229,7 +230,12 @@ impl MockHarness {
         *shared.origin.lock().unwrap() = Some(origin.clone());
         let serving = shared.clone();
         let task = tokio::spawn(async move {
-            let _ = axum::serve(listener, router(serving, options.test_control)).await;
+            let _ = axum::serve(
+                listener,
+                router(serving, options.test_control)
+                    .into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await;
         });
         Ok(MockHandle {
             origin,
@@ -428,12 +434,24 @@ fn router(shared: Arc<Shared>, test_control: bool) -> Router {
         .route("/", get(spa))
         .route("/auth/ticket", get(spa));
     if test_control {
-        router = router
+        let controls = Router::new()
             .route("/__test/pair", post(test_pair))
             .route("/__test/revoke", post(test_revoke))
-            .route("/__test/failure", post(test_failure));
+            .route("/__test/failure", post(test_failure))
+            .route_layer(middleware::from_fn(loopback_test_control));
+        router = router.merge(controls);
     }
     router.with_state(shared)
+}
+async fn loopback_test_control(request: Request, next: Next) -> Response {
+    let loopback_peer = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .is_some_and(|ConnectInfo(peer)| peer.ip().is_loopback());
+    if !loopback_peer {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    next.run(request).await
 }
 fn hash(value: &str) -> String {
     format!("{:x}", Sha256::digest(value.as_bytes()))
@@ -962,4 +980,65 @@ async fn test_failure(State(s): State<Arc<Shared>>, Json(body): Json<TestFailure
 }
 async fn spa() -> Html<&'static str> {
     Html(include_str!("spa.html"))
+}
+
+#[cfg(test)]
+mod control_peer_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_control_routes_refuse_non_loopback_connection_peers() {
+        let server = MockHarness::start(MockOptions {
+            test_control: true,
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+        for (route, body) in [
+            ("/__test/pair", json!({})),
+            ("/__test/revoke", json!({"device_id":"synthetic"})),
+            ("/__test/failure", json!({"step":"smoke"})),
+        ] {
+            let mut request = Request::builder()
+                .method("POST")
+                .uri(route)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap();
+            request
+                .extensions_mut()
+                .insert(axum::extract::ConnectInfo(SocketAddr::new(
+                    IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)),
+                    50000,
+                )));
+            let response = router(server.control.shared.clone(), true)
+                .oneshot(request)
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::FORBIDDEN, "{route}");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_control_routes_refuse_missing_peer_metadata() {
+        let server = MockHarness::start(MockOptions {
+            test_control: true,
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/__test/pair")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from("{}"))
+            .unwrap();
+        let response = router(server.control.shared.clone(), true)
+            .oneshot(request)
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
 }

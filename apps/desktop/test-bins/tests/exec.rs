@@ -5,7 +5,9 @@ fn fake_plur1bus_records_argv_and_returns_scenario_document() {
     let dir = tempfile::tempdir().unwrap();
     let scenario = dir.path().join("scenario.json");
     let record = dir.path().join("argv.jsonl");
-    fs::write(&scenario, r#"{"commands":[{"argv":["daemon","status","--json"],"exit":0,"stdout":{"schema":"daemon.status/1","supervisor":"running","children":[]}}]}"#).unwrap();
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../fixtures/daemon-status.json")).unwrap();
+    fs::write(&scenario, serde_json::json!({"commands":[{"argv":["daemon","status","--json"],"exit":0,"stdout":fixture}]}).to_string()).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_fake-plur1bus"))
         .args(["daemon", "status", "--json"])
         .env("PLUR1BUS_FAKE_SCENARIO", &scenario)
@@ -15,6 +17,8 @@ fn fake_plur1bus_records_argv_and_returns_scenario_document() {
     assert!(output.status.success());
     let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(doc["schema"], "daemon.status/1");
+    assert!(doc["supervisor"].is_object());
+    assert!(doc["service"].is_object());
     let calls: Vec<serde_json::Value> = fs::read_to_string(record)
         .unwrap()
         .lines()
@@ -24,6 +28,22 @@ fn fake_plur1bus_records_argv_and_returns_scenario_document() {
         calls,
         vec![serde_json::json!(["daemon", "status", "--json"])]
     );
+}
+
+#[test]
+fn scenario_cannot_override_fake_plur1bus_argv_allowlist() {
+    let dir = tempfile::tempdir().unwrap();
+    let scenario = dir.path().join("scenario.json");
+    fs::write(&scenario, r#"{"commands":[{"argv":["unknown","--json"],"exit":0,"stdout":{"schema":"unexpected/1"}}]}"#).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_fake-plur1bus"))
+        .args(["unknown", "--json"])
+        .env("PLUR1BUS_FAKE_SCENARIO", scenario)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(doc["schema"], "error/1");
+    assert_eq!(doc["code"], "E_ARGV");
 }
 
 #[test]

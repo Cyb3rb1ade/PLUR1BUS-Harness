@@ -53,7 +53,9 @@ only the conditional SPA-side call.
 Every supported command emits one JSON document with a top-level `schema`; errors
 emit `error/1`. `fake-plur1bus` matches these exact argv shapes and rejects unknown
 argv. Test scenario files can override a command with a matching `argv`, `exit`,
-and `stdout` document. `fake-container` has scenario responses only.
+and `stdout` document, but cannot introduce a new `fake-plur1bus` argv shape.
+`fake-container` has scenario responses only and keeps its separate test-case
+flexibility.
 
 | argv | Schema |
 |---|---|
@@ -78,8 +80,13 @@ read-only. The test-only `POST /__test/pair`,
 `/__test/revoke`, and `/__test/failure` routes connect the separate fake CLI to
 the server. They are absent unless `--test-control` or
 `PLUR1BUS_DESKTOP_TEST_CONTROL=1` is set. These routes must never be exposed by a
-production harness. `pnpm tauri dev` opts in for its local fake CLI; the stub
-image does not enable them by default.
+production harness. Even when opted in, they reject non-loopback connection
+peers, including callers through a published stub-image port. Missing peer
+metadata is refused as well. `pnpm tauri dev`
+opts in for its local fake CLI; the stub image does not enable them by default.
+The standalone binary binds loopback by default and refuses any non-loopback
+`--bind`; only `0.0.0.0` is allowed when `PLUR1BUS_CONTAINER=1` explicitly marks
+the test stub container.
 
 State under `--state-dir` contains installation ID, device token hashes and
 metadata, session/ticket hashes, and the secret-store `provisioned` flag. Raw

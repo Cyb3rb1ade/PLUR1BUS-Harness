@@ -24,6 +24,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     options.test_control |= std::env::var("PLUR1BUS_DESKTOP_TEST_CONTROL").as_deref() == Ok("1");
     options.approvals_decide |=
         std::env::var("PLUR1BUS_DESKTOP_APPROVALS_DECIDE").as_deref() == Ok("1");
+    let stub_mode = std::env::var("PLUR1BUS_CONTAINER").as_deref() == Ok("1");
+    if !(bind.is_loopback() || (stub_mode && bind == IpAddr::V4(Ipv4Addr::UNSPECIFIED))) {
+        return Err(
+            "non-loopback bind requires stub container mode; only 0.0.0.0 is allowed".into(),
+        );
+    }
     options.bind = SocketAddr::new(bind, port);
     let handle = MockHarness::start(options).await?;
     println!("{}", handle.origin);

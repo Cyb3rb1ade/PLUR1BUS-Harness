@@ -4,6 +4,73 @@ use plur1bus_mock_harness::{MockHarness, MockOptions};
 use serde_json::{json, Value};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
+#[test]
+fn standalone_cli_rejects_public_bind_without_stub_mode() {
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus-mock-harness"))
+        .args(["--bind", "0.0.0.0", "--port", "0"])
+        .env_remove("PLUR1BUS_CONTAINER")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut still_running = true;
+    for _ in 0..40 {
+        if child.try_wait().unwrap().is_some() {
+            still_running = false;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    if still_running {
+        child.kill().unwrap();
+    }
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        !still_running,
+        "standalone mock accepted wildcard bind: executable={}, stdout={}, stderr={}",
+        env!("CARGO_BIN_EXE_plur1bus-mock-harness"),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("stub container mode"));
+}
+
+#[test]
+fn stub_mode_rejects_any_public_bind_except_ipv4_wildcard() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus-mock-harness"))
+        .args(["--bind", "192.0.2.1", "--port", "0"])
+        .env("PLUR1BUS_CONTAINER", "1")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("only 0.0.0.0"));
+}
+
+#[test]
+fn stub_mode_starts_ipv4_wildcard_listener() {
+    use std::io::BufRead;
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus-mock-harness"))
+        .args(["--bind", "0.0.0.0", "--port", "0"])
+        .env("PLUR1BUS_CONTAINER", "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let (send, receive) = std::sync::mpsc::channel();
+    let reader = std::thread::spawn(move || {
+        let mut line = String::new();
+        let _ = std::io::BufReader::new(stdout).read_line(&mut line);
+        let _ = send.send(line);
+    });
+    let origin = receive.recv_timeout(std::time::Duration::from_secs(3));
+    let _ = child.kill();
+    child.wait().unwrap();
+    reader.join().unwrap();
+    assert!(origin.unwrap().starts_with("http://0.0.0.0:"));
+}
+
 async fn paired(server: &plur1bus_mock_harness::MockHandle, scopes: &[&str]) -> Value {
     let code = server.control.create_pair_code_with_scopes(scopes);
     reqwest::Client::new()

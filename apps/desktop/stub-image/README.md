@@ -20,6 +20,9 @@ container and volume names, labels each object `app.plur1bus.test=<run id>`,
 uses the desktop read-only/user/tmpfs/capability rules, verifies the host publish
 address, checks `/api/v1/meta`, executes `plur1bus daemon status --json`, checks
 the fixture, times a graceful stop, and removes only its own objects.
+The image sets `PLUR1BUS_CONTAINER=1` so the mock can bind `0.0.0.0` inside the
+container. A standalone mock process without that marker accepts loopback
+binds only. Test-control routes, if enabled, still require a loopback peer.
 
 The standalone binary can be run with `--port`, `--bind`, and `--state-dir`.
 Default bind is loopback. In tests, `MockHarness::start(MockOptions)` gives a
