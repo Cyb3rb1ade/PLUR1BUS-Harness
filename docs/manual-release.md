@@ -149,7 +149,7 @@ yet.
       release's `SHA256SUMS` and the feed's `bootstrap` hashes.
 - [ ] Promotion beta to stable re-signs **identical bytes**: publish the same feed content under the stable name and
       sign it with the stable key; never edit it.
-- [ ] Trust model: the plugin bootstrap verifies the feed's minisign signature itself, with Node, before it trusts any
+- [ ] Trust model: the add-on bootstrap verifies the install feed's minisign signature itself, with Node, before it trusts any
       URL or hash in the feed (HM1-R3). The harness one-liner (`install.sh`/`install.ps1`) still does not (HB19); it
       relies on HTTPS plus SHA-256 and `plur1bus update --check` verifies the signature afterwards.
 
