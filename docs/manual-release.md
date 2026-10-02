@@ -167,16 +167,21 @@ from the plugin repository's `scripts/dist/hermes-sidecar.lock.json`, so the har
 
 - [ ] Harness release done and its Hermes artefacts attested (section 3). The release's `hermes-sidecar.lock.json` lists the
       sidecar binary per target and the provider tarball with URL and SHA-256.
+- [ ] **Set the tested Hermes version.** The feed's `minHermesVersion` and `testedHermesVersion` are read from the lock
+      file itself. The release job (`harness-release.yml`) has no input for it and does not pass `--tested-hermes`, so the
+      lock it produces says `testedHermesVersion: "0.21.4"`, the same as the minimum. Raise it by hand to the latest Hermes
+      version you actually ran the `hermes-host.yml` legs against: either regenerate the lock from the downloaded
+      artefacts with `node scripts/build-hermes-provider.mjs lock --artifacts <dir> --base-url <url> --out <file> --tested-hermes <version>`,
+      or edit `testedHermesVersion` in the copy before committing it. Check that `minHermesVersion` is `0.21.4` (HM2-R22).
 - [ ] **Bump the lock.** Copy that file to `scripts/dist/hermes-sidecar.lock.json` in the plugin repository, review the diff
-      (versions, URLs, hashes against this release's `SHA256SUMS`), and commit it. The Hermes `min` and `tested` versions in
-      the feed come from the plugin repository's own settings (minimum `0.21.4`, HM2-R22; `tested` is the latest Hermes tag
-      at release time).
+      (versions, URLs, hashes against this release's `SHA256SUMS`, the two Hermes versions above), and commit it.
 - [ ] **Then release the plugin** as in section 6 (dry run, tag `v7.18.0`, sign offline, publish). The installer bundle's
       pinned Node (24.21.0, `scripts/dist/node-pins.json`) must still equal the harness's Node pin (`pins.rs`); the plugin's
       `node-pins` CI check compares it with nodejs.org `SHASUMS256.txt`.
 - [ ] Native Windows stays labelled beta (feed `hosts.hermes.windowsNativeBeta: true`) until the Windows legs of
-      `hermes-host.yml` and the plugin's `plugin-dist.yml` have been green for four weeks; flipping it means re-signing the
-      feed (plan Q7).
+      `hermes-host.yml` and the plugin's `plugin-dist.yml` have been green for four weeks (plan Q7). The feed builder only
+      carries the previous feed's value forward (`true` for the first feed); no option flips it yet, so ending the beta
+      label needs a change to the feed builder, and re-signing alone does nothing.
 - [ ] **Before the first real release:** the `real-hermes` Windows leg of `hermes-host.yml` is `continue-on-error` until its
       first green run, and the plugin's Hermes legs stay non-blocking until a harness pre-release carrying the sidecar
       binaries exists (plan P4, Q8: cut it on the `beta` channel, signed offline as above).
