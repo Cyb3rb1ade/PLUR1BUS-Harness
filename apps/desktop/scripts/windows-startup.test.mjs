@@ -524,3 +524,90 @@ test('an oversized record discards its tail and out-of-scope paths are redacted 
   assert.equal(batch.modules[0].metadataStatus, 'resolved-path-outside-fixture-system-runtime-scope');
   for (const file of readdirSync(fixture.root)) assert.equal(readFileSync(join(fixture.root, file), 'utf8').includes('outside-private-profile'), false);
 });
+
+test('a named #9 answer is rejected for an ordinal 9 request while the valid prefix survives', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Prefix' }, { ordinal: 9 }] }]);
+  stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'),
+    symbolObservation('probe.dll', { name: 'Prefix' }, true), symbolObservation('probe.dll', { name: '#9' })]);
+  const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const saved = fixture.artifact('loader-exports');
+  assert.equal(saved.batches[0].progressStatus, 'partial-invalid-record');
+  assert.deepEqual(saved.batches[0].modules[0].symbols, [{ name: 'Prefix', found: true, error: null }]);
+  assert.deepEqual(saved.findings, []);
+  const progress = readFileSync(join(fixture.root, 'native-loader-progress-0.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.deepEqual(progress.filter(record => record.type === 'symbol').map(record => record.name), ['Prefix']);
+  assert.equal(report.diagnostics.status, 'partial-helper-failed');
+  assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+});
+
+test('an ordinal 9 answer is rejected for a named #9 request while the valid prefix survives', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'Prefix' }, { name: '#9' }] }]);
+  stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'),
+    symbolObservation('probe.dll', { name: 'Prefix' }, true), symbolObservation('probe.dll', { ordinal: 9 })]);
+  const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const saved = fixture.artifact('loader-exports');
+  assert.equal(saved.batches[0].progressStatus, 'partial-invalid-record');
+  assert.deepEqual(saved.batches[0].modules[0].symbols, [{ name: 'Prefix', found: true, error: null }]);
+  assert.deepEqual(saved.findings, []);
+  const progress = readFileSync(join(fixture.root, 'native-loader-progress-0.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.deepEqual(progress.filter(record => record.type === 'symbol').map(record => record.name), ['Prefix']);
+  assert.equal(report.diagnostics.status, 'partial-helper-failed');
+  assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+});
+
+test('name #9 and ordinal 9 coexist through query deduplication, progress duplicate checks and answer lookup', t => {
+  for (const nameFound of [true, false]) {
+    const symbols = [{ name: '#9' }, { ordinal: 9 }, { name: '#9' }, { ordinal: 9 }];
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols }, { dll: 'probe.dll', symbols }]);
+    stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'),
+      symbolObservation('probe.dll', { ordinal: 9 }, !nameFound), symbolObservation('probe.dll', { name: '#9' }, nameFound),
+      phase('module-end', { dll: 'probe.dll' })]);
+    const run = fixture.deps.spawnSync;
+    let query;
+    fixture.deps.spawnSync = (...args) => {
+      query = JSON.parse(readFileSync(args[1].at(-1), 'utf8'));
+      return run(...args);
+    };
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    assert.equal(query.modules.length, 1);
+    assert.deepEqual(query.modules[0].symbols, [{ name: '#9' }, { ordinal: 9 }]);
+    assert.equal(query.modules[0].importers.length, 2);
+    const saved = fixture.artifact('loader-exports');
+    assert.equal(saved.batches[0].progressStatus, 'validated');
+    assert.equal(saved.batches[0].modules[0].observationComplete, true);
+    assert.deepEqual(saved.batches[0].modules[0].symbols, [
+      { name: '#9', found: nameFound, error: nameFound ? null : 127 },
+      { ordinal: 9, found: !nameFound, error: nameFound ? 127 : null },
+    ]);
+    assert.deepEqual(saved.findings.map(fact => ({ name: fact.name, ordinal: fact.ordinal, found: fact.found })),
+      [nameFound ? { name: undefined, ordinal: 9, found: false } : { name: '#9', ordinal: undefined, found: false }]);
+    assert.equal(report.diagnostics.status, 'partial-helper-failed');
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+  }
+});
+
+test('completed helper answers match name #9 and ordinal 9 separately in either success direction', t => {
+  for (const nameFound of [true, false]) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: '#9' }, { ordinal: 9 }] }]);
+    let query;
+    fixture.deps.spawnSync = (_, args) => {
+      query = JSON.parse(readFileSync(args.at(-1), 'utf8'));
+      return { status: 0, stdout: JSON.stringify({ schema: 1, machine: 0x8664, modules: [{ dll: 'probe.dll',
+        resolvedPath: 'C:\\Windows\\System32\\probe.dll', symbols: [
+          { ordinal: 9, found: !nameFound, error: nameFound ? 127 : null },
+          { name: '#9', found: nameFound, error: nameFound ? null : 127 },
+        ] }] }) };
+    };
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    assert.deepEqual(query.modules[0].symbols, [{ name: '#9' }, { ordinal: 9 }]);
+    const saved = fixture.artifact('loader-exports');
+    assert.deepEqual(saved.batches[0].modules[0].symbols, [
+      { name: '#9', found: nameFound, error: nameFound ? null : 127 },
+      { ordinal: 9, found: !nameFound, error: nameFound ? 127 : null },
+    ]);
+    assert.equal(saved.findings.length, 1);
+    assert.equal(saved.findings[0].name, nameFound ? undefined : '#9');
+    assert.equal(saved.findings[0].ordinal, nameFound ? 9 : undefined);
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+  }
+});

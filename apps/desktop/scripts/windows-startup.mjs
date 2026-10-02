@@ -7,7 +7,8 @@ import { parsePe } from './windows-pe.mjs';
 
 export const MAIN_MARKER = 'PLUR1BUS_NATIVE_SPIKE_MAIN_ENTERED';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const keyOf = symbol => symbol.name == null ? `#${symbol.ordinal}` : symbol.name;
+// PE names such as '#9' are distinct from ordinal 9 at every evidence boundary.
+const keyOf = symbol => JSON.stringify(symbol.name == null ? ['ordinal', symbol.ordinal] : ['name', symbol.name]);
 const publicCode = code => typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code) ? code : null;
 const windowsPathWithin = (path, root) => {
   const relative = win32.relative(root, path);
