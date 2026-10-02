@@ -2,6 +2,37 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { withShell } from "./browser-harness.ts";
 
+for (const overlay of ["dialog", "sheet"] as const) {
+  for (const update of ["OS theme", "late native load"] as const) {
+    test(`${overlay} returns focus to its opener after ${update} rerenders the shell`, async () => {
+      await withShell(async page => {
+        if (update === "late native load") {
+          await page.addInitScript(() => { (window as any).__fixtureBoot = { deferLoad: true, locale: "de-DE" }; });
+          await page.reload();
+        }
+        await page.emulateMedia({ colorScheme: "light" });
+        await page.evaluate(() => (window as any).testShell.navigate("settings"));
+        const opener = page.locator(`[data-focus-key="${overlay === "dialog" ? "preferences-help" : "related"}"]`);
+        await opener.focus();
+        await page.keyboard.press("Enter");
+        assert.equal(await page.getByRole("dialog").count(), 1);
+        if (update === "OS theme") {
+          await page.emulateMedia({ colorScheme: "dark" });
+          await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
+        } else {
+          await page.evaluate(() => (window as any).testShell.completeLoads());
+          await page.waitForFunction(() => document.documentElement.lang === "de");
+        }
+        await page.keyboard.press("Escape");
+        // Native dialog close events are queued after its open flag is cleared.
+        await page.locator(overlay === "dialog" ? ".app-dialog" : ".sheet").waitFor({ state: "detached" });
+        assert.equal(await page.getByRole("dialog").count(), 0);
+        assert.equal(await opener.evaluate(node => node === document.activeElement), true);
+      });
+    });
+  }
+}
+
 test("simultaneous overlays retain unique accessible title references", async () => {
   await withShell(async page => {
     await page.evaluate(() => (window as any).testShell.openRepeatedOverlays());

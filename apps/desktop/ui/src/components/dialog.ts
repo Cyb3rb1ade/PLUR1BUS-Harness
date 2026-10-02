@@ -1,4 +1,4 @@
-import { element, append } from "./dom.ts";
+import { element, append, restoreFocus } from "./dom.ts";
 import { button } from "./button.ts";
 
 export function openDialog(title: string, body: string, closeLabel: string, confirmLabel: string): void {
@@ -15,7 +15,7 @@ export function openDialog(title: string, body: string, closeLabel: string, conf
   append(footer, ...(affirmativeFirst ? [confirm, cancel] : [cancel, confirm]));
   append(dialog, heading, copy, footer);
   document.body.append(dialog);
-  dialog.addEventListener("close", () => { dialog.remove(); opener?.focus(); }, { once: true });
+  dialog.addEventListener("close", () => { dialog.remove(); restoreFocus(opener); }, { once: true });
   dialog.addEventListener("keydown", event => {
     if (event.key !== "Tab") return;
     const first = affirmativeFirst ? confirm : cancel;
