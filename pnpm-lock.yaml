@@ -51,8 +51,8 @@ importers:
   packages/core:
     dependencies:
       '@cyb3rb1ade/plur1bus-memory':
-        specifier: git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#b0e149b861686eeeb18e0852c53bffe1e7de24b9
-        version: git+https://git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git#b0e149b861686eeeb18e0852c53bffe1e7de24b9
+        specifier: git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#09a70e8ac164b04a64275197a255c2dc3b0e5e07
+        version: git+https://git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git#09a70e8ac164b04a64275197a255c2dc3b0e5e07
       '@plur1bus/config-schema':
         specifier: workspace:*
         version: link:../config-schema
@@ -113,8 +113,8 @@ packages:
     resolution: {integrity: sha512-60vepv88RwcJtSHrD6MjIL6Ta3SOYbgfnkHb+ppAVK+o9mXprRtulx7VlRl3lN3bbvysAfCS7WMVfhUYemB0IQ==}
     engines: {node: '>= 16'}
 
-  '@cyb3rb1ade/plur1bus-memory@git+https://git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git#b0e149b861686eeeb18e0852c53bffe1e7de24b9':
-    resolution: {commit: b0e149b861686eeeb18e0852c53bffe1e7de24b9, repo: git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git, type: git}
+  '@cyb3rb1ade/plur1bus-memory@git+https://git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git#09a70e8ac164b04a64275197a255c2dc3b0e5e07':
+    resolution: {commit: 09a70e8ac164b04a64275197a255c2dc3b0e5e07, repo: git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git, type: git}
     version: 7.16.11
     engines: {node: '>=24.16.0 <25 || >=26.1.0'}
 
@@ -911,7 +911,7 @@ snapshots:
       '@types/json-schema': 7.0.15
       js-yaml: 4.3.2
 
-  '@cyb3rb1ade/plur1bus-memory@git+https://git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git#b0e149b861686eeeb18e0852c53bffe1e7de24b9':
+  '@cyb3rb1ade/plur1bus-memory@git+https://git@github.com:Cyb3rb1ade/openclaw-plur1bus-memory.git#09a70e8ac164b04a64275197a255c2dc3b0e5e07':
     dependencies:
       '@lancedb/lancedb': 0.26.2(apache-arrow@18.1.0)
       apache-arrow: 18.1.0
