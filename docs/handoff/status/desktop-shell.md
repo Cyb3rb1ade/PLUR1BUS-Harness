@@ -1150,13 +1150,27 @@ Originally stacked onWP4a1f0029; authorized normal forward merge06062a7
 includes new main. Main tree equalsa1f0029 and merge tree equals90724e6: no
 source change from that integration. DraftPR65 retargeted main; no rebase/force-push.
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT.
-Published checkpoint:30130892ea2bdd06c71c3375c81282482c91c54e.
-Current exact-head CI: root37038396217/desktopPR37038396244/push37038389656
-are queued/in progress. Root attempt1 MacPythonjob110942156709 failed the
-unchanged HM2 shutdown timing test at2.340257375s versus<2.3s; raw/sanitized
-logs `/tmp/wp05-manifest-phase-root-ci-mac-python-job{,-raw}.log`. No code or
-threshold changes. One targeted unchanged retry is planned only after workflow
-completion; both outcomes will be retained. New Windows measurements are pending.
+Published checkpoint:71c17e83825547f647ce94f78c454716f81be999.
+Current exact-head CI: root37042429783/desktopPR37042429764/push37042423712
+root37042429783 completed SUCCESS in attempt2 after one targeted unchanged
+MacPython retry; desktopPR37042429764 completed FAILURE solely at the
+separate Windows helper suites. Both Windows native children now exit0, reach main and deliver
+actual transport JSON; the manifest prerequisite correction is confirmed on both
+architectures. Their desktop jobs remain FAILED because separate diagnostic
+helper tests time out at the recorded input-parse-begin boundary. This is not an
+actual native startup failure. Root71 MacPythonjob110955558862 failed the unchanged
+HM2 shutdown timing test at2.348887333s versus<2.3s; raw/sanitized logs
+`/tmp/wp05-round2-root-mac-python{,-raw}.log`. All other root jobs completed SUCCESS. Exactly one targeted unchanged retry
+was requested after the whole71 attempt completed; attempt2 completed SUCCESS.
+No code or threshold was changed.
+
+Earlier301 root37038396217 attempt1 completed FAILURE solely at unchanged
+MacPythonjob110942156709 (2.340257375s versus<2.3s). Exactly one targeted
+unchanged retry was requested after the entire workflow completed; attempt2
+completed SUCCESS. All other jobs passed in attempt1. Raw/sanitized first-failure logs remain
+`/tmp/wp05-manifest-phase-root-ci-mac-python-job{,-raw}.log`. Desktop301 includes
+skipped actual native launches after helper test failures; these do not establish
+native Windows startup behavior. All earlier outcomes remain retained.
 
 Earlier checkpointb959029 exact-head CI: root37030629835 SUCCESS on the first attempt; desktop
 PR37030630045 completed FAILURE because both Windows native processes failed
@@ -1410,3 +1424,68 @@ Install/check/gen/build/fmt/clippy and desktop workspace stdout additionally
 retained in controller tool sessions; not every command's stdout was file-saved.
 Main integration changes only Git ancestry; both before/after tree comparisons
 are empty. No production Task13 or WP6 implementation has begun.
+
+### Published71 native evidence and remaining helper boundary
+
+Primary run37042429764, exacthead71c17e8: collector checked GitHub artifact ZIP
+SHA256 against API digest and source head. Controller independently checked all
+32 downloaded file sizes/SHA256 across all five available targets. Verified index:
+`/tmp/wp05-native-ci-37042429764-RvyqQZ/verified-artifact-index.json`.
+
+| Actual native target | Artifact | Custom SSE arrival (ms) | Loopback SSE arrival (ms) | Loopback p95 overhead (ms,100 pairs) |
+|---|---|---|---|---|
+| WebView2 x64 / windows-2025 |11243541756|1507.2 /1507.2|3.2 /1511.7|0.9|
+| WKWebView / macos-15 |11243541257|1506 /1506|2 /1505|2|
+| WebView2 ARM64 / windows-11-arm |11243428417|1505.4 /1505.4|3.8 /1503|1.3|
+| WebKitGTK ARM64 / ubuntu-24.04-arm |11243336101|1504 /1504|3 /1504|2|
+| WebKitGTK x64 / ubuntu-24.04 |11243878265|1503 /1503|1 /1502|2|
+
+GTKx64 current-head measurement is complete. Every actual native
+collection has a rejected literal custom-scheme WebSocket, a failed separately
+mapped ws URL, zero custom /ws handler calls and successful loopback WebSocket
+echo. Both10MiB downloads are byte-correct, CSP self loads/foreign blocks, custom
+page capability is local and loopback capability is remote. Public UA marker is
+observed on GET/POST/SSE/WS; loopback GET/SSE may omit Origin, while POST/WS send
+its exact origin. This establishes spike transport properties only; production
+session/cookie/caller/secret isolation acceptance remains NOT RUN.
+
+Windows actual native children exit0/mainEntered:true. Separate genuine-helper
+and injected New-Object fault tests instead record script-entry, input-read-begin,
+input-read-end, input-parse-begin and then ETIMEDOUT at12s; no parse-end/machine/
+module facts were supplied. Their synthetic0xC0000139/mainEntered:false fixtures
+are not app launches. This establishes the boundary, not an internal JSON-parser
+root cause. Original implementer runtime fix round3 compares controlled system
+prerequisites while preserving temporary profiles, system-only module lookup and
+12s/45s bounds. No timeout widening or failure masking. Production Task13 and
+WP6 remain unstarted pending the spike and diagnostic review.
+
+### Windows helper system-module boundary — sourcea0d4c84, pre-publication
+
+Original implementer runtime fix round3/5 adds literal Utility-module-begin/end
+around the existing system PSHOME Utility manifest import, preserving injected
+commands with NoClobber, before the existing JSON body phase. This distinguishes
+module loading from parser work; no Windows cause or environment fix is claimed.
+A Windows-conditional exact-PowerShell known-JSON probe compares minimal isolated
+environment with a constructed system-only PATH/ComSpec/SystemDrive/WINDIR/
+ProgramFiles whitelist. Both outcomes are written before assertion; a timeout or
+missing parser result still fails. No arbitrary inherited environment/user paths.
+
+Local ARM VM: three new bounded transport attempts failed before the child JSON
+probe executed, then stopped. No minimal/whitelisted comparison result exists.
+Raw commands/probes/evidence: `/tmp/wp05-windows-phases-system-env/`. Fixed
+Windows system-module/probe execution remains NOT RUN on this macOS host and
+will be observed on published-head CI. Existing12s helper/45s scheduling bounds
+remain unchanged; source does not change CRT, dependencies or product behavior.
+
+Source-frozen exact combined Node CI command:37total/34 PASS/three explicit
+Windows-unavailable macOS skips. RED import-phase parser case reproduced first;
+source syntax checks, final lint29/actionlint/whitespace passed. Logs:
+`/tmp/wp05-phase-round3-final-{node,lint}.log`. Fresh root install/check/gen/build/
+lint/test all exit0 (session45815; not every stdout file-saved), rootRust1036PASS/
+one existing ignore, desktopRust140PASS/one opt-in real-keychain ignore, native
+fixtures2PASS, UI/a11y/layout47PASS and serial locked native main compile PASS.
+Saved `/tmp/wp05-phase-round3-{root-rust,desktop-rust,desktop-fixtures,ui,native-main}.log`.
+The compiled app was not launched. Root/desktop test inputs stay isolated.
+Independent scoped review71c17e8..a0d4c84:spec PASS,quality APPROVED,no findings;
+reviewer verified26 evidence hashes/three reconstructed source hashes. No full Windows helper or
+production session acceptance is claimed. Main5962e82 was fetched unchanged.
