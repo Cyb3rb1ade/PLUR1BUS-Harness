@@ -94,12 +94,15 @@ This follow-up commit records verification only.
 
 ## WP2 — Provisional mock harness, fake binaries and stub image
 
-Status: LOCAL GREEN, REVIEW APPROVED — final CI remains.
+Status: GREEN — implementation, independent review and full CI passed at `ad6f0f7`.
 Branch: `feat/desktop-shell-wp02-mock-harness`.
-PR: [#60](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/60), draft, base `main`.
+PR: [#60](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/60), base `main`.
+Ready-for-review transition follows the report-only commit's CI; no merge authorized.
 Original verified head: `5c5038281c6597d18f38d9d78cb0c2a0554f7666`.
 Part A implementation head: `8131a85f2a3df916a2cdd839b5da0401f3ae60e9`
 (initial fixes `7517ccc`, independent-review fixes `8131a85`).
+Verified PR head: `ad6f0f735ef5a77e5ad96d044620bf32a4683627`.
+This final report-only commit records observed results and changes no implementation.
 Main integration: `d33961b` merged as `90e0706025eb0b7a7621fd71f4755e61a2054d3b`
 on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
 
@@ -184,24 +187,34 @@ on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
   reproduced by regression tests before correction. Independent scoped
   re-review at `8131a85` approved all three fixes, with no new critical or
   important issue and no out-of-scope observation.
-- Fresh CI at report head `3c514b9`: Docker and Podman stub smoke PASS in
+- Fresh CI at report head `3c514b9`: all five desktop targets and Docker/Podman
+  stub smoke PASS in
   [desktop CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36947221960).
-  The five desktop targets and
-  [root CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36947225578)
-  are still running. Further review fixes require verification on their new head.
+  All root unit, system and service jobs PASS in
+  [root CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36947225578).
+- PASS at final verified head `ad6f0f7`: all five desktop build/package targets
+  and both Linux runtime smoke jobs in
+  [desktop PR CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36948367257).
+  All root unit, system and service jobs in
+  [root CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36948367260)
+  passed. No rerun was needed for this head.
 
-### Acceptance matrix (Part A implementation head; awaiting fresh CI)
+### Acceptance matrix (CI head `ad6f0f7`, implementation `8131a85`)
+
+CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
+`ubuntu-24.04-arm`. All Rust test steps passed in
+[desktop CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36948367257).
 
 | Acceptance | Local macOS arm64 | CI targets |
 |---|---|---|
-| `mock_meta_is_unauthenticated` | PASS | Pending all five desktop targets |
-| `redeem_is_single_use` | PASS | Pending all five desktop targets |
-| `ticket_single_use_and_60s` | PASS | Pending all five desktop targets |
-| `events_requires_events_read` | PASS | Pending all five desktop targets |
-| `bridge_requires_bridge_serve` | PASS | Pending all five desktop targets |
-| `frames_over_64k_close` | PASS | Pending all five desktop targets |
-| `revoked_device_gets_401_device_revoked` | PASS | Pending all five desktop targets |
-| Stub image build, restricted run, loopback meta, fixture exec, stop under 150 s | Not run: Docker daemon unavailable, Podman absent | Pending Linux Docker and Podman |
+| `mock_meta_is_unauthenticated` | PASS | PASS, all five targets |
+| `redeem_is_single_use` | PASS | PASS, all five targets |
+| `ticket_single_use_and_60s` | PASS | PASS, all five targets |
+| `events_requires_events_read` | PASS | PASS, all five targets |
+| `bridge_requires_bridge_serve` | PASS | PASS, all five targets |
+| `frames_over_64k_close` | PASS | PASS, all five targets |
+| `revoked_device_gets_401_device_revoked` | PASS | PASS, all five targets |
+| Stub image build, restricted run, loopback meta, fixture exec, stop under 150 s | Not run: Docker daemon unavailable, Podman absent | PASS, Linux Docker and Podman |
 
 ### Defaults, deviations and remaining limits
 
@@ -227,6 +240,6 @@ on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
 - [x] Include desktop TypeScript in root typechecking.
 - [x] Fresh local root and desktop gates.
 - [x] Independent review and scoped fix verification.
-- [ ] Full CI at final head; update this report.
-- [ ] Mark PR #60 ready for review after all gates pass; owner merges.
+- [x] Full CI at final implementation/report head `ad6f0f7`; record results here.
+- [ ] Await this report-only commit's CI, then mark PR #60 ready; owner merges.
 - [ ] Start WP3, then WP4–WP6, only after the previous WP is green.
