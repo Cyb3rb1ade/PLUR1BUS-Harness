@@ -1,6 +1,6 @@
 {
   "identifier": "shell-ui",
-  "description": "Bundled shell; no native commands are granted in WP1.",
+  "description": "Bundled shell preferences and platform information.",
   "local": true,
   "windows": [
     "shell"

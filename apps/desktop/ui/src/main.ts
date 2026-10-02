@@ -1,2 +1,4 @@
-// The shell frame and its accessible navigation arrive in WP3.
-export {};
+import { createShell } from "./shell.ts";
+import { nativeTransport } from "./ipc.ts";
+
+createShell(document.body, nativeTransport);

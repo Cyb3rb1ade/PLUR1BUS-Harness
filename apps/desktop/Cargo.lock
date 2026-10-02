@@ -2541,9 +2541,11 @@ name = "plur1bus-desktop"
 version = "0.1.0"
 dependencies = [
  "plur1bus-desktop-contract",
+ "serde",
  "serde_json",
  "tauri",
  "tauri-build",
+ "tempfile",
 ]
 
 [[package]]

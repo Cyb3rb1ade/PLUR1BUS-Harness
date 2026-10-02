@@ -43,7 +43,7 @@ fn min_window_is_800x600() {
     assert_eq!(windows[0]["visible"], false);
 }
 #[test]
-fn shell_capability_grants_no_native_commands() {
+fn shell_capability_is_local_only() {
     let c: Value = serde_json::from_str(include_str!("../capabilities/shell-ui.json")).unwrap();
     assert_eq!(c["permissions"], serde_json::json!([]));
     assert_eq!(c["local"], true);

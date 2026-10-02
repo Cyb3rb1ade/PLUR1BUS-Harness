@@ -1,10 +1,17 @@
 //! Native desktop shell. Harness services are introduced by later work packages.
+pub mod commands;
 pub mod ids;
+pub mod settings;
 pub use plur1bus_desktop_contract as contract;
 
-/// Start the shell with no application IPC commands or native plugins enabled.
+/// Start the shell with the three settings and app-information commands.
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            commands::app_info,
+            commands::settings_get,
+            commands::settings_set
+        ])
         .on_page_load(|webview, payload| {
             if webview.label() == "shell"
                 && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
