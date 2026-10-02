@@ -7,7 +7,7 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 test('ticket failure is accessible, responsive, and has 44px Retry and Copy log controls',async()=>{
   const routes:Record<string,{kind:string,bytes:Buffer}>={};
-  for(const [url,name,kind] of [['/','ticket-error.html','text/html'],['/__shell/error.css','ticket-error.css','text/css'],['/__shell/error.js','ticket-error.js','text/javascript']] as const)routes[url]={kind,bytes:readFileSync(new URL('../src/views/'+name,import.meta.url))};
+  for(const [url,name,kind] of [['/','ticket-error.html','text/html'],['/__shell/theme.css','../src/theme/tokens.css','text/css'],['/__shell/error.css','ticket-error.css','text/css'],['/__shell/error.js','ticket-error.js','text/javascript']] as const)routes[url]={kind,bytes:readFileSync(new URL(name.startsWith('../')?name:'../src/views/'+name,import.meta.url))};
   const server=createServer((req,res)=>{const url=new URL(req.url??'/', 'http://test');const asset=routes[url.pathname];if(!asset){res.writeHead(404).end();return}res.setHeader('content-type',asset.kind);res.end(url.pathname==='/'?asset.bytes.toString().replace('data-theme="system"',`data-theme="${url.searchParams.get('theme')??'system'}"`).replace('data-locale="system"',`data-locale="${url.searchParams.get('locale')??'system'}"`):asset.bytes);});
   await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();assert(address&&typeof address!=='string');
   const browser=await chromium.launch({headless:true});

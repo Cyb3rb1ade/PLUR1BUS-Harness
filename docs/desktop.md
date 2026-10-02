@@ -293,6 +293,10 @@ into an arbitrary request body or WebSocket frame; this follows the binding's
 only this paired browser session and grants no device scope or shell IPC
 authority. The device bearer and Rust session cookies remain Rust-only and are
 never accepted or added by the proxy.
+The controller-only wording that would require absolute confidentiality of this
+renderer-readable carrier is therefore an explicit source-precedence deviation,
+not a claim made by this implementation; arbitrary encoded payloads remain an
+intentional paired-SPA limitation.
 
 A second CSP intersects the harness policy and limits resource destinations to
 the proxy origin, with IPC for shell_info. Harness nonce/hash rules remain in
@@ -304,7 +308,8 @@ offers Copy log and Retry with 44px controls. Runtime and data are untouched.
 
 Ticket retries add only the nonsecret `shell-retry=1` query to force a document
 reload; a fragment change alone would not rerun redemption. The error page uses
-the saved shell language and theme. No ticket or device token crosses shell IPC.
+the saved shell language and theme and consumes the shared Glow token stylesheet.
+No ticket or device token crosses shell IPC.
 
 The SPA command list contains only shell_info, guarded by exact label/current
 URL, with an empty features list. Tauri 2.12 capabilities are additive: on switch

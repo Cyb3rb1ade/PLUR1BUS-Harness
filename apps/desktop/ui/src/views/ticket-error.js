@@ -1,4 +1,7 @@
 'use strict';
+if (document.documentElement.dataset.theme === 'system') {
+  document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 const locale = document.documentElement.dataset.locale;
 const german = locale === 'de' || (locale !== 'en' && navigator.language.toLowerCase().startsWith('de'));
 if (german) {

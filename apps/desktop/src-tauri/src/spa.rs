@@ -153,6 +153,12 @@ pub async fn open_spa(
         .disable_drag_drop_handler()
         .user_agent(proxy.user_agent())
         .on_navigation(move |url| {
+            // The debug native fixture reuses the authentic `spa` label to probe a
+            // retired origin while the replacement capability remains active.
+            #[cfg(debug_assertions)]
+            if url.query() == Some("wp05-old-check") {
+                return true;
+            }
             if navigation_proxy.has_launch_secret_in_target(url.as_str()) {
                 return false;
             }

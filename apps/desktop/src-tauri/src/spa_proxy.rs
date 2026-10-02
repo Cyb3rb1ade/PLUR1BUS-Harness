@@ -332,6 +332,10 @@ async fn forward(
                 "text/css; charset=utf-8",
                 std::borrow::Cow::Borrowed(include_str!("../../ui/src/views/ticket-error.css")),
             ),
+            "/__shell/theme.css" => (
+                "text/css; charset=utf-8",
+                std::borrow::Cow::Borrowed(include_str!("../../ui/src/theme/tokens.css")),
+            ),
             "/__shell/error.js" => (
                 "text/javascript; charset=utf-8",
                 std::borrow::Cow::Borrowed(include_str!("../../ui/src/views/ticket-error.js")),
