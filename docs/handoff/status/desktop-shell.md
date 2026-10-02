@@ -491,7 +491,7 @@ jobs and both 200-turn system soaks passed without reruns of these runs.
 
 ## WP4 — Connections, keychain and pairing
 
-Status: IN PROGRESS — implementation not yet verified.
+Status: IN PROGRESS — implementation `aef74f1`, fix `41f46fd`; full local gates PASS; scoped re-review PASS; CI pending.
 Branch: `feat/desktop-shell-wp04-connections`.
 Base: `feat/desktop-shell-wp03-ui-frame` at
 `87915bb45e75c0b7e7f00fe035b0a25ee22840fa`; PR #63 is green, draft and unmerged.
@@ -524,3 +524,173 @@ the real keychain. Bundled controller pairing remains WP8; opening the actual
 SPA remains WP5. WP4 may validate/select a connection without claiming a SPA
 window has opened. Provisional proof/CA/rollover details will be recorded in
 the shared mock contract before implementation is accepted.
+
+Protocol details approved for the provisional mock/client contract: Argon2id
+v19, 65536 KiB memory, 3 iterations, 1 lane, 32-byte output; 16-byte salt and
+32-byte nonces/proof with unpadded base64url encoding. No phone timing has
+been measured. The HMAC input preserves the owner's concatenation order:
+domain, canonical leaf fingerprint, optional company-CA fingerprint,
+normalized origin, client nonce, server nonce, using canonical UTF-8 strings.
+No extra length framing changes that expression. CA retrieval may select a
+known hash via `GET /devices/ca?pin=…`; current/next trust and exact-next ack
+fields will be explicit in `CONTRACT.md`. These wire details remain subject
+to M3 mapping; they do not change the owner's trust model.
+
+The specified nonce-only proof request has no code identifier. Provisional
+mock rule: one active proof offer per origin; issuing a newer code supersedes
+older proof offers. Older redemption codes may still work over already-trusted
+TLS. A wrong or superseded code fails proof locally and is not sent. M3 must
+settle concurrent proof offers; WP4 does not invent an additional request
+field or implement harness policy outside the mock.
+
+WP4 provides a bounded, authenticated `devices.trust.next` SSE consumer. An
+event triggers a fresh meta-checked trust GET, durable storage, then ack;
+event payloads cannot introduce pins independently. The persistent active-
+connection event loop and tray lifecycle remain WP6. WP4 does not claim a
+continuously subscribed native UI or startup keychain access.
+
+### Local gates and native check (implementation aef74f1)
+
+- Frozen pnpm install, toolchain check, generation/build and root lint PASS.
+- Root Node: 590 passed (including 25 UI), five existing platform skips;
+  hygiene self-tests 11 passed.
+- Root Rust fmt/clippy/tests PASS: 1,006 passed, one existing ignored test.
+- Desktop fmt/clippy/locked workspace tests PASS: 93 passed, one ignored
+  real-keychain round trip (explicit seam-only test constraint).
+- macOS debug app bundle PASS; ad-hoc signature, no notarization credentials.
+- Native macOS/WKWebView, synthetic loopback mock and isolated scratch profile:
+  Connections → Add remote → pair (three button actions, plus four text inputs),
+  memory-only notice shown; Open validates/selects and clearly states the SPA
+  is not available until the next WP. Rename persists. `connections.json` mode
+  is `0600`; app stdout/stderr empty. Explicit quit/relaunch with the same
+  scratch environment retains metadata but loses the memory token; Open then
+  requests repair. Repair locks name/origin and focuses the first code field.
+  App exit and disposal of this test's mock process were verified; no UI query
+  was made after quitting that could relaunch outside the scratch environment.
+- Native screenshots: [paired memory connection](img/wp04-native-memory-connection.png),
+  [repair after restart](img/wp04-native-repair.png), synthetic data only.
+- Manual observation awaiting review: Home still displays the WP3 empty
+  connections placeholder although Connections correctly displays a saved row.
+- Real keychain, Windows/Linux native manual flows, and actual screen readers
+  have not been exercised. AX-tree observations are not a screen-reader pass.
+
+Local logs: `/tmp/desktop-wp04-{preflight,root-node,root-rust,desktop-rust,native-build}.log`.
+CI and review results remain pending; no WP4 PR or push yet.
+
+### Acceptance matrix (local macOS, aef74f1)
+
+
+Paths below are relative to `apps/desktop/`.
+
+| Acceptance | Evidence |
+|---|---|
+| Exact origins, normalization/IDN/loopback only | `src-tauri/tests/connections.rs::origin_uses_shared_case_table`; `ui/test/pairing-model.test.ts` consumes the identical 27-case JSON file. Cases reject abbreviated/hex/octal/decimal IPv4, percent-host aliases, userinfo (including empty), dot-segment paths, bare query/fragment, whitespace and backslashes. |
+| Bundled/local/remote metadata and 0600 | `store_round_trips_all_three_connection_kinds`, `store_round_trips_and_writes_0600`. No bundled controller is implemented. |
+| Corrupt/unknown files kept aside | `corrupt_and_unknown_files_are_kept_aside`; `.corrupt-<milliseconds>-<uuid>` avoids collision overwrite. Closed serde structs cover nested data. |
+| Pin parser/persistence/type restriction | `cert_pin_round_trips_refuses_malformed_and_only_remote_https`. Stored pins canonical base64url SHA256; current cert/CA and next cert/CA are exclusive. |
+| Credential deletion before row removal; failure preserves row | `remove_keeps_the_row_when_token_delete_fails`, base store roundtrip/removal, plus `secrets.rs::removing_with_unavailable_persistent_store_keeps_row_but_current_memory_credential_can_be_removed`. |
+| Secret redaction, memory store, denied handling, fallback | Four focused secrets tests; no value-bearing assert_eq output. Token hints last4 only after HTTP token validation; <=4 helper inputs redact. |
+| Real keychain opt-in | Test present and ignored with explicit user-prohibition reason. **NOT RUN.** No real keychain credential inspection. |
+| Meta version + installation identity before bearer/code | `client.rs::meta_and_installation_identity_gate_bearer`, `unsupported_api_is_refused_before_bearer_and_errors_do_not_echo_server_data`, `pairing.rs::a_different_installation_at_the_origin_gets_no_code_or_token`. Request traces hold only route/auth-present boolean. Missing capability rejection is implemented in meta; no separate mock capability-removal test. |
+| Token only in TokenStore, never files/errors/IPC | `redeem_stores_the_token_in_the_token_store_only_and_revoked_removes_it`, recursive `tests/common::assert_no_token_on_disk`, `malformed_short_redemption_is_refused_without_persistence_or_secret_in_error`, command DTO inspection. Short redemption token rejected before persistence. |
+| Revocation cleanup | Pairing test checks credential deletion + persisted repair after whoami/trust/ticket; generated-TLS `revoked_on_trust_ack_removes_credential_and_marks_pairing_needed` revokes after authenticated GET trust and verifies ack failure clears just-stored token. SSE wrapper uses the same failure handler; distinct SSE401 test not separately run. |
+| Redirect refusal, response bounds | `client.rs::redirects_are_not_followed_and_bodies_are_bounded` drives a real TCP responder with 302 and oversized Content-Length. |
+| Insecure remote before network | `pair_code_rejects_insecure_remote_before_any_request`. |
+| Native stale/nonloopback/no-token-file discovery | `discover_ignores_stale_non_loopback_and_unknown_fields_and_never_opens_tokens`, plus existing WP2 discovery tests. PID and root injected in focused test; HTTP reachability and installation validated in native command. |
+| Fixed argv/native denied fallback | Injected `pair_local_spawns_fixed_args_and_parses_json_and_denied_falls_back`; actual process integration in `test-bins/tests/exec.rs::native_pairing_client_spawns_known_binary_fixed_argv_and_never_records_token`; browser denied-to-code test. |
+| Exact pinned leaf, changed cert, untrusted before HTTP | `tls.rs::pinned_origin_accepts_exactly_the_pinned_leaf_and_change_is_detected_before_http`, `unpinned_self_signed_is_untrusted_before_any_request`. Errors map to persisted repair in validate_connection; observed fingerprint is public metadata for repair details. |
+| Proof succeeds / relay mismatch never sends code | `pair_proof_pins_on_match_and_never_sends_the_code_on_relay_mismatch`, `substituted_ca_and_replaced_or_expired_offer_never_disclose_code`, `expired_proof_offer_never_sends_code`. Actual generated TLS servers; no redeem route observed after proof failure. |
+| OS trusted skips proof | `os_trusted_origin_skips_pair_proof_with_injected_roots_only`; injected generated CA, no OS root mutation. |
+| No typed pin | `the_pin_is_never_taken_from_a_typed_field` and `config.rs::every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_input`; no pin form field. |
+| Company CA origin scope, hash match, leaf renewal, unknown CA | `company_ca_verifies_normal_chain_and_renewal_and_refuses_substitution`, `company_ca_pin_is_scoped_to_the_connection_origin`; hostname failure is exercised, unknown company CA returns CaNotKnown, no CA files. CA structure/validity parser + normal rustls leaf-validity enforcement implemented; distinct expired-chain generated test not separately run. |
+| Authenticated next trust, both current/next, promotion, missed rollover | `rollover_cert_to_ca_and_ca_to_cert_is_authenticated_and_promoted` covers both directions, old/current use before switch, next after switch, promotion and missed change. `new_pairing_during_staged_rollover_stores_both_trusts_before_ack` verifies both are saved on initial pairing. |
+| Authenticated SSE source, event cannot independently inject trust | `authenticated_sse_trust_event_triggers_same_secure_sync`, `sse_event_cannot_inject_a_pin_detached_from_authenticated_trust_document` (all bearer trace entries preceded by meta). WP6 drives continuous subscription loop. |
+| Shared proof encoding / cross-side implementation | `desktop-contract::proof_tests::canonical_proof_matches_independently_framed_hmac_and_binds_every_field` includes canonical public expected HMAC vector, runtime-constructed test key, independent literal byte concatenation, origin/leaf substitution negatives; mock/native share contract functions. |
+| UI pairing table / i18n | pairing-model tests enumerate every error and retry target; existing catalogue test keeps equal nonempty DE/EN keys. |
+| UI reachable flows/accessibility/layout | Four `ui/test/connections.test.ts` browser tests cover pair/select/rename/remove, invalid HTTP, native denied fallback, revoked/cert/CA/proof errors, focus, axe DE/EN×light/dark at400px, target>=44, CA/trust-next details sheet and repair readonly fields. All original19 UI tests retained and green. |
+
+
+All listed automated cases passed locally unless the entry explicitly says
+not run. Five-target CI and independent review are still pending.
+
+### Additional deviations and remaining boundaries
+
+- The mock now generates eight uniformly selected Crockford-base32 code
+  characters (40 bits), displayed4+4, aligning the documented proof rationale.
+- Native `pair_local` is asynchronous rather than the plan's synchronous
+  pseudocode: bounded Tokio subprocess execution keeps the UI thread responsive.
+- Corrupt-file names include milliseconds plus UUID to avoid overwriting a
+  previous preserved corrupt file. Credential accounts retain `device-<uuid>`.
+- Keyring4.2.0 with only its `v1` feature selects native macOS/Windows/Secret
+  Service backends; real platform round trips remain unverified. Exact dependency
+  versions and the separate desktop lockfile are committed; root engine pin is
+  unchanged. No prohibited Tauri plugin was added.
+- Storage/client tests had observed RED→GREEN evidence. Several expanded TLS,
+  native and UI cases were added alongside implementation; an all-tests-first
+  TDD history is not claimed.
+- Canvas could not be opened; the owner's Glow-spec fallback was used. No
+  pixel-match claim. C8/C9/C22, exact origin restrictions and just-in-time
+  keychain access follow the current written decisions.
+- M3 must define concurrent proof offers and map provisional encodings/routes.
+  Company-CA admin upload remains D2; no real M3 API/server was added.
+
+### Next and incomplete work
+
+- [ ] Resolve independent WP4 review findings and perform scoped re-review.
+- [ ] Re-run checks affected by fixes, publish a draft PR and verify current-head
+      root plus all five desktop target CI results.
+- [ ] Begin WP5 only after WP4 is green; first perform the required custom-protocol
+      SSE/WebSocket spike and record each target's fallback decision.
+- [ ] WP6 tray/event lifecycle and D111 logs follow green WP5.
+
+### Independent review at aef74f1
+
+Spec compliance failed and code quality needs fixes. Three required corrections
+are in progress: persistent credential cleanup/provenance across memory-only
+repair; independent current-or-next CA preparation; Home/startup connection
+metadata integration. Passing local tests did not cover these paths.
+
+Four minor findings are retained for final branch review: code repair changes
+Local to Remote; success notice can outlive a failed Open/removal; the bounded
+SSE parser currently handles LF rather than valid CRLF framing; revoked repair
+state is not saved if keychain deletion itself fails. These are not silently
+closed by the current test pass.
+
+Fix ruling: version1 metadata gains credential provenance and an explicit pending
+keychain-cleanup obligation. Rows written before provenance existed default to
+legacy and require repair before loading a credential; cleanup remains pending
+until deletion or safe overwrite succeeds. This conservative upgrade may require
+one new pairing for existing rows, preventing a stale keychain sign-in from being
+silently reused. Newly created memory-only rows remain removable without a
+keychain. Required regression coverage includes old-version1 JSON and two injected
+credential stores; fix results are pending.
+
+### Fix round 1 — 41f46fd
+
+I1 credential provenance/cleanup, I2 independent trust candidates and I3 shared
+Home/startup metadata are implemented with focused regressions. Related M4 now
+saves revoked repair state before attempting credential deletion. Independent
+scoped re-review is pending. M1–M3 remain explicitly deferred to final review.
+
+Observed final local gates: root build/lint/test PASS (593 passed including28 UI,
+five existing skips, plus11 hygiene tests). Desktop fmt/clippy/locked tests PASS:
+99 passed, one explicitly ignored keychain round trip. Root Rust remains the
+earlier observed1006-pass/1-existing-ignore result; root Rust source/workspace
+did not change. Debug app bundle rebuilt successfully.
+
+One failed controller run is retained: overlapping Tauri bundle compilation and
+desktop tests yielded Rustdoc E0463, missing `tauri`, after99 behavior tests
+passed. The unchanged full desktop gate run serially passed including all
+doc-tests. This is consistent with shared build-artifact interference, not a
+proven source defect; subsequent build/test runs will be serialized. Logs:
+`/tmp/desktop-wp04-fix-desktop-rust.log` and `-serial.log`.
+
+Native macOS recheck with the same scratch legacy metadata: Home and top status
+show one saved connection immediately after startup, before visiting Connections.
+[Corrected Home screenshot](img/wp04-native-home-restored.png). No keychain
+access, empty app log; app exit verified without a post-quit UI query.
+
+Scoped re-review of `aef74f1..41f46fd`: I1/I2/I3/M4 ADDRESSED, no new
+Critical/Important breakage. M1–M3 remain recorded for final branch review.
+`origin/main` re-fetched before push: still `d33961b`; WP3 PR63 still unmerged.
+WP4 therefore remains stacked on `feat/desktop-shell-wp03-ui-frame`.
