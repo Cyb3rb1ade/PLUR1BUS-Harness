@@ -2,6 +2,18 @@
   "identifier": "shell-ui",
   "description": "Bundled shell preferences and platform information.",
   "local": true,
-  "webviews": ["shell"],
-  "permissions": ["allow-app-info", "allow-settings-get", "allow-settings-set"]
+  "webviews": [
+    "shell"
+  ],
+  "permissions": [
+    "allow-app-info",
+    "allow-settings-get",
+    "allow-settings-set",
+    "allow-connections-list",
+    "allow-connections-rename",
+    "allow-connections-remove",
+    "allow-pair-code",
+    "allow-pair-local",
+    "allow-open-connection"
+  ]
 }

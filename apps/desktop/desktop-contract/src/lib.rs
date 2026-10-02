@@ -183,3 +183,178 @@ mod tests {
         );
     }
 }
+
+/// Provisional M3 trust protocol. No server-selected KDF parameters are accepted.
+pub mod trust {
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    use hmac::{Hmac, Mac};
+    use serde::{Deserialize, Serialize};
+    pub const PAIR_PROOF: &str = "/api/v1/devices/pair-proof";
+    pub const CA: &str = "/api/v1/devices/ca";
+    pub const TRUST: &str = "/api/v1/devices/trust";
+    pub const ACK: &str = "/api/v1/devices/trust/ack";
+    pub const EVENT: &str = "devices.trust.next";
+    pub const MAX_BODY: usize = 65536;
+    pub const MAX_CA: usize = 16384;
+    pub const CODE_ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    pub const MEMORY_KIB: u32 = 65536;
+    pub const ITERATIONS: u32 = 3;
+    pub const LANES: u32 = 1;
+    #[derive(Clone, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct ProofRequest {
+        pub client_nonce: String,
+    }
+    #[derive(Clone, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct Proof {
+        pub salt: String,
+        pub server_nonce: String,
+        pub proof: String,
+        pub ca_pin: Option<String>,
+    }
+    #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct Trust {
+        pub cert_pin: Option<String>,
+        pub ca_pin: Option<String>,
+        pub next_cert_pin: Option<String>,
+        pub next_ca_pin: Option<String>,
+    }
+    #[derive(Clone, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct Ack {
+        pub next_cert_pin: Option<String>,
+        pub next_ca_pin: Option<String>,
+    }
+    pub fn decode(value: &str, len: usize) -> Result<Vec<u8>, &'static str> {
+        let bytes = URL_SAFE_NO_PAD
+            .decode(value)
+            .map_err(|_| "invalid encoding")?;
+        if bytes.len() != len || URL_SAFE_NO_PAD.encode(&bytes) != value {
+            return Err("invalid length");
+        }
+        Ok(bytes)
+    }
+    pub fn valid_code(code: &str) -> bool {
+        code.len() == 9
+            && code.as_bytes()[4] == b'-'
+            && code
+                .bytes()
+                .enumerate()
+                .all(|(i, b)| i == 4 || CODE_ALPHABET.contains(&b))
+    }
+    pub fn key(code: &str, salt: &str) -> Result<zeroize::Zeroizing<[u8; 32]>, &'static str> {
+        if !valid_code(code) {
+            return Err("invalid code");
+        }
+        let salt = decode(salt, 16)?;
+        let params = argon2::Params::new(MEMORY_KIB, ITERATIONS, LANES, Some(32))
+            .map_err(|_| "parameters")?;
+        let mut key = zeroize::Zeroizing::new([0; 32]);
+        argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params)
+            .hash_password_into(code.as_bytes(), &salt, &mut *key)
+            .map_err(|_| "derivation")?;
+        Ok(key)
+    }
+    // Literal owner's expression. All fields use canonical UTF-8; optional CA occurs after fp.
+    pub fn mac(
+        key: &[u8],
+        fp: &str,
+        ca: Option<&str>,
+        origin: &str,
+        client: &str,
+        server: &str,
+    ) -> Hmac<sha2::Sha256> {
+        let mut h =
+            Hmac::<sha2::Sha256>::new_from_slice(key).expect("HMAC accepts every key length");
+        for field in [
+            "plur1bus-pair-v1",
+            fp,
+            ca.unwrap_or(""),
+            origin,
+            client,
+            server,
+        ] {
+            h.update(field.as_bytes())
+        }
+        h
+    }
+    pub fn sign(
+        key: &[u8],
+        fp: &str,
+        ca: Option<&str>,
+        origin: &str,
+        client: &str,
+        server: &str,
+    ) -> String {
+        URL_SAFE_NO_PAD.encode(
+            mac(key, fp, ca, origin, client, server)
+                .finalize()
+                .into_bytes(),
+        )
+    }
+    pub fn verify(
+        key: &[u8],
+        fp: &str,
+        origin: &str,
+        client: &str,
+        proof: &Proof,
+    ) -> Result<(), &'static str> {
+        decode(client, 32)?;
+        decode(&proof.server_nonce, 32)?;
+        mac(
+            key,
+            fp,
+            proof.ca_pin.as_deref(),
+            origin,
+            client,
+            &proof.server_nonce,
+        )
+        .verify_slice(&decode(&proof.proof, 32)?)
+        .map_err(|_| "proof mismatch")
+    }
+}
+
+#[cfg(test)]
+mod proof_tests {
+    use super::trust;
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    #[test]
+    fn canonical_proof_matches_independently_framed_hmac_and_binds_every_field() {
+        use hmac::{Hmac, Mac};
+        // Runtime-generated material: tests never commit codes or secret keys.
+        let key: [u8; 32] = std::array::from_fn(|i| i as u8);
+        let fp = format!("sha256:{}", URL_SAFE_NO_PAD.encode([1; 32]));
+        let ca = format!("sha256:{}", URL_SAFE_NO_PAD.encode([2; 32]));
+        let nonce = URL_SAFE_NO_PAD.encode([3; 32]);
+        let server = URL_SAFE_NO_PAD.encode([4; 32]);
+        let origin = "https://harness.test";
+        let input = format!("plur1bus-pair-v1{fp}{ca}{origin}{nonce}{server}");
+        let mut independent = Hmac::<sha2::Sha256>::new_from_slice(&key).unwrap();
+        independent.update(input.as_bytes());
+        let proof = trust::Proof {
+            salt: URL_SAFE_NO_PAD.encode([5; 16]),
+            server_nonce: server.clone(),
+            proof: URL_SAFE_NO_PAD.encode(independent.finalize().into_bytes()),
+            ca_pin: Some(ca),
+        };
+        assert!(
+            proof.proof == "p0ag5cxrdYGhfUK9sAeqbtcG_eX5-Z6d-6n9n8VyXOw",
+            "canonical public proof vector mismatch"
+        );
+        assert!(trust::verify(&key, &fp, origin, &nonce, &proof).is_ok());
+        assert!(trust::verify(&key, &fp, "https://other.harness.test", &nonce, &proof).is_err());
+        assert!(trust::verify(
+            &key,
+            &format!("sha256:{}", URL_SAFE_NO_PAD.encode([6; 32])),
+            origin,
+            &nonce,
+            &proof
+        )
+        .is_err());
+        assert!(
+            trust::sign(&key, &fp, proof.ca_pin.as_deref(), origin, &nonce, &server) == proof.proof
+        );
+    }
+}

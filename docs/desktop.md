@@ -1,9 +1,9 @@
 # Desktop shell
 
-The desktop shell is an optional Tauri 2.12 client. WP3 adds a responsive,
-keyboard-accessible shell frame, English and German copy, and persistent appearance
-and language preferences. Home, Connections, and Settings are navigable; unavailable
-runtime and connection functions have honest empty states. WP2's provisional Rust
+The desktop shell is an optional Tauri 2.12 client. WP4 adds native-local and
+remote pairing, OS-keychain credentials, origin-bound TLS trust, and working
+Connections pages to WP3's accessible German/English shell. Open verifies and
+selects a connection; the SPA window is WP5 and is explicitly shown as unavailable. WP2's provisional Rust
 mock harness, fake executable surfaces, and Linux stub image remain available for
 later work packages. The binding work sequence is in
 [the handoff](handoff/2026-09-30-desktop-shell-codex.md).
@@ -41,8 +41,8 @@ screenshots outside the checkout.
 
 `pnpm tauri dev` builds and starts the mock at `http://127.0.0.1:18700`
 with temporary state, then stops it and removes that state when Tauri exits.
-It does not connect the WP3 frame to the mock. WP4 adds the
-connection flow; WP5 adds the SPA window and native `shell_info` bridge.
+Use the scratch-profile seam below before pairing with the mock. WP4 connects
+the native client; WP5 adds the SPA window and native `shell_info` bridge.
 For a standalone
 server, run `cargo run --locked -p plur1bus-mock-harness -- --port 18700`
 from `apps/desktop`; bind defaults to loopback, and public binds are refused
@@ -80,10 +80,12 @@ key handling exists. No release signing credentials are needed for WP1.
 
 ## Boundaries
 
-The bundled shell has a restrictive CSP. Its only native commands are
-`app_info`, `settings_get`, and `settings_set`; all require the `shell` webview
-at the exact bundled top-level origin. Generated application ACL permissions bind
-exactly these commands to the `shell` webview, with Rust caller checks retained.
+The bundled shell has a restrictive CSP. Its nine native commands are
+`app_info`, `settings_get`, `settings_set`, `connections_list`,
+`connections_rename`, `connections_remove`, `pair_code`, `pair_local`, and
+`open_connection`. All require the `shell` webview at the exact bundled top-level
+origin. The shared command table generates application ACL permissions granting
+exactly these commands to that webview, with Rust caller checks retained.
 The shell capability grants no plugin permissions. IPC preferences are closed `theme` (`system`/`light`/`dark`) and
 `locale` (`system`/`en`/`de`) values in `settings.json` under Tauri's
 `app_config_dir()` for `app.plur1bus.desktop`. Writes use a temporary file and
@@ -102,8 +104,11 @@ Chromium revision is pinned through Playwright 1.63.0, without a separately reco
 archive hash. The red wordmark numeral uses the WCAG logotype contrast exception;
 functional text and focus indicators have separate contrast checks.
 
-No networking, telemetry or keychain integration is enabled. The window stays
-hidden until its page finishes loading. Stable
+WP4 networking and credentials run only in Rust: explicit pairing and connection
+validation use the origin-bound TLS client, with lazy OS keychain access at the
+authenticated action. The webview receives public connection metadata, never a
+device token. There is no telemetry, and the SPA/session proxy remains WP5.
+The window stays hidden until its page finishes loading. Stable
 integration identifiers live in `src-tauri/src/ids.rs`.
 The independent `desktop-contract` crate supplies the provisional scope,
 capability, route and fixed exec-argv names to the shell, mock and fake binaries.
@@ -128,3 +133,137 @@ personal state; use the seams specified in the handoff.
 
 See [the status record](handoff/status/desktop-shell.md) for observed checks,
 limitations and remaining work.
+
+
+## Connections and credential boundaries (WP4)
+
+Add remote takes a name, origin and one-use code in two four-character fields.
+Only HTTPS or literal loopback HTTP origins are allowed. The same adversarial
+origin-case fixture drives Rust and TypeScript. No pin, CLI path, runtime endpoint
+or arbitrary fetch route is accepted over IPC. A self-signed certificate gets a
+nonce-only Argon2id/HMAC proof before any code is sent; a company CA is received by
+hash during pairing and scoped to that connection's origin. Unexpected trust changes
+show repair actions and current/observed fingerprints, with no “trust anyway”.
+Current/next trust, acknowledgement, limits and the provisional M3 choices are in
+[the mock contract](../apps/desktop/mock-harness/CONTRACT.md#wp4-pairing-proof-and-trust-provisional-until-m3).
+
+Public metadata lives in atomic, owner-only `connections.json`, version 1, with
+UUIDv7 connection ids, active selection, `uiLocale`, current/next pins and repair
+state. Corrupt or unknown-field files are kept as `.corrupt-<milliseconds>-<uuid>`.
+Credentials are separate: service `app.plur1bus.desktop`, account `device-<uuid>`.
+The hint is the last four characters of a validated token; malformed short tokens
+are refused. `SecretString` zeroizes and redacts Debug/Display and cannot serialize.
+
+Keyring **4.2.0**, default features disabled, feature **v1**, selects native macOS
+Keychain Services, Windows Credential Manager and Linux Secret Service. There is no
+database/plaintext fallback. Startup and listing do not construct/probe a token
+store. Explicit pairing or opening lazily probes it. Removal accesses the selected
+store directly; an inaccessible persisted credential keeps its row. On failure, credentials remain in the app process's memory for this session only and
+a banner explains restart behavior. Public rows survive restart, their memory
+credentials do not, and opening returns pairing-needed; a new code repairs the
+same row with its name/origin locked. Bundled automatic re-pair belongs to WP8.
+Each row records `credentialProvenance` (`keychain`, `memory-only`, or `legacy`)
+and `pendingKeychainCleanup`. A same-ID memory repair of a keychain/legacy row
+retains the persistent cleanup obligation. Restart never loads a keychain token
+for a memory-only row. Removal must delete the outstanding keychain account before
+removing metadata; denied deletion keeps the row and obligation, even with a live
+memory token. A successful keychain repair overwrites the same account and clears
+the obligation. A genuinely new memory-only row can be removed after restart
+without keychain access.
+
+Existing version-1 files without provenance load as `legacy`, require one explicit
+re-pair before credential access, and conservatively retain persistent cleanup.
+This upgrade rule avoids reusing an old token left by a pre-provenance memory repair.
+Unknown provenance values and inconsistent legacy cleanup flags are rejected by
+the closed metadata schema. A revoked authenticated response first persists repair
+state, then deletes its credential; denied deletion cannot erase that repair state.
+Native ticket/event orchestration preserves the same rule for WP5/WP6 callers.
+
+Native attach reads only `<state-root>/run/api.json`, checks PID liveness, loopback
+origin and live meta/installation identity, then invokes the known absolute
+`~/.local/bin/plur1bus` or `%LOCALAPPDATA%\PLUR1BUS\bin\plur1bus.exe` with fixed
+`device pair --json --kind desktop --name <name>` args. No token file is opened.
+Output is limited to 8192 bytes, errors never include it, and the process is killed
+on its 15-second timeout. Denial falls back to the code form. All connection/token
+mutations share one native async mutex; listing does not acquire credentials.
+
+Home, the top summary and Connections share one public metadata snapshot loaded
+at startup and refreshed after connection actions. Loading and read errors remain
+distinct from a successfully loaded empty list. This never probes credentials.
+
+The authenticated trust document is pulled after redeem and on every open.
+Current and staged-next trust candidates are prepared independently: an unavailable
+old CA does not block a stored next leaf, and an unavailable next CA does not block
+a valid current leaf. Only candidates passing their exact pin or CA hash plus
+chain/hostname/validity checks can authenticate. Existing authenticated next-CA
+metadata remains staged while its candidate is unavailable; new announcements
+still require CA validation before persistence and acknowledgement. Explicit pins
+never broaden to system-root fallback when a CA candidate is unavailable.
+The bounded SSE primitive re-pulls, persists and acknowledges the same document;
+WP6 supplies its continuous subscription/reconnect lifecycle. The WP4 UI itself
+is not continuously subscribed. CA upload/admin states remain D2.
+
+### Scratch profile without keychain access
+
+For a debug build, set `PLUR1BUS_DESKTOP_CONFIG_DIR` to an absolute temporary
+directory before launching. This **forces MemoryStore**, with no real keychain
+probe. It also redirects native discovery to `<scratch>/native/run/api.json` and
+known CLI lookup to `<scratch>/bin/plur1bus` (`plur1bus.exe` on Windows). Settings and
+connection metadata go to the same scratch profile. Legacy/pending persistent
+cleanup in a scratch profile is refused without constructing/accessing a real
+keychain; the row remains until persistent cleanup can actually be completed.
+Release builds ignore this seam. A standalone mock with `--test-control --port 0` prints its loopback origin;
+POST `/__test/pair` with `{"scopes":["ui.session","events.read"],"grant_key_unlock":false}`
+to obtain a code, then enter the origin/code in Add remote. This endpoint returns
+no device token. Never run the ignored `real_keychain_round_trip` without explicit
+opt-in; it was not run for WP4.
+
+Automated tests use temporary metadata, in-memory credentials, generated TLS
+material, injected roots/liveness/executors, and the fake native executable. No
+certificate is installed into the real OS trust store. The client exposes root
+injection only in debug builds. Generated TLS covers relay/CA substitution,
+renewal/hostname validation, both rollover directions, missing rollover, staged
+new pairing and authenticated SSE wakeups. Browser tests cover reachable pairing,
+repair and certificate/CA states, focus, axe, 44 px targets and 400 px layout;
+they do not claim a design-canvas pixel match or native five-platform execution.
+
+### WP4 review corrections and manual keychain checks
+
+Production credential initialization remains lazy: startup/listing never probes
+the OS store. Only Linux may fall back to a session MemoryStore on a failed
+credential probe. macOS/Windows retain Keychain semantics and denied/cancelled
+operations fail with a helpful pairing error. Scratch profiles explicitly use
+MemoryStore on every OS unless the debug-only
+`PLUR1BUS_DESKTOP_REAL_KEYCHAIN=1` is selected. That opt-in **requires**
+`PLUR1BUS_DESKTOP_CONFIG_DIR`; it cannot select the production service.
+
+`DebugKeychainProfile` stores a random `app.plur1bus.test.<uuid>` service name in
+`test-keychain-service` and account names in `test-keychain-accounts.json` in that
+scratch directory. These are public metadata; no token is written. The service
+survives app restart so a manual pair → restart → open can test persistence.
+After the complete manual check, call the debug `cleanup_debug_keychain(dir)`
+hook with the opt-in still enabled (or use the ignored round-trip test, whose
+cleanup guard removes the test entries even after a failed assertion). The
+service must not be cleaned at app shutdown before the restart check. There is
+no new IPC command for credentials or cleanup.
+
+The earlier native scratch check exercised **MemoryStore only**. Real macOS
+Keychain, Windows Credential Manager and Linux Secret Service round-trip and
+native restart checks remain unverified; ordinary tests use injected stores,
+never a real keychain. The ignored real test refuses `CI` environments.
+
+Credential mutations remain serialized while their synchronous keychain work
+runs on blocking workers. Argon2 also runs via `spawn_blocking`. API-version
+incompatibility includes only bounded public numeric server/client versions.
+CA availability errors preserve stored trust and are retryable; valid differing
+CA responses and actual rejected TLS trust can require repair. Current OS trust
+remains valid while a next pin is staged; explicit current pins stay fail-closed.
+
+Native CLI install discovery remains an owner question for WP13: the currently
+specified `~/.local/bin/plur1bus` and Windows local-app-data location also belong
+to the future app shim. No alternative native install location is invented here.
+Until installer-owned native identity metadata is specified, these paths remain
+the pre-WP13 native assumption and must be revisited before the shim ships.
+Store writes are serialized within this app process; cross-process serialization
+is deferred to the WP6 single-instance lifecycle. The existing Windows CRT shim
+relocation remains a documented build-system deviation needed by Windows x64.

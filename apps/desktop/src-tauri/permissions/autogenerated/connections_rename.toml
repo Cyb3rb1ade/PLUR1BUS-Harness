@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-connections-rename"
+description = "Enables the connections_rename command without any pre-configured scope."
+commands.allow = ["connections_rename"]
+
+[[permission]]
+identifier = "deny-connections-rename"
+description = "Denies the connections_rename command without any pre-configured scope."
+commands.deny = ["connections_rename"]

@@ -102,3 +102,268 @@ pub fn settings_set(
     store(&window)?.set(&request.settings)?;
     Ok(request.settings)
 }
+
+// One owner serializes all connection/token mutations; listing never initializes tokens.
+#[derive(Default)]
+pub struct ConnectionState(
+    pub std::sync::Arc<tokio::sync::Mutex<Option<Box<dyn crate::secrets::TokenStore>>>>,
+);
+/// Keep the mutation lock across the complete action while running synchronous
+/// credential APIs (including interactive prompts) outside async runtime workers.
+async fn credential_action<T: Send + 'static>(
+    state: &ConnectionState,
+    action: impl FnOnce(
+            &mut Option<Box<dyn crate::secrets::TokenStore>>,
+            tokio::runtime::Handle,
+        ) -> Result<T, String>
+        + Send
+        + 'static,
+) -> Result<T, String> {
+    let mut guard = state.0.clone().lock_owned().await;
+    let runtime = tokio::runtime::Handle::current();
+    tokio::task::spawn_blocking(move || action(&mut guard, runtime))
+        .await
+        .map_err(|_| "keychain-error".to_owned())?
+}
+fn connection_store(window: &WebviewWindow) -> Result<crate::connections::Store, String> {
+    #[cfg(debug_assertions)]
+    if let Some(dir) = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR") {
+        return Ok(crate::connections::Store::open(std::path::Path::new(&dir)));
+    }
+    let dir = window
+        .app_handle()
+        .path()
+        .app_config_dir()
+        .map_err(|_| "storage")?;
+    Ok(crate::connections::Store::open(&dir))
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionList {
+    pub connections: Vec<crate::connections::Connection>,
+    pub active: Option<uuid::Uuid>,
+    pub token_store: Option<crate::secrets::StoreKind>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConnectionIdRequest {
+    pub id: uuid::Uuid,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RenameRequest {
+    pub id: uuid::Uuid,
+    pub name: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct PairCodeRequest {
+    pub origin: String,
+    pub name: String,
+    pub code: String,
+    pub repair_id: Option<uuid::Uuid>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PairLocalRequest {
+    pub name: String,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Paired {
+    pub connection: crate::connections::Connection,
+    pub token_store: crate::secrets::StoreKind,
+}
+#[tauri::command]
+pub async fn connections_list(
+    window: WebviewWindow,
+    state: tauri::State<'_, ConnectionState>,
+) -> Result<ConnectionList, String> {
+    check(&window, "connections_list")?;
+    let tokens = state.0.lock().await;
+    let store = connection_store(&window)?;
+    Ok(ConnectionList {
+        connections: store.load().map_err(|_| "storage")?,
+        active: store.active().map_err(|_| "storage")?,
+        token_store: tokens.as_ref().map(|t| t.kind()),
+    })
+}
+#[tauri::command]
+pub async fn connections_rename(
+    window: WebviewWindow,
+    state: tauri::State<'_, ConnectionState>,
+    request: RenameRequest,
+) -> Result<(), String> {
+    check(&window, "connections_rename")?;
+    let _lock = state.0.lock().await;
+    let store = connection_store(&window)?;
+    let mut row = store
+        .load()
+        .map_err(|_| "storage")?
+        .into_iter()
+        .find(|c| c.id == request.id)
+        .ok_or("invalid")?;
+    row.name = request.name.trim().to_owned();
+    store.upsert(row).map_err(|_| "invalid".into())
+}
+#[tauri::command]
+pub async fn connections_remove(
+    window: WebviewWindow,
+    state: tauri::State<'_, ConnectionState>,
+    request: ConnectionIdRequest,
+) -> Result<(), String> {
+    check(&window, "connections_remove")?;
+    let store = connection_store(&window)?;
+    credential_action(&state, move |tokens, _| {
+        crate::pair::remove_connection(
+            &store,
+            request.id,
+            tokens.as_deref(),
+            crate::secrets::open_for_removal().as_ref(),
+        )
+        .map_err(|e| e.public_message())
+    })
+    .await
+}
+#[tauri::command]
+pub async fn pair_code(
+    window: WebviewWindow,
+    state: tauri::State<'_, ConnectionState>,
+    request: PairCodeRequest,
+) -> Result<Paired, String> {
+    check(&window, "pair_code")?;
+    let store = connection_store(&window)?;
+    let code = crate::secrets::SecretString::new(request.code);
+    credential_action(&state, move |tokens, runtime| {
+        let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
+        let connection = runtime
+            .block_on(crate::pair::pair_code(
+                &request.origin,
+                code.expose(),
+                &request.name,
+                tokens.as_ref(),
+                &store,
+                request.repair_id,
+            ))
+            .map_err(|e| e.public_message())?;
+        Ok(Paired {
+            connection,
+            token_store: tokens.kind(),
+        })
+    })
+    .await
+}
+#[tauri::command]
+pub async fn pair_local(
+    window: WebviewWindow,
+    state: tauri::State<'_, ConnectionState>,
+    request: PairLocalRequest,
+) -> Result<Paired, String> {
+    check(&window, "pair_local")?;
+    let root = crate::discovery::state_root().ok_or("cli-missing")?;
+    let record = crate::discovery::discover(&root, crate::discovery::alive).ok_or("cli-missing")?;
+    if !crate::discovery::reachable(&record).await {
+        return Err("cli-missing".into());
+    }
+    let cli = crate::pair::resolve_cli().ok_or("cli-missing")?;
+    let offer = crate::pair::pair_local(&cli, &request.name)
+        .await
+        .map_err(|e| e.public_message())?;
+    if offer
+        .origin
+        .as_ref()
+        .is_some_and(|origin| *origin != record.url)
+    {
+        return Err("installation-mismatch".into());
+    }
+    let code = crate::secrets::SecretString::new(offer.code);
+    let store = connection_store(&window)?;
+    credential_action(&state, move |tokens, runtime| {
+        let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
+        let connection = runtime
+            .block_on(crate::pair::pair(
+                record.url,
+                code.expose(),
+                &request.name,
+                crate::connections::Kind::Local,
+                Some(&record.installation_id),
+                None,
+                tokens.as_ref(),
+                &store,
+            ))
+            .map_err(|e| e.public_message())?;
+        Ok(Paired {
+            connection,
+            token_store: tokens.kind(),
+        })
+    })
+    .await
+}
+#[derive(Serialize)]
+pub struct Opened {
+    pub selected: bool,
+    pub spa_available: bool,
+}
+#[tauri::command]
+pub async fn open_connection(
+    window: WebviewWindow,
+    state: tauri::State<'_, ConnectionState>,
+    request: ConnectionIdRequest,
+) -> Result<Opened, String> {
+    check(&window, "open_connection")?;
+    let store = connection_store(&window)?;
+    credential_action(&state, move |tokens, runtime| {
+        let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
+        let mut row = store
+            .load()
+            .map_err(|_| "storage")?
+            .into_iter()
+            .find(|c| c.id == request.id)
+            .ok_or("invalid")?;
+        runtime
+            .block_on(crate::pair::validate_connection(
+                &mut row,
+                tokens.as_ref(),
+                &store,
+            ))
+            .map_err(|e| e.public_message())?;
+        Ok(Opened {
+            selected: true,
+            spa_available: false,
+        })
+    })
+    .await
+}
+#[cfg(test)]
+mod worker_tests {
+    #[tokio::test(flavor = "current_thread")]
+    async fn credential_work_leaves_async_worker_available_and_serializes_mutations() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        let state = super::ConnectionState::default();
+        let running = Arc::new(AtomicBool::new(false));
+        let seen = running.clone();
+        let first = super::credential_action(&state, move |_, _| {
+            seen.store(true, Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            seen.store(false, Ordering::SeqCst);
+            Ok(())
+        });
+        let second = async {
+            while !running.load(Ordering::SeqCst) {
+                tokio::task::yield_now().await;
+            }
+            assert!(running.load(Ordering::SeqCst));
+            super::credential_action(&state, move |_, _| {
+                assert!(!running.load(Ordering::SeqCst));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        };
+        let (result, ()) = tokio::join!(first, second);
+        result.unwrap();
+    }
+}

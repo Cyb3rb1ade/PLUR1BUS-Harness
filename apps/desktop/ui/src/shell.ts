@@ -1,3 +1,4 @@
+import { connectionsView } from "./views/connections.ts";
 import "./theme/base.css";
 import type { DesktopTransport, Platform, Settings, ThemeChoice } from "./ipc.ts";
 import { resolveLocale, translate, type Locale, type MessageKey } from "./i18n.ts";
@@ -8,7 +9,6 @@ import { rail } from "./components/rail.ts";
 import { segmented } from "./components/segmented.ts";
 import { chip } from "./components/chip.ts";
 import { banner } from "./components/banner.ts";
-import { progressList } from "./components/progress-list.ts";
 import { openDialog } from "./components/dialog.ts";
 import { openSheet } from "./components/sheet.ts";
 import { wordmark } from "./components/wordmark.ts";
@@ -35,12 +35,33 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const mark = wordmark(() => navigate("home"));
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   const lightMedia = window.matchMedia("(prefers-color-scheme: light)");
-  themeMedia.addEventListener("change", render);
-  lightMedia.addEventListener("change", render);
+  function updateSystemTheme() { document.documentElement.dataset.theme = resolvedTheme(settings.theme); }
+  themeMedia.addEventListener("change", updateSystemTheme);
+  lightMedia.addEventListener("change", updateSystemTheme);
   window.addEventListener("hashchange", () => {
     const next = routeFromHash(window.location.hash);
     if (next.section !== route.section || next.page !== route.page) { route = next; render(); focusPage(); }
   });
+  let connectionStatus: import("./ipc.ts").ConnectionSnapshot = { status: "loading", data: null };
+  let connectionRefresh: Promise<void> | null = null;
+  const renderConnections = connectionsView(transport, t, () => connectionStatus, refreshConnections);
+  function connectionSummary() {
+    if (connectionStatus.status === "loading") return t("connections.loading");
+    if (connectionStatus.status === "error") return t("connections.loadError");
+    const count = connectionStatus.data?.connections.length ?? 0;
+    return count ? t("connections.count", { count: String(count) }) : t("status.empty");
+  }
+  function refreshConnections(): Promise<void> {
+    if (connectionRefresh) return connectionRefresh;
+    connectionStatus = { ...connectionStatus, status: "loading" };
+    render();
+    connectionRefresh = transport.connectionsList().then(data => {
+      connectionStatus = { status: "ready", data };
+    }).catch(() => {
+      connectionStatus = { ...connectionStatus, status: "error" };
+    }).finally(() => { connectionRefresh = null; render(); });
+    return connectionRefresh;
+  }
   const settingsLoad = transport.settingsGet().then(stored => {
     persisted = stored;
     settings = preferenceQueue.reduce((value, entry) => ({ ...value, ...entry.change }), stored);
@@ -48,6 +69,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   }).catch(() => { notice = "load"; render(); });
   void transport.appInfo().then(info => { platform = info.platform; systemLocale = info.locale; render(); }).catch(() => {});
   render();
+  void refreshConnections();
 
   function t(key: MessageKey, values?: Record<string, string>) { return translate(resolveLocale(settings.locale, systemLocale), key, values); }
   function focusPage() { mount.querySelector<HTMLElement>("h1")?.focus(); }
@@ -118,7 +140,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     append(hero, element("p", "eyebrow", t("home.eyebrow")), element("h1", undefined, t("home.title")), element("p", "lead", t("home.lead")), chip(t("status.ready"), "ok"));
     const cards = element("div", "home-cards");
     append(cards,
-      pageCard(t("home.connectionTitle"), t("home.connectionBody"), button(t("home.openConnections"), () => navigate("connections"), "primary")),
+      pageCard(t("home.connectionTitle"), connectionStatus.status === "ready" && connectionStatus.data?.connections.length ? `${connectionSummary()}: ${connectionStatus.data.connections.map(row => row.name).join(", ")}` : connectionSummary(), button(t("home.openConnections"), () => navigate("connections"), "primary")),
       pageCard(t("home.settingsTitle"), t("home.settingsBody"), button(t("home.openSettings"), () => navigate("settings"))));
     append(body, hero, cards, banner(t("banner.note")));
     return body;
@@ -177,19 +199,15 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   function connections(): HTMLElement {
     const container = element("div", "content connections-content");
     const header = heading(t("connections.title"), t("connections.lead"));
-    const layout = element("div", "connections-layout");
-    const list = element("aside", "connections-side");
-    append(list, element("h2", "card-title", t("home.connectionTitle")), chip(t("status.empty")));
-    const main = element("div", "connections-main");
-    append(main, pageCard(t("connections.emptyTitle"), t("connections.emptyBody")), progressList(t("progress.title"), [{ label: t("progress.waiting"), state: "waiting" }]));
-    const detail = pageCard(t("connections.detailTitle"), t("connections.detailBody"));
-    detail.classList.add("connections-detail");
-    append(layout, list, main, detail);
-    append(container, header, relatedButton(t("connections.detailTitle"), t("connections.detailBody")), layout);
+    append(container, header, renderConnections());
     return container;
   }
   function render() {
     const focusKey = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.focusKey : undefined;
+    const focusedId = document.activeElement instanceof HTMLInputElement ? document.activeElement.id : undefined;
+    // Keep transient form state through late native/connection loads. Values stay
+    // exclusively in the current view's memory and are never persisted or logged.
+    const inputs = Array.from(mount.querySelectorAll<HTMLInputElement>("input[id]")).map(input => ({ id: input.id, value: input.value }));
     const locale: Locale = resolveLocale(settings.locale, systemLocale);
     document.documentElement.lang = locale;
     document.documentElement.dataset.theme = resolvedTheme(settings.theme);
@@ -204,7 +222,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     const sidebar = rail({ main: t("nav.main"), home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced") }, route.section, route.page, navigate, page => navigate("settings", page));
     const body = element("div", "app-body");
     const top = element("header", "app-top");
-    const status = chip(t("status.empty"));
+    const status = chip(connectionSummary());
     status.classList.add("top-status");
     append(top, mark.node, status);
     const main = element("main", "page-main");
@@ -220,7 +238,12 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     mark.node.dataset.focusKey = "wordmark-home";
     footer.querySelector<HTMLElement>("button")!.dataset.focusKey = "preferences-help";
     mount.querySelectorAll<HTMLElement>(".home-cards button").forEach((control, index) => { control.dataset.focusKey = `home-action-${index}`; });
+    for (const previous of inputs) {
+      const input = Array.from(mount.querySelectorAll<HTMLInputElement>("input[id]")).find(node => node.id === previous.id);
+      if (input && !input.readOnly) input.value = previous.value;
+    }
     if (focusKey) Array.from(root.querySelectorAll<HTMLElement>("[data-focus-key]")).find(node => node.dataset.focusKey === focusKey)?.focus();
+    if (focusedId) Array.from(mount.querySelectorAll<HTMLInputElement>("input[id]")).find(node => node.id === focusedId)?.focus();
     if (notice) {
       const message = notice === "saved" ? t("settings.saved") : t(notice === "load" ? "settings.loadError" : "settings.saveError");
       const region = banner(message, notice === "saved" ? "info" : "error");
@@ -234,5 +257,5 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       notice = null;
     }
   }
-  return { setPreferences, setPlatform, navigate };
+  return { setPreferences, setPlatform, navigate, refreshConnections };
 }

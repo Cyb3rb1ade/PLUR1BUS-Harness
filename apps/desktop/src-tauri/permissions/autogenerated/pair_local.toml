@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pair-local"
+description = "Enables the pair_local command without any pre-configured scope."
+commands.allow = ["pair_local"]
+
+[[permission]]
+identifier = "deny-pair-local"
+description = "Denies the pair_local command without any pre-configured scope."
+commands.deny = ["pair_local"]

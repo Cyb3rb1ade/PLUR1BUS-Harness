@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-connections-remove"
+description = "Enables the connections_remove command without any pre-configured scope."
+commands.allow = ["connections_remove"]
+
+[[permission]]
+identifier = "deny-connections-remove"
+description = "Denies the connections_remove command without any pre-configured scope."
+commands.deny = ["connections_remove"]

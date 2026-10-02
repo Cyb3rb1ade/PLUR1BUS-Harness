@@ -56,6 +56,7 @@ test("full keyboard traversal: ordered accessible names, wrap and visible 3:1 fo
           ...(section === "settings" && width >= 1024 ? ["Runtime", "Updates", "Version", "Advanced"] : []), "Home",
           ...(section === "home" ? ["View connections", "Open settings"] : [
             ...(section === "settings" && width < 1024 ? ["Sections"] : []),
+            ...(section === "connections" ? ["Add remote", "Attach native local", "Refresh", ...(width < 1024 ? ["Choose connection"] : [])] : []),
             ...(width <= 1600 ? [section === "settings" ? "About this page" : "Connection details"] : []),
             ...(section === "settings" && subpage === "advanced" ? ["System", "Light", "Dark", "System", "English", "Deutsch"] : []),
           ]), "How preferences work",
