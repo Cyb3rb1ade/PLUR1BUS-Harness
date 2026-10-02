@@ -5,7 +5,7 @@ export type ThemeChoice = "system" | "light" | "dark";
 export type Platform = "mac" | "win" | "gnome" | "kde";
 export type Settings = { theme: ThemeChoice; locale: LocaleChoice };
 export type DesktopTransport = {
-  appInfo(): Promise<{ platform: Platform }>;
+  appInfo(): Promise<{ platform: Platform; locale: string }>;
   settingsGet(): Promise<Settings>;
   settingsSet(value: Settings): Promise<Settings>;
 };

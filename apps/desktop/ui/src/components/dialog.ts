@@ -5,7 +5,7 @@ export function openDialog(title: string, body: string, closeLabel: string, conf
   const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const dialog = element("dialog", "app-dialog");
   const heading = element("h2", undefined, title);
-  heading.id = "dialog-title";
+  heading.id = `dialog-title-${crypto.randomUUID()}`;
   dialog.setAttribute("aria-labelledby", heading.id);
   const copy = element("p", undefined, body);
   const footer = element("div", "dialog-footer");

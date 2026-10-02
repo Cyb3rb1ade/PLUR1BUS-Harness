@@ -9,7 +9,8 @@
   "nav.advanced": "Erweitert",
   "nav.open": "Navigation öffnen",
   "nav.close": "Navigation schließen",
-  "nav.help": "Hilfe",
+  "nav.main": "Hauptnavigation",
+  "notice.dismiss": "Meldung schließen",
   "nav.sections": "Bereiche",
   "wordmark.settings": "E1NSTELLUNGEN",
   "wordmark.connections": "VERB1NDUNGEN",
@@ -65,12 +66,10 @@
   "dialog.confirm": "Verstanden",
   "progress.title": "Vorbereitung",
   "progress.waiting": "Warten auf eine Verbindung",
-  "progress.done": "Bereit",
   "banner.note": "Du kannst die App jetzt anpassen.",
   "footer.hint": "Du kannst diese Auswahl jederzeit ändern.",
   "platform.mac": "Menüleiste",
   "platform.win": "Infobereich",
   "platform.gnome": "oberen Leiste",
-  "platform.kde": "Systemleiste",
-  "platform.explanation": "PLUR1BUS ist nach dem Verbinden in der {place} verfügbar."
+  "platform.kde": "Systemleiste"
 }

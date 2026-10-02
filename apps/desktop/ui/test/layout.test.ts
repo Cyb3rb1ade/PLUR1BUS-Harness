@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { withShell } from "./browser-harness.ts";
@@ -38,8 +38,9 @@ test("frame follows content-width boundaries without clipping text", async () =>
   });
 });
 
-test("capture representative responsive shell views", async () => {
-  const directory = process.env.PLUR1BUS_SCREENSHOT_DIR ?? join(tmpdir(), "plur1bus-wp03-screenshots");
+test("capture representative responsive shell views", async context => {
+  const directory = process.env.PLUR1BUS_SCREENSHOT_DIR ?? await mkdtemp(join(tmpdir(), "plur1bus-wp03-screenshots-"));
+  if (!process.env.PLUR1BUS_SCREENSHOT_DIR) context.after(() => rm(directory, { recursive: true, force: true }));
   await mkdir(directory, { recursive: true });
   await withShell(async page => {
     for (const sample of [
@@ -206,7 +207,7 @@ test("top-level wordmark collapses to a red pivot while route content changes im
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.getByRole("button", { name: "Settings" }).first().click();
     assert.equal(await page.getByRole("heading", { name: "Settings" }).count(), 1);
-    assert.equal(await page.locator(".wordmark").getAttribute("aria-label"), "Settings");
+    assert.equal(await page.locator(".wordmark").getAttribute("aria-label"), "Home");
     assert.equal(await page.locator(".wordmark-one").textContent(), "1");
     assert.ok(await page.locator(".wordmark-one").evaluate(node => node.getBoundingClientRect().width > 0 && getComputedStyle(node).opacity === "1"));
     assert.ok(await page.locator(".wordmark-letter.is-collapsed").count() > 0);

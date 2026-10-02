@@ -5,13 +5,13 @@ import type { Section } from "../router.ts";
 import type { SettingsPage } from "../router.ts";
 import { icon } from "./icon.ts";
 
-export function rail(labels: { home: string; settings: string; connections: string; open: string; close: string; runtime: string; updates: string; version: string; advanced: string }, active: Section, activePage: SettingsPage, navigate: (section: Section) => void, navigateSettings: (page: SettingsPage) => void): HTMLElement {
+export function rail(labels: { main: string; home: string; settings: string; connections: string; open: string; close: string; runtime: string; updates: string; version: string; advanced: string }, active: Section, activePage: SettingsPage, navigate: (section: Section) => void, navigateSettings: (page: SettingsPage) => void): HTMLElement {
   const aside = element("aside", "sidebar");
   const nav = element("nav", "sidebar-nav");
-  nav.setAttribute("aria-label", labels.open);
+  nav.setAttribute("aria-label", labels.main);
   const overlayNav = () => {
     const menu = element("nav", "overlay-nav");
-    menu.setAttribute("aria-label", labels.open);
+    menu.setAttribute("aria-label", labels.main);
     for (const section of ["home", "connections", "settings"] as const) {
       menu.append(button(labels[section], () => { navigate(section); document.querySelector<HTMLButtonElement>(".sheet-close")?.click(); }, "quiet"));
     }
@@ -19,12 +19,14 @@ export function rail(labels: { home: string; settings: string; connections: stri
   };
   const opener = button("", () => openSheet(labels.open, overlayNav(), labels.close, () => document.querySelector<HTMLElement>(".rail-menu")?.focus(), "left"), "quiet");
   opener.classList.add("rail-menu");
+  opener.dataset.focusKey = "navigation-menu";
   opener.setAttribute("aria-label", labels.open);
   opener.append(icon("menu"));
   const links = element("div", "rail-links");
   for (const section of ["home", "connections", "settings"] as const) {
     const item = button("", () => navigate(section), "quiet");
     item.classList.add("rail-link");
+    item.dataset.focusKey = `route-${section}`;
     if (active === section) item.setAttribute("aria-current", "page");
     item.setAttribute("aria-label", labels[section]);
     item.append(icon(section), element("span", "rail-label", labels[section]));
@@ -33,6 +35,7 @@ export function rail(labels: { home: string; settings: string; connections: stri
       const children = element("div", "rail-subsections");
       for (const page of ["runtime", "updates", "version", "advanced"] as const) {
         const child = button(labels[page], () => navigateSettings(page), "quiet");
+        child.dataset.focusKey = `settings-${page}`;
         if (activePage === page) child.setAttribute("aria-current", "page");
         children.append(child);
       }

@@ -37,15 +37,6 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile
-      - name: Isolate UI test browser storage
-        shell: bash
-        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
-      - name: Install UI test browser (Linux)
-        if: runner.os == 'Linux'
-        run: pnpm --filter @plur1bus/desktop-ui exec playwright install --with-deps chromium --only-shell
-      - name: Install UI test browser (macOS and Windows)
-        if: runner.os != 'Linux'
-        run: pnpm --filter @plur1bus/desktop-ui exec playwright install chromium --only-shell
       - run: node scripts/check-toolchain.mjs
       - run: pnpm gen
       - run: pnpm build

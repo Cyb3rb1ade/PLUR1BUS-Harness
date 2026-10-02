@@ -13,6 +13,6 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.10.1"
+    "@tauri-apps/api": "2.12.0"
   }
 }

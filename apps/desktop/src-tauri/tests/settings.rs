@@ -44,6 +44,51 @@ fn malformed_settings_fail_clearly() {
         .unwrap_err()
         .to_string()
         .contains("parse"));
+    store(home.path()).set(&Settings::default()).unwrap();
+    let preserved: Vec<_> = std::fs::read_dir(home.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("settings-recovered-")
+        })
+        .collect();
+    assert_eq!(preserved.len(), 1);
+    assert_eq!(
+        std::fs::read_to_string(preserved[0].path()).unwrap(),
+        "not json"
+    );
+}
+
+#[test]
+fn newer_settings_fields_survive_old_client_saves_and_missing_fields_default() {
+    let home = tempfile::tempdir().unwrap();
+    let path = home.path().join("settings.json");
+    std::fs::write(&path, r#"{"theme":"dark","future":{"enabled":true}}"#).unwrap();
+    assert_eq!(store(home.path()).get().unwrap().locale, Default::default());
+    store(home.path()).set(&Settings::default()).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    assert_eq!(saved["future"], json!({"enabled":true}));
+}
+
+#[test]
+fn save_without_a_prior_read_preserves_invalid_settings_before_replacing() {
+    let home = tempfile::tempdir().unwrap();
+    std::fs::write(home.path().join("settings.json"), "broken").unwrap();
+    assert!(store(home.path()).set(&Settings::default()).is_err());
+    let preserved = std::fs::read_dir(home.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .find(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("settings-recovered-")
+        })
+        .unwrap();
+    assert_eq!(std::fs::read_to_string(preserved.path()).unwrap(), "broken");
 }
 
 #[test]

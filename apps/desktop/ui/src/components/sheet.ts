@@ -9,7 +9,7 @@ export function openSheet(title: string, body: Node, closeLabel: string, onClose
   sheet.setAttribute("role", "dialog");
   sheet.setAttribute("aria-modal", "true");
   const heading = element("h2", undefined, title);
-  heading.id = "sheet-title";
+  heading.id = `sheet-title-${crypto.randomUUID()}`;
   sheet.setAttribute("aria-labelledby", heading.id);
   const close = button(closeLabel, dismiss, "quiet");
   close.classList.add("sheet-close");

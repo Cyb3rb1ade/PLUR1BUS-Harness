@@ -2,8 +2,6 @@
   "identifier": "shell-ui",
   "description": "Bundled shell preferences and platform information.",
   "local": true,
-  "windows": [
-    "shell"
-  ],
-  "permissions": []
+  "webviews": ["shell"],
+  "permissions": ["allow-app-info", "allow-settings-get", "allow-settings-set"]
 }

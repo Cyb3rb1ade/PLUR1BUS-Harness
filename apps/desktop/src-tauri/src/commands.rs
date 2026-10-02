@@ -2,7 +2,7 @@ use crate::settings::{Settings, SettingsStore};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WebviewWindow};
 
-pub const SHELL_COMMANDS: &[&str] = &["app_info", "settings_get", "settings_set"];
+pub use crate::shell_commands::SHELL_COMMANDS;
 
 pub fn allowed_command(label: &str, command: &str) -> bool {
     label == "shell" && SHELL_COMMANDS.contains(&command)
@@ -50,6 +50,7 @@ fn store(window: &WebviewWindow) -> Result<SettingsStore, String> {
 #[derive(Debug, Serialize)]
 pub struct AppInfo {
     pub platform: &'static str,
+    pub locale: String,
 }
 
 pub fn linux_desktop(value: &str) -> &'static str {
@@ -74,7 +75,10 @@ pub fn app_info(window: WebviewWindow) -> Result<AppInfo, String> {
     } else {
         linux_desktop(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default())
     };
-    Ok(AppInfo { platform })
+    Ok(AppInfo {
+        platform,
+        locale: sys_locale::get_locale().unwrap_or_else(|| "en".into()),
+    })
 }
 
 #[tauri::command]
