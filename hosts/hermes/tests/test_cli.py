@@ -117,6 +117,7 @@ class CliTest(unittest.TestCase):
         self.assertNotIn(self.sb.core.token, out)
         rc, text = _run(["status", "--hermes-home", self.sb.hermes_home])
         self.assertIn("1 queued", text)
+        self.assertIn("1 rejected, 0 lost", text)
         self.sb.stop_core()
         doc = json.loads(_run(["status", "--json", "--hermes-home", self.sb.hermes_home])[1])
         self.assertFalse(doc["core"]["reachable"])
@@ -229,12 +230,17 @@ class CliTest(unittest.TestCase):
     def test_bind_accepts_an_existing_agent_and_keeps_binding_fields(self) -> None:
         root, home = self._hermes_profile("work")
         write_binding(home, Binding(home=self.sb.p1home, agent_id="hermes-work", recall_hard_ms=900, capture=False, version="0.1.0", installed_by="installer"))
-        exe, _ = self._shim('{"schema":"error/1","error":"E_INVALID_PARAMS","message":"agent hermes-work already exists"}')
-        with mock.patch.dict(os.environ, self._root_env()):
-            rc, out = _run(["bind", "--json", "--hermes-home", home, "--bin", exe])
-        doc = json.loads(out)
-        self.assertEqual(rc, 0, doc)
-        self.assertFalse(doc["created"])
+        # Keyed on the reason; the message match is the fallback for older binaries (second shim).
+        for answer in (
+            '{"schema":"error/1","error":"E_INVALID_PARAMS","message":"exists","reason":"agent-exists"}',
+            '{"schema":"error/1","error":"E_INVALID_PARAMS","message":"agent hermes-work already exists"}',
+        ):
+            exe, _ = self._shim(answer)
+            with mock.patch.dict(os.environ, self._root_env()):
+                rc, out = _run(["bind", "--json", "--hermes-home", home, "--bin", exe])
+            doc = json.loads(out)
+            self.assertEqual(rc, 0, doc)
+            self.assertFalse(doc["created"])
         b = read_binding(home)
         self.assertEqual((b.recall_hard_ms, b.capture, b.version, b.installed_by), (900, False, "0.1.0", "installer"))
 

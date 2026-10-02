@@ -145,7 +145,10 @@ def _status_text(doc: dict) -> str:
         lines.append(f"Core:        reachable (rpc {core['rpc']}, contract {core['contract']}, instance {core['instanceId']})")
     else:
         lines.append(f"Core:        unreachable ({core['error']})")
-    lines.append(f"Journal:     {j['queued']} queued, {j['dropped']} dropped, {j['rejected']} rejected ({j['path']})")
+    lines.append(
+        f"Journal:     {j['queued']} queued, {j['dropped']} dropped, {j['rejected']} rejected, {j['lost']} lost"
+        f" ({j['path']})"
+    )
     lines.append(f"Last error:  {doc['lastError'] or 'none'}")
     return "\n".join(lines)
 
@@ -270,10 +273,11 @@ def bind(
         out = {}
     if proc.returncode == 0 and out.get("schema") == "agent.create/1":
         doc["created"] = True
-    elif out.get("schema") == "error/1" and "already exists" in str(out.get("message", "")):
-        # TODO(HM2 T5 review m7): `plur1bus agent create` answers an existing agent with E_INVALID_PARAMS and
-        # no reason (crates/plur1bus/src/commands/agent.rs); key on a reason code (e.g. "agent-exists")
-        # once the CLI emits one, and keep this text match only as a fallback for older binaries.
+    elif out.get("schema") == "error/1" and (
+        out.get("reason") == "agent-exists" or "already exists" in str(out.get("message", ""))
+    ):
+        # `plur1bus agent create` answers an existing agent with E_INVALID_PARAMS, reason "agent-exists"; the
+        # message match is the fallback for binaries released before the reason existed.
         doc["created"] = False
     else:
         code = out.get("error") if isinstance(out.get("error"), str) else "E_AGENT_CREATE"

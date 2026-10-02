@@ -91,7 +91,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                 out.fail(
                     "E_INVALID_PARAMS",
                     &format!("agent {id} already exists"),
-                    json!({}),
+                    json!({ "reason": "agent-exists" }),
                     1,
                 );
             }
