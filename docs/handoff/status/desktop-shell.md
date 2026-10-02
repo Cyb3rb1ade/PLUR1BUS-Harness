@@ -252,25 +252,24 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: VERIFYING — prior head `87915bb` passed complete root and five-target
-Desktop CI. PR #60 is now merged into main at `e6c98cf`. This follow-up merges
-that main into WP3 and applies the independently reviewed SQLite test-only
-correction from WP4. The new head requires fresh local and CI gates.
+Status: VERIFYING — owner review corrections implemented at `a288fd7` after
+main merge `4a5a8b`. All required local gates pass; independent review and
+current published-head CI remain required before readiness.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `main` (PR #60 merged with merge commit `e6c98cf`).
 PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), **draft**.
 The owner merges #63, then #64, using merge commits. Every new WP3 commit is
 merged forward into WP4 (and WP5 when it exists), without rebase or force-push.
-Implementation head: `f6f3e7e7ebb59981c962e56eac0289a42c8bf224`
-(initial frame `c392a63`, review fixes `f6f3e7e`).
-Verified local head: `861a5ee8cf8f9510d5b6b6c2cc860790152bd124`, including
-scale coverage `648a09f`, workflow correction `a634c9a` and the root-test fix.
-Final root gen/build/lint/test PASS: 584 passed, five existing skips; 11 hygiene
-tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remains
-55 passed with locked fmt/Clippy/build; UI is 19/19. No desktop test is skipped.
-Verified PR head: `39529e7d2ec283aa74313ffd67f9ed6f17159986`.
-This report-only follow-up records observed results and removes internal
-agent scratch reports from the tracked tree; their local copies are retained.
+Implementation head: `c6527a9` (owner corrections plus overlay focus R1 fix).
+Initial independent review found R1; its four regression cases now pass and
+the scoped re-review passed (R1 addressed, no new Critical/Important breakage).
+Verified local implementation at a288fd7: root567/five skips; root Rust1036/one
+ignored; desktop58/no skips; UI31/no skips; all required lint/fmt/Clippy/build and
+docs gates PASS. R1 adds four regressions and passes the full35-test UI suite; final typecheck
+passes. Native/root source remains unchanged by that UI-only fix.
+Historical verified PR head: `a735d2b` (all CI passed before owner review).
+Current owner-correction PR head/run links will be recorded after publishing
+and observing the final corrected head. It is not yet GREEN.
 
 ### Scope and decisions
 
@@ -356,20 +355,22 @@ agent scratch reports from the tracked tree; their local copies are retained.
   commands, closed settings types and atomic native persistence. No harness
   token, network request or arbitrary filesystem command enters the UI.
 
+Historical pre-owner-review matrix (superseded by the correction matrix below):
+
 | WP3 Accept | Result and observed target |
 |---|---|
 | en/de identical keys, no empty strings | PASS — Node 24.21, macOS arm64 |
-| Content-width breakpoints below 1024 and above 1600 | PASS — Chromium, all four platform variants, including exact boundaries |
+| Content-width breakpoints below 1024 and above 1600 | PARTIAL — compact edge checked; wide panel boundary was not proved before owner review |
 | 400 CSS px without horizontal scroll | PASS — Chromium compact views |
 | Text at least 12 px and targets at least 44 px | PASS — computed browser layout at tested widths and variants |
 | Dialog width min(680, window minus 48) | PASS — Chromium platform/width matrix |
 | axe WCAG 2.1 AA in both themes/locales | PASS at f6f3e7e — separate unobscured Advanced and dialog checks, all four theme/locale pairs |
-| Full keyboard traversal | PASS — browser tests; native macOS page/dialog path also observed |
-| Visible focus | PASS — browser assertions and inspected focus screenshot |
-| Text contrast at least 4.5:1 | PASS at f6f3e7e — unobscured page and dialog axe checks |
+| Full keyboard traversal | PARTIAL — prior focus-trap checks did not prove ordered page traversal or route focus |
+| Visible focus | PARTIAL — prior selector/screenshot did not prove computed outline and 3:1 contrast |
+| Text contrast at least 4.5:1 | PARTIAL — prior axe sample omitted Home/Connections and ignored incomplete nodes |
 
-The UI acceptance rows also passed on all five desktop CI targets at `39529e7`;
-independent reviews passed. Acceptance §8 row 14
+The old tests passed on all five targets at `39529e7`; the owner review identified
+the coverage gaps above. Acceptance §8 row 14
 is shell-side automated/keyboard coverage; actual screen-reader operation is
 still unperformed and must not be inferred from the accessibility tree.
 
@@ -496,3 +497,95 @@ WP4 remains unstarted until the corrected current head passes all gates.
   36971306303, including five desktop targets and Docker/Podman. It will receive
   the new WP3 history by normal merge and then repeat the required gates.
 - WP5 and WP6 remain unstarted. Both #63 and #64 remain drafts.
+
+### Owner review correction scope, 2026-10-02
+
+WP3: application-command ACL, focus preservation, complete keyboard/focus/contrast
+and wide-boundary evidence, API2.12 pin, safe settings persistence and reporting.
+The importer test is restored to main: desktop PRs must not alter core tests.
+Root tests will exclude desktop-ui; the desktop workflow retains its browser
+accessibility/layout gates. New main is merged normally; HM2 work is preserved.
+
+Owner follow-up (core, separate scope): the live main/WAL ordinary-file copy is
+not an atomic SQLite backup; synchronous native validation cannot be bounded by
+a JavaScript watchdog, and immutable fallback on a changing original may be
+unsafe. Investigate a supported SQLite backup/snapshot plus bounded validation
+and fail-closed behavior in a separate core issue/PR. No production fix is claimed.
+
+Draft [Unreleased] changelog lines for owner review:
+- WP2: Add a provisional desktop harness contract, isolated mock/fake binaries
+  and digest-pinned Docker/Podman stub smoke coverage.
+- WP3: Add the responsive Glow desktop frame with local fonts, de/en preferences,
+  platform chrome, application-command ACL and accessibility/layout gates.
+
+WP4 fixes follow the corrected WP3 forward merge; WP5 and WP6 remain unstarted.
+After both corrected heads pass full CI, mark #63/#64 ready for owner review.
+The owner merges them with merge commits; do not merge into main.
+
+### WP3 owner-correction acceptance matrix (a288fd7, local macOS arm64)
+
+| Handoff Accept (verbatim) | Exact test/file | Observed result | Targets |
+|---|---|---|---|
+| i18n: en and de have identical key sets and no empty strings | `both catalogues cover the same nonempty messages`, ui/test/i18n.test.ts | PASS | Node24.21 on macOS arm64; portable desktop CI test |
+| layout: breakpoints follow content width (compact < 1024, wide > 1600) | `frame follows content-width boundaries without clipping text`, layout.test.ts; `layout: wide edge at 1600/1601 switches panel and trigger on Settings and Connections`, acceptance.test.ts | PASS (1023/1024 and1600/1601) | local Chromium; desktop CI pending |
+| layout: 400 CSS px has no horizontal scroll | `layout: all six pages retain 12 px text and 44 px targets at every acceptance width`, acceptance.test.ts | PASS all six pages at400 plus720/960/1440/2560 | local Chromium; desktop CI pending |
+| layout: text ≥ 12 px, targets ≥ 44 px on shell pages | same exact acceptance.test.ts test; `Chromium 2x display scale keeps 1440 physical pixels while all shell pages fit 720 CSS pixels`, layout.test.ts | PASS; 1×/2× only | local Chromium; desktop CI pending |
+| layout: dialogs are min(680, window − 48) | `dialog layout and DOM button order follow all four platforms`, layout.test.ts; `platform chrome: GNOME fills the 800 px footer row, Windows band and short dialog height`, acceptance.test.ts | PASS width680/352; height<=132 at180 viewport; ordering/radius all4 variants | local Chromium platform CSS simulation; native cross-OS pending |
+| axe-core WCAG 2.1 AA clean on a sample view in both themes and both locales | `sample shell and dialog pass axe WCAG 2.1 AA in both themes and locales`, a11y.test.ts | PASS Home/Connections/Advanced/dialog × light/dark × en/de; reviewed incompletes above | local Chromium+axe4.13.0; desktop CI pending |
+| full keyboard traversal | `full keyboard traversal: ordered accessible names, wrap and visible 3:1 focus on every page`, acceptance.test.ts; Enter/Space/native-late/theme tests in focus.test.ts; dialog/sheet trap and return in layout/a11y | PASS six pages ×3widths ×2themes; ordered Tab+document wrap, Enter/Space/ShiftTab/Escape | local Chromium; manual VoiceOver/NVDA/Orca not run |
+| visible focus | same full keyboard traversal test, acceptance.test.ts | PASS computed outline-style !=none, width>=2, contrast>=3 for each traversed control | local Chromium; desktop CI pending |
+| 4.5:1 contrast | `every semantic ink/background token pair meets 4.5:1 in both themes`, contrast.test.ts, plus expanded axe sample | PASS (Home eyebrow corrected to ink-3) | Node token math + local Chromium; logotype exemption above |
+
+
+Local gates: root567 passed/five existing skips; lint including hygiene/HM2
+self-tests, frozen install/toolchain/gen/build PASS; root Rust1036 passed/one
+existing ignored; root fmt/clippy/docs:check PASS. Desktop58 passed/no skips;
+UI31 passed/no skips; desktop fmt/lockedclippy and serial locked Tauri debug
+app+DMG build PASS. Final frozen install/lint repeated after source freeze.
+Logs: `/tmp/wp03-owner-root-{node,rust}.log`, `/tmp/wp03-owner-final-lint.log`,
+`/tmp/wp03-ui-full-final.log`, `/tmp/wp03-native-full.log`,
+`/tmp/wp03-tauri-build.log`. No native manual or cross-OS execution is inferred.
+
+Deviations/limits after corrections:
+- API pin deviation resolved: @tauri-apps/api exact2.12.0; engine lock entry
+  byte-identical. sys-locale exact0.3.2 supplies actual OS locale.
+- Authorized root scope correction: restore importer test exactly main; remove
+  only Chromium setup from ci.yml after excluding desktop-ui from root tests.
+  All HM2 content remains. Desktop CI retains browser/accessibility/layout tests.
+- Narrow Windows Winsock10053 oversized-frame abort acceptance in WP2 http.rs
+  remains a recorded portability deviation; stale panic text is fixed.
+- C22 measured at1×/2× and separate200% text enlargement only; native
+  WebKit/WebView2 and150%/250% remain unmeasured locally.
+- Playwright1.63.0 pins browser revision, not a separately verified archive hash
+  (M14). Real-engine no-preference dark fallback is unverified (M6).
+- VoiceOver/NVDA/Orca were not run. Browser platform CSS simulation is distinct
+  from executing on native macOS/Windows/Linux.
+- Wordmark red1 uses WCAG logotype exception only. Axe incomplete Home gradient
+  selectors have explicit narrow reasons and independent worst-case/composited
+  token contrast proof; unreviewed incomplete targets fail.
+
+Minors M1–M5/M7–M13/M15 fixed; M6/M14 documented limitations, accepted by the
+review's alternatives. Settings retains future disk fields but IPC remains closed;
+corrupt/read-failed files cannot be silently overwritten. Errors remain until
+dismissed; stable focus and unique overlay headings are tested.
+
+Unfinished: independent review, any required fixes, status/PR final-head CI links,
+normal WP3 forward merge into WP4, WP4 owner corrections, then WP5/WP6.
+
+WP3 independent review at a288fd7: I1/I3/I4/I5 and safe Minors approved;
+Important R1 remains: nonroute/theme renders detach dialog/sheet opener nodes,
+so Escape does not restore focus. Reproduced in isolated Chromium. Original
+implementer is correcting it with regressions for both overlays; no push yet.
+
+WP3 R1 correction `c6527a9`: shared stable-key return-focus resolver for dialog
+and sheet. Four regression cases (overlay type × theme/native late load) failed
+before the fix, then focused10/10 and fullUI35/35 passed,0skip. Finaltypecheck
+PASS. Logs `/tmp/wp03-r1-{red-focus,focus-final,ui-final,typecheck-final}.log`.
+Initial post-fix assertions ran before asynchronous native dialog close delivery;
+the final tests wait for overlay detachment and passed from the final source.
+No native/Rust change; scoped review remains pending, no current CI claim.
+
+WP3 correction review complete: initial task review approved I1/I3/I4/I5 and
+safe Minors; R1 fix scoped re-review PASS. All owner-requested implementation
+fixes now approved. Publish corrected head and observe its complete current CI;
+#63 stays draft until corrected #64 is also green, then both become ready.
