@@ -289,8 +289,10 @@ Other app webviews use different native User-Agents.
 The proxy filters ambient header, target, redirect and resource forwarding, but
 cannot prevent page code from deliberately copying a renderer-readable carrier
 into an arbitrary request body or WebSocket frame; this follows the binding's
-"adds nothing the SPA could not send itself" boundary. The device bearer remains
-Rust-only and is never accepted or added by the proxy.
+"adds nothing the SPA could not send itself" boundary. The carrier authenticates
+only this paired browser session and grants no device scope or shell IPC
+authority. The device bearer and Rust session cookies remain Rust-only and are
+never accepted or added by the proxy.
 
 A second CSP intersects the harness policy and limits resource destinations to
 the proxy origin, with IPC for shell_info. Harness nonce/hash rules remain in
