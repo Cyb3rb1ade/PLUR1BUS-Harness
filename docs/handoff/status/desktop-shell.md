@@ -252,8 +252,8 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: VERIFYING — full root/desktop CI passed at `39529e7`; the report-only
-head `2d6a75c` exposed a Windows ARM64 test portability failure described below.
+Status: GREEN — full root/desktop CI passed at `87915bb`, including the reviewed
+Windows ARM64 test portability correction described below.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `feat/desktop-shell-wp02-mock-harness` at
 `2998d35a7badeb69a28b33e7072adc6de053d20e`; PR #60 is ready but not merged.
@@ -267,9 +267,9 @@ scale coverage `648a09f`, workflow correction `a634c9a` and the root-test fix.
 Final root gen/build/lint/test PASS: 584 passed, five existing skips; 11 hygiene
 tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remains
 55 passed with locked fmt/Clippy/build; UI is 19/19. No desktop test is skipped.
-Verified PR head: `39529e7d2ec283aa74313ffd67f9ed6f17159986`.
-This report-only follow-up records observed results and removes internal
-agent scratch reports from the tracked tree; their local copies are retained.
+Verified PR head: `87915bb45e75c0b7e7f00fe035b0a25ee22840fa`.
+Internal agent scratch reports were removed from the tracked tree in `2d6a75c`;
+their local copies are retained.
 
 ### Scope and decisions
 
@@ -465,10 +465,17 @@ requiring both that error kind and raw code 10053; unrelated I/O errors, EOF,
 timeouts and other frames still fail. Independent review approved the change.
 The focused test and full root/desktop local gates pass again (same counts
 above); logs: `/tmp/desktop-wp03-winarm-{root-node,root-rust,desktop-rust}.log`.
-Post-fix Windows behavior remains for CI to verify. Review minor retained:
+Post-fix Windows behavior passed in both CI runs, including native ARM64
+packaging. Review minor retained:
 the test panic text still says "reset" without naming the Windows abort.
 The earlier green run remains historical evidence, not a pass for this head.
-WP4 remains unstarted until the corrected current head passes all gates.
+The corrected current head `87915bb` passed all gates:
+[root](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36959664252),
+[desktop PR](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36959664176),
+[desktop push](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36959661573).
+All five desktop targets, Docker/Podman smoke, all root unit/system/service
+jobs and both 200-turn system soaks passed without reruns of these runs.
+`gh pr checks 63` confirmed every check passed before WP4 began.
 
 ### Next
 
@@ -477,6 +484,43 @@ WP4 remains unstarted until the corrected current head passes all gates.
 - [x] Real browser layout/keyboard/axe tests; browser prerequisites in CI.
 - [x] Local gates, native visual check, independent review and draft PR.
 - [x] Full root/desktop CI at `39529e7`.
-- [ ] Verify the report-only follow-up's CI, then start WP4 (connections,
-  keychain, pairing, trust rollover) on its own stacked branch. WP4–WP6 have
-  not been started; no implementation from those packages is hidden in WP3.
+- [x] Correct the report-only follow-up's Windows portability failure and
+  verify complete CI at `87915bb`.
+- [x] Start WP4 on its own stacked branch only after that complete gate.
+- [ ] WP5–WP6 remain unstarted and follow WP4 sequentially.
+
+## WP4 — Connections, keychain and pairing
+
+Status: IN PROGRESS — implementation not yet verified.
+Branch: `feat/desktop-shell-wp04-connections`.
+Base: `feat/desktop-shell-wp03-ui-frame` at
+`87915bb45e75c0b7e7f00fe035b0a25ee22840fa`; PR #63 is green, draft and unmerged.
+PR: not yet opened; no WP4 push before root and desktop Green.
+`origin/main` was fetched before branching and remains `d33961b`.
+
+### Scope and pending acceptance
+
+- Connection store, shared Rust/TypeScript origin table, UUIDv7, closed schema,
+  atomic owner-only writes and corruption preservation.
+- Zeroized/redacted tokens, native keychain adapter and memory-only fallback,
+  lazy access at pairing, injectable stores; real-keychain round trip not run
+  because the owner requires tests to use seams.
+- Native discovery and known-path fixed-argv pairing, code-flow fallback,
+  meta compatibility/installation checks before every authenticated request,
+  redirect refusal and revocation cleanup.
+- Generated-certificate mock and client tests for self-signed proof/pinning,
+  company CA delivered by pairing, origin-scoped trust, renewal and rollover.
+- Connections/Add remote/repair/revoked/trust states in both locales and themes,
+  reachable UI actions, 44 px targets, keyboard and accessibility tests.
+- Independent review, full local/CI gates, manual scratch-profile checks,
+  acceptance-by-acceptance results and draft PR remain pending.
+
+### Scope resolutions
+
+Task 8's `device-<uuid>` account helper derives the account from the connection
+id; new ids use UUIDv7 as the spec requires. Keychain probing is lazy, to honor
+just-in-time access. Tests inject memory/probe implementations and never use
+the real keychain. Bundled controller pairing remains WP8; opening the actual
+SPA remains WP5. WP4 may validate/select a connection without claiming a SPA
+window has opened. Provisional proof/CA/rollover details will be recorded in
+the shared mock contract before implementation is accepted.
