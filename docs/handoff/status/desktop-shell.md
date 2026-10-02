@@ -94,11 +94,12 @@ This follow-up commit records verification only.
 
 ## WP2 — Provisional mock harness, fake binaries and stub image
 
-Status: LOCAL GREEN — Part A implementation committed; independent review and fresh CI remain.
+Status: LOCAL GREEN, REVIEW APPROVED — final CI remains.
 Branch: `feat/desktop-shell-wp02-mock-harness`.
 PR: [#60](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/60), draft, base `main`.
 Original verified head: `5c5038281c6597d18f38d9d78cb0c2a0554f7666`.
-Part A implementation head: `7517ccc3922a49a312e0c17797e7f8cb86334387`.
+Part A implementation head: `8131a85f2a3df916a2cdd839b5da0401f3ae60e9`
+(initial fixes `7517ccc`, independent-review fixes `8131a85`).
 Main integration: `d33961b` merged as `90e0706025eb0b7a7621fd71f4755e61a2054d3b`
 on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
 
@@ -128,9 +129,15 @@ on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
 
 ### Local verification
 
-- PASS at Part A implementation head: desktop fmt, locked Clippy with warnings
-  denied, all 44 Rust tests (no skips), UI build/test (1), TypeScript typecheck.
-  Desktop log: `/tmp/desktop-wp02-fixes-desktop-rust.log`.
+- PASS again after review fixes at `8131a85`: root lint/test and root Rust
+  fmt/Clippy/test, with the same counts and existing skips described below.
+  Logs: `/tmp/desktop-wp02-round2-root-node.log` and
+  `/tmp/desktop-wp02-round2-root-rust.log`.
+- PASS at final Part A implementation head: desktop fmt, locked Clippy with
+  warnings denied, mock build, all 50 Rust tests (no skips), UI build/test (1),
+  TypeScript typecheck. Logs: `/tmp/desktop-wp02-round2-rust.log` and
+  `/tmp/desktop-wp02-round2-ui.log`. Initial Part A gate had 44 tests in
+  `/tmp/desktop-wp02-fixes-desktop-rust.log`.
 - PASS after main integration and the Part A TypeScript fix (macOS arm64):
   frozen install, toolchain check, gen/build, root lint including desktop UI,
   566 package tests plus the UI test and 11 hygiene tests. Five existing
@@ -166,6 +173,22 @@ on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
   The controller's fallback was not an independent review and missed the
   fixture and contract gaps listed by the owner on 2026-10-02. Part A fixes
   those findings and will receive a fresh independent review before closure.
+- Fresh independent full-WP2 review at `7517ccc`: no critical issue; two
+  important findings accepted for correction. Standalone non-loopback binds
+  must be limited to the explicit stub-container mode, and fake-plur1bus must
+  classify allowed argv before applying scenario overrides. A minor obsolete
+  inline daemon fixture was also identified. Commit `8131a85` fixes all three:
+  only explicit stub mode permits `0.0.0.0`; control routes require a loopback
+  peer and return 403 without peer metadata; fake-plur1bus validates argv before
+  scenario lookup; the test uses the canonical fixture. The defects were
+  reproduced by regression tests before correction. Independent scoped
+  re-review at `8131a85` approved all three fixes, with no new critical or
+  important issue and no out-of-scope observation.
+- Fresh CI at report head `3c514b9`: Docker and Podman stub smoke PASS in
+  [desktop CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36947221960).
+  The five desktop targets and
+  [root CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36947225578)
+  are still running. Further review fixes require verification on their new head.
 
 ### Acceptance matrix (Part A implementation head; awaiting fresh CI)
 
@@ -203,6 +226,7 @@ on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
 - [x] Complete contract, constants, opt-in controls and mock hardening.
 - [x] Include desktop TypeScript in root typechecking.
 - [x] Fresh local root and desktop gates.
-- [ ] Independent review and full CI; update this report.
+- [x] Independent review and scoped fix verification.
+- [ ] Full CI at final head; update this report.
 - [ ] Mark PR #60 ready for review after all gates pass; owner merges.
 - [ ] Start WP3, then WP4–WP6, only after the previous WP is green.
