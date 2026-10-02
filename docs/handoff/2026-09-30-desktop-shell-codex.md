@@ -1,6 +1,7 @@
 # Desktop app shell: handoff to Codex
 
-**Status:** Handoff brief · **Date:** 2026-09-30 · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
+**Status:** Handoff brief · **Date:** 2026-09-30 · **Amended:** 2026-10-02 (owner decisions C13–C17 and C19–C22: §7.4,
+WP3, WP6, WP8, WP12, WP13; then C8, C9, C12: §3 rule 12, WP4, WP5, §6.2, §7.4, §8, §9; then the owner's follow-up: `pair-proof` decided, the SPA proxy — §3 rule 13, §4.1, §4.2, WP5, §7.4, §8; then the loopback fallback decided, the company CA via pairing, the trust rollover — WP4, WP5, §8) · **Owner:** Christian (Cyb3rb1ade) · **Written by:** Claude,
 for OpenAI Codex · **Start prompt:** `docs/handoff/codex-start-prompt.md`.
 
 **Binding sources.** Read these; the ones marked *in full* must be read end to end.
@@ -288,7 +289,7 @@ These apply to every WP. A violation blocks the PR.
    - Nothing pipes a credential into a subprocess (D109 §9, `credential.entry` = never).
 7. **OS permissions just in time.**
    - Nothing is requested at install or first start beyond what the feature in hand needs. Keychain access
-     happens at pairing; notifications are D2.
+     happens at pairing; notifications are D2, except the GNOME no-tray banners (C17, WP6).
    - The permissions page shows status and opens the exact system pane; it never pre-requests (D107).
 8. **The device token lives only in the OS keychain**, and in Rust memory as a `SecretString`
    (zeroized, `Debug` prints `***`).
@@ -296,6 +297,13 @@ These apply to every WP. A violation blocks the PR.
      environment variable or `exec` argument (plan Global Constraints).
    - `assert_no_token_on_disk` and the redaction test enforce this.
    - The same holds for the secret-store key of `host.keyUnlock`.
+13. **The `spa` webview never opens a connection to a harness** (owner 2026-10-02, spec §6.2 *SPA proxy*, DS6).
+    - It loads the SPA from `plur1bus-harness://localhost` (Windows `http://plur1bus-harness.localhost`); the Rust
+      SPA proxy forwards HTTP, SSE and WebSocket to the connection's origin over the app's rustls client (pin or OS
+      trust), for bundled, local and remote connections alike — one code path.
+    - The proxy serves only the `spa` webview (403 for any other label), forwards only to the connection's origin,
+      never adds `Authorization` or the device token, drops page-set `Authorization`/`Cookie`, keeps the session
+      cookie in an in-memory jar (the webview cookie store stays empty) and adds no IPC.
 9. **Pinned dependencies.** Exact versions, committed lockfiles, `--locked`/`--frozen-lockfile`. In new
    workflows, Actions are pinned by full commit SHA. Images are pinned by digest.
 10. **IPC is a closed allow-list** (DS7).
@@ -314,7 +322,8 @@ These apply to every WP. A violation blocks the PR.
 
     The Docker path spawns nothing.
 12. **Container rules** (DS16, §6.15.7), asserted by `create_spec_is_exact`:
-    - loopback-only publish on `127.0.0.1:<18700–18799>`;
+    - loopback-only publish on `127.0.0.1:<18700–18799>` (the `network` publish of DS16 as amended 2026-10-02 is D2, not
+      yours; C8 in §7.4);
     - no runtime socket, `--privileged`, host network, device or home mount;
     - user `10001:10001`, read-only root file system, `tmpfs /tmp`;
     - Docker: `CapDrop ALL`, `no-new-privileges`, `PidsLimit 1024`, `unless-stopped`, `StopTimeout 150`;
@@ -339,11 +348,11 @@ These apply to every WP. A violation blocks the PR.
 │ updates (feed verify, decide, Tauri updater) · install (shortcuts, CLI shim, target.json)    │
 ├───────────────┬───────────────────────────┬─────────────────────────┬────────────────────────┤
 │ webview       │ webview "spa" (incognito) │ child process           │ tray / menu bar         │
-│ "shell"       │ origin = paired harness   │ plur1bus-host (D107)    │ native menus            │
+│ "shell"       │ plur1bus-harness://       │ plur1bus-host (D107)    │ native menus            │
 │ bundled pages │ SPA of the harness        │ stdio JSON lines,       │                         │
 │ IPC: shell-ui │ IPC: spa-bridge (shell_info)│ capabilities: [] in D1 │                         │
 └───────────────┴───────────────────────────┴─────────────────────────┴────────────────────────┘
-       │ runtime API/CLI (never from JS)   │ HTTP to harness origin      │ ws://127.0.0.1:<p>/ws
+       │ runtime API/CLI (never from JS)   │ SPA proxy (Rust) → harness  │ ws://127.0.0.1:<p>/ws
        ▼                                   ▼                             ▼
  container runtime ── plur1bus-harness container (real: D1 Task 4; now: stub image / mock harness)
 ```
@@ -376,7 +385,8 @@ These apply to every WP. A violation blocks the PR.
 - **Capabilities:**
   - `capabilities/shell-ui.json` binds the `shell` webview to the shell commands.
   - `spa-bridge` is added at run time with `add_capability`: `webviews: ["spa"]`,
-    `remote.urls: ["<exact origin>/*"]`, and only `shell_info` in D1.
+    scoped to the SPA's app-internal origin `plur1bus-harness://localhost` (spec §6.9; whether Tauri treats it as
+    local or needs it under `remote.urls` is a Task 13 Step 0 finding), and only `shell_info` in D1.
   - The runtime capability is replaced on every connection switch.
   - No capability lists a `panel-*` label.
 - **The command table.** One table in `commands.rs`, tested. Labels are shown here as "window → commands".
@@ -388,7 +398,8 @@ These apply to every WP. A violation blocks the PR.
     - `harness_upgrade_status`, `harness_rollback`;
     - `update_check|install|later|skip`, `update_settings`;
     - `settings_get|set`, `bridge_settings`, `helper_status`, `permissions_open_pane`, `approvals_list`;
-    - `uninstall_containers|images|volumes`, `quit_decision`, `diagnostics_copy`.
+    - `uninstall_summary|run` (closed level enum `app_only|app_and_images|everything`; `everything` requires the
+      typed `plur1bus-state`, checked in Rust; C16), `quit_decision`, `diagnostics_copy`.
   - `spa` → `shell_info`.
 
   Adding a command means a spec reference, a row in the table and a test. Everything else is refused.
@@ -402,7 +413,8 @@ These apply to every WP. A violation blocks the PR.
   - The SPA's CSP is the harness's own.
 - **Isolation between shell pages and the SPA.** They are different webviews with different origins:
   - `shell` loads `tauri://localhost` or `http://tauri.localhost`, is persistent and holds no secrets;
-  - `spa` loads the harness origin, is `incognito`, has `drag_drop_enabled(false)`, `on_navigation` limited to
+  - `spa` loads `plur1bus-harness://localhost` (Windows `http://plur1bus-harness.localhost`) through the SPA proxy
+    (rule 13), never the harness origin itself, is `incognito`, has `drag_drop_enabled(false)`, `on_navigation` limited to
     the same origin, other `http(s)`/`mailto` links opened externally, and `window.open` to foreign origins
     blocked.
 
@@ -568,7 +580,8 @@ follow the D1 plan where it has them, so Claude can map them.
 - **Interfaces:**
   - `ipc.ts` is the only module that calls `invoke` (bundled `@tauri-apps/api/core`).
   - `tokens.css` is the single provisional token source, from §13.1: the light Glow values and the dark shell
-    set. It carries a header saying it gets replaced by the M3 theme file (C1 open, §7.4).
+    set. It carries a header saying it gets replaced by the M3 theme file, which is generated from §13.1 (C1
+    decided 2026-10-01, §7.4).
   - Themes follow `prefers-color-scheme`, dark as the fallback, with a three-state override
     (system/light/dark) stored in `settings.json` (default of G-3 in §9).
   - Locale follows the OS (German systems → `de`, everything else → `en`), with a manual override (owner,
@@ -579,12 +592,12 @@ follow the D1 plan where it has them, so Claude can map them.
     - Windows dialogs get a footer band;
     - GNOME compact buttons fill the width;
     - OS words: *menu bar*, *notification area*, *top bar*, *system tray*.
-  - Wordmark as drawn (`SETT1NGS`, `CONNECT1ONS`, C4 open). `prefers-reduced-motion` stops every animation.
+  - Wordmark as drawn (`SETT1NGS`, `CONNECT1ONS`, C4 decided 2026-10-01). `prefers-reduced-motion` stops every animation.
 - **Accept:**
   - `i18n: en and de have identical key sets and no empty strings`;
   - `layout: breakpoints follow content width (compact < 1024, wide > 1600)`;
   - `layout: 400 CSS px has no horizontal scroll`;
-  - `layout: text ≥ 12 px, targets ≥ 44 px on shell pages`;
+  - `layout: text ≥ 12 px, targets ≥ 44 px on shell pages` (at every width; C22 decided 2026-10-02);
   - `layout: dialogs are min(680, window − 48)`;
   - axe-core WCAG 2.1 AA clean on a sample view in both themes and both locales;
   - full keyboard traversal;
@@ -617,12 +630,39 @@ follow the D1 plan where it has them, so Claude can map them.
     `redeem_stores_the_token_in_the_token_store_only` + `assert_no_token_on_disk`, `redirects_are_not_followed`,
     `pair_code_rejects_insecure_remote_before_any_request`, `discover_*`, `pair_local_*`);
   - UI: the `pairing-model` table, `origin-input: same table as Rust`.
-- **Pointers:** §6.1, §6.2, DS4, DS6; D1 plan Tasks 8 and 9; boards `DskB-Connections-*` (list, add-remote,
-  add-error, repair, revoked, no-keychain).
+- **Pinned self-signed remote (C8, decided 2026-10-02; D1 plan DR27):** `Connection.cert_pin`, a rustls verifier
+  that accepts exactly the pinned leaf, `ClientError::{CertChanged, Untrusted, ProofMismatch}`, and
+  `HarnessClient::pair_proof` (§6.2 *Pairing payload*: the code is sent only after the proof matches the leaf the
+  client saw). Accept: the plan Task 9 pinned-remote list (`pinned_origin_accepts_exactly_the_pinned_leaf`,
+  `unpinned_self_signed_is_untrusted_before_any_request`, `changed_certificate_is_cert_changed_and_marks_pairing_needed`,
+  `pair_proof_pins_on_match_and_never_sends_the_code_on_mismatch`, `pair_proof_for_another_certificate_is_refused`,
+  `os_trusted_origin_skips_pair_proof`, `the_pin_is_never_taken_from_a_typed_field`), against the mock with generated
+  certificates.
+- **Company CA via pairing (owner 2026-10-02; spec §6.2 *Remote exposure* and *Pairing payload*):** `Connection.ca_pin`;
+  the pairing payload's `ca=sha256:…` (or `caPin` in the `pair-proof` answer, covered by the HMAC); the CA certificate
+  fetched from `GET /api/v1/devices/ca` and accepted only if its hash equals `ca_pin`; the verifier uses it as a trust
+  anchor **for this connection's origin only** (normal chain, host-name and validity checks; never added to the OS),
+  alongside the OS store. The app never stores a CA file of its own. `ClientError::CaNotKnown` when a company-CA
+  certificate arrives without a usable `ca_pin`. Extend the mock (WP2) with a generated CA, a leaf it issues and the
+  `devices/ca` route. Out of D1: the admin upload the app forwards to the harness (needs the M3 admin API; D2).
+  Accept: `company_ca_pin_is_anchor_for_this_origin_only`, `ca_from_devices_ca_endpoint_must_match_ca_pin`,
+  `leaf_renewed_by_same_ca_needs_no_repair`, `company_ca_without_ca_pin_is_ca_not_known`.
+- **Trust rollover (owner 2026-10-02; spec §6.2 *Trust rollover*):** the client takes a *next* pin (`nextCertPin` /
+  `nextCaPin`) **only** from `GET /api/v1/devices/trust` or the SSE event `devices.trust.next`, over the current,
+  already-verified connection with the device token; stores it beside the current pin; acks with
+  `POST /api/v1/devices/trust/ack`; accepts current or next until the switch, then next becomes current. Mock: a
+  staged change and a switch. Accept: `next_trust_is_taken_only_over_the_current_pinned_connection_with_token`,
+  `current_or_next_accepted_until_switch`, `next_becomes_current_after_switch`, `missed_rollover_is_cert_changed`.
+- **Pointers:** §6.1, §6.2, DS4, DS6 (amended 2026-10-02); D1 plan Tasks 8 and 9, DR27; boards `DskB-Connections-*`
+  (list, add-remote, add-error, repair, revoked, no-keychain, and since 2026-10-02 `cert-changed`, `ca-untrusted`,
+  `ca-review`, `ca-not-ca`, `ca-expired`, `ca-added`, `trust-next`; `ca-review` and the refusals belong to the D2 admin
+  upload — in D1 draw only the states the client can reach: `cert-changed`, `ca-untrusted` without the admin card,
+  `ca-added`, `trust-next`).
 
 ### WP5 — SPA window: incognito, ticket login, navigation guard, `spa-bridge` *(first)*
 
-- **Goal.** *Open* shows the harness SPA logged in, without the token ever entering the webview.
+- **Goal.** *Open* shows the harness SPA logged in, without the token ever entering the webview, through the Rust
+  SPA proxy (rule 13).
 - **Files:** `src-tauri/src/{policy,spa}.rs`, `tests/{policy,spa}.rs`; the error view for
   `/auth/ticket-failed`.
 - **Interfaces:** plan Task 13: `spa_navigation`, `check_spa_caller`, `open_spa`, and `shell_info` returning
@@ -630,13 +670,20 @@ follow the D1 plan where it has them, so Claude can map them.
   `http:` and `mailto:` URLs, and is implemented in Rust (no opener plugin).
 - **Accept:**
   - `navigation_table`, `caller_check_rejects_other_webview_and_other_origin`;
-  - `shell_info_is_the_only_spa_command`, `spa_bridge_capability_is_scoped_to_the_connection_origin`;
+  - `shell_info_is_the_only_spa_command`, `spa_bridge_capability_is_scoped_to_the_spa_origin`;
   - `switching_connection_replaces_the_capability`. If the Tauri mock runtime cannot express this, test through
     `policy.rs` plus a recorded manual check, and say so;
   - `a_replayed_ticket_page_is_retried_once_then_shows_the_error`;
   - `no_cookie_database_in_app_dirs` + `assert_no_token_on_disk` after an open/close cycle;
   - against the mock: quit and restart logs in again through a fresh ticket (acceptance 11).
-- **Pointers:** DS3, DS5, DS7, §6.9; D1 plan Task 13; acceptance 10 and 11.
+- **SPA proxy (C8, DR27; owner 2026-10-02):** `spa_proxy.rs` as plan Task 13. First the Step 0 spike on WebView2,
+  WKWebView and WebKitGTK: SSE streaming and WebSocket through the custom protocol (Tauri's responder is expected to
+  buffer whole bodies and no engine to route WebSocket upgrades to a custom scheme — both unverified), latency budget
+  (proxy overhead p95 ≤ 5 ms on loopback, first SSE event unbuffered), the page's `Origin`, CSP `'self'`, and how Tauri
+  classifies the custom-scheme page for the capability. If SSE or WebSocket cannot pass on a target, that target uses the
+  loopback fallback (spec §6.2; decided by the owner 2026-10-02 — ephemeral `127.0.0.1` port, per-launch secret on
+  every request, `Host`/`Origin` checked; **no** Tauri IPC transport) and you report the spike result in the WP report. Accept: the plan Task 13 `spa_proxy` list.
+- **Pointers:** DS3, DS5, DS6, DS7, §6.2 *SPA proxy*, §6.9; D1 plan Task 13, DR27; acceptance 8a, 10, 10a and 11.
 
 ### WP6 — App lifecycle: single instance, windows, tray, quit, autostart, logging, crash *(first)*
 
@@ -648,7 +695,7 @@ follow the D1 plan where it has them, so Claude can map them.
   - autostart is a real toggle;
   - logs are redacted;
   - crashes are recorded locally.
-- **Files:** `src-tauri/src/{tray,events,logging,crash,settings}.rs`, `controller/autostart.rs` (plugin
+- **Files:** `src-tauri/src/{tray,events,logging,crash,settings,notify}.rs`, `controller/autostart.rs` (plugin
   wrapper behind a trait), `tests/{events,tray_state,logging,crash}.rs`, `ui/src/views/quit-dialog.ts`.
 - **Interfaces:**
   - `TrayState`, `map_status`, `combine`, `EventStream` (plan Task 14): `GET /events?topics=harness.status`,
@@ -662,11 +709,16 @@ follow the D1 plan where it has them, so Claude can map them.
     - *Connections…*;
     - *Settings…*;
     - *Quit PLUR1BUS*.
-  - Icons: the four glyph classes of C18 (ring = busy, dot = update, triangle = attention, plain = ready),
-    template images on macOS, light and dark `.ico` on Windows, symbolic SVG on Linux.
+  - Icons (owner, 2026-10-01; §7.3): the red `1` with the four badge classes of C18 (ring = busy, dot =
+    update, amber triangle = attention, no badge = running), `-light`/`-dark` per state; a coloured status
+    item on macOS (`iconAsTemplate: false`, template set only as fallback), light and dark `.ico` on Windows,
+    light/dark plus symbolic SVG on Linux.
   - Quit dialog: a shell-page modal, not a native dialog (no dialog plugin). Default *keep PLUR1BUS running*
     (DR9).
-  - Linux without an AppIndicator host: the window stays in the taskbar, with a one-time hint (C17 default).
+  - Linux without an AppIndicator host (GNOME; C17 decided 2026-10-02, §7.4): a notification banner
+    (`tauri-plugin-notification`, `notify.rs`) for every tray-state change with the drawn actions (*Open/Dismiss*,
+    *Show log/Start again*, *Later/Update…*); the Flatpak build is listed under *Background Apps* (XDG Background
+    portal); deb/rpm/AppImage keep the window in the dash, with a one-time hint.
   - `autostart::set_enabled` and `on_login` (start minimised to the tray). The runtime and harness start is
     wired in WP8.
   - `logging::init`/`redact`, and the crash hook as in §4.2.
@@ -674,6 +726,7 @@ follow the D1 plan where it has them, so Claude can map them.
   - `map_status_table`, `combine_table`;
   - `stream_reconnects_with_backoff_and_last_event_id`, `revoked_stream_goes_unpaired_and_stops`;
   - `quit_asks_and_defaults_to_keep_running`;
+  - `gnome_without_appindicator_notifies_every_state_change` (injected notifier);
   - `second_instance_focuses_the_first`;
   - `autostart_toggle_calls_the_launcher` (fake);
   - `redact_removes_tokens_tickets_cookies_keys_and_url_fragments`,
@@ -682,6 +735,18 @@ follow the D1 plan where it has them, so Claude can map them.
   - manual record: tray follows the mock's `harness.status` on each available OS.
 - **Pointers:** §6.8, DR9, DR10, D101 "Autostart starts minimised"; D1 plan Tasks 14 and 15 (logging half);
   boards `DskB-Tray-{mac,win,gnome,kde}`; C17, C18, G2.
+- **Logging follows D111** *(amended 2026-10-01 (D111); spec
+  `docs/superpowers/specs/2026-10-01-logging-and-diagnostics-design.md`)*:
+  - JSONL, keys in order `ts` (RFC 3339 UTC, ms), `level`, `source{kind:"desktop",id:"shell"|"controller"|"updater",version}`,
+    `event` (registered `desktop.*` codes, spec §3.2), `msg` (constant per event), then optional `trace_id`, `span_id`,
+    `duration_ms`, `err{code,reason,retryable,hint}`, `attrs`; files `0600` / user-only DACL.
+  - Levels `trace|debug|info|warn|error|fatal` (default `info`, `trace` only time-limited); a panic is `fatal`
+    (`desktop.app.crashed`, written at the next start beside the crash file, which stays as specified in §4.2).
+  - Harness and runtime output shown by `harness_logs_tail` is foreign text: rendered as plain text, never parsed for
+    levels or events.
+  - Redaction stays in the one formatter and adds D111 §4: URL userinfo, vendor key shapes, JWTs, PEM keys, deny-list
+    paths; base64url runs of ≥ 43 characters are redacted **unless pure hex** (hashes stay readable).
+    `the_log_file_never_contains_a_planted_token_or_key` also asserts the record schema.
 
 ### WP7 — Runtime detection and adapters
 
@@ -711,7 +776,7 @@ follow the D1 plan where it has them, so Claude can map them.
 
 ### WP8 — Controller, bundled install and auto-pair, wizard, Settings → Runtime
 
-- **Goal.** "Weiter, weiter, fertig" against the stub image:
+- **Goal.** The wizard (Welcome → Licences → Runtime → Installing → Done; C13) against the stub image:
   - detect;
   - acquire by digest;
   - create volumes and the container;
@@ -735,7 +800,8 @@ follow the D1 plan where it has them, so Claude can map them.
     and revoking the old device after the new token is stored;
   - `target.json` writer (plan Task 10 format).
 
-  Wizard: follow the §6.15.10 behaviour with the board layout, per the C13/C14 defaults in §7.4. Error kinds as
+  Wizard: §6.15.10 as decided (C13, C14, C15; §7.4) — the board's steps, no *Resources* and no offline/online
+  step, "Checksums verified". Error kinds as
   plan Task 12.
 
   Settings → Runtime:
@@ -753,13 +819,13 @@ follow the D1 plan where it has them, so Claude can map them.
     Docker's policy, wake-gap handling, `docker_socket_wait_is_bounded_to_120s`);
   - the plan Task 9 bundled list (`pair_bundled_*`, `the_token_is_never_in_an_exec_argument_or_env`,
     `bundled_revoked_repairs_once_then_asks`);
-  - `wizard-model: happy path is three primary actions` (or the count the C13 default gives; record it), and
+  - `wizard-model: happy path is four primary actions and never asks offline or online`, and
     every error kind maps to a message and a retry target;
   - `controller_e2e` on the stub image with Docker and Podman: install → ready → kill PID 1 → restarted → stop
     → uninstall; the port is bound only on `127.0.0.1` (probe the non-loopback addresses).
 - **Pointers:** DS1, DS14–DS20, §6.1 "Bundled", §6.2 step 0, §6.15.3–§6.15.7, §6.15.10; D1 plan Tasks 7, 9, 12;
   acceptance 1 (mock level), 3, 4 (controller half); boards `DskB-Install-*` (all states), `DskB-Settings-*`
-  runtime / runtime-crashed; C13, C14, C15, G1.
+  runtime / runtime-crashed; C13, C14, C15 (decided 2026-10-02), G1.
 
 ### WP9 — Host bridge, `host.keyUnlock`, helper frame, Computer access and Approvals frames
 
@@ -887,8 +953,8 @@ follow the D1 plan where it has them, so Claude can map them.
   - `open` accepts only a relative path matching the SPA route allow-list, on the active connection.
   - `chat/*` (D92, milestones D1 row) and `install` (X3, catalogue ids only, D84) are parsed and answered with
     "not available in this version" until their features land.
-  - A `.p1x` file opens a confirm view with *not available yet*. The X3 hook fills it later (`DskB-P1x-*`,
-    C19).
+  - A `.p1x` file opens a confirm view with *not available yet*. The X3 hook fills it later (`DskB-P1x-*`;
+    C19 decided 2026-10-02 for D80: *Install* ends installed (disabled), primary *Install and enable for <agent> ▾*).
   - Everything else is ignored and logged without arguments. The same rules apply to argv.
 - **Accept:**
   - `pair_link_prefills_and_never_pairs`;
@@ -902,7 +968,7 @@ follow the D1 plan where it has them, so Claude can map them.
 ### WP13 — Packaging per OS, installer choices, runtime install help, uninstall, signing hooks
 
 - **Goal.** Build installable bundles per target and channel, with D101's choices, the runtime-install flows
-  and a staged uninstall.
+  and a tiered uninstall.
 - **Files:**
   - `tauri.conf.json` bundle sections;
   - `src-tauri/windows/nsis/installer.nsi` (the custom template) + `hooks.nsh`;
@@ -932,7 +998,8 @@ follow the D1 plan where it has them, so Claude can map them.
   - **Podman socket:** fixed argv, `flatpak-spawn --host` when `FLATPAK_ID` is set.
   - **CLI shim:** copies the bundled host `plur1bus` from the root release artefacts (placeholder in CI), adds a
     `PATH` line with a marker, and never overwrites a foreign file.
-  - **Uninstall:** follows the C16 default in §7.4.
+  - **Uninstall** (C16 decided 2026-10-02, §6.15.10, §7.4): one tiered choice (*App only* default · *App and
+    images* · *Everything*), one summary, a typed `plur1bus-state` for *Everything*, a progress list.
   - **Signing hooks** (no credentials):
     - macOS `signingIdentity` from an environment variable, else ad-hoc;
     - Windows `signCommand` hook left empty until SignPath (DS31);
@@ -944,7 +1011,8 @@ follow the D1 plan where it has them, so Claude can map them.
     `vendor_installer_never_passes_silent_flags`, `vendor_installer_shows_the_vendor_licence_before_download`,
     `podman_socket_uses_fixed_argv`, `cli_shim_never_overwrites_a_foreign_file`,
     `path_line_is_added_once_with_marker_and_removed_on_uninstall`, `target_json_matches_the_forwarder_format`,
-    `offline_variant_uses_the_bundled_tarball`);
+    `offline_variant_uses_the_bundled_tarball`, `uninstall_default_is_app_only_and_keeps_data`,
+    `everything_requires_typed_plur1bus_state`);
   - D101 per channel (`nsis_options_page_writes_the_choices`, `silent_flags_opt_out`,
     `update_keeps_a_deleted_icon_deleted`, `uninstall_removes_created_entries`, `msix_manifest_has_startup_task_and_shortcut`,
     `flatpak_requests_background`);
@@ -952,7 +1020,7 @@ follow the D1 plan where it has them, so Claude can map them.
   - a manual install of each available bundle, with click count and time recorded.
 - **Pointers:** §6.10, §6.15.10, DS27, DS30–DS34, DS39 (`webviewInstallMode`: online `downloadBootstrapper`,
   offline `offlineInstaller`), D101; D1 plan Task 17, DR4, DR22, DR23; boards `DskB-Install-*` licence,
-  install runtime, mode; `DskB-Settings-*` uninstall-1..3; C14, C16, G6.
+  install runtime; `DskB-Settings-*` uninstall-1..3; C14, C16 (decided 2026-10-02), G6.
 
 ### WP14 — CI extension: container e2e on the stub image, Apple scaffold, canary
 
@@ -1041,6 +1109,7 @@ Keep every path, field name and scope in constants so this is a small diff.
 | Route | Auth | Request → response | Notes |
 |---|---|---|---|
 | `GET /api/v1/meta` | none | → `{ apiVersion: "1.x.y", version: "<product semver>", installationId, capabilities: string[] }` | the shell needs `desktop.sessionTicket` and `host.bridge`. A different API major is refused, naming both versions (ADR-016 §3) |
+| `POST /api/v1/devices/pair-proof` | none (rate-limited per source and per open code) | `{ clientNonce }` → `{ salt, serverNonce, proof }` | C8, §6.2 *Pairing payload*: only for an origin whose certificate the OS does not trust; `proof = HMAC-SHA256(Argon2id(code, salt), "plur1bus-pair-v1" ‖ fp ‖ origin ‖ clientNonce ‖ serverNonce)`; the client checks it against the leaf it saw and only then redeems. Provisional until M3 |
 | `POST /api/v1/devices/redeem` | none (rate-limited) | `{ code, name, kind: "desktop" }` → `{ deviceId, token }` | code: 8 characters shown as `XXXX-XXXX`, single use, about 1 h (C10 settled). The token goes straight into the keychain |
 | `POST /api/v1/auth/session-ticket` | `Bearer <device token>` with `ui.session` | → `{ ticket, expiresAt }` | single use, 60 s, device-bound, at most 5 open per device |
 | `GET /auth/ticket#t=<ticket>` | none | SPA page: POSTs the ticket, then `replaceState` | the fragment never reaches server logs |
@@ -1117,13 +1186,19 @@ base64url, never logged. There is no generic "run this" operation, ever. The hel
 ### 7.1 The canvas
 
 - **URL:** https://claude.ai/artifact/CRjk86mofQ9vqhb2twu8wS (the owner's Design artifact).
-- **Pages:**
-  - **`v2 · Desktop & responsive`** (id `desk`, 63 boards): every D1 shell page in the native frames of macOS
-    15, Windows 11, GNOME 47 and KDE Plasma 6, light and dark, at normal (1280 window), compact 960 and wide
-    2560. Also the tray, the icon set `DskIcons` and the responsive rules `RspRules`;
-  - **`v2 · Glow`** (56 boards): the harness SPA (M3 onward). You need it only for the visual language and the
-    approvals card (`V2Inbox`, `V2Approvals`);
-  - `v1` is superseded.
+- **Pages** (regrouped by the owner 2026-10-01; board file names unchanged, so every board name below holds):
+  - **`v3 · Glow`** (id `v3`, the launch page, 119 boards, in labelled sections):
+    - the desktop sections (64 boards, formerly page `v2 · Desktop & responsive`, id `desk`): every D1 shell
+      page in the native frames of macOS 15, Windows 11, GNOME 47 and KDE Plasma 6, light and dark, at normal
+      (1280 window), compact 960 and wide 2560. Also the tray, the icon sets `DskIcons` and `DskTrayIcons`, and
+      the responsive rules `RspRules`;
+    - the SPA sections (55 `V2*` boards, formerly page `v2 · Glow`): the harness SPA (M3 onward). You need them
+      only for the visual language and the approvals card (`V2Inbox`, `V2Approvals`);
+  - **`Building blocks & open`** (id `parts`): the component files (`DskWin`, `DskDesk`, `DskIcon`,
+    `DskInstall`, `DskUpdate`, `DskSettings`, `DskSidecars`, `DskConnections`, `DskP1x`, `DskTray`,
+    `V2BrowserPanel`); `V2Sidecars` sat here under C20 until it was redrawn and moved back to `v3 · Glow`
+    (2026-10-02);
+  - `v1 · Original & concepts` is the archive.
 - **Behaviour vs looks.** The canvas owns how screens look and what they contain. The spec, the D1 plan and
   ADR-004 own behaviour, security and decisions (§13).
 - **If you cannot open the artifact** (it needs a claude.ai login): §13.1, §13.6, §13.7 and §13.8 carry the
@@ -1134,12 +1209,13 @@ base64url, never logged. There is no generic "run this" operation, ever. The hel
 
 | Board family | States | WP |
 |---|---|---|
-| `DskB-Install-*` | welcome, licence, detect, detect-none, runtime, mode, progress-online, progress-offline, done, error | WP8, WP13 |
+| `DskB-Install-*` | welcome, licence, detect, detect-none, runtime, progress-online, progress-offline, done, error (`mode` removed 2026-10-02, C14) | WP8, WP13 |
 | `DskB-Update-*` | offer, security, major, progress, done, rolled, recovery, store | WP10, WP11 |
 | `DskB-Settings-*` | runtime, runtime-crashed, updates, version, rollback-confirm, advanced, uninstall-1..3 | WP8–WP11, WP13 |
 | `DskB-Connections-*` | list, add-remote, add-error, repair, revoked, no-keychain | WP4 |
 | `DskB-Tray-{mac,win,gnome,kde}` | ready, starting, error, update | WP6 |
 | `DskIcons` | — | WP1, WP6, WP13 |
+| `DskTrayIcons` | running, starting/busy, attention, update × light, dark, template | WP6 |
 | `RspRules` | — | WP3, WP15 |
 
 Not D1:
@@ -1159,7 +1235,8 @@ Not D1:
 ### 7.2 Responsive rules (binding, §13.7, condensed; read the full 12 rules)
 
 - **Logical px.** Layout follows the window's content width.
-- **Minimums:** text 12 px, targets 44 px on shell pages, window 800 × 600.
+- **Minimums:** text 12 px, targets 44 px on shell pages at every width (the SPA: 44 px compact, 24 px normal and
+  wide; C22), window 800 × 600.
 - **Breakpoints:**
   - compact < 1024 (must work down to 400);
   - normal 1024–1600;
@@ -1179,72 +1256,135 @@ Not D1:
 
 ### 7.3 Icon set (§13.8)
 
-- **Master artwork:** `icons/master.svg` (1024 grid), `small.svg` (≤ 32 px, ring dropped at ≤ 24), `glyph.svg`
-  (tray, never a 1 px stroke).
+- **Brand rule (owner, 2026-10-01):** the red Lilita One "1" (`#E5484D`) is the brand core. The tray icon, the
+  macOS menu-bar icon and **every icon below 48 px** (including the 40 px `.ico` frame and `Square44x44Logo`
+  scale-100) use the **red `1` alone** (no plate). **From 48 px up** the app icon uses **"P1B"**: P and B light
+  on the dark plate inside the duo ring, the 1 red.
+- **Master artwork:** `icons/master.svg` (1024 grid), `small.svg` (≤ 32 px, ring dropped at ≤ 24; superseded by
+  the red `1` alone above), `glyph.svg` (tray, never a 1 px stroke).
 - **Tauri `bundle.icon`:** `32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns` (16–512 at 1×/@2×),
   `icon.ico` (16, 20, 24, 32, 40, 48, 64, 256).
-- **macOS tray:** template PNG per state at 16/18 pt, 1×/2×/3×.
+- **Tray icon (owner, 2026-10-01; `DskTrayIcons`):** the red `1` alone; state by badge shape: none = running,
+  ring = starting/busy, amber triangle = needs attention, dot = update available. Badge ink follows the bar
+  (dark on light bars, white on dark), so each state ships `-light` and `-dark` files. SVG masters in the
+  artifact: `assets/tray/red-1-<state>-<light|dark|template>.svg`.
+- **macOS tray:** a coloured status item (Tauri `iconAsTemplate: false`) per state at 16/18 pt, 1×/2×/3×; the
+  black template set is kept only as a fallback.
 - **Windows tray:** `.ico` per state, light and dark, 16/20/24/32.
 - **MSIX:** `Square44x44Logo` scale-100/150/200/400 + targetsize-16/24/32/48/256 unplated, `StoreLogo`
   50/75/100/200, `Square150x150Logo`, `Square310x310Logo`. Check what Tauri's MSIX target requires beyond these.
 - **Linux:** hicolor `{16,22,24,32,48,64,128,256,512}` `app.plur1bus.desktop.png`, plus `scalable` and
-  `symbolic` SVG. Tray icons are symbolic SVG at 16/22/24.
-- **Tray states:** four glyph classes, told apart by shape (C18).
+  `symbolic` SVG. Tray icons at 16/22/24: the red `1` `-light`/`-dark` per state, plus `-symbolic` SVGs.
+- **Tray states:** four glyph classes, told apart by shape (C18, settled by the owner 2026-10-01).
 
-### 7.4 Open owner conflicts C13–C18, quoted from §13.5, with the default you implement
+### 7.4 Owner conflicts C8, C9, C12 and C13–C22, quoted from §13.5, with the owner's decisions
 
-Across all six the rule is DR26: **the spec's behaviour, the board's layout and copy**, until the owner decides.
+All of them are decided (C18 settled 2026-10-01, the rest 2026-10-02); with C8, C9 and C12 decided on 2026-10-02,
+every C1–C22 is decided or settled. Implement the decision; the quotes keep
+both readings as the record. The spec (§6.8, §6.15.10, §13.5–§13.7) and the D1 plan (DR2, DR4, DR6, DR26,
+Tasks 7, 12, 14, 17, 19) already follow them.
 
-- **C13 Wizard steps (shell).**
+- **C13 Wizard steps (shell).** *Decided 2026-10-02: reading 1, without the Offline or online step (C14).*
 
   > §6.15.10 / D1 plan DR6: *Welcome → Runtime → (Install runtime) → Resources → Installing* (image, volumes, network, container, start, owner, pairing) *→ Done*, three primary clicks. Board: *Welcome → Licences* ("I agree") *→ Runtime → Install runtime → Offline or online → Installing* (copy/download, verify, unpack, volumes, start, health check) *→ Done*; no *Resources* step (fixed 3 GB · 4 processors at install; the 2–16 GB limit, default 3 GB, sits in *Settings → Runtime*); owner creation and pairing are folded into the health check ("sign-in works"). With a runtime present this is five actions. *Reading 1:* the board replaces the §6.15.10 list and the D77 licence screen is its own step. *Reading 2:* the spec order stands; licences fold into *Welcome*, *Resources* returns.
 
-  **Default:** reading 2.
-  - Steps: Welcome (with the licence summary and an *I agree* checkbox gating *Weiter*) → Runtime → (Install
-    runtime) → Resources (defaults, *Advanced* collapsed) → Installing → Done. Three primary actions with a
-    runtime present.
-  - The progress list shows the board's six rows and reports network, owner and pairing as sub-steps.
-  - The `wizard-model` keeps the step list in one table, so switching to reading 1 is data, not code.
+  - Steps: Welcome → Licences (own step; *I agree* gates *Continue*) → Runtime → Install runtime (only when
+    none is found) → Installing → Done. Four primary actions with a runtime present.
+  - No *Resources* step: install with `Resources { memory_mib: 3072, cpus: min(4, host cores) }`; the 2–16 GB
+    limit lives in *Settings → Runtime*.
+  - The progress list shows the board's six rows; owner creation and pairing are part of the health check
+    ("sign-in works"), and the controller still reports network, owner and pairing as sub-steps.
 
-- **C14 Offline or online.**
+- **C14 Offline or online.** *Decided 2026-10-02: no question in the wizard.*
 
   > DS30 / DR4: two separate installers; the online one carries no image. Board: one wizard step "Offline or online?" choosing where the image comes from. *Reading 1:* the step appears only in the offline installer (it can still pull), the online installer skips it. *Reading 2:* one installer carries both paths, which changes DS30 and DR4 (the small installer is no longer small).
 
-  **Default:** reading 1. The step is shown only when `bundle.tarball[arch]` is present.
+  Two installers as in DS30/DR4: the online installer downloads the image, the offline installer carries it;
+  the installer type decides (`bundle.tarball[arch]` present → load it, else pull by digest). The board's
+  *Offline or online?* step is removed (canvas updated 2026-10-02); build no `mode` view.
 
-- **C15 Online verification.**
+- **C15 Online verification.** *Decided 2026-10-02: reading 1.*
 
   > DS20: the app checks image digests against `bundle.json`; cosign and SBOM serve VPS and audits, "without a cosign verifier in the app". Board (*Offline/online*): "cosign signature and SBOM verified". *Reading 1:* copy error; the app shows the digest check only. *Reading 2:* the app verifies cosign signatures too (new dependency; DS20 changes).
 
-  **Default:** reading 1. The copy says "checked against the signed list (digest)". No cosign dependency.
+  Copy error. The verify row says "Checksums verified" (digests against `bundle.json`). No cosign dependency;
+  DS20 unchanged.
 
-- **C16 Uninstall.**
+- **C16 Uninstall.** *Decided 2026-10-02: reading 1.*
 
   > §6.15.10 / Task 17: three confirmations in order — containers, images, volumes with size, keep data by default. Board: one choice of three levels (*App only* keeps data · *App and images* · *Everything, including your data* — adds the pre-update backup volume and the keychain entries), one summary, typed `plur1bus-state` only for *Everything*, then a progress list; default *App only*. *Reading 1:* the tiered choice plus typed confirmation replaces the three confirmations. *Reading 2:* the three confirmations stand and the board is redrawn.
 
-  **Default:** reading 2 in behaviour (containers, images and volumes each confirmed separately, data kept by
-  default), laid out with the board's summary and progress list (D1 plan Task 17). Keep the three scopes as
-  separate commands, so reading 1 is a UI change only.
+  - One tiered choice: *App only* (default; containers, network, CLI shim and its `PATH` line; keeps images,
+    volumes and keychain entries) · *App and images* · *Everything, including your data* (adds the volumes
+    with their size, the pre-update backup volume and the keychain entries).
+  - One summary of what goes and what stays; a typed `plur1bus-state` only for *Everything*, checked again in
+    Rust; then a progress list. Commands `uninstall_summary|run` with a closed level enum (§4.2).
 
-- **C17 GNOME without a tray.**
+- **C17 GNOME without a tray.** *Decided 2026-10-02: reading 1; D1, pulled forward from D2.*
 
   > §6.8 / Task 14: no AppIndicator host → the window stays in the taskbar with a one-time hint; notifications are D2 (DR2). Board: a notification banner for **every** state change (*Open/Dismiss*, *Show log/Start again*, *Later/Update…*) plus the *Background Apps* section of Quick Settings (GNOME 44+, Flatpak build only, × = *Quit PLUR1BUS…*); deb/rpm/AppImage keep the window in the dash and say so once; with the AppIndicator extension the KDE-style menu appears. *Reading 1:* adopt; `tauri-plugin-notification` and the XDG Background portal move into D1 for GNOME. *Reading 2:* D1 keeps the one-time hint; banners arrive with D2's notifications.
 
-  **Default:** reading 2. The Flatpak Background portal request (D101) is still made for autostart.
+  - A notification banner (`tauri-plugin-notification`) for every tray-state change, with the drawn actions.
+  - The Flatpak build is listed under *Background Apps* (GNOME 44+, XDG Background portal; × = *Quit
+    PLUR1BUS…*, the same quit dialog). The D101 Background portal request for autostart is the same portal.
+  - deb/rpm/AppImage keep the window in the dash and say so once.
 
-- **C18 Tray states.**
+- **C18 Tray states.** *Settled 2026-10-01 toward reading 1 by the owner's icon decision (§7.3).*
 
   > DR10 / Task 14: 8 harness × 3 runtime states in words, *Start/Stop harness*, *Start runtime* (Apple), one icon per state. Board: 4 states — *Running*, *Starting* (models warming, *Stop* disabled), *Needs attention* (*Start PLUR1BUS*, *Show log…*, *Copy details*), *Update available* — and 4 glyph badges told apart by shape (ring = busy, dot = update, triangle = attention; macOS tints template icons, so colour is lost). *Reading 1:* the 4 glyphs are icon classes onto which DR10's states map (`starting`/`updating` → ring, `degraded`/`down`/`unpaired`/`crashed`/`rollback` → triangle, update → dot), the header keeps all states in words, and the rest is gap G2. *Reading 2:* the tray is reduced to four states, which changes DR10.
 
-  **Default:** reading 1.
+  Reading 1.
+
+- **C19 `.p1x` install flow.** *Decided 2026-10-02: the plan wins (D80).* An install ends *installed
+  (disabled)*; the dialog offers *Install and enable for …* with an agent picker in the same flow. Canvas
+  updated: secondary *Install*, primary split button *Install and enable for <agent> ▾*, state `enable-picker`.
+  For you: WP12's hook view only; X3 builds the dialog.
+- **C20 *Sidecars & Folders*.** *Decided 2026-10-02: reading 1.* The shell page edits (native folder picker,
+  bind mounts, container recreate); `V2Sidecars` shows state and hands over with *Change in the app*, which
+  needs a `shell_*` handover command beyond `shell_info` (a DS7 extension, §6.9). Both land in D2: in D1 the
+  `spa` webview still gets `shell_info` only and the shell hides the *Sidecars & Folders* nav entry.
+- **C21 Container browser sidecar.** *Decided 2026-10-02: reading 1.* One name, *Agent browser*; *Remote*
+  omitted is within DS25; following a run happens on the harness side, no in-app streamed view (§11 Q9 (a)).
+  D3; nothing for you.
+- **C22 Touch targets.** *Decided 2026-10-02: reading 2 for the web UI.* ≥ 44 px in compact (< 1024), ≥ 24 px
+  at normal and wide (WCAG 2.2 SC 2.5.8 AA). Native app windows, i.e. every shell page: ≥ 44 px at every
+  width, as drawn. Native OS menus (tray, menu bar) follow platform metrics.
 
 Other conflicts that touch you (§13.5):
 
-- **C1** token source: the provisional `tokens.css` from the Glow values.
-- **C2** default theme: follow the OS, dark as fallback.
-- **C4** wordmark: the morph as drawn, isolated in one component.
-- **C9** and **C20**: no `shell_*` command beyond `shell_info`.
-- **C22** 44 px targets: on shell pages, yes.
+- **C1** token source — **decided by the owner 2026-10-01 (reading 1):** `tokens.css` from the Glow values
+  (§13.1), no `--oc-*`.
+- **C2** default theme — **decided by the owner 2026-10-01:** follow the OS, dark as fallback, three-state
+  override (system/light/dark).
+- **C4** wordmark — **decided by the owner 2026-10-01 (reading 1):** the morph as drawn, isolated in one
+  component.
+- **C8 Remote access.** *Decided 2026-10-02: a new decision (owner: "it must work in companies with MPLS networks,
+  and with self-signed certificates").*
+
+  > DS16: the API is published on host loopback only; DS6: the desktop app refuses self-signed pinned TLS and recommends `tailscale serve`. […] *Residual:* `V2Advanced` shows `remote.publish` = `local | tailnet | public (funnel)`. D72 allows funnel only per item for harness *outputs*.
+
+  - Harness exposure `remote.publish` = `local | tailnet | network`, default `tailnet`; `network` for organisations
+    without Tailscale, TLS mandatory, `remote.tls` = `self-signed` (default) or `company-ca`, optional subnet
+    allow-list, pairing for every device, a security notice and a `1staid check` `warn`. Never public: no Funnel for
+    the API; outputs only per item (`outputs.publicSharing`).
+  - The fingerprint of a self-signed certificate travels in the pairing payload; a typed code goes through
+    `pair-proof` first (§6.2). DS6 changed: accept a pinned self-signed leaf or an OS-trusted CA, still refuse
+    unpinned self-signed and plain http. DS16 extended (TLS port on a host interface) — D2.
+  - The typed-code `pair-proof` design is an owner decision (2026-10-02). Rejected: a manual fingerprint check for
+    typed codes, the fingerprint in the redeem response alone, a PAKE.
+  - Owner follow-up (2026-10-02): the `spa` webview never opens TLS to a harness; the Rust SPA proxy serves it
+    under `plur1bus-harness://localhost` and forwards HTTP, SSE and WebSocket — one code path for every connection
+    kind (rule 13).
+  - At `remote.publish` = `local` the SPA hides its pairing card (M3).
+  - For you: WP4 and WP5 as above; `create_spec_is_exact` stays loopback-only.
+- **C9 Where connections live.** *Decided 2026-10-02: reading 1.* The per-row *Switch* in the SPA's *Devices &
+  Remote* is removed; one *Manage in the app* opens the app's *Connections* page through the C20 handover command
+  (D2). For you: no `shell_*` command beyond `shell_info` in D1; `shell_info.features` stays empty, so the SPA hides
+  the button.
+- **C12 Setup steps.** *Decided 2026-10-02: the canvas order stands* — *Name & persona → Main model → Switchboard →
+  Memory* (licence filter inside) *→ Backups →* optional *Import*; the bundled installer creates the owner (C13);
+  native and VPS installations add *Your account* first (7 steps; boards `V2SetupAccount`, `V2SetupRail
+  mode="native"`). M3's SPA wizard; nothing for you.
 
 ---
 
@@ -1265,8 +1405,10 @@ M3), and Claude closes those.
 | 6 | Host CLI (`--help` local, forwarded `--json` byte for byte) | — / WP13 (`target.json`) | forwarder is Task 10, out |
 | 7 | Host bridge: locked until the app reconnects; switch off stays locked; ungranted capability refused | WP9 | mock; full after Task 2 |
 | 8 | Remote pairing by code; non-loopback `http://` refused before any request | WP4, WP5 | mock; full after M3 |
+| 8a | Pinned self-signed remote (C8): pin from `pair-proof`, changed or unpinned certificate refused before any code or token is sent; the SPA reaches it only through the SPA proxy; company CA pinned from the pairing and trust rollover without re-pairing (2026-10-02) | WP4, WP5 | mock with generated certificates; full after M3 |
 | 9 | Revoke → pairing screen, keychain entry gone | WP4, WP6 | mock |
 | 10 | SPA can call `shell_info` only; other origin or navigated page refused; foreign links open externally | WP5 | full (shell-side) |
+| 10a | SPA proxy: every connection kind through `plur1bus-harness://`; SSE and `/ws` through the proxy (or the approved fallback); 403 for other webviews; no `Authorization`/device token; only the connection's origin; empty webview cookie store; overhead within budget | WP5 | full (shell-side) against the mock |
 | 11 | Restart → fresh ticket login, no cookie on disk; ticket single use and 60 s | WP5 | shell-side full; ticket rules mock |
 | 12 | Tampered update refused; signed beta installs after *Jetzt*; other-channel key refused | WP10 | full with test keys; the macOS install is a recorded manual check |
 | 13 | `desktop.yml` five targets; `container.yml` image build, sign, size gate; Tauri 3 canary reported | WP1, WP14 | desktop yes; the real image pipeline is Task 4 |
@@ -1285,7 +1427,7 @@ WP11.
 |---|---|---|
 | G-1 | Build the shell now against a provisional contract and a mock, although D1 formally starts after M3? | **Yes.** Everything harness-facing sits behind constants and the mock; the DR1 mapping happens when M3 lands. |
 | G-2 | D109 names the desktop app a **T3** approval surface, but no scope or endpoint lets the app decide approvals. The SPA inside the app is a normal cookie session that the harness cannot tell apart from a browser. Add a device scope `approvals.decide` plus a decision route, or mark ticket-redeemed sessions as `surface: desktop`? | The native approvals window lists requests and opens the SPA route to decide. Decide buttons exist against the mock only, behind `PLUR1BUS_DESKTOP_APPROVALS_DECIDE=1`. M3/D109 picks the mechanism. |
-| G-3 | Theme default: ADR-004 says dark default with light per OS; the canvas draws light as default (C2). | Follow the OS; dark when the OS states no preference; three-state override. |
+| G-3 | Theme default: ADR-004 says dark default with light per OS; the canvas draws light as default (C2). | Follow the OS; dark when the OS states no preference; three-state override. **Decided by the owner 2026-10-01 (C2, ADR-004 amendment).** |
 | G-4 | Deep links: §6.3/DR2 put `plur1bus://pair\|open` in D2, milestones put `plur1bus://chat/*` (D92) in D1, and X3 needs `plur1bus://install` and `.p1x` in D1. | Scheme registration, parsing and validation in D1 (WP12). `pair`/`open` active; `chat`/`install`/`.p1x` answer "not available yet". |
 | G-5 | D101 says "the app's *Settings › General* toggles own" the desktop icon and autostart after install, but the shell's settings have no *General* section (that is the SPA's `V2General`). | *Start PLUR1BUS when I log in* in shell Settings → Runtime (as drawn); a Windows-only *Desktop icon* toggle in Settings → Advanced. No new `shell_*` command. |
 | G-6 | Accessibility gates reference "the M3 axe-core runner", which does not exist. | The shell ships its own pinned axe-core runner in `desktop-ui` tests; M3 can adopt or replace it. |
@@ -1294,10 +1436,10 @@ WP11.
 | G-9 | Linux without Secret Service (DR8, memory-only token store): `host.keyUnlock` would provision a key that is lost at the next app restart, leaving the harness's encrypted store permanently locked. | Refuse to provision on memory-only. The harness stays `secrets-locked` with a banner naming the fix (install or unlock a Secret Service keyring), or ADR-005's operator choice. Owner may pick otherwise. |
 | G-10 | Hygiene: §6.12/Task 18 want every `uses:` pinned by SHA, but the existing `ci.yml`, `nightly.yml` and `harness-release.yml` use tags (`actions/checkout@v4`). A global lint would break `main`. | The SHA lint applies to `desktop.yml`, `container-shell.yml` and `apple-container.yml` only. Pinning the existing workflows is a separate owner call. |
 | G-11 | Workspace location: DS13 and the plan put the lockfile in `src-tauri/`. The mock, helper and test binaries want to share it. | One desktop workspace at `apps/desktop/Cargo.toml`, lockfile `apps/desktop/Cargo.lock`, still outside the root workspace (DS13's intent kept). |
-| G-12 | Codex may be unable to open the claude.ai canvas. | Work from spec §13's copied values. Owner exports the `desk` boards as PNGs into `docs/ui/desk/` if pixel checks are wanted. |
+| G-12 | Codex may be unable to open the claude.ai canvas. | Work from spec §13's copied values. Owner exports the desktop-section boards of `v3 · Glow` as PNGs into `docs/ui/desk/` if pixel checks are wanted. |
 | G-13 | Crash handling has no spec text. | Local crash file, *Copy details* at the next start, no upload (§4.2). |
 | G-14 | The D107 helper is placed in D2, but the brief asks for its frame now. | The frame ships in D1 with zero capabilities and a stdio protocol. Signing and entitlements are wired through the WP13 hooks; notarisation is D2. |
-| C13–C18 | See §7.4. | As written there. |
+| C8, C9, C12, C13–C22 | Decided by the owner (C18 settled 2026-10-01, the rest 2026-10-02); see §7.4. | The decisions. |
 
 ---
 
