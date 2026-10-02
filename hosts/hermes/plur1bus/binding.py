@@ -365,14 +365,16 @@ def register_binding(plur1bus_home: str, agent_id: str, hermes_home: str, *, pla
 
     Lock protocol (shared with the plugin installer, ``binding.mjs`` ``withRegistryLock``; see
     ``ExclusiveLockFile``): ``hosts/.hermes-bindings.lock`` is created with O_EXCL holding
-    ``<pid> <hostname> <ms>``, broken when older than 60 s (or its pid on this host is dead), and unlinked on
-    release. It is not an flock: the Node installer cannot take one, so both sides must use the file's existence."""
+    ``<pid> <hostname> <ms> <nonce>``, broken (rename aside, re-check identity) when older than 60 s or its pid
+    on this host is dead, released by rename + nonce check, and verified (``LockLost``) right before the write.
+    It is not an flock: the Node installer cannot take one, so both sides must use the file's existence."""
     path = _registry_path(plur1bus_home)
     lock = ExclusiveLockFile(os.path.join(os.path.dirname(path), REGISTRY_LOCK_FILE))
-    with lock.hold(REGISTRY_LOCK_TIMEOUT_S):
+    with lock.hold(REGISTRY_LOCK_TIMEOUT_S) as held:
         bindings = read_registry(plur1bus_home)
         updated = registry_add(bindings, agent_id, _real(hermes_home), platform)
         if updated == bindings:
             return
+        held.verify()  # LockLost (nothing written) when the lock was judged stale and taken over meanwhile
         doc = {"schema": REGISTRY_SCHEMA, "bindings": dict(sorted(updated.items()))}
         atomic_write_text(path, json.dumps(doc, indent=2) + "\n")

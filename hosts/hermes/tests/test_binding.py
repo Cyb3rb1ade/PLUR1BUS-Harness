@@ -12,7 +12,7 @@ import unittest
 from tests import FIXTURES_DIR
 
 from plur1bus import binding as binding_mod
-from plur1bus._filelock import ExclusiveLockFile, LockTimeout
+from plur1bus._filelock import ExclusiveLockFile, LockLost, LockTimeout
 from plur1bus.binding import (
     BINDING_SCHEMA,
     REGISTRY_SCHEMA,
@@ -205,7 +205,7 @@ class BindingTest(unittest.TestCase):
         self.assertEqual(len(read_registry(p1home)), 2)
         # A foreign host's fresh lock is never broken by the pid rule.
         self._plant_lock(p1home, 2**22 + 12345, "some-other-host", 5)
-        self.assertFalse(ExclusiveLockFile(self._lock_path(p1home))._stale())
+        self.assertIsNone(ExclusiveLockFile(self._lock_path(p1home))._judge_stale())
 
     @unittest.skipIf(os.name == "nt", "pid probe is POSIX only")
     def test_dead_pid_lock_of_this_host_is_broken(self) -> None:
@@ -223,19 +223,21 @@ class BindingTest(unittest.TestCase):
         path = self._lock_path(p1home)
         with ExclusiveLockFile(path).hold(1):
             with open(path, encoding="utf-8") as f:
-                pid, host, ms = f.read().split()
+                pid, host, ms, nonce = f.read().split()
             self.assertEqual((int(pid), host), (os.getpid(), socket.gethostname()))
+            self.assertRegex(nonce, r"^[0-9a-f]{32}$")
             self.assertLess(abs(int(ms) / 1000 - time.time()), 5)
         self.assertFalse(os.path.exists(path))
 
     def test_installer_and_provider_lock_protocols_exclude_each_other(self) -> None:
         """A Python transcription of the Node installer's ``withRegistryLock`` (binding.mjs): ``openSync(lock,
-        "wx")`` = O_CREAT|O_EXCL, content ``<pid> <hostname> <ms>``, ``rmSync`` on release. It shares nothing with
-        ``ExclusiveLockFile`` but the path and the file format, as the real installer does."""
+        "wx")``, content ``<pid> <hostname> <ms> <nonce>``, release by rename to ``<lock>.rel-<nonce>`` and unlink
+        only when the nonce is ours. It shares nothing with ``ExclusiveLockFile`` but the path and the format."""
 
         def js_with_registry_lock(p1home: str, fn, deadline_s: float = 5.0):
             lock = os.path.join(p1home, "hosts", ".hermes-bindings.lock")
             os.makedirs(os.path.dirname(lock), exist_ok=True)
+            nonce = os.urandom(16).hex()
             end = time.monotonic() + deadline_s
             while True:
                 try:
@@ -245,19 +247,29 @@ class BindingTest(unittest.TestCase):
                     if time.monotonic() > end:
                         raise RuntimeError("the bindings registry is locked")
                     time.sleep(0.025)
+            os.write(fd, f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)} {nonce}\n".encode())
+            os.close(fd)
             try:
-                os.write(fd, f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)}\n".encode())
                 return fn()
             finally:
-                os.close(fd)
+                rel = f"{lock}.rel-{nonce}"
                 try:
-                    os.unlink(lock)
+                    os.rename(lock, rel)
                 except FileNotFoundError:
-                    pass
+                    return
+                with open(rel, encoding="utf-8") as f:
+                    if f.read().split()[3] == nonce:
+                        os.unlink(rel)
+                    else:
+                        try:
+                            os.link(rel, lock)
+                        except FileExistsError:
+                            pass
+                        os.unlink(rel)
 
         p1home = self._dir("p")
         path = self._lock_path(p1home)
-        # 1. The installer holds it: the provider's lock times out.
+
         def provider_while_installer_holds() -> None:
             with self.assertRaises(LockTimeout):
                 with ExclusiveLockFile(path).hold(0.2):
@@ -265,12 +277,10 @@ class BindingTest(unittest.TestCase):
 
         js_with_registry_lock(p1home, provider_while_installer_holds)
         self.assertFalse(os.path.exists(path))
-        # 2. The provider holds it: the installer's deadline expires.
         with ExclusiveLockFile(path).hold(1):
             with self.assertRaises(RuntimeError):
                 js_with_registry_lock(p1home, lambda: self.fail("installer entered while the provider held the lock"), 0.2)
         self.assertFalse(os.path.exists(path))
-        # 3. Interleaved read-modify-write of one counter from both sides loses no update.
         counter = os.path.join(p1home, "counter")
         with open(counter, "w", encoding="utf-8") as f:
             f.write("0")
@@ -298,6 +308,124 @@ class BindingTest(unittest.TestCase):
             t.join(60)
         with open(counter, encoding="utf-8") as f:
             self.assertEqual(f.read(), "30")
+        # Each side honours the other's stolen-lock rule: a lock holding a foreign nonce survives our release.
+        with ExclusiveLockFile(path).hold(1):
+            os.unlink(path)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(f"1 {socket.gethostname()} {int(time.time() * 1000)} {'ab' * 16}\n")
+        with open(path, encoding="utf-8") as f:
+            self.assertIn("ab" * 16, f.read())
+        self.assertEqual([n for n in os.listdir(os.path.dirname(path)) if ".rel-" in n], [])
+
+    def test_stolen_lock_is_not_released_by_the_old_holder(self) -> None:
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        foreign = f"4242 {socket.gethostname()} {int(time.time() * 1000)} {'cd' * 16}\n"
+        with ExclusiveLockFile(path).hold(1):
+            os.unlink(path)  # broken and re-taken by someone else
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(foreign)
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), foreign, "the new owner's lock survives the old holder's release")
+        self.assertEqual([n for n in os.listdir(os.path.dirname(path)) if ".rel-" in n or ".break-" in n], [])
+
+    def test_break_puts_back_a_lock_that_is_not_the_one_judged_stale(self) -> None:
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        self._plant_lock(p1home, 1, "h", 120)
+        lock = ExclusiveLockFile(path)
+        judged = lock._judge_stale()
+        self.assertIsNotNone(judged)
+        # Someone else breaks it and takes a fresh lock before we rename.
+        os.unlink(path)
+        fresh = f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)} {'ef' * 16}\n"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(fresh)
+        lock._break(*judged)
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), fresh, "the fresh lock is put back")
+        self.assertEqual([n for n in os.listdir(os.path.dirname(path)) if ".break-" in n], [])
+        # Put-back never overwrites a newer lock: EEXIST drops the moved file only.
+        moved = path + ".break-x"
+        with open(moved, "w", encoding="utf-8") as f:
+            f.write("old\n")
+        lock._restore(moved)
+        self.assertFalse(os.path.exists(moved))
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), fresh)
+
+    def test_lock_lost_before_the_write_writes_nothing(self) -> None:
+        p1home = self._dir("p")
+        home = self._dir("srv", "h")
+        path = self._lock_path(p1home)
+        real_add = binding_mod.registry_add
+
+        def stealing_add(*a, **kw):
+            out = real_add(*a, **kw)
+            os.unlink(path)  # judged stale and taken over while we were reading
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(f"4242 {socket.gethostname()} {int(time.time() * 1000)} {'12' * 16}\n")
+            return out
+
+        binding_mod.registry_add = stealing_add
+        try:
+            with self.assertRaises(LockLost):
+                register_binding(p1home, "hermes-l", home)
+        finally:
+            binding_mod.registry_add = real_add
+        self.assertEqual(read_registry(p1home), {})
+        self.assertFalse(os.path.exists(os.path.join(p1home, "hosts", "hermes-bindings.json")))
+        with open(path, encoding="utf-8") as f:
+            self.assertIn("12" * 16, f.read())
+
+    def test_old_break_and_rel_leftovers_are_swept(self) -> None:
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        old, new = path + ".break-old", path + ".rel-new"
+        for n in (old, new):
+            with open(n, "w", encoding="utf-8") as f:
+                f.write("x")
+        os.utime(old, (time.time() - 120,) * 2)
+        with ExclusiveLockFile(path).hold(1):
+            pass
+        self.assertFalse(os.path.exists(old))
+        self.assertTrue(os.path.exists(new))
+
+    def test_multiprocess_stress_no_double_entry_even_when_holders_die(self) -> None:
+        import subprocess
+
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        log = os.path.join(p1home, "cs.log")
+        worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_lock_worker.py")
+        # 5 workers x 12 sections; two of them die while holding (a dead pid of this host is broken after 1 s).
+        die_at = [-1, -1, -1, 4, 8]
+        procs = [subprocess.Popen([sys.executable, worker, path, log, "12", str(d)]) for d in die_at]
+        reapers = [threading.Thread(target=p.wait) for p in procs]  # no zombies: kill(pid, 0) must see them dead
+        for t in reapers:
+            t.start()
+        for t in reapers:
+            t.join(90)
+        self.assertTrue(all(p.returncode == 0 for p in procs), [p.returncode for p in procs])
+        holder = None
+        entries = deaths = 0
+        with open(log, encoding="utf-8") as f:
+            for line in f:
+                tag, pid = line.split()
+                if tag == "E":
+                    self.assertIsNone(holder, f"double entry: {pid} entered while {holder} held the lock")
+                    holder, entries = pid, entries + 1
+                elif tag == "X":
+                    self.assertEqual(holder, pid)
+                    holder = None
+                elif tag == "D":
+                    self.assertEqual(holder, pid)
+                    holder, deaths = None, deaths + 1
+                else:
+                    self.fail(f"unexpected log entry {line!r}")
+        self.assertEqual(deaths, 2)
+        self.assertEqual(entries, 3 * 12 + 5 + 9, "every section ran exactly once (dying workers stop at their death)")
 
     def test_binding_written_atomically_0600(self) -> None:
         home = self._dir("h")

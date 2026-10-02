@@ -471,9 +471,11 @@ Windows/macOS output format as unverified until Task 6's CI legs capture it.
 `flock`, so **both** take the same lock **file** `<plur1bus home>/hosts/.hermes-bindings.lock` by existence, not by
 byte-range lock (an flock is invisible to an O_EXCL file and the reverse):
 
-- create with `O_CREAT | O_EXCL` (mode 0600; no `fcntl`, so it also works on Windows) and write `<pid> <hostname> <ms>`;
-- stale after **60 s** (mtime), or when it names a pid of this host that is dead (POSIX, at least 1 s old): break it by unlinking and retry;
-- unlink on release; wait at most **10 s**, then fail (`LockTimeout` in Python).
+- **Create** with `O_CREAT | O_EXCL` (mode 0600; no `fcntl`, so it also works on Windows), write `<pid> <hostname> <ms> <nonce>` (nonce = 128-bit hex, new per hold) and close the fd before the critical section. On Windows a `PermissionError` on create (name pending deletion) is retried like `EEXIST` within the deadline.
+- **Stale** = mtime older than **60 s**, or a pid of this host that is dead (POSIX, lock at least 1 s old). **Break**: rename it to `<lock>.break-<own nonce>`, re-read the moved file and compare dev/inode and content with what was judged stale; equal -> unlink and retry O_EXCL; different (another process broke it first and a fresh lock took its place) -> put it back with `link` (never overwrites; `EEXIST` = only drop the break file). Never unlink the lock path directly.
+- **Release**: rename to `<lock>.rel-<own nonce>`, unlink only when the content holds our nonce, otherwise put it back as above (a stolen lock is never deleted).
+- **Verify before writing**: right before writing the registry the holder re-reads the lock and checks its nonce; if it is gone (`LockLost` in Python) it writes nothing. This closes the window where a holder stalls past 60 s and another process legitimately takes over.
+- Leftover `*.break-*` / `*.rel-*` files older than 60 s are removed on the next acquire. Wait at most **10 s**, then fail (`LockTimeout` in Python).
 
 Python: `plur1bus._filelock.ExclusiveLockFile`. `FileLock` (flock / `msvcrt.locking`) stays for the capture journal only.
 A lock file left by the old flock-based code ages out after 60 s.
