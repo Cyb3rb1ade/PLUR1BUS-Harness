@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, win32 } from 'node:path';
 import { parsePe, isApiSet } from './windows-pe.mjs';
@@ -491,6 +491,10 @@ test('Windows helper executes real compile/load/name phases with isolated profil
     const phases = readFileSync(join(root, 'native-loader-progress-0.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     assert.equal(phases[0].phase, 'script-entry');
     assert.ok(phases.some(record => record.phase === 'utility-module-end'));
+    assert.ok(phases.some(record => record.phase === 'management-module-end'));
+    for (const checkpoint of ['candidate-end', 'existence-end', 'previous-end']) {
+      assert.ok(phases.some(record => record.phase === checkpoint && record.dll === 'kernel32.dll'));
+    }
     assert.ok(phases.some(record => record.phase === 'compile-end'));
     assert.ok(phases.some(record => record.type === 'symbol' && record.name === 'GetCurrentProcess' && record.found === true));
     success = true;
@@ -667,6 +671,7 @@ test('Windows helper records entry/input/serialization before injected cmdlet fa
       assert.ok(phases.includes('input-parse-begin'));
       if (command === 'New-Object') {
         assert.equal(child.status, 0); assert.equal(phases.at(-1), 'complete');
+        assert.ok(phases.includes('management-module-end'));
         assert.ok(phases.includes('serialization-end'));
         assert.ok(progress.some(record => record.type === 'symbol' && record.name === 'GetCurrentProcess' && record.found === true));
       } else {
@@ -694,6 +699,143 @@ test('system Utility module import checkpoints survive timeout without guessed p
   }
 });
 
+test('Management import and module preparation timeouts retain exact boundaries without invented load facts', t => {
+  for (const checkpoint of [phase('management-module-begin'), phase('management-module-end'),
+    ...['candidate-begin', 'candidate-end', 'existence-begin', 'existence-end', 'previous-begin', 'previous-end']
+      .map(name => phase(name, { dll: 'kernel32.dll' }))]) {
+    const fixture = diagnosticFixture(t, [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }]);
+    stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), phase('search-end'), checkpoint]);
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const saved = fixture.artifact('loader-exports');
+    assert.equal(saved.batches[0].progressStatus, 'validated');
+    assert.equal(saved.batches[0].helperPhase, checkpoint.phase);
+    assert.equal(saved.batches[0].lastPublicModule, checkpoint.dll ?? null);
+    assert.equal(saved.batches[0].architectureMatches, true);
+    assert.deepEqual(saved.batches[0].modules, []); assert.deepEqual(saved.findings, []);
+    assert.equal(report.diagnostics.status, 'partial-helper-failed');
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+  }
+});
+
+test('module preparation failure keeps earlier completed facts and rejects invalid new phase fields', t => {
+  for (const tail of ['', ...[
+    phase('candidate-begin'), phase('existence-end', { dll: 'unexpected.dll' }),
+    phase('previous-begin', { dll: 'later.dll', name: 'Later' }),
+    phase('management-module-end', { dll: 'later.dll' }),
+    phase('candidate-secret', { dll: 'later.dll' }),
+    phase('candidate-end', { dll: 'later.dll', path: 'C:\\private\\not-public' }),
+  ].map(record => JSON.stringify(record) + '\n')]) {
+    const fixture = diagnosticFixture(t, [
+      { dll: 'probe.dll', symbols: [{ name: 'Entry' }] }, { dll: 'later.dll', symbols: [{ name: 'Later' }] },
+    ]);
+    stalledHelper(fixture, [phase('architecture-end', { machine: 0x8664 }), moduleObservation('probe.dll'),
+      symbolObservation('probe.dll', { name: 'Entry' }, true), phase('module-end', { dll: 'probe.dll' }),
+      phase('candidate-begin', { dll: 'later.dll' })], tail);
+    const run = fixture.deps.spawnSync;
+    fixture.deps.spawnSync = (...args) => { run(...args); return { status: 2, stdout: '{"schema":1,"error":"helper-failed","stage":"modules"}', stderr: '' }; };
+    const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const saved = fixture.artifact('loader-exports');
+    const batch = saved.batches[0];
+    assert.equal(batch.status, 2);
+    assert.equal(batch.progressStatus, tail ? 'partial-invalid-record' : 'validated');
+    assert.equal(batch.helperPhase, 'candidate-begin'); assert.equal(batch.lastPublicModule, 'later.dll');
+    assert.equal(batch.modules.length, 1); assert.equal(batch.modules[0].observationComplete, true);
+    assert.equal(batch.modules[0].symbols[0].found, true); assert.deepEqual(saved.findings, []);
+    assert.equal(report.diagnostics.status, 'partial-helper-failed');
+    assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+    assert.equal(readFileSync(join(fixture.root, 'native-loader-progress-0.jsonl'), 'utf8').includes('not-public'), false);
+  }
+});
+
+test('failed Management import remains a helper failure before any DLL observation', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }]);
+  stalledHelper(fixture, [phase('script-entry'), phase('management-module-begin')]);
+  const run = fixture.deps.spawnSync;
+  fixture.deps.spawnSync = (...args) => { run(...args); return { status: 2, stdout: '{"schema":1,"error":"helper-failed","stage":"modules"}', stderr: '' }; };
+  const report = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const saved = fixture.artifact('loader-exports');
+  assert.equal(saved.batches.length, 1); assert.equal(saved.batches[0].status, 2);
+  assert.equal(saved.batches[0].helperPhase, 'management-module-begin');
+  assert.deepEqual(saved.batches[0].modules, []); assert.deepEqual(saved.findings, []);
+  assert.equal(report.diagnostics.status, 'partial-helper-failed');
+  assert.equal(report.child.hexStatus, '0xC0000139'); assert.equal(report.child.mainEntered, false);
+});
+
+test('Windows helper keeps local-file, absent-file, directory and API-set lookup semantics after Management import',
+  { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, t => {
+    const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-paths-'));
+    let success = false;
+    t.after(() => { if (success) rmSync(root, { recursive: true, force: true }); });
+    const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
+    const powershell = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const helper = join(dirname(fileURLToPath(import.meta.url)), 'windows-loader.ps1');
+    const machine = process.arch === 'arm64' ? 0xaa64 : process.arch === 'ia32' ? 0x14c : 0x8664;
+    // Deliberately invalid generated DLL bytes exercise lookup selection only.
+    // They cannot run a library initializer or a resolved export.
+    writeFileSync(join(root, 'public-fixture-file.dll'), 'public invalid DLL fixture');
+    mkdirSync(join(root, 'public-fixture-directory.dll'));
+    writeFileSync(join(root, 'api-ms-public-fixture.dll'), 'public invalid API-set fixture');
+    const dlls = ['public-fixture-file.dll', 'public-fixture-absent.dll', 'public-fixture-directory.dll', 'api-ms-public-fixture.dll'];
+    const queryPath = join(root, 'native-loader-query-paths.json');
+    const progressPath = join(root, 'native-loader-progress-paths.jsonl');
+    writeFileSync(queryPath, JSON.stringify({ machine, executableDirectory: root, modules: dlls.map(dll => ({ dll, symbols: [] })) }));
+    const { minimal: env } = windowsJsonProbeEnvironments({ root, systemRoot });
+    const deadline = Date.now() + 45000;
+    const child = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-File', helper, '-InputPath', queryPath, '-ProgressPath', progressPath],
+      { cwd: root, env, encoding: 'utf8', windowsHide: true, timeout: Math.max(1, Math.min(12000, deadline - Date.now())), maxBuffer: 1024 * 1024 });
+    writeFileSync(join(root, 'native-helper-paths.json'), JSON.stringify({ schema: 1, context: 'separate-helper-generated-path-fixtures',
+      ...startupResult(child), stderrBytes: Buffer.byteLength(child.stderr ?? '') }));
+    assert.equal(child.status, 0, `Public path artifacts retained at ${root}`);
+    assert.equal(child.error, undefined);
+    const result = JSON.parse(child.stdout);
+    assert.equal(result.architectureMatches, true);
+    assert.deepEqual(result.modules.map(entry => entry.lookup), [join(root, 'public-fixture-file.dll'),
+      'public-fixture-absent.dll', 'public-fixture-directory.dll', 'api-ms-public-fixture.dll']);
+    assert.ok(result.modules.every(entry => entry.executableMapping === false && entry.loadError > 0));
+    const progress = readFileSync(progressPath, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    assert.ok(progress.some(record => record.phase === 'management-module-end'));
+    for (const dll of dlls) {
+      const phases = progress.filter(record => record.dll === dll).map(record => record.phase).filter(Boolean);
+      assert.ok(phases.includes('candidate-end')); assert.ok(phases.includes('previous-end')); assert.ok(phases.includes('module-end'));
+      assert.equal(phases.includes('existence-begin'), dll !== 'api-ms-public-fixture.dll');
+      assert.equal(phases.includes('existence-end'), dll !== 'api-ms-public-fixture.dll');
+    }
+    success = true;
+  });
+
+test('Windows injected path cmdlet faults survive Management NoClobber and stop at their exact boundary',
+  { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, t => {
+    const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-path-fault-'));
+    let success = false;
+    t.after(() => { if (success) rmSync(root, { recursive: true, force: true }); });
+    const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
+    const powershell = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const helper = join(dirname(fileURLToPath(import.meta.url)), 'windows-loader.ps1');
+    const machine = process.arch === 'arm64' ? 0xaa64 : process.arch === 'ia32' ? 0x14c : 0x8664;
+    const queryPath = join(root, 'native-loader-query-path-fault.json');
+    writeFileSync(queryPath, JSON.stringify({ machine, executableDirectory: root,
+      modules: [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }] }));
+    const { minimal: env } = windowsJsonProbeEnvironments({ root, systemRoot });
+    const quote = value => "'" + value.replaceAll("'", "''") + "'";
+    const deadline = Date.now() + 45000;
+    for (const [command, expectedPhase] of [['Join-Path', 'candidate-begin'], ['Test-Path', 'existence-begin']]) {
+      const progressPath = join(root, `native-loader-progress-${command}.jsonl`);
+      const wrapper = `function ${command} { throw 'public-test-path-command-blocked' }; & ([ScriptBlock]::Create([IO.File]::ReadAllText(${quote(helper)}))) -InputPath ${quote(queryPath)} -ProgressPath ${quote(progressPath)}`;
+      assert.ok(Date.now() < deadline, `Public path-fault artifacts retained at ${root}`);
+      const child = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(wrapper, 'utf16le').toString('base64')],
+        { cwd: root, env, encoding: 'utf8', windowsHide: true, timeout: Math.max(1, Math.min(12000, deadline - Date.now())), maxBuffer: 1024 * 1024 });
+      writeFileSync(join(root, `native-helper-path-fault-${command}.json`), JSON.stringify({ schema: 1,
+        context: 'separate-helper-injected-path-command-fault', command, ...startupResult(child), stderrBytes: Buffer.byteLength(child.stderr ?? '') }));
+      assert.equal(child.status, 2, `Public path-fault artifacts retained at ${root}`);
+      assert.equal(child.error, undefined);
+      const progress = readFileSync(progressPath, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+      assert.ok(progress.some(record => record.phase === 'management-module-end'));
+      assert.equal(progress.at(-1).phase, expectedPhase); assert.equal(progress.at(-1).dll, 'kernel32.dll');
+      assert.equal(progress.some(record => record.phase === 'load-begin' || record.type === 'module' || record.type === 'symbol'), false);
+    }
+    success = true;
+  });
+
 
 test('Windows known-JSON probes retain minimal and system-only environment outcomes without masking failure',
   { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, t => {
@@ -704,7 +846,11 @@ test('Windows known-JSON probes retain minimal and system-only environment outco
     const powershellDirectory = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0');
     const powershell = win32.join(powershellDirectory, 'powershell.exe');
     const { minimal, systemOnly } = windowsJsonProbeEnvironments({ root, systemRoot });
-    const command = "[Console]::Out.WriteLine('parse-begin');$v='{\"public\":true}'|ConvertFrom-Json;if($v.public-eq$true){[Console]::Out.WriteLine('parse-end')}";
+    const command = String.raw`$ErrorActionPreference='Stop';[Console]::Out.WriteLine('utility-module-begin');
+      $manifest=$PSHOME+'\Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1';
+      Microsoft.PowerShell.Core\Import-Module -Name $manifest -NoClobber -ErrorAction Stop;
+      [Console]::Out.WriteLine('utility-module-end');[Console]::Out.WriteLine('parse-begin');
+      $v='{"public":true}'|ConvertFrom-Json;if($v.public-eq$true){[Console]::Out.WriteLine('parse-end')}`;
     const args = ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(command, 'utf16le').toString('base64')];
     const deadline = Date.now() + 45000;
     const outcomes = [];
@@ -712,7 +858,7 @@ test('Windows known-JSON probes retain minimal and system-only environment outco
       assert.ok(Date.now() < deadline, `Public JSON outcomes retained at ${root}`);
       const child = spawnSync(powershell, args, { cwd: root, env, encoding: 'utf8', windowsHide: true,
         timeout: Math.max(1, Math.min(12000, deadline - Date.now())), maxBuffer: 1024 * 1024 });
-      const phases = (child.stdout ?? '').split(/\r?\n/).filter(line => ['parse-begin', 'parse-end'].includes(line));
+      const phases = (child.stdout ?? '').split(/\r?\n/).filter(line => ['utility-module-begin', 'utility-module-end', 'parse-begin', 'parse-end'].includes(line));
       const outcome = { schema: 1, context: 'separate-PowerShell-known-JSON-probe', variant,
         ...startupResult(child), phases, parsed: phases.includes('parse-end'), stderrBytes: Buffer.byteLength(child.stderr ?? '') };
       outcomes.push(outcome);
@@ -720,7 +866,8 @@ test('Windows known-JSON probes retain minimal and system-only environment outco
     }
     // Record BOTH comparison outcomes before acceptance assertions. A diagnostic
     // timeout or missing parse is still a test failure, never a successful probe.
-    assert.ok(outcomes.every(outcome => outcome.status === 0 && outcome.errorCode === null && outcome.parsed),
+    assert.ok(outcomes.every(outcome => outcome.status === 0 && outcome.errorCode === null && outcome.parsed
+      && outcome.phases.join(',') === 'utility-module-begin,utility-module-end,parse-begin,parse-end'),
       `Known JSON did not parse under both isolated environments; public outcomes retained at ${root}`);
     success = true;
   });

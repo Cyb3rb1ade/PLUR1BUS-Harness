@@ -32,10 +32,11 @@ export function windowsJsonProbeEnvironments({ root, systemRoot }) {
 
 const progressPhases = new Set(['script-entry', 'input-read-begin', 'input-read-end', 'utility-module-begin', 'utility-module-end', 'input-parse-begin', 'input-parsed',
   'serialization-begin', 'serialization-end', 'compile-begin', 'compile-end',
-  'architecture-begin', 'architecture-end', 'search-begin', 'search-end', 'module-begin',
+  'architecture-begin', 'architecture-end', 'search-begin', 'search-end', 'management-module-begin', 'management-module-end', 'module-begin',
+  'candidate-begin', 'candidate-end', 'existence-begin', 'existence-end', 'previous-begin', 'previous-end',
   'load-begin', 'load-end', 'map-begin', 'map-end', 'path-begin', 'path-end',
   'symbol-begin', 'symbol-end', 'module-end', 'cleanup-begin', 'cleanup-end', 'complete']);
-const modulePhases = /^(module|load|map|path|symbol|cleanup)-/;
+const modulePhases = /^(module|candidate|existence|previous|load|map|path|symbol|cleanup)-/;
 const winError = value => value === null || (Number.isInteger(value) && value >= 0 && value <= 0xffffffff);
 const publicPath = value => value === null || (typeof value === 'string' && value.length <= 32768
   && win32.isAbsolute(value) && !/[\x00-\x1f]/.test(value));

@@ -148,14 +148,29 @@ public static class NativeSpikeLoader {
     if (-not [NativeSpikeLoader]::SetDllDirectoryW($request.executableDirectory)) { throw 'dll-directory-failed' }
     Write-Phase 'search-end'
     $stage = 'modules'
+    # Join-Path/Test-Path need the installed Management module. Keep discovery
+    # separate from their bodies, using only PSHOME and fixed public checkpoints.
+    Write-LiteralPhase 'management-module-begin'
+    $managementManifest = $PSHOME + '\Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1'
+    Microsoft.PowerShell.Core\Import-Module -Name $managementManifest -NoClobber -ErrorAction Stop
+    Write-LiteralPhase 'management-module-end'
     foreach ($item in $request.modules) {
       if ($item.dll -notmatch '^[a-zA-Z0-9_.-]+\.dll$' -or $item.dll.Contains('..')) { throw 'invalid-module-name' }
       Write-Phase 'module-begin' $item.dll
+      Write-Phase 'candidate-begin' $item.dll
       $apiSet = $item.dll -match '^(api|ext)-ms-'
       $candidate = Join-Path $request.executableDirectory $item.dll
+      Write-Phase 'candidate-end' $item.dll
       # API sets are virtual contracts. Always ask Windows; never test physical existence.
-      $lookup = if (-not $apiSet -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { $candidate } else { $item.dll }
+      $lookup = $item.dll
+      if (-not $apiSet) {
+        Write-Phase 'existence-begin' $item.dll
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { $lookup = $candidate }
+        Write-Phase 'existence-end' $item.dll
+      }
+      Write-Phase 'previous-begin' $item.dll
       $previous = [NativeSpikeLoader]::PathOf([NativeSpikeLoader]::GetModuleHandleW($item.dll))
+      Write-Phase 'previous-end' $item.dll
       Write-Phase 'load-begin' $item.dll
       $module = [NativeSpikeLoader]::LoadLibraryExW($lookup, [IntPtr]::Zero, 0)
       $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
