@@ -1,6 +1,6 @@
 {
   "schema": "plur1bus.hermes-home-vectors/1",
-  "description": "Hermes' default root per OS and the HERMES_HOME profile rule, the table of packages/core/test/import/roots.test.ts ('Hermes root per OS (G1)') as data. Checked by that test, by hosts/hermes/tests/test_binding.py (defaultRoot rows) and by the installer's resolveHermesHome (plugin repo copy, byte-compared at release).",
+  "description": "Hermes' default root per OS and the HERMES_HOME profile rule, the table of packages/core/test/import/roots.test.ts ('Hermes root per OS (G1)') as data. Checked by that test, by hosts/hermes/tests/test_binding.py (defaultRoot rows) and by the installer's resolveHermesHome (PLUR1BUS-Host-Addons copy, byte-compared at release).",
   "cases": [
     { "platform": "linux", "env": {}, "homedir": "/home/u", "root": "/home/u/.hermes", "resolvedFrom": "default", "profile": null },
     { "platform": "darwin", "env": {}, "homedir": "/home/u", "root": "/home/u/.hermes", "resolvedFrom": "default", "profile": null },

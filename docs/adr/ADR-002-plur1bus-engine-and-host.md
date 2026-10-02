@@ -286,3 +286,7 @@ The genuine risk is boundary error: putting something in the engine that is real
 5. [ ] Add the ACL reason-code list (`lib/acl-middleware.js:174`) to the contract-test suite as a frozen enum — it is the de-facto host contract and must not drift during extraction.
 6. [ ] Decide Q1 and Q2 before P1; both change the public surface.
 7. [ ] Add a nightly job running the harness contract tests against the engine's `main` to detect breakage before a release, per the two-repo mitigation.
+
+## Addendum 2026-10-02: installers and feed tooling split out
+
+2026-10-02: installers and feed tooling split into PLUR1BUS-Host-Addons; the plugin stays a standalone OpenClaw plugin with its own release line; the engine remains in the plugin repo and is pinned by the harness. The layout is now three repositories: the harness, the plugin/engine (`openclaw-plur1bus-memory`), and `Cyb3rb1ade/PLUR1BUS-Host-Addons` (HM1/HM2 installers, bootstraps, install feed, `hermes-sidecar.lock.json`, `node-pins.json`; released by `addons-release.yml`). The two-repository decision above concerns the engine and is unchanged.

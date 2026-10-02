@@ -319,7 +319,7 @@ class BindingTest(unittest.TestCase):
         Node installer's ``withRegistryLock`` (binding.mjs): ``openSync(lock, "wx")``, content ``<pid> <hostname>
         <ms> <nonce>``, release by rename to ``<lock>.rel-<nonce>`` and unlink only when the nonce is ours. It
         shares nothing with ``ExclusiveLockFile`` but the path and the format, and has no stale or break path. A
-        real cross-language test (Node and Python workers on one lock, dying holders) is a plugin-repo follow-up."""
+        real cross-language test (Node and Python workers on one lock, dying holders) is a PLUR1BUS-Host-Addons follow-up."""
 
         def js_with_registry_lock(p1home: str, fn, deadline_s: float = 5.0):
             lock = os.path.join(p1home, "hosts", ".hermes-bindings.lock")

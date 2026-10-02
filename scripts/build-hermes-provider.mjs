@@ -3,7 +3,7 @@
 //   node scripts/build-hermes-provider.mjs --out <dir> [--expect-version <v>]
 //     -> <dir>/plur1bus-hermes-provider-<v>.tar.gz, prints "<sha256>  <name>" (sha256sum format).
 //   node scripts/build-hermes-provider.mjs lock --artifacts <dir> --base-url <url> --out <file> [--tested-hermes <v>]
-//     -> the `hermes-sidecar.lock.json` seed for the plugin repo (provider + per-target binary URL and SHA-256,
+//     -> the `hermes-sidecar.lock.json` seed for PLUR1BUS-Host-Addons (provider + per-target binary URL and SHA-256,
 //        nodeVersion from the harness Node pin, `placeholder: false`).
 //
 // The tarball is a deterministic ustar stream in gzip: entries sorted, mtime 0, uid/gid 0, no user or group
@@ -232,7 +232,7 @@ export function buildProvider({ out, src = defaultSources(), expectVersion } = {
 // ---- lock seed (F31, F33) ---------------------------------------------------------------------------------------
 
 /**
- * The seed of the plugin repo's `scripts/dist/hermes-sidecar.lock.json`, from the files of one harness release run:
+ * The seed of the PLUR1BUS-Host-Addons repo's `scripts/dist/hermes-sidecar.lock.json`, from the files of one harness release run:
  * `artifacts` holds the provider tarball and `plur1bus-<target>[.exe]` for every target. `placeholder` is false here
  * and nowhere else: a hand-made lock without real hashes carries `"placeholder": true` (F31).
  */
