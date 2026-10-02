@@ -4,6 +4,22 @@ $ErrorActionPreference = 'Stop'
 $stage = 'compile'
 try {
   $request = Get-Content -LiteralPath $InputPath -Raw | ConvertFrom-Json
+  # These paths come only from the Node caller's permitted-root decision, after
+  # loader observations have already been persisted. Each optional read is local.
+  if ($request.operation -eq 'file-versions') {
+    $versions = @()
+    foreach ($path in $request.paths) {
+      $version = [ordered]@{ path = $path; fileVersion = $null; status = 'version-metadata-unavailable' }
+      try {
+        $version.fileVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($path).FileVersion
+        $version.status = 'read'
+      } catch { # Optional version failure must never discard loader observations.
+      }
+      $versions += $version
+    }
+    [Console]::Out.Write((@{ schema = 1; versions = $versions } | ConvertTo-Json -Depth 4 -Compress))
+    exit 0
+  }
   Add-Type -TypeDefinition @'
 using System;
 using System.Text;
@@ -95,9 +111,6 @@ public static class NativeSpikeLoader {
       if ($module -ne [IntPtr]::Zero) {
         try {
           $entry.resolvedPath = if ($executableMapping) { [NativeSpikeLoader]::PathOf($module) } else { [NativeSpikeLoader]::ImagePathOf($module) }
-          if ($entry.resolvedPath) {
-            $entry.fileVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($entry.resolvedPath).FileVersion
-          }
           foreach ($symbol in $item.symbols) {
             $named = $null -ne $symbol.name
             $address = [IntPtr]::Zero

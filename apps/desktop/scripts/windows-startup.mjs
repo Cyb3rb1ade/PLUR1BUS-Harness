@@ -36,8 +36,18 @@ export function diagnoseWindowsStartup({ root, executable, cwd, env, child }, de
       'Normal DLL loading may initialize runtime DLLs in this isolated helper; no resolved export is invoked.',
       'Failed DLL loads use image-resource mapping and static exports; that is not a successful GetProcAddress lookup.',
     ] } };
-  const peRecords = [], batches = [], findings = [];
+  const peRecords = [], batches = [];
+  let findings = [];
   const save = () => {
+    findings = batches.flatMap(batch => batch.modules.flatMap(entry => {
+      const moduleFindings = !entry.resolvedPath ? [{ kind: 'module-unresolved-by-helper', ...entry }]
+        : entry.loadError != null ? [{ kind: 'module-load-failed-metadata-mapped', ...entry }] : [];
+      return [...moduleFindings, ...entry.symbols.filter(fact => fact.found === false || fact.declaredExport === false).map(fact => ({
+        kind: fact.found === false ? 'procedure-unresolved-by-helper' : 'import-export-table-mismatch',
+        dll: entry.dll, importers: entry.importers, resolvedPath: entry.resolvedPath,
+        fileVersion: entry.fileVersion, architecture: entry.architecture, ...fact,
+      }))];
+    }));
     for (const [name, value] of [['startup', startup], ['pe-imports', peRecords], ['loader-exports', { batches, findings }]]) {
       writeFileSync(resolve(root, `native-${name}.json`), JSON.stringify(value, null, 2) + '\n');
     }
@@ -114,18 +124,28 @@ export function diagnoseWindowsStartup({ root, executable, cwd, env, child }, de
           executableMapping: typeof answer.executableMapping === 'boolean' ? answer.executableMapping : null,
           resolvedPath: typeof answer.resolvedPath === 'string' ? answer.resolvedPath : null,
           previouslyLoadedPath: typeof answer.previouslyLoadedPath === 'string' ? answer.previouslyLoadedPath : null,
-          fileVersion: typeof answer.fileVersion === 'string' ? answer.fileVersion : null,
+          fileVersion: null,
           loadError: Number.isInteger(answer.loadError) ? answer.loadError : null,
           mappingError: Number.isInteger(answer.mappingError) ? answer.mappingError : null, symbols: [] };
         batch.modules.push(entry);
-        if (!entry.resolvedPath) { findings.push({ kind: 'module-unresolved-by-helper', ...entry }); continue; }
-        if (entry.loadError != null) findings.push({ kind: 'module-load-failed-metadata-mapped', ...entry });
+        // Win32 observations are evidence even when optional file metadata is unavailable.
+        for (const symbol of query.symbols) {
+          const resolved = answer.symbols.find(item => keyOf(item) === keyOf(symbol));
+          if (!resolved || !(typeof resolved.found === 'boolean' || (resolved.found === null && entry.loadError != null))) {
+            if (!entry.resolvedPath && !answer.symbols.length) break;
+            throw new Error('Incomplete symbol resolution');
+          }
+          entry.symbols.push({ ...symbol, found: resolved.found, error: Number.isInteger(resolved.error) ? resolved.error : null });
+        }
+        save();
+        if (!entry.resolvedPath) { entry.metadataStatus = 'resolved-path-unavailable'; continue; }
         const authorizedPath = win32.isAbsolute(entry.resolvedPath) && permittedRoots.some(path => windowsPathWithin(entry.resolvedPath, path));
         if (!authorizedPath) {
           entry.metadataStatus = 'resolved-path-outside-fixture-system-runtime-scope';
           startup.diagnostics.limitations.push('A resolved file was outside allowed metadata roots and was not read.');
           continue;
         }
+        entry.metadataAuthorized = true;
         let module = parsed.get(entry.resolvedPath.toLowerCase());
         if (!module) {
           if (parsed.size >= 192) {
@@ -142,17 +162,11 @@ export function diagnoseWindowsStartup({ root, executable, cwd, env, child }, de
         entry.architecture = module.architecture;
         entry.machine = module.machine;
         entry.sha256 = module.sha256;
-        for (const symbol of query.symbols) {
-          const resolved = answer.symbols.find(item => keyOf(item) === keyOf(symbol));
-          if (!resolved || !(typeof resolved.found === 'boolean' || (resolved.found === null && entry.loadError != null))) throw new Error('Incomplete symbol resolution');
-          const exported = module.exports.find(item => symbol.name == null ? item.ordinal === symbol.ordinal : item.names.includes(symbol.name));
-          const fact = { ...symbol, found: resolved.found, error: Number.isInteger(resolved.error) ? resolved.error : null,
-            declaredExport: !!exported, forwarder: exported?.forwarder ?? null };
-          entry.symbols.push(fact);
-          if (fact.found === false || !fact.declaredExport) {
-            findings.push({ kind: fact.found === false ? 'procedure-unresolved-by-helper' : 'import-export-table-mismatch', dll: query.dll, importers: query.importers,
-              resolvedPath: entry.resolvedPath, fileVersion: entry.fileVersion, architecture: entry.architecture, ...fact });
-          }
+        entry.metadataStatus = 'PE-metadata-read';
+        for (const fact of entry.symbols) {
+          const exported = module.exports.find(item => fact.name == null ? item.ordinal === fact.ordinal : item.names.includes(fact.name));
+          fact.declaredExport = !!exported;
+          fact.forwarder = exported?.forwarder ?? null;
           if (fact.found !== true && fact.forwarder) {
             const separator = fact.forwarder.lastIndexOf('.');
             const targetDll = fact.forwarder.slice(0, separator), targetSymbol = fact.forwarder.slice(separator + 1);
@@ -166,7 +180,38 @@ export function diagnoseWindowsStartup({ root, executable, cwd, env, child }, de
       }
       save();
     }
-    if (startup.diagnostics.status === 'not-started') startup.diagnostics.status = pending.length ? 'partial-depth-limit' : 'completed-helper-observations';
+    // Version enrichment happens only after the same path authorization as PE reads.
+    // One bounded batch avoids a separate PowerShell startup for every DLL.
+    const versionEntries = batches.flatMap(batch => batch.modules).filter(entry => entry.metadataAuthorized);
+    if (versionEntries.length) {
+      try {
+        if (now() >= deadline) throw new Error('Version budget exhausted');
+        const paths = [...new Set(versionEntries.map(entry => entry.resolvedPath))];
+        const readVersions = dependencies.readFileVersions ?? (paths => {
+          const queryPath = resolve(root, 'native-loader-query-versions.json');
+          writeFileSync(queryPath, JSON.stringify({ operation: 'file-versions', paths }));
+          const result = run(powershell, ['-NoProfile', '-NonInteractive', '-File', helper, '-InputPath', queryPath],
+            { cwd, env, encoding: 'utf8', timeout: Math.max(1, Math.min(12000, deadline - now())), maxBuffer: 1024 * 1024, windowsHide: true });
+          if (result.status !== 0 || result.error) throw new Error('Version helper unavailable');
+          const data = JSON.parse(result.stdout.replace(/^\uFEFF/, ''));
+          if (data.schema !== 1 || !Array.isArray(data.versions)) throw new Error('Version helper invalid');
+          return data.versions;
+        });
+        const versions = readVersions(paths);
+        for (const entry of versionEntries) {
+          const version = versions.find(item => item.path === entry.resolvedPath);
+          entry.fileVersion = typeof version?.fileVersion === 'string' ? version.fileVersion : null;
+          entry.versionStatus = version?.status === 'read' ? 'read' : 'version-metadata-unavailable';
+        }
+      } catch {
+        for (const entry of versionEntries) entry.versionStatus = 'version-metadata-unavailable';
+      }
+    }
+    const partialMetadata = batches.some(batch => batch.modules.some(entry =>
+      entry.metadataStatus !== 'PE-metadata-read' || entry.versionStatus !== 'read'));
+    if (startup.diagnostics.status === 'not-started') startup.diagnostics.status = pending.length ? 'partial-depth-limit'
+      : partialMetadata ? 'partial-metadata' : 'completed-helper-observations';
+    save();
     startup.diagnostics.findingCount = findings.length;
   } catch {
     startup.diagnostics.status = 'partial-diagnostic-error';

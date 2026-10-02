@@ -278,10 +278,18 @@ Focused tests run with:
 node --test apps/desktop/scripts/windows-startup.test.mjs
 ```
 
-Ten tests cover PE32/PE32+, ARM64, malformed/truncated data, normal/delay/name/ordinal
+Fourteen tests cover PE32/PE32+, ARM64, malformed/truncated data, normal/delay/name/ordinal
 imports, API-set-host traversal, transitive missing names/ordinals, forwarded
 exports, ordinal holes, architecture mismatch, timeout/redaction/budget handling,
-main-marker detection and preservation of the original failure. PE parsing is
+main-marker detection and preservation of the original failure. Additional cases
+preserve name/ordinal observations when metadata is unreadable, outside scope or
+over budget, and exercise authorized version-query scheduling and optional failure
+retention. Loader symbol facts are saved before optional static enrichment;
+unavailable static exports/architecture are omitted, not guessed. File-version
+reads run in a separate bounded batch containing only paths already authorized by
+the Node permitted-root policy. A per-file version failure stays local, and a
+failed version subprocess cannot discard loader evidence. Partial metadata is
+reported explicitly. PE parsing is
 executed locally against handcrafted fixtures; Win32 helper answers are injected
 in these tests. **No actual Windows helper execution or newly identified DLL/symbol
 is claimed at this checkpoint.** CI must supply that evidence before a fix is

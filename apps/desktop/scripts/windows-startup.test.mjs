@@ -111,7 +111,7 @@ function diagnosticFixture(t, imports) {
   const files = new Map([[executable.toLowerCase(), peFixture({ imports })]]);
   const options = { root, executable, cwd: root, env,
     child: { status: 3221225785, stdout: '', stderr: '', error: { message: env.PRIVATE_TEST_SECRET } } };
-  const deps = { readPeBytes: path => { const bytes = files.get(path.toLowerCase()); if (!bytes) throw Error('Unknown fixture'); return bytes; } };
+  const deps = { readFileVersions: paths => paths.map(path => ({ path, fileVersion: '10.0.1.0', status: 'read' })), readPeBytes: path => { const bytes = files.get(path.toLowerCase()); if (!bytes) throw Error('Unknown fixture'); return bytes; } };
   return { root, options, deps, files, artifact: name => JSON.parse(readFileSync(join(root, `native-${name}.json`), 'utf8')) };
 }
 
@@ -216,4 +216,105 @@ test('diagnostic budget and malformed PE preserve the original startup failure w
   assert.equal(failed.child.hexStatus, '0xC0000139');
   assert.equal(failed.diagnostics.status, 'partial-diagnostic-error');
   assert.equal(failed.executable.sha256.length, 64);
+});
+
+test('missing named and ordinal helper facts survive unreadable and outside-scope metadata', t => {
+  for (const outside of [false, true]) {
+    const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ name: 'KnownMissing' }, { ordinal: 9 }] }]);
+    const path = outside ? 'C:\\outside\\probe.dll' : 'C:\\Windows\\System32\\probe.dll';
+    const reads = [], versionReads = [];
+    const originalRead = fixture.deps.readPeBytes;
+    fixture.deps.readPeBytes = path => { reads.push(path); return originalRead(path); };
+    fixture.deps.readFileVersions = paths => { versionReads.push(...paths); return []; };
+    fixture.deps.spawnSync = () => ({ status: 0, stdout: JSON.stringify({ schema: 1, machine: 0x8664, modules: [{ dll: 'probe.dll',
+      resolvedPath: path, symbols: [{ name: 'KnownMissing', found: false, error: 127 }, { ordinal: 9, found: false, error: 127 }],
+    }] }) });
+    const result = diagnoseWindowsStartup(fixture.options, fixture.deps);
+    assert.equal(result.diagnostics.status, 'partial-metadata');
+    assert.equal(result.child.hexStatus, '0xC0000139');
+    const facts = fixture.artifact('loader-exports');
+    assert.deepEqual(facts.findings.map(f => [f.name ?? f.ordinal, f.found, f.error]), [['KnownMissing', false, 127], [9, false, 127]]);
+    assert.ok(facts.findings.every(f => !('architecture' in f) && !('declaredExport' in f)));
+    assert.equal(facts.batches[0].modules[0].symbols.length, 2);
+    assert.equal(facts.batches[0].modules[0].metadataStatus, outside ? 'resolved-path-outside-fixture-system-runtime-scope' : 'PE-metadata-unavailable');
+    assert.deepEqual(versionReads, outside ? [] : [path]);
+    assert.deepEqual(reads, outside ? [fixture.options.executable] : [fixture.options.executable, path]);
+  }
+});
+
+test('module budget retains already observed procedures beyond the static parsing limit', t => {
+  const imports = Array.from({ length: 193 }, (_, i) => ({ dll: `probe${i}.dll`, symbols: [{ name: 'Missing' }] }));
+  const fixture = diagnosticFixture(t, imports);
+  const image = peFixture({ exports: [{ ordinal: 1, name: 'Existing' }] });
+  for (const item of imports) fixture.files.set(`c:\\windows\\system32\\${item.dll}`, image);
+  let reads = 0;
+  const originalRead = fixture.deps.readPeBytes;
+  fixture.deps.readPeBytes = path => { reads++; return originalRead(path); };
+  fixture.deps.spawnSync = (_, args) => {
+    const request = JSON.parse(readFileSync(args.at(-1), 'utf8'));
+    return { status: 0, stdout: JSON.stringify({ schema: 1, machine: 0x8664, modules: request.modules.map(item => ({ dll: item.dll,
+      resolvedPath: `C:\\Windows\\System32\\${item.dll}`, symbols: [{ name: 'Missing', found: false, error: 127 }],
+    })) }) };
+  };
+  const result = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  assert.equal(result.diagnostics.status, 'partial-budget-limit');
+  assert.equal(reads, 192); // Executable plus 191 DLL metadata reads.
+  const facts = fixture.artifact('loader-exports');
+  assert.equal(facts.findings.length, 193);
+  assert.equal(facts.findings.at(-1).name, 'Missing');
+  assert.equal(facts.findings.at(-1).error, 127);
+  assert.equal('declaredExport' in facts.findings.at(-1), false);
+  assert.equal(facts.batches[0].modules.at(-1).metadataStatus, 'module-budget-limit');
+});
+
+test('authorized version batch excludes outside roots and optional read failures preserve every loader fact', t => {
+  const fixture = diagnosticFixture(t, ['allowed', 'unreadable', 'outside'].map(name => ({ dll: `${name}.dll`, symbols: [{ name: 'Missing' }] })));
+  fixture.files.set('c:\\windows\\system32\\allowed.dll', peFixture());
+  fixture.files.set('c:\\windows\\system32\\unreadable.dll', peFixture());
+  delete fixture.deps.readFileVersions; // Exercise the real version-query scheduling boundary.
+  let versionCalls = 0;
+  fixture.deps.spawnSync = (_, args) => {
+    const request = JSON.parse(readFileSync(args.at(-1), 'utf8'));
+    if (request.operation === 'file-versions') {
+      versionCalls++;
+      assert.deepEqual(request.paths, ['C:\\Windows\\System32\\allowed.dll', 'C:\\Windows\\System32\\unreadable.dll']);
+      const saved = fixture.artifact('loader-exports');
+      assert.equal(saved.findings.length, 3); // Persisted before optional version subprocess.
+      return { status: 0, stdout: JSON.stringify({ schema: 1, versions: [
+        { path: request.paths[0], fileVersion: '1.2.3.4', status: 'read' },
+        { path: request.paths[1], fileVersion: null, status: 'version-metadata-unavailable' },
+      ] }) };
+    }
+    return { status: 0, stdout: JSON.stringify({ schema: 1, machine: 0x8664, modules: request.modules.map(item => ({ dll: item.dll,
+      resolvedPath: `C:\\${item.dll === 'outside.dll' ? 'outside' : 'Windows\\System32'}\\${item.dll}`,
+      symbols: [{ name: 'Missing', found: false, error: 127 }],
+    })) }) };
+  };
+  assert.equal(diagnoseWindowsStartup(fixture.options, fixture.deps).diagnostics.status, 'partial-metadata');
+  assert.equal(versionCalls, 1);
+  const facts = fixture.artifact('loader-exports');
+  assert.equal(facts.findings.length, 3);
+  assert.equal(facts.batches[0].modules[0].fileVersion, '1.2.3.4');
+  assert.equal(facts.batches[0].modules[1].versionStatus, 'version-metadata-unavailable');
+  assert.equal(facts.batches[0].modules[2].fileVersion, null);
+});
+
+test('optional version subprocess failure cannot discard the completed helper batch', t => {
+  const fixture = diagnosticFixture(t, [{ dll: 'probe.dll', symbols: [{ ordinal: 9 }] }]);
+  fixture.files.set('c:\\windows\\system32\\probe.dll', peFixture());
+  delete fixture.deps.readFileVersions;
+  fixture.deps.spawnSync = (_, args) => {
+    const request = JSON.parse(readFileSync(args.at(-1), 'utf8'));
+    if (request.operation === 'file-versions') return { status: null, error: { code: 'ETIMEDOUT' } };
+    return { status: 0, stdout: JSON.stringify({ schema: 1, machine: 0x8664, modules: [{ dll: 'probe.dll',
+      resolvedPath: 'C:\\Windows\\System32\\probe.dll', symbols: [{ ordinal: 9, found: false, error: 127 }],
+    }] }) };
+  };
+  const result = diagnoseWindowsStartup(fixture.options, fixture.deps);
+  assert.equal(result.diagnostics.status, 'partial-metadata');
+  assert.equal(result.child.hexStatus, '0xC0000139');
+  const facts = fixture.artifact('loader-exports');
+  assert.equal(facts.batches[0].modules[0].versionStatus, 'version-metadata-unavailable');
+  assert.equal(facts.findings[0].ordinal, 9);
+  assert.equal(facts.findings[0].error, 127);
 });
