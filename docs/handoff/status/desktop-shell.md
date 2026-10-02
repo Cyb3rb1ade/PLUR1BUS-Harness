@@ -1144,15 +1144,28 @@ GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https
 Status: IN PROGRESS — mandatory D1 Task13 Step0 native transport spike first.
 Branch: feat/desktop-shell-wp05-spa-proxy.
 Base: feat/desktop-shell-wp04-connections at a1f0029f055efa77d4331ca815fc999644fc0277; #64 ready/unmerged.
-PR: not opened yet; remains draft when created.
+PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT.
+Published checkpoint: 182cbc8d5994b5753eb5442e28d04eb9652b1f07.
+Current checkpoint CI: root 37021651156; desktop PR 37021651202 and push
+37021631131/37021629460 QUEUED at publication. Results are pending, not passes.
+Root attempt1: macOS15/Python3.13 job110885955033 failed unchanged HM2
+`test_shutdown_counts_what_it_cannot_journal` at test_provider.py:707:
+2.316702416 seconds versus its <2.3 assertion. Log:
+`/tmp/wp05-spike-root-ci-mac-python.log`. Desktop source does not edit this
+test/provider. Scheduling sensitivity is an inference; exact workflow remains
+non-green. After the complete attempt, permit one targeted unchanged job retry
+and retain both outcomes; no source/threshold weakening.
+Root attempt2 completed SUCCESS: targeted replacement macOS job110895661346
+passed; all other root jobs passed in attempt1. Exact182cbc8 root is GREEN
+with the first inherited timing failure retained transparently.
 Starting head: a1f0029. Step0 diagnostics implemented; production WP5 is unfinished.
 
 Controller local root gates for the Step0 source: frozen install, toolchain check,
 generation, build, lint (29 hygiene/provider self-tests), and root Node tests
 PASS (567 passed, five existing skips; `/tmp/wp05-spike-root-node.log`). Root
 Rust fmt/clippy/workspace tests PASS (1036 passed, one existing ignore;
-`/tmp/wp05-spike-root-rust.log`). Root sources remain unchanged. Independent
-review and exact-head CI are pending.
+`/tmp/wp05-spike-root-rust.log`). Root sources remain unchanged. Step0 independent review passed; exact-head CI
+is pending.
 
 Step0 source commits: 4b868e1 (diagnostics) and c782a41 (native CI/status).
 Independent review: spec PASS and task quality APPROVED for Step0 source freeze;
@@ -1178,6 +1191,39 @@ blocked. The custom page is LOCAL for Tauri capabilities; loopback is REMOTE.
 Custom POST Origin was absent; loopback POST/WS had the exact origin while
 GET/EventSource omitted it. A public diagnostic per-window UA marker arrived
 on GET/POST/EventSource/WS; no production launch-secret mechanism is selected yet.
+
+Native CI checkpoint (run37021651202, exact182cbc8; raw artifacts retained by
+controller under temporary directories):
+
+| Target | Custom SSE / WS | Loopback SSE / WS / p95 | Result |
+|---|---|---|---|
+| macos-15 arm64, artifact11232948229 | 1510/1510 ms; constructor rejected/mapped error, handler `/ws` zero | 4/1505 ms; echo37 ms; p95 2 ms; 10 MiB correct | Native collection PASS, fallback required |
+| ubuntu-24.04 x64, artifact11233098514 | 1504/1504 ms; constructor rejected/mapped error, handler `/ws` zero | 2/1504 ms; echo3 ms; p95 3 ms; 10 MiB correct | Native collection PASS, fallback required |
+| ubuntu-24.04-arm, artifact11233888630 | 1504/1504 ms; constructor rejected/mapped error, handler `/ws` zero | 2/1503 ms; echo3 ms; p95 2 ms; 10 MiB correct | Native collection PASS, fallback required |
+| windows-2025 x64, artifact11233563460 | No observation | No observation | Process startup FAILED0xC0000139; fixture/build passed; not a transport failure |
+| windows-11-arm, artifact11233004315 | No observation | No observation | Process startup FAILED0xC0000139; fixture/build passed; not a transport failure |
+
+All three observed native targets passed CSP self/foreign controls, classified
+custom as LOCAL/loopback as REMOTE, and delivered the public UA marker on
+GET/POST/EventSource/WS. GET/EventSource omitted Origin; loopback POST/WS carried
+its exact origin. GTK emitted EGL/DRI3 diagnostic warnings (x64 also accessibility
+bus warning); observations completed, no silent pristine-output claim. Windows
+startup diagnosis is pending; no missing observation is substituted by inference.
+
+Windows diagnostic source checkpoint: 5cf17e3, test-only runner/PE parser/public
+Win32 helper plus a fixed main-entry marker. On failure the runner retains the
+original process status and writes `native-startup.json`, actual import metadata,
+resolved DLL paths/hashes/architecture and missing export/ordinal observations.
+API-set mapping and transitive imports are covered; helper search/architecture
+limitations are reported rather than presented as child-loader proof. No CRT,
+dependency or production change is guessed. Windows helper runtime is NOT RUN
+locally and the particular missing DLL/procedure remains unknown until new CI.
+Covering gates PASS: ten Node diagnostics, 135 Rust workspace tests/one existing
+keychain ignore, two fixtures, fmt/clippy, and real WK collection with main marker.
+All new gate stdout is saved under `/tmp/wp05-windows-diagnostics-logs/`; controller
+root lint PASS (29 tests) at `/tmp/wp05-windows-diagnostics-root-lint.log`.
+Earlier 47 UI tests and full root Node/Rust gates cover unchanged source.
+Independent diagnostic review and publication are pending.
 
 Five-target native CI is arranged in the existing desktop workflow, with isolated
 profiles, fixture tests, Linux Xvfb and raw native observations uploaded for seven
