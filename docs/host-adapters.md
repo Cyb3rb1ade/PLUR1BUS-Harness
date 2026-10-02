@@ -37,7 +37,7 @@ Evidence levels: **verified 2026-09-25** (read at the cited source today), **kno
 1. **No engine in the host.** The adapter holds no store, no model, no journal; if the harness is unreachable it reports degraded to the host and drops nothing silently (a capture is retried through the kit's journal on the host side only if the host allows local files).
 2. **Principal, not guesswork.** The adapter passes the host's user, chat and setting (D22) explicitly; the harness derives the person (D24). Sensitive content follows D22 regardless of the host.
 3. **One agent per binding.** A binding (API key or plugin config) names exactly one `agentId`; several hosts may bind the same agent.
-4. **Stability.** Adapters consume only `stable` surfaces (ADR-016); a host-API change breaks the adapter, never the harness.
+4. **Stability.** Adapters consume `stable` surfaces (ADR-016) on the turn path (prefetch/recall, capture); experimental methods only when `core.auth` advertises them, never on the turn path, and their absence disables that hook or tool, never the adapter (HM2-R5, F25). A host-API change breaks the adapter, never the harness.
 5. **Parity.** Tier-1 adapters for OpenClaw and Hermes are the plugin's successors; `docs/plugin-parity.md` decides what a host adapter must still cover.
 
 ## Sequence
