@@ -7,6 +7,7 @@ export type Settings = { theme: ThemeChoice; locale: LocaleChoice };
 export type Connection = { id: string; name: string; kind: "bundled" | "local" | "remote"; origin: string; installationId: string; deviceId: string; tokenHint: string; certPin: string | null; caPin: string | null; nextCertPin: string | null; nextCaPin: string | null; observedCertPin: string | null; pairingNeeded: boolean };
 export type TokenStoreKind = "keychain" | "memory-only";
 export type ConnectionList = { connections: Connection[]; active: string | null; tokenStore: TokenStoreKind | null };
+export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: ConnectionList | null };
 export type PairRequest = { name: string; origin: string; code: string; repairId: string | null };
 export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type DesktopTransport = {

@@ -140,6 +140,18 @@ pub struct BundledRef {
     pub container: String,
     pub image_digest: String,
 }
+/// Legacy rows cannot establish which backend owns the current credential.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CredentialProvenance {
+    #[default]
+    Legacy,
+    Keychain,
+    MemoryOnly,
+}
+fn cleanup_required() -> bool {
+    true
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Connection {
@@ -150,6 +162,10 @@ pub struct Connection {
     pub installation_id: String,
     pub device_id: String,
     pub token_hint: String,
+    #[serde(default)]
+    pub credential_provenance: CredentialProvenance,
+    #[serde(default = "cleanup_required")]
+    pub pending_keychain_cleanup: bool,
     pub bundled: Option<BundledRef>,
     pub cert_pin: Option<CertPin>,
     pub ca_pin: Option<CertPin>,
@@ -177,16 +193,23 @@ impl Connection {
             installation_id,
             device_id,
             token_hint,
+            credential_provenance: CredentialProvenance::Legacy,
+            pending_keychain_cleanup: true,
             bundled: None,
             cert_pin: None,
             ca_pin: None,
             next_cert_pin: None,
             next_ca_pin: None,
-            pairing_needed: false,
+            pairing_needed: true,
             observed_cert_pin: None,
         }
     }
     fn validate(&self) -> Result<(), StoreError> {
+        if self.credential_provenance == CredentialProvenance::Legacy
+            && !self.pending_keychain_cleanup
+        {
+            return Err(StoreError::Invalid);
+        }
         if self.name.trim().is_empty()
             || self.name.len() > 120
             || self.name.chars().any(char::is_control)
@@ -276,7 +299,12 @@ impl Store {
                 && v.active
                     .is_none_or(|id| v.connections.iter().any(|c| c.id == id))
         });
-        if let Some(v) = parsed {
+        if let Some(mut v) = parsed {
+            for c in &mut v.connections {
+                if c.credential_provenance == CredentialProvenance::Legacy {
+                    c.pairing_needed = true;
+                }
+            }
             return Ok(v);
         }
         fs::rename(
@@ -332,6 +360,14 @@ impl Store {
             return Err(StoreError::Invalid);
         }
         v.active = Some(id);
+        self.write(&v)
+    }
+    pub(crate) fn remove_metadata(&self, id: Uuid) -> Result<(), StoreError> {
+        let mut v = self.read()?;
+        v.connections.retain(|c| c.id != id);
+        if v.active == Some(id) {
+            v.active = None;
+        }
         self.write(&v)
     }
     pub fn remove(&self, id: Uuid, tokens: &dyn TokenStore) -> Result<(), StoreError> {

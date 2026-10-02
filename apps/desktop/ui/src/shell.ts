@@ -40,13 +40,26 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     const next = routeFromHash(window.location.hash);
     if (next.section !== route.section || next.page !== route.page) { route = next; render(); }
   });
-  let connectionStatus: import("./ipc.ts").ConnectionList | null = null;
-  const renderConnections = connectionsView(transport, t, data => {
-    connectionStatus = data;
-    const status = root.querySelector<HTMLElement>(".top-status");
-    if (status) status.textContent = connectionSummary();
-  });
-  function connectionSummary() { return connectionStatus?.connections.length ? t("connections.count", { count: String(connectionStatus.connections.length) }) : t("status.empty"); }
+  let connectionStatus: import("./ipc.ts").ConnectionSnapshot = { status: "loading", data: null };
+  let connectionRefresh: Promise<void> | null = null;
+  const renderConnections = connectionsView(transport, t, () => connectionStatus, refreshConnections);
+  function connectionSummary() {
+    if (connectionStatus.status === "loading") return t("connections.loading");
+    if (connectionStatus.status === "error") return t("connections.loadError");
+    const count = connectionStatus.data?.connections.length ?? 0;
+    return count ? t("connections.count", { count: String(count) }) : t("status.empty");
+  }
+  function refreshConnections(): Promise<void> {
+    if (connectionRefresh) return connectionRefresh;
+    connectionStatus = { ...connectionStatus, status: "loading" };
+    render();
+    connectionRefresh = transport.connectionsList().then(data => {
+      connectionStatus = { status: "ready", data };
+    }).catch(() => {
+      connectionStatus = { ...connectionStatus, status: "error" };
+    }).finally(() => { connectionRefresh = null; render(); });
+    return connectionRefresh;
+  }
   const settingsLoad = transport.settingsGet().then(stored => {
     persisted = stored;
     settings = preferenceQueue.reduce((value, entry) => ({ ...value, ...entry.change }), stored);
@@ -54,6 +67,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   }).catch(() => { notice = "load"; render(); });
   void transport.appInfo().then(info => { platform = info.platform; render(); }).catch(() => {});
   render();
+  void refreshConnections();
 
   function t(key: MessageKey, values?: Record<string, string>) { return translate(resolveLocale(settings.locale, navigator.language), key, values); }
   function navigate(section: Section, page: SettingsPage = "runtime") {
@@ -121,7 +135,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     append(hero, element("p", "eyebrow", t("home.eyebrow")), element("h1", undefined, t("home.title")), element("p", "lead", t("home.lead")), chip(t("status.ready"), "ok"));
     const cards = element("div", "home-cards");
     append(cards,
-      pageCard(t("home.connectionTitle"), t("home.connectionBody"), button(t("home.openConnections"), () => navigate("connections"), "primary")),
+      pageCard(t("home.connectionTitle"), connectionStatus.status === "ready" && connectionStatus.data?.connections.length ? `${connectionSummary()}: ${connectionStatus.data.connections.map(row => row.name).join(", ")}` : connectionSummary(), button(t("home.openConnections"), () => navigate("connections"), "primary")),
       pageCard(t("home.settingsTitle"), t("home.settingsBody"), button(t("home.openSettings"), () => navigate("settings"))));
     append(body, hero, cards, banner(t("banner.note")));
     return body;
@@ -215,5 +229,5 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       notice = null;
     }
   }
-  return { setPreferences, setPlatform, navigate };
+  return { setPreferences, setPlatform, navigate, refreshConnections };
 }

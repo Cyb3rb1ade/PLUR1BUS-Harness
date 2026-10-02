@@ -67,6 +67,7 @@ struct Verifier {
     current: Option<CertPin>,
     next: Option<CertPin>,
     bootstrap: bool,
+    allow_os: bool,
     observed: Arc<Mutex<Observed>>,
 }
 impl ServerCertVerifier for Verifier {
@@ -110,7 +111,7 @@ impl ServerCertVerifier for Verifier {
             }
         }
         // Exact-leaf pins never silently fall back to a system root.
-        if self.current.is_none() && self.next.is_none() {
+        if self.allow_os {
             if let Ok(ok) = self.os.verify_server_cert(leaf, chain, name, ocsp, now) {
                 return Ok(ok);
             }
@@ -250,6 +251,10 @@ impl HarnessClient {
             current: self.cert.clone(),
             next: self.next_cert.clone(),
             bootstrap,
+            allow_os: self.cert.is_none()
+                && self.ca.is_none()
+                && self.next_cert.is_none()
+                && self.next_ca.is_none(),
             observed: self.observed.clone(),
         };
         let tls = rustls::ClientConfig::builder_with_provider(Arc::new(
@@ -272,14 +277,38 @@ impl HarnessClient {
             .map_err(|_| ClientError::Network)
     }
     async fn prepare(&mut self) -> Result<(), ClientError> {
+        // Current and next are alternatives. An unavailable CA must not disable
+        // another independently verified candidate. Missing candidates never
+        // broaden trust or fall back to OS roots when explicit pins exist.
+        let mut failure = ClientError::CaNotKnown;
         let ca = match &self.ca {
-            Some(pin) => Some(self.fetch_ca(pin).await?),
+            Some(pin) => match self.fetch_ca(pin).await {
+                Ok(ca) => Some(ca),
+                Err(e) => {
+                    failure = e;
+                    None
+                }
+            },
             None => None,
         };
         let next = match &self.next_ca {
-            Some(pin) => Some(self.fetch_ca(pin).await?),
+            Some(pin) => match self.fetch_ca(pin).await {
+                Ok(ca) => Some(ca),
+                Err(e) => {
+                    failure = e;
+                    None
+                }
+            },
             None => None,
         };
+        if self.cert.is_none()
+            && self.next_cert.is_none()
+            && ca.is_none()
+            && next.is_none()
+            && (self.ca.is_some() || self.next_ca.is_some())
+        {
+            return Err(failure);
+        }
         self.http = Some(self.build(false, ca.as_deref(), next.as_deref())?);
         Ok(())
     }
@@ -654,8 +683,13 @@ impl HarnessClient {
             c.cert_pin = current_cert;
             c.ca_pin = current_ca;
         }
+        // Already authenticated/stored announcements remain valid metadata even
+        // while that candidate is unavailable. New CA announcements still require
+        // an exact hash and valid CA before persistence/acknowledgement.
         if let Some(pin) = &next_ca {
-            self.fetch_ca(pin).await?;
+            if c.next_ca_pin.as_ref() != Some(pin) {
+                self.fetch_ca(pin).await?;
+            }
         }
         c.next_cert_pin = next_cert;
         c.next_ca_pin = next_ca;

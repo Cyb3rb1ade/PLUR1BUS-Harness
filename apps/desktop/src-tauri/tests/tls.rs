@@ -421,3 +421,56 @@ async fn revoked_on_trust_ack_removes_credential_and_marks_pairing_needed() {
         .is_none());
     assert_eq!(m.control.trust_ack_count(), 0);
 }
+
+#[tokio::test]
+async fn rollover_candidates_survive_unavailable_other_ca() {
+    for company_first in [true, false] {
+        let ca = CompanyCa::new();
+        let initial = if company_first {
+            ca.issue()
+        } else {
+            Identity::self_signed()
+        };
+        let m = MockHarness::start_tls(MockOptions::default(), initial)
+            .await
+            .unwrap();
+        let code = m.control.create_pair_code();
+        let mut c = client(&m.origin, None);
+        c.establish_pairing_trust(&code).await.unwrap();
+        let redeemed = c.redeem(&code, "Desk").await.unwrap();
+        let mut row = Connection::new(
+            "Desk".into(),
+            Kind::Remote,
+            Origin::parse(&m.origin).unwrap(),
+            m.installation_id.clone(),
+            redeemed.device_id,
+            "hint".into(),
+        );
+        c.apply_pairing_trust(&mut row);
+        m.control.stage_trust(if company_first {
+            Identity::self_signed()
+        } else {
+            ca.issue()
+        });
+        c.refresh_trust(&mut row, &redeemed.token).await.unwrap();
+        if company_first {
+            m.control.switch_trust();
+        }
+        // The CA candidate is unavailable; the independently pinned leaf remains valid.
+        m.control.wrong_ca_response();
+        let c = HarnessClient::from_connection_with_roots(&row, vec![Identity::self_signed().leaf])
+            .await
+            .unwrap();
+        c.whoami(&m.installation_id, &redeemed.token).await.unwrap();
+        c.refresh_trust(&mut row, &redeemed.token).await.unwrap();
+        m.control.renew_leaf(Identity::self_signed());
+        m.control.clear_requests();
+        assert_eq!(
+            c.whoami(&m.installation_id, &redeemed.token)
+                .await
+                .unwrap_err(),
+            ClientError::CertChanged
+        );
+        assert!(m.control.recorded_requests().is_empty());
+    }
+}

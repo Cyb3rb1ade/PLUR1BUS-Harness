@@ -1,4 +1,6 @@
 {
+  "connections.loading": "Verbindungen werden geladen…",
+  "connections.loadError": "Verbindungen konnten nicht geladen werden.",
   "app.name": "PLUR1BUS",
   "nav.home": "Startseite",
   "nav.settings": "Einstellungen",

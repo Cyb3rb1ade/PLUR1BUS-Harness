@@ -142,7 +142,21 @@ store directly; an inaccessible persisted credential keeps its row. On failure, 
 a banner explains restart behavior. Public rows survive restart, their memory
 credentials do not, and opening returns pairing-needed; a new code repairs the
 same row with its name/origin locked. Bundled automatic re-pair belongs to WP8.
-A revoked authenticated response clears the credential and marks the row for repair.
+Each row records `credentialProvenance` (`keychain`, `memory-only`, or `legacy`)
+and `pendingKeychainCleanup`. A same-ID memory repair of a keychain/legacy row
+retains the persistent cleanup obligation. Restart never loads a keychain token
+for a memory-only row. Removal must delete the outstanding keychain account before
+removing metadata; denied deletion keeps the row and obligation, even with a live
+memory token. A successful keychain repair overwrites the same account and clears
+the obligation. A genuinely new memory-only row can be removed after restart
+without keychain access.
+
+Existing version-1 files without provenance load as `legacy`, require one explicit
+re-pair before credential access, and conservatively retain persistent cleanup.
+This upgrade rule avoids reusing an old token left by a pre-provenance memory repair.
+Unknown provenance values and inconsistent legacy cleanup flags are rejected by
+the closed metadata schema. A revoked authenticated response first persists repair
+state, then deletes its credential; denied deletion cannot erase that repair state.
 Native ticket/event orchestration preserves the same rule for WP5/WP6 callers.
 
 Native attach reads only `<state-root>/run/api.json`, checks PID liveness, loopback
@@ -153,7 +167,18 @@ Output is limited to 8192 bytes, errors never include it, and the process is kil
 on its 15-second timeout. Denial falls back to the code form. All connection/token
 mutations share one native async mutex; listing does not acquire credentials.
 
+Home, the top summary and Connections share one public metadata snapshot loaded
+at startup and refreshed after connection actions. Loading and read errors remain
+distinct from a successfully loaded empty list. This never probes credentials.
+
 The authenticated trust document is pulled after redeem and on every open.
+Current and staged-next trust candidates are prepared independently: an unavailable
+old CA does not block a stored next leaf, and an unavailable next CA does not block
+a valid current leaf. Only candidates passing their exact pin or CA hash plus
+chain/hostname/validity checks can authenticate. Existing authenticated next-CA
+metadata remains staged while its candidate is unavailable; new announcements
+still require CA validation before persistence and acknowledgement. Explicit pins
+never broaden to system-root fallback when a CA candidate is unavailable.
 The bounded SSE primitive re-pulls, persists and acknowledges the same document;
 WP6 supplies its continuous subscription/reconnect lifecycle. The WP4 UI itself
 is not continuously subscribed. CA upload/admin states remain D2.
@@ -164,8 +189,10 @@ For a debug build, set `PLUR1BUS_DESKTOP_CONFIG_DIR` to an absolute temporary
 directory before launching. This **forces MemoryStore**, with no real keychain
 probe. It also redirects native discovery to `<scratch>/native/run/api.json` and
 known CLI lookup to `<scratch>/bin/plur1bus` (`plur1bus.exe` on Windows). Settings and
-connection metadata go to the same scratch profile. Release builds ignore this
-seam. A standalone mock with `--test-control --port 0` prints its loopback origin;
+connection metadata go to the same scratch profile. Legacy/pending persistent
+cleanup in a scratch profile is refused without constructing/accessing a real
+keychain; the row remains until persistent cleanup can actually be completed.
+Release builds ignore this seam. A standalone mock with `--test-control --port 0` prints its loopback origin;
 POST `/__test/pair` with `{"scopes":["ui.session","events.read"],"grant_key_unlock":false}`
 to obtain a code, then enter the origin/code in Add remote. This endpoint returns
 no device token. Never run the ignored `real_keychain_round_trip` without explicit

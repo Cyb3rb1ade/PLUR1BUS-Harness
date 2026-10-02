@@ -1,8 +1,11 @@
 //! Pairing orchestration owns credentials; UI sees connection metadata and fixed error codes only.
 use crate::{
     client::{ClientError, HarnessClient},
-    connections::{Connection, Kind, Origin, Store},
-    secrets::{load_token_or_pairing_needed, token_account, token_hint, TokenStore},
+    connections::{Connection, CredentialProvenance, Kind, Origin, Store},
+    secrets::{
+        load_token_or_pairing_needed, token_account, token_hint, SecretString, StoreKind,
+        TokenStore,
+    },
 };
 use serde::Deserialize;
 use std::{
@@ -291,8 +294,18 @@ pub async fn pair_using_client(
         redeemed.device_id,
         token_hint(&redeemed.token),
     );
+    connection.credential_provenance = match tokens.kind() {
+        StoreKind::Keychain => CredentialProvenance::Keychain,
+        StoreKind::MemoryOnly => CredentialProvenance::MemoryOnly,
+    };
+    connection.pairing_needed = false;
+    connection.pending_keychain_cleanup = tokens.kind() == StoreKind::MemoryOnly
+        && existing.as_ref().is_some_and(|c| {
+            c.pending_keychain_cleanup
+                || c.credential_provenance != CredentialProvenance::MemoryOnly
+        });
     if let Some(old) = existing {
-        connection.id = old.id
+        connection.id = old.id;
     }
     client.apply_pairing_trust(&mut connection);
     client
@@ -317,11 +330,6 @@ pub fn mark_failure(
     tokens: &dyn TokenStore,
     store: &Store,
 ) -> Result<(), PairError> {
-    if *error == ClientError::Revoked {
-        tokens
-            .delete(&token_account(c.id))
-            .map_err(|_| PairError::PairingNeeded)?;
-    }
     if matches!(
         error,
         ClientError::Revoked
@@ -333,14 +341,31 @@ pub fn mark_failure(
         c.pairing_needed = true;
         store.upsert(c.clone()).map_err(|_| PairError::Storage)?;
     }
+    if *error == ClientError::Revoked {
+        // Persist the repair state before a possibly denied deletion (M4).
+        tokens
+            .delete(&token_account(c.id))
+            .map_err(|_| PairError::PairingNeeded)?;
+    }
     Ok(())
+}
+fn connection_token(c: &Connection, tokens: &dyn TokenStore) -> Result<SecretString, PairError> {
+    let matches = matches!(
+        (c.credential_provenance, tokens.kind()),
+        (CredentialProvenance::Keychain, StoreKind::Keychain)
+            | (CredentialProvenance::MemoryOnly, StoreKind::MemoryOnly)
+    );
+    if c.pairing_needed || !matches {
+        return Err(PairError::PairingNeeded);
+    }
+    load_token_or_pairing_needed(tokens, c.id).map_err(|_| PairError::PairingNeeded)
 }
 pub async fn validate_connection(
     c: &mut Connection,
     tokens: &dyn TokenStore,
     store: &Store,
 ) -> Result<(), PairError> {
-    let token = match load_token_or_pairing_needed(tokens, c.id) {
+    let token = match connection_token(c, tokens) {
         Ok(token) => token,
         Err(_) => {
             c.pairing_needed = true;
@@ -403,7 +428,7 @@ pub async fn sync_next_trust_event_with_client(
     if client.origin() != &c.origin {
         return Err(PairError::Invalid);
     }
-    let token = match load_token_or_pairing_needed(tokens, c.id) {
+    let token = match connection_token(c, tokens) {
         Ok(token) => token,
         Err(_) => {
             c.pairing_needed = true;
@@ -439,7 +464,7 @@ pub async fn session_ticket(
     tokens: &dyn TokenStore,
     store: &Store,
 ) -> Result<crate::client::Ticket, PairError> {
-    let token = load_token_or_pairing_needed(tokens, c.id).map_err(|_| PairError::PairingNeeded)?;
+    let token = connection_token(c, tokens)?;
     let result = async {
         let client = HarnessClient::from_connection(c).await?;
         client.session_ticket(&c.installation_id, &token).await
@@ -461,22 +486,25 @@ pub fn remove_connection(
     session: Option<&dyn TokenStore>,
     persistent: &dyn TokenStore,
 ) -> Result<(), PairError> {
-    let chosen = match session {
-        Some(tokens) if tokens.kind() == crate::secrets::StoreKind::MemoryOnly => {
-            if tokens
-                .get(&token_account(id))
-                .map_err(|_| PairError::PairingNeeded)?
-                .is_some()
-            {
-                tokens
-            } else {
-                persistent
-            }
+    let row = store
+        .load()
+        .map_err(|_| PairError::Storage)?
+        .into_iter()
+        .find(|c| c.id == id)
+        .ok_or(PairError::Invalid)?;
+    if row.pending_keychain_cleanup || row.credential_provenance != CredentialProvenance::MemoryOnly
+    {
+        if persistent.kind() != StoreKind::Keychain {
+            return Err(PairError::PairingNeeded);
         }
-        Some(tokens) => tokens,
-        None => persistent,
-    };
-    store
-        .remove(id, chosen)
-        .map_err(|_| PairError::PairingNeeded)
+        persistent
+            .delete(&token_account(id))
+            .map_err(|_| PairError::PairingNeeded)?;
+    }
+    if let Some(memory) = session.filter(|s| s.kind() == StoreKind::MemoryOnly) {
+        memory
+            .delete(&token_account(id))
+            .map_err(|_| PairError::PairingNeeded)?;
+    }
+    store.remove_metadata(id).map_err(|_| PairError::Storage)
 }

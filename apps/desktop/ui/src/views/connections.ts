@@ -1,36 +1,21 @@
 import { openSheet } from "../components/sheet.ts";
-import type { Connection, ConnectionList, DesktopTransport, Paired } from "../ipc.ts";
+import type { Connection, ConnectionList, ConnectionSnapshot, DesktopTransport, Paired } from "../ipc.ts";
 import { element, append } from "../components/dom.ts";
 import { button } from "../components/button.ts";
 import { chip } from "../components/chip.ts";
 import { banner } from "../components/banner.ts";
 import { addRemote, type Translate } from "./add-remote.ts";
 import { pairingFailure } from "../models/pairing-model.ts";
-export function connectionsView(transport: DesktopTransport, translate: Translate, onData: (data: ConnectionList) => void): () => HTMLElement {
+export function connectionsView(transport: DesktopTransport, translate: Translate, snapshot: () => ConnectionSnapshot, refresh: () => Promise<void>): () => HTMLElement {
     let data: ConnectionList = { connections: [], active: null, tokenStore: null };
     let error: string | null = null;
     let mode: "list" | "add" | "native" = "list";
     let repair: Connection | undefined;
     let selected: string | null = null;
     let opened = false;
-    let loading = false;
-    let loaded = false;
     let mount: HTMLElement | null = null;
     let t = translate;
-    async function refresh() { if (loading)
-        return; loading = true; try {
-        data = await transport.connectionsList();
-        onData(data);
-        loaded = true;
-    }
-    catch (e) {
-        error = pairingFailure(e).error;
-    }
-    finally {
-        loading = false;
-        paint();
-    } }
-    function paired(result: Paired) { mode = "list"; repair = undefined; data.tokenStore = result.tokenStore; selected = result.connection.id; error = null; void refresh(); paint(); }
+    function paired(result: Paired) { mode = "list"; repair = undefined; selected = result.connection.id; error = null; void refresh(); paint(); }
     function fail(e: unknown) { error = pairingFailure(e).error; void refresh(); paint(); }
     function formFocus() { queueMicrotask(() => mount?.querySelector<HTMLInputElement>("input:not([readonly])")?.focus()); }
     function startAdd(row?: Connection) { mode = "add"; repair = row; error = null; paint(); formFocus(); }
@@ -38,6 +23,10 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         if (!mount)
             return;
         mount.replaceChildren();
+        const state = snapshot();
+        data = state.data ?? { connections: [], active: null, tokenStore: null };
+        if (state.status !== "ready")
+            mount.append(banner(t(state.status === "loading" ? "connections.loading" : "connections.loadError"), state.status === "error" ? "error" : "info"));
         if (data.tokenStore === "memory-only")
             mount.append(banner(t("pair.error.keychain-memory-only")));
         if (error)
@@ -92,6 +81,11 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         const detail = element("section", "page-card connections-detail");
         append(detail, element("h2", undefined, t("connections.detailTitle")));
         const row = data.connections.find(c => c.id === selected) ?? data.connections[0];
+        if (!row && state.status !== "ready") {
+            append(layout, list, main, detail);
+            mount.append(layout);
+            return;
+        }
         if (!row) {
             append(main, element("h2", undefined, t("connections.emptyTitle")), element("p", undefined, t("connections.emptyBody")));
             detail.append(element("p", undefined, t("connections.detailBody")));
@@ -157,6 +151,5 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
     catch (e) {
         fail(e);
     } }, "primary")); mount.replaceChildren(card); queueMicrotask(() => card.querySelector<HTMLButtonElement>("button")?.focus()); }
-    return () => { t = translate; mount = element("div", "connections-workspace"); paint(); if (!loaded && !loading)
-        void refresh(); return mount; };
+    return () => { t = translate; mount = element("div", "connections-workspace"); paint(); return mount; };
 }
