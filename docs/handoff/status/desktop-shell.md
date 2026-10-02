@@ -495,7 +495,9 @@ Status: IN PROGRESS — implementation `aef74f1`, fix `41f46fd`; full local gate
 Branch: `feat/desktop-shell-wp04-connections`.
 Base: `feat/desktop-shell-wp03-ui-frame` at
 `87915bb45e75c0b7e7f00fe035b0a25ee22840fa`; PR #63 is green, draft and unmerged.
-PR: not yet opened; no WP4 push before root and desktop Green.
+PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), DRAFT.
+Implementation head `41f46fd`; initial report head `c51d7fa`; current head is
+this PR-link report commit. Local root and desktop gates passed before push.
 `origin/main` was fetched before branching and remains `d33961b`.
 
 ### Scope and pending acceptance
@@ -575,7 +577,8 @@ continuously subscribed native UI or startup keychain access.
   have not been exercised. AX-tree observations are not a screen-reader pass.
 
 Local logs: `/tmp/desktop-wp04-{preflight,root-node,root-rust,desktop-rust,native-build}.log`.
-CI and review results remain pending; no WP4 PR or push yet.
+Initial local evidence above predates publication. Review was subsequently
+resolved below; PR64 is published as draft and current-head CI remains pending.
 
 ### Acceptance matrix (local macOS, aef74f1)
 
@@ -694,3 +697,11 @@ Scoped re-review of `aef74f1..41f46fd`: I1/I2/I3/M4 ADDRESSED, no new
 Critical/Important breakage. M1–M3 remain recorded for final branch review.
 `origin/main` re-fetched before push: still `d33961b`; WP3 PR63 still unmerged.
 WP4 therefore remains stacked on `feat/desktop-shell-wp03-ui-frame`.
+
+### Publication and CI
+
+Draft PR64 is attached to this task and based on WP3. First report head `c51d7fa`
+started root run36968518154 and desktop PR36968518124/push36968502969. This
+PR-link-only update creates a newer report head; those initial runs alone cannot
+prove final-head Green. Check current-head root and all desktop targets before
+starting WP5. No owner merge was performed.
