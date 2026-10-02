@@ -1146,15 +1146,16 @@ Branch: feat/desktop-shell-wp05-spa-proxy.
 Base: feat/desktop-shell-wp04-connections at a1f0029f055efa77d4331ca815fc999644fc0277; #64 ready/unmerged.
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT.
 Published checkpoint: 182cbc8d5994b5753eb5442e28d04eb9652b1f07.
-Current checkpoint CI: root 37021651156; desktop PR 37021651202 and push
-37021631131/37021629460 QUEUED at publication. Results are pending, not passes.
+Published checkpoint CI: root 37021651156 completed SUCCESS in attempt2;
+desktop PR 37021651202 completed FAILURE because both Windows native processes
+failed at startup. The push runs 37021631131/37021629460 retain the same source.
 Root attempt1: macOS15/Python3.13 job110885955033 failed unchanged HM2
 `test_shutdown_counts_what_it_cannot_journal` at test_provider.py:707:
 2.316702416 seconds versus its <2.3 assertion. Log:
 `/tmp/wp05-spike-root-ci-mac-python.log`. Desktop source does not edit this
-test/provider. Scheduling sensitivity is an inference; exact workflow remains
-non-green. After the complete attempt, permit one targeted unchanged job retry
-and retain both outcomes; no source/threshold weakening.
+test/provider. Scheduling sensitivity is an inference. After the complete
+attempt, one targeted unchanged job retry was executed; both outcomes are
+retained, with no source/threshold weakening.
 Root attempt2 completed SUCCESS: targeted replacement macOS job110895661346
 passed; all other root jobs passed in attempt1. Exact182cbc8 root is GREEN
 with the first inherited timing failure retained transparently.
@@ -1164,8 +1165,8 @@ Controller local root gates for the Step0 source: frozen install, toolchain chec
 generation, build, lint (29 hygiene/provider self-tests), and root Node tests
 PASS (567 passed, five existing skips; `/tmp/wp05-spike-root-node.log`). Root
 Rust fmt/clippy/workspace tests PASS (1036 passed, one existing ignore;
-`/tmp/wp05-spike-root-rust.log`). Root sources remain unchanged. Step0 independent review passed; exact-head CI
-is pending.
+`/tmp/wp05-spike-root-rust.log`). Root sources remain unchanged. Step0 independent
+source review passed; published-head native CI has the results below.
 
 Step0 source commits: 4b868e1 (diagnostics) and c782a41 (native CI/status).
 Independent review: spec PASS and task quality APPROVED for Step0 source freeze;
@@ -1223,12 +1224,31 @@ keychain ignore, two fixtures, fmt/clippy, and real WK collection with main mark
 All new gate stdout is saved under `/tmp/wp05-windows-diagnostics-logs/`; controller
 root lint PASS (29 tests) at `/tmp/wp05-windows-diagnostics-root-lint.log`.
 Earlier 47 UI tests and full root Node/Rust gates cover unchanged source.
-Independent diagnostic review and publication are pending.
+Independent diagnostic review found I1 (lost helper symbol facts when optional
+metadata is unavailable/disallowed or at the module limit) and I2 (version
+metadata read before path authorization). Both were fixed in 33b12ee and the
+scoped re-review passed spec compliance and quality, with no new actionable
+breakage. Validated named/ordinal lookup facts are retained before optional
+metadata; missing metadata is reported as partial. Version inspection runs only
+after permitted-root authorization, and its failures cannot discard loader facts.
+Four additional regressions bring the focused Node suite to 14 PASS/zero skips;
+raw commands/output: `/tmp/wp05-windows-diagnostics-fix1-logs/`.
+
+Fresh controller pre-push Green: frozen install/check/gen/build/lint (29
+hygiene/provider checks), root Node 567 PASS/five existing skips, root Rust
+1036 PASS/one existing ignore, desktop Rust 135 PASS/one existing keychain opt-in
+ignore, two fixture tests, 47 UI/a11y/layout/focus tests, and locked native debug
+build all PASS. Logs: `/tmp/wp05-windows-fix-{root-node,root-rust,desktop-rust,ui,native-build}.log`.
+Actionlint and diff hygiene PASS. Native WK collection with the unchanged Rust
+main marker remains the previously observed local result; no new Windows runtime
+result is claimed. Publication of the reviewed diagnostic checkpoint follows;
+exact-head Windows CI remains a required next step.
 
 Five-target native CI is arranged in the existing desktop workflow, with isolated
 profiles, fixture tests, Linux Xvfb and raw native observations uploaded for seven
-days. Windows x64/arm64 and GTK x64/arm64 were not executable locally; their native
-results and the separate macos-15 image result are PENDING. A successful collector
+days. Windows x64/arm64 and GTK x64/arm64 were not executable locally. Native GTK
+and macos-15 CI observations are recorded above; both Windows observations remain
+PENDING after startup failure. A successful collector
 does not mean custom transport or production acceptance passed. Pinned Tauri/wry
 source consumes complete byte bodies on all wrappers; lower-level native stream
 delegate replacements were not executed. No HTTP/SSE/WS IPC transport is added.
