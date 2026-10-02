@@ -29,7 +29,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
-from ._filelock import FileLock
+from ._filelock import ExclusiveLockFile
 
 __all__ = [
     "AGENT_ID_MAX",
@@ -354,15 +354,21 @@ def check_binding(plur1bus_home: str, agent_id: str, hermes_home: str, *, platfo
 
 
 REGISTRY_LOCK_TIMEOUT_S = 10.0
+REGISTRY_LOCK_FILE = ".hermes-bindings.lock"  # shared with the installer (binding.mjs REGISTRY_LOCK_FILE)
 
 
 def register_binding(plur1bus_home: str, agent_id: str, hermes_home: str, *, platform: str = sys.platform) -> None:
     """Record ``agent_id -> realpath(hermes_home)``. Re-registering the same pair is a no-op; an id
     already bound to another home raises ``BindingConflict`` naming both homes. The read-modify-write
-    runs under a file lock (``hosts/.hermes-bindings.lock``) so concurrent binds cannot lose an entry;
-    ``LockTimeout`` (an ``OSError``) after 10 s."""
+    runs under the shared registry lock so concurrent binds cannot lose an entry; ``LockTimeout`` (an
+    ``OSError``) after 10 s.
+
+    Lock protocol (shared with the plugin installer, ``binding.mjs`` ``withRegistryLock``; see
+    ``ExclusiveLockFile``): ``hosts/.hermes-bindings.lock`` is created with O_EXCL holding
+    ``<pid> <hostname> <ms>``, broken when older than 60 s (or its pid on this host is dead), and unlinked on
+    release. It is not an flock: the Node installer cannot take one, so both sides must use the file's existence."""
     path = _registry_path(plur1bus_home)
-    lock = FileLock(os.path.join(os.path.dirname(path), ".hermes-bindings.lock"))
+    lock = ExclusiveLockFile(os.path.join(os.path.dirname(path), REGISTRY_LOCK_FILE))
     with lock.hold(REGISTRY_LOCK_TIMEOUT_S):
         bindings = read_registry(plur1bus_home)
         updated = registry_add(bindings, agent_id, _real(hermes_home), platform)

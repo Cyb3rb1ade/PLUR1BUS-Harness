@@ -464,6 +464,20 @@ owner's Windows VM is not reachable from the sandbox. From source (0.21.4 and
 `$HERMES_HOME\bin\`); spawn a `.cmd` through `cmd.exe /d /s /c`. Treat every
 Windows/macOS output format as unverified until Task 6's CI legs capture it.
 
+## (k) Bindings registry lock (shared by installer and provider)
+
+`<plur1bus home>/hosts/hermes-bindings.json` is read-modify-written by two programs: the Node installer
+(`binding.mjs` `withRegistryLock`) and the Python provider (`hermes plur1bus bind`, `register_binding`). Node has no
+`flock`, so **both** take the same lock **file** `<plur1bus home>/hosts/.hermes-bindings.lock` by existence, not by
+byte-range lock (an flock is invisible to an O_EXCL file and the reverse):
+
+- create with `O_CREAT | O_EXCL` (mode 0600; no `fcntl`, so it also works on Windows) and write `<pid> <hostname> <ms>`;
+- stale after **60 s** (mtime), or when it names a pid of this host that is dead (POSIX, at least 1 s old): break it by unlinking and retry;
+- unlink on release; wait at most **10 s**, then fail (`LockTimeout` in Python).
+
+Python: `plur1bus._filelock.ExclusiveLockFile`. `FileLock` (flock / `msvcrt.locking`) stays for the capture journal only.
+A lock file left by the old flock-based code ages out after 60 s.
+
 ## Open items
 
 | Item | Why open | Who closes it |
