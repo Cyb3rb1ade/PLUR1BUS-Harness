@@ -94,10 +94,11 @@ This follow-up commit records verification only.
 
 ## WP2 — Provisional mock harness, fake binaries and stub image
 
-Status: GREEN — implementation, independent review and full CI passed at `ad6f0f7`.
+Status: MERGED — owner merged PR #60 on2026-10-02 at06:54:47UTC, normal merge
+`e6c98cfd2084c48ac97cf0d272529ca772e716b7` (final PR head2998d35).
 Branch: `feat/desktop-shell-wp02-mock-harness`.
 PR: [#60](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/60), base `main`.
-READY FOR REVIEW since 2026-10-02; not merged.
+Earlier independent review/full CI passed at `ad6f0f7`; historical evidence follows.
 Original verified head: `5c5038281c6597d18f38d9d78cb0c2a0554f7666`.
 Part A implementation head: `8131a85f2a3df916a2cdd839b5da0401f3ae60e9`
 (initial fixes `7517ccc`, independent-review fixes `8131a85`).
@@ -252,14 +253,14 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: GREEN — corrected published head `7aeebbf` passed complete root CI
-(after one documented unchanged HM2 timing retry) and all five desktop targets.
-Independent correction review and R1 scoped re-review passed. #63 is READY FOR
-REVIEW after corrected #64 also passed. No owner merge performed.
+Status: MERGED — owner merged #63 at2026-10-02T17:05:27Z with normal merge
+`444691bedbbc0a049ab18a038528d62230e9afe9`. Corrected published head7aeebbf
+passed complete root CI (one documented unchanged HM2 timing retry) and all five
+desktop targets; independent correction/R1 reviews passed.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `main` (PR #60 merged with merge commit `e6c98cf`).
-PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), **ready for review**.
-The owner merges #63, then #64, using merge commits. Every new WP3 commit is
+PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), MERGED.
+The owner merged #63, then #64, using merge commits. Every new WP3 commit is
 merged forward into WP4 (and WP5 when it exists), without rebase or force-push.
 Implementation head: `c6527a9` (owner corrections plus overlay focus R1 fix).
 Initial independent review found R1; its four regression cases now pass and
@@ -601,13 +602,14 @@ GREEN at exact `7aeebbfdf3eddcda11ee6168541b72971daf0c97`: root37009940205 attem
 
 ## WP4 — Connections, keychain and pairing
 
-Status: GREEN — corrected published head `a1f0029` (source `eb46737`) passed
-root37015257791 and desktop37015257725/37015254463 on all five targets plus
-Docker/Podman. Independent correction review and R1 scoped review passed.
-#64 is READY FOR REVIEW; no owner merge performed.
+Status: MERGED — owner merged #64 at2026-10-02T17:05:55Z with normal merge
+`5962e820046d0a881dc28fa779de03945e244590`. Corrected published head a1f0029
+(source eb46737) passed root37015257791 and desktop37015257725/37015254463
+on all five targets plusDocker/Podman. Independent correction/R1 reviews passed.
 Branch: `feat/desktop-shell-wp04-connections`.
-Base: `feat/desktop-shell-wp03-ui-frame` at `7aeebbf`; PR #63 is ready for review.
-PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), READY FOR REVIEW.
+Original stacked base: `feat/desktop-shell-wp03-ui-frame` at `7aeebbf`;
+retargeted to main when #63 merged.
+PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), MERGED.
 Published historical head: `5713e7a9df1dae82b5b0f98e076e363681f69463`.
 Main `6a7d656` is included through WP3. The forward merge preserves the nine
 application-command permissions, Windows CRT isolation, focus/settings fixes,
@@ -1143,10 +1145,20 @@ GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https
 
 Status: IN PROGRESS — mandatory D1 Task13 Step0 native transport spike first.
 Branch: feat/desktop-shell-wp05-spa-proxy.
-Base: feat/desktop-shell-wp04-connections at a1f0029f055efa77d4331ca815fc999644fc0277; #64 ready/unmerged.
+Base: main at5962e820046d0a881dc28fa779de03945e244590 after owner merged63/64.
+Originally stacked onWP4a1f0029; authorized normal forward merge06062a7
+includes new main. Main tree equalsa1f0029 and merge tree equals90724e6: no
+source change from that integration. DraftPR65 retargeted main; no rebase/force-push.
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT.
-Published checkpoint: b95902928a18f74042c67a972078c4681b4983a7.
-Current exact-head CI: root37030629835 SUCCESS on the first attempt; desktop
+Published checkpoint:30130892ea2bdd06c71c3375c81282482c91c54e.
+Current exact-head CI: root37038396217/desktopPR37038396244/push37038389656
+are queued/in progress. Root attempt1 MacPythonjob110942156709 failed the
+unchanged HM2 shutdown timing test at2.340257375s versus<2.3s; raw/sanitized
+logs `/tmp/wp05-manifest-phase-root-ci-mac-python-job{,-raw}.log`. No code or
+threshold changes. One targeted unchanged retry is planned only after workflow
+completion; both outcomes will be retained. New Windows measurements are pending.
+
+Earlier checkpointb959029 exact-head CI: root37030629835 SUCCESS on the first attempt; desktop
 PR37030630045 completed FAILURE because both Windows native processes failed
 before main. All three WK/GTK native collections completed, and all 14 diagnostic
 seam tests passed on the five targets. Windows helper round0 also timed out after
@@ -1361,3 +1373,40 @@ Unfinished:
       all acceptance tests, native manual check where available and Draft PR.
 - [ ] Complete local Green and exact-head root + five-target desktop CI.
 - [ ] WP6 lifecycle/events/tray/autostart/quit/D111 logs starts after WP5 Green.
+
+### WP5 Windows bootstrap correction checkpoint (pre-publication)
+
+Source90724e6 retains the literal durably flushed first checkpoint before
+New-Object/ConvertTo-Json module autoload; direct .NET stream constructors and
+fixed input-read/parse/first-serialization phases reveal previously blind work.
+Source+controlled actual BASE Windows probes establish the blind spot, not the
+hosted timeout cause. Faulted New-Object BASE bootstrap exited2 in149ms with
+0 progress bytes; faulted ConvertFrom-Json exited2 in662ms with script-entry52
+bytes. Both wrapper exits0; no export or user data used. Fixed bootstrap Windows
+execution was NOT RUN: three Parallels transfer/session failures, then stopped.
+Raw commands/hashes/probes: `/tmp/wp05-windows-phases-bootstrap/`.
+
+Source-frozen combined native diagnostic/probe suite:34total/32 PASS/two
+explicit macOS Windows-runtime-unavailable skips (genuine helper and injected
+cmdlet failure). `/tmp/wp05-phase-round2-final-node.log`. Hosted301 ARM failed
+its genuine helper case:31otherPASS,0skip; native spike was SKIPPED. Artifact
+11242375533/job110942157011 is a synthetic helper-test fixture withkernel32/
+GetCurrentProcess, helper12s timeout andzero-byte progress; its0xC0000139
+mainEntered:false is SYNTHETIC, not an actual app launch. Verified index:
+`/tmp/wp05-native-ci-37038396244-wtPPiZ/verified-artifact-index.json`.
+
+Controller workflow now permits the actual WK/WebView2 spike after this specific
+Node diagnostic step fails, retaining the failed step/job (no continue-on-error).
+Earlier build/test failures still prevent native launch. This permits independent
+native startup/transport evidence without hiding the helper failure. Independent
+scoped bootstrap/workflow review:spec PASS,quality APPROVED,no findings; reviewer
+verified29 evidence hashes/three reconstructed source hashes. Publication follows;
+12s/45s limits unchanged.
+Fresh covering root/desktop/UI gates passed again:567Node+five existing skips,
+29lint, rootRust1036+oneignore, desktopRust140+onekeychainignore, twofixtures,
+UI47 and locked native main debug build. Root/UI/fixture/native/test logs:
+`/tmp/wp05-phase-round2-{root-tests,root-rust,ui,desktop-fixtures,native-main,final-lint,final-node}.log`.
+Install/check/gen/build/fmt/clippy and desktop workspace stdout additionally
+retained in controller tool sessions; not every command's stdout was file-saved.
+Main integration changes only Git ancestry; both before/after tree comparisons
+are empty. No production Task13 or WP6 implementation has begun.

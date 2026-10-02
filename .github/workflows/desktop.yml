@@ -73,12 +73,13 @@ jobs:
         run: cargo test --locked --example transport_spike -p plur1bus-desktop
         working-directory: apps/desktop
       - name: Native probe and Windows startup diagnostic tests
+        id: native-diagnostics
         run: node --test apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
       - name: Native transport spike (WebKitGTK)
         if: runner.os == 'Linux'
         run: xvfb-run -a node apps/desktop/scripts/transport-spike.mjs
       - name: Native transport spike (WKWebView and WebView2)
-        if: runner.os != 'Linux'
+        if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
         run: node apps/desktop/scripts/transport-spike.mjs
       - name: Native transport observations
         if: always()
