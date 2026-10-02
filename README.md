@@ -27,7 +27,7 @@ Phase 0 produced analysis and decision records only. The owner approved all elev
 
 ## Relationship to the PLUR1BUS repository
 
-PLUR1BUS ([`Cyb3rb1ade/openclaw-plur1bus-memory`](https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory), npm `@cyb3rb1ade/plur1bus-memory`) is the memory core, not a dependency this project may fork. Every engine change — host-neutral extraction, the principal model, multi-identity recall, the Windows port, the socket-to-named-pipe move — lands as a pull request **in the PLUR1BUS repository**, so the OpenClaw plugin receives it too. The harness holds no divergent copy of the memory logic and consumes the engine as a pinned dependency. Two repositories are the default; the trigger for revisiting that is recorded in ADR-002.
+PLUR1BUS ([`Cyb3rb1ade/openclaw-plur1bus-memory`](https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory), npm `@cyb3rb1ade/plur1bus-memory`) is the memory core, not a dependency this project may fork. Three repositories: this harness, the plugin/engine (`openclaw-plur1bus-memory`, a standalone OpenClaw plugin with its own release line), and the host add-ons ([`Cyb3rb1ade/PLUR1BUS-Host-Addons`](https://github.com/Cyb3rb1ade/PLUR1BUS-Host-Addons): HM1/HM2 installers, bootstraps, install feed). Every engine change — host-neutral extraction, the principal model, multi-identity recall, the Windows port, the socket-to-named-pipe move — lands as a pull request **in the PLUR1BUS repository**, so the OpenClaw plugin receives it too. The harness holds no divergent copy of the memory logic and consumes the engine as a pinned dependency. Two repositories are the default; the trigger for revisiting that is recorded in ADR-002.
 
 ## Language
 

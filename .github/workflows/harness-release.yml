@@ -411,7 +411,7 @@ jobs:
           BASE_URL: ${{ needs.meta.outputs.base-url }}
         run: |
           node scripts/release/release-native.mjs --artifacts artifacts --version "$VERSION" --base-url "$BASE_URL" --out artifacts/release-native.json
-          # The plugin repo's hermes-sidecar.lock.json seed (HM2 Task 7, rulings F31, F33): provider and per-target
+          # The seed of PLUR1BUS-Host-Addons' scripts/dist/hermes-sidecar.lock.json (HM2 Task 7, rulings F31, F33): provider and per-target
           # binary URL + SHA-256 from these very files, nodeVersion from the harness Node pin, placeholder false.
           node scripts/build-hermes-provider.mjs lock --artifacts artifacts --base-url "$BASE_URL" --out artifacts/hermes-sidecar.lock.json
           (cd artifacts && sha256sum plur1bus-* plur1bus_memory_client-* core-*.tar.gz hermes-sidecar.lock.json > SHA256SUMS)
