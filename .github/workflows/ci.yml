@@ -13,7 +13,6 @@ jobs:
     timeout-minutes: 45
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/plur1bus-playwright
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -38,6 +37,9 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile
+      - name: Isolate UI test browser storage
+        shell: bash
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
       - name: Install UI test browser (Linux)
         if: runner.os == 'Linux'
         run: pnpm --filter @plur1bus/desktop-ui exec playwright install --with-deps chromium --only-shell

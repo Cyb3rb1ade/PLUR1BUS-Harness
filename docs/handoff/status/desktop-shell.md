@@ -256,7 +256,8 @@ Status: IN PROGRESS.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `feat/desktop-shell-wp02-mock-harness` at
 `2998d35a7badeb69a28b33e7072adc6de053d20e`; PR #60 is ready but not merged.
-PR: not yet created. Local implementation checks are passing; independent review
+PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), draft,
+base `feat/desktop-shell-wp02-mock-harness`. Local implementation checks are passing; independent review
 and CI are pending. Code review fixes are approved; actual zoom coverage remains
 open before final acceptance.
 Implementation head: `f6f3e7e7ebb59981c962e56eac0289a42c8bf224`
@@ -386,6 +387,15 @@ in progress. The full root gen/build/lint/test at `f6f3e7e` then passed: 583
 tests passed, five existing platform/filesystem skips, plus 11 hygiene tests.
 Log: `/tmp/desktop-wp03-review-fixed-root.log`. The earlier SQLite failures
 remain recorded; a later pass does not claim to fix that existing instability.
+
+First remote attempt at `9f3c2d8` failed before jobs started: the controller
+placed `runner.temp` in job-level `env`, where GitHub rejected that context.
+Both [desktop](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36955834795)
+and [root](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36955835644)
+reported invalid workflows, with no tests executed. The correction writes the
+browser path from `$RUNNER_TEMP` into `$GITHUB_ENV` in a preparation step.
+Official actionlint 1.7.12 validates the two changed workflows; its temporary
+binary was checked against the release checksum. No repository dependency added.
 
 ### Next
 
