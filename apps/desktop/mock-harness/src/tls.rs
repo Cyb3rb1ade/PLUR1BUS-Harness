@@ -167,6 +167,15 @@ impl MockControl {
     pub fn advertise_os_trust(&self) {
         self.shared.tls.lock().unwrap().as_mut().unwrap().os_trust = true;
     }
+    pub fn clear_ca_response(&self) {
+        self.shared
+            .tls
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .ca_response = None;
+    }
     pub fn ca_response(&self, status: u16, body: Vec<u8>, delay_ms: u64) {
         self.shared
             .tls

@@ -183,6 +183,7 @@ pub struct HarnessClient {
     next_ca: Option<CertPin>,
     http: Option<reqwest::Client>,
     roots: Option<Vec<Vec<u8>>>,
+    ca_failure: Option<ClientError>,
     observed: Arc<Mutex<Observed>>,
 }
 impl HarnessClient {
@@ -195,6 +196,7 @@ impl HarnessClient {
             next_ca: None,
             http: None,
             roots: None,
+            ca_failure: None,
             observed: Arc::default(),
         }
     }
@@ -279,12 +281,12 @@ impl HarnessClient {
         // Current and next are alternatives. An unavailable CA must not disable
         // another independently verified candidate. Missing candidates never
         // broaden trust or fall back to OS roots when explicit pins exist.
-        let mut failure = ClientError::CaNotKnown;
+        self.ca_failure = None;
         let ca = match &self.ca {
             Some(pin) => match self.fetch_ca(pin).await {
                 Ok(ca) => Some(ca),
                 Err(e) => {
-                    failure = e;
+                    self.remember_ca_failure(e);
                     None
                 }
             },
@@ -294,7 +296,7 @@ impl HarnessClient {
             Some(pin) => match self.fetch_ca(pin).await {
                 Ok(ca) => Some(ca),
                 Err(e) => {
-                    failure = e;
+                    self.remember_ca_failure(e);
                     None
                 }
             },
@@ -306,10 +308,22 @@ impl HarnessClient {
             && next.is_none()
             && self.ca.is_some()
         {
-            return Err(failure);
+            return Err(self.ca_failure.clone().unwrap_or(ClientError::CaNotKnown));
         }
         self.http = Some(self.build(false, ca.as_deref(), next.as_deref())?);
         Ok(())
+    }
+    fn remember_ca_failure(&mut self, error: ClientError) {
+        // A valid differing CA is positive mismatch evidence and cannot be
+        // downgraded by a later transient failure fetching another candidate.
+        if self.ca_failure.as_ref().is_none_or(|previous| {
+            matches!(
+                previous,
+                ClientError::TrustUnavailable | ClientError::Network
+            )
+        }) {
+            self.ca_failure = Some(error);
+        }
     }
     fn http(&self) -> Result<reqwest::Client, ClientError> {
         match &self.http {
@@ -321,6 +335,16 @@ impl HarnessClient {
         let seen = self.observed.lock().unwrap();
         if !seen.rejected {
             return ClientError::Network;
+        }
+        // TLS could only try the candidates that were successfully fetched.
+        // Rejection by that incomplete verifier does not disprove a stored CA
+        // which is temporarily unavailable. Independently valid candidates still
+        // succeed normally; no bearer is sent unless one has verified TLS.
+        if let Some(error) = &self.ca_failure {
+            return match error {
+                ClientError::ProofMismatch => ClientError::CaNotKnown,
+                other => other.clone(),
+            };
         }
         if self.cert.is_some() || self.next_cert.is_some() {
             ClientError::CertChanged

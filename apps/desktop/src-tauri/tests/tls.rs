@@ -495,7 +495,7 @@ async fn rollover_candidates_survive_unavailable_other_ca() {
             c.whoami(&m.installation_id, &redeemed.token)
                 .await
                 .unwrap_err(),
-            ClientError::CertChanged
+            ClientError::TrustUnavailable
         );
         assert!(m.control.recorded_requests().is_empty());
     }
@@ -700,4 +700,145 @@ async fn explicit_current_leaf_pin_never_falls_back_to_os_trust() {
     .with_trusted_roots(roots);
     assert_eq!(c.meta().await.unwrap_err(), ClientError::CertChanged);
     assert!(m.control.recorded_requests().is_empty());
+}
+
+async fn staged_rollover_requiring_ca(
+    company_first: bool,
+) -> (
+    tempfile::TempDir,
+    plur1bus_mock_harness::MockHandle,
+    plur1bus_desktop::secrets::MemoryStore,
+    plur1bus_desktop::connections::Store,
+    Connection,
+) {
+    let ca = CompanyCa::new();
+    let initial = if company_first {
+        ca.issue()
+    } else {
+        Identity::self_signed()
+    };
+    let m = MockHarness::start_tls(MockOptions::default(), initial)
+        .await
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = plur1bus_desktop::connections::Store::open(dir.path());
+    let tokens = plur1bus_desktop::secrets::MemoryStore::default();
+    let mut row = plur1bus_desktop::pair::pair_using_client(
+        client(&m.origin, None),
+        &m.control.create_pair_code(),
+        "Desk",
+        Kind::Remote,
+        None,
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    m.control.stage_trust(if company_first {
+        Identity::self_signed()
+    } else {
+        ca.issue()
+    });
+    plur1bus_desktop::pair::validate_connection(&mut row, &tokens, &store)
+        .await
+        .unwrap();
+    if !company_first {
+        m.control.switch_trust();
+    }
+    (dir, m, tokens, store, row)
+}
+async fn rollover_ca_outage_recovers(company_first: bool, status: u16, delay: u64) {
+    let (_dir, m, tokens, store, mut row) = staged_rollover_requiring_ca(company_first).await;
+    let before = store.load().unwrap().remove(0);
+    assert!(!before.pairing_needed);
+    m.control.ca_response(status, vec![], delay);
+    m.control.clear_requests();
+    let error = plur1bus_desktop::pair::validate_connection(&mut row, &tokens, &store)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), "trust-unavailable");
+    assert_eq!(
+        row, before,
+        "a retryable outage must not introduce a certificate-change fingerprint"
+    );
+    assert_eq!(
+        store.load().unwrap()[0],
+        before,
+        "outage cannot rewrite stored trust or require pairing"
+    );
+    assert!(m
+        .control
+        .recorded_requests()
+        .iter()
+        .all(|(p, auth)| p == plur1bus_desktop_contract::trust::CA && !auth));
+    m.control.clear_ca_response();
+    plur1bus_desktop::pair::validate_connection(&mut row, &tokens, &store)
+        .await
+        .unwrap();
+    let recovered = store.load().unwrap().remove(0);
+    assert!(!recovered.pairing_needed);
+    assert_eq!(
+        recovered.device_id, before.device_id,
+        "recovery must reuse the existing pairing"
+    );
+    if company_first {
+        assert_eq!(recovered, before);
+    } else {
+        assert_eq!(recovered.ca_pin, before.next_ca_pin);
+        assert!(recovered.cert_pin.is_none() && recovered.next_ca_pin.is_none());
+    }
+}
+#[tokio::test]
+async fn current_ca_before_switch_404_is_retryable_and_recovers_without_pairing() {
+    rollover_ca_outage_recovers(true, 404, 0).await;
+}
+#[tokio::test]
+async fn current_ca_before_switch_503_is_retryable_and_recovers_without_pairing() {
+    rollover_ca_outage_recovers(true, 503, 0).await;
+}
+#[tokio::test]
+async fn current_ca_before_switch_timeout_is_retryable_and_recovers_without_pairing() {
+    rollover_ca_outage_recovers(true, 200, 11000).await;
+}
+#[tokio::test]
+async fn next_ca_after_switch_404_is_retryable_and_recovers_without_pairing() {
+    rollover_ca_outage_recovers(false, 404, 0).await;
+}
+#[tokio::test]
+async fn next_ca_after_switch_503_is_retryable_and_recovers_without_pairing() {
+    rollover_ca_outage_recovers(false, 503, 0).await;
+}
+#[tokio::test]
+async fn next_ca_after_switch_timeout_is_retryable_and_recovers_without_pairing() {
+    rollover_ca_outage_recovers(false, 200, 11000).await;
+}
+#[tokio::test]
+async fn valid_wrong_ca_during_rollover_still_requires_repair() {
+    for company_first in [true, false] {
+        let (_dir, m, tokens, store, mut row) = staged_rollover_requiring_ca(company_first).await;
+        m.control
+            .ca_response(200, CompanyCa::new().issue().ca.unwrap(), 0);
+        m.control.clear_requests();
+        let error = plur1bus_desktop::pair::validate_connection(&mut row, &tokens, &store)
+            .await
+            .unwrap_err();
+        assert!(matches!(error.code(), "cert-changed" | "ca-untrusted"));
+        assert!(store.load().unwrap()[0].pairing_needed);
+        assert!(m.control.recorded_requests().iter().all(|(_, auth)| !auth));
+    }
+}
+#[tokio::test]
+async fn fully_available_rollover_trust_rejects_unknown_leaf_and_requires_repair() {
+    for company_first in [true, false] {
+        let (_dir, m, tokens, store, mut row) = staged_rollover_requiring_ca(company_first).await;
+        m.control.renew_leaf(Identity::self_signed());
+        m.control.clear_requests();
+        let error = plur1bus_desktop::pair::validate_connection(&mut row, &tokens, &store)
+            .await
+            .unwrap_err();
+        assert!(matches!(error.code(), "cert-changed" | "ca-untrusted"));
+        assert!(store.load().unwrap()[0].pairing_needed);
+        assert!(m.control.recorded_requests().iter().all(|(_, auth)| !auth));
+    }
 }

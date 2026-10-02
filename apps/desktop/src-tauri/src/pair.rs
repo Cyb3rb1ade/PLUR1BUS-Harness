@@ -410,7 +410,9 @@ pub async fn validate_connection(
             Ok(())
         }
         Err(e) => {
-            c.observed_cert_pin = client.observed_pin();
+            if matches!(e, ClientError::CertChanged | ClientError::CaNotKnown) {
+                c.observed_cert_pin = client.observed_pin();
+            }
             mark_failure(c, &e, tokens, store)?;
             Err(e.into())
         }

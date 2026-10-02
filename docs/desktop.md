@@ -80,10 +80,12 @@ key handling exists. No release signing credentials are needed for WP1.
 
 ## Boundaries
 
-The bundled shell has a restrictive CSP. Its only native commands are
-`app_info`, `settings_get`, and `settings_set`; all require the `shell` webview
-at the exact bundled top-level origin. Generated application ACL permissions bind
-exactly these commands to the `shell` webview, with Rust caller checks retained.
+The bundled shell has a restrictive CSP. Its nine native commands are
+`app_info`, `settings_get`, `settings_set`, `connections_list`,
+`connections_rename`, `connections_remove`, `pair_code`, `pair_local`, and
+`open_connection`. All require the `shell` webview at the exact bundled top-level
+origin. The shared command table generates application ACL permissions granting
+exactly these commands to that webview, with Rust caller checks retained.
 The shell capability grants no plugin permissions. IPC preferences are closed `theme` (`system`/`light`/`dark`) and
 `locale` (`system`/`en`/`de`) values in `settings.json` under Tauri's
 `app_config_dir()` for `app.plur1bus.desktop`. Writes use a temporary file and
@@ -102,8 +104,11 @@ Chromium revision is pinned through Playwright 1.63.0, without a separately reco
 archive hash. The red wordmark numeral uses the WCAG logotype contrast exception;
 functional text and focus indicators have separate contrast checks.
 
-No networking, telemetry or keychain integration is enabled. The window stays
-hidden until its page finishes loading. Stable
+WP4 networking and credentials run only in Rust: explicit pairing and connection
+validation use the origin-bound TLS client, with lazy OS keychain access at the
+authenticated action. The webview receives public connection metadata, never a
+device token. There is no telemetry, and the SPA/session proxy remains WP5.
+The window stays hidden until its page finishes loading. Stable
 integration identifiers live in `src-tauri/src/ids.rs`.
 The independent `desktop-contract` crate supplies the provisional scope,
 capability, route and fixed exec-argv names to the shell, mock and fake binaries.
