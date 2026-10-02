@@ -1154,6 +1154,18 @@ Rust fmt/clippy/workspace tests PASS (1036 passed, one existing ignore;
 `/tmp/wp05-spike-root-rust.log`). Root sources remain unchanged. Independent
 review and exact-head CI are pending.
 
+Step0 source commits: 4b868e1 (diagnostics) and c782a41 (native CI/status).
+Independent review: spec PASS and task quality APPROVED for Step0 source freeze;
+no Critical/Important findings. Reviewer independently checked raw WK data/hash,
+p95 arithmetic and supported pinned wrapper source. Five exact-target runtime
+observations remain a completion gate. Minor M1: Windows currently repeats the
+mapped WS attempt in both diagnostic fields; correct literal/mapped distinction
+before final WP5 measurements. Desktop covering gates: 135 workspace tests PASS,
+one existing real-keychain opt-in ignore, two fixture tests PASS, 47 UI tests
+PASS, fmt/clippy/UI build/native locked debug build PASS. Non-native gate stdout
+was retained in worker tool sessions, not saved as raw files; this limitation is
+recorded in the recovery report. Native raw JSON/process log are persisted.
+
 Native local WKWebView evidence (Darwin 27.2.0, arm64; not the macos-15 CI image):
 `apps/desktop/transport-spike/README.md` and its public observation JSON. Custom
 SSE events both arrived at 1503 ms, custom WebSocket constructor was rejected,
