@@ -252,16 +252,20 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: IN PROGRESS.
+Status: LOCAL GREEN — independent review passed; remote CI pending.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `feat/desktop-shell-wp02-mock-harness` at
 `2998d35a7badeb69a28b33e7072adc6de053d20e`; PR #60 is ready but not merged.
 PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), draft,
 base `feat/desktop-shell-wp02-mock-harness`. Local implementation checks are passing; independent review
-and CI are pending. Code review fixes are approved; actual zoom coverage remains
-open before final acceptance.
+and remote CI is pending. All WP3 and root-test review findings are addressed.
 Implementation head: `f6f3e7e7ebb59981c962e56eac0289a42c8bf224`
 (initial frame `c392a63`, review fixes `f6f3e7e`).
+Verified local head: `861a5ee8cf8f9510d5b6b6c2cc860790152bd124`, including
+scale coverage `648a09f`, workflow correction `a634c9a` and the root-test fix.
+Final root gen/build/lint/test PASS: 584 passed, five existing skips; 11 hygiene
+tests pass. Log: `/tmp/desktop-wp03-root-snapshot-gate.log`. Desktop Rust remains
+55 passed with locked fmt/Clippy/build; UI is 19/19. No desktop test is skipped.
 
 ### Scope and decisions
 
@@ -397,10 +401,44 @@ browser path from `$RUNNER_TEMP` into `$GITHUB_ENV` in a preparation step.
 Official actionlint 1.7.12 validates the two changed workflows; its temporary
 binary was checked against the release checksum. No repository dependency added.
 
+Test-only follow-up `648a09f` adds actual Chromium engine display scaling:
+`viewport: null`, 1x gives 1440 CSS px/DPR 1, 2x gives 720 CSS px/DPR 2, and
+both screenshots are 1440x900 device pixels. Home, Connections, Runtime, Updates,
+Version and Advanced retain 44 px targets and avoid horizontal overflow.
+The 19-test UI suite and typecheck pass; scoped independent review accepts the
+remaining finding with no new Critical/Important breakage. This is not an
+observed native OS text-size setting or browser UI zoom command.
+
+The final root run after this test-only addition hung again in the unchanged
+concurrent-writer SQLite test (100% CPU, terminated after 70 seconds), so the
+next push is held. Log: `/tmp/desktop-wp03-final-scale-root.log`. A focused
+read-only investigation is checking the test's live-writer/immutable-read
+assumption; no root production changes have been made.
+
+Root-gate diagnosis: the test queries the live source through the default
+`immutable=1` fallback while its child writes/checkpoints. SQLite's immutable
+contract explicitly assumes the file will not change and otherwise permits
+incorrect results or `SQLITE_CORRUPT` ([upstream](https://www.sqlite.org/uri.html)).
+A minimal test-only correction is committed as `861a5ee`: request the existing exact-read
+policy (`onBusy: "throw"`), accept only its documented `E_SOURCE_BUSY` from
+opening, query every successful checked copy, and require a successful query
+after the writer stops. The source-directory assertion and stable immutable
+tests stay intact. This is a root-verification dependency of WP3, not a harness
+feature or production implementation change.
+The focused test passes 10/10 and root typecheck passes. A writer-ready
+handshake, watchdog and failure cleanup keep the child lifecycle explicit.
+Independent review approved the test-only correction with no blocking finding.
+Full root gen/build/lint/test then passed at `861a5ee` (counts above).
+
+Open follow-up for the owner: the documented detect-time immutable fallback can
+encounter this same live-checkpoint risk in production. The test correction
+does not resolve it. Choosing fail-closed or snapshot semantics would change
+the importer contract and remains outside this desktop work package.
+
 ### Next
 
 - [x] Implement frame, native preferences and isolated IPC.
 - [x] Bundle fonts and update existing app icon assets.
 - [x] Real browser layout/keyboard/axe tests; browser prerequisites in CI.
-- [ ] Local gates, native visual check, independent review and draft PR.
+- [x] Local gates, native visual check, independent review and draft PR.
 - [ ] Full root/desktop CI before WP4.
