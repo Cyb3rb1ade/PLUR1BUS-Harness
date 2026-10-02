@@ -1,9 +1,9 @@
 # Desktop shell
 
-The desktop shell is an optional Tauri 2.12 client. WP3 adds a responsive,
-keyboard-accessible shell frame, English and German copy, and persistent appearance
-and language preferences. Home, Connections, and Settings are navigable; unavailable
-runtime and connection functions have honest empty states. WP2's provisional Rust
+The desktop shell is an optional Tauri 2.12 client. WP4 adds native-local and
+remote pairing, OS-keychain credentials, origin-bound TLS trust, and working
+Connections pages to WP3's accessible German/English shell. Open verifies and
+selects a connection; the SPA window is WP5 and is explicitly shown as unavailable. WP2's provisional Rust
 mock harness, fake executable surfaces, and Linux stub image remain available for
 later work packages. The binding work sequence is in
 [the handoff](handoff/2026-09-30-desktop-shell-codex.md).
@@ -40,8 +40,8 @@ screenshots outside the checkout.
 
 `pnpm tauri dev` builds and starts the mock at `http://127.0.0.1:18700`
 with temporary state, then stops it and removes that state when Tauri exits.
-It does not connect the WP3 frame to the mock. WP4 adds the
-connection flow; WP5 adds the SPA window and native `shell_info` bridge.
+Use the scratch-profile seam below before pairing with the mock. WP4 connects
+the native client; WP5 adds the SPA window and native `shell_info` bridge.
 For a standalone
 server, run `cargo run --locked -p plur1bus-mock-harness -- --port 18700`
 from `apps/desktop`; bind defaults to loopback, and public binds are refused
@@ -113,3 +113,69 @@ personal state; use the seams specified in the handoff.
 
 See [the status record](handoff/status/desktop-shell.md) for observed checks,
 limitations and remaining work.
+
+
+## Connections and credential boundaries (WP4)
+
+Add remote takes a name, origin and one-use code in two four-character fields.
+Only HTTPS or literal loopback HTTP origins are allowed. The same adversarial
+origin-case fixture drives Rust and TypeScript. No pin, CLI path, runtime endpoint
+or arbitrary fetch route is accepted over IPC. A self-signed certificate gets a
+nonce-only Argon2id/HMAC proof before any code is sent; a company CA is received by
+hash during pairing and scoped to that connection's origin. Unexpected trust changes
+show repair actions and current/observed fingerprints, with no “trust anyway”.
+Current/next trust, acknowledgement, limits and the provisional M3 choices are in
+[the mock contract](../apps/desktop/mock-harness/CONTRACT.md#wp4-pairing-proof-and-trust-provisional-until-m3).
+
+Public metadata lives in atomic, owner-only `connections.json`, version 1, with
+UUIDv7 connection ids, active selection, `uiLocale`, current/next pins and repair
+state. Corrupt or unknown-field files are kept as `.corrupt-<milliseconds>-<uuid>`.
+Credentials are separate: service `app.plur1bus.desktop`, account `device-<uuid>`.
+The hint is the last four characters of a validated token; malformed short tokens
+are refused. `SecretString` zeroizes and redacts Debug/Display and cannot serialize.
+
+Keyring **4.2.0**, default features disabled, feature **v1**, selects native macOS
+Keychain Services, Windows Credential Manager and Linux Secret Service. There is no
+database/plaintext fallback. Startup and listing do not construct/probe a token
+store. Explicit pairing or opening lazily probes it. Removal accesses the selected
+store directly; an inaccessible persisted credential keeps its row. On failure, credentials remain in the app process's memory for this session only and
+a banner explains restart behavior. Public rows survive restart, their memory
+credentials do not, and opening returns pairing-needed; a new code repairs the
+same row with its name/origin locked. Bundled automatic re-pair belongs to WP8.
+A revoked authenticated response clears the credential and marks the row for repair.
+Native ticket/event orchestration preserves the same rule for WP5/WP6 callers.
+
+Native attach reads only `<state-root>/run/api.json`, checks PID liveness, loopback
+origin and live meta/installation identity, then invokes the known absolute
+`~/.local/bin/plur1bus` or `%LOCALAPPDATA%\PLUR1BUS\bin\plur1bus.exe` with fixed
+`device pair --json --kind desktop --name <name>` args. No token file is opened.
+Output is limited to 8192 bytes, errors never include it, and the process is killed
+on its 15-second timeout. Denial falls back to the code form. All connection/token
+mutations share one native async mutex; listing does not acquire credentials.
+
+The authenticated trust document is pulled after redeem and on every open.
+The bounded SSE primitive re-pulls, persists and acknowledges the same document;
+WP6 supplies its continuous subscription/reconnect lifecycle. The WP4 UI itself
+is not continuously subscribed. CA upload/admin states remain D2.
+
+### Scratch profile without keychain access
+
+For a debug build, set `PLUR1BUS_DESKTOP_CONFIG_DIR` to an absolute temporary
+directory before launching. This **forces MemoryStore**, with no real keychain
+probe. It also redirects native discovery to `<scratch>/native/run/api.json` and
+known CLI lookup to `<scratch>/bin/plur1bus` (`plur1bus.exe` on Windows). Settings and
+connection metadata go to the same scratch profile. Release builds ignore this
+seam. A standalone mock with `--test-control --port 0` prints its loopback origin;
+POST `/__test/pair` with `{"scopes":["ui.session","events.read"],"grant_key_unlock":false}`
+to obtain a code, then enter the origin/code in Add remote. This endpoint returns
+no device token. Never run the ignored `real_keychain_round_trip` without explicit
+opt-in; it was not run for WP4.
+
+Automated tests use temporary metadata, in-memory credentials, generated TLS
+material, injected roots/liveness/executors, and the fake native executable. No
+certificate is installed into the real OS trust store. The client exposes root
+injection only in debug builds. Generated TLS covers relay/CA substitution,
+renewal/hostname validation, both rollover directions, missing rollover, staged
+new pairing and authenticated SSE wakeups. Browser tests cover reachable pairing,
+repair and certificate/CA states, focus, axe, 44 px targets and 400 px layout;
+they do not claim a design-canvas pixel match or native five-platform execution.

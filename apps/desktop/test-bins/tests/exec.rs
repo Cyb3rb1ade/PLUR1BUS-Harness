@@ -213,3 +213,50 @@ fn fake_container_scenario_controls_exit_status() {
         "E_TEST"
     );
 }
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn native_pairing_client_spawns_known_binary_fixed_argv_and_never_records_token() {
+    let scratch = tempfile::tempdir().unwrap();
+    let server = plur1bus_mock_harness::MockHarness::start(plur1bus_mock_harness::MockOptions {
+        test_control: true,
+        ..Default::default()
+    })
+    .await
+    .unwrap();
+    let record = scratch.path().join("calls.jsonl");
+    let offer = plur1bus_desktop::pair::pair_local_in_scratch(
+        std::path::Path::new(env!("CARGO_BIN_EXE_fake-plur1bus")),
+        "Desk",
+        vec![
+            ("PLUR1BUS_FAKE_ORIGIN".into(), server.origin.clone().into()),
+            (
+                "PLUR1BUS_FAKE_RECORD".into(),
+                record.clone().into_os_string(),
+            ),
+        ],
+    )
+    .await
+    .unwrap();
+    assert_eq!(offer.schema, "device.pair/1");
+    let calls = std::fs::read_to_string(record).unwrap();
+    let args: serde_json::Value = serde_json::from_str(calls.trim()).unwrap();
+    assert_eq!(
+        args,
+        serde_json::json!(["device", "pair", "--json", "--kind", "desktop", "--name", "Desk"])
+    );
+    assert!(!calls.contains(&offer.code));
+    let tokens = plur1bus_desktop::secrets::MemoryStore::default();
+    let store = plur1bus_desktop::connections::Store::open(scratch.path());
+    let row = plur1bus_desktop::pair::pair(
+        plur1bus_desktop::connections::Origin::parse(&server.origin).unwrap(),
+        &offer.code,
+        "Desk",
+        plur1bus_desktop::connections::Kind::Local,
+        Some(&server.installation_id),
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    assert_eq!(row.kind, plur1bus_desktop::connections::Kind::Local);
+}

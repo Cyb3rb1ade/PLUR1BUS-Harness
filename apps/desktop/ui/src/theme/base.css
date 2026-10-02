@@ -141,3 +141,24 @@ p { color: var(--ink-2); line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* WP4 connections use the same content-width breakpoints and Glow controls. */
+.connections-workspace { display: grid; gap: 24px; min-width: 0; }
+.connection-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.pairing-form { display: grid; gap: 20px; max-width: 680px; }
+.field { display: grid; gap: 8px; min-width: 0; }
+.field input, .code-fields input { min-height: 44px; min-width: 0; width: 100%; border: 1px solid var(--control-line); border-radius: 10px; background: var(--surface); color: inherit; padding: 10px 14px; font: inherit; box-sizing: border-box; }
+.field input:focus-visible, .code-fields input:focus-visible { outline: 3px solid var(--info-ink); outline-offset: 3px; }
+.field input[readonly] { opacity: .8; }
+.field input[aria-invalid="true"] { border-color: var(--error-ink); }
+.code-fields { display: flex; gap: 12px; border: 0; padding: 0; min-width: 0; }
+.code-fields legend { margin-bottom: 8px; }
+.code-fields input { max-width: 150px; letter-spacing: .2em; font-family: "JetBrains Mono", monospace; }
+.field-note, .pair-status { font-size: 14px; }
+.connection-origin, .connection-pin { overflow-wrap: anywhere; word-break: break-word; }
+.connection-pin { display: block; font-size: 12px; }
+.connections-side .button { width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.connections-main { display: grid; align-content: start; gap: 20px; min-width: 0; }
+.connections-detail { min-width: 0; }
+.connection-choose { display: none; }
+@media (max-width:1023px) { .connection-choose { display: inline-flex; } }

@@ -1,3 +1,4 @@
+import { connectionsView } from "./views/connections.ts";
 import "./theme/base.css";
 import type { DesktopTransport, Platform, Settings, ThemeChoice } from "./ipc.ts";
 import { resolveLocale, translate, type Locale, type MessageKey } from "./i18n.ts";
@@ -8,7 +9,6 @@ import { rail } from "./components/rail.ts";
 import { segmented } from "./components/segmented.ts";
 import { chip } from "./components/chip.ts";
 import { banner } from "./components/banner.ts";
-import { progressList } from "./components/progress-list.ts";
 import { openDialog } from "./components/dialog.ts";
 import { openSheet } from "./components/sheet.ts";
 import { wordmark } from "./components/wordmark.ts";
@@ -40,6 +40,13 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     const next = routeFromHash(window.location.hash);
     if (next.section !== route.section || next.page !== route.page) { route = next; render(); }
   });
+  let connectionStatus: import("./ipc.ts").ConnectionList | null = null;
+  const renderConnections = connectionsView(transport, t, data => {
+    connectionStatus = data;
+    const status = root.querySelector<HTMLElement>(".top-status");
+    if (status) status.textContent = connectionSummary();
+  });
+  function connectionSummary() { return connectionStatus?.connections.length ? t("connections.count", { count: String(connectionStatus.connections.length) }) : t("status.empty"); }
   const settingsLoad = transport.settingsGet().then(stored => {
     persisted = stored;
     settings = preferenceQueue.reduce((value, entry) => ({ ...value, ...entry.change }), stored);
@@ -170,15 +177,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   function connections(): HTMLElement {
     const container = element("div", "content connections-content");
     const header = heading(t("connections.title"), t("connections.lead"));
-    const layout = element("div", "connections-layout");
-    const list = element("aside", "connections-side");
-    append(list, element("h2", "card-title", t("home.connectionTitle")), chip(t("status.empty")));
-    const main = element("div", "connections-main");
-    append(main, pageCard(t("connections.emptyTitle"), t("connections.emptyBody")), progressList(t("progress.title"), [{ label: t("progress.waiting"), state: "waiting" }]));
-    const detail = pageCard(t("connections.detailTitle"), t("connections.detailBody"));
-    detail.classList.add("connections-detail");
-    append(layout, list, main, detail);
-    append(container, header, relatedButton(t("connections.detailTitle"), t("connections.detailBody")), layout);
+    append(container, header, renderConnections());
     return container;
   }
   function render() {
@@ -196,7 +195,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     const sidebar = rail({ home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced") }, route.section, route.page, navigate, page => navigate("settings", page));
     const body = element("div", "app-body");
     const top = element("header", "app-top");
-    const status = chip(t("status.empty"));
+    const status = chip(connectionSummary());
     status.classList.add("top-status");
     append(top, mark.node, status);
     const main = element("main", "page-main");
