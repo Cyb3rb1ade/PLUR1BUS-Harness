@@ -492,15 +492,18 @@ jobs and both 200-turn system soaks passed without reruns of these runs.
 
 ## WP4 — Connections, keychain and pairing
 
-Status: IN PROGRESS — implementation and reviewed CI fixes through `8c1750b`;
-full local gates PASS; new complete current-head CI required before WP5.
+Status: VERIFYING — implementation and reviewed fixes at `d2ea464` passed
+complete root and five-target desktop CI. Owner-directed forward merge
+`9caced7` includes WP3 head `a735d2b` and current main `e6c98cf`; application
+source is unchanged. Fresh current-head CI is required before WP5.
 Branch: `feat/desktop-shell-wp04-connections`.
 Base: `feat/desktop-shell-wp03-ui-frame` at
-`87915bb45e75c0b7e7f00fe035b0a25ee22840fa`; PR #63 is green, draft and unmerged.
+`a735d2b06fbe6a952221d4a3d721880654e23433`; PR #63 is draft and unmerged;
+its new head also requires fresh CI.
 PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), DRAFT.
 Implementation/fix head `8c1750b`; the current PR head includes the latest
 verification report. Local root and desktop gates passed before every push.
-`origin/main` was fetched before branching and remains `d33961b`.
+`origin/main` is now `e6c98cf` (merged PR #60), included via WP3.
 
 ### Scope and pending acceptance
 
@@ -801,3 +804,14 @@ checks were not run. No merge, rebase, amend or force-push was performed.
   36971306303, including five desktop targets and Docker/Podman. It will receive
   the new WP3 history by normal merge and then repeat the required gates.
 - WP5 and WP6 remain unstarted. Both #63 and #64 remain drafts.
+
+### WP4 normal forward merge after PR #60 merged
+
+- Merge commit `9caced7` includes all WP3 commits through `a735d2b`.
+  Its tree differs from the previously green `d2ea464` only in this report.
+- The report-only merge conflict preserved the WP3 update and WP4 history.
+- No rebase, force-push, amend, or merge into main. Both PRs remain draft.
+- Untracked `docs/handoff/.DS_Store` was present before this work and left alone.
+- Fresh local root build/lint/test and root/desktop fmt, Clippy and tests PASS,
+  including UI/a11y/layout. Logs: `/tmp/wp04-forward-{node,root-rust,desktop}.log`.
+  New complete current-head CI remains required before WP5.
