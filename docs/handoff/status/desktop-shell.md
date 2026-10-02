@@ -2,7 +2,7 @@
 
 ## WP1 — Scaffold, workspace, hygiene, desktop CI
 
-Status: GREEN — draft PR open; root and desktop CI passed at the WP1 head.
+Status: MERGED — PR #59 is now in main; root and desktop CI passed at the WP1 head.
 Branch: `feat/desktop-shell-wp01-scaffold`.
 Base: `origin/main` at `e515dde` (no previous WP).
 PR: [#59](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/59).
@@ -94,8 +94,13 @@ This follow-up commit records verification only.
 
 ## WP2 — Provisional mock harness, fake binaries and stub image
 
-Status: IMPLEMENTED LOCALLY; controller owns final root and CI gates.
-Branch: `feat/desktop-shell-wp02-mock-harness`, base `1cc0df6`.
+Status: LOCAL GREEN — Part A implementation committed; independent review and fresh CI remain.
+Branch: `feat/desktop-shell-wp02-mock-harness`.
+PR: [#60](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/60), draft, base `main`.
+Original verified head: `5c5038281c6597d18f38d9d78cb0c2a0554f7666`.
+Part A implementation head: `7517ccc3922a49a312e0c17797e7f8cb86334387`.
+Main integration: `d33961b` merged as `90e0706025eb0b7a7621fd71f4755e61a2054d3b`
+on 2026-10-02, explicitly authorized by the owner. No rebase or force push.
 
 - `apps/desktop/mock-harness`: in-process `MockHarness::start` control, standalone
   loopback binary, provisional HTTP/SSE/WS session and host-bridge routes,
@@ -111,9 +116,31 @@ Branch: `feat/desktop-shell-wp02-mock-harness`, base `1cc0df6`.
   shell has no connection UI yet; WP4 supplies it. The SPA calls `shell_info`
   only when Tauri IPC is exposed; WP5 will add the native command and
   `spa-bridge` capability, so inside-app invocation remains untested in WP2.
+- Part A adds `apps/desktop/desktop-contract` as the shared scope, capability,
+  route and fixed-argv source for shell/mock/fake binaries. Corrected synthetic
+  fixtures have Rust-source drift guards and a README. Discovery writes a
+  scratch `run/api.json`; SSE filters live/replayed topics and carries optional
+  reasons. Mock approvals enforce the requested scope and debug decision gate.
+- Test-control routes require explicit opt-in; unknown scopes fail. Native
+  fallback pairing has no bridge/key-unlock grant. Bridge calls require the
+  accepted hello capability. Tickets contain 32 random bytes and persisted
+  state is owner-only on POSIX. Root typechecking now includes desktop UI.
 
 ### Local verification
 
+- PASS at Part A implementation head: desktop fmt, locked Clippy with warnings
+  denied, all 44 Rust tests (no skips), UI build/test (1), TypeScript typecheck.
+  Desktop log: `/tmp/desktop-wp02-fixes-desktop-rust.log`.
+- PASS after main integration and the Part A TypeScript fix (macOS arm64):
+  frozen install, toolchain check, gen/build, root lint including desktop UI,
+  566 package tests plus the UI test and 11 hygiene tests. Five existing
+  platform/filesystem skips remain; no new skip. Root Rust fmt/Clippy and
+  tests passed (1006 passed, one existing opt-in nightly fuzz test ignored).
+  Logs: `/tmp/desktop-wp02-fixes-root-node.log`,
+  `/tmp/desktop-wp02-fixes-root-node-retry.log`,
+  `/tmp/desktop-wp02-fixes-root-rust.log`. The first lint run exposed unsafe
+  indexing in the existing UI build test; explicit narrowing fixed it and
+  the subsequent lint/test run passed without weakening the compiler rules.
 - PASS: focused red/green cycles for pairing, fake process scenarios, rate
   limit, event replay/restart, bridge grant and bridge call/result.
 - PASS: desktop `cargo test --locked --workspace --no-fail-fast` (WP1 8,
@@ -123,19 +150,59 @@ Branch: `feat/desktop-shell-wp02-mock-harness`, base `1cc0df6`.
 - PASS: minimal Docker build-context Cargo metadata and verified builder/runtime
   manifest-list digests via the Docker Hub registry API on 2026-10-01.
 - Local container build/run: unavailable; Docker's selected daemon socket is
-  absent and Podman is not installed. The opt-in CI smoke must supply actual
-  Docker and Podman runtime evidence before the WP2 gate closes.
+  absent and Podman is not installed. Both runtimes passed at the original
+  head in CI (links below); fresh CI must verify the Part A fixes before
+  the WP2 gate closes.
 - Root validation: controller observed frozen install, toolchain check, gen,
   build, lint, Rust fmt/Clippy/tests PASS. First `pnpm test` hit the unchanged
   core import concurrent-writer SQLite `database disk image malformed` test;
   the unchanged targeted retry passed all 10 and the unchanged full retry
   passed. No harness code was changed for it.
-- Review note: the fresh task-review agent could not complete because the
-  Codex usage limit was reached; the controller performed a read-only review
-  of the full WP2 diff and recorded no blocking finding. CI remains the
-  authoritative runtime review for Docker and Podman smoke.
+- PASS at original head `5c50382`: [root CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36834472888)
+  (unit, system and service jobs), [desktop PR CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36834472957)
+  (all five targets plus Docker and Podman stub smoke), and
+  [desktop push CI](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/36834467447).
+- Review correction: the original independent reviewer hit a usage limit.
+  The controller's fallback was not an independent review and missed the
+  fixture and contract gaps listed by the owner on 2026-10-02. Part A fixes
+  those findings and will receive a fresh independent review before closure.
+
+### Acceptance matrix (Part A implementation head; awaiting fresh CI)
+
+| Acceptance | Local macOS arm64 | CI targets |
+|---|---|---|
+| `mock_meta_is_unauthenticated` | PASS | Pending all five desktop targets |
+| `redeem_is_single_use` | PASS | Pending all five desktop targets |
+| `ticket_single_use_and_60s` | PASS | Pending all five desktop targets |
+| `events_requires_events_read` | PASS | Pending all five desktop targets |
+| `bridge_requires_bridge_serve` | PASS | Pending all five desktop targets |
+| `frames_over_64k_close` | PASS | Pending all five desktop targets |
+| `revoked_device_gets_401_device_revoked` | PASS | Pending all five desktop targets |
+| Stub image build, restricted run, loopback meta, fixture exec, stop under 150 s | Not run: Docker daemon unavailable, Podman absent | Pending Linux Docker and Podman |
+
+### Defaults, deviations and remaining limits
+
+- G-1/DR1: all harness API routes are provisional and mock-only; no M3 API
+  server or real harness image was added.
+- G-2: mock approval decisions require explicit debug opt-in. Production
+  approval decisions remain a future M3/D109 contract decision.
+- G-11: shared desktop contract, mock and fake binaries stay in the separate
+  desktop Cargo workspace. No root crate dependency was added.
+- Newly specified pair-proof, company CA and trust rollover mock scenarios
+  will be added with WP4's explicit acceptance tests. They are not simulated
+  by this WP2 fix set.
+- WP5 owns the native `shell_info` command and hosted SPA window. The WP2 SPA
+  conditionally invokes that future command; no in-app bridge demonstration
+  is claimed here.
+- No new owner question. WP3 uses the copied Glow specification under G-12
+  because the canvas URL could not be retrieved in this environment.
 
 ### Next
 
-1. Controller runs the real-runtime stub smoke on disposable Docker and Podman CI.
-2. Controller completes root test/CI review, then WP3 can start.
+- [x] Correct fixtures and add a drift guard and synthetic-data README.
+- [x] Complete contract, constants, opt-in controls and mock hardening.
+- [x] Include desktop TypeScript in root typechecking.
+- [x] Fresh local root and desktop gates.
+- [ ] Independent review and full CI; update this report.
+- [ ] Mark PR #60 ready for review after all gates pass; owner merges.
+- [ ] Start WP3, then WP4–WP6, only after the previous WP is green.
