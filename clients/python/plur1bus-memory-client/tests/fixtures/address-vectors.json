@@ -1,0 +1,14 @@
+[
+  { "home": "/home/jürgen/.plur1bus", "platform": "linux", "address": "/home/jürgen/.plur1bus/run/core.sock", "note": "POSIX, non-ASCII" },
+  { "home": "/Users/c/.plur1bus/", "platform": "darwin", "address": "/Users/c/.plur1bus/run/core.sock", "note": "POSIX, one trailing '/' trimmed" },
+  { "home": "/tmp/p1b//", "platform": "linux", "address": "/tmp/p1b/run/core.sock", "note": "POSIX, every trailing '/' trimmed" },
+  { "home": "/tmp/a\\b", "platform": "linux", "address": "/tmp/a\\b/run/core.sock", "note": "the platform decides the format, not a backslash" },
+  { "home": "C:\\Users\\c\\AppData\\Local\\PLUR1BUS", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-741b3e0a44818d49-core", "note": "sha256('c:\\users\\c\\appdata\\local\\plur1bus'), the paths.rs/paths.test.ts fixture" },
+  { "home": "c:\\Users\\c\\AppData\\Local\\PLUR1BUS", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-741b3e0a44818d49-core", "note": "a lower-case drive letter hashes the same" },
+  { "home": "D:\\P1B", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-bb7944c95aec1c14-core", "note": "sha256('d:\\p1b')" },
+  { "home": "C:\\P1B\\", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-c842f17f21ec16c2-core", "note": "Windows: a trailing backslash is hashed, not trimmed (sha256('c:\\p1b\\'))" },
+  { "home": "C:\\Users\\Jürgen A\\AppData\\Local\\PLUR1BUS", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-063abbaa05480e6c-core", "note": "space and non-ASCII: sha256('c:\\users\\jürgen a\\appdata\\local\\plur1bus')" },
+  { "home": "C:\\Users\\İlker\\AppData\\Local\\PLUR1BUS", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-ac7863079d648b80-core", "note": "U+0130 lower-cases to 'i' + U+0307: sha256('c:\\users\\i\u0307lker\\appdata\\local\\plur1bus')" },
+  { "home": "C:\\Users\\ΟΔΟΣ\\PLUR1BUS", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-d25fb938e9ac4fe9-core", "note": "word-final capital sigma lower-cases to U+03C2: sha256('c:\\users\\οδος\\plur1bus')" },
+  { "home": "C:\\Users\\GROẞ\\PLUR1BUS", "platform": "win32", "address": "\\\\.\\pipe\\plur1bus-e221c36e844e4803-core", "note": "U+1E9E lower-cases to U+00DF: sha256('c:\\users\\groß\\plur1bus')" }
+]

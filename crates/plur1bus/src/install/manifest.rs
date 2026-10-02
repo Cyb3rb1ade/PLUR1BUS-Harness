@@ -26,7 +26,22 @@ pub struct InstallManifest {
     pub core: CoreUnit,
     pub modules: Vec<PackageUnit>,
     pub skills: Vec<PackageUnit>,
+    /// The install profile (HM2-R9): `"host"` (supervisor and core only) or `"full"`. Absent in a manifest written
+    /// before HM2, which reads as `full` ([`InstallManifest::profile`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
 }
+
+impl InstallManifest {
+    /// The recorded install profile; a manifest without one is a `full` install.
+    pub fn profile(&self) -> &str {
+        self.profile.as_deref().unwrap_or(PROFILE_FULL)
+    }
+}
+
+/// The install profiles `setup --profile` knows (HM2-R9).
+pub const PROFILE_FULL: &str = "full";
+pub const PROFILE_HOST: &str = "host";
 
 /// The `plur1bus` binary itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -254,6 +269,7 @@ mod tests {
                 source: "bundled".into(),
                 sha256: Some(h),
             }],
+            profile: None,
         }
     }
 
@@ -306,6 +322,31 @@ mod tests {
         assert!(write(&layout, &bad).is_err());
         fs::write(layout.install_manifest(), "{").unwrap();
         assert!(read(&layout).is_err());
+    }
+
+    #[test]
+    fn the_profile_is_optional_reads_as_full_when_absent_and_is_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().join("home"));
+        let m = sample();
+        assert_eq!(m.profile(), PROFILE_FULL, "absent reads as full");
+        let doc = serde_json::to_value(&m).unwrap();
+        assert!(doc.get("profile").is_none(), "absent stays absent");
+        assert_eq!(
+            parse_install(doc.to_string().as_bytes()).unwrap().profile(),
+            "full"
+        );
+        let host = InstallManifest {
+            profile: Some(PROFILE_HOST.into()),
+            ..m
+        };
+        write(&layout, &host).unwrap();
+        let back = read(&layout).unwrap().unwrap();
+        assert_eq!(back.profile(), "host");
+        assert_eq!(back, host);
+        let mut bad = doc;
+        bad["profile"] = json!("minimal");
+        assert!(parse_install(bad.to_string().as_bytes()).is_err());
     }
 
     #[test]

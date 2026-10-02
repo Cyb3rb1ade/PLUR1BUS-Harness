@@ -151,6 +151,11 @@ packages/*/generated/
 # Local agent worktrees (Claude Code)
 .claude/worktrees/
 
+# Python bytecode (clients/, hosts/)
+__pycache__/
+*.py[cod]
+*.egg-info/
+
 # Desktop workspace build outputs
 /apps/desktop/target/
 /apps/desktop/ui/dist/
