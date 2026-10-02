@@ -1,6 +1,6 @@
 {
   "schema": "plur1bus.hermes-binding-vectors/1",
-  "description": "Agent-id rules of HM2-R8a, shared by the Python provider (hosts/hermes/plur1bus/binding.py) and the installer (plugin repo, scripts/dist/installer/hermes/binding.mjs); the harness release job byte-compares the plugin repo's copy. fold: hermes- + profile, ASCII A-Z lower-cased, every other code point outside [a-z0-9_-] -> '-', cut to 64 characters. classify: inputs are already realpath-resolved; the hash is sha256 over the exact UTF-8 home string, first 8 hex (values computed with sha256sum). registry: each step adds agentId -> home; 'conflict' names the home already holding the id.",
+  "description": "Agent-id rules of HM2-R8a, shared by the Python provider (hosts/hermes/plur1bus/binding.py) and the installer (PLUR1BUS-Host-Addons repo, scripts/dist/installer/hermes/binding.mjs); the file is kept in sync by hand with PLUR1BUS-Host-Addons `tests/fixtures/hermes/binding-vectors.json`. fold: hermes- + profile, ASCII A-Z lower-cased, every other code point outside [a-z0-9_-] -> '-', cut to 64 characters. classify: inputs are already realpath-resolved; the hash is sha256 over the exact UTF-8 home string, first 8 hex (values computed with sha256sum). registry: each step adds agentId -> home; 'conflict' names the home already holding the id.",
   "fold": [
     { "profile": "default", "agentId": "hermes-default" },
     { "profile": "work", "agentId": "hermes-work" },
