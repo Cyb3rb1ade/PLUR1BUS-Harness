@@ -1,0 +1,27 @@
+/* Provisional shell tokens. Replace with the M3 theme generated from desktop design spec §13.1. */
+:root, :root[data-theme="light"] {
+  --page: #F5F4F1; --window: #F5F4F1; --surface: #FFFFFF;
+  --ink: #16161A; --ink-2: #4A4A54; --ink-3: #5C5C66; --muted: #6A6A74;
+  --line: #E6E4DE; --control-line: #E2E0DA; --divider: #F0EEE9; --header-line: #E8E6E0;
+  --chip: #F1F0EC; --track: #EFEEEA; --changed: #F7F6F3; --strong-line: #CFCDC6; --toggle-off: #D9D7D0;
+  --primary-bg: #16161A; --primary-ink: #FFFFFF;
+  --ok-bg: #E8F5EE; --ok-ink: #1E6A3E; --warn-bg: #FDF3E6; --warn-ink: #5C3400;
+  --error-bg: #FDECEA; --error-ink: #A1231A; --info-bg: #E9EEFB; --info-ink: #1F4BB8;
+  --wordmark-red: #E5484D; --scrim: rgba(14,14,18,.32); --glass: rgba(255,255,255,.60);
+  --hero-glow-teal: rgba(15,122,128,.20); --hero-glow-magenta: rgba(184,39,122,.09);
+  --glass-edge: rgba(255,255,255,.9); --shadow: 0 18px 60px rgba(22,22,26,.08);
+  --dialog-footer: #F0EFEC;
+}
+:root[data-theme="dark"] {
+  --page: #16161B; --window: #0E0E12; --surface: #1B1B21;
+  --ink: #ECEBF2; --ink-2: #C4C4CE; --ink-3: #A3A3AF; --muted: #A3A3AF;
+  --line: rgba(255,255,255,.08); --control-line: rgba(255,255,255,.12); --divider: rgba(255,255,255,.07); --header-line: rgba(255,255,255,.08);
+  --chip: rgba(255,255,255,.06); --track: rgba(255,255,255,.07); --changed: rgba(255,255,255,.05); --strong-line: rgba(255,255,255,.18); --toggle-off: #55555F;
+  --primary-bg: #ECEBF2; --primary-ink: #0E0E12;
+  --ok-bg: rgba(34,165,91,.16); --ok-ink: #6FD49B; --warn-bg: rgba(245,165,36,.12); --warn-ink: #F7C46C;
+  --error-bg: rgba(229,72,77,.14); --error-ink: #FF9C9F; --info-bg: rgba(91,124,255,.16); --info-ink: #A9BBFF;
+  --wordmark-red: #FF5A5F; --scrim: rgba(0,0,0,.5); --glass: rgba(28,28,34,.72);
+  --hero-glow-teal: rgba(15,122,128,.20); --hero-glow-magenta: rgba(184,39,122,.09);
+  --glass-edge: rgba(255,255,255,.08); --shadow: 0 24px 80px rgba(0,0,0,.18);
+  --dialog-footer: #202024;
+}

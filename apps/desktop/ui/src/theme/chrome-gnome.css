@@ -1,0 +1,2 @@
+:root[data-platform="gnome"] { --button-radius: 999px; }
+@media (max-width:1023px) { :root[data-platform="gnome"] .dialog-footer .button { flex: 1 1 0; } }

@@ -404,10 +404,15 @@ async fn frames_over_64k_close() {
         Some(Ok(Message::Close(Some(frame)))) => assert_eq!(u16::from(frame.code), 1009),
         Some(Err(tokio_tungstenite::tungstenite::Error::Io(error)))
             if error.kind() == std::io::ErrorKind::ConnectionReset => {}
+        // Windows 11 ARM may report the oversized-frame abort as Winsock 10053.
+        Some(Err(tokio_tungstenite::tungstenite::Error::Io(error)))
+            if cfg!(windows)
+                && error.kind() == std::io::ErrorKind::ConnectionAborted
+                && error.raw_os_error() == Some(10053) => {}
         Some(Err(tokio_tungstenite::tungstenite::Error::Protocol(
             tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
         ))) => {}
-        other => panic!("oversized frame must be rejected by close 1009 or a reset, got {other:?}"),
+        other => panic!("oversized frame must be rejected by close 1009, a reset, or Windows abort 10053, got {other:?}"),
     }
 }
 

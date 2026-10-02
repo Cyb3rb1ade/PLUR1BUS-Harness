@@ -43,9 +43,17 @@ fn min_window_is_800x600() {
     assert_eq!(windows[0]["visible"], false);
 }
 #[test]
-fn shell_capability_grants_no_native_commands() {
+fn shell_capability_is_local_only() {
     let c: Value = serde_json::from_str(include_str!("../capabilities/shell-ui.json")).unwrap();
-    assert_eq!(c["permissions"], serde_json::json!([]));
+    assert_eq!(
+        c["permissions"],
+        serde_json::json!(["allow-app-info", "allow-settings-get", "allow-settings-set"])
+    );
+    assert_eq!(c["webviews"], serde_json::json!(["shell"]));
+    assert!(
+        c.get("windows").is_none(),
+        "do not grant sibling webviews by their parent window"
+    );
     assert_eq!(c["local"], true);
     assert!(c.get("remote").is_none());
     assert_eq!(
@@ -60,4 +68,23 @@ fn bundle_icons_exist() {
             .join(icon.as_str().unwrap())
             .is_file());
     }
+}
+
+#[test]
+fn registered_handlers_match_the_application_acl_table() {
+    let source = include_str!("../src/lib.rs");
+    let handlers = source
+        .split("tauri::generate_handler![")
+        .nth(1)
+        .unwrap()
+        .split(']')
+        .next()
+        .unwrap();
+    let actual: Vec<_> = handlers
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.strip_prefix("commands::").unwrap())
+        .collect();
+    assert_eq!(actual, plur1bus_desktop::commands::SHELL_COMMANDS);
 }
