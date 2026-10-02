@@ -70,7 +70,7 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
         }
         catch (error) {
             const failure = pairingFailure(error);
-            status.textContent = t(`pair.error.${failure.error}`);
+            status.textContent = t(`pair.error.${failure.error}`) + (failure.versions ? ` ${t("pair.apiVersions", failure.versions)}` : "");
             first.value = "";
             second.value = "";
             first.focus();

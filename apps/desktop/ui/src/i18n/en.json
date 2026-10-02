@@ -115,6 +115,7 @@
   "pair.error.insecure-origin": "Use HTTPS, for example through tailscale serve. HTTP is allowed only for localhost, 127.0.0.1 or [::1], without a path.",
   "pair.error.installation-mismatch": "A different harness installation answers at this address. No sign-in was sent.",
   "pair.error.incompatible": "This harness API cannot create desktop sessions. Update the harness before pairing.",
+  "pair.error.trust-unavailable": "The CA certificate is temporarily unavailable. Retry; your saved trust is unchanged.",
   "pair.error.network": "Could not reach the harness. Check the address and try again.",
   "pair.error.revoked": "This device was revoked. Its sign-in was deleted from the keychain. Pair again.",
   "pair.error.keychain-memory-only": "No keychain is available. Sign-in stays in memory only. After restart, remote connections need a new code; bundled connections pair again automatically.",
@@ -129,5 +130,9 @@
   "pair.error.pairing-needed": "This connection needs pairing before it can open.",
   "connections.choose": "Choose connection",
   "connections.unchecked": "Sign-in is checked when you open this connection.",
-  "connections.count": "Connections: {count}"
+  "connections.count": "Connections: {count}",
+  "pair.error.keychain-denied": "Keychain access was denied. Allow access and pair again.",
+  "pair.error.keychain-unavailable": "Credential storage is unavailable or locked. Unlock it and retry.",
+  "pair.error.keychain-error": "Credential storage returned an unsupported response. Retry or check the OS credential store.",
+  "pair.apiVersions": "Server API: {server}; client API: {client}."
 }

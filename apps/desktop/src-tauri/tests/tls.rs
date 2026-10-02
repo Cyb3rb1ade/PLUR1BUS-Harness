@@ -86,7 +86,7 @@ async fn company_ca_verifies_normal_chain_and_renewal_and_refuses_substitution()
             .establish_pairing_trust(&code)
             .await
             .unwrap_err(),
-        ClientError::ProofMismatch
+        ClientError::TrustUnavailable
     );
 }
 #[tokio::test]
@@ -369,7 +369,7 @@ async fn new_pairing_during_staged_rollover_stores_both_trusts_before_ack() {
     assert_eq!(store.load().unwrap()[0], row);
 }
 #[tokio::test]
-async fn company_ca_pin_is_scoped_to_the_connection_origin() {
+async fn company_ca_pin_is_anchor_for_this_origin_only() {
     let ca = CompanyCa::new();
     let one = MockHarness::start_tls(MockOptions::default(), ca.issue())
         .await
@@ -377,16 +377,42 @@ async fn company_ca_pin_is_scoped_to_the_connection_origin() {
     let two = MockHarness::start_tls(MockOptions::default(), ca.issue())
         .await
         .unwrap();
-    let code = one.control.create_pair_code();
-    let mut c = client(&one.origin, None);
-    c.establish_pairing_trust(&code).await.unwrap();
-    c.meta().await.unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = plur1bus_desktop::connections::Store::open(dir.path());
+    let tokens = plur1bus_desktop::secrets::MemoryStore::default();
+    let mut row = plur1bus_desktop::pair::pair_using_client(
+        client(&one.origin, None),
+        &one.control.create_pair_code(),
+        "Desk",
+        Kind::Remote,
+        None,
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    assert!(row.ca_pin.is_some());
+    // A connection carrying company trust cannot be passed to another origin's
+    // client for authenticated refresh/ack; no second-origin request is made.
+    use plur1bus_desktop::secrets::TokenStore;
+    let token = tokens
+        .get(&plur1bus_desktop::secrets::token_account(row.id))
+        .unwrap()
+        .unwrap();
+    let other = client(&two.origin, None);
     assert_eq!(
-        client(&two.origin, None).meta().await.unwrap_err(),
-        ClientError::CaNotKnown
+        other.refresh_trust(&mut row, &token).await.unwrap_err(),
+        ClientError::Protocol
     );
+    assert_eq!(
+        other.ack_trust(&row, &token).await.unwrap_err(),
+        ClientError::Protocol
+    );
+    assert_eq!(other.meta().await.unwrap_err(), ClientError::CaNotKnown);
     assert!(two.control.recorded_requests().is_empty());
 }
+
 #[tokio::test]
 async fn revoked_on_trust_ack_removes_credential_and_marks_pairing_needed() {
     use plur1bus_desktop::secrets::TokenStore;
@@ -473,4 +499,205 @@ async fn rollover_candidates_survive_unavailable_other_ca() {
         );
         assert!(m.control.recorded_requests().is_empty());
     }
+}
+
+#[tokio::test]
+async fn current_or_next_accepted_until_switch_with_os_trusted_current() {
+    let identity = CompanyCa::new().issue();
+    let roots = vec![identity.ca.clone().unwrap()];
+    let m = MockHarness::start_tls(MockOptions::default(), identity)
+        .await
+        .unwrap();
+    m.control.advertise_os_trust();
+    let dir = tempfile::tempdir().unwrap();
+    let store = plur1bus_desktop::connections::Store::open(dir.path());
+    let tokens = plur1bus_desktop::secrets::MemoryStore::default();
+    use plur1bus_desktop::secrets::TokenStore;
+    let mut row = plur1bus_desktop::pair::pair_using_client(
+        HarnessClient::new(Origin::parse(&m.origin).unwrap(), None)
+            .with_trusted_roots(roots.clone()),
+        &m.control.create_pair_code(),
+        "Desk",
+        Kind::Remote,
+        None,
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    assert!(row.cert_pin.is_none() && row.ca_pin.is_none());
+    let token = tokens
+        .get(&plur1bus_desktop::secrets::token_account(row.id))
+        .unwrap()
+        .unwrap();
+    let next = Identity::self_signed();
+    let pin = CertPin::parse(&next.pin()).unwrap();
+    m.control.stage_trust(next);
+    let c = HarnessClient::from_connection_with_roots(&row, roots.clone())
+        .await
+        .unwrap();
+    c.refresh_trust(&mut row, &token).await.unwrap();
+    c.ack_trust(&row, &token).await.unwrap();
+    let c = HarnessClient::from_connection_with_roots(&row, roots)
+        .await
+        .unwrap();
+    c.whoami(&m.installation_id, &token).await.unwrap();
+    m.control.switch_trust();
+    c.whoami(&m.installation_id, &token).await.unwrap();
+    c.refresh_trust(&mut row, &token).await.unwrap();
+    assert_eq!(row.cert_pin, Some(pin));
+    assert!(row.next_cert_pin.is_none());
+}
+#[tokio::test]
+async fn changed_certificate_is_cert_changed_and_marks_pairing_needed() {
+    let identity = Identity::self_signed();
+    let original = CertPin::parse(&identity.pin()).unwrap();
+    let m = MockHarness::start_tls(MockOptions::default(), identity)
+        .await
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = plur1bus_desktop::connections::Store::open(dir.path());
+    let tokens = plur1bus_desktop::secrets::MemoryStore::default();
+    let mut row = plur1bus_desktop::pair::pair_using_client(
+        client(&m.origin, None),
+        &m.control.create_pair_code(),
+        "Desk",
+        Kind::Remote,
+        None,
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    assert_eq!(row.cert_pin, Some(original));
+    let next = Identity::self_signed();
+    let observed = CertPin::parse(&next.pin()).unwrap();
+    m.control.renew_leaf(next);
+    m.control.clear_requests();
+    assert_eq!(
+        plur1bus_desktop::pair::validate_connection(&mut row, &tokens, &store)
+            .await
+            .unwrap_err()
+            .code(),
+        "cert-changed"
+    );
+    let stored = store.load().unwrap().remove(0);
+    assert!(stored.pairing_needed);
+    assert_eq!(stored.observed_cert_pin, Some(observed));
+    assert!(m.control.recorded_requests().is_empty());
+}
+async fn ca_failure(status: u16, body: Vec<u8>, delay: u64, repair: bool) {
+    let m = MockHarness::start_tls(MockOptions::default(), CompanyCa::new().issue())
+        .await
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = plur1bus_desktop::connections::Store::open(dir.path());
+    let tokens = plur1bus_desktop::secrets::MemoryStore::default();
+    let mut row = plur1bus_desktop::pair::pair_using_client(
+        client(&m.origin, None),
+        &m.control.create_pair_code(),
+        "Desk",
+        Kind::Remote,
+        None,
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    let pin = row.ca_pin.clone();
+    m.control.ca_response(status, body, delay);
+    m.control.clear_requests();
+    let error = plur1bus_desktop::pair::validate_connection(&mut row, &tokens, &store)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.code(),
+        if repair {
+            "ca-untrusted"
+        } else {
+            "trust-unavailable"
+        }
+    );
+    let row = store.load().unwrap().remove(0);
+    assert_eq!(row.pairing_needed, repair);
+    assert_eq!(row.ca_pin, pin);
+    assert!(m
+        .control
+        .recorded_requests()
+        .iter()
+        .all(|(p, auth)| p == plur1bus_desktop_contract::trust::CA && !auth));
+}
+#[tokio::test]
+async fn ca_endpoint_404_is_retryable_without_repair() {
+    ca_failure(404, vec![], 0, false).await;
+}
+#[tokio::test]
+async fn ca_endpoint_5xx_is_retryable_without_repair() {
+    ca_failure(503, vec![], 0, false).await;
+}
+#[tokio::test]
+async fn ca_endpoint_timeout_is_retryable_without_repair() {
+    ca_failure(200, vec![], 11000, false).await;
+}
+#[tokio::test]
+async fn ca_endpoint_malformed_is_retryable_without_repair() {
+    ca_failure(200, vec![0; 32], 0, false).await;
+}
+#[tokio::test]
+async fn ca_endpoint_oversized_is_retryable_without_repair() {
+    ca_failure(
+        200,
+        vec![0; plur1bus_desktop_contract::trust::MAX_CA + 1],
+        0,
+        false,
+    )
+    .await;
+}
+#[tokio::test]
+async fn successful_wrong_ca_response_marks_repair() {
+    ca_failure(200, CompanyCa::new().issue().ca.unwrap(), 0, true).await;
+}
+
+#[tokio::test]
+async fn unavailable_next_ca_does_not_remove_current_os_trust() {
+    let identity = CompanyCa::new().issue();
+    let roots = vec![identity.ca.clone().unwrap()];
+    let m = MockHarness::start_tls(MockOptions::default(), identity)
+        .await
+        .unwrap();
+    m.control.advertise_os_trust();
+    let mut row = Connection::new(
+        "Desk".into(),
+        Kind::Remote,
+        Origin::parse(&m.origin).unwrap(),
+        m.installation_id.clone(),
+        "device".into(),
+        "hint".into(),
+    );
+    let next = CompanyCa::new().issue();
+    row.next_ca_pin = Some(CertPin::parse(&next.ca_pin().unwrap()).unwrap());
+    m.control.stage_trust(next);
+    m.control.ca_response(503, vec![], 0);
+    let c = HarnessClient::from_connection_with_roots(&row, roots)
+        .await
+        .unwrap();
+    c.meta().await.unwrap();
+}
+#[tokio::test]
+async fn explicit_current_leaf_pin_never_falls_back_to_os_trust() {
+    let identity = CompanyCa::new().issue();
+    let roots = vec![identity.ca.clone().unwrap()];
+    let m = MockHarness::start_tls(MockOptions::default(), identity)
+        .await
+        .unwrap();
+    let c = HarnessClient::new(
+        Origin::parse(&m.origin).unwrap(),
+        Some(CertPin::parse(&Identity::self_signed().pin()).unwrap()),
+    )
+    .with_trusted_roots(roots);
+    assert_eq!(c.meta().await.unwrap_err(), ClientError::CertChanged);
+    assert!(m.control.recorded_requests().is_empty());
 }

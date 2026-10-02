@@ -162,3 +162,23 @@ issues renewed leaves; `stage_trust` keeps the old identity active and emits SSE
 are in-process test APIs only, not network admin routes. No M3 admin upload API is
 implemented. Keys, bearer values and raw HTTP bodies are never request-trace data;
 traces contain only route and whether authorization was present.
+
+### WP4 owner corrections: required trust route and transient CA policy
+
+M3 must implement `GET /api/v1/devices/trust` for every desktop-capable origin,
+including loopback and OS-trusted origins. A successful empty trust document means
+OS trust is current; 404 is not an optional feature negotiation signal. Pairing and
+opening require this route before persisting/acknowledging trust.
+
+CA 404/5xx, timeout, oversized or malformed bytes are retryable `trust-unavailable`;
+they cannot invalidate a saved pin. A successful bounded response containing a
+valid CA certificate with a different SHA-256 hash is a trust mismatch and may
+require repair. A malformed successful response supplies no usable cryptographic
+proof, reconciling the review's transient-malformed rule with Part B's successful-
+proof rule. Real TLS verification rejection still requires repair. The `pin`
+query is retained because the harness must distinguish current/next CA objects
+while both are staged: it carries only a public digest, never a credential.
+
+Test controls `advertise_os_trust`, `ca_response` and
+`set_session_ticket_capability` operate only in the mock process. They inject
+OS-current announcements, transport/response failures, and capability removal.

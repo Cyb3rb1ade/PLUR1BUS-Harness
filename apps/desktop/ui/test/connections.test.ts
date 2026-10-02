@@ -17,6 +17,11 @@ test("reachable remote form validates origin, pairs, selects, renames and remove
         await page.getByRole("heading", { name: "Synthetic desk" }).waitFor();
         await page.getByRole("button", { name: "Open", exact: true }).click();
         await page.getByText("Connection verified and selected.", { exact: false }).waitFor();
+        await page.evaluate(() => (window as any).testShell.setPairingError("network"));
+        await page.getByRole("button", { name: "Open", exact: true }).click();
+        await page.getByRole("alert").waitFor();
+        assert.equal(await page.getByText("Connection verified and selected.", { exact: false }).count(), 0);
+        await page.evaluate(() => (window as any).testShell.setPairingError(null));
         await page.getByRole("button", { name: "Rename", exact: true }).click();
         await page.getByLabel("Name", { exact: true }).fill("Renamed desk");
         await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -82,5 +87,22 @@ test("CA received, trust next and changed certificate details remain reachable a
         await page.getByRole("button", { name: "Pair again", exact: true }).click();
         assert.equal(await page.getByLabel("Name", { exact: true }).getAttribute("readonly"), "");
         assert.equal(await page.getByLabel("Harness origin").getAttribute("readonly"), "");
+    });
+});
+
+test("OS theme and late connection refresh preserve remote form focus and input", async () => {
+    await withShell(async page => {
+        await page.getByRole("button", { name: "View connections" }).click();
+        await page.getByRole("button", { name: "Add remote", exact: true }).click();
+        await page.getByLabel("Name", { exact: true }).fill("Scratch desk");
+        await page.getByLabel("Harness origin").fill("https://harness.test");
+        await page.getByLabel("Harness origin").focus();
+        await page.emulateMedia({colorScheme:"dark"});
+        await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
+        assert.equal(await page.getByLabel("Harness origin").evaluate(node => node === document.activeElement), true);
+        await page.evaluate(() => (window as any).testShell.refreshConnections());
+        assert.equal(await page.getByLabel("Harness origin").evaluate(node => node === document.activeElement), true);
+        assert.equal(await page.getByLabel("Name", { exact:true }).inputValue(), "Scratch desk");
+        assert.equal(await page.getByLabel("Harness origin").inputValue(), "https://harness.test");
     });
 });

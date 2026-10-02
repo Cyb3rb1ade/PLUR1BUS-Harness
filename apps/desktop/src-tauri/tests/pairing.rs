@@ -50,7 +50,7 @@ async fn pair_code_rejects_insecure_remote_before_any_request() {
 fn discover_ignores_stale_non_loopback_and_unknown_fields_and_never_opens_tokens() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir(dir.path().join("run")).unwrap();
-    std::fs::create_dir(dir.path().join("run/supervisor.token")).unwrap();
+
     let mut value = serde_json::json!({"url":"http://127.0.0.1:18700","pid":123,"instanceId":"instance","installationId":"installation","apiVersion":"1.0.0"});
     let write = |v: &serde_json::Value| {
         std::fs::write(
@@ -198,4 +198,117 @@ async fn malformed_short_redemption_is_refused_without_persistence_or_secret_in_
     assert_eq!(error.code(), "protocol");
     assert!(store.load().unwrap().is_empty());
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn missing_desktop_session_ticket_is_refused_without_bearer() {
+    let m = MockHarness::start(MockOptions::default()).await.unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path());
+    let tokens = MemoryStore::default();
+    let mut row = pair::pair_code(
+        &m.origin,
+        &m.control.create_pair_code(),
+        "Desk",
+        &tokens,
+        &store,
+        None,
+    )
+    .await
+    .unwrap();
+    m.control.set_session_ticket_capability(false);
+    m.control.clear_requests();
+    assert_eq!(
+        pair::validate_connection(&mut row, &tokens, &store)
+            .await
+            .unwrap_err()
+            .code(),
+        "incompatible"
+    );
+    assert!(m
+        .control
+        .recorded_requests()
+        .iter()
+        .all(|(p, a)| p.ends_with("/meta") && !a));
+}
+#[tokio::test]
+async fn a_different_installation_at_the_origin_gets_no_token_on_validate() {
+    let m = MockHarness::start(MockOptions::default()).await.unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path());
+    let tokens = MemoryStore::default();
+    let mut row = pair::pair_code(
+        &m.origin,
+        &m.control.create_pair_code(),
+        "Desk",
+        &tokens,
+        &store,
+        None,
+    )
+    .await
+    .unwrap();
+    m.control.set_meta(Some("replacement"), "1.0.0");
+    m.control.clear_requests();
+    assert_eq!(
+        pair::validate_connection(&mut row, &tokens, &store)
+            .await
+            .unwrap_err()
+            .code(),
+        "installation-mismatch"
+    );
+    assert!(store.load().unwrap()[0].pairing_needed);
+    assert!(m
+        .control
+        .recorded_requests()
+        .iter()
+        .all(|(p, a)| p.ends_with("/meta") && !a));
+}
+
+#[test]
+fn discover_never_opens_token_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let record = br#"{"url":"http://127.0.0.1:18700","pid":123,"instanceId":"instance","installationId":"installation","apiVersion":"1.0.0"}"#;
+    assert!(discovery::discover_with_opener(
+        dir.path(),
+        |_| true,
+        |path| {
+            assert_eq!(
+                path,
+                dir.path().join("run/api.json"),
+                "only public discovery may be opened"
+            );
+            Ok(std::io::Cursor::new(record))
+        }
+    )
+    .is_some());
+}
+#[tokio::test]
+async fn repairing_local_connection_preserves_kind() {
+    let m = MockHarness::start(MockOptions::default()).await.unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path());
+    let tokens = MemoryStore::default();
+    let row = pair::pair(
+        Origin::parse(&m.origin).unwrap(),
+        &m.control.create_pair_code(),
+        "Desk",
+        Kind::Local,
+        None,
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    let repaired = pair::pair_code(
+        &m.origin,
+        &m.control.create_pair_code(),
+        "Desk",
+        &tokens,
+        &store,
+        Some(row.id),
+    )
+    .await
+    .unwrap();
+    assert_eq!(repaired.kind, Kind::Local);
 }

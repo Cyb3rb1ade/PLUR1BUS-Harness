@@ -121,6 +121,7 @@ struct Shared {
     path: Option<PathBuf>,
     clock: Arc<AtomicI64>,
     api_version: Mutex<String>,
+    session_ticket_capability: AtomicBool,
     reported_id: Mutex<Option<String>>,
     failure: Mutex<Option<String>>,
     key_unlock_enabled: AtomicBool,
@@ -226,6 +227,7 @@ impl MockHarness {
             store: Mutex::new(store),
             path,
             clock: options.clock,
+            session_ticket_capability: AtomicBool::new(true),
             api_version: Mutex::new("1.0.0".into()),
             reported_id: Mutex::new(None),
             failure: Mutex::new(None),
@@ -455,6 +457,11 @@ impl MockControl {
         }
         self.shared.publish("harness.status", data);
     }
+    pub fn set_session_ticket_capability(&self, enabled: bool) {
+        self.shared
+            .session_ticket_capability
+            .store(enabled, Ordering::SeqCst);
+    }
     pub fn set_meta(&self, installation_id: Option<&str>, api_version: &str) {
         *self.shared.reported_id.lock().unwrap() = installation_id.map(str::to_owned);
         *self.shared.api_version.lock().unwrap() = api_version.into();
@@ -583,7 +590,7 @@ fn err(reason: &str, status: StatusCode) -> Response {
 async fn meta(State(s): State<Arc<Shared>>) -> Json<Value> {
     let store = s.store.lock().unwrap();
     Json(
-        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":[capability::SESSION_TICKET,capability::HOST_BRIDGE]}),
+        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":if s.session_ticket_capability.load(Ordering::SeqCst) { vec![capability::SESSION_TICKET,capability::HOST_BRIDGE] } else { vec![capability::HOST_BRIDGE] }}),
     )
 }
 

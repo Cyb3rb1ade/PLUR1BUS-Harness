@@ -2,10 +2,7 @@
 use crate::{
     client::{ClientError, HarnessClient},
     connections::{Connection, CredentialProvenance, Kind, Origin, Store},
-    secrets::{
-        load_token_or_pairing_needed, token_account, token_hint, SecretString, StoreKind,
-        TokenStore,
-    },
+    secrets::{token_account, token_hint, SecretString, StoreKind, TokenError, TokenStore},
 };
 use serde::Deserialize;
 use std::{
@@ -20,6 +17,7 @@ pub enum PairError {
     InsecureOrigin,
     Invalid,
     PairingNeeded,
+    Token(TokenError),
     Storage,
     Client(ClientError),
 }
@@ -29,24 +27,36 @@ impl From<ClientError> for PairError {
     }
 }
 impl PairError {
+    pub fn public_message(&self) -> String {
+        match self {
+            Self::Client(ClientError::Incompatible { server, client }) => {
+                format!("incompatible:{server}:{client}")
+            }
+            _ => self.code().to_owned(),
+        }
+    }
     pub fn code(&self) -> &'static str {
         match self {
             Self::CliMissing => "cli-missing",
             Self::Denied => "denied",
             Self::InsecureOrigin => "insecure-origin",
             Self::Invalid => "invalid",
-            Self::PairingNeeded => "pairing-needed",
+            Self::PairingNeeded | Self::Token(TokenError::NotFound) => "pairing-needed",
+            Self::Token(TokenError::AccessDenied) => "keychain-denied",
+            Self::Token(TokenError::Unavailable(_)) => "keychain-unavailable",
+            Self::Token(TokenError::Other(_)) => "keychain-error",
             Self::Storage => "storage",
             Self::Client(e) => match e {
                 ClientError::Revoked => "revoked",
                 ClientError::Unauthorized => "unauthorized",
-                ClientError::Incompatible | ClientError::MissingCapability => "incompatible",
+                ClientError::Incompatible { .. } | ClientError::MissingCapability => "incompatible",
                 ClientError::InstallationMismatch => "installation-mismatch",
                 ClientError::CertChanged => "cert-changed",
                 ClientError::CaNotKnown => "ca-untrusted",
                 ClientError::Untrusted => "untrusted",
                 ClientError::ProofMismatch => "proof-mismatch",
                 ClientError::Network => "network",
+                ClientError::TrustUnavailable => "trust-unavailable",
                 ClientError::Protocol => "protocol",
             },
         }
@@ -230,7 +240,7 @@ pub async fn pair_code(
         origin,
         code,
         name,
-        Kind::Remote,
+        existing.as_ref().map_or(Kind::Remote, |c| c.kind.clone()),
         None,
         existing,
         tokens,
@@ -313,7 +323,7 @@ pub async fn pair_using_client(
         .await?;
     tokens
         .set(&token_account(connection.id), &redeemed.token)
-        .map_err(|_| PairError::PairingNeeded)?;
+        .map_err(PairError::Token)?;
     if store.upsert(connection.clone()).is_err() {
         let _ = tokens.delete(&token_account(connection.id));
         return Err(PairError::Storage);
@@ -345,7 +355,7 @@ pub fn mark_failure(
         // Persist the repair state before a possibly denied deletion (M4).
         tokens
             .delete(&token_account(c.id))
-            .map_err(|_| PairError::PairingNeeded)?;
+            .map_err(PairError::Token)?;
     }
     Ok(())
 }
@@ -358,7 +368,10 @@ fn connection_token(c: &Connection, tokens: &dyn TokenStore) -> Result<SecretStr
     if c.pairing_needed || !matches {
         return Err(PairError::PairingNeeded);
     }
-    load_token_or_pairing_needed(tokens, c.id).map_err(|_| PairError::PairingNeeded)
+    tokens
+        .get(&token_account(c.id))
+        .map_err(PairError::Token)?
+        .ok_or(PairError::PairingNeeded)
 }
 pub async fn validate_connection(
     c: &mut Connection,
@@ -367,10 +380,10 @@ pub async fn validate_connection(
 ) -> Result<(), PairError> {
     let token = match connection_token(c, tokens) {
         Ok(token) => token,
-        Err(_) => {
+        Err(error) => {
             c.pairing_needed = true;
             store.upsert(c.clone()).map_err(|_| PairError::Storage)?;
-            return Err(PairError::PairingNeeded);
+            return Err(error);
         }
     };
     let client = match HarnessClient::from_connection(c).await {
@@ -430,10 +443,10 @@ pub async fn sync_next_trust_event_with_client(
     }
     let token = match connection_token(c, tokens) {
         Ok(token) => token,
-        Err(_) => {
+        Err(error) => {
             c.pairing_needed = true;
             store.upsert(c.clone()).map_err(|_| PairError::Storage)?;
-            return Err(PairError::PairingNeeded);
+            return Err(error);
         }
     };
     let result = async {
@@ -499,12 +512,12 @@ pub fn remove_connection(
         }
         persistent
             .delete(&token_account(id))
-            .map_err(|_| PairError::PairingNeeded)?;
+            .map_err(PairError::Token)?;
     }
     if let Some(memory) = session.filter(|s| s.kind() == StoreKind::MemoryOnly) {
         memory
             .delete(&token_account(id))
-            .map_err(|_| PairError::PairingNeeded)?;
+            .map_err(PairError::Token)?;
     }
     store.remove_metadata(id).map_err(|_| PairError::Storage)
 }

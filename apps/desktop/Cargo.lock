@@ -3173,6 +3173,7 @@ dependencies = [
  "reqwest 0.12.24",
  "rustls",
  "rustls-native-certs",
+ "security-framework",
  "serde",
  "serde_json",
  "sha2 0.10.9",

@@ -35,8 +35,9 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const mark = wordmark(() => navigate("home"));
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   const lightMedia = window.matchMedia("(prefers-color-scheme: light)");
-  themeMedia.addEventListener("change", render);
-  lightMedia.addEventListener("change", render);
+  function updateSystemTheme() { document.documentElement.dataset.theme = resolvedTheme(settings.theme); }
+  themeMedia.addEventListener("change", updateSystemTheme);
+  lightMedia.addEventListener("change", updateSystemTheme);
   window.addEventListener("hashchange", () => {
     const next = routeFromHash(window.location.hash);
     if (next.section !== route.section || next.page !== route.page) { route = next; render(); focusPage(); }
@@ -203,6 +204,10 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   }
   function render() {
     const focusKey = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.focusKey : undefined;
+    const focusedId = document.activeElement instanceof HTMLInputElement ? document.activeElement.id : undefined;
+    // Keep transient form state through late native/connection loads. Values stay
+    // exclusively in the current view's memory and are never persisted or logged.
+    const inputs = Array.from(mount.querySelectorAll<HTMLInputElement>("input[id]")).map(input => ({ id: input.id, value: input.value }));
     const locale: Locale = resolveLocale(settings.locale, systemLocale);
     document.documentElement.lang = locale;
     document.documentElement.dataset.theme = resolvedTheme(settings.theme);
@@ -233,7 +238,12 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     mark.node.dataset.focusKey = "wordmark-home";
     footer.querySelector<HTMLElement>("button")!.dataset.focusKey = "preferences-help";
     mount.querySelectorAll<HTMLElement>(".home-cards button").forEach((control, index) => { control.dataset.focusKey = `home-action-${index}`; });
+    for (const previous of inputs) {
+      const input = Array.from(mount.querySelectorAll<HTMLInputElement>("input[id]")).find(node => node.id === previous.id);
+      if (input && !input.readOnly) input.value = previous.value;
+    }
     if (focusKey) Array.from(root.querySelectorAll<HTMLElement>("[data-focus-key]")).find(node => node.dataset.focusKey === focusKey)?.focus();
+    if (focusedId) Array.from(mount.querySelectorAll<HTMLInputElement>("input[id]")).find(node => node.id === focusedId)?.focus();
     if (notice) {
       const message = notice === "saved" ? t("settings.saved") : t(notice === "load" ? "settings.loadError" : "settings.saveError");
       const region = banner(message, notice === "saved" ? "info" : "error");

@@ -107,6 +107,8 @@ pub(super) struct TlsState {
     proof_wrong_leaf: Option<String>,
     proof_wrong_ca: Option<String>,
     wrong_ca_bytes: bool,
+    ca_response: Option<(u16, Vec<u8>, u64)>,
+    os_trust: bool,
 }
 impl TlsState {
     pub(super) fn new(current: Identity) -> Self {
@@ -122,16 +124,22 @@ impl TlsState {
             proof_wrong_leaf: None,
             proof_wrong_ca: None,
             wrong_ca_bytes: false,
+            ca_response: None,
+            os_trust: false,
         }
     }
     fn wire(&self) -> wire::Trust {
         wire::Trust {
-            cert_pin: if self.current.ca.is_none() {
+            cert_pin: if !self.os_trust && self.current.ca.is_none() {
                 Some(self.current.pin())
             } else {
                 None
             },
-            ca_pin: self.current.ca_pin(),
+            ca_pin: if self.os_trust {
+                None
+            } else {
+                self.current.ca_pin()
+            },
             next_cert_pin: self
                 .next
                 .as_ref()
@@ -156,6 +164,19 @@ impl ProofOffer {
     }
 }
 impl MockControl {
+    pub fn advertise_os_trust(&self) {
+        self.shared.tls.lock().unwrap().as_mut().unwrap().os_trust = true;
+    }
+    pub fn ca_response(&self, status: u16, body: Vec<u8>, delay_ms: u64) {
+        self.shared
+            .tls
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .ca_response = Some((status, body, delay_ms));
+    }
+
     pub fn announce_unapplied_trust(&self, value: wire::Trust) {
         self.shared
             .publish(wire::EVENT, serde_json::to_value(value).unwrap());
@@ -176,6 +197,7 @@ impl MockControl {
         let mut tls = self.shared.tls.lock().unwrap();
         let tls = tls.as_mut().unwrap();
         tls.current = tls.next.take().expect("stage first");
+        tls.os_trust = false;
     }
     pub fn renew_leaf(&self, identity: Identity) {
         self.shared.tls.lock().unwrap().as_mut().unwrap().current = identity;
@@ -277,6 +299,16 @@ pub(super) struct CaQuery {
     pin: String,
 }
 pub(super) async fn ca(State(s): State<Arc<Shared>>, Query(query): Query<CaQuery>) -> Response {
+    let response = s
+        .tls
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|tls| tls.ca_response.clone());
+    if let Some((status, body, delay)) = response {
+        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+        return (StatusCode::from_u16(status).unwrap(), body).into_response();
+    }
     let tls = s.tls.lock().unwrap();
     let Some(tls) = tls.as_ref() else {
         return StatusCode::NOT_FOUND.into_response();

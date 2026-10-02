@@ -34,7 +34,13 @@ async fn unsupported_api_is_refused_before_bearer_and_errors_do_not_echo_server_
         plur1bus_mock_harness::tls::Identity::self_signed().leaf,
     ]);
     m.control.set_meta(None, "2.0.0");
-    assert_eq!(c.meta().await.unwrap_err(), ClientError::Incompatible);
+    assert_eq!(
+        c.meta().await.unwrap_err(),
+        ClientError::Incompatible {
+            server: "2.0.0".into(),
+            client: "1.0.0"
+        }
+    );
     assert!(m.control.recorded_requests().iter().all(|(_, auth)| !*auth));
 }
 #[tokio::test]
@@ -59,4 +65,16 @@ async fn redirects_are_not_followed_and_bodies_are_bounded() {
         assert_eq!(c.meta().await.unwrap_err(), ClientError::Protocol);
         server.await.unwrap();
     }
+}
+
+#[tokio::test]
+async fn incompatible_error_reports_public_versions_without_echoing_arbitrary_server_data() {
+    let m = MockHarness::start(MockOptions::default()).await.unwrap();
+    let c = HarnessClient::new(Origin::parse(&m.origin).unwrap(), None);
+    m.control.set_meta(None, "2.3.4");
+    let error = plur1bus_desktop::pair::PairError::from(c.meta().await.unwrap_err());
+    assert_eq!(error.public_message(), "incompatible:2.3.4:1.0.0");
+    let payload = uuid::Uuid::now_v7().to_string();
+    m.control.set_meta(None, &payload);
+    assert_eq!(c.meta().await.unwrap_err(), ClientError::Protocol);
 }

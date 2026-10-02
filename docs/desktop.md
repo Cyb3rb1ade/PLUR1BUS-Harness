@@ -221,3 +221,44 @@ renewal/hostname validation, both rollover directions, missing rollover, staged
 new pairing and authenticated SSE wakeups. Browser tests cover reachable pairing,
 repair and certificate/CA states, focus, axe, 44 px targets and 400 px layout;
 they do not claim a design-canvas pixel match or native five-platform execution.
+
+### WP4 review corrections and manual keychain checks
+
+Production credential initialization remains lazy: startup/listing never probes
+the OS store. Only Linux may fall back to a session MemoryStore on a failed
+credential probe. macOS/Windows retain Keychain semantics and denied/cancelled
+operations fail with a helpful pairing error. Scratch profiles explicitly use
+MemoryStore on every OS unless the debug-only
+`PLUR1BUS_DESKTOP_REAL_KEYCHAIN=1` is selected. That opt-in **requires**
+`PLUR1BUS_DESKTOP_CONFIG_DIR`; it cannot select the production service.
+
+`DebugKeychainProfile` stores a random `app.plur1bus.test.<uuid>` service name in
+`test-keychain-service` and account names in `test-keychain-accounts.json` in that
+scratch directory. These are public metadata; no token is written. The service
+survives app restart so a manual pair → restart → open can test persistence.
+After the complete manual check, call the debug `cleanup_debug_keychain(dir)`
+hook with the opt-in still enabled (or use the ignored round-trip test, whose
+cleanup guard removes the test entries even after a failed assertion). The
+service must not be cleaned at app shutdown before the restart check. There is
+no new IPC command for credentials or cleanup.
+
+The earlier native scratch check exercised **MemoryStore only**. Real macOS
+Keychain, Windows Credential Manager and Linux Secret Service round-trip and
+native restart checks remain unverified; ordinary tests use injected stores,
+never a real keychain. The ignored real test refuses `CI` environments.
+
+Credential mutations remain serialized while their synchronous keychain work
+runs on blocking workers. Argon2 also runs via `spawn_blocking`. API-version
+incompatibility includes only bounded public numeric server/client versions.
+CA availability errors preserve stored trust and are retryable; valid differing
+CA responses and actual rejected TLS trust can require repair. Current OS trust
+remains valid while a next pin is staged; explicit current pins stay fail-closed.
+
+Native CLI install discovery remains an owner question for WP13: the currently
+specified `~/.local/bin/plur1bus` and Windows local-app-data location also belong
+to the future app shim. No alternative native install location is invented here.
+Until installer-owned native identity metadata is specified, these paths remain
+the pre-WP13 native assumption and must be revisited before the shim ships.
+Store writes are serialized within this app process; cross-process serialization
+is deferred to the WP6 single-instance lifecycle. The existing Windows CRT shim
+relocation remains a documented build-system deviation needed by Windows x64.

@@ -49,13 +49,29 @@ fn real_keychain_round_trip() {
         std::env::var("PLUR1BUS_DESKTOP_REAL_KEYCHAIN").as_deref(),
         Ok("1")
     );
-    let store = KeyringStore::with_service(format!("app.plur1bus.test.{}", uuid::Uuid::now_v7()));
+    assert!(
+        std::env::var_os("CI").is_none(),
+        "real keychain test is forbidden in CI"
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let profile = DebugKeychainProfile::open(dir.path()).unwrap();
+    struct Cleanup<'a>(&'a DebugKeychainProfile);
+    impl Drop for Cleanup<'_> {
+        fn drop(&mut self) {
+            let _ = self
+                .0
+                .cleanup(&KeyringStore::with_service(self.0.service.clone()));
+        }
+    }
+    let _cleanup = Cleanup(&profile);
+    let store = profile.wrap(Box::new(KeyringStore::with_service(
+        profile.service.clone(),
+    )));
     let value = SecretString::new(uuid::Uuid::now_v7().to_string());
     store.set("roundtrip", &value).unwrap();
-    let got = store.get("roundtrip");
-    let removed = store.delete("roundtrip");
-    assert!(removed.is_ok());
-    assert!(got.unwrap().unwrap().expose() == value.expose());
+    assert!(store.get("roundtrip").unwrap().unwrap().expose() == value.expose());
+    profile.cleanup(&store).unwrap();
+    assert!(store.get("roundtrip").unwrap().is_none());
 }
 #[test]
 fn legacy_row_keeps_persistent_cleanup_obligation_even_with_memory_token() {
@@ -294,4 +310,90 @@ fn scratch_memory_cleanup_backend_cannot_claim_persistent_deletion() {
     // The debug scratch factory supplies this backend without constructing a keyring.
     assert!(pair::remove_connection(&store, row.id, None, &MemoryStore::default()).is_err());
     assert!(store.load().unwrap()[0].pending_keychain_cleanup);
+}
+
+#[test]
+fn real_keychain_opt_in_precedes_scratch_memory_without_os_access() {
+    assert_eq!(select_debug_backend(true, true), DebugBackend::TestKeychain);
+    assert_eq!(select_debug_backend(false, true), DebugBackend::Memory);
+    assert_eq!(select_debug_backend(false, false), DebugBackend::Production);
+    assert_eq!(select_debug_backend(true, false), DebugBackend::Refused);
+}
+#[test]
+fn random_test_service_survives_restart_and_cleanup_uses_public_ledger_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = DebugKeychainProfile::open(dir.path()).unwrap();
+    let other = tempfile::tempdir().unwrap();
+    assert_ne!(
+        profile.service,
+        DebugKeychainProfile::open(other.path()).unwrap().service
+    );
+    let store = profile.wrap(Box::<MemoryStore>::default());
+    let secret = SecretString::new(uuid::Uuid::now_v7().to_string());
+    store.set("device-test", &secret).unwrap();
+    let restarted = DebugKeychainProfile::open(dir.path()).unwrap();
+    assert_eq!(profile.service, restarted.service);
+    for entry in std::fs::read_dir(dir.path()).unwrap() {
+        assert!(!std::fs::read_to_string(entry.unwrap().path())
+            .unwrap()
+            .contains(secret.expose()));
+    }
+    assert!(restarted.cleanup(&Denied).is_err());
+    restarted.cleanup(&store).unwrap();
+    assert!(store.get("device-test").unwrap().is_none());
+}
+#[test]
+fn only_linux_may_fall_back_after_probe_failure() {
+    let mac_or_windows = open_for_platform(Box::new(Denied), false);
+    assert_eq!(mac_or_windows.kind(), StoreKind::Keychain);
+    assert!(matches!(
+        mac_or_windows.get("device-test"),
+        Err(TokenError::AccessDenied)
+    ));
+    assert_eq!(
+        open_for_platform(Box::new(Denied), true).kind(),
+        StoreKind::MemoryOnly
+    );
+}
+#[test]
+fn keyring_errors_are_classified_without_echoing_backend_payloads() {
+    assert_eq!(map_error(keyring::Error::NoEntry), TokenError::NotFound);
+    assert_eq!(
+        map_error(keyring::Error::PlatformFailure(Box::new(
+            std::io::Error::from(std::io::ErrorKind::PermissionDenied)
+        ))),
+        TokenError::AccessDenied
+    );
+    assert!(matches!(
+        map_error(keyring::Error::NoStorageAccess(Box::new(
+            std::io::Error::from(std::io::ErrorKind::NotConnected)
+        ))),
+        TokenError::Unavailable(_)
+    ));
+    assert!(matches!(
+        map_error(keyring::Error::NoDefaultStore),
+        TokenError::Unavailable(_)
+    ));
+    assert!(matches!(
+        map_error(keyring::Error::PlatformFailure(Box::new(
+            std::io::Error::from(std::io::ErrorKind::NotConnected)
+        ))),
+        TokenError::Unavailable(_)
+    ));
+    let payload = uuid::Uuid::now_v7().to_string();
+    let error = map_error(keyring::Error::BadEncoding(payload.as_bytes().to_vec()));
+    assert!(matches!(error, TokenError::Other(_)));
+    assert!(!format!("{error:?}").contains(&payload));
+}
+#[cfg(target_os = "macos")]
+#[test]
+fn macos_cancel_and_auth_denial_are_access_denied_without_keychain_access() {
+    for code in [-128, -25293, -25308] {
+        assert_eq!(
+            map_error(keyring::Error::PlatformFailure(Box::new(
+                security_framework::base::Error::from_code(code)
+            ))),
+            TokenError::AccessDenied
+        );
+    }
 }

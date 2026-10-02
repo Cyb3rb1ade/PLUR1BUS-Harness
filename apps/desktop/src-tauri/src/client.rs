@@ -24,7 +24,10 @@ use std::{
 pub enum ClientError {
     Revoked,
     Unauthorized,
-    Incompatible,
+    Incompatible {
+        server: String,
+        client: &'static str,
+    },
     MissingCapability,
     InstallationMismatch,
     CertChanged,
@@ -32,6 +35,7 @@ pub enum ClientError {
     CaNotKnown,
     ProofMismatch,
     Network,
+    TrustUnavailable,
     Protocol,
 }
 #[derive(Debug, Deserialize)]
@@ -219,9 +223,7 @@ impl HarnessClient {
         client.next_cert = c.next_cert_pin.clone();
         client.next_ca = c.next_ca_pin.clone();
         client.prepare().await.map_err(|e| match e {
-            ClientError::ProofMismatch | ClientError::Protocol | ClientError::Untrusted => {
-                ClientError::CaNotKnown
-            }
+            ClientError::ProofMismatch => ClientError::CaNotKnown,
             other => other,
         })?;
         Ok(client)
@@ -251,10 +253,7 @@ impl HarnessClient {
             current: self.cert.clone(),
             next: self.next_cert.clone(),
             bootstrap,
-            allow_os: self.cert.is_none()
-                && self.ca.is_none()
-                && self.next_cert.is_none()
-                && self.next_ca.is_none(),
+            allow_os: self.cert.is_none() && self.ca.is_none(),
             observed: self.observed.clone(),
         };
         let tls = rustls::ClientConfig::builder_with_provider(Arc::new(
@@ -305,7 +304,7 @@ impl HarnessClient {
             && self.next_cert.is_none()
             && ca.is_none()
             && next.is_none()
-            && (self.ca.is_some() || self.next_ca.is_some())
+            && self.ca.is_some()
         {
             return Err(failure);
         }
@@ -387,7 +386,20 @@ impl HarnessClient {
     pub async fn meta(&self) -> Result<Meta, ClientError> {
         let meta: Meta = self.request(route::META, None, None).await?;
         if meta.api_version.split('.').next() != Some("1") {
-            return Err(ClientError::Incompatible);
+            // Only the public dotted numeric API version may cross IPC, never an
+            // arbitrary server string (which could contain credentials or markup).
+            if meta.api_version.len() > 32
+                || !meta
+                    .api_version
+                    .split('.')
+                    .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+            {
+                return Err(ClientError::Protocol);
+            }
+            return Err(ClientError::Incompatible {
+                server: meta.api_version,
+                client: "1.0.0",
+            });
         }
         if !meta
             .capabilities
@@ -492,15 +504,21 @@ impl HarnessClient {
             .query(&[("pin", pin.as_str())])
             .send()
             .await
-            .map_err(|_| ClientError::Network)?;
-        let bytes = self.bytes(response, trust::MAX_CA).await?;
+            .map_err(|_| ClientError::TrustUnavailable)?;
+        // Bootstrap transport is unauthenticated: a failed or malformed response
+        // proves nothing about the saved trust. Only a valid CA with a different
+        // digest is a cryptographic mismatch. Never persist bootstrap payloads.
+        let bytes = self
+            .bytes(response, trust::MAX_CA)
+            .await
+            .map_err(|_| ClientError::TrustUnavailable)?;
+        let (remaining, cert) = x509_parser::parse_x509_certificate(&bytes)
+            .map_err(|_| ClientError::TrustUnavailable)?;
+        if !remaining.is_empty() || !cert.is_ca() || !cert.validity().is_valid() {
+            return Err(ClientError::TrustUnavailable);
+        }
         if CertPin::of(&bytes) != *pin {
             return Err(ClientError::ProofMismatch);
-        }
-        let (remaining, cert) =
-            x509_parser::parse_x509_certificate(&bytes).map_err(|_| ClientError::CaNotKnown)?;
-        if !remaining.is_empty() || !cert.is_ca() || !cert.validity().is_valid() {
-            return Err(ClientError::CaNotKnown);
         }
         Ok(bytes)
     }
@@ -539,7 +557,12 @@ impl HarnessClient {
             .map(CertPin::parse)
             .transpose()
             .map_err(|_| ClientError::ProofMismatch)?;
-        let key = trust::key(code, &proof.salt).map_err(|_| ClientError::ProofMismatch)?;
+        let code = SecretString::new(code.to_owned());
+        let salt = proof.salt.clone();
+        let key = tokio::task::spawn_blocking(move || trust::key(code.expose(), &salt))
+            .await
+            .map_err(|_| ClientError::Protocol)?
+            .map_err(|_| ClientError::ProofMismatch)?;
         trust::verify(&*key, pin.as_str(), self.origin.as_str(), &nonce, &proof)
             .map_err(|_| ClientError::ProofMismatch)?;
         Ok((pin, ca))
@@ -599,7 +622,7 @@ impl HarnessClient {
                 return Err(ClientError::Protocol);
             }
             frame.extend_from_slice(&chunk);
-            while let Some(end) = frame.windows(2).position(|w| w == b"\n\n") {
+            while let Some((end, separator)) = sse_frame_end(&frame) {
                 let event =
                     std::str::from_utf8(&frame[..end]).map_err(|_| ClientError::Protocol)?;
                 if event.lines().any(|line| {
@@ -608,7 +631,7 @@ impl HarnessClient {
                 }) {
                     return Ok(());
                 }
-                frame.drain(..end + 2);
+                frame.drain(..end + separator);
             }
         }
         Err(ClientError::Network)
@@ -618,6 +641,9 @@ impl HarnessClient {
         c: &mut Connection,
         token: &SecretString,
     ) -> Result<(), ClientError> {
+        if self.origin != c.origin {
+            return Err(ClientError::Protocol);
+        }
         self.check_meta(&c.installation_id).await?;
         let next: trust::Trust = self.request(trust::TRUST, None, Some(token)).await?;
         let parse = |v: Option<String>| {
@@ -696,6 +722,9 @@ impl HarnessClient {
         Ok(())
     }
     pub async fn ack_trust(&self, c: &Connection, token: &SecretString) -> Result<(), ClientError> {
+        if self.origin != c.origin {
+            return Err(ClientError::Protocol);
+        }
         if c.next_cert_pin.is_none() && c.next_ca_pin.is_none() {
             return Ok(());
         }
@@ -712,5 +741,26 @@ impl HarnessClient {
             )
             .await?;
         Ok(())
+    }
+}
+
+fn sse_frame_end(frame: &[u8]) -> Option<(usize, usize)> {
+    (0..frame.len()).find_map(|i| {
+        if frame[i..].starts_with(b"\r\n\r\n") {
+            Some((i, 4))
+        } else if frame[i..].starts_with(b"\n\n") {
+            Some((i, 2))
+        } else {
+            None
+        }
+    })
+}
+#[cfg(test)]
+mod framing_tests {
+    #[test]
+    fn sse_accepts_lf_and_crlf_including_split_delimiter() {
+        assert_eq!(super::sse_frame_end(b"event: x\n\n"), Some((8, 2)));
+        assert_eq!(super::sse_frame_end(b"event: x\r\n\r\n"), Some((8, 4)));
+        assert_eq!(super::sse_frame_end(b"event: x\r\n\r"), None);
     }
 }

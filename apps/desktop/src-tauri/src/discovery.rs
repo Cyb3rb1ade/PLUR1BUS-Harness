@@ -29,7 +29,14 @@ pub fn state_root() -> Option<PathBuf> {
     }
 }
 pub fn discover(root: &Path, alive: impl Fn(u32) -> bool) -> Option<Discovery> {
-    let file = std::fs::File::open(root.join("run/api.json")).ok()?;
+    discover_with_opener(root, alive, std::fs::File::open)
+}
+pub fn discover_with_opener<R: Read>(
+    root: &Path,
+    alive: impl Fn(u32) -> bool,
+    open: impl FnOnce(PathBuf) -> std::io::Result<R>,
+) -> Option<Discovery> {
+    let file = open(root.join("run/api.json")).ok()?;
     let mut bytes = Vec::new();
     file.take(8193).read_to_end(&mut bytes).ok()?;
     if bytes.len() > 8192 {
@@ -60,7 +67,8 @@ pub fn alive(pid: u32) -> bool {
         if pid == 0 || pid > i32::MAX as u32 {
             return false;
         }
-        unsafe { libc::kill(pid as i32, 0) == 0 }
+        (unsafe { libc::kill(pid as i32, 0) == 0 })
+            || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
     }
     #[cfg(windows)]
     {

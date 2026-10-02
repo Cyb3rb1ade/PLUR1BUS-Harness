@@ -19,3 +19,9 @@ test("pairing-model maps every reachable error and requires start before success
     assert.equal(transition({ phase: "idle" }, "success").phase, "idle");
     assert.equal(transition({ phase: "pairing" }, "success").phase, "paired");
 });
+
+test("incompatible failures show only bounded public API versions", () => {
+    assert.deepEqual(pairingFailure("incompatible:2.3.4:1.0.0").versions, { server: "2.3.4", client: "1.0.0" });
+    assert.equal(pairingFailure("incompatible:arbitrary payload:1.0.0").versions, undefined);
+    assert.equal(pairingFailure("trust-unavailable").retry, "retry");
+});

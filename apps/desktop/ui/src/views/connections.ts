@@ -8,7 +8,7 @@ import { addRemote, type Translate } from "./add-remote.ts";
 import { pairingFailure } from "../models/pairing-model.ts";
 export function connectionsView(transport: DesktopTransport, translate: Translate, snapshot: () => ConnectionSnapshot, refresh: () => Promise<void>): () => HTMLElement {
     let data: ConnectionList = { connections: [], active: null, tokenStore: null };
-    let error: string | null = null;
+    let error: unknown = null;
     let mode: "list" | "add" | "native" = "list";
     let repair: Connection | undefined;
     let selected: string | null = null;
@@ -16,9 +16,9 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
     let mount: HTMLElement | null = null;
     let t = translate;
     function paired(result: Paired) { mode = "list"; repair = undefined; selected = result.connection.id; error = null; void refresh(); paint(); }
-    function fail(e: unknown) { error = pairingFailure(e).error; void refresh(); paint(); }
+    function fail(e: unknown) { opened = false; error = e; void refresh(); paint(); }
     function formFocus() { queueMicrotask(() => mount?.querySelector<HTMLInputElement>("input:not([readonly])")?.focus()); }
-    function startAdd(row?: Connection) { mode = "add"; repair = row; error = null; paint(); formFocus(); }
+    function startAdd(row?: Connection) { opened = false; mode = "add"; repair = row; error = null; paint(); formFocus(); }
     function paint() {
         if (!mount)
             return;
@@ -29,8 +29,10 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             mount.append(banner(t(state.status === "loading" ? "connections.loading" : "connections.loadError"), state.status === "error" ? "error" : "info"));
         if (data.tokenStore === "memory-only")
             mount.append(banner(t("pair.error.keychain-memory-only")));
-        if (error)
-            mount.append(banner(t(`pair.error.${pairingFailure(error).error}`), "error"));
+        if (error) {
+            const failure = pairingFailure(error);
+            mount.append(banner(t(`pair.error.${failure.error}`) + (failure.versions ? ` ${t("pair.apiVersions", failure.versions)}` : ""), "error"));
+        }
         if (opened)
             mount.append(banner(t("connections.selected")));
         if (mode === "add") {
@@ -65,7 +67,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             return;
         }
         const actions = element("div", "connection-actions");
-        append(actions, button(t("pair.add"), () => startAdd(), "primary"), button(t("pair.native"), () => { mode = "native"; error = null; paint(); formFocus(); }), button(t("connections.refresh"), () => void refresh()));
+        append(actions, button(t("pair.add"), () => startAdd(), "primary"), button(t("pair.native"), () => { opened = false; mode = "native"; error = null; paint(); formFocus(); }), button(t("connections.refresh"), () => void refresh()));
         mount.append(actions);
         const layout = element("div", "connections-layout");
         const list = element("aside", "connections-side");
@@ -99,7 +101,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             if (row.nextCertPin || row.nextCaPin)
                 main.append(banner(t("connections.trustNext")));
             const buttons = element("div", "connection-actions");
-            append(buttons, button(t("connections.open"), async () => { try {
+            append(buttons, button(t("connections.open"), async () => { opened = false; try {
                 const result = await transport.openConnection(row.id);
                 opened = result.selected && !result.spa_available;
                 error = null;
@@ -134,7 +136,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         append(layout, list, main, detail);
         mount.append(layout);
     }
-    function rename(row: Connection) { if (!mount)
+    function rename(row: Connection) { opened = false; if (!mount)
         return; const form = element("form", "page-card pairing-form"); const label = element("label", "field"); label.htmlFor = "rename-name"; const input = element("input"); input.id = "rename-name"; input.value = row.name; input.required = true; input.maxLength = 120; append(label, element("span", undefined, t("pair.name")), input); form.append(label); const save = button(t("connections.save"), () => { }, "primary"); save.type = "submit"; append(form, save, button(t("pair.cancel"), paint)); form.addEventListener("submit", async (e) => { e.preventDefault(); save.disabled = true; try {
         await transport.connectionsRename(row.id, input.value);
         await refresh();
@@ -142,7 +144,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
     catch (e) {
         fail(e);
     } }); mount.replaceChildren(form); formFocus(); }
-    function remove(row: Connection) { if (!mount)
+    function remove(row: Connection) { opened = false; if (!mount)
         return; const card = element("section", "page-card"); append(card, element("h2", undefined, t("connections.remove")), element("p", undefined, t("connections.removeConfirm", { name: row.name })), button(t("pair.cancel"), paint), button(t("connections.remove"), async () => { try {
         await transport.connectionsRemove(row.id);
         selected = null;
@@ -151,5 +153,5 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
     catch (e) {
         fail(e);
     } }, "primary")); mount.replaceChildren(card); queueMicrotask(() => card.querySelector<HTMLButtonElement>("button")?.focus()); }
-    return () => { t = translate; mount = element("div", "connections-workspace"); paint(); return mount; };
+    return () => { t = translate; mount = element("div", "connections-workspace"); paint(); mount.querySelectorAll<HTMLElement>("button").forEach((node, index) => { node.dataset.focusKey = `connections-${index}`; }); return mount; };
 }
