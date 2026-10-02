@@ -266,7 +266,7 @@ def atomic_write_text(path: str, text: str, *, mode: int = 0o600, retry_s: float
                 os.replace(tmp, path)
                 break
             except PermissionError as e:
-                transient = getattr(e, "winerror", None) in (5, 32) or e.errno in (errno.EACCES, errno.EPERM, errno.EBUSY)
+                transient = getattr(e, "winerror", None) in (5, 32, 33) or e.errno in (errno.EACCES, errno.EPERM, errno.EBUSY)
                 if not transient or time.monotonic() >= deadline:
                     raise
                 time.sleep(delay)

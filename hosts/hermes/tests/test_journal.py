@@ -2,9 +2,13 @@ import json
 import os
 import shutil
 import tempfile
+import errno
 import threading
+import time
 import unittest
+from unittest import mock
 
+import plur1bus.journal as journal_mod
 from plur1bus._client import pmc
 from plur1bus.journal import JOURNAL_CODES, CaptureJournal
 
@@ -175,6 +179,130 @@ class JournalTest(unittest.TestCase):
         self.assertNotIn("turn", json.dumps(state))
         j.note_error(None)
         self.assertIsNone(j.last_error())
+
+
+
+
+class JournalSharingTest(unittest.TestCase):
+    """Windows: a file being replaced or deleted, or open in a reader without FILE_SHARE_DELETE, refuses opens,
+    renames and unlinks for a moment (CI windows-2025: PermissionError in counts() during a drain rewrite)."""
+
+    def setUp(self) -> None:
+        self.dir = os.path.join(tempfile.mkdtemp(prefix="p1h-js-"), "plur1bus")
+        self.addCleanup(shutil.rmtree, os.path.dirname(self.dir), ignore_errors=True)
+
+    def _flaky_open(self, failures: int):
+        """A stand-in for the journal's one read primitive that fails ``failures`` times first."""
+        real_read = journal_mod._read_once
+        left = [failures]
+
+        def fake(path):
+            if left[0] > 0:
+                left[0] -= 1
+                raise PermissionError(errno.EACCES, "Permission denied", str(path))
+            return real_read(path)
+
+        return fake, left
+
+    def test_reads_retry_sharing_errors_on_windows(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        j.reject()
+        fake, left = self._flaky_open(4)
+        with mock.patch.object(journal_mod, "_WINDOWS", True), mock.patch.object(journal_mod, "_read_once", fake):
+            self.assertEqual(j.counts(), {"queued": 1, "dropped": 0, "rejected": 1, "lost": 0})
+        self.assertEqual(left[0], 0, "the transient failures were retried, not swallowed")
+
+    def test_readers_never_raise_and_writers_never_reset_counters_past_the_budget(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        j.reject()
+        fake, _ = self._flaky_open(10**9)
+        with mock.patch.object(journal_mod, "_WINDOWS", True), mock.patch.object(journal_mod, "SHARING_RETRY_S", 0.05), mock.patch.object(
+            journal_mod, "_read_once", fake
+        ):
+            with self.assertLogs("plur1bus", "INFO"):
+                self.assertEqual(j.counts()["queued"], 0)  # status keeps working
+            self.assertIsNone(j.last_error())
+            with self.assertRaises(PermissionError):
+                j.reject()  # a read-modify-write must not overwrite the counters with {}
+        self.assertEqual(j.counts(), {"queued": 1, "dropped": 0, "rejected": 1, "lost": 0})
+
+    def test_posix_permission_errors_are_not_retried(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        fake, left = self._flaky_open(1)
+        with mock.patch.object(journal_mod, "_WINDOWS", False), mock.patch.object(journal_mod, "_read_once", fake):
+            with self.assertRaises(PermissionError):
+                j._read_lines()
+        self.assertEqual(left[0], 0)
+
+    @unittest.skipUnless(os.name == "nt", "Windows sharing semantics")
+    def test_reader_and_writers_race_on_windows(self) -> None:
+        """Real Windows race: status pollers read while the writer appends, rewrites with os.replace (drain)
+        and unlinks the emptied file. On Windows the shared-delete reader never blocks the writer; Wine refuses
+        a replace over any open target, so there the writer's own retry (atomic_write_text) covers it."""
+        j = CaptureJournal(self.dir)
+        errors: list[BaseException] = []
+        stop = threading.Event()
+
+        def reader() -> None:
+            while not stop.is_set():
+                try:
+                    j.counts()
+                except BaseException as e:  # noqa: BLE001
+                    errors.append(e)
+                    return
+                time.sleep(0.01)  # a status poller, not a busy loop
+
+        readers = [threading.Thread(target=reader) for _ in range(2)]
+        for t in readers:
+            t.start()
+        try:
+            for i in range(30):
+                for k in range(3):
+                    j.append(_entry(i * 3 + k))
+                j.drain(lambda e: None, batch=2)  # rewrites (os.replace) then unlinks the empty file
+        finally:
+            stop.set()
+            for t in readers:
+                t.join(10)
+        self.assertEqual(errors, [])
+        self.assertEqual(j.counts()["queued"], 0)
+
+    @unittest.skipUnless(os.name == "nt", "Windows delete-pending semantics")
+    def test_delete_pending_journal_is_waited_out_on_windows(self) -> None:
+        """Deterministic: another process's handle (FILE_SHARE_DELETE) keeps the unlinked journal
+        delete-pending, so opens fail with access denied until it closes."""
+        import ctypes
+        from ctypes import wintypes
+
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.CreateFileW.restype = wintypes.HANDLE
+        k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+        k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        generic_read, share_all, open_existing = 0x80000000, 0x7, 3
+        h = k32.CreateFileW(j.path, generic_read, share_all, None, open_existing, 0, None)
+        self.assertNotIn(h, (None, wintypes.HANDLE(-1).value), ctypes.get_last_error())
+        os.unlink(j.path)  # delete-pending while h is open
+        try:
+            with open(j.path, "rb"):
+                pending = False
+        except PermissionError:
+            pending = True
+        except FileNotFoundError:
+            pending = False
+        if not pending:
+            k32.CloseHandle(h)
+            self.skipTest("this platform (e.g. Wine) does not keep an unlinked open file delete-pending")
+        threading.Timer(0.3, k32.CloseHandle, args=(h,)).start()
+        start = time.monotonic()
+        self.assertEqual(j.counts()["queued"], 0)
+        j.append(_entry(1))  # O_CREAT on a delete-pending name is retried too
+        self.assertEqual(j.counts()["queued"], 1)
+        self.assertGreater(time.monotonic() - start, 0.2, "the read waited for the handle to close")
 
 
 if __name__ == "__main__":
