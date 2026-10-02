@@ -24,7 +24,9 @@ the fixture, times a graceful stop, and removes only its own objects.
 The standalone binary can be run with `--port`, `--bind`, and `--state-dir`.
 Default bind is loopback. In tests, `MockHarness::start(MockOptions)` gives a
 control handle for pair codes, status/secrets, meta changes, SSE disconnect,
-revocation, and upgrade failure injection. `fake-plur1bus` reads an optional
+revocation, and upgrade failure injection. The image does not expose the
+`/__test/*` routes by default. A disposable test container can explicitly set
+`PLUR1BUS_DESKTOP_TEST_CONTROL=1` if its fake CLI needs them. `fake-plur1bus` reads an optional
 `PLUR1BUS_FAKE_SCENARIO` JSON file and records argv to `PLUR1BUS_FAKE_RECORD`
 or `<PLUR1BUS_HOME>/mock-argv.jsonl`. Never pass a bearer token through argv.
 

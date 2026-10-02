@@ -17,9 +17,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "--state-dir" => {
                 options.state_dir = Some(PathBuf::from(args.next().ok_or("missing state-dir")?))
             }
+            "--test-control" => options.test_control = true,
             _ => return Err(format!("unsupported argument: {arg}").into()),
         }
     }
+    options.test_control |= std::env::var("PLUR1BUS_DESKTOP_TEST_CONTROL").as_deref() == Ok("1");
+    options.approvals_decide |=
+        std::env::var("PLUR1BUS_DESKTOP_APPROVALS_DECIDE").as_deref() == Ok("1");
     options.bind = SocketAddr::new(bind, port);
     let handle = MockHarness::start(options).await?;
     println!("{}", handle.origin);

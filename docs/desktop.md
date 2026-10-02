@@ -27,14 +27,22 @@ It does not yet connect the empty WP1 window to the mock. WP4 adds the
 connection flow; WP5 adds the SPA window and native `shell_info` bridge.
 For a standalone
 server, run `cargo run --locked -p plur1bus-mock-harness -- --port 18700`
-from `apps/desktop`; bind defaults to loopback. Its test-only pairing endpoint
-is `POST /__test/pair` with body `{}`. The executable contract and state rules
+from `apps/desktop`; bind defaults to loopback. The test-only pairing endpoint
+is absent by default. For a scratch test, add `--test-control`, then call
+`POST /__test/pair` with a known-scope body. `pnpm tauri dev` enables this seam
+for its local fake CLI. Approval decision calls additionally need a debug build
+and `PLUR1BUS_DESKTOP_APPROVALS_DECIDE=1`; regular runs can list synthetic
+pending approvals but cannot decide them. The executable contract and state rules
 are in [CONTRACT.md](../apps/desktop/mock-harness/CONTRACT.md).
 
 The fake Rust binaries (`fake-plur1bus`, `fake-container`) run on all desktop
 test targets and accept exact JSON scenario files through
 `PLUR1BUS_FAKE_SCENARIO`. Each invocation records argv to the scratch path in
 `PLUR1BUS_FAKE_RECORD`; no bearer token belongs in an exec argument.
+The native discovery fixture writer is limited to a caller-owned temporary
+directory and emits only `run/api.json`; WP4 adds the real native attach reader.
+The [CLI fixtures](../apps/desktop/test-bins/fixtures/README.md) are synthetic
+and checked against the harness's Rust output fields.
 
 The [stub image instructions](../apps/desktop/stub-image/README.md) provide
 `build.mjs` and an opt-in Docker/Podman `smoke.mjs`. The smoke creates only
@@ -57,6 +65,8 @@ The bundled shell has a restrictive CSP and no granted native IPC commands.
 No native plugins, networking, permissions, telemetry or keychain integration
 are enabled in the shell yet. The window stays hidden until its page finishes loading. Stable
 integration identifiers live in `src-tauri/src/ids.rs`.
+The independent `desktop-contract` crate supplies the provisional scope,
+capability, route and fixed exec-argv names to the shell, mock and fake binaries.
 
 The icons are explicit synthetic placeholders pending DskIcons exports. The
 five-target `desktop` workflow builds preview packages with seven-day retention.

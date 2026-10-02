@@ -392,14 +392,23 @@ async fn frames_over_64k_close() {
             .unwrap(),
     );
     let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
-    socket
-        .send(Message::Text("x".repeat(65_537).into()))
-        .await
-        .unwrap();
+    let frame =
+        serde_json::json!({"type":"bridge.hello","capabilities":[],"pad":"x".repeat(65_537)})
+            .to_string();
+    assert!(frame.len() > 65_536);
+    socket.send(Message::Text(frame.into())).await.unwrap();
     let message = tokio::time::timeout(std::time::Duration::from_secs(2), socket.next())
         .await
         .unwrap();
-    assert!(!matches!(message, Some(Ok(Message::Text(_)))));
+    match message {
+        Some(Ok(Message::Close(Some(frame)))) => assert_eq!(u16::from(frame.code), 1009),
+        Some(Err(tokio_tungstenite::tungstenite::Error::Io(error)))
+            if error.kind() == std::io::ErrorKind::ConnectionReset => {}
+        Some(Err(tokio_tungstenite::tungstenite::Error::Protocol(
+            tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+        ))) => {}
+        other => panic!("oversized frame must be rejected by close 1009 or a reset, got {other:?}"),
+    }
 }
 
 #[tokio::test]
@@ -449,7 +458,12 @@ async fn persisted_state_contains_hashes_but_no_token() {
 
 #[tokio::test]
 async fn upgrade_failure_control_is_visible_to_fake_exec() {
-    let server = MockHarness::start(MockOptions::default()).await.unwrap();
+    let server = MockHarness::start(MockOptions {
+        test_control: true,
+        ..Default::default()
+    })
+    .await
+    .unwrap();
     server.control.inject_upgrade_failure(Some("smoke"));
     let response = reqwest::Client::new()
         .post(format!("{}/__test/failure", server.origin))

@@ -26,7 +26,7 @@ try {
     if (built !== 0) process.exit(built);
     stateDir = await mkdtemp(resolve(tmpdir(), 'p1t-desktop-dev-'));
     const exe = resolve(root, 'target/debug/plur1bus-mock-harness' + (process.platform === 'win32' ? '.exe' : ''));
-    mock = spawn(exe, ['--port', '18700', '--state-dir', stateDir], { cwd: root, stdio: ['ignore', 'pipe', 'inherit'] });
+    mock = spawn(exe, ['--port', '18700', '--state-dir', stateDir, '--test-control'], { cwd: root, stdio: ['ignore', 'pipe', 'inherit'] });
     mockDone = wait(mock).catch(() => 1);
     await new Promise((resolve, reject) => {
       mock.once('error', reject);

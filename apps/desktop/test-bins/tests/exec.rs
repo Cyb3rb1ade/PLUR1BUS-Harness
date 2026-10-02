@@ -58,6 +58,7 @@ async fn pair_and_revoke_share_mock_state_without_recording_token() {
     let dir = tempfile::tempdir().unwrap();
     let server = plur1bus_mock_harness::MockHarness::start(plur1bus_mock_harness::MockOptions {
         state_dir: Some(dir.path().join("state")),
+        test_control: true,
         ..Default::default()
     })
     .await
@@ -118,6 +119,61 @@ async fn pair_and_revoke_share_mock_state_without_recording_token() {
     assert!(!fs::read_to_string(record)
         .unwrap()
         .contains(issued["token"].as_str().unwrap()));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn native_pair_exec_cannot_gain_bridge_scope_or_key_grant() {
+    let scratch = tempfile::tempdir().unwrap();
+    let server = plur1bus_mock_harness::MockHarness::start(plur1bus_mock_harness::MockOptions {
+        test_control: true,
+        state_dir: Some(scratch.path().to_path_buf()),
+        ..Default::default()
+    })
+    .await
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_fake-plur1bus"))
+        .args(plur1bus_desktop_contract::exec::native_pair(
+            "native desktop",
+        ))
+        .env("PLUR1BUS_FAKE_ORIGIN", &server.origin)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let code: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let issued: serde_json::Value = reqwest::Client::new()
+        .post(format!("{}/api/v1/devices/redeem", server.origin))
+        .json(&serde_json::json!({"code":code["code"],"name":"native","kind":"desktop"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let who: serde_json::Value = reqwest::Client::new()
+        .get(format!("{}/api/v1/auth/whoami", server.origin))
+        .bearer_auth(issued["token"].as_str().unwrap())
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        who["scopes"],
+        serde_json::json!(["ui.session", "events.read"])
+    );
+    let state: serde_json::Value =
+        serde_json::from_slice(&fs::read(scratch.path().join("mock-state.json")).unwrap()).unwrap();
+    let id = issued["deviceId"].as_str().unwrap();
+    assert_eq!(state["devices"][id]["grant_key_unlock"], false);
+    assert!(server
+        .control
+        .call_bridge(
+            issued["deviceId"].as_str().unwrap(),
+            "get",
+            serde_json::json!({})
+        )
+        .is_err());
 }
 
 #[test]

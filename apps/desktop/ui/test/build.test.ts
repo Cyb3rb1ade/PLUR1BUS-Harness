@@ -13,8 +13,10 @@ test("static shell builds with a local external script and no inline execution",
     const html = await readFile(join(output, "index.html"), "utf8");
     const scripts = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)];
     assert.equal(scripts.length, 1);
-    assert.match(scripts[0][1], /src="\.\/main\.js"/);
-    assert.equal(scripts[0][2], "");
+    const script = scripts[0];
+    assert.ok(script);
+    assert.match(script[1] ?? "", /src="\.\/main\.js"/);
+    assert.equal(script[2], "");
     await readFile(join(output, "main.js"));
     assert.doesNotMatch(html, /https?:|onload=|onclick=/i);
   } finally {

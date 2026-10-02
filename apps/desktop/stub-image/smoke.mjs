@@ -56,11 +56,13 @@ try {
   }
   if (meta?.apiVersion !== '1.0.0' || !meta.installationId) throw new Error('mock meta did not become ready');
   const status = JSON.parse(cli(['exec', container, 'plur1bus', 'daemon', 'status', '--json']));
-  if (status.schema !== 'daemon.status/1' || status.supervisor !== 'running') throw new Error('wrong daemon status fixture');
+  if (status.schema !== 'daemon.status/1' || status.supervisor?.process?.state !== 'stopped' || !Array.isArray(status.children) || typeof status.service?.registered !== 'boolean') throw new Error('wrong daemon status fixture');
+  const firstaid = JSON.parse(cli(['exec', container, 'plur1bus', '1staid', 'check', '--json']));
+  if (firstaid.schema !== '1staid.check/1' || typeof firstaid.ok !== 'boolean' || !Array.isArray(firstaid.checks) || !firstaid.checks.every(row => typeof row.id === 'string' && typeof row.status === 'string' && typeof row.summary === 'string')) throw new Error('wrong firstaid check fixture');
   const started = Date.now();
   cli(['stop', '--time', '150', container], 155_000);
   if (Date.now() - started >= 150_000) throw new Error('stop exceeded 150 seconds');
-  console.log(`PASS: ${runtime} stub image; loopback meta, fixture exec, stop ${Date.now() - started} ms`);
+  console.log(`PASS: ${runtime} stub image; loopback meta, daemon and firstaid fixture exec, stop ${Date.now() - started} ms`);
 } catch (error) { console.error(`FAIL: ${error.message}`); process.exitCode = 1; }
 finally {
   if (created) { try { cli(['rm', '--force', container]); } catch (e) { console.error(`cleanup: ${e.message}`); process.exitCode = 1; } }

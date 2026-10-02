@@ -2,7 +2,7 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        State,
+        Path, Query, State,
     },
     http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response, Sse},
@@ -12,6 +12,7 @@ use axum::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::{DateTime, SecondsFormat, Utc};
 use futures_util::{stream, StreamExt};
+use plur1bus_desktop_contract::{capability, route as routes, scope};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -28,21 +29,15 @@ use std::{
 };
 use tokio::{net::TcpListener, sync::broadcast, task::AbortHandle};
 
-pub mod routes {
-    pub const META: &str = "/api/v1/meta";
-    pub const DEVICE_REDEEM: &str = "/api/v1/devices/redeem";
-    pub const SESSION_TICKET: &str = "/api/v1/auth/session-ticket";
-    pub const TICKET_REDEEM: &str = "/api/v1/auth/ticket/redeem";
-    pub const WHOAMI: &str = "/api/v1/auth/whoami";
-    pub const EVENTS: &str = "/events";
-    pub const BRIDGE: &str = "/ws";
-}
+pub use plur1bus_desktop_contract::route;
 
 #[derive(Clone)]
 pub struct MockOptions {
     pub bind: SocketAddr,
     pub state_dir: Option<PathBuf>,
     pub clock: Arc<AtomicI64>,
+    pub test_control: bool,
+    pub approvals_decide: bool,
 }
 impl Default for MockOptions {
     fn default() -> Self {
@@ -50,6 +45,8 @@ impl Default for MockOptions {
             bind: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
             state_dir: None,
             clock: Arc::new(AtomicI64::new(i64::MIN)),
+            test_control: false,
+            approvals_decide: false,
         }
     }
 }
@@ -98,6 +95,8 @@ struct Store {
     sessions: BTreeMap<String, String>,
     status: String,
     secrets: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
     provisioned: bool,
 }
 impl Store {
@@ -110,6 +109,7 @@ impl Store {
             sessions: BTreeMap::new(),
             status: "ready".into(),
             secrets: "locked".into(),
+            reason: None,
             provisioned: false,
         }
     }
@@ -122,17 +122,22 @@ struct Shared {
     reported_id: Mutex<Option<String>>,
     failure: Mutex<Option<String>>,
     key_unlock_enabled: AtomicBool,
+    approvals_decide: bool,
+    accepted_bridge: Mutex<BTreeMap<String, u32>>,
+    approvals: Mutex<BTreeMap<String, Value>>,
     redeem_attempts: Mutex<(i64, u32)>,
     event_id: AtomicU64,
-    event_history: Mutex<VecDeque<(u64, Value)>>,
+    event_history: Mutex<VecDeque<(u64, String, Value)>>,
     events: broadcast::Sender<Event>,
     bridge_commands: broadcast::Sender<BridgeCommand>,
     pending_bridge: Mutex<BTreeMap<String, (String, String)>>,
     bridge_results: Mutex<BTreeMap<String, Value>>,
+    origin: Mutex<Option<String>>,
+    bound_ip: IpAddr,
 }
 #[derive(Clone)]
 enum Event {
-    Status(u64, Value),
+    Data(u64, String, Value),
     Drop,
 }
 #[derive(Clone)]
@@ -141,6 +146,16 @@ enum BridgeCommand {
     Revoke(String),
 }
 impl Shared {
+    fn publish(&self, topic: &str, data: Value) {
+        let id = self.event_id.fetch_add(1, Ordering::SeqCst) + 1;
+        let mut history = self.event_history.lock().unwrap();
+        history.push_back((id, topic.into(), data.clone()));
+        if history.len() > 32 {
+            history.pop_front();
+        }
+        drop(history);
+        let _ = self.events.send(Event::Data(id, topic.into(), data));
+    }
     fn now(&self) -> i64 {
         let injected = self.clock.load(Ordering::SeqCst);
         if injected == i64::MIN {
@@ -151,8 +166,22 @@ impl Shared {
     }
     fn save(&self, store: &Store) -> io::Result<()> {
         if let Some(path) = &self.path {
-            let tmp = path.with_extension("next");
-            fs::write(&tmp, serde_json::to_vec(store)?)?;
+            let tmp = path.with_extension(format!("next-{}", random_id()));
+            let bytes = serde_json::to_vec(store)?;
+            #[cfg(unix)]
+            {
+                use std::io::Write;
+                use std::os::unix::fs::OpenOptionsExt;
+                let mut file = fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .open(&tmp)?;
+                file.write_all(&bytes)?;
+                file.sync_all()?;
+            }
+            #[cfg(not(unix))]
+            fs::write(&tmp, bytes)?;
             fs::rename(tmp, path)?;
         }
         Ok(())
@@ -181,6 +210,9 @@ impl MockHarness {
             reported_id: Mutex::new(None),
             failure: Mutex::new(None),
             key_unlock_enabled: AtomicBool::new(true),
+            approvals_decide: options.approvals_decide && cfg!(debug_assertions),
+            accepted_bridge: Mutex::new(BTreeMap::new()),
+            approvals: Mutex::new(BTreeMap::new()),
             redeem_attempts: Mutex::new((0, 0)),
             event_id: AtomicU64::new(1),
             event_history: Mutex::new(VecDeque::new()),
@@ -188,13 +220,16 @@ impl MockHarness {
             bridge_commands,
             pending_bridge: Mutex::new(BTreeMap::new()),
             bridge_results: Mutex::new(BTreeMap::new()),
+            origin: Mutex::new(None),
+            bound_ip: options.bind.ip(),
         });
         shared.save(&shared.store.lock().unwrap())?;
         let listener = TcpListener::bind(options.bind).await?;
         let origin = format!("http://{}", listener.local_addr()?);
+        *shared.origin.lock().unwrap() = Some(origin.clone());
         let serving = shared.clone();
         let task = tokio::spawn(async move {
-            let _ = axum::serve(listener, router(serving)).await;
+            let _ = axum::serve(listener, router(serving, options.test_control)).await;
         });
         Ok(MockHandle {
             origin,
@@ -206,6 +241,44 @@ impl MockHarness {
 }
 
 impl MockControl {
+    pub fn create_approval(&self, id: &str, summary: &str) {
+        let record = json!({
+            "id":id,"state":"pending","summary":summary,
+            "capability":capability::SYNTHETIC_APPROVAL_FS_READ,"effect":"read","flags":[],
+            "targets":["/p1t/synthetic-target"],"risk":"low",
+            "reversibility":"reversible","undo":"No change to undo",
+            "subject":{"agent":"p1t-agent","session":"p1t-session","task":"p1t-task"},
+            "principal":"p1t-owner","provenance":"synthetic test request",
+            "grantOptions":["once"],"actionHash":"p1t-synthetic-hash",
+            "agentReason":"Synthetic unverified reason"
+        });
+        self.shared
+            .approvals
+            .lock()
+            .unwrap()
+            .insert(id.into(), record.clone());
+        self.shared.publish("approval.requested", record);
+    }
+    /// Writes synthetic native attach discovery only into a caller-owned scratch directory.
+    pub fn write_discovery_fixture(
+        &self,
+        scratch: &tempfile::TempDir,
+        pid: u32,
+        instance_id: &str,
+    ) -> io::Result<PathBuf> {
+        if !self.shared.bound_ip.is_loopback() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "native discovery requires loopback",
+            ));
+        }
+        let run = scratch.path().join("run");
+        fs::create_dir_all(&run)?;
+        let path = run.join("api.json");
+        let doc = json!({"url":self.shared.origin.lock().unwrap().clone().unwrap_or_default(),"pid":pid,"instanceId":instance_id,"installationId":self.shared.store.lock().unwrap().installation_id,"apiVersion":self.shared.api_version.lock().unwrap().clone()});
+        fs::write(&path, serde_json::to_vec(&doc)?)?;
+        Ok(path)
+    }
     pub fn call_bridge(
         &self,
         device_id: &str,
@@ -221,19 +294,31 @@ impl MockControl {
         };
         if device.revoked
             || !device.grant_key_unlock
-            || !device.scopes.iter().any(|s| s == "bridge.serve")
+            || !device.scopes.iter().any(|s| s == scope::BRIDGE_SERVE)
             || !self.shared.key_unlock_enabled.load(Ordering::SeqCst)
         {
             return Err("bridge grant denied");
         }
         drop(store);
+        if self
+            .shared
+            .accepted_bridge
+            .lock()
+            .unwrap()
+            .get(device_id)
+            .copied()
+            .unwrap_or(0)
+            == 0
+        {
+            return Err("bridge capability not accepted");
+        }
         let call_id = random_id();
         self.shared
             .pending_bridge
             .lock()
             .unwrap()
             .insert(call_id.clone(), (device_id.into(), op.into()));
-        let call = json!({"type":"bridge.call","callId":call_id,"capability":"host.keyUnlock","op":op,"args":args});
+        let call = json!({"type":"bridge.call","callId":call_id,"capability":capability::KEY_UNLOCK,"op":op,"args":args});
         if self
             .shared
             .bridge_commands
@@ -249,13 +334,10 @@ impl MockControl {
         self.shared.bridge_results.lock().unwrap().remove(call_id)
     }
     pub fn create_pair_code_with_grant(&self, grant: bool) -> String {
-        self.create_pair_code_with_scopes_and_grant(
-            &["ui.session", "events.read", "bridge.serve"],
-            grant,
-        )
+        self.create_pair_code_with_scopes_and_grant(&scope::BUNDLED, grant)
     }
     pub fn create_pair_code(&self) -> String {
-        self.create_pair_code_with_scopes(&["ui.session", "events.read", "bridge.serve"])
+        self.create_pair_code_with_scopes(&scope::BUNDLED)
     }
     pub fn create_pair_code_with_scopes(&self, scopes: &[&str]) -> String {
         self.create_pair_code_with_scopes_and_grant(scopes, true)
@@ -283,6 +365,7 @@ impl MockControl {
             return false;
         };
         device.revoked = true;
+        self.shared.accepted_bridge.lock().unwrap().remove(id);
         self.shared.save(&store).expect("persist revocation");
         let _ = self
             .shared
@@ -292,20 +375,19 @@ impl MockControl {
         true
     }
     pub fn set_status(&self, state: &str, secrets: &str) {
+        self.set_status_with_reason(state, secrets, None);
+    }
+    pub fn set_status_with_reason(&self, state: &str, secrets: &str, reason: Option<&str>) {
         let mut store = self.shared.store.lock().unwrap();
         store.status = state.into();
         store.secrets = secrets.into();
+        store.reason = reason.map(str::to_owned);
         self.shared.save(&store).expect("persist status");
-        let id = self.shared.event_id.fetch_add(1, Ordering::SeqCst) + 1;
-        let data = json!({"state":state,"secrets":secrets});
-        {
-            let mut history = self.shared.event_history.lock().unwrap();
-            history.push_back((id, data.clone()));
-            if history.len() > 32 {
-                history.pop_front();
-            }
+        let mut data = json!({"state":state,"secrets":secrets});
+        if let Some(reason) = reason {
+            data["reason"] = json!(reason);
         }
-        let _ = self.shared.events.send(Event::Status(id, data));
+        self.shared.publish("harness.status", data);
     }
     pub fn set_meta(&self, installation_id: Option<&str>, api_version: &str) {
         *self.shared.reported_id.lock().unwrap() = installation_id.map(str::to_owned);
@@ -332,8 +414,8 @@ impl MockControl {
     }
 }
 
-fn router(shared: Arc<Shared>) -> Router {
-    Router::new()
+fn router(shared: Arc<Shared>, test_control: bool) -> Router {
+    let mut router = Router::new()
         .route(routes::META, get(meta))
         .route(routes::DEVICE_REDEEM, post(redeem_device))
         .route(routes::SESSION_TICKET, post(session_ticket))
@@ -341,18 +423,28 @@ fn router(shared: Arc<Shared>) -> Router {
         .route(routes::WHOAMI, get(whoami))
         .route(routes::EVENTS, get(events))
         .route(routes::BRIDGE, get(bridge))
+        .route(routes::APPROVALS, get(approvals))
+        .route(routes::APPROVAL_DECISION, post(approval_decision))
         .route("/", get(spa))
-        .route("/auth/ticket", get(spa))
-        .route("/__test/pair", post(test_pair))
-        .route("/__test/revoke", post(test_revoke))
-        .route("/__test/failure", post(test_failure))
-        .with_state(shared)
+        .route("/auth/ticket", get(spa));
+    if test_control {
+        router = router
+            .route("/__test/pair", post(test_pair))
+            .route("/__test/revoke", post(test_revoke))
+            .route("/__test/failure", post(test_failure));
+    }
+    router.with_state(shared)
 }
 fn hash(value: &str) -> String {
     format!("{:x}", Sha256::digest(value.as_bytes()))
 }
 fn random_id() -> String {
     let mut bytes = [0_u8; 24];
+    rand::rng().fill_bytes(&mut bytes);
+    URL_SAFE_NO_PAD.encode(bytes)
+}
+fn random_ticket() -> String {
+    let mut bytes = [0_u8; 32];
     rand::rng().fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
 }
@@ -372,7 +464,7 @@ fn err(reason: &str, status: StatusCode) -> Response {
 async fn meta(State(s): State<Arc<Shared>>) -> Json<Value> {
     let store = s.store.lock().unwrap();
     Json(
-        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":["desktop.sessionTicket","host.bridge"]}),
+        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":[capability::SESSION_TICKET,capability::HOST_BRIDGE]}),
     )
 }
 
@@ -454,7 +546,7 @@ fn auth(headers: &HeaderMap, store: &Store, scope: Option<&str>) -> Result<Devic
 
 async fn session_ticket(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Response {
     let mut store = s.store.lock().unwrap();
-    let device = match auth(&headers, &store, Some("ui.session")) {
+    let device = match auth(&headers, &store, Some(scope::UI_SESSION)) {
         Ok(d) => d,
         Err(e) => return e.response(),
     };
@@ -469,7 +561,7 @@ async fn session_ticket(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Res
     {
         return err("ticket-limit", StatusCode::TOO_MANY_REQUESTS);
     }
-    let ticket = random_id();
+    let ticket = random_ticket();
     let expires = now + 60;
     store.tickets.insert(
         hash(&ticket),
@@ -541,66 +633,189 @@ async fn whoami(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Response {
     };
     Json(json!({"userId":"mock-owner","deviceId":device.id,"scopes":device.scopes})).into_response()
 }
-async fn events(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Response {
+#[derive(Deserialize)]
+struct ApprovalQuery {
+    state: Option<String>,
+}
+async fn approvals(
+    State(s): State<Arc<Shared>>,
+    Query(query): Query<ApprovalQuery>,
+    headers: HeaderMap,
+) -> Response {
     {
         let store = s.store.lock().unwrap();
-        if let Err(e) = auth(&headers, &store, Some("events.read")) {
+        if let Err(e) = auth(&headers, &store, Some(scope::APPROVALS_DECIDE)) {
             return e.response();
         }
     }
+    if query
+        .state
+        .as_deref()
+        .is_some_and(|state| state != "pending")
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let items: Vec<Value> = s
+        .approvals
+        .lock()
+        .unwrap()
+        .values()
+        .filter(|v| v["state"] == "pending")
+        .cloned()
+        .collect();
+    Json(json!({"schema":"approvals.list/1","approvals":items})).into_response()
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ApprovalDecision {
+    decision: String,
+    scope: String,
+}
+async fn approval_decision(
+    State(s): State<Arc<Shared>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<ApprovalDecision>,
+) -> Response {
+    {
+        let store = s.store.lock().unwrap();
+        if let Err(e) = auth(&headers, &store, Some(scope::APPROVALS_DECIDE)) {
+            return e.response();
+        }
+    }
+    if !s.approvals_decide {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    if !matches!(body.decision.as_str(), "approve" | "deny")
+        || !matches!(body.scope.as_str(), "once" | "task" | "session" | "always")
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let record = {
+        let mut approvals = s.approvals.lock().unwrap();
+        let Some(record) = approvals.get_mut(&id) else {
+            return StatusCode::NOT_FOUND.into_response();
+        };
+        if record["state"] != "pending" {
+            return StatusCode::CONFLICT.into_response();
+        }
+        if !record["grantOptions"]
+            .as_array()
+            .is_some_and(|options| options.iter().any(|option| option == &body.scope))
+        {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+        record["state"] = json!(body.decision);
+        record["scope"] = json!(body.scope);
+        record.clone()
+    };
+    s.publish("approval.resolved", record.clone());
+    Json(record).into_response()
+}
+#[derive(Deserialize)]
+struct EventQuery {
+    topics: Option<String>,
+}
+async fn events(
+    State(s): State<Arc<Shared>>,
+    Query(query): Query<EventQuery>,
+    headers: HeaderMap,
+) -> Response {
+    {
+        let store = s.store.lock().unwrap();
+        if let Err(e) = auth(&headers, &store, Some(scope::EVENTS_READ)) {
+            return e.response();
+        }
+    }
+    let topics: Vec<String> = query
+        .topics
+        .unwrap_or_else(|| "harness.status".into())
+        .split(',')
+        .map(str::to_owned)
+        .collect();
+    if topics
+        .iter()
+        .any(|topic| !matches!(topic.as_str(), "harness.status" | "approval"))
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let accepts = |topic: &str| {
+        topics.iter().any(|requested| {
+            requested == topic || (requested == "approval" && topic.starts_with("approval."))
+        })
+    };
     let rx = s.events.subscribe();
     let last = headers
         .get("last-event-id")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.parse::<u64>().ok());
     let latest = s.event_id.load(Ordering::SeqCst);
-    let replay: Vec<(u64, Value)> = if let Some(last) = last {
+    let recovery = last.is_some_and(|seen| {
+        if seen > latest {
+            return true;
+        }
+        let history = s.event_history.lock().unwrap();
+        history
+            .front()
+            .is_none_or(|(oldest, _, _)| seen.saturating_add(1) < *oldest)
+            && seen < latest
+    });
+    let replay: Vec<(u64, String, Value)> = if let Some(last) = last {
         let history = s.event_history.lock().unwrap();
         history
             .iter()
-            .filter(|(id, _)| *id > last)
+            .filter(|(id, topic, _)| *id > last && accepts(topic))
             .cloned()
             .collect()
     } else {
         Vec::new()
     };
-    let initial = if last.is_none() || (replay.is_empty() && last != Some(latest)) {
+    let initial = if topics.iter().any(|topic| topic == "harness.status")
+        && (last.is_none() || (replay.is_empty() && recovery))
+    {
         let store = s.store.lock().unwrap();
-        vec![(
-            latest,
-            json!({"state":store.status,"secrets":store.secrets}),
-        )]
+        let mut data = json!({"state":store.status,"secrets":store.secrets});
+        if let Some(reason) = &store.reason {
+            data["reason"] = json!(reason);
+        }
+        vec![(latest, "harness.status".into(), data)]
     } else {
         replay
     };
     let sent_through = initial
         .last()
-        .map(|(id, _)| *id)
+        .map(|(id, _, _)| *id)
         .unwrap_or(last.unwrap_or(latest));
-    let stream = stream::iter(initial.into_iter().map(|(id, data)| {
+    let stream = stream::iter(initial.into_iter().map(|(id, topic, data)| {
         Ok::<_, std::convert::Infallible>(
             axum::response::sse::Event::default()
                 .id(id.to_string())
-                .event("harness.status")
+                .event(topic)
                 .data(data.to_string()),
         )
     }))
     .chain(stream::unfold(
-        (rx, sent_through),
-        |(mut rx, mut sent_through)| async move {
+        (rx, sent_through, topics),
+        |(mut rx, mut sent_through, topics)| async move {
             loop {
                 match rx.recv().await {
-                    Ok(Event::Status(id, v)) if id > sent_through => {
+                    Ok(Event::Data(id, topic, v)) if id > sent_through => {
                         sent_through = id;
+                        if !topics.iter().any(|requested| {
+                            requested == &topic
+                                || (requested == "approval" && topic.starts_with("approval."))
+                        }) {
+                            continue;
+                        }
                         return Some((
                             Ok(axum::response::sse::Event::default()
                                 .id(id.to_string())
-                                .event("harness.status")
+                                .event(topic)
                                 .data(v.to_string())),
-                            (rx, sent_through),
+                            (rx, sent_through, topics),
                         ));
                     }
-                    Ok(Event::Status(_, _)) => continue,
+                    Ok(Event::Data(_, _, _)) => continue,
                     Ok(Event::Drop) | Err(broadcast::error::RecvError::Closed) => return None,
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
                 }
@@ -616,7 +831,7 @@ async fn bridge(
 ) -> Response {
     let device = {
         let store = s.store.lock().unwrap();
-        match auth(&headers, &store, Some("bridge.serve")) {
+        match auth(&headers, &store, Some(scope::BRIDGE_SERVE)) {
             Ok(device) => device,
             Err(e) => return e.response(),
         }
@@ -635,6 +850,7 @@ async fn bridge_socket(
     shared: Arc<Shared>,
 ) {
     let mut commands = shared.bridge_commands.subscribe();
+    let mut accepted_here = false;
     loop {
         tokio::select! {
             incoming = socket.next() => {
@@ -647,10 +863,20 @@ async fn bridge_socket(
                 let Ok(value) = serde_json::from_str::<Value>(&text) else { break };
                 match value["type"].as_str() {
                     Some("bridge.hello") => {
-                        let accepted = value["capabilities"].as_array().map(|v| v.iter().filter(|c| accepted_key_unlock && c.as_str() == Some("host.keyUnlock")).cloned().collect::<Vec<_>>()).unwrap_or_default();
+                        let accepted = value["capabilities"].as_array().map(|v| v.iter().filter(|c| accepted_key_unlock && c.as_str() == Some(capability::KEY_UNLOCK)).cloned().collect::<Vec<_>>()).unwrap_or_default();
+                        if !accepted.is_empty() && !accepted_here {
+                            *shared.accepted_bridge.lock().unwrap().entry(device_id.clone()).or_default() += 1;
+                            accepted_here = true;
+                        }
+                        if accepted.is_empty() && accepted_here {
+                            let mut count = shared.accepted_bridge.lock().unwrap();
+                            if let Some(value) = count.get_mut(&device_id) { *value = value.saturating_sub(1); }
+                            accepted_here = false;
+                        }
                         if socket.send(Message::Text(json!({"type":"bridge.welcome","accepted":accepted}).to_string().into())).await.is_err() { break }
                     }
                     Some("bridge.result") => {
+                        if !accepted_here { break }
                         let Some(call_id) = value["callId"].as_str() else { break };
                         let pending = shared.pending_bridge.lock().unwrap().remove(call_id);
                         if let Some((expected_device, op)) = pending {
@@ -667,7 +893,7 @@ async fn bridge_socket(
             }
             command = commands.recv() => {
                 match command {
-                    Ok(BridgeCommand::Call(target, call)) if target == device_id => {
+                    Ok(BridgeCommand::Call(target, call)) if target == device_id && accepted_here => {
                         if socket.send(Message::Text(call.to_string().into())).await.is_err() { break }
                     }
                     Ok(BridgeCommand::Revoke(target)) if target == device_id => {
@@ -680,23 +906,42 @@ async fn bridge_socket(
             }
         }
     }
+    if accepted_here {
+        let mut count = shared.accepted_bridge.lock().unwrap();
+        if let Some(value) = count.get_mut(&device_id) {
+            *value = value.saturating_sub(1);
+        }
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TestPair {
     scopes: Option<Vec<String>>,
+    #[serde(default)]
+    grant_key_unlock: bool,
 }
-async fn test_pair(State(s): State<Arc<Shared>>, Json(body): Json<TestPair>) -> Json<Value> {
+async fn test_pair(State(s): State<Arc<Shared>>, Json(body): Json<TestPair>) -> Response {
     let scopes = body.scopes.unwrap_or_else(|| {
         vec![
-            "ui.session".into(),
-            "events.read".into(),
-            "bridge.serve".into(),
+            scope::UI_SESSION.into(),
+            scope::EVENTS_READ.into(),
+            scope::BRIDGE_SERVE.into(),
         ]
     });
+    if scopes
+        .iter()
+        .any(|value| !scope::ALL.contains(&value.as_str()))
+    {
+        return err("unknown-scope", StatusCode::BAD_REQUEST);
+    }
+    if body.grant_key_unlock && !scopes.iter().any(|value| value == scope::BRIDGE_SERVE) {
+        return err("invalid-grant", StatusCode::BAD_REQUEST);
+    }
     let list: Vec<&str> = scopes.iter().map(String::as_str).collect();
-    let code = (MockControl { shared: s.clone() }).create_pair_code_with_scopes(&list);
+    let code = (MockControl { shared: s.clone() })
+        .create_pair_code_with_scopes_and_grant(&list, body.grant_key_unlock);
     Json(json!({"schema":"device.pair/1","code":code,"expiresAt":expires_at(s.now()+3600)}))
+        .into_response()
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

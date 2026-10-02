@@ -2540,19 +2540,26 @@ dependencies = [
 name = "plur1bus-desktop"
 version = "0.1.0"
 dependencies = [
+ "plur1bus-desktop-contract",
  "serde_json",
  "tauri",
  "tauri-build",
 ]
 
 [[package]]
+name = "plur1bus-desktop-contract"
+version = "0.1.0"
+
+[[package]]
 name = "plur1bus-desktop-test-bins"
 version = "0.1.0"
 dependencies = [
+ "plur1bus-desktop-contract",
  "plur1bus-mock-harness",
  "reqwest 0.12.24",
  "serde",
  "serde_json",
+ "syn 2.0.119",
  "tempfile",
  "tokio",
 ]
@@ -2565,6 +2572,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures-util",
+ "plur1bus-desktop-contract",
  "rand 0.9.2",
  "reqwest 0.12.24",
  "serde",
