@@ -356,7 +356,7 @@ fn main() {
                             *negatives.lock().unwrap() = controls;
                             *secondary_observation.lock().unwrap() = Some(observation);
                             let upstream = connection.lock().unwrap().origin.clone();
-                            let response = reqwest::Client::new()
+                            let response = bounded_http_client()
                                 .post(format!("{}/__test/ticket-mode", upstream.as_str()))
                                 .json(&json!({"reject": true}))
                                 .send()
@@ -433,7 +433,7 @@ async fn negative_controls(
     first_origin: Option<Origin>,
     old_probe: Arc<Mutex<Option<Value>>>,
 ) -> (Value, SecondaryProbeObservation) {
-    let client = reqwest::Client::new();
+    let client = bounded_http_client();
     let url = format!("{}/", proxy.origin().as_str());
     let mut denied = true;
     for request in [
@@ -861,6 +861,8 @@ mod tests {
 async fn benchmark(proxy: &SpaProxy, origin: &Origin) -> Value {
     let client = reqwest::Client::builder()
         .no_proxy()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
@@ -895,4 +897,12 @@ async fn benchmark(proxy: &SpaProxy, origin: &Origin) -> Value {
     }
     overhead.sort_by(f64::total_cmp);
     json!({"pairedRequests":100,"p95OverheadMs":overhead[94],"limitMs":5,"samples":samples,"methodology":"same Rust HTTP client, consecutive direct/proxy GET spa.js, complete equal bytes, production metadata and header/CSP filters included"})
+}
+
+fn bounded_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .expect("bounded HTTP client")
 }

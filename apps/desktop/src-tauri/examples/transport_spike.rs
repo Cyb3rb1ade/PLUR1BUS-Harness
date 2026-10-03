@@ -24,6 +24,14 @@ struct Fixture {
     requests: Arc<Mutex<BTreeMap<String, usize>>>,
 }
 
+fn bounded_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(15))
+        .build()
+        .expect("bounded HTTP client")
+}
+
 fn allowed(req: &Request<Body>, state: &Fixture) -> bool {
     let key = url::form_urlencoded::parse(req.uri().query().unwrap_or_default().as_bytes())
         .any(|(k, v)| k == "key" && v == state.key);
@@ -187,7 +195,7 @@ fn main() {
     let state = Fixture {
         origin: origin.clone(),
         key: uuid::Uuid::now_v7().to_string(),
-        client: reqwest::Client::new(),
+        client: bounded_http_client(),
         requests: Default::default(),
     };
     let app = Router::new()
@@ -268,7 +276,7 @@ mod tests {
         let state = Fixture {
             origin: "http://127.0.0.1:12345".into(),
             key: uuid::Uuid::now_v7().to_string(),
-            client: reqwest::Client::new(),
+            client: bounded_http_client(),
             requests: Default::default(),
         };
         let make = |key: &str, host: &str, origin: &str| {
@@ -299,36 +307,40 @@ mod tests {
 
     #[tokio::test]
     async fn diagnostic_loopback_proxy_streams_before_upstream_eof() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let state = Fixture {
-            origin: format!("http://{}", listener.local_addr().unwrap()),
-            key: uuid::Uuid::now_v7().to_string(),
-            client: reqwest::Client::new(),
-            requests: Default::default(),
-        };
-        let app = Router::new()
-            .fallback(any(fixture))
-            .with_state(state.clone());
-        let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-        let mut stream = state
-            .client
-            .get(format!("{}/proxy/events?key={}", state.origin, state.key))
-            .send()
-            .await
-            .unwrap()
-            .bytes_stream();
-        let first = tokio::time::timeout(Duration::from_millis(750), stream.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        assert_eq!(&first[..], b"data: 0\n\n");
-        let second = tokio::time::timeout(Duration::from_secs(3), stream.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        assert_eq!(&second[..], b"data: 1\n\n");
-        task.abort();
+        tokio::time::timeout(Duration::from_secs(60), async {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let state = Fixture {
+                origin: format!("http://{}", listener.local_addr().unwrap()),
+                key: uuid::Uuid::now_v7().to_string(),
+                client: bounded_http_client(),
+                requests: Default::default(),
+            };
+            let app = Router::new()
+                .fallback(any(fixture))
+                .with_state(state.clone());
+            let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let mut stream = state
+                .client
+                .get(format!("{}/proxy/events?key={}", state.origin, state.key))
+                .send()
+                .await
+                .unwrap()
+                .bytes_stream();
+            let first = tokio::time::timeout(Duration::from_millis(750), stream.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert_eq!(&first[..], b"data: 0\n\n");
+            let second = tokio::time::timeout(Duration::from_secs(3), stream.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert_eq!(&second[..], b"data: 1\n\n");
+            task.abort();
+        })
+        .await
+        .expect("transport spike test timed out");
     }
 }
