@@ -141,6 +141,7 @@ struct NativeDiagnostic {
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct TeardownObservation {
+    process_exit_applicable: bool,
     capture_complete: bool,
     close_complete: bool,
     process_exit_complete: bool,
@@ -151,7 +152,7 @@ impl TeardownObservation {
     fn clean(&self) -> bool {
         self.capture_complete
             && self.close_complete
-            && self.process_exit_complete
+            && (!self.process_exit_applicable || self.process_exit_complete)
             && self.audit_complete
     }
 }

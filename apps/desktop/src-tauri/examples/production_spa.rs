@@ -9,6 +9,7 @@ use plur1bus_desktop::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
+    collections::BTreeSet,
     io::Read,
     path::PathBuf,
     sync::{
@@ -159,6 +160,7 @@ struct NativeDiagnostic {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct TeardownObservation {
+    process_exit_applicable: bool,
     capture_complete: bool,
     close_complete: bool,
     process_exit_complete: bool,
@@ -169,7 +171,7 @@ impl TeardownObservation {
     fn clean(&self) -> bool {
         self.capture_complete
             && self.close_complete
-            && self.process_exit_complete
+            && (!self.process_exit_applicable || self.process_exit_complete)
             && self.audit_complete
     }
 }
@@ -184,6 +186,8 @@ struct BrowserProcessState {
     pending_captures: usize,
     capture_failures: u32,
     close_failures: u32,
+    tracked_windows: BTreeSet<String>,
+    windows_absent: bool,
     owners: Vec<OwnedBrowserProcess>,
 }
 
@@ -214,6 +218,14 @@ impl Drop for OwnedBrowserProcess {
 impl BrowserProcessOwners {
     fn begin_capture(&self) {
         self.state.lock().unwrap().pending_captures += 1;
+    }
+
+    fn track_window(&self, label: &str) {
+        self.state
+            .lock()
+            .unwrap()
+            .tracked_windows
+            .insert(label.to_owned());
     }
 
     fn finish_capture(&self, owner: Result<OwnedBrowserProcess, ()>) {
@@ -248,7 +260,22 @@ impl BrowserProcessOwners {
     }
 
     fn close_complete(&self) -> bool {
-        self.state.lock().unwrap().close_failures == 0
+        let state = self.state.lock().unwrap();
+        state.close_failures == 0 && state.windows_absent
+    }
+
+    fn mark_windows_absent(&self, absent: bool) {
+        self.state.lock().unwrap().windows_absent = absent;
+    }
+
+    fn tracked_windows(&self) -> Vec<String> {
+        self.state
+            .lock()
+            .unwrap()
+            .tracked_windows
+            .iter()
+            .cloned()
+            .collect()
     }
 
     fn take_owners(&self) -> Vec<OwnedBrowserProcess> {
@@ -260,6 +287,7 @@ fn capture_browser_process<R: tauri::Runtime>(
     window: &tauri::WebviewWindow<R>,
     owners: &BrowserProcessOwners,
 ) {
+    owners.track_window(window.label());
     owners.begin_capture();
     let callback_owners = owners.clone();
     let result = window.with_webview(move |webview| {
@@ -296,25 +324,64 @@ fn platform_browser_process(
     Ok(OwnedBrowserProcess { pid, handle })
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ProcessExitObservation {
+    applicable: bool,
+    complete: bool,
+}
+
+async fn wait_for_fixture_windows(
+    app: &tauri::AppHandle,
+    labels: &[String],
+    deadline: std::time::Duration,
+) -> bool {
+    let started = std::time::Instant::now();
+    loop {
+        if labels
+            .iter()
+            .all(|label| app.get_webview_window(label).is_none())
+        {
+            return true;
+        }
+        if started.elapsed() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+}
+
 async fn wait_for_browser_processes(
     owners: BrowserProcessOwners,
     deadline: std::time::Duration,
-) -> bool {
+) -> ProcessExitObservation {
+    #[cfg(not(windows))]
+    let applicable = false;
+    #[cfg(windows)]
+    let applicable = true;
     let started = std::time::Instant::now();
     while {
         let state = owners.state.lock().unwrap();
         state.pending_captures != 0
     } {
         if started.elapsed() >= deadline {
-            return false;
+            return ProcessExitObservation {
+                applicable,
+                complete: false,
+            };
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
     let remaining = deadline.saturating_sub(started.elapsed());
     let owned = owners.take_owners();
-    tauri::async_runtime::spawn_blocking(move || wait_owned_browser_processes(owned, remaining))
+    let complete = tauri::async_runtime::spawn_blocking(move || {
+        wait_owned_browser_processes(owned, remaining)
+    })
         .await
-        .unwrap_or(false)
+        .unwrap_or(false);
+    ProcessExitObservation {
+        applicable,
+        complete,
+    }
 }
 
 fn wait_owned_browser_processes(
@@ -844,10 +911,21 @@ async fn finish(
                 }
                 drop(observer);
                 progress("teardown-wait-start");
-                let process_exit_complete =
-                    wait_for_browser_processes(task_owners.clone(), std::time::Duration::from_secs(10))
-                        .await;
-                if process_exit_complete {
+                let teardown_deadline = std::time::Duration::from_secs(5);
+                let teardown_started = std::time::Instant::now();
+                let windows_absent = wait_for_fixture_windows(
+                    &task_handle,
+                    &task_owners.tracked_windows(),
+                    teardown_deadline,
+                )
+                .await;
+                task_owners.mark_windows_absent(windows_absent);
+                let process_exit = wait_for_browser_processes(
+                    task_owners.clone(),
+                    teardown_deadline.saturating_sub(teardown_started.elapsed()),
+                )
+                .await;
+                if windows_absent && (!process_exit.applicable || process_exit.complete) {
                     progress("teardown-wait-complete");
                 } else {
                     progress("teardown-wait-failed");
@@ -866,9 +944,10 @@ async fn finish(
                     progress("audit-closed-scan-incomplete");
                 }
                 let teardown = TeardownObservation {
+                    process_exit_applicable: process_exit.applicable,
                     capture_complete: task_owners.capture_complete(),
                     close_complete: task_owners.close_complete(),
-                    process_exit_complete,
+                    process_exit_complete: process_exit.complete,
                     audit_complete: audit_observation.audit_complete,
                 };
                 let secondary = task_secondary
@@ -1205,6 +1284,7 @@ mod tests {
     #[test]
     fn closed_teardown_requires_capture_close_wait_and_audit() {
         let observation = TeardownObservation {
+            process_exit_applicable: true,
             capture_complete: true,
             close_complete: true,
             process_exit_complete: true,
@@ -1214,6 +1294,18 @@ mod tests {
         assert!(TeardownObservation {
             audit_complete: true,
             ..observation
+        }
+        .clean());
+        assert!(!TeardownObservation {
+            process_exit_applicable: true,
+            process_exit_complete: false,
+            ..TeardownObservation {
+                process_exit_applicable: false,
+                capture_complete: true,
+                close_complete: true,
+                process_exit_complete: true,
+                audit_complete: true,
+            }
         }
         .clean());
     }
