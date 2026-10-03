@@ -483,51 +483,70 @@ fn claim_observer_completion(finished: &AtomicBool) -> bool {
     !finished.swap(true, Ordering::SeqCst)
 }
 
+#[cfg(any(windows, test))]
+async fn await_profile_callback(
+    observation: Arc<Mutex<PrivateProfileObservation>>,
+    completion: tokio::sync::oneshot::Receiver<()>,
+    deadline: std::time::Instant,
+) -> PrivateProfileObservation {
+    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+    let _ = tokio::time::timeout(remaining, completion).await;
+    *observation.lock().unwrap()
+}
+
 #[cfg(windows)]
-fn inspect_private_profile(window: &tauri::WebviewWindow) -> PrivateProfileObservation {
+async fn inspect_private_profile(
+    window: &tauri::WebviewWindow,
+    observation: Arc<Mutex<PrivateProfileObservation>>,
+    deadline: std::time::Instant,
+) -> PrivateProfileObservation {
     use webview2_com::Microsoft::Web::WebView2::Win32::{
         ICoreWebView2Environment10, ICoreWebView2_13,
     };
     use windows_core::Interface;
 
-    let observation = Arc::new(Mutex::new(PrivateProfileObservation {
+    *observation.lock().unwrap() = PrivateProfileObservation {
         applicable: true,
         ..PrivateProfileObservation::default()
-    }));
+    };
     let target = observation.clone();
+    let (completion_sender, completion) = tokio::sync::oneshot::channel();
     let callback = window.with_webview(move |webview| {
         let mut state = target.lock().unwrap();
         state.callback_available = true;
         let controller = webview.controller();
-        let Ok(core) = (unsafe { controller.CoreWebView2() }) else {
-            return;
-        };
-        state.environment_options_available = webview
-            .environment()
-            .cast::<ICoreWebView2Environment10>()
-            .is_ok();
-        let Ok(core13) = core.cast::<ICoreWebView2_13>() else {
-            return;
-        };
-        let Ok(profile) = (unsafe { core13.Profile() }) else {
-            return;
-        };
-        let mut enabled = 0;
-        if unsafe { profile.IsInPrivateModeEnabled(&mut enabled) }.is_ok() {
-            state.profile_state_available = true;
-            state.private_enabled = enabled != 0;
+        if let Ok(core) = (unsafe { controller.CoreWebView2() }) {
+            state.environment_options_available = webview
+                .environment()
+                .cast::<ICoreWebView2Environment10>()
+                .is_ok();
+            if let Ok(core13) = core.cast::<ICoreWebView2_13>() {
+                if let Ok(profile) = unsafe { core13.Profile() } {
+                    let mut enabled = 0;
+                    if unsafe { profile.IsInPrivateModeEnabled(&mut enabled) }.is_ok() {
+                        state.profile_state_available = true;
+                        state.private_enabled = enabled != 0;
+                    }
+                }
+            }
         }
+        drop(state);
+        let _ = completion_sender.send(());
     });
     if callback.is_err() {
         observation.lock().unwrap().callback_available = false;
+        return *observation.lock().unwrap();
     }
-    Arc::try_unwrap(observation)
-        .map(|value| value.into_inner().unwrap())
-        .unwrap_or_default()
+    await_profile_callback(observation, completion, deadline).await
 }
 
 #[cfg(not(windows))]
-fn inspect_private_profile(_window: &tauri::WebviewWindow) -> PrivateProfileObservation {
+async fn inspect_private_profile(
+    _window: &tauri::WebviewWindow,
+    observation: Arc<Mutex<PrivateProfileObservation>>,
+    _deadline: std::time::Instant,
+) -> PrivateProfileObservation {
+    *observation.lock().unwrap() = PrivateProfileObservation::unavailable();
     PrivateProfileObservation::unavailable()
 }
 
@@ -1297,7 +1316,9 @@ async fn finish(
         }).build();
     let observer = match observer {
         Ok(observer) => {
-            *profile_observation.lock().unwrap() = inspect_private_profile(&observer);
+            let _ =
+                inspect_private_profile(&observer, profile_observation.clone(), teardown_deadline)
+                    .await;
             observer
         }
         Err(_) => {
@@ -1608,12 +1629,14 @@ fn progress(label: &str) {
 mod tests {
     use super::{
         append_progress_history, audit_with_reader, audit_with_reader_and_profile_root,
-        claim_observer_completion, classify_file_read_error, cookie_file_class,
-        local_acl_probe_script, other_window_probe_script, parse_secondary_probe, AuditEntry,
-        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners,
-        CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation, TeardownObservation,
+        await_profile_callback, claim_observer_completion, classify_file_read_error,
+        cookie_file_class, local_acl_probe_script, other_window_probe_script,
+        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation,
+        AuditReader, BrowserProcessOwners, CookieFileClass, OwnedBrowserProcess,
+        PrivateProfileObservation, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
+    use std::sync::{Arc, Mutex};
 
     struct UnreadableProfile;
 
@@ -1727,6 +1750,52 @@ mod tests {
             ..missing
         }
         .accepted());
+    }
+
+    #[test]
+    fn delayed_profile_callback_is_retained_and_timeout_fails_closed() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let observation = Arc::new(Mutex::new(PrivateProfileObservation {
+                applicable: true,
+                ..PrivateProfileObservation::default()
+            }));
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            let delayed = observation.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                let mut state = delayed.lock().unwrap();
+                state.callback_available = true;
+                state.environment_options_available = true;
+                state.profile_state_available = true;
+                state.private_enabled = true;
+                drop(state);
+                let _ = sender.send(());
+            });
+            let completed = await_profile_callback(
+                observation,
+                receiver,
+                std::time::Instant::now() + std::time::Duration::from_millis(100),
+            )
+            .await;
+            assert!(completed.accepted());
+
+            let missing = Arc::new(Mutex::new(PrivateProfileObservation {
+                applicable: true,
+                ..PrivateProfileObservation::default()
+            }));
+            let (_sender, receiver) = tokio::sync::oneshot::channel();
+            let timed_out = await_profile_callback(
+                missing,
+                receiver,
+                std::time::Instant::now() + std::time::Duration::from_millis(5),
+            )
+            .await;
+            assert!(!timed_out.accepted());
+        });
     }
 
     #[test]
