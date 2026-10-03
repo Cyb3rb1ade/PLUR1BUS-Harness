@@ -853,7 +853,7 @@ mod windows {
                 len += 1;
             }
             let sid_text =
-                String::from_utf16(&unsafe { std::slice::from_raw_parts(sid_string, len) })
+                String::from_utf16(unsafe { std::slice::from_raw_parts(sid_string, len) })
                     .map_err(|_| io::Error::other("invalid user SID"));
             unsafe { LocalFree(sid_string.cast()) };
             let sddl = format!("D:P(A;OICI;FA;;;{})(A;OICI;FA;;;SY)", sid_text?);
