@@ -95,8 +95,11 @@ pub enum Cmd {
     Update(UpdateArgs),
     /// Users — M2
     User(StubArgs),
-    /// Models and provider profiles — M2
-    Model(StubArgs),
+    /// [experimental] Models and provider profiles: list, scan and override
+    Model {
+        #[command(subcommand)]
+        sub: ModelCmd,
+    },
     /// Provider login (API keys, OAuth) — M2
     Login(StubArgs),
     /// Channels — M4
@@ -551,6 +554,51 @@ pub enum AdminCmd {
     Embedding {
         #[command(subcommand)]
         sub: EmbeddingCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ModelCmd {
+    /// [experimental] List the model catalog (reads the file read-only when the core is down)
+    List {
+        #[arg(long)]
+        provider: Option<String>,
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long)]
+        new: bool,
+        #[arg(long, requires = "new")]
+        ack: bool,
+    },
+    /// [experimental] Scan configured providers for their current models (non-zero exit when a selected provider failed)
+    Scan {
+        #[arg(long)]
+        provider: Option<String>,
+    },
+    /// [experimental] Set or clear a person's values on a model, create or remove a manual entry
+    Override {
+        provider: String,
+        id: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long, value_name = "N")]
+        context_window: Option<u64>,
+        #[arg(long = "capability")]
+        capability: Vec<String>,
+        #[arg(long = "alias")]
+        alias: Vec<String>,
+        #[arg(long = "clear")]
+        clear: Vec<String>,
+        #[arg(long)]
+        clear_all: bool,
+        #[arg(long, conflicts_with = "remove")]
+        create: bool,
+        #[arg(long)]
+        remove: bool,
     },
 }
 
