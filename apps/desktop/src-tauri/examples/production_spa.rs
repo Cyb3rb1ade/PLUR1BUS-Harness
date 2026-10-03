@@ -122,6 +122,10 @@ struct SecondaryProbeResult {
     document_opaque_origin: bool,
     document_content_type_text_plain: bool,
     fetch_rejected_type_error: bool,
+    #[serde(default)]
+    local_ipc_available: bool,
+    #[serde(default)]
+    local_acl_denied: bool,
 }
 
 impl SecondaryProbeResult {
@@ -133,6 +137,8 @@ impl SecondaryProbeResult {
             document_opaque_origin: false,
             document_content_type_text_plain: false,
             fetch_rejected_type_error: false,
+            local_ipc_available: false,
+            local_acl_denied: false,
         }
     }
 
@@ -140,12 +146,19 @@ impl SecondaryProbeResult {
         SecondaryProbeObservation {
             available: self.available,
             proxy_generated_403: false,
-            other_window_acl_denied: self.other_window_acl_denied,
+            other_window_acl_denied: self.local_acl_denied,
             document_opaque_origin: self.document_opaque_origin,
             document_content_type_text_plain: self.document_content_type_text_plain,
             fetch_rejected_type_error: self.fetch_rejected_type_error,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct LocalAclProbeResult {
+    ipc_available: bool,
+    acl_denied: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -459,6 +472,27 @@ fn other_window_probe_script() -> &'static str {
     r#"(async()=>{document.title='NEG_STAGE:entry';let opaque=window.origin==='null';let plain=(document.contentType||'').toLowerCase()==='text/plain';document.title='NEG_STAGE:fetch-start';let blocked=false;let rejected=false;try{blocked=(await fetch(location.href)).status===403;document.title='NEG_STAGE:fetch-complete'}catch(e){rejected=e instanceof TypeError;document.title='NEG_STAGE:fetch-error'}let acl=false;document.title='NEG_STAGE:ipc-start';try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG_STAGE:ipc-complete';document.title='NEG:'+JSON.stringify({available:true,otherWindow403:blocked,otherWindowAclDenied:acl,documentOpaqueOrigin:opaque,documentContentTypeTextPlain:plain,fetchRejectedTypeError:rejected});})()"#
 }
 
+fn local_acl_probe_script() -> &'static str {
+    r#"(async()=>{document.title='NEG_LOCAL:entry';let ipcAvailable=typeof window.__TAURI_INTERNALS__?.invoke==='function';let aclDenied=false;if(ipcAvailable){try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(error){const message=typeof error==='string'?error:(error&&typeof error==='object'&&typeof error.message==='string'?error.message:'');aclDenied=/not allowed|denied|permissions/i.test(message)}}document.title='NEG_LOCAL:'+JSON.stringify({ipcAvailable,aclDenied});})()"#
+}
+
+fn bundled_acl_probe_url() -> url::Url {
+    url::Url::parse(if cfg!(windows) {
+        "http://tauri.localhost/index.html"
+    } else {
+        "tauri://localhost/index.html"
+    })
+    .unwrap()
+}
+
+fn is_bundled_acl_probe_url(url: &url::Url) -> bool {
+    url == &bundled_acl_probe_url()
+}
+
+fn parse_local_acl_probe(raw: &str) -> Option<LocalAclProbeResult> {
+    serde_json::from_str(raw).ok()
+}
+
 fn retirement_observer_probe_script() -> &'static str {
     "(async()=>{let denied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){denied=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='ACL:'+JSON.stringify({actualAclDenied:denied});})()"
 }
@@ -748,6 +782,8 @@ async fn negative_controls(
     let secondary_url = format!("{}/?wp05-secondary-probe=1", proxy.origin().as_str());
     let (tx, rx) = tokio::sync::oneshot::channel::<SecondaryProbeResult>();
     let sender = Mutex::new(Some(tx));
+    let phase1 = Arc::new(Mutex::new(None::<SecondaryProbeResult>));
+    let phase1_for_title = phase1.clone();
     progress("other-window-construction-start");
     let other = WebviewWindowBuilder::new(
         app,
@@ -758,14 +794,22 @@ async fn negative_controls(
     .user_agent("WP05-Secondary-Probe/1")
     .on_page_load(|webview, payload| {
         if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
-            progress("other-window-page-finished");
-            match webview.eval(other_window_probe_script()) {
-                Ok(()) => progress("other-window-eval-submitted"),
-                Err(_) => progress("other-window-eval-failed"),
+            if payload.url().query() == Some("wp05-secondary-probe=1") {
+                progress("other-window-page-finished");
+                match webview.eval(other_window_probe_script()) {
+                    Ok(()) => progress("other-window-eval-submitted"),
+                    Err(_) => progress("other-window-eval-failed"),
+                }
+            } else if is_bundled_acl_probe_url(payload.url()) {
+                progress("other-window-local-page-finished");
+                match webview.eval(local_acl_probe_script()) {
+                    Ok(()) => progress("other-window-local-eval-submitted"),
+                    Err(_) => progress("other-window-local-eval-failed"),
+                }
             }
         }
     })
-    .on_document_title_changed(move |_, title| {
+    .on_document_title_changed(move |webview, title| {
         if let Some(stage) = title.strip_prefix("NEG_STAGE:") {
             let label = match stage {
                 "entry" => "other-window-script-entry",
@@ -781,8 +825,28 @@ async fn negative_controls(
         }
         if let Some(value) = title.strip_prefix("NEG:").map(parse_secondary_result) {
             progress("other-window-probe-complete");
+            if !value.available {
+                return;
+            }
+            *phase1_for_title.lock().unwrap() = Some(value);
+            if webview.navigate(bundled_acl_probe_url()).is_err() {
+                progress("other-window-local-eval-failed");
+            }
+            return;
+        }
+        if let Some(raw) = title.strip_prefix("NEG_LOCAL:") {
+            progress("other-window-local-script-entry");
+            let Some(local) = parse_local_acl_probe(raw) else {
+                return;
+            };
+            let Some(mut phase1) = phase1_for_title.lock().unwrap().take() else {
+                return;
+            };
+            phase1.local_ipc_available = local.ipc_available;
+            phase1.local_acl_denied = local.acl_denied;
+            progress("other-window-local-probe-complete");
             if let Some(tx) = sender.lock().unwrap().take() {
-                let _ = tx.send(value);
+                let _ = tx.send(phase1);
             }
         }
     })
@@ -833,8 +897,26 @@ async fn negative_controls(
     };
     let observation = value.observation();
     let proxy_generated_403 = proxy.secondary_probe_403_observed();
+    let mut phase1_snapshot = value.clone();
+    phase1_snapshot.local_ipc_available = false;
+    phase1_snapshot.local_acl_denied = false;
+    let mut other_webview = serde_json::to_value(&value).unwrap();
+    if let Some(object) = other_webview.as_object_mut() {
+        object.insert(
+            "phase1".into(),
+            serde_json::to_value(&phase1_snapshot).unwrap(),
+        );
+        object.insert(
+            "phase1OtherWindowAclDenied".into(),
+            json!(value.other_window_acl_denied),
+        );
+        object.insert(
+            "otherWindowAclDenied".into(),
+            json!(observation.other_window_acl_denied),
+        );
+    }
     (
-        json!({"missingWrongSecretHostOrigin":denied,"otherWebview":value,"proxyGenerated403":proxy_generated_403,"oldOriginWhileReplacementActive":old_origin}),
+        json!({"missingWrongSecretHostOrigin":denied,"otherWebview":other_webview,"proxyGenerated403":proxy_generated_403,"oldOriginWhileReplacementActive":old_origin}),
         SecondaryProbeObservation {
             proxy_generated_403,
             ..observation
