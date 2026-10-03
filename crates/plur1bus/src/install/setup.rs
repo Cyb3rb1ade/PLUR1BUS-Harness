@@ -1282,7 +1282,7 @@ mod tests {
             core: CoreUnit {
                 version: "0.1.0".into(),
                 contract: "1.9.0".into(),
-                rpc: "1.4.0".into(),
+                rpc: "1.5.0".into(),
                 sha256: None,
                 source: "local".into(),
             },

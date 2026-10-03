@@ -82,9 +82,9 @@ describe("rpc-schema stability annotations", () => {
     }
   });
 
-  it("RPC_VERSION is 1.4.0 and matches the $id", () => {
-    assert.equal(RPC_VERSION, "1.4.0");
-    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.4.0/rpc.schema.json");
+  it("RPC_VERSION is 1.5.0 and matches the $id", () => {
+    assert.equal(RPC_VERSION, "1.5.0");
+    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.5.0/rpc.schema.json");
   });
 
   it("core.status journalReplay (1.3.0) is optional, closed and experimental", () => {
@@ -92,7 +92,7 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(d["x-stability"], "experimental"); assert.equal(d["x-since"], "1.3.0");
     assert.equal(d.additionalProperties, false);
     assert.ok(!(schema.$defs as any).CoreStatus.required.includes("journalReplay"));
-    const base = { process: { state: "ready", since: 1 }, contract: "1.9.0", rpc: "1.4.0", instanceId: "i", pid: 1, uptimeMs: 1, engine: { ready: true, degraded: null }, agents: [] };
+    const base = { process: { state: "ready", since: 1 }, contract: "1.9.0", rpc: "1.5.0", instanceId: "i", pid: 1, uptimeMs: 1, engine: { ready: true, degraded: null }, agents: [] };
     const replaying = { state: "replaying", replayed: 3, pendingRemoval: 3, kept: 0, passes: 0, startedAt: 1, finishedAt: null };
     assert.deepEqual(validateResult("core.status", base), { ok: true });
     assert.deepEqual(validateResult("core.status", { ...base, journalReplay: replaying }), { ok: true });

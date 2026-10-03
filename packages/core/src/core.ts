@@ -26,6 +26,13 @@ import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
+import path from "node:path";
+import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
+import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
+import { createModelsScanJob } from "./discovery/job.ts";
+import { loadMetadataTable } from "./discovery/metadata.ts";
+import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
+import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
@@ -72,6 +79,8 @@ export interface CoreOptions {
   supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** D112: model discovery adapters and options. */
+  discovery?: Partial<DiscoveryAdapters> & { scheduler?: boolean };
 }
 
 /** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
@@ -280,6 +289,51 @@ export function createCore(o: CoreOptions): Core {
       }
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
+      const discDefaults = defaultDiscoveryAdapters({ logger });
+      const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
+      const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
+      const discEvents = o.discovery?.events ?? discDefaults.events;
+      const discClock = o.discovery?.clock ?? discDefaults.clock;
+      const discRng = o.discovery?.rng ?? discDefaults.rng;
+      const curatedTable = loadMetadataTable();
+      const catalogStore = createCatalogStore({
+        path: l.catalogModels,
+        tableRevision: curatedTable.revision,
+        clock: discClock,
+        securePath: platform.securePath,
+        logger,
+      });
+      catalogStore.load();
+
+      const discSettings = () => ({
+        enabled: (cfg() as any).models?.scan?.enabled ?? true,
+        intervalHours: (cfg() as any).models?.scan?.intervalHours ?? 24,
+      });
+      const discRoles = () => (cfg() as any).modelRoles ?? {};
+
+      const discovery = createDiscoveryService({
+        store: catalogStore,
+        profiles: discProfiles,
+        credentials: discCredentials,
+        events: discEvents,
+        clock: discClock,
+        rng: discRng,
+        table: curatedTable,
+        roles: discRoles,
+        settings: discSettings,
+        logger,
+      });
+
+      const ledgerPath = path.join(l.systemJobs, "ledger.jsonl");
+      const systemJobs = createSystemJobs({
+        ledgerPath,
+        clock: discClock,
+        securePath: platform.securePath,
+        logger,
+        engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
+      });
+      systemJobs.register(createModelsScanJob(discovery, discSettings));
+
       const methods = buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
@@ -294,6 +348,8 @@ export function createCore(o: CoreOptions): Core {
           storeSchema = s.storeSchema;
           cacheEngineStatus(s);
         },
+        systemJobs,
+        discovery,
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,

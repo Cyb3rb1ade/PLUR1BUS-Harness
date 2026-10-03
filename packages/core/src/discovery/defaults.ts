@@ -37,13 +37,15 @@ export interface DefaultAdaptersDeps {
   logger: LoggerLike;
 }
 
-export function defaultDiscoveryAdapters(deps: DefaultAdaptersDeps): {
+export interface DiscoveryAdapters {
   profiles: ProfileSource;
   credentials: CredentialResolver;
   events: DiscoveryEvents;
   clock: Clock;
   rng: Rng;
-} {
+}
+
+export function defaultDiscoveryAdapters(deps: DefaultAdaptersDeps): DiscoveryAdapters {
   return {
     profiles: new EmptyProfileSource(),
     credentials: new NoCredentialResolver(),

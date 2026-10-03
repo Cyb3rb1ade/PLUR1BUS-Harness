@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.4.0)
+# RPC reference (rpc 1.5.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -1361,7 +1361,16 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "kind": {
+      "enum": [
+        "agent",
+        "system",
+        "all"
+      ],
+      "description": "Filter jobs by kind. Defaults to 'agent'."
+    }
+  }
 }
 ```
 
@@ -1401,6 +1410,34 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
               "rem",
               "deep"
             ]
+          },
+          "kind": {
+            "enum": [
+              "agent",
+              "system"
+            ]
+          },
+          "schedule": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "every",
+              "jitter"
+            ],
+            "properties": {
+              "every": {
+                "type": "integer"
+              },
+              "jitter": {
+                "type": "number"
+              }
+            }
+          },
+          "nextRunAt": {
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         }
       }
@@ -1422,7 +1459,6 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "agentId",
     "job"
   ],
   "properties": {
@@ -1434,6 +1470,9 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
     },
     "dryRun": {
       "type": "boolean"
+    },
+    "args": {
+      "type": "object"
     }
   }
 }
@@ -1443,7 +1482,14 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 ```json
 {
-  "$ref": "#/$defs/JobRun"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/JobRun"
+    },
+    {
+      "$ref": "#/$defs/SystemJobRun"
+    }
+  ]
 }
 ```
 
@@ -1459,9 +1505,6 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 {
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "agentId"
-  ],
   "properties": {
     "agentId": {
       "$ref": "#/$defs/AgentId"
@@ -1494,7 +1537,14 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
     "runs": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/JobRun"
+        "oneOf": [
+          {
+            "$ref": "#/$defs/JobRun"
+          },
+          {
+            "$ref": "#/$defs/SystemJobRun"
+          }
+        ]
       }
     }
   }
@@ -5563,6 +5613,64 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "attempt": {
       "type": "integer"
+    }
+  }
+}
+```
+
+### `SystemJobRun`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "job",
+    "kind",
+    "trigger",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "outcome",
+    "attempt"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "job": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "system"
+    },
+    "trigger": {
+      "$ref": "#/$defs/JobTrigger"
+    },
+    "startedAt": {
+      "type": "integer"
+    },
+    "finishedAt": {
+      "type": "integer"
+    },
+    "durationMs": {
+      "type": "integer"
+    },
+    "outcome": {
+      "$ref": "#/$defs/JobOutcome"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "runningRunId": {
+      "type": "string"
+    },
+    "attempt": {
+      "type": "integer"
+    },
+    "args": {
+      "type": "object"
     }
   }
 }

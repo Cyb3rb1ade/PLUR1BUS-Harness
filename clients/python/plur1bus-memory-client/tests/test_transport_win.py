@@ -281,7 +281,7 @@ class FakePipeClientTest(_FakeClientCase):
     def test_round_trip_over_the_fake_pipe(self) -> None:
         k = self.fake()
         c = self.client()
-        self.assertEqual(c.connect()["rpc"], "1.4.0")
+        self.assertEqual(c.connect()["rpc"], "1.5.0")
         self.assertIsInstance(c.status(), dict)
         self.assertEqual(k.addresses, [core_address(self.home, "win32")])
         self.assertEqual(k.methods(), ["core.auth", "core.status"])
@@ -449,7 +449,7 @@ class FakePipeClientTest(_FakeClientCase):
     def test_busy_pipe_is_retried_within_the_deadline(self) -> None:
         k = self.fake(busy=3)
         c = self.client(connect_timeout=1.0)
-        self.assertEqual(c.connect()["rpc"], "1.4.0")
+        self.assertEqual(c.connect()["rpc"], "1.5.0")
         waits = [ms for _, ms in k.calls("wait_named_pipe")]
         self.assertEqual(len(waits), 3)
         self.assertTrue(all(1 <= ms <= 1000 for ms in waits), waits)
@@ -626,7 +626,7 @@ class NamedPipeTest(unittest.TestCase):
     def test_round_trip_over_a_named_pipe(self) -> None:
         core = self.core()
         c = self.client()
-        self.assertEqual(c.connect()["rpc"], "1.4.0")
+        self.assertEqual(c.connect()["rpc"], "1.5.0")
         self.assertIsInstance(c.status(), dict)
         self.assertEqual(core.methods(), ["core.auth", "core.status"])
         self.assertEqual(c._stream.peer_pid(), os.getpid())  # noqa: SLF001
@@ -677,7 +677,7 @@ class NamedPipeTest(unittest.TestCase):
         s = open_stream(vector["address"], connect_timeout=2)
         self.addCleanup(s.close)
         s.send(b'{"jsonrpc":"2.0","id":1,"method":"core.auth","params":{"token":"' + core.token.encode() + b'"}}\n', _deadline())
-        self.assertEqual(json.loads(s.recv_line(_deadline()))["result"]["rpc"], "1.4.0")
+        self.assertEqual(json.loads(s.recv_line(_deadline()))["result"]["rpc"], "1.5.0")
         # And a whole client works from a real home with a space and non-ASCII in its path.
         home = os.path.join(self.home, "Jürgen A", "PLUR1BUS")
         os.makedirs(home)

@@ -282,7 +282,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.4.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.5.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

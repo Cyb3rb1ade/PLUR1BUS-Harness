@@ -105,6 +105,7 @@ export interface DiscoveryService {
   onChanged(cb: (e: ModelsChanged) => void): () => void;
   nextRunAt(): number | null;
   scannable(): ProfileInfo[];
+  hasProfile(id: string): boolean;
 }
 
 export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoveryService {
@@ -595,5 +596,6 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
     onChanged,
     nextRunAt,
     scannable,
+    hasProfile: (id: string) => deps.profiles.list().some((p) => p.id === id),
   };
 }

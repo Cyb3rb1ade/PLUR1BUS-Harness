@@ -26,6 +26,10 @@ export interface MethodDeps {
   adopt: (nonce: string, connectionId: string) => CoreStatusResult;
   /** After an applied `admin.migrate`: refreshes `core.status.engine.storeSchema`. */
   onMigrated: () => void | Promise<void>;
+  /** D112: harness-side system jobs registry. */
+  systemJobs?: import("../system-jobs/index.ts").SystemJobs;
+  /** D112: model discovery service. */
+  discovery?: import("../discovery/service.ts").DiscoveryService;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -56,12 +60,14 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
   const openAgents = new Map<string, { close(): Promise<void> }>(); // one map per core
 
   const runJob = async (p: JobsRunParams, signal: AbortSignal): Promise<JobRun> => {
-    requireAgent(d.agents, p.agentId);
+    if (!p.agentId) throw new RpcError("E_INVALID_PARAMS", "agentId is required for agent jobs", { detail: "agentId" });
+    const agentId = p.agentId;
+    requireAgent(d.agents, agentId);
     const spec = d.engine.jobs.list().find((j) => j.name === p.job);
     if (!spec) throw new RpcError("E_INVALID_PARAMS", `unknown job ${p.job}`, { detail: "job" });
-    d.activity.set(p.agentId, spec.phase ? { state: "dreaming", phase: spec.phase, job: spec.name } : { state: "maintenance", job: spec.name });
-    try { return await d.engine.jobs.run(spec.name, p.agentId, { signal, trigger: "harness", ...(p.dryRun !== undefined ? { dryRun: p.dryRun } : {}) }); }
-    finally { d.activity.idle(p.agentId); }
+    d.activity.set(agentId, spec.phase ? { state: "dreaming", phase: spec.phase, job: spec.name } : { state: "maintenance", job: spec.name });
+    try { return await d.engine.jobs.run(spec.name, agentId, { signal, trigger: "harness", ...(p.dryRun !== undefined ? { dryRun: p.dryRun } : {}) }); }
+    finally { d.activity.idle(agentId); }
   };
 
   return {
@@ -154,11 +160,51 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       return { agentId: p.agentId, open: openAgents.has(p.agentId), activity: d.activity.get(p.agentId), workspace, lastJobs };
     },
 
-    "jobs.list": async () => ({ jobs: d.engine.jobs.list() }),
-    "jobs.run": async (p: JobsRunParams, ctx) => runJob(p, ctx.signal),
+    "jobs.list": async (p?: { kind?: "agent" | "system" | "all" }) => {
+      if (p?.kind === "system") {
+        return { jobs: d.systemJobs ? d.systemJobs.list() : [] };
+      }
+      if (p?.kind === "all") {
+        return { jobs: [...d.engine.jobs.list(), ...(d.systemJobs ? d.systemJobs.list() : [])] };
+      }
+      return { jobs: d.engine.jobs.list() };
+    },
+    "jobs.run": async (p: JobsRunParams, ctx) => {
+      if (d.systemJobs?.has(p.job)) {
+        if (p.agentId !== undefined) {
+          throw new RpcError("E_INVALID_PARAMS", "agentId is not allowed for system jobs", { detail: "agentId" });
+        }
+        const { record } = await d.systemJobs.run(p.job, (p as any).args, { trigger: "manual", signal: ctx.signal });
+        return record as any;
+      }
+      if (!p.agentId) {
+        throw new RpcError("E_INVALID_PARAMS", "agentId is required for agent jobs", { detail: "agentId" });
+      }
+      return runJob(p, ctx.signal);
+    },
     "jobs.history": async (p: JobsHistoryParams) => {
+      if (!p.agentId) {
+        return {
+          runs: d.systemJobs
+            ? d.systemJobs.history({
+                ...(p.job ? { job: p.job } : {}),
+                ...(p.since !== undefined ? { since: p.since } : {}),
+                ...(p.limit !== undefined ? { limit: p.limit } : {}),
+              })
+            : [],
+        };
+      }
+      if (d.systemJobs?.has(p.job!)) {
+        return { runs: [] };
+      }
       requireAgent(d.agents, p.agentId);
-      return { runs: await d.engine.jobs.history(p.agentId, { ...(p.job ? { job: p.job as JobName } : {}), ...(p.since !== undefined ? { since: p.since } : {}), ...(p.limit !== undefined ? { limit: p.limit } : {}) }) };
+      return {
+        runs: await d.engine.jobs.history(p.agentId, {
+          ...(p.job ? { job: p.job as JobName } : {}),
+          ...(p.since !== undefined ? { since: p.since } : {}),
+          ...(p.limit !== undefined ? { limit: p.limit } : {}),
+        }),
+      };
     },
   };
 }
