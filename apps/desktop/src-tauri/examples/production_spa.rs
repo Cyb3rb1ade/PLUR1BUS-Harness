@@ -439,6 +439,82 @@ struct FinishInputs {
     browser_owners: BrowserProcessOwners,
 }
 
+fn claim_observer_completion(finished: &AtomicBool) -> bool {
+    !finished.swap(true, Ordering::SeqCst)
+}
+
+fn write_observer_timeout_report(
+    app: &tauri::AppHandle,
+    output: &PathBuf,
+    results: &Arc<Mutex<Vec<Value>>>,
+    known: &Secrets,
+    negative: &Arc<Mutex<Value>>,
+    secondary_observation: &Arc<Mutex<Option<SecondaryProbeObservation>>>,
+) {
+    let pre_close_audit = AuditObservation::unavailable();
+    let audit_observation = AuditObservation::unavailable();
+    let teardown = TeardownObservation {
+        process_exit_applicable: cfg!(windows),
+        capture_complete: false,
+        close_complete: false,
+        process_exit_complete: false,
+        audit_complete: false,
+    };
+    let secondary = secondary_observation
+        .lock()
+        .unwrap()
+        .clone()
+        .unwrap_or_else(SecondaryProbeObservation::unavailable);
+    let diagnostic = NativeDiagnostic {
+        secondary_probe: secondary,
+        pre_close_audit: pre_close_audit.clone(),
+        audit: audit_observation.clone(),
+        teardown: teardown.clone(),
+    };
+    let report = json!({
+        "result": "failed",
+        "os": std::env::consts::OS,
+        "arch": std::env::consts::ARCH,
+        "tauri": "2.12.0",
+        "nativeMainEntered": true,
+        "knownSecretKinds": ["deviceBearer", "tickets", "launchCarrier", "sessionCookies", "browserCsrf"],
+        "sessions": results.lock().unwrap().clone(),
+        "retirement": {"actualAclDenied": false},
+        "negativeControls": negative.lock().unwrap().clone(),
+        "ticketError": Value::Null,
+        "productionBenchmark": Value::Null,
+        "secretOnDisk": false,
+        "cookieDatabaseFiles": 0,
+        "preCloseAudit": pre_close_audit,
+        "teardown": teardown,
+        "diagnostic": diagnostic,
+    });
+    let bytes = match serde_json::to_vec_pretty(&report) {
+        Ok(bytes) => {
+            progress("audit-report-serialized");
+            bytes
+        }
+        Err(_) => {
+            progress("audit-report-serialization-failed");
+            app.exit(2);
+            return;
+        }
+    };
+    if contains_secret(&bytes, &known.lock().unwrap()) {
+        progress("audit-report-secret-detected");
+        app.exit(2);
+        return;
+    }
+    if std::fs::write(output, &bytes).is_err() {
+        progress("audit-report-write-failed");
+        app.exit(2);
+        return;
+    }
+    progress("audit-report-written");
+    progress("audit-failed");
+    app.exit(2);
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AuditEntryKind {
     Directory,
@@ -975,6 +1051,13 @@ async fn finish(
         app.exit(2);
         return;
     }
+    let timeout_finished = finished.clone();
+    let timeout_app = app.clone();
+    let timeout_output = output.clone();
+    let timeout_results = results.clone();
+    let timeout_known = known.clone();
+    let timeout_negative = negative.clone();
+    let timeout_secondary = secondary_observation.clone();
     let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(observer_url.parse().unwrap())).incognito(true)
         .on_page_load(|webview, payload| {
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
@@ -985,7 +1068,7 @@ async fn finish(
         })
         .on_document_title_changed(move|window,title|{
             let Some(acl)=title.strip_prefix("ACL:").and_then(|v|serde_json::from_str::<Value>(v).ok())else{return};
-            if finished.swap(true, Ordering::SeqCst) {
+            if !claim_observer_completion(&finished) {
                 return;
             }
             let observer = window.clone();
@@ -1090,10 +1173,38 @@ async fn finish(
                 progress("audit-passed");task_handle.exit(0);
             });
         }).build();
-    if observer.is_err() {
-        progress("retirement-observer-create-failed");
-        app.exit(3);
-    }
+    let observer = match observer {
+        Ok(observer) => observer,
+        Err(_) => {
+            progress("retirement-observer-create-failed");
+            app.exit(3);
+            return;
+        }
+    };
+    let timeout_observer = observer.clone();
+    tauri::async_runtime::spawn(async move {
+        let remaining = teardown_deadline.saturating_duration_since(std::time::Instant::now());
+        tokio::time::sleep(remaining).await;
+        if !claim_observer_completion(&timeout_finished) {
+            return;
+        }
+        progress("retirement-observer-timeout");
+        progress("retirement-observer-close-start");
+        if timeout_observer.destroy().is_err() {
+            progress("retirement-observer-close-failed");
+        } else {
+            progress("retirement-observer-close-requested");
+        }
+        drop(timeout_observer);
+        write_observer_timeout_report(
+            &timeout_app,
+            &timeout_output,
+            &timeout_results,
+            &timeout_known,
+            &timeout_negative,
+            &timeout_secondary,
+        );
+    });
 }
 fn contains_secret(bytes: &[u8], secrets: &[SecretString]) -> bool {
     secrets.iter().any(|s| {
@@ -1327,10 +1438,10 @@ fn progress(label: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_progress_history, audit_with_reader, classify_file_read_error,
-        local_acl_probe_script, other_window_probe_script, parse_secondary_probe, AuditEntry,
-        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners,
-        OwnedBrowserProcess, TeardownObservation,
+        append_progress_history, audit_with_reader, claim_observer_completion,
+        classify_file_read_error, local_acl_probe_script, other_window_probe_script,
+        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation,
+        AuditReader, BrowserProcessOwners, OwnedBrowserProcess, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
 
@@ -1442,6 +1553,13 @@ mod tests {
         assert!(!owners.capture_complete(true));
         owners.finish_capture(Ok(OwnedBrowserProcess));
         assert!(owners.capture_complete(true));
+    }
+
+    #[test]
+    fn observer_timeout_claim_has_single_completion_owner() {
+        let finished = std::sync::atomic::AtomicBool::new(false);
+        assert!(claim_observer_completion(&finished));
+        assert!(!claim_observer_completion(&finished));
     }
 
     #[test]

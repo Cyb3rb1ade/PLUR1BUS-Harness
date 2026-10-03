@@ -234,6 +234,7 @@ fn progress_labels() -> &'static [&'static str] {
         "retirement-observer-close-start",
         "retirement-observer-close-requested",
         "retirement-observer-close-failed",
+        "retirement-observer-timeout",
         "teardown-wait-start",
         "teardown-wait-complete",
         "teardown-wait-failed",
