@@ -14,6 +14,8 @@ pub enum CookieQueryStage {
     Decode,
 }
 
+/// Closed, safe cookie-query error categories without paths, SQL, raw messages or contents.
+/// `None` means no recorded failure; it does not independently prove a successful query.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CookieQueryResult {
@@ -44,10 +46,14 @@ pub enum CookieQueryResult {
     Other,
 }
 
+/// Records a query failure using only closed, safe stage and error categories.
+/// The `None`/`None` pair means no recorded failure, not independent proof of query success.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CookieQueryDiagnostic {
+    /// Query stage that failed, or `None` when no failure is recorded.
     pub stage: CookieQueryStage,
+    /// Safe error category, or `None` when no failure is recorded.
     pub result: CookieQueryResult,
 }
 
