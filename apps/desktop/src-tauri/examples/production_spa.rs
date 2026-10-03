@@ -896,6 +896,22 @@ mod tests {
     }
 
     #[test]
+    fn closed_teardown_requires_capture_close_wait_and_audit() {
+        let observation = TeardownObservation {
+            capture_complete: true,
+            close_complete: true,
+            process_exit_complete: true,
+            audit_complete: false,
+        };
+        assert!(!observation.clean());
+        assert!(TeardownObservation {
+            audit_complete: true,
+            ..observation
+        }
+        .clean());
+    }
+
+    #[test]
     fn unknown_renderer_observation_is_unavailable() {
         let observation = parse_secondary_probe(
             r#"{"available":true,"documentOpaqueOrigin":false,"documentContentTypeTextPlain":true,"fetchRejectedTypeError":true,"url":"private"}"#,
