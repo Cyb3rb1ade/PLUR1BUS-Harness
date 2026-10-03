@@ -3,6 +3,7 @@ import type { HarnessConfig } from "@plur1bus/config-schema";
 import type {
   AgentCloseParams, AgentOpenParams, AgentStatusParams, CallerIdentity, CoreAdoptParams, CoreShutdownParams, CoreStatusResult, JobsHistoryParams, JobsRunParams,
   MemoryCaptureParams, MemoryCaptureResult, MemoryCheckpointParams, MemoryCheckpointResult, MemoryRecallParams, MemoryRecallResult,
+  ModelsAcknowledgeParams, ModelsListParams, ModelsRemoveManualParams, ModelsScanParams, ModelsSetOverrideParams,
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
 import { buildAdminMethods } from "../admin-ops.ts";
@@ -11,8 +12,31 @@ import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
+import { CatalogError } from "../discovery/overrides.ts";
+import { CatalogWriteError } from "../discovery/catalog-store.ts";
 import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
+
+function mapDiscoveryError(err: unknown): never {
+  if (err instanceof CatalogError) {
+    if (err.code === "invalid") {
+      throw new RpcError("E_INVALID_PARAMS", err.message, err.field !== undefined ? { detail: err.field } : {});
+    }
+    if (err.code === "conflict") {
+      throw new RpcError("E_CONFLICT", err.message);
+    }
+    if (err.code === "not-found") {
+      throw new RpcError("E_NOT_FOUND", err.message);
+    }
+    if (err.code === "not-manual") {
+      throw new RpcError("E_INVALID_PARAMS", err.message, { reason: "not-manual" });
+    }
+  }
+  if (err instanceof CatalogWriteError) {
+    throw new RpcError("E_STORAGE", err.message, { reason: "catalog-write-failed" });
+  }
+  throw err;
+}
 
 export interface MethodDeps {
   /** The running configuration, read per use: `core.recall.*` and `core.capture.waitMs` are live keys. */
@@ -205,6 +229,58 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
           ...(p.limit !== undefined ? { limit: p.limit } : {}),
         }),
       };
+    },
+
+    "models.list": async (p: ModelsListParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      return await d.discovery.list(p ?? {});
+    },
+    "models.scan": async (p: ModelsScanParams, ctx) => {
+      if (!d.systemJobs) throw new RpcError("E_INTERNAL", "system jobs unavailable");
+      const args: Record<string, unknown> = {};
+      if (p?.provider !== undefined) args.provider = p.provider;
+      const { record, detail } = await d.systemJobs.run("models.scan", args, { trigger: "manual", signal: ctx.signal });
+      return {
+        startedAt: new Date(record.startedAt).toISOString(),
+        finishedAt: new Date(record.finishedAt).toISOString(),
+        providers: (detail as any) ?? [],
+      };
+    },
+    "models.setOverride": async (p: ModelsSetOverrideParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      if (!d.discovery.hasProfile(p.provider)) {
+        throw new RpcError("E_INVALID_PARAMS", `unknown provider: ${p.provider}`, {
+          reason: "unknown-provider",
+          detail: "provider",
+        });
+      }
+      try {
+        return await d.discovery.setOverride(p as any);
+      } catch (err) {
+        mapDiscoveryError(err);
+      }
+    },
+    "models.removeManual": async (p: ModelsRemoveManualParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      if (!d.discovery.hasProfile(p.provider)) {
+        throw new RpcError("E_INVALID_PARAMS", `unknown provider: ${p.provider}`, {
+          reason: "unknown-provider",
+          detail: "provider",
+        });
+      }
+      try {
+        return await d.discovery.removeManual(p.provider, p.id);
+      } catch (err) {
+        mapDiscoveryError(err);
+      }
+    },
+    "models.acknowledge": async (_p: ModelsAcknowledgeParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      try {
+        return await d.discovery.acknowledge();
+      } catch (err) {
+        mapDiscoveryError(err);
+      }
     },
   };
 }

@@ -327,6 +327,7 @@ export function createCore(o: CoreOptions): Core {
         logger,
         ...(o.discovery?.scanners ? { scanners: o.discovery.scanners } : {}),
       });
+      discovery.onChanged((e) => server?.notify("models.changed", e));
 
       const ledgerPath = path.join(l.systemJobs, "ledger.jsonl");
       const systemJobs = createSystemJobs({

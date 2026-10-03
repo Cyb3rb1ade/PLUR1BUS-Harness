@@ -1,0 +1,22 @@
+{
+  "params": {
+    "provider": "example-compat"
+  },
+  "result": {
+    "startedAt": "2026-10-03T12:00:00.000Z",
+    "finishedAt": "2026-10-03T12:00:01.000Z",
+    "providers": [
+      {
+        "provider": "example-compat",
+        "result": "ok",
+        "new": ["example-chat-large"],
+        "reappeared": [],
+        "unavailable": [],
+        "unchanged": 0,
+        "duplicates": 0,
+        "warnings": [],
+        "nextScanAt": "2026-10-04T12:00:00.000Z"
+      }
+    ]
+  }
+}

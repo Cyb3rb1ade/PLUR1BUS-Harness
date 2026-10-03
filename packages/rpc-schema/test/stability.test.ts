@@ -125,4 +125,23 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(m["core.adopt"].result.properties.status, { $ref: "#/$defs/CoreStatus" });
     assert.ok(schema.$defs.CoreStatus.properties.process);
   });
+
+  it("models.* are core, experimental, since 1.5.0, closed", () => {
+    const modelMethods = ["models.list", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge"];
+    for (const name of modelMethods) {
+      const def = methods[name];
+      assert.ok(def, `${name} exists in methods`);
+      assert.equal((def as any)["x-server"], "core", `${name} x-server`);
+      assert.equal(def["x-stability"], "experimental", `${name} x-stability`);
+      assert.equal(def["x-since"], "1.5.0", `${name} x-since`);
+      assert.equal((def as any).params?.additionalProperties, false, `${name} params closed`);
+    }
+
+    const notif = notifications["models.changed"];
+    assert.ok(notif, "models.changed exists in notifications");
+    assert.equal((notif as any)["x-server"], "core", "models.changed x-server");
+    assert.equal(notif["x-stability"], "experimental", "models.changed x-stability");
+    assert.equal(notif["x-since"], "1.5.0", "models.changed x-since");
+    assert.equal((notif as any).additionalProperties, false, "models.changed params closed");
+  });
 });

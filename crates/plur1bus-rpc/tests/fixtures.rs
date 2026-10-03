@@ -116,6 +116,13 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.embedding.serve" => {
             pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
         }
+        "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
+        "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
+        "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
+        "models.removeManual" => {
+            pair::<ModelsRemoveManualParams, ModelsRemoveManualResult>(name, f)
+        }
+        "models.acknowledge" => pair::<ModelsAcknowledgeParams, ModelsAcknowledgeResult>(name, f),
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -256,6 +263,7 @@ fn every_notification_fixture_round_trips() {
             "config.changed" => round_trip::<types::ConfigChangedNotification>(v, name),
             "module.state" => round_trip::<types::ModuleStateNotification>(v, name),
             "ext.changed" => round_trip::<types::ExtChangedNotification>(v, name),
+            "models.changed" => round_trip::<types::ModelsChangedNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

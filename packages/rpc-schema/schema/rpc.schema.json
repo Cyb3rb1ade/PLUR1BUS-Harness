@@ -879,6 +879,103 @@
         "description": "Returns every installed extension and subscribes this connection to ext.changed. E_STORAGE reason=state-invalid (extensions/state.json cannot be read; nothing is subscribed).",
         "params": {"type": "object", "additionalProperties": false, "properties": {}},
         "result": {"type": "object", "additionalProperties": false, "required": ["subscriptionId", "items"], "properties": {"subscriptionId": {"type": "string"}, "items": {"type": "array", "items": {"$ref": "#/$defs/ExtItem"}}}}
+      },
+      "models.list": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Lists models in the catalog, provider scan states, new model count, and warnings (D112).",
+        "params": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "provider": { "type": "string" },
+            "kind": { "$ref": "#/$defs/ModelKind" },
+            "status": { "$ref": "#/$defs/CatalogModelStatus" },
+            "newOnly": { "type": "boolean" }
+          }
+        },
+        "result": {
+          "type": "object", "additionalProperties": false,
+          "required": ["models", "providers", "newCount", "warnings"],
+          "properties": {
+            "models": { "type": "array", "items": { "$ref": "#/$defs/ModelEntry" } },
+            "providers": { "type": "array", "items": { "$ref": "#/$defs/ModelProviderState" } },
+            "newCount": { "type": "integer", "minimum": 0 },
+            "warnings": { "type": "array", "items": { "$ref": "#/$defs/ModelScanWarning" } }
+          }
+        }
+      },
+      "models.scan": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Scans configured providers for available models, updating the catalog (D112).",
+        "params": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "provider": { "type": "string" }
+          }
+        },
+        "result": {
+          "type": "object", "additionalProperties": false,
+          "required": ["startedAt", "finishedAt", "providers"],
+          "properties": {
+            "startedAt": { "type": "string" },
+            "finishedAt": { "type": "string" },
+            "providers": { "type": "array", "items": { "$ref": "#/$defs/ModelScanProviderResult" } }
+          }
+        }
+      },
+      "models.setOverride": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Sets or clears metadata overrides for a model, or creates a manual model entry (D112).",
+        "params": {
+          "type": "object", "additionalProperties": false,
+          "required": ["provider", "id"],
+          "properties": {
+            "provider": { "type": "string" },
+            "id": { "type": "string" },
+            "set": { "$ref": "#/$defs/ModelOverrides" },
+            "clear": {
+              "oneOf": [
+                { "type": "array", "items": { "type": "string" } },
+                { "type": "string", "enum": ["all"] }
+              ]
+            },
+            "create": { "type": "boolean" }
+          }
+        },
+        "result": { "$ref": "#/$defs/ModelEntry" }
+      },
+      "models.removeManual": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Removes a manual model entry from the catalog (D112).",
+        "params": {
+          "type": "object", "additionalProperties": false,
+          "required": ["provider", "id"],
+          "properties": {
+            "provider": { "type": "string" },
+            "id": { "type": "string" }
+          }
+        },
+        "result": {
+          "type": "object", "additionalProperties": false,
+          "required": ["removed"],
+          "properties": {
+            "removed": { "type": "boolean" }
+          }
+        }
+      },
+      "models.acknowledge": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Acknowledges newly discovered models, clearing the new-models indicator (D112).",
+        "params": {
+          "type": "object", "additionalProperties": false,
+          "properties": {}
+        },
+        "result": {
+          "type": "object", "additionalProperties": false,
+          "required": ["acknowledgedAt"],
+          "properties": {
+            "acknowledgedAt": { "type": "string" }
+          }
+        }
       }
     },
     "RestartPlan": {
@@ -918,6 +1015,115 @@
         "oldText": { "type": "string" }, "newText": { "type": "string" }, "note": { "type": ["string", "null"] }, "createdAt": { "type": "integer" },
         "status": { "$ref": "#/$defs/MemoryProposalStatus" }, "resolvedAt": { "type": ["integer", "null"] },
         "resultId": { "type": ["string", "null"], "description": "accepted: the id of the refreshed shared copy" }, "resolutionNote": { "type": ["string", "null"] }
+      }
+    },
+
+    "ModelKind": {
+      "type": "string",
+      "enum": ["chat", "embedding", "tts", "asr", "image", "moderation", "rerank", "realtime", "unknown"]
+    },
+    "ModelCapability": {
+      "type": "string",
+      "enum": ["tools", "vision", "reasoning", "audio_in", "audio_out", "structured_output", "prompt_caching"]
+    },
+    "CatalogModelStatus": {
+      "type": "string",
+      "enum": ["available", "unavailable", "manual"]
+    },
+    "ModelOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "displayName": { "type": "string" },
+        "kind": { "$ref": "#/$defs/ModelKind" },
+        "contextWindow": { "type": "integer", "minimum": 1 },
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/ModelCapability" } },
+        "aliases": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "ModelEntry": {
+      "description": "One model in the harness catalog (D112).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "id", "displayName", "kind", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides"],
+      "properties": {
+        "provider": { "type": "string" },
+        "id": { "type": "string" },
+        "displayName": { "type": "string" },
+        "kind": { "$ref": "#/$defs/ModelKind" },
+        "contextWindow": { "type": "integer", "minimum": 1 },
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/ModelCapability" } },
+        "aliases": { "type": "array", "items": { "type": "string" } },
+        "status": { "$ref": "#/$defs/CatalogModelStatus" },
+        "firstSeen": { "type": "string" },
+        "lastSeen": { "type": "string" },
+        "source": { "enum": ["scan", "table", "manual"] },
+        "overrides": { "$ref": "#/$defs/ModelOverrides" }
+      }
+    },
+    "ModelScanResultCode": {
+      "type": "string",
+      "enum": ["ok", "failed:auth", "failed:network", "failed:server", "failed:invalid", "failed:empty"]
+    },
+    "ModelProviderState": {
+      "description": "Scan state of one model provider (D112).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider"],
+      "properties": {
+        "provider": { "type": "string" },
+        "lastScanAt": { "type": "string" },
+        "lastResult": { "$ref": "#/$defs/ModelScanResultCode" },
+        "nextScanAt": { "type": "string" },
+        "consecutiveFailures": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ModelScanWarning": {
+      "description": "Warning from a model scan or catalog state (D112).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": { "enum": ["role_unavailable", "shadowed_by_manual", "empty_list"] },
+        "role": { "type": "string" },
+        "provider": { "type": "string" },
+        "id": { "type": "string" }
+      }
+    },
+    "ModelScanOutcomeCode": {
+      "type": "string",
+      "enum": ["ok", "failed:auth", "failed:network", "failed:server", "failed:invalid", "failed:empty", "already_running", "disabled", "no-scanner"]
+    },
+    "ModelScanErrorInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "reason", "retryable", "hint"],
+      "properties": {
+        "code": { "enum": ["auth", "network", "timeout", "server", "rate-limited", "invalid-request"] },
+        "reason": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "hint": { "type": "string" },
+        "httpStatus": { "type": "integer" },
+        "retryAfterS": { "type": "integer" }
+      }
+    },
+    "ModelScanProviderResult": {
+      "description": "Outcome of scanning one provider (D112).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "result", "new", "reappeared", "unavailable", "unchanged", "duplicates", "warnings", "nextScanAt"],
+      "properties": {
+        "provider": { "type": "string" },
+        "result": { "$ref": "#/$defs/ModelScanOutcomeCode" },
+        "runningRunId": { "type": "string" },
+        "new": { "type": "array", "items": { "type": "string" } },
+        "reappeared": { "type": "array", "items": { "type": "string" } },
+        "unavailable": { "type": "array", "items": { "type": "string" } },
+        "unchanged": { "type": "integer", "minimum": 0 },
+        "duplicates": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "array", "items": { "$ref": "#/$defs/ModelScanWarning" } },
+        "nextScanAt": { "type": ["string", "null"] },
+        "error": { "$ref": "#/$defs/ModelScanErrorInfo" }
       }
     },
 
@@ -1020,6 +1226,19 @@
           "state": { "enum": ["installed", "enabled", "removed"] },
           "version": { "type": "string" },
           "overlays": { "type": "array", "items": { "$ref": "#/$defs/ExtOverlay" } }
+        }
+      },
+      "models.changed": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Emitted when a scan or manual change alters available models in the catalog (D112).",
+        "type": "object", "additionalProperties": false,
+        "required": ["provider", "discovered", "reappeared", "unavailable", "at"],
+        "properties": {
+          "provider": { "type": "string" },
+          "discovered": { "type": "array", "items": { "type": "string" } },
+          "reappeared": { "type": "array", "items": { "type": "string" } },
+          "unavailable": { "type": "array", "items": { "type": "string" } },
+          "at": { "type": "string" }
         }
       }
     }
