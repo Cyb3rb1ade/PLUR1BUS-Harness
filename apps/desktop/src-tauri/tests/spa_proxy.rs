@@ -151,6 +151,7 @@ async fn non_get_methods_require_exact_origin() {
             reqwest::Method::PUT,
             reqwest::Method::PATCH,
             reqwest::Method::DELETE,
+            reqwest::Method::OPTIONS,
         ] {
             for origin in [None, Some("null"), Some("https://foreign.test")] {
                 let mut request = client.request(
@@ -177,6 +178,34 @@ async fn non_get_methods_require_exact_origin() {
                     .unwrap()
                     .status(),
                 200
+            );
+        }
+        for origin in [None, Some(f.proxy.origin().as_str())] {
+            let mut request = client.request(
+                reqwest::Method::HEAD,
+                format!("{}/echo", f.proxy.origin().as_str()),
+            );
+            request = request.header("user-agent", f.proxy.user_agent());
+            if let Some(origin) = origin {
+                request = request.header("origin", origin);
+            }
+            assert_eq!(request.send().await.unwrap().status(), 200);
+        }
+        for origin in ["null", "https://foreign.test"] {
+            assert_eq!(
+                client
+                    .request(
+                        reqwest::Method::HEAD,
+                        format!("{}/echo", f.proxy.origin().as_str()),
+                    )
+                    .header("user-agent", f.proxy.user_agent())
+                    .header("origin", origin)
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                403,
+                "HEAD {origin}"
             );
         }
     })
