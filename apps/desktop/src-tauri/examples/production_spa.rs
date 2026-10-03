@@ -515,17 +515,17 @@ async fn inspect_private_profile(
         let mut state = target.lock().unwrap();
         state.callback_available = true;
         let controller = webview.controller();
-        if let Ok(core) = (unsafe { controller.CoreWebView2() }) {
+        if let Ok(core) = unsafe { controller.CoreWebView2() } {
             state.environment_options_available = webview
                 .environment()
                 .cast::<ICoreWebView2Environment10>()
                 .is_ok();
             if let Ok(core13) = core.cast::<ICoreWebView2_13>() {
                 if let Ok(profile) = unsafe { core13.Profile() } {
-                    let mut enabled = 0;
+                    let mut enabled = windows_core::BOOL::default();
                     if unsafe { profile.IsInPrivateModeEnabled(&mut enabled) }.is_ok() {
                         state.profile_state_available = true;
-                        state.private_enabled = enabled != 0;
+                        state.private_enabled = enabled.as_bool();
                     }
                 }
             }
