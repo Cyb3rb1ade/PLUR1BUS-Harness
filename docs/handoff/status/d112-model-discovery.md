@@ -2,8 +2,8 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 
 | Task | Commit | Tests added (file::name) | Result | Notes |
 |---|---|---|---|---|
-| 1 Types, ports, test adapters, catalog store | pending (next commit) | `catalog-store.test.ts` (10), `fake-clock.test.ts` (4), `paths.test.ts::lays out the model catalog and the system-job state` | pass | full green line run once before push |
-| 2 Metadata table | | | | |
+| 1 Types, ports, test adapters, catalog store | f0885151 | `catalog-store.test.ts` (10), `fake-clock.test.ts` (4), `paths.test.ts::lays out the model catalog and the system-job state` | pass | full green line run once before push |
+| 2 Metadata table | pending (next commit) | `metadata.test.ts` (13) | pass | |
 | 3 HTTP client, validation | | | | |
 | 4 Scanners | | | | |
 | 5 Reconcile, overrides, roles | | | | |
@@ -18,6 +18,8 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 ## Deviations
 - Commit trailer: `Co-Authored-By: Antigravity <noreply@google.com>` instead of the plan's Claude trailers (agy prompt, hard rules).
 - `pnpm gen` had to run once in the fresh worktree before `packages/core` tests could load (`generated/` is not committed).
+
+- Task 2 step 4: `grep -c example-embed packages/core/dist/core.js` prints 0, because no entry point imports `metadata.ts` until Task 6/7 wires the service. Checked instead by bundling `metadata.ts` alone with esbuild: the table is inlined (count 1).
 
 ## Spec/plan gaps
 - A commit cannot contain its own SHA, so the table's SHA column lags one commit behind.

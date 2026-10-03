@@ -1,0 +1,18 @@
+{
+  "schema": "plur1bus.model-metadata/1",
+  "revision": "2026-10-03.1",
+  "vendors": {
+    "generic": [
+      { "pattern": "^example-embed-.+$", "kind": "embedding", "capabilities": [] }
+    ],
+    "example-vendor": [
+      {
+        "pattern": "^example-chat-(large|small)(-\\d{8})?$",
+        "kind": "chat",
+        "contextWindow": 128000,
+        "capabilities": ["tools", "vision", "reasoning"],
+        "aliases": ["example-chat-latest"]
+      }
+    ]
+  }
+}
