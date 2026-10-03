@@ -271,6 +271,7 @@ fn progress_labels() -> &'static [&'static str] {
         "retirement-window-close-failed",
         "retirement-window-close-complete",
         "retirement-observer-create-failed",
+        "retirement-observer-unexpected-url",
         "retirement-observer-page-started",
         "retirement-observer-page-finished",
         "retirement-observer-eval-submitted",
@@ -660,10 +661,10 @@ mod tests {
 
     #[test]
     fn retirement_observer_stages_are_closed_and_whitelisted() {
-        let stages = "retirement-observer-page-started\nretirement-observer-page-finished\nretirement-observer-eval-submitted\nretirement-observer-script-entry\nretirement-observer-ipc-available\nretirement-observer-ipc-start\nretirement-observer-ipc-complete\nretirement-observer-title-complete\n";
+        let stages = "retirement-observer-unexpected-url\nretirement-observer-page-started\nretirement-observer-page-finished\nretirement-observer-eval-submitted\nretirement-observer-script-entry\nretirement-observer-ipc-available\nretirement-observer-ipc-start\nretirement-observer-ipc-complete\nretirement-observer-title-complete\n";
         let observation = parse_progress_history("retirement-observer-title-complete", stages)
             .expect("retirement stages must be whitelisted");
-        assert_eq!(observation.stages.len(), 8);
+        assert_eq!(observation.stages.len(), 9);
     }
 
     #[test]

@@ -1180,6 +1180,7 @@ async fn finish(
     let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(observer_url.parse().unwrap())).incognito(true)
         .on_page_load(|webview, payload| {
             if payload.url().query() != Some("wp05-old-check") {
+                progress("retirement-observer-unexpected-url");
                 return;
             }
             match payload.event() {
