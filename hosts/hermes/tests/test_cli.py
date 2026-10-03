@@ -11,6 +11,7 @@ from unittest import mock
 
 from tests import FIXTURES_DIR, PROVIDER_DIR, REPO_ROOT
 from tests.fake_client import FakeError, Sandbox, capabilities, requires_core
+from plur1bus_memory_client import RPC_VERSION
 
 from plur1bus import cli
 from plur1bus.binding import BINDING_SCHEMA, REGISTRY_SCHEMA, Binding, read_binding, read_registry, write_binding
@@ -110,7 +111,7 @@ class CliTest(unittest.TestCase):
         check_status(self, doc)
         self.assertEqual(doc["binding"]["agentId"], "hermes-work")
         self.assertEqual(doc["binding"]["home"], self.sb.p1home)
-        self.assertEqual(doc["core"], {"reachable": True, "rpc": "1.4.0", "contract": "1.4.1", "instanceId": "inst-fixture", "error": None})
+        self.assertEqual(doc["core"], {"reachable": True, "rpc": RPC_VERSION, "contract": "1.4.1", "instanceId": "inst-fixture", "error": None})
         self.assertEqual(doc["journal"], {"path": j.path, "queued": 1, "dropped": 0, "rejected": 1, "lost": 0})
         self.assertEqual(doc["lastError"], "E_CORE_UNAVAILABLE")
         self.assertNotIn("queued turn", out)

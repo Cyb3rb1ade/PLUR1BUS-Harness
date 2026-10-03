@@ -12,8 +12,14 @@ Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction) · head SHA: s
 | 8 Scheduler, config keys | d2a1c33f | `scheduler.test.ts` (13), `core-discovery.test.ts` (3), `config-schema.test.ts` (16) | pass | models.scan.* schema & defaults, scheduler with catch-up jitter/spacing, replan on live config change, max 4 workers |
 | 9 RPC models.* | f86b3fe5 | `models-rpc.test.ts` (9), `stability.test.ts` (1), `provider.test.ts` (1), `fixtures.rs` (mappings) | pass | models.list\|scan\|setOverride\|removeManual\|acknowledge, models.changed notification, WebMCP deny list, schema 1.5.0 |
 | 10 CLI, 1staid | 43110541 | `model_cli.rs` (4), `model.rs` (5), `firstaid.rs` updated, `setup_profile.rs` updated | pass | plur1bus model list\|scan\|override, 1staid check models.roles, stale read from catalog/models.json, role_warnings |
-| 11 End to end, docs | pending (this commit) | `discovery-e2e.test.ts` (9), `model-discovery.test.ts` (1) | pass | D109 mocks end-to-end, filesystem/network isolation verification, ADR-005/013/016, provider-matrix, AGENTS.md |
+| 11 End to end, docs | c02e9a94 | `discovery-e2e.test.ts` (9), `model-discovery.test.ts` (1) | pass | D109 mocks end-to-end, filesystem/network isolation verification, ADR-005/013/016, provider-matrix, AGENTS.md |
 | 12 Wire real adapters | | | BLOCKED (D15, D110, D111) | not started, by instruction |
+
+## Review Fixes (PR #70)
+
+| Finding | Commit | Tests added (file::name) | Result | Notes |
+|---|---|---|---|---|
+| surface F1 | pending | `hosts/hermes/tests/test_cli.py`, `fake_client.py` | pass | Read RPC_VERSION from generated client schema |
 
 ## Deviations
 - Commit trailer: `Co-Authored-By: Antigravity <noreply@google.com>` instead of the plan's Claude trailers (agy prompt, hard rules).
@@ -27,4 +33,4 @@ Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction) · head SHA: s
 - A commit cannot contain its own SHA, so the table's SHA column lags one commit behind.
 
 ## Open
-- None (Task 12 remains blocked until D15, D110, D111 as instructed).
+- Review fixes in progress. (Task 12 remains blocked until D15, D110, D111 as instructed).
