@@ -53,6 +53,10 @@ struct AuditObservation {
     failure_category: AuditFailureCategory,
 }
 
+fn unavailable_audit() -> AuditObservation {
+    AuditObservation::unavailable()
+}
+
 impl AuditObservation {
     fn unavailable() -> Self {
         Self {
@@ -127,14 +131,38 @@ impl SecondaryProbeObservation {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct NativeDiagnostic {
     secondary_probe: SecondaryProbeObservation,
+    #[serde(default = "unavailable_audit")]
+    pre_close_audit: AuditObservation,
     audit: AuditObservation,
+    #[serde(default)]
+    teardown: TeardownObservation,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize, Default)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct TeardownObservation {
+    capture_complete: bool,
+    close_complete: bool,
+    process_exit_complete: bool,
+    audit_complete: bool,
+}
+
+impl TeardownObservation {
+    fn clean(&self) -> bool {
+        self.capture_complete
+            && self.close_complete
+            && self.process_exit_complete
+            && self.audit_complete
+    }
 }
 
 impl NativeDiagnostic {
     fn unavailable() -> Self {
         Self {
             secondary_probe: SecondaryProbeObservation::unavailable(),
+            pre_close_audit: AuditObservation::unavailable(),
             audit: AuditObservation::unavailable(),
+            teardown: TeardownObservation::default(),
         }
     }
 }
@@ -145,7 +173,7 @@ fn parse_diagnostic(root: &Value) -> NativeDiagnostic {
         .cloned()
         .and_then(|value| serde_json::from_value::<NativeDiagnostic>(value).ok());
     match diagnostic {
-        Some(value) if value.audit.bounded() => value,
+        Some(value) if value.audit.bounded() && value.pre_close_audit.bounded() => value,
         _ => NativeDiagnostic::unavailable(),
     }
 }
@@ -190,6 +218,14 @@ fn progress_labels() -> &'static [&'static str] {
         "error-page",
         "retire",
         "audit",
+        "audit-live-scan-complete",
+        "audit-live-scan-incomplete",
+        "retirement-observer-close-requested",
+        "teardown-wait-start",
+        "teardown-wait-complete",
+        "teardown-wait-failed",
+        "audit-closed-scan-complete",
+        "audit-closed-scan-incomplete",
         "audit-scan-complete",
         "audit-scan-incomplete",
         "audit-report-serialized",
@@ -422,6 +458,12 @@ fn main() {
         assert!(
             diagnostic.secondary_probe.other_window_acl_denied,
             "secondary probe ACL denial was not observed"
+        );
+        assert!(diagnostic.teardown.clean(), "native teardown was incomplete");
+        assert!(
+            !diagnostic.pre_close_audit.secret_detected
+                && diagnostic.pre_close_audit.cookie_database_files == 0,
+            "native live audit observed a secret or cookie database"
         );
         assert!(diagnostic.audit.clean(), "native audit not clean");
         std::fs::write(

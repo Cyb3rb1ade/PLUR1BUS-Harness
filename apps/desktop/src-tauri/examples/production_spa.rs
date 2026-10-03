@@ -12,7 +12,7 @@ use std::{
     io::Read,
     path::PathBuf,
     sync::{
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicBool, AtomicU8, Ordering},
         Arc, Mutex,
     },
 };
@@ -61,6 +61,20 @@ struct AuditObservation {
 }
 
 impl AuditObservation {
+    fn unavailable() -> Self {
+        Self {
+            audit_complete: false,
+            secret_detected: false,
+            cookie_database_files: 0,
+            read_failures: 0,
+            entries_disappeared: 0,
+            metadata_failures: 0,
+            read_dir_failures: 0,
+            symlink_entries: 0,
+            failure_category: AuditFailureCategory::ReadDir,
+        }
+    }
+
     fn clean(&self) -> bool {
         self.audit_complete
             && !self.secret_detected
@@ -137,7 +151,196 @@ impl SecondaryProbeResult {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct NativeDiagnostic {
     secondary_probe: SecondaryProbeObservation,
+    pre_close_audit: AuditObservation,
     audit: AuditObservation,
+    teardown: TeardownObservation,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct TeardownObservation {
+    capture_complete: bool,
+    close_complete: bool,
+    process_exit_complete: bool,
+    audit_complete: bool,
+}
+
+impl TeardownObservation {
+    fn clean(&self) -> bool {
+        self.capture_complete
+            && self.close_complete
+            && self.process_exit_complete
+            && self.audit_complete
+    }
+}
+
+#[derive(Clone, Default)]
+struct BrowserProcessOwners {
+    state: Arc<Mutex<BrowserProcessState>>,
+}
+
+#[derive(Default)]
+struct BrowserProcessState {
+    pending_captures: usize,
+    capture_failures: u32,
+    close_failures: u32,
+    owners: Vec<OwnedBrowserProcess>,
+}
+
+#[cfg(windows)]
+struct OwnedBrowserProcess {
+    pid: u32,
+    handle: windows_sys::Win32::Foundation::HANDLE,
+}
+
+#[cfg(not(windows))]
+struct OwnedBrowserProcess;
+
+#[cfg(windows)]
+unsafe impl Send for OwnedBrowserProcess {}
+
+#[cfg(windows)]
+unsafe impl Sync for OwnedBrowserProcess {}
+
+#[cfg(windows)]
+impl Drop for OwnedBrowserProcess {
+    fn drop(&mut self) {
+        if !self.handle.is_null() {
+            unsafe { windows_sys::Win32::Foundation::CloseHandle(self.handle) };
+        }
+    }
+}
+
+impl BrowserProcessOwners {
+    fn begin_capture(&self) {
+        self.state.lock().unwrap().pending_captures += 1;
+    }
+
+    fn finish_capture(&self, owner: Result<OwnedBrowserProcess, ()>) {
+        let mut state = self.state.lock().unwrap();
+        state.pending_captures = state.pending_captures.saturating_sub(1);
+        match owner {
+            Ok(owner) => {
+                #[cfg(windows)]
+                if state.owners.iter().any(|existing| existing.pid == owner.pid) {
+                    return;
+                }
+                state.owners.push(owner);
+            }
+            Err(()) => state.capture_failures = state.capture_failures.saturating_add(1),
+        }
+    }
+
+    fn capture_callback_failed(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.pending_captures = state.pending_captures.saturating_sub(1);
+        state.capture_failures = state.capture_failures.saturating_add(1);
+    }
+
+    fn close_failed(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.close_failures = state.close_failures.saturating_add(1);
+    }
+
+    fn capture_complete(&self) -> bool {
+        let state = self.state.lock().unwrap();
+        state.pending_captures == 0 && state.capture_failures == 0
+    }
+
+    fn close_complete(&self) -> bool {
+        self.state.lock().unwrap().close_failures == 0
+    }
+
+    fn take_owners(&self) -> Vec<OwnedBrowserProcess> {
+        std::mem::take(&mut self.state.lock().unwrap().owners)
+    }
+}
+
+fn capture_browser_process<R: tauri::Runtime>(
+    window: &tauri::WebviewWindow<R>,
+    owners: &BrowserProcessOwners,
+) {
+    owners.begin_capture();
+    let callback_owners = owners.clone();
+    let result = window.with_webview(move |webview| {
+        #[cfg(windows)]
+        let owner = platform_browser_process(&webview);
+        #[cfg(not(windows))]
+        let owner = {
+            let _ = &webview;
+            Ok(OwnedBrowserProcess)
+        };
+        callback_owners.finish_capture(owner);
+    });
+    if result.is_err() {
+        owners.capture_callback_failed();
+    }
+}
+
+#[cfg(windows)]
+fn platform_browser_process(
+    webview: &tauri::webview::PlatformWebview,
+) -> Result<OwnedBrowserProcess, ()> {
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE};
+
+    let core = unsafe { webview.controller().CoreWebView2() }.map_err(|_| ())?;
+    let mut pid = 0;
+    unsafe { core.BrowserProcessId(&mut pid) }.map_err(|_| ())?;
+    if pid == 0 {
+        return Err(());
+    }
+    let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+    if handle.is_null() {
+        return Err(());
+    }
+    Ok(OwnedBrowserProcess { pid, handle })
+}
+
+async fn wait_for_browser_processes(
+    owners: BrowserProcessOwners,
+    deadline: std::time::Duration,
+) -> bool {
+    let started = std::time::Instant::now();
+    while {
+        let state = owners.state.lock().unwrap();
+        state.pending_captures != 0
+    } {
+        if started.elapsed() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let remaining = deadline.saturating_sub(started.elapsed());
+    let owned = owners.take_owners();
+    tauri::async_runtime::spawn_blocking(move || wait_owned_browser_processes(owned, remaining))
+        .await
+        .unwrap_or(false)
+}
+
+fn wait_owned_browser_processes(
+    owners: Vec<OwnedBrowserProcess>,
+    deadline: std::time::Duration,
+) -> bool {
+    #[cfg(not(windows))]
+    {
+        let _ = (owners, deadline);
+        true
+    }
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
+        use windows_sys::Win32::System::Threading::WaitForSingleObject;
+        let started = std::time::Instant::now();
+        let mut complete = true;
+        for owner in owners {
+            let remaining = deadline.saturating_sub(started.elapsed());
+            let millis = remaining.as_millis().min(u32::MAX as u128) as u32;
+            if unsafe { WaitForSingleObject(owner.handle, millis) } != WAIT_OBJECT_0 {
+                complete = false;
+            }
+        }
+        complete
+    }
 }
 
 struct FinishInputs {
@@ -145,6 +348,7 @@ struct FinishInputs {
     known: Secrets,
     negative: Arc<Mutex<Value>>,
     secondary_observation: Arc<Mutex<Option<SecondaryProbeObservation>>>,
+    browser_owners: BrowserProcessOwners,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -236,6 +440,7 @@ fn main() {
     let measurements = Arc::new(Mutex::new(Value::Null));
     let first_origin = Arc::new(Mutex::new(None::<Origin>));
     let old_probe = Arc::new(Mutex::new(None::<Value>));
+    let browser_owners = BrowserProcessOwners::default();
     let mut context = tauri::generate_context!();
     context.config_mut().app.windows.clear();
     context.config_mut().app.app_directories_override =
@@ -323,6 +528,7 @@ fn main() {
                     let measurements = measurements.clone();
                     let first_origin = first_origin.clone();
                     let old_probe_for_run = old_probe.clone();
+                    let browser_owners_for_run = browser_owners.clone();
                     tauri::async_runtime::spawn(async move {
                         progress("secrets-registering");
                         proxy.register_memory_secrets(|s| {
@@ -361,7 +567,13 @@ fn main() {
                             progress("negative-checks");
                             let old_origin = first_origin.lock().unwrap().clone();
                             let (controls, observation) =
-                                negative_controls(&app, &proxy, old_origin, old_probe_for_run)
+                                negative_controls(
+                                    &app,
+                                    &proxy,
+                                    old_origin,
+                                    old_probe_for_run,
+                                    browser_owners_for_run.clone(),
+                                )
                                     .await;
                             *negatives.lock().unwrap() = controls;
                             *secondary_observation.lock().unwrap() = Some(observation);
@@ -398,6 +610,7 @@ fn main() {
                                 known,
                                 negative: negatives,
                                 secondary_observation,
+                                browser_owners: browser_owners_for_run,
                             },
                             observations,
                         )
@@ -442,6 +655,7 @@ async fn negative_controls(
     proxy: &SpaProxy,
     first_origin: Option<Origin>,
     old_probe: Arc<Mutex<Option<Value>>>,
+    browser_owners: BrowserProcessOwners,
 ) -> (Value, SecondaryProbeObservation) {
     let client = bounded_http_client();
     let url = format!("{}/", proxy.origin().as_str());
@@ -525,7 +739,10 @@ async fn negative_controls(
             panic!("other native window probe timed out")
         }
     };
-    other.destroy().unwrap();
+    capture_browser_process(&other, &browser_owners);
+    if other.destroy().is_err() {
+        browser_owners.close_failed();
+    }
     let old_origin = if let Some(first_origin) = first_origin {
         *old_probe.lock().unwrap() = None;
         let old_url = format!("{}?wp05-old-check", first_origin.as_str());
@@ -562,33 +779,120 @@ async fn finish(
     error: Value,
 ) {
     progress("retire");
+    let browser_owners = inputs.browser_owners.clone();
+    if let Some(current) = app.get_webview_window("spa") {
+        capture_browser_process(&current, &browser_owners);
+        if current.destroy().is_err() {
+            browser_owners.close_failed();
+        }
+    }
     spa::retire(app).unwrap();
-    app.get_webview_window("spa").unwrap().destroy().unwrap();
     while app.get_webview_window("spa").is_some() {
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
     let handle = app.clone();
+    let finished = Arc::new(AtomicBool::new(false));
+    let output = output.clone();
+    let known = inputs.known.clone();
+    let results = inputs.results.clone();
+    let negative = inputs.negative.clone();
+    let secondary_observation = inputs.secondary_observation.clone();
+    let observer_owners = browser_owners.clone();
     let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(proxy.origin().as_str().parse().unwrap())).incognito(true)
         .on_page_load(|webview, payload| {
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 let _ = webview.eval(retirement_observer_probe_script());
             }
         })
-        .on_document_title_changed(move|_,title|{
+        .on_document_title_changed(move|window,title|{
             let Some(acl)=title.strip_prefix("ACL:").and_then(|v|serde_json::from_str::<Value>(v).ok())else{return};
-            progress("audit");
-            let audit_observation=audit(&PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap()),&inputs.known.lock().unwrap());
-            if audit_observation.audit_complete{progress("audit-scan-complete");}else{progress("audit-scan-incomplete");}
-            let secondary = inputs.secondary_observation.lock().unwrap().clone().unwrap_or_else(SecondaryProbeObservation::unavailable);
-            let diagnostic = NativeDiagnostic { secondary_probe: secondary, audit: audit_observation.clone() };
-            let diagnostic_pass = diagnostic.secondary_probe.available && diagnostic.audit.clean();
-            let report=json!({"result":if diagnostic_pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*inputs.results.lock().unwrap(),"retirement":acl,"negativeControls":*inputs.negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"diagnostic":diagnostic});
-            let bytes=match serde_json::to_vec_pretty(&report){Ok(bytes)=>{progress("audit-report-serialized");bytes},Err(_)=>{progress("audit-report-serialization-failed");handle.exit(2);return}};
-            if contains_secret(&bytes,&inputs.known.lock().unwrap()){progress("audit-report-secret-detected");handle.exit(2);return}
-            if std::fs::write(&output,&bytes).is_err(){progress("audit-report-write-failed");handle.exit(2);return}
-            progress("audit-report-written");
-            if !diagnostic_pass{progress("audit-failed");handle.exit(2);return}
-            progress("audit-passed");handle.exit(0);
+            if finished.swap(true, Ordering::SeqCst) {
+                return;
+            }
+            let observer = window.clone();
+            capture_browser_process(&observer, &observer_owners);
+            let task_handle = handle.clone();
+            let task_output = output.clone();
+            let task_known = known.clone();
+            let task_results = results.clone();
+            let task_negative = negative.clone();
+            let task_secondary = secondary_observation.clone();
+            let task_owners = observer_owners.clone();
+            let task_error = error.clone();
+            tauri::async_runtime::spawn(async move {
+                progress("audit");
+                let root = PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap());
+                let live_root = root.clone();
+                let live_known = task_known.clone();
+                let pre_close_audit = tauri::async_runtime::spawn_blocking(move || {
+                    let known = live_known.lock().unwrap();
+                    audit(&live_root, &known)
+                })
+                .await
+                .unwrap_or_else(|_| AuditObservation::unavailable());
+                if pre_close_audit.audit_complete {
+                    progress("audit-live-scan-complete");
+                } else {
+                    progress("audit-live-scan-incomplete");
+                }
+                progress("retirement-observer-close-requested");
+                if observer.destroy().is_err() {
+                    task_owners.close_failed();
+                }
+                drop(observer);
+                progress("teardown-wait-start");
+                let process_exit_complete =
+                    wait_for_browser_processes(task_owners.clone(), std::time::Duration::from_secs(10))
+                        .await;
+                if process_exit_complete {
+                    progress("teardown-wait-complete");
+                } else {
+                    progress("teardown-wait-failed");
+                }
+                let closed_root = root.clone();
+                let closed_known = task_known.clone();
+                let audit_observation = tauri::async_runtime::spawn_blocking(move || {
+                    let known = closed_known.lock().unwrap();
+                    audit(&closed_root, &known)
+                })
+                .await
+                .unwrap_or_else(|_| AuditObservation::unavailable());
+                if audit_observation.audit_complete {
+                    progress("audit-closed-scan-complete");
+                } else {
+                    progress("audit-closed-scan-incomplete");
+                }
+                let teardown = TeardownObservation {
+                    capture_complete: task_owners.capture_complete(),
+                    close_complete: task_owners.close_complete(),
+                    process_exit_complete,
+                    audit_complete: audit_observation.audit_complete,
+                };
+                let secondary = task_secondary
+                    .lock()
+                    .unwrap()
+                    .clone()
+                    .unwrap_or_else(SecondaryProbeObservation::unavailable);
+                let diagnostic = NativeDiagnostic {
+                    secondary_probe: secondary,
+                    pre_close_audit: pre_close_audit.clone(),
+                    audit: audit_observation.clone(),
+                    teardown: teardown.clone(),
+                };
+                let live_positive = diagnostic.pre_close_audit.secret_detected
+                    || diagnostic.pre_close_audit.cookie_database_files != 0;
+                let diagnostic_pass = diagnostic.secondary_probe.available
+                    && !live_positive
+                    && diagnostic.audit.clean()
+                    && diagnostic.teardown.clean();
+                let report=json!({"result":if diagnostic_pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*task_results.lock().unwrap(),"retirement":acl,"negativeControls":*task_negative.lock().unwrap(),"ticketError":task_error["ticketError"],"productionBenchmark":task_error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
+                let bytes=match serde_json::to_vec_pretty(&report){Ok(bytes)=>{progress("audit-report-serialized");bytes},Err(_)=>{progress("audit-report-serialization-failed");task_handle.exit(2);return}};
+                if contains_secret(&bytes,&task_known.lock().unwrap()){progress("audit-report-secret-detected");task_handle.exit(2);return}
+                if std::fs::write(&task_output,&bytes).is_err(){progress("audit-report-write-failed");task_handle.exit(2);return}
+                progress("audit-report-written");
+                if !diagnostic_pass{progress("audit-failed");task_handle.exit(2);return}
+                progress("audit-passed");task_handle.exit(0);
+            });
         }).build();
     if observer.is_err() {
         app.exit(3);
@@ -828,7 +1132,7 @@ mod tests {
     use super::{
         append_progress_history, audit_with_reader, classify_file_read_error,
         other_window_probe_script, parse_secondary_probe, AuditEntry, AuditEntryKind,
-        AuditFailureCategory, AuditObservation, AuditReader,
+        AuditFailureCategory, AuditObservation, AuditReader, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
 
