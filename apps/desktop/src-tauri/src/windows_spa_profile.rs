@@ -702,7 +702,9 @@ mod windows {
         super::finish_owned_cleanup(
             close_requested,
             deadline,
-            || {
+            // Own the Send-only process through the wait/audit future. A shared
+            // borrow here would require Sync for its HANDLE; COM stays UI-local.
+            move || {
                 if !gone.load(Ordering::SeqCst) {
                     Some(false)
                 } else {
@@ -1582,6 +1584,26 @@ mod windows {
         }
 
         #[test]
+        fn r3_actual_native_cleanup_future_is_send() {
+            fn assert_send<F: std::future::Future<Output = CleanupResult> + Send>(future: F) {
+                drop(future);
+            }
+            let temp = tempfile::tempdir().unwrap();
+            let profile = create_in(&temp.path().join("spa-tmp")).unwrap();
+            let (sender, receiver) = tokio::sync::oneshot::channel::<io::Result<BrowserProcess>>();
+            // Type-check the actual production future with the native HANDLE owner.
+            // Dropping before polling needs no UI/COM runtime and cannot audit/delete.
+            assert_send(cleanup_after_exit(
+                profile,
+                Some(receiver),
+                Arc::new(AtomicBool::new(false)),
+                None,
+                std::time::Instant::now(),
+            ));
+            drop(sender);
+        }
+
+        #[test]
         fn authoritative_failure_does_not_use_available_cached_zero() {
             use std::os::windows::fs::OpenOptionsExt;
 
@@ -2245,6 +2267,101 @@ pub use windows::*;
 #[cfg(test)]
 mod tests {
     use super::{known_browser_lock_name, owned_leaf_name};
+
+    // Cell deliberately makes this probe Send but not Sync, like the owned HANDLE.
+    struct SendOnlyExitProbe {
+        calls: std::cell::Cell<usize>,
+        exit_after: usize,
+        dropped: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    }
+    impl SendOnlyExitProbe {
+        fn exited(&self) -> Option<bool> {
+            self.calls.set(self.calls.get() + 1);
+            Some(self.calls.get() >= self.exit_after)
+        }
+    }
+    impl Drop for SendOnlyExitProbe {
+        fn drop(&mut self) {
+            self.dropped
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    fn assert_send_future<F: std::future::Future + Send>(future: F) -> F {
+        future
+    }
+
+    #[tokio::test]
+    async fn r3_owned_send_only_exit_probe_survives_wait_and_audit() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        let dropped = Arc::new(AtomicBool::new(false));
+        let probe = SendOnlyExitProbe {
+            calls: std::cell::Cell::new(0),
+            exit_after: 2,
+            dropped: dropped.clone(),
+        };
+        let future = super::finish_owned_cleanup(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            move || probe.exited(),
+            |evidence| {
+                assert!(
+                    !dropped.load(Ordering::SeqCst),
+                    "owner must remain alive through audit"
+                );
+                evidence.read_only_complete = true;
+                evidence.secret_scan_complete = true;
+                evidence.cookie_database_files = 1;
+            },
+            || {
+                assert!(
+                    !dropped.load(Ordering::SeqCst),
+                    "owner must remain alive through removal"
+                );
+                true
+            },
+        );
+        let result = assert_send_future(future).await;
+        assert!(result.accepted() && result.audits[0].accepted());
+        assert!(dropped.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn r3_cancelling_send_only_probe_drops_owner_without_audit_or_remove() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        let dropped = Arc::new(AtomicBool::new(false));
+        let probe = SendOnlyExitProbe {
+            calls: std::cell::Cell::new(0),
+            exit_after: usize::MAX,
+            dropped: dropped.clone(),
+        };
+        let mut future = Box::pin(assert_send_future(super::finish_owned_cleanup(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            move || probe.exited(),
+            |_| panic!("unproven exit cannot audit"),
+            || panic!("unproven exit cannot remove"),
+        )));
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(25), &mut future)
+                .await
+                .is_err()
+        );
+        assert!(
+            !dropped.load(Ordering::SeqCst),
+            "pending wait retains owned process"
+        );
+        drop(future);
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "cancellation releases owned process"
+        );
+    }
 
     #[tokio::test]
     async fn owner_postexit_timeout_never_reads_or_deletes() {
