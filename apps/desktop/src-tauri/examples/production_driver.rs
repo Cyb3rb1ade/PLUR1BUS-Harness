@@ -368,6 +368,12 @@ fn progress_labels() -> &'static [&'static str] {
         "retirement-observer-ipc-start",
         "retirement-observer-ipc-complete",
         "retirement-observer-title-complete",
+        "retirement-observer-retire-failed",
+        "retirement-observer-proxy-check-failed",
+        "retirement-observer-proxy-403-confirmed",
+        "retirement-observer-navigation-failed",
+        "retirement-observer-navigation-requested",
+        "retirement-observer-ipc-invalid",
         "audit",
         "audit-live-scan-complete",
         "audit-live-scan-incomplete",
@@ -704,6 +710,12 @@ fn main() {
             }
         }
         assert_eq!(report["retirement"]["actualAclDenied"], true);
+        if cfg!(target_os = "linux") {
+            assert_eq!(report["retirement"]["proxyGenerated403"], true);
+            assert_eq!(report["retirement"]["ipcAvailable"], true);
+            assert_eq!(report["retirement"]["ipcCompleted"], true);
+            assert_eq!(report["retirement"]["typeError"], false);
+        }
         assert_eq!(
             report["negativeControls"]["missingWrongSecretHostOrigin"],
             true

@@ -577,10 +577,81 @@ struct FinishInputs {
     negative: Arc<Mutex<Value>>,
     secondary_observation: Arc<Mutex<Option<SecondaryProbeObservation>>>,
     browser_owners: BrowserProcessOwners,
+    #[cfg(target_os = "linux")]
+    retirement_phase: Arc<LinuxRetirementPhase>,
 }
 
+#[cfg(any(not(target_os = "linux"), test))]
 fn claim_observer_completion(finished: &AtomicBool) -> bool {
     !finished.swap(true, Ordering::SeqCst)
+}
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Default)]
+struct LinuxRetirementPhase {
+    state: Mutex<LinuxRetirementState>,
+}
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Default)]
+struct LinuxRetirementState {
+    url: Option<url::Url>,
+    page_finished: bool,
+    completion: Option<tokio::sync::oneshot::Sender<Value>>,
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl LinuxRetirementPhase {
+    fn arm(&self, url: url::Url, completion: tokio::sync::oneshot::Sender<Value>) {
+        *self.state.lock().unwrap() = LinuxRetirementState {
+            url: Some(url),
+            page_finished: false,
+            completion: Some(completion),
+        };
+    }
+
+    fn page_finished(&self, url: &url::Url) -> bool {
+        let mut state = self.state.lock().unwrap();
+        if state.url.as_ref() != Some(url) || state.page_finished {
+            return false;
+        }
+        state.page_finished = true;
+        true
+    }
+
+    fn title(&self, url: &url::Url, title: &str) -> bool {
+        let mut state = self.state.lock().unwrap();
+        if state.url.as_ref() != Some(url) || !state.page_finished {
+            return false;
+        }
+        let observation = if title == "WP05-ACL-IPC-MISSING" {
+            Some(
+                json!({"actualAclDenied":false,"ipcAvailable":false,"ipcCompleted":false,"typeError":false}),
+            )
+        } else {
+            title
+                .strip_prefix("ACL:")
+                .map(|raw| serde_json::from_str::<Value>(raw).unwrap_or(Value::Null))
+        };
+        if let Some(observation) = observation {
+            if let Some(completion) = state.completion.take() {
+                let _ = completion.send(observation);
+            }
+        }
+        true
+    }
+
+    fn disarm(&self) {
+        *self.state.lock().unwrap() = LinuxRetirementState::default();
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn valid_retirement_acl(value: &Value) -> bool {
+    value["actualAclDenied"] == true
+        && value["ipcAvailable"] == true
+        && value["ipcCompleted"] == true
+        && value["typeError"] == false
 }
 
 #[cfg(any(windows, test))]
@@ -641,7 +712,7 @@ async fn inspect_private_profile(
     await_profile_callback(observation, completion, deadline).await
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 async fn inspect_private_profile(
     _window: &tauri::WebviewWindow,
     observation: Arc<Mutex<PrivateProfileObservation>>,
@@ -651,6 +722,7 @@ async fn inspect_private_profile(
     PrivateProfileObservation::unavailable()
 }
 
+#[cfg(not(target_os = "linux"))]
 fn write_observer_timeout_report(
     app: &tauri::AppHandle,
     output: &PathBuf,
@@ -807,7 +879,7 @@ fn parse_local_acl_probe(raw: &str) -> Option<LocalAclProbeResult> {
 }
 
 fn retirement_observer_probe_script() -> &'static str {
-    "(async()=>{document.title='WP05-ACL-SCRIPT-ENTRY';const invoke=window.__TAURI_INTERNALS__?.invoke;if(typeof invoke!=='function'){document.title='WP05-ACL-IPC-MISSING';return}document.title='WP05-ACL-IPC-AVAILABLE';document.title='WP05-ACL-IPC-START';let denied=false;try{await invoke('shell_info')}catch(e){denied=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='WP05-ACL-IPC-COMPLETE';document.title='ACL:'+JSON.stringify({actualAclDenied:denied});})()"
+    "(async()=>{document.title='WP05-ACL-SCRIPT-ENTRY';const invoke=window.__TAURI_INTERNALS__?.invoke;if(typeof invoke!=='function'){document.title='WP05-ACL-IPC-MISSING';return}document.title='WP05-ACL-IPC-AVAILABLE';document.title='WP05-ACL-IPC-START';let denied=false;let typeError=false;try{await invoke('shell_info')}catch(e){typeError=e instanceof TypeError;denied=!typeError&&(/not allowed|denied|permissions/i).test(String(e))}document.title='WP05-ACL-IPC-COMPLETE';document.title='ACL:'+JSON.stringify({actualAclDenied:denied,ipcAvailable:true,ipcCompleted:true,typeError});})()"
 }
 
 fn main() {
@@ -854,6 +926,14 @@ fn main() {
     let secondary_observation = Arc::new(Mutex::new(None::<SecondaryProbeObservation>));
     let measurements = Arc::new(Mutex::new(Value::Null));
     let first_origin = Arc::new(Mutex::new(None::<Origin>));
+    #[cfg(target_os = "linux")]
+    let first_origin_for_load = first_origin.clone();
+    #[cfg(target_os = "linux")]
+    let retirement_phase = Arc::new(LinuxRetirementPhase::default());
+    #[cfg(target_os = "linux")]
+    let retirement_phase_for_load = retirement_phase.clone();
+    #[cfg(target_os = "linux")]
+    let retirement_phase_for_title = retirement_phase.clone();
     #[cfg(windows)]
     let first_profile_path = Arc::new(Mutex::new(None::<PathBuf>));
     let old_probe = Arc::new(Mutex::new(None::<Value>));
@@ -881,6 +961,27 @@ fn main() {
                 return;
             }
             if payload.url().query() == Some("wp05-old-check") {
+                #[cfg(target_os = "linux")]
+                {
+                    if retirement_phase_for_load.page_finished(payload.url()) {
+                        progress("retirement-observer-page-finished");
+                        match webview.eval(retirement_observer_probe_script()) {
+                            Ok(()) => progress("retirement-observer-eval-submitted"),
+                            Err(_) => progress("retirement-observer-eval-rejected"),
+                        }
+                    } else if first_origin_for_load
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .is_some_and(|origin| {
+                            payload.url().as_str()
+                                == format!("{}?wp05-old-check", origin.as_str())
+                        })
+                    {
+                        let _ = webview.eval(old_origin_probe_script());
+                    }
+                }
+                #[cfg(not(target_os = "linux"))]
                 let _ = webview.eval(old_origin_probe_script());
             }
             if payload.url().path() == "/auth/ticket" {
@@ -934,6 +1035,21 @@ fn main() {
                         .and_then(|s| serde_json::from_str::<Value>(s).ok())
                     {
                         *old_probe_for_title.lock().unwrap() = Some(value);
+                        return;
+                    }
+                    #[cfg(target_os = "linux")]
+                    if window.url().ok().is_some_and(|url| {
+                        retirement_phase_for_title.title(&url, &title)
+                    }) {
+                        match title.as_str() {
+                            "WP05-ACL-SCRIPT-ENTRY" => progress("retirement-observer-script-entry"),
+                            "WP05-ACL-IPC-AVAILABLE" => progress("retirement-observer-ipc-available"),
+                            "WP05-ACL-IPC-MISSING" => progress("retirement-observer-ipc-missing"),
+                            "WP05-ACL-IPC-START" => progress("retirement-observer-ipc-start"),
+                            "WP05-ACL-IPC-COMPLETE" => progress("retirement-observer-ipc-complete"),
+                            _ if title.starts_with("ACL:") => progress("retirement-observer-title-complete"),
+                            _ => {}
+                        }
                         return;
                     }
                     let error = title.starts_with("ERR:");
@@ -1086,6 +1202,8 @@ fn main() {
                                 negative: negatives,
                                 secondary_observation,
                                 browser_owners: browser_owners_for_run,
+                                #[cfg(target_os = "linux")]
+                                retirement_phase: retirement_phase.clone(),
                             },
                             observations,
                         )
@@ -1383,6 +1501,7 @@ async fn negative_controls(
         },
     )
 }
+#[cfg(not(target_os = "linux"))]
 async fn finish(
     app: &tauri::AppHandle,
     proxy: SpaProxy,
@@ -1651,7 +1770,7 @@ async fn finish(
                 };
                 #[cfg(not(windows))]
                 let sessions_live_clean = true;
-                let diagnostic_pass = diagnostic.secondary_probe.available
+                let mut diagnostic_pass = diagnostic.secondary_probe.available
                     && diagnostic.secondary_probe.native_cookie_store_empty
                     && diagnostic.secondary_probe.profile_cleanup_complete
                     && diagnostic.secondary_probe.cleanup_cookie_rows == 0
@@ -1660,6 +1779,7 @@ async fn finish(
                     && ( !cfg!(windows) || diagnostic.secondary_probe.profile_live_audit.live_clean())
                     && (!cfg!(windows) || (diagnostic.secondary_probe.profile_path_verified && diagnostic.secondary_probe.profile_acl_private && diagnostic.secondary_probe.profile_isolated))
                     && !live_positive
+                    && (cfg!(windows) || diagnostic.pre_close_audit.cookie_database_files == 0)
                     && diagnostic.audit.clean()
                     && diagnostic.teardown.clean()
                     && diagnostic.profile.accepted()
@@ -1669,17 +1789,28 @@ async fn finish(
                         { STARTUP_SWEEP.get().is_some_and(|sweep| sweep.complete()) }
                         #[cfg(not(windows))]
                         { false }
-                    });
+                    })
+                    && std::time::Instant::now() < task_teardown_deadline;
                 #[allow(unused_mut)]
                 let mut report=json!({"result":if diagnostic_pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*task_results.lock().unwrap(),"retirement":acl,"negativeControls":*task_negative.lock().unwrap(),"ticketError":task_error["ticketError"],"productionBenchmark":task_error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
                 #[cfg(windows)]
                 if let Value::Object(fields) = &mut report {
                     fields.insert("startupSweep".into(), json!(STARTUP_SWEEP.get().copied()));
                 }
-                let bytes=match serde_json::to_vec_pretty(&report){Ok(bytes)=>{progress("audit-report-serialized");bytes},Err(_)=>{progress("audit-report-serialization-failed");task_handle.exit(2);return}};
+                let mut bytes=match serde_json::to_vec_pretty(&report){Ok(bytes)=>{progress("audit-report-serialized");bytes},Err(_)=>{progress("audit-report-serialization-failed");task_handle.exit(2);return}};
                 if contains_secret(&bytes,&task_known.lock().unwrap()){progress("audit-report-secret-detected");task_handle.exit(2);return}
+                if std::time::Instant::now() >= task_teardown_deadline {
+                    diagnostic_pass = false;
+                    report["result"] = json!("failed");
+                    bytes = serde_json::to_vec_pretty(&report).unwrap();
+                }
                 if std::fs::write(&task_output,&bytes).is_err(){progress("audit-report-write-failed");task_handle.exit(2);return}
                 progress("audit-report-written");
+                if std::time::Instant::now() >= task_teardown_deadline {
+                    diagnostic_pass = false;
+                    report["result"] = json!("failed");
+                    let _ = std::fs::write(&task_output, serde_json::to_vec_pretty(&report).unwrap());
+                }
                 if !diagnostic_pass{progress("audit-failed");task_handle.exit(2);return}
                 progress("audit-passed");task_handle.exit(0);
             });
@@ -1781,6 +1912,211 @@ async fn finish(
             &timeout_profile,
         );
     });
+}
+
+#[cfg(target_os = "linux")]
+async fn finish(
+    app: &tauri::AppHandle,
+    proxy: SpaProxy,
+    output: PathBuf,
+    inputs: FinishInputs,
+    error: Value,
+) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    progress("retire");
+    let owners = inputs.browser_owners.clone();
+    let window = app.get_webview_window("spa");
+    if let Some(window) = window.as_ref() {
+        capture_browser_process(window, &owners);
+    }
+    let marker_url = url::Url::parse(&format!("{}?wp05-old-check", proxy.origin().as_str()))
+        .expect("exact retired proxy marker URL");
+    let (completion, receiver) = tokio::sync::oneshot::channel();
+    inputs.retirement_phase.arm(marker_url.clone(), completion);
+    let marker_seen = AtomicBool::new(false);
+
+    // The timer covers retirement, the exact handler response, navigation, and native IPC.
+    // A failed observation still tears down the same view and gets a closed disk audit.
+    let observed = tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), async {
+        spa::retire(app).map_err(|_| "retirement-observer-retire-failed")?;
+        let response = bounded_http_client()
+            .get(marker_url.clone())
+            .send()
+            .await
+            .map_err(|_| "retirement-observer-proxy-check-failed")?;
+        let forbidden = response.status() == reqwest::StatusCode::FORBIDDEN
+            && response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok())
+                == Some("text/html; charset=utf-8")
+            && response.text().await.map_err(|_| "retirement-observer-proxy-check-failed")?
+                == "<!doctype html><meta charset=\"utf-8\"><title>WP05 diagnostic forbidden document</title><body>Forbidden</body>";
+        if !forbidden {
+            return Err("retirement-observer-proxy-check-failed");
+        }
+        marker_seen.store(true, Ordering::SeqCst);
+        progress("retirement-observer-proxy-403-confirmed");
+        let Some(window) = window.as_ref() else {
+            return Err("retirement-observer-navigation-failed");
+        };
+        if window.navigate(marker_url).is_err() {
+            return Err("retirement-observer-navigation-failed");
+        }
+        progress("retirement-observer-navigation-requested");
+        receiver.await.map_err(|_| "retirement-observer-ipc-missing")
+    }).await;
+    let (acl, observation_complete) = match observed {
+        Ok(Ok(acl)) => {
+            let valid = valid_retirement_acl(&acl);
+            if !valid {
+                progress("retirement-observer-ipc-invalid");
+            }
+            (acl, valid)
+        }
+        Ok(Err(stage)) => {
+            progress(stage);
+            (json!({"actualAclDenied":false}), false)
+        }
+        Err(_) => {
+            progress("retirement-observer-timeout");
+            (json!({"actualAclDenied":false}), false)
+        }
+    };
+    let proxy_generated_403 = marker_seen.load(Ordering::SeqCst);
+    inputs.retirement_phase.disarm();
+
+    progress("audit");
+    let root = PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap());
+    let live_root = root.clone();
+    let live_known = inputs.known.clone();
+    let pre_close_audit = tauri::async_runtime::spawn_blocking(move || {
+        audit(&live_root, &live_known.lock().unwrap())
+    })
+    .await
+    .unwrap_or_else(|_| AuditObservation::unavailable());
+    if pre_close_audit.audit_complete {
+        progress("audit-live-scan-complete");
+    } else {
+        progress("audit-live-scan-incomplete");
+    }
+    progress("retirement-observer-close-start");
+    if let Some(window) = window {
+        if window.destroy().is_err() {
+            owners.close_failed();
+            progress("retirement-observer-close-failed");
+        } else {
+            progress("retirement-observer-close-requested");
+        }
+        drop(window);
+    } else {
+        owners.close_failed();
+        progress("retirement-observer-close-failed");
+    }
+    progress("teardown-wait-start");
+    let windows_absent = wait_for_fixture_windows(app, &owners.tracked_windows(), deadline).await;
+    owners.mark_windows_absent(windows_absent);
+    let process_exit = wait_for_browser_processes(owners.clone(), deadline).await;
+    if windows_absent && process_exit.complete {
+        progress("teardown-wait-complete");
+    } else {
+        progress("teardown-wait-failed");
+    }
+    let closed_root = root.clone();
+    let closed_known = inputs.known.clone();
+    let audit_observation = tauri::async_runtime::spawn_blocking(move || {
+        audit(&closed_root, &closed_known.lock().unwrap())
+    })
+    .await
+    .unwrap_or_else(|_| AuditObservation::unavailable());
+    if audit_observation.audit_complete {
+        progress("audit-closed-scan-complete");
+    } else {
+        progress("audit-closed-scan-incomplete");
+    }
+    let teardown = TeardownObservation {
+        process_exit_applicable: process_exit.applicable,
+        capture_complete: owners.capture_complete(process_exit.applicable),
+        close_complete: owners.close_complete(),
+        process_exit_complete: process_exit.complete,
+        audit_complete: audit_observation.audit_complete,
+        profile_cleanup_complete: true,
+        cleanup_cookie_rows: 0,
+        cleanup_read_only_complete: true,
+        cleanup_secret_detected: false,
+    };
+    let secondary = inputs
+        .secondary_observation
+        .lock()
+        .unwrap()
+        .clone()
+        .unwrap_or_else(SecondaryProbeObservation::unavailable);
+    let diagnostic = NativeDiagnostic {
+        secondary_probe: secondary,
+        pre_close_audit: pre_close_audit.clone(),
+        audit: audit_observation.clone(),
+        teardown: teardown.clone(),
+        profile: PrivateProfileObservation::unavailable(),
+    };
+    let mut pass = observation_complete
+        && proxy_generated_403
+        && diagnostic.secondary_probe.available
+        && diagnostic.secondary_probe.native_cookie_store_empty
+        && diagnostic.secondary_probe.profile_cleanup_complete
+        && diagnostic.secondary_probe.cleanup_cookie_rows == 0
+        && diagnostic.secondary_probe.cleanup_read_only_complete
+        && !diagnostic.secondary_probe.cleanup_secret_detected
+        && diagnostic.pre_close_audit.live_clean()
+        && diagnostic.pre_close_audit.cookie_database_files == 0
+        && diagnostic.audit.clean()
+        && diagnostic.teardown.clean()
+        && diagnostic.profile.accepted()
+        && std::time::Instant::now() < deadline;
+    let retirement = json!({
+        "actualAclDenied": acl["actualAclDenied"],
+        "ipcAvailable": acl["ipcAvailable"],
+        "ipcCompleted": acl["ipcCompleted"],
+        "typeError": acl["typeError"],
+        "proxyGenerated403": proxy_generated_403,
+    });
+    let mut report = json!({"result":if pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*inputs.results.lock().unwrap(),"retirement":retirement,"negativeControls":*inputs.negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
+    let mut bytes = match serde_json::to_vec_pretty(&report) {
+        Ok(bytes) => {
+            progress("audit-report-serialized");
+            bytes
+        }
+        Err(_) => {
+            progress("audit-report-serialization-failed");
+            app.exit(2);
+            return;
+        }
+    };
+    if contains_secret(&bytes, &inputs.known.lock().unwrap()) {
+        progress("audit-report-secret-detected");
+        app.exit(2);
+        return;
+    }
+    // Serialization and the final write are part of the same five-second budget.
+    if std::time::Instant::now() >= deadline {
+        pass = false;
+        report["result"] = json!("failed");
+        bytes = serde_json::to_vec_pretty(&report).unwrap();
+    }
+    if std::fs::write(&output, &bytes).is_err() {
+        progress("audit-report-write-failed");
+        app.exit(2);
+        return;
+    }
+    progress("audit-report-written");
+    if std::time::Instant::now() >= deadline {
+        pass = false;
+        report["result"] = json!("failed");
+        let _ = std::fs::write(&output, serde_json::to_vec_pretty(&report).unwrap());
+    }
+    if pass {
+        progress("audit-passed");
+        app.exit(0);
+    } else {
+        progress("audit-failed");
+        app.exit(2);
+    }
 }
 fn contains_secret(bytes: &[u8], secrets: &[SecretString]) -> bool {
     secrets.iter().any(|s| {
@@ -2243,6 +2579,51 @@ mod tests {
         ] {
             assert!(script.contains(marker), "missing closed marker {marker}");
         }
+        for field in [
+            "actualAclDenied",
+            "ipcAvailable",
+            "ipcCompleted",
+            "typeError",
+        ] {
+            assert!(script.contains(field));
+        }
+    }
+
+    #[test]
+    fn linux_retirement_phase_routes_only_exact_finished_second_origin_once() {
+        let phase = super::LinuxRetirementPhase::default();
+        let first = url::Url::parse("http://127.0.0.1:41001/?wp05-old-check").unwrap();
+        let second = url::Url::parse("http://127.0.0.1:41002/?wp05-old-check").unwrap();
+        let other_path = url::Url::parse("http://127.0.0.1:41002/").unwrap();
+        let (sender, mut receiver) = tokio::sync::oneshot::channel();
+        phase.arm(second.clone(), sender);
+        let title = "ACL:{\"actualAclDenied\":true,\"ipcAvailable\":true,\"ipcCompleted\":true,\"typeError\":false}";
+        assert!(!phase.page_finished(&first));
+        assert!(!phase.page_finished(&other_path));
+        assert!(!phase.title(&second, title));
+        assert!(!phase.title(&first, title));
+        assert!(phase.page_finished(&second));
+        assert!(!phase.page_finished(&second));
+        assert!(phase.title(&second, title));
+        assert!(super::valid_retirement_acl(&receiver.try_recv().unwrap()));
+        assert!(phase.title(&second, title));
+        assert!(receiver.try_recv().is_err());
+        phase.disarm();
+        assert!(!phase.title(&second, title));
+    }
+
+    #[test]
+    fn linux_retirement_phase_rejects_missing_ipc_and_type_error() {
+        let phase = super::LinuxRetirementPhase::default();
+        let url = url::Url::parse("http://127.0.0.1:41002/?wp05-old-check").unwrap();
+        let (sender, mut receiver) = tokio::sync::oneshot::channel();
+        phase.arm(url.clone(), sender);
+        assert!(phase.page_finished(&url));
+        assert!(phase.title(&url, "WP05-ACL-IPC-MISSING"));
+        assert!(!super::valid_retirement_acl(&receiver.try_recv().unwrap()));
+        assert!(!super::valid_retirement_acl(&serde_json::json!({
+            "actualAclDenied":true,"ipcAvailable":true,"ipcCompleted":true,"typeError":true
+        })));
     }
 
     #[test]
