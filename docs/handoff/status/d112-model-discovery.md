@@ -6,8 +6,8 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 | 2 Metadata table | 28be796b | `metadata.test.ts` (13) | pass | |
 | 3 HTTP client, validation | 3debef2a | `http.test.ts` (20), `validate.test.ts` (7) | pass | tests passed on first run after the implementation was written; they were written first but the red run was skipped |
 | 4 Scanners | 583266c8 | `scanners.test.ts` (11) | pass | |
-| 5 Reconcile, overrides, roles | pending (next commit) | `reconcile.test.ts` (10), `overrides.test.ts` (5), `roles.test.ts` (10) | pass | |
-| 6 Schedule, service, logger events | | | | |
+| 5 Reconcile, overrides, roles | e008594c | `reconcile.test.ts` (10), `overrides.test.ts` (5), `roles.test.ts` (10) | pass | |
+| 6 Schedule, service, logger events | pending (next commit) | `schedule.test.ts` (4), `events-logger.test.ts` (1), `service.test.ts` (11) | pass | |
 | 7 System jobs, ledger, jobs.* | | | | |
 | 8 Scheduler, config keys | | | | |
 | 9 RPC models.* | | | | |
@@ -27,4 +27,4 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 - A commit cannot contain its own SHA, so the table's SHA column lags one commit behind.
 
 ## Open
-- Tasks 6–11.
+- Tasks 7–11.
