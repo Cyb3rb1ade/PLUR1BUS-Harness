@@ -728,8 +728,9 @@ fn close_linux_spa_once(
 struct LinuxPublicationGate {
     owner: AtomicBool,
     completed: AtomicBool,
-    deadline_failed: AtomicBool,
+    failure_required: AtomicBool,
     failure_writer_claimed: AtomicBool,
+    report_io: Mutex<()>,
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -738,12 +739,12 @@ impl LinuxPublicationGate {
         if self.completed.load(Ordering::SeqCst) {
             return false;
         }
-        self.deadline_failed.store(true, Ordering::SeqCst);
+        self.failure_required.store(true, Ordering::SeqCst);
         true
     }
 
     fn must_fail(&self, deadline: std::time::Instant) -> bool {
-        self.deadline_failed.load(Ordering::SeqCst) || std::time::Instant::now() >= deadline
+        self.failure_required.load(Ordering::SeqCst) || std::time::Instant::now() >= deadline
     }
 }
 
@@ -752,7 +753,15 @@ fn spawn_linux_failure_writer<F: FnOnce() + Send + 'static>(
     gate: &Arc<LinuxPublicationGate>,
     work: F,
 ) -> Option<std::thread::JoinHandle<()>> {
-    claim_observer_completion(&gate.failure_writer_claimed).then(|| std::thread::spawn(work))
+    claim_observer_completion(&gate.failure_writer_claimed).then(|| {
+        let gate = gate.clone();
+        std::thread::spawn(move || {
+            // The deadline thread never waits here; only report writers serialize I/O.
+            let _report_io = gate.report_io.lock().unwrap();
+            work();
+            gate.completed.store(true, Ordering::SeqCst);
+        })
+    })
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -821,7 +830,6 @@ impl LinuxFailureWriter {
                 &writer.secondary,
                 &writer.profile,
             );
-            writer.gate.completed.store(true, Ordering::SeqCst);
         });
     }
 }
@@ -836,11 +844,19 @@ fn publish_linux_report<I: LinuxReportIo>(
     bytes: &[u8],
     failed_bytes: &[u8],
 ) {
+    // Keep pending writes, rename, and failure rewrites ordered against timeout publication.
+    let _report_io = gate.report_io.lock().unwrap();
+    if gate.must_fail(deadline) {
+        return;
+    }
     if io.write_pending(bytes).is_err() {
         io.progress("audit-report-write-failed");
         return;
     }
-    if std::time::Instant::now() >= finalization_cutoff || !claim_observer_completion(&gate.owner) {
+    if gate.must_fail(deadline)
+        || std::time::Instant::now() >= finalization_cutoff
+        || !claim_observer_completion(&gate.owner)
+    {
         io.remove_pending();
         return;
     }
@@ -2193,6 +2209,7 @@ async fn finish(
         if !claim_observer_completion(&watchdog_gate.owner) {
             return;
         }
+        watchdog_gate.failure_required.store(true, Ordering::SeqCst);
         progress("retirement-observer-timeout");
         close_linux_spa_once(watchdog_window.as_ref(), &watchdog_owners, &watchdog_close);
         watchdog_phase.disarm();
@@ -2813,6 +2830,7 @@ mod tests {
         output: PathBuf,
         pending: PathBuf,
         rename_delay: std::time::Duration,
+        rename_barriers: Option<(Arc<std::sync::Barrier>, Arc<std::sync::Barrier>)>,
         passed_stage_delay: std::time::Duration,
         exits: Arc<Mutex<Vec<i32>>>,
     }
@@ -2822,6 +2840,10 @@ mod tests {
             std::fs::write(&self.pending, bytes)
         }
         fn rename_pending(&self) -> std::io::Result<()> {
+            if let Some((entered, release)) = &self.rename_barriers {
+                entered.wait();
+                release.wait();
+            }
             std::thread::sleep(self.rename_delay);
             std::fs::rename(&self.pending, &self.output)
         }
@@ -2850,6 +2872,7 @@ mod tests {
             output: root.path().join("result.json"),
             pending: root.path().join("result.pending"),
             rename_delay,
+            rename_barriers: None,
             passed_stage_delay,
             exits: Arc::new(Mutex::new(Vec::new())),
         };
@@ -2861,13 +2884,33 @@ mod tests {
         let guard = std::thread::spawn(move || {
             std::thread::sleep(deadline.saturating_duration_since(std::time::Instant::now()));
             if guard_gate.deadline_expired() {
-                guard_io.write_failed(b"failed").unwrap();
-                guard_io.exit(2);
+                super::spawn_linux_failure_writer(&guard_gate, move || {
+                    guard_io
+                        .write_failed(br#"{"result":"failed","source":"deadline"}"#)
+                        .unwrap();
+                    guard_io.exit(2);
+                })
+                .unwrap()
+                .join()
+                .unwrap();
             }
         });
-        super::publish_linux_report(&gate, &io, cutoff, deadline, true, b"passed", b"failed");
+        super::publish_linux_report(
+            &gate,
+            &io,
+            cutoff,
+            deadline,
+            true,
+            br#"{"result":"passed","diagnostic":"long normal report"}"#,
+            br#"{"result":"failed","diagnostic":"long normal report"}"#,
+        );
         guard.join().unwrap();
-        assert_eq!(std::fs::read(&io.output).unwrap(), b"failed");
+        let report: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&io.output).unwrap()).unwrap();
+        assert_eq!(
+            report,
+            serde_json::json!({"result":"failed","source":"deadline"})
+        );
         assert!(!io.exits.lock().unwrap().contains(&0));
         assert!(gate.completed.load(std::sync::atomic::Ordering::SeqCst));
     }
@@ -3189,12 +3232,66 @@ mod tests {
     }
 
     #[test]
+    fn deadline_failure_supersedes_owned_normal_rename_without_corrupting_json() {
+        use std::sync::atomic::Ordering;
+        let root = tempfile::tempdir().unwrap();
+        let entered = Arc::new(std::sync::Barrier::new(2));
+        let release = Arc::new(std::sync::Barrier::new(2));
+        let io = DelayedReportIo {
+            output: root.path().join("result.json"),
+            pending: root.path().join("result.pending"),
+            rename_delay: std::time::Duration::ZERO,
+            rename_barriers: Some((entered.clone(), release.clone())),
+            passed_stage_delay: std::time::Duration::ZERO,
+            exits: Arc::new(Mutex::new(Vec::new())),
+        };
+        let gate = Arc::new(super::LinuxPublicationGate::default());
+        let normal_gate = gate.clone();
+        let normal_io = io.clone();
+        let now = std::time::Instant::now();
+        let normal = std::thread::spawn(move || {
+            super::publish_linux_report(
+                &normal_gate,
+                &normal_io,
+                now + std::time::Duration::from_secs(2),
+                now + std::time::Duration::from_secs(3),
+                true,
+                br#"{"result":"passed","diagnostic":"a longer complete normal report"}"#,
+                br#"{"result":"failed","diagnostic":"a longer complete normal report"}"#,
+            );
+        });
+        entered.wait();
+        assert!(gate.owner.load(Ordering::SeqCst));
+        assert!(gate.deadline_expired());
+        let timeout_io = io.clone();
+        let timeout_writer = super::spawn_linux_failure_writer(&gate, move || {
+            timeout_io
+                .write_failed(br#"{"result":"failed","source":"timeout"}"#)
+                .unwrap();
+            timeout_io.exit(2);
+        })
+        .unwrap();
+        release.wait();
+        normal.join().unwrap();
+        timeout_writer.join().unwrap();
+        let report: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&io.output).unwrap()).unwrap();
+        assert_eq!(
+            report,
+            serde_json::json!({"result":"failed","source":"timeout"})
+        );
+        assert!(!io.exits.lock().unwrap().contains(&0));
+        assert!(gate.completed.load(Ordering::SeqCst));
+    }
+
+    #[test]
     fn watchdog_publication_owner_rejects_late_normal_report() {
         let root = tempfile::tempdir().unwrap();
         let io = DelayedReportIo {
             output: root.path().join("result.json"),
             pending: root.path().join("result.pending"),
             rename_delay: std::time::Duration::ZERO,
+            rename_barriers: None,
             passed_stage_delay: std::time::Duration::ZERO,
             exits: Arc::new(Mutex::new(Vec::new())),
         };
