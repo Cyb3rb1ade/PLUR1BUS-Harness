@@ -1206,7 +1206,7 @@ mod windows {
                 || held.write_all(b"synthetic payload").unwrap(),
                 authoritative_file_information,
             );
-            assert_eq!(result.unwrap(), false);
+            assert!(!result.unwrap());
             drop(held);
             drop(profile);
         }
