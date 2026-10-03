@@ -141,6 +141,11 @@ impl AuditObservation {
     }
 }
 
+fn session_live_clean(session: &Value) -> bool {
+    serde_json::from_value::<AuditObservation>(session["profileLiveAudit"].clone())
+        .is_ok_and(|audit| audit.live_clean())
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct SecondaryProbeObservation {
@@ -158,9 +163,10 @@ struct SecondaryProbeObservation {
     cleanup_cookie_rows: u64,
     cleanup_read_only_complete: bool,
     cleanup_secret_detected: bool,
+    profile_live_audit: AuditObservation,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct PrivateProfileObservation {
     applicable: bool,
@@ -171,6 +177,23 @@ struct PrivateProfileObservation {
     native_cookie_store_empty: bool,
     profile_path_verified: bool,
     profile_acl_private: bool,
+    profile_live_audit: AuditObservation,
+}
+
+impl Default for PrivateProfileObservation {
+    fn default() -> Self {
+        Self {
+            applicable: false,
+            callback_available: false,
+            environment_options_available: false,
+            profile_state_available: false,
+            private_enabled: false,
+            native_cookie_store_empty: false,
+            profile_path_verified: false,
+            profile_acl_private: false,
+            profile_live_audit: AuditObservation::unavailable(),
+        }
+    }
 }
 
 impl PrivateProfileObservation {
@@ -196,6 +219,7 @@ impl SecondaryProbeObservation {
             cleanup_cookie_rows: 0,
             cleanup_read_only_complete: false,
             cleanup_secret_detected: false,
+            profile_live_audit: AuditObservation::unavailable(),
         }
     }
 }
@@ -230,6 +254,8 @@ struct SweepObservation {
     removed: u32,
     skipped_active: u32,
     skipped_unknown: u32,
+    positive_profiles: u32,
+    positive_rows: u64,
 }
 
 impl TeardownObservation {
@@ -582,6 +608,11 @@ fn main() {
                 sweep.skipped_unknown, 0,
                 "startup sweep left unknown profile ownership"
             );
+            assert_eq!(
+                sweep.positive_profiles, 0,
+                "startup sweep found cookie rows"
+            );
+            assert_eq!(sweep.positive_rows, 0, "startup sweep found cookie rows");
         }
         let diagnostic = parse_diagnostic(&report);
         assert!(
@@ -618,13 +649,18 @@ fn main() {
                 "observer profile isolation or ACL unverified"
             );
             assert!(
+                diagnostic.profile.profile_live_audit.live_clean(),
+                "observer live cookie database audit failed"
+            );
+            assert!(
                 diagnostic.secondary_probe.profile_path_verified
                     && diagnostic.secondary_probe.profile_acl_private
                     && diagnostic.secondary_probe.profile_isolated
                     && diagnostic.secondary_probe.profile_cleanup_complete
                     && diagnostic.secondary_probe.cleanup_read_only_complete
                     && diagnostic.secondary_probe.cleanup_cookie_rows == 0
-                    && !diagnostic.secondary_probe.cleanup_secret_detected,
+                    && !diagnostic.secondary_probe.cleanup_secret_detected
+                    && diagnostic.secondary_probe.profile_live_audit.live_clean(),
                 "secondary profile isolation, ACL, or cleanup failed"
             );
         }
@@ -661,6 +697,10 @@ fn main() {
                 assert_eq!(session["profilePathVerified"], true);
                 assert_eq!(session["profileAclPrivate"], true);
                 assert_eq!(session["profileIsolated"], true);
+                assert!(
+                    session_live_clean(session),
+                    "authenticated SPA live cookie rows or audit failure"
+                );
             }
         }
         assert_eq!(report["retirement"]["actualAclDenied"], true);
@@ -731,7 +771,10 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_diagnostic, parse_progress_history, AuditFailureCategory, NativeDiagnostic};
+    use super::{
+        parse_diagnostic, parse_progress_history, session_live_clean, AuditFailureCategory,
+        AuditObservation, NativeDiagnostic,
+    };
     use serde_json::json;
 
     #[test]
@@ -847,5 +890,18 @@ mod tests {
         value.as_object_mut().unwrap().remove("profile");
         let diagnostic = parse_diagnostic(&json!({ "diagnostic": value }));
         assert!(!diagnostic.secondary_probe.available);
+    }
+
+    #[test]
+    fn each_authenticated_session_requires_complete_live_zero_rows() {
+        assert!(!session_live_clean(&json!({})));
+        let mut audit = AuditObservation::unavailable();
+        audit.audit_complete = true;
+        audit.cookie_read_only_complete = true;
+        audit.failure_category = AuditFailureCategory::None;
+        assert!(session_live_clean(&json!({ "profileLiveAudit": audit })));
+        audit.cookie_rows = 1;
+        audit.failure_category = AuditFailureCategory::CookieDatabase;
+        assert!(!session_live_clean(&json!({ "profileLiveAudit": audit })));
     }
 }

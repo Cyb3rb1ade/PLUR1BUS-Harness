@@ -14,17 +14,48 @@ pub mod spa_proxy;
 pub mod windows_spa_profile;
 pub use plur1bus_desktop_contract as contract;
 
+#[cfg(windows)]
+#[derive(Default)]
+struct ProfileExitGate {
+    started: std::sync::atomic::AtomicBool,
+    authorized: std::sync::atomic::AtomicBool,
+}
+
+#[cfg(windows)]
+#[derive(PartialEq, Eq, Debug)]
+enum ProfileExitAction {
+    StartCleanup,
+    Wait,
+    Exit,
+}
+
+#[cfg(windows)]
+impl ProfileExitGate {
+    fn request(&self) -> ProfileExitAction {
+        use std::sync::atomic::Ordering::SeqCst;
+        if self.authorized.load(SeqCst) {
+            ProfileExitAction::Exit
+        } else if !self.started.swap(true, SeqCst) {
+            ProfileExitAction::StartCleanup
+        } else {
+            ProfileExitAction::Wait
+        }
+    }
+
+    fn authorize(&self) {
+        self.authorized
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 /// Start the shell with the three settings and app-information commands.
 pub fn run() {
     #[cfg(windows)]
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    };
+    use std::sync::Arc;
     #[cfg(windows)]
     use tauri::Manager;
     #[cfg(windows)]
-    let exit_started = Arc::new(AtomicBool::new(false));
+    let exit_gate = Arc::new(ProfileExitGate::default());
     tauri::Builder::default()
         .manage(commands::ConnectionState::default())
         .manage(spa::SpaState::default())
@@ -33,7 +64,10 @@ pub fn run() {
             {
                 let sweep = windows_spa_profile::sweep(app.handle())?;
                 if !sweep.complete() {
-                    eprintln!("SPA profile startup sweep incomplete");
+                    eprintln!(
+                        "SPA profile startup sweep incomplete: positive_profiles={} positive_rows={} skipped_unknown={}",
+                        sweep.positive_profiles, sweep.positive_rows, sweep.skipped_unknown
+                    );
                 }
             }
             #[cfg(not(windows))]
@@ -66,26 +100,48 @@ pub fn run() {
         .run(move |app, event| {
             #[cfg(windows)]
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                if !exit_started.swap(true, Ordering::SeqCst) {
-                    api.prevent_exit();
-                    let handle = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let old = handle.get_webview_window("spa");
-                        let _ = spa::retire(&handle);
-                        if let Some(window) = old {
-                            let _ = window.destroy();
-                        }
-                        let result = handle
-                            .state::<spa::SpaState>()
-                            .wait_profile_cleanups(
-                                std::time::Instant::now() + std::time::Duration::from_secs(15),
-                            )
-                            .await;
-                        handle.exit(if result.accepted() { 0 } else { 2 });
-                    });
+                match exit_gate.request() {
+                    ProfileExitAction::Exit => {}
+                    ProfileExitAction::Wait => api.prevent_exit(),
+                    ProfileExitAction::StartCleanup => {
+                        api.prevent_exit();
+                        let gate = exit_gate.clone();
+                        let handle = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let old = handle.get_webview_window("spa");
+                            let _ = spa::retire(&handle);
+                            if let Some(window) = old {
+                                let _ = window.destroy();
+                            }
+                            let result = handle
+                                .state::<spa::SpaState>()
+                                .wait_profile_cleanups(
+                                    std::time::Instant::now() + std::time::Duration::from_secs(15),
+                                )
+                                .await;
+                            gate.authorize();
+                            handle.exit(if result.accepted() { 0 } else { 2 });
+                        });
+                    }
                 }
             }
             #[cfg(not(windows))]
             let _ = (app, event);
         });
+}
+
+#[cfg(all(test, windows))]
+mod profile_exit_tests {
+    use super::{ProfileExitAction, ProfileExitGate};
+
+    #[test]
+    fn repeated_exit_and_last_window_request_wait_until_authorized() {
+        let gate = ProfileExitGate::default();
+        assert_eq!(gate.request(), ProfileExitAction::StartCleanup);
+        assert_eq!(gate.request(), ProfileExitAction::Wait);
+        // Last-window destruction produces another exit request while cleanup is pending.
+        assert_eq!(gate.request(), ProfileExitAction::Wait);
+        gate.authorize();
+        assert_eq!(gate.request(), ProfileExitAction::Exit);
+    }
 }

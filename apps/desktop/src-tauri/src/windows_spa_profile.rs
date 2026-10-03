@@ -13,6 +13,7 @@ fn owned_leaf_name(name: &str) -> bool {
 }
 
 #[cfg(windows)]
+/// Returns true only for an immediate, random-named leaf of the owned SPA root.
 pub fn is_owned_profile_path(root: &Path, path: &Path) -> bool {
     path.parent() == Some(root)
         && path
@@ -26,13 +27,14 @@ mod windows {
     use super::{owned_leaf_name, Path, PathBuf, PREFIX};
     use rand::{rngs::OsRng, TryRngCore};
     use std::{
+        collections::HashMap,
         ffi::OsStr,
         fs::{self, File, OpenOptions},
         io,
         os::windows::{ffi::OsStrExt, fs::MetadataExt},
         sync::{
             atomic::{AtomicBool, Ordering},
-            Arc,
+            Arc, Mutex, OnceLock, Weak,
         },
         time::Duration,
     };
@@ -57,13 +59,13 @@ mod windows {
         },
     };
 
+    /// Retained native browser handle; dropping it does not itself authorize profile deletion.
     pub struct BrowserProcess {
         handle: HANDLE,
-        pid: u32,
-        created: u64,
     }
 
     #[derive(Debug, Clone, Copy, Default)]
+    /// Closed cleanup evidence; a removed directory does not erase row or secret failures.
     pub struct CleanupResult {
         pub removed: bool,
         pub cookie_rows: u64,
@@ -80,7 +82,57 @@ mod windows {
         }
     }
 
+    /// Debug fixture hook that reports whether an owned profile contains a known secret.
     pub type SecretAudit = Arc<dyn Fn(&Path) -> io::Result<bool> + Send + Sync>;
+
+    type SharedLeaseFile = Arc<Mutex<File>>;
+    static LIVE_LEASES: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<File>>>>> = OnceLock::new();
+
+    fn live_leases() -> &'static Mutex<HashMap<PathBuf, Weak<Mutex<File>>>> {
+        LIVE_LEASES.get_or_init(|| Mutex::new(HashMap::new()))
+    }
+
+    struct LeaseLock {
+        path: PathBuf,
+        file: SharedLeaseFile,
+    }
+
+    impl LeaseLock {
+        fn new(path: PathBuf, file: File) -> Self {
+            let file = Arc::new(Mutex::new(file));
+            live_leases()
+                .lock()
+                .unwrap()
+                .insert(path.clone(), Arc::downgrade(&file));
+            Self { path, file }
+        }
+    }
+
+    impl Drop for LeaseLock {
+        fn drop(&mut self) {
+            live_leases().lock().unwrap().remove(&self.path);
+        }
+    }
+
+    /// Reads only the exact active lease record through its retained locked file object.
+    /// Unknown paths fall back to ordinary file reads, which fail closed on other owners' locks.
+    pub fn read_owned_lease(path: &Path) -> io::Result<Option<Vec<u8>>> {
+        let registry = live_leases().lock().unwrap();
+        let file = registry.get(path).and_then(Weak::upgrade);
+        let Some(file) = file else { return Ok(None) };
+        use std::io::{Read, Seek, SeekFrom};
+        let mut guard = file.lock().unwrap();
+        guard.seek(SeekFrom::Start(0))?;
+        let mut bytes = Vec::new();
+        (&mut *guard).take(13).read_to_end(&mut bytes)?;
+        if bytes.len() != 12
+            || u32::from_le_bytes(bytes[..4].try_into().unwrap()) == 0
+            || u64::from_le_bytes(bytes[4..].try_into().unwrap()) == 0
+        {
+            return Err(io::Error::other("incomplete SPA lease record"));
+        }
+        Ok(Some(bytes))
+    }
 
     unsafe impl Send for BrowserProcess {}
 
@@ -92,15 +144,16 @@ mod windows {
         }
     }
 
+    /// Captures actual WebView2 PID and creation identity before its window is destroyed.
     pub fn capture_browser_process(
         window: &tauri::WebviewWindow,
         profile: &SpaProfileLease,
     ) -> tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>> {
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let record = profile.lock.try_clone();
+        let record = profile.lock.file.clone();
         let submitted = window.with_webview(move |webview| {
             let result = (|| {
-                let mut record = record?;
+                let mut record = record.lock().unwrap();
                 let core = unsafe { webview.controller().CoreWebView2() }
                     .map_err(|_| io::Error::other("browser process unavailable"))?;
                 let mut pid = 0;
@@ -127,11 +180,7 @@ mod windows {
                         return Err(error);
                     }
                 };
-                let process = BrowserProcess {
-                    handle,
-                    pid,
-                    created,
-                };
+                let process = BrowserProcess { handle };
                 use std::io::{Seek, SeekFrom, Write};
                 record.set_len(0)?;
                 record.seek(SeekFrom::Start(0))?;
@@ -200,12 +249,33 @@ mod windows {
         (matched, acl)
     }
 
+    /// Deletes only after callback, window destruction, browser exit and complete row audit.
     pub async fn cleanup_after_exit(
         profile: SpaProfileLease,
         browser: Option<tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>>>,
         gone: Arc<AtomicBool>,
         secret_audit: Option<SecretAudit>,
     ) -> CleanupResult {
+        cleanup_after_exit_with_probe(profile, browser, gone, secret_audit, |process| {
+            match unsafe { WaitForSingleObject(process.handle, 0) } {
+                WAIT_OBJECT_0 => BrowserLeaseStatus::Exited,
+                WAIT_TIMEOUT => BrowserLeaseStatus::Active,
+                _ => BrowserLeaseStatus::Unknown,
+            }
+        })
+        .await
+    }
+
+    async fn cleanup_after_exit_with_probe<F>(
+        profile: SpaProfileLease,
+        browser: Option<tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>>>,
+        gone: Arc<AtomicBool>,
+        secret_audit: Option<SecretAudit>,
+        process_status: F,
+    ) -> CleanupResult
+    where
+        F: Fn(&BrowserProcess) -> BrowserLeaseStatus + Send + Sync,
+    {
         let Some(receiver) = browser else {
             return CleanupResult::default();
         };
@@ -216,10 +286,10 @@ mod windows {
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
         loop {
-            match unsafe { WaitForSingleObject(process.handle, 0) } {
-                WAIT_OBJECT_0 => break,
-                WAIT_TIMEOUT => tokio::time::sleep(Duration::from_millis(25)).await,
-                _ => return CleanupResult::default(),
+            match process_status(&process) {
+                BrowserLeaseStatus::Exited => break,
+                BrowserLeaseStatus::Active => tokio::time::sleep(Duration::from_millis(25)).await,
+                BrowserLeaseStatus::Unknown => return CleanupResult::default(),
             }
         }
         let Ok(audit) = inspect_cookie_databases(profile.path()) else {
@@ -263,6 +333,16 @@ mod windows {
     }
 
     fn recorded_browser_status(lock: &File) -> io::Result<BrowserLeaseStatus> {
+        recorded_browser_status_with_probe(lock, probe_recorded_browser)
+    }
+
+    fn recorded_browser_status_with_probe<F>(
+        lock: &File,
+        probe: F,
+    ) -> io::Result<BrowserLeaseStatus>
+    where
+        F: FnOnce(u32, u64) -> io::Result<BrowserLeaseStatus>,
+    {
         use std::io::{Read, Seek, SeekFrom};
         let mut file = lock.try_clone()?;
         file.seek(SeekFrom::Start(0))?;
@@ -275,6 +355,10 @@ mod windows {
         if pid == 0 || created == 0 {
             return Ok(BrowserLeaseStatus::Unknown);
         }
+        probe(pid, created)
+    }
+
+    fn probe_recorded_browser(pid: u32, created: u64) -> io::Result<BrowserLeaseStatus> {
         let handle = unsafe {
             OpenProcess(
                 PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
@@ -306,11 +390,13 @@ mod windows {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    /// Bounded enumeration result for physical primary cookie DBs and their actual rows.
     pub struct CookieAudit {
         pub database_files: u32,
         pub rows: u64,
     }
 
+    /// Recursively inspects primary cookie DBs read-only; errors are never zero-row evidence.
     pub fn inspect_cookie_databases(root: &Path) -> io::Result<CookieAudit> {
         ensure_no_reparse_tree(root)?;
         let mut result = CookieAudit {
@@ -351,23 +437,27 @@ mod windows {
         Ok(result)
     }
 
+    /// Exclusive ownership of one random SPA user-data folder and its locked identity record.
     pub struct SpaProfileLease {
         root: PathBuf,
         leaf: PathBuf,
-        lock: File,
+        lock: LeaseLock,
     }
 
     #[derive(Debug, Clone, Copy, Default, serde::Serialize)]
     #[serde(rename_all = "camelCase")]
+    /// Startup recovery evidence; positive rows remain a failure after owned deletion.
     pub struct SweepResult {
         pub removed: u32,
         pub skipped_active: u32,
         pub skipped_unknown: u32,
+        pub positive_profiles: u32,
+        pub positive_rows: u64,
     }
 
     impl SweepResult {
         pub fn complete(&self) -> bool {
-            self.skipped_unknown == 0
+            self.skipped_unknown == 0 && self.positive_profiles == 0
         }
     }
 
@@ -377,7 +467,7 @@ mod windows {
         }
 
         /// Called only after the native callback, window absence, and browser exit succeeded.
-        pub fn remove(self) -> io::Result<()> {
+        fn remove(self) -> io::Result<()> {
             let Self { root, leaf, lock } = self;
             validate_owned_path(&root, &leaf)?;
             ensure_no_reparse_tree(&leaf)?;
@@ -395,12 +485,21 @@ mod windows {
                     fs::remove_file(path)?;
                 }
             }
-            fs::remove_file(leaf.join(".lease"))?;
+            {
+                // Registry then file is the same order as read_owned_lease. This
+                // drains an in-progress reader and forbids another retained-handle
+                // read while the record and its parent are being removed.
+                let mut registry = live_leases().lock().unwrap();
+                registry.remove(&lock.path);
+                let _guard = lock.file.lock().unwrap();
+                fs::remove_file(leaf.join(".lease"))?;
+            }
             drop(lock);
             fs::remove_dir(leaf)
         }
     }
 
+    /// Returns the fixed LOCALAPPDATA SPA root, rejecting relative or reparse ancestry.
     pub fn root_for_app(app: &tauri::AppHandle) -> io::Result<PathBuf> {
         let _ = app;
         let base = std::env::var_os("LOCALAPPDATA")
@@ -422,12 +521,14 @@ mod windows {
         Ok(base.join("app.plur1bus.desktop").join("spa-tmp"))
     }
 
+    /// Creates a private per-window WebView2 folder before any browser write.
     pub fn create(app: &tauri::AppHandle) -> io::Result<SpaProfileLease> {
         let root = root_for_app(app)?;
         create_in(&root)
     }
 
     /// Startup only. Never descends into an unknown child or a reparse point.
+    /// Sweeps only proven-owned, proven-exited leaves; unknown ownership stays untouched.
     pub fn sweep(app: &tauri::AppHandle) -> io::Result<SweepResult> {
         let root = root_for_app(app)?;
         sweep_in(&root)
@@ -463,13 +564,39 @@ mod windows {
                 .create_new(true)
                 .open(leaf.join(".lease"))?;
             lock.try_lock()?;
+            let lock_path = leaf.join(".lease");
             return Ok(SpaProfileLease {
                 root: root.to_path_buf(),
                 leaf,
-                lock,
+                lock: LeaseLock::new(lock_path, lock),
             });
         }
         Err(io::Error::other("SPA profile allocation exhausted"))
+    }
+
+    #[cfg(debug_assertions)]
+    /// Debug-only fake-root seam; tests must pass a disposable temporary directory.
+    pub fn create_in_fixture_root(root: &Path) -> io::Result<SpaProfileLease> {
+        create_in(root)
+    }
+
+    #[cfg(debug_assertions)]
+    /// Debug-only process-identity seam for a disposable owned lease.
+    pub fn record_fixture_identity(
+        profile: &SpaProfileLease,
+        pid: u32,
+        created: u64,
+    ) -> io::Result<()> {
+        use std::io::{Seek, SeekFrom, Write};
+        if pid == 0 || created == 0 {
+            return Err(io::Error::other("fixture browser identity missing"));
+        }
+        let mut file = profile.lock.file.lock().unwrap();
+        file.set_len(0)?;
+        file.seek(SeekFrom::Start(0))?;
+        file.write_all(&pid.to_le_bytes())?;
+        file.write_all(&created.to_le_bytes())?;
+        file.sync_all()
     }
 
     fn sweep_in(root: &Path) -> io::Result<SweepResult> {
@@ -521,14 +648,15 @@ mod windows {
                 let lease = SpaProfileLease {
                     root: root.to_path_buf(),
                     leaf: path,
-                    lock,
+                    lock: LeaseLock::new(lock_path, lock),
                 };
-                if inspect_cookie_databases(lease.path())?.rows == 0 {
-                    lease.remove()?;
-                    result.removed += 1;
-                } else {
-                    result.skipped_unknown += 1;
+                let rows = inspect_cookie_databases(lease.path())?.rows;
+                if rows > 0 {
+                    result.positive_profiles += 1;
+                    result.positive_rows = result.positive_rows.saturating_add(rows);
                 }
+                lease.remove()?;
+                result.removed += 1;
             }
         }
         Ok(result)
@@ -625,6 +753,36 @@ mod windows {
     }
 
     fn set_private_acl(path: &Path) -> io::Result<()> {
+        set_private_acl_with(path, |path, sid, dacl| {
+            let path = wide(path.as_os_str());
+            let code = unsafe {
+                SetNamedSecurityInfoW(
+                    path.as_ptr() as *mut u16,
+                    SE_FILE_OBJECT,
+                    OWNER_SECURITY_INFORMATION
+                        | DACL_SECURITY_INFORMATION
+                        | PROTECTED_DACL_SECURITY_INFORMATION,
+                    sid,
+                    std::ptr::null_mut(),
+                    dacl,
+                    std::ptr::null_mut(),
+                )
+            };
+            if code != 0 {
+                return Err(io::Error::from_raw_os_error(code as i32));
+            }
+            Ok(())
+        })
+    }
+
+    fn set_private_acl_with<F>(path: &Path, apply: F) -> io::Result<()>
+    where
+        F: FnOnce(
+            &Path,
+            windows_sys::Win32::Security::PSID,
+            *mut windows_sys::Win32::Security::ACL,
+        ) -> io::Result<()>,
+    {
         use windows_sys::Win32::Security::Authorization::ConvertSidToStringSidW;
         let mut token: HANDLE = std::ptr::null_mut();
         if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
@@ -687,22 +845,7 @@ mod windows {
                 {
                     return Err(io::Error::other("invalid SPA DACL"));
                 }
-                let path = wide(path.as_os_str());
-                let code = unsafe {
-                    SetNamedSecurityInfoW(
-                        path.as_ptr() as *mut u16,
-                        SE_FILE_OBJECT,
-                        DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-                        std::ptr::null_mut(),
-                        std::ptr::null_mut(),
-                        dacl,
-                        std::ptr::null_mut(),
-                    )
-                };
-                if code != 0 {
-                    return Err(io::Error::from_raw_os_error(code as i32));
-                }
-                Ok(())
+                apply(path, sid, dacl)
             })();
             unsafe { LocalFree(descriptor.cast()) };
             applied
@@ -729,6 +872,7 @@ mod windows {
         u64::try_from(count).map_err(|_| io::Error::other("invalid cookie row count"))
     }
 
+    /// Verifies actual owner/current SID, protected DACL and exact user/SYSTEM ACEs.
     pub fn profile_acl_is_private(path: &Path) -> io::Result<bool> {
         use windows_sys::Win32::Security::{
             CreateWellKnownSid, EqualSid, GetAce, GetSecurityDescriptorControl, WinLocalSystemSid,
@@ -843,7 +987,7 @@ mod windows {
 
         fn record(profile: &SpaProfileLease, pid: u32, created: u64) {
             use std::io::{Seek, SeekFrom, Write};
-            let mut file = profile.lock.try_clone().unwrap();
+            let mut file = profile.lock.file.lock().unwrap();
             file.set_len(0).unwrap();
             file.seek(SeekFrom::Start(0)).unwrap();
             file.write_all(&pid.to_le_bytes()).unwrap();
@@ -895,6 +1039,230 @@ mod windows {
         }
 
         #[test]
+        fn readonly_cookie_query_rejects_missing_and_unknown_schema_without_mutation() {
+            let temp = tempfile::tempdir().unwrap();
+            let missing = temp.path().join("Cookies");
+            assert!(cookie_rows(&missing).is_err());
+            assert!(!missing.exists());
+            let connection = rusqlite::Connection::open(&missing).unwrap();
+            connection
+                .execute("CREATE TABLE other (value TEXT)", [])
+                .unwrap();
+            drop(connection);
+            let before = fs::read(&missing).unwrap();
+            assert!(cookie_rows(&missing).is_err());
+            assert_eq!(fs::read(&missing).unwrap(), before);
+            let connection = rusqlite::Connection::open(&missing).unwrap();
+            connection
+                .execute("CREATE TABLE cookies (value TEXT)", [])
+                .unwrap();
+            drop(connection);
+            let before = fs::read(&missing).unwrap();
+            assert_eq!(cookie_rows(&missing).unwrap(), 0);
+            assert_eq!(fs::read(&missing).unwrap(), before);
+            let corrupt = temp.path().join("Corrupt-Cookies");
+            fs::write(&corrupt, b"not-a-sqlite-database").unwrap();
+            let before = fs::read(&corrupt).unwrap();
+            assert!(cookie_rows(&corrupt).is_err());
+            assert_eq!(fs::read(&corrupt).unwrap(), before);
+            let unreadable = temp.path().join("Unreadable-Cookies");
+            fs::create_dir(&unreadable).unwrap();
+            assert!(cookie_rows(&unreadable).is_err());
+        }
+
+        #[test]
+        fn retained_locked_record_is_readable_and_cleanup_waits_for_window_and_process() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            let path = profile.path().to_path_buf();
+            record(&profile, 7, 11);
+            let lease_path = path.join(".lease");
+            assert_eq!(read_owned_lease(&lease_path).unwrap().unwrap().len(), 12);
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            assert!(tx
+                .send(Ok(BrowserProcess {
+                    handle: std::ptr::null_mut()
+                }))
+                .is_ok());
+            let gone = Arc::new(AtomicBool::new(false));
+            let exited = Arc::new(AtomicBool::new(false));
+            let audit_path = lease_path.clone();
+            let hook: SecretAudit = Arc::new(move |profile_path| {
+                assert_eq!(profile_path.join(".lease"), audit_path);
+                let record = read_owned_lease(&audit_path)?
+                    .ok_or_else(|| io::Error::other("retained record unavailable"))?;
+                Ok(record.len() != 12)
+            });
+            tauri::async_runtime::block_on(async {
+                let gone_for_task = gone.clone();
+                let exited_for_task = exited.clone();
+                let task = tauri::async_runtime::spawn(async move {
+                    cleanup_after_exit_with_probe(
+                        profile,
+                        Some(rx),
+                        gone_for_task,
+                        Some(hook),
+                        move |_| {
+                            if exited_for_task.load(Ordering::SeqCst) {
+                                BrowserLeaseStatus::Exited
+                            } else {
+                                BrowserLeaseStatus::Active
+                            }
+                        },
+                    )
+                    .await
+                });
+                tokio::time::sleep(Duration::from_millis(75)).await;
+                assert!(path.exists());
+                gone.store(true, Ordering::SeqCst);
+                tokio::time::sleep(Duration::from_millis(75)).await;
+                assert!(path.exists());
+                exited.store(true, Ordering::SeqCst);
+                let result = tokio::time::timeout(Duration::from_secs(2), task)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert!(result.accepted());
+                assert!(!path.exists());
+            });
+            assert!(read_owned_lease(&lease_path).unwrap().is_none());
+        }
+
+        #[test]
+        fn recorded_process_probe_is_injectable_and_missing_record_is_unknown() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            let guard = profile.lock.file.lock().unwrap();
+            assert!(matches!(
+                recorded_browser_status_with_probe(&guard, |_, _| {
+                    panic!("probe must not run for missing identity")
+                })
+                .unwrap(),
+                BrowserLeaseStatus::Unknown
+            ));
+            drop(guard);
+            record(&profile, 17, 23);
+            let guard = profile.lock.file.lock().unwrap();
+            assert!(matches!(
+                recorded_browser_status_with_probe(&guard, |pid, created| {
+                    assert_eq!((pid, created), (17, 23));
+                    Ok(BrowserLeaseStatus::Active)
+                })
+                .unwrap(),
+                BrowserLeaseStatus::Active
+            ));
+            drop(guard);
+            profile.remove().unwrap();
+        }
+
+        #[test]
+        fn acl_tamper_blocks_owned_deletion() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            let path = profile.path().to_path_buf();
+            let sibling = root.join("shell");
+            fs::create_dir(&sibling).unwrap();
+            fs::write(sibling.join("sentinel"), b"kept").unwrap();
+            let mut descriptor = std::ptr::null_mut();
+            assert_ne!(
+                unsafe {
+                    ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                        wide(OsStr::new("D:P(A;OICI;FA;;;WD)")).as_ptr(),
+                        SDDL_REVISION_1,
+                        &mut descriptor,
+                        std::ptr::null_mut(),
+                    )
+                },
+                0
+            );
+            let mut present = 0;
+            let mut defaulted = 0;
+            let mut dacl = std::ptr::null_mut();
+            assert_ne!(
+                unsafe {
+                    GetSecurityDescriptorDacl(descriptor, &mut present, &mut dacl, &mut defaulted)
+                },
+                0
+            );
+            let code = unsafe {
+                SetNamedSecurityInfoW(
+                    wide(path.as_os_str()).as_ptr() as *mut u16,
+                    SE_FILE_OBJECT,
+                    DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    dacl,
+                    std::ptr::null_mut(),
+                )
+            };
+            unsafe { LocalFree(descriptor.cast()) };
+            assert_eq!(code, 0);
+            assert!(!profile_acl_is_private(&path).unwrap());
+            assert!(profile.remove().is_err());
+            assert!(path.exists());
+            assert!(sibling.join("sentinel").exists());
+        }
+
+        #[test]
+        fn acl_installer_requests_current_user_owner_not_a_synthetic_group_default() {
+            use windows_sys::Win32::Security::{CreateWellKnownSid, EqualSid, WinLocalSystemSid};
+            let temp = tempfile::tempdir().unwrap();
+            let path = temp.path().join("profile");
+            fs::create_dir(&path).unwrap();
+            let mut called = false;
+            set_private_acl_with(&path, |requested_path, user_owner, dacl| {
+                assert_eq!(requested_path, path);
+                assert!(!user_owner.is_null() && !dacl.is_null());
+                let mut synthetic_group_owner = [0u8; 68];
+                let mut len = synthetic_group_owner.len() as u32;
+                assert_ne!(
+                    unsafe {
+                        CreateWellKnownSid(
+                            WinLocalSystemSid,
+                            std::ptr::null_mut(),
+                            synthetic_group_owner.as_mut_ptr().cast(),
+                            &mut len,
+                        )
+                    },
+                    0
+                );
+                assert_eq!(
+                    unsafe { EqualSid(user_owner, synthetic_group_owner.as_mut_ptr().cast()) },
+                    0
+                );
+                called = true;
+                Ok(())
+            })
+            .unwrap();
+            assert!(called);
+            set_private_acl(&path).unwrap();
+            assert!(profile_acl_is_private(&path).unwrap());
+        }
+
+        #[test]
+        fn reparse_junction_blocks_escape_and_keeps_outside_files() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            let outside = temp.path().join("outside");
+            fs::create_dir(&outside).unwrap();
+            fs::write(outside.join("sentinel"), b"kept").unwrap();
+            let junction = profile.path().join("escape");
+            let status = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(&junction)
+                .arg(&outside)
+                .output()
+                .unwrap();
+            assert!(status.status.success(), "junction fixture creation failed");
+            assert!(profile.remove().is_err());
+            assert!(outside.join("sentinel").exists());
+        }
+
+        #[test]
         fn startup_sweep_preserves_active_unknown_and_siblings() {
             let temp = tempfile::tempdir().unwrap();
             let root = temp.path().join("spa-tmp");
@@ -943,7 +1311,7 @@ mod windows {
         }
 
         #[test]
-        fn startup_sweep_retains_row_positive_profile_as_failure() {
+        fn startup_sweep_removes_proven_exited_positive_profile_but_retains_failure() {
             let temp = tempfile::tempdir().unwrap();
             let root = temp.path().join("spa-tmp");
             let profile = create_in(&root).unwrap();
@@ -960,9 +1328,12 @@ mod windows {
             record_exited_browser(&profile);
             drop(profile);
             let sweep = sweep_in(&root).unwrap();
-            assert_eq!(sweep.skipped_unknown, 1);
-            assert_eq!(sweep.removed, 0);
-            assert!(path.exists());
+            assert_eq!(sweep.skipped_unknown, 0);
+            assert_eq!(sweep.positive_profiles, 1);
+            assert_eq!(sweep.positive_rows, 1);
+            assert!(!sweep.complete());
+            assert_eq!(sweep.removed, 1);
+            assert!(!path.exists());
         }
     }
 }

@@ -139,9 +139,10 @@ struct SecondaryProbeObservation {
     cleanup_cookie_rows: u64,
     cleanup_read_only_complete: bool,
     cleanup_secret_detected: bool,
+    profile_live_audit: AuditObservation,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct PrivateProfileObservation {
     applicable: bool,
@@ -152,6 +153,23 @@ struct PrivateProfileObservation {
     native_cookie_store_empty: bool,
     profile_path_verified: bool,
     profile_acl_private: bool,
+    profile_live_audit: AuditObservation,
+}
+
+impl Default for PrivateProfileObservation {
+    fn default() -> Self {
+        Self {
+            applicable: false,
+            callback_available: false,
+            environment_options_available: false,
+            profile_state_available: false,
+            private_enabled: false,
+            native_cookie_store_empty: false,
+            profile_path_verified: false,
+            profile_acl_private: false,
+            profile_live_audit: AuditObservation::unavailable(),
+        }
+    }
 }
 
 impl PrivateProfileObservation {
@@ -170,6 +188,7 @@ impl PrivateProfileObservation {
             && self.native_cookie_store_empty
             && self.profile_path_verified
             && self.profile_acl_private
+            && self.profile_live_audit.live_clean()
     }
 }
 
@@ -190,6 +209,7 @@ impl SecondaryProbeObservation {
             cleanup_cookie_rows: 0,
             cleanup_read_only_complete: false,
             cleanup_secret_detected: false,
+            profile_live_audit: AuditObservation::unavailable(),
         }
     }
 }
@@ -251,6 +271,7 @@ impl SecondaryProbeResult {
             cleanup_cookie_rows: 0,
             cleanup_read_only_complete: !cfg!(windows),
             cleanup_secret_detected: false,
+            profile_live_audit: AuditObservation::unavailable(),
         }
     }
 }
@@ -561,7 +582,7 @@ async fn await_profile_callback(
 ) -> PrivateProfileObservation {
     let remaining = deadline.saturating_duration_since(std::time::Instant::now());
     let _ = tokio::time::timeout(remaining, completion).await;
-    *observation.lock().unwrap()
+    observation.lock().unwrap().clone()
 }
 
 #[cfg(windows)]
@@ -606,7 +627,7 @@ async fn inspect_private_profile(
     });
     if callback.is_err() {
         observation.lock().unwrap().callback_available = false;
-        return *observation.lock().unwrap();
+        return observation.lock().unwrap().clone();
     }
     await_profile_callback(observation, completion, deadline).await
 }
@@ -653,7 +674,7 @@ fn write_observer_timeout_report(
         pre_close_audit: pre_close_audit.clone(),
         audit: audit_observation.clone(),
         teardown: teardown.clone(),
-        profile: *profile.lock().unwrap(),
+        profile: profile.lock().unwrap().clone(),
     };
     #[allow(unused_mut)]
     let mut report = json!({
@@ -672,7 +693,7 @@ fn write_observer_timeout_report(
         "cookieDatabaseFiles": 0,
         "preCloseAudit": pre_close_audit,
         "teardown": teardown,
-        "profile": *profile.lock().unwrap(),
+        "profile": profile.lock().unwrap().clone(),
         "diagnostic": diagnostic,
     });
     #[cfg(windows)]
@@ -949,7 +970,7 @@ fn main() {
                         if step < 2 {
                             let empty = window.cookies().is_ok_and(|v| v.is_empty());
                             #[cfg(windows)]
-                            let (profile_path_verified, profile_acl_private, profile_isolated) = {
+                            let (profile_path_verified, profile_acl_private, profile_isolated, profile_live_audit) = {
                                 let path = app.state::<SpaState>().active_profile_path();
                                 if let Some(path) = path {
                                     let root = plur1bus_desktop::windows_spa_profile::root_for_app(&app).ok();
@@ -963,8 +984,9 @@ fn main() {
                                     let (matched, acl) = plur1bus_desktop::windows_spa_profile::verify_webview_profile(
                                         &window, &path, std::time::Instant::now() + std::time::Duration::from_secs(5)
                                     ).await;
-                                    (matched, acl, isolated)
-                                } else { (false, false, false) }
+                                    let live = live_profile_audit(Some(path), known.clone()).await;
+                                    (matched, acl, isolated, live)
+                                } else { (false, false, false, AuditObservation::unavailable()) }
                             };
                             #[allow(unused_mut)]
                             let mut session = json!({
@@ -976,6 +998,7 @@ fn main() {
                                 fields.insert("profilePathVerified".into(), json!(profile_path_verified));
                                 fields.insert("profileAclPrivate".into(), json!(profile_acl_private));
                                 fields.insert("profileIsolated".into(), json!(profile_isolated));
+                                fields.insert("profileLiveAudit".into(), json!(profile_live_audit));
                             }
                             results.lock().unwrap().push(session);
                             progress("cookies-checked");
@@ -1236,6 +1259,8 @@ async fn negative_controls(
             .state::<SpaState>()
             .active_profile_path()
             .is_some_and(|main| main != other_profile.path());
+        value.profile_live_audit =
+            live_profile_audit(Some(other_profile.path().to_path_buf()), known.clone()).await;
     }
     capture_browser_process(&other, &browser_owners);
     #[cfg(windows)]
@@ -1466,6 +1491,16 @@ async fn finish(
                 })
                 .await
                 .unwrap_or_else(|_| AuditObservation::unavailable());
+                #[cfg(windows)]
+                {
+                    let path = task_lease
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .map(|lease| lease.path().to_path_buf());
+                    let live = live_profile_audit(path, task_known.clone()).await;
+                    task_profile.lock().unwrap().profile_live_audit = live;
+                }
                 if pre_close_audit.audit_complete {
                     progress("audit-live-scan-complete");
                 } else {
@@ -1570,20 +1605,41 @@ async fn finish(
                     pre_close_audit: pre_close_audit.clone(),
                     audit: audit_observation.clone(),
                     teardown: teardown.clone(),
-                    profile: *task_profile.lock().unwrap(),
+                    profile: task_profile.lock().unwrap().clone(),
                 };
                 let live_positive = !diagnostic.pre_close_audit.live_clean();
+                #[cfg(windows)]
+                let sessions_live_clean = {
+                    let sessions = task_results.lock().unwrap();
+                    sessions.len() == 2
+                        && sessions.iter().all(|session| {
+                            serde_json::from_value::<AuditObservation>(
+                                session["profileLiveAudit"].clone(),
+                            )
+                            .is_ok_and(|audit| audit.live_clean())
+                        })
+                };
+                #[cfg(not(windows))]
+                let sessions_live_clean = true;
                 let diagnostic_pass = diagnostic.secondary_probe.available
                     && diagnostic.secondary_probe.native_cookie_store_empty
                     && diagnostic.secondary_probe.profile_cleanup_complete
                     && diagnostic.secondary_probe.cleanup_cookie_rows == 0
                     && diagnostic.secondary_probe.cleanup_read_only_complete
                     && !diagnostic.secondary_probe.cleanup_secret_detected
+                    && ( !cfg!(windows) || diagnostic.secondary_probe.profile_live_audit.live_clean())
                     && (!cfg!(windows) || (diagnostic.secondary_probe.profile_path_verified && diagnostic.secondary_probe.profile_acl_private && diagnostic.secondary_probe.profile_isolated))
                     && !live_positive
                     && diagnostic.audit.clean()
                     && diagnostic.teardown.clean()
-                    && diagnostic.profile.accepted();
+                    && diagnostic.profile.accepted()
+                    && sessions_live_clean
+                    && (!cfg!(windows) || {
+                        #[cfg(windows)]
+                        { STARTUP_SWEEP.get().is_some_and(|sweep| sweep.complete()) }
+                        #[cfg(not(windows))]
+                        { false }
+                    });
                 #[allow(unused_mut)]
                 let mut report=json!({"result":if diagnostic_pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*task_results.lock().unwrap(),"retirement":acl,"negativeControls":*task_negative.lock().unwrap(),"ticketError":task_error["ticketError"],"productionBenchmark":task_error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
                 #[cfg(windows)]
@@ -1768,6 +1824,12 @@ impl AuditReader for FilesystemAuditReader {
     }
 
     fn read_file(&mut self, path: &std::path::Path) -> Result<Vec<u8>, AuditFailureCategory> {
+        #[cfg(windows)]
+        if let Some(record) = plur1bus_desktop::windows_spa_profile::read_owned_lease(path)
+            .map_err(|error| classify_file_read_error(&error))?
+        {
+            return Ok(record);
+        }
         std::fs::read(path).map_err(|error| classify_file_read_error(&error))
     }
 
@@ -1819,6 +1881,16 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
         .map(PathBuf::from)
         .map(|path| path.join("native-profile"));
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
+}
+
+#[cfg(windows)]
+async fn live_profile_audit(path: Option<PathBuf>, known: Secrets) -> AuditObservation {
+    let Some(path) = path else {
+        return AuditObservation::unavailable();
+    };
+    tauri::async_runtime::spawn_blocking(move || audit(&path, &known.lock().unwrap()))
+        .await
+        .unwrap_or_else(|_| AuditObservation::unavailable())
 }
 
 #[cfg(test)]
@@ -2138,6 +2210,10 @@ mod tests {
 
     #[test]
     fn private_profile_acceptance_requires_closed_windows_evidence() {
+        let mut clean_live = AuditObservation::unavailable();
+        clean_live.audit_complete = true;
+        clean_live.cookie_read_only_complete = true;
+        clean_live.failure_category = AuditFailureCategory::None;
         let missing = PrivateProfileObservation {
             applicable: true,
             callback_available: true,
@@ -2147,6 +2223,7 @@ mod tests {
             native_cookie_store_empty: false,
             profile_path_verified: false,
             profile_acl_private: false,
+            profile_live_audit: AuditObservation::unavailable(),
         };
         assert!(!missing.accepted());
         assert!(PrivateProfileObservation {
@@ -2155,6 +2232,7 @@ mod tests {
             native_cookie_store_empty: true,
             profile_path_verified: true,
             profile_acl_private: true,
+            profile_live_audit: clean_live,
             ..missing
         }
         .accepted());
@@ -2183,6 +2261,9 @@ mod tests {
                 state.native_cookie_store_empty = true;
                 state.profile_path_verified = true;
                 state.profile_acl_private = true;
+                state.profile_live_audit.audit_complete = true;
+                state.profile_live_audit.cookie_read_only_complete = true;
+                state.profile_live_audit.failure_category = AuditFailureCategory::None;
                 drop(state);
                 let _ = sender.send(());
             });
@@ -2257,6 +2338,22 @@ mod tests {
         assert!(!failed.live_clean());
         assert!(!failed.cookie_read_only_complete);
         assert_eq!(failed.failure_category, AuditFailureCategory::CookieQuery);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn populated_locked_lease_is_audited_through_retained_owner_handle() {
+        let temp = tempfile::tempdir().unwrap();
+        let profile = plur1bus_desktop::windows_spa_profile::create_in_fixture_root(
+            &temp.path().join("spa-tmp"),
+        )
+        .unwrap();
+        plur1bus_desktop::windows_spa_profile::record_fixture_identity(&profile, 7, 11).unwrap();
+        let observation = super::audit(profile.path(), &[]);
+        assert!(observation.audit_complete);
+        assert_eq!(observation.read_failures, 0);
+        assert_eq!(observation.cookie_rows, 0);
+        drop(profile);
     }
 
     #[test]
