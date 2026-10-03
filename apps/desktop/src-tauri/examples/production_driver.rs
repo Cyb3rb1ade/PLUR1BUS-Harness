@@ -66,6 +66,10 @@ enum AuditFailureTarget {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct AuditObservation {
     audit_complete: bool,
+    /// Windows live SQL is deferred until verified environment exit.
+    post_exit_sql_deferred: bool,
+    /// Profile-relative sharing-locked names; never absolute paths.
+    locked_files: Vec<String>,
     secret_detected: bool,
     cookie_database_files: u32,
     cookie_rows: u64,
@@ -88,6 +92,8 @@ impl AuditObservation {
     fn unavailable() -> Self {
         Self {
             audit_complete: false,
+            post_exit_sql_deferred: false,
+            locked_files: Vec::new(),
             secret_detected: false,
             cookie_database_files: 0,
             cookie_rows: 0,
@@ -109,7 +115,19 @@ impl AuditObservation {
 
     fn bounded(&self) -> bool {
         const MAX_AUDIT_ITEMS: u32 = 4096;
-        self.cookie_database_files <= MAX_AUDIT_ITEMS
+        self.locked_files.len() <= MAX_AUDIT_ITEMS as usize
+            && self.locked_files.iter().all(|name| {
+                !name.is_empty()
+                    && name.len() <= 4096
+                    && !name.contains(['\\', ':'])
+                    && !name.chars().any(char::is_control)
+                    && name
+                        .split('/')
+                        .all(|part| !part.is_empty() && part != "." && part != "..")
+            })
+            && (!self.post_exit_sql_deferred || !self.cookie_read_only_complete)
+            && (self.locked_files.is_empty() || self.post_exit_sql_deferred)
+            && self.cookie_database_files <= MAX_AUDIT_ITEMS
             && self.cookie_database_native_profile_files <= MAX_AUDIT_ITEMS
             && self.cookie_database_other_root_files <= MAX_AUDIT_ITEMS
             && self.cookie_database_primary_files <= MAX_AUDIT_ITEMS
@@ -139,6 +157,8 @@ impl AuditObservation {
 
     fn clean(&self) -> bool {
         self.audit_complete
+            && !self.post_exit_sql_deferred
+            && self.locked_files.is_empty()
             && !self.secret_detected
             && self.cookie_database_files == 0
             && self.cookie_rows == 0
@@ -157,7 +177,7 @@ impl AuditObservation {
         self.audit_complete
             && !self.secret_detected
             && self.cookie_rows == 0
-            && self.cookie_read_only_complete
+            && (self.cookie_read_only_complete || (cfg!(windows) && self.post_exit_sql_deferred))
             && self.cookie_query == CookieQueryDiagnostic::default()
             && self.cookie_database_other_root_files == 0
             && (cfg!(windows) || self.cookie_database_files == 0)
@@ -171,9 +191,50 @@ impl AuditObservation {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BrowserApiChallenge {
+    applicable: bool,
+    attempted: bool,
+    blocked: bool,
+}
+impl BrowserApiChallenge {
+    fn accepted(&self) -> bool {
+        if self.applicable {
+            self.attempted && self.blocked
+        } else {
+            !self.attempted && !self.blocked
+        }
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct CanaryObservation {
+    upstream_set_cookie: bool,
+    rust_jar_contains: bool,
+    browser_set_cookie_stripped: bool,
+    document_cookie_attempted: bool,
+    prototype_cookie_attempted: bool,
+    frame_cookie_attempted: bool,
+    cookie_store: BrowserApiChallenge,
+    service_worker: BrowserApiChallenge,
+}
+impl CanaryObservation {
+    fn accepted(&self) -> bool {
+        self.upstream_set_cookie
+            && self.rust_jar_contains
+            && self.browser_set_cookie_stripped
+            && self.document_cookie_attempted
+            && self.prototype_cookie_attempted
+            && self.frame_cookie_attempted
+            && self.cookie_store.accepted()
+            && self.service_worker.accepted()
+    }
+}
+
 fn session_live_clean(session: &Value) -> bool {
     serde_json::from_value::<AuditObservation>(session["profileLiveAudit"].clone())
-        .is_ok_and(|audit| audit.live_clean())
+        .is_ok_and(|audit| audit.bounded() && audit.live_clean())
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -193,6 +254,7 @@ struct SecondaryProbeObservation {
     cleanup_cookie_rows: u64,
     cleanup_read_only_complete: bool,
     cleanup_secret_detected: bool,
+    post_exit: Vec<plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence>,
     profile_live_audit: AuditObservation,
 }
 
@@ -249,6 +311,7 @@ impl SecondaryProbeObservation {
             cleanup_cookie_rows: 0,
             cleanup_read_only_complete: false,
             cleanup_secret_detected: false,
+            post_exit: Vec::new(),
             profile_live_audit: AuditObservation::unavailable(),
         }
     }
@@ -264,7 +327,7 @@ struct NativeDiagnostic {
     profile: PrivateProfileObservation,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct TeardownObservation {
     process_exit_applicable: bool,
@@ -276,6 +339,7 @@ struct TeardownObservation {
     cleanup_cookie_rows: u64,
     cleanup_read_only_complete: bool,
     cleanup_secret_detected: bool,
+    post_exit: Vec<plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -298,6 +362,11 @@ impl TeardownObservation {
             && self.cleanup_cookie_rows == 0
             && self.cleanup_read_only_complete
             && !self.cleanup_secret_detected
+            && if cfg!(windows) {
+                self.post_exit.len() >= 3 && self.post_exit.iter().all(|e| e.accepted())
+            } else {
+                self.post_exit.is_empty()
+            }
     }
 }
 
@@ -319,7 +388,16 @@ fn parse_diagnostic(root: &Value) -> NativeDiagnostic {
         .cloned()
         .and_then(|value| serde_json::from_value::<NativeDiagnostic>(value).ok());
     match diagnostic {
-        Some(value) if value.audit.bounded() && value.pre_close_audit.bounded() => value,
+        Some(value)
+            if value.audit.bounded()
+                && value.pre_close_audit.bounded()
+                && value.secondary_probe.profile_live_audit.bounded()
+                && value.profile.profile_live_audit.bounded()
+                && value.teardown.post_exit.len() <= 128
+                && value.secondary_probe.post_exit.len() <= 128 =>
+        {
+            value
+        }
         _ => NativeDiagnostic::unavailable(),
     }
 }
@@ -726,7 +804,13 @@ fn main() {
                     && diagnostic.secondary_probe.cleanup_read_only_complete
                     && diagnostic.secondary_probe.cleanup_cookie_rows == 0
                     && !diagnostic.secondary_probe.cleanup_secret_detected
-                    && diagnostic.secondary_probe.profile_live_audit.live_clean(),
+                    && diagnostic.secondary_probe.profile_live_audit.live_clean()
+                    && diagnostic.secondary_probe.post_exit.len() == 1
+                    && diagnostic
+                        .secondary_probe
+                        .post_exit
+                        .iter()
+                        .all(|e| e.accepted()),
                 "secondary profile isolation, ACL, or cleanup failed"
             );
         }
@@ -760,6 +844,10 @@ fn main() {
             }
             assert_eq!(session["nativeCookieStoreEmpty"], true);
             if cfg!(windows) {
+                let canary: CanaryObservation = serde_json::from_value(session["canary"].clone())
+                    .expect("closed canary challenge");
+                assert!(canary.accepted(), "canary challenge incomplete");
+                assert_eq!(session["browser"]["documentCookieAttempted"], true);
                 assert_eq!(session["profilePathVerified"], true);
                 assert_eq!(session["profileAclPrivate"], true);
                 assert_eq!(session["profileIsolated"], true);
@@ -848,6 +936,51 @@ mod tests {
         AuditObservation, NativeDiagnostic,
     };
     use serde_json::json;
+
+    #[test]
+    fn owner_audit_schema_rejects_unknown_fields_paths_and_false_native_evidence() {
+        let mut audit = super::AuditObservation::unavailable();
+        audit.post_exit_sql_deferred = true;
+        for invalid in [
+            "/absolute/Cookies",
+            "../Cookies",
+            "C:/Cookies",
+            "Default/../Cookies",
+            "Default\\Cookies",
+            "bad\nname",
+        ] {
+            audit.locked_files = vec![invalid.into()];
+            assert!(!audit.bounded());
+        }
+        audit.locked_files = vec!["Default/Network/Cookies".into()];
+        assert!(audit.bounded());
+        let mut raw = serde_json::to_value(&audit).unwrap();
+        raw["secretValue"] = json!("forbidden");
+        assert!(serde_json::from_value::<super::AuditObservation>(raw).is_err());
+        let mut exit = plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence::default();
+        exit.removed = true;
+        exit.read_only_complete = true;
+        exit.secret_scan_complete = true;
+        assert!(
+            !exit.accepted(),
+            "deletion without an actual event is not proof"
+        );
+        exit.environment_exited = true;
+        exit.exit_wait_ms = 10_001;
+        assert!(!exit.accepted());
+        exit.exit_wait_ms = 1;
+        exit.cookie_rows = 1;
+        assert!(!exit.accepted());
+        exit.cookie_rows = 0;
+        exit.secret_detected = true;
+        assert!(!exit.accepted());
+        let mut raw = serde_json::to_value(exit).unwrap();
+        raw["rawPath"] = json!("forbidden");
+        assert!(serde_json::from_value::<
+            plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence,
+        >(raw)
+        .is_err());
+    }
 
     #[test]
     fn timeout_artifact_retains_closed_intermediate_stages_and_counts() {

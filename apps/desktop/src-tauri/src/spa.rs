@@ -70,6 +70,7 @@ impl SpaState {
                     // the next await; outer cancellation must not erase it.
                     observed.cookie_rows = observed.cookie_rows.saturating_add(result.cookie_rows);
                     observed.secret_detected |= result.secret_detected;
+                    observed.audits.extend(result.audits);
                 }
                 _ => {
                     all_removed = false;
@@ -176,6 +177,7 @@ pub fn retire(app: &tauri::AppHandle) -> Result<(), String> {
             old.browser,
             old.gone,
             secret_audit,
+            std::time::Instant::now(),
         ));
         #[cfg(windows)]
         state.cleanups.lock().unwrap().push(task);
@@ -336,6 +338,9 @@ pub async fn open_spa(
             #[cfg(not(debug_assertions))]
             let _ = (&title_app, window, title);
         });
+    #[cfg(windows)]
+    let builder =
+        builder.initialization_script_for_all_frames(include_str!("windows_spa_cookie_policy.js"));
     #[cfg(windows)]
     let builder = {
         let state = app.state::<SpaState>();
@@ -511,6 +516,7 @@ mod cleanup_aggregation_tests {
                         cookie_rows: 3,
                         read_only_complete: true,
                         secret_detected: false,
+                        ..CleanupResult::default()
                     }
                 });
                 let second = tauri::async_runtime::spawn(async move {
@@ -519,6 +525,7 @@ mod cleanup_aggregation_tests {
                         cookie_rows: 2,
                         read_only_complete,
                         secret_detected: true,
+                        ..CleanupResult::default()
                     }
                 });
                 state.cleanups.lock().unwrap().extend([first, second]);
@@ -549,6 +556,11 @@ mod cleanup_aggregation_tests {
                     cookie_rows: 3,
                     read_only_complete: true,
                     secret_detected: true,
+                    audits: vec![crate::windows_spa_profile::ProfileCleanupEvidence {
+                        cookie_rows: 3,
+                        secret_detected: true,
+                        ..Default::default()
+                    }],
                 }
             });
             ready_receiver.await.unwrap();
@@ -573,6 +585,8 @@ mod cleanup_aggregation_tests {
                 "consumed owner rows must outlive aggregate cancellation"
             );
             assert!(observed.secret_detected);
+            assert_eq!(observed.audits.len(), 1);
+            assert_eq!(observed.audits[0].cookie_rows, 3);
             assert!(!observed.removed && !observed.read_only_complete);
             assert!(!observed.accepted());
             drop(pending_sender);

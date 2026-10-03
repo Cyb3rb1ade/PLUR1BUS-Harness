@@ -7,6 +7,46 @@ const result = {};
   document.title = 'WP5_STAGE:ready';
   result.loggedIn = document.getElementById('identity')?.textContent === 'mock-owner';
   result.fragmentGone = !location.hash;
+  if (CANARY) {
+    const response = await fetch('/__test/cookie-canary', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({value:CANARY})});
+    if (!response.ok) throw new Error('canary challenge failed');
+    result.documentCookieAttempted = false;
+    try { document.cookie = 'wp05_page=' + CANARY + '; Path=/'; result.documentCookieAttempted = true; }
+    catch { result.documentCookieAttempted = true; }
+    result.prototypeCookieAttempted = false;
+    try { Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').set.call(document, 'wp05_proto=' + CANARY + '; Path=/'); result.prototypeCookieAttempted = true; } catch {}
+    result.frameCookieAttempted = false;
+    const frame = document.createElement('iframe');
+    document.body.append(frame);
+    try {
+      const child = frame.contentWindow;
+      child.document.cookie = 'wp05_frame=' + CANARY + '; Path=/';
+      Object.getOwnPropertyDescriptor(child.Document.prototype, 'cookie').set.call(document, 'wp05_cross=' + CANARY + '; Path=/');
+      result.frameCookieAttempted = true;
+    } catch {}
+    const child = frame.contentWindow;
+    result.cookieStoreChallenge = {applicable:typeof cookieStore !== 'undefined',attempted:false,blocked:false};
+    if (result.cookieStoreChallenge.applicable) {
+      result.cookieStoreChallenge.attempted = true;
+      await cookieStore.set('wp05_store', CANARY);
+      await CookieStore.prototype.set.call(cookieStore, 'wp05_store_proto', CANARY);
+      if (typeof child.CookieStore !== 'undefined') await child.CookieStore.prototype.set.call(child.cookieStore, 'wp05_store_frame', CANARY);
+      const descriptor = Object.getOwnPropertyDescriptor(CookieStore.prototype, 'set');
+      result.cookieStoreChallenge.blocked = descriptor?.configurable === false && descriptor?.writable === false;
+    }
+    result.serviceWorkerChallenge = {applicable:typeof ServiceWorkerContainer !== 'undefined' && !!navigator.serviceWorker,attempted:false,blocked:false};
+    if (result.serviceWorkerChallenge.applicable) {
+      result.serviceWorkerChallenge.attempted = true;
+      let denied = 0;
+      for (const register of [() => navigator.serviceWorker.register('/__test/canary-worker.js'),
+        () => ServiceWorkerContainer.prototype.register.call(navigator.serviceWorker, '/__test/canary-worker.js'),
+        () => child.ServiceWorkerContainer.prototype.register.call(child.navigator.serviceWorker, '/__test/canary-worker.js')]) {
+        try { await register(); } catch(error) { if(error.name === 'SecurityError') denied++; }
+      }
+      result.serviceWorkerChallenge.blocked = denied === 3;
+    }
+    frame.remove();
+  }
   result.cookieStoreEmpty = document.cookie === '';
   document.title = 'WP5_STAGE:ipc';
   try { const info = await window.__TAURI_INTERNALS__.invoke('shell_info'); result.shellInfo = info.product === 'PLUR1BUS' && info.features.length === 0; } catch { result.shellInfo = false; }

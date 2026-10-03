@@ -77,6 +77,10 @@ enum AuditFailureTarget {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct AuditObservation {
     audit_complete: bool,
+    /// Windows live SQL is deferred until verified environment exit.
+    post_exit_sql_deferred: bool,
+    /// Profile-relative sharing-locked names; never absolute paths.
+    locked_files: Vec<String>,
     secret_detected: bool,
     cookie_database_files: u32,
     cookie_rows: u64,
@@ -99,6 +103,8 @@ impl AuditObservation {
     fn unavailable() -> Self {
         Self {
             audit_complete: false,
+            post_exit_sql_deferred: false,
+            locked_files: Vec::new(),
             secret_detected: false,
             cookie_database_files: 0,
             cookie_rows: 0,
@@ -128,6 +134,8 @@ impl AuditObservation {
 
     fn clean(&self) -> bool {
         self.audit_complete
+            && !self.post_exit_sql_deferred
+            && self.locked_files.is_empty()
             && !self.secret_detected
             && self.cookie_database_files == 0
             && self.cookie_rows == 0
@@ -146,7 +154,7 @@ impl AuditObservation {
         self.audit_complete
             && !self.secret_detected
             && self.cookie_rows == 0
-            && self.cookie_read_only_complete
+            && (self.cookie_read_only_complete || (cfg!(windows) && self.post_exit_sql_deferred))
             && self.cookie_query == CookieQueryDiagnostic::default()
             && self.read_failures == 0
             && self.entries_disappeared == 0
@@ -177,6 +185,7 @@ struct SecondaryProbeObservation {
     cleanup_cookie_rows: u64,
     cleanup_read_only_complete: bool,
     cleanup_secret_detected: bool,
+    post_exit: Vec<plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence>,
     profile_live_audit: AuditObservation,
 }
 
@@ -247,6 +256,7 @@ impl SecondaryProbeObservation {
             cleanup_cookie_rows: 0,
             cleanup_read_only_complete: false,
             cleanup_secret_detected: false,
+            post_exit: Vec::new(),
             profile_live_audit: AuditObservation::unavailable(),
         }
     }
@@ -309,6 +319,7 @@ impl SecondaryProbeResult {
             cleanup_cookie_rows: 0,
             cleanup_read_only_complete: !cfg!(windows),
             cleanup_secret_detected: false,
+            post_exit: Vec::new(),
             profile_live_audit: AuditObservation::unavailable(),
         }
     }
@@ -352,6 +363,7 @@ struct TeardownObservation {
     cleanup_cookie_rows: u64,
     cleanup_read_only_complete: bool,
     cleanup_secret_detected: bool,
+    post_exit: Vec<plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence>,
 }
 
 impl TeardownObservation {
@@ -364,6 +376,11 @@ impl TeardownObservation {
             && self.cleanup_cookie_rows == 0
             && self.cleanup_read_only_complete
             && !self.cleanup_secret_detected
+            && if cfg!(windows) {
+                self.post_exit.len() >= 3 && self.post_exit.iter().all(|e| e.accepted())
+            } else {
+                self.post_exit.is_empty()
+            }
     }
 }
 
@@ -1057,6 +1074,7 @@ fn write_observer_timeout_report(
         cleanup_cookie_rows: 0,
         cleanup_read_only_complete: false,
         cleanup_secret_detected: false,
+        post_exit: Vec::new(),
     };
     let secondary = secondary_observation
         .lock()
@@ -1160,10 +1178,106 @@ fn ticket_error_probe_script() -> &'static str {
     "document.title='ERR:'+JSON.stringify({savedTheme:document.documentElement.dataset.theme,savedLocale:document.documentElement.lang,terminalError:location.pathname==='/__shell/ticket-error',fragmentGone:!location.hash,controls44:[...document.querySelectorAll('#copy,#retry')].every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44}),honestError:document.getElementById('detail').textContent.length>20&&document.getElementById('safe').textContent.length>10});"
 }
 
-fn session_probe_script(foreign_origin: &str) -> String {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BrowserApiChallenge {
+    applicable: bool,
+    attempted: bool,
+    blocked: bool,
+}
+impl BrowserApiChallenge {
+    fn accepted(&self) -> bool {
+        if self.applicable {
+            self.attempted && self.blocked
+        } else {
+            !self.attempted && !self.blocked
+        }
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct CanaryObservation {
+    upstream_set_cookie: bool,
+    rust_jar_contains: bool,
+    browser_set_cookie_stripped: bool,
+    document_cookie_attempted: bool,
+    prototype_cookie_attempted: bool,
+    frame_cookie_attempted: bool,
+    cookie_store: BrowserApiChallenge,
+    service_worker: BrowserApiChallenge,
+}
+impl CanaryObservation {
+    fn accepted(&self) -> bool {
+        self.upstream_set_cookie
+            && self.rust_jar_contains
+            && self.browser_set_cookie_stripped
+            && self.document_cookie_attempted
+            && self.prototype_cookie_attempted
+            && self.frame_cookie_attempted
+            && self.cookie_store.accepted()
+            && self.service_worker.accepted()
+    }
+}
+
+#[cfg(any(windows, test))]
+async fn challenge_canary(
+    proxy: &SpaProxy,
+    canary: &str,
+    document_cookie_attempted: bool,
+) -> CanaryObservation {
+    let client = bounded_http_client();
+    let set = client
+        .post(format!("{}/__test/cookie-canary", proxy.origin().as_str()))
+        .header("user-agent", proxy.user_agent())
+        .header("origin", proxy.origin().as_str())
+        .json(&json!({"value":canary}))
+        .send()
+        .await;
+    let (upstream_set_cookie, browser_set_cookie_stripped) = match set {
+        Ok(response) => (
+            response.status().is_success(),
+            !response.headers().contains_key("set-cookie"),
+        ),
+        Err(_) => (false, false),
+    };
+    // A second actual proxy round trip proves the mock receives the Rust jar value.
+    // Registering a value alone is not proof: the jar must send it back upstream.
+    let rust_jar_contains = client
+        .post(format!(
+            "{}/__test/cookie-canary-check",
+            proxy.origin().as_str()
+        ))
+        .header("user-agent", proxy.user_agent())
+        .header("origin", proxy.origin().as_str())
+        .json(&json!({"value":canary}))
+        .send()
+        .await
+        .is_ok_and(|response| response.status() == reqwest::StatusCode::OK);
+    CanaryObservation {
+        upstream_set_cookie,
+        rust_jar_contains,
+        browser_set_cookie_stripped,
+        document_cookie_attempted,
+        prototype_cookie_attempted: false,
+        frame_cookie_attempted: false,
+        cookie_store: BrowserApiChallenge {
+            applicable: true,
+            attempted: false,
+            blocked: false,
+        },
+        service_worker: BrowserApiChallenge {
+            applicable: true,
+            attempted: false,
+            blocked: false,
+        },
+    }
+}
+
+fn session_probe_script(foreign_origin: &str, canary: &str) -> String {
     format!(
-        "const FOREIGN={};\n{}",
+        "const FOREIGN={}; const CANARY={};\n{}",
         serde_json::to_string(foreign_origin).unwrap(),
+        serde_json::to_string(canary).unwrap(),
         include_str!("production-spa/probe.js")
     )
 }
@@ -1346,6 +1460,21 @@ fn main() {
     let known: Secrets = Arc::new(Mutex::new(vec![SecretString::new(
         token.expose().to_owned(),
     )]));
+    #[cfg(windows)]
+    let canary = {
+        use rand::TryRngCore;
+        let mut bytes = [0u8; 32];
+        rand::rngs::OsRng
+            .try_fill_bytes(&mut bytes)
+            .expect("canary entropy");
+        Arc::new(SecretString::new(format!(
+            "CANARY-{}",
+            bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        )))
+    };
+    #[cfg(not(windows))]
+    let canary = Arc::new(SecretString::new(String::new()));
+    let canary_for_load = canary.clone();
     let claims = Arc::new(SessionTitleClaims::default());
     let loads = SessionEvalClaims::default();
     let results = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -1437,7 +1566,7 @@ fn main() {
                 let page = webview.url().ok();
                 if session_eval_target_is_current(payload.url(), page.as_ref(), current_origin.as_ref()) {
                     let origin = payload.url().origin().ascii_serialization();
-                    match loads.submit(&origin, || webview.eval(session_probe_script(&input.foreign_origin))) {
+                    match loads.submit(&origin, || webview.eval(session_probe_script(&input.foreign_origin, canary_for_load.expose()))) {
                         Ok(true) if second_active => progress("second-eval-accepted"),
                         Err(_) if second_active => progress("second-eval-rejected"),
                         _ => {}
@@ -1465,12 +1594,7 @@ fn main() {
             {
                 let cleanup_known = known.clone();
                 app.state::<SpaState>().set_native_profile_audit(Arc::new(move |path| {
-                    let observation = audit(path, &cleanup_known.lock().unwrap());
-                    if observation.audit_complete {
-                        Ok(observation.secret_detected)
-                    } else {
-                        Err(std::io::Error::other("profile audit incomplete"))
-                    }
+                    post_exit_secret_audit(path, &cleanup_known.lock().unwrap())
                 }));
             }
             app.state::<SpaState>()
@@ -1551,6 +1675,7 @@ fn main() {
                     let proxy = app.state::<SpaState>().active_proxy().unwrap();
                     progress("proxy-obtained");
                     let known = known.clone();
+                    let canary = canary.clone();
                     let connection = connection.clone();
                     let tokens = tokens.clone();
                     let store = store.clone();
@@ -1573,6 +1698,20 @@ fn main() {
                         });
                         progress("secrets-registered");
                         if step < 2 {
+                            #[cfg(windows)]
+                            let canary_proof = {
+                                known.lock().unwrap().push(SecretString::new(canary.expose().to_owned()));
+                                {
+                                    let mut proof = challenge_canary(&proxy, canary.expose(), value["documentCookieAttempted"] == true).await;
+                                    proof.prototype_cookie_attempted = value["prototypeCookieAttempted"] == true;
+                                    proof.frame_cookie_attempted = value["frameCookieAttempted"] == true;
+                                    if let Ok(challenge) = serde_json::from_value(value["cookieStoreChallenge"].clone()) { proof.cookie_store = challenge; }
+                                    if let Ok(challenge) = serde_json::from_value(value["serviceWorkerChallenge"].clone()) { proof.service_worker = challenge; }
+                                    proof
+                                }
+                            };
+                            #[cfg(not(windows))]
+                            let _ = &canary;
                             let empty = window.cookies().is_ok_and(|v| v.is_empty());
                             #[cfg(windows)]
                             let (profile_path_verified, profile_acl_private, profile_isolated, profile_live_audit) = {
@@ -1603,6 +1742,7 @@ fn main() {
                             });
                             #[cfg(windows)]
                             if let Value::Object(fields) = &mut session {
+                                fields.insert("canary".into(), json!(canary_proof));
                                 fields.insert("profilePathVerified".into(), json!(profile_path_verified));
                                 fields.insert("profileAclPrivate".into(), json!(profile_acl_private));
                                 fields.insert("profileIsolated".into(), json!(profile_isolated));
@@ -1905,28 +2045,22 @@ async fn negative_controls(
             }
         });
     }
+    #[cfg(windows)]
+    let other_close_requested = std::time::Instant::now();
     if other.destroy().is_err() {
         browser_owners.close_failed();
     }
     #[cfg(windows)]
-    let other_cleanup = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        plur1bus_desktop::windows_spa_profile::cleanup_after_exit(
-            other_profile,
-            Some(other_browser),
-            other_gone,
-            Some(Arc::new(move |path| {
-                let observation = audit(path, &known.lock().unwrap());
-                if observation.audit_complete {
-                    Ok(observation.secret_detected)
-                } else {
-                    Err(std::io::Error::other("profile audit incomplete"))
-                }
-            })),
-        ),
+    let other_cleanup = plur1bus_desktop::windows_spa_profile::cleanup_after_exit(
+        other_profile,
+        Some(other_browser),
+        other_gone,
+        Some(Arc::new(move |path| {
+            post_exit_secret_audit(path, &known.lock().unwrap())
+        })),
+        other_close_requested,
     )
-    .await
-    .unwrap_or_default();
+    .await;
     let old_origin = if let Some(first_origin) = first_origin {
         *old_probe.lock().unwrap() = None;
         let old_url = format!("{}?wp05-old-check", first_origin.as_str());
@@ -1953,6 +2087,7 @@ async fn negative_controls(
         observation.cleanup_cookie_rows = other_cleanup.cookie_rows;
         observation.cleanup_read_only_complete = other_cleanup.read_only_complete;
         observation.cleanup_secret_detected = other_cleanup.secret_detected;
+        observation.post_exit = other_cleanup.audits;
     }
     let proxy_generated_403 = proxy.secondary_probe_403_observed();
     let mut phase1_snapshot = value.clone();
@@ -1989,7 +2124,8 @@ async fn finish(
     inputs: FinishInputs,
     error: Value,
 ) {
-    let teardown_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let teardown_deadline = std::time::Instant::now()
+        + std::time::Duration::from_secs(if cfg!(windows) { 15 } else { 5 });
     progress("retire");
     let browser_owners = inputs.browser_owners.clone();
     let handle = app.clone();
@@ -2116,7 +2252,7 @@ async fn finish(
                 let live_known = task_known.clone();
                 let pre_close_audit = tauri::async_runtime::spawn_blocking(move || {
                     let known = live_known.lock().unwrap();
-                    audit(&live_root, &known)
+                    live_audit(&live_root, &known)
                 })
                 .await
                 .unwrap_or_else(|_| AuditObservation::unavailable());
@@ -2139,6 +2275,8 @@ async fn finish(
                 if task_teardown_deadline.saturating_duration_since(std::time::Instant::now()).is_zero() {
                     progress("retirement-observer-close-failed");
                 }
+                #[cfg(windows)]
+                let close_requested = std::time::Instant::now();
                 if observer.destroy().is_err() {
                     task_owners.close_failed();
                     progress("retirement-observer-close-failed");
@@ -2178,22 +2316,22 @@ async fn finish(
                                 if let Some(lease) = lease {
                                     let audit_known = task_known.clone();
                                     let secret_audit = Arc::new(move |path: &std::path::Path| {
-                                        let observation = audit(path, &audit_known.lock().unwrap());
-                                        if observation.audit_complete { Ok(observation.secret_detected) }
-                                        else { Err(std::io::Error::other("profile audit incomplete")) }
+                                        post_exit_secret_audit(path, &audit_known.lock().unwrap())
                                     });
                                     *observer_cleanup = plur1bus_desktop::windows_spa_profile::cleanup_after_exit(
-                                        lease, browser, task_gone, Some(secret_audit),
+                                        lease, browser, task_gone, Some(secret_audit), close_requested,
                                     ).await;
                                 }
                             };
                             let observations = async {
+                                // The outer report/cleanup grace is not a browser-exit budget.
+                                let exit_deadline = cleanup_deadline.min(close_requested + std::time::Duration::from_secs(10));
                                 *windows_absent = wait_for_fixture_windows(
-                                    task_handle, &task_owners.tracked_windows(), cleanup_deadline,
+                                    task_handle, &task_owners.tracked_windows(), exit_deadline,
                                 ).await;
                                 task_owners.mark_windows_absent(*windows_absent);
                                 *process_exit = wait_for_browser_processes(
-                                    task_owners.clone(), cleanup_deadline,
+                                    task_owners.clone(), exit_deadline,
                                 ).await;
                                 task_handle.state::<SpaState>()
                                     .wait_profile_cleanups_into(cleanup_deadline, spa_cleanup).await;
@@ -2237,6 +2375,10 @@ async fn finish(
                 let cleanup_read_only_complete = spa_cleanup.read_only_complete && observer_cleanup.read_only_complete;
                 #[cfg(windows)]
                 let cleanup_secret_detected = spa_cleanup.secret_detected || observer_cleanup.secret_detected;
+                #[cfg(windows)]
+                let post_exit: Vec<_> = spa_cleanup.audits.into_iter().chain(observer_cleanup.audits).collect();
+                #[cfg(not(windows))]
+                let post_exit: Vec<plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence> = Vec::new();
                 let closed_root = root.clone();
                 let closed_known = task_known.clone();
                 let audit_observation = tauri::async_runtime::spawn_blocking(move || {
@@ -2260,6 +2402,7 @@ async fn finish(
                     cleanup_cookie_rows,
                     cleanup_read_only_complete,
                     cleanup_secret_detected,
+                    post_exit: post_exit.clone(),
                 };
                 let secondary = task_secondary
                     .lock()
@@ -2294,6 +2437,7 @@ async fn finish(
                     && diagnostic.secondary_probe.cleanup_cookie_rows == 0
                     && diagnostic.secondary_probe.cleanup_read_only_complete
                     && !diagnostic.secondary_probe.cleanup_secret_detected
+                    && (!cfg!(windows) || (diagnostic.secondary_probe.post_exit.len() == 1 && diagnostic.secondary_probe.post_exit.iter().all(|e| e.accepted())))
                     && ( !cfg!(windows) || diagnostic.secondary_probe.profile_live_audit.live_clean())
                     && (!cfg!(windows) || (diagnostic.secondary_probe.profile_path_verified && diagnostic.secondary_probe.profile_acl_private && diagnostic.secondary_probe.profile_isolated))
                     && !live_positive
@@ -2302,6 +2446,8 @@ async fn finish(
                     && diagnostic.teardown.clean()
                     && diagnostic.profile.accepted()
                     && sessions_live_clean
+                    && (!cfg!(windows) || task_results.lock().unwrap().iter().all(|session|
+                        serde_json::from_value::<CanaryObservation>(session["canary"].clone()).is_ok_and(|c| c.accepted())))
                     && (!cfg!(windows) || {
                         #[cfg(windows)]
                         { STARTUP_SWEEP.get().is_some_and(|sweep| sweep.complete()) }
@@ -2607,6 +2753,7 @@ async fn finish(
         cleanup_cookie_rows: 0,
         cleanup_read_only_complete: true,
         cleanup_secret_detected: false,
+        post_exit: Vec::new(),
     };
     let secondary = inputs
         .secondary_observation
@@ -2705,14 +2852,14 @@ fn parse_secondary_result(raw: &str) -> SecondaryProbeResult {
 #[derive(Default)]
 struct FilesystemAuditReader {
     #[cfg(windows)]
-    native_profile_root: Option<PathBuf>,
+    _native_profile_root: Option<PathBuf>,
 }
 
 #[cfg(windows)]
 impl FilesystemAuditReader {
     fn with_profile_root(native_profile_root: Option<PathBuf>) -> Self {
         Self {
-            native_profile_root,
+            _native_profile_root: native_profile_root,
         }
     }
 }
@@ -2795,25 +2942,7 @@ impl AuditReader for FilesystemAuditReader {
         {
             return Ok(record);
         }
-        match std::fs::read(path) {
-            Ok(bytes) => Ok(bytes),
-            Err(error) => {
-                let category = classify_file_read_error(&error);
-                #[cfg(windows)]
-                if category == AuditFailureCategory::FileReadSharing {
-                    if let Some(root) = self.native_profile_root.as_deref() {
-                        if plur1bus_desktop::windows_spa_profile::prove_empty_owned_browser_lock(
-                            root, path,
-                        )
-                        .map_err(|_| AuditFailureCategory::Metadata)?
-                        {
-                            return Ok(Vec::new());
-                        }
-                    }
-                }
-                Err(category)
-            }
-        }
+        std::fs::read(path).map_err(|error| classify_file_read_error(&error))
     }
 
     fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, CookieRowFailure> {
@@ -2902,6 +3031,43 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     #[cfg(not(windows))]
     let mut reader = FilesystemAuditReader::default();
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
+}
+
+#[cfg(windows)]
+fn post_exit_secret_audit(
+    root: &std::path::Path,
+    secrets: &[SecretString],
+) -> std::io::Result<bool> {
+    let mut reader = FilesystemAuditReader::with_profile_root(Some(root.to_path_buf()));
+    let observation = audit_with_mode(root, secrets, &mut reader, Some(root), true, false);
+    if observation.audit_complete {
+        Ok(observation.secret_detected)
+    } else {
+        Err(std::io::Error::other("post-exit byte scan incomplete"))
+    }
+}
+
+fn live_audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
+    #[cfg(windows)]
+    let native_profile_root = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .map(|path| path.join("app.plur1bus.desktop").join("spa-tmp"));
+    #[cfg(not(windows))]
+    let native_profile_root = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR")
+        .map(PathBuf::from)
+        .map(|path| path.join("native-profile"));
+    #[cfg(windows)]
+    let mut reader = FilesystemAuditReader::with_profile_root(native_profile_root.clone());
+    #[cfg(not(windows))]
+    let mut reader = FilesystemAuditReader::default();
+    audit_with_mode(
+        root,
+        secrets,
+        &mut reader,
+        native_profile_root.as_deref(),
+        cfg!(windows),
+        cfg!(windows),
+    )
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -2995,9 +3161,19 @@ async fn live_profile_audit(
     if !plur1bus_desktop::windows_spa_profile::wait_for_owned_lease_record(&path, deadline).await {
         return AuditObservation::unavailable();
     }
-    tauri::async_runtime::spawn_blocking(move || audit(&path, &known.lock().unwrap()))
-        .await
-        .unwrap_or_else(|_| AuditObservation::unavailable())
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut reader = FilesystemAuditReader::with_profile_root(Some(path.clone()));
+        audit_with_mode(
+            &path,
+            &known.lock().unwrap(),
+            &mut reader,
+            Some(&path),
+            true,
+            true,
+        )
+    })
+    .await
+    .unwrap_or_else(|_| AuditObservation::unavailable())
 }
 
 #[cfg(test)]
@@ -3015,13 +3191,26 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
     reader: &mut R,
     native_profile_root: Option<&std::path::Path>,
 ) -> AuditObservation {
+    audit_with_mode(root, secrets, reader, native_profile_root, false, false)
+}
+
+fn audit_with_mode<R: AuditReader>(
+    root: &std::path::Path,
+    secrets: &[SecretString],
+    reader: &mut R,
+    native_profile_root: Option<&std::path::Path>,
+    defer_sql: bool,
+    allow_locks: bool,
+) -> AuditObservation {
     const MAX_AUDIT_ITEMS: usize = 4096;
     let mut observation = AuditObservation {
         audit_complete: false,
+        post_exit_sql_deferred: allow_locks,
+        locked_files: Vec::new(),
         secret_detected: false,
         cookie_database_files: 0,
         cookie_rows: 0,
-        cookie_read_only_complete: true,
+        cookie_read_only_complete: !defer_sql,
         cookie_query: CookieQueryDiagnostic::default(),
         cookie_database_native_profile_files: 0,
         cookie_database_other_root_files: 0,
@@ -3082,20 +3271,22 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
                         match cookie_file_class(&entry.path) {
                             Some(CookieFileClass::Primary) => {
                                 observation.cookie_database_primary_files += 1;
-                                match reader.cookie_rows(&entry.path) {
-                                    Ok(rows) => {
-                                        observation.cookie_rows =
-                                            observation.cookie_rows.saturating_add(rows)
-                                    }
-                                    Err((category, diagnostic)) => {
-                                        observation.cookie_query = diagnostic;
-                                        observation.cookie_read_only_complete = false;
-                                        record_audit_failure_at(
-                                            &mut observation,
-                                            category,
-                                            AuditFailureTarget::CookieDatabase,
-                                        );
-                                        return observation;
+                                if !defer_sql {
+                                    match reader.cookie_rows(&entry.path) {
+                                        Ok(rows) => {
+                                            observation.cookie_rows =
+                                                observation.cookie_rows.saturating_add(rows)
+                                        }
+                                        Err((category, diagnostic)) => {
+                                            observation.cookie_query = diagnostic;
+                                            observation.cookie_read_only_complete = false;
+                                            record_audit_failure_at(
+                                                &mut observation,
+                                                category,
+                                                AuditFailureTarget::CookieDatabase,
+                                            );
+                                            return observation;
+                                        }
                                     }
                                 }
                             }
@@ -3107,6 +3298,25 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
                     }
                     let bytes = match reader.read_file(&entry.path) {
                         Ok(bytes) => bytes,
+                        Err(AuditFailureCategory::FileReadSharing)
+                            if allow_locks
+                                && native_profile_root
+                                    .is_some_and(|profile| entry.path.starts_with(profile)) =>
+                        {
+                            let profile_root = native_profile_root.unwrap();
+                            let relative = entry.path.strip_prefix(profile_root).ok();
+                            let relative = relative.and_then(|p| p.to_str());
+                            let Some(relative) = relative else {
+                                record_audit_failure(
+                                    &mut observation,
+                                    AuditFailureCategory::Metadata,
+                                );
+                                return observation;
+                            };
+                            // Normalize separators; serde escapes quotes and control characters.
+                            observation.locked_files.push(relative.replace('\\', "/"));
+                            continue;
+                        }
                         Err(category) => {
                             record_audit_failure_at(
                                 &mut observation,
@@ -4119,6 +4329,161 @@ mod tests {
     }
 
     #[test]
+    fn owner_live_scan_names_sharing_locks_and_still_checks_readable_bytes() {
+        struct Reader;
+        impl super::AuditReader for Reader {
+            fn read_dir(
+                &mut self,
+                root: &Path,
+            ) -> Result<Vec<super::AuditEntry>, AuditFailureCategory> {
+                Ok(["Cookies", "readable"]
+                    .into_iter()
+                    .map(|name| super::AuditEntry {
+                        path: root.join(name),
+                        kind: super::AuditEntryKind::File,
+                        cookie_database: name == "Cookies",
+                    })
+                    .collect())
+            }
+            fn read_file(&mut self, path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+                if path.file_name().unwrap() == "Cookies" {
+                    Err(AuditFailureCategory::FileReadSharing)
+                } else {
+                    Ok(b"CANARY-planted".to_vec())
+                }
+            }
+            fn cookie_rows(&mut self, _: &Path) -> Result<u64, super::CookieRowFailure> {
+                panic!("live Windows scan cannot open SQLite before exit")
+            }
+        }
+        let root = Path::new("private-profile");
+        let observation = super::audit_with_mode(
+            root,
+            &[super::SecretString::new("CANARY-planted".into())],
+            &mut Reader,
+            Some(root),
+            true,
+            true,
+        );
+        assert!(observation.audit_complete && observation.secret_detected);
+        assert_eq!(observation.locked_files, ["Cookies"]);
+        assert!(observation.post_exit_sql_deferred && !observation.cookie_read_only_complete);
+        assert!(!observation.live_clean());
+        let json = serde_json::to_string(&observation).unwrap();
+        assert!(!json.contains("private-profile") && !json.contains("CANARY-planted"));
+    }
+
+    #[tokio::test]
+    async fn canary_round_trip_proves_jar_and_stripped_response_on_real_proxy() {
+        use plur1bus_mock_harness::{MockHarness, MockOptions};
+        let harness = MockHarness::start(MockOptions {
+            test_control: true,
+            ..MockOptions::default()
+        })
+        .await
+        .unwrap();
+        let connection = super::Connection::new(
+            "Canary test".into(),
+            super::Kind::Local,
+            super::Origin::parse(&harness.origin).unwrap(),
+            harness.installation_id.clone(),
+            "fixture".into(),
+            "test".into(),
+        );
+        let proxy = super::SpaProxy::new(
+            &connection,
+            plur1bus_desktop::client::HarnessClient::from_connection(&connection)
+                .await
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        use rand::TryRngCore;
+        let mut bytes = [0u8; 32];
+        rand::rngs::OsRng.try_fill_bytes(&mut bytes).unwrap();
+        let canary = format!(
+            "CANARY-{}",
+            bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        );
+        let proof = super::challenge_canary(&proxy, &canary, true).await;
+        assert!(
+            proof.upstream_set_cookie
+                && proof.rust_jar_contains
+                && proof.browser_set_cookie_stripped
+        );
+        assert!(
+            !proof.accepted(),
+            "native page/frame challenges cannot be fabricated by this HTTP test"
+        );
+        let mut registered = false;
+        proxy.register_memory_secrets(|value| registered |= value == canary);
+        assert!(registered);
+        proxy.retire();
+        let refused = super::challenge_canary(&proxy, &canary, true).await;
+        assert!(!refused.upstream_set_cookie && !refused.rust_jar_contains);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn owner_postexit_real_sqlite_wal_and_sidefile_canaries() {
+        use plur1bus_desktop::windows_spa_profile::{
+            cookie_rows, create_in_fixture_root, record_fixture_identity,
+        };
+        use rand::TryRngCore;
+        let temp = tempfile::tempdir().unwrap();
+        let mut random = [0u8; 32];
+        rand::rngs::OsRng.try_fill_bytes(&mut random).unwrap();
+        let canary = format!(
+            "CANARY-{}",
+            random
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        );
+        let known = [super::SecretString::new(canary.clone())];
+        let source = temp.path().join("source");
+        std::fs::create_dir(&source).unwrap();
+        let database = source.join("Cookies");
+        let writer = rusqlite::Connection::open(&database).unwrap();
+        writer.execute_batch("PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; PRAGMA secure_delete=OFF; CREATE TABLE cookies(value TEXT); PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+        writer
+            .execute("INSERT INTO cookies VALUES (?1)", [&canary])
+            .unwrap();
+        let main = std::fs::read(&database).unwrap();
+        let wal = std::fs::read(source.join("Cookies-wal")).unwrap();
+        assert!(super::contains_secret(&wal, &known));
+        let profile = create_in_fixture_root(&temp.path().join("spa-tmp")).unwrap();
+        record_fixture_identity(&profile, 7, 11).unwrap();
+        std::fs::write(profile.path().join("Cookies"), &main).unwrap();
+        assert_eq!(cookie_rows(&profile.path().join("Cookies")).unwrap(), 0);
+        std::fs::write(profile.path().join("Cookies-wal"), &wal).unwrap();
+        assert!(super::post_exit_secret_audit(profile.path(), &known).unwrap());
+        assert_eq!(
+            cookie_rows(&profile.path().join("Cookies")).unwrap(),
+            1,
+            "real read-only connection must apply committed WAL pages"
+        );
+        writer.execute("DELETE FROM cookies", []).unwrap();
+        let deleted_wal = std::fs::read(source.join("Cookies-wal")).unwrap();
+        let deleted = create_in_fixture_root(&temp.path().join("spa-tmp")).unwrap();
+        record_fixture_identity(&deleted, 8, 12).unwrap();
+        std::fs::write(deleted.path().join("Cookies"), main).unwrap();
+        std::fs::write(deleted.path().join("Cookies-wal"), deleted_wal).unwrap();
+        assert!(
+            super::post_exit_secret_audit(deleted.path(), &known).unwrap(),
+            "deleted WAL rows still contain canary bytes"
+        );
+        assert_eq!(cookie_rows(&deleted.path().join("Cookies")).unwrap(), 0);
+        let journal = create_in_fixture_root(&temp.path().join("spa-tmp")).unwrap();
+        record_fixture_identity(&journal, 9, 13).unwrap();
+        std::fs::write(journal.path().join("Cookies-journal"), canary.as_bytes()).unwrap();
+        assert!(super::post_exit_secret_audit(journal.path(), &known).unwrap());
+        std::fs::write(journal.path().join("Cookies-journal"), b"no planted value").unwrap();
+        assert!(!super::post_exit_secret_audit(journal.path(), &known).unwrap());
+        drop(writer);
+    }
+
+    #[test]
     fn no_cookie_database_in_app_dirs() {
         let root = Path::new("root");
         let owned = Some(root);
@@ -4258,11 +4623,11 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn owned_zero_byte_lock_uses_metadata_but_other_locked_files_fail() {
+    fn closed_byte_scan_requires_all_locked_files_to_be_readable() {
         use std::os::windows::fs::OpenOptionsExt;
 
         for (name, contents, expected_clean) in [
-            ("LOCK", b"".as_slice(), true),
+            ("LOCK", b"".as_slice(), false),
             ("LOCK", b"secret-like fixture bytes".as_slice(), false),
             ("unknown.lock", b"".as_slice(), false),
         ] {
@@ -4448,6 +4813,8 @@ mod tests {
     fn clean_audit_rejects_nonzero_operation_failures() {
         let observation = AuditObservation {
             audit_complete: true,
+            post_exit_sql_deferred: false,
+            locked_files: Vec::new(),
             secret_detected: false,
             cookie_database_files: 0,
             cookie_rows: 0,
@@ -4480,13 +4847,17 @@ mod tests {
             cleanup_cookie_rows: 0,
             cleanup_read_only_complete: true,
             cleanup_secret_detected: false,
+            post_exit: Vec::new(),
         };
         assert!(!observation.clean());
-        assert!(TeardownObservation {
-            audit_complete: true,
-            ..observation
-        }
-        .clean());
+        assert_eq!(
+            TeardownObservation {
+                audit_complete: true,
+                ..observation
+            }
+            .clean(),
+            !cfg!(windows)
+        );
         assert!(!TeardownObservation {
             process_exit_applicable: true,
             process_exit_complete: false,
@@ -4500,6 +4871,7 @@ mod tests {
                 cleanup_cookie_rows: 0,
                 cleanup_read_only_complete: true,
                 cleanup_secret_detected: false,
+                post_exit: Vec::new(),
             }
         }
         .clean());

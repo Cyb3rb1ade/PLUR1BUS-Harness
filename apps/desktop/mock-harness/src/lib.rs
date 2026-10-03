@@ -527,6 +527,11 @@ fn router(shared: Arc<Shared>, test_control: bool) -> Router {
             .route("/__test/revoke", post(test_revoke))
             .route("/__test/failure", post(test_failure))
             .route("/__test/ticket-mode", post(test_ticket_mode))
+            .route("/__test/cookie-canary", post(test_cookie_canary))
+            .route(
+                "/__test/cookie-canary-check",
+                post(test_cookie_canary_check),
+            )
             .route(
                 "/__test/download",
                 get(|| async { vec![0x5au8; 10 * 1024 * 1024] }),
@@ -542,6 +547,50 @@ fn router(shared: Arc<Shared>, test_control: bool) -> Router {
         ))
         .with_state(shared)
 }
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CookieCanary {
+    value: String,
+}
+fn valid_canary(value: &str) -> bool {
+    value.len() == 71
+        && value.starts_with("CANARY-")
+        && value[7..].bytes().all(|b| b.is_ascii_hexdigit())
+}
+async fn test_cookie_canary(Json(input): Json<CookieCanary>) -> Response {
+    if !valid_canary(&input.value) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    (
+        [(
+            header::SET_COOKIE,
+            format!(
+                "wp05_canary={}; HttpOnly; SameSite=Lax; Path=/",
+                input.value
+            ),
+        )],
+        Json(json!({"set":true})),
+    )
+        .into_response()
+}
+async fn test_cookie_canary_check(headers: HeaderMap, Json(input): Json<CookieCanary>) -> Response {
+    let found = valid_canary(&input.value)
+        && headers
+            .get(header::COOKIE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| {
+                v.split(';').any(|cookie| {
+                    cookie.trim().strip_prefix("wp05_canary=") == Some(input.value.as_str())
+                })
+            });
+    if found {
+        StatusCode::OK
+    } else {
+        StatusCode::FORBIDDEN
+    }
+    .into_response()
+}
+
 async fn record_request(
     State(shared): State<Arc<Shared>>,
     request: Request,

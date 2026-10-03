@@ -70,18 +70,104 @@ impl std::fmt::Display for CookieQueryDiagnostic {
 
 impl std::error::Error for CookieQueryDiagnostic {}
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 /// Closed cleanup evidence; a removed directory does not erase row or secret failures.
 pub struct CleanupResult {
     pub removed: bool,
     pub cookie_rows: u64,
     pub read_only_complete: bool,
     pub secret_detected: bool,
+    /// Per-owned-profile evidence, retained across aggregate cancellation.
+    pub audits: Vec<ProfileCleanupEvidence>,
 }
 
 impl CleanupResult {
     pub fn accepted(&self) -> bool {
         self.removed && self.cookie_rows == 0 && self.read_only_complete && !self.secret_detected
+    }
+}
+
+/// Closed evidence for the owner-approved Windows post-exit audit, never paths or values.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ProfileCleanupEvidence {
+    /// Actual environment BrowserProcessExited event and retained identity handle signalled.
+    pub environment_exited: bool,
+    /// Actual monotonic time from close request to exit outcome; values above 10s fail.
+    pub exit_wait_ms: u64,
+    /// The absolute exit deadline expired; no database read or deletion followed.
+    pub exit_timed_out: bool,
+    /// Real READ_ONLY SQLite query (with WAL), after verified exit.
+    pub read_only_complete: bool,
+    /// Rows counted across all primary cookie databases.
+    pub cookie_rows: u64,
+    /// Number of primary cookie databases queried.
+    pub cookie_database_files: u32,
+    /// Number of cookie side files byte-scanned before deletion.
+    pub cookie_sidecar_files: u32,
+    /// All profile files including Cookies, -wal and -journal scanned successfully.
+    pub secret_scan_complete: bool,
+    /// Any planted value found; a positive retains the profile.
+    pub secret_detected: bool,
+    /// Owned deletion completed after successful checks and absence was confirmed.
+    pub removed: bool,
+}
+impl ProfileCleanupEvidence {
+    /// Requires actual exit within budget, both complete clean audits, and owned removal.
+    pub fn accepted(&self) -> bool {
+        self.environment_exited
+            && self.exit_wait_ms <= 10_000
+            && !self.exit_timed_out
+            && self.read_only_complete
+            && self.cookie_rows == 0
+            && self.cookie_database_files > 0
+            && self.secret_scan_complete
+            && !self.secret_detected
+            && self.removed
+    }
+}
+
+#[cfg(any(windows, test))]
+async fn finish_owned_cleanup(
+    started: std::time::Instant,
+    deadline: std::time::Instant,
+    exit: impl Fn() -> Option<bool>,
+    audit: impl FnOnce(&mut ProfileCleanupEvidence),
+    remove: impl FnOnce() -> bool,
+) -> CleanupResult {
+    let deadline = deadline.min(started + std::time::Duration::from_secs(10));
+    let mut evidence = ProfileCleanupEvidence::default();
+    loop {
+        if std::time::Instant::now() >= deadline {
+            evidence.exit_timed_out = true;
+            break;
+        }
+        match exit() {
+            Some(true) => {
+                evidence.environment_exited = true;
+                break;
+            }
+            Some(false) => tokio::time::sleep(std::time::Duration::from_millis(10)).await,
+            None => break,
+        }
+    }
+    evidence.exit_wait_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+    evidence.exit_timed_out |= std::time::Instant::now() >= deadline;
+    if evidence.environment_exited && !evidence.exit_timed_out && evidence.exit_wait_ms <= 10_000 {
+        audit(&mut evidence);
+        evidence.removed = evidence.read_only_complete
+            && evidence.cookie_database_files > 0
+            && evidence.secret_scan_complete
+            && evidence.cookie_rows == 0
+            && !evidence.secret_detected
+            && remove();
+    }
+    CleanupResult {
+        removed: evidence.removed,
+        cookie_rows: evidence.cookie_rows,
+        read_only_complete: evidence.read_only_complete,
+        secret_detected: evidence.secret_detected,
+        audits: vec![evidence],
     }
 }
 
@@ -132,6 +218,7 @@ mod windows {
         },
         time::Duration,
     };
+    use tauri::Manager;
     use windows_sys::Win32::{
         Foundation::{
             CloseHandle, LocalFree, ERROR_INVALID_PARAMETER, FILETIME, HANDLE,
@@ -161,6 +248,19 @@ mod windows {
     /// Retained native browser handle; dropping it does not itself authorize profile deletion.
     pub struct BrowserProcess {
         handle: HANDLE,
+        environment_exited: Arc<AtomicBool>,
+        registration: Option<(tauri::AppHandle, u32, u64)>,
+    }
+
+    // COM environment references remain on the WebView2 UI apartment through the event.
+    // BrowserProcess only carries a Send signal and schedules registration disposal there.
+    type EnvironmentRegistration = (
+        webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Environment5,
+        i64,
+    );
+    thread_local! {
+        static ENVIRONMENTS: std::cell::RefCell<HashMap<(u32, u64), EnvironmentRegistration>>
+            = std::cell::RefCell::new(HashMap::new());
     }
 
     /// Debug fixture hook that reports whether an owned profile contains a known secret.
@@ -349,6 +449,16 @@ mod windows {
 
     impl Drop for BrowserProcess {
         fn drop(&mut self) {
+            if let Some((app, pid, created)) = self.registration.take() {
+                let _ = app.run_on_main_thread(move || {
+                    ENVIRONMENTS.with(|all| {
+                        if let Some((environment, token)) = all.borrow_mut().remove(&(pid, created))
+                        {
+                            let _ = unsafe { environment.remove_BrowserProcessExited(token) };
+                        }
+                    });
+                });
+            }
             if !self.handle.is_null() {
                 unsafe { CloseHandle(self.handle) };
             }
@@ -362,6 +472,7 @@ mod windows {
     ) -> tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>> {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         let record = profile.lock.file.clone();
+        let app = window.app_handle().clone();
         let submitted = window.with_webview(move |webview| {
             let result = (|| {
                 let mut record = record.lock().unwrap();
@@ -391,7 +502,42 @@ mod windows {
                         return Err(error);
                     }
                 };
-                let process = BrowserProcess { handle };
+                use webview2_com::{
+                    BrowserProcessExitedEventHandler,
+                    Microsoft::Web::WebView2::Win32::ICoreWebView2Environment5,
+                };
+                use windows_core::Interface;
+                let environment_exited = Arc::new(AtomicBool::new(false));
+                let mut process = BrowserProcess {
+                    handle,
+                    environment_exited: environment_exited.clone(),
+                    registration: None,
+                };
+                let environment = webview
+                    .environment()
+                    .cast::<ICoreWebView2Environment5>()
+                    .map_err(|_| io::Error::other("browser environment exit event unavailable"))?;
+                let callback =
+                    BrowserProcessExitedEventHandler::create(Box::new(move |_, args| {
+                        let mut exited_pid = 0;
+                        if let Some(args) = args {
+                            if unsafe { args.BrowserProcessId(&mut exited_pid) }.is_ok()
+                                && exited_pid == pid
+                            {
+                                environment_exited.store(true, Ordering::SeqCst);
+                            }
+                        }
+                        Ok(())
+                    }));
+                let mut token = 0;
+                unsafe { environment.add_BrowserProcessExited(&callback, &mut token) }.map_err(
+                    |_| io::Error::other("browser environment exit subscription failed"),
+                )?;
+                ENVIRONMENTS.with(|all| {
+                    all.borrow_mut()
+                        .insert((pid, created), (environment, token))
+                });
+                process.registration = Some((app, pid, created));
                 use std::io::{Seek, SeekFrom, Write};
                 record.set_len(0)?;
                 record.seek(SeekFrom::Start(0))?;
@@ -486,14 +632,23 @@ mod windows {
         browser: Option<tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>>>,
         gone: Arc<AtomicBool>,
         secret_audit: Option<SecretAudit>,
+        close_requested: std::time::Instant,
     ) -> CleanupResult {
-        cleanup_after_exit_with_probe(profile, browser, gone, secret_audit, |process| {
-            match unsafe { WaitForSingleObject(process.handle, 0) } {
-                WAIT_OBJECT_0 => BrowserLeaseStatus::Exited,
+        cleanup_after_exit_with_probe(
+            profile,
+            browser,
+            gone,
+            secret_audit,
+            close_requested,
+            |process| match unsafe { WaitForSingleObject(process.handle, 0) } {
+                WAIT_OBJECT_0 if process.environment_exited.load(Ordering::SeqCst) => {
+                    BrowserLeaseStatus::Exited
+                }
+                WAIT_OBJECT_0 => BrowserLeaseStatus::Active,
                 WAIT_TIMEOUT => BrowserLeaseStatus::Active,
                 _ => BrowserLeaseStatus::Unknown,
-            }
-        })
+            },
+        )
         .await
     }
 
@@ -502,43 +657,102 @@ mod windows {
         browser: Option<tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>>>,
         gone: Arc<AtomicBool>,
         secret_audit: Option<SecretAudit>,
+        close_requested: std::time::Instant,
         process_status: F,
     ) -> CleanupResult
     where
         F: Fn(&BrowserProcess) -> BrowserLeaseStatus + Send + Sync,
     {
+        let deadline = close_requested + Duration::from_secs(10);
         let Some(receiver) = browser else {
             return CleanupResult::default();
         };
-        let Ok(Ok(process)) = receiver.await else {
-            return CleanupResult::default();
+        let Ok(Ok(Ok(process))) =
+            tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), receiver).await
+        else {
+            return CleanupResult {
+                audits: vec![super::ProfileCleanupEvidence {
+                    exit_timed_out: std::time::Instant::now() >= deadline,
+                    exit_wait_ms: close_requested.elapsed().as_millis().min(u64::MAX as u128)
+                        as u64,
+                    ..Default::default()
+                }],
+                ..Default::default()
+            };
         };
-        while !gone.load(Ordering::SeqCst) {
-            tokio::time::sleep(Duration::from_millis(25)).await;
-        }
-        loop {
-            match process_status(&process) {
-                BrowserLeaseStatus::Exited => break,
-                BrowserLeaseStatus::Active => tokio::time::sleep(Duration::from_millis(25)).await,
-                BrowserLeaseStatus::Unknown => return CleanupResult::default(),
-            }
-        }
-        let Ok(audit) = inspect_cookie_databases(profile.path()) else {
-            return CleanupResult::default();
-        };
-        let secret_detected = match secret_audit {
-            Some(check) => match check(profile.path()) {
-                Ok(found) => found,
-                Err(_) => return CleanupResult::default(),
+        let path = profile.path().to_path_buf();
+        let root = profile.root.clone();
+        super::finish_owned_cleanup(
+            close_requested,
+            deadline,
+            || {
+                if !gone.load(Ordering::SeqCst) {
+                    Some(false)
+                } else {
+                    match process_status(&process) {
+                        BrowserLeaseStatus::Exited => Some(true),
+                        BrowserLeaseStatus::Active => Some(false),
+                        BrowserLeaseStatus::Unknown => None,
+                    }
+                }
             },
-            None => false,
-        };
-        CleanupResult {
-            removed: profile.remove().is_ok(),
-            cookie_rows: audit.rows,
-            read_only_complete: true,
-            secret_detected,
-        }
+            |evidence| {
+                if validate_owned_path(&root, &path).is_err()
+                    || ensure_no_reparse_tree(&path).is_err()
+                {
+                    return;
+                }
+                // Scan bytes before SQLite can recover/checkpoint any side file.
+                match &secret_audit {
+                    Some(check) => match check(&path) {
+                        Ok(secret) => {
+                            evidence.secret_scan_complete = true;
+                            evidence.secret_detected = secret;
+                        }
+                        Err(_) => return,
+                    },
+                    None => {
+                        // No fixture values exist in release builds, but complete readability
+                        // still precedes deletion; no sharing/access error becomes clean evidence.
+                        let mut pending = vec![path.clone()];
+                        while let Some(dir) = pending.pop() {
+                            let Ok(entries) = fs::read_dir(dir) else {
+                                return;
+                            };
+                            for entry in entries {
+                                let Ok(entry) = entry else {
+                                    return;
+                                };
+                                let file = entry.path();
+                                let Ok(metadata) = check_no_reparse(&file) else {
+                                    return;
+                                };
+                                if metadata.is_dir() {
+                                    pending.push(file);
+                                } else if metadata.is_file() {
+                                    match read_owned_lease(&file) {
+                                        Ok(Some(_)) => {}
+                                        Ok(None) if fs::read(file).is_ok() => {}
+                                        _ => return,
+                                    }
+                                } else {
+                                    return;
+                                }
+                            }
+                        }
+                        evidence.secret_scan_complete = true;
+                    }
+                }
+                if let Ok(audit) = inspect_cookie_databases(&path) {
+                    evidence.read_only_complete = true;
+                    evidence.cookie_rows = audit.rows;
+                    evidence.cookie_database_files = audit.database_files;
+                    evidence.cookie_sidecar_files = audit.sidecar_files;
+                }
+            },
+            || profile.remove().is_ok() && !path.exists(),
+        )
+        .await
     }
 
     fn process_creation_time(handle: HANDLE) -> io::Result<u64> {
@@ -625,6 +839,8 @@ mod windows {
     pub struct CookieAudit {
         pub database_files: u32,
         pub rows: u64,
+        /// Present Cookies side files read before opening any SQLite connection.
+        pub sidecar_files: u32,
     }
 
     /// Recursively inspects primary cookie DBs read-only; errors are never zero-row evidence.
@@ -633,8 +849,10 @@ mod windows {
         let mut result = CookieAudit {
             database_files: 0,
             rows: 0,
+            sidecar_files: 0,
         };
         let mut pending = vec![root.to_path_buf()];
+        let mut databases = Vec::new();
         let mut visited = 0usize;
         while let Some(dir) = pending.pop() {
             for entry in fs::read_dir(dir)? {
@@ -649,6 +867,14 @@ mod windows {
                 } else if metadata.is_file() {
                     let name = path.file_name().and_then(OsStr::to_str).unwrap_or("");
                     let lower = name.to_ascii_lowercase();
+                    if matches!(
+                        lower.as_str(),
+                        "cookies-journal" | "cookies-wal" | "cookies-shm"
+                    ) {
+                        // Read before any SQLite open can checkpoint/remove a side file.
+                        fs::read(&path)?;
+                        result.sidecar_files += 1;
+                    }
                     if lower == "cookies" || lower.starts_with("cookies.sqlite") {
                         if lower.ends_with("-journal")
                             || lower.ends_with("-wal")
@@ -657,13 +883,16 @@ mod windows {
                             continue;
                         }
                         result.database_files = result.database_files.saturating_add(1);
-                        result.rows = result
-                            .rows
-                            .checked_add(cookie_rows(&path)?)
-                            .ok_or_else(|| io::Error::other("cookie row count overflow"))?;
+                        databases.push(path);
                     }
                 }
             }
+        }
+        for path in databases {
+            result.rows = result
+                .rows
+                .checked_add(cookie_rows(&path)?)
+                .ok_or_else(|| io::Error::other("cookie row count overflow"))?;
         }
         Ok(result)
     }
@@ -1160,12 +1389,12 @@ mod windows {
         CookieQueryResult::CannotOpenNativeOpenable
     }
 
-    /// A read-only SQLite connection observes the real live cookie table.
+    /// Read the actual cookie table, including committed WAL pages, without a writable connection.
     pub fn cookie_rows(path: &Path) -> io::Result<u64> {
         cookie_rows_diagnostic(path).map_err(io::Error::other)
     }
 
-    /// Same query used by live audits, cleanup and startup sweep; only closed errors escape.
+    /// Query used after verified exit and by startup sweep; only closed errors escape.
     pub fn cookie_rows_diagnostic(path: &Path) -> Result<u64, CookieQueryDiagnostic> {
         use rusqlite::{Connection, OpenFlags};
         check_no_reparse(path).map_err(|_| CookieQueryDiagnostic {
@@ -1671,7 +1900,9 @@ mod windows {
                     record(&profile, 7, 11);
                     assert!(tx
                         .send(Ok(BrowserProcess {
-                            handle: std::ptr::null_mut()
+                            handle: std::ptr::null_mut(),
+                            environment_exited: Arc::new(AtomicBool::new(true)),
+                            registration: None,
                         }))
                         .is_ok());
                 };
@@ -1706,6 +1937,7 @@ mod windows {
                         Some(cleanup_receiver),
                         gone_for_task,
                         Some(hook),
+                        std::time::Instant::now(),
                         move |_| {
                             if exited_for_task.load(Ordering::SeqCst) {
                                 BrowserLeaseStatus::Exited
@@ -1749,7 +1981,9 @@ mod windows {
             let (sender, receiver) = tokio::sync::oneshot::channel();
             assert!(sender
                 .send(Ok(BrowserProcess {
-                    handle: std::ptr::null_mut()
+                    handle: std::ptr::null_mut(),
+                    environment_exited: Arc::new(AtomicBool::new(true)),
+                    registration: None,
                 }))
                 .is_ok());
             let result = tauri::async_runtime::block_on(async {
@@ -1760,17 +1994,18 @@ mod windows {
                         Some(receiver),
                         Arc::new(AtomicBool::new(true)),
                         Some(Arc::new(|_| Ok(true))),
+                        std::time::Instant::now(),
                         |_| BrowserLeaseStatus::Exited,
                     ),
                 )
                 .await
                 .unwrap()
             });
-            assert!(result.removed && result.read_only_complete);
+            assert!(!result.removed && result.read_only_complete);
             assert_eq!(result.cookie_rows, 1);
             assert!(result.secret_detected);
             assert!(!result.accepted());
-            assert!(!path.exists());
+            assert!(path.exists());
         }
 
         #[test]
@@ -1988,6 +2223,98 @@ pub use windows::*;
 #[cfg(test)]
 mod tests {
     use super::{known_browser_lock_name, owned_leaf_name};
+
+    #[tokio::test]
+    async fn owner_postexit_timeout_never_reads_or_deletes() {
+        let calls = std::cell::Cell::new(0);
+        let result = super::finish_owned_cleanup(
+            std::time::Instant::now(),
+            std::time::Instant::now(),
+            || Some(false),
+            |_| {
+                calls.set(1);
+            },
+            || {
+                calls.set(2);
+                true
+            },
+        )
+        .await;
+        assert_eq!(calls.get(), 0);
+        assert!(!result.accepted());
+        assert!(result.audits[0].exit_timed_out);
+    }
+
+    #[tokio::test]
+    async fn owner_postexit_positive_evidence_is_retained_without_deletion() {
+        for (rows, secret) in [(1, false), (0, true)] {
+            let result = super::finish_owned_cleanup(
+                std::time::Instant::now(),
+                std::time::Instant::now() + std::time::Duration::from_secs(1),
+                || Some(true),
+                |e| {
+                    e.read_only_complete = true;
+                    e.secret_scan_complete = true;
+                    e.cookie_rows = rows;
+                    e.cookie_database_files = 1;
+                    e.secret_detected = secret;
+                },
+                || panic!("failed audit must retain profile"),
+            )
+            .await;
+            assert!(!result.removed);
+            assert_eq!(result.cookie_rows, rows);
+            assert_eq!(result.secret_detected, secret);
+            assert!(result.audits[0].environment_exited);
+        }
+    }
+
+    #[tokio::test]
+    async fn owner_postexit_failed_sql_retains_preceding_secret_evidence() {
+        let result = super::finish_owned_cleanup(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            || Some(true),
+            |e| {
+                e.secret_scan_complete = true;
+                e.secret_detected = true;
+            },
+            || panic!("incomplete SQL cannot delete"),
+        )
+        .await;
+        assert!(result.secret_detected);
+        assert!(!result.read_only_complete && !result.removed);
+        assert!(result.audits[0].secret_scan_complete);
+    }
+
+    #[tokio::test]
+    async fn owner_postexit_zero_rows_are_audited_before_delete() {
+        let stage = std::cell::Cell::new(0);
+        let result = super::finish_owned_cleanup(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            || {
+                stage.set(1);
+                Some(true)
+            },
+            |e| {
+                assert_eq!(stage.get(), 1);
+                stage.set(2);
+                e.read_only_complete = true;
+                e.secret_scan_complete = true;
+                e.cookie_database_files = 1;
+            },
+            || {
+                assert_eq!(stage.get(), 2);
+                stage.set(3);
+                true
+            },
+        )
+        .await;
+        assert!(result.accepted());
+        assert!(result.audits[0].accepted());
+        assert_eq!(stage.get(), 3);
+    }
 
     #[test]
     fn only_exact_leveldb_lock_name_can_use_empty_metadata_proof() {
