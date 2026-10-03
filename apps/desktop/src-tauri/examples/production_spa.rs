@@ -247,7 +247,11 @@ impl BrowserProcessOwners {
         match owner {
             Ok(owner) => {
                 #[cfg(windows)]
-                if state.owners.iter().any(|existing| existing.pid == owner.pid) {
+                if state
+                    .owners
+                    .iter()
+                    .any(|existing| existing.pid == owner.pid)
+                {
                     return;
                 }
                 state.owners.push(owner);
@@ -389,8 +393,8 @@ async fn wait_for_browser_processes(
     let complete = tauri::async_runtime::spawn_blocking(move || {
         wait_owned_browser_processes(owned, remaining)
     })
-        .await
-        .unwrap_or(false);
+    .await
+    .unwrap_or(false);
     ProcessExitObservation {
         applicable,
         complete,
@@ -670,15 +674,14 @@ fn main() {
                         if step == 1 {
                             progress("negative-checks");
                             let old_origin = first_origin.lock().unwrap().clone();
-                            let (controls, observation) =
-                                negative_controls(
-                                    &app,
-                                    &proxy,
-                                    old_origin,
-                                    old_probe_for_run,
-                                    browser_owners_for_run.clone(),
-                                )
-                                    .await;
+                            let (controls, observation) = negative_controls(
+                                &app,
+                                &proxy,
+                                old_origin,
+                                old_probe_for_run,
+                                browser_owners_for_run.clone(),
+                            )
+                            .await;
                             *negatives.lock().unwrap() = controls;
                             *secondary_observation.lock().unwrap() = Some(observation);
                             let upstream = connection.lock().unwrap().origin.clone();
@@ -1298,8 +1301,8 @@ fn progress(label: &str) {
 mod tests {
     use super::{
         append_progress_history, audit_with_reader, classify_file_read_error,
-        local_acl_probe_script, other_window_probe_script, parse_secondary_probe, AuditEntry, AuditEntryKind,
-        AuditFailureCategory, AuditObservation, AuditReader, TeardownObservation,
+        local_acl_probe_script, other_window_probe_script, parse_secondary_probe, AuditEntry,
+        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
 

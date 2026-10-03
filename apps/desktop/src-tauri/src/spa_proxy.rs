@@ -63,8 +63,9 @@ fn shell_response(kind: &'static str, body: Cow<'static, str>) -> Response {
 }
 
 #[cfg(debug_assertions)]
-fn old_origin_probe_response(req: &Request<Body>) -> Option<Response> {
-    if req.method() != Method::GET
+fn old_origin_probe_response(req: &Request<Body>, s: &Inner) -> Option<Response> {
+    if s.active.load(Ordering::SeqCst)
+        || req.method() != Method::GET
         || req.uri().path() != "/"
         || req.uri().query() != Some("wp05-old-check")
     {
@@ -396,7 +397,7 @@ async fn forward(
 ) -> Response {
     if !authorized(&req, &s) {
         #[cfg(debug_assertions)]
-        if let Some(response) = old_origin_probe_response(&req) {
+        if let Some(response) = old_origin_probe_response(&req, &s) {
             return response;
         }
         #[cfg(debug_assertions)]
@@ -742,7 +743,9 @@ mod tests {
 
     #[tokio::test]
     async fn old_origin_marker_gets_inert_html_forbidden_document() {
-        let response = old_origin_probe_response(&request("/?wp05-old-check", "wrong"));
+        let state = test_inner();
+        state.active.store(false, Ordering::SeqCst);
+        let response = old_origin_probe_response(&request("/?wp05-old-check", "wrong"), &state);
         let response = response.expect("exact old-origin marker should select diagnostic response");
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         assert_eq!(
@@ -767,10 +770,38 @@ mod tests {
 
     #[test]
     fn old_origin_marker_is_exact_and_does_not_change_other_denials() {
-        assert!(old_origin_probe_response(&request("/?wp05-old-check", "wrong")).is_some());
-        assert!(old_origin_probe_response(&request("/nested?wp05-old-check", "wrong")).is_none());
-        assert!(old_origin_probe_response(&request("/?wp05-old-check=1", "wrong")).is_none());
-        assert!(old_origin_probe_response(&request("/?wp05-secondary-probe=1", "wrong")).is_none());
-        assert!(old_origin_probe_response(&request("/", "wrong")).is_none());
+        let state = test_inner();
+        state.active.store(false, Ordering::SeqCst);
+        assert!(old_origin_probe_response(&request("/?wp05-old-check", "wrong"), &state).is_some());
+        assert!(
+            old_origin_probe_response(&request("/nested?wp05-old-check", "wrong"), &state)
+                .is_none()
+        );
+        assert!(
+            old_origin_probe_response(&request("/?wp05-old-check=1", "wrong"), &state).is_none()
+        );
+        assert!(
+            old_origin_probe_response(&request("/?wp05-secondary-probe=1", "wrong"), &state)
+                .is_none()
+        );
+        assert!(old_origin_probe_response(&request("/", "wrong"), &state).is_none());
+    }
+
+    #[tokio::test]
+    async fn active_old_origin_marker_keeps_empty_forbidden_response() {
+        let state = test_inner();
+        let response = forward(
+            State(state),
+            Err(WebSocketUpgradeRejection::MethodNotGet(
+                MethodNotGet::default(),
+            )),
+            request("/?wp05-old-check", "wrong"),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        assert!(axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap()
+            .is_empty());
     }
 }

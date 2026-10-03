@@ -465,7 +465,10 @@ fn main() {
             diagnostic.secondary_probe.other_window_acl_denied,
             "secondary probe ACL denial was not observed"
         );
-        assert!(diagnostic.teardown.clean(), "native teardown was incomplete");
+        assert!(
+            diagnostic.teardown.clean(),
+            "native teardown was incomplete"
+        );
         assert!(
             !diagnostic.pre_close_audit.secret_detected
                 && diagnostic.pre_close_audit.cookie_database_files == 0,
