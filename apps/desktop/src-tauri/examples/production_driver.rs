@@ -33,6 +33,7 @@ enum AuditFailureCategory {
     CounterLimit,
     SecretDetected,
     CookieDatabase,
+    CookieQuery,
     FileReadSharing,
     FileReadAccessDenied,
     FileReadMissing,
@@ -45,13 +46,11 @@ struct AuditObservation {
     audit_complete: bool,
     secret_detected: bool,
     cookie_database_files: u32,
-    #[serde(default)]
+    cookie_rows: u64,
+    cookie_read_only_complete: bool,
     cookie_database_native_profile_files: u32,
-    #[serde(default)]
     cookie_database_other_root_files: u32,
-    #[serde(default)]
     cookie_database_primary_files: u32,
-    #[serde(default)]
     cookie_database_sidecar_files: u32,
     read_failures: u32,
     entries_disappeared: u32,
@@ -61,16 +60,14 @@ struct AuditObservation {
     failure_category: AuditFailureCategory,
 }
 
-fn unavailable_audit() -> AuditObservation {
-    AuditObservation::unavailable()
-}
-
 impl AuditObservation {
     fn unavailable() -> Self {
         Self {
             audit_complete: false,
             secret_detected: false,
             cookie_database_files: 0,
+            cookie_rows: 0,
+            cookie_read_only_complete: false,
             cookie_database_native_profile_files: 0,
             cookie_database_other_root_files: 0,
             cookie_database_primary_files: 0,
@@ -118,6 +115,23 @@ impl AuditObservation {
         self.audit_complete
             && !self.secret_detected
             && self.cookie_database_files == 0
+            && self.cookie_rows == 0
+            && self.cookie_read_only_complete
+            && self.read_failures == 0
+            && self.entries_disappeared == 0
+            && self.metadata_failures == 0
+            && self.read_dir_failures == 0
+            && self.symlink_entries == 0
+            && self.failure_category == AuditFailureCategory::None
+    }
+
+    fn live_clean(&self) -> bool {
+        self.audit_complete
+            && !self.secret_detected
+            && self.cookie_rows == 0
+            && self.cookie_read_only_complete
+            && self.cookie_database_other_root_files == 0
+            && (cfg!(windows) || self.cookie_database_files == 0)
             && self.read_failures == 0
             && self.entries_disappeared == 0
             && self.metadata_failures == 0
@@ -136,6 +150,14 @@ struct SecondaryProbeObservation {
     document_opaque_origin: bool,
     document_content_type_text_plain: bool,
     fetch_rejected_type_error: bool,
+    native_cookie_store_empty: bool,
+    profile_path_verified: bool,
+    profile_acl_private: bool,
+    profile_isolated: bool,
+    profile_cleanup_complete: bool,
+    cleanup_cookie_rows: u64,
+    cleanup_read_only_complete: bool,
+    cleanup_secret_detected: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize, Default)]
@@ -146,6 +168,9 @@ struct PrivateProfileObservation {
     environment_options_available: bool,
     profile_state_available: bool,
     private_enabled: bool,
+    native_cookie_store_empty: bool,
+    profile_path_verified: bool,
+    profile_acl_private: bool,
 }
 
 impl PrivateProfileObservation {
@@ -163,6 +188,14 @@ impl SecondaryProbeObservation {
             document_opaque_origin: false,
             document_content_type_text_plain: false,
             fetch_rejected_type_error: false,
+            native_cookie_store_empty: false,
+            profile_path_verified: false,
+            profile_acl_private: false,
+            profile_isolated: false,
+            profile_cleanup_complete: false,
+            cleanup_cookie_rows: 0,
+            cleanup_read_only_complete: false,
+            cleanup_secret_detected: false,
         }
     }
 }
@@ -171,12 +204,9 @@ impl SecondaryProbeObservation {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct NativeDiagnostic {
     secondary_probe: SecondaryProbeObservation,
-    #[serde(default = "unavailable_audit")]
     pre_close_audit: AuditObservation,
     audit: AuditObservation,
-    #[serde(default)]
     teardown: TeardownObservation,
-    #[serde(default)]
     profile: PrivateProfileObservation,
 }
 
@@ -188,6 +218,18 @@ struct TeardownObservation {
     close_complete: bool,
     process_exit_complete: bool,
     audit_complete: bool,
+    profile_cleanup_complete: bool,
+    cleanup_cookie_rows: u64,
+    cleanup_read_only_complete: bool,
+    cleanup_secret_detected: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct SweepObservation {
+    removed: u32,
+    skipped_active: u32,
+    skipped_unknown: u32,
 }
 
 impl TeardownObservation {
@@ -196,6 +238,10 @@ impl TeardownObservation {
             && self.close_complete
             && (!self.process_exit_applicable || self.process_exit_complete)
             && self.audit_complete
+            && self.profile_cleanup_complete
+            && self.cleanup_cookie_rows == 0
+            && self.cleanup_read_only_complete
+            && !self.cleanup_secret_detected
     }
 }
 
@@ -232,6 +278,13 @@ fn read_bounded(path: &std::path::Path, limit: u64) -> Option<Vec<u8>> {
 fn progress_labels() -> &'static [&'static str] {
     &[
         "starting",
+        "fixture-setup",
+        "fixture-input-parsed",
+        "fixture-builder-start",
+        "fixture-open-spa-start",
+        "fixture-open-spa-complete",
+        "fixture-open-spa-failed",
+        "fixture-open-spa-timeout",
         "session-ready",
         "proxy-obtained",
         "secrets-registering",
@@ -521,6 +574,15 @@ fn main() {
             "credential in public report"
         );
         let report: Value = serde_json::from_slice(&bytes).unwrap();
+        if cfg!(windows) {
+            let sweep: SweepObservation = serde_json::from_value(report["startupSweep"].clone())
+                .expect("closed startup sweep observation");
+            assert!(sweep.removed <= 128 && sweep.skipped_active <= 128);
+            assert_eq!(
+                sweep.skipped_unknown, 0,
+                "startup sweep left unknown profile ownership"
+            );
+        }
         let diagnostic = parse_diagnostic(&report);
         assert!(
             diagnostic.secondary_probe.available,
@@ -539,10 +601,33 @@ fn main() {
             "native teardown was incomplete"
         );
         assert!(
-            !diagnostic.pre_close_audit.secret_detected
-                && diagnostic.pre_close_audit.cookie_database_files == 0,
-            "native live audit observed a secret or cookie database"
+            diagnostic.pre_close_audit.live_clean(),
+            "native live cookie audit failed"
         );
+        assert!(
+            diagnostic.secondary_probe.native_cookie_store_empty,
+            "secondary cookie store not empty"
+        );
+        if cfg!(windows) {
+            assert!(
+                diagnostic.profile.native_cookie_store_empty,
+                "observer cookie store not empty"
+            );
+            assert!(
+                diagnostic.profile.profile_path_verified && diagnostic.profile.profile_acl_private,
+                "observer profile isolation or ACL unverified"
+            );
+            assert!(
+                diagnostic.secondary_probe.profile_path_verified
+                    && diagnostic.secondary_probe.profile_acl_private
+                    && diagnostic.secondary_probe.profile_isolated
+                    && diagnostic.secondary_probe.profile_cleanup_complete
+                    && diagnostic.secondary_probe.cleanup_read_only_complete
+                    && diagnostic.secondary_probe.cleanup_cookie_rows == 0
+                    && !diagnostic.secondary_probe.cleanup_secret_detected,
+                "secondary profile isolation, ACL, or cleanup failed"
+            );
+        }
         assert!(diagnostic.audit.clean(), "native audit not clean");
         std::fs::write(
             artifacts.join(format!("{phase}.json")),
@@ -572,6 +657,11 @@ fn main() {
                 assert_eq!(session["browser"][key], true, "native check {key}");
             }
             assert_eq!(session["nativeCookieStoreEmpty"], true);
+            if cfg!(windows) {
+                assert_eq!(session["profilePathVerified"], true);
+                assert_eq!(session["profileAclPrivate"], true);
+                assert_eq!(session["profileIsolated"], true);
+            }
         }
         assert_eq!(report["retirement"]["actualAclDenied"], true);
         assert_eq!(
@@ -641,7 +731,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_diagnostic, parse_progress_history, AuditFailureCategory};
+    use super::{parse_diagnostic, parse_progress_history, AuditFailureCategory, NativeDiagnostic};
     use serde_json::json;
 
     #[test]
@@ -739,31 +829,23 @@ mod tests {
 
     #[test]
     fn contradictory_clean_audit_remains_available_but_fails_clean_check() {
-        let diagnostic = parse_diagnostic(&json!({
-            "diagnostic": {
-                "secondaryProbe": {
-                    "available": true,
-                    "proxyGenerated403": true,
-                    "otherWindowAclDenied": true,
-                    "documentOpaqueOrigin": false,
-                    "documentContentTypeTextPlain": true,
-                    "fetchRejectedTypeError": false
-                },
-                "audit": {
-                    "auditComplete": true,
-                    "secretDetected": false,
-                    "cookieDatabaseFiles": 0,
-                    "readFailures": 1,
-                    "entriesDisappeared": 0,
-                    "metadataFailures": 0,
-                    "readDirFailures": 0,
-                    "symlinkEntries": 0,
-                    "failureCategory": "none"
-                }
-            }
-        }));
+        let mut observation = NativeDiagnostic::unavailable();
+        observation.secondary_probe.available = true;
+        observation.audit.audit_complete = true;
+        observation.audit.cookie_read_only_complete = true;
+        observation.audit.read_failures = 1;
+        observation.audit.failure_category = AuditFailureCategory::None;
+        let diagnostic = parse_diagnostic(&json!({ "diagnostic": observation }));
         assert!(diagnostic.secondary_probe.available);
         assert!(!diagnostic.audit.clean());
         assert_eq!(diagnostic.audit.read_failures, 1);
+    }
+
+    #[test]
+    fn missing_profile_evidence_is_unavailable() {
+        let mut value = serde_json::to_value(NativeDiagnostic::unavailable()).unwrap();
+        value.as_object_mut().unwrap().remove("profile");
+        let diagnostic = parse_diagnostic(&json!({ "diagnostic": value }));
+        assert!(!diagnostic.secondary_probe.available);
     }
 }

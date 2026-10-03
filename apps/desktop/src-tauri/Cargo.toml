@@ -41,15 +41,13 @@ tokio-tungstenite = { version = "=0.28.0", features = ["rustls-tls-native-roots"
 [dev-dependencies]
 plur1bus-mock-harness = { path = "../mock-harness", version = "=0.1.0" }
 
-[target.'cfg(windows)'.dev-dependencies]
-webview2-com = "=0.39.1"
-windows-core = "=0.62.2"
-
-
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.189"
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Com", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem"] }
+rusqlite = { version = "=0.37.0", features = ["bundled"] }
+webview2-com = "=0.39.1"
+windows-core = "=0.62.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"

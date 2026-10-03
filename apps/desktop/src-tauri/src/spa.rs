@@ -18,6 +18,12 @@ use url::Url;
 pub struct SpaState {
     current: Mutex<Option<Active>>,
     retired: Mutex<Vec<SpaProxy>>,
+    #[cfg(windows)]
+    cleanups: Mutex<
+        Vec<tauri::async_runtime::TokioJoinHandle<crate::windows_spa_profile::CleanupResult>>,
+    >,
+    #[cfg(all(windows, debug_assertions))]
+    profile_audit: Mutex<Option<crate::windows_spa_profile::SecretAudit>>,
     #[cfg(debug_assertions)]
     probe: Mutex<Option<NativeProbe>>,
     #[cfg(debug_assertions)]
@@ -31,6 +37,39 @@ pub type NativeProbe = std::sync::Arc<dyn Fn(tauri::WebviewWindow, String) + Sen
 #[cfg(debug_assertions)]
 pub type NativeSecretObserver = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 impl SpaState {
+    #[cfg(windows)]
+    pub async fn wait_profile_cleanups(
+        &self,
+        deadline: std::time::Instant,
+    ) -> crate::windows_spa_profile::CleanupResult {
+        let tasks = std::mem::take(&mut *self.cleanups.lock().unwrap());
+        let mut combined = crate::windows_spa_profile::CleanupResult {
+            removed: true,
+            cookie_rows: 0,
+            read_only_complete: true,
+            secret_detected: false,
+        };
+        for task in tasks {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            match tokio::time::timeout(remaining, task).await {
+                Ok(Ok(result)) => {
+                    combined.removed &= result.removed;
+                    combined.read_only_complete &= result.read_only_complete;
+                    combined.cookie_rows = combined.cookie_rows.saturating_add(result.cookie_rows);
+                    combined.secret_detected |= result.secret_detected;
+                }
+                _ => {
+                    combined.removed = false;
+                    combined.read_only_complete = false;
+                }
+            }
+        }
+        combined
+    }
+    #[cfg(all(windows, debug_assertions))]
+    pub fn set_native_profile_audit(&self, audit: crate::windows_spa_profile::SecretAudit) {
+        self.profile_audit.lock().unwrap().replace(audit);
+    }
     /// Trusted native fixture hook; no secret enters IPC or a report.
     #[cfg(debug_assertions)]
     pub fn set_native_secret_observer(&self, observer: NativeSecretObserver) {
@@ -49,6 +88,14 @@ impl SpaState {
             .unwrap()
             .as_ref()
             .map(|a| a.proxy.clone())
+    }
+    #[cfg(all(windows, debug_assertions))]
+    pub fn active_profile_path(&self) -> Option<std::path::PathBuf> {
+        self.current
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|a| a.profile.path().to_path_buf())
     }
     /// Register the one retained origin used by the debug native acceptance fixture.
     #[cfg(debug_assertions)]
@@ -74,6 +121,14 @@ struct Active {
     connection: Connection,
     proxy: SpaProxy,
     retries: AtomicU8,
+    #[cfg(windows)]
+    profile: crate::windows_spa_profile::SpaProfileLease,
+    #[cfg(windows)]
+    browser: Option<
+        tokio::sync::oneshot::Receiver<std::io::Result<crate::windows_spa_profile::BrowserProcess>>,
+    >,
+    #[cfg(windows)]
+    gone: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 /// Exact remote origin and exact SPA label; no shell capabilities are added.
 pub fn bridge_capability(origin: &Origin, retired: bool) -> Value {
@@ -97,6 +152,19 @@ pub fn retire(app: &tauri::AppHandle) -> Result<(), String> {
             .add_capability(bridge_capability(old.proxy.origin(), true).to_string())
             .map_err(|_| "SPA capability retirement failed".to_owned());
         state.retired.lock().unwrap().push(old.proxy);
+        #[cfg(all(windows, debug_assertions))]
+        let secret_audit = state.profile_audit.lock().unwrap().clone();
+        #[cfg(all(windows, not(debug_assertions)))]
+        let secret_audit = None;
+        #[cfg(windows)]
+        let task = tauri::async_runtime::spawn(crate::windows_spa_profile::cleanup_after_exit(
+            old.profile,
+            old.browser,
+            old.gone,
+            secret_audit,
+        ));
+        #[cfg(windows)]
+        state.cleanups.lock().unwrap().push(task);
         deny?;
     }
     Ok(())
@@ -146,6 +214,11 @@ pub async fn open_spa(
     let upstream = conn.origin.clone();
     let handle = app.clone();
     let guard = origin.clone();
+    #[cfg(windows)]
+    let profile =
+        crate::windows_spa_profile::create(app).map_err(|_| "SPA profile allocation failed")?;
+    #[cfg(windows)]
+    let gone = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     app.state::<SpaState>()
         .current
         .lock()
@@ -154,13 +227,19 @@ pub async fn open_spa(
             connection: conn.clone(),
             proxy: proxy.clone(),
             retries: AtomicU8::new(0),
+            #[cfg(windows)]
+            profile,
+            #[cfg(windows)]
+            browser: None,
+            #[cfg(windows)]
+            gone: gone.clone(),
         });
     let title_app = app.clone();
     let navigation_proxy = proxy.clone();
     let popup_proxy = proxy.clone();
     let popup_upstream = upstream.clone();
     let popup_handle = app.clone();
-    let created = WebviewWindowBuilder::new(app, "spa", WebviewUrl::External(url))
+    let builder = WebviewWindowBuilder::new(app, "spa", WebviewUrl::External(url))
         .title("PLUR1BUS")
         .theme(match settings.theme {
             crate::settings::Theme::System => None,
@@ -240,8 +319,14 @@ pub async fn open_spa(
             }
             #[cfg(not(debug_assertions))]
             let _ = (&title_app, window, title);
-        })
-        .build();
+        });
+    #[cfg(windows)]
+    let builder = {
+        let state = app.state::<SpaState>();
+        let active = state.current.lock().unwrap();
+        builder.data_directory(active.as_ref().unwrap().profile.path().to_path_buf())
+    };
+    let created = builder.build();
     let window = match created {
         Ok(v) => v,
         Err(_) => {
@@ -250,8 +335,19 @@ pub async fn open_spa(
         }
     };
     let app = app.clone();
+    #[cfg(windows)]
+    {
+        if let Some(active) = app.state::<SpaState>().current.lock().unwrap().as_mut() {
+            active.browser = Some(crate::windows_spa_profile::capture_browser_process(
+                &window,
+                &active.profile,
+            ));
+        }
+    }
     window.on_window_event(move |event| {
         if matches!(event, tauri::WindowEvent::Destroyed) {
+            #[cfg(windows)]
+            gone.store(true, Ordering::SeqCst);
             let current = app
                 .state::<SpaState>()
                 .current
