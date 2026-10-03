@@ -13,7 +13,7 @@ Scope: `apps/desktop/src-tauri/src/spa_proxy.rs` and `apps/desktop/src-tauri/tes
 - All upstream `access-control-*` response headers are stripped. The test covers a malicious upstream response, a foreign-Origin GET and a foreign-Origin OPTIONS preflight.
 - The 32-byte launch nonce uses `rand 0.9.2` `OsRng::try_fill_bytes`; RNG failure maps to `ClientError::Network`. No nonce is logged or disclosed.
 
-Nonce deviation (explicit): the renderer can read the nonce because it is carried in the per-window User-Agent. The nonce never admits a request alone: exact Host blocks DNS rebinding and Origin is checked by method; the injected CSP blocks exfiltration; navigations carrying the nonce are refused; and the nonce is never put in a query string or forwarded upstream.
+Nonce deviation (explicit): the renderer can read the nonce because it is carried in the per-window User-Agent. This is not a universal confidentiality mechanism for intentional application payloads; the ambient User-Agent carrier is stripped before upstream forwarding. The nonce never admits a request alone: exact Host blocks DNS rebinding and Origin is checked by method; the injected CSP blocks exfiltration; navigations carrying the nonce are refused; and the nonce is never put in a query string or forwarded upstream.
 
 ## RED evidence
 
@@ -73,6 +73,14 @@ Process exit 0.
 
 Every reqwest test client now uses `connect_timeout(5s)` and `timeout(15s)`, including the no-redirect builder. Every async `spa_proxy` test body goes through the 60-second timeout helper.
 
+The resulting source head after the bounded method-matrix extension is `e06a08f917192c9e83348ea1d1fd2d00f7b77823`. That test-only commit covers optional/missing and invalid HEAD Origin values and missing, `null`, foreign and exact OPTIONS Origin values. The focused extension run was:
+
+```text
+cargo test --locked --test spa_proxy non_get_methods_require_exact_origin -- --nocapture
+```
+
+It exited 0 (`1 passed; 0 failed`, `elapsed_ms=1875`). `cargo fmt --all -- --check` also exited 0. No broad suite was rerun for the extension.
+
 ## `--report-time` compatibility
 
 The requested stable probe was run with Rust `1.95.0 (59807616e 2026-04-14)`:
@@ -92,8 +100,8 @@ No nightly toolchain and no `RUSTC_BOOTSTRAP` were used. The honest stable alter
 
 ## Native-proof boundary
 
-This worker did not run a native shell-info/CSP probe and made no native acceptance claim. Removing the IPC CSP entries is covered by the complete directive assertion above; native postMessage behavior still requires the controller's sanitized probe under fake HOME/config/profile state.
+The controller's genuine macOS native proof is retained at `/tmp/wp05-round3-security-native`, in `first.json` and `restart.json`. It ran after report commit `3260100198726153b6f58dd883ceee35327233a6` and before the test-only matrix commit `e06a08f917192c9e83348ea1d1fd2d00f7b77823`; the exercised product implementation is from `abf4a52c307259129072616858147eb3079de680`, with no added-test source in the native run. All four sessions report `fullProcessRestart: true`, `shellInfo: true` and `onlyShellInfo: true`; the first-run p95 is `2.080292 ms`, restart p95 is `3.837125 ms`, and the verifier is PASS.
 
-Controller-owned current native evidence is retained at `/tmp/wp05-round3-ci-6148` and `/tmp/wp05-round3-6148-mac.log`. The current Windows x64 and Windows ARM native children still exit 2 at `other-window` (W2). The current macOS native session has a driver p95 assertion failure and did not reach DMG packaging. These results are outside this source-only security gate and do not prove native `shell_info` behavior.
+This is controller-supplied macOS evidence, not a run by this worker. It does not prove Windows behavior or a new-head five-target CI result. The current Windows x64 and Windows ARM native children still exit 2 at `other-window` (W2). No Windows/new-head CI claim is made here. Removing the IPC CSP entries is also covered by the complete directive assertion above; native postMessage behavior is evidenced only by the controller artifact.
 
 No secrets, real-home paths, keychain entries or service-manager objects were used or written by these tests.
