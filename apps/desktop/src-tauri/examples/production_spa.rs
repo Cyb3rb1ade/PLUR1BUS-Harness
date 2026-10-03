@@ -44,6 +44,10 @@ fn session_probe_script(foreign_origin: &str) -> String {
     )
 }
 
+fn other_window_probe_script() -> &'static str {
+    r#"(async()=>{const blocked=(await fetch(location.href)).status===403;let acl=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});})()"#
+}
+
 fn main() {
     progress("starting");
     const { assert!(cfg!(debug_assertions), "debug-only fixture") };
@@ -300,24 +304,25 @@ async fn negative_controls(
     let (tx, rx) = tokio::sync::oneshot::channel();
     let sender = Mutex::new(Some(tx));
     progress("other-window-construction-start");
-    let other = WebviewWindowBuilder::new(
-        app,
-        "other-spa",
-        WebviewUrl::External(url.parse().unwrap()),
-    )
-    .incognito(true)
-    .initialization_script("addEventListener('DOMContentLoaded',async()=>{const blocked=(await fetch(location.href)).status===403;let acl=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});});")
-    .on_document_title_changed(move |_, title| {
-        if let Some(value) = title
-            .strip_prefix("NEG:")
-            .and_then(|v| serde_json::from_str::<Value>(v).ok())
-        {
-            if let Some(tx) = sender.lock().unwrap().take() {
-                let _ = tx.send(value);
-            }
-        }
-    })
-    .build();
+    let other =
+        WebviewWindowBuilder::new(app, "other-spa", WebviewUrl::External(url.parse().unwrap()))
+            .incognito(true)
+            .on_page_load(|webview, payload| {
+                if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                    let _ = webview.eval(other_window_probe_script());
+                }
+            })
+            .on_document_title_changed(move |_, title| {
+                if let Some(value) = title
+                    .strip_prefix("NEG:")
+                    .and_then(|v| serde_json::from_str::<Value>(v).ok())
+                {
+                    if let Some(tx) = sender.lock().unwrap().take() {
+                        let _ = tx.send(value);
+                    }
+                }
+            })
+            .build();
     let other = match other {
         Ok(other) => {
             progress("other-window-construction-complete");
@@ -422,6 +427,21 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> (bool, usize) {
 fn progress(label: &str) {
     if let Some(path) = std::env::args_os().nth(1) {
         let _ = std::fs::write(PathBuf::from(path).with_extension("progress"), label);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::other_window_probe_script;
+
+    #[test]
+    fn other_window_probe_runs_from_completed_page_load() {
+        let script = other_window_probe_script();
+        assert!(!script.contains("DOMContentLoaded"));
+        assert!(script.contains("fetch(location.href)"));
+        assert!(script.contains("otherWindow403"));
+        assert!(script.contains("otherWindowAclDenied"));
+        assert!(script.contains("document.title='NEG:'"));
     }
 }
 
