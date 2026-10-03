@@ -709,6 +709,23 @@ class RobustnessTest(unittest.TestCase):
         self.assertTrue(any("could not be journaled" in w for w in _warnings(logs)))
         self.assertNotIn("in flight", logs.text())
 
+    def test_shutdown_stays_within_its_budget_when_the_journal_is_locked(self) -> None:
+        logs = _capture_logs(self)
+        self.sb.bind()
+        self.sb.start_core(handlers={"memory.capture": SILENT})
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        with mock.patch.object(plur1bus, "CAPTURE_DEADLINE_S", 30.0):
+            p.sync_turn("in flight", "a1")
+            p.sync_turn("queued", "a2")
+            self.assertTrue(wait_until(lambda: len(self.sb.captures()) == 1, 3))
+            self._hold_journal_lock()
+            t0 = time.monotonic()
+            p.shutdown()
+            self.assertLess(time.monotonic() - t0, plur1bus.SHUTDOWN_BUDGET_S + 0.15)
+        self.assertTrue(wait_until(lambda: p.lost == 2, 12), p.lost)
+        self.assertTrue(any("could not be journaled" in w for w in _warnings(logs)))
+
     def test_a_journal_append_failure_in_the_worker_is_counted(self) -> None:
         logs = _capture_logs(self)
         self.sb.bind()
