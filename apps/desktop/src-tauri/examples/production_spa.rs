@@ -61,6 +61,11 @@ impl AuditObservation {
         self.audit_complete
             && !self.secret_detected
             && self.cookie_database_files == 0
+            && self.read_failures == 0
+            && self.entries_disappeared == 0
+            && self.metadata_failures == 0
+            && self.read_dir_failures == 0
+            && self.symlink_entries == 0
             && self.failure_category == AuditFailureCategory::None
     }
 }
@@ -776,7 +781,8 @@ fn progress(label: &str) {
 mod tests {
     use super::{
         append_progress_history, audit_with_reader, other_window_probe_script,
-        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditReader,
+        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation,
+        AuditReader,
     };
     use std::path::{Path, PathBuf};
 
@@ -825,6 +831,22 @@ mod tests {
         assert!(!observation.audit_complete);
         assert_eq!(observation.failure_category, AuditFailureCategory::FileRead);
         assert_eq!(observation.read_failures, 1);
+    }
+
+    #[test]
+    fn clean_audit_rejects_nonzero_operation_failures() {
+        let observation = AuditObservation {
+            audit_complete: true,
+            secret_detected: false,
+            cookie_database_files: 0,
+            read_failures: 1,
+            entries_disappeared: 0,
+            metadata_failures: 0,
+            read_dir_failures: 0,
+            symlink_entries: 0,
+            failure_category: AuditFailureCategory::None,
+        };
+        assert!(!observation.clean());
     }
 
     #[test]

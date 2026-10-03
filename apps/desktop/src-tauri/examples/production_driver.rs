@@ -81,6 +81,18 @@ impl AuditObservation {
                 .saturating_add(self.symlink_entries)
                 <= MAX_AUDIT_ITEMS
     }
+
+    fn clean(&self) -> bool {
+        self.audit_complete
+            && !self.secret_detected
+            && self.cookie_database_files == 0
+            && self.read_failures == 0
+            && self.entries_disappeared == 0
+            && self.metadata_failures == 0
+            && self.read_dir_failures == 0
+            && self.symlink_entries == 0
+            && self.failure_category == AuditFailureCategory::None
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -395,13 +407,7 @@ fn main() {
             diagnostic.secondary_probe.available,
             "secondary probe diagnostic unavailable"
         );
-        assert!(diagnostic.audit.audit_complete, "native audit incomplete");
-        assert!(!diagnostic.audit.secret_detected);
-        assert_eq!(diagnostic.audit.cookie_database_files, 0);
-        assert_eq!(
-            diagnostic.audit.failure_category,
-            AuditFailureCategory::None
-        );
+        assert!(diagnostic.audit.clean(), "native audit not clean");
         std::fs::write(
             artifacts.join(format!("{phase}.json")),
             serde_json::to_vec_pretty(&report).unwrap(),
@@ -576,5 +582,33 @@ mod tests {
         }));
         assert!(!diagnostic.secondary_probe.available);
         assert!(!diagnostic.audit.audit_complete);
+    }
+
+    #[test]
+    fn contradictory_clean_audit_remains_available_but_fails_clean_check() {
+        let diagnostic = parse_diagnostic(&json!({
+            "diagnostic": {
+                "secondaryProbe": {
+                    "available": true,
+                    "documentOpaqueOrigin": false,
+                    "documentContentTypeTextPlain": true,
+                    "fetchRejectedTypeError": false
+                },
+                "audit": {
+                    "auditComplete": true,
+                    "secretDetected": false,
+                    "cookieDatabaseFiles": 0,
+                    "readFailures": 1,
+                    "entriesDisappeared": 0,
+                    "metadataFailures": 0,
+                    "readDirFailures": 0,
+                    "symlinkEntries": 0,
+                    "failureCategory": "none"
+                }
+            }
+        }));
+        assert!(diagnostic.secondary_probe.available);
+        assert!(!diagnostic.audit.clean());
+        assert_eq!(diagnostic.audit.read_failures, 1);
     }
 }
