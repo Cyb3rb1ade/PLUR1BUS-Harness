@@ -320,6 +320,30 @@ fn progress_labels() -> &'static [&'static str] {
         "benchmark-start",
         "benchmark-done",
         "second-window-opened",
+        "second-page-started-ticket",
+        "second-page-started-other-path",
+        "second-page-finished-ticket",
+        "second-page-finished-other-path",
+        "second-page-finished-other-origin",
+        "second-eval-accepted",
+        "second-eval-rejected",
+        "second-probe-entry",
+        "second-probe-ready-wait",
+        "second-probe-ready",
+        "second-probe-ipc",
+        "second-probe-fetch",
+        "second-probe-sse-first",
+        "second-probe-sse-second",
+        "second-probe-websocket",
+        "second-probe-download",
+        "second-probe-foreign",
+        "second-probe-terminal",
+        "second-probe-failed",
+        "second-probe-other-origin",
+        "session-title-rejected-origin-or-duplicate",
+        "session-title-claimed-first",
+        "session-title-claimed-second",
+        "error-title-rejected-origin",
         "negative-checks",
         "other-window-construction-start",
         "other-window-construction-complete",
@@ -557,7 +581,8 @@ fn main() {
         );
         child.stdin.take().unwrap().write_all(&input).unwrap();
         drop(input);
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(90);
+        let child_started = std::time::Instant::now();
+        let deadline = child_started + std::time::Duration::from_secs(90);
         let status = loop {
             if let Some(status) = child.try_wait().unwrap() {
                 break status;
@@ -586,6 +611,7 @@ fn main() {
                     "milestones":observation.stages,
                     "milestoneCounts":observation.counts,
                     "exitCode":status.code(),
+                    "childElapsedMs":child_started.elapsed().as_millis().min(90_000),
                     "diagnostic":diagnostic,
                     "rawChildOutputDiscarded":true
                 }))

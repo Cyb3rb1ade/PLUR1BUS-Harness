@@ -13,7 +13,7 @@ use std::{
     io::Read,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
 };
@@ -1089,6 +1089,76 @@ fn session_probe_script(foreign_origin: &str) -> String {
     )
 }
 
+#[derive(Default)]
+struct SessionTitleClaims(Mutex<Vec<url::Origin>>);
+
+#[derive(Default)]
+struct SessionEvalClaims(Mutex<std::collections::HashSet<String>>);
+
+impl SessionEvalClaims {
+    fn submit<E>(&self, origin: &str, evaluate: impl FnOnce() -> Result<(), E>) -> Result<bool, E> {
+        let mut accepted = self.0.lock().unwrap();
+        if accepted.len() >= 2 || accepted.contains(origin) {
+            return Ok(false);
+        }
+        evaluate()?;
+        accepted.insert(origin.to_owned());
+        Ok(true)
+    }
+}
+
+impl SessionTitleClaims {
+    fn claim(&self, current: &url::Origin, title: Option<&url::Origin>) -> Option<u8> {
+        if title != Some(current) {
+            return None;
+        }
+        let mut claimed = self.0.lock().unwrap();
+        if claimed.contains(current) || claimed.len() >= 2 {
+            return None;
+        }
+        let step = claimed.len() as u8;
+        claimed.push(current.clone());
+        Some(step)
+    }
+
+    fn generation(&self) -> usize {
+        self.0.lock().unwrap().len()
+    }
+
+    fn is_second_origin(&self, current: &url::Origin) -> bool {
+        self.0
+            .lock()
+            .unwrap()
+            .first()
+            .is_some_and(|first| first != current)
+    }
+
+    fn accepted(&self, current: &url::Origin, title: Option<&url::Origin>) -> bool {
+        title == Some(current) && self.0.lock().unwrap().contains(current)
+    }
+}
+
+fn probe_stage(stage: &str, generation: usize) -> Option<&'static str> {
+    if generation != 1 {
+        return None;
+    }
+    match stage {
+        "entry" => Some("second-probe-entry"),
+        "ready-wait" => Some("second-probe-ready-wait"),
+        "ready" => Some("second-probe-ready"),
+        "ipc" => Some("second-probe-ipc"),
+        "fetch" => Some("second-probe-fetch"),
+        "sse-first" => Some("second-probe-sse-first"),
+        "sse-second" => Some("second-probe-sse-second"),
+        "websocket" => Some("second-probe-websocket"),
+        "download" => Some("second-probe-download"),
+        "foreign" => Some("second-probe-foreign"),
+        "terminal" => Some("second-probe-terminal"),
+        "failed" => Some("second-probe-failed"),
+        _ => None,
+    }
+}
+
 fn other_window_probe_script() -> &'static str {
     r#"(async()=>{document.title='NEG_STAGE:entry';let opaque=window.origin==='null';let plain=(document.contentType||'').toLowerCase()==='text/plain';document.title='NEG_STAGE:fetch-start';let blocked=false;let rejected=false;try{blocked=(await fetch(location.href)).status===403;document.title='NEG_STAGE:fetch-complete'}catch(e){rejected=e instanceof TypeError;document.title='NEG_STAGE:fetch-error'}let acl=false;document.title='NEG_STAGE:ipc-start';try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG_STAGE:ipc-complete';document.title='NEG:'+JSON.stringify({available:true,otherWindow403:blocked,otherWindowAclDenied:acl,documentOpaqueOrigin:opaque,documentContentTypeTextPlain:plain,fetchRejectedTypeError:rejected});})()"#
 }
@@ -1155,13 +1225,15 @@ fn main() {
     let known: Secrets = Arc::new(Mutex::new(vec![SecretString::new(
         token.expose().to_owned(),
     )]));
-    let stage = Arc::new(AtomicU8::new(0));
-    let loads = Mutex::new(std::collections::HashSet::new());
+    let claims = Arc::new(SessionTitleClaims::default());
+    let loads = SessionEvalClaims::default();
     let results = Arc::new(Mutex::new(Vec::<Value>::new()));
     let negatives = Arc::new(Mutex::new(Value::Null));
     let secondary_observation = Arc::new(Mutex::new(None::<SecondaryProbeObservation>));
     let measurements = Arc::new(Mutex::new(Value::Null));
     let first_origin = Arc::new(Mutex::new(None::<Origin>));
+    let first_origin_for_session_load = first_origin.clone();
+    let claims_for_title = claims.clone();
     #[cfg(target_os = "linux")]
     let first_origin_for_load = first_origin.clone();
     #[cfg(target_os = "linux")]
@@ -1191,9 +1263,29 @@ fn main() {
             commands::app_info
         ])
         .on_page_load(move |webview, payload| {
-            if webview.label() != "spa"
-                || !matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
-            {
+            if webview.label() != "spa" {
+                return;
+            }
+            let current = webview.app_handle().state::<SpaState>().active_proxy();
+            let current_origin = current.as_ref().and_then(|proxy| {
+                url::Url::parse(proxy.origin().as_str()).ok().map(|url| url.origin())
+            });
+            let second_active = first_origin_for_session_load.lock().unwrap().as_ref().is_some_and(|first| {
+                url::Url::parse(first.as_str()).is_ok_and(|url| current_origin.as_ref() != Some(&url.origin()))
+            });
+            if second_active {
+                let is_current = current_origin.as_ref() == Some(&payload.url().origin());
+                let ticket = payload.url().path() == "/auth/ticket";
+                match (payload.event(), is_current, ticket) {
+                    (tauri::webview::PageLoadEvent::Started, true, true) => progress("second-page-started-ticket"),
+                    (tauri::webview::PageLoadEvent::Started, true, false) => progress("second-page-started-other-path"),
+                    (tauri::webview::PageLoadEvent::Finished, true, true) => progress("second-page-finished-ticket"),
+                    (tauri::webview::PageLoadEvent::Finished, true, false) => progress("second-page-finished-other-path"),
+                    (tauri::webview::PageLoadEvent::Finished, false, _) => progress("second-page-finished-other-origin"),
+                    _ => {}
+                }
+            }
+            if !matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 return;
             }
             if payload.url().query() == Some("wp05-old-check") {
@@ -1219,9 +1311,11 @@ fn main() {
                 let _ = webview.eval(old_origin_probe_script());
             }
             if payload.url().path() == "/auth/ticket" {
-                let mut seen = loads.lock().unwrap();
-                if seen.len() < 2 && seen.insert(payload.url().origin().ascii_serialization()) {
-                    let _ = webview.eval(session_probe_script(&input.foreign_origin));
+                let origin = payload.url().origin().ascii_serialization();
+                match loads.submit(&origin, || webview.eval(session_probe_script(&input.foreign_origin))) {
+                    Ok(true) if second_active => progress("second-eval-accepted"),
+                    Err(_) if second_active => progress("second-eval-rejected"),
+                    _ => {}
                 }
             }
             if payload.url().path() == "/__shell/ticket-error" {
@@ -1237,6 +1331,7 @@ fn main() {
                 let _ = STARTUP_SWEEP.set(sweep);
             }
             let old_probe_for_title = old_probe_for_title.clone();
+            let claims = claims_for_title.clone();
             let registering = known.clone();
             #[cfg(windows)]
             {
@@ -1264,6 +1359,23 @@ fn main() {
             let first_profile_path_for_title = first_profile_path.clone();
             app.state::<SpaState>()
                 .set_native_probe(Arc::new(move |window, title| {
+                    let app = window.app_handle().clone();
+                    let current = app.state::<SpaState>().active_proxy()
+                        .and_then(|proxy| url::Url::parse(proxy.origin().as_str()).ok())
+                        .map(|url| url.origin());
+                    let title_origin = window.url().ok().map(|url| url.origin());
+                    if let Some(marker) = title.strip_prefix("WP5_STAGE:") {
+                        if let Some(current) = current.as_ref() {
+                            if title_origin.as_ref() == Some(current) {
+                                if let Some(label) = probe_stage(marker, usize::from(claims.is_second_origin(current))) {
+                                    progress(label);
+                                }
+                            } else if claims.generation() == 1 {
+                                progress("second-probe-other-origin");
+                            }
+                        }
+                        return;
+                    }
                     if let Some(value) = title
                         .strip_prefix("OLD:")
                         .and_then(|s| serde_json::from_str::<Value>(s).ok())
@@ -1292,16 +1404,22 @@ fn main() {
                     else {
                         return;
                     };
+                    let Some(current) = current.as_ref() else { return; };
                     let step = if error {
+                        if !claims.accepted(current, title_origin.as_ref()) || claims.generation() != 2 {
+                            progress("error-title-rejected-origin");
+                            return;
+                        }
                         2
                     } else {
-                        stage.fetch_add(1, Ordering::SeqCst)
+                        let Some(step) = claims.claim(current, title_origin.as_ref()) else {
+                            progress("session-title-rejected-origin-or-duplicate");
+                            return;
+                        };
+                        progress(if step == 0 { "session-title-claimed-first" } else { "session-title-claimed-second" });
+                        step
                     };
-                    if !error && step > 1 {
-                        return;
-                    }
                     progress("session-ready");
-                    let app = window.app_handle().clone();
                     let proxy = app.state::<SpaState>().active_proxy().unwrap();
                     progress("proxy-obtained");
                     let known = known.clone();
@@ -2790,6 +2908,9 @@ fn append_progress_history(history: &str, label: &str) -> Option<String> {
 }
 
 fn progress(label: &str) {
+    if cfg!(test) {
+        return;
+    }
     static PROGRESS_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
     if let Some(path) = std::env::args_os().nth(1) {
         let _guard = PROGRESS_LOCK
@@ -2818,12 +2939,95 @@ mod tests {
         append_progress_history, audit_with_reader, audit_with_reader_and_profile_root,
         auxiliary_observation, await_profile_callback, claim_observer_completion,
         classify_file_read_error, cookie_file_class, local_acl_probe_script,
-        other_window_probe_script, parse_secondary_probe, parse_secondary_result, AuditEntry,
-        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners,
-        CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation, TeardownObservation,
+        other_window_probe_script, parse_secondary_probe, parse_secondary_result, probe_stage,
+        AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader,
+        BrowserProcessOwners, CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation,
+        SessionEvalClaims, SessionTitleClaims, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn session_claims_ignore_late_first_and_wrong_origin_before_second() {
+        let claims = SessionTitleClaims::default();
+        let first = url::Url::parse("http://127.0.0.1:41001/").unwrap().origin();
+        let second = url::Url::parse("http://127.0.0.1:41002/").unwrap().origin();
+        let wrong = url::Url::parse("http://127.0.0.1:41003/").unwrap().origin();
+        assert_eq!(claims.claim(&first, Some(&first)), Some(0));
+        assert_eq!(claims.claim(&second, Some(&first)), None);
+        assert_eq!(claims.claim(&second, Some(&wrong)), None);
+        assert_eq!(claims.claim(&first, Some(&first)), None);
+        assert_eq!(claims.generation(), 1);
+        assert_eq!(claims.claim(&second, Some(&second)), Some(1));
+        assert_eq!(claims.claim(&second, Some(&second)), None);
+        assert_eq!(claims.generation(), 2);
+        assert!(claims.accepted(&second, Some(&second)));
+        assert!(!claims.accepted(&second, Some(&first)));
+    }
+
+    #[test]
+    fn eval_rejection_does_not_claim_origin_and_retry_submits_once() {
+        let claims = SessionEvalClaims::default();
+        let mut calls = 0;
+        assert_eq!(
+            claims.submit("first", || {
+                calls += 1;
+                Err::<(), _>(())
+            }),
+            Err(())
+        );
+        assert_eq!(
+            claims.submit("first", || {
+                calls += 1;
+                Ok::<(), ()>(())
+            }),
+            Ok(true)
+        );
+        assert_eq!(
+            claims.submit("first", || {
+                calls += 1;
+                Ok::<(), ()>(())
+            }),
+            Ok(false)
+        );
+        assert_eq!(
+            claims.submit("second", || {
+                calls += 1;
+                Ok::<(), ()>(())
+            }),
+            Ok(true)
+        );
+        assert_eq!(
+            claims.submit("third", || {
+                calls += 1;
+                Ok::<(), ()>(())
+            }),
+            Ok(false)
+        );
+        assert_eq!(calls, 3);
+    }
+
+    #[test]
+    fn second_probe_markers_are_closed() {
+        for marker in [
+            "entry",
+            "ready-wait",
+            "ready",
+            "ipc",
+            "fetch",
+            "sse-first",
+            "sse-second",
+            "websocket",
+            "download",
+            "foreign",
+            "terminal",
+            "failed",
+        ] {
+            assert!(probe_stage(marker, 1).is_some());
+            assert!(probe_stage(marker, 0).is_none());
+        }
+        assert!(probe_stage("private-data", 1).is_none());
+    }
 
     #[derive(Clone)]
     struct DelayedReportIo {
