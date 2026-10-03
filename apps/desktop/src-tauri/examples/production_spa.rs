@@ -1178,6 +1178,7 @@ fn ticket_error_probe_script() -> &'static str {
     "document.title='ERR:'+JSON.stringify({savedTheme:document.documentElement.dataset.theme,savedLocale:document.documentElement.lang,terminalError:location.pathname==='/__shell/ticket-error',fragmentGone:!location.hash,controls44:[...document.querySelectorAll('#copy,#retry')].every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44}),honestError:document.getElementById('detail').textContent.length>20&&document.getElementById('safe').textContent.length>10});"
 }
 
+#[cfg(any(not(target_os = "linux"), test))]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct BrowserApiChallenge {
@@ -1185,6 +1186,7 @@ struct BrowserApiChallenge {
     attempted: bool,
     blocked: bool,
 }
+#[cfg(any(not(target_os = "linux"), test))]
 impl BrowserApiChallenge {
     fn accepted(&self) -> bool {
         if self.applicable {
@@ -1194,6 +1196,7 @@ impl BrowserApiChallenge {
         }
     }
 }
+#[cfg(any(not(target_os = "linux"), test))]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct CanaryObservation {
@@ -1206,6 +1209,7 @@ struct CanaryObservation {
     cookie_store: BrowserApiChallenge,
     service_worker: BrowserApiChallenge,
 }
+#[cfg(any(not(target_os = "linux"), test))]
 impl CanaryObservation {
     fn accepted(&self) -> bool {
         self.upstream_set_cookie
@@ -3091,6 +3095,7 @@ fn post_exit_secret_audit_with_reader(
     }
 }
 
+#[cfg(not(target_os = "linux"))]
 fn live_audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     #[cfg(windows)]
     let native_profile_root = std::env::var_os("LOCALAPPDATA")
