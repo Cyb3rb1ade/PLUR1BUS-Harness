@@ -67,7 +67,9 @@ jobs:
         working-directory: apps/desktop
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
         working-directory: apps/desktop
-      - run: cargo test --locked --workspace --no-fail-fast
+      # Stable Rust 1.95 rejects --report-time; bounded proxy tests emit named elapsed_ms.
+      - run: cargo test --locked --workspace --no-fail-fast -- --nocapture
+        timeout-minutes: 15
         working-directory: apps/desktop
       - name: Native transport fixture tests
         run: cargo test --locked --example transport_spike -p plur1bus-desktop
