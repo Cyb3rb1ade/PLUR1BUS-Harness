@@ -1092,6 +1092,13 @@ fn session_probe_script(foreign_origin: &str) -> String {
 #[derive(Default)]
 struct SessionTitleClaims(Mutex<Vec<url::Origin>>);
 
+#[derive(Debug, PartialEq, Eq)]
+enum TitleClaimRejection {
+    WrongOrigin,
+    Duplicate,
+    Exhausted,
+}
+
 #[derive(Default)]
 struct SessionEvalClaims(Mutex<std::collections::HashSet<String>>);
 
@@ -1108,17 +1115,24 @@ impl SessionEvalClaims {
 }
 
 impl SessionTitleClaims {
-    fn claim(&self, current: &url::Origin, title: Option<&url::Origin>) -> Option<u8> {
+    fn claim(
+        &self,
+        current: &url::Origin,
+        title: Option<&url::Origin>,
+    ) -> Result<u8, TitleClaimRejection> {
         if title != Some(current) {
-            return None;
+            return Err(TitleClaimRejection::WrongOrigin);
         }
         let mut claimed = self.0.lock().unwrap();
-        if claimed.contains(current) || claimed.len() >= 2 {
-            return None;
+        if claimed.contains(current) {
+            return Err(TitleClaimRejection::Duplicate);
+        }
+        if claimed.len() >= 2 {
+            return Err(TitleClaimRejection::Exhausted);
         }
         let step = claimed.len() as u8;
         claimed.push(current.clone());
-        Some(step)
+        Ok(step)
     }
 
     fn generation(&self) -> usize {
@@ -1270,9 +1284,10 @@ fn main() {
             let current_origin = current.as_ref().and_then(|proxy| {
                 url::Url::parse(proxy.origin().as_str()).ok().map(|url| url.origin())
             });
-            let second_active = first_origin_for_session_load.lock().unwrap().as_ref().is_some_and(|first| {
-                url::Url::parse(first.as_str()).is_ok_and(|url| current_origin.as_ref() != Some(&url.origin()))
+            let first_session_origin = first_origin_for_session_load.lock().unwrap().as_ref().and_then(|first| {
+                url::Url::parse(first.as_str()).ok().map(|url| url.origin())
             });
+            let second_active = first_session_origin.as_ref().is_some_and(|first| current_origin.as_ref() != Some(first));
             if second_active {
                 let is_current = current_origin.as_ref() == Some(&payload.url().origin());
                 let ticket = payload.url().path() == "/auth/ticket";
@@ -1281,6 +1296,7 @@ fn main() {
                     (tauri::webview::PageLoadEvent::Started, true, false) => progress("second-page-started-other-path"),
                     (tauri::webview::PageLoadEvent::Finished, true, true) => progress("second-page-finished-ticket"),
                     (tauri::webview::PageLoadEvent::Finished, true, false) => progress("second-page-finished-other-path"),
+                    (tauri::webview::PageLoadEvent::Finished, false, _) if first_session_origin.as_ref() == Some(&payload.url().origin()) => progress("second-page-finished-first-origin"),
                     (tauri::webview::PageLoadEvent::Finished, false, _) => progress("second-page-finished-other-origin"),
                     _ => {}
                 }
@@ -1412,9 +1428,11 @@ fn main() {
                         }
                         2
                     } else {
-                        let Some(step) = claims.claim(current, title_origin.as_ref()) else {
-                            progress("session-title-rejected-origin-or-duplicate");
-                            return;
+                        let step = match claims.claim(current, title_origin.as_ref()) {
+                            Ok(step) => step,
+                            Err(TitleClaimRejection::WrongOrigin) => { progress("session-title-rejected-origin"); return; }
+                            Err(TitleClaimRejection::Duplicate) => { progress("session-title-rejected-duplicate"); return; }
+                            Err(TitleClaimRejection::Exhausted) => { progress("session-title-rejected-exhausted"); return; }
                         };
                         progress(if step == 0 { "session-title-claimed-first" } else { "session-title-claimed-second" });
                         step
@@ -2942,7 +2960,7 @@ mod tests {
         other_window_probe_script, parse_secondary_probe, parse_secondary_result, probe_stage,
         AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader,
         BrowserProcessOwners, CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation,
-        SessionEvalClaims, SessionTitleClaims, TeardownObservation,
+        SessionEvalClaims, SessionTitleClaims, TeardownObservation, TitleClaimRejection,
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -2953,14 +2971,30 @@ mod tests {
         let first = url::Url::parse("http://127.0.0.1:41001/").unwrap().origin();
         let second = url::Url::parse("http://127.0.0.1:41002/").unwrap().origin();
         let wrong = url::Url::parse("http://127.0.0.1:41003/").unwrap().origin();
-        assert_eq!(claims.claim(&first, Some(&first)), Some(0));
-        assert_eq!(claims.claim(&second, Some(&first)), None);
-        assert_eq!(claims.claim(&second, Some(&wrong)), None);
-        assert_eq!(claims.claim(&first, Some(&first)), None);
+        assert_eq!(claims.claim(&first, Some(&first)), Ok(0));
+        assert_eq!(
+            claims.claim(&second, Some(&first)),
+            Err(TitleClaimRejection::WrongOrigin)
+        );
+        assert_eq!(
+            claims.claim(&second, Some(&wrong)),
+            Err(TitleClaimRejection::WrongOrigin)
+        );
+        assert_eq!(
+            claims.claim(&first, Some(&first)),
+            Err(TitleClaimRejection::Duplicate)
+        );
         assert_eq!(claims.generation(), 1);
-        assert_eq!(claims.claim(&second, Some(&second)), Some(1));
-        assert_eq!(claims.claim(&second, Some(&second)), None);
+        assert_eq!(claims.claim(&second, Some(&second)), Ok(1));
+        assert_eq!(
+            claims.claim(&second, Some(&second)),
+            Err(TitleClaimRejection::Duplicate)
+        );
         assert_eq!(claims.generation(), 2);
+        assert_eq!(
+            claims.claim(&wrong, Some(&wrong)),
+            Err(TitleClaimRejection::Exhausted)
+        );
         assert!(claims.accepted(&second, Some(&second)));
         assert!(!claims.accepted(&second, Some(&first)));
     }
