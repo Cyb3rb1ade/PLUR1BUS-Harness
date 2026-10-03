@@ -1509,9 +1509,9 @@ async fn finish(
     inputs: FinishInputs,
     error: Value,
 ) {
+    let teardown_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     progress("retire");
     let browser_owners = inputs.browser_owners.clone();
-    let teardown_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     let handle = app.clone();
     progress("retirement-window-close-start");
     let current = app.get_webview_window("spa");
