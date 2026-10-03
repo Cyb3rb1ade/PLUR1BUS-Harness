@@ -45,8 +45,8 @@ mod windows {
     };
     use windows_sys::Win32::{
         Foundation::{
-            CloseHandle, LocalFree, ERROR_INVALID_PARAMETER, FILETIME, HANDLE, WAIT_OBJECT_0,
-            WAIT_TIMEOUT,
+            CloseHandle, LocalFree, ERROR_INVALID_PARAMETER, FILETIME, HANDLE,
+            INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
         },
         Security::{
             Authorization::{
@@ -57,7 +57,12 @@ mod windows {
             OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, TOKEN_QUERY,
             TOKEN_USER,
         },
-        Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT,
+        Storage::FileSystem::{
+            CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+            FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
+            FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+            OPEN_EXISTING,
+        },
         System::Threading::{
             GetCurrentProcess, GetProcessTimes, OpenProcess, OpenProcessToken, WaitForSingleObject,
             PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
@@ -125,24 +130,41 @@ mod windows {
         let registry = live_leases().lock().unwrap();
         let file = registry.get(path).and_then(Weak::upgrade);
         let Some(file) = file else { return Ok(None) };
-        use std::io::{Read, Seek, SeekFrom};
         let mut guard = file.lock().unwrap();
-        guard.seek(SeekFrom::Start(0))?;
+        read_complete_lease_record(&mut guard).map(Some)
+    }
+
+    fn read_complete_lease_record(file: &mut File) -> io::Result<Vec<u8>> {
+        use std::io::{Read, Seek, SeekFrom};
+        file.seek(SeekFrom::Start(0))?;
         let mut bytes = Vec::new();
-        (&mut *guard).take(13).read_to_end(&mut bytes)?;
+        file.take(13).read_to_end(&mut bytes)?;
         if bytes.len() != 12
             || u32::from_le_bytes(bytes[..4].try_into().unwrap()) == 0
             || u64::from_le_bytes(bytes[4..].try_into().unwrap()) == 0
         {
             return Err(io::Error::other("incomplete SPA lease record"));
         }
-        Ok(Some(bytes))
+        Ok(bytes)
     }
 
     /// A sharing-locked exact LevelDB LOCK file has no payload only when its
-    /// current owned profile and no-reparse regular-file metadata prove size zero.
+    /// current owned profile and handle-based regular-file metadata prove size zero.
     /// The caller must first attempt an ordinary read and see a sharing violation.
     pub fn prove_empty_owned_browser_lock(root: &Path, path: &Path) -> io::Result<bool> {
+        prove_empty_owned_browser_lock_with(root, path, || {}, authoritative_file_information)
+    }
+
+    fn prove_empty_owned_browser_lock_with<AfterRecord, FinalMetadata>(
+        root: &Path,
+        path: &Path,
+        after_record: AfterRecord,
+        final_metadata: FinalMetadata,
+    ) -> io::Result<bool>
+    where
+        AfterRecord: FnOnce(),
+        FinalMetadata: FnOnce(&Path) -> io::Result<BY_HANDLE_FILE_INFORMATION>,
+    {
         if !path.file_name().is_some_and(known_browser_lock_name) {
             return Ok(false);
         }
@@ -161,26 +183,79 @@ mod windows {
             return Ok(false);
         }
         validate_owned_path(root, &leaf)?;
-        if read_owned_lease(&leaf.join(".lease"))?.is_none() {
+        // Registry -> file is the same order used by read_owned_lease and removal.
+        // Holding both guards until the handle query finishes prevents Drop from
+        // unregistering the owner between record verification and the zero proof.
+        let registry = live_leases().lock().unwrap();
+        let Some(lease) = registry.get(&leaf.join(".lease")).and_then(Weak::upgrade) else {
             return Ok(false);
-        }
+        };
+        let mut lease_file = lease.lock().unwrap();
+        read_complete_lease_record(&mut lease_file)?;
+        after_record();
+
+        authoritative_directory_information(root)?;
+        authoritative_directory_information(&leaf)?;
         let mut parent = path.parent();
         while let Some(dir) = parent {
             if dir == leaf {
                 break;
             }
-            if !check_no_reparse(dir)?.is_dir() {
-                return Err(io::Error::other(
-                    "SPA profile lock ancestor is not a directory",
-                ));
-            }
+            authoritative_directory_information(dir)?;
             parent = dir.parent();
         }
-        let metadata = check_no_reparse(path)?;
-        if !metadata.is_file() {
+        let info = final_metadata(path)?;
+        if info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY) != 0 {
             return Err(io::Error::other("SPA profile lock is not a regular file"));
         }
-        Ok(metadata.len() == 0)
+        let empty = info.nFileSizeHigh == 0 && info.nFileSizeLow == 0;
+        drop(lease_file);
+        drop(registry);
+        Ok(empty)
+    }
+
+    struct MetadataHandle(HANDLE);
+
+    impl Drop for MetadataHandle {
+        fn drop(&mut self) {
+            unsafe { CloseHandle(self.0) };
+        }
+    }
+
+    fn authoritative_file_information(path: &Path) -> io::Result<BY_HANDLE_FILE_INFORMATION> {
+        let wide_path = wide(path.as_os_str());
+        let raw = unsafe {
+            CreateFileW(
+                wide_path.as_ptr(),
+                0,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+                std::ptr::null_mut(),
+            )
+        };
+        if raw == INVALID_HANDLE_VALUE {
+            return Err(io::Error::last_os_error());
+        }
+        let handle = MetadataHandle(raw);
+        let mut info = BY_HANDLE_FILE_INFORMATION::default();
+        if unsafe { GetFileInformationByHandle(handle.0, &mut info) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(info)
+    }
+
+    fn authoritative_directory_information(path: &Path) -> io::Result<()> {
+        let info = authoritative_file_information(path)?;
+        if info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+            || info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY == 0
+        {
+            return Err(io::Error::other(
+                "SPA profile lock ancestor is not a regular directory",
+            ));
+        }
+        Ok(())
     }
 
     /// Waits within the caller's deadline until this newly owned lease has a
@@ -1078,6 +1153,109 @@ mod windows {
             file.write_all(&pid.to_le_bytes()).unwrap();
             file.write_all(&created.to_le_bytes()).unwrap();
             file.sync_all().unwrap();
+        }
+
+        #[test]
+        fn authoritative_failure_does_not_use_available_cached_zero() {
+            use std::os::windows::fs::OpenOptionsExt;
+
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            record(&profile, 7, 11);
+            let path = profile.path().join("LOCK");
+            fs::write(&path, b"").unwrap();
+            assert_eq!(fs::symlink_metadata(&path).unwrap().len(), 0);
+            let held = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .share_mode(0)
+                .open(&path)
+                .unwrap();
+            let result = prove_empty_owned_browser_lock_with(
+                &root,
+                &path,
+                || {},
+                |_| Err(io::Error::other("authoritative metadata unavailable")),
+            );
+            assert!(result.is_err());
+            drop(held);
+            drop(profile);
+        }
+
+        #[test]
+        fn exclusive_file_growth_before_handle_proof_rejects_empty_claim() {
+            use std::{io::Write, os::windows::fs::OpenOptionsExt};
+
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            record(&profile, 7, 11);
+            let path = profile.path().join("LOCK");
+            fs::write(&path, b"").unwrap();
+            assert_eq!(fs::symlink_metadata(&path).unwrap().len(), 0);
+            let mut held = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .share_mode(0)
+                .open(&path)
+                .unwrap();
+            let result = prove_empty_owned_browser_lock_with(
+                &root,
+                &path,
+                || held.write_all(b"synthetic payload").unwrap(),
+                authoritative_file_information,
+            );
+            assert_eq!(result.unwrap(), false);
+            drop(held);
+            drop(profile);
+        }
+
+        #[test]
+        fn lease_drop_waits_for_final_metadata_proof() {
+            use std::{os::windows::fs::OpenOptionsExt, sync::mpsc, time::Duration};
+
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            record(&profile, 7, 11);
+            let path = profile.path().join("LOCK");
+            fs::write(&path, b"").unwrap();
+            let held = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .share_mode(0)
+                .open(&path)
+                .unwrap();
+            let (record_tx, record_rx) = mpsc::channel();
+            let (drop_started_tx, drop_started_rx) = mpsc::channel();
+            let (drop_done_tx, drop_done_rx) = mpsc::channel();
+            let dropping = std::thread::spawn(move || {
+                record_rx.recv().unwrap();
+                drop_started_tx.send(()).unwrap();
+                drop(profile);
+                drop_done_tx.send(()).unwrap();
+            });
+            let proof = prove_empty_owned_browser_lock_with(
+                &root,
+                &path,
+                || {
+                    record_tx.send(()).unwrap();
+                    drop_started_rx.recv().unwrap();
+                    assert!(matches!(
+                        drop_done_rx.recv_timeout(Duration::from_millis(50)),
+                        Err(mpsc::RecvTimeoutError::Timeout)
+                    ));
+                },
+                |path| {
+                    assert!(drop_done_rx.try_recv().is_err());
+                    authoritative_file_information(path)
+                },
+            );
+            assert!(proof.unwrap());
+            dropping.join().unwrap();
+            assert!(drop_done_rx.recv_timeout(Duration::from_secs(1)).is_ok());
+            drop(held);
         }
 
         fn record_exited_browser(profile: &SpaProfileLease) {
