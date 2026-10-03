@@ -84,6 +84,28 @@ describe("tool naming and selection", () => {
     for (const m of mutations) assert.equal(byName(tools, m), undefined, m);
   });
 
+  it("models.scan, setOverride, removeManual, acknowledge are refused; models.list is opt-in", () => {
+    const forbidden = ["models.scan", "models.setOverride", "models.removeManual", "models.acknowledge"];
+    for (const m of forbidden) assert.ok(isForbiddenMethod(m), `${m} is forbidden`);
+    assert.equal(isForbiddenMethod("models.list"), false, "models.list is not forbidden");
+
+    const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
+    const fakeSchema = structuredClone(SCHEMA) as any;
+    for (const m of [...forbidden, "models.list"]) {
+      fakeCaps.methods[m] = { stability: "experimental", since: "1.5.0", server: "core" };
+      fakeSchema.$defs.methods[m] = { "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core", params: { type: "object", additionalProperties: false, properties: {} } };
+    }
+
+    const def = selectMethods({ capabilities: fakeCaps, schema: fakeSchema });
+    assert.ok(!def.includes("models.list"));
+
+    const tools = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include: forbidden });
+    for (const m of forbidden) assert.equal(byName(tools, m), undefined, m);
+
+    const toolsWithList = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include: ["models.list"] });
+    assert.ok(byName(toolsWithList, "models.list") !== undefined);
+  });
+
   it("ext.list and ext.inspect are not refused by the deny list", () => {
     for (const m of ["ext.list", "ext.inspect", "ext.show"]) assert.equal(isForbiddenMethod(m), false, m);
   });

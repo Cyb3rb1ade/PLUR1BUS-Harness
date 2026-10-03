@@ -82,9 +82,9 @@ describe("rpc-schema stability annotations", () => {
     }
   });
 
-  it("RPC_VERSION is 1.4.0 and matches the $id", () => {
-    assert.equal(RPC_VERSION, "1.4.0");
-    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.4.0/rpc.schema.json");
+  it("RPC_VERSION is 1.5.0 and matches the $id", () => {
+    assert.equal(RPC_VERSION, "1.5.0");
+    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.5.0/rpc.schema.json");
   });
 
   it("core.status journalReplay (1.3.0) is optional, closed and experimental", () => {
@@ -92,7 +92,7 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(d["x-stability"], "experimental"); assert.equal(d["x-since"], "1.3.0");
     assert.equal(d.additionalProperties, false);
     assert.ok(!(schema.$defs as any).CoreStatus.required.includes("journalReplay"));
-    const base = { process: { state: "ready", since: 1 }, contract: "1.9.0", rpc: "1.4.0", instanceId: "i", pid: 1, uptimeMs: 1, engine: { ready: true, degraded: null }, agents: [] };
+    const base = { process: { state: "ready", since: 1 }, contract: "1.9.0", rpc: "1.5.0", instanceId: "i", pid: 1, uptimeMs: 1, engine: { ready: true, degraded: null }, agents: [] };
     const replaying = { state: "replaying", replayed: 3, pendingRemoval: 3, kept: 0, passes: 0, startedAt: 1, finishedAt: null };
     assert.deepEqual(validateResult("core.status", base), { ok: true });
     assert.deepEqual(validateResult("core.status", { ...base, journalReplay: replaying }), { ok: true });
@@ -124,5 +124,24 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(m["core.status"].result, { $ref: "#/$defs/CoreStatus" });
     assert.deepEqual(m["core.adopt"].result.properties.status, { $ref: "#/$defs/CoreStatus" });
     assert.ok(schema.$defs.CoreStatus.properties.process);
+  });
+
+  it("models.* are core, experimental, since 1.5.0, closed", () => {
+    const modelMethods = ["models.list", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge"];
+    for (const name of modelMethods) {
+      const def = methods[name];
+      assert.ok(def, `${name} exists in methods`);
+      assert.equal((def as any)["x-server"], "core", `${name} x-server`);
+      assert.equal(def["x-stability"], "experimental", `${name} x-stability`);
+      assert.equal(def["x-since"], "1.5.0", `${name} x-since`);
+      assert.equal((def as any).params?.additionalProperties, false, `${name} params closed`);
+    }
+
+    const notif = notifications["models.changed"];
+    assert.ok(notif, "models.changed exists in notifications");
+    assert.equal((notif as any)["x-server"], "core", "models.changed x-server");
+    assert.equal(notif["x-stability"], "experimental", "models.changed x-stability");
+    assert.equal(notif["x-since"], "1.5.0", "models.changed x-since");
+    assert.equal((notif as any).additionalProperties, false, "models.changed params closed");
   });
 });

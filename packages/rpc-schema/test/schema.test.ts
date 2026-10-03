@@ -7,8 +7,8 @@ const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.install", 
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.4.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.4.0");
+  it("declares rpc 1.5.0 and the closed error enum", () => {
+    assert.equal(RPC_VERSION, "1.5.0");
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",

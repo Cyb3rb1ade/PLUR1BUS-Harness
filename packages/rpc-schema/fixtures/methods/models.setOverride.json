@@ -1,0 +1,27 @@
+{
+  "params": {
+    "provider": "example-compat",
+    "id": "example-chat-large",
+    "set": {
+      "displayName": "Custom Display Name",
+      "contextWindow": 200000
+    }
+  },
+  "result": {
+    "provider": "example-compat",
+    "id": "example-chat-large",
+    "displayName": "Custom Display Name",
+    "kind": "chat",
+    "contextWindow": 200000,
+    "capabilities": ["tools"],
+    "aliases": [],
+    "status": "available",
+    "firstSeen": "2026-10-03T12:00:00.000Z",
+    "lastSeen": "2026-10-03T12:00:00.000Z",
+    "source": "scan",
+    "overrides": {
+      "displayName": "Custom Display Name",
+      "contextWindow": 200000
+    }
+  }
+}

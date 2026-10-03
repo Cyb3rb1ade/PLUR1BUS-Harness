@@ -237,3 +237,15 @@ Plan X1 (`docs/superpowers/plans/2026-09-28-x1-extensions-from-file.md`, `feat/x
 **`1staid.check/1` ids stay append-only.** `extensions.integrity`, `extensions.consistency` and `extensions.revoked` are appended after `models.cache` (`CHECK_IDS` grows from 18 to 21).
 
 **The WebMCP deny list.** `ext.install`, `ext.uninstall`, `ext.restore`, `ext.enable`, `ext.disable` and `ext.update` were added to `FORBIDDEN_EXACT` in `packages/webmcp/src/provider.ts` (defence in depth: `ext.*` is `x-server: "supervisor"`, which `buildWebMcpTools` already skips). The upload endpoint and the UI are X3.
+
+## Implementation record (D112)
+
+Plan D112 (`docs/superpowers/plans/2026-10-03-d112-model-discovery.md`, `feat/d112-model-discovery`) adds model discovery, local catalog management, and model overrides. Everything below is additive under §2 and `experimental` under §4.
+
+**RPC 1.4.0 → 1.5.0.** One minor bump for the plan. The new core methods are `models.list`, `models.scan`, `models.setOverride`, `models.removeManual`, and `models.acknowledge`. New notification `models.changed` (`x-server: "core"`, `x-stability: "experimental"`, `x-since: "1.5.0"`). `jobs.run` and `jobs.history` are extended to support system jobs (`models.scan`). New `$defs`: `SystemJobRun`, `ModelEntry`, `ModelOverrides`, `ModelsList`, `ModelScanProviderResult`, `ModelScanOutcomeCode`, `ModelScanWarning`, `ModelScanErrorInfo`, `ModelKind`, `ModelCapability`, `ModelStatus`, `ModelSource`.
+
+**New CLI `schema` ids (G15).** `model.list/1`, `model.scan/1`, `model.override/1` (`crates/plur1bus/src/commands/model.rs`). Every new leaf's `about` starts with `[experimental] `.
+
+**`1staid.check/1` ids stay append-only.** `models.roles` is appended after `extensions.revoked` (`CHECK_IDS` grows from 21 to 22).
+
+**The WebMCP deny list.** `models.scan`, `models.setOverride`, `models.removeManual`, `models.acknowledge` were added to `FORBIDDEN_EXACT` in `packages/webmcp/src/provider.ts` so administrative model discovery operations are never exposed as WebMCP tools.

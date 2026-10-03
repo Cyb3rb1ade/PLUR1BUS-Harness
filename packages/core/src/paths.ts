@@ -23,6 +23,8 @@ export interface Layout {
   /** Written by the supervisor (S3): its RPC token and the nonce `core.adopt` proves. */
   supervisorSocket: string; supervisorToken: string; supervisorPid: string;
   logs: string; logFile(role: string): string; runtime: string; models: string; modules: string; skills: string;
+  /** D112: the model catalog directory and file, and the system jobs' ledger directory. */
+  catalog: string; catalogModels: string; systemJobs: string;
 }
 
 export function layout(home: string): Layout {
@@ -34,6 +36,7 @@ export function layout(home: string): Layout {
     run: j("run"), coreSocket: j("run", "core.sock"), coreToken: j("run", "core.token"), corePid: j("run", "core.pid"), coreLock: j("state", "core.lock"),
     supervisorSocket: j("run", "supervisor.sock"), supervisorToken: j("run", "supervisor.token"), supervisorPid: j("run", "supervisor.pid"),
     logs: j("logs"), logFile: (role) => j("logs", `${role}.log`), runtime: j("runtime"), models: j("models"), modules: j("modules"), skills: j("skills"),
+    catalog: j("catalog"), catalogModels: j("catalog", "models.json"), systemJobs: j("state", "system-jobs"),
   };
 }
 

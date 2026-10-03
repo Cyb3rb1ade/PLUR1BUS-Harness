@@ -143,4 +143,24 @@ describe("config-schema", () => {
     assert.equal(mk((c) => { c.extensions.limits.skillBytes = 1073741825; }), false);
     assert.equal(mk((c) => { c.extensions.bogus = 1; }), false);
   });
+
+  it("models.scan is live, advanced, with the D112 defaults", () => {
+    assert.equal(restartClassOf("models.scan.enabled"), "live");
+    assert.equal(restartClassOf("models.scan.intervalHours"), "live");
+    assert.equal(tierOf("models.scan.enabled"), "advanced");
+    assert.equal(tierOf("models.scan.intervalHours"), "advanced");
+    const d = defaults();
+    assert.deepEqual(d.models.scan, { enabled: true, intervalHours: 24 });
+    assert.equal(validate(d).ok, true);
+  });
+
+  it("models.scan refuses out-of-range intervalHours or unknown fields", () => {
+    const mk = (f: (c: any) => void) => { const c: any = defaults(); f(c); return validate(c).ok; };
+    assert.equal(mk((c) => { c.models.scan.intervalHours = 1; }), true);
+    assert.equal(mk((c) => { c.models.scan.intervalHours = 168; }), true);
+    assert.equal(mk((c) => { c.models.scan.intervalHours = 0; }), false);
+    assert.equal(mk((c) => { c.models.scan.intervalHours = 169; }), false);
+    assert.equal(mk((c) => { c.models.scan.bogus = 1; }), false);
+    assert.equal(mk((c) => { c.models.bogus = 1; }), false);
+  });
 });

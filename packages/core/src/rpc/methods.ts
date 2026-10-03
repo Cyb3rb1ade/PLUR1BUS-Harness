@@ -3,6 +3,7 @@ import type { HarnessConfig } from "@plur1bus/config-schema";
 import type {
   AgentCloseParams, AgentOpenParams, AgentStatusParams, CallerIdentity, CoreAdoptParams, CoreShutdownParams, CoreStatusResult, JobsHistoryParams, JobsRunParams,
   MemoryCaptureParams, MemoryCaptureResult, MemoryCheckpointParams, MemoryCheckpointResult, MemoryRecallParams, MemoryRecallResult,
+  ModelsAcknowledgeParams, ModelsListParams, ModelsRemoveManualParams, ModelsScanParams, ModelsSetOverrideParams,
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
 import { buildAdminMethods } from "../admin-ops.ts";
@@ -11,8 +12,31 @@ import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
+import { CatalogError } from "../discovery/overrides.ts";
+import { CatalogWriteError } from "../discovery/catalog-store.ts";
 import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
+
+function mapDiscoveryError(err: unknown): never {
+  if (err instanceof CatalogError) {
+    if (err.code === "invalid") {
+      throw new RpcError("E_INVALID_PARAMS", err.message, err.field !== undefined ? { detail: err.field } : {});
+    }
+    if (err.code === "conflict") {
+      throw new RpcError("E_CONFLICT", err.message);
+    }
+    if (err.code === "not-found") {
+      throw new RpcError("E_NOT_FOUND", err.message);
+    }
+    if (err.code === "not-manual") {
+      throw new RpcError("E_INVALID_PARAMS", err.message, { reason: "not-manual" });
+    }
+  }
+  if (err instanceof CatalogWriteError) {
+    throw new RpcError("E_STORAGE", err.message, { reason: "catalog-write-failed" });
+  }
+  throw err;
+}
 
 export interface MethodDeps {
   /** The running configuration, read per use: `core.recall.*` and `core.capture.waitMs` are live keys. */
@@ -26,6 +50,10 @@ export interface MethodDeps {
   adopt: (nonce: string, connectionId: string) => CoreStatusResult;
   /** After an applied `admin.migrate`: refreshes `core.status.engine.storeSchema`. */
   onMigrated: () => void | Promise<void>;
+  /** D112: harness-side system jobs registry. */
+  systemJobs?: import("../system-jobs/index.ts").SystemJobs;
+  /** D112: model discovery service. */
+  discovery?: import("../discovery/service.ts").DiscoveryService;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -56,12 +84,14 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
   const openAgents = new Map<string, { close(): Promise<void> }>(); // one map per core
 
   const runJob = async (p: JobsRunParams, signal: AbortSignal): Promise<JobRun> => {
-    requireAgent(d.agents, p.agentId);
+    if (!p.agentId) throw new RpcError("E_INVALID_PARAMS", "agentId is required for agent jobs", { detail: "agentId" });
+    const agentId = p.agentId;
+    requireAgent(d.agents, agentId);
     const spec = d.engine.jobs.list().find((j) => j.name === p.job);
     if (!spec) throw new RpcError("E_INVALID_PARAMS", `unknown job ${p.job}`, { detail: "job" });
-    d.activity.set(p.agentId, spec.phase ? { state: "dreaming", phase: spec.phase, job: spec.name } : { state: "maintenance", job: spec.name });
-    try { return await d.engine.jobs.run(spec.name, p.agentId, { signal, trigger: "harness", ...(p.dryRun !== undefined ? { dryRun: p.dryRun } : {}) }); }
-    finally { d.activity.idle(p.agentId); }
+    d.activity.set(agentId, spec.phase ? { state: "dreaming", phase: spec.phase, job: spec.name } : { state: "maintenance", job: spec.name });
+    try { return await d.engine.jobs.run(spec.name, agentId, { signal, trigger: "harness", ...(p.dryRun !== undefined ? { dryRun: p.dryRun } : {}) }); }
+    finally { d.activity.idle(agentId); }
   };
 
   return {
@@ -154,11 +184,103 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       return { agentId: p.agentId, open: openAgents.has(p.agentId), activity: d.activity.get(p.agentId), workspace, lastJobs };
     },
 
-    "jobs.list": async () => ({ jobs: d.engine.jobs.list() }),
-    "jobs.run": async (p: JobsRunParams, ctx) => runJob(p, ctx.signal),
+    "jobs.list": async (p?: { kind?: "agent" | "system" | "all" }) => {
+      if (p?.kind === "system") {
+        return { jobs: d.systemJobs ? d.systemJobs.list() : [] };
+      }
+      if (p?.kind === "all") {
+        return { jobs: [...d.engine.jobs.list(), ...(d.systemJobs ? d.systemJobs.list() : [])] };
+      }
+      return { jobs: d.engine.jobs.list() };
+    },
+    "jobs.run": async (p: JobsRunParams, ctx) => {
+      if (d.systemJobs?.has(p.job)) {
+        if (p.agentId !== undefined) {
+          throw new RpcError("E_INVALID_PARAMS", "agentId is not allowed for system jobs", { detail: "agentId" });
+        }
+        const { record } = await d.systemJobs.run(p.job, (p as any).args, { trigger: "manual", signal: ctx.signal });
+        return record as any;
+      }
+      if (!p.agentId) {
+        throw new RpcError("E_INVALID_PARAMS", "agentId is required for agent jobs", { detail: "agentId" });
+      }
+      return runJob(p, ctx.signal);
+    },
     "jobs.history": async (p: JobsHistoryParams) => {
+      if (!p.agentId) {
+        return {
+          runs: d.systemJobs
+            ? d.systemJobs.history({
+                ...(p.job ? { job: p.job } : {}),
+                ...(p.since !== undefined ? { since: p.since } : {}),
+                ...(p.limit !== undefined ? { limit: p.limit } : {}),
+              })
+            : [],
+        };
+      }
+      if (d.systemJobs?.has(p.job!)) {
+        return { runs: [] };
+      }
       requireAgent(d.agents, p.agentId);
-      return { runs: await d.engine.jobs.history(p.agentId, { ...(p.job ? { job: p.job as JobName } : {}), ...(p.since !== undefined ? { since: p.since } : {}), ...(p.limit !== undefined ? { limit: p.limit } : {}) }) };
+      return {
+        runs: await d.engine.jobs.history(p.agentId, {
+          ...(p.job ? { job: p.job as JobName } : {}),
+          ...(p.since !== undefined ? { since: p.since } : {}),
+          ...(p.limit !== undefined ? { limit: p.limit } : {}),
+        }),
+      };
+    },
+
+    "models.list": async (p: ModelsListParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      return await d.discovery.list(p ?? {});
+    },
+    "models.scan": async (p: ModelsScanParams, ctx) => {
+      if (!d.systemJobs) throw new RpcError("E_INTERNAL", "system jobs unavailable");
+      const args: Record<string, unknown> = {};
+      if (p?.provider !== undefined) args.provider = p.provider;
+      const { record, detail } = await d.systemJobs.run("models.scan", args, { trigger: "manual", signal: ctx.signal });
+      return {
+        startedAt: new Date(record.startedAt).toISOString(),
+        finishedAt: new Date(record.finishedAt).toISOString(),
+        providers: (detail as any) ?? [],
+      };
+    },
+    "models.setOverride": async (p: ModelsSetOverrideParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      if (!d.discovery.hasProfile(p.provider)) {
+        throw new RpcError("E_INVALID_PARAMS", `unknown provider: ${p.provider}`, {
+          reason: "unknown-provider",
+          detail: "provider",
+        });
+      }
+      try {
+        return await d.discovery.setOverride(p as any);
+      } catch (err) {
+        mapDiscoveryError(err);
+      }
+    },
+    "models.removeManual": async (p: ModelsRemoveManualParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      if (!d.discovery.hasProfile(p.provider)) {
+        throw new RpcError("E_INVALID_PARAMS", `unknown provider: ${p.provider}`, {
+          reason: "unknown-provider",
+          detail: "provider",
+        });
+      }
+      try {
+        return await d.discovery.removeManual(p.provider, p.id);
+      } catch (err) {
+        mapDiscoveryError(err);
+      }
+    },
+    "models.acknowledge": async (_p: ModelsAcknowledgeParams) => {
+      if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
+      try {
+        return await d.discovery.acknowledge();
+      } catch (err) {
+        mapDiscoveryError(err);
+      }
     },
   };
 }

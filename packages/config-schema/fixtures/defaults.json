@@ -39,5 +39,11 @@
   "oauth": {},
   "decision": {},
   "modelRoles": {},
+  "models": {
+    "scan": {
+      "enabled": true,
+      "intervalHours": 24
+    }
+  },
   "modules": {}
 }

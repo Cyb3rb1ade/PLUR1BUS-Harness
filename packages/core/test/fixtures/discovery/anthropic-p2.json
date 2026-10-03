@@ -1,0 +1,15 @@
+{
+  "_source": "https://platform.claude.com/docs/en/api/models/list read 2026-10-03",
+  "data": [
+    {
+      "type": "model",
+      "id": "example-claude-3-haiku",
+      "display_name": "Example Claude 3 Haiku",
+      "created_at": "2026-03-01T00:00:00Z",
+      "max_input_tokens": 200000
+    }
+  ],
+  "has_more": false,
+  "first_id": "example-claude-3-haiku",
+  "last_id": "example-claude-3-haiku"
+}

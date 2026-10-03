@@ -42,6 +42,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -85,6 +91,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "expected": {
@@ -141,6 +153,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -186,6 +204,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "expected": {
@@ -242,6 +266,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -289,6 +319,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "expected": {
@@ -351,6 +387,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -394,6 +436,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "expected": {
@@ -456,6 +504,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -503,6 +557,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "expected": {
@@ -563,6 +623,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -610,6 +676,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "expected": {
@@ -668,6 +740,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -711,6 +789,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "expected": {
@@ -770,6 +854,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {
         "fixture": {
           "enabled": true,
@@ -818,6 +908,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {
         "fixture": {
           "enabled": true,
@@ -881,6 +977,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -924,6 +1026,12 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "models": {
+        "scan": {
+          "enabled": true,
+          "intervalHours": 24
+        }
+      },
       "modules": {
         "fixture-b": {
           "enabled": true

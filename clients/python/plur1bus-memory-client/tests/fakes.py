@@ -67,7 +67,7 @@ class FakeCore:
         *,
         token: str | None = None,
         pid: int | None = None,
-        rpc: str = "1.4.0",
+        rpc: str = "1.5.0",
         capabilities: dict | None = None,
         handlers: dict[str, Any] | None = None,
         log_path: str | None = None,
@@ -251,7 +251,7 @@ def _write(path: str, text: str) -> None:
 class FakeCoreProcess:
     """The fake core in a child process, so a restart really changes the server pid."""
 
-    def __init__(self, home: str, *, token: str | None = None, rpc: str = "1.4.0") -> None:
+    def __init__(self, home: str, *, token: str | None = None, rpc: str = "1.5.0") -> None:
         self.home = home
         self.token = token or secrets.token_hex(32)
         self.rpc = rpc
@@ -304,7 +304,7 @@ class FakeCoreProcess:
 
 def _main(argv: list[str]) -> int:
     home, token = argv[0], argv[1]
-    rpc = argv[2] if len(argv) > 2 else "1.4.0"
+    rpc = argv[2] if len(argv) > 2 else "1.5.0"
     core = FakeCore(home, token=token, rpc=rpc, log_path=os.path.join(home, "fake-core.log")).start()
     print("ready", flush=True)
     try:

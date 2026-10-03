@@ -1,0 +1,9 @@
+{
+  "params": {
+    "provider": "example-compat",
+    "id": "my-manual-model"
+  },
+  "result": {
+    "removed": true
+  }
+}

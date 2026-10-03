@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.4.0)
+# RPC reference (rpc 1.5.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -1361,7 +1361,16 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 {
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "kind": {
+      "enum": [
+        "agent",
+        "system",
+        "all"
+      ],
+      "description": "Filter jobs by kind. Defaults to 'agent'."
+    }
+  }
 }
 ```
 
@@ -1401,6 +1410,34 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
               "rem",
               "deep"
             ]
+          },
+          "kind": {
+            "enum": [
+              "agent",
+              "system"
+            ]
+          },
+          "schedule": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "every",
+              "jitter"
+            ],
+            "properties": {
+              "every": {
+                "type": "integer"
+              },
+              "jitter": {
+                "type": "number"
+              }
+            }
+          },
+          "nextRunAt": {
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         }
       }
@@ -1422,7 +1459,6 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "agentId",
     "job"
   ],
   "properties": {
@@ -1434,6 +1470,9 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
     },
     "dryRun": {
       "type": "boolean"
+    },
+    "args": {
+      "type": "object"
     }
   }
 }
@@ -1443,7 +1482,14 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 ```json
 {
-  "$ref": "#/$defs/JobRun"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/JobRun"
+    },
+    {
+      "$ref": "#/$defs/SystemJobRun"
+    }
+  ]
 }
 ```
 
@@ -1459,9 +1505,6 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 {
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "agentId"
-  ],
   "properties": {
     "agentId": {
       "$ref": "#/$defs/AgentId"
@@ -1494,7 +1537,14 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
     "runs": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/JobRun"
+        "oneOf": [
+          {
+            "$ref": "#/$defs/JobRun"
+          },
+          {
+            "$ref": "#/$defs/SystemJobRun"
+          }
+        ]
       }
     }
   }
@@ -3601,6 +3651,266 @@ Returns every installed extension and subscribes this connection to ext.changed.
 }
 ```
 
+### `models.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Lists models in the catalog, provider scan states, new model count, and warnings (D112).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ModelKind"
+    },
+    "status": {
+      "$ref": "#/$defs/CatalogModelStatus"
+    },
+    "newOnly": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "models",
+    "providers",
+    "newCount",
+    "warnings"
+  ],
+  "properties": {
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelEntry"
+      }
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelProviderState"
+      }
+    },
+    "newCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelScanWarning"
+      }
+    }
+  }
+}
+```
+
+### `models.scan`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Scans configured providers for available models, updating the catalog (D112).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "provider": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "startedAt",
+    "finishedAt",
+    "providers"
+  ],
+  "properties": {
+    "startedAt": {
+      "type": "string"
+    },
+    "finishedAt": {
+      "type": "string"
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelScanProviderResult"
+      }
+    }
+  }
+}
+```
+
+### `models.setOverride`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets or clears metadata overrides for a model, or creates a manual model entry (D112).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "id"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "set": {
+      "$ref": "#/$defs/ModelOverrides"
+    },
+    "clear": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string",
+          "enum": [
+            "all"
+          ]
+        }
+      ]
+    },
+    "create": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ModelEntry"
+}
+```
+
+### `models.removeManual`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Removes a manual model entry from the catalog (D112).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "id"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "removed"
+  ],
+  "properties": {
+    "removed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `models.acknowledge`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Acknowledges newly discovered models, clearing the new-models indicator (D112).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "acknowledgedAt"
+  ],
+  "properties": {
+    "acknowledgedAt": {
+      "type": "string"
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
@@ -4188,6 +4498,58 @@ An extension's kind, state, version or overlays changed (install, uninstall, res
       "items": {
         "$ref": "#/$defs/ExtOverlay"
       }
+    }
+  }
+}
+```
+
+### `models.changed`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Emitted when a scan or manual change alters available models in the catalog (D112).
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "description": "Emitted when a scan or manual change alters available models in the catalog (D112).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "discovered",
+    "reappeared",
+    "unavailable",
+    "at"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "discovered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reappeared": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unavailable": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "at": {
+      "type": "string"
     }
   }
 }
@@ -5568,6 +5930,64 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `SystemJobRun`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "job",
+    "kind",
+    "trigger",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "outcome",
+    "attempt"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "job": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "system"
+    },
+    "trigger": {
+      "$ref": "#/$defs/JobTrigger"
+    },
+    "startedAt": {
+      "type": "integer"
+    },
+    "finishedAt": {
+      "type": "integer"
+    },
+    "durationMs": {
+      "type": "integer"
+    },
+    "outcome": {
+      "$ref": "#/$defs/JobOutcome"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "runningRunId": {
+      "type": "string"
+    },
+    "attempt": {
+      "type": "integer"
+    },
+    "args": {
+      "type": "object"
+    }
+  }
+}
+```
+
 ### `Stability`
 
 ```json
@@ -6379,6 +6799,372 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "string",
         "null"
       ]
+    }
+  }
+}
+```
+
+### `ModelKind`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "chat",
+    "embedding",
+    "tts",
+    "asr",
+    "image",
+    "moderation",
+    "rerank",
+    "realtime",
+    "unknown"
+  ]
+}
+```
+
+### `ModelCapability`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "tools",
+    "vision",
+    "reasoning",
+    "audio_in",
+    "audio_out",
+    "structured_output",
+    "prompt_caching"
+  ]
+}
+```
+
+### `CatalogModelStatus`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "available",
+    "unavailable",
+    "manual"
+  ]
+}
+```
+
+### `ModelOverrides`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "displayName": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ModelKind"
+    },
+    "contextWindow": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelCapability"
+      }
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `ModelEntry`
+
+```json
+{
+  "description": "One model in the harness catalog (D112).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "id",
+    "displayName",
+    "kind",
+    "capabilities",
+    "aliases",
+    "status",
+    "firstSeen",
+    "lastSeen",
+    "source",
+    "overrides"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ModelKind"
+    },
+    "contextWindow": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelCapability"
+      }
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "$ref": "#/$defs/CatalogModelStatus"
+    },
+    "firstSeen": {
+      "type": "string"
+    },
+    "lastSeen": {
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "scan",
+        "table",
+        "manual"
+      ]
+    },
+    "overrides": {
+      "$ref": "#/$defs/ModelOverrides"
+    }
+  }
+}
+```
+
+### `ModelScanResultCode`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "ok",
+    "failed:auth",
+    "failed:network",
+    "failed:server",
+    "failed:invalid",
+    "failed:empty"
+  ]
+}
+```
+
+### `ModelProviderState`
+
+```json
+{
+  "description": "Scan state of one model provider (D112).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "lastScanAt": {
+      "type": "string"
+    },
+    "lastResult": {
+      "$ref": "#/$defs/ModelScanResultCode"
+    },
+    "nextScanAt": {
+      "type": "string"
+    },
+    "consecutiveFailures": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `ModelScanWarning`
+
+```json
+{
+  "description": "Warning from a model scan or catalog state (D112).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code"
+  ],
+  "properties": {
+    "code": {
+      "enum": [
+        "role_unavailable",
+        "shadowed_by_manual",
+        "empty_list"
+      ]
+    },
+    "role": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `ModelScanOutcomeCode`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "ok",
+    "failed:auth",
+    "failed:network",
+    "failed:server",
+    "failed:invalid",
+    "failed:empty",
+    "already_running",
+    "disabled",
+    "no-scanner"
+  ]
+}
+```
+
+### `ModelScanErrorInfo`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "reason",
+    "retryable",
+    "hint"
+  ],
+  "properties": {
+    "code": {
+      "enum": [
+        "auth",
+        "network",
+        "timeout",
+        "server",
+        "rate-limited",
+        "invalid-request"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "hint": {
+      "type": "string"
+    },
+    "httpStatus": {
+      "type": "integer"
+    },
+    "retryAfterS": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `ModelScanProviderResult`
+
+```json
+{
+  "description": "Outcome of scanning one provider (D112).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "result",
+    "new",
+    "reappeared",
+    "unavailable",
+    "unchanged",
+    "duplicates",
+    "warnings",
+    "nextScanAt"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "result": {
+      "$ref": "#/$defs/ModelScanOutcomeCode"
+    },
+    "runningRunId": {
+      "type": "string"
+    },
+    "new": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reappeared": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unavailable": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unchanged": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "duplicates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelScanWarning"
+      }
+    },
+    "nextScanAt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "error": {
+      "$ref": "#/$defs/ModelScanErrorInfo"
     }
   }
 }
