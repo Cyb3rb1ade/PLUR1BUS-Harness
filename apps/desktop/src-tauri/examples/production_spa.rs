@@ -48,6 +48,10 @@ fn other_window_probe_script() -> &'static str {
     r#"(async()=>{const blocked=(await fetch(location.href)).status===403;let acl=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});})()"#
 }
 
+fn retirement_observer_probe_script() -> &'static str {
+    "(async()=>{let denied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){denied=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='ACL:'+JSON.stringify({actualAclDenied:denied});})()"
+}
+
 fn main() {
     progress("starting");
     const { assert!(cfg!(debug_assertions), "debug-only fixture") };
@@ -383,7 +387,11 @@ async fn finish(
     }
     let handle = app.clone();
     let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(proxy.origin().as_str().parse().unwrap())).incognito(true)
-        .initialization_script("addEventListener('DOMContentLoaded',async()=>{let denied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){denied=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='ACL:'+JSON.stringify({actualAclDenied:denied});});")
+        .on_page_load(|webview, payload| {
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                let _ = webview.eval(retirement_observer_probe_script());
+            }
+        })
         .on_document_title_changed(move|_,title|{
             let Some(acl)=title.strip_prefix("ACL:").and_then(|v|serde_json::from_str::<Value>(v).ok())else{return};progress("audit");let (secret_on_disk,cookie_files)=audit(&PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap()),&known.lock().unwrap());assert!(!secret_on_disk&&cookie_files==0,"native disk audit failed");
             let report=json!({"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*results.lock().unwrap(),"retirement":acl,"negativeControls":*negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":secret_on_disk,"cookieDatabaseFiles":cookie_files});let bytes=serde_json::to_vec_pretty(&report).unwrap();assert!(!contains_secret(&bytes,&known.lock().unwrap()),"secret in public report");std::fs::write(&output,bytes).unwrap();handle.exit(0);
