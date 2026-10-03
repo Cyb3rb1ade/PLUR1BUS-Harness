@@ -12,6 +12,11 @@ fn owned_leaf_name(name: &str) -> bool {
         && name[PREFIX.len()..].bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+#[cfg(any(windows, test))]
+fn known_browser_lock_name(name: &std::ffi::OsStr) -> bool {
+    name == std::ffi::OsStr::new("LOCK")
+}
+
 #[cfg(windows)]
 /// Returns true only for an immediate, random-named leaf of the owned SPA root.
 pub fn is_owned_profile_path(root: &Path, path: &Path) -> bool {
@@ -24,7 +29,7 @@ pub fn is_owned_profile_path(root: &Path, path: &Path) -> bool {
 
 #[cfg(windows)]
 mod windows {
-    use super::{owned_leaf_name, Path, PathBuf, PREFIX};
+    use super::{known_browser_lock_name, owned_leaf_name, Path, PathBuf, PREFIX};
     use rand::{rngs::OsRng, TryRngCore};
     use std::{
         collections::HashMap,
@@ -132,6 +137,50 @@ mod windows {
             return Err(io::Error::other("incomplete SPA lease record"));
         }
         Ok(Some(bytes))
+    }
+
+    /// A sharing-locked exact LevelDB LOCK file has no payload only when its
+    /// current owned profile and no-reparse regular-file metadata prove size zero.
+    /// The caller must first attempt an ordinary read and see a sharing violation.
+    pub fn prove_empty_owned_browser_lock(root: &Path, path: &Path) -> io::Result<bool> {
+        if !path.file_name().is_some_and(known_browser_lock_name) {
+            return Ok(false);
+        }
+        let Ok(relative) = path.strip_prefix(root) else {
+            return Ok(false);
+        };
+        let mut parts = relative.components();
+        let Some(std::path::Component::Normal(leaf_name)) = parts.next() else {
+            return Ok(false);
+        };
+        if parts.any(|part| !matches!(part, std::path::Component::Normal(_))) {
+            return Ok(false);
+        }
+        let leaf = root.join(leaf_name);
+        if !super::is_owned_profile_path(root, &leaf) || path.parent() == Some(root) {
+            return Ok(false);
+        }
+        validate_owned_path(root, &leaf)?;
+        if read_owned_lease(&leaf.join(".lease"))?.is_none() {
+            return Ok(false);
+        }
+        let mut parent = path.parent();
+        while let Some(dir) = parent {
+            if dir == leaf {
+                break;
+            }
+            if !check_no_reparse(dir)?.is_dir() {
+                return Err(io::Error::other(
+                    "SPA profile lock ancestor is not a directory",
+                ));
+            }
+            parent = dir.parent();
+        }
+        let metadata = check_no_reparse(path)?;
+        if !metadata.is_file() {
+            return Err(io::Error::other("SPA profile lock is not a regular file"));
+        }
+        Ok(metadata.len() == 0)
     }
 
     /// Waits within the caller's deadline until this newly owned lease has a
@@ -1413,7 +1462,15 @@ pub use windows::*;
 
 #[cfg(test)]
 mod tests {
-    use super::owned_leaf_name;
+    use super::{known_browser_lock_name, owned_leaf_name};
+
+    #[test]
+    fn only_exact_leveldb_lock_name_can_use_empty_metadata_proof() {
+        assert!(known_browser_lock_name(std::ffi::OsStr::new("LOCK")));
+        for name in ["lock", "SingletonLock", "other.lock", "Cookies", ".lease"] {
+            assert!(!known_browser_lock_name(std::ffi::OsStr::new(name)));
+        }
+    }
 
     #[test]
     fn only_random_leaves_are_sweep_candidates() {

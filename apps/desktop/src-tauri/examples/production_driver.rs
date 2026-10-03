@@ -54,6 +54,8 @@ enum AuditFailureTarget {
     Lease,
     CookieDatabase,
     BrowserLock,
+    BrowserSingletonLock,
+    BrowserExtensionLock,
     StorageFile,
     CacheFile,
     OtherFile,

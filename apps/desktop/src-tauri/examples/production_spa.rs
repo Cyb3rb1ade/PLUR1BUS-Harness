@@ -65,6 +65,8 @@ enum AuditFailureTarget {
     Lease,
     CookieDatabase,
     BrowserLock,
+    BrowserSingletonLock,
+    BrowserExtensionLock,
     StorageFile,
     CacheFile,
     OtherFile,
@@ -2607,7 +2609,20 @@ fn parse_secondary_result(raw: &str) -> SecondaryProbeResult {
     serde_json::from_str(raw).unwrap_or_else(|_| SecondaryProbeResult::unavailable())
 }
 
-struct FilesystemAuditReader;
+#[derive(Default)]
+struct FilesystemAuditReader {
+    #[cfg(windows)]
+    native_profile_root: Option<PathBuf>,
+}
+
+#[cfg(windows)]
+impl FilesystemAuditReader {
+    fn with_profile_root(native_profile_root: Option<PathBuf>) -> Self {
+        Self {
+            native_profile_root,
+        }
+    }
+}
 
 fn classify_file_read_error(error: &std::io::Error) -> AuditFailureCategory {
     #[cfg(windows)]
@@ -2687,7 +2702,25 @@ impl AuditReader for FilesystemAuditReader {
         {
             return Ok(record);
         }
-        std::fs::read(path).map_err(|error| classify_file_read_error(&error))
+        match std::fs::read(path) {
+            Ok(bytes) => Ok(bytes),
+            Err(error) => {
+                let category = classify_file_read_error(&error);
+                #[cfg(windows)]
+                if category == AuditFailureCategory::FileReadSharing {
+                    if let Some(root) = self.native_profile_root.as_deref() {
+                        if plur1bus_desktop::windows_spa_profile::prove_empty_owned_browser_lock(
+                            root, path,
+                        )
+                        .map_err(|_| AuditFailureCategory::Metadata)?
+                        {
+                            return Ok(Vec::new());
+                        }
+                    }
+                }
+                Err(category)
+            }
+        }
     }
 
     fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, AuditFailureCategory> {
@@ -2736,8 +2769,12 @@ fn failure_target_for_file(path: &std::path::Path) -> AuditFailureTarget {
         AuditFailureTarget::Lease
     } else if is_cookie_database(path) {
         AuditFailureTarget::CookieDatabase
-    } else if name == "lock" || name == "singletonlock" || name.ends_with(".lock") {
+    } else if path.file_name() == Some(std::ffi::OsStr::new("LOCK")) {
         AuditFailureTarget::BrowserLock
+    } else if name == "singletonlock" {
+        AuditFailureTarget::BrowserSingletonLock
+    } else if name == "lock" || name.ends_with(".lock") {
+        AuditFailureTarget::BrowserExtensionLock
     } else if matches!(
         path.extension().and_then(|value| value.to_str()),
         Some("ldb" | "sst" | "db" | "sqlite" | "sqlite3")
@@ -2759,7 +2796,6 @@ fn failure_target_for_file(path: &std::path::Path) -> AuditFailureTarget {
 
 #[cfg(not(target_os = "linux"))]
 fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
-    let mut reader = FilesystemAuditReader;
     #[cfg(windows)]
     let native_profile_root = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
@@ -2768,6 +2804,10 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     let native_profile_root = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR")
         .map(PathBuf::from)
         .map(|path| path.join("native-profile"));
+    #[cfg(windows)]
+    let mut reader = FilesystemAuditReader::with_profile_root(native_profile_root.clone());
+    #[cfg(not(windows))]
+    let mut reader = FilesystemAuditReader::default();
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
 }
 
@@ -2819,7 +2859,7 @@ fn audit_until(
         .map(PathBuf::from)
         .map(|path| path.join("native-profile"));
     let mut reader = DeadlineAuditReader {
-        inner: FilesystemAuditReader,
+        inner: FilesystemAuditReader::default(),
         deadline,
     };
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
@@ -4044,6 +4084,131 @@ mod tests {
         drop(held);
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn owned_zero_byte_lock_uses_metadata_but_other_locked_files_fail() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        for (name, contents, expected_clean) in [
+            ("LOCK", b"".as_slice(), true),
+            ("LOCK", b"secret-like fixture bytes".as_slice(), false),
+            ("unknown.lock", b"".as_slice(), false),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile =
+                plur1bus_desktop::windows_spa_profile::create_in_fixture_root(&root).unwrap();
+            plur1bus_desktop::windows_spa_profile::record_fixture_identity(&profile, 7, 11)
+                .unwrap();
+            let lock_path = profile.path().join(name);
+            std::fs::write(&lock_path, contents).unwrap();
+            let held = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .share_mode(0)
+                .open(&lock_path)
+                .unwrap();
+            let mut reader = super::FilesystemAuditReader::with_profile_root(Some(root.clone()));
+            let observation = super::audit_with_reader_and_profile_root(
+                profile.path(),
+                &[],
+                &mut reader,
+                Some(&root),
+            );
+            assert_eq!(observation.live_clean(), expected_clean, "{name}");
+            assert_eq!(observation.audit_complete, expected_clean, "{name}");
+            if !expected_clean {
+                assert_eq!(observation.read_failures, 1);
+                assert_eq!(
+                    observation.failure_category,
+                    AuditFailureCategory::FileReadSharing
+                );
+                assert_eq!(
+                    observation.failure_target,
+                    if name == "LOCK" {
+                        AuditFailureTarget::BrowserLock
+                    } else {
+                        AuditFailureTarget::BrowserExtensionLock
+                    }
+                );
+            }
+            drop(held);
+            drop(profile);
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn cookie_query_and_metadata_errors_cannot_be_proven_empty() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("spa-tmp");
+        let profile = plur1bus_desktop::windows_spa_profile::create_in_fixture_root(&root).unwrap();
+        plur1bus_desktop::windows_spa_profile::record_fixture_identity(&profile, 7, 11).unwrap();
+        let cookie_path = profile.path().join("Cookies");
+        std::fs::write(&cookie_path, b"").unwrap();
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .share_mode(0)
+            .open(&cookie_path)
+            .unwrap();
+        let mut reader = super::FilesystemAuditReader::with_profile_root(Some(root.clone()));
+        let observation = super::audit_with_reader_and_profile_root(
+            profile.path(),
+            &[],
+            &mut reader,
+            Some(&root),
+        );
+        assert!(!observation.live_clean());
+        assert!(!observation.cookie_read_only_complete);
+        assert_eq!(observation.cookie_database_files, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::CookieQuery
+        );
+        drop(held);
+
+        let missing = profile.path().join("missing").join("LOCK");
+        assert!(
+            plur1bus_desktop::windows_spa_profile::prove_empty_owned_browser_lock(&root, &missing)
+                .is_err()
+        );
+        drop(profile);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn zero_byte_lock_without_live_owned_lease_remains_unreadable() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("spa-tmp");
+        let profile = plur1bus_desktop::windows_spa_profile::create_in_fixture_root(&root).unwrap();
+        plur1bus_desktop::windows_spa_profile::record_fixture_identity(&profile, 7, 11).unwrap();
+        let path = profile.path().to_path_buf();
+        let lock_path = path.join("LOCK");
+        std::fs::write(&lock_path, b"").unwrap();
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .share_mode(0)
+            .open(&lock_path)
+            .unwrap();
+        drop(profile);
+        let mut reader = super::FilesystemAuditReader::with_profile_root(Some(root.clone()));
+        let observation =
+            super::audit_with_reader_and_profile_root(&path, &[], &mut reader, Some(&root));
+        assert!(!observation.live_clean());
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::FileReadSharing
+        );
+        assert_eq!(observation.failure_target, AuditFailureTarget::BrowserLock);
+        drop(held);
+    }
+
     #[test]
     fn read_directory_failure_identifies_root_or_nested_stage() {
         struct MissingDirectoryReader {
@@ -4089,7 +4254,8 @@ mod tests {
     fn missing_directory_from_filesystem_reader_is_classified_and_incomplete() {
         let fixture = tempfile::tempdir().unwrap();
         let missing = fixture.path().join("missing");
-        let observation = audit_with_reader(&missing, &[], &mut super::FilesystemAuditReader);
+        let observation =
+            audit_with_reader(&missing, &[], &mut super::FilesystemAuditReader::default());
         assert!(!observation.audit_complete);
         assert_eq!(observation.read_dir_failures, 1);
         assert_eq!(
