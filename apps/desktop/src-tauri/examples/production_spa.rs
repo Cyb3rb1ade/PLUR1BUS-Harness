@@ -723,6 +723,158 @@ fn close_linux_spa_once(
     }
 }
 
+#[cfg(any(target_os = "linux", test))]
+#[derive(Default)]
+struct LinuxPublicationGate {
+    owner: AtomicBool,
+    completed: AtomicBool,
+    deadline_failed: AtomicBool,
+    failure_writer_claimed: AtomicBool,
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl LinuxPublicationGate {
+    fn deadline_expired(&self) -> bool {
+        if self.completed.load(Ordering::SeqCst) {
+            return false;
+        }
+        self.deadline_failed.store(true, Ordering::SeqCst);
+        true
+    }
+
+    fn must_fail(&self, deadline: std::time::Instant) -> bool {
+        self.deadline_failed.load(Ordering::SeqCst) || std::time::Instant::now() >= deadline
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn spawn_linux_failure_writer<F: FnOnce() + Send + 'static>(
+    gate: &Arc<LinuxPublicationGate>,
+    work: F,
+) -> Option<std::thread::JoinHandle<()>> {
+    claim_observer_completion(&gate.failure_writer_claimed).then(|| std::thread::spawn(work))
+}
+
+#[cfg(any(target_os = "linux", test))]
+trait LinuxReportIo {
+    fn write_pending(&self, bytes: &[u8]) -> std::io::Result<()>;
+    fn rename_pending(&self) -> std::io::Result<()>;
+    fn remove_pending(&self);
+    fn write_failed(&self, bytes: &[u8]) -> std::io::Result<()>;
+    fn progress(&self, stage: &'static str);
+    fn exit(&self, code: i32);
+}
+
+#[cfg(target_os = "linux")]
+struct NativeLinuxReportIo<'a> {
+    app: &'a tauri::AppHandle,
+    output: &'a std::path::Path,
+    pending: &'a std::path::Path,
+}
+
+#[cfg(target_os = "linux")]
+impl LinuxReportIo for NativeLinuxReportIo<'_> {
+    fn write_pending(&self, bytes: &[u8]) -> std::io::Result<()> {
+        std::fs::write(self.pending, bytes)
+    }
+    fn rename_pending(&self) -> std::io::Result<()> {
+        std::fs::rename(self.pending, self.output)
+    }
+    fn remove_pending(&self) {
+        let _ = std::fs::remove_file(self.pending);
+    }
+    fn write_failed(&self, bytes: &[u8]) -> std::io::Result<()> {
+        std::fs::write(self.output, bytes)
+    }
+    fn progress(&self, stage: &'static str) {
+        progress(stage);
+    }
+    fn exit(&self, code: i32) {
+        self.app.exit(code);
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Clone)]
+struct LinuxFailureWriter {
+    app: tauri::AppHandle,
+    output: PathBuf,
+    results: Arc<Mutex<Vec<Value>>>,
+    known: Secrets,
+    negative: Arc<Mutex<Value>>,
+    secondary: Arc<Mutex<Option<SecondaryProbeObservation>>>,
+    profile: Arc<Mutex<PrivateProfileObservation>>,
+    gate: Arc<LinuxPublicationGate>,
+}
+
+#[cfg(target_os = "linux")]
+impl LinuxFailureWriter {
+    fn start(&self) {
+        let writer = self.clone();
+        let _ = spawn_linux_failure_writer(&self.gate, move || {
+            write_observer_timeout_report(
+                &writer.app,
+                &writer.output,
+                &writer.results,
+                &writer.known,
+                &writer.negative,
+                &writer.secondary,
+                &writer.profile,
+            );
+            writer.gate.completed.store(true, Ordering::SeqCst);
+        });
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn publish_linux_report<I: LinuxReportIo>(
+    gate: &LinuxPublicationGate,
+    io: &I,
+    finalization_cutoff: std::time::Instant,
+    deadline: std::time::Instant,
+    passed: bool,
+    bytes: &[u8],
+    failed_bytes: &[u8],
+) {
+    if io.write_pending(bytes).is_err() {
+        io.progress("audit-report-write-failed");
+        return;
+    }
+    if std::time::Instant::now() >= finalization_cutoff || !claim_observer_completion(&gate.owner) {
+        io.remove_pending();
+        return;
+    }
+    if io.rename_pending().is_err() {
+        let _ = io.write_failed(failed_bytes);
+        io.progress("audit-report-write-failed");
+        io.exit(2);
+        gate.completed.store(true, Ordering::SeqCst);
+        return;
+    }
+    io.progress("audit-report-written");
+    if !passed || gate.must_fail(deadline) {
+        let _ = io.write_failed(failed_bytes);
+        io.progress("audit-failed");
+        io.exit(2);
+        gate.completed.store(true, Ordering::SeqCst);
+        return;
+    }
+    io.progress("audit-passed");
+    // No filesystem or progress operation may occur after this check and before exit 0.
+    if gate.must_fail(deadline) {
+        let _ = io.write_failed(failed_bytes);
+        io.progress("audit-failed");
+        io.exit(2);
+    } else {
+        io.exit(0);
+        if gate.must_fail(deadline) {
+            let _ = io.write_failed(failed_bytes);
+            io.exit(2);
+        }
+    }
+    gate.completed.store(true, Ordering::SeqCst);
+}
+
 #[cfg(any(windows, test))]
 async fn await_profile_callback(
     observation: Arc<Mutex<PrivateProfileObservation>>,
@@ -2006,22 +2158,39 @@ async fn finish(
     inputs.retirement_phase.arm(marker_url.clone(), completion);
     let marker_seen = AtomicBool::new(false);
     let close_claimed = Arc::new(AtomicBool::new(false));
-    let finalized = Arc::new(AtomicBool::new(false));
+    let gate = Arc::new(LinuxPublicationGate::default());
+    let failure_writer = LinuxFailureWriter {
+        app: app.clone(),
+        output: output.clone(),
+        results: inputs.results.clone(),
+        known: inputs.known.clone(),
+        negative: inputs.negative.clone(),
+        secondary: inputs.secondary_observation.clone(),
+        profile: Arc::new(Mutex::new(PrivateProfileObservation::unavailable())),
+        gate: gate.clone(),
+    };
+    // This guard has no disk work. It remains armed after publication ownership
+    // is claimed and requests failure if actual reporting or exit runs late.
+    let deadline_gate = gate.clone();
+    let deadline_writer = failure_writer.clone();
+    let deadline_app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(deadline.saturating_duration_since(std::time::Instant::now()));
+        if deadline_gate.deadline_expired() {
+            deadline_writer.start();
+            deadline_app.exit(2);
+        }
+    });
     let watchdog_app = app.clone();
     let watchdog_window = window.clone();
     let watchdog_owners = owners.clone();
     let watchdog_close = close_claimed.clone();
-    let watchdog_finalized = finalized.clone();
+    let watchdog_gate = gate.clone();
     let watchdog_phase = inputs.retirement_phase.clone();
-    let watchdog_output = output.clone();
-    let watchdog_results = inputs.results.clone();
-    let watchdog_known = inputs.known.clone();
-    let watchdog_negative = inputs.negative.clone();
-    let watchdog_secondary = inputs.secondary_observation.clone();
-    let watchdog_profile = Arc::new(Mutex::new(PrivateProfileObservation::unavailable()));
+    let watchdog_writer = failure_writer.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep_until(tokio::time::Instant::from_std(finalization_cutoff)).await;
-        if !claim_observer_completion(&watchdog_finalized) {
+        if !claim_observer_completion(&watchdog_gate.owner) {
             return;
         }
         progress("retirement-observer-timeout");
@@ -2040,15 +2209,7 @@ async fn finish(
             wait_for_browser_processes(watchdog_owners, deadline),
         )
         .await;
-        write_observer_timeout_report(
-            &watchdog_app,
-            &watchdog_output,
-            &watchdog_results,
-            &watchdog_known,
-            &watchdog_negative,
-            &watchdog_secondary,
-            &watchdog_profile,
-        );
+        watchdog_writer.start();
     });
 
     // All stage cutoffs derive from the one deadline and reserve time for the
@@ -2159,7 +2320,7 @@ async fn finish(
         teardown: teardown.clone(),
         profile: PrivateProfileObservation::unavailable(),
     };
-    let mut pass = observation_complete
+    let pass = observation_complete
         && proxy_generated_403
         && diagnostic.secondary_probe.available
         && diagnostic.secondary_probe.native_cookie_store_empty
@@ -2181,7 +2342,9 @@ async fn finish(
         "typeError": acl["typeError"],
         "proxyGenerated403": proxy_generated_403,
     });
-    let mut report = json!({"result":if pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*inputs.results.lock().unwrap(),"retirement":retirement,"negativeControls":*inputs.negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
+    let report = json!({"result":if pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*inputs.results.lock().unwrap(),"retirement":retirement,"negativeControls":*inputs.negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
+    let mut failed_report = report.clone();
+    failed_report["result"] = json!("failed");
     let bytes = match serde_json::to_vec_pretty(&report) {
         Ok(bytes) => {
             progress("audit-report-serialized");
@@ -2197,33 +2360,28 @@ async fn finish(
         progress("audit-report-secret-detected");
         return;
     }
+    let failed_bytes = match serde_json::to_vec_pretty(&failed_report) {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            progress("audit-report-serialization-failed");
+            return;
+        }
+    };
     let pending = output.with_extension("pending");
-    if std::fs::write(&pending, &bytes).is_err() {
-        progress("audit-report-write-failed");
-        return;
-    }
-    if std::time::Instant::now() >= finalization_cutoff || !claim_observer_completion(&finalized) {
-        let _ = std::fs::remove_file(&pending);
-        return;
-    }
-    if std::fs::rename(&pending, &output).is_err() {
-        progress("audit-report-write-failed");
-        app.exit(2);
-        return;
-    }
-    progress("audit-report-written");
-    if std::time::Instant::now() >= deadline {
-        pass = false;
-        report["result"] = json!("failed");
-        let _ = std::fs::write(&output, serde_json::to_vec_pretty(&report).unwrap());
-    }
-    if pass {
-        progress("audit-passed");
-        app.exit(0);
-    } else {
-        progress("audit-failed");
-        app.exit(2);
-    }
+    let io = NativeLinuxReportIo {
+        app,
+        output: &output,
+        pending: &pending,
+    };
+    publish_linux_report(
+        &gate,
+        &io,
+        finalization_cutoff,
+        deadline,
+        pass,
+        &bytes,
+        &failed_bytes,
+    );
 }
 fn contains_secret(bytes: &[u8], secrets: &[SecretString]) -> bool {
     secrets.iter().any(|s| {
@@ -2343,6 +2501,7 @@ fn cookie_file_class(path: &std::path::Path) -> Option<CookieFileClass> {
     }
 }
 
+#[cfg(not(target_os = "linux"))]
 fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     let mut reader = FilesystemAuditReader;
     #[cfg(windows)]
@@ -2637,6 +2796,7 @@ fn progress(label: &str) {
 
 #[cfg(test)]
 mod tests {
+    use super::LinuxReportIo;
     use super::{
         append_progress_history, audit_with_reader, audit_with_reader_and_profile_root,
         auxiliary_observation, await_profile_callback, claim_observer_completion,
@@ -2647,6 +2807,70 @@ mod tests {
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
+
+    #[derive(Clone)]
+    struct DelayedReportIo {
+        output: PathBuf,
+        pending: PathBuf,
+        rename_delay: std::time::Duration,
+        passed_stage_delay: std::time::Duration,
+        exits: Arc<Mutex<Vec<i32>>>,
+    }
+
+    impl super::LinuxReportIo for DelayedReportIo {
+        fn write_pending(&self, bytes: &[u8]) -> std::io::Result<()> {
+            std::fs::write(&self.pending, bytes)
+        }
+        fn rename_pending(&self) -> std::io::Result<()> {
+            std::thread::sleep(self.rename_delay);
+            std::fs::rename(&self.pending, &self.output)
+        }
+        fn remove_pending(&self) {
+            let _ = std::fs::remove_file(&self.pending);
+        }
+        fn write_failed(&self, bytes: &[u8]) -> std::io::Result<()> {
+            std::fs::write(&self.output, bytes)
+        }
+        fn progress(&self, stage: &'static str) {
+            if stage == "audit-passed" {
+                std::thread::sleep(self.passed_stage_delay);
+            }
+        }
+        fn exit(&self, code: i32) {
+            self.exits.lock().unwrap().push(code);
+        }
+    }
+
+    fn assert_late_publication_fails(
+        rename_delay: std::time::Duration,
+        passed_stage_delay: std::time::Duration,
+    ) {
+        let root = tempfile::tempdir().unwrap();
+        let io = DelayedReportIo {
+            output: root.path().join("result.json"),
+            pending: root.path().join("result.pending"),
+            rename_delay,
+            passed_stage_delay,
+            exits: Arc::new(Mutex::new(Vec::new())),
+        };
+        let gate = Arc::new(super::LinuxPublicationGate::default());
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(400);
+        let cutoff = deadline - std::time::Duration::from_millis(200);
+        let guard_gate = gate.clone();
+        let guard_io = io.clone();
+        let guard = std::thread::spawn(move || {
+            std::thread::sleep(deadline.saturating_duration_since(std::time::Instant::now()));
+            if guard_gate.deadline_expired() {
+                guard_io.write_failed(b"failed").unwrap();
+                guard_io.exit(2);
+            }
+        });
+        super::publish_linux_report(&gate, &io, cutoff, deadline, true, b"passed", b"failed");
+        guard.join().unwrap();
+        assert_eq!(std::fs::read(&io.output).unwrap(), b"failed");
+        assert!(!io.exits.lock().unwrap().contains(&0));
+        assert!(gate.completed.load(std::sync::atomic::Ordering::SeqCst));
+    }
 
     struct UnreadableProfile;
 
@@ -2946,6 +3170,84 @@ mod tests {
         assert_eq!(closes.load(Ordering::SeqCst), 1);
         assert_eq!(reports.load(Ordering::SeqCst), 1);
         assert!(std::time::Instant::now() < deadline);
+    }
+
+    #[test]
+    fn delayed_rename_after_publication_claim_cannot_exit_successfully() {
+        assert_late_publication_fails(
+            std::time::Duration::from_millis(600),
+            std::time::Duration::ZERO,
+        );
+    }
+
+    #[test]
+    fn delayed_pass_progress_after_final_clock_check_cannot_exit_successfully() {
+        assert_late_publication_fails(
+            std::time::Duration::ZERO,
+            std::time::Duration::from_millis(600),
+        );
+    }
+
+    #[test]
+    fn watchdog_publication_owner_rejects_late_normal_report() {
+        let root = tempfile::tempdir().unwrap();
+        let io = DelayedReportIo {
+            output: root.path().join("result.json"),
+            pending: root.path().join("result.pending"),
+            rename_delay: std::time::Duration::ZERO,
+            passed_stage_delay: std::time::Duration::ZERO,
+            exits: Arc::new(Mutex::new(Vec::new())),
+        };
+        let gate = Arc::new(super::LinuxPublicationGate::default());
+        assert!(super::claim_observer_completion(&gate.owner));
+        let writer_io = io.clone();
+        let writer = super::spawn_linux_failure_writer(&gate, move || {
+            writer_io.write_failed(b"failed").unwrap();
+            writer_io.exit(2);
+        })
+        .unwrap();
+        let now = std::time::Instant::now();
+        super::publish_linux_report(
+            &gate,
+            &io,
+            now + std::time::Duration::from_secs(1),
+            now + std::time::Duration::from_secs(2),
+            true,
+            b"passed",
+            b"failed",
+        );
+        writer.join().unwrap();
+        assert_eq!(std::fs::read(&io.output).unwrap(), b"failed");
+        assert_eq!(*io.exits.lock().unwrap(), vec![2]);
+        assert!(!io.pending.exists());
+    }
+
+    #[test]
+    fn deadline_guard_exit_is_not_blocked_by_slow_failure_report() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let gate = Arc::new(super::LinuxPublicationGate::default());
+        let exit_requested = Arc::new(AtomicBool::new(false));
+        let report_done = Arc::new(AtomicBool::new(false));
+        let guard_gate = gate.clone();
+        let guard_exit = exit_requested.clone();
+        let guard_report = report_done.clone();
+        let guard = std::thread::spawn(move || {
+            if guard_gate.deadline_expired() {
+                let writer = super::spawn_linux_failure_writer(&guard_gate, move || {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    guard_report.store(true, Ordering::SeqCst);
+                });
+                guard_exit.store(true, Ordering::SeqCst);
+                writer
+            } else {
+                None
+            }
+        });
+        let writer = guard.join().unwrap().unwrap();
+        assert!(exit_requested.load(Ordering::SeqCst));
+        assert!(!report_done.load(Ordering::SeqCst));
+        writer.join().unwrap();
+        assert!(report_done.load(Ordering::SeqCst));
     }
 
     #[test]
