@@ -511,6 +511,14 @@ fn main() {
             report["negativeControls"]["otherWebview"]["otherWindowAclDenied"],
             true
         );
+        assert_eq!(
+            report["negativeControls"]["oldOriginWhileReplacementActive"]["aclDenied"],
+            true
+        );
+        assert_eq!(
+            report["negativeControls"]["oldOriginWhileReplacementActive"]["rustCallerDenied"],
+            false
+        );
         for key in ["terminalError", "fragmentGone", "controls44", "honestError"] {
             assert_eq!(report["ticketError"][key], true, "ticket error {key}");
         }
