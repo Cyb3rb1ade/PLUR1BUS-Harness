@@ -299,13 +299,47 @@ async fn negative_controls(
     }
     let (tx, rx) = tokio::sync::oneshot::channel();
     let sender = Mutex::new(Some(tx));
-    progress("other-window");
-    let other=WebviewWindowBuilder::new(app,"other-spa",WebviewUrl::External(url.parse().unwrap())).incognito(true).initialization_script("addEventListener('DOMContentLoaded',async()=>{const blocked=(await fetch(location.href)).status===403;let acl=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});});")
-        .on_document_title_changed(move|_,title|{if let Some(value)=title.strip_prefix("NEG:").and_then(|v|serde_json::from_str::<Value>(v).ok()){if let Some(tx)=sender.lock().unwrap().take(){let _=tx.send(value);}}}).build().unwrap();
-    let value = tokio::time::timeout(std::time::Duration::from_secs(5), rx)
-        .await
-        .unwrap()
-        .unwrap();
+    progress("other-window-construction-start");
+    let other = WebviewWindowBuilder::new(
+        app,
+        "other-spa",
+        WebviewUrl::External(url.parse().unwrap()),
+    )
+    .incognito(true)
+    .initialization_script("addEventListener('DOMContentLoaded',async()=>{const blocked=(await fetch(location.href)).status===403;let acl=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});});")
+    .on_document_title_changed(move |_, title| {
+        if let Some(value) = title
+            .strip_prefix("NEG:")
+            .and_then(|v| serde_json::from_str::<Value>(v).ok())
+        {
+            if let Some(tx) = sender.lock().unwrap().take() {
+                let _ = tx.send(value);
+            }
+        }
+    })
+    .build();
+    let other = match other {
+        Ok(other) => {
+            progress("other-window-construction-complete");
+            other
+        }
+        Err(_) => {
+            progress("other-window-construction-failed");
+            panic!("other native window construction failed")
+        }
+    };
+    progress("other-window-wait-start");
+    let value = match tokio::time::timeout(std::time::Duration::from_secs(5), rx).await {
+        Ok(Ok(value)) => value,
+        Ok(Err(_)) => {
+            progress("other-window-wait-channel-closed");
+            panic!("other native window title channel closed")
+        }
+        Err(_) => {
+            progress("other-window-wait-timeout");
+            panic!("other native window probe timed out")
+        }
+    };
     other.destroy().unwrap();
     let old_origin = if let Some(first_origin) = first_origin {
         *old_probe.lock().unwrap() = None;
