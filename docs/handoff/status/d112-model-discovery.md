@@ -1,4 +1,4 @@
-Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA; each task's SHA is filled in by the next commit) · 2026-10-03
+Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction) · head SHA: see `git log` (a commit cannot name its own SHA; each task's SHA is filled in by the next commit) · 2026-10-03
 
 | Task | Commit | Tests added (file::name) | Result | Notes |
 |---|---|---|---|---|
@@ -11,8 +11,8 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 | 7 System jobs, ledger, jobs.* | ce1162af | `system-jobs.test.ts` (13) | pass | ledger 0600, JSONL crash recovery, RPC schema bumped to 1.5.0, jobs.* merged |
 | 8 Scheduler, config keys | d2a1c33f | `scheduler.test.ts` (13), `core-discovery.test.ts` (3), `config-schema.test.ts` (16) | pass | models.scan.* schema & defaults, scheduler with catch-up jitter/spacing, replan on live config change, max 4 workers |
 | 9 RPC models.* | f86b3fe5 | `models-rpc.test.ts` (9), `stability.test.ts` (1), `provider.test.ts` (1), `fixtures.rs` (mappings) | pass | models.list\|scan\|setOverride\|removeManual\|acknowledge, models.changed notification, WebMCP deny list, schema 1.5.0 |
-| 10 CLI, 1staid | pending (next commit) | `model_cli.rs` (4), `model.rs` (5), `firstaid.rs` updated, `setup_profile.rs` updated | pass | plur1bus model list\|scan\|override, 1staid check models.roles, stale read from catalog/models.json, role_warnings |
-| 11 End to end, docs | | | | |
+| 10 CLI, 1staid | 43110541 | `model_cli.rs` (4), `model.rs` (5), `firstaid.rs` updated, `setup_profile.rs` updated | pass | plur1bus model list\|scan\|override, 1staid check models.roles, stale read from catalog/models.json, role_warnings |
+| 11 End to end, docs | pending (this commit) | `discovery-e2e.test.ts` (9), `model-discovery.test.ts` (1) | pass | D109 mocks end-to-end, filesystem/network isolation verification, ADR-005/013/016, provider-matrix, AGENTS.md |
 | 12 Wire real adapters | | | BLOCKED (D15, D110, D111) | not started, by instruction |
 
 ## Deviations
@@ -27,4 +27,4 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 - A commit cannot contain its own SHA, so the table's SHA column lags one commit behind.
 
 ## Open
-- Task 11.
+- None (Task 12 remains blocked until D15, D110, D111 as instructed).

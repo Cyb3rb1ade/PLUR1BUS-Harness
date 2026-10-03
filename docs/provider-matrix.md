@@ -78,6 +78,14 @@ One row per provider from the original §6.1 minimum-scope table.
 
 20 provider rows (OpenCode Zen and Go counted separately, matching the original's parenthetical grouping).
 
+**D112 Model Discovery Token Mapping (amended 2026-10-03):**
+Per D112 spec §2.8 and R19, provider profile rows in the harness map to `discovery` scanner tokens as follows:
+- `openai-models`: OpenAI Platform, OpenAI Sign in with ChatGPT (`openai:chatgpt-plan`), OpenAI workload identity, LM Studio, vLLM, mlx-lm, oMLX, OpenRouter, OpenCode Zen, OpenCode Go, DeepSeek, xAI API
+- `anthropic-models`: Anthropic API
+- `google-models`: Google AI / Gemini API (AI Studio), Google Vertex AI
+- `ollama-tags`: Ollama (local), Ollama Cloud
+- `manual`: llama.cpp (`llama-server`) (due to non-standard/unverified `/v1/models` conformance per spec §2.8 / R19), Nous Portal (interactive picker only, no machine-readable models listing endpoint)
+
 ---
 
 ## 3. Prompt-caching mechanisms

@@ -66,8 +66,8 @@ export function coreEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
 /** `plur1bus core run` (execs node on POSIX); resolves on the core's one-line JSON ready message on stdout.
  *  On a failed start (exit before ready, a bad ready line, a spawn error or the startup timeout) the child
  *  is killed and awaited before the promise rejects, so nothing leaks. */
-export async function startCore(h: string): Promise<RunningCore> {
-  const env = coreEnv();
+export async function startCore(h: string, extra: NodeJS.ProcessEnv = {}): Promise<RunningCore> {
+  const env = coreEnv(extra);
   const t0 = performance.now();
   const child = spawn(BIN, ["--home", h, "core", "run"], { env, stdio: ["ignore", "pipe", "pipe"] });
   let err = "";

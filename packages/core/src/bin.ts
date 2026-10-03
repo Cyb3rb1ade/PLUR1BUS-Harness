@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { ConfigInvalid } from "./config-load.ts";
 import { createCore } from "./core.ts";
 import { RpcError } from "./rpc/errors.ts";
+import { InMemoryProfileSource, StaticCredentialResolver } from "./discovery/testing.ts";
+import type { ProfileInfo } from "./discovery/ports.ts";
 
 // Under a supervisor, stdout and stderr are pipes that the supervisor reads. A SIGKILLed supervisor leaves them without
 // a reader while the core lives on through its lifeline grace (S5, C1), so every later write fails with EPIPE. The
@@ -33,9 +36,42 @@ if (values["test-internals"]) {
   } else { console.error(`unknown --test-internals ${values["test-internals"]}`); process.exit(2); }
 }
 
+let discoveryOptions: { profiles: InMemoryProfileSource; credentials: StaticCredentialResolver; scheduler: boolean } | undefined;
+if (process.env.PLUR1BUS_TEST_DISCOVERY_PROFILES) {
+  if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") {
+    console.error("PLUR1BUS_TEST_DISCOVERY_PROFILES requires PLUR1BUS_ALLOW_TEST_INTERNALS=1");
+    process.exit(2);
+  }
+  const raw = JSON.parse(readFileSync(process.env.PLUR1BUS_TEST_DISCOVERY_PROFILES, "utf8"));
+  const profiles: ProfileInfo[] = [];
+  const credentials: Record<string, { origin: string; headerName: string; headerValue: string }> = {};
+  for (const p of (raw.profiles as any[]) ?? []) {
+    profiles.push({
+      id: p.id,
+      discovery: p.discovery,
+      baseUrl: p.baseUrl,
+      ...(p.vendor !== undefined ? { vendor: p.vendor } : {}),
+    });
+    if (p.credential) {
+      const origin = new URL(p.baseUrl).origin;
+      credentials[p.id] = {
+        origin,
+        headerName: p.credential.headerName,
+        headerValue: p.credential.headerValue,
+      };
+    }
+  }
+  discoveryOptions = {
+    profiles: new InMemoryProfileSource(profiles),
+    credentials: new StaticCredentialResolver(credentials),
+    scheduler: false,
+  };
+}
+
 // A core.shutdown RPC takes the same stop-and-exit path as SIGTERM (I1): without it the process outlived the stop.
 const core = createCore({
   ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}),
+  ...(discoveryOptions ? { discovery: discoveryOptions } : {}),
   ...(values.instance ? { instanceId: values.instance.toLowerCase() } : {}), ...(values.lifeline === "stdin" ? { lifeline: process.stdin, supervisorConfig: {} } : {}), // B7: 3 × 1 s config.watch
   onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs),
   onOrphanGraceExpired: () => stop("lifeline grace expired"),
