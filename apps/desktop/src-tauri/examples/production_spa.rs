@@ -2379,25 +2379,12 @@ async fn finish(
                 let post_exit: Vec<_> = spa_cleanup.audits.into_iter().chain(observer_cleanup.audits).collect();
                 #[cfg(not(windows))]
                 let post_exit: Vec<plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence> = Vec::new();
-                let closed_root = root.clone();
-                let closed_known = task_known.clone();
-                let audit_observation = tauri::async_runtime::spawn_blocking(move || {
-                    let known = closed_known.lock().unwrap();
-                    audit(&closed_root, &known)
-                })
-                .await
-                .unwrap_or_else(|_| AuditObservation::unavailable());
-                if audit_observation.audit_complete {
-                    progress("audit-closed-scan-complete");
-                } else {
-                    progress("audit-closed-scan-incomplete");
-                }
-                let teardown = TeardownObservation {
+                let mut teardown = TeardownObservation {
                     process_exit_applicable: process_exit.applicable,
                     capture_complete: task_owners.capture_complete(process_exit.applicable),
                     close_complete: task_owners.close_complete(),
                     process_exit_complete: process_exit.complete,
-                    audit_complete: audit_observation.audit_complete,
+                    audit_complete: false,
                     profile_cleanup_complete,
                     cleanup_cookie_rows,
                     cleanup_read_only_complete,
@@ -2409,6 +2396,22 @@ async fn finish(
                     .unwrap()
                     .clone()
                     .unwrap_or_else(SecondaryProbeObservation::unavailable);
+                let closed_root = root.clone();
+                let closed_known = task_known.clone();
+                let closed_teardown = teardown.clone();
+                let closed_secondary = secondary.clone();
+                let audit_observation = tauri::async_runtime::spawn_blocking(move || {
+                    let known = closed_known.lock().unwrap();
+                    final_audit_after_cleanup(cfg!(windows), &closed_teardown, &closed_secondary, || audit(&closed_root, &known))
+                })
+                .await
+                .unwrap_or_else(|_| AuditObservation::unavailable());
+                if audit_observation.audit_complete {
+                    progress("audit-closed-scan-complete");
+                } else {
+                    progress("audit-closed-scan-incomplete");
+                }
+                teardown.audit_complete = audit_observation.audit_complete;
                 let diagnostic = NativeDiagnostic {
                     secondary_probe: secondary,
                     pre_close_audit: pre_close_audit.clone(),
@@ -3016,6 +3019,39 @@ fn failure_target_for_file(path: &std::path::Path) -> AuditFailureTarget {
     }
 }
 
+#[cfg(any(not(target_os = "linux"), test))]
+// Shared finalization gate, also exercised with a counting SQL reader in tests.
+fn final_audit_after_cleanup(
+    windows_policy: bool,
+    teardown: &TeardownObservation,
+    secondary: &SecondaryProbeObservation,
+    scan: impl FnOnce() -> AuditObservation,
+) -> AuditObservation {
+    // A retained owner's files remain inside the driver scratch root. An incomplete
+    // cleanup/capture must therefore block the entire fallback, including byte reads.
+    if windows_policy
+        && (!teardown.capture_complete
+            || !teardown.close_complete
+            || !teardown.process_exit_complete
+            || !teardown.profile_cleanup_complete
+            || !secondary.profile_cleanup_complete
+            || teardown.post_exit.len() < 3
+            || secondary.post_exit.len() != 1
+            || !teardown
+                .post_exit
+                .iter()
+                .chain(&secondary.post_exit)
+                .all(|owner| {
+                    owner.environment_exited
+                        && !owner.exit_timed_out
+                        && owner.exit_wait_ms <= 10_000
+                }))
+    {
+        return AuditObservation::unavailable();
+    }
+    scan()
+}
+
 #[cfg(not(target_os = "linux"))]
 fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     #[cfg(windows)]
@@ -3037,13 +3073,21 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
 fn post_exit_secret_audit(
     root: &std::path::Path,
     secrets: &[SecretString],
-) -> std::io::Result<bool> {
+) -> plur1bus_desktop::windows_spa_profile::SecretScanOutcome {
     let mut reader = FilesystemAuditReader::with_profile_root(Some(root.to_path_buf()));
-    let observation = audit_with_mode(root, secrets, &mut reader, Some(root), true, false);
-    if observation.audit_complete {
-        Ok(observation.secret_detected)
-    } else {
-        Err(std::io::Error::other("post-exit byte scan incomplete"))
+    post_exit_secret_audit_with_reader(root, secrets, &mut reader)
+}
+
+#[cfg(any(windows, test))]
+fn post_exit_secret_audit_with_reader(
+    root: &std::path::Path,
+    secrets: &[SecretString],
+    reader: &mut impl AuditReader,
+) -> plur1bus_desktop::windows_spa_profile::SecretScanOutcome {
+    let observation = audit_with_mode(root, secrets, reader, Some(root), true, false);
+    plur1bus_desktop::windows_spa_profile::SecretScanOutcome {
+        complete: observation.audit_complete,
+        secret_detected: observation.secret_detected,
     }
 }
 
@@ -4329,6 +4373,152 @@ mod tests {
     }
 
     #[test]
+    fn r1_finalization_never_reads_unproven_owners() {
+        use plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence;
+        struct CountingReader {
+            sql: usize,
+            reads: usize,
+        }
+        impl AuditReader for CountingReader {
+            fn read_dir(&mut self, root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+                self.reads += 1;
+                CookieRows(Ok(0)).read_dir(root)
+            }
+            fn read_file(&mut self, _: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+                self.reads += 1;
+                Ok(Vec::new())
+            }
+            fn cookie_rows(&mut self, _: &Path) -> Result<u64, CookieRowFailure> {
+                self.sql += 1;
+                Ok(0)
+            }
+        }
+        let good = ProfileCleanupEvidence {
+            environment_exited: true,
+            read_only_complete: true,
+            cookie_database_files: 1,
+            secret_scan_complete: true,
+            removed: true,
+            ..Default::default()
+        };
+        let base = TeardownObservation {
+            process_exit_applicable: true,
+            capture_complete: true,
+            close_complete: true,
+            process_exit_complete: true,
+            audit_complete: false,
+            profile_cleanup_complete: true,
+            cleanup_cookie_rows: 0,
+            cleanup_read_only_complete: true,
+            cleanup_secret_detected: false,
+            post_exit: vec![good.clone(); 3],
+        };
+        let mut secondary = super::SecondaryProbeObservation::unavailable();
+        secondary.profile_cleanup_complete = true;
+        secondary.post_exit = vec![good];
+        for failure in 0..11 {
+            let mut teardown = base.clone();
+            let mut auxiliary = secondary.clone();
+            match failure {
+                0 => {
+                    teardown.post_exit[0].environment_exited = false;
+                    teardown.post_exit[0].exit_timed_out = true;
+                }
+                1 => teardown.post_exit[1].environment_exited = false,
+                2 => {
+                    teardown.post_exit.pop();
+                }
+                3 => {
+                    auxiliary.post_exit[0].environment_exited = false;
+                    auxiliary.post_exit[0].exit_timed_out = true;
+                }
+                4 => auxiliary.post_exit.clear(),
+                5 => teardown.capture_complete = false,
+                6 => teardown.process_exit_complete = false,
+                7 => teardown.profile_cleanup_complete = false,
+                8 => teardown.close_complete = false,
+                9 => auxiliary.profile_cleanup_complete = false,
+                _ => teardown.post_exit[2].exit_wait_ms = 10_001,
+            }
+            let mut reader = CountingReader { sql: 0, reads: 0 };
+            let result = super::final_audit_after_cleanup(true, &teardown, &auxiliary, || {
+                audit_with_reader(Path::new("root"), &[], &mut reader)
+            });
+            assert_eq!(reader.sql, 0, "failure {failure} must not invoke SQL");
+            assert_eq!(reader.reads, 0, "failure {failure} must not read any files");
+            assert!(!result.audit_complete && !result.cookie_read_only_complete);
+        }
+        let mut reader = CountingReader { sql: 0, reads: 0 };
+        let result = super::final_audit_after_cleanup(true, &base, &secondary, || {
+            audit_with_reader(Path::new("root"), &[], &mut reader)
+        });
+        assert!(result.audit_complete);
+        assert_eq!(
+            reader.sql, 1,
+            "proven exit retains strict final SQL traversal"
+        );
+        assert!(
+            !result.clean(),
+            "remaining database still fails strict zero-file scan"
+        );
+        let mut reader = CountingReader { sql: 0, reads: 0 };
+        super::final_audit_after_cleanup(false, &base, &secondary, || {
+            audit_with_reader(Path::new("root"), &[], &mut reader)
+        });
+        assert_eq!(reader.sql, 1, "other platforms retain existing final scan");
+    }
+
+    #[test]
+    fn r1_scan_adapter_preserves_positive_before_later_read_failure() {
+        struct PositiveThenFailure(AuditFailureCategory);
+        impl AuditReader for PositiveThenFailure {
+            fn read_dir(&mut self, root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+                Ok(["Cookies-wal", "Cookies"]
+                    .into_iter()
+                    .map(|name| AuditEntry {
+                        path: root.join(name),
+                        kind: AuditEntryKind::File,
+                        cookie_database: true,
+                    })
+                    .collect())
+            }
+            fn read_file(&mut self, path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+                if path.file_name().unwrap() == "Cookies-wal" {
+                    Ok(b"CANARY-positive".to_vec())
+                } else {
+                    Err(self.0)
+                }
+            }
+            fn cookie_rows(&mut self, _: &Path) -> Result<u64, CookieRowFailure> {
+                panic!("post-exit byte scan must never invoke SQL")
+            }
+        }
+        for error in [
+            AuditFailureCategory::FileReadAccessDenied,
+            AuditFailureCategory::EntryDisappeared,
+        ] {
+            let scan = super::post_exit_secret_audit_with_reader(
+                Path::new("root"),
+                &[super::SecretString::new("CANARY-positive".into())],
+                &mut PositiveThenFailure(error),
+            );
+            let mut evidence =
+                plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence::default();
+            assert!(
+                !scan.record_into(&mut evidence),
+                "incomplete scan must stop SQL"
+            );
+            assert!(
+                evidence.secret_detected,
+                "later read error must not erase positive"
+            );
+            assert!(
+                !evidence.secret_scan_complete && !evidence.read_only_complete && !evidence.removed
+            );
+        }
+    }
+
+    #[test]
     fn owner_live_scan_names_sharing_locks_and_still_checks_readable_bytes() {
         struct Reader;
         impl super::AuditReader for Reader {
@@ -4441,6 +4631,11 @@ mod tests {
                 .collect::<String>()
         );
         let known = [super::SecretString::new(canary.clone())];
+        let scan = |path: &Path| {
+            let outcome = super::post_exit_secret_audit(path, &known);
+            assert!(outcome.complete, "actual WAL/sidefile scan must finish");
+            outcome.secret_detected
+        };
         let source = temp.path().join("source");
         std::fs::create_dir(&source).unwrap();
         let database = source.join("Cookies");
@@ -4457,7 +4652,7 @@ mod tests {
         std::fs::write(profile.path().join("Cookies"), &main).unwrap();
         assert_eq!(cookie_rows(&profile.path().join("Cookies")).unwrap(), 0);
         std::fs::write(profile.path().join("Cookies-wal"), &wal).unwrap();
-        assert!(super::post_exit_secret_audit(profile.path(), &known).unwrap());
+        assert!(scan(profile.path()));
         assert_eq!(
             cookie_rows(&profile.path().join("Cookies")).unwrap(),
             1,
@@ -4470,16 +4665,16 @@ mod tests {
         std::fs::write(deleted.path().join("Cookies"), main).unwrap();
         std::fs::write(deleted.path().join("Cookies-wal"), deleted_wal).unwrap();
         assert!(
-            super::post_exit_secret_audit(deleted.path(), &known).unwrap(),
+            scan(deleted.path()),
             "deleted WAL rows still contain canary bytes"
         );
         assert_eq!(cookie_rows(&deleted.path().join("Cookies")).unwrap(), 0);
         let journal = create_in_fixture_root(&temp.path().join("spa-tmp")).unwrap();
         record_fixture_identity(&journal, 9, 13).unwrap();
         std::fs::write(journal.path().join("Cookies-journal"), canary.as_bytes()).unwrap();
-        assert!(super::post_exit_secret_audit(journal.path(), &known).unwrap());
+        assert!(scan(journal.path()));
         std::fs::write(journal.path().join("Cookies-journal"), b"no planted value").unwrap();
-        assert!(!super::post_exit_secret_audit(journal.path(), &known).unwrap());
+        assert!(!scan(journal.path()));
         drop(writer);
     }
 

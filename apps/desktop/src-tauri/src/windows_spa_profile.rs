@@ -87,6 +87,23 @@ impl CleanupResult {
     }
 }
 
+/// A byte scan's completeness and positive evidence are independent.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SecretScanOutcome {
+    /// Every required file was read successfully.
+    pub complete: bool,
+    /// A known secret was found, even if a later read failed.
+    pub secret_detected: bool,
+}
+impl SecretScanOutcome {
+    /// Publish positives before deciding whether the subsequent SQL audit may run.
+    pub fn record_into(self, evidence: &mut ProfileCleanupEvidence) -> bool {
+        evidence.secret_detected |= self.secret_detected;
+        evidence.secret_scan_complete = self.complete;
+        self.complete
+    }
+}
+
 /// Closed evidence for the owner-approved Windows post-exit audit, never paths or values.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -128,7 +145,7 @@ impl ProfileCleanupEvidence {
 }
 
 #[cfg(any(windows, test))]
-async fn finish_owned_cleanup(
+pub(crate) async fn finish_owned_cleanup(
     started: std::time::Instant,
     deadline: std::time::Instant,
     exit: impl Fn() -> Option<bool>,
@@ -263,8 +280,8 @@ mod windows {
             = std::cell::RefCell::new(HashMap::new());
     }
 
-    /// Debug fixture hook that reports whether an owned profile contains a known secret.
-    pub type SecretAudit = Arc<dyn Fn(&Path) -> io::Result<bool> + Send + Sync>;
+    /// Debug fixture hook that independently reports byte-scan completeness and positives.
+    pub type SecretAudit = Arc<dyn Fn(&Path) -> super::SecretScanOutcome + Send + Sync>;
 
     type SharedLeaseFile = Arc<Mutex<File>>;
     static LIVE_LEASES: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<File>>>>> = OnceLock::new();
@@ -704,13 +721,11 @@ mod windows {
                 }
                 // Scan bytes before SQLite can recover/checkpoint any side file.
                 match &secret_audit {
-                    Some(check) => match check(&path) {
-                        Ok(secret) => {
-                            evidence.secret_scan_complete = true;
-                            evidence.secret_detected = secret;
+                    Some(check) => {
+                        if !check(&path).record_into(evidence) {
+                            return;
                         }
-                        Err(_) => return,
-                    },
+                    }
                     None => {
                         // No fixture values exist in release builds, but complete readability
                         // still precedes deletion; no sharing/access error becomes clean evidence.
@@ -1882,9 +1897,13 @@ mod windows {
             let audit_path = lease_path.clone();
             let hook: SecretAudit = Arc::new(move |profile_path| {
                 assert_eq!(profile_path.join(".lease"), audit_path);
-                let record = read_owned_lease(&audit_path)?
-                    .ok_or_else(|| io::Error::other("retained record unavailable"))?;
-                Ok(record.len() != 12)
+                match read_owned_lease(&audit_path) {
+                    Ok(Some(record)) => super::super::SecretScanOutcome {
+                        complete: true,
+                        secret_detected: record.len() != 12,
+                    },
+                    _ => super::super::SecretScanOutcome::default(),
+                }
             });
             tauri::async_runtime::block_on(async {
                 assert!(
@@ -1993,7 +2012,10 @@ mod windows {
                         profile,
                         Some(receiver),
                         Arc::new(AtomicBool::new(true)),
-                        Some(Arc::new(|_| Ok(true))),
+                        Some(Arc::new(|_| super::super::SecretScanOutcome {
+                            complete: true,
+                            secret_detected: true,
+                        })),
                         std::time::Instant::now(),
                         |_| BrowserLeaseStatus::Exited,
                     ),

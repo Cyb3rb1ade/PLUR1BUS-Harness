@@ -545,6 +545,66 @@ mod cleanup_aggregation_tests {
     }
 
     #[test]
+    fn r1_incomplete_positive_scan_survives_cleanup_aggregation_and_cancellation() {
+        tauri::async_runtime::block_on(async {
+            for cancel in [false, true] {
+                let state = SpaState::default();
+                let positive = tauri::async_runtime::spawn(async {
+                    crate::windows_spa_profile::finish_owned_cleanup(
+                        Instant::now(),
+                        Instant::now() + Duration::from_secs(1),
+                        || Some(true),
+                        |evidence| {
+                            let scan = crate::windows_spa_profile::SecretScanOutcome {
+                                complete: false,
+                                secret_detected: true,
+                            };
+                            if !scan.record_into(evidence) {
+                                return;
+                            }
+                            panic!("incomplete byte scan must never reach SQL");
+                        },
+                        || panic!("incomplete positive scan must never delete"),
+                    )
+                    .await
+                });
+                let (pending_sender, pending_receiver) = tokio::sync::oneshot::channel::<()>();
+                let pending = tauri::async_runtime::spawn(async move {
+                    let _ = pending_receiver.await;
+                    CleanupResult::default()
+                });
+                state.cleanups.lock().unwrap().extend([positive, pending]);
+                let mut observed = CleanupResult::default();
+                if cancel {
+                    assert!(tokio::time::timeout(
+                        Duration::from_millis(25),
+                        state.wait_profile_cleanups_into(
+                            Instant::now() + Duration::from_secs(1),
+                            &mut observed
+                        ),
+                    )
+                    .await
+                    .is_err());
+                } else {
+                    let _ = pending_sender.send(());
+                    state
+                        .wait_profile_cleanups_into(
+                            Instant::now() + Duration::from_secs(1),
+                            &mut observed,
+                        )
+                        .await;
+                }
+                assert!(observed.secret_detected);
+                assert!(!observed.removed && !observed.read_only_complete && !observed.accepted());
+                assert_eq!(observed.audits.len(), 1);
+                let owner = &observed.audits[0];
+                assert!(owner.environment_exited && owner.secret_detected);
+                assert!(!owner.secret_scan_complete && !owner.read_only_complete && !owner.removed);
+            }
+        });
+    }
+
+    #[test]
     fn cancelled_shared_aggregation_retains_consumed_positive_owner() {
         tauri::async_runtime::block_on(async {
             let state = SpaState::default();
