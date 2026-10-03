@@ -609,6 +609,54 @@ fn wait_owned_browser_processes(
     }
 }
 
+// The Windows failure-cleanup allowance never changes the acceptance deadline.
+#[cfg(any(windows, test))]
+async fn complete_windows_teardown<T, F, Fut>(
+    acceptance_deadline: std::time::Instant,
+    cleanup_budget: std::time::Duration,
+    cleanup: F,
+) -> (Option<T>, bool)
+where
+    F: FnOnce(std::time::Instant) -> Fut,
+    Fut: std::future::Future<Output = T>,
+{
+    // Continue the same future after expiry: it retains the captured native handles.
+    // Never restart observation with consumed/missing process owners.
+    let cleanup_deadline = acceptance_deadline + cleanup_budget;
+    let acceptance_failed = AtomicBool::new(std::time::Instant::now() >= acceptance_deadline);
+    let cleanup_future = cleanup(cleanup_deadline);
+    tokio::pin!(cleanup_future);
+    // Tokio timeouts may poll a ready future before reporting elapsed time. Latch
+    // failure before every late poll, including an in-flight cleanup continuation.
+    let future = std::future::poll_fn(|context| {
+        if std::time::Instant::now() >= acceptance_deadline {
+            acceptance_failed.store(true, Ordering::SeqCst);
+        }
+        std::future::Future::poll(cleanup_future.as_mut(), context)
+    });
+    tokio::pin!(future);
+    let remaining = acceptance_deadline.saturating_duration_since(std::time::Instant::now());
+    if !remaining.is_zero() {
+        if let Ok(result) = tokio::time::timeout(remaining, &mut future).await {
+            return (
+                Some(result),
+                acceptance_failed.load(Ordering::SeqCst)
+                    || std::time::Instant::now() >= acceptance_deadline,
+            );
+        }
+    }
+    // Acceptance is irreversibly FAILED before any polling in the failure allowance.
+    acceptance_failed.store(true, Ordering::SeqCst);
+    let remaining = cleanup_deadline.saturating_duration_since(std::time::Instant::now());
+    if remaining.is_zero() {
+        return (None, true);
+    }
+    (
+        tokio::time::timeout(remaining, &mut future).await.ok(),
+        true,
+    )
+}
+
 struct FinishInputs {
     results: Arc<Mutex<Vec<Value>>>,
     known: Secrets,
@@ -2099,43 +2147,80 @@ async fn finish(
                 }
                 drop(observer);
                 progress("teardown-wait-start");
+                #[cfg(windows)]
+                let mut windows_absent = false;
+                #[cfg(windows)]
+                let mut process_exit = ProcessExitObservation { applicable: true, complete: false };
+                #[cfg(windows)]
+                let mut spa_cleanup = plur1bus_desktop::windows_spa_profile::CleanupResult::default();
+                #[cfg(windows)]
+                let mut observer_cleanup = plur1bus_desktop::windows_spa_profile::CleanupResult::default();
+                #[cfg(windows)]
+                let (_, cleanup_acceptance_failed) = complete_windows_teardown(
+                    task_teardown_deadline,
+                    std::time::Duration::from_secs(15),
+                    |cleanup_deadline| {
+                        let task_handle = &task_handle;
+                        let task_owners = &task_owners;
+                        let task_known = &task_known;
+                        let task_lease = &task_lease;
+                        let task_browser = &task_browser;
+                        let windows_absent = &mut windows_absent;
+                        let process_exit = &mut process_exit;
+                        let spa_cleanup = &mut spa_cleanup;
+                        let observer_cleanup = &mut observer_cleanup;
+                        async move {
+                            // Start owned cleanup alongside observation, as production retirement
+                            // does. It still waits for Destroyed AND the captured browser's exit.
+                            let clean_observer = async {
+                                let lease = task_lease.lock().unwrap().take();
+                                let browser = task_browser.lock().unwrap().take();
+                                if let Some(lease) = lease {
+                                    let audit_known = task_known.clone();
+                                    let secret_audit = Arc::new(move |path: &std::path::Path| {
+                                        let observation = audit(path, &audit_known.lock().unwrap());
+                                        if observation.audit_complete { Ok(observation.secret_detected) }
+                                        else { Err(std::io::Error::other("profile audit incomplete")) }
+                                    });
+                                    *observer_cleanup = plur1bus_desktop::windows_spa_profile::cleanup_after_exit(
+                                        lease, browser, task_gone, Some(secret_audit),
+                                    ).await;
+                                }
+                            };
+                            let observations = async {
+                                *windows_absent = wait_for_fixture_windows(
+                                    task_handle, &task_owners.tracked_windows(), cleanup_deadline,
+                                ).await;
+                                task_owners.mark_windows_absent(*windows_absent);
+                                *process_exit = wait_for_browser_processes(
+                                    task_owners.clone(), cleanup_deadline,
+                                ).await;
+                                *spa_cleanup = task_handle.state::<SpaState>()
+                                    .wait_profile_cleanups(cleanup_deadline).await;
+                            };
+                            // Store each completed result outside the cancellable future;
+                            // another owner's timeout must not erase positive rows/secrets.
+                            tokio::join!(observations, clean_observer);
+                        }
+                    },
+                ).await;
+                #[cfg(not(windows))]
+                let cleanup_acceptance_failed = false;
+                #[cfg(not(windows))]
                 let windows_absent = wait_for_fixture_windows(
-                    &task_handle,
-                    &task_owners.tracked_windows(),
-                    task_teardown_deadline,
-                )
-                .await;
+                    &task_handle, &task_owners.tracked_windows(), task_teardown_deadline,
+                ).await;
+                #[cfg(not(windows))]
                 task_owners.mark_windows_absent(windows_absent);
+                #[cfg(not(windows))]
                 let process_exit = wait_for_browser_processes(
-                    task_owners.clone(),
-                    task_teardown_deadline,
-                )
-                .await;
+                    task_owners.clone(), task_teardown_deadline,
+                ).await;
                 if windows_absent && (!process_exit.applicable || process_exit.complete) {
                     progress("teardown-wait-complete");
                 } else {
                     progress("teardown-wait-failed");
                 }
-                #[cfg(windows)]
-                let spa_cleanup = task_handle.state::<SpaState>()
-                    .wait_profile_cleanups(task_teardown_deadline)
-                    .await;
-                #[cfg(windows)]
-                let observer_cleanup = {
-                    let lease = task_lease.lock().unwrap().take();
-                    let browser = task_browser.lock().unwrap().take();
-                    if let Some(lease) = lease {
-                        let remaining = task_teardown_deadline.saturating_duration_since(std::time::Instant::now());
-                        let audit_known = task_known.clone();
-                        let secret_audit = Arc::new(move |path: &std::path::Path| {
-                            let observation = audit(path, &audit_known.lock().unwrap());
-                            if observation.audit_complete { Ok(observation.secret_detected) }
-                            else { Err(std::io::Error::other("profile audit incomplete")) }
-                        });
-                        tokio::time::timeout(remaining, plur1bus_desktop::windows_spa_profile::cleanup_after_exit(lease, browser, task_gone, Some(secret_audit)))
-                            .await.unwrap_or_default()
-                    } else { Default::default() }
-                };
                 #[cfg(not(windows))]
                 let profile_cleanup_complete = true;
                 #[cfg(not(windows))]
@@ -2202,7 +2287,8 @@ async fn finish(
                 };
                 #[cfg(not(windows))]
                 let sessions_live_clean = true;
-                let mut diagnostic_pass = diagnostic.secondary_probe.available
+                let mut diagnostic_pass = !cleanup_acceptance_failed
+                    && diagnostic.secondary_probe.available
                     && diagnostic.secondary_probe.native_cookie_store_empty
                     && diagnostic.secondary_probe.profile_cleanup_complete
                     && diagnostic.secondary_probe.cleanup_cookie_rows == 0
@@ -3149,6 +3235,93 @@ mod tests {
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn expired_windows_acceptance_still_cleans_but_can_never_pass() {
+        tauri::async_runtime::block_on(async {
+            let acceptance = std::time::Instant::now() - std::time::Duration::from_millis(1);
+            let (clean, failed) = super::complete_windows_teardown(
+                acceptance,
+                std::time::Duration::from_millis(100),
+                |deadline| async move {
+                    assert!(deadline > acceptance);
+                    tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+                    true
+                },
+            )
+            .await;
+            assert_eq!(
+                clean,
+                Some(true),
+                "failed acceptance must not skip owned cleanup"
+            );
+            assert!(failed, "late clean evidence must never restore acceptance");
+        });
+    }
+
+    #[test]
+    fn windows_cleanup_allowance_is_bounded_and_preserves_early_failure() {
+        tauri::async_runtime::block_on(async {
+            let now = std::time::Instant::now();
+            let (result, failed) = super::complete_windows_teardown(
+                now - std::time::Duration::from_millis(1),
+                std::time::Duration::from_millis(10),
+                |_| std::future::pending::<bool>(),
+            )
+            .await;
+            assert!(result.is_none() && failed);
+            assert!(now.elapsed() < std::time::Duration::from_secs(1));
+            let (result, failed) = super::complete_windows_teardown(
+                std::time::Instant::now() + std::time::Duration::from_secs(1),
+                std::time::Duration::from_millis(10),
+                |_| async { false },
+            )
+            .await;
+            assert_eq!(result, Some(false));
+            assert!(!failed); // The caller must still reject the failed cleanup result.
+        });
+    }
+
+    #[test]
+    fn windows_cleanup_future_keeps_ownership_across_acceptance_expiry() {
+        tauri::async_runtime::block_on(async {
+            let calls = std::sync::atomic::AtomicUsize::new(0);
+            let (result, failed) = super::complete_windows_teardown(
+                std::time::Instant::now() + std::time::Duration::from_millis(10),
+                std::time::Duration::from_millis(100),
+                |_| async {
+                    calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                    7
+                },
+            )
+            .await;
+            assert_eq!(result, Some(7));
+            assert!(failed);
+            assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        });
+    }
+
+    #[test]
+    fn windows_cleanup_timeout_keeps_already_observed_positive_evidence() {
+        tauri::async_runtime::block_on(async {
+            let mut observed_rows = 0;
+            let mut observed_secret = false;
+            let (result, failed) = super::complete_windows_teardown(
+                std::time::Instant::now() - std::time::Duration::from_millis(1),
+                std::time::Duration::from_millis(10),
+                |_| async {
+                    observed_rows = 1;
+                    observed_secret = true;
+                    std::future::pending::<()>().await;
+                },
+            )
+            .await;
+            assert!(result.is_none() && failed);
+            assert_eq!(observed_rows, 1);
+            assert!(observed_secret);
+        });
+    }
 
     #[test]
     fn session_claims_ignore_late_first_and_wrong_origin_before_second() {

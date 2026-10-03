@@ -30,6 +30,11 @@ pub enum CookieQueryResult {
     ReadOnlyCantLock,
     ReadOnlyCantInit,
     CannotOpen,
+    // These describe a subsequent native read-open probe, not SQLite's saved OS error.
+    CannotOpenNativeSharingViolation,
+    CannotOpenNativeAccessDenied,
+    CannotOpenNativePathMissing,
+    CannotOpenNativeOpenable,
     Corrupt,
     NotDatabase,
     Io,
@@ -1115,6 +1120,49 @@ mod windows {
         CookieQueryDiagnostic { stage, result }
     }
 
+    // rusqlite closes SQLite's failed-open handle before returning its error, so
+    // sqlite3_system_errno cannot recover that call's OS error here. This separate,
+    // non-reading probe records only the contemporaneous Windows access outcome.
+    // Its access/share/disposition match the pinned SQLite WinVFS read-only open.
+    // No successful probe substitutes for a successful SQLite COUNT query.
+    fn diagnose_native_read_open(path: &Path) -> CookieQueryResult {
+        use windows_sys::Win32::Foundation::{
+            ERROR_ACCESS_DENIED, ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND,
+            ERROR_SHARING_VIOLATION, GENERIC_READ,
+        };
+        use windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_NORMAL;
+        let wide_path = wide(path.as_os_str());
+        let raw = unsafe {
+            CreateFileW(
+                wide_path.as_ptr(),
+                GENERIC_READ,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+                std::ptr::null_mut(),
+            )
+        };
+        if raw == INVALID_HANDLE_VALUE {
+            return match io::Error::last_os_error()
+                .raw_os_error()
+                .map(|code| code as u32)
+            {
+                Some(ERROR_SHARING_VIOLATION) => {
+                    CookieQueryResult::CannotOpenNativeSharingViolation
+                }
+                Some(ERROR_ACCESS_DENIED) => CookieQueryResult::CannotOpenNativeAccessDenied,
+                Some(ERROR_FILE_NOT_FOUND | ERROR_PATH_NOT_FOUND) => {
+                    CookieQueryResult::CannotOpenNativePathMissing
+                }
+                _ => CookieQueryResult::CannotOpen,
+            };
+        }
+        // RAII closes the diagnostic handle without reading bytes or querying rows.
+        drop(MetadataHandle(raw));
+        CookieQueryResult::CannotOpenNativeOpenable
+    }
+
     /// A read-only SQLite connection observes the real live cookie table.
     pub fn cookie_rows(path: &Path) -> io::Result<u64> {
         cookie_rows_diagnostic(path).map_err(io::Error::other)
@@ -1128,7 +1176,13 @@ mod windows {
             result: CookieQueryResult::PathRejected,
         })?;
         let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .map_err(|error| query_failure(CookieQueryStage::Open, error))?;
+            .map_err(|error| {
+                let mut diagnostic = query_failure(CookieQueryStage::Open, error);
+                if diagnostic.result == CookieQueryResult::CannotOpen {
+                    diagnostic.result = diagnose_native_read_open(path);
+                }
+                diagnostic
+            })?;
         if !connection
             .is_readonly("main")
             .map_err(|error| query_failure(CookieQueryStage::ReadOnlyCheck, error))?
@@ -1543,6 +1597,52 @@ mod windows {
         }
 
         #[test]
+        fn readonly_open_distinguishes_native_sharing_and_keeps_real_count_required() {
+            use std::os::windows::fs::OpenOptionsExt;
+            let temp = tempfile::tempdir().unwrap();
+            let database = temp.path().join("Cookies-\u{00e4}-\u{4e2d}");
+            let connection = rusqlite::Connection::open(&database).unwrap();
+            connection
+                .execute("CREATE TABLE cookies (value TEXT)", [])
+                .unwrap();
+            connection
+                .execute("INSERT INTO cookies VALUES ('fake-secret')", [])
+                .unwrap();
+            drop(connection);
+            let before = fs::read(&database).unwrap();
+            assert_eq!(cookie_rows_diagnostic(&database).unwrap(), 1);
+            let held = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .share_mode(0)
+                .open(&database)
+                .unwrap();
+            let failure = cookie_rows_diagnostic(&database).unwrap_err();
+            assert_eq!(failure.stage, CookieQueryStage::Open);
+            assert_eq!(
+                failure.result,
+                CookieQueryResult::CannotOpenNativeSharingViolation
+            );
+            assert_eq!(
+                serde_json::to_string(&failure).unwrap(),
+                r#"{"stage":"open","result":"cannot-open-native-sharing-violation"}"#
+            );
+            drop(held);
+            assert_eq!(
+                diagnose_native_read_open(&database),
+                CookieQueryResult::CannotOpenNativeOpenable
+            );
+            assert_eq!(cookie_rows_diagnostic(&database).unwrap(), 1);
+            assert_eq!(fs::read(&database).unwrap(), before);
+            let missing = temp.path().join("missing");
+            assert_eq!(
+                diagnose_native_read_open(&missing),
+                CookieQueryResult::CannotOpenNativePathMissing
+            );
+            assert!(!missing.exists());
+        }
+
+        #[test]
         fn capture_completion_precedes_live_audit_then_cleanup_waits_for_exit() {
             let temp = tempfile::tempdir().unwrap();
             let root = temp.path().join("spa-tmp");
@@ -1633,6 +1733,47 @@ mod windows {
                 assert!(!path.exists());
             });
             assert!(read_owned_lease(&lease_path).unwrap().is_none());
+        }
+
+        #[test]
+        fn completed_owned_cleanup_retains_positive_rows_and_secret_failure() {
+            let temp = tempfile::tempdir().unwrap();
+            let profile = create_in(&temp.path().join("spa-tmp")).unwrap();
+            let path = profile.path().to_path_buf();
+            record(&profile, 7, 11);
+            let connection = rusqlite::Connection::open(path.join("Cookies")).unwrap();
+            connection
+                .execute("CREATE TABLE cookies (value TEXT)", [])
+                .unwrap();
+            connection
+                .execute("INSERT INTO cookies VALUES ('fake-secret')", [])
+                .unwrap();
+            drop(connection);
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            assert!(sender
+                .send(Ok(BrowserProcess {
+                    handle: std::ptr::null_mut()
+                }))
+                .is_ok());
+            let result = tauri::async_runtime::block_on(async {
+                tokio::time::timeout(
+                    Duration::from_secs(1),
+                    cleanup_after_exit_with_probe(
+                        profile,
+                        Some(receiver),
+                        Arc::new(AtomicBool::new(true)),
+                        Some(Arc::new(|_| Ok(true))),
+                        |_| BrowserLeaseStatus::Exited,
+                    ),
+                )
+                .await
+                .unwrap()
+            });
+            assert!(result.removed && result.read_only_complete);
+            assert_eq!(result.cookie_rows, 1);
+            assert!(result.secret_detected);
+            assert!(!result.accepted());
+            assert!(!path.exists());
         }
 
         #[test]
