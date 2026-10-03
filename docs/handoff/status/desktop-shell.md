@@ -1141,15 +1141,17 @@ Both PRs remain draft until that complete gate. WP5 and WP6 are unstarted.
 
 GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257791), [desktop PR37015257725](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257725), [desktop push37015254463](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015254463) all SUCCESS. Five native build/bundle targets and Docker/Podman PASS. No retry required for this WP4 head. Both corrected heads now GREEN; #63/#64 marked ready for review as owner requested. No merge into main, rebase, amend or force-push. Earlier checkpoints above remain history; real OS credential/manual limits still apply.
 
-## WP5 — BLOCKED: new Windows profile and Linux 5s native gates
+## WP5 — BLOCKED: Windows native compile repair awaits x64/ARM CI
 
-Last completed CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f` (source `0ccfbf92e3be4a4befa49b32ce0c5956d589c8ad`). The five target tables below report that completed run, not the unpushed candidate. Branch `feat/desktop-shell-wp05-spa-proxy`, base `main`; PR [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT. Candidate source `351989faa08b7a5914629e8f06beaf8024701f14` incorporates `origin/main@42a44c24` by an authorized normal merge (owner Hermes fix, no desktop changes). WP6 unstarted.
+Last completed CI head `3e8706fe7d0597430491d5ffbd8f510ab11c2d83`, source `351989faa08b7a5914629e8f06beaf8024701f14`. [Desktop37126315059](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37126315059): macOS/Linux x64/Linux ARM native first+restart and bundles PASS; Windows x64/ARM compilation FAIL before native tests. Docker/Podman PASS. [Root37126315049](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37126315049) GREEN after one targeted Rustup-setup retry (`bin/cargo-clippy` install conflict; other12 jobs first PASS, original logs retained; no Hermes retry).
 
-Windows owner-profile source `13e4d7fb` and Linux same-view/deadline source `3f05883a` independently reviewed clean. Native Windows/Linux at the new source remain NOT RUN; macOS checks do not compile those OS paths. Local source `351989fa`: desktop fmt/locked all-targets Clippy/workspace177 PASS (one real-keychain opt-in ignore),42 selected examples/root lint PASS. Final macOS first/restart independently verified PASS: two sessions each, actual IPC ACL denial, complete audits, zero cookie files/secrets, p95 1.149584/1.826917 ms (100 pairs; unchanged5ms limit). Earlier three second-window failures and two starting watchdog failures are retained; their cause remains unestablished. Scoped macOS review found one Important callback-origin gap: Tauri can resolve an old title callback by the replacement window label. Fixround1 `351989fa` carries immutable creating-view identity plus page/active-origin checks; independent re-review clean, final-source macOS native first/restart PASS. This source repair does not establish the earlier failures' cause.
+Branch `feat/desktop-shell-wp05-spa-proxy`, base `main@42a44c24` incorporated by normal merge `a78f25ad`; PR [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65), DRAFT. New candidate source `a2262c75cc73c5085b52eaa77baca7cdcf104278` fixes the two Windows-only pinned-API errors (`is_readonly("main")`, Tauri cleanup JoinHandle). Independent source review clean; Windows native compile/acceptance at this source NOT RUN locally (MSVC unavailable). Full local candidate gates:177Rust PASS/one real-keychain opt-in ignore,42 selected examples/fmt/Clippy/rootlint PASS. Windows owner profiles, Linux same-view/deadline and macOS callback-source tasks also independently reviewed clean.
 
-### [macOS arm64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37105651640/job/111153513900)
+Actual3e CI native artifacts independently verified on macOS/Linux x64/Linux ARM: two sessions per first/restart, real IPC ACL denial, complete audits, zero cookie files/secrets. Proxy p95 first/restart ms: macOS2.804793/3.321959, Linux x64 1.901913/1.849076, Linux ARM1.851753/1.893986 (100 pairs each;5ms limit unchanged). Linux retains the same absolute5s observer/teardown budget. Earlier intermittent macOS failures are preserved, cause unestablished; captured creating-view origin fixes a reviewed source defect without a historical causal claim. Part4 coverage gaps remain; WP6 unstarted.
 
-CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f`. This table is completed CI, not the unpushed candidate.
+### [macOS arm64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37126315059/job/111212186199)
+
+CI head: `3e8706fe7d0597430491d5ffbd8f510ab11c2d83`, source `351989faa08b7a5914629e8f06beaf8024701f14`. Rust/native first and restart/bundle PASS; native artifacts independently verified.
 
 | Acceptance test | Result |
 |---|---|
@@ -1157,9 +1159,9 @@ CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f`. This table is completed CI,
 | `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
 | `shell_info_is_the_only_spa_command` | CI PASS |
 | `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
-| `switching_connection_replaces_the_capability` | CI PASS; Part4 unit gap |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI PASS; Part4 unit gap |
-| `no_cookie_database_in_app_dirs` | NATIVE CI PASS; unit partial |
+| `switching_connection_replaces_the_capability` | CI unit PASS; Part4 coverage gap |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI unit PASS; Part4 coverage gap |
+| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit partial |
 | `assert_no_token_on_disk` | CI PASS |
 | `quit and restart logs in again through a fresh ticket` | CI PASS |
 | `only_the_spa_webview_is_served_others_get_403` | CI PASS |
@@ -1175,117 +1177,117 @@ CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f`. This table is completed CI,
 | `non_get_methods_require_exact_origin` | CI PASS |
 | `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
 
-### [Linux x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37105651640/job/111153513851)
+### [Linux x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37126315059/job/111212186189)
 
-CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f`. This table is completed CI, not the unpushed candidate.
-
-| Acceptance test | Result |
-|---|---|
-| `navigation_table` | Rust CI PASS; native FAIL |
-| `caller_check_rejects_other_webview_and_other_origin` | Rust CI PASS; native FAIL |
-| `shell_info_is_the_only_spa_command` | Rust CI PASS; native FAIL |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | Rust CI PASS; native FAIL |
-| `switching_connection_replaces_the_capability` | Rust CI PASS; native FAIL Part4 unit gap |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | Rust CI PASS; native FAIL Part4 unit gap |
-| `no_cookie_database_in_app_dirs` | NATIVE FAIL construction deadline |
-| `assert_no_token_on_disk` | Rust CI PASS; native FAIL |
-| `quit and restart logs in again through a fresh ticket` | NATIVE BLOCKED construction deadline |
-| `only_the_spa_webview_is_served_others_get_403` | Rust CI PASS; native FAIL |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | Rust CI PASS; native FAIL |
-| `never_adds_authorization_or_the_device_token` | Rust CI PASS; native FAIL |
-| `page_cookies_and_authorization_are_dropped` | Rust CI PASS; native FAIL |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | Rust CI PASS; native FAIL |
-| `origin_and_host_are_the_connection_origin` | Rust CI PASS; native FAIL |
-| `sse_events_stream_without_buffering` | Rust CI PASS; native FAIL |
-| `websocket_upgrade_is_forwarded` | Rust CI PASS; native FAIL |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | Rust CI PASS; native FAIL |
-| `bundled_local_and_remote_use_the_same_path` | Rust CI PASS; native FAIL |
-| `non_get_methods_require_exact_origin` | Rust CI PASS; native FAIL |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | Rust CI PASS; native FAIL |
-
-### [Linux ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37105651640/job/111153513925)
-
-CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f`. This table is completed CI, not the unpushed candidate.
+CI head: `3e8706fe7d0597430491d5ffbd8f510ab11c2d83`, source `351989faa08b7a5914629e8f06beaf8024701f14`. Rust/native first and restart/bundle PASS; native artifacts independently verified.
 
 | Acceptance test | Result |
 |---|---|
-| `navigation_table` | Rust CI PASS; native FAIL |
-| `caller_check_rejects_other_webview_and_other_origin` | Rust CI PASS; native FAIL |
-| `shell_info_is_the_only_spa_command` | Rust CI PASS; native FAIL |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | Rust CI PASS; native FAIL |
-| `switching_connection_replaces_the_capability` | Rust CI PASS; native FAIL Part4 unit gap |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | Rust CI PASS; native FAIL Part4 unit gap |
-| `no_cookie_database_in_app_dirs` | first PASS; restart FAIL construction deadline |
-| `assert_no_token_on_disk` | Rust CI PASS; native FAIL |
-| `quit and restart logs in again through a fresh ticket` | first PASS; restart FAIL construction deadline |
-| `only_the_spa_webview_is_served_others_get_403` | Rust CI PASS; native FAIL |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | Rust CI PASS; native FAIL |
-| `never_adds_authorization_or_the_device_token` | Rust CI PASS; native FAIL |
-| `page_cookies_and_authorization_are_dropped` | Rust CI PASS; native FAIL |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | Rust CI PASS; native FAIL |
-| `origin_and_host_are_the_connection_origin` | Rust CI PASS; native FAIL |
-| `sse_events_stream_without_buffering` | Rust CI PASS; native FAIL |
-| `websocket_upgrade_is_forwarded` | Rust CI PASS; native FAIL |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | Rust CI PASS; native FAIL |
-| `bundled_local_and_remote_use_the_same_path` | Rust CI PASS; native FAIL |
-| `non_get_methods_require_exact_origin` | Rust CI PASS; native FAIL |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | Rust CI PASS; native FAIL |
+| `navigation_table` | CI PASS |
+| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
+| `shell_info_is_the_only_spa_command` | CI PASS |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
+| `switching_connection_replaces_the_capability` | CI unit PASS; Part4 coverage gap |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI unit PASS; Part4 coverage gap |
+| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit partial |
+| `assert_no_token_on_disk` | CI PASS |
+| `quit and restart logs in again through a fresh ticket` | CI PASS |
+| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
+| `never_adds_authorization_or_the_device_token` | CI PASS |
+| `page_cookies_and_authorization_are_dropped` | CI PASS |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
+| `origin_and_host_are_the_connection_origin` | CI PASS |
+| `sse_events_stream_without_buffering` | CI PASS |
+| `websocket_upgrade_is_forwarded` | CI PASS |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
+| `bundled_local_and_remote_use_the_same_path` | CI PASS |
+| `non_get_methods_require_exact_origin` | CI PASS |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
 
-### [Windows x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37105651640/job/111153513895)
+### [Linux ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37126315059/job/111212186202)
 
-CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f`. This table is completed CI, not the unpushed candidate.
-
-| Acceptance test | Result |
-|---|---|
-| `navigation_table` | Rust CI PASS; native cookie FAIL |
-| `caller_check_rejects_other_webview_and_other_origin` | Rust CI PASS; native cookie FAIL |
-| `shell_info_is_the_only_spa_command` | Rust CI PASS; native cookie FAIL |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | Rust CI PASS; native cookie FAIL |
-| `switching_connection_replaces_the_capability` | Rust CI PASS; native cookie FAIL |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | Rust CI PASS; native cookie FAIL |
-| `no_cookie_database_in_app_dirs` | prior rule FAIL:2 files; new rule NOT RUN |
-| `assert_no_token_on_disk` | Rust CI PASS; native cookie FAIL |
-| `quit and restart logs in again through a fresh ticket` | first FAIL cookie; restart NOT RUN |
-| `only_the_spa_webview_is_served_others_get_403` | Rust CI PASS; native cookie FAIL |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | Rust CI PASS; native cookie FAIL |
-| `never_adds_authorization_or_the_device_token` | Rust CI PASS; native cookie FAIL |
-| `page_cookies_and_authorization_are_dropped` | Rust CI PASS; native cookie FAIL |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | Rust CI PASS; native cookie FAIL |
-| `origin_and_host_are_the_connection_origin` | Rust CI PASS; native cookie FAIL |
-| `sse_events_stream_without_buffering` | Rust CI PASS; native cookie FAIL |
-| `websocket_upgrade_is_forwarded` | Rust CI PASS; native cookie FAIL |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | Rust CI PASS; native cookie FAIL |
-| `bundled_local_and_remote_use_the_same_path` | Rust CI PASS; native cookie FAIL |
-| `non_get_methods_require_exact_origin` | Rust CI PASS; native cookie FAIL |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | Rust CI PASS; native cookie FAIL |
-
-### [Windows ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37105651640/job/111153513843)
-
-CI head: `4af1d322d5d5d41b21b040a9a1bea8b46b09ba1f`. This table is completed CI, not the unpushed candidate.
+CI head: `3e8706fe7d0597430491d5ffbd8f510ab11c2d83`, source `351989faa08b7a5914629e8f06beaf8024701f14`. Rust/native first and restart/bundle PASS; native artifacts independently verified.
 
 | Acceptance test | Result |
 |---|---|
-| `navigation_table` | Rust CI PASS; native cookie FAIL |
-| `caller_check_rejects_other_webview_and_other_origin` | Rust CI PASS; native cookie FAIL |
-| `shell_info_is_the_only_spa_command` | Rust CI PASS; native cookie FAIL |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | Rust CI PASS; native cookie FAIL |
-| `switching_connection_replaces_the_capability` | Rust CI PASS; native cookie FAIL |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | Rust CI PASS; native cookie FAIL |
-| `no_cookie_database_in_app_dirs` | prior rule FAIL:2 files; new rule NOT RUN |
-| `assert_no_token_on_disk` | Rust CI PASS; native cookie FAIL |
-| `quit and restart logs in again through a fresh ticket` | first FAIL cookie; restart NOT RUN |
-| `only_the_spa_webview_is_served_others_get_403` | Rust CI PASS; native cookie FAIL |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | Rust CI PASS; native cookie FAIL |
-| `never_adds_authorization_or_the_device_token` | Rust CI PASS; native cookie FAIL |
-| `page_cookies_and_authorization_are_dropped` | Rust CI PASS; native cookie FAIL |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | Rust CI PASS; native cookie FAIL |
-| `origin_and_host_are_the_connection_origin` | Rust CI PASS; native cookie FAIL |
-| `sse_events_stream_without_buffering` | Rust CI PASS; native cookie FAIL |
-| `websocket_upgrade_is_forwarded` | Rust CI PASS; native cookie FAIL |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | Rust CI PASS; native cookie FAIL |
-| `bundled_local_and_remote_use_the_same_path` | Rust CI PASS; native cookie FAIL |
-| `non_get_methods_require_exact_origin` | Rust CI PASS; native cookie FAIL |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | Rust CI PASS; native cookie FAIL |
+| `navigation_table` | CI PASS |
+| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
+| `shell_info_is_the_only_spa_command` | CI PASS |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
+| `switching_connection_replaces_the_capability` | CI unit PASS; Part4 coverage gap |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI unit PASS; Part4 coverage gap |
+| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit partial |
+| `assert_no_token_on_disk` | CI PASS |
+| `quit and restart logs in again through a fresh ticket` | CI PASS |
+| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
+| `never_adds_authorization_or_the_device_token` | CI PASS |
+| `page_cookies_and_authorization_are_dropped` | CI PASS |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
+| `origin_and_host_are_the_connection_origin` | CI PASS |
+| `sse_events_stream_without_buffering` | CI PASS |
+| `websocket_upgrade_is_forwarded` | CI PASS |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
+| `bundled_local_and_remote_use_the_same_path` | CI PASS |
+| `non_get_methods_require_exact_origin` | CI PASS |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
+
+### [Windows x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37126315059/job/111212186279)
+
+CI head: `3e8706fe7d0597430491d5ffbd8f510ab11c2d83`, source `351989faa08b7a5914629e8f06beaf8024701f14`. Clippy compile failed before Rust/native tests; new owner-profile rule NOT RUN.
+
+| Acceptance test | Result |
+|---|---|
+| `navigation_table` | NOT RUN: Clippy compile failure |
+| `caller_check_rejects_other_webview_and_other_origin` | NOT RUN: Clippy compile failure |
+| `shell_info_is_the_only_spa_command` | NOT RUN: Clippy compile failure |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | NOT RUN: Clippy compile failure |
+| `switching_connection_replaces_the_capability` | NOT RUN: Clippy compile failure |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | NOT RUN: Clippy compile failure |
+| `no_cookie_database_in_app_dirs` | NOT RUN: Clippy compile failure |
+| `assert_no_token_on_disk` | NOT RUN: Clippy compile failure |
+| `quit and restart logs in again through a fresh ticket` | NOT RUN: Clippy compile failure |
+| `only_the_spa_webview_is_served_others_get_403` | NOT RUN: Clippy compile failure |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | NOT RUN: Clippy compile failure |
+| `never_adds_authorization_or_the_device_token` | NOT RUN: Clippy compile failure |
+| `page_cookies_and_authorization_are_dropped` | NOT RUN: Clippy compile failure |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | NOT RUN: Clippy compile failure |
+| `origin_and_host_are_the_connection_origin` | NOT RUN: Clippy compile failure |
+| `sse_events_stream_without_buffering` | NOT RUN: Clippy compile failure |
+| `websocket_upgrade_is_forwarded` | NOT RUN: Clippy compile failure |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | NOT RUN: Clippy compile failure |
+| `bundled_local_and_remote_use_the_same_path` | NOT RUN: Clippy compile failure |
+| `non_get_methods_require_exact_origin` | NOT RUN: Clippy compile failure |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | NOT RUN: Clippy compile failure |
+
+### [Windows ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37126315059/job/111212186182)
+
+CI head: `3e8706fe7d0597430491d5ffbd8f510ab11c2d83`, source `351989faa08b7a5914629e8f06beaf8024701f14`. Clippy compile failed before Rust/native tests; new owner-profile rule NOT RUN.
+
+| Acceptance test | Result |
+|---|---|
+| `navigation_table` | NOT RUN: Clippy compile failure |
+| `caller_check_rejects_other_webview_and_other_origin` | NOT RUN: Clippy compile failure |
+| `shell_info_is_the_only_spa_command` | NOT RUN: Clippy compile failure |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | NOT RUN: Clippy compile failure |
+| `switching_connection_replaces_the_capability` | NOT RUN: Clippy compile failure |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | NOT RUN: Clippy compile failure |
+| `no_cookie_database_in_app_dirs` | NOT RUN: Clippy compile failure |
+| `assert_no_token_on_disk` | NOT RUN: Clippy compile failure |
+| `quit and restart logs in again through a fresh ticket` | NOT RUN: Clippy compile failure |
+| `only_the_spa_webview_is_served_others_get_403` | NOT RUN: Clippy compile failure |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | NOT RUN: Clippy compile failure |
+| `never_adds_authorization_or_the_device_token` | NOT RUN: Clippy compile failure |
+| `page_cookies_and_authorization_are_dropped` | NOT RUN: Clippy compile failure |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | NOT RUN: Clippy compile failure |
+| `origin_and_host_are_the_connection_origin` | NOT RUN: Clippy compile failure |
+| `sse_events_stream_without_buffering` | NOT RUN: Clippy compile failure |
+| `websocket_upgrade_is_forwarded` | NOT RUN: Clippy compile failure |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | NOT RUN: Clippy compile failure |
+| `bundled_local_and_remote_use_the_same_path` | NOT RUN: Clippy compile failure |
+| `non_get_methods_require_exact_origin` | NOT RUN: Clippy compile failure |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | NOT RUN: Clippy compile failure |
 
 Test locations (shared across the five target tables):
 
@@ -1317,21 +1319,19 @@ Delivered: Rust streaming loopback proxy bound only to127.0.0.1; Rust-only beare
 
 Round3 security/bounds: OS RNG32-byte UA nonce, exact Origin exceptGET/HEAD, no IPC CSP entries, upstream access-control-* stripped, foreign GET/preflight and HEAD/OPTIONS/write negatives. Test clients5s connect/15s total, async bodies60s, Cargo CI15min. Independent scoped spec/quality reviews PASS.
 
-Local evidence: current source/native details are above. Full logs `/tmp/wp05-round3-351989-log-index.json`; latest independent native proof `/tmp/wp05-macos-second-view-i1-final-parent-verification.json`. Unchanged-input root package/fmt/clippy/Rust1036 (one existing ignore) and48 UI/a11y/layout PASS retained at `/tmp/wp05-round3-fb435-log-index.json`; new root lint PASS. The owner Hermes change arrived through normal main merge; its offline suite ran118 tests successfully with6 explicit skips (`/tmp/wp05-main42a-hermes-offline-index.json`). Real keychain/OS opener untested; release-library Clippy previously PASS, debug-only release examples unsupported and not claimed.
+Evidence: full local candidate logs `/tmp/wp05-round3-a2262c-log-index.json`. Exact3e native CI6ZIP/15files at `/tmp/wp05-round3-ci-3e8706`, indexSHA42ab9311133f3eeb42186d724920589be1c6af753f6dc98cff600a31cc980898; independent native verification `/tmp/wp05-round3-ci-3e8706-native-parent-verification.json`. Windows first compile raw/sanitized logs retained in `/tmp/wp05-round3-3e8706-windows-compile-first-index.json`; root first/retry proof in `/tmp/wp05-round3-3e8706-root-evidence-index.json`. Unchanged-input root1036Rust/one ignore + package/fmt/Clippy and48UI/a11y/layout PASS retained at `/tmp/wp05-round3-fb435-log-index.json`; imported owner Hermes offline118tests/6explicit skips PASS. No local Hermes/Core edits. Real keychain/OS opener untested; debug-only release examples unsupported and not claimed.
 
-CI: [root37105651638](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37105651638) GREEN first attempt, all13 jobsSUCCESS. [desktop37105651640](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37105651640) FAIL: Windows prior zero-file rule, Linux observer constructor deadline; macOS/DMG SUCCESS. Exact-head verified10ZIP/24files `/tmp/wp05-round3-ci-4af1d3`, indexSHA4724ec117e6e20de3b61ae7a9a8277bc36b5c295f98da638df726690fd305b4c. Macfirst/restart independently verified p953.469333/1.797ms (100pairs,5ms unchanged). No cancellation or timing widening.
-
-Current diagnosis: old Linux constructor missed the absolute5s budget. The reviewed replacement probes the already-live authentic SPA after retirement, requiring actual IPC ACL denial and proxy-generated403, with one deadline through audit/report publication. Windows now implements private per-window ACL profiles, complete live READONLY0-row audits and browser-exit-before-cleanup; native compilation/behavior still require Windows CI (MSVC unavailable locally). macOS callback source review is clean and its final local native pair passed; the old intermittent failure has no proven causal diagnosis.
+Current diagnosis: old Linux observer construction exceeded5s; genuine retired-SPA reuse now passes both architectures in native CI with actual403/IPC ACL proof. Windows first compile errors are repaired against exact pinned APIs; all profile/read-only/cleanup conditions remain, native execution still pending. macOS source callback identity is independently reviewed and native CI passes; old intermittent cause remains unproven.
 
 Owner-approved Windows deviation (2026-10-03, source implemented/reviewed; Windows native pending): each SPA window uses `%LOCALAPPDATA%\app.plur1bus.desktop\spa-tmp\<random>`, separate from shell, protectedACL currentuser+SYSTEM only, InPrivate. Whilelive nativecookieStoreempty; existingCookieDBopenedREADONLY/table0rows (anyrow/queryerror FAIL). Afteractualwindow+browserexit deleteonlyitsprofile; finalappdirsstrictzero-file/secret scan; startup sweepsonlyowned spa-tmp crashleftovers. macOS/Linux retainstrictzero-file. `no_cookie_database_in_app_dirs` name retained. Supersedes earlier no-cleanup/zero-row-file-fails Windows policy; no other path deletion.
 
 Deviations/defaults: owner-accepted renderer-readable UA nonce; exact Host/Origin/CSP/navigation mandatory, ambient UA stripped upstream and never in URLs. Intentional SPA application payload copies are not universally confidential. Stable Rust1.95 rejects --report-time; named elapsed_ms/nocapture is the disclosed alternative. Approved loopback fallback on allfive Step0 targets; no IPC network transport. Mock-only M3 contract. Glow/44px/C18 defaults retained. Debug inactive exactGET marker returns inertHTML403/deny-allCSP for genuine retired-origin probing; release behavior unchanged. Optional incomplete live observations remain nonclean; live cookie rows or secrets still fail; on macOS/Linux anycookiefile alsofails. Successful-owner capture and same absolute5s teardown/no-title fail-closed guards have observed behavioral RED/GREEN; older stage-history RED was not observed. Earlier history stays in Git.
 
-Owner follow-ups outside WP5: current root4af1d3 all13 jobs pass first; prior644 Hermes timing failure/one retryPASS preserved at `/tmp/wp05-round3-644cb5-root-owner-log-index.json`. No Hermes/Core edits or fix claim.
+Owner follow-ups outside WP5: prior644 Hermes timing failure/retry evidence retained; owner main fix imported normally. No local Hermes/Core edits or fix claim.
 
 Unfinished:
 
-- [ ] Verify reviewed Windows owner profiles and Linux observer within5s on both architectures, and renew macOS, in new native CI.
+- [ ] Verify Windows compile repair and owner profiles on x64/ARM; renew the three passing native targets on the new head.
 - [ ] Part4 shared SpaState swap and actual second-ticket-error proxy coverage; cookie unit directory scan remains partial, full acceptance native-covered.
 - [ ] New-head allfive desktop/native/bundle plus root CI GREEN with links.
 - [ ] Final review and PR65 ready only after all gates; no merge. Then WP6 stacked unless owner merged.
