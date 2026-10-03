@@ -19,9 +19,8 @@ pub struct SpaState {
     current: Mutex<Option<Active>>,
     retired: Mutex<Vec<SpaProxy>>,
     #[cfg(windows)]
-    cleanups: Mutex<
-        Vec<tauri::async_runtime::TokioJoinHandle<crate::windows_spa_profile::CleanupResult>>,
-    >,
+    cleanups:
+        Mutex<Vec<tauri::async_runtime::JoinHandle<crate::windows_spa_profile::CleanupResult>>>,
     #[cfg(all(windows, debug_assertions))]
     profile_audit: Mutex<Option<crate::windows_spa_profile::SecretAudit>>,
     #[cfg(debug_assertions)]

@@ -892,11 +892,11 @@ mod windows {
 
     /// A read-only SQLite connection observes the real live cookie table.
     pub fn cookie_rows(path: &Path) -> io::Result<u64> {
-        use rusqlite::{Connection, DatabaseName, OpenFlags};
+        use rusqlite::{Connection, OpenFlags};
         check_no_reparse(path)?;
         let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .map_err(|_| io::Error::other("cookie database read-only open failed"))?;
-        if !connection.is_readonly(DatabaseName::Main).unwrap_or(false) {
+        if !connection.is_readonly("main").unwrap_or(false) {
             return Err(io::Error::other("cookie database writable connection"));
         }
         connection
