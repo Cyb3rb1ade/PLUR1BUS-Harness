@@ -3,7 +3,8 @@ use plur1bus_desktop::{client::HarnessClient, connections::Origin};
 use plur1bus_mock_harness::{MockHarness, MockOptions};
 use serde_json::{json, Value};
 use std::{
-    io::Write,
+    collections::BTreeMap,
+    io::{Read, Write},
     path::PathBuf,
     process::{Command, Stdio},
     sync::{
@@ -11,6 +12,94 @@ use std::{
         Arc,
     },
 };
+
+#[derive(Debug, PartialEq)]
+struct ProgressObservation {
+    last: String,
+    stages: Vec<String>,
+    counts: BTreeMap<String, usize>,
+}
+
+fn progress_labels() -> &'static [&'static str] {
+    &[
+        "starting",
+        "session-ready",
+        "proxy-obtained",
+        "secrets-registering",
+        "secrets-registered",
+        "cookies-checked",
+        "benchmark-start",
+        "benchmark-done",
+        "second-window-opened",
+        "negative-checks",
+        "other-window-construction-start",
+        "other-window-construction-complete",
+        "other-window-construction-failed",
+        "other-window-wait-start",
+        "other-window-wait-channel-closed",
+        "other-window-wait-timeout",
+        "other-window-page-finished",
+        "other-window-eval-submitted",
+        "other-window-eval-failed",
+        "other-window-script-entry",
+        "other-window-fetch-start",
+        "other-window-fetch-complete",
+        "other-window-fetch-error",
+        "other-window-ipc-start",
+        "other-window-ipc-complete",
+        "other-window-probe-complete",
+        "negative-done",
+        "replay",
+        "error-page",
+        "retire",
+        "audit",
+    ]
+}
+
+fn parse_progress_history(last: &str, history: &str) -> Result<ProgressObservation, &'static str> {
+    let labels = progress_labels();
+    let last = last.trim();
+    if !labels.contains(&last) {
+        return Err("unknown progress stage");
+    }
+    let mut stages = Vec::new();
+    if history.trim().is_empty() {
+        stages.push(last.to_owned());
+    } else {
+        for stage in history.lines().map(str::trim).filter(|s| !s.is_empty()) {
+            if !labels.contains(&stage) {
+                return Err("unknown progress stage");
+            }
+            stages.push(stage.to_owned());
+        }
+    }
+    let mut counts = BTreeMap::new();
+    for stage in &stages {
+        *counts.entry(stage.clone()).or_insert(0) += 1;
+    }
+    Ok(ProgressObservation {
+        last: last.to_owned(),
+        stages,
+        counts,
+    })
+}
+
+fn read_progress_file(path: &std::path::Path) -> String {
+    const MAX_PROGRESS_BYTES: u64 = 4096;
+    let Ok(file) = std::fs::File::open(path) else {
+        return String::new();
+    };
+    let mut value = String::new();
+    file.take(MAX_PROGRESS_BYTES + 1)
+        .read_to_string(&mut value)
+        .expect("progress file is UTF-8");
+    assert!(
+        value.len() <= MAX_PROGRESS_BYTES as usize,
+        "progress file exceeded bound"
+    );
+    value
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ChildInput<'a> {
@@ -137,53 +226,28 @@ fn main() {
             }
             std::thread::sleep(std::time::Duration::from_millis(100));
         };
-        let milestone =
-            std::fs::read_to_string(result.with_extension("progress")).unwrap_or_default();
-        let milestone = if [
-            "starting",
-            "session-ready",
-            "proxy-obtained",
-            "secrets-registering",
-            "secrets-registered",
-            "cookies-checked",
-            "benchmark-start",
-            "benchmark-done",
-            "second-window-opened",
-            "negative-checks",
-            "other-window-construction-start",
-            "other-window-construction-complete",
-            "other-window-construction-failed",
-            "other-window-wait-start",
-            "other-window-wait-channel-closed",
-            "other-window-wait-timeout",
-            "other-window-page-finished",
-            "other-window-eval-submitted",
-            "other-window-eval-failed",
-            "other-window-script-entry",
-            "other-window-fetch-start",
-            "other-window-fetch-complete",
-            "other-window-fetch-error",
-            "other-window-ipc-start",
-            "other-window-ipc-complete",
-            "other-window-probe-complete",
-            "negative-done",
-            "replay",
-            "error-page",
-            "retire",
-            "audit",
-        ]
-        .contains(&milestone.as_str())
-        {
-            milestone
-        } else {
-            "unknown".into()
-        };
+        let last = read_progress_file(&result.with_extension("progress"));
+        let history = read_progress_file(&result.with_extension("progress-history"));
+        let observation = parse_progress_history(&last, &history).expect("closed progress stages");
         if !status.success() {
-            std::fs::write(artifacts.join(format!("{phase}.json")),serde_json::to_vec_pretty(&json!({"result":"failed","milestone":milestone,"exitCode":status.code(),"rawChildOutputDiscarded":true})).unwrap()).unwrap();
+            std::fs::write(
+                artifacts.join(format!("{phase}.json")),
+                serde_json::to_vec_pretty(&json!({
+                    "result":"failed",
+                    "milestone":observation.last.clone(),
+                    "milestones":observation.stages,
+                    "milestoneCounts":observation.counts,
+                    "exitCode":status.code(),
+                    "rawChildOutputDiscarded":true
+                }))
+                .unwrap(),
+            )
+            .unwrap();
         }
         assert!(
             status.success(),
-            "native child failed at {milestone} with code {:?}; raw output discarded",
+            "native child failed at {} with code {:?}; raw output discarded",
+            observation.last,
             status.code()
         );
         let bytes = std::fs::read(&result).unwrap();
@@ -282,4 +346,31 @@ fn main() {
     )
     .unwrap();
     println!("Native SPA acceptance completed");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_progress_history;
+
+    #[test]
+    fn timeout_artifact_retains_closed_intermediate_stages_and_counts() {
+        let observation = parse_progress_history(
+            "other-window-wait-timeout",
+            "other-window-page-finished\nother-window-eval-submitted\nother-window-script-entry\nother-window-fetch-start\nother-window-wait-timeout\n",
+        )
+        .unwrap();
+        assert_eq!(observation.last, "other-window-wait-timeout");
+        assert_eq!(observation.stages.len(), 5);
+        assert_eq!(observation.counts["other-window-fetch-start"], 1);
+        assert_eq!(observation.counts["other-window-wait-timeout"], 1);
+    }
+
+    #[test]
+    fn progress_history_rejects_unknown_stage_without_echoing_it() {
+        assert!(parse_progress_history(
+            "other-window-wait-timeout",
+            "other-window-page-finished\nnot-a-public-stage\n",
+        )
+        .is_err());
+    }
 }

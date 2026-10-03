@@ -450,15 +450,45 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> (bool, usize) {
     (leaked, cookies)
 }
 
+const MAX_PROGRESS_STAGES: usize = 128;
+const MAX_PROGRESS_BYTES: usize = 4096;
+
+fn append_progress_history(history: &str, label: &str) -> Option<String> {
+    if history.len() <= MAX_PROGRESS_BYTES
+        && history.lines().count() < MAX_PROGRESS_STAGES
+        && history.len().saturating_add(label.len()).saturating_add(1) <= MAX_PROGRESS_BYTES
+    {
+        Some(format!("{history}{label}\n"))
+    } else {
+        None
+    }
+}
+
 fn progress(label: &str) {
+    static PROGRESS_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
     if let Some(path) = std::env::args_os().nth(1) {
-        let _ = std::fs::write(PathBuf::from(path).with_extension("progress"), label);
+        let _guard = PROGRESS_LOCK
+            .get_or_init(|| std::sync::Mutex::new(()))
+            .lock()
+            .unwrap();
+        let path = PathBuf::from(path);
+        let _ = std::fs::write(path.with_extension("progress"), label);
+        let history_path = path.with_extension("progress-history");
+        let mut history = String::new();
+        if let Ok(file) = std::fs::File::open(&history_path) {
+            let _ = file
+                .take((MAX_PROGRESS_BYTES + 1) as u64)
+                .read_to_string(&mut history);
+        }
+        if let Some(next) = append_progress_history(&history, label) {
+            let _ = std::fs::write(history_path, next);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::other_window_probe_script;
+    use super::{append_progress_history, other_window_probe_script};
 
     #[test]
     fn other_window_probe_runs_from_completed_page_load() {
@@ -468,6 +498,16 @@ mod tests {
         assert!(script.contains("otherWindow403"));
         assert!(script.contains("otherWindowAclDenied"));
         assert!(script.contains("document.title='NEG:'"));
+    }
+
+    #[test]
+    fn progress_history_rejects_entries_beyond_both_bounds() {
+        let stages = (0..128)
+            .map(|_| "other-window-fetch-start\n")
+            .collect::<String>();
+        assert!(append_progress_history(&stages, "other-window-fetch-start").is_none());
+        let bytes = "x".repeat(4096);
+        assert!(append_progress_history(&bytes, "other-window-fetch-start").is_none());
     }
 }
 
