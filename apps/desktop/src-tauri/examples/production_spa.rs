@@ -950,9 +950,12 @@ async fn finish(
     let negative = inputs.negative.clone();
     let secondary_observation = inputs.secondary_observation.clone();
     let observer_owners = browser_owners.clone();
-    let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(proxy.origin().as_str().parse().unwrap())).incognito(true)
+    let observer_url = format!("{}?wp05-old-check", proxy.origin().as_str());
+    let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(observer_url.parse().unwrap())).incognito(true)
         .on_page_load(|webview, payload| {
-            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+                && payload.url().query() == Some("wp05-old-check")
+            {
                 let _ = webview.eval(retirement_observer_probe_script());
             }
         })

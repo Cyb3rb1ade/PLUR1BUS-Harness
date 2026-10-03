@@ -46,6 +46,10 @@ const SECONDARY_PROBE_MARKER: &str = "wp05-secondary-probe=1";
 #[cfg(debug_assertions)]
 const SECONDARY_PROBE_USER_AGENT: &str = "WP05-Secondary-Probe/1";
 const SHELL_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
+#[cfg(debug_assertions)]
+const OLD_ORIGIN_DENIAL_CSP: &str = "default-src 'none'; script-src 'none'; style-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
+#[cfg(debug_assertions)]
+const OLD_ORIGIN_DENIAL_BODY: &str = "<!doctype html><meta charset=\"utf-8\"><title>WP05 diagnostic forbidden document</title><body>Forbidden</body>";
 
 fn shell_response(kind: &'static str, body: Cow<'static, str>) -> Response {
     (
@@ -56,6 +60,27 @@ fn shell_response(kind: &'static str, body: Cow<'static, str>) -> Response {
         body,
     )
         .into_response()
+}
+
+#[cfg(debug_assertions)]
+fn old_origin_probe_response(req: &Request<Body>) -> Option<Response> {
+    if req.method() != Method::GET
+        || req.uri().path() != "/"
+        || req.uri().query() != Some("wp05-old-check")
+    {
+        return None;
+    }
+    Some(
+        (
+            StatusCode::FORBIDDEN,
+            [
+                (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                (header::CONTENT_SECURITY_POLICY, OLD_ORIGIN_DENIAL_CSP),
+            ],
+            OLD_ORIGIN_DENIAL_BODY,
+        )
+            .into_response(),
+    )
 }
 
 fn proxy_csp(origin: &crate::connections::Origin) -> String {
@@ -371,6 +396,10 @@ async fn forward(
 ) -> Response {
     if !authorized(&req, &s) {
         #[cfg(debug_assertions)]
+        if let Some(response) = old_origin_probe_response(&req) {
+            return response;
+        }
+        #[cfg(debug_assertions)]
         record_secondary_probe_403(&req, &s);
         return StatusCode::FORBIDDEN.into_response();
     }
@@ -683,6 +712,10 @@ mod tests {
             )
             .await;
             assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            assert!(axum::body::to_bytes(response.into_body(), 4096)
+                .await
+                .unwrap()
+                .is_empty());
             assert!(state.secondary_probe_403.load(Ordering::SeqCst));
 
             state.secondary_probe_403.store(false, Ordering::SeqCst);
@@ -705,5 +738,39 @@ mod tests {
         })
         .await
         .expect("secondary probe observer test timed out");
+    }
+
+    #[tokio::test]
+    async fn old_origin_marker_gets_inert_html_forbidden_document() {
+        let response = old_origin_probe_response(&request("/?wp05-old-check", "wrong"));
+        let response = response.expect("exact old-origin marker should select diagnostic response");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            response.headers().get(header::CONTENT_TYPE).unwrap(),
+            "text/html; charset=utf-8"
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_SECURITY_POLICY)
+                .unwrap(),
+            OLD_ORIGIN_DENIAL_CSP
+        );
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body.contains("WP05 diagnostic forbidden document"));
+        assert!(!body.contains("<script"));
+        assert!(!body.contains("wp05-old-check"));
+    }
+
+    #[test]
+    fn old_origin_marker_is_exact_and_does_not_change_other_denials() {
+        assert!(old_origin_probe_response(&request("/?wp05-old-check", "wrong")).is_some());
+        assert!(old_origin_probe_response(&request("/nested?wp05-old-check", "wrong")).is_none());
+        assert!(old_origin_probe_response(&request("/?wp05-old-check=1", "wrong")).is_none());
+        assert!(old_origin_probe_response(&request("/?wp05-secondary-probe=1", "wrong")).is_none());
+        assert!(old_origin_probe_response(&request("/", "wrong")).is_none());
     }
 }
