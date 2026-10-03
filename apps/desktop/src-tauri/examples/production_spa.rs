@@ -45,7 +45,7 @@ fn session_probe_script(foreign_origin: &str) -> String {
 }
 
 fn other_window_probe_script() -> &'static str {
-    r#"(async()=>{const blocked=(await fetch(location.href)).status===403;let acl=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});})()"#
+    r#"(async()=>{document.title='NEG_STAGE:entry';document.title='NEG_STAGE:fetch-start';let blocked=false;try{blocked=(await fetch(location.href)).status===403;document.title='NEG_STAGE:fetch-complete'}catch{document.title='NEG_STAGE:fetch-error'}let acl=false;document.title='NEG_STAGE:ipc-start';try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG_STAGE:ipc-complete';document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});})()"#
 }
 
 fn retirement_observer_probe_script() -> &'static str {
@@ -313,14 +313,32 @@ async fn negative_controls(
             .incognito(true)
             .on_page_load(|webview, payload| {
                 if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
-                    let _ = webview.eval(other_window_probe_script());
+                    progress("other-window-page-finished");
+                    match webview.eval(other_window_probe_script()) {
+                        Ok(()) => progress("other-window-eval-submitted"),
+                        Err(_) => progress("other-window-eval-failed"),
+                    }
                 }
             })
             .on_document_title_changed(move |_, title| {
+                if let Some(stage) = title.strip_prefix("NEG_STAGE:") {
+                    let label = match stage {
+                        "entry" => "other-window-script-entry",
+                        "fetch-start" => "other-window-fetch-start",
+                        "fetch-complete" => "other-window-fetch-complete",
+                        "fetch-error" => "other-window-fetch-error",
+                        "ipc-start" => "other-window-ipc-start",
+                        "ipc-complete" => "other-window-ipc-complete",
+                        _ => return,
+                    };
+                    progress(label);
+                    return;
+                }
                 if let Some(value) = title
                     .strip_prefix("NEG:")
                     .and_then(|v| serde_json::from_str::<Value>(v).ok())
                 {
+                    progress("other-window-probe-complete");
                     if let Some(tx) = sender.lock().unwrap().take() {
                         let _ = tx.send(value);
                     }
