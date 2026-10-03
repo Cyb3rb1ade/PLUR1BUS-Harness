@@ -40,6 +40,10 @@ enum AuditFailureCategory {
     CounterLimit,
     SecretDetected,
     CookieDatabase,
+    FileReadSharing,
+    FileReadAccessDenied,
+    FileReadMissing,
+    FileReadOther,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -74,6 +78,8 @@ impl AuditObservation {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct SecondaryProbeObservation {
     available: bool,
+    proxy_generated_403: bool,
+    other_window_acl_denied: bool,
     document_opaque_origin: bool,
     document_content_type_text_plain: bool,
     fetch_rejected_type_error: bool,
@@ -83,6 +89,8 @@ impl SecondaryProbeObservation {
     fn unavailable() -> Self {
         Self {
             available: false,
+            proxy_generated_403: false,
+            other_window_acl_denied: false,
             document_opaque_origin: false,
             document_content_type_text_plain: false,
             fetch_rejected_type_error: false,
@@ -116,6 +124,8 @@ impl SecondaryProbeResult {
     fn observation(&self) -> SecondaryProbeObservation {
         SecondaryProbeObservation {
             available: self.available,
+            proxy_generated_403: false,
+            other_window_acl_denied: self.other_window_acl_denied,
             document_opaque_origin: self.document_opaque_origin,
             document_content_type_text_plain: self.document_content_type_text_plain,
             fetch_rejected_type_error: self.fetch_rejected_type_error,
@@ -450,43 +460,49 @@ async fn negative_controls(
     ] {
         denied &= request.send().await.unwrap().status() == 403;
     }
+    proxy.reset_secondary_probe_403();
+    let secondary_url = format!("{}/?wp05-secondary-probe=1", proxy.origin().as_str());
     let (tx, rx) = tokio::sync::oneshot::channel::<SecondaryProbeResult>();
     let sender = Mutex::new(Some(tx));
     progress("other-window-construction-start");
-    let other =
-        WebviewWindowBuilder::new(app, "other-spa", WebviewUrl::External(url.parse().unwrap()))
-            .incognito(true)
-            .on_page_load(|webview, payload| {
-                if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
-                    progress("other-window-page-finished");
-                    match webview.eval(other_window_probe_script()) {
-                        Ok(()) => progress("other-window-eval-submitted"),
-                        Err(_) => progress("other-window-eval-failed"),
-                    }
-                }
-            })
-            .on_document_title_changed(move |_, title| {
-                if let Some(stage) = title.strip_prefix("NEG_STAGE:") {
-                    let label = match stage {
-                        "entry" => "other-window-script-entry",
-                        "fetch-start" => "other-window-fetch-start",
-                        "fetch-complete" => "other-window-fetch-complete",
-                        "fetch-error" => "other-window-fetch-error",
-                        "ipc-start" => "other-window-ipc-start",
-                        "ipc-complete" => "other-window-ipc-complete",
-                        _ => return,
-                    };
-                    progress(label);
-                    return;
-                }
-                if let Some(value) = title.strip_prefix("NEG:").map(parse_secondary_result) {
-                    progress("other-window-probe-complete");
-                    if let Some(tx) = sender.lock().unwrap().take() {
-                        let _ = tx.send(value);
-                    }
-                }
-            })
-            .build();
+    let other = WebviewWindowBuilder::new(
+        app,
+        "other-spa",
+        WebviewUrl::External(secondary_url.parse().unwrap()),
+    )
+    .incognito(true)
+    .user_agent("WP05-Secondary-Probe/1")
+    .on_page_load(|webview, payload| {
+        if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+            progress("other-window-page-finished");
+            match webview.eval(other_window_probe_script()) {
+                Ok(()) => progress("other-window-eval-submitted"),
+                Err(_) => progress("other-window-eval-failed"),
+            }
+        }
+    })
+    .on_document_title_changed(move |_, title| {
+        if let Some(stage) = title.strip_prefix("NEG_STAGE:") {
+            let label = match stage {
+                "entry" => "other-window-script-entry",
+                "fetch-start" => "other-window-fetch-start",
+                "fetch-complete" => "other-window-fetch-complete",
+                "fetch-error" => "other-window-fetch-error",
+                "ipc-start" => "other-window-ipc-start",
+                "ipc-complete" => "other-window-ipc-complete",
+                _ => return,
+            };
+            progress(label);
+            return;
+        }
+        if let Some(value) = title.strip_prefix("NEG:").map(parse_secondary_result) {
+            progress("other-window-probe-complete");
+            if let Some(tx) = sender.lock().unwrap().take() {
+                let _ = tx.send(value);
+            }
+        }
+    })
+    .build();
     let other = match other {
         Ok(other) => {
             progress("other-window-construction-complete");
@@ -529,9 +545,13 @@ async fn negative_controls(
         json!({"aclDenied":false})
     };
     let observation = value.observation();
+    let proxy_generated_403 = proxy.secondary_probe_403_observed();
     (
-        json!({"missingWrongSecretHostOrigin":denied,"otherWebview":value,"oldOriginWhileReplacementActive":old_origin}),
-        observation,
+        json!({"missingWrongSecretHostOrigin":denied,"otherWebview":value,"proxyGenerated403":proxy_generated_403,"oldOriginWhileReplacementActive":old_origin}),
+        SecondaryProbeObservation {
+            proxy_generated_403,
+            ..observation
+        },
     )
 }
 async fn finish(
@@ -594,6 +614,26 @@ fn parse_secondary_result(raw: &str) -> SecondaryProbeResult {
 
 struct FilesystemAuditReader;
 
+fn classify_file_read_error(error: &std::io::Error) -> AuditFailureCategory {
+    #[cfg(windows)]
+    {
+        match error.raw_os_error() {
+            Some(5) => AuditFailureCategory::FileReadAccessDenied,
+            Some(2 | 3) => AuditFailureCategory::FileReadMissing,
+            Some(32 | 33) => AuditFailureCategory::FileReadSharing,
+            _ => AuditFailureCategory::FileReadOther,
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        match error.kind() {
+            std::io::ErrorKind::PermissionDenied => AuditFailureCategory::FileReadAccessDenied,
+            std::io::ErrorKind::NotFound => AuditFailureCategory::FileReadMissing,
+            _ => AuditFailureCategory::FileReadOther,
+        }
+    }
+}
+
 impl AuditReader for FilesystemAuditReader {
     fn read_dir(
         &mut self,
@@ -626,7 +666,7 @@ impl AuditReader for FilesystemAuditReader {
     }
 
     fn read_file(&mut self, path: &std::path::Path) -> Result<Vec<u8>, AuditFailureCategory> {
-        std::fs::read(path).map_err(|_| AuditFailureCategory::FileRead)
+        std::fs::read(path).map_err(|error| classify_file_read_error(&error))
     }
 }
 
@@ -728,6 +768,12 @@ fn record_audit_failure(observation: &mut AuditObservation, category: AuditFailu
         AuditFailureCategory::FileRead => {
             observation.read_failures = observation.read_failures.saturating_add(1)
         }
+        AuditFailureCategory::FileReadSharing
+        | AuditFailureCategory::FileReadAccessDenied
+        | AuditFailureCategory::FileReadMissing
+        | AuditFailureCategory::FileReadOther => {
+            observation.read_failures = observation.read_failures.saturating_add(1)
+        }
         AuditFailureCategory::Symlink => {
             observation.symlink_entries = observation.symlink_entries.saturating_add(1)
         }
@@ -780,9 +826,9 @@ fn progress(label: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_progress_history, audit_with_reader, other_window_probe_script,
-        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation,
-        AuditReader,
+        append_progress_history, audit_with_reader, classify_file_read_error,
+        other_window_probe_script, parse_secondary_probe, AuditEntry, AuditEntryKind,
+        AuditFailureCategory, AuditObservation, AuditReader,
     };
     use std::path::{Path, PathBuf};
 
@@ -855,6 +901,40 @@ mod tests {
             r#"{"available":true,"documentOpaqueOrigin":false,"documentContentTypeTextPlain":true,"fetchRejectedTypeError":true,"url":"private"}"#,
         );
         assert!(!observation.available);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn file_read_errors_have_closed_platform_classes() {
+        assert_eq!(
+            classify_file_read_error(&std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+            AuditFailureCategory::FileReadAccessDenied
+        );
+        assert_eq!(
+            classify_file_read_error(&std::io::Error::from(std::io::ErrorKind::NotFound)),
+            AuditFailureCategory::FileReadMissing
+        );
+        assert_eq!(
+            classify_file_read_error(&std::io::Error::from(std::io::ErrorKind::Other)),
+            AuditFailureCategory::FileReadOther
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_file_read_errors_classify_sharing_and_permission() {
+        assert_eq!(
+            classify_file_read_error(&std::io::Error::from_raw_os_error(32)),
+            AuditFailureCategory::FileReadSharing
+        );
+        assert_eq!(
+            classify_file_read_error(&std::io::Error::from_raw_os_error(5)),
+            AuditFailureCategory::FileReadAccessDenied
+        );
+        assert_eq!(
+            classify_file_read_error(&std::io::Error::from_raw_os_error(2)),
+            AuditFailureCategory::FileReadMissing
+        );
     }
 }
 

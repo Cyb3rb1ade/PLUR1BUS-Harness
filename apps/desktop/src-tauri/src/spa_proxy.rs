@@ -38,7 +38,13 @@ struct Inner {
     error_settings: Mutex<crate::settings::Settings>,
     #[cfg(debug_assertions)]
     observed_secrets: Mutex<Vec<SecretString>>,
+    #[cfg(debug_assertions)]
+    secondary_probe_403: AtomicBool,
 }
+#[cfg(debug_assertions)]
+const SECONDARY_PROBE_MARKER: &str = "wp05-secondary-probe=1";
+#[cfg(debug_assertions)]
+const SECONDARY_PROBE_USER_AGENT: &str = "WP05-Secondary-Probe/1";
 const SHELL_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
 
 fn shell_response(kind: &'static str, body: Cow<'static, str>) -> Response {
@@ -117,6 +123,8 @@ impl SpaProxy {
             error_settings: Mutex::new(Default::default()),
             #[cfg(debug_assertions)]
             observed_secrets: Mutex::new(Vec::new()),
+            #[cfg(debug_assertions)]
+            secondary_probe_403: AtomicBool::new(false),
         });
         // On Windows, handing Tokio a duplicated std listener leaves the two
         // socket handles in a state where accepts can stall. Move the original
@@ -193,6 +201,18 @@ impl SpaProxy {
     pub fn port(&self) -> u16 {
         self.port
     }
+    /// Debug-only closed observation for the native secondary-window 403 probe.
+    #[cfg(debug_assertions)]
+    pub fn reset_secondary_probe_403(&self) {
+        self.inner
+            .secondary_probe_403
+            .store(false, Ordering::SeqCst);
+    }
+    /// Debug-only closed observation for the native secondary-window 403 probe.
+    #[cfg(debug_assertions)]
+    pub fn secondary_probe_403_observed(&self) -> bool {
+        self.inner.secondary_probe_403.load(Ordering::SeqCst)
+    }
 }
 impl Drop for SpaProxy {
     fn drop(&mut self) {
@@ -205,6 +225,24 @@ fn contains_launch_secret(target: &str, secret: &SecretString) -> bool {
     let nonce = secret.expose().split_once(' ').expect("fixed carrier").1;
     url::form_urlencoded::parse(target.as_bytes())
         .any(|(key, value)| key.contains(nonce) || value.contains(nonce))
+}
+#[cfg(debug_assertions)]
+fn is_secondary_probe_marker(req: &Request<Body>) -> bool {
+    req.method() == Method::GET
+        && req.uri().path() == "/"
+        && req.uri().query() == Some(SECONDARY_PROBE_MARKER)
+        && req
+            .headers()
+            .get(header::USER_AGENT)
+            .and_then(|value| value.to_str().ok())
+            == Some(SECONDARY_PROBE_USER_AGENT)
+}
+
+#[cfg(debug_assertions)]
+fn record_secondary_probe_403(req: &Request<Body>, s: &Inner) {
+    if !authorized(req, s) && is_secondary_probe_marker(req) {
+        s.secondary_probe_403.store(true, Ordering::SeqCst);
+    }
 }
 fn singleton_header(
     headers: &HeaderMap,
@@ -332,6 +370,8 @@ async fn forward(
     req: Request<Body>,
 ) -> Response {
     if !authorized(&req, &s) {
+        #[cfg(debug_assertions)]
+        record_secondary_probe_403(&req, &s);
         return StatusCode::FORBIDDEN.into_response();
     }
     // The carrier is readable by its renderer. Never reflect it into an upstream request target.
@@ -593,4 +633,77 @@ async fn forward(
     *result.status_mut() = status;
     *result.headers_mut() = headers;
     result
+}
+
+#[cfg(all(test, debug_assertions))]
+mod tests {
+    use super::*;
+    use crate::{client::HarnessClient, connections::Origin};
+    use axum::{
+        body::Body, extract::ws::rejection::MethodNotGet,
+        extract::ws::rejection::WebSocketUpgradeRejection, extract::State,
+    };
+
+    fn test_inner() -> Arc<Inner> {
+        let origin = Origin::parse("http://127.0.0.1:12345").unwrap();
+        let (shutdown, _) = tokio::sync::watch::channel(false);
+        Arc::new(Inner {
+            installation_id: "test-installation".into(),
+            client: HarnessClient::new(origin.clone(), None),
+            origin,
+            jar: Mutex::new(reqwest::cookie::Jar::default()),
+            active: AtomicBool::new(true),
+            shutdown,
+            user_agent: SecretString::new("PLUR1BUS-SPA/1 expected-secret".to_string()),
+            error_settings: Mutex::new(Default::default()),
+            observed_secrets: Mutex::new(Vec::new()),
+            secondary_probe_403: AtomicBool::new(false),
+        })
+    }
+
+    fn request(uri: &str, user_agent: &str) -> Request<Body> {
+        Request::builder()
+            .uri(uri)
+            .header(header::HOST, "127.0.0.1:12345")
+            .header(header::USER_AGENT, user_agent)
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn secondary_marker_records_only_proxy_generated_403() {
+        tokio::time::timeout(Duration::from_secs(60), async {
+            let state = test_inner();
+            let response = forward(
+                State(state.clone()),
+                Err(WebSocketUpgradeRejection::MethodNotGet(
+                    MethodNotGet::default(),
+                )),
+                request("/?wp05-secondary-probe=1", SECONDARY_PROBE_USER_AGENT),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            assert!(state.secondary_probe_403.load(Ordering::SeqCst));
+
+            state.secondary_probe_403.store(false, Ordering::SeqCst);
+            let response = forward(
+                State(state.clone()),
+                Err(WebSocketUpgradeRejection::MethodNotGet(
+                    MethodNotGet::default(),
+                )),
+                request("/?unrelated=1", SECONDARY_PROBE_USER_AGENT),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            assert!(!state.secondary_probe_403.load(Ordering::SeqCst));
+
+            let authorized_request =
+                request("/?wp05-secondary-probe=1", "PLUR1BUS-SPA/1 expected-secret");
+            assert!(authorized(&authorized_request, &state));
+            record_secondary_probe_403(&authorized_request, &state);
+            assert!(!state.secondary_probe_403.load(Ordering::SeqCst));
+        })
+        .await
+        .expect("secondary probe observer test timed out");
+    }
 }

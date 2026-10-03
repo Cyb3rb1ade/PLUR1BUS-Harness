@@ -33,6 +33,10 @@ enum AuditFailureCategory {
     CounterLimit,
     SecretDetected,
     CookieDatabase,
+    FileReadSharing,
+    FileReadAccessDenied,
+    FileReadMissing,
+    FileReadOther,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -99,6 +103,8 @@ impl AuditObservation {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct SecondaryProbeObservation {
     available: bool,
+    proxy_generated_403: bool,
+    other_window_acl_denied: bool,
     document_opaque_origin: bool,
     document_content_type_text_plain: bool,
     fetch_rejected_type_error: bool,
@@ -108,6 +114,8 @@ impl SecondaryProbeObservation {
     fn unavailable() -> Self {
         Self {
             available: false,
+            proxy_generated_403: false,
+            other_window_acl_denied: false,
             document_opaque_origin: false,
             document_content_type_text_plain: false,
             fetch_rejected_type_error: false,
@@ -407,6 +415,14 @@ fn main() {
             diagnostic.secondary_probe.available,
             "secondary probe diagnostic unavailable"
         );
+        assert!(
+            diagnostic.secondary_probe.proxy_generated_403,
+            "secondary probe proxy 403 was not observed"
+        );
+        assert!(
+            diagnostic.secondary_probe.other_window_acl_denied,
+            "secondary probe ACL denial was not observed"
+        );
         assert!(diagnostic.audit.clean(), "native audit not clean");
         std::fs::write(
             artifacts.join(format!("{phase}.json")),
@@ -442,10 +458,7 @@ fn main() {
             report["negativeControls"]["missingWrongSecretHostOrigin"],
             true
         );
-        assert_eq!(
-            report["negativeControls"]["otherWebview"]["otherWindow403"],
-            true
-        );
+        assert_eq!(report["negativeControls"]["proxyGenerated403"], true);
         assert_eq!(
             report["negativeControls"]["otherWebview"]["otherWindowAclDenied"],
             true
@@ -531,6 +544,8 @@ mod tests {
             "diagnostic": {
                 "secondaryProbe": {
                     "available": true,
+                    "proxyGenerated403": true,
+                    "otherWindowAclDenied": true,
                     "documentOpaqueOrigin": false,
                     "documentContentTypeTextPlain": true,
                     "fetchRejectedTypeError": true,
@@ -563,6 +578,8 @@ mod tests {
             "diagnostic": {
                 "secondaryProbe": {
                     "available": true,
+                    "proxyGenerated403": true,
+                    "otherWindowAclDenied": true,
                     "documentOpaqueOrigin": false,
                     "documentContentTypeTextPlain": true,
                     "fetchRejectedTypeError": true
@@ -590,6 +607,8 @@ mod tests {
             "diagnostic": {
                 "secondaryProbe": {
                     "available": true,
+                    "proxyGenerated403": true,
+                    "otherWindowAclDenied": true,
                     "documentOpaqueOrigin": false,
                     "documentContentTypeTextPlain": true,
                     "fetchRejectedTypeError": false
