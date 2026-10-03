@@ -53,6 +53,14 @@ struct AuditObservation {
     audit_complete: bool,
     secret_detected: bool,
     cookie_database_files: u32,
+    #[serde(default)]
+    cookie_database_native_profile_files: u32,
+    #[serde(default)]
+    cookie_database_other_root_files: u32,
+    #[serde(default)]
+    cookie_database_primary_files: u32,
+    #[serde(default)]
+    cookie_database_sidecar_files: u32,
     read_failures: u32,
     entries_disappeared: u32,
     metadata_failures: u32,
@@ -67,6 +75,10 @@ impl AuditObservation {
             audit_complete: false,
             secret_detected: false,
             cookie_database_files: 0,
+            cookie_database_native_profile_files: 0,
+            cookie_database_other_root_files: 0,
+            cookie_database_primary_files: 0,
+            cookie_database_sidecar_files: 0,
             read_failures: 0,
             entries_disappeared: 0,
             metadata_failures: 0,
@@ -98,6 +110,32 @@ struct SecondaryProbeObservation {
     document_opaque_origin: bool,
     document_content_type_text_plain: bool,
     fetch_rejected_type_error: bool,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize, Default)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct PrivateProfileObservation {
+    applicable: bool,
+    callback_available: bool,
+    environment_options_available: bool,
+    profile_state_available: bool,
+    private_enabled: bool,
+}
+
+impl PrivateProfileObservation {
+    fn unavailable() -> Self {
+        Self::default()
+    }
+
+    fn accepted(&self) -> bool {
+        if !self.applicable {
+            return !cfg!(windows);
+        }
+        self.callback_available
+            && self.environment_options_available
+            && self.profile_state_available
+            && self.private_enabled
+    }
 }
 
 impl SecondaryProbeObservation {
@@ -168,6 +206,8 @@ struct NativeDiagnostic {
     pre_close_audit: AuditObservation,
     audit: AuditObservation,
     teardown: TeardownObservation,
+    #[serde(default)]
+    profile: PrivateProfileObservation,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -443,6 +483,54 @@ fn claim_observer_completion(finished: &AtomicBool) -> bool {
     !finished.swap(true, Ordering::SeqCst)
 }
 
+#[cfg(windows)]
+fn inspect_private_profile(window: &tauri::WebviewWindow) -> PrivateProfileObservation {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2Environment10, ICoreWebView2_13,
+    };
+    use windows_core::Interface;
+
+    let observation = Arc::new(Mutex::new(PrivateProfileObservation {
+        applicable: true,
+        ..PrivateProfileObservation::default()
+    }));
+    let target = observation.clone();
+    let callback = window.with_webview(move |webview| {
+        let mut state = target.lock().unwrap();
+        state.callback_available = true;
+        let controller = webview.controller();
+        let Ok(core) = (unsafe { controller.CoreWebView2() }) else {
+            return;
+        };
+        state.environment_options_available = webview
+            .environment()
+            .cast::<ICoreWebView2Environment10>()
+            .is_ok();
+        let Ok(core13) = core.cast::<ICoreWebView2_13>() else {
+            return;
+        };
+        let Ok(profile) = (unsafe { core13.Profile() }) else {
+            return;
+        };
+        let mut enabled = 0;
+        if unsafe { profile.IsInPrivateModeEnabled(&mut enabled) }.is_ok() {
+            state.profile_state_available = true;
+            state.private_enabled = enabled != 0;
+        }
+    });
+    if callback.is_err() {
+        observation.lock().unwrap().callback_available = false;
+    }
+    Arc::try_unwrap(observation)
+        .map(|value| value.into_inner().unwrap())
+        .unwrap_or_default()
+}
+
+#[cfg(not(windows))]
+fn inspect_private_profile(_window: &tauri::WebviewWindow) -> PrivateProfileObservation {
+    PrivateProfileObservation::unavailable()
+}
+
 fn write_observer_timeout_report(
     app: &tauri::AppHandle,
     output: &PathBuf,
@@ -450,6 +538,7 @@ fn write_observer_timeout_report(
     known: &Secrets,
     negative: &Arc<Mutex<Value>>,
     secondary_observation: &Arc<Mutex<Option<SecondaryProbeObservation>>>,
+    profile: &Arc<Mutex<PrivateProfileObservation>>,
 ) {
     let pre_close_audit = AuditObservation::unavailable();
     let audit_observation = AuditObservation::unavailable();
@@ -470,6 +559,7 @@ fn write_observer_timeout_report(
         pre_close_audit: pre_close_audit.clone(),
         audit: audit_observation.clone(),
         teardown: teardown.clone(),
+        profile: *profile.lock().unwrap(),
     };
     let report = json!({
         "result": "failed",
@@ -487,6 +577,7 @@ fn write_observer_timeout_report(
         "cookieDatabaseFiles": 0,
         "preCloseAudit": pre_close_audit,
         "teardown": teardown,
+        "profile": *profile.lock().unwrap(),
         "diagnostic": diagnostic,
     });
     let bytes = match serde_json::to_vec_pretty(&report) {
@@ -528,6 +619,12 @@ struct AuditEntry {
     path: PathBuf,
     kind: AuditEntryKind,
     cookie_database: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CookieFileClass {
+    Primary,
+    Sidecar,
 }
 
 trait AuditReader {
@@ -578,7 +675,7 @@ fn parse_local_acl_probe(raw: &str) -> Option<LocalAclProbeResult> {
 }
 
 fn retirement_observer_probe_script() -> &'static str {
-    "(async()=>{let denied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){denied=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='ACL:'+JSON.stringify({actualAclDenied:denied});})()"
+    "(async()=>{document.title='WP05-ACL-SCRIPT-ENTRY';const invoke=window.__TAURI_INTERNALS__?.invoke;if(typeof invoke!=='function'){document.title='WP05-ACL-IPC-MISSING';return}document.title='WP05-ACL-IPC-AVAILABLE';document.title='WP05-ACL-IPC-START';let denied=false;try{await invoke('shell_info')}catch(e){denied=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='WP05-ACL-IPC-COMPLETE';document.title='ACL:'+JSON.stringify({actualAclDenied:denied});})()"
 }
 
 fn main() {
@@ -1058,16 +1155,38 @@ async fn finish(
     let timeout_known = known.clone();
     let timeout_negative = negative.clone();
     let timeout_secondary = secondary_observation.clone();
+    let profile_observation = Arc::new(Mutex::new(PrivateProfileObservation::unavailable()));
+    let profile_for_title = profile_observation.clone();
+    let timeout_profile = profile_observation.clone();
     let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(observer_url.parse().unwrap())).incognito(true)
         .on_page_load(|webview, payload| {
-            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
-                && payload.url().query() == Some("wp05-old-check")
-            {
-                let _ = webview.eval(retirement_observer_probe_script());
+            if payload.url().query() != Some("wp05-old-check") {
+                return;
+            }
+            match payload.event() {
+                tauri::webview::PageLoadEvent::Started => {
+                    progress("retirement-observer-page-started");
+                }
+                tauri::webview::PageLoadEvent::Finished => {
+                    progress("retirement-observer-page-finished");
+                    match webview.eval(retirement_observer_probe_script()) {
+                        Ok(()) => progress("retirement-observer-eval-submitted"),
+                        Err(_) => progress("retirement-observer-eval-rejected"),
+                    }
+                }
             }
         })
         .on_document_title_changed(move|window,title|{
+            match title.as_str() {
+                "WP05-ACL-SCRIPT-ENTRY" => progress("retirement-observer-script-entry"),
+                "WP05-ACL-IPC-AVAILABLE" => progress("retirement-observer-ipc-available"),
+                "WP05-ACL-IPC-MISSING" => progress("retirement-observer-ipc-missing"),
+                "WP05-ACL-IPC-START" => progress("retirement-observer-ipc-start"),
+                "WP05-ACL-IPC-COMPLETE" => progress("retirement-observer-ipc-complete"),
+                _ => {}
+            }
             let Some(acl)=title.strip_prefix("ACL:").and_then(|v|serde_json::from_str::<Value>(v).ok())else{return};
+            progress("retirement-observer-title-complete");
             if !claim_observer_completion(&finished) {
                 return;
             }
@@ -1079,6 +1198,7 @@ async fn finish(
             let task_results = results.clone();
             let task_negative = negative.clone();
             let task_secondary = secondary_observation.clone();
+            let task_profile = profile_for_title.clone();
             let task_owners = observer_owners.clone();
             let task_error = error.clone();
             let task_teardown_deadline = teardown_deadline;
@@ -1157,13 +1277,15 @@ async fn finish(
                     pre_close_audit: pre_close_audit.clone(),
                     audit: audit_observation.clone(),
                     teardown: teardown.clone(),
+                    profile: *task_profile.lock().unwrap(),
                 };
                 let live_positive = diagnostic.pre_close_audit.secret_detected
                     || diagnostic.pre_close_audit.cookie_database_files != 0;
                 let diagnostic_pass = diagnostic.secondary_probe.available
                     && !live_positive
                     && diagnostic.audit.clean()
-                    && diagnostic.teardown.clean();
+                    && diagnostic.teardown.clean()
+                    && diagnostic.profile.accepted();
                 let report=json!({"result":if diagnostic_pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*task_results.lock().unwrap(),"retirement":acl,"negativeControls":*task_negative.lock().unwrap(),"ticketError":task_error["ticketError"],"productionBenchmark":task_error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
                 let bytes=match serde_json::to_vec_pretty(&report){Ok(bytes)=>{progress("audit-report-serialized");bytes},Err(_)=>{progress("audit-report-serialization-failed");task_handle.exit(2);return}};
                 if contains_secret(&bytes,&task_known.lock().unwrap()){progress("audit-report-secret-detected");task_handle.exit(2);return}
@@ -1174,7 +1296,10 @@ async fn finish(
             });
         }).build();
     let observer = match observer {
-        Ok(observer) => observer,
+        Ok(observer) => {
+            *profile_observation.lock().unwrap() = inspect_private_profile(&observer);
+            observer
+        }
         Err(_) => {
             progress("retirement-observer-create-failed");
             app.exit(3);
@@ -1203,6 +1328,7 @@ async fn finish(
             &timeout_known,
             &timeout_negative,
             &timeout_secondary,
+            &timeout_profile,
         );
     });
 }
@@ -1283,31 +1409,58 @@ impl AuditReader for FilesystemAuditReader {
 }
 
 fn is_cookie_database(path: &std::path::Path) -> bool {
+    cookie_file_class(path).is_some()
+}
+
+fn cookie_file_class(path: &std::path::Path) -> Option<CookieFileClass> {
     let name = path
         .file_name()
         .map(|value| value.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    name == "cookies"
+    if name == "cookies"
         || name.starts_with("cookies.sqlite")
         || name.starts_with("cookies.binarycookies")
-        || name.starts_with("cookies-")
+    {
+        Some(CookieFileClass::Primary)
+    } else if name.starts_with("cookies-") {
+        Some(CookieFileClass::Sidecar)
+    } else {
+        None
+    }
 }
 
 fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     let mut reader = FilesystemAuditReader;
-    audit_with_reader(root, secrets, &mut reader)
+    let native_profile_root = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR")
+        .map(PathBuf::from)
+        .map(|path| path.join("native-profile"));
+    audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
 }
 
+#[cfg(test)]
 fn audit_with_reader<R: AuditReader>(
     root: &std::path::Path,
     secrets: &[SecretString],
     reader: &mut R,
+) -> AuditObservation {
+    audit_with_reader_and_profile_root(root, secrets, reader, None)
+}
+
+fn audit_with_reader_and_profile_root<R: AuditReader>(
+    root: &std::path::Path,
+    secrets: &[SecretString],
+    reader: &mut R,
+    native_profile_root: Option<&std::path::Path>,
 ) -> AuditObservation {
     const MAX_AUDIT_ITEMS: usize = 4096;
     let mut observation = AuditObservation {
         audit_complete: false,
         secret_detected: false,
         cookie_database_files: 0,
+        cookie_database_native_profile_files: 0,
+        cookie_database_other_root_files: 0,
+        cookie_database_primary_files: 0,
+        cookie_database_sidecar_files: 0,
         read_failures: 0,
         entries_disappeared: 0,
         metadata_failures: 0,
@@ -1344,6 +1497,22 @@ fn audit_with_reader<R: AuditReader>(
                 AuditEntryKind::File => {
                     if entry.cookie_database {
                         observation.cookie_database_files += 1;
+                        if native_profile_root
+                            .is_some_and(|profile| entry.path.starts_with(profile))
+                        {
+                            observation.cookie_database_native_profile_files += 1;
+                        } else {
+                            observation.cookie_database_other_root_files += 1;
+                        }
+                        match cookie_file_class(&entry.path) {
+                            Some(CookieFileClass::Primary) => {
+                                observation.cookie_database_primary_files += 1;
+                            }
+                            Some(CookieFileClass::Sidecar) => {
+                                observation.cookie_database_sidecar_files += 1;
+                            }
+                            None => {}
+                        }
                     }
                     let bytes = match reader.read_file(&entry.path) {
                         Ok(bytes) => bytes,
@@ -1438,14 +1607,59 @@ fn progress(label: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_progress_history, audit_with_reader, claim_observer_completion,
-        classify_file_read_error, local_acl_probe_script, other_window_probe_script,
-        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation,
-        AuditReader, BrowserProcessOwners, OwnedBrowserProcess, TeardownObservation,
+        append_progress_history, audit_with_reader, audit_with_reader_and_profile_root,
+        claim_observer_completion, classify_file_read_error, cookie_file_class,
+        local_acl_probe_script, other_window_probe_script, parse_secondary_probe, AuditEntry,
+        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners,
+        CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
 
     struct UnreadableProfile;
+
+    struct CookieFiles;
+
+    impl AuditReader for CookieFiles {
+        fn read_dir(&mut self, root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+            let entries = match root.to_str() {
+                Some("root") => vec![
+                    AuditEntry {
+                        path: PathBuf::from("root/native-profile"),
+                        kind: AuditEntryKind::Directory,
+                        cookie_database: false,
+                    },
+                    AuditEntry {
+                        path: PathBuf::from("root/other"),
+                        kind: AuditEntryKind::Directory,
+                        cookie_database: false,
+                    },
+                ],
+                Some("root/native-profile") => vec![
+                    AuditEntry {
+                        path: PathBuf::from("root/native-profile/Cookies"),
+                        kind: AuditEntryKind::File,
+                        cookie_database: true,
+                    },
+                    AuditEntry {
+                        path: PathBuf::from("root/native-profile/Cookies-journal"),
+                        kind: AuditEntryKind::File,
+                        cookie_database: true,
+                    },
+                ],
+                Some("root/other") => vec![AuditEntry {
+                    path: PathBuf::from("root/other/Cookies"),
+                    kind: AuditEntryKind::File,
+                    cookie_database: true,
+                }],
+                _ => return Err(AuditFailureCategory::ReadDir),
+            };
+            Ok(entries)
+        }
+
+        fn read_file(&mut self, _path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+            Ok(Vec::new())
+        }
+    }
 
     impl AuditReader for UnreadableProfile {
         fn read_dir(&mut self, _root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
@@ -1483,6 +1697,60 @@ mod tests {
     }
 
     #[test]
+    fn retirement_observer_script_has_closed_stage_markers() {
+        let script = super::retirement_observer_probe_script();
+        for marker in [
+            "WP05-ACL-SCRIPT-ENTRY",
+            "WP05-ACL-IPC-AVAILABLE",
+            "WP05-ACL-IPC-MISSING",
+            "WP05-ACL-IPC-START",
+            "WP05-ACL-IPC-COMPLETE",
+            "ACL:'",
+        ] {
+            assert!(script.contains(marker), "missing closed marker {marker}");
+        }
+    }
+
+    #[test]
+    fn private_profile_acceptance_requires_closed_windows_evidence() {
+        let missing = PrivateProfileObservation {
+            applicable: true,
+            callback_available: true,
+            environment_options_available: true,
+            profile_state_available: false,
+            private_enabled: false,
+        };
+        assert!(!missing.accepted());
+        assert!(PrivateProfileObservation {
+            profile_state_available: true,
+            private_enabled: true,
+            ..missing
+        }
+        .accepted());
+    }
+
+    #[test]
+    fn cookie_audit_classifies_profile_root_and_sidecar_without_paths() {
+        let mut reader = CookieFiles;
+        let observation = audit_with_reader_and_profile_root(
+            Path::new("root"),
+            &[],
+            &mut reader,
+            Some(Path::new("root/native-profile")),
+        );
+        assert!(observation.audit_complete);
+        assert_eq!(observation.cookie_database_files, 3);
+        assert_eq!(observation.cookie_database_native_profile_files, 2);
+        assert_eq!(observation.cookie_database_other_root_files, 1);
+        assert_eq!(observation.cookie_database_primary_files, 2);
+        assert_eq!(observation.cookie_database_sidecar_files, 1);
+        assert_eq!(
+            cookie_file_class(Path::new("Cookies-journal")),
+            Some(CookieFileClass::Sidecar)
+        );
+    }
+
+    #[test]
     fn progress_history_rejects_entries_beyond_both_bounds() {
         let stages = (0..128)
             .map(|_| "other-window-fetch-start\n")
@@ -1507,6 +1775,10 @@ mod tests {
             audit_complete: true,
             secret_detected: false,
             cookie_database_files: 0,
+            cookie_database_native_profile_files: 0,
+            cookie_database_other_root_files: 0,
+            cookie_database_primary_files: 0,
+            cookie_database_sidecar_files: 0,
             read_failures: 1,
             entries_disappeared: 0,
             metadata_failures: 0,

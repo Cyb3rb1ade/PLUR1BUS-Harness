@@ -41,6 +41,10 @@ tokio-tungstenite = { version = "=0.28.0", features = ["rustls-tls-native-roots"
 [dev-dependencies]
 plur1bus-mock-harness = { path = "../mock-harness", version = "=0.1.0" }
 
+[target.'cfg(windows)'.dev-dependencies]
+webview2-com = "=0.39.1"
+windows-core = "=0.62.2"
+
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.189"

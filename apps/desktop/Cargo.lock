@@ -3221,6 +3221,8 @@ dependencies = [
  "tokio-tungstenite",
  "url",
  "uuid",
+ "webview2-com",
+ "windows-core",
  "windows-sys 0.61.2",
  "x509-parser",
  "zeroize",
