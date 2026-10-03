@@ -1177,6 +1177,7 @@ async fn finish(
     let profile_observation = Arc::new(Mutex::new(PrivateProfileObservation::unavailable()));
     let profile_for_title = profile_observation.clone();
     let timeout_profile = profile_observation.clone();
+    progress("retirement-observer-build-start");
     let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(observer_url.parse().unwrap())).incognito(true)
         .on_page_load(|webview, payload| {
             if payload.url().query() != Some("wp05-old-check") {
@@ -1317,6 +1318,27 @@ async fn finish(
         }).build();
     let observer = match observer {
         Ok(observer) => {
+            progress("retirement-observer-build-complete");
+            if teardown_deadline
+                .saturating_duration_since(std::time::Instant::now())
+                .is_zero()
+            {
+                progress("retirement-observer-build-deadline-exhausted");
+            }
+            progress("retirement-observer-main-thread-dispatch-requested");
+            let callback_deadline = teardown_deadline;
+            if app
+                .run_on_main_thread(move || {
+                    if std::time::Instant::now() <= callback_deadline {
+                        progress("retirement-observer-main-thread-callback-before-deadline");
+                    } else {
+                        progress("retirement-observer-main-thread-callback-after-deadline");
+                    }
+                })
+                .is_err()
+            {
+                progress("retirement-observer-main-thread-dispatch-request-failed");
+            }
             let _ =
                 inspect_private_profile(&observer, profile_observation.clone(), teardown_deadline)
                     .await;
