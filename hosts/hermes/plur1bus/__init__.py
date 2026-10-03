@@ -363,7 +363,7 @@ class Plur1busMemoryProvider(MemoryProvider):
             inflight.claimed = True
         self._journal_append([inflight.entry], timeout=10.0)
 
-    def _journal_append(self, entries: list[dict], *, timeout: float) -> None:
+    def _journal_append(self, entries: list[dict], *, timeout: float, deadline: float | None = None) -> None:
         """Append in order; whatever cannot be written is counted and logged (never lost silently)."""
         journal = self._journal
         assert journal is not None
@@ -371,15 +371,18 @@ class Plur1busMemoryProvider(MemoryProvider):
             try:
                 journal.append(entry, timeout=timeout)
             except Exception as e:  # noqa: BLE001 - LockTimeout, OSError, ...
-                self._count_lost(len(entries) - i, type(e).__name__)
+                # Worker path keeps the 0.2 s bump wait. Shutdown passes its deadline so bump
+                # cannot start a fresh wait after the budget is already spent (0 = one try).
+                lost_timeout = 0.2 if deadline is None else min(0.2, max(0.0, deadline - time.monotonic()))
+                self._count_lost(len(entries) - i, type(e).__name__, timeout=lost_timeout)
                 return
             self._queued = (self._queued or 0) + 1
 
-    def _count_lost(self, n: int, why: str) -> None:
+    def _count_lost(self, n: int, why: str, *, timeout: float = 0.2) -> None:
         self._lost += n
         log.warning("plur1bus: %d capture(s) could not be journaled (%s) and are lost", n, why)
         try:
-            self._journal.bump(timeout=0.2, lost=n)
+            self._journal.bump(timeout=timeout, lost=n)
         except Exception:  # noqa: BLE001
             pass
 
@@ -464,7 +467,7 @@ class Plur1busMemoryProvider(MemoryProvider):
                     inflight.claimed = True
                     leftover.insert(0, inflight.entry)
         if leftover:
-            self._journal_append(leftover, timeout=max(0.05, deadline - time.monotonic()))
+            self._journal_append(leftover, timeout=max(0.05, deadline - time.monotonic()), deadline=deadline)
         for c in (self._rclient, self._wclient):
             if c is not None:
                 try:
