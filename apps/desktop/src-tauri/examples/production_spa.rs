@@ -553,6 +553,9 @@ fn main() {
                             progress("benchmark-done");
                             *measurements.lock().unwrap() = measured;
                             let mut conn = connection.lock().unwrap().clone();
+                            if let Some(current) = app.get_webview_window("spa") {
+                                capture_browser_process(&current, &browser_owners_for_run);
+                            }
                             if spa::open_spa(&app, &mut conn, tokens.as_ref(), store.as_ref())
                                 .await
                                 .is_err()
