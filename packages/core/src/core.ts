@@ -180,7 +180,7 @@ export function createCore(o: CoreOptions): Core {
   }
 
   async function start(): Promise<void> {
-    for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal]) mkdirSync(d, { recursive: true, mode: 0o700 });
+    for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal, l.catalog, l.systemJobs]) mkdirSync(d, { recursive: true, mode: 0o700 });
     // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
     // written once it does.
     const early: [Level, string, Record<string, unknown> | undefined][] = [];

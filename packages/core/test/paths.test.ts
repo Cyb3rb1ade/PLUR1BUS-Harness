@@ -20,6 +20,12 @@ describe("paths", () => {
     assert.equal(l.coreLock, "/h/.plur1bus/state/core.lock");
     assert.equal(l.logFile("core"), "/h/.plur1bus/logs/core.log");
   });
+  it("lays out the model catalog and the system-job state", () => {
+    const l = layout("/h");
+    assert.equal(l.catalog, "/h/catalog");
+    assert.equal(l.catalogModels, "/h/catalog/models.json");
+    assert.equal(l.systemJobs, "/h/state/system-jobs");
+  });
   it("names a per-home pipe on windows and the socket elsewhere", () => {
     assert.equal(coreAddress("/h/.plur1bus", "linux"), "/h/.plur1bus/run/core.sock");
     assert.match(coreAddress("C:\\Users\\c\\AppData\\Local\\PLUR1BUS", "win32"), /^\\\\\.\\pipe\\plur1bus-[0-9a-f]{16}-core$/);
