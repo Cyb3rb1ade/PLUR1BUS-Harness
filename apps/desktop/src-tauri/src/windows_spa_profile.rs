@@ -70,6 +70,21 @@ impl std::fmt::Display for CookieQueryDiagnostic {
 
 impl std::error::Error for CookieQueryDiagnostic {}
 
+#[derive(Debug, Clone, Copy, Default)]
+/// Closed cleanup evidence; a removed directory does not erase row or secret failures.
+pub struct CleanupResult {
+    pub removed: bool,
+    pub cookie_rows: u64,
+    pub read_only_complete: bool,
+    pub secret_detected: bool,
+}
+
+impl CleanupResult {
+    pub fn accepted(&self) -> bool {
+        self.removed && self.cookie_rows == 0 && self.read_only_complete && !self.secret_detected
+    }
+}
+
 #[cfg(windows)]
 use std::path::{Path, PathBuf};
 
@@ -101,8 +116,8 @@ pub fn is_owned_profile_path(root: &Path, path: &Path) -> bool {
 #[cfg(windows)]
 mod windows {
     use super::{
-        known_browser_lock_name, owned_leaf_name, CookieQueryDiagnostic, CookieQueryResult,
-        CookieQueryStage, Path, PathBuf, PREFIX,
+        known_browser_lock_name, owned_leaf_name, CleanupResult, CookieQueryDiagnostic,
+        CookieQueryResult, CookieQueryStage, Path, PathBuf, PREFIX,
     };
     use rand::{rngs::OsRng, TryRngCore};
     use std::{
@@ -146,24 +161,6 @@ mod windows {
     /// Retained native browser handle; dropping it does not itself authorize profile deletion.
     pub struct BrowserProcess {
         handle: HANDLE,
-    }
-
-    #[derive(Debug, Clone, Copy, Default)]
-    /// Closed cleanup evidence; a removed directory does not erase row or secret failures.
-    pub struct CleanupResult {
-        pub removed: bool,
-        pub cookie_rows: u64,
-        pub read_only_complete: bool,
-        pub secret_detected: bool,
-    }
-
-    impl CleanupResult {
-        pub fn accepted(&self) -> bool {
-            self.removed
-                && self.cookie_rows == 0
-                && self.read_only_complete
-                && !self.secret_detected
-        }
     }
 
     /// Debug fixture hook that reports whether an owned profile contains a known secret.

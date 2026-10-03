@@ -18,7 +18,7 @@ use url::Url;
 pub struct SpaState {
     current: Mutex<Option<Active>>,
     retired: Mutex<Vec<SpaProxy>>,
-    #[cfg(windows)]
+    #[cfg(any(windows, test))]
     cleanups:
         Mutex<Vec<tauri::async_runtime::JoinHandle<crate::windows_spa_profile::CleanupResult>>>,
     #[cfg(all(windows, debug_assertions))]
@@ -36,34 +36,49 @@ pub type NativeProbe = std::sync::Arc<dyn Fn(tauri::WebviewWindow, String, Origi
 #[cfg(debug_assertions)]
 pub type NativeSecretObserver = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 impl SpaState {
-    #[cfg(windows)]
+    #[cfg(any(windows, test))]
     pub async fn wait_profile_cleanups(
         &self,
         deadline: std::time::Instant,
     ) -> crate::windows_spa_profile::CleanupResult {
+        let mut observed = crate::windows_spa_profile::CleanupResult::default();
+        self.wait_profile_cleanups_into(deadline, &mut observed)
+            .await;
+        observed
+    }
+    /// Preserve consumed cleanup evidence in the caller's accumulator across cancellation.
+    #[cfg(any(windows, test))]
+    pub async fn wait_profile_cleanups_into(
+        &self,
+        deadline: std::time::Instant,
+        observed: &mut crate::windows_spa_profile::CleanupResult,
+    ) {
         let tasks = std::mem::take(&mut *self.cleanups.lock().unwrap());
-        let mut combined = crate::windows_spa_profile::CleanupResult {
-            removed: true,
-            cookie_rows: 0,
-            read_only_complete: true,
-            secret_detected: false,
-        };
+        // Completion cannot be inferred from a consumed prefix of owners. These
+        // stay false if this future is dropped while any later owner is pending.
+        observed.removed = false;
+        observed.read_only_complete = false;
+        let mut all_removed = true;
+        let mut all_read_only = true;
         for task in tasks {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
             match tokio::time::timeout(remaining, task).await {
                 Ok(Ok(result)) => {
-                    combined.removed &= result.removed;
-                    combined.read_only_complete &= result.read_only_complete;
-                    combined.cookie_rows = combined.cookie_rows.saturating_add(result.cookie_rows);
-                    combined.secret_detected |= result.secret_detected;
+                    all_removed &= result.removed;
+                    all_read_only &= result.read_only_complete;
+                    // Publish each consumed owner's irreversible evidence BEFORE
+                    // the next await; outer cancellation must not erase it.
+                    observed.cookie_rows = observed.cookie_rows.saturating_add(result.cookie_rows);
+                    observed.secret_detected |= result.secret_detected;
                 }
                 _ => {
-                    combined.removed = false;
-                    combined.read_only_complete = false;
+                    all_removed = false;
+                    all_read_only = false;
                 }
             }
         }
-        combined
+        observed.removed = all_removed;
+        observed.read_only_complete = all_read_only;
     }
     #[cfg(all(windows, debug_assertions))]
     pub fn set_native_profile_audit(&self, audit: crate::windows_spa_profile::SecretAudit) {
@@ -476,5 +491,91 @@ mod fixture_navigation_tests {
         assert!(
             !state.allows_fixture_old_origin(&url("http://127.0.0.1:30101/?wp05-old-check"), true)
         );
+    }
+}
+
+#[cfg(test)]
+mod cleanup_aggregation_tests {
+    use super::SpaState;
+    use crate::windows_spa_profile::CleanupResult;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn shared_cleanup_wrapper_combines_all_owners_without_erasing_failure() {
+        tauri::async_runtime::block_on(async {
+            for (removed, read_only_complete) in [(true, true), (false, true), (true, false)] {
+                let state = SpaState::default();
+                let first = tauri::async_runtime::spawn(async {
+                    CleanupResult {
+                        removed: true,
+                        cookie_rows: 3,
+                        read_only_complete: true,
+                        secret_detected: false,
+                    }
+                });
+                let second = tauri::async_runtime::spawn(async move {
+                    CleanupResult {
+                        removed,
+                        cookie_rows: 2,
+                        read_only_complete,
+                        secret_detected: true,
+                    }
+                });
+                state.cleanups.lock().unwrap().extend([first, second]);
+                let observed = tokio::time::timeout(
+                    Duration::from_secs(1),
+                    state.wait_profile_cleanups(Instant::now() + Duration::from_secs(1)),
+                )
+                .await
+                .unwrap();
+                assert_eq!(observed.cookie_rows, 5);
+                assert!(observed.secret_detected);
+                assert_eq!(observed.removed, removed);
+                assert_eq!(observed.read_only_complete, read_only_complete);
+                assert!(!observed.accepted());
+            }
+        });
+    }
+
+    #[test]
+    fn cancelled_shared_aggregation_retains_consumed_positive_owner() {
+        tauri::async_runtime::block_on(async {
+            let state = SpaState::default();
+            let (ready_sender, ready_receiver) = tokio::sync::oneshot::channel();
+            let positive = tauri::async_runtime::spawn(async move {
+                let _ = ready_sender.send(());
+                CleanupResult {
+                    removed: true,
+                    cookie_rows: 3,
+                    read_only_complete: true,
+                    secret_detected: true,
+                }
+            });
+            ready_receiver.await.unwrap();
+            let (pending_sender, pending_receiver) = tokio::sync::oneshot::channel::<()>();
+            let pending = tauri::async_runtime::spawn(async move {
+                let _ = pending_receiver.await;
+                CleanupResult::default()
+            });
+            state.cleanups.lock().unwrap().extend([positive, pending]);
+            let mut observed = CleanupResult::default();
+            let cancelled = tokio::time::timeout(
+                Duration::from_millis(25),
+                state.wait_profile_cleanups_into(
+                    Instant::now() + Duration::from_secs(1),
+                    &mut observed,
+                ),
+            )
+            .await;
+            assert!(cancelled.is_err());
+            assert_eq!(
+                observed.cookie_rows, 3,
+                "consumed owner rows must outlive aggregate cancellation"
+            );
+            assert!(observed.secret_detected);
+            assert!(!observed.removed && !observed.read_only_complete);
+            assert!(!observed.accepted());
+            drop(pending_sender);
+        });
     }
 }

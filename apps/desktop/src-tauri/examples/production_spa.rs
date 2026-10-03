@@ -2195,8 +2195,8 @@ async fn finish(
                                 *process_exit = wait_for_browser_processes(
                                     task_owners.clone(), cleanup_deadline,
                                 ).await;
-                                *spa_cleanup = task_handle.state::<SpaState>()
-                                    .wait_profile_cleanups(cleanup_deadline).await;
+                                task_handle.state::<SpaState>()
+                                    .wait_profile_cleanups_into(cleanup_deadline, spa_cleanup).await;
                             };
                             // Store each completed result outside the cancellable future;
                             // another owner's timeout must not erase positive rows/secrets.
@@ -3299,27 +3299,6 @@ mod tests {
             assert_eq!(result, Some(7));
             assert!(failed);
             assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
-        });
-    }
-
-    #[test]
-    fn windows_cleanup_timeout_keeps_already_observed_positive_evidence() {
-        tauri::async_runtime::block_on(async {
-            let mut observed_rows = 0;
-            let mut observed_secret = false;
-            let (result, failed) = super::complete_windows_teardown(
-                std::time::Instant::now() - std::time::Duration::from_millis(1),
-                std::time::Duration::from_millis(10),
-                |_| async {
-                    observed_rows = 1;
-                    observed_secret = true;
-                    std::future::pending::<()>().await;
-                },
-            )
-            .await;
-            assert!(result.is_none() && failed);
-            assert_eq!(observed_rows, 1);
-            assert!(observed_secret);
         });
     }
 
