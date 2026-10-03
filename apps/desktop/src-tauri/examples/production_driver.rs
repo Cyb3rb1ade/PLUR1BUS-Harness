@@ -1,6 +1,7 @@
 //! Rust-only pairing and native process restart driver. JavaScript never sees credentials.
 use plur1bus_desktop::{client::HarnessClient, connections::Origin};
 use plur1bus_mock_harness::{MockHarness, MockOptions};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
@@ -18,6 +19,122 @@ struct ProgressObservation {
     last: String,
     stages: Vec<String>,
     counts: BTreeMap<String, usize>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum AuditFailureCategory {
+    None,
+    ReadDir,
+    EntryDisappeared,
+    Metadata,
+    FileRead,
+    Symlink,
+    CounterLimit,
+    SecretDetected,
+    CookieDatabase,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct AuditObservation {
+    audit_complete: bool,
+    secret_detected: bool,
+    cookie_database_files: u32,
+    read_failures: u32,
+    entries_disappeared: u32,
+    metadata_failures: u32,
+    read_dir_failures: u32,
+    symlink_entries: u32,
+    failure_category: AuditFailureCategory,
+}
+
+impl AuditObservation {
+    fn unavailable() -> Self {
+        Self {
+            audit_complete: false,
+            secret_detected: false,
+            cookie_database_files: 0,
+            read_failures: 0,
+            entries_disappeared: 0,
+            metadata_failures: 0,
+            read_dir_failures: 0,
+            symlink_entries: 0,
+            failure_category: AuditFailureCategory::ReadDir,
+        }
+    }
+
+    fn bounded(&self) -> bool {
+        const MAX_AUDIT_ITEMS: u32 = 4096;
+        self.cookie_database_files <= MAX_AUDIT_ITEMS
+            && self.read_failures <= MAX_AUDIT_ITEMS
+            && self.entries_disappeared <= MAX_AUDIT_ITEMS
+            && self.metadata_failures <= MAX_AUDIT_ITEMS
+            && self.read_dir_failures <= MAX_AUDIT_ITEMS
+            && self.symlink_entries <= MAX_AUDIT_ITEMS
+            && self
+                .cookie_database_files
+                .saturating_add(self.read_failures)
+                .saturating_add(self.entries_disappeared)
+                .saturating_add(self.metadata_failures)
+                .saturating_add(self.read_dir_failures)
+                .saturating_add(self.symlink_entries)
+                <= MAX_AUDIT_ITEMS
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct SecondaryProbeObservation {
+    available: bool,
+    document_opaque_origin: bool,
+    document_content_type_text_plain: bool,
+    fetch_rejected_type_error: bool,
+}
+
+impl SecondaryProbeObservation {
+    fn unavailable() -> Self {
+        Self {
+            available: false,
+            document_opaque_origin: false,
+            document_content_type_text_plain: false,
+            fetch_rejected_type_error: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct NativeDiagnostic {
+    secondary_probe: SecondaryProbeObservation,
+    audit: AuditObservation,
+}
+
+impl NativeDiagnostic {
+    fn unavailable() -> Self {
+        Self {
+            secondary_probe: SecondaryProbeObservation::unavailable(),
+            audit: AuditObservation::unavailable(),
+        }
+    }
+}
+
+fn parse_diagnostic(root: &Value) -> NativeDiagnostic {
+    let diagnostic = root
+        .get("diagnostic")
+        .cloned()
+        .and_then(|value| serde_json::from_value::<NativeDiagnostic>(value).ok());
+    match diagnostic {
+        Some(value) if value.audit.bounded() => value,
+        _ => NativeDiagnostic::unavailable(),
+    }
+}
+
+fn read_bounded(path: &std::path::Path, limit: u64) -> Option<Vec<u8>> {
+    let file = std::fs::File::open(path).ok()?;
+    let mut bytes = Vec::new();
+    file.take(limit + 1).read_to_end(&mut bytes).ok()?;
+    ((bytes.len() as u64) <= limit).then_some(bytes)
 }
 
 fn progress_labels() -> &'static [&'static str] {
@@ -53,6 +170,15 @@ fn progress_labels() -> &'static [&'static str] {
         "error-page",
         "retire",
         "audit",
+        "audit-scan-complete",
+        "audit-scan-incomplete",
+        "audit-report-serialized",
+        "audit-report-serialization-failed",
+        "audit-report-secret-detected",
+        "audit-report-written",
+        "audit-report-write-failed",
+        "audit-failed",
+        "audit-passed",
     ]
 }
 
@@ -230,6 +356,11 @@ fn main() {
         let history = read_progress_file(&result.with_extension("progress-history"));
         let observation = parse_progress_history(&last, &history).expect("closed progress stages");
         if !status.success() {
+            const MAX_DIAGNOSTIC_BYTES: u64 = 262_144;
+            let diagnostic = read_bounded(&result, MAX_DIAGNOSTIC_BYTES)
+                .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+                .map(|value| parse_diagnostic(&value))
+                .unwrap_or_else(NativeDiagnostic::unavailable);
             std::fs::write(
                 artifacts.join(format!("{phase}.json")),
                 serde_json::to_vec_pretty(&json!({
@@ -238,6 +369,7 @@ fn main() {
                     "milestones":observation.stages,
                     "milestoneCounts":observation.counts,
                     "exitCode":status.code(),
+                    "diagnostic":diagnostic,
                     "rawChildOutputDiscarded":true
                 }))
                 .unwrap(),
@@ -250,7 +382,7 @@ fn main() {
             observation.last,
             status.code()
         );
-        let bytes = std::fs::read(&result).unwrap();
+        let bytes = read_bounded(&result, 262_144).expect("bounded native report");
         assert!(
             !bytes
                 .windows(credential.token.expose().len())
@@ -258,6 +390,18 @@ fn main() {
             "credential in public report"
         );
         let report: Value = serde_json::from_slice(&bytes).unwrap();
+        let diagnostic = parse_diagnostic(&report);
+        assert!(
+            diagnostic.secondary_probe.available,
+            "secondary probe diagnostic unavailable"
+        );
+        assert!(diagnostic.audit.audit_complete, "native audit incomplete");
+        assert!(!diagnostic.audit.secret_detected);
+        assert_eq!(diagnostic.audit.cookie_database_files, 0);
+        assert_eq!(
+            diagnostic.audit.failure_category,
+            AuditFailureCategory::None
+        );
         std::fs::write(
             artifacts.join(format!("{phase}.json")),
             serde_json::to_vec_pretty(&report).unwrap(),
@@ -350,7 +494,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_progress_history;
+    use super::{parse_diagnostic, parse_progress_history, AuditFailureCategory};
+    use serde_json::json;
 
     #[test]
     fn timeout_artifact_retains_closed_intermediate_stages_and_counts() {
@@ -372,5 +517,64 @@ mod tests {
             "other-window-page-finished\nnot-a-public-stage\n",
         )
         .is_err());
+    }
+
+    #[test]
+    fn unknown_renderer_diagnostic_fields_become_unavailable() {
+        let diagnostic = parse_diagnostic(&json!({
+            "diagnostic": {
+                "secondaryProbe": {
+                    "available": true,
+                    "documentOpaqueOrigin": false,
+                    "documentContentTypeTextPlain": true,
+                    "fetchRejectedTypeError": true,
+                    "privatePayload": "discard"
+                },
+                "audit": {
+                    "auditComplete": true,
+                    "secretDetected": false,
+                    "cookieDatabaseFiles": 0,
+                    "readFailures": 0,
+                    "entriesDisappeared": 0,
+                    "metadataFailures": 0,
+                    "readDirFailures": 0,
+                    "symlinkEntries": 0,
+                    "failureCategory": "none"
+                }
+            }
+        }));
+        assert!(!diagnostic.secondary_probe.available);
+        assert!(!diagnostic.audit.audit_complete);
+        assert_eq!(
+            diagnostic.audit.failure_category,
+            AuditFailureCategory::ReadDir
+        );
+    }
+
+    #[test]
+    fn diagnostic_counter_overflow_becomes_unavailable() {
+        let diagnostic = parse_diagnostic(&json!({
+            "diagnostic": {
+                "secondaryProbe": {
+                    "available": true,
+                    "documentOpaqueOrigin": false,
+                    "documentContentTypeTextPlain": true,
+                    "fetchRejectedTypeError": true
+                },
+                "audit": {
+                    "auditComplete": false,
+                    "secretDetected": false,
+                    "cookieDatabaseFiles": 4097,
+                    "readFailures": 0,
+                    "entriesDisappeared": 0,
+                    "metadataFailures": 0,
+                    "readDirFailures": 0,
+                    "symlinkEntries": 0,
+                    "failureCategory": "counter-limit"
+                }
+            }
+        }));
+        assert!(!diagnostic.secondary_probe.available);
+        assert!(!diagnostic.audit.audit_complete);
     }
 }

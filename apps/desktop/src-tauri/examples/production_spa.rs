@@ -6,7 +6,7 @@ use plur1bus_desktop::{
     spa::{self, SpaState},
     spa_proxy::SpaProxy,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     io::Read,
@@ -28,6 +28,131 @@ struct Input {
 }
 type Secrets = Arc<Mutex<Vec<SecretString>>>;
 
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum AuditFailureCategory {
+    None,
+    ReadDir,
+    EntryDisappeared,
+    Metadata,
+    FileRead,
+    Symlink,
+    CounterLimit,
+    SecretDetected,
+    CookieDatabase,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct AuditObservation {
+    audit_complete: bool,
+    secret_detected: bool,
+    cookie_database_files: u32,
+    read_failures: u32,
+    entries_disappeared: u32,
+    metadata_failures: u32,
+    read_dir_failures: u32,
+    symlink_entries: u32,
+    failure_category: AuditFailureCategory,
+}
+
+impl AuditObservation {
+    fn clean(&self) -> bool {
+        self.audit_complete
+            && !self.secret_detected
+            && self.cookie_database_files == 0
+            && self.failure_category == AuditFailureCategory::None
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct SecondaryProbeObservation {
+    available: bool,
+    document_opaque_origin: bool,
+    document_content_type_text_plain: bool,
+    fetch_rejected_type_error: bool,
+}
+
+impl SecondaryProbeObservation {
+    fn unavailable() -> Self {
+        Self {
+            available: false,
+            document_opaque_origin: false,
+            document_content_type_text_plain: false,
+            fetch_rejected_type_error: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct SecondaryProbeResult {
+    available: bool,
+    other_window_403: bool,
+    other_window_acl_denied: bool,
+    document_opaque_origin: bool,
+    document_content_type_text_plain: bool,
+    fetch_rejected_type_error: bool,
+}
+
+impl SecondaryProbeResult {
+    fn unavailable() -> Self {
+        Self {
+            available: false,
+            other_window_403: false,
+            other_window_acl_denied: false,
+            document_opaque_origin: false,
+            document_content_type_text_plain: false,
+            fetch_rejected_type_error: false,
+        }
+    }
+
+    fn observation(&self) -> SecondaryProbeObservation {
+        SecondaryProbeObservation {
+            available: self.available,
+            document_opaque_origin: self.document_opaque_origin,
+            document_content_type_text_plain: self.document_content_type_text_plain,
+            fetch_rejected_type_error: self.fetch_rejected_type_error,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct NativeDiagnostic {
+    secondary_probe: SecondaryProbeObservation,
+    audit: AuditObservation,
+}
+
+struct FinishInputs {
+    results: Arc<Mutex<Vec<Value>>>,
+    known: Secrets,
+    negative: Arc<Mutex<Value>>,
+    secondary_observation: Arc<Mutex<Option<SecondaryProbeObservation>>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AuditEntryKind {
+    Directory,
+    File,
+    Symlink,
+    Other,
+}
+
+#[derive(Debug, Clone)]
+struct AuditEntry {
+    path: PathBuf,
+    kind: AuditEntryKind,
+    cookie_database: bool,
+}
+
+trait AuditReader {
+    fn read_dir(&mut self, root: &std::path::Path)
+        -> Result<Vec<AuditEntry>, AuditFailureCategory>;
+    fn read_file(&mut self, path: &std::path::Path) -> Result<Vec<u8>, AuditFailureCategory>;
+}
+
 fn old_origin_probe_script() -> &'static str {
     r#"(async()=>{let aclDenied=false;let rustCallerDenied=false;try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){const message=String(e);aclDenied=/not allowed|denied|permissions/i.test(message);rustCallerDenied=message.includes('command unavailable for this window')}document.title='OLD:'+JSON.stringify({aclDenied,rustCallerDenied});})()"#
 }
@@ -45,7 +170,7 @@ fn session_probe_script(foreign_origin: &str) -> String {
 }
 
 fn other_window_probe_script() -> &'static str {
-    r#"(async()=>{document.title='NEG_STAGE:entry';document.title='NEG_STAGE:fetch-start';let blocked=false;try{blocked=(await fetch(location.href)).status===403;document.title='NEG_STAGE:fetch-complete'}catch{document.title='NEG_STAGE:fetch-error'}let acl=false;document.title='NEG_STAGE:ipc-start';try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG_STAGE:ipc-complete';document.title='NEG:'+JSON.stringify({otherWindow403:blocked,otherWindowAclDenied:acl});})()"#
+    r#"(async()=>{document.title='NEG_STAGE:entry';let opaque=window.origin==='null';let plain=(document.contentType||'').toLowerCase()==='text/plain';document.title='NEG_STAGE:fetch-start';let blocked=false;let rejected=false;try{blocked=(await fetch(location.href)).status===403;document.title='NEG_STAGE:fetch-complete'}catch(e){rejected=e instanceof TypeError;document.title='NEG_STAGE:fetch-error'}let acl=false;document.title='NEG_STAGE:ipc-start';try{await window.__TAURI_INTERNALS__.invoke('shell_info')}catch(e){acl=String(e).includes('not allowed')||String(e).includes('denied')||String(e).includes('permissions')}document.title='NEG_STAGE:ipc-complete';document.title='NEG:'+JSON.stringify({available:true,otherWindow403:blocked,otherWindowAclDenied:acl,documentOpaqueOrigin:opaque,documentContentTypeTextPlain:plain,fetchRejectedTypeError:rejected});})()"#
 }
 
 fn retirement_observer_probe_script() -> &'static str {
@@ -92,6 +217,7 @@ fn main() {
     let loads = Mutex::new(std::collections::HashSet::new());
     let results = Arc::new(Mutex::new(Vec::<Value>::new()));
     let negatives = Arc::new(Mutex::new(Value::Null));
+    let secondary_observation = Arc::new(Mutex::new(None::<SecondaryProbeObservation>));
     let measurements = Arc::new(Mutex::new(Value::Null));
     let first_origin = Arc::new(Mutex::new(None::<Origin>));
     let old_probe = Arc::new(Mutex::new(None::<Value>));
@@ -178,6 +304,7 @@ fn main() {
                     let results = results.clone();
                     let output = output.clone();
                     let negatives = negatives.clone();
+                    let secondary_observation = secondary_observation.clone();
                     let measurements = measurements.clone();
                     let first_origin = first_origin.clone();
                     let old_probe_for_run = old_probe.clone();
@@ -218,10 +345,11 @@ fn main() {
                         if step == 1 {
                             progress("negative-checks");
                             let old_origin = first_origin.lock().unwrap().clone();
-                            let controls =
+                            let (controls, observation) =
                                 negative_controls(&app, &proxy, old_origin, old_probe_for_run)
                                     .await;
                             *negatives.lock().unwrap() = controls;
+                            *secondary_observation.lock().unwrap() = Some(observation);
                             let upstream = connection.lock().unwrap().origin.clone();
                             let response = reqwest::Client::new()
                                 .post(format!("{}/__test/ticket-mode", upstream.as_str()))
@@ -246,7 +374,19 @@ fn main() {
                             "ticketError": value,
                             "productionBenchmark": *measurements.lock().unwrap()
                         });
-                        finish(&app, proxy, output, results, known, negatives, observations).await;
+                        finish(
+                            &app,
+                            proxy,
+                            output,
+                            FinishInputs {
+                                results,
+                                known,
+                                negative: negatives,
+                                secondary_observation,
+                            },
+                            observations,
+                        )
+                        .await;
                     });
                 }));
             let start = app.handle().clone();
@@ -287,7 +427,7 @@ async fn negative_controls(
     proxy: &SpaProxy,
     first_origin: Option<Origin>,
     old_probe: Arc<Mutex<Option<Value>>>,
-) -> Value {
+) -> (Value, SecondaryProbeObservation) {
     let client = reqwest::Client::new();
     let url = format!("{}/", proxy.origin().as_str());
     let mut denied = true;
@@ -305,7 +445,7 @@ async fn negative_controls(
     ] {
         denied &= request.send().await.unwrap().status() == 403;
     }
-    let (tx, rx) = tokio::sync::oneshot::channel();
+    let (tx, rx) = tokio::sync::oneshot::channel::<SecondaryProbeResult>();
     let sender = Mutex::new(Some(tx));
     progress("other-window-construction-start");
     let other =
@@ -334,10 +474,7 @@ async fn negative_controls(
                     progress(label);
                     return;
                 }
-                if let Some(value) = title
-                    .strip_prefix("NEG:")
-                    .and_then(|v| serde_json::from_str::<Value>(v).ok())
-                {
+                if let Some(value) = title.strip_prefix("NEG:").map(parse_secondary_result) {
                     progress("other-window-probe-complete");
                     if let Some(tx) = sender.lock().unwrap().take() {
                         let _ = tx.send(value);
@@ -386,15 +523,17 @@ async fn negative_controls(
     } else {
         json!({"aclDenied":false})
     };
-    json!({"missingWrongSecretHostOrigin":denied,"otherWebview":value,"oldOriginWhileReplacementActive":old_origin})
+    let observation = value.observation();
+    (
+        json!({"missingWrongSecretHostOrigin":denied,"otherWebview":value,"oldOriginWhileReplacementActive":old_origin}),
+        observation,
+    )
 }
 async fn finish(
     app: &tauri::AppHandle,
     proxy: SpaProxy,
     output: PathBuf,
-    results: Arc<Mutex<Vec<Value>>>,
-    known: Secrets,
-    negative: Arc<Mutex<Value>>,
+    inputs: FinishInputs,
     error: Value,
 ) {
     progress("retire");
@@ -411,8 +550,20 @@ async fn finish(
             }
         })
         .on_document_title_changed(move|_,title|{
-            let Some(acl)=title.strip_prefix("ACL:").and_then(|v|serde_json::from_str::<Value>(v).ok())else{return};progress("audit");let (secret_on_disk,cookie_files)=audit(&PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap()),&known.lock().unwrap());assert!(!secret_on_disk&&cookie_files==0,"native disk audit failed");
-            let report=json!({"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*results.lock().unwrap(),"retirement":acl,"negativeControls":*negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":secret_on_disk,"cookieDatabaseFiles":cookie_files});let bytes=serde_json::to_vec_pretty(&report).unwrap();assert!(!contains_secret(&bytes,&known.lock().unwrap()),"secret in public report");std::fs::write(&output,bytes).unwrap();handle.exit(0);
+            let Some(acl)=title.strip_prefix("ACL:").and_then(|v|serde_json::from_str::<Value>(v).ok())else{return};
+            progress("audit");
+            let audit_observation=audit(&PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap()),&inputs.known.lock().unwrap());
+            if audit_observation.audit_complete{progress("audit-scan-complete");}else{progress("audit-scan-incomplete");}
+            let secondary = inputs.secondary_observation.lock().unwrap().clone().unwrap_or_else(SecondaryProbeObservation::unavailable);
+            let diagnostic = NativeDiagnostic { secondary_probe: secondary, audit: audit_observation.clone() };
+            let diagnostic_pass = diagnostic.secondary_probe.available && diagnostic.audit.clean();
+            let report=json!({"result":if diagnostic_pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*inputs.results.lock().unwrap(),"retirement":acl,"negativeControls":*inputs.negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"diagnostic":diagnostic});
+            let bytes=match serde_json::to_vec_pretty(&report){Ok(bytes)=>{progress("audit-report-serialized");bytes},Err(_)=>{progress("audit-report-serialization-failed");handle.exit(2);return}};
+            if contains_secret(&bytes,&inputs.known.lock().unwrap()){progress("audit-report-secret-detected");handle.exit(2);return}
+            if std::fs::write(&output,&bytes).is_err(){progress("audit-report-write-failed");handle.exit(2);return}
+            progress("audit-report-written");
+            if !diagnostic_pass{progress("audit-failed");handle.exit(2);return}
+            progress("audit-passed");handle.exit(0);
         }).build();
     if observer.is_err() {
         app.exit(3);
@@ -426,28 +577,163 @@ fn contains_secret(bytes: &[u8], secrets: &[SecretString]) -> bool {
                 .any(|v| v == s.expose().as_bytes())
     })
 }
-fn audit(root: &std::path::Path, secrets: &[SecretString]) -> (bool, usize) {
-    let mut leaked = false;
-    let mut cookies = 0;
-    for entry in std::fs::read_dir(root).unwrap() {
-        let entry = entry.unwrap();
-        if entry.file_type().unwrap().is_dir() {
-            let (l, c) = audit(&entry.path(), secrets);
-            leaked |= l;
-            cookies += c;
-        } else if entry.file_type().unwrap().is_file() {
-            let name = entry.file_name().to_string_lossy().to_lowercase();
-            if name == "cookies"
-                || name.starts_with("cookies.sqlite")
-                || name.starts_with("cookies.binarycookies")
-                || name.starts_with("cookies-")
-            {
-                cookies += 1;
+
+#[cfg(test)]
+fn parse_secondary_probe(raw: &str) -> SecondaryProbeObservation {
+    serde_json::from_str(raw).unwrap_or_else(|_| SecondaryProbeObservation::unavailable())
+}
+
+fn parse_secondary_result(raw: &str) -> SecondaryProbeResult {
+    serde_json::from_str(raw).unwrap_or_else(|_| SecondaryProbeResult::unavailable())
+}
+
+struct FilesystemAuditReader;
+
+impl AuditReader for FilesystemAuditReader {
+    fn read_dir(
+        &mut self,
+        root: &std::path::Path,
+    ) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+        let entries = std::fs::read_dir(root).map_err(|_| AuditFailureCategory::ReadDir)?;
+        entries
+            .map(|entry| {
+                let entry = entry.map_err(|_| AuditFailureCategory::EntryDisappeared)?;
+                let path = entry.path();
+                let file_type = entry
+                    .file_type()
+                    .map_err(|_| AuditFailureCategory::Metadata)?;
+                let kind = if file_type.is_symlink() {
+                    AuditEntryKind::Symlink
+                } else if file_type.is_dir() {
+                    AuditEntryKind::Directory
+                } else if file_type.is_file() {
+                    AuditEntryKind::File
+                } else {
+                    AuditEntryKind::Other
+                };
+                Ok(AuditEntry {
+                    cookie_database: is_cookie_database(&path),
+                    path,
+                    kind,
+                })
+            })
+            .collect()
+    }
+
+    fn read_file(&mut self, path: &std::path::Path) -> Result<Vec<u8>, AuditFailureCategory> {
+        std::fs::read(path).map_err(|_| AuditFailureCategory::FileRead)
+    }
+}
+
+fn is_cookie_database(path: &std::path::Path) -> bool {
+    let name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    name == "cookies"
+        || name.starts_with("cookies.sqlite")
+        || name.starts_with("cookies.binarycookies")
+        || name.starts_with("cookies-")
+}
+
+fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
+    let mut reader = FilesystemAuditReader;
+    audit_with_reader(root, secrets, &mut reader)
+}
+
+fn audit_with_reader<R: AuditReader>(
+    root: &std::path::Path,
+    secrets: &[SecretString],
+    reader: &mut R,
+) -> AuditObservation {
+    const MAX_AUDIT_ITEMS: usize = 4096;
+    let mut observation = AuditObservation {
+        audit_complete: false,
+        secret_detected: false,
+        cookie_database_files: 0,
+        read_failures: 0,
+        entries_disappeared: 0,
+        metadata_failures: 0,
+        read_dir_failures: 0,
+        symlink_entries: 0,
+        failure_category: AuditFailureCategory::None,
+    };
+    let mut pending = vec![root.to_path_buf()];
+    let mut visited = 0;
+    while let Some(path) = pending.pop() {
+        let entries = match reader.read_dir(&path) {
+            Ok(entries) => entries,
+            Err(category) => {
+                record_audit_failure(&mut observation, category);
+                return observation;
             }
-            leaked |= contains_secret(&std::fs::read(entry.path()).unwrap(), secrets);
+        };
+        for entry in entries {
+            visited += 1;
+            if visited > MAX_AUDIT_ITEMS {
+                record_audit_failure(&mut observation, AuditFailureCategory::CounterLimit);
+                return observation;
+            }
+            match entry.kind {
+                AuditEntryKind::Directory => pending.push(entry.path),
+                AuditEntryKind::Symlink => {
+                    record_audit_failure(&mut observation, AuditFailureCategory::Symlink);
+                    return observation;
+                }
+                AuditEntryKind::Other => {
+                    record_audit_failure(&mut observation, AuditFailureCategory::Metadata);
+                    return observation;
+                }
+                AuditEntryKind::File => {
+                    if entry.cookie_database {
+                        observation.cookie_database_files += 1;
+                    }
+                    let bytes = match reader.read_file(&entry.path) {
+                        Ok(bytes) => bytes,
+                        Err(category) => {
+                            record_audit_failure(&mut observation, category);
+                            return observation;
+                        }
+                    };
+                    observation.secret_detected |= contains_secret(&bytes, secrets);
+                }
+            }
         }
     }
-    (leaked, cookies)
+    observation.audit_complete = true;
+    if observation.secret_detected {
+        observation.failure_category = AuditFailureCategory::SecretDetected;
+    } else if observation.cookie_database_files > 0 {
+        observation.failure_category = AuditFailureCategory::CookieDatabase;
+    }
+    observation
+}
+
+fn record_audit_failure(observation: &mut AuditObservation, category: AuditFailureCategory) {
+    match category {
+        AuditFailureCategory::ReadDir => {
+            observation.read_dir_failures = observation.read_dir_failures.saturating_add(1)
+        }
+        AuditFailureCategory::EntryDisappeared => {
+            observation.entries_disappeared = observation.entries_disappeared.saturating_add(1)
+        }
+        AuditFailureCategory::Metadata => {
+            observation.metadata_failures = observation.metadata_failures.saturating_add(1)
+        }
+        AuditFailureCategory::FileRead => {
+            observation.read_failures = observation.read_failures.saturating_add(1)
+        }
+        AuditFailureCategory::Symlink => {
+            observation.symlink_entries = observation.symlink_entries.saturating_add(1)
+        }
+        AuditFailureCategory::CounterLimit
+        | AuditFailureCategory::SecretDetected
+        | AuditFailureCategory::CookieDatabase
+        | AuditFailureCategory::None => {}
+    }
+    if observation.failure_category == AuditFailureCategory::None {
+        observation.failure_category = category;
+    }
 }
 
 const MAX_PROGRESS_STAGES: usize = 128;
@@ -488,7 +774,27 @@ fn progress(label: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{append_progress_history, other_window_probe_script};
+    use super::{
+        append_progress_history, audit_with_reader, other_window_probe_script,
+        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditReader,
+    };
+    use std::path::{Path, PathBuf};
+
+    struct UnreadableProfile;
+
+    impl AuditReader for UnreadableProfile {
+        fn read_dir(&mut self, _root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+            Ok(vec![AuditEntry {
+                path: PathBuf::from("profile/locked"),
+                kind: AuditEntryKind::File,
+                cookie_database: false,
+            }])
+        }
+
+        fn read_file(&mut self, _path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+            Err(AuditFailureCategory::FileRead)
+        }
+    }
 
     #[test]
     fn other_window_probe_runs_from_completed_page_load() {
@@ -497,6 +803,8 @@ mod tests {
         assert!(script.contains("fetch(location.href)"));
         assert!(script.contains("otherWindow403"));
         assert!(script.contains("otherWindowAclDenied"));
+        assert!(script.contains("instanceof TypeError"));
+        assert!(script.contains("documentOpaqueOrigin"));
         assert!(script.contains("document.title='NEG:'"));
     }
 
@@ -508,6 +816,23 @@ mod tests {
         assert!(append_progress_history(&stages, "other-window-fetch-start").is_none());
         let bytes = "x".repeat(4096);
         assert!(append_progress_history(&bytes, "other-window-fetch-start").is_none());
+    }
+
+    #[test]
+    fn unreadable_profile_is_incomplete_and_has_closed_failure_category() {
+        let mut reader = UnreadableProfile;
+        let observation = audit_with_reader(Path::new("profile"), &[], &mut reader);
+        assert!(!observation.audit_complete);
+        assert_eq!(observation.failure_category, AuditFailureCategory::FileRead);
+        assert_eq!(observation.read_failures, 1);
+    }
+
+    #[test]
+    fn unknown_renderer_observation_is_unavailable() {
+        let observation = parse_secondary_probe(
+            r#"{"available":true,"documentOpaqueOrigin":false,"documentContentTypeTextPlain":true,"fetchRejectedTypeError":true,"url":"private"}"#,
+        );
+        assert!(!observation.available);
     }
 }
 
