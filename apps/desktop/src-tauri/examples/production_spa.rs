@@ -276,6 +276,15 @@ impl SecondaryProbeResult {
     }
 }
 
+fn auxiliary_observation(
+    browser_result: &SecondaryProbeResult,
+    native_live_audit: AuditObservation,
+) -> SecondaryProbeObservation {
+    let mut observation = browser_result.observation();
+    observation.profile_live_audit = native_live_audit;
+    observation
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct LocalAclProbeResult {
@@ -984,7 +993,10 @@ fn main() {
                                     let (matched, acl) = plur1bus_desktop::windows_spa_profile::verify_webview_profile(
                                         &window, &path, std::time::Instant::now() + std::time::Duration::from_secs(5)
                                     ).await;
-                                    let live = live_profile_audit(Some(path), known.clone()).await;
+                                    let live = live_profile_audit(
+                                        Some(path), known.clone(),
+                                        std::time::Instant::now() + std::time::Duration::from_secs(5),
+                                    ).await;
                                     (matched, acl, isolated, live)
                                 } else { (false, false, false, AuditObservation::unavailable()) }
                             };
@@ -1243,11 +1255,24 @@ async fn negative_controls(
     };
     value.native_cookie_store_empty = other.cookies().is_ok_and(|cookies| cookies.is_empty());
     #[cfg(windows)]
+    let other_live_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    #[cfg(windows)]
+    let (capture_complete, other_browser) =
+        plur1bus_desktop::windows_spa_profile::complete_browser_capture(
+            plur1bus_desktop::windows_spa_profile::capture_browser_process(&other, &other_profile),
+            other_live_deadline,
+        )
+        .await;
+    #[cfg(windows)]
+    let native_live_audit;
+    #[cfg(not(windows))]
+    let native_live_audit = AuditObservation::unavailable();
+    #[cfg(windows)]
     {
         let (matched, acl) = plur1bus_desktop::windows_spa_profile::verify_webview_profile(
             &other,
             other_profile.path(),
-            std::time::Instant::now() + std::time::Duration::from_secs(5),
+            other_live_deadline,
         )
         .await;
         value.profile_path_verified = matched;
@@ -1259,13 +1284,18 @@ async fn negative_controls(
             .state::<SpaState>()
             .active_profile_path()
             .is_some_and(|main| main != other_profile.path());
-        value.profile_live_audit =
-            live_profile_audit(Some(other_profile.path().to_path_buf()), known.clone()).await;
+        native_live_audit = if capture_complete {
+            live_profile_audit(
+                Some(other_profile.path().to_path_buf()),
+                known.clone(),
+                other_live_deadline,
+            )
+            .await
+        } else {
+            AuditObservation::unavailable()
+        };
     }
     capture_browser_process(&other, &browser_owners);
-    #[cfg(windows)]
-    let other_browser =
-        plur1bus_desktop::windows_spa_profile::capture_browser_process(&other, &other_profile);
     #[cfg(windows)]
     let other_gone = Arc::new(AtomicBool::new(false));
     #[cfg(windows)]
@@ -1318,7 +1348,7 @@ async fn negative_controls(
         json!({"aclDenied":false})
     };
     #[allow(unused_mut)]
-    let mut observation = value.observation();
+    let mut observation = auxiliary_observation(&value, native_live_audit);
     #[cfg(windows)]
     {
         observation.profile_cleanup_complete = other_cleanup.removed;
@@ -1498,7 +1528,7 @@ async fn finish(
                         .unwrap()
                         .as_ref()
                         .map(|lease| lease.path().to_path_buf());
-                    let live = live_profile_audit(path, task_known.clone()).await;
+                    let live = live_profile_audit(path, task_known.clone(), task_teardown_deadline).await;
                     task_profile.lock().unwrap().profile_live_audit = live;
                 }
                 if pre_close_audit.audit_complete {
@@ -1884,10 +1914,17 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
 }
 
 #[cfg(windows)]
-async fn live_profile_audit(path: Option<PathBuf>, known: Secrets) -> AuditObservation {
+async fn live_profile_audit(
+    path: Option<PathBuf>,
+    known: Secrets,
+    deadline: std::time::Instant,
+) -> AuditObservation {
     let Some(path) = path else {
         return AuditObservation::unavailable();
     };
+    if !plur1bus_desktop::windows_spa_profile::wait_for_owned_lease_record(&path, deadline).await {
+        return AuditObservation::unavailable();
+    }
     tauri::async_runtime::spawn_blocking(move || audit(&path, &known.lock().unwrap()))
         .await
         .unwrap_or_else(|_| AuditObservation::unavailable())
@@ -2080,11 +2117,11 @@ fn progress(label: &str) {
 mod tests {
     use super::{
         append_progress_history, audit_with_reader, audit_with_reader_and_profile_root,
-        await_profile_callback, claim_observer_completion, classify_file_read_error,
-        cookie_file_class, local_acl_probe_script, other_window_probe_script,
-        parse_secondary_probe, AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation,
-        AuditReader, BrowserProcessOwners, CookieFileClass, OwnedBrowserProcess,
-        PrivateProfileObservation, TeardownObservation,
+        auxiliary_observation, await_profile_callback, claim_observer_completion,
+        classify_file_read_error, cookie_file_class, local_acl_probe_script,
+        other_window_probe_script, parse_secondary_probe, parse_secondary_result, AuditEntry,
+        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners,
+        CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -2338,6 +2375,24 @@ mod tests {
         assert!(!failed.live_clean());
         assert!(!failed.cookie_read_only_complete);
         assert_eq!(failed.failure_category, AuditFailureCategory::CookieQuery);
+    }
+
+    #[test]
+    fn auxiliary_observation_keeps_rust_live_audit_separate_from_browser_json() {
+        let browser = parse_secondary_result(
+            r#"{"available":true,"otherWindow403":true,"otherWindowAclDenied":true,"documentOpaqueOrigin":true,"documentContentTypeTextPlain":true,"fetchRejectedTypeError":true}"#,
+        );
+        assert!(browser.available);
+        assert!(!browser.observation().profile_live_audit.audit_complete);
+        let mut live = AuditObservation::unavailable();
+        live.audit_complete = true;
+        live.cookie_read_only_complete = true;
+        live.failure_category = AuditFailureCategory::None;
+        let reported = auxiliary_observation(&browser, live.clone());
+        assert_eq!(reported.profile_live_audit, live);
+        assert!(reported.profile_live_audit.live_clean());
+        let unavailable = auxiliary_observation(&browser, AuditObservation::unavailable());
+        assert!(!unavailable.profile_live_audit.live_clean());
     }
 
     #[cfg(windows)]

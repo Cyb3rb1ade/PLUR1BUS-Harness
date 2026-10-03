@@ -134,6 +134,22 @@ mod windows {
         Ok(Some(bytes))
     }
 
+    /// Waits within the caller's deadline until this newly owned lease has a
+    /// complete native callback record; missing or unreadable identity is false.
+    pub async fn wait_for_owned_lease_record(path: &Path, deadline: std::time::Instant) -> bool {
+        let record = path.join(".lease");
+        loop {
+            if matches!(read_owned_lease(&record), Ok(Some(_))) {
+                return true;
+            }
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                return false;
+            }
+            tokio::time::sleep(remaining.min(Duration::from_millis(10))).await;
+        }
+    }
+
     unsafe impl Send for BrowserProcess {}
 
     impl Drop for BrowserProcess {
@@ -195,6 +211,26 @@ mod windows {
             // Dropping the callback sender closes the receiver and forbids cleanup.
         }
         receiver
+    }
+
+    /// Waits for the native callback to persist identity, then relays that same
+    /// owned process handle to post-exit cleanup. Failure stays fail-closed.
+    pub async fn complete_browser_capture(
+        capture: tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>>,
+        deadline: std::time::Instant,
+    ) -> (
+        bool,
+        tokio::sync::oneshot::Receiver<io::Result<BrowserProcess>>,
+    ) {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        let result = match tokio::time::timeout(remaining, capture).await {
+            Ok(Ok(result)) => result,
+            _ => Err(io::Error::other("browser identity capture incomplete")),
+        };
+        let complete = result.is_ok();
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let _ = sender.send(result);
+        (complete, receiver)
     }
 
     /// Confirms WebView2 used the exact lease folder and its native ACL is private.
@@ -1071,20 +1107,14 @@ mod windows {
         }
 
         #[test]
-        fn retained_locked_record_is_readable_and_cleanup_waits_for_window_and_process() {
+        fn capture_completion_precedes_live_audit_then_cleanup_waits_for_exit() {
             let temp = tempfile::tempdir().unwrap();
             let root = temp.path().join("spa-tmp");
             let profile = create_in(&root).unwrap();
             let path = profile.path().to_path_buf();
-            record(&profile, 7, 11);
             let lease_path = path.join(".lease");
-            assert_eq!(read_owned_lease(&lease_path).unwrap().unwrap().len(), 12);
+            assert!(read_owned_lease(&lease_path).is_err());
             let (tx, rx) = tokio::sync::oneshot::channel();
-            assert!(tx
-                .send(Ok(BrowserProcess {
-                    handle: std::ptr::null_mut()
-                }))
-                .is_ok());
             let gone = Arc::new(AtomicBool::new(false));
             let exited = Arc::new(AtomicBool::new(false));
             let audit_path = lease_path.clone();
@@ -1095,12 +1125,52 @@ mod windows {
                 Ok(record.len() != 12)
             });
             tauri::async_runtime::block_on(async {
+                assert!(
+                    !wait_for_owned_lease_record(
+                        &path,
+                        std::time::Instant::now() + Duration::from_millis(20)
+                    )
+                    .await
+                );
+                let callback = async {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    // The synthetic native callback writes identity before delivering its handle.
+                    record(&profile, 7, 11);
+                    assert!(tx
+                        .send(Ok(BrowserProcess {
+                            handle: std::ptr::null_mut()
+                        }))
+                        .is_ok());
+                };
+                let ((complete, cleanup_receiver), ()) = tokio::join!(
+                    complete_browser_capture(
+                        rx,
+                        std::time::Instant::now() + Duration::from_secs(1)
+                    ),
+                    callback
+                );
+                assert!(complete);
+                assert!(
+                    wait_for_owned_lease_record(
+                        &path,
+                        std::time::Instant::now() + Duration::from_secs(1)
+                    )
+                    .await
+                );
+                assert_eq!(read_owned_lease(&lease_path).unwrap().unwrap().len(), 12);
+                let database = path.join("Cookies");
+                let connection = rusqlite::Connection::open(&database).unwrap();
+                connection
+                    .execute("CREATE TABLE cookies (value TEXT)", [])
+                    .unwrap();
+                assert_eq!(inspect_cookie_databases(&path).unwrap().rows, 0);
+                drop(connection);
                 let gone_for_task = gone.clone();
                 let exited_for_task = exited.clone();
                 let task = tauri::async_runtime::spawn(async move {
                     cleanup_after_exit_with_probe(
                         profile,
-                        Some(rx),
+                        Some(cleanup_receiver),
                         gone_for_task,
                         Some(hook),
                         move |_| {
