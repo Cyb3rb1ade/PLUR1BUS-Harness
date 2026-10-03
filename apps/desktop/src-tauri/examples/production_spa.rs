@@ -1092,6 +1092,27 @@ fn session_probe_script(foreign_origin: &str) -> String {
 #[derive(Default)]
 struct SessionTitleClaims(Mutex<Vec<url::Origin>>);
 
+struct TitleSource {
+    callback: url::Origin,
+    page: Option<url::Origin>,
+    active: Option<url::Origin>,
+}
+
+impl TitleSource {
+    fn trusted_origin(&self) -> Option<&url::Origin> {
+        let active = self.active.as_ref()?;
+        (&self.callback == active && self.page.as_ref() == Some(active)).then_some(active)
+    }
+}
+
+fn session_eval_target_is_current(
+    event: &url::Url,
+    page: Option<&url::Url>,
+    active: Option<&url::Origin>,
+) -> bool {
+    page.is_some_and(|page| page.origin() == event.origin()) && active == Some(&event.origin())
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum TitleClaimRejection {
     WrongOrigin,
@@ -1115,14 +1136,10 @@ impl SessionEvalClaims {
 }
 
 impl SessionTitleClaims {
-    fn claim(
-        &self,
-        current: &url::Origin,
-        title: Option<&url::Origin>,
-    ) -> Result<u8, TitleClaimRejection> {
-        if title != Some(current) {
-            return Err(TitleClaimRejection::WrongOrigin);
-        }
+    fn claim(&self, source: &TitleSource) -> Result<u8, TitleClaimRejection> {
+        let current = source
+            .trusted_origin()
+            .ok_or(TitleClaimRejection::WrongOrigin)?;
         let mut claimed = self.0.lock().unwrap();
         if claimed.contains(current) {
             return Err(TitleClaimRejection::Duplicate);
@@ -1147,9 +1164,20 @@ impl SessionTitleClaims {
             .is_some_and(|first| first != current)
     }
 
-    fn accepted(&self, current: &url::Origin, title: Option<&url::Origin>) -> bool {
-        title == Some(current) && self.0.lock().unwrap().contains(current)
+    fn accepted(&self, source: &TitleSource) -> bool {
+        source
+            .trusted_origin()
+            .is_some_and(|current| self.0.lock().unwrap().contains(current))
     }
+}
+
+fn trusted_probe_stage(
+    claims: &SessionTitleClaims,
+    source: &TitleSource,
+    marker: &str,
+) -> Option<&'static str> {
+    let current = source.trusted_origin()?;
+    probe_stage(marker, usize::from(claims.is_second_origin(current)))
 }
 
 fn probe_stage(stage: &str, generation: usize) -> Option<&'static str> {
@@ -1327,11 +1355,16 @@ fn main() {
                 let _ = webview.eval(old_origin_probe_script());
             }
             if payload.url().path() == "/auth/ticket" {
-                let origin = payload.url().origin().ascii_serialization();
-                match loads.submit(&origin, || webview.eval(session_probe_script(&input.foreign_origin))) {
-                    Ok(true) if second_active => progress("second-eval-accepted"),
-                    Err(_) if second_active => progress("second-eval-rejected"),
-                    _ => {}
+                let page = webview.url().ok();
+                if session_eval_target_is_current(payload.url(), page.as_ref(), current_origin.as_ref()) {
+                    let origin = payload.url().origin().ascii_serialization();
+                    match loads.submit(&origin, || webview.eval(session_probe_script(&input.foreign_origin))) {
+                        Ok(true) if second_active => progress("second-eval-accepted"),
+                        Err(_) if second_active => progress("second-eval-rejected"),
+                        _ => {}
+                    }
+                } else if second_active {
+                    progress("second-eval-source-mismatch");
                 }
             }
             if payload.url().path() == "/__shell/ticket-error" {
@@ -1374,21 +1407,20 @@ fn main() {
             #[cfg(windows)]
             let first_profile_path_for_title = first_profile_path.clone();
             app.state::<SpaState>()
-                .set_native_probe(Arc::new(move |window, title| {
+                .set_native_probe(Arc::new(move |window, title, callback_origin| {
                     let app = window.app_handle().clone();
-                    let current = app.state::<SpaState>().active_proxy()
+                    let source = TitleSource {
+                        callback: url::Url::parse(callback_origin.as_str()).unwrap().origin(),
+                        page: window.url().ok().map(|url| url.origin()),
+                        active: app.state::<SpaState>().active_proxy()
                         .and_then(|proxy| url::Url::parse(proxy.origin().as_str()).ok())
-                        .map(|url| url.origin());
-                    let title_origin = window.url().ok().map(|url| url.origin());
+                        .map(|url| url.origin()),
+                    };
                     if let Some(marker) = title.strip_prefix("WP5_STAGE:") {
-                        if let Some(current) = current.as_ref() {
-                            if title_origin.as_ref() == Some(current) {
-                                if let Some(label) = probe_stage(marker, usize::from(claims.is_second_origin(current))) {
-                                    progress(label);
-                                }
-                            } else if claims.generation() == 1 {
-                                progress("second-probe-other-origin");
-                            }
+                        if let Some(label) = trusted_probe_stage(&claims, &source, marker) {
+                            progress(label);
+                        } else if claims.generation() == 1 && source.trusted_origin().is_none() {
+                            progress("second-probe-source-mismatch");
                         }
                         return;
                     }
@@ -1420,15 +1452,14 @@ fn main() {
                     else {
                         return;
                     };
-                    let Some(current) = current.as_ref() else { return; };
                     let step = if error {
-                        if !claims.accepted(current, title_origin.as_ref()) || claims.generation() != 2 {
+                        if !claims.accepted(&source) || claims.generation() != 2 {
                             progress("error-title-rejected-origin");
                             return;
                         }
                         2
                     } else {
-                        let step = match claims.claim(current, title_origin.as_ref()) {
+                        let step = match claims.claim(&source) {
                             Ok(step) => step,
                             Err(TitleClaimRejection::WrongOrigin) => { progress("session-title-rejected-origin"); return; }
                             Err(TitleClaimRejection::Duplicate) => { progress("session-title-rejected-duplicate"); return; }
@@ -2958,9 +2989,10 @@ mod tests {
         auxiliary_observation, await_profile_callback, claim_observer_completion,
         classify_file_read_error, cookie_file_class, local_acl_probe_script,
         other_window_probe_script, parse_secondary_probe, parse_secondary_result, probe_stage,
-        AuditEntry, AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader,
-        BrowserProcessOwners, CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation,
-        SessionEvalClaims, SessionTitleClaims, TeardownObservation, TitleClaimRejection,
+        session_eval_target_is_current, trusted_probe_stage, AuditEntry, AuditEntryKind,
+        AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners, CookieFileClass,
+        OwnedBrowserProcess, PrivateProfileObservation, SessionEvalClaims, SessionTitleClaims,
+        TeardownObservation, TitleClaimRejection, TitleSource,
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -2971,32 +3003,69 @@ mod tests {
         let first = url::Url::parse("http://127.0.0.1:41001/").unwrap().origin();
         let second = url::Url::parse("http://127.0.0.1:41002/").unwrap().origin();
         let wrong = url::Url::parse("http://127.0.0.1:41003/").unwrap().origin();
-        assert_eq!(claims.claim(&first, Some(&first)), Ok(0));
+        let source =
+            |callback: &url::Origin, page: &url::Origin, active: &url::Origin| TitleSource {
+                callback: callback.clone(),
+                page: Some(page.clone()),
+                active: Some(active.clone()),
+            };
+        assert_eq!(claims.claim(&source(&first, &first, &first)), Ok(0));
+        // Tauri may resolve the old callback's label to the replacement webview.
+        let stale_first = source(&first, &second, &second);
         assert_eq!(
-            claims.claim(&second, Some(&first)),
+            claims.claim(&stale_first),
+            Err(TitleClaimRejection::WrongOrigin)
+        );
+        assert_eq!(trusted_probe_stage(&claims, &stale_first, "ready"), None);
+        assert_eq!(
+            claims.claim(&source(&second, &wrong, &second)),
             Err(TitleClaimRejection::WrongOrigin)
         );
         assert_eq!(
-            claims.claim(&second, Some(&wrong)),
-            Err(TitleClaimRejection::WrongOrigin)
-        );
-        assert_eq!(
-            claims.claim(&first, Some(&first)),
+            claims.claim(&source(&first, &first, &first)),
             Err(TitleClaimRejection::Duplicate)
         );
         assert_eq!(claims.generation(), 1);
-        assert_eq!(claims.claim(&second, Some(&second)), Ok(1));
+        let genuine_second = source(&second, &second, &second);
         assert_eq!(
-            claims.claim(&second, Some(&second)),
+            trusted_probe_stage(&claims, &genuine_second, "ready"),
+            Some("second-probe-ready")
+        );
+        assert_eq!(claims.claim(&genuine_second), Ok(1));
+        assert_eq!(
+            claims.claim(&genuine_second),
             Err(TitleClaimRejection::Duplicate)
         );
         assert_eq!(claims.generation(), 2);
         assert_eq!(
-            claims.claim(&wrong, Some(&wrong)),
+            claims.claim(&source(&wrong, &wrong, &wrong)),
             Err(TitleClaimRejection::Exhausted)
         );
-        assert!(claims.accepted(&second, Some(&second)));
-        assert!(!claims.accepted(&second, Some(&first)));
+        assert!(claims.accepted(&genuine_second));
+        assert!(!claims.accepted(&stale_first));
+    }
+
+    #[test]
+    fn session_eval_requires_event_page_and_active_origin_to_match() {
+        let first = url::Url::parse("http://127.0.0.1:41001/auth/ticket").unwrap();
+        let second = url::Url::parse("http://127.0.0.1:41002/").unwrap();
+        let second_origin = second.origin();
+        assert!(!session_eval_target_is_current(
+            &first,
+            Some(&second),
+            Some(&second_origin)
+        ));
+        assert!(!session_eval_target_is_current(
+            &first,
+            Some(&first),
+            Some(&second_origin)
+        ));
+        assert!(!session_eval_target_is_current(&first, Some(&first), None));
+        assert!(session_eval_target_is_current(
+            &first,
+            Some(&first),
+            Some(&first.origin())
+        ));
     }
 
     #[test]

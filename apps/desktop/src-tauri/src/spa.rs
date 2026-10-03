@@ -33,7 +33,7 @@ pub struct SpaState {
 }
 /// Test-only native title observer; adds no commands, transports, or release behavior.
 #[cfg(debug_assertions)]
-pub type NativeProbe = std::sync::Arc<dyn Fn(tauri::WebviewWindow, String) + Send + Sync>;
+pub type NativeProbe = std::sync::Arc<dyn Fn(tauri::WebviewWindow, String, Origin) + Send + Sync>;
 #[cfg(debug_assertions)]
 pub type NativeSecretObserver = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 impl SpaState {
@@ -211,6 +211,8 @@ pub async fn open_spa(
         Url::parse(&format!("{}/auth/ticket", proxy.origin().as_str())).map_err(|_| "invalid")?;
     url.set_fragment(Some(&format!("t={}", ticket.ticket.expose())));
     let origin = proxy.origin().clone();
+    #[cfg(debug_assertions)]
+    let title_callback_origin = origin.clone();
     let upstream = conn.origin.clone();
     let handle = app.clone();
     let guard = origin.clone();
@@ -315,7 +317,7 @@ pub async fn open_spa(
         .on_document_title_changed(move |window, title| {
             #[cfg(debug_assertions)]
             if let Some(probe) = title_app.state::<SpaState>().probe.lock().unwrap().clone() {
-                probe(window, title.to_owned());
+                probe(window, title.to_owned(), title_callback_origin.clone());
             }
             #[cfg(not(debug_assertions))]
             let _ = (&title_app, window, title);
