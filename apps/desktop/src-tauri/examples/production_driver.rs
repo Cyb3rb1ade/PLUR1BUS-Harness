@@ -1,4 +1,5 @@
 //! Rust-only pairing and native process restart driver. JavaScript never sees credentials.
+use plur1bus_desktop::windows_spa_profile::CookieQueryDiagnostic;
 use plur1bus_desktop::{client::HarnessClient, connections::Origin};
 use plur1bus_mock_harness::{MockHarness, MockOptions};
 use serde::{Deserialize, Serialize};
@@ -69,6 +70,7 @@ struct AuditObservation {
     cookie_database_files: u32,
     cookie_rows: u64,
     cookie_read_only_complete: bool,
+    cookie_query: CookieQueryDiagnostic,
     cookie_database_native_profile_files: u32,
     cookie_database_other_root_files: u32,
     cookie_database_primary_files: u32,
@@ -90,6 +92,7 @@ impl AuditObservation {
             cookie_database_files: 0,
             cookie_rows: 0,
             cookie_read_only_complete: false,
+            cookie_query: CookieQueryDiagnostic::default(),
             cookie_database_native_profile_files: 0,
             cookie_database_other_root_files: 0,
             cookie_database_primary_files: 0,
@@ -140,6 +143,7 @@ impl AuditObservation {
             && self.cookie_database_files == 0
             && self.cookie_rows == 0
             && self.cookie_read_only_complete
+            && self.cookie_query == CookieQueryDiagnostic::default()
             && self.read_failures == 0
             && self.entries_disappeared == 0
             && self.metadata_failures == 0
@@ -154,6 +158,7 @@ impl AuditObservation {
             && !self.secret_detected
             && self.cookie_rows == 0
             && self.cookie_read_only_complete
+            && self.cookie_query == CookieQueryDiagnostic::default()
             && self.cookie_database_other_root_files == 0
             && (cfg!(windows) || self.cookie_database_files == 0)
             && self.read_failures == 0
@@ -972,6 +977,53 @@ mod tests {
             diagnostic.audit.failure_category,
             AuditFailureCategory::ReadDir
         );
+    }
+
+    #[test]
+    fn missing_cookie_query_diagnostic_makes_report_unavailable() {
+        let mut report = NativeDiagnostic::unavailable();
+        report.secondary_probe.available = true;
+        let mut value = serde_json::to_value(report).unwrap();
+        value["audit"]
+            .as_object_mut()
+            .unwrap()
+            .remove("cookieQuery");
+        let diagnostic = parse_diagnostic(&json!({ "diagnostic": value }));
+        assert!(!diagnostic.secondary_probe.available);
+    }
+
+    #[test]
+    fn cookie_query_diagnostic_is_closed_and_cannot_override_failed_evidence() {
+        let mut report = NativeDiagnostic::unavailable();
+        report.secondary_probe.available = true;
+        let mut value = serde_json::to_value(report).unwrap();
+        value["audit"]["cookieQuery"] = json!({"stage": "prepare", "result": "busy"});
+        value["audit"]["failureCategory"] = json!("cookie-query");
+        let diagnostic = parse_diagnostic(&json!({ "diagnostic": value }));
+        assert!(diagnostic.secondary_probe.available);
+        assert_eq!(
+            serde_json::to_value(diagnostic.audit.cookie_query).unwrap(),
+            json!({"stage": "prepare", "result": "busy"})
+        );
+        assert!(!diagnostic.audit.clean());
+        // Even contradictory success flags cannot turn a recorded query failure clean.
+        let mut audit = diagnostic.audit;
+        audit.audit_complete = true;
+        audit.cookie_read_only_complete = true;
+        audit.failure_category = AuditFailureCategory::None;
+        assert!(!audit.clean());
+        assert!(!audit.live_clean());
+        for invalid in [
+            json!({"stage": "private-path", "result": "busy"}),
+            json!({"stage": "prepare", "result": "raw-private-message"}),
+            json!({"stage": "prepare"}),
+            json!({"result": "busy"}),
+            json!({"stage": "prepare", "result": "busy", "sql": "private"}),
+        ] {
+            value["audit"]["cookieQuery"] = invalid;
+            let diagnostic = parse_diagnostic(&json!({ "diagnostic": value }));
+            assert!(!diagnostic.secondary_probe.available);
+        }
     }
 
     #[test]

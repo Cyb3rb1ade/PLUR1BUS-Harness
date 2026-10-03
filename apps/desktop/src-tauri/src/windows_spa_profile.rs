@@ -1,4 +1,64 @@
 //! Per-window WebView2 user-data folders. Only this module may remove `spa-tmp` leaves.
+/// Closed query diagnostics: never include paths, SQL, SQLite messages or database contents.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CookieQueryStage {
+    #[default]
+    None,
+    PathValidation,
+    Open,
+    ReadOnlyCheck,
+    BusyTimeout,
+    Prepare,
+    Step,
+    Decode,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CookieQueryResult {
+    #[default]
+    None,
+    PathRejected,
+    Writable,
+    Busy,
+    Locked,
+    ReadOnly,
+    ReadOnlyRecovery,
+    ReadOnlyCantLock,
+    ReadOnlyCantInit,
+    CannotOpen,
+    Corrupt,
+    NotDatabase,
+    Io,
+    IoShmOpen,
+    IoShmSize,
+    IoShmLock,
+    IoShmMap,
+    Permission,
+    SchemaChanged,
+    SqliteError,
+    SqliteOther,
+    MissingRow,
+    InvalidCount,
+    Other,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CookieQueryDiagnostic {
+    pub stage: CookieQueryStage,
+    pub result: CookieQueryResult,
+}
+
+impl std::fmt::Display for CookieQueryDiagnostic {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "cookie query {:?}/{:?}", self.stage, self.result)
+    }
+}
+
+impl std::error::Error for CookieQueryDiagnostic {}
+
 #[cfg(windows)]
 use std::path::{Path, PathBuf};
 
@@ -29,7 +89,10 @@ pub fn is_owned_profile_path(root: &Path, path: &Path) -> bool {
 
 #[cfg(windows)]
 mod windows {
-    use super::{known_browser_lock_name, owned_leaf_name, Path, PathBuf, PREFIX};
+    use super::{
+        known_browser_lock_name, owned_leaf_name, CookieQueryDiagnostic, CookieQueryResult,
+        CookieQueryStage, Path, PathBuf, PREFIX,
+    };
     use rand::{rngs::OsRng, TryRngCore};
     use std::{
         collections::HashMap,
@@ -1014,22 +1077,84 @@ mod windows {
         result
     }
 
+    fn query_failure(stage: CookieQueryStage, error: rusqlite::Error) -> CookieQueryDiagnostic {
+        use rusqlite::{ffi, Error, ErrorCode};
+        let result = match error {
+            Error::SqliteFailure(error, _) => match error.extended_code {
+                ffi::SQLITE_READONLY_RECOVERY => CookieQueryResult::ReadOnlyRecovery,
+                ffi::SQLITE_READONLY_CANTLOCK => CookieQueryResult::ReadOnlyCantLock,
+                ffi::SQLITE_READONLY_CANTINIT => CookieQueryResult::ReadOnlyCantInit,
+                ffi::SQLITE_IOERR_SHMOPEN => CookieQueryResult::IoShmOpen,
+                ffi::SQLITE_IOERR_SHMSIZE => CookieQueryResult::IoShmSize,
+                ffi::SQLITE_IOERR_SHMLOCK => CookieQueryResult::IoShmLock,
+                ffi::SQLITE_IOERR_SHMMAP => CookieQueryResult::IoShmMap,
+                ffi::SQLITE_ERROR => CookieQueryResult::SqliteError,
+                _ => match error.code {
+                    ErrorCode::DatabaseBusy => CookieQueryResult::Busy,
+                    ErrorCode::DatabaseLocked => CookieQueryResult::Locked,
+                    ErrorCode::ReadOnly => CookieQueryResult::ReadOnly,
+                    ErrorCode::CannotOpen => CookieQueryResult::CannotOpen,
+                    ErrorCode::DatabaseCorrupt => CookieQueryResult::Corrupt,
+                    ErrorCode::NotADatabase => CookieQueryResult::NotDatabase,
+                    ErrorCode::SystemIoFailure => CookieQueryResult::Io,
+                    ErrorCode::PermissionDenied | ErrorCode::AuthorizationForStatementDenied => {
+                        CookieQueryResult::Permission
+                    }
+                    ErrorCode::SchemaChanged => CookieQueryResult::SchemaChanged,
+                    _ => CookieQueryResult::SqliteOther,
+                },
+            },
+            _ => CookieQueryResult::Other,
+        };
+        CookieQueryDiagnostic { stage, result }
+    }
+
     /// A read-only SQLite connection observes the real live cookie table.
     pub fn cookie_rows(path: &Path) -> io::Result<u64> {
+        cookie_rows_diagnostic(path).map_err(io::Error::other)
+    }
+
+    /// Same query used by live audits, cleanup and startup sweep; only closed errors escape.
+    pub fn cookie_rows_diagnostic(path: &Path) -> Result<u64, CookieQueryDiagnostic> {
         use rusqlite::{Connection, OpenFlags};
-        check_no_reparse(path)?;
+        check_no_reparse(path).map_err(|_| CookieQueryDiagnostic {
+            stage: CookieQueryStage::PathValidation,
+            result: CookieQueryResult::PathRejected,
+        })?;
         let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .map_err(|_| io::Error::other("cookie database read-only open failed"))?;
-        if !connection.is_readonly("main").unwrap_or(false) {
-            return Err(io::Error::other("cookie database writable connection"));
+            .map_err(|error| query_failure(CookieQueryStage::Open, error))?;
+        if !connection
+            .is_readonly("main")
+            .map_err(|error| query_failure(CookieQueryStage::ReadOnlyCheck, error))?
+        {
+            return Err(CookieQueryDiagnostic {
+                stage: CookieQueryStage::ReadOnlyCheck,
+                result: CookieQueryResult::Writable,
+            });
         }
         connection
             .busy_timeout(Duration::from_millis(100))
-            .map_err(|_| io::Error::other("cookie database timeout setup failed"))?;
-        let count: i64 = connection
-            .query_row("SELECT COUNT(*) FROM cookies", [], |row| row.get(0))
-            .map_err(|_| io::Error::other("cookie database query failed"))?;
-        u64::try_from(count).map_err(|_| io::Error::other("invalid cookie row count"))
+            .map_err(|error| query_failure(CookieQueryStage::BusyTimeout, error))?;
+        let mut statement = connection
+            .prepare("SELECT COUNT(*) FROM cookies")
+            .map_err(|error| query_failure(CookieQueryStage::Prepare, error))?;
+        let mut rows = statement
+            .query([])
+            .map_err(|error| query_failure(CookieQueryStage::Step, error))?;
+        let row = rows
+            .next()
+            .map_err(|error| query_failure(CookieQueryStage::Step, error))?
+            .ok_or(CookieQueryDiagnostic {
+                stage: CookieQueryStage::Step,
+                result: CookieQueryResult::MissingRow,
+            })?;
+        let count: i64 = row
+            .get(0)
+            .map_err(|error| query_failure(CookieQueryStage::Decode, error))?;
+        u64::try_from(count).map_err(|_| CookieQueryDiagnostic {
+            stage: CookieQueryStage::Decode,
+            result: CookieQueryResult::InvalidCount,
+        })
     }
 
     /// Verifies actual owner/current SID, protected DACL and exact user/SYSTEM ACEs.
@@ -1331,6 +1456,84 @@ mod windows {
             let unreadable = temp.path().join("Unreadable-Cookies");
             fs::create_dir(&unreadable).unwrap();
             assert!(cookie_rows(&unreadable).is_err());
+        }
+
+        #[test]
+        fn readonly_query_diagnostics_identify_real_failures_without_private_details() {
+            let temp = tempfile::tempdir().unwrap();
+            let database = temp.path().join("fake-private-path-Cookies");
+            assert_eq!(
+                cookie_rows_diagnostic(&database).unwrap_err(),
+                CookieQueryDiagnostic {
+                    stage: CookieQueryStage::PathValidation,
+                    result: CookieQueryResult::PathRejected,
+                }
+            );
+            assert!(!database.exists());
+            let connection = rusqlite::Connection::open(&database).unwrap();
+            connection
+                .execute("CREATE TABLE other (value TEXT)", [])
+                .unwrap();
+            let before = fs::read(&database).unwrap();
+            let unknown_schema = cookie_rows_diagnostic(&database).unwrap_err();
+            assert_eq!(
+                unknown_schema,
+                CookieQueryDiagnostic {
+                    stage: CookieQueryStage::Prepare,
+                    result: CookieQueryResult::SqliteError,
+                }
+            );
+            assert_eq!(fs::read(&database).unwrap(), before);
+            connection
+                .execute("CREATE TABLE cookies (value TEXT)", [])
+                .unwrap();
+            assert_eq!(cookie_rows_diagnostic(&database).unwrap(), 0);
+            connection
+                .execute("INSERT INTO cookies VALUES ('fake-secret')", [])
+                .unwrap();
+            assert_eq!(cookie_rows_diagnostic(&database).unwrap(), 1);
+            connection.execute_batch("BEGIN EXCLUSIVE").unwrap();
+            let locked = cookie_rows_diagnostic(&database).unwrap_err();
+            assert_eq!(
+                locked,
+                CookieQueryDiagnostic {
+                    stage: CookieQueryStage::Prepare,
+                    result: CookieQueryResult::Busy,
+                }
+            );
+            connection.execute_batch("ROLLBACK").unwrap();
+            assert_eq!(cookie_rows_diagnostic(&database).unwrap(), 1);
+            let encoded = serde_json::to_string(&locked).unwrap();
+            assert_eq!(encoded, r#"{"stage":"prepare","result":"busy"}"#);
+            let corrupt = temp.path().join("fake-corrupt-Cookies");
+            fs::write(&corrupt, b"not-a-sqlite-database").unwrap();
+            let before = fs::read(&corrupt).unwrap();
+            let error = cookie_rows_diagnostic(&corrupt).unwrap_err();
+            assert_eq!(
+                error,
+                CookieQueryDiagnostic {
+                    stage: CookieQueryStage::Prepare,
+                    result: CookieQueryResult::NotDatabase,
+                }
+            );
+            assert_eq!(fs::read(&corrupt).unwrap(), before);
+            let wrapped = cookie_rows(&corrupt).unwrap_err();
+            assert_eq!(
+                wrapped
+                    .get_ref()
+                    .unwrap()
+                    .downcast_ref::<CookieQueryDiagnostic>(),
+                Some(&error)
+            );
+            let raw_message = rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_READONLY_CANTLOCK),
+                Some("fake-private-path fake-secret SELECT private".to_owned()),
+            );
+            let closed = query_failure(CookieQueryStage::Step, raw_message);
+            assert_eq!(
+                serde_json::to_string(&closed).unwrap(),
+                r#"{"stage":"step","result":"read-only-cant-lock"}"#
+            );
         }
 
         #[test]

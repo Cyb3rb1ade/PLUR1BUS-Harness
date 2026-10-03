@@ -1,4 +1,5 @@
 //! Actual native engine acceptance. All credentials and audit values stay in Rust memory.
+use plur1bus_desktop::windows_spa_profile::CookieQueryDiagnostic;
 use plur1bus_desktop::{
     commands,
     connections::{Connection, CredentialProvenance, Kind, Origin, Store},
@@ -80,6 +81,7 @@ struct AuditObservation {
     cookie_database_files: u32,
     cookie_rows: u64,
     cookie_read_only_complete: bool,
+    cookie_query: CookieQueryDiagnostic,
     cookie_database_native_profile_files: u32,
     cookie_database_other_root_files: u32,
     cookie_database_primary_files: u32,
@@ -101,6 +103,7 @@ impl AuditObservation {
             cookie_database_files: 0,
             cookie_rows: 0,
             cookie_read_only_complete: false,
+            cookie_query: CookieQueryDiagnostic::default(),
             cookie_database_native_profile_files: 0,
             cookie_database_other_root_files: 0,
             cookie_database_primary_files: 0,
@@ -129,6 +132,7 @@ impl AuditObservation {
             && self.cookie_database_files == 0
             && self.cookie_rows == 0
             && self.cookie_read_only_complete
+            && self.cookie_query == CookieQueryDiagnostic::default()
             && self.read_failures == 0
             && self.entries_disappeared == 0
             && self.metadata_failures == 0
@@ -143,6 +147,7 @@ impl AuditObservation {
             && !self.secret_detected
             && self.cookie_rows == 0
             && self.cookie_read_only_complete
+            && self.cookie_query == CookieQueryDiagnostic::default()
             && self.read_failures == 0
             && self.entries_disappeared == 0
             && self.metadata_failures == 0
@@ -1088,11 +1093,13 @@ enum CookieFileClass {
     Sidecar,
 }
 
+type CookieRowFailure = (AuditFailureCategory, CookieQueryDiagnostic);
+
 trait AuditReader {
     fn read_dir(&mut self, root: &std::path::Path)
         -> Result<Vec<AuditEntry>, AuditFailureCategory>;
     fn read_file(&mut self, path: &std::path::Path) -> Result<Vec<u8>, AuditFailureCategory>;
-    fn cookie_rows(&mut self, _path: &std::path::Path) -> Result<u64, AuditFailureCategory> {
+    fn cookie_rows(&mut self, _path: &std::path::Path) -> Result<u64, CookieRowFailure> {
         Ok(0)
     }
 }
@@ -2723,10 +2730,10 @@ impl AuditReader for FilesystemAuditReader {
         }
     }
 
-    fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, AuditFailureCategory> {
+    fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, CookieRowFailure> {
         #[cfg(windows)]
-        return plur1bus_desktop::windows_spa_profile::cookie_rows(path)
-            .map_err(|_| AuditFailureCategory::CookieQuery);
+        return plur1bus_desktop::windows_spa_profile::cookie_rows_diagnostic(path)
+            .map_err(|diagnostic| (AuditFailureCategory::CookieQuery, diagnostic));
         #[cfg(not(windows))]
         {
             let _ = path;
@@ -2843,8 +2850,9 @@ impl AuditReader for DeadlineAuditReader {
         self.inner.read_file(path)
     }
 
-    fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, AuditFailureCategory> {
-        self.ready()?;
+    fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, CookieRowFailure> {
+        self.ready()
+            .map_err(|category| (category, CookieQueryDiagnostic::default()))?;
         self.inner.cookie_rows(path)
     }
 }
@@ -2928,6 +2936,7 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
         cookie_database_files: 0,
         cookie_rows: 0,
         cookie_read_only_complete: true,
+        cookie_query: CookieQueryDiagnostic::default(),
         cookie_database_native_profile_files: 0,
         cookie_database_other_root_files: 0,
         cookie_database_primary_files: 0,
@@ -2992,7 +3001,8 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
                                         observation.cookie_rows =
                                             observation.cookie_rows.saturating_add(rows)
                                     }
-                                    Err(category) => {
+                                    Err((category, diagnostic)) => {
+                                        observation.cookie_query = diagnostic;
                                         observation.cookie_read_only_complete = false;
                                         record_audit_failure_at(
                                             &mut observation,
@@ -3133,9 +3143,9 @@ mod tests {
         other_window_probe_script, parse_secondary_probe, parse_secondary_result, probe_stage,
         session_eval_target_is_current, trusted_probe_stage, AuditEntry, AuditEntryKind,
         AuditFailureCategory, AuditFailureTarget, AuditObservation, AuditReader,
-        BrowserProcessOwners, CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation,
-        SessionEvalClaims, SessionTitleClaims, TeardownObservation, TitleClaimRejection,
-        TitleSource,
+        BrowserProcessOwners, CookieFileClass, CookieQueryDiagnostic, CookieRowFailure,
+        OwnedBrowserProcess, PrivateProfileObservation, SessionEvalClaims, SessionTitleClaims,
+        TeardownObservation, TitleClaimRejection, TitleSource,
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -3394,7 +3404,7 @@ mod tests {
 
     struct CookieFiles;
 
-    struct CookieRows(Result<u64, AuditFailureCategory>);
+    struct CookieRows(Result<u64, CookieRowFailure>);
 
     impl AuditReader for CookieRows {
         fn read_dir(&mut self, root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
@@ -3412,7 +3422,7 @@ mod tests {
             Ok(Vec::new())
         }
 
-        fn cookie_rows(&mut self, _path: &Path) -> Result<u64, AuditFailureCategory> {
+        fn cookie_rows(&mut self, _path: &Path) -> Result<u64, CookieRowFailure> {
             self.0
         }
     }
@@ -3977,12 +3987,22 @@ mod tests {
         let failed = audit_with_reader_and_profile_root(
             root,
             &[],
-            &mut CookieRows(Err(AuditFailureCategory::CookieQuery)),
+            &mut CookieRows(Err((
+                AuditFailureCategory::CookieQuery,
+                CookieQueryDiagnostic {
+                    stage: plur1bus_desktop::windows_spa_profile::CookieQueryStage::Prepare,
+                    result: plur1bus_desktop::windows_spa_profile::CookieQueryResult::Busy,
+                },
+            ))),
             owned,
         );
         assert!(!failed.live_clean());
         assert!(!failed.cookie_read_only_complete);
         assert_eq!(failed.failure_category, AuditFailureCategory::CookieQuery);
+        assert_eq!(
+            serde_json::to_value(failed.cookie_query).unwrap(),
+            serde_json::json!({"stage": "prepare", "result": "busy"})
+        );
     }
 
     #[test]
@@ -4168,6 +4188,10 @@ mod tests {
             observation.failure_category,
             AuditFailureCategory::CookieQuery
         );
+        assert_ne!(observation.cookie_query, CookieQueryDiagnostic::default());
+        let encoded = serde_json::to_string(&observation.cookie_query).unwrap();
+        assert!(!encoded.contains("Cookies"));
+        assert!(!encoded.contains("spa-tmp"));
         drop(held);
 
         let missing = profile.path().join("missing").join("LOCK");
@@ -4276,6 +4300,7 @@ mod tests {
             cookie_database_files: 0,
             cookie_rows: 0,
             cookie_read_only_complete: true,
+            cookie_query: CookieQueryDiagnostic::default(),
             cookie_database_native_profile_files: 0,
             cookie_database_other_root_files: 0,
             cookie_database_primary_files: 0,
