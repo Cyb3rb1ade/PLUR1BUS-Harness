@@ -31,6 +31,7 @@ import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable } from "./discovery/metadata.ts";
+import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 
@@ -122,6 +123,7 @@ export function createCore(o: CoreOptions): Core {
   let orphans: OrphanWatch | null = null;
   let source: ConfigSource | null = null;
   let warmup: Warmup | null = null;
+  let scanScheduler: ScanScheduler | null = null;
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
@@ -239,6 +241,7 @@ export function createCore(o: CoreOptions): Core {
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
+      if (plan.changed.some((k) => k.startsWith("models.scan."))) scanScheduler?.replan();
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
       log.debug("live keys applied", { keys: plan.restart.live });
     });
@@ -322,6 +325,7 @@ export function createCore(o: CoreOptions): Core {
         roles: discRoles,
         settings: discSettings,
         logger,
+        ...(o.discovery?.scanners ? { scanners: o.discovery.scanners } : {}),
       });
 
       const ledgerPath = path.join(l.systemJobs, "ledger.jsonl");
@@ -333,6 +337,18 @@ export function createCore(o: CoreOptions): Core {
         engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
+
+      scanScheduler = createScanScheduler({
+        service: discovery,
+        store: catalogStore,
+        systemRun: async (provider, trigger, signal) => {
+          return await systemJobs.run("models.scan", { provider }, { trigger, signal });
+        },
+        clock: discClock,
+        rng: discRng,
+        settings: discSettings,
+        logger,
+      });
 
       const methods = buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
@@ -368,6 +384,7 @@ export function createCore(o: CoreOptions): Core {
       // A lifeline lost during the engine start orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
+      if (o.discovery?.scheduler !== false) scanScheduler.start();
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
@@ -450,6 +467,7 @@ export function createCore(o: CoreOptions): Core {
       // what is left of the budget) for those replies to be written before it ends the sockets.
       setState({ state: "stopping", since: clock() });
       statusClosed = true;
+      scanScheduler?.stop();
       warmup?.abort(); // first: the warm-up's wait ends before the engine closes under it
       if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       shutdown.abort(new Error("core stopping"));

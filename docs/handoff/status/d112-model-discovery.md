@@ -8,8 +8,8 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 | 4 Scanners | 583266c8 | `scanners.test.ts` (11) | pass | |
 | 5 Reconcile, overrides, roles | e008594c | `reconcile.test.ts` (10), `overrides.test.ts` (5), `roles.test.ts` (10) | pass | |
 | 6 Schedule, service, logger events | 6921a5dd | `schedule.test.ts` (4), `events-logger.test.ts` (1), `service.test.ts` (11) | pass | |
-| 7 System jobs, ledger, jobs.* | pending (next commit) | `system-jobs.test.ts` (13) | pass | ledger 0600, JSONL crash recovery, RPC schema bumped to 1.5.0, jobs.* merged |
-| 8 Scheduler, config keys | | | | |
+| 7 System jobs, ledger, jobs.* | ce1162af | `system-jobs.test.ts` (13) | pass | ledger 0600, JSONL crash recovery, RPC schema bumped to 1.5.0, jobs.* merged |
+| 8 Scheduler, config keys | pending (next commit) | `scheduler.test.ts` (13), `core-discovery.test.ts` (3), `config-schema.test.ts` (16) | pass | models.scan.* schema & defaults, scheduler with catch-up jitter/spacing, replan on live config change, max 4 workers |
 | 9 RPC models.* | | | | |
 | 10 CLI, 1staid | | | | |
 | 11 End to end, docs | | | | |
@@ -27,4 +27,4 @@ Status: IN PROGRESS · head SHA: see `git log` (a commit cannot name its own SHA
 - A commit cannot contain its own SHA, so the table's SHA column lags one commit behind.
 
 ## Open
-- Tasks 7–11.
+- Tasks 9–11.

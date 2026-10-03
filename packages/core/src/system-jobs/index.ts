@@ -83,7 +83,7 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
   });
 
   function register(h: SystemJobHandler): void {
-    if (options.engineHasJob(h.spec.name)) {
+    if (options.engineHasJob?.(h.spec.name)) {
       throw new Error(`job name conflict: engine already has job ${h.spec.name}`);
     }
     if (handlers.has(h.spec.name)) {

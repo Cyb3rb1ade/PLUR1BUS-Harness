@@ -37,12 +37,15 @@ export interface DefaultAdaptersDeps {
   logger: LoggerLike;
 }
 
+import type { SCANNERS } from "./scanners/index.ts";
+
 export interface DiscoveryAdapters {
   profiles: ProfileSource;
   credentials: CredentialResolver;
   events: DiscoveryEvents;
   clock: Clock;
   rng: Rng;
+  scanners?: Partial<typeof SCANNERS>;
 }
 
 export function defaultDiscoveryAdapters(deps: DefaultAdaptersDeps): DiscoveryAdapters {

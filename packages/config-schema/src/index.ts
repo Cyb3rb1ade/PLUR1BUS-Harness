@@ -18,6 +18,7 @@ export interface HarnessConfig {
   oauth: Record<string, unknown>;
   decision: Record<string, unknown>;
   modelRoles: Record<string, string>;
+  models: { scan: { enabled: boolean; intervalHours: number } };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
 }
 
