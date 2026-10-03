@@ -1213,7 +1213,7 @@ fn progress(label: &str) {
 mod tests {
     use super::{
         append_progress_history, audit_with_reader, classify_file_read_error,
-        other_window_probe_script, parse_secondary_probe, AuditEntry, AuditEntryKind,
+        local_acl_probe_script, other_window_probe_script, parse_secondary_probe, AuditEntry, AuditEntryKind,
         AuditFailureCategory, AuditObservation, AuditReader, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
@@ -1244,6 +1244,15 @@ mod tests {
         assert!(script.contains("instanceof TypeError"));
         assert!(script.contains("documentOpaqueOrigin"));
         assert!(script.contains("document.title='NEG:'"));
+    }
+
+    #[test]
+    fn local_acl_probe_uses_only_closed_observations() {
+        let script = local_acl_probe_script();
+        assert!(script.contains("ipcAvailable"));
+        assert!(script.contains("aclDenied"));
+        assert!(script.contains("NEG_LOCAL:"));
+        assert!(!script.contains("String(e)"));
     }
 
     #[test]
