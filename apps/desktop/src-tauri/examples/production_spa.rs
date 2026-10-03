@@ -49,6 +49,7 @@ enum AuditFailureCategory {
     FileReadAccessDenied,
     FileReadMissing,
     FileReadOther,
+    Deadline,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -89,6 +90,14 @@ impl AuditObservation {
             read_dir_failures: 0,
             symlink_entries: 0,
             failure_category: AuditFailureCategory::ReadDir,
+        }
+    }
+
+    #[cfg(any(target_os = "linux", test))]
+    fn deadline_exceeded() -> Self {
+        Self {
+            failure_category: AuditFailureCategory::Deadline,
+            ..Self::unavailable()
         }
     }
 
@@ -581,7 +590,6 @@ struct FinishInputs {
     retirement_phase: Arc<LinuxRetirementPhase>,
 }
 
-#[cfg(any(not(target_os = "linux"), test))]
 fn claim_observer_completion(finished: &AtomicBool) -> bool {
     !finished.swap(true, Ordering::SeqCst)
 }
@@ -598,6 +606,32 @@ struct LinuxRetirementState {
     url: Option<url::Url>,
     page_finished: bool,
     completion: Option<tokio::sync::oneshot::Sender<Value>>,
+}
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LinuxProbeRoute {
+    FirstOrigin,
+    FinalRetirement,
+    None,
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn linux_probe_route(
+    url: &url::Url,
+    first_origin: Option<&Origin>,
+    phase: &LinuxRetirementPhase,
+) -> LinuxProbeRoute {
+    if phase.page_finished(url) {
+        return LinuxProbeRoute::FinalRetirement;
+    }
+    let first_marker = first_origin
+        .and_then(|origin| url::Url::parse(&format!("{}/?wp05-old-check", origin.as_str())).ok());
+    if first_marker.as_ref() == Some(url) {
+        LinuxProbeRoute::FirstOrigin
+    } else {
+        LinuxProbeRoute::None
+    }
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -634,7 +668,14 @@ impl LinuxRetirementPhase {
                 .map(|raw| serde_json::from_str::<Value>(raw).unwrap_or(Value::Null))
         };
         if let Some(observation) = observation {
-            if let Some(completion) = state.completion.take() {
+            let completion = state.completion.take();
+            drop(state);
+            if let Some(completion) = completion {
+                progress(if title == "WP05-ACL-IPC-MISSING" {
+                    "retirement-observer-ipc-missing"
+                } else {
+                    "retirement-observer-title-complete"
+                });
                 let _ = completion.send(observation);
             }
         }
@@ -652,6 +693,34 @@ fn valid_retirement_acl(value: &Value) -> bool {
         && value["ipcAvailable"] == true
         && value["ipcCompleted"] == true
         && value["typeError"] == false
+}
+
+#[cfg(any(target_os = "linux", test))]
+async fn bounded_linux_work<F: std::future::Future>(
+    cutoff: std::time::Instant,
+    work: F,
+) -> Option<F::Output> {
+    tokio::time::timeout_at(tokio::time::Instant::from_std(cutoff), work)
+        .await
+        .ok()
+}
+
+#[cfg(target_os = "linux")]
+fn close_linux_spa_once(
+    window: Option<&tauri::WebviewWindow>,
+    owners: &BrowserProcessOwners,
+    close_claimed: &AtomicBool,
+) {
+    if !claim_observer_completion(close_claimed) {
+        return;
+    }
+    progress("retirement-observer-close-start");
+    if window.is_some_and(|window| window.destroy().is_ok()) {
+        progress("retirement-observer-close-requested");
+    } else {
+        owners.close_failed();
+        progress("retirement-observer-close-failed");
+    }
 }
 
 #[cfg(any(windows, test))]
@@ -722,7 +791,6 @@ async fn inspect_private_profile(
     PrivateProfileObservation::unavailable()
 }
 
-#[cfg(not(target_os = "linux"))]
 fn write_observer_timeout_report(
     app: &tauri::AppHandle,
     output: &PathBuf,
@@ -963,22 +1031,20 @@ fn main() {
             if payload.url().query() == Some("wp05-old-check") {
                 #[cfg(target_os = "linux")]
                 {
-                    if retirement_phase_for_load.page_finished(payload.url()) {
-                        progress("retirement-observer-page-finished");
-                        match webview.eval(retirement_observer_probe_script()) {
-                            Ok(()) => progress("retirement-observer-eval-submitted"),
-                            Err(_) => progress("retirement-observer-eval-rejected"),
+                    let route = {
+                        let first = first_origin_for_load.lock().unwrap();
+                        linux_probe_route(payload.url(), first.as_ref(), &retirement_phase_for_load)
+                    };
+                    match route {
+                        LinuxProbeRoute::FinalRetirement => {
+                            progress("retirement-observer-page-finished");
+                            match webview.eval(retirement_observer_probe_script()) {
+                                Ok(()) => progress("retirement-observer-eval-submitted"),
+                                Err(_) => progress("retirement-observer-eval-rejected"),
+                            }
                         }
-                    } else if first_origin_for_load
-                        .lock()
-                        .unwrap()
-                        .as_ref()
-                        .is_some_and(|origin| {
-                            payload.url().as_str()
-                                == format!("{}?wp05-old-check", origin.as_str())
-                        })
-                    {
-                        let _ = webview.eval(old_origin_probe_script());
+                        LinuxProbeRoute::FirstOrigin => { let _ = webview.eval(old_origin_probe_script()); }
+                        LinuxProbeRoute::None => {}
                     }
                 }
                 #[cfg(not(target_os = "linux"))]
@@ -1044,10 +1110,8 @@ fn main() {
                         match title.as_str() {
                             "WP05-ACL-SCRIPT-ENTRY" => progress("retirement-observer-script-entry"),
                             "WP05-ACL-IPC-AVAILABLE" => progress("retirement-observer-ipc-available"),
-                            "WP05-ACL-IPC-MISSING" => progress("retirement-observer-ipc-missing"),
                             "WP05-ACL-IPC-START" => progress("retirement-observer-ipc-start"),
                             "WP05-ACL-IPC-COMPLETE" => progress("retirement-observer-ipc-complete"),
-                            _ if title.starts_with("ACL:") => progress("retirement-observer-title-complete"),
                             _ => {}
                         }
                         return;
@@ -1085,6 +1149,8 @@ fn main() {
                     #[cfg(windows)]
                     let first_profile_path = first_profile_path_for_title.clone();
                     let old_probe_for_run = old_probe.clone();
+                    #[cfg(target_os = "linux")]
+                    let retirement_phase_for_run = retirement_phase.clone();
                     let browser_owners_for_run = browser_owners.clone();
                     tauri::async_runtime::spawn(async move {
                         progress("secrets-registering");
@@ -1203,7 +1269,7 @@ fn main() {
                                 secondary_observation,
                                 browser_owners: browser_owners_for_run,
                                 #[cfg(target_os = "linux")]
-                                retirement_phase: retirement_phase.clone(),
+                                retirement_phase: retirement_phase_for_run,
                             },
                             observations,
                         )
@@ -1923,6 +1989,11 @@ async fn finish(
     error: Value,
 ) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let observation_cutoff = deadline - std::time::Duration::from_secs(2);
+    let live_audit_cutoff = deadline - std::time::Duration::from_millis(1500);
+    let teardown_cutoff = deadline - std::time::Duration::from_millis(1100);
+    let closed_audit_cutoff = deadline - std::time::Duration::from_millis(700);
+    let finalization_cutoff = deadline - std::time::Duration::from_millis(400);
     progress("retire");
     let owners = inputs.browser_owners.clone();
     let window = app.get_webview_window("spa");
@@ -1934,10 +2005,55 @@ async fn finish(
     let (completion, receiver) = tokio::sync::oneshot::channel();
     inputs.retirement_phase.arm(marker_url.clone(), completion);
     let marker_seen = AtomicBool::new(false);
+    let close_claimed = Arc::new(AtomicBool::new(false));
+    let finalized = Arc::new(AtomicBool::new(false));
+    let watchdog_app = app.clone();
+    let watchdog_window = window.clone();
+    let watchdog_owners = owners.clone();
+    let watchdog_close = close_claimed.clone();
+    let watchdog_finalized = finalized.clone();
+    let watchdog_phase = inputs.retirement_phase.clone();
+    let watchdog_output = output.clone();
+    let watchdog_results = inputs.results.clone();
+    let watchdog_known = inputs.known.clone();
+    let watchdog_negative = inputs.negative.clone();
+    let watchdog_secondary = inputs.secondary_observation.clone();
+    let watchdog_profile = Arc::new(Mutex::new(PrivateProfileObservation::unavailable()));
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep_until(tokio::time::Instant::from_std(finalization_cutoff)).await;
+        if !claim_observer_completion(&watchdog_finalized) {
+            return;
+        }
+        progress("retirement-observer-timeout");
+        close_linux_spa_once(watchdog_window.as_ref(), &watchdog_owners, &watchdog_close);
+        watchdog_phase.disarm();
+        drop(watchdog_window);
+        let windows_absent = wait_for_fixture_windows(
+            &watchdog_app,
+            &watchdog_owners.tracked_windows(),
+            deadline - std::time::Duration::from_millis(300),
+        )
+        .await;
+        watchdog_owners.mark_windows_absent(windows_absent);
+        let _ = bounded_linux_work(
+            deadline - std::time::Duration::from_millis(300),
+            wait_for_browser_processes(watchdog_owners, deadline),
+        )
+        .await;
+        write_observer_timeout_report(
+            &watchdog_app,
+            &watchdog_output,
+            &watchdog_results,
+            &watchdog_known,
+            &watchdog_negative,
+            &watchdog_secondary,
+            &watchdog_profile,
+        );
+    });
 
-    // The timer covers retirement, the exact handler response, navigation, and native IPC.
-    // A failed observation still tears down the same view and gets a closed disk audit.
-    let observed = tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), async {
+    // All stage cutoffs derive from the one deadline and reserve time for the
+    // live audit, teardown, closed audit, and final report.
+    let observed = bounded_linux_work(observation_cutoff, async {
         spa::retire(app).map_err(|_| "retirement-observer-retire-failed")?;
         let response = bounded_http_client()
             .get(marker_url.clone())
@@ -1964,18 +2080,18 @@ async fn finish(
         receiver.await.map_err(|_| "retirement-observer-ipc-missing")
     }).await;
     let (acl, observation_complete) = match observed {
-        Ok(Ok(acl)) => {
+        Some(Ok(acl)) => {
             let valid = valid_retirement_acl(&acl);
             if !valid {
                 progress("retirement-observer-ipc-invalid");
             }
             (acl, valid)
         }
-        Ok(Err(stage)) => {
+        Some(Err(stage)) => {
             progress(stage);
             (json!({"actualAclDenied":false}), false)
         }
-        Err(_) => {
+        None => {
             progress("retirement-observer-timeout");
             (json!({"actualAclDenied":false}), false)
         }
@@ -1985,47 +2101,35 @@ async fn finish(
 
     progress("audit");
     let root = PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap());
-    let live_root = root.clone();
-    let live_known = inputs.known.clone();
-    let pre_close_audit = tauri::async_runtime::spawn_blocking(move || {
-        audit(&live_root, &live_known.lock().unwrap())
-    })
-    .await
-    .unwrap_or_else(|_| AuditObservation::unavailable());
+    let pre_close_audit =
+        bounded_linux_audit(root.clone(), inputs.known.clone(), live_audit_cutoff).await;
     if pre_close_audit.audit_complete {
         progress("audit-live-scan-complete");
     } else {
         progress("audit-live-scan-incomplete");
     }
-    progress("retirement-observer-close-start");
-    if let Some(window) = window {
-        if window.destroy().is_err() {
-            owners.close_failed();
-            progress("retirement-observer-close-failed");
-        } else {
-            progress("retirement-observer-close-requested");
-        }
-        drop(window);
-    } else {
-        owners.close_failed();
-        progress("retirement-observer-close-failed");
-    }
+    close_linux_spa_once(window.as_ref(), &owners, &close_claimed);
+    drop(window);
     progress("teardown-wait-start");
-    let windows_absent = wait_for_fixture_windows(app, &owners.tracked_windows(), deadline).await;
+    let windows_absent =
+        wait_for_fixture_windows(app, &owners.tracked_windows(), teardown_cutoff).await;
     owners.mark_windows_absent(windows_absent);
-    let process_exit = wait_for_browser_processes(owners.clone(), deadline).await;
+    let process_exit = bounded_linux_work(
+        teardown_cutoff,
+        wait_for_browser_processes(owners.clone(), teardown_cutoff),
+    )
+    .await
+    .unwrap_or(ProcessExitObservation {
+        applicable: false,
+        complete: false,
+    });
     if windows_absent && process_exit.complete {
         progress("teardown-wait-complete");
     } else {
         progress("teardown-wait-failed");
     }
-    let closed_root = root.clone();
-    let closed_known = inputs.known.clone();
-    let audit_observation = tauri::async_runtime::spawn_blocking(move || {
-        audit(&closed_root, &closed_known.lock().unwrap())
-    })
-    .await
-    .unwrap_or_else(|_| AuditObservation::unavailable());
+    let audit_observation =
+        bounded_linux_audit(root, inputs.known.clone(), closed_audit_cutoff).await;
     if audit_observation.audit_complete {
         progress("audit-closed-scan-complete");
     } else {
@@ -2067,8 +2171,9 @@ async fn finish(
         && diagnostic.pre_close_audit.cookie_database_files == 0
         && diagnostic.audit.clean()
         && diagnostic.teardown.clean()
+        && process_exit.complete
         && diagnostic.profile.accepted()
-        && std::time::Instant::now() < deadline;
+        && std::time::Instant::now() < finalization_cutoff;
     let retirement = json!({
         "actualAclDenied": acl["actualAclDenied"],
         "ipcAvailable": acl["ipcAvailable"],
@@ -2077,7 +2182,7 @@ async fn finish(
         "proxyGenerated403": proxy_generated_403,
     });
     let mut report = json!({"result":if pass{"passed"}else{"failed"},"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"tauri":"2.12.0","nativeMainEntered":true,"knownSecretKinds":["deviceBearer","tickets","launchCarrier","sessionCookies","browserCsrf"],"sessions":*inputs.results.lock().unwrap(),"retirement":retirement,"negativeControls":*inputs.negative.lock().unwrap(),"ticketError":error["ticketError"],"productionBenchmark":error["productionBenchmark"],"secretOnDisk":diagnostic.audit.secret_detected,"cookieDatabaseFiles":diagnostic.audit.cookie_database_files,"preCloseAudit":pre_close_audit,"teardown":teardown,"diagnostic":diagnostic});
-    let mut bytes = match serde_json::to_vec_pretty(&report) {
+    let bytes = match serde_json::to_vec_pretty(&report) {
         Ok(bytes) => {
             progress("audit-report-serialized");
             bytes
@@ -2090,16 +2195,18 @@ async fn finish(
     };
     if contains_secret(&bytes, &inputs.known.lock().unwrap()) {
         progress("audit-report-secret-detected");
-        app.exit(2);
         return;
     }
-    // Serialization and the final write are part of the same five-second budget.
-    if std::time::Instant::now() >= deadline {
-        pass = false;
-        report["result"] = json!("failed");
-        bytes = serde_json::to_vec_pretty(&report).unwrap();
+    let pending = output.with_extension("pending");
+    if std::fs::write(&pending, &bytes).is_err() {
+        progress("audit-report-write-failed");
+        return;
     }
-    if std::fs::write(&output, &bytes).is_err() {
+    if std::time::Instant::now() >= finalization_cutoff || !claim_observer_completion(&finalized) {
+        let _ = std::fs::remove_file(&pending);
+        return;
+    }
+    if std::fs::rename(&pending, &output).is_err() {
         progress("audit-report-write-failed");
         app.exit(2);
         return;
@@ -2247,6 +2354,84 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
         .map(PathBuf::from)
         .map(|path| path.join("native-profile"));
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
+}
+
+#[cfg(any(target_os = "linux", test))]
+struct DeadlineAuditReader {
+    inner: FilesystemAuditReader,
+    deadline: std::time::Instant,
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl DeadlineAuditReader {
+    fn ready(&self) -> Result<(), AuditFailureCategory> {
+        if std::time::Instant::now() < self.deadline {
+            Ok(())
+        } else {
+            Err(AuditFailureCategory::Deadline)
+        }
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl AuditReader for DeadlineAuditReader {
+    fn read_dir(
+        &mut self,
+        root: &std::path::Path,
+    ) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+        self.ready()?;
+        self.inner.read_dir(root)
+    }
+
+    fn read_file(&mut self, path: &std::path::Path) -> Result<Vec<u8>, AuditFailureCategory> {
+        self.ready()?;
+        self.inner.read_file(path)
+    }
+
+    fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, AuditFailureCategory> {
+        self.ready()?;
+        self.inner.cookie_rows(path)
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn audit_until(
+    root: &std::path::Path,
+    secrets: &[SecretString],
+    deadline: std::time::Instant,
+) -> AuditObservation {
+    let native_profile_root = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR")
+        .map(PathBuf::from)
+        .map(|path| path.join("native-profile"));
+    let mut reader = DeadlineAuditReader {
+        inner: FilesystemAuditReader,
+        deadline,
+    };
+    audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
+}
+
+#[cfg(any(target_os = "linux", test))]
+async fn bounded_linux_audit(
+    root: PathBuf,
+    known: Secrets,
+    cutoff: std::time::Instant,
+) -> AuditObservation {
+    if std::time::Instant::now() >= cutoff {
+        return AuditObservation::deadline_exceeded();
+    }
+    // The disk worker owns a snapshot, so a stalled filesystem read cannot hold the
+    // secret registry lock needed by the failure report or a later closed audit.
+    let secrets: Vec<SecretString> = known
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|value| SecretString::new(value.expose().to_owned()))
+        .collect();
+    let worker = tauri::async_runtime::spawn_blocking(move || audit_until(&root, &secrets, cutoff));
+    match bounded_linux_work(cutoff, worker).await {
+        Some(Ok(observation)) => observation,
+        _ => AuditObservation::deadline_exceeded(),
+    }
 }
 
 #[cfg(windows)]
@@ -2403,6 +2588,7 @@ fn record_audit_failure(observation: &mut AuditObservation, category: AuditFailu
             observation.symlink_entries = observation.symlink_entries.saturating_add(1)
         }
         AuditFailureCategory::CounterLimit
+        | AuditFailureCategory::Deadline
         | AuditFailureCategory::SecretDetected
         | AuditFailureCategory::CookieDatabase
         | AuditFailureCategory::CookieQuery
@@ -2624,6 +2810,173 @@ mod tests {
         assert!(!super::valid_retirement_acl(&serde_json::json!({
             "actualAclDenied":true,"ipcAvailable":true,"ipcCompleted":true,"typeError":true
         })));
+    }
+
+    #[test]
+    fn linux_page_route_keeps_first_origin_and_exact_final_phase_separate() {
+        use super::LinuxProbeRoute;
+        let phase = super::LinuxRetirementPhase::default();
+        let first = super::Origin::parse("http://127.0.0.1:41001").unwrap();
+        let first_marker = url::Url::parse("http://127.0.0.1:41001/?wp05-old-check").unwrap();
+        let second_marker = url::Url::parse("http://127.0.0.1:41002/?wp05-old-check").unwrap();
+        let wrong_path = url::Url::parse("http://127.0.0.1:41002/").unwrap();
+        assert_eq!(
+            super::linux_probe_route(&first_marker, Some(&first), &phase),
+            LinuxProbeRoute::FirstOrigin
+        );
+        let (sender, _receiver) = tokio::sync::oneshot::channel();
+        phase.arm(second_marker.clone(), sender);
+        assert_eq!(
+            super::linux_probe_route(&first_marker, Some(&first), &phase),
+            LinuxProbeRoute::FirstOrigin
+        );
+        assert_eq!(
+            super::linux_probe_route(&wrong_path, Some(&first), &phase),
+            LinuxProbeRoute::None
+        );
+        assert_eq!(
+            super::linux_probe_route(&second_marker, Some(&first), &phase),
+            LinuxProbeRoute::FinalRetirement
+        );
+        assert_eq!(
+            super::linux_probe_route(&second_marker, Some(&first), &phase),
+            LinuxProbeRoute::None
+        );
+    }
+
+    #[tokio::test]
+    async fn delayed_ipc_and_audit_leave_one_close_and_report_owner() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        use std::sync::Arc;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(600);
+        let ipc_cutoff = deadline - std::time::Duration::from_millis(500);
+        let audit_cutoff = deadline - std::time::Duration::from_millis(380);
+        let finalize_cutoff = deadline - std::time::Duration::from_millis(200);
+        let phase = Arc::new(super::LinuxRetirementPhase::default());
+        let url = url::Url::parse("http://127.0.0.1:41002/?wp05-old-check").unwrap();
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        phase.arm(url.clone(), sender);
+        assert!(phase.page_finished(&url));
+        let late_phase = phase.clone();
+        let late_url = url.clone();
+        let late = tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+            late_phase.title(&late_url, "ACL:{\"actualAclDenied\":true}")
+        });
+        let close = Arc::new(AtomicBool::new(false));
+        let report = Arc::new(AtomicBool::new(false));
+        let closes = Arc::new(AtomicUsize::new(0));
+        let reports = Arc::new(AtomicUsize::new(0));
+        let watchdog_close = close.clone();
+        let watchdog_report = report.clone();
+        let watchdog_closes = closes.clone();
+        let watchdog_reports = reports.clone();
+        let watchdog = tokio::spawn(async move {
+            tokio::time::sleep_until(tokio::time::Instant::from_std(finalize_cutoff)).await;
+            if super::claim_observer_completion(&watchdog_report) {
+                if super::claim_observer_completion(&watchdog_close) {
+                    watchdog_closes.fetch_add(1, Ordering::SeqCst);
+                }
+                watchdog_reports.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+        assert!(super::bounded_linux_work(ipc_cutoff, receiver)
+            .await
+            .is_none());
+        phase.disarm();
+        let slow_disk = tokio::task::spawn_blocking(|| {
+            std::thread::sleep(std::time::Duration::from_millis(800));
+        });
+        assert!(super::bounded_linux_work(audit_cutoff, slow_disk)
+            .await
+            .is_none());
+        if super::claim_observer_completion(&close) {
+            closes.fetch_add(1, Ordering::SeqCst);
+        }
+        if std::time::Instant::now() < finalize_cutoff && super::claim_observer_completion(&report)
+        {
+            reports.fetch_add(1, Ordering::SeqCst);
+        }
+        assert!(!late.await.unwrap());
+        watchdog.await.unwrap();
+        assert_eq!(closes.load(Ordering::SeqCst), 1);
+        assert_eq!(reports.load(Ordering::SeqCst), 1);
+        assert!(std::time::Instant::now() < deadline);
+    }
+
+    #[tokio::test]
+    async fn watchdog_claim_prevents_late_audit_from_reporting_twice() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        use std::sync::Arc;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+        let report_cutoff = deadline - std::time::Duration::from_millis(250);
+        let audit_cutoff = deadline - std::time::Duration::from_millis(100);
+        let close = Arc::new(AtomicBool::new(false));
+        let report = Arc::new(AtomicBool::new(false));
+        let closes = Arc::new(AtomicUsize::new(0));
+        let reports = Arc::new(AtomicUsize::new(0));
+        let watchdog = {
+            let close = close.clone();
+            let report = report.clone();
+            let closes = closes.clone();
+            let reports = reports.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep_until(tokio::time::Instant::from_std(report_cutoff)).await;
+                if super::claim_observer_completion(&report) {
+                    if super::claim_observer_completion(&close) {
+                        closes.fetch_add(1, Ordering::SeqCst);
+                    }
+                    reports.fetch_add(1, Ordering::SeqCst);
+                }
+            })
+        };
+        let slow_disk = tokio::task::spawn_blocking(|| {
+            std::thread::sleep(std::time::Duration::from_millis(700));
+        });
+        assert!(super::bounded_linux_work(audit_cutoff, slow_disk)
+            .await
+            .is_none());
+        if super::claim_observer_completion(&close) {
+            closes.fetch_add(1, Ordering::SeqCst);
+        }
+        if super::claim_observer_completion(&report) {
+            reports.fetch_add(1, Ordering::SeqCst);
+        }
+        watchdog.await.unwrap();
+        assert_eq!(closes.load(Ordering::SeqCst), 1);
+        assert_eq!(reports.load(Ordering::SeqCst), 1);
+        assert!(std::time::Instant::now() < deadline);
+    }
+
+    #[test]
+    fn expired_linux_audit_reports_deadline_not_clean() {
+        let root = tempfile::tempdir().unwrap();
+        let observation = super::audit_until(
+            root.path(),
+            &[],
+            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        );
+        assert!(!observation.audit_complete);
+        assert_eq!(
+            observation.failure_category,
+            super::AuditFailureCategory::Deadline
+        );
+    }
+
+    #[tokio::test]
+    async fn bounded_linux_audit_rejects_expired_cutoff_without_disk_wait() {
+        let root = tempfile::tempdir().unwrap();
+        let observation = super::bounded_linux_audit(
+            root.path().to_path_buf(),
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        )
+        .await;
+        assert_eq!(
+            observation.failure_category,
+            super::AuditFailureCategory::Deadline
+        );
+        assert!(!observation.audit_complete);
     }
 
     #[test]

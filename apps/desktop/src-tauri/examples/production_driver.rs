@@ -38,6 +38,7 @@ enum AuditFailureCategory {
     FileReadAccessDenied,
     FileReadMissing,
     FileReadOther,
+    Deadline,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
