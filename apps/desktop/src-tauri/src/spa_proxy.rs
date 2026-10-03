@@ -745,8 +745,14 @@ mod tests {
     async fn old_origin_marker_gets_inert_html_forbidden_document() {
         let state = test_inner();
         state.active.store(false, Ordering::SeqCst);
-        let response = old_origin_probe_response(&request("/?wp05-old-check", "wrong"), &state);
-        let response = response.expect("exact old-origin marker should select diagnostic response");
+        let response = forward(
+            State(state.clone()),
+            Err(WebSocketUpgradeRejection::MethodNotGet(
+                MethodNotGet::default(),
+            )),
+            request("/?wp05-old-check", "wrong"),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         assert_eq!(
             response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -759,6 +765,9 @@ mod tests {
                 .unwrap(),
             OLD_ORIGIN_DENIAL_CSP
         );
+        let has_acao = response
+            .headers()
+            .contains_key("access-control-allow-origin");
         let body = axum::body::to_bytes(response.into_body(), 4096)
             .await
             .unwrap();
@@ -766,6 +775,8 @@ mod tests {
         assert!(body.contains("WP05 diagnostic forbidden document"));
         assert!(!body.contains("<script"));
         assert!(!body.contains("wp05-old-check"));
+        assert!(!has_acao);
+        assert!(!state.secondary_probe_403.load(Ordering::SeqCst));
     }
 
     #[test]

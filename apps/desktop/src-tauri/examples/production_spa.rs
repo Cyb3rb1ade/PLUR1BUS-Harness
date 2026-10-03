@@ -199,6 +199,7 @@ struct BrowserProcessState {
     pending_captures: usize,
     capture_failures: u32,
     close_failures: u32,
+    successful_captures: u32,
     tracked_windows: BTreeSet<String>,
     windows_absent: bool,
     owners: Vec<OwnedBrowserProcess>,
@@ -246,6 +247,7 @@ impl BrowserProcessOwners {
         state.pending_captures = state.pending_captures.saturating_sub(1);
         match owner {
             Ok(owner) => {
+                state.successful_captures = state.successful_captures.saturating_add(1);
                 #[cfg(windows)]
                 if state
                     .owners
@@ -271,9 +273,11 @@ impl BrowserProcessOwners {
         state.close_failures = state.close_failures.saturating_add(1);
     }
 
-    fn capture_complete(&self) -> bool {
+    fn capture_complete(&self, process_exit_applicable: bool) -> bool {
         let state = self.state.lock().unwrap();
-        state.pending_captures == 0 && state.capture_failures == 0
+        state.pending_captures == 0
+            && state.capture_failures == 0
+            && (!process_exit_applicable || state.successful_captures > 0)
     }
 
     fn close_complete(&self) -> bool {
@@ -350,9 +354,8 @@ struct ProcessExitObservation {
 async fn wait_for_fixture_windows(
     app: &tauri::AppHandle,
     labels: &[String],
-    deadline: std::time::Duration,
+    deadline: std::time::Instant,
 ) -> bool {
-    let started = std::time::Instant::now();
     loop {
         if labels
             .iter()
@@ -360,35 +363,36 @@ async fn wait_for_fixture_windows(
         {
             return true;
         }
-        if started.elapsed() >= deadline {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
             return false;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        tokio::time::sleep(remaining.min(std::time::Duration::from_millis(10))).await;
     }
 }
 
 async fn wait_for_browser_processes(
     owners: BrowserProcessOwners,
-    deadline: std::time::Duration,
+    deadline: std::time::Instant,
 ) -> ProcessExitObservation {
     #[cfg(not(windows))]
     let applicable = false;
     #[cfg(windows)]
     let applicable = true;
-    let started = std::time::Instant::now();
     while {
         let state = owners.state.lock().unwrap();
         state.pending_captures != 0
     } {
-        if started.elapsed() >= deadline {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
             return ProcessExitObservation {
                 applicable,
                 complete: false,
             };
         }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        tokio::time::sleep(remaining.min(std::time::Duration::from_millis(10))).await;
     }
-    let remaining = deadline.saturating_sub(started.elapsed());
+    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
     let owned = owners.take_owners();
     let complete = tauri::async_runtime::spawn_blocking(move || {
         wait_owned_browser_processes(owned, remaining)
@@ -935,17 +939,26 @@ async fn finish(
 ) {
     progress("retire");
     let browser_owners = inputs.browser_owners.clone();
+    let teardown_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let handle = app.clone();
+    progress("retirement-window-close-start");
     if let Some(current) = app.get_webview_window("spa") {
         capture_browser_process(&current, &browser_owners);
         if current.destroy().is_err() {
             browser_owners.close_failed();
+            progress("retirement-window-close-failed");
+        } else {
+            progress("retirement-window-close-requested");
         }
     }
     spa::retire(app).unwrap();
-    while app.get_webview_window("spa").is_some() {
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    let old_windows_absent =
+        wait_for_fixture_windows(&handle, &["spa".to_owned()], teardown_deadline).await;
+    if old_windows_absent {
+        progress("retirement-window-close-complete");
+    } else {
+        progress("retirement-window-close-failed");
     }
-    let handle = app.clone();
     let finished = Arc::new(AtomicBool::new(false));
     let output = output.clone();
     let known = inputs.known.clone();
@@ -954,6 +967,14 @@ async fn finish(
     let secondary_observation = inputs.secondary_observation.clone();
     let observer_owners = browser_owners.clone();
     let observer_url = format!("{}?wp05-old-check", proxy.origin().as_str());
+    if teardown_deadline
+        .saturating_duration_since(std::time::Instant::now())
+        .is_zero()
+    {
+        progress("retirement-observer-create-failed");
+        app.exit(2);
+        return;
+    }
     let observer=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(observer_url.parse().unwrap())).incognito(true)
         .on_page_load(|webview, payload| {
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
@@ -977,6 +998,7 @@ async fn finish(
             let task_secondary = secondary_observation.clone();
             let task_owners = observer_owners.clone();
             let task_error = error.clone();
+            let task_teardown_deadline = teardown_deadline;
             tauri::async_runtime::spawn(async move {
                 progress("audit");
                 let root = PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap());
@@ -993,24 +1015,28 @@ async fn finish(
                 } else {
                     progress("audit-live-scan-incomplete");
                 }
-                progress("retirement-observer-close-requested");
+                progress("retirement-observer-close-start");
+                if task_teardown_deadline.saturating_duration_since(std::time::Instant::now()).is_zero() {
+                    progress("retirement-observer-close-failed");
+                }
                 if observer.destroy().is_err() {
                     task_owners.close_failed();
+                    progress("retirement-observer-close-failed");
+                } else {
+                    progress("retirement-observer-close-requested");
                 }
                 drop(observer);
                 progress("teardown-wait-start");
-                let teardown_deadline = std::time::Duration::from_secs(5);
-                let teardown_started = std::time::Instant::now();
                 let windows_absent = wait_for_fixture_windows(
                     &task_handle,
                     &task_owners.tracked_windows(),
-                    teardown_deadline,
+                    task_teardown_deadline,
                 )
                 .await;
                 task_owners.mark_windows_absent(windows_absent);
                 let process_exit = wait_for_browser_processes(
                     task_owners.clone(),
-                    teardown_deadline.saturating_sub(teardown_started.elapsed()),
+                    task_teardown_deadline,
                 )
                 .await;
                 if windows_absent && (!process_exit.applicable || process_exit.complete) {
@@ -1033,7 +1059,7 @@ async fn finish(
                 }
                 let teardown = TeardownObservation {
                     process_exit_applicable: process_exit.applicable,
-                    capture_complete: task_owners.capture_complete(),
+                    capture_complete: task_owners.capture_complete(process_exit.applicable),
                     close_complete: task_owners.close_complete(),
                     process_exit_complete: process_exit.complete,
                     audit_complete: audit_observation.audit_complete,
@@ -1065,6 +1091,7 @@ async fn finish(
             });
         }).build();
     if observer.is_err() {
+        progress("retirement-observer-create-failed");
         app.exit(3);
     }
 }
@@ -1302,7 +1329,8 @@ mod tests {
     use super::{
         append_progress_history, audit_with_reader, classify_file_read_error,
         local_acl_probe_script, other_window_probe_script, parse_secondary_probe, AuditEntry,
-        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, TeardownObservation,
+        AuditEntryKind, AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners,
+        OwnedBrowserProcess, TeardownObservation,
     };
     use std::path::{Path, PathBuf};
 
@@ -1405,6 +1433,15 @@ mod tests {
             }
         }
         .clean());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn applicable_process_exit_requires_a_successful_owner_capture() {
+        let owners = BrowserProcessOwners::default();
+        assert!(!owners.capture_complete(true));
+        owners.finish_capture(Ok(OwnedBrowserProcess));
+        assert!(owners.capture_complete(true));
     }
 
     #[test]
