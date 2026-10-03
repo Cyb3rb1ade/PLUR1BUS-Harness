@@ -26,6 +26,10 @@ struct ProgressObservation {
 enum AuditFailureCategory {
     None,
     ReadDir,
+    ReadDirSharing,
+    ReadDirAccessDenied,
+    ReadDirMissing,
+    ReadDirOther,
     EntryDisappeared,
     Metadata,
     FileRead,
@@ -39,6 +43,20 @@ enum AuditFailureCategory {
     FileReadMissing,
     FileReadOther,
     Deadline,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum AuditFailureTarget {
+    None,
+    RootDirectory,
+    NestedDirectory,
+    Lease,
+    CookieDatabase,
+    BrowserLock,
+    StorageFile,
+    CacheFile,
+    OtherFile,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -59,6 +77,7 @@ struct AuditObservation {
     read_dir_failures: u32,
     symlink_entries: u32,
     failure_category: AuditFailureCategory,
+    failure_target: AuditFailureTarget,
 }
 
 impl AuditObservation {
@@ -79,6 +98,7 @@ impl AuditObservation {
             read_dir_failures: 0,
             symlink_entries: 0,
             failure_category: AuditFailureCategory::ReadDir,
+            failure_target: AuditFailureTarget::None,
         }
     }
 
@@ -124,6 +144,7 @@ impl AuditObservation {
             && self.read_dir_failures == 0
             && self.symlink_entries == 0
             && self.failure_category == AuditFailureCategory::None
+            && self.failure_target == AuditFailureTarget::None
     }
 
     fn live_clean(&self) -> bool {
@@ -139,6 +160,7 @@ impl AuditObservation {
             && self.read_dir_failures == 0
             && self.symlink_entries == 0
             && self.failure_category == AuditFailureCategory::None
+            && self.failure_target == AuditFailureTarget::None
     }
 }
 
@@ -933,6 +955,21 @@ mod tests {
         value.as_object_mut().unwrap().remove("profile");
         let diagnostic = parse_diagnostic(&json!({ "diagnostic": value }));
         assert!(!diagnostic.secondary_probe.available);
+    }
+
+    #[test]
+    fn missing_failure_target_makes_diagnostic_unavailable() {
+        let mut value = serde_json::to_value(NativeDiagnostic::unavailable()).unwrap();
+        value["audit"]
+            .as_object_mut()
+            .unwrap()
+            .remove("failureTarget");
+        let diagnostic = parse_diagnostic(&json!({ "diagnostic": value }));
+        assert!(!diagnostic.audit.audit_complete);
+        assert_eq!(
+            diagnostic.audit.failure_category,
+            AuditFailureCategory::ReadDir
+        );
     }
 
     #[test]

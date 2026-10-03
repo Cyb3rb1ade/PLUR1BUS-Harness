@@ -37,6 +37,10 @@ static STARTUP_SWEEP: std::sync::OnceLock<plur1bus_desktop::windows_spa_profile:
 enum AuditFailureCategory {
     None,
     ReadDir,
+    ReadDirSharing,
+    ReadDirAccessDenied,
+    ReadDirMissing,
+    ReadDirOther,
     EntryDisappeared,
     Metadata,
     FileRead,
@@ -50,6 +54,20 @@ enum AuditFailureCategory {
     FileReadMissing,
     FileReadOther,
     Deadline,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum AuditFailureTarget {
+    None,
+    RootDirectory,
+    NestedDirectory,
+    Lease,
+    CookieDatabase,
+    BrowserLock,
+    StorageFile,
+    CacheFile,
+    OtherFile,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -70,6 +88,7 @@ struct AuditObservation {
     read_dir_failures: u32,
     symlink_entries: u32,
     failure_category: AuditFailureCategory,
+    failure_target: AuditFailureTarget,
 }
 
 impl AuditObservation {
@@ -90,6 +109,7 @@ impl AuditObservation {
             read_dir_failures: 0,
             symlink_entries: 0,
             failure_category: AuditFailureCategory::ReadDir,
+            failure_target: AuditFailureTarget::None,
         }
     }
 
@@ -113,6 +133,7 @@ impl AuditObservation {
             && self.read_dir_failures == 0
             && self.symlink_entries == 0
             && self.failure_category == AuditFailureCategory::None
+            && self.failure_target == AuditFailureTarget::None
     }
 
     fn live_clean(&self) -> bool {
@@ -128,6 +149,7 @@ impl AuditObservation {
             && self.cookie_database_other_root_files == 0
             && (cfg!(windows) || self.cookie_database_files == 0)
             && self.failure_category == AuditFailureCategory::None
+            && self.failure_target == AuditFailureTarget::None
     }
 }
 
@@ -2607,12 +2629,32 @@ fn classify_file_read_error(error: &std::io::Error) -> AuditFailureCategory {
     }
 }
 
+fn classify_read_dir_error(error: &std::io::Error) -> AuditFailureCategory {
+    #[cfg(windows)]
+    {
+        match error.raw_os_error() {
+            Some(5) => AuditFailureCategory::ReadDirAccessDenied,
+            Some(2 | 3) => AuditFailureCategory::ReadDirMissing,
+            Some(32 | 33) => AuditFailureCategory::ReadDirSharing,
+            _ => AuditFailureCategory::ReadDirOther,
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        match error.kind() {
+            std::io::ErrorKind::PermissionDenied => AuditFailureCategory::ReadDirAccessDenied,
+            std::io::ErrorKind::NotFound => AuditFailureCategory::ReadDirMissing,
+            _ => AuditFailureCategory::ReadDirOther,
+        }
+    }
+}
+
 impl AuditReader for FilesystemAuditReader {
     fn read_dir(
         &mut self,
         root: &std::path::Path,
     ) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
-        let entries = std::fs::read_dir(root).map_err(|_| AuditFailureCategory::ReadDir)?;
+        let entries = std::fs::read_dir(root).map_err(|error| classify_read_dir_error(&error))?;
         entries
             .map(|entry| {
                 let entry = entry.map_err(|_| AuditFailureCategory::EntryDisappeared)?;
@@ -2682,6 +2724,36 @@ fn cookie_file_class(path: &std::path::Path) -> Option<CookieFileClass> {
         Some(CookieFileClass::Sidecar)
     } else {
         None
+    }
+}
+
+fn failure_target_for_file(path: &std::path::Path) -> AuditFailureTarget {
+    let name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    if name == ".lease" {
+        AuditFailureTarget::Lease
+    } else if is_cookie_database(path) {
+        AuditFailureTarget::CookieDatabase
+    } else if name == "lock" || name == "singletonlock" || name.ends_with(".lock") {
+        AuditFailureTarget::BrowserLock
+    } else if matches!(
+        path.extension().and_then(|value| value.to_str()),
+        Some("ldb" | "sst" | "db" | "sqlite" | "sqlite3")
+    ) {
+        AuditFailureTarget::StorageFile
+    } else if path.ancestors().any(|part| {
+        part.file_name().is_some_and(|value| {
+            matches!(
+                value.to_string_lossy().to_ascii_lowercase().as_str(),
+                "cache" | "code cache" | "gpucache" | "cachestorage"
+            )
+        })
+    }) {
+        AuditFailureTarget::CacheFile
+    } else {
+        AuditFailureTarget::OtherFile
     }
 }
 
@@ -2826,6 +2898,7 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
         read_dir_failures: 0,
         symlink_entries: 0,
         failure_category: AuditFailureCategory::None,
+        failure_target: AuditFailureTarget::None,
     };
     let mut pending = vec![root.to_path_buf()];
     let mut visited = 0;
@@ -2833,7 +2906,15 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
         let entries = match reader.read_dir(&path) {
             Ok(entries) => entries,
             Err(category) => {
-                record_audit_failure(&mut observation, category);
+                record_audit_failure_at(
+                    &mut observation,
+                    category,
+                    if path == root {
+                        AuditFailureTarget::RootDirectory
+                    } else {
+                        AuditFailureTarget::NestedDirectory
+                    },
+                );
                 return observation;
             }
         };
@@ -2873,7 +2954,11 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
                                     }
                                     Err(category) => {
                                         observation.cookie_read_only_complete = false;
-                                        record_audit_failure(&mut observation, category);
+                                        record_audit_failure_at(
+                                            &mut observation,
+                                            category,
+                                            AuditFailureTarget::CookieDatabase,
+                                        );
                                         return observation;
                                     }
                                 }
@@ -2887,7 +2972,11 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
                     let bytes = match reader.read_file(&entry.path) {
                         Ok(bytes) => bytes,
                         Err(category) => {
-                            record_audit_failure(&mut observation, category);
+                            record_audit_failure_at(
+                                &mut observation,
+                                category,
+                                failure_target_for_file(&entry.path),
+                            );
                             return observation;
                         }
                     };
@@ -2908,8 +2997,20 @@ fn audit_with_reader_and_profile_root<R: AuditReader>(
 }
 
 fn record_audit_failure(observation: &mut AuditObservation, category: AuditFailureCategory) {
+    record_audit_failure_at(observation, category, AuditFailureTarget::None);
+}
+
+fn record_audit_failure_at(
+    observation: &mut AuditObservation,
+    category: AuditFailureCategory,
+    target: AuditFailureTarget,
+) {
     match category {
-        AuditFailureCategory::ReadDir => {
+        AuditFailureCategory::ReadDir
+        | AuditFailureCategory::ReadDirSharing
+        | AuditFailureCategory::ReadDirAccessDenied
+        | AuditFailureCategory::ReadDirMissing
+        | AuditFailureCategory::ReadDirOther => {
             observation.read_dir_failures = observation.read_dir_failures.saturating_add(1)
         }
         AuditFailureCategory::EntryDisappeared => {
@@ -2939,6 +3040,7 @@ fn record_audit_failure(observation: &mut AuditObservation, category: AuditFailu
     }
     if observation.failure_category == AuditFailureCategory::None {
         observation.failure_category = category;
+        observation.failure_target = target;
     }
 }
 
@@ -2990,9 +3092,10 @@ mod tests {
         classify_file_read_error, cookie_file_class, local_acl_probe_script,
         other_window_probe_script, parse_secondary_probe, parse_secondary_result, probe_stage,
         session_eval_target_is_current, trusted_probe_stage, AuditEntry, AuditEntryKind,
-        AuditFailureCategory, AuditObservation, AuditReader, BrowserProcessOwners, CookieFileClass,
-        OwnedBrowserProcess, PrivateProfileObservation, SessionEvalClaims, SessionTitleClaims,
-        TeardownObservation, TitleClaimRejection, TitleSource,
+        AuditFailureCategory, AuditFailureTarget, AuditObservation, AuditReader,
+        BrowserProcessOwners, CookieFileClass, OwnedBrowserProcess, PrivateProfileObservation,
+        SessionEvalClaims, SessionTitleClaims, TeardownObservation, TitleClaimRejection,
+        TitleSource,
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -3223,6 +3326,31 @@ mod tests {
     }
 
     struct UnreadableProfile;
+
+    struct FailingTargetReader {
+        path: PathBuf,
+        error: AuditFailureCategory,
+    }
+
+    impl FailingTargetReader {
+        fn new(path: PathBuf, error: AuditFailureCategory) -> Self {
+            Self { path, error }
+        }
+    }
+
+    impl AuditReader for FailingTargetReader {
+        fn read_dir(&mut self, _root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+            Ok(vec![AuditEntry {
+                path: self.path.clone(),
+                kind: AuditEntryKind::File,
+                cookie_database: false,
+            }])
+        }
+
+        fn read_file(&mut self, _path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+            Err(self.error)
+        }
+    }
 
     struct CookieFiles;
 
@@ -3871,6 +3999,110 @@ mod tests {
     }
 
     #[test]
+    fn live_audit_failure_identifies_closed_target_without_exposing_path() {
+        let root = Path::new("private-root");
+        let mut reader = FailingTargetReader::new(
+            root.join("Default").join("IndexedDB").join("LOCK"),
+            AuditFailureCategory::FileReadSharing,
+        );
+        let observation = audit_with_reader(root, &[], &mut reader);
+        assert!(!observation.audit_complete);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::FileReadSharing
+        );
+        assert_eq!(observation.failure_target, AuditFailureTarget::BrowserLock);
+        let report = serde_json::to_string(&observation).unwrap();
+        assert!(report.contains("\"failureTarget\":\"browser-lock\""));
+        assert!(!report.contains("IndexedDB"));
+        assert!(!report.contains("private-root"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn locked_browser_file_remains_a_failed_live_audit() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("LOCK");
+        std::fs::write(&path, b"synthetic fixture bytes").unwrap();
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .share_mode(0)
+            .open(&path)
+            .unwrap();
+        let observation = super::audit(root.path(), &[]);
+        assert!(!observation.audit_complete);
+        assert!(!observation.live_clean());
+        assert_eq!(observation.read_failures, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::FileReadSharing
+        );
+        assert_eq!(observation.failure_target, AuditFailureTarget::BrowserLock);
+        drop(held);
+    }
+
+    #[test]
+    fn read_directory_failure_identifies_root_or_nested_stage() {
+        struct MissingDirectoryReader {
+            nested: bool,
+        }
+        impl AuditReader for MissingDirectoryReader {
+            fn read_dir(&mut self, root: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+                if self.nested && root == Path::new("root") {
+                    return Ok(vec![AuditEntry {
+                        path: PathBuf::from("root/nested"),
+                        kind: AuditEntryKind::Directory,
+                        cookie_database: false,
+                    }]);
+                }
+                Err(AuditFailureCategory::ReadDirMissing)
+            }
+
+            fn read_file(&mut self, _path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+                unreachable!()
+            }
+        }
+
+        for (nested, expected) in [
+            (false, AuditFailureTarget::RootDirectory),
+            (true, AuditFailureTarget::NestedDirectory),
+        ] {
+            let observation = audit_with_reader(
+                Path::new("root"),
+                &[],
+                &mut MissingDirectoryReader { nested },
+            );
+            assert!(!observation.live_clean());
+            assert_eq!(observation.read_dir_failures, 1);
+            assert_eq!(
+                observation.failure_category,
+                AuditFailureCategory::ReadDirMissing
+            );
+            assert_eq!(observation.failure_target, expected);
+        }
+    }
+
+    #[test]
+    fn missing_directory_from_filesystem_reader_is_classified_and_incomplete() {
+        let fixture = tempfile::tempdir().unwrap();
+        let missing = fixture.path().join("missing");
+        let observation = audit_with_reader(&missing, &[], &mut super::FilesystemAuditReader);
+        assert!(!observation.audit_complete);
+        assert_eq!(observation.read_dir_failures, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::ReadDirMissing
+        );
+        assert_eq!(
+            observation.failure_target,
+            AuditFailureTarget::RootDirectory
+        );
+    }
+
+    #[test]
     fn clean_audit_rejects_nonzero_operation_failures() {
         let observation = AuditObservation {
             audit_complete: true,
@@ -3888,6 +4120,7 @@ mod tests {
             read_dir_failures: 0,
             symlink_entries: 0,
             failure_category: AuditFailureCategory::None,
+            failure_target: AuditFailureTarget::None,
         };
         assert!(!observation.clean());
     }
