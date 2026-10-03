@@ -36,6 +36,101 @@ pub type NativeProbe = std::sync::Arc<dyn Fn(tauri::WebviewWindow, String, Origi
 #[cfg(debug_assertions)]
 pub type NativeSecretObserver = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 impl SpaState {
+    /// Install only after retirement has revoked the previous generation.
+    fn install(&self, active: Active) {
+        self.current.lock().unwrap().replace(active);
+    }
+    /// Shared production retirement: revoke admission and retain the reserved port.
+    /// Return the complete owner so native retirement can finish its profile cleanup.
+    fn take_retired(&self) -> Option<Active> {
+        let old = self.current.lock().unwrap().take()?;
+        old.proxy.retire();
+        self.retired.lock().unwrap().push(old.proxy.clone());
+        Some(old)
+    }
+    /// Debug-only state seam. No webview is created and no native audit is claimed.
+    /// On Windows the caller supplies a disposable root for a real owned lease;
+    /// browser capture and cleanup proofs are exclusively native-fixture work.
+    #[cfg(debug_assertions)]
+    pub fn install_fixture_session(
+        &self,
+        connection: Connection,
+        proxy: SpaProxy,
+        fixture_root: &std::path::Path,
+    ) -> std::io::Result<()> {
+        #[cfg(not(windows))]
+        let _ = fixture_root;
+        self.install(Active {
+            connection,
+            proxy,
+            retries: AtomicU8::new(0),
+            #[cfg(windows)]
+            profile: crate::windows_spa_profile::create_in_fixture_root(fixture_root)?,
+            #[cfg(windows)]
+            browser: None,
+            #[cfg(windows)]
+            gone: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        });
+        Ok(())
+    }
+    /// Retire a browser-free fixture session using the production transition.
+    /// The fixture's TempDir owns disposal; this is not browser-exit evidence.
+    #[cfg(debug_assertions)]
+    pub fn retire_fixture_session(&self) {
+        drop(self.take_retired());
+    }
+    /// The production retry policy, including the generation check AFTER ticket I/O.
+    /// The issuer is supplied by the credential worker (or a MemoryStore in tests).
+    pub async fn retry_navigation<F, Fut>(
+        &self,
+        origin: &Origin,
+        manual: bool,
+        issue_ticket: F,
+    ) -> Option<Url>
+    where
+        F: FnOnce(Connection) -> Fut,
+        Fut: std::future::Future<Output = Option<crate::client::Ticket>>,
+    {
+        let (connection, retry) = {
+            let active = self.current.lock().unwrap();
+            let active = active.as_ref().filter(|a| a.proxy.origin() == origin)?;
+            (
+                active.connection.clone(),
+                retry_ticket(&active.retries, manual),
+            )
+        };
+        let ticket = if retry {
+            issue_ticket(connection).await
+        } else {
+            None
+        };
+        {
+            let active = self.current.lock().unwrap();
+            if active.as_ref().is_none_or(|a| a.proxy.origin() != origin) {
+                return None;
+            }
+        }
+        let mut url = Url::parse(&format!(
+            "{}{}",
+            origin.as_str(),
+            if ticket.is_some() {
+                "/auth/ticket"
+            } else {
+                "/__shell/ticket-error"
+            }
+        ))
+        .unwrap();
+        if let Some(ticket) = ticket {
+            // A fresh fragment alone is a same-document navigation and will not rerun redemption.
+            url.set_query(Some("shell-retry=1"));
+            #[cfg(debug_assertions)]
+            if let Some(observer) = self.secrets.lock().unwrap().clone() {
+                observer(ticket.ticket.expose());
+            }
+            url.set_fragment(Some(&format!("t={}", ticket.ticket.expose())));
+        }
+        Some(url)
+    }
     #[cfg(any(windows, test))]
     pub async fn wait_profile_cleanups(
         &self,
@@ -160,13 +255,11 @@ pub fn check_caller(state: &SpaState, label: &str, current: &Url) -> Result<(), 
 /// Explicit denies retire Tauri's additive grants; old ports remain reserved in this process.
 pub fn retire(app: &tauri::AppHandle) -> Result<(), String> {
     let state = app.state::<SpaState>();
-    let old = state.current.lock().unwrap().take();
+    let old = state.take_retired();
     if let Some(old) = old {
-        old.proxy.retire();
         let deny = app
             .add_capability(bridge_capability(old.proxy.origin(), true).to_string())
             .map_err(|_| "SPA capability retirement failed".to_owned());
-        state.retired.lock().unwrap().push(old.proxy);
         #[cfg(all(windows, debug_assertions))]
         let secret_audit = state.profile_audit.lock().unwrap().clone();
         #[cfg(all(windows, not(debug_assertions)))]
@@ -237,21 +330,17 @@ pub async fn open_spa(
         crate::windows_spa_profile::create(app).map_err(|_| "SPA profile allocation failed")?;
     #[cfg(windows)]
     let gone = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    app.state::<SpaState>()
-        .current
-        .lock()
-        .unwrap()
-        .replace(Active {
-            connection: conn.clone(),
-            proxy: proxy.clone(),
-            retries: AtomicU8::new(0),
-            #[cfg(windows)]
-            profile,
-            #[cfg(windows)]
-            browser: None,
-            #[cfg(windows)]
-            gone: gone.clone(),
-        });
+    app.state::<SpaState>().install(Active {
+        connection: conn.clone(),
+        proxy: proxy.clone(),
+        retries: AtomicU8::new(0),
+        #[cfg(windows)]
+        profile,
+        #[cfg(windows)]
+        browser: None,
+        #[cfg(windows)]
+        gone: gone.clone(),
+    });
     let title_app = app.clone();
     let navigation_proxy = proxy.clone();
     let popup_proxy = proxy.clone();
@@ -393,70 +482,35 @@ pub fn retry_ticket(counter: &AtomicU8, manual: bool) -> bool {
         .is_ok()
 }
 fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
-    let (connection, retry) = {
-        let state = app.state::<SpaState>();
-        let active = state.current.lock().unwrap();
-        let Some(active) = active.as_ref().filter(|a| a.proxy.origin() == origin) else {
-            return;
-        };
-        (
-            active.connection.clone(),
-            retry_ticket(&active.retries, manual),
-        )
-    };
     let app = app.clone();
     let origin = origin.clone();
     tauri::async_runtime::spawn(async move {
-        let ticket = if retry {
-            let store = crate::commands::app_connection_store(&app);
-            match store {
-                Ok(store) => crate::commands::credential_action(
-                    &app.state::<crate::commands::ConnectionState>(),
-                    move |tokens, runtime| {
-                        let tokens = tokens.as_ref().ok_or("pairing-needed")?;
-                        let mut connection = connection;
-                        runtime
-                            .block_on(crate::pair::session_ticket(
-                                &mut connection,
-                                tokens.as_ref(),
-                                &store,
-                            ))
-                            .map_err(|e| e.public_message())
-                    },
-                )
-                .await
-                .ok(),
-                Err(_) => None,
-            }
-        } else {
-            None
-        };
         let state = app.state::<SpaState>();
-        let active = state.current.lock().unwrap();
-        if active.as_ref().is_none_or(|a| a.proxy.origin() != &origin) {
-            return;
-        }
-        drop(active);
-        let mut url = Url::parse(&format!(
-            "{}{}",
-            origin.as_str(),
-            if ticket.is_some() {
-                "/auth/ticket"
-            } else {
-                "/__shell/ticket-error"
-            }
-        ))
-        .unwrap();
-        if let Some(ticket) = ticket {
-            // A fresh fragment alone is a same-document navigation and will not rerun redemption.
-            url.set_query(Some("shell-retry=1"));
-            #[cfg(debug_assertions)]
-            if let Some(observer) = app.state::<SpaState>().secrets.lock().unwrap().clone() {
-                observer(ticket.ticket.expose());
-            }
-            url.set_fragment(Some(&format!("t={}", ticket.ticket.expose())));
-        }
-        if let Some(window) = app.get_webview_window("spa") {
+        let url = state
+            .retry_navigation(&origin, manual, |connection| async {
+                let store = crate::commands::app_connection_store(&app);
+                match store {
+                    Ok(store) => crate::commands::credential_action(
+                        &app.state::<crate::commands::ConnectionState>(),
+                        move |tokens, runtime| {
+                            let tokens = tokens.as_ref().ok_or("pairing-needed")?;
+                            let mut connection = connection;
+                            runtime
+                                .block_on(crate::pair::session_ticket(
+                                    &mut connection,
+                                    tokens.as_ref(),
+                                    &store,
+                                ))
+                                .map_err(|e| e.public_message())
+                        },
+                    )
+                    .await
+                    .ok(),
+                    Err(_) => None,
+                }
+            })
+            .await;
+        if let (Some(url), Some(window)) = (url, app.get_webview_window("spa")) {
             let _ = window.navigate(url);
         }
     });

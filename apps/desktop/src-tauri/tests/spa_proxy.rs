@@ -775,9 +775,15 @@ async fn memory_open_close(dir: &std::path::Path) -> String {
     common::assert_no_token_on_disk(dir, proxy.user_agent());
     token.expose().to_owned()
 }
+// Partial Rust proxy diagnostic only: this scratch directory has never held a webview.
+// Full acceptance is native-covered by examples/production_driver.rs (first/restart):
+// LIVE all-origin cookies + Canary challenges + readable profile scans/named locks;
+// Windows additionally requires proven <=10s exit, WAL-aware zero rows and sidefile
+// scans BEFORE cleanup. macOS/Linux retain strict live zero-file checks.
 #[tokio::test]
 async fn no_cookie_database_in_app_dirs() {
     with_test_timeout("no_cookie_database_in_app_dirs", async {
+        println!("PARTIAL: Rust proxy scratch scan only; native profile acceptance requires production_driver first/restart audit");
         let dir = tempfile::tempdir().unwrap();
         let _ = memory_open_close(dir.path()).await;
         fn scan(dir: &std::path::Path) {
