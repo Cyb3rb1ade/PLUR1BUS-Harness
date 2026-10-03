@@ -1134,8 +1134,12 @@ async fn finish(
     let teardown_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     let handle = app.clone();
     progress("retirement-window-close-start");
-    if let Some(current) = app.get_webview_window("spa") {
-        capture_browser_process(&current, &browser_owners);
+    let current = app.get_webview_window("spa");
+    if let Some(current) = current.as_ref() {
+        capture_browser_process(current, &browser_owners);
+    }
+    spa::retire(app).unwrap();
+    if let Some(current) = current {
         if current.destroy().is_err() {
             browser_owners.close_failed();
             progress("retirement-window-close-failed");
@@ -1143,7 +1147,6 @@ async fn finish(
             progress("retirement-window-close-requested");
         }
     }
-    spa::retire(app).unwrap();
     let old_windows_absent =
         wait_for_fixture_windows(&handle, &["spa".to_owned()], teardown_deadline).await;
     if old_windows_absent {
