@@ -1,0 +1,12 @@
+{
+  "_source": "https://ai.google.dev/api/models read 2026-10-03",
+  "models": [
+    {
+      "name": "models/example-gemini-1.5-pro",
+      "displayName": "Example Gemini 1.5 Pro",
+      "inputTokenLimit": 2000000,
+      "supportedGenerationMethods": ["generateContent", "countTokens"]
+    }
+  ],
+  "nextPageToken": "tok-2"
+}
