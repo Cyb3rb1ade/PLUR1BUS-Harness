@@ -56,7 +56,24 @@ impl Drop for GnomeState {
         }
     }
 }
-struct Application(tauri::AppHandle);
+/// D-Bus application endpoint; injected dispatcher permits private transport tests without OS windows.
+pub struct Application(std::sync::Arc<dyn Fn() -> Result<(), notify::NotifyFailure> + Send + Sync>);
+impl Application {
+    pub fn new(
+        dispatch: impl Fn() -> Result<(), notify::NotifyFailure> + Send + Sync + 'static,
+    ) -> Self {
+        Self(std::sync::Arc::new(dispatch))
+    }
+    fn native(app: tauri::AppHandle) -> Self {
+        Self::new(move || {
+            let gui = app.clone();
+            app.run_on_main_thread(move || {
+                crate::native::request_quit(&gui);
+            })
+            .map_err(|_| notify::NotifyFailure)
+        })
+    }
+}
 #[zbus::interface(name = "org.freedesktop.Application")]
 impl Application {
     fn activate_action(
@@ -68,12 +85,7 @@ impl Application {
         if action_name != "quit" {
             return Err(zbus::fdo::Error::InvalidArgs("ACTION_UNAVAILABLE".into()));
         }
-        let app = self.0.clone();
-        self.0
-            .run_on_main_thread(move || {
-                crate::native::request_quit(&app);
-            })
-            .map_err(|_| zbus::fdo::Error::Failed("QUIT_DISPATCH_FAILED".into()))
+        (self.0)().map_err(|_| zbus::fdo::Error::Failed("QUIT_DISPATCH_FAILED".into()))
     }
 }
 pub fn start(app: &tauri::AppHandle) {
@@ -109,7 +121,7 @@ async fn run(
     let connection = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         zbus::connection::Builder::session()?
             .name(crate::ids::BUNDLE_ID)?
-            .serve_at("/app/plur1bus/desktop", Application(app.clone()))?
+            .serve_at("/app/plur1bus/desktop", Application::native(app.clone()))?
             .build()
             .await
     })

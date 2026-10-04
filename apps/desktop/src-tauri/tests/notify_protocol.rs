@@ -289,3 +289,62 @@ async fn background_status_sends_only_closed_state_and_requires_portal_v2() {
         );
     }
 }
+
+#[tokio::test]
+async fn native_application_endpoint_dispatches_only_quit_and_preserves_modal_default() {
+    use plur1bus_desktop::{
+        gnome::Application,
+        lifecycle::{QuitChoice, QuitSession},
+    };
+    let quit = Arc::new(QuitSession::default());
+    let dispatched = quit.clone();
+    let (server, client) = tokio::net::UnixStream::pair().unwrap();
+    let server = Builder::unix_stream(server)
+        .server(zbus::Guid::generate())
+        .unwrap()
+        .p2p()
+        .serve_at(
+            "/app/plur1bus/desktop",
+            Application::new(move || {
+                dispatched.request(false);
+                Ok(())
+            }),
+        )
+        .unwrap()
+        .build();
+    let client = Builder::unix_stream(client).p2p().build();
+    let (server, client) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(server, client)
+    })
+    .await
+    .unwrap();
+    let _server = server.unwrap();
+    let client = client.unwrap();
+    let endpoint = zbus::Proxy::new(
+        &client,
+        "app.plur1bus.desktop",
+        "/app/plur1bus/desktop",
+        "org.freedesktop.Application",
+    )
+    .await
+    .unwrap();
+    for action in ["foreign", "quit"] {
+        let response = tokio::time::timeout(
+            Duration::from_secs(3),
+            endpoint.call::<_, _, ()>(
+                "ActivateAction",
+                &(
+                    action,
+                    Vec::<OwnedValue>::new(),
+                    HashMap::<String, OwnedValue>::new(),
+                ),
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.is_ok(), action == "quit");
+        assert_eq!(quit.is_pending(), action == "quit");
+        assert!(!quit.is_approved());
+    }
+    assert_eq!(quit.request(false).choice, QuitChoice::KeepRunning);
+}
