@@ -1,7 +1,7 @@
 // Read-only primitives for the importer (docs/import.md §8.2). Nothing here writes to a source path: SQLite is read
 // from a private copy (or opened immutable), LanceDB is resolved through the pinned engine package, `.env` files
 // yield key names only.
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, mkdtempSync, openSync, readFileSync, readSync, rmSync, statSync, writeSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
@@ -71,6 +71,8 @@ export interface SqliteOpenOptions {
   /** Test hooks: runs after each copy (attempt number, path of the copied db); replaces the backoff sleep. */
   afterCopy?: (attempt: number, copy: string) => void;
   sleep?: (ms: number) => void;
+  /** Test seam: custom file copy implementation (defaults to copyFileBounded). */
+  copyFile?: (src: string, dst: string, limit: number) => void;
 }
 
 /** Copy attempts before a changing database counts as busy (one copy plus three retries, spec §B.5). */
@@ -78,9 +80,118 @@ export const SQLITE_COPY_ATTEMPTS = 4;
 const BACKOFF_MS = [50, 200, 800];
 const sleeper = new Int32Array(new SharedArrayBuffer(4));
 
+const COPY_CHUNK_SIZE = 64 * 1024;
+
+/** Safely copies a file up to maxBytes without hanging if the source shrinks or is truncated concurrently (§8.2). */
+export function copyFileBounded(src: string, dst: string, maxBytes: number): { bytesCopied: number; initialSize: number } {
+  const srcFd = openSync(src, "r");
+  let dstFd: number | null = null;
+  try {
+    const st = fstatSync(srcFd);
+    if (st.size > maxBytes) {
+      throw new Error(`file ${src} exceeds copy limit (${st.size} > ${maxBytes})`);
+    }
+    const targetSize = st.size;
+    dstFd = openSync(dst, "w", 0o600);
+    if (targetSize === 0) {
+      return { bytesCopied: 0, initialSize: 0 };
+    }
+    const buf = Buffer.allocUnsafe(Math.min(COPY_CHUNK_SIZE, targetSize));
+    let bytesCopied = 0;
+    const maxChunks = Math.ceil(targetSize / COPY_CHUNK_SIZE) + 1;
+    for (let chunk = 0; chunk < maxChunks && bytesCopied < targetSize; chunk++) {
+      const toRead = Math.min(buf.length, targetSize - bytesCopied);
+      const n = readSync(srcFd, buf, 0, toRead, bytesCopied);
+      if (n === 0) break; // EOF reached early (source shrunk / truncated concurrently)
+      writeSync(dstFd, buf, 0, n);
+      bytesCopied += n;
+    }
+    return { bytesCopied, initialSize: targetSize };
+  } finally {
+    try { closeSync(srcFd); } catch {}
+    if (dstFd !== null) {
+      try { closeSync(dstFd); } catch {}
+    }
+  }
+}
+
 type Stamp = { size: number; mtimeMs: number } | null;
 const stamp = (p: string): Stamp => { try { const st = statSync(p); return { size: st.size, mtimeMs: st.mtimeMs }; } catch { return null; } };
 const same = (a: Stamp, b: Stamp) => (a === null ? b === null : b !== null && a.size === b.size && a.mtimeMs === b.mtimeMs);
+
+function wrapImmutableDb(db: DatabaseSync, abs: string): DatabaseSync {
+  function translateError(e: unknown): never {
+    if (e instanceof ImportError) throw e;
+    const err = e as { code?: string; errcode?: number; message?: string };
+    if (
+      err.code === "ERR_SQLITE_ERROR" ||
+      err.errcode === 11 ||
+      err.errcode === 5 ||
+      /malformed|corrupt|busy/i.test(err.message ?? "")
+    ) {
+      throw new ImportError(
+        "E_SOURCE_BUSY",
+        "source-busy",
+        `${abs} changed while reading immutable fallback (${err.message ?? e}); stop the source and retry`,
+        3
+      );
+    }
+    throw e;
+  }
+
+  function wrapStatement(stmt: any): any {
+    return new Proxy(stmt, {
+      get(target, prop, receiver) {
+        const val = Reflect.get(target, prop, receiver);
+        if (typeof val === "function") {
+          return function (...args: any[]) {
+            try {
+              return val.apply(target, args);
+            } catch (e) {
+              translateError(e);
+            }
+          };
+        }
+        return val;
+      },
+    });
+  }
+
+  return new Proxy(db, {
+    get(target, prop, receiver) {
+      if (prop === "prepare") {
+        return function (sql: string) {
+          try {
+            const stmt = target.prepare(sql);
+            return wrapStatement(stmt);
+          } catch (e) {
+            translateError(e);
+          }
+        };
+      }
+      if (prop === "exec") {
+        return function (sql: string) {
+          try {
+            return target.exec(sql);
+          } catch (e) {
+            translateError(e);
+          }
+        };
+      }
+      const val = Reflect.get(target, prop, receiver);
+      if (typeof val === "function") {
+        return function (...args: any[]) {
+          try {
+            return val.apply(target, args);
+          } catch (e) {
+            translateError(e);
+          }
+        };
+      }
+      return val;
+    },
+  });
+}
 
 /** Opens a SQLite database without ever writing next to it (§8.2, plugin-distribution spec §B.5): a checked copy
  *  (db, then WAL) in a private staging dir up to `maxCopyBytes` — size and mtime of both are recorded before and
@@ -94,8 +205,18 @@ export function openSqliteReadOnly(path: string, opts: SqliteOpenOptions = {}): 
   const size = statSync(abs).size + (existsSync(wal) ? statSync(wal).size : 0);
   const immutable = (reason: "too-large" | "source-busy", attempts: number): SqliteHandle => {
     const url = new URL(`${pathToFileURL(abs).href}?immutable=1&mode=ro`);
-    const db = new DatabaseSync(url, { readOnly: true });
-    return { db, mode: "immutable", immutableReason: reason, attempts, close: () => db.close() };
+    let rawDb: DatabaseSync;
+    try {
+      rawDb = new DatabaseSync(url, { readOnly: true });
+    } catch (e) {
+      const err = e as { code?: string; errcode?: number; message?: string };
+      if (err.code === "ERR_SQLITE_ERROR" || err.errcode === 11 || err.errcode === 5 || /malformed|corrupt|busy/i.test(err.message ?? "")) {
+        throw new ImportError("E_SOURCE_BUSY", "source-busy", `${abs} kept changing while opening immutable fallback (${err.message ?? e}); stop the source and retry`, 3);
+      }
+      throw e;
+    }
+    const db = wrapImmutableDb(rawDb, abs);
+    return { db, mode: "immutable", immutableReason: reason, attempts, close: () => rawDb.close() };
   };
   if (size > limit) return immutable("too-large", 0);
   const sleep = opts.sleep ?? ((ms: number) => { Atomics.wait(sleeper, 0, 0, ms); });
@@ -108,8 +229,9 @@ export function openSqliteReadOnly(path: string, opts: SqliteOpenOptions = {}): 
     try {
       const before = [stamp(abs), stamp(wal)] as const;
       const copy = join(dir, basename(abs));
-      copyFileSync(abs, copy);
-      if (before[1] !== null) copyFileSync(wal, `${copy}-wal`);
+      const doCopy = opts.copyFile ?? copyFileBounded;
+      doCopy(abs, copy, limit);
+      if (before[1] !== null) doCopy(wal, `${copy}-wal`, limit);
       opts.afterCopy?.(attempt, copy);
       if (!same(before[0], stamp(abs)) || !same(before[1], stamp(wal))) { drop(); lastError = new Error("changed during copy"); continue; }
       db = new DatabaseSync(copy);

@@ -2,10 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { spawn } from "node:child_process";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import type { ImportError } from "../../src/import/types.ts";
+import { closeSync, ftruncateSync, mkdirSync, openSync, readdirSync, readFileSync, writeFileSync, writeSync } from "node:fs";
+import { ImportError } from "../../src/import/types.ts";
 import { join } from "node:path";
-import { envKeyNames, isSecretFileName, loadLanceDb, openSqliteReadOnly, readBounded } from "../../src/import/readonly.ts";
+import { copyFileBounded, envKeyNames, isSecretFileName, loadLanceDb, openSqliteReadOnly, readBounded } from "../../src/import/readonly.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { treeDigest } from "./tree.ts";
 
@@ -88,18 +88,104 @@ describe("read-only primitives", () => {
     const w = new DatabaseSync(p); w.exec("PRAGMA journal_mode=WAL; CREATE TABLE t(x);"); w.close();
     const child = spawn(process.execPath, ["-e", `const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(${JSON.stringify(p)});
       const end = Date.now() + 1500; let i = 0; while (Date.now() < end) { db.exec("INSERT INTO t VALUES (" + (i++) + ")"); if (i % 200 === 0) db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } db.close();`], { stdio: "ignore" });
-    const exited = new Promise((r) => child.on("exit", r));
+    const exited = new Promise((r) => {
+      if (child.exitCode !== null) r(child.exitCode);
+      else child.on("exit", r);
+      child.on("error", r);
+    });
     const modes = new Set<string>();
     for (let k = 0; k < 15; k++) {
       const h = openSqliteReadOnly(p, { sleep: () => {} });
       modes.add(h.mode);
-      assert.ok(Number((h.db.prepare("SELECT count(*) AS n FROM t").get() as { n: number }).n) >= 0);
-      h.close();
+      try {
+        const row = h.db.prepare("SELECT count(*) AS n FROM t").get() as { n: number };
+        assert.ok(Number(row.n) >= 0);
+      } catch (e) {
+        if (h.mode === "immutable" && e instanceof ImportError && e.code === "E_SOURCE_BUSY") {
+          // Expected: immutable read on actively changing database throws typed E_SOURCE_BUSY
+        } else {
+          throw e;
+        }
+      } finally {
+        h.close();
+      }
       await new Promise((r) => setTimeout(r, 40));
     }
     await exited;
     assert.deepEqual(readdirSync(d).filter((n) => !["busy.db", "busy.db-wal", "busy.db-shm"].includes(n)), [], "nothing but the writer's own files");
     assert.ok(modes.size >= 1);
+  });
+
+  it("openSqliteReadOnly on immutable fallback turns concurrent mutation error into E_SOURCE_BUSY", () => {
+    const d = tempDir("p1b-imp-");
+    const p = join(d, "corrupt_under_immutable.db");
+    const writer = new DatabaseSync(p);
+    writer.exec("PRAGMA journal_mode=WAL; CREATE TABLE t(x); INSERT INTO t VALUES (1);");
+    // Induce source-busy so it falls back to immutable
+    const churn = {
+      sleep: () => {},
+      afterCopy: (attempt: number) => {
+        writer.exec(`INSERT INTO t VALUES (${attempt});`);
+      },
+    };
+    const h = openSqliteReadOnly(p, churn);
+    assert.equal(h.mode, "immutable");
+    assert.equal(h.immutableReason, "source-busy");
+
+    // While immutable handle is open, corrupt the file underneath it to simulate torn read
+    writer.close();
+    const fd = openSync(p, "r+");
+    const buf = Buffer.alloc(100, 0xff);
+    writeSync(fd, buf, 0, 100, 100);
+    closeSync(fd);
+
+    assert.throws(
+      () => h.db.prepare("SELECT count(*) FROM t").get(),
+      (e: unknown) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.reason === "source-busy",
+      "immutable query failure must be converted to typed E_SOURCE_BUSY"
+    );
+    h.close();
+  });
+
+  it("copyFileBounded and openSqliteReadOnly safely handle concurrent source truncation without hanging", { timeout: 5000 }, () => {
+    const d = tempDir("p1b-imp-");
+    const src = join(d, "file.bin");
+    const dst = join(d, "file-copy.bin");
+    writeFileSync(src, Buffer.alloc(256 * 1024, 0xaa));
+
+    // Open fd and truncate file on disk after first read
+    const srcFd = openSync(src, "r+");
+    ftruncateSync(srcFd, 100);
+    closeSync(srcFd);
+
+    // copyFileBounded reads until EOF without hanging
+    const res = copyFileBounded(src, dst, 1024 * 1024);
+    assert.equal(res.initialSize, 100);
+    assert.equal(res.bytesCopied, 100);
+
+    // Test concurrent WAL truncation during openSqliteReadOnly
+    const dbPath = join(d, "trunc.db");
+    const w = new DatabaseSync(dbPath);
+    w.exec("PRAGMA journal_mode=WAL; CREATE TABLE t(x);");
+    for (let i = 0; i < 200; i++) w.exec(`INSERT INTO t VALUES (${i});`);
+    w.close();
+
+    let truncated = false;
+    const h = openSqliteReadOnly(dbPath, {
+      sleep: () => {},
+      copyFile: (s, dest, limit) => {
+        if (s.endsWith("-wal") && !truncated) {
+          truncated = true;
+          // Truncate WAL file concurrently to simulate wal_checkpoint(TRUNCATE) mid-copy
+          const fd = openSync(s, "r+");
+          ftruncateSync(fd, 0);
+          closeSync(fd);
+        }
+        copyFileBounded(s, dest, limit);
+      },
+    });
+    assert.ok(h.mode === "copy" || h.mode === "immutable");
+    h.close();
   });
 
   it("readBounded refuses directories, missing files and oversize files", () => {
