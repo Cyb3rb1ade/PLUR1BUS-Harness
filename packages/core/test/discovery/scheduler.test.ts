@@ -442,7 +442,7 @@ describe("discovery scheduler", () => {
     await store.load();
     scheduler.start();
 
-    const manualScanOp = service.scanProvider("p1", "manual");
+    const manualScanOp = service.scanProvider("p1", { trigger: "manual" });
     await manualStartedPromise;
 
     await clock.advance(6000);

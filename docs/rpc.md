@@ -1355,6 +1355,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 **Served by:** core
 
+Lists scheduled jobs, optionally filtered by kind.
+
 **params**
 
 ```json
@@ -1396,7 +1398,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The job name."
           },
           "needsLlm": {
             "type": "boolean"
@@ -1415,7 +1418,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
             "enum": [
               "agent",
               "system"
-            ]
+            ],
+            "description": "Whether the job is an agent job or a system job."
           },
           "schedule": {
             "type": "object",
@@ -1424,12 +1428,15 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
               "every",
               "jitter"
             ],
+            "description": "Cadence information for scheduled runs.",
             "properties": {
               "every": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Nominal interval between runs in milliseconds."
               },
               "jitter": {
-                "type": "number"
+                "type": "number",
+                "description": "Fractional jitter applied to the interval."
               }
             }
           },
@@ -1437,7 +1444,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "Epoch timestamp in milliseconds of next scheduled run, or null if unscheduled."
           }
         }
       }
@@ -1452,6 +1460,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 **Served by:** core
 
+Runs a job immediately. agentId is required for agent jobs and refused for system jobs.
+
 **params**
 
 ```json
@@ -1463,16 +1473,20 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
   ],
   "properties": {
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/AgentId",
+      "description": "Target agent for agent jobs; required for agent jobs and refused for system jobs."
     },
     "job": {
-      "type": "string"
+      "type": "string",
+      "description": "The job name to run (e.g. consolidate or models.scan)."
     },
     "dryRun": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "If true, simulates the job without side effects."
     },
     "args": {
-      "type": "object"
+      "type": "object",
+      "description": "Optional job-specific arguments."
     }
   }
 }
@@ -1499,6 +1513,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 **Served by:** core
 
+Returns past job execution records. When agentId is omitted, returns system job history; when provided, returns that agent's job history.
+
 **params**
 
 ```json
@@ -1507,18 +1523,22 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
   "additionalProperties": false,
   "properties": {
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/AgentId",
+      "description": "Target agent ID. Omit to query system jobs."
     },
     "job": {
-      "type": "string"
+      "type": "string",
+      "description": "Filter by job name."
     },
     "since": {
-      "type": "integer"
+      "type": "integer",
+      "description": "Return runs finished at or after this millisecond epoch timestamp."
     },
     "limit": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 1000
+      "maximum": 1000,
+      "description": "Maximum number of recent runs to return (newest first)."
     }
   }
 }
@@ -3804,7 +3824,14 @@ Sets or clears metadata overrides for a model, or creates a manual model entry (
         {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "displayName",
+              "kind",
+              "contextWindow",
+              "capabilities",
+              "aliases"
+            ]
           }
         },
         {
@@ -4509,14 +4536,14 @@ An extension's kind, state, version or overlays changed (install, uninstall, res
 
 **Served by:** core
 
-Emitted when a scan or manual change alters available models in the catalog (D112).
+Emitted when a scan alters available models in the catalog (D112).
 
 ```json
 {
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "x-server": "core",
-  "description": "Emitted when a scan or manual change alters available models in the catalog (D112).",
+  "description": "Emitted when a scan alters available models in the catalog (D112).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -5934,6 +5961,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -6808,6 +6837,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "string",
   "enum": [
     "chat",
@@ -6827,6 +6858,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "string",
   "enum": [
     "tools",
@@ -6844,6 +6877,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "string",
   "enum": [
     "available",
@@ -6857,6 +6892,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -6891,6 +6928,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 ```json
 {
   "description": "One model in the harness catalog (D112).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -6962,6 +7001,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "string",
   "enum": [
     "ok",
@@ -6979,6 +7020,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 ```json
 {
   "description": "Scan state of one model provider (D112).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -7010,6 +7053,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 ```json
 {
   "description": "Warning from a model scan or catalog state (D112).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -7040,6 +7085,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "string",
   "enum": [
     "ok",
@@ -7059,6 +7106,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -7102,6 +7151,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 ```json
 {
   "description": "Outcome of scanning one provider (D112).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
   "type": "object",
   "additionalProperties": false,
   "required": [

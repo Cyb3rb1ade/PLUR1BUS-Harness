@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { METHODS, METHODS_BY_SERVER, NOTIFICATIONS, NOTIFICATIONS_BY_SERVER, RPC_VERSION, SCHEMA, buildCapabilities, validateResult } from "../src/index.ts";
+import { METHODS, METHODS_BY_SERVER, NOTIFICATIONS, NOTIFICATIONS_BY_SERVER, RPC_VERSION, SCHEMA, buildCapabilities, validateParams, validateResult } from "../src/index.ts";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -144,4 +144,25 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(notif["x-since"], "1.5.0", "models.changed x-since");
     assert.equal((notif as any).additionalProperties, false, "models.changed params closed");
   });
+
+  it("D112 defs and SystemJobRun declare experimental and since 1.5.0", () => {
+    const d112Defs = [
+      "SystemJobRun", "ModelKind", "ModelCapability", "CatalogModelStatus",
+      "ModelOverrides", "ModelEntry", "ModelScanResultCode", "ModelProviderState",
+      "ModelScanWarning", "ModelScanOutcomeCode", "ModelScanErrorInfo", "ModelScanProviderResult",
+    ];
+    for (const name of d112Defs) {
+      const def = (schema.$defs as any)[name];
+      assert.ok(def, `${name} exists in $defs`);
+      assert.equal(def["x-stability"], "experimental", `${name} x-stability`);
+      assert.equal(def["x-since"], "1.5.0", `${name} x-since`);
+    }
+  });
+
+  it("models.setOverride clear enum validates allowed override keys (M5)", () => {
+    assert.equal(validateParams("models.setOverride", { provider: "p", id: "m", clear: ["invalid_key"] }).ok, false);
+    assert.equal(validateParams("models.setOverride", { provider: "p", id: "m", clear: ["displayName", "kind"] }).ok, true);
+    assert.equal(validateParams("models.setOverride", { provider: "p", id: "m", clear: "all" }).ok, true);
+  });
 });
+

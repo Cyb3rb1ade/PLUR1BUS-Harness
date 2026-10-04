@@ -295,6 +295,7 @@
       }
     },
     "SystemJobRun": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false,
       "required": ["runId", "job", "kind", "trigger", "startedAt", "finishedAt", "durationMs", "outcome", "attempt"],
       "properties": {
@@ -567,6 +568,7 @@
       },
       "jobs.list": {
         "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
+        "description": "Lists scheduled jobs, optionally filtered by kind.",
         "params": {
           "type": "object", "additionalProperties": false,
           "properties": {
@@ -581,13 +583,20 @@
               "items": {
                 "type": "object", "additionalProperties": true, "required": ["name", "needsLlm", "singleton"],
                 "properties": {
-                  "name": { "type": "string" }, "needsLlm": { "type": "boolean" }, "singleton": { "type": "boolean" }, "phase": { "enum": ["light", "rem", "deep"] },
-                  "kind": { "enum": ["agent", "system"] },
+                  "name": { "type": "string", "description": "The job name." },
+                  "needsLlm": { "type": "boolean" },
+                  "singleton": { "type": "boolean" },
+                  "phase": { "enum": ["light", "rem", "deep"] },
+                  "kind": { "enum": ["agent", "system"], "description": "Whether the job is an agent job or a system job." },
                   "schedule": {
                     "type": "object", "additionalProperties": false, "required": ["every", "jitter"],
-                    "properties": { "every": { "type": "integer" }, "jitter": { "type": "number" } }
+                    "description": "Cadence information for scheduled runs.",
+                    "properties": {
+                      "every": { "type": "integer", "description": "Nominal interval between runs in milliseconds." },
+                      "jitter": { "type": "number", "description": "Fractional jitter applied to the interval." }
+                    }
                   },
-                  "nextRunAt": { "type": ["integer", "null"] }
+                  "nextRunAt": { "type": ["integer", "null"], "description": "Epoch timestamp in milliseconds of next scheduled run, or null if unscheduled." }
                 }
               }
             }
@@ -596,17 +605,29 @@
       },
       "jobs.run": {
         "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
+        "description": "Runs a job immediately. agentId is required for agent jobs and refused for system jobs.",
         "params": {
           "type": "object", "additionalProperties": false, "required": ["job"],
-          "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "job": { "type": "string" }, "dryRun": { "type": "boolean" }, "args": { "type": "object" } }
+          "properties": {
+            "agentId": { "$ref": "#/$defs/AgentId", "description": "Target agent for agent jobs; required for agent jobs and refused for system jobs." },
+            "job": { "type": "string", "description": "The job name to run (e.g. consolidate or models.scan)." },
+            "dryRun": { "type": "boolean", "description": "If true, simulates the job without side effects." },
+            "args": { "type": "object", "description": "Optional job-specific arguments." }
+          }
         },
         "result": { "oneOf": [{ "$ref": "#/$defs/JobRun" }, { "$ref": "#/$defs/SystemJobRun" }] }
       },
       "jobs.history": {
         "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
+        "description": "Returns past job execution records. When agentId is omitted, returns system job history; when provided, returns that agent's job history.",
         "params": {
           "type": "object", "additionalProperties": false,
-          "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "job": { "type": "string" }, "since": { "type": "integer" }, "limit": { "type": "integer", "minimum": 1, "maximum": 1000 } }
+          "properties": {
+            "agentId": { "$ref": "#/$defs/AgentId", "description": "Target agent ID. Omit to query system jobs." },
+            "job": { "type": "string", "description": "Filter by job name." },
+            "since": { "type": "integer", "description": "Return runs finished at or after this millisecond epoch timestamp." },
+            "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum number of recent runs to return (newest first)." }
+          }
         },
         "result": { "type": "object", "additionalProperties": false, "required": ["runs"], "properties": { "runs": { "type": "array", "items": { "oneOf": [{ "$ref": "#/$defs/JobRun" }, { "$ref": "#/$defs/SystemJobRun" }] } } } }
       },
@@ -934,7 +955,7 @@
             "set": { "$ref": "#/$defs/ModelOverrides" },
             "clear": {
               "oneOf": [
-                { "type": "array", "items": { "type": "string" } },
+                { "type": "array", "items": { "type": "string", "enum": ["displayName", "kind", "contextWindow", "capabilities", "aliases"] } },
                 { "type": "string", "enum": ["all"] }
               ]
             },
@@ -1019,18 +1040,22 @@
     },
 
     "ModelKind": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "string",
       "enum": ["chat", "embedding", "tts", "asr", "image", "moderation", "rerank", "realtime", "unknown"]
     },
     "ModelCapability": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "string",
       "enum": ["tools", "vision", "reasoning", "audio_in", "audio_out", "structured_output", "prompt_caching"]
     },
     "CatalogModelStatus": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "string",
       "enum": ["available", "unavailable", "manual"]
     },
     "ModelOverrides": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1043,6 +1068,7 @@
     },
     "ModelEntry": {
       "description": "One model in the harness catalog (D112).",
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object",
       "additionalProperties": false,
       "required": ["provider", "id", "displayName", "kind", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides"],
@@ -1062,11 +1088,13 @@
       }
     },
     "ModelScanResultCode": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "string",
       "enum": ["ok", "failed:auth", "failed:network", "failed:server", "failed:invalid", "failed:empty"]
     },
     "ModelProviderState": {
       "description": "Scan state of one model provider (D112).",
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object",
       "additionalProperties": false,
       "required": ["provider"],
@@ -1080,6 +1108,7 @@
     },
     "ModelScanWarning": {
       "description": "Warning from a model scan or catalog state (D112).",
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object",
       "additionalProperties": false,
       "required": ["code"],
@@ -1091,10 +1120,12 @@
       }
     },
     "ModelScanOutcomeCode": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "string",
       "enum": ["ok", "failed:auth", "failed:network", "failed:server", "failed:invalid", "failed:empty", "already_running", "disabled", "no-scanner"]
     },
     "ModelScanErrorInfo": {
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object",
       "additionalProperties": false,
       "required": ["code", "reason", "retryable", "hint"],
@@ -1109,6 +1140,7 @@
     },
     "ModelScanProviderResult": {
       "description": "Outcome of scanning one provider (D112).",
+      "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object",
       "additionalProperties": false,
       "required": ["provider", "result", "new", "reappeared", "unavailable", "unchanged", "duplicates", "warnings", "nextScanAt"],
@@ -1230,7 +1262,7 @@
       },
       "models.changed": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Emitted when a scan or manual change alters available models in the catalog (D112).",
+        "description": "Emitted when a scan alters available models in the catalog (D112).",
         "type": "object", "additionalProperties": false,
         "required": ["provider", "discovered", "reappeared", "unavailable", "at"],
         "properties": {

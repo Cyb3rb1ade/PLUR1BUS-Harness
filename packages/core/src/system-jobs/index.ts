@@ -13,7 +13,7 @@ export interface SystemJobSpec {
 }
 
 export interface SystemJobOutcome {
-  outcome: "completed" | "skipped" | "failed";
+  outcome: "completed" | "skipped" | "failed" | "abandoned" | "incomplete";
   reason?: string;
   runningRunId?: string;
   detail: unknown;

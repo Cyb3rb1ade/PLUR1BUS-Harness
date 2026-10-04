@@ -96,7 +96,7 @@ fn method_fixture(name: &str, f: &Value) {
         "agent.close" => pair::<AgentCloseParams, AgentCloseResult>(name, f),
         "agent.status" => pair::<AgentStatusParams, AgentStatusResult>(name, f),
         "jobs.list" => pair::<JobsListParams, JobsListResult>(name, f),
-        "jobs.run" => pair::<JobsRunParams, JobsRunResult>(name, f),
+        "jobs.run" | "jobs.run.system" => pair::<JobsRunParams, JobsRunResult>(name, f),
         "jobs.history" => pair::<JobsHistoryParams, JobsHistoryResult>(name, f),
         "events.subscribe" => pair::<EventsSubscribeParams, EventsSubscribeResult>(name, f),
         "events.unsubscribe" => pair::<EventsUnsubscribeParams, EventsUnsubscribeResult>(name, f),

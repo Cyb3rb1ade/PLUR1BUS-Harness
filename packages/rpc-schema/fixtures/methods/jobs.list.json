@@ -1,4 +1,4 @@
-{ "params": {}, "result": { "jobs": [
+{ "params": { "kind": "all" }, "result": { "jobs": [
   { "name": "consolidate", "needsLlm": true, "singleton": true, "phase": "deep" },
   { "name": "models.scan", "kind": "system", "needsLlm": false, "singleton": true, "schedule": { "every": 86400000, "jitter": 0.1 }, "nextRunAt": 1758700000000 }
 ] } }

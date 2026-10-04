@@ -205,6 +205,20 @@ describe("system jobs and jobs.* merge", () => {
     ]);
   });
 
+  it("jobs.list reflects dynamic intervalHours in schedule.every (F11)", async () => {
+    const { call, systemJobs } = setup();
+    const svc = createMockDiscoveryService();
+    let intervalHours = 24;
+    systemJobs.register(createModelsScanJob(svc as any, () => ({ enabled: true, intervalHours })));
+
+    let res = (await call("jobs.list", { kind: "system" })) as any;
+    assert.equal(res.jobs[0].schedule.every, 86_400_000);
+
+    intervalHours = 6;
+    res = (await call("jobs.list", { kind: "system" })) as any;
+    assert.equal(res.jobs[0].schedule.every, 21_600_000);
+  });
+
   it("jobs.history without agentId is the system runs, with agentId only that agent's", async () => {
     const { call, systemJobs, ledgerPath } = setup();
     const svc = createMockDiscoveryService();
@@ -449,8 +463,8 @@ describe("system jobs and jobs.* merge", () => {
     // History should successfully read the new run, skipping the torn line
     const hist = systemJobs.history({});
     assert.equal(hist.length, 1);
-    assert.equal(hist[0].job, "models.scan");
-    assert.equal(hist[0].outcome, "completed");
+    assert.equal(hist[0]!.job, "models.scan");
+    assert.equal(hist[0]!.outcome, "completed");
 
     // The raw file should have a newline separating the torn line and the started line
     const content = readFileSync(ledgerPath, "utf8");
@@ -492,7 +506,7 @@ describe("system jobs and jobs.* merge", () => {
     const hist = systemJobs.history({});
     assert.ok(hist.length >= 2);
     // Newest run is models.scan
-    assert.equal(hist[0].job, "models.scan");
+    assert.equal(hist[0]!.job, "models.scan");
   });
 
   it("history({ limit }) returns the newest runs first", async () => {
@@ -510,11 +524,11 @@ describe("system jobs and jobs.* merge", () => {
 
     const histAll = systemJobs.history({});
     assert.equal(histAll.length, 2);
-    assert.ok(histAll[0].startedAt > histAll[1].startedAt, "histAll[0] must be newer than histAll[1]");
+    assert.ok(histAll[0]!.startedAt > histAll[1]!.startedAt, "histAll[0] must be newer than histAll[1]");
 
     const histLimit = systemJobs.history({ limit: 1 });
     assert.equal(histLimit.length, 1);
-    assert.equal(histLimit[0].startedAt, histAll[0].startedAt, "limit: 1 must return newest run");
+    assert.equal(histLimit[0]!.startedAt, histAll[0]!.startedAt, "limit: 1 must return newest run");
   });
 
   it("readAll and history scale linearly on 50k rows under 2s", async () => {
@@ -535,7 +549,7 @@ describe("system jobs and jobs.* merge", () => {
     const elapsed = performance.now() - start;
 
     assert.equal(hist.length, 10);
-    assert.equal(hist[0].runId, "bench-24999");
+    assert.equal(hist[0]!.runId, "bench-24999");
     assert.ok(elapsed < 2000, `history on 50k rows took ${elapsed}ms, must be < 2000ms`);
   });
 });
