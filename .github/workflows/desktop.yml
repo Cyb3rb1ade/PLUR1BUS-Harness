@@ -86,7 +86,7 @@ jobs:
         working-directory: apps/desktop
       - name: Windows target build check
         if: runner.os == 'Windows'
-        run: cargo check --locked --workspace --target "${{ matrix.rust_target }}"
+        run: cargo check --locked --workspace --tests --target "${{ matrix.rust_target }}"
         working-directory: apps/desktop
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
         working-directory: apps/desktop
@@ -109,16 +109,20 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Native fixture tests
+        timeout-minutes: 10
         run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver
         working-directory: apps/desktop
       - name: Native probe and Windows startup diagnostic tests
         id: native-diagnostics
+        timeout-minutes: 5
         run: node --test apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
       - name: Native transport spike (WebKitGTK)
         if: runner.os == 'Linux'
+        timeout-minutes: 10
         run: xvfb-run -a node apps/desktop/scripts/transport-spike.mjs
       - name: Native transport spike (WKWebView and WebView2)
         if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        timeout-minutes: 10
         run: node apps/desktop/scripts/transport-spike.mjs
       - name: Native transport observations
         if: always()
@@ -130,9 +134,11 @@ jobs:
           retention-days: 7
       - name: Native SPA login, restart and isolation (WebKitGTK)
         if: runner.os == 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        timeout-minutes: 15
         run: xvfb-run -a node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
       - name: Native SPA login, restart and isolation (WKWebView and WebView2)
         if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        timeout-minutes: 15
         run: node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
       - name: Native SPA observations
         if: always()

@@ -40,6 +40,37 @@ test('native backing store stays empty across direct, descriptor and frame attem
   } finally { await browser.close(); }
 });
 
+test('guarded SPA keeps same-origin API usable while browser cookie APIs stay blocked', async () => {
+  const {createServer} = await import('node:http');
+  const server = createServer((request, response) => {
+    if (request.url === '/api') {
+      response.setHeader('Content-Type', 'application/json');
+      response.end('{"ok":true}');
+      return;
+    }
+    response.setHeader('Content-Type', 'text/html');
+    response.end('<!doctype html><title>guarded SPA</title>');
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const browser = await chromium.launch({headless:true});
+  try {
+    const context = await browser.newContext();
+    await context.addInitScript(policy);
+    const page = await context.newPage();
+    await page.goto(origin);
+    assert.deepEqual(await page.evaluate(async () => {
+      const response = await fetch('/api');
+      document.cookie = 'canary=browser; Path=/';
+      return {status: response.status, body: await response.json(), cookie: document.cookie};
+    }), {status:200, body:{ok:true}, cookie:''});
+    assert.deepEqual(await context.cookies(), []);
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('secure-context Cookie Store and service-worker prototype/frame bypasses are blocked', async () => {
   const {createServer} = await import('node:http');
   const server = createServer((request, response) => {

@@ -1230,17 +1230,24 @@ impl CanaryObservation {
     }
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 fn cookie_guard_enabled() -> bool {
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(windows))]
     {
         true
     }
-    #[cfg(debug_assertions)]
+    #[cfg(windows)]
     {
-        std::env::var("PLUR1BUS_DESKTOP_COOKIE_GUARD")
-            .map(|value| matches!(value.as_str(), "1" | "true" | "on"))
-            .unwrap_or(false)
+        #[cfg(not(debug_assertions))]
+        {
+            true
+        }
+        #[cfg(debug_assertions)]
+        {
+            std::env::var("PLUR1BUS_DESKTOP_COOKIE_GUARD")
+                .map(|value| !matches!(value.as_str(), "0" | "false" | "off"))
+                .unwrap_or(true)
+        }
     }
 }
 

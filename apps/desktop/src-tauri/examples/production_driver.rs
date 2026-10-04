@@ -835,7 +835,6 @@ fn main() {
             for key in [
                 "loggedIn",
                 "fragmentGone",
-                "cookieStoreEmpty",
                 "shellInfo",
                 "onlyShellInfo",
                 "csrf",
@@ -854,7 +853,9 @@ fn main() {
             }
             if cfg!(windows) {
                 let guard_enabled = session["canary"]["guardEnabled"] == true;
-                assert_eq!(session["nativeCookieStoreEmpty"], guard_enabled);
+                if guard_enabled {
+                    assert_eq!(session["nativeCookieStoreEmpty"], true);
+                }
                 let canary: CanaryObservation = serde_json::from_value(session["canary"].clone())
                     .expect("closed canary challenge");
                 assert!(canary.accepted(), "canary challenge incomplete");

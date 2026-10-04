@@ -638,6 +638,76 @@ async fn session_meta_is_cached_until_reconnect_revalidation() {
 }
 
 #[tokio::test]
+async fn session_meta_is_fetched_once_for_many_browser_requests() {
+    with_test_timeout(
+        "session_meta_is_fetched_once_for_many_browser_requests",
+        async {
+            let f = fixture(Kind::Local).await;
+            let initial = f
+                .seen
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(path, _)| path.ends_with("/meta"))
+                .count();
+            assert_eq!(initial, 1, "session construction must validate /meta once");
+            for _ in 0..5 {
+                assert_eq!(
+                    request(&f.proxy, "/echo").send().await.unwrap().status(),
+                    200
+                );
+            }
+            let total = f
+                .seen
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(path, _)| path.ends_with("/meta"))
+                .count();
+            assert_eq!(
+                total, 1,
+                "ordinary browser requests reuse the cached metadata"
+            );
+            f.proxy.retire();
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn session_meta_revalidation_rejects_api_major_change() {
+    with_test_timeout(
+        "session_meta_revalidation_rejects_api_major_change",
+        async {
+            use plur1bus_mock_harness::{MockHarness, MockOptions};
+            let m = MockHarness::start(MockOptions::default()).await.unwrap();
+            let c = Connection::new(
+                "Test".into(),
+                Kind::Local,
+                Origin::parse(&m.origin).unwrap(),
+                m.installation_id.clone(),
+                "device".into(),
+                "test".into(),
+            );
+            let client = HarnessClient::from_connection(&c).await.unwrap();
+            let proxy = SpaProxy::new(&c, client).await.unwrap();
+            m.control.set_meta(Some(&m.installation_id), "2.0.0");
+            assert_eq!(
+                proxy.revalidate_session_meta().await,
+                Err(plur1bus_desktop::client::ClientError::Incompatible {
+                    server: "2.0.0".into(),
+                    client: "1.0.0",
+                })
+            );
+            proxy.retire();
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn launch_carrier_is_not_forwarded_in_targets_or_arbitrary_headers() {
     with_test_timeout(
         "launch_carrier_is_not_forwarded_in_targets_or_arbitrary_headers",

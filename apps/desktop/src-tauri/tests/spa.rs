@@ -276,6 +276,31 @@ async fn a_replayed_ticket_page_is_retried_once_then_shows_the_error() {
     .await;
 }
 #[tokio::test]
+async fn retry_revalidates_session_meta_after_ticket_reconnect() {
+    bounded(async {
+        let f = Fixture::new().await;
+        let state = SpaState::default();
+        f.install(&state);
+        f.mock.control.clear_requests();
+        let url = f.retry(&state, true).await;
+        assert_eq!(url.path(), "/auth/ticket");
+        let meta_count = f
+            .mock
+            .control
+            .recorded_requests()
+            .iter()
+            .filter(|(path, _)| path.ends_with("/meta"))
+            .count();
+        assert!(
+            meta_count >= 2,
+            "ticket issuance and reconnect revalidation each call /meta"
+        );
+        state.retire_fixture_session();
+    })
+    .await;
+}
+
+#[tokio::test]
 async fn retry_completion_cannot_navigate_a_replaced_generation() {
     bounded(async {
         let old = Fixture::new().await;

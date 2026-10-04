@@ -299,12 +299,22 @@ not a claim made by this implementation; arbitrary encoded payloads remain an
 intentional paired-SPA limitation.
 
 A second CSP intersects the harness policy and limits resource destinations to
-the proxy origin, with IPC for shell_info. Harness nonce/hash rules remain in
-force. Foreign CSP reporting directives and Reporting/NEL destinations are removed
+the proxy origin. The shell's `shell_info` capability remains Tauri-IPC guarded, but
+the authenticated SPA policy exposes no IPC transport. Harness nonce/hash rules
+remain in force. Foreign CSP reporting directives and Reporting/NEL destinations are removed
 to prevent native User-Agent disclosure. External CDN assets need safe origin-relative routing before a real SPA
 can use them. Foreign navigation uses the classified Rust http/https/mailto
 opener; popups are blocked. Failed tickets are retried once, then the error view
 offers Copy log and Retry with 44px controls. Runtime and data are untouched.
+
+Windows debug runs have an explicit cookie-guard deviation for profile testing.
+The guard defaults on on every platform and is disabled only by the named CI
+fixture variant. Guard-on proves the Rust-jar-only browser policy; guard-off
+allows WebView cookie APIs so the native profile proof can observe them, then
+requires process exit, zero SQLite/WAL rows and Canary bytes, and owned folder
+deletion. Production builds stay guarded. The same-origin guarded SPA probe is
+part of the acceptance suite; this split isolates policy enforcement from
+WebView2 profile persistence without weakening the release policy.
 
 Ticket retries add only the nonsecret `shell-retry=1` query to force a document
 reload; a fragment change alone would not rerun redemption. The error page uses

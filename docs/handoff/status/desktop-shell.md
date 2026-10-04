@@ -1141,45 +1141,68 @@ Both PRs remain draft until that complete gate. WP5 and WP6 are unstarted.
 
 GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257791), [desktop PR37015257725](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257725), [desktop push37015254463](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015254463) all SUCCESS. Five native build/bundle targets and Docker/Podman PASS. No retry required for this WP4 head. Both corrected heads now GREEN; #63/#64 marked ready for review as owner requested. No merge into main, rebase, amend or force-push. Earlier checkpoints above remain history; real OS credential/manual limits still apply.
 
-## WP5 — current acceptance and follow-up fixes
+## WP5 — SPA proxy and profile acceptance
 
 Branch: `feat/desktop-shell-wp05-spa-proxy`
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65)
-Fix head: `db00fdc0` (pushed; fresh CI [37195365473](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37195365473) is queued)
-Baseline: `c2ffa8274df92c6bb4e117af6cc3b76e9a01c16c`
-Status: **owner merge required before WP6 merge/continuation**
+Head at this report: `4d0fbfcb`
+Status: **BLOCKED: the reported desktop CI run is red; this report is not a completion claim.**
 
-### Acceptance gate
+Root CI at the reported head: [37195386100](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37195386100). Desktop matrix: [37195386190](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37195386190). These links are retained as the failing baseline until the corrected commit has a green run.
 
-| Target / evidence | Result at fix head | Run / note |
-|---|---|---|
-| Root CI | PENDING | Fresh run [37195365473](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37195365473) queued; prior baseline was green at [37182447187](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447187) |
-| macOS arm64 | PENDING | Fresh job queued; DMG explanation and bundle evidence required; prior baseline job [111377566493](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566493) |
-| Linux x64 | PENDING | Fresh job queued; strict zero-file rule and 5 s observer deadline; prior baseline job [111377566429](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566429) |
-| Linux arm64 | PENDING | Fresh job queued; strict zero-file rule and 5 s observer deadline; prior baseline job [111377566495](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566495) |
-| Windows x64 — guard **on** | PENDING | Real-app cookie guard variant; fresh CI matrix row |
-| Windows x64 — guard **off** | PENDING | Profile-only Canary variant; fresh CI matrix row |
-| Windows ARM — guard **on** | PENDING | Real-app cookie guard variant; fresh CI matrix row |
-| Windows ARM — guard **off** | PENDING | Profile-only Canary variant; fresh CI matrix row |
+### Accept table · BLOCKED · head `4d0fbfcb`
 
-Local evidence: desktop Rust workspace `135 passed, 1 ignored` (real keychain opt-in), focused SPA proxy `25 passed`, format and Clippy PASS, UI build PASS. UI browser tests are **NOT RUN** because the Playwright Chromium executable is absent locally; CI must provide that evidence. The local Windows target check was attempted after installing `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`; it remains **UNVERIFIED on macOS** because the MSVC C toolchain is unavailable (`ring` cannot find `assert.h`). Windows CI now runs `cargo check --locked --workspace --target` for the runner target before the remaining desktop gates.
+Columns are macOS, Linux x64, Linux ARM, Windows x64 (on/off), and Windows ARM (on/off).
 
-Current fixes:
+| Accept name | macOS arm64 | Linux x64 | Linux ARM | Windows x64 (on/off) | Windows ARM (on/off) |
+|---|---|---|---|---|---|
+| `navigation_table` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `caller_check_rejects_other_webview_and_other_origin` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `shell_info_is_the_only_spa_command` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `switching_connection_replaces_the_capability` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `assert_no_token_on_disk` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `no_cookie_database_in_app_dirs` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `only_the_spa_webview_is_served_others_get_403` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `never_adds_authorization_or_the_device_token` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `page_cookies_and_authorization_are_dropped` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `origin_and_host_are_the_connection_origin` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `sse_events_stream_without_buffering` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `websocket_upgrade_is_forwarded` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `bundled_local_and_remote_use_the_same_path` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `session_meta_is_fetched_once_for_many_browser_requests` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `non_get_methods_require_exact_origin` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `websocket_unoffered_subprotocol_fails_closed` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `retired_listener_rejects_old_secret_and_reserves_port` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `session_meta_revalidation_rejects_api_major_change` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
+| `retry_revalidates_session_meta_after_ticket_reconnect` | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] | BLOCKED [D] |
 
-- Startup recovery is per-leaf tolerant and bounded to five seconds. It records `SPA_PROFILE_SWEEP_OK`, `SPA_PROFILE_SWEEP_LEAF_FAILED`, `SPA_PROFILE_SWEEP_COOKIE_ROWS`, `SPA_PROFILE_SWEEP_TIMEOUT` or `SPA_PROFILE_SWEEP_ERROR` in the startup log; one orphan cannot abort Windows startup. Unit tests cover the timeout and reason codes.
-- Release shutdown still waits for the bounded browser-exit/owned-delete path, but never turns a timeout or delete failure into exit code 2. It logs `SPA_PROFILE_CLEANUP_OK`, `SPA_PROFILE_CLEANUP_TIMEOUT` or `SPA_PROFILE_CLEANUP_DELETE_FAILED`; debug acceptance retains the strict audit gate.
-- The Rust-jar-only cookie guard remains enabled in macOS/Linux and release Windows. Debug Windows selects guard **on** or **off** through `PLUR1BUS_DESKTOP_COOKIE_GUARD`; the native Canary assertions understand both modes, and CI runs both variants. The guard-off run still requires the temporary profile's live/post-exit audit to prove no retained profile data.
-- `/meta` is cached for ordinary browser requests. A successful ticket reconnect explicitly revalidates it once, updates the session snapshot when the API version changes, and retires the proxy on installation mismatch. Tests cover cache reuse, version refresh and changed installation.
-- The UI test harness now uses the exact shell CSP from `tauri.conf.json`, including the shell's IPC sources. The authenticated SPA response remains the stricter no-IPC policy.
 
-### CI incident ledger
+[D]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37195386190
 
-- **W2 (Windows exit code 2):** the old release path applied the debug post-exit database gate to a WebView2 profile that had never created a database. Release now performs bounded cleanup, logs a stable reason code and exits 0; only debug acceptance fails the audit.
-- **macOS DMG:** the historical failure belonged to a pre-fix report head and was not a source-level DMG defect. The corrected baseline run used the locked debug build, native acceptance and unsigned DMG upload successfully. A fresh fix-head run is still required and is marked PENDING above.
-- The historical Root Hermes/provider failure remains in the earlier ledger; Core and Hermes are unchanged.
+No cell is PASS until all seven desktop jobs and root CI are green on the exact reported head.
 
-Owner-approved Windows cookie rule (2026-10-04): live all-origin query, readable-file scan with named locks, Canary challenge, verified browser-process exit within 10 seconds, read-only SQLite/WAL zero-row audit and byte scans of `Cookies`, `Cookies-journal` and `Cookies-wal`, followed by owned deletion. macOS/Linux retain strict live zero-file checks and Linux's 5 s observer deadline.
+### Fixes
+
+- Fixed the Windows sweep tuple, imported `ProfileCleanupEvidence`, aligned non-Windows example cfgs, made the Windows debug cookie guard default on, and removed the contradictory unconditional guard-off assertion.
+- Startup sweep cleanup now checks its five-second deadline inside leaf deletion, reports only fixed reason codes, tolerates an injected broken leaf, and has a real-root timeout fixture. Release cleanup performs the readable-tree and SQLite/WAL audit before deletion; audit failures retain the profile and use `SPA_PROFILE_CLEANUP_COOKIE_AUDIT_FAILED`.
+- `/meta` tests cover one call across five requests, API-major rejection and reconnect revalidation. The guarded-SPA probe keeps same-origin API fetches working while browser cookie APIs are blocked.
+- `docs/desktop.md` distinguishes guarded `shell_info` IPC from the SPA's no-IPC transport and records the guard deviation.
+
+### CI and reporting
+
+- Native steps have step-level timeouts; Windows target checks include `--tests`.
+- Historical macOS DMG failure at `6148ed1` was caused by the native production probe's strict latency assertion: `production_driver.rs:228` panicked with `production p95 exceeds5ms`. The DMG bundle/upload steps were not reached; this is a test-budget failure, not a DMG packaging error.
+- W2 was the release cleanup path treating a profile without a WebView2 cookie database as an exit-code-2 failure. The release path now audits readable contents and SQLite/WAL state, then exits successfully when the profile is empty and deletion succeeds.
+- M3–M7 are **SKIPPED in WP5**: later lifecycle/logging/host scope; no WP5 claim.
+
+Local: desktop Rust workspace, native examples, focused `spa`/`spa_proxy` (7 + 27), and `cargo fmt` pass. Windows-native, WebKitGTK, WebView2 and CI browser evidence remain CI-only.
 
 ### WP6 gate
 
-WP6 task work is paused until the owner merges WP5. After that merge, fetch the exact merge commit and merge it into `feat/desktop-shell-wp06-lifecycle` with a normal merge commit (never rebase/amend/force-push), rerun the required green gates, and continue WP6.
+WP6 remains paused until the owner merges WP5. After that merge, fetch the exact merge commit and merge it into `feat/desktop-shell-wp06-lifecycle` with a normal merge commit; do not rebase, amend or force-push.
