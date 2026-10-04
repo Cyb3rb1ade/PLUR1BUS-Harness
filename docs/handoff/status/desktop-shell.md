@@ -1151,47 +1151,47 @@ Root CI: [run 37214689669](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/action
 
 ### Accept table · 19 positive rows + 6 negative/security rows
 
-Every cell links to the concrete target job for its column. The 19 positive names are the WP5 acceptance rows; the six additional rows are negative/security regressions, for 25 rows total.
+`P` means PASS; each cell links to its column job. The table has the 19 WP5 acceptance rows plus six negative/security regressions.
 
 | Acceptance | macOS arm64 | Linux x64 | Linux ARM | Windows x64 guard on | Windows x64 guard off | Windows ARM guard on | Windows ARM guard off |
 |---|---|---|---|---|---|---|---|
-| `navigation_table` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `caller_check_rejects_other_webview_and_other_origin` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `shell_info_is_the_only_spa_command` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `switching_connection_replaces_the_capability` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `assert_no_token_on_disk` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `no_cookie_database_in_app_dirs` (post-exit read) | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `only_the_spa_webview_is_served_others_get_403` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `never_adds_authorization_or_the_device_token` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `page_cookies_and_authorization_are_dropped` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `origin_and_host_are_the_connection_origin` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `sse_events_stream_without_buffering` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `websocket_upgrade_is_forwarded` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `bundled_local_and_remote_use_the_same_path` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `session_meta_is_fetched_once_for_many_browser_requests` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `non_get_methods_require_exact_origin` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `websocket_unoffered_subprotocol_fails_closed` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `retired_listener_rejects_old_secret_and_reserves_port` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `session_meta_revalidation_rejects_api_major_change` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
-| `retry_revalidates_session_meta_after_ticket_reconnect` | PASS [macOS] | PASS [Linux x64] | PASS [Linux ARM] | PASS [Windows x64 on] | PASS [Windows x64 off] | PASS [Windows ARM on] | PASS [Windows ARM off] |
+| `navigation_table` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `caller_check_rejects_other_webview_and_other_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `shell_info_is_the_only_spa_command` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `switching_connection_replaces_the_capability` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `assert_no_token_on_disk` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `no_cookie_database_in_app_dirs` (post-exit read) | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `only_the_spa_webview_is_served_others_get_403` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `never_adds_authorization_or_the_device_token` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `page_cookies_and_authorization_are_dropped` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `origin_and_host_are_the_connection_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `sse_events_stream_without_buffering` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `websocket_upgrade_is_forwarded` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `bundled_local_and_remote_use_the_same_path` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `session_meta_is_fetched_once_for_many_browser_requests` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `non_get_methods_require_exact_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `websocket_unoffered_subprotocol_fails_closed` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `retired_listener_rejects_old_secret_and_reserves_port` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `session_meta_revalidation_rejects_api_major_change` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `retry_revalidates_session_meta_after_ticket_reconnect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 
-[macOS]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700937
-[Linux x64]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700872
-[Linux ARM]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700953
-[Windows x64 on]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701004
-[Windows x64 off]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701044
-[Windows ARM on]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700883
-[Windows ARM off]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700910
+[M]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700937
+[LX]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700872
+[LA]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700953
+[WX+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701004
+[WX-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701044
+[WA+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700883
+[WA-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700910
 
-Windows `no_cookie_database_in_app_dirs` uses the owner decision of 2026-10-04: the live native query and recursive secret scan remain mandatory; after all WebView2 processes for the temporary profile exit, `Cookies`, `-journal` and `-wal` are read-only checked for zero rows and no canary bytes, then the profile is deleted. The guard-on job is the production profile; guard-off proves that the profile itself does not retain cookies. The uniform document.cookie, CookieStore and service-worker guard is defense in depth on all three platforms. The guarded-SPA browser probe is Chromium against the mock harness; no native WebView2 probe is available in this CI, so that native gap remains explicit.
+Windows `no_cookie_database_in_app_dirs` uses the owner decision of 2026-10-04: the live native query and recursive secret scan remain mandatory; after all WebView2 processes for the temporary profile exit, `Cookies`, `-journal` and `-wal` are read-only checked for zero rows and no canary bytes, then the profile is deleted. The guard-on job is the production profile; guard-off proves that the profile itself does not retain cookies. The uniform document.cookie, CookieStore and service-worker guard is defense in depth on all three platforms. The guarded-SPA probe is Chromium against the mock harness; native WebView2 probing is unavailable in this CI and remains an explicit gap.
 
-The earlier macOS DMG failure happened before packaging: the native production-driver run tripped its strict `production p95 exceeds 5ms` assertion. The current matrix runs the corrected driver serially and reaches the DMG bundle successfully. W2 was the release cleanup path treating a profile without a WebView2 cookie database as exit-code 2; release now audits, logs a fixed code, deletes, and exits 0.
+The earlier macOS DMG failure happened before packaging: the native production-driver run tripped its strict `production p95 exceeds 5ms` assertion. The corrected serial driver now reaches the DMG bundle. W2 was the release cleanup path treating a profile without a WebView2 cookie database as exit-code 2; release now audits, logs a fixed code, deletes, and exits 0.
 
 ### Round-4 fixes and scoped reasons
 
@@ -1204,7 +1204,7 @@ The earlier macOS DMG failure happened before packaging: the native production-d
 - **M7:** fixture-only seams are behind debug/test configuration; the release build compiles without them and release cleanup decisions are exercised through injected normal-test functions.
 - `/meta` is cached per session and revalidated on reconnect or installation change. Tests assert the exact reconnect count, API-major rejection, jar reset, and refusal of the old WebSocket.
 
-Local validation: desktop Rust workspace tests, focused `spa`/`spa_proxy`, native examples, `cargo fmt`, locked clippy and locked release build passed. The local Windows target check cannot run on macOS because the MSVC cross-compiler lacks Windows headers; the green Windows target checks above are authoritative.
+Local: desktop Rust tests, focused `spa`/`spa_proxy`, native examples, format, locked Clippy and release build passed. The local Windows target check cannot run on macOS because the MSVC cross-compiler lacks Windows headers; the green Windows target checks above are authoritative.
 
 
 ### WP6 gate
