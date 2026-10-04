@@ -111,3 +111,67 @@ fn every_state_keeps_words_and_maps_to_the_four_badge_shapes() {
         Badge::Running
     );
 }
+
+#[test]
+fn native_tray_words_follow_saved_language_and_system_locale() {
+    use plur1bus_desktop::settings::Locale;
+    for (preference, system, expected) in [
+        (Locale::System, "de-DE", Language::De),
+        (Locale::System, "DE_de", Language::De),
+        (Locale::System, "fr-FR", Language::En),
+        (Locale::En, "de-DE", Language::En),
+        (Locale::De, "en-US", Language::De),
+    ] {
+        assert_eq!(Language::resolve(preference, system), expected);
+    }
+    let state = TrayState {
+        harness: HarnessState::Ready,
+        runtime: Some(RuntimeState::Stopped),
+        secrets_locked: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        Language::De.status(&state, "Fixture"),
+        "PLUR1BUS — Fixture — Läuft — Runtime gestoppt — Geheimnisspeicher gesperrt"
+    );
+    for id in [
+        "open",
+        "start-harness",
+        "stop-harness",
+        "start-runtime",
+        "update",
+        "connections",
+        "settings",
+        "quit",
+        "no-connection",
+    ] {
+        assert_ne!(Language::De.text(id), Language::En.text(id));
+    }
+    for state in [
+        HarnessState::Starting,
+        HarnessState::Ready,
+        HarnessState::Degraded,
+        HarnessState::Down,
+        HarnessState::Unpaired,
+        HarnessState::Updating,
+        HarnessState::Rollback,
+        HarnessState::Crashed,
+    ] {
+        assert_ne!(Language::De.harness(state), Language::En.harness(state));
+    }
+}
+
+#[test]
+fn actual_native_image_decoder_uses_template_only_after_colour_failure() {
+    use plur1bus_desktop::native::decode_tray_image;
+    let colour = include_bytes!("../icons/tray/running-light.png");
+    let template = include_bytes!("../icons/tray/running-light-template.png");
+    assert!(!decode_tray_image(colour, Some(template)).unwrap().1);
+    assert!(
+        decode_tray_image(b"injected invalid image", Some(template))
+            .unwrap()
+            .1
+    );
+    assert!(decode_tray_image(b"injected invalid image", None).is_err());
+    assert!(decode_tray_image(b"invalid", Some(b"invalid fallback")).is_err());
+}

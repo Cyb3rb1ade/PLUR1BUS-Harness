@@ -116,3 +116,83 @@ pub fn combine(
         held: update.held,
     }
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Language {
+    En,
+    De,
+}
+impl Language {
+    pub fn resolve(preference: crate::settings::Locale, system: &str) -> Self {
+        match preference {
+            crate::settings::Locale::De => Self::De,
+            crate::settings::Locale::En => Self::En,
+            crate::settings::Locale::System
+                if system
+                    .split(['-', '_'])
+                    .next()
+                    .is_some_and(|part| part.eq_ignore_ascii_case("de")) =>
+            {
+                Self::De
+            }
+            _ => Self::En,
+        }
+    }
+    pub fn text(self, id: &str) -> &'static str {
+        match (self, id) {
+            (Self::De, "open") => "PLUR1BUS öffnen",
+            (Self::De, "start-harness") => "Harness starten",
+            (Self::De, "stop-harness") => "Harness stoppen",
+            (Self::De, "start-runtime") => "Runtime starten",
+            (Self::De, "update") => "Update verfügbar…",
+            (Self::De, "connections") => "Verbindungen…",
+            (Self::De, "settings") => "Einstellungen…",
+            (Self::De, "quit") => "PLUR1BUS beenden",
+            (Self::De, "no-connection") => "Keine Verbindung",
+            (_, "open") => "Open PLUR1BUS",
+            (_, "start-harness") => "Start harness",
+            (_, "stop-harness") => "Stop harness",
+            (_, "start-runtime") => "Start runtime",
+            (_, "update") => "Update available…",
+            (_, "connections") => "Connections…",
+            (_, "settings") => "Settings…",
+            (_, "quit") => "Quit PLUR1BUS",
+            _ => "No connection",
+        }
+    }
+    pub fn harness(self, state: HarnessState) -> &'static str {
+        if self == Self::En {
+            return state.words();
+        }
+        match state {
+            HarnessState::Starting => "Startet",
+            HarnessState::Ready => "Läuft",
+            HarnessState::Degraded => "Eingeschränkt",
+            HarnessState::Down => "Gestoppt",
+            HarnessState::Unpaired => "Nicht gekoppelt",
+            HarnessState::Updating => "Wird aktualisiert",
+            HarnessState::Rollback => "Wird zurückgesetzt",
+            HarnessState::Crashed => "Abgestürzt",
+        }
+    }
+    pub fn status(self, view: &TrayState, connection: &str) -> String {
+        let runtime = match (self, view.runtime) {
+            (Self::De, Some(RuntimeState::Ready)) => " — Runtime läuft",
+            (Self::De, Some(RuntimeState::Stopped)) => " — Runtime gestoppt",
+            (Self::De, Some(RuntimeState::Missing)) => " — Runtime fehlt",
+            (_, Some(RuntimeState::Ready)) => " — Runtime running",
+            (_, Some(RuntimeState::Stopped)) => " — Runtime stopped",
+            (_, Some(RuntimeState::Missing)) => " — Runtime missing",
+            (_, None) => "",
+        };
+        let locked = match (self, view.secrets_locked) {
+            (Self::De, true) => " — Geheimnisspeicher gesperrt",
+            (_, true) => " — Secrets store locked",
+            (_, false) => "",
+        };
+        format!(
+            "PLUR1BUS — {connection} — {}{runtime}{locked}",
+            self.harness(view.harness)
+        )
+    }
+}

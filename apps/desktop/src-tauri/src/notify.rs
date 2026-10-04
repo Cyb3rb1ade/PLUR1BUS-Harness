@@ -30,6 +30,19 @@ impl Action {
             Self::Update => "Update…",
         }
     }
+    pub fn label_in(self, language: crate::tray::Language) -> &'static str {
+        if language == crate::tray::Language::En {
+            return self.label();
+        }
+        match self {
+            Self::Open => "Öffnen",
+            Self::Dismiss => "Schließen",
+            Self::ShowLog => "Log anzeigen",
+            Self::StartAgain => "Erneut starten",
+            Self::Later => "Später",
+            Self::Update => "Aktualisieren…",
+        }
+    }
     pub fn parse(value: &str) -> Option<Self> {
         [
             Self::Open,
@@ -174,6 +187,13 @@ pub mod dbus {
     }
     /// Returns the native ID; callers must retain the allowed actions and connection generation.
     pub async fn show(connection: &Connection, banner: &Banner) -> Result<u32, NotifyFailure> {
+        show_localized(connection, banner, crate::tray::Language::En).await
+    }
+    pub async fn show_localized(
+        connection: &Connection,
+        banner: &Banner,
+        language: crate::tray::Language,
+    ) -> Result<u32, NotifyFailure> {
         tokio::time::timeout(Duration::from_secs(3), async {
             let service = Proxy::new(
                 connection,
@@ -193,7 +213,7 @@ pub mod dbus {
             let actions: Vec<&str> = banner
                 .actions
                 .iter()
-                .flat_map(|action| [action.id(), action.label()])
+                .flat_map(|action| [action.id(), action.label_in(language)])
                 .collect();
             let mut hints: HashMap<&str, Value<'_>> = HashMap::new();
             hints.insert("desktop-entry", Value::from(crate::ids::BUNDLE_ID));
@@ -205,7 +225,7 @@ pub mod dbus {
                         0u32,
                         crate::ids::BUNDLE_ID,
                         "PLUR1BUS",
-                        banner.state.harness.words(),
+                        language.harness(banner.state.harness),
                         actions,
                         hints,
                         -1i32,

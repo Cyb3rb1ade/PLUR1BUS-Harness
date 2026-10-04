@@ -21,6 +21,7 @@ pub struct NativeState {
     pub view: Mutex<TrayState>,
     pub connection: Mutex<Option<Connection>>,
     pub background: AtomicBool,
+    pub german: AtomicBool,
     #[cfg(unix)]
     pub gnome: crate::gnome::GnomeState,
     #[cfg(debug_assertions)]
@@ -507,15 +508,50 @@ fn tray_menu(
     tauri::menu::MenuItem<tauri::Wry>,
 )> {
     use tauri::menu::{Menu, MenuItem};
-    let header = MenuItem::with_id(app, "status", "PLUR1BUS — Not paired", false, None::<&str>)?;
-    let open = MenuItem::with_id(app, "open", "Open PLUR1BUS", true, None::<&str>)?;
-    let start = MenuItem::with_id(app, "start-harness", "Start harness", false, None::<&str>)?;
-    let stop = MenuItem::with_id(app, "stop-harness", "Stop harness", false, None::<&str>)?;
-    let runtime = MenuItem::with_id(app, "start-runtime", "Start runtime", false, None::<&str>)?;
-    let update = MenuItem::with_id(app, "update", "Update available…", false, None::<&str>)?;
-    let connections = MenuItem::with_id(app, "connections", "Connections…", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit PLUR1BUS", true, None::<&str>)?;
+    let language = language(app);
+    let status = language.status(
+        &app.state::<NativeState>().view.lock().unwrap(),
+        language.text("no-connection"),
+    );
+    let header = MenuItem::with_id(app, "status", status, false, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", language.text("open"), true, None::<&str>)?;
+    let start = MenuItem::with_id(
+        app,
+        "start-harness",
+        language.text("start-harness"),
+        false,
+        None::<&str>,
+    )?;
+    let stop = MenuItem::with_id(
+        app,
+        "stop-harness",
+        language.text("stop-harness"),
+        false,
+        None::<&str>,
+    )?;
+    let runtime = MenuItem::with_id(
+        app,
+        "start-runtime",
+        language.text("start-runtime"),
+        false,
+        None::<&str>,
+    )?;
+    let update = MenuItem::with_id(app, "update", language.text("update"), false, None::<&str>)?;
+    let connections = MenuItem::with_id(
+        app,
+        "connections",
+        language.text("connections"),
+        true,
+        None::<&str>,
+    )?;
+    let settings = MenuItem::with_id(
+        app,
+        "settings",
+        language.text("settings"),
+        true,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(app, "quit", language.text("quit"), true, None::<&str>)?;
     let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&header, &open];
     if app
         .state::<NativeState>()
@@ -540,14 +576,23 @@ fn tray_menu(
     Ok((menu, header))
 }
 pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let preference = crate::commands::app_config_dir(app)
+        .ok()
+        .and_then(|root| crate::settings::SettingsStore::new(root).get().ok())
+        .unwrap_or_default()
+        .locale;
+    set_language(app, preference);
     let (menu, header) = tray_menu(app)?;
     let state = app.state::<NativeState>();
-    let image = tray_image(app, state.view.lock().unwrap().badge())?;
+    let (image, template) = tray_image(app, state.view.lock().unwrap().badge())?;
     tauri::tray::TrayIconBuilder::with_id("resident")
         .icon(image)
-        .icon_as_template(false)
+        .icon_as_template(template)
         .menu(&menu)
-        .tooltip("PLUR1BUS — Not paired")
+        .tooltip(language(app).status(
+            &state.view.lock().unwrap(),
+            language(app).text("no-connection"),
+        ))
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => focus(app),
             "connections" => navigate_shell(app, "#/connections"),
@@ -564,7 +609,7 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 fn tray_image(
     app: &tauri::AppHandle,
     badge: crate::tray::Badge,
-) -> tauri::Result<tauri::image::Image<'static>> {
+) -> tauri::Result<(tauri::image::Image<'static>, bool)> {
     use crate::tray::Badge;
     let dark = app
         .get_webview_window("shell")
@@ -580,7 +625,59 @@ fn tray_image(
         (Badge::Update, false) => include_bytes!("../icons/tray/update-light.png"),
         (Badge::Update, true) => include_bytes!("../icons/tray/update-dark.png"),
     };
-    tauri::image::Image::from_bytes(bytes)
+    decode_tray_image(bytes, template_bytes(badge))
+}
+fn template_bytes(badge: crate::tray::Badge) -> Option<&'static [u8]> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    use crate::tray::Badge;
+    Some(match badge {
+        Badge::Running => include_bytes!("../icons/tray/running-light-template.png"),
+        Badge::Busy => include_bytes!("../icons/tray/busy-light-template.png"),
+        Badge::Attention => include_bytes!("../icons/tray/attention-light-template.png"),
+        Badge::Update => include_bytes!("../icons/tray/update-light-template.png"),
+    })
+}
+/// Native image decoder seam: primary colour remains the default; template only after failure.
+pub fn decode_tray_image(
+    primary: &[u8],
+    fallback: Option<&[u8]>,
+) -> tauri::Result<(tauri::image::Image<'static>, bool)> {
+    match tauri::image::Image::from_bytes(primary) {
+        Ok(image) => Ok((image, false)),
+        Err(error) => match fallback {
+            Some(bytes) => tauri::image::Image::from_bytes(bytes).map(|image| (image, true)),
+            None => Err(error),
+        },
+    }
+}
+pub fn language(app: &tauri::AppHandle) -> crate::tray::Language {
+    if app.state::<NativeState>().german.load(Ordering::SeqCst) {
+        crate::tray::Language::De
+    } else {
+        crate::tray::Language::En
+    }
+}
+fn set_language(app: &tauri::AppHandle, preference: crate::settings::Locale) {
+    let resolved =
+        crate::tray::Language::resolve(preference, &sys_locale::get_locale().unwrap_or_default());
+    app.state::<NativeState>()
+        .german
+        .store(resolved == crate::tray::Language::De, Ordering::SeqCst);
+}
+pub fn refresh_language(app: &tauri::AppHandle, preference: crate::settings::Locale) {
+    set_language(app, preference);
+    let handle = app.clone();
+    if app
+        .run_on_main_thread(move || {
+            let view = handle.state::<NativeState>().view.lock().unwrap().clone();
+            update_tray(&handle, &view);
+        })
+        .is_err()
+    {
+        eprintln!("TRAY_LANGUAGE_REFRESH_FAILED");
+    }
 }
 fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
     let state = app.state::<NativeState>();
@@ -590,17 +687,8 @@ fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
         .unwrap()
         .as_ref()
         .map(|row| row.name.clone())
-        .unwrap_or_else(|| "No connection".into());
-    let runtime = match view.runtime {
-        Some(crate::tray::RuntimeState::Ready) => " — Runtime running",
-        Some(crate::tray::RuntimeState::Stopped) => " — Runtime stopped",
-        Some(crate::tray::RuntimeState::Missing) => " — Runtime missing",
-        None => "",
-    };
-    let text = format!(
-        "PLUR1BUS — {connection} — {}{runtime}",
-        view.harness.words()
-    );
+        .unwrap_or_else(|| language(app).text("no-connection").into());
+    let text = language(app).status(view, &connection);
     if let Some(header) = state.header.lock().unwrap().as_ref() {
         if header.set_text(&text).is_err() {
             eprintln!("TRAY_TEXT_FAILED");
@@ -623,9 +711,26 @@ fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
             eprintln!("TRAY_TOOLTIP_FAILED");
         }
         match tray_image(app, view.badge()) {
-            Ok(image) => {
-                if tray.set_icon(Some(image)).is_err() {
-                    eprintln!("TRAY_ICON_FAILED");
+            Ok((image, template)) => {
+                if tray
+                    .set_icon_with_as_template(Some(image), template)
+                    .is_err()
+                {
+                    if let Some(bytes) = template_bytes(view.badge()) {
+                        match tauri::image::Image::from_bytes(bytes) {
+                            Ok(fallback) => {
+                                if tray
+                                    .set_icon_with_as_template(Some(fallback), true)
+                                    .is_err()
+                                {
+                                    eprintln!("TRAY_ICON_FAILED");
+                                }
+                            }
+                            Err(_) => eprintln!("TRAY_IMAGE_FAILED"),
+                        }
+                    } else {
+                        eprintln!("TRAY_ICON_FAILED");
+                    }
                 }
             }
             Err(_) => eprintln!("TRAY_IMAGE_FAILED"),

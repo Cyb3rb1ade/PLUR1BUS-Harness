@@ -348,3 +348,35 @@ async fn native_application_endpoint_dispatches_only_quit_and_preserves_modal_de
     }
     assert_eq!(quit.request(false).choice, QuitChoice::KeepRunning);
 }
+
+#[tokio::test]
+async fn native_notify_localizes_words_but_keeps_closed_action_ids() {
+    let received = Arc::new(Mutex::new(vec![]));
+    let (_server, client) = connections(Service {
+        actions: true,
+        received: received.clone(),
+    })
+    .await;
+    let banner = Banner::from_state(&TrayState {
+        harness: HarnessState::Down,
+        ..Default::default()
+    });
+    assert_eq!(
+        dbus::show_localized(&client, &banner, plur1bus_desktop::tray::Language::De)
+            .await
+            .unwrap(),
+        42
+    );
+    assert_eq!(
+        *received.lock().unwrap(),
+        [(
+            "Gestoppt".into(),
+            vec![
+                "show-log".into(),
+                "Log anzeigen".into(),
+                "start-again".into(),
+                "Erneut starten".into()
+            ]
+        )]
+    );
+}

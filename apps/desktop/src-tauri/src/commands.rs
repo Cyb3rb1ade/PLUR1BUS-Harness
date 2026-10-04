@@ -100,6 +100,13 @@ pub fn settings_set(
 ) -> Result<Settings, String> {
     check(&window, "settings_set")?;
     store(&window)?.set(&request.settings)?;
+    if window
+        .app_handle()
+        .try_state::<crate::native::NativeState>()
+        .is_some()
+    {
+        crate::native::refresh_language(window.app_handle(), request.settings.locale);
+    }
     Ok(request.settings)
 }
 

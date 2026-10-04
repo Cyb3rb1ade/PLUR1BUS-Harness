@@ -164,7 +164,7 @@ async fn run(
                     && notify::portal::set_status(connection,&view).await.is_err() { eprintln!("BACKGROUND_PORTAL_STATUS_FAILED"); }
                 if host || last.as_ref() == Some(&(generation,view.clone())) || app.state::<NativeState>().events.with_current(generation,||()).is_none() { *pending = None; continue; }
                 let banner = Banner::from_state(&view);
-                match notify::dbus::show(connection,&banner).await {
+                match notify::dbus::show_localized(connection,&banner,crate::native::language(app)).await {
                     Ok(id) => {ledger.record(id,generation,banner.actions);last=Some((generation,view)); *pending = None; },
                     Err(_) => { *pending = Some((generation,view)); eprintln!("GNOME_NOTIFY_FAILED"); },
                 }
