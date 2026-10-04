@@ -444,6 +444,8 @@ pub fn quit_response(
             // Bundled harness stopping is not available until WP8's controller adapter.
             state.quit.approve(choice, false).map_err(str::to_owned)?;
             state.events.stop();
+            #[cfg(unix)]
+            state.gnome.stop();
             window.app_handle().exit(0);
         }
     }
@@ -451,16 +453,33 @@ pub fn quit_response(
 }
 
 #[tauri::command]
-pub fn autostart_get(window: WebviewWindow) -> Result<bool, String> {
+pub fn autostart_get(window: WebviewWindow) -> Result<Option<bool>, String> {
     check(&window, "autostart_get")?;
+    #[cfg(target_os = "linux")]
+    if crate::gnome::is_flatpak() {
+        return Ok(*window
+            .app_handle()
+            .state::<crate::native::NativeState>()
+            .gnome
+            .autostart_grant
+            .lock()
+            .unwrap());
+    }
     use crate::controller::autostart::AppLauncher;
     crate::controller::autostart::NativeLauncher(window.app_handle())
         .is_enabled()
+        .map(Some)
         .map_err(|reason| reason.code().to_owned())
 }
 #[tauri::command]
-pub fn autostart_set(window: WebviewWindow, enabled: bool) -> Result<bool, String> {
+pub async fn autostart_set(window: WebviewWindow, enabled: bool) -> Result<bool, String> {
     check(&window, "autostart_set")?;
+    #[cfg(target_os = "linux")]
+    if crate::gnome::is_flatpak() {
+        return crate::gnome::request_autostart(window.app_handle(), enabled)
+            .await
+            .map_err(str::to_owned);
+    }
     crate::controller::autostart::set_enabled(
         &crate::controller::autostart::NativeLauncher(window.app_handle()),
         enabled,

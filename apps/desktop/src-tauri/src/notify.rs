@@ -129,6 +129,49 @@ pub mod dbus {
         .await
         .map_err(|_| NotifyFailure)?
     }
+    /// Must be installed before the first Notify call so early native actions are queued.
+    pub async fn subscribe_actions(
+        connection: &Connection,
+    ) -> Result<zbus::proxy::SignalStream<'static>, NotifyFailure> {
+        let service = Proxy::new(
+            connection,
+            "org.freedesktop.Notifications",
+            "/org/freedesktop/Notifications",
+            "org.freedesktop.Notifications",
+        )
+        .await
+        .map_err(|_| NotifyFailure)?;
+        service
+            .receive_signal("ActionInvoked")
+            .await
+            .map_err(|_| NotifyFailure)
+    }
+    pub fn owned_action(
+        signal: &zbus::Message,
+        ledger: &mut ActionLedger,
+        generation: u64,
+    ) -> Option<Action> {
+        let (id, action) = signal.body().deserialize::<(u32, String)>().ok()?;
+        ledger.resolve(id, &action, generation)
+    }
+    pub async fn close(connection: &Connection, id: u32) -> Result<(), NotifyFailure> {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            let service = Proxy::new(
+                connection,
+                "org.freedesktop.Notifications",
+                "/org/freedesktop/Notifications",
+                "org.freedesktop.Notifications",
+            )
+            .await
+            .map_err(|_| NotifyFailure)?;
+            service
+                .call::<_, _, ()>("CloseNotification", &(id))
+                .await
+                .map_err(|_| NotifyFailure)
+        })
+        .await
+        .map_err(|_| NotifyFailure)?
+    }
     /// Returns the native ID; callers must retain the allowed actions and connection generation.
     pub async fn show(connection: &Connection, banner: &Banner) -> Result<u32, NotifyFailure> {
         tokio::time::timeout(Duration::from_secs(3), async {

@@ -6,6 +6,8 @@ pub mod controller;
 pub mod crash;
 pub mod discovery;
 pub mod events;
+#[cfg(unix)]
+pub mod gnome;
 pub mod ids;
 pub mod lifecycle;
 pub mod logging;
@@ -99,6 +101,8 @@ pub fn run() {
             #[cfg(not(debug_assertions))]
             let fixture = false;
             if !fixture && native::build_tray(app.handle()).is_err() { eprintln!("TRAY_SETUP_FAILED"); }
+            #[cfg(target_os = "linux")]
+            if !fixture { gnome::start(app.handle()); }
             #[cfg(windows)]
             {
                 setup_after_profile_sweep(|| windows_spa_profile::sweep(app.handle()), |result| match result {

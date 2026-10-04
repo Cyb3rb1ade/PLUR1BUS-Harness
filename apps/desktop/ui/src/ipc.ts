@@ -11,7 +11,7 @@ export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: 
 export type PairRequest = { name: string; origin: string; code: string; repairId: string | null };
 export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type DesktopTransport = {
-  autostartGet?(): Promise<boolean>;
+  autostartGet?(): Promise<boolean | null>;
   autostartSet?(enabled: boolean): Promise<boolean>;
   connectionsList(): Promise<ConnectionList>;
   connectionsRename(id: string, name: string): Promise<void>;

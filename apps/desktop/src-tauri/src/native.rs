@@ -20,6 +20,8 @@ pub struct NativeState {
     pub view: Mutex<TrayState>,
     pub connection: Mutex<Option<Connection>>,
     pub background: AtomicBool,
+    #[cfg(unix)]
+    pub gnome: crate::gnome::GnomeState,
     #[cfg(debug_assertions)]
     pub fixture_autostart: AtomicBool,
     pub header: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
@@ -136,6 +138,8 @@ fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUpdate) 
                 let value = view.clone();
                 drop(view);
                 update_tray(&handle, &value);
+                #[cfg(unix)]
+                state.gnome.notice(generation, value.clone());
                 let _ = handle.emit_to(
                     tauri::EventTarget::webview_window("shell"),
                     "desktop-tray-state",
@@ -232,7 +236,7 @@ pub fn request_quit(app: &tauri::AppHandle) -> crate::lifecycle::QuitOffer {
     offer
 }
 
-fn navigate_shell(app: &tauri::AppHandle, route: &'static str) {
+pub(crate) fn navigate_shell(app: &tauri::AppHandle, route: &'static str) {
     if let Some(window) = app.get_webview_window("shell") {
         if window
             .eval(format!("window.location.hash = '{route}';"))

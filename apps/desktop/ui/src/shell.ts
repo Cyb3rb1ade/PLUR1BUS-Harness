@@ -206,10 +206,11 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
         const section = element("section", "settings-card");
         const label = element("label", "quit-choice");
         const toggle = document.createElement("input"); toggle.type = "checkbox";
-        toggle.checked = autostart === true; toggle.disabled = autostart === null || autostartBusy;
+        toggle.checked = autostart === true; toggle.indeterminate = autostart === null; toggle.disabled = autostartBusy;
         toggle.dataset.focusKey = "autostart";
         toggle.addEventListener("change", () => { void setAutostart(toggle.checked); });
         append(label, toggle, document.createTextNode(t("autostart.label"))); section.append(label);
+        if (autostart === null) section.append(element("p", undefined, t("autostart.unconfirmed")));
         if (autostartFailed) { const error = element("p", undefined, t("autostart.failed")); error.setAttribute("role", "alert"); section.append(error); }
         main.append(section);
       }

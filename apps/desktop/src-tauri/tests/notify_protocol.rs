@@ -174,3 +174,58 @@ async fn native_portal_receives_early_response_and_preserves_partial_grant() {
     assert!(!grant.autostart);
     assert_eq!(*requested.lock().unwrap(), [true]);
 }
+
+#[tokio::test]
+async fn native_action_subscription_rejects_foreign_stale_and_repeated_actions() {
+    use futures_util::StreamExt;
+    use plur1bus_desktop::notify::{Action, ActionLedger};
+    let (server, client) = connections(Service {
+        actions: true,
+        received: Arc::new(Mutex::new(vec![])),
+    })
+    .await;
+    let mut actions = dbus::subscribe_actions(&client).await.unwrap();
+    let mut ledger = ActionLedger::default();
+    ledger.record(42, 7, [Action::Open, Action::Dismiss]);
+    for (id, action, generation, expected) in [
+        (43, "open", 7, None),
+        (42, "update", 7, None),
+        (42, "open", 7, Some(Action::Open)),
+        (42, "open", 7, None),
+    ] {
+        server
+            .emit_signal(
+                None::<&str>,
+                "/org/freedesktop/Notifications",
+                "org.freedesktop.Notifications",
+                "ActionInvoked",
+                &(id as u32, action),
+            )
+            .await
+            .unwrap();
+        let signal = tokio::time::timeout(Duration::from_secs(3), actions.next())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            dbus::owned_action(&signal, &mut ledger, generation),
+            expected
+        );
+    }
+    ledger.record(42, 7, [Action::Open, Action::Dismiss]);
+    server
+        .emit_signal(
+            None::<&str>,
+            "/org/freedesktop/Notifications",
+            "org.freedesktop.Notifications",
+            "ActionInvoked",
+            &(42u32, "open"),
+        )
+        .await
+        .unwrap();
+    let signal = tokio::time::timeout(Duration::from_secs(3), actions.next())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(dbus::owned_action(&signal, &mut ledger, 8), None);
+}

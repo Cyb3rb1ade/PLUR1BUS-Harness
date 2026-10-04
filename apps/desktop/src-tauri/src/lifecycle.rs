@@ -115,6 +115,9 @@ impl EventOwner {
         slot.generation = slot.generation.wrapping_add(1);
         slot.generation
     }
+    pub fn generation(&self) -> u64 {
+        self.0.lock().unwrap().generation
+    }
     pub fn stop(&self) {
         self.begin();
     }

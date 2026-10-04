@@ -142,5 +142,6 @@
   "quit.confirm": "Beenden",
   "quit.failed": "Beenden fehlgeschlagen. Bitte erneut versuchen.",
   "autostart.label": "PLUR1BUS bei Anmeldung starten",
-  "autostart.failed": "Autostart konnte nicht geändert werden. Bitte erneut versuchen."
+  "autostart.failed": "Autostart konnte nicht geändert werden. Bitte erneut versuchen.",
+  "autostart.unconfirmed": "Autostart wurde in dieser Sitzung noch nicht bestätigt. Eine Änderung fragt die Berechtigung an."
 }

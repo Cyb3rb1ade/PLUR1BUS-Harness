@@ -101,6 +101,10 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     if fixture() {
         return tauri::plugin::Builder::new("autostart-fixture").build();
     }
+    #[cfg(target_os = "linux")]
+    if crate::gnome::is_flatpak() {
+        return tauri::plugin::Builder::new("autostart-portal").build();
+    }
     let builder = tauri_plugin_autostart::Builder::new().arg("--autostart");
     #[cfg(target_os = "macos")]
     let builder = builder.macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent);
