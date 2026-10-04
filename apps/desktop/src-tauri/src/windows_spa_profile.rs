@@ -2450,10 +2450,12 @@ mod windows {
                 "SPA_PROFILE_CLEANUP_DELETE_FAILED"
             );
             let mut timeout = CleanupResult::default();
-            timeout.audits.push(crate::windows_spa_profile::ProfileCleanupEvidence {
-                exit_timed_out: true,
-                ..Default::default()
-            });
+            timeout
+                .audits
+                .push(crate::windows_spa_profile::ProfileCleanupEvidence {
+                    exit_timed_out: true,
+                    ..Default::default()
+                });
             assert_eq!(timeout.reason_code(), "SPA_PROFILE_CLEANUP_TIMEOUT");
             let clean = CleanupResult {
                 removed: true,
