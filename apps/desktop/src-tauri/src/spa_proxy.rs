@@ -29,7 +29,7 @@ use url::Url;
 
 struct Inner {
     installation_id: String,
-    session_meta: Meta,
+    session_meta: Mutex<Meta>,
     client: HarnessClient,
     origin: crate::connections::Origin,
     jar: Mutex<Jar>,
@@ -149,7 +149,7 @@ impl SpaProxy {
         let (shutdown, _) = tokio::sync::watch::channel(false);
         let inner = Arc::new(Inner {
             installation_id: conn.installation_id.clone(),
-            session_meta,
+            session_meta: Mutex::new(session_meta),
             client,
             origin,
             jar: Mutex::new(Jar::default()),
@@ -232,6 +232,17 @@ impl SpaProxy {
         *self.inner.jar.lock().unwrap() = Jar::default();
         #[cfg(debug_assertions)]
         self.inner.observed_secrets.lock().unwrap().clear();
+    }
+    /// Revalidate the cached session metadata after a reconnect or an explicit
+    /// version refresh. Ordinary browser requests deliberately do not call this.
+    pub async fn revalidate_session_meta(&self) -> Result<(), ClientError> {
+        let fresh = self.inner.client.meta().await?;
+        if fresh.installation_id != self.inner.installation_id {
+            self.retire();
+            return Err(ClientError::InstallationMismatch);
+        }
+        *self.inner.session_meta.lock().unwrap() = fresh;
+        Ok(())
     }
     /// Reserved port (retired origins cannot be leased again by this process).
     pub fn port(&self) -> u16 {
@@ -472,7 +483,7 @@ async fn forward(
     }
     // The immutable metadata snapshot was validated when this SPA session was
     // created. It is intentionally not re-fetched for each browser request.
-    if s.session_meta.installation_id != s.installation_id {
+    if s.session_meta.lock().unwrap().installation_id != s.installation_id {
         *s.jar.lock().unwrap() = Jar::default();
         return StatusCode::BAD_GATEWAY.into_response();
     }
@@ -1020,12 +1031,12 @@ mod tests {
         let (shutdown, _) = tokio::sync::watch::channel(false);
         Arc::new(Inner {
             installation_id: "test-installation".into(),
-            session_meta: Meta {
+            session_meta: Mutex::new(Meta {
                 api_version: "1.0.0".into(),
                 version: "test".into(),
                 installation_id: "test-installation".into(),
                 capabilities: vec![plur1bus_desktop_contract::capability::SESSION_TICKET.into()],
-            },
+            }),
             client: HarnessClient::new(origin.clone(), None),
             origin,
             jar: Mutex::new(reqwest::cookie::Jar::default()),

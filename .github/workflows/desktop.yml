@@ -17,14 +17,32 @@ jobs:
         include:
           - os: macos-15
             bundles: dmg
+            cookie_guard: "on"
+            rust_target: aarch64-apple-darwin
           - os: windows-2025
             bundles: nsis
+            cookie_guard: "on"
+            rust_target: x86_64-pc-windows-msvc
+          - os: windows-2025
+            bundles: nsis
+            cookie_guard: "off"
+            rust_target: x86_64-pc-windows-msvc
           - os: windows-11-arm
             bundles: nsis
+            cookie_guard: "on"
+            rust_target: aarch64-pc-windows-msvc
+          - os: windows-11-arm
+            bundles: nsis
+            cookie_guard: "off"
+            rust_target: aarch64-pc-windows-msvc
           - os: ubuntu-24.04
             bundles: deb,rpm,appimage
+            cookie_guard: "on"
+            rust_target: x86_64-unknown-linux-gnu
           - os: ubuntu-24.04-arm
             bundles: deb,rpm,appimage
+            cookie_guard: "on"
+            rust_target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -32,6 +50,7 @@ jobs:
         shell: bash
     env:
       PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY: "1"
+      PLUR1BUS_DESKTOP_COOKIE_GUARD: ${{ matrix.cookie_guard }}
       # Process-scoped transport rewrite; no git config files are changed.
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
@@ -65,6 +84,10 @@ jobs:
       - run: pnpm --filter @plur1bus/desktop-ui test
       - run: cargo fmt --all -- --check
         working-directory: apps/desktop
+      - name: Windows target build check
+        if: runner.os == 'Windows'
+        run: cargo check --locked --workspace --target "${{ matrix.rust_target }}"
+        working-directory: apps/desktop
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
         working-directory: apps/desktop
       # Stable Rust 1.95 rejects --report-time; bounded proxy tests emit named elapsed_ms.
@@ -81,7 +104,7 @@ jobs:
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: desktop-libtest-loader-${{ matrix.os }}
+          name: desktop-libtest-loader-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: ${{ runner.temp }}/plur1bus-libtest-loader/
           if-no-files-found: warn
           retention-days: 7
@@ -101,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: desktop-native-transport-${{ matrix.os }}
+          name: desktop-native-transport-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: ${{ runner.temp }}/plur1bus-native-spike-run-*/native-*
           if-no-files-found: warn
           retention-days: 7
@@ -115,7 +138,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: desktop-native-spa-${{ matrix.os }}
+          name: desktop-native-spa-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: ${{ runner.temp }}/plur1bus-native-spa-observations/
           if-no-files-found: warn
           retention-days: 7
@@ -126,7 +149,7 @@ jobs:
         working-directory: apps/desktop
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: desktop-unsigned-${{ matrix.os }}
+          name: desktop-unsigned-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: |
             apps/desktop/target/release/bundle/**/*.dmg
             apps/desktop/target/release/bundle/**/*.exe

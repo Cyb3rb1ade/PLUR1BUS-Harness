@@ -35,6 +35,22 @@ pub struct SpaState {
 pub type NativeProbe = std::sync::Arc<dyn Fn(tauri::WebviewWindow, String, Origin) + Send + Sync>;
 #[cfg(debug_assertions)]
 pub type NativeSecretObserver = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
+
+/// Release builds always enforce the Rust-jar-only browser policy. Debug
+/// Windows acceptance can deliberately run both modes so the profile audit is
+/// tested independently from the JavaScript guard.
+fn cookie_guard_enabled() -> bool {
+    #[cfg(any(not(windows), not(debug_assertions)))]
+    {
+        true
+    }
+    #[cfg(all(windows, debug_assertions))]
+    {
+        std::env::var("PLUR1BUS_DESKTOP_COOKIE_GUARD")
+            .map(|value| matches!(value.as_str(), "1" | "true" | "on"))
+            .unwrap_or(false)
+    }
+}
 impl SpaState {
     /// Install only after retirement has revoked the previous generation.
     fn install(&self, active: Active) {
@@ -91,12 +107,13 @@ impl SpaState {
         F: FnOnce(Connection) -> Fut,
         Fut: std::future::Future<Output = Option<crate::client::Ticket>>,
     {
-        let (connection, retry) = {
+        let (connection, retry, proxy) = {
             let active = self.current.lock().unwrap();
             let active = active.as_ref().filter(|a| a.proxy.origin() == origin)?;
             (
                 active.connection.clone(),
                 retry_ticket(&active.retries, manual),
+                active.proxy.clone(),
             )
         };
         let ticket = if retry {
@@ -104,6 +121,9 @@ impl SpaState {
         } else {
             None
         };
+        if ticket.is_some() && proxy.revalidate_session_meta().await.is_err() {
+            return None;
+        }
         {
             let active = self.current.lock().unwrap();
             if active.as_ref().is_none_or(|a| a.proxy.origin() != origin) {
@@ -428,11 +448,13 @@ pub async fn open_spa(
             let _ = (&title_app, window, title);
         });
     // Production SPAs use the same Rust-jar-only cookie policy on every OS.
-    // Windows debug native acceptance deliberately omits it so the WebView2
-    // canary exercises the real profile behavior rather than the guard itself.
-    #[cfg(not(all(windows, debug_assertions)))]
-    let builder =
-        builder.initialization_script_for_all_frames(include_str!("windows_spa_cookie_policy.js"));
+    // Windows debug acceptance selects the guard mode through an environment
+    // variable so CI can run both the guarded and profile-only variants.
+    let builder = if cookie_guard_enabled() {
+        builder.initialization_script_for_all_frames(include_str!("windows_spa_cookie_policy.js"))
+    } else {
+        builder
+    };
     #[cfg(windows)]
     let builder = {
         let state = app.state::<SpaState>();

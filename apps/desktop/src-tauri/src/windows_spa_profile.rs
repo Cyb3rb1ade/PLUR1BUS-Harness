@@ -91,6 +91,17 @@ impl CleanupResult {
     pub fn accepted(&self) -> bool {
         self.removed
     }
+
+    /// Stable, path-free reason code for release shutdown logging.
+    pub fn reason_code(&self) -> &'static str {
+        if self.audits.iter().any(|audit| audit.exit_timed_out) {
+            "SPA_PROFILE_CLEANUP_TIMEOUT"
+        } else if self.removed {
+            "SPA_PROFILE_CLEANUP_OK"
+        } else {
+            "SPA_PROFILE_CLEANUP_DELETE_FAILED"
+        }
+    }
 }
 
 /// A byte scan's completeness and positive evidence are independent.
@@ -959,11 +970,25 @@ mod windows {
         pub skipped_unknown: u32,
         pub positive_profiles: u32,
         pub positive_rows: u64,
+        pub timed_out: bool,
     }
 
     impl SweepResult {
         pub fn complete(&self) -> bool {
-            self.skipped_unknown == 0 && self.positive_profiles == 0
+            !self.timed_out && self.skipped_unknown == 0 && self.positive_profiles == 0
+        }
+
+        /// Stable, path-free reason code for startup recovery logging.
+        pub fn reason_code(&self) -> &'static str {
+            if self.timed_out {
+                "SPA_PROFILE_SWEEP_TIMEOUT"
+            } else if self.skipped_unknown > 0 {
+                "SPA_PROFILE_SWEEP_LEAF_FAILED"
+            } else if self.positive_profiles > 0 {
+                "SPA_PROFILE_SWEEP_COOKIE_ROWS"
+            } else {
+                "SPA_PROFILE_SWEEP_OK"
+            }
         }
     }
 
@@ -1106,6 +1131,13 @@ mod windows {
     }
 
     fn sweep_in(root: &Path) -> io::Result<SweepResult> {
+        sweep_in_with_deadline(root, std::time::Instant::now() + Duration::from_secs(5))
+    }
+
+    fn sweep_in_with_deadline(
+        root: &Path,
+        deadline: std::time::Instant,
+    ) -> io::Result<SweepResult> {
         match fs::symlink_metadata(root) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 return Ok(SweepResult::default());
@@ -1116,6 +1148,10 @@ mod windows {
         ensure_root(root)?;
         let mut result = SweepResult::default();
         for (index, entry) in fs::read_dir(root)?.enumerate() {
+            if std::time::Instant::now() >= deadline {
+                result.timed_out = true;
+                break;
+            }
             if index >= 128 {
                 return Err(io::Error::other("SPA profile sweep limit"));
             }
@@ -2297,6 +2333,36 @@ mod windows {
             assert!(!sweep.complete());
             assert_eq!(sweep.removed, 1);
             assert!(!path.exists());
+        }
+
+        #[test]
+        fn startup_sweep_has_a_bounded_budget_and_stable_reason_code() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let sweep = sweep_in_with_deadline(&root, std::time::Instant::now());
+            let sweep = sweep.unwrap();
+            assert!(sweep.timed_out);
+            assert!(!sweep.complete());
+            assert_eq!(sweep.reason_code(), "SPA_PROFILE_SWEEP_TIMEOUT");
+        }
+
+        #[test]
+        fn cleanup_reason_codes_distinguish_timeout_delete_and_success() {
+            assert_eq!(
+                CleanupResult::default().reason_code(),
+                "SPA_PROFILE_CLEANUP_DELETE_FAILED"
+            );
+            let mut timeout = CleanupResult::default();
+            timeout.audits.push(ProfileCleanupEvidence {
+                exit_timed_out: true,
+                ..Default::default()
+            });
+            assert_eq!(timeout.reason_code(), "SPA_PROFILE_CLEANUP_TIMEOUT");
+            let clean = CleanupResult {
+                removed: true,
+                ..Default::default()
+            };
+            assert_eq!(clean.reason_code(), "SPA_PROFILE_CLEANUP_OK");
         }
     }
 }

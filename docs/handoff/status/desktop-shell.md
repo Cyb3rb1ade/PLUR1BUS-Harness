@@ -1145,36 +1145,41 @@ GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https
 
 Branch: `feat/desktop-shell-wp05-spa-proxy`
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65)
+Fix head: `e5b5273e` (new local changes are not pushed yet)
 Baseline: `c2ffa8274df92c6bb4e117af6cc3b76e9a01c16c`
-Status: **changes prepared; owner merge required before WP6 merge/continuation**
+Status: **owner merge required before WP6 merge/continuation**
 
-The five-target acceptance at [Desktop CI 37182447190](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190) is green at the baseline head (7/7 jobs, first/restart native runs and bundles). Root CI [37182447187](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447187) is green at that head. The new fixes below require a fresh five-target/root run; no pass is claimed until that run exists.
+### Acceptance gate
 
-Local UI browser tests are **NOT RUN** for this fix: the installed Playwright package has no Chromium executable in this environment. The UI build, Rust tests, format and Clippy ran locally; CI must provide the browser evidence.
-
-| Target / run | Native acceptance | Bundle / notes |
+| Target / evidence | Result at fix head | Run / note |
 |---|---|---|
-| macOS arm64 — [job](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566493) | baseline PASS, strict live zero-file | DMG baseline PASS |
-| Linux x64 — [job](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566429) | baseline PASS, strict live zero-file, 5 s observer | deb/rpm/AppImage baseline PASS |
-| Linux arm64 — [job](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566495) | baseline PASS, strict live zero-file, 5 s observer | deb/rpm/AppImage baseline PASS |
-| Windows x64 — [job](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566469) | baseline PASS, live query + Canary + post-exit WAL/side-file audit | NSIS baseline PASS |
-| Windows ARM — [job](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566507) | baseline PASS, live query + Canary + post-exit WAL/side-file audit | NSIS baseline PASS |
+| Root CI | PENDING | Fresh run required after this round; prior baseline was green at [37182447187](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447187) |
+| macOS arm64 | PENDING | DMG explanation and fresh bundle evidence required; prior baseline job [111377566493](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566493) |
+| Linux x64 | PENDING | Strict zero-file rule and 5 s observer deadline; prior baseline job [111377566429](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566429) |
+| Linux arm64 | PENDING | Strict zero-file rule and 5 s observer deadline; prior baseline job [111377566495](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566495) |
+| Windows x64 — guard **on** | PENDING | Real-app cookie guard variant; fresh CI matrix row |
+| Windows x64 — guard **off** | PENDING | Profile-only Canary variant; fresh CI matrix row |
+| Windows ARM — guard **on** | PENDING | Real-app cookie guard variant; fresh CI matrix row |
+| Windows ARM — guard **off** | PENDING | Profile-only Canary variant; fresh CI matrix row |
 
-Current changes:
-- Startup recovery is per-leaf tolerant. A locked, malformed or unreadable owned leaf is recorded and retained for a later sweep; setup logs the error and continues, so one orphan cannot block Windows startup.
-- Cookie-database and profile-read assertions are compiled into the Windows debug acceptance path only. Release shutdown waits for the real browser exit and removes the owned profile without returning exit code 2 merely because WebView2 never created a database.
-- The Rust-jar-only cookie guard is installed on macOS, Linux and Windows release builds. Windows debug/native acceptance intentionally omits the guard so the Canary proves the profile itself; no platform-specific owner approval is implied.
-- SPA CSP sources contain no `ipc:` or `http://ipc.localhost`; the shell's separate Tauri configuration is unchanged.
-- `/meta` is fetched and validated once when a SPA session is created, then reused for that session. Proxied requests no longer double their round trips or fail with 502 because a transient `/meta` request is unavailable.
+Local evidence: desktop Rust workspace `135 passed, 1 ignored` (real keychain opt-in), focused SPA proxy `25 passed`, format and Clippy PASS, UI build PASS. UI browser tests are **NOT RUN** because the Playwright Chromium executable is absent locally; CI must provide that evidence. The local Windows target check was attempted after installing `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`; it remains **UNVERIFIED on macOS** because the MSVC C toolchain is unavailable (`ring` cannot find `assert.h`). Windows CI now runs `cargo check --locked --workspace --target` for the runner target before the remaining desktop gates.
+
+Current fixes:
+
+- Startup recovery is per-leaf tolerant and bounded to five seconds. It records `SPA_PROFILE_SWEEP_OK`, `SPA_PROFILE_SWEEP_LEAF_FAILED`, `SPA_PROFILE_SWEEP_COOKIE_ROWS`, `SPA_PROFILE_SWEEP_TIMEOUT` or `SPA_PROFILE_SWEEP_ERROR` in the startup log; one orphan cannot abort Windows startup. Unit tests cover the timeout and reason codes.
+- Release shutdown still waits for the bounded browser-exit/owned-delete path, but never turns a timeout or delete failure into exit code 2. It logs `SPA_PROFILE_CLEANUP_OK`, `SPA_PROFILE_CLEANUP_TIMEOUT` or `SPA_PROFILE_CLEANUP_DELETE_FAILED`; debug acceptance retains the strict audit gate.
+- The Rust-jar-only cookie guard remains enabled in macOS/Linux and release Windows. Debug Windows selects guard **on** or **off** through `PLUR1BUS_DESKTOP_COOKIE_GUARD`; the native Canary assertions understand both modes, and CI runs both variants. The guard-off run still requires the temporary profile's live/post-exit audit to prove no retained profile data.
+- `/meta` is cached for ordinary browser requests. A successful ticket reconnect explicitly revalidates it once, updates the session snapshot when the API version changes, and retires the proxy on installation mismatch. Tests cover cache reuse, version refresh and changed installation.
+- The UI test harness now uses the exact shell CSP from `tauri.conf.json`, including the shell's IPC sources. The authenticated SPA response remains the stricter no-IPC policy.
 
 ### CI incident ledger
 
-- **W2 (Windows exit code 2):** cause was applying the post-exit cookie-database acceptance gate to an unused WebView2 profile during normal shutdown. Fix: gate that audit behind debug assertions; release cleanup remains bounded by browser exit and owned-profile deletion.
-- **macOS DMG:** the historical packaging report was tied to a pre-fix report head rather than the final locked bundle. The corrected C2 run executes the locked debug build, native run and unsigned DMG step and uploaded the DMG successfully. The fresh run for this change remains required.
-- The historical Root Hermes/provider failure remains reported in the prior archive; Core and Hermes are unchanged.
+- **W2 (Windows exit code 2):** the old release path applied the debug post-exit database gate to a WebView2 profile that had never created a database. Release now performs bounded cleanup, logs a stable reason code and exits 0; only debug acceptance fails the audit.
+- **macOS DMG:** the historical failure belonged to a pre-fix report head and was not a source-level DMG defect. The corrected baseline run used the locked debug build, native acceptance and unsigned DMG upload successfully. A fresh fix-head run is still required and is marked PENDING above.
+- The historical Root Hermes/provider failure remains in the earlier ledger; Core and Hermes are unchanged.
 
-Owner-approved Windows cookie rule (2026-10-04) remains: live all-origin cookie query, readable-file scan with named locks, Canary challenge, verified browser-process exit within 10 s, then read-only SQLite/WAL zero rows and byte scans of `Cookies`, `Cookies-journal` and `Cookies-wal`, followed only by owned deletion. macOS/Linux retain strict live zero-file checks and Linux's 5 s deadline.
+Owner-approved Windows cookie rule (2026-10-04): live all-origin query, readable-file scan with named locks, Canary challenge, verified browser-process exit within 10 seconds, read-only SQLite/WAL zero-row audit and byte scans of `Cookies`, `Cookies-journal` and `Cookies-wal`, followed by owned deletion. macOS/Linux retain strict live zero-file checks and Linux's 5 s observer deadline.
 
 ### WP6 gate
 
-WP6 task work is paused until the owner merges WP5. After that merge, merge the merged WP5 result into `feat/desktop-shell-wp06-lifecycle` with a normal merge commit (never rebase/amend/force-push), rerun the required green gates, and continue WP6.
+WP6 task work is paused until the owner merges WP5. After that merge, fetch the exact merge commit and merge it into `feat/desktop-shell-wp06-lifecycle` with a normal merge commit (never rebase/amend/force-push), rerun the required green gates, and continue WP6.
