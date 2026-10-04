@@ -20,6 +20,7 @@ pub struct NativeState {
     pub view: Mutex<TrayState>,
     pub connection: Mutex<Option<Connection>>,
     pub background: AtomicBool,
+    pub header: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
 }
 pub struct Windows<'a>(pub &'a tauri::AppHandle);
 impl WindowHost for Windows<'_> {
@@ -56,6 +57,14 @@ pub fn focus(app: &tauri::AppHandle) {
     }
 }
 pub fn close(window: &tauri::Window, event: &tauri::WindowEvent) {
+    if matches!(event, tauri::WindowEvent::ThemeChanged(_)) {
+        let app = window.app_handle();
+        if let Some(state) = app.try_state::<NativeState>() {
+            let view = state.view.lock().unwrap().clone();
+            update_tray(app, &view);
+        }
+        return;
+    }
     let tauri::WindowEvent::CloseRequested { api, .. } = event else {
         return;
     };
@@ -117,6 +126,7 @@ fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUpdate) 
                 view.secrets_locked = update.secrets_locked;
                 let value = view.clone();
                 drop(view);
+                update_tray(&handle, &value);
                 let _ = handle.emit_to(
                     tauri::EventTarget::webview_window("shell"),
                     "desktop-tray-state",
@@ -192,4 +202,169 @@ fn retire_terminal_session(app: &tauri::AppHandle, generation: u64, failure: Ses
             });
         }
     });
+}
+
+pub fn request_quit(app: &tauri::AppHandle) -> crate::lifecycle::QuitOffer {
+    let state = app.state::<NativeState>();
+    let offer = state.quit.request(false);
+    if Windows(app).present("shell").is_err() {
+        eprintln!("QUIT_WINDOW_PRESENT_FAILED");
+    }
+    if app
+        .emit_to(
+            tauri::EventTarget::webview_window("shell"),
+            "desktop-quit-offer",
+            &offer,
+        )
+        .is_err()
+    {
+        eprintln!("QUIT_OFFER_EMIT_FAILED");
+    }
+    offer
+}
+
+fn navigate_shell(app: &tauri::AppHandle, route: &'static str) {
+    if let Some(window) = app.get_webview_window("shell") {
+        if window
+            .eval(format!("window.location.hash = '{route}';"))
+            .is_err()
+        {
+            eprintln!("SHELL_NAVIGATION_FAILED");
+        }
+    }
+    if Windows(app).present("shell").is_err() {
+        eprintln!("SHELL_WINDOW_PRESENT_FAILED");
+    }
+}
+fn tray_menu(
+    app: &tauri::AppHandle,
+) -> tauri::Result<(
+    tauri::menu::Menu<tauri::Wry>,
+    tauri::menu::MenuItem<tauri::Wry>,
+)> {
+    use tauri::menu::{Menu, MenuItem};
+    let header = MenuItem::with_id(app, "status", "PLUR1BUS — Not paired", false, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open PLUR1BUS", true, None::<&str>)?;
+    let start = MenuItem::with_id(app, "start-harness", "Start harness", false, None::<&str>)?;
+    let stop = MenuItem::with_id(app, "stop-harness", "Stop harness", false, None::<&str>)?;
+    let runtime = MenuItem::with_id(app, "start-runtime", "Start runtime", false, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "Update available…", false, None::<&str>)?;
+    let connections = MenuItem::with_id(app, "connections", "Connections…", true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit PLUR1BUS", true, None::<&str>)?;
+    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&header, &open];
+    if app
+        .state::<NativeState>()
+        .connection
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_some_and(|row| row.kind == crate::connections::Kind::Bundled)
+    {
+        items.extend([&start as &dyn tauri::menu::IsMenuItem<tauri::Wry>, &stop]);
+    }
+    if cfg!(target_os = "macos") {
+        items.push(&runtime);
+    }
+    items.extend([
+        &update as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
+        &connections,
+        &settings,
+        &quit,
+    ]);
+    let menu = Menu::with_items(app, &items)?;
+    Ok((menu, header))
+}
+pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let (menu, header) = tray_menu(app)?;
+    let state = app.state::<NativeState>();
+    let image = tray_image(app, state.view.lock().unwrap().badge())?;
+    tauri::tray::TrayIconBuilder::with_id("resident")
+        .icon(image)
+        .icon_as_template(false)
+        .menu(&menu)
+        .tooltip("PLUR1BUS — Not paired")
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => focus(app),
+            "connections" => navigate_shell(app, "#/connections"),
+            "settings" => navigate_shell(app, "#/settings/runtime"),
+            "quit" => {
+                request_quit(app);
+            }
+            _ => {}
+        })
+        .build(app)?;
+    *state.header.lock().unwrap() = Some(header);
+    Ok(())
+}
+fn tray_image(
+    app: &tauri::AppHandle,
+    badge: crate::tray::Badge,
+) -> tauri::Result<tauri::image::Image<'static>> {
+    use crate::tray::Badge;
+    let dark = app
+        .get_webview_window("shell")
+        .and_then(|window| window.theme().ok())
+        == Some(tauri::Theme::Dark);
+    let bytes: &[u8] = match (badge, dark) {
+        (Badge::Running, false) => include_bytes!("../icons/tray/running-light.png"),
+        (Badge::Running, true) => include_bytes!("../icons/tray/running-dark.png"),
+        (Badge::Busy, false) => include_bytes!("../icons/tray/busy-light.png"),
+        (Badge::Busy, true) => include_bytes!("../icons/tray/busy-dark.png"),
+        (Badge::Attention, false) => include_bytes!("../icons/tray/attention-light.png"),
+        (Badge::Attention, true) => include_bytes!("../icons/tray/attention-dark.png"),
+        (Badge::Update, false) => include_bytes!("../icons/tray/update-light.png"),
+        (Badge::Update, true) => include_bytes!("../icons/tray/update-dark.png"),
+    };
+    tauri::image::Image::from_bytes(bytes)
+}
+fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
+    let state = app.state::<NativeState>();
+    let connection = state
+        .connection
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|row| row.name.clone())
+        .unwrap_or_else(|| "No connection".into());
+    let runtime = match view.runtime {
+        Some(crate::tray::RuntimeState::Ready) => " — Runtime running",
+        Some(crate::tray::RuntimeState::Stopped) => " — Runtime stopped",
+        Some(crate::tray::RuntimeState::Missing) => " — Runtime missing",
+        None => "",
+    };
+    let text = format!(
+        "PLUR1BUS — {connection} — {}{runtime}",
+        view.harness.words()
+    );
+    if let Some(header) = state.header.lock().unwrap().as_ref() {
+        if header.set_text(&text).is_err() {
+            eprintln!("TRAY_TEXT_FAILED");
+        }
+    }
+    if let Some(tray) = app.tray_by_id("resident") {
+        match tray_menu(app) {
+            Ok((menu, header)) => {
+                if header.set_text(&text).is_err() {
+                    eprintln!("TRAY_TEXT_FAILED");
+                }
+                if tray.set_menu(Some(menu)).is_err() {
+                    eprintln!("TRAY_MENU_FAILED");
+                }
+                *state.header.lock().unwrap() = Some(header);
+            }
+            Err(_) => eprintln!("TRAY_MENU_FAILED"),
+        }
+        if tray.set_tooltip(Some(&text)).is_err() {
+            eprintln!("TRAY_TOOLTIP_FAILED");
+        }
+        match tray_image(app, view.badge()) {
+            Ok(image) => {
+                if tray.set_icon(Some(image)).is_err() {
+                    eprintln!("TRAY_ICON_FAILED");
+                }
+            }
+            Err(_) => eprintln!("TRAY_IMAGE_FAILED"),
+        }
+    }
 }

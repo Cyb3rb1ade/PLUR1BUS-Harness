@@ -94,6 +94,11 @@ pub fn run() {
             // Until Linux tray/background capability is confirmed, keep its dash entry reachable.
             use tauri::Manager;
             app.state::<native::NativeState>().background.store(!cfg!(target_os = "linux"), std::sync::atomic::Ordering::SeqCst);
+            #[cfg(debug_assertions)]
+            let fixture = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some();
+            #[cfg(not(debug_assertions))]
+            let fixture = false;
+            if !fixture && native::build_tray(app.handle()).is_err() { eprintln!("TRAY_SETUP_FAILED"); }
             #[cfg(windows)]
             {
                 setup_after_profile_sweep(|| windows_spa_profile::sweep(app.handle()), |result| match result {
@@ -133,6 +138,9 @@ pub fn run() {
             commands::pair_code,
             commands::pair_local,
             commands::open_connection,
+            commands::quit_request,
+            commands::quit_offer,
+            commands::quit_response,
             commands::shell_info
         ])
         .on_page_load(|webview, payload| {
@@ -146,6 +154,16 @@ pub fn run() {
         .build(context)
         .expect("could not build the desktop shell")
         .run(move |app, event| {
+            use tauri::Manager;
+            if let tauri::RunEvent::ExitRequested { ref api, .. } = event {
+                if !app.state::<native::NativeState>().quit.is_approved() {
+                    api.prevent_exit();
+                    native::request_quit(app);
+                    return;
+                }
+            }
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event { native::focus(app); }
             #[cfg(windows)]
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 match exit_gate.request() {

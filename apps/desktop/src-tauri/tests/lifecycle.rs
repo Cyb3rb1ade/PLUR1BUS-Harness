@@ -58,6 +58,9 @@ fn quit_asks_and_defaults_to_keep_running() {
     assert!(!state.is_pending());
     assert!(state.approve(QuitChoice::StopBundled, false).is_err());
     assert!(!state.is_approved());
+    state.request(false);
+    assert!(state.approve(QuitChoice::StopBundled, false).is_err());
+    assert!(!state.is_approved());
     state.request(true);
     assert!(state.request(true).can_stop_harness);
     state.approve(QuitChoice::KeepRunning, true).unwrap();

@@ -1,10 +1,12 @@
 import { createShell } from "../src/shell.ts";
 import type { DesktopTransport, Settings } from "../src/ipc.ts";
 import { openDialog } from "../src/components/dialog.ts";
+import { openQuitDialog } from "../src/views/quit-dialog.ts";
 import { openSheet } from "../src/components/sheet.ts";
 
 let settings: Settings = { theme: "system", locale: "system" };
 let failNextSave = false;
+let failQuit = false;
 let deferredSaves = false;
 const pendingSaves: Array<{ value: Settings; resolve: (value: Settings) => void; reject: (error: Error) => void }> = [];
 const boot = (window as any).__fixtureBoot as { platform?: "mac" | "win" | "gnome" | "kde"; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean } | undefined;
@@ -31,9 +33,14 @@ const transport: DesktopTransport = {
     settings = value; return settings;
   },
 };
-const shell = createShell(document.body, transport);
+const shellRoot = document.createElement("div");
+document.body.append(shellRoot);
+const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
+  quitDecisions: [] as string[],
+  setQuitFailure: (value: boolean) => { failQuit = value; },
+  openQuit: () => openQuitDialog({choice:"keep-running",canStopHarness:false}, { confirm: async choice => { if (failQuit) throw new Error("injected rejection"); (window as any).testShell.quitDecisions.push(choice); }, cancel: async () => { (window as any).testShell.quitDecisions.push("cancel"); } }),
   setPairingError:(value:string|null)=>{pairingError=value;},
   setConnections:async(value:import("../src/ipc.ts").Connection[])=>{rows=value;if("refreshConnections" in shell)await (shell as any).refreshConnections();},
   storedConnections:()=>rows,

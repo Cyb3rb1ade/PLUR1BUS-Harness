@@ -56,7 +56,12 @@ fn shell_capability_is_local_only() {
             "allow-connections-remove",
             "allow-pair-code",
             "allow-pair-local",
-            "allow-open-connection"
+            "allow-open-connection",
+            "allow-quit-request",
+            "allow-quit-offer",
+            "allow-quit-response",
+            "core:event:allow-listen",
+            "core:event:allow-unlisten"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -96,7 +101,10 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "connections_remove",
             "pair_code",
             "pair_local",
-            "open_connection"
+            "open_connection",
+            "quit_request",
+            "quit_offer",
+            "quit_response"
         ]
     );
     let registration = include_str!("../src/lib.rs");

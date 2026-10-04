@@ -419,3 +419,33 @@ pub fn shell_info(
         features: vec![],
     })
 }
+
+#[tauri::command]
+pub fn quit_request(window: WebviewWindow) -> Result<crate::lifecycle::QuitOffer, String> {
+    check(&window, "quit_request")?;
+    Ok(crate::native::request_quit(window.app_handle()))
+}
+#[tauri::command]
+pub fn quit_offer(window: WebviewWindow) -> Result<Option<crate::lifecycle::QuitOffer>, String> {
+    check(&window, "quit_offer")?;
+    let state = window.state::<crate::native::NativeState>();
+    Ok(state.quit.is_pending().then(|| state.quit.request(false)))
+}
+#[tauri::command]
+pub fn quit_response(
+    window: WebviewWindow,
+    choice: Option<crate::lifecycle::QuitChoice>,
+) -> Result<(), String> {
+    check(&window, "quit_response")?;
+    let state = window.state::<crate::native::NativeState>();
+    match choice {
+        None => state.quit.cancel(),
+        Some(choice) => {
+            // Bundled harness stopping is not available until WP8's controller adapter.
+            state.quit.approve(choice, false).map_err(str::to_owned)?;
+            state.events.stop();
+            window.app_handle().exit(0);
+        }
+    }
+    Ok(())
+}

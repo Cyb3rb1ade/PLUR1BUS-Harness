@@ -134,5 +134,11 @@
   "pair.error.keychain-denied": "Keychain access was denied. Allow access and pair again.",
   "pair.error.keychain-unavailable": "Credential storage is unavailable or locked. Unlock it and retry.",
   "pair.error.keychain-error": "Credential storage returned an unsupported response. Retry or check the OS credential store.",
-  "pair.apiVersions": "Server API: {server}; client API: {client}."
+  "pair.apiVersions": "Server API: {server}; client API: {client}.",
+  "quit.title": "Quit PLUR1BUS",
+  "quit.keep": "Keep PLUR1BUS running",
+  "quit.stop": "Stop harness",
+  "quit.cancel": "Cancel",
+  "quit.confirm": "Quit",
+  "quit.failed": "Could not quit. Please try again."
 }
