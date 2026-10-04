@@ -25,6 +25,9 @@ export interface SourceCtx {
   /** The harness home the target is read from (never written by detect). */
   home: string;
   target: TargetIdentity;
+  probeWsl?: boolean | undefined;
+  allowLiveCopy?: boolean | undefined;
+  wslRunner?: any;
 }
 
 export interface SkillRoot { dir: string; tier: string; agentId: string | null; precedence: number }
