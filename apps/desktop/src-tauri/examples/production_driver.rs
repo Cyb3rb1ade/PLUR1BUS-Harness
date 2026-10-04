@@ -359,6 +359,7 @@ struct SweepObservation {
     skipped_unknown: u32,
     positive_profiles: u32,
     positive_rows: u64,
+    audit_failed: u32,
     timed_out: bool,
 }
 
@@ -757,7 +758,12 @@ fn main() {
         if cfg!(windows) {
             let sweep: SweepObservation = serde_json::from_value(report["startupSweep"].clone())
                 .expect("closed startup sweep observation");
-            assert!(sweep.removed <= 128 && sweep.skipped_active <= 128 && !sweep.timed_out);
+            assert!(
+                sweep.removed <= 128
+                    && sweep.skipped_active <= 128
+                    && sweep.audit_failed <= 128
+                    && !sweep.timed_out
+            );
             assert_eq!(
                 sweep.skipped_unknown, 0,
                 "startup sweep left unknown profile ownership"
