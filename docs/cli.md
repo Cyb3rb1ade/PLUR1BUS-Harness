@@ -75,6 +75,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus update`↴](#plur1bus-update)
 * [`plur1bus user`↴](#plur1bus-user)
 * [`plur1bus model`↴](#plur1bus-model)
+* [`plur1bus model list`↴](#plur1bus-model-list)
+* [`plur1bus model scan`↴](#plur1bus-model-scan)
+* [`plur1bus model override`↴](#plur1bus-model-override)
 * [`plur1bus login`↴](#plur1bus-login)
 * [`plur1bus channel`↴](#plur1bus-channel)
 * [`plur1bus project`↴](#plur1bus-project)
@@ -122,7 +125,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `core` — Core process (internal)
 * `update` — [experimental] Update check: what a release would change and which units would restart (`--check`)
 * `user` — Users — M2
-* `model` — Models and provider profiles — M2
+* `model` — [experimental] Models and provider profiles: list, scan and override
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
 * `project` — Projects — M3
@@ -1018,13 +1021,68 @@ Users — M2
 
 ## `plur1bus model`
 
-Models and provider profiles — M2
+[experimental] Models and provider profiles: list, scan and override
 
-**Usage:** `plur1bus model`
+**Usage:** `plur1bus model <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the model catalog (reads the file read-only when the core is down)
+* `scan` — [experimental] Scan configured providers for their current models (non-zero exit when a selected provider failed)
+* `override` — [experimental] Set or clear a person's values on a model, create or remove a manual entry
+
+
+
+## `plur1bus model list`
+
+[experimental] List the model catalog (reads the file read-only when the core is down)
+
+**Usage:** `plur1bus model list [OPTIONS]`
+
+###### **Options:**
+
+* `--provider <PROVIDER>`
+* `--kind <KIND>`
+* `--status <STATUS>`
+* `--new`
+* `--ack`
+
+
+
+## `plur1bus model scan`
+
+[experimental] Scan configured providers for their current models (non-zero exit when a selected provider failed)
+
+**Usage:** `plur1bus model scan [OPTIONS]`
+
+###### **Options:**
+
+* `--provider <PROVIDER>`
+
+
+
+## `plur1bus model override`
+
+[experimental] Set or clear a person's values on a model, create or remove a manual entry
+
+**Usage:** `plur1bus model override [OPTIONS] <PROVIDER> <ID>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<PROVIDER>`
+* `<ID>`
+
+###### **Options:**
+
+* `--name <NAME>`
+* `--kind <KIND>`
+* `--context-window <N>`
+* `--capability <CAPABILITY>`
+* `--alias <ALIAS>`
+* `--clear <CLEAR>`
+* `--clear-all`
+* `--create`
+* `--remove`
 
 
 

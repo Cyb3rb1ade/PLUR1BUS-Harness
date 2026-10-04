@@ -64,12 +64,27 @@ pub fn run() {
         .setup(|app| {
             #[cfg(windows)]
             {
-                let sweep = windows_spa_profile::sweep(app.handle())?;
-                if !sweep.complete() {
-                    eprintln!(
-                        "SPA profile startup sweep incomplete: positive_profiles={} positive_rows={} skipped_unknown={}",
-                        sweep.positive_profiles, sweep.positive_rows, sweep.skipped_unknown
-                    );
+                match windows_spa_profile::sweep(app.handle()) {
+                    Ok(sweep) => {
+                        eprintln!(
+                            "SPA_PROFILE_STARTUP_SWEEP reason_code={} positive_profiles={} positive_rows={} skipped_unknown={} skipped_active={} timed_out={}",
+                            sweep.reason_code(),
+                            sweep.positive_profiles,
+                            sweep.positive_rows,
+                            sweep.skipped_unknown,
+                            sweep.skipped_active,
+                            sweep.timed_out
+                        );
+                    }
+                    Err(error) => {
+                        // A stale, sharing-locked or otherwise damaged leaf must never
+                        // prevent the shell from starting. The next startup gets another
+                        // bounded, owned-only chance to clean it up.
+                        eprintln!(
+                            "SPA_PROFILE_STARTUP_SWEEP reason_code=SPA_PROFILE_SWEEP_ERROR error_kind={:?}",
+                            error.kind()
+                        );
+                    }
                 }
             }
             #[cfg(not(windows))]
@@ -121,8 +136,18 @@ pub fn run() {
                                     std::time::Instant::now() + std::time::Duration::from_secs(15),
                                 )
                                 .await;
+                            #[cfg(debug_assertions)]
+                            let exit_code = if result.accepted() { 0 } else { 2 };
+                            #[cfg(not(debug_assertions))]
+                            let exit_code = {
+                                eprintln!(
+                                    "SPA_PROFILE_SHUTDOWN reason_code={}",
+                                    result.reason_code()
+                                );
+                                0
+                            };
                             gate.authorize();
-                            handle.exit(if result.accepted() { 0 } else { 2 });
+                            handle.exit(exit_code);
                         });
                     }
                 }

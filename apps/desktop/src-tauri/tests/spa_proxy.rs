@@ -112,6 +112,7 @@ async fn with_test_timeout<F: std::future::Future>(name: &'static str, future: F
 async fn only_the_spa_webview_is_served_others_get_403() {
     with_test_timeout("only_the_spa_webview_is_served_others_get_403", async {
         let f = fixture(Kind::Local).await;
+        f.seen.0.lock().unwrap().clear();
         let url = format!("{}/echo", f.proxy.origin().as_str());
         let c = test_client();
         for req in [
@@ -361,6 +362,25 @@ async fn websocket_upgrade_is_forwarded() {
 }
 
 #[tokio::test]
+async fn websocket_upgrade_without_origin_is_rejected() {
+    with_test_timeout("websocket_upgrade_without_origin_is_rejected", async {
+        let f = fixture(Kind::Local).await;
+        let url = format!("{}/ws", f.proxy.origin().as_str().replacen("http", "ws", 1));
+        let mut req = url.into_client_request().unwrap();
+        req.headers_mut()
+            .insert("user-agent", f.proxy.user_agent().parse().unwrap());
+        let result = tokio_tungstenite::connect_async(req).await;
+        match result {
+            Err(tokio_tungstenite::tungstenite::Error::Http(response)) => {
+                assert_eq!(response.status(), reqwest::StatusCode::FORBIDDEN);
+            }
+            other => panic!("unexpected websocket result: {other:?}"),
+        }
+    })
+    .await;
+}
+
+#[tokio::test]
 async fn websocket_retirement_disconnects_logged_in_socket_and_keeps_port_reserved() {
     with_test_timeout(
         "websocket_retirement_disconnects_logged_in_socket_and_keeps_port_reserved",
@@ -543,9 +563,9 @@ async fn retired_listener_rejects_old_secret_and_reserves_port() {
 }
 
 #[tokio::test]
-async fn installation_replacement_gets_no_saved_cookie_or_websocket() {
+async fn session_meta_is_cached_until_reconnect_revalidation() {
     with_test_timeout(
-        "installation_replacement_gets_no_saved_cookie_or_websocket",
+        "session_meta_is_cached_until_reconnect_revalidation",
         async {
             use plur1bus_mock_harness::{MockHarness, MockOptions};
             let m = MockHarness::start(MockOptions::default()).await.unwrap();
@@ -590,37 +610,169 @@ async fn installation_replacement_gets_no_saved_cookie_or_websocket() {
                     .status(),
                 200
             );
-            m.control.set_meta(Some("replacement"), "1.0.0");
+            m.control.set_meta(Some(&m.installation_id), "1.1.0");
             m.control.clear_requests();
+            proxy.revalidate_session_meta().await.unwrap();
             assert_eq!(
                 request(&proxy, "/api/v1/auth/whoami")
                     .send()
                     .await
                     .unwrap()
                     .status(),
-                502
+                200
+            );
+            assert_eq!(
+                m.control
+                    .recorded_requests()
+                    .iter()
+                    .filter(|(path, _)| path.ends_with("/meta"))
+                    .count(),
+                1,
+                "reconnect revalidation must refresh the session snapshot once"
             );
             let mut ws = format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
                 .into_client_request()
                 .unwrap();
             ws.headers_mut()
                 .insert("user-agent", proxy.user_agent().parse().unwrap());
-            assert!(tokio_tungstenite::connect_async(ws).await.is_err());
-            assert!(m
-                .control
-                .recorded_requests()
-                .iter()
-                .all(|(path, auth)| path.ends_with("/meta") && !auth));
-            m.control.set_meta(None, "1.0.0");
+            ws.headers_mut()
+                .insert("origin", proxy.origin().as_str().parse().unwrap());
+            assert!(tokio_tungstenite::connect_async(ws).await.is_ok());
+            m.control.set_meta(Some("replacement"), "1.0.0");
+            assert_eq!(
+                proxy.revalidate_session_meta().await,
+                Err(plur1bus_desktop::client::ClientError::InstallationMismatch)
+            );
             assert_eq!(
                 request(&proxy, "/api/v1/auth/whoami")
                     .send()
                     .await
                     .unwrap()
                     .status(),
-                401,
-                "mismatch erased saved cookies"
+                403,
+                "a changed installation must retire the cached session"
             );
+            let mut remembered = Vec::new();
+            proxy.register_memory_secrets(|value| remembered.push(value.to_owned()));
+            assert!(
+                remembered.iter().all(|value| value != "one"),
+                "retirement must clear the in-memory jar"
+            );
+            let mut retired_ws =
+                format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
+                    .into_client_request()
+                    .unwrap();
+            retired_ws
+                .headers_mut()
+                .insert("user-agent", proxy.user_agent().parse().unwrap());
+            retired_ws
+                .headers_mut()
+                .insert("origin", proxy.origin().as_str().parse().unwrap());
+            assert!(tokio_tungstenite::connect_async(retired_ws).await.is_err());
+            proxy.retire();
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn session_meta_is_fetched_once_for_many_browser_requests() {
+    with_test_timeout(
+        "session_meta_is_fetched_once_for_many_browser_requests",
+        async {
+            let f = fixture(Kind::Local).await;
+            let initial = f
+                .seen
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(path, _)| path.ends_with("/meta"))
+                .count();
+            assert_eq!(initial, 1, "session construction must validate /meta once");
+            for _ in 0..5 {
+                assert_eq!(
+                    request(&f.proxy, "/echo").send().await.unwrap().status(),
+                    200
+                );
+            }
+            let total = f
+                .seen
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(path, _)| path.ends_with("/meta"))
+                .count();
+            assert_eq!(
+                total, 1,
+                "ordinary browser requests reuse the cached metadata"
+            );
+            f.proxy.retire();
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn session_meta_revalidation_rejects_api_major_change() {
+    with_test_timeout(
+        "session_meta_revalidation_rejects_api_major_change",
+        async {
+            use plur1bus_mock_harness::{MockHarness, MockOptions};
+            let m = MockHarness::start(MockOptions::default()).await.unwrap();
+            let c = Connection::new(
+                "Test".into(),
+                Kind::Local,
+                Origin::parse(&m.origin).unwrap(),
+                m.installation_id.clone(),
+                "device".into(),
+                "test".into(),
+            );
+            let client = HarnessClient::from_connection(&c).await.unwrap();
+            let credential = client
+                .redeem(&m.control.create_pair_code(), "Test")
+                .await
+                .unwrap();
+            let ticket = client
+                .session_ticket(&m.installation_id, &credential.token)
+                .await
+                .unwrap();
+            let proxy = SpaProxy::new(&c, client).await.unwrap();
+            assert_eq!(
+                test_client()
+                    .post(format!(
+                        "{}/api/v1/auth/ticket/redeem",
+                        proxy.origin().as_str()
+                    ))
+                    .header("user-agent", proxy.user_agent())
+                    .header("origin", proxy.origin().as_str())
+                    .json(&json!({"ticket": ticket.ticket.expose()}))
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                200
+            );
+            m.control.set_meta(Some(&m.installation_id), "2.0.0");
+            assert_eq!(
+                proxy.revalidate_session_meta().await,
+                Err(plur1bus_desktop::client::ClientError::Incompatible {
+                    server: "2.0.0".into(),
+                    client: "1.0.0",
+                })
+            );
+            let mut remembered = Vec::new();
+            proxy.register_memory_secrets(|value| remembered.push(value.to_owned()));
+            assert!(remembered.iter().all(|value| value != "one"));
+            let mut ws = format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
+                .into_client_request()
+                .unwrap();
+            ws.headers_mut()
+                .insert("user-agent", proxy.user_agent().parse().unwrap());
+            ws.headers_mut()
+                .insert("origin", proxy.origin().as_str().parse().unwrap());
+            assert!(tokio_tungstenite::connect_async(ws).await.is_err());
             proxy.retire();
         },
     )
@@ -828,35 +980,6 @@ async fn memory_open_close(dir: &std::path::Path) -> String {
     );
     common::assert_no_token_on_disk(dir, proxy.user_agent());
     token.expose().to_owned()
-}
-// Partial Rust proxy diagnostic only: this scratch directory has never held a webview.
-// Full acceptance is native-covered by examples/production_driver.rs (first/restart):
-// LIVE all-origin cookies + Canary challenges + readable profile scans/named locks;
-// Windows additionally requires proven <=10s exit, WAL-aware zero rows and sidefile
-// scans BEFORE cleanup. macOS/Linux retain strict live zero-file checks.
-#[tokio::test]
-async fn no_cookie_database_in_app_dirs() {
-    with_test_timeout("no_cookie_database_in_app_dirs", async {
-        println!("PARTIAL: Rust proxy scratch scan only; native profile acceptance requires production_driver first/restart audit");
-        let dir = tempfile::tempdir().unwrap();
-        let _ = memory_open_close(dir.path()).await;
-        fn scan(dir: &std::path::Path) {
-            for entry in std::fs::read_dir(dir).unwrap() {
-                let entry = entry.unwrap();
-                if entry.file_type().unwrap().is_dir() {
-                    scan(&entry.path())
-                } else {
-                    let name = entry.file_name().to_string_lossy().to_lowercase();
-                    assert!(
-                        !name.contains("cookie"),
-                        "cookie database in scratch app dirs"
-                    );
-                }
-            }
-        }
-        scan(dir.path());
-    })
-    .await;
 }
 #[tokio::test]
 async fn assert_no_token_on_disk() {

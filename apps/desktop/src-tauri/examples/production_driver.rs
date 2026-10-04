@@ -207,9 +207,9 @@ struct BrowserApiChallenge {
     blocked: bool,
 }
 impl BrowserApiChallenge {
-    fn accepted(&self) -> bool {
+    fn accepted_for(&self, guard_enabled: bool) -> bool {
         if self.applicable {
-            self.attempted && self.blocked
+            self.attempted && self.blocked == guard_enabled
         } else {
             !self.attempted && !self.blocked
         }
@@ -218,6 +218,7 @@ impl BrowserApiChallenge {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct CanaryObservation {
+    guard_enabled: bool,
     upstream_set_cookie: bool,
     rust_jar_contains: bool,
     browser_set_cookie_stripped: bool,
@@ -235,8 +236,8 @@ impl CanaryObservation {
             && self.document_cookie_attempted
             && self.prototype_cookie_attempted
             && self.frame_cookie_attempted
-            && self.cookie_store.accepted()
-            && self.service_worker.accepted()
+            && self.cookie_store.accepted_for(self.guard_enabled)
+            && self.service_worker.accepted_for(self.guard_enabled)
     }
 }
 
@@ -358,6 +359,8 @@ struct SweepObservation {
     skipped_unknown: u32,
     positive_profiles: u32,
     positive_rows: u64,
+    audit_failed: u32,
+    timed_out: bool,
 }
 
 impl TeardownObservation {
@@ -755,7 +758,12 @@ fn main() {
         if cfg!(windows) {
             let sweep: SweepObservation = serde_json::from_value(report["startupSweep"].clone())
                 .expect("closed startup sweep observation");
-            assert!(sweep.removed <= 128 && sweep.skipped_active <= 128);
+            assert!(
+                sweep.removed <= 128
+                    && sweep.skipped_active <= 128
+                    && sweep.audit_failed <= 128
+                    && !sweep.timed_out
+            );
             assert_eq!(
                 sweep.skipped_unknown, 0,
                 "startup sweep left unknown profile ownership"
@@ -833,7 +841,6 @@ fn main() {
             for key in [
                 "loggedIn",
                 "fragmentGone",
-                "cookieStoreEmpty",
                 "shellInfo",
                 "onlyShellInfo",
                 "csrf",
@@ -850,11 +857,16 @@ fn main() {
             ] {
                 assert_eq!(session["browser"][key], true, "native check {key}");
             }
-            assert_eq!(session["nativeCookieStoreEmpty"], true);
             if cfg!(windows) {
+                let guard_enabled = session["canary"]["guardEnabled"] == true;
+                if guard_enabled {
+                    assert_eq!(session["nativeCookieStoreEmpty"], true);
+                }
                 let canary: CanaryObservation = serde_json::from_value(session["canary"].clone())
                     .expect("closed canary challenge");
                 assert!(canary.accepted(), "canary challenge incomplete");
+                assert_eq!(canary.guard_enabled, guard_enabled);
+                assert_eq!(session["browser"]["cookieStoreEmpty"], guard_enabled);
                 assert_eq!(session["browser"]["documentCookieAttempted"], true);
                 assert_eq!(session["profilePathVerified"], true);
                 assert_eq!(session["profileAclPrivate"], true);

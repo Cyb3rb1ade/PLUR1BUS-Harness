@@ -62,7 +62,7 @@ def write_run_files(home: str, token: str, pid: int | None) -> None:
 class Responder:
     """Turns one request line into the reply bytes (``None``: no reply, ``DROP``: close the pipe)."""
 
-    def __init__(self, *, token: str | None, pid: int, rpc: str = "1.4.0", handlers: dict | None = None) -> None:
+    def __init__(self, *, token: str | None, pid: int, rpc: str = "1.5.0", handlers: dict | None = None) -> None:
         self.token = token
         self.pid = pid
         self.rpc = rpc
@@ -177,7 +177,7 @@ class FakeKernel32:
         message_mode: bool = False,
         sync: bool = False,
         handlers: dict | None = None,
-        rpc: str = "1.4.0",
+        rpc: str = "1.5.0",
     ) -> None:
         self.reported_pid = server_pid
         self.busy = busy
@@ -465,7 +465,7 @@ class FakePipeCore:
         address: str | None = None,
         token: str | None = None,
         pid: int | None = None,
-        rpc: str = "1.4.0",
+        rpc: str = "1.5.0",
         handlers: dict | None = None,
         max_instances: int = _PIPE_UNLIMITED_INSTANCES,
     ) -> None:

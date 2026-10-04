@@ -33,6 +33,7 @@ The result is `{"schema":"1staid.check/1","ok":<bool>,"checks":[{"id","status","
 | `extensions.integrity` | Every file of an installed extension (from a package) still matches the digest recorded at install | A payload file was edited, deleted or replaced (detail lists `<name>: <path>`) | Reinstall the package (`plur1bus skill install <file>` for a skill, `plur1bus plugin install <file>` for a module or channel); report only, `1staid repair` changes nothing here |
 | `extensions.consistency` | Extension records, their code directories and the skills index agree | `fail`: a record whose skill/module directory is missing; `warn`: an index entry that names a package but has no record | Reinstall the package, or drop the stray index entry |
 | `extensions.revoked` | No installed extension is on the revocation list | An installed extension was revoked (detail gives the reason); it is held back and cannot be enabled | `plur1bus skill uninstall <name>` or `plur1bus plugin uninstall <name>`; look for a fixed version |
+| `models.roles` | Model roles in config point to available models in the catalog | A role points at an unavailable model | Switch the role to an available model with `plur1bus config set` or inspect with `plur1bus model list` |
 
 ## 2. Cross-check with process status and logs
 

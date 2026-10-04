@@ -1194,9 +1194,9 @@ struct BrowserApiChallenge {
 }
 #[cfg(any(not(target_os = "linux"), test))]
 impl BrowserApiChallenge {
-    fn accepted(&self) -> bool {
+    fn accepted_for(&self, guard_enabled: bool) -> bool {
         if self.applicable {
-            self.attempted && self.blocked
+            self.attempted && self.blocked == guard_enabled
         } else {
             !self.attempted && !self.blocked
         }
@@ -1206,6 +1206,7 @@ impl BrowserApiChallenge {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct CanaryObservation {
+    guard_enabled: bool,
     upstream_set_cookie: bool,
     rust_jar_contains: bool,
     browser_set_cookie_stripped: bool,
@@ -1224,8 +1225,29 @@ impl CanaryObservation {
             && self.document_cookie_attempted
             && self.prototype_cookie_attempted
             && self.frame_cookie_attempted
-            && self.cookie_store.accepted()
-            && self.service_worker.accepted()
+            && self.cookie_store.accepted_for(self.guard_enabled)
+            && self.service_worker.accepted_for(self.guard_enabled)
+    }
+}
+
+#[cfg(any(windows, test))]
+fn cookie_guard_enabled() -> bool {
+    #[cfg(not(windows))]
+    {
+        true
+    }
+    #[cfg(windows)]
+    {
+        #[cfg(not(debug_assertions))]
+        {
+            true
+        }
+        #[cfg(debug_assertions)]
+        {
+            std::env::var("PLUR1BUS_DESKTOP_COOKIE_GUARD")
+                .map(|value| !matches!(value.as_str(), "0" | "false" | "off"))
+                .unwrap_or(true)
+        }
     }
 }
 
@@ -1264,6 +1286,7 @@ async fn challenge_canary(
         .await
         .is_ok_and(|response| response.status() == reqwest::StatusCode::OK);
     CanaryObservation {
+        guard_enabled: cookie_guard_enabled(),
         upstream_set_cookie,
         rust_jar_contains,
         browser_set_cookie_stripped,

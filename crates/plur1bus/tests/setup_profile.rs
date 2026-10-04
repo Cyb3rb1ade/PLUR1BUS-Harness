@@ -256,11 +256,12 @@ fn firstaid_check_passes_on_a_host_profile() {
     assert_eq!(v["check"]["fail"], 0, "{v:#}");
     // Every row that is not `ok` is one a full `--no-service` install shows as well: a module or skill row reporting
     // drift as a warning would not pass.
-    const EXPECTED: [(&str, &str); 4] = [
+    const EXPECTED: [(&str, &str); 5] = [
         ("service.registration", "warn"),
         ("models.cache", "warn"),
         ("memory.shared", "skip"),
         ("windows.pipe-acl", "skip"),
+        ("models.roles", "skip"),
     ];
     // A row the pass never reached before its 3 s budget reads `warn` "time budget exhausted". That is no finding
     // (repair plans nothing for it). On windows-2025 the last three rows read it on every pass for 90 s (CI round 2):

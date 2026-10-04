@@ -38,7 +38,7 @@ pub enum ClientError {
     TrustUnavailable,
     Protocol,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Meta {
     pub api_version: String,

@@ -8,6 +8,8 @@ import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { CORE_FEATURES } from "../src/capabilities.ts";
 import { createCore, type Core } from "../src/core.ts";
+import { createLogger } from "../src/logger.ts";
+import type { CatalogStore } from "../src/discovery/catalog-store.ts";
 import { appendJournalLine } from "../src/journal.ts";
 import { layout } from "../src/paths.ts";
 import { flatEmbedder, flatTestInternals } from "./helpers/flat-embedder.ts";
@@ -83,7 +85,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.9.0"); assert.equal(s.rpc, "1.4.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.9.0"); assert.equal(s.rpc, "1.5.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 
@@ -638,4 +640,104 @@ describe("core model warm-up (E4, S7)", () => {
       assert.equal(typeof r.joined.text, "string");
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
+
+  it("re-enriches catalog entries at start when tableRevision differs (R8, State I5 / Surface F3)", async () => {
+    const home = newHome();
+    const l = layout(home);
+    mkdirSync(l.catalog, { recursive: true, mode: 0o700 });
+
+    const staleCatalog = {
+      schema: "plur1bus.model-catalog/1",
+      revision: 1,
+      tableRevision: "rev-0",
+      models: [
+        {
+          id: "example-embed-text",
+          rawId: "example-embed-text",
+          displayName: "Example Embed",
+          provider: "openai",
+          source: "table",
+          kind: "unknown",
+          capabilities: [],
+          aliases: [],
+          overrides: {},
+          firstSeen: "2026-01-01T00:00:00.000Z",
+          lastSeen: "2026-01-01T00:00:00.000Z",
+          status: "available",
+          api: { rawId: "example-embed-text" },
+        },
+      ],
+      providers: {},
+    };
+    writeFileSync(l.catalogModels, JSON.stringify(staleCatalog));
+
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    try {
+      const updated = JSON.parse(readFileSync(l.catalogModels, "utf8"));
+      assert.notEqual(updated.tableRevision, "rev-0", "tableRevision must be updated");
+      assert.equal(updated.models[0].kind, "embedding");
+    } finally {
+      await core.stop({ budgetMs: 5000 });
+    }
+  });
+
+  it("boot re-enrichment failure does not block core start (State N4)", async () => {
+    const home = newHome();
+    const l = layout(home);
+    mkdirSync(l.catalog, { recursive: true, mode: 0o700 });
+
+    const warnings: string[] = [];
+    const logger = createLogger({ file: l.logFile("core"), level: "debug", role: "core", maxBytes: 1024 * 1024, keep: 1 });
+    const originalWarn = logger.warn.bind(logger);
+    logger.warn = (msg: string, fields?: Record<string, unknown>) => {
+      warnings.push(msg);
+      originalWarn(msg, fields);
+    };
+
+    const staleCatalog = {
+      schema: "plur1bus.model-catalog/1" as const,
+      revision: 1,
+      tableRevision: "rev-0",
+      models: [],
+      providers: {},
+    };
+
+    let mutateCalled = false;
+    const failingStore: CatalogStore = {
+      load: () => ({ file: structuredClone(staleCatalog), recovered: "none" }),
+      read: () => structuredClone(staleCatalog),
+      mutate: async () => {
+        mutateCalled = true;
+        throw new Error("simulated disk full during boot re-enrichment");
+      },
+    };
+
+    const core = createCore({
+      home,
+      testInternals: flatTestInternals(),
+      logger,
+      discovery: { store: failingStore },
+    });
+
+    try {
+      await core.start();
+      assert.equal(mutateCalled, true, "boot re-enrichment mutate was called");
+      assert.ok(
+        warnings.includes("model.catalog.reenrich_failed"),
+        `model.catalog.reenrich_failed was logged: ${JSON.stringify(warnings)}`
+      );
+
+      const client = await connect({ address: core.address, token: core.token });
+      try {
+        const s = await client.call<any>("core.status");
+        assert.equal(s.process.state, "ready");
+      } finally {
+        await client.close();
+      }
+    } finally {
+      await core.stop({ budgetMs: 5000 });
+    }
+  });
 });
+

@@ -1,6 +1,6 @@
 //! Approved fallback: a per-window authenticated, origin-bound Rust HTTP/SSE/WS proxy.
 use crate::{
-    client::{ClientError, HarnessClient},
+    client::{ClientError, HarnessClient, Meta},
     connections::Connection,
     secrets::SecretString,
 };
@@ -29,6 +29,7 @@ use url::Url;
 
 struct Inner {
     installation_id: String,
+    session_meta: Mutex<Meta>,
     client: HarnessClient,
     origin: crate::connections::Origin,
     jar: Mutex<Jar>,
@@ -119,6 +120,14 @@ impl SpaProxy {
             return Err(ClientError::Protocol);
         }
         client.streaming_http()?;
+        // Validate once when the authenticated SPA session is created. Every
+        // subsequent proxied request reuses this immutable session snapshot;
+        // a transient /meta outage must not turn an otherwise valid request
+        // into a 502 or double every round trip.
+        let session_meta = client.meta().await?;
+        if session_meta.installation_id != conn.installation_id {
+            return Err(ClientError::InstallationMismatch);
+        }
         let listener = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
             .map_err(|_| ClientError::Network)?;
         listener
@@ -140,6 +149,7 @@ impl SpaProxy {
         let (shutdown, _) = tokio::sync::watch::channel(false);
         let inner = Arc::new(Inner {
             installation_id: conn.installation_id.clone(),
+            session_meta: Mutex::new(session_meta),
             client,
             origin,
             jar: Mutex::new(Jar::default()),
@@ -223,6 +233,23 @@ impl SpaProxy {
         #[cfg(debug_assertions)]
         self.inner.observed_secrets.lock().unwrap().clear();
     }
+    /// Revalidate the cached session metadata after a reconnect or an explicit
+    /// version refresh. Ordinary browser requests deliberately do not call this.
+    pub async fn revalidate_session_meta(&self) -> Result<(), ClientError> {
+        let fresh = match self.inner.client.meta().await {
+            Ok(fresh) => fresh,
+            Err(error) => {
+                self.retire();
+                return Err(error);
+            }
+        };
+        if fresh.installation_id != self.inner.installation_id {
+            self.retire();
+            return Err(ClientError::InstallationMismatch);
+        }
+        *self.inner.session_meta.lock().unwrap() = fresh;
+        Ok(())
+    }
     /// Reserved port (retired origins cannot be leased again by this process).
     pub fn port(&self) -> u16 {
         self.port
@@ -283,7 +310,12 @@ fn singleton_header(
     values.next().is_none() && value.to_str().ok() == Some(expected)
 }
 fn authorized(req: &Request<Body>, s: &Inner) -> bool {
-    let origin_optional = req.method() == Method::GET || req.method() == Method::HEAD;
+    let websocket_upgrade = req
+        .headers()
+        .get(header::UPGRADE)
+        .is_some_and(|value| value.as_bytes().eq_ignore_ascii_case(b"websocket"));
+    let origin_optional =
+        !websocket_upgrade && (req.method() == Method::GET || req.method() == Method::HEAD);
     s.active.load(Ordering::SeqCst)
         && singleton_header(
             req.headers(),
@@ -460,14 +492,11 @@ async fn forward(
         };
         return shell_response(kind, body);
     }
-    // A cookie is authentication too: refuse a replacement installation before sending it.
-    match s.client.meta().await {
-        Ok(meta) if meta.installation_id == s.installation_id => {}
-        Ok(_) => {
-            *s.jar.lock().unwrap() = Jar::default();
-            return StatusCode::BAD_GATEWAY.into_response();
-        }
-        Err(_) => return StatusCode::BAD_GATEWAY.into_response(),
+    // The immutable metadata snapshot was validated when this SPA session was
+    // created. It is intentionally not re-fetched for each browser request.
+    if s.session_meta.lock().unwrap().installation_id != s.installation_id {
+        *s.jar.lock().unwrap() = Jar::default();
+        return StatusCode::BAD_GATEWAY.into_response();
     }
     let target = match Url::parse(&format!(
         "{}{}",
@@ -1013,6 +1042,12 @@ mod tests {
         let (shutdown, _) = tokio::sync::watch::channel(false);
         Arc::new(Inner {
             installation_id: "test-installation".into(),
+            session_meta: Mutex::new(Meta {
+                api_version: "1.0.0".into(),
+                version: "test".into(),
+                installation_id: "test-installation".into(),
+                capabilities: vec![plur1bus_desktop_contract::capability::SESSION_TICKET.into()],
+            }),
             client: HarnessClient::new(origin.clone(), None),
             origin,
             jar: Mutex::new(reqwest::cookie::Jar::default()),

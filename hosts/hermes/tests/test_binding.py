@@ -482,6 +482,98 @@ class BindingTest(unittest.TestCase):
         with open(path, encoding="utf-8") as f:
             self.assertIn("12" * 16, f.read())
 
+    def test_register_binding_verifies_immediately_before_replace(self) -> None:
+        """FR-L1 (ii): a steal after the read, at the start of the publishing write, must still
+        refuse. That only holds when ``held.verify`` is the ``before_replace`` hook, not a
+        separate call before ``atomic_write_text``."""
+        p1home = self._dir("p")
+        home = self._dir("srv", "h")
+        path = self._lock_path(p1home)
+        real = binding_mod.atomic_write_text
+        seen: dict = {}
+
+        def steal_then_write(*a, **kw):
+            seen["before_replace"] = kw.get("before_replace")
+            os.unlink(path)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(f"4242 {socket.gethostname()} {int(time.time() * 1000)} {'12' * 16}\n")
+            return real(*a, **kw)
+
+        binding_mod.atomic_write_text = steal_then_write
+        try:
+            with self.assertRaises(LockLost):
+                register_binding(p1home, "hermes-l", home)
+        finally:
+            binding_mod.atomic_write_text = real
+        self.assertTrue(callable(seen.get("before_replace")), "register_binding must pass before_replace=held.verify")
+        self.assertEqual(read_registry(p1home), {})
+        self.assertFalse(os.path.exists(os.path.join(p1home, "hosts", "hermes-bindings.json")))
+        self.assertEqual([n for n in os.listdir(os.path.join(p1home, "hosts")) if ".tmp-" in n], [])
+        with open(path, encoding="utf-8") as f:
+            self.assertIn("12" * 16, f.read())
+
+    def test_displaced_holder_refuses_publishing_replace(self) -> None:
+        """Analogous to Host-Addons tests/dist-hermes-lock-fr-l1.test.js: the holder prepares,
+        the lock is moved aside, a newcomer takes it, then the holder publishes through
+        register_binding's write path (atomic_write_text + held.verify)."""
+        import subprocess
+
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        registry = os.path.join(p1home, "hosts", "hermes-bindings.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        original = json.dumps({"schema": REGISTRY_SCHEMA, "bindings": {"keep": "/old"}}, indent=2) + "\n"
+        published = json.dumps(
+            {"schema": REGISTRY_SCHEMA, "bindings": {"holder-agent": "/tmp/holder-home"}}, indent=2
+        ) + "\n"
+        flag = os.path.join(p1home, "newcomer-in")
+        release = os.path.join(p1home, "release")
+        filelock_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "plur1bus", "_filelock.py")
+        newcomer = r"""
+import importlib.util, os, sys, time
+lock_path, flag, release, filelock_py = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+spec = importlib.util.spec_from_file_location("p1_filelock", filelock_py)
+mod = importlib.util.module_from_spec(spec)
+sys.modules["p1_filelock"] = mod
+spec.loader.exec_module(mod)
+with mod.ExclusiveLockFile(lock_path).hold(30):
+    with open(flag, "w", encoding="utf-8") as f:
+        f.write("in")
+    for _ in range(400):
+        if os.path.exists(release):
+            break
+        time.sleep(0.025)
+"""
+        proc = None
+        with ExclusiveLockFile(path).hold(30) as held:
+            with open(registry, "w", encoding="utf-8") as f:
+                f.write(original)
+            moved = path + ".break-" + ("e" * 32)
+            os.rename(path, moved)
+            proc = subprocess.Popen(
+                [sys.executable, "-c", newcomer, path, flag, release, filelock_py],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.addCleanup(lambda p=proc: p.kill() if p.poll() is None else None)
+            for _ in range(400):
+                if os.path.exists(flag):
+                    break
+                time.sleep(0.025)
+            self.assertTrue(os.path.exists(flag), "the newcomer is inside")
+            with self.assertRaises(FileExistsError):
+                os.link(moved, path)
+            os.unlink(moved)
+            with self.assertRaises(LockLost):
+                binding_mod.atomic_write_text(registry, published, before_replace=held.verify)
+            with open(release, "w", encoding="utf-8") as f:
+                f.write("1")
+            self.assertEqual(proc.wait(20), 0)
+        with open(registry, encoding="utf-8") as f:
+            self.assertEqual(f.read(), original, "displaced holder did not publish")
+        self.assertEqual(read_registry(p1home), {"keep": "/old"})
+        self.assertEqual([n for n in os.listdir(os.path.dirname(registry)) if ".tmp-" in n], [])
+
     def test_old_break_and_rel_leftovers_are_swept(self) -> None:
         p1home = self._dir("p")
         path = self._lock_path(p1home)
@@ -525,6 +617,9 @@ class BindingTest(unittest.TestCase):
         entries = deaths = lost = 0
         with open(log, encoding="utf-8") as f:
             for line in f:
+                if line.startswith("T "):
+                    _, pid, exception, code = line.split()
+                    self.fail(f"lock worker {pid} failed: {exception} (winerror/errno={code})")
                 tag, pid = line.split()
                 if tag == "E":
                     must_lose.update(h for h in inside if h not in refused)
@@ -538,6 +633,10 @@ class BindingTest(unittest.TestCase):
                     refused.discard(pid)
                     inside.remove(pid)
                     deaths += tag == "D"
+                elif tag == "W":
+                    self.assertIn(pid, inside)
+                    self.assertNotIn(pid, must_lose, f"double entry: {pid} overlapped another holder and published")
+                    self.assertNotIn(pid, refused)
                 elif tag == "L":
                     self.assertIn(pid, inside)  # verify() refused the write: safe
                     must_lose.discard(pid)

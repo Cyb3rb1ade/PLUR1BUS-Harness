@@ -82,8 +82,34 @@ pub struct CleanupResult {
 }
 
 impl CleanupResult {
+    #[cfg(debug_assertions)]
     pub fn accepted(&self) -> bool {
         self.removed && self.cookie_rows == 0 && self.read_only_complete && !self.secret_detected
+    }
+
+    #[cfg(not(debug_assertions))]
+    pub fn accepted(&self) -> bool {
+        self.removed
+    }
+
+    /// Stable, path-free reason code for release shutdown logging.
+    pub fn reason_code(&self) -> &'static str {
+        if self
+            .audits
+            .iter()
+            .any(|audit| audit.exit_timed_out || audit.audit_timed_out)
+        {
+            "SPA_PROFILE_CLEANUP_TIMEOUT"
+        } else if self.audits.iter().any(|audit| {
+            audit.environment_exited
+                && (!audit.read_only_complete || audit.cookie_rows > 0 || audit.secret_detected)
+        }) {
+            "SPA_PROFILE_CLEANUP_COOKIE_AUDIT_FAILED"
+        } else if self.removed {
+            "SPA_PROFILE_CLEANUP_OK"
+        } else {
+            "SPA_PROFILE_CLEANUP_DELETE_FAILED"
+        }
     }
 }
 
@@ -114,6 +140,8 @@ pub struct ProfileCleanupEvidence {
     pub exit_wait_ms: u64,
     /// The absolute exit deadline expired; no database read or deletion followed.
     pub exit_timed_out: bool,
+    /// The bounded post-exit audit exhausted its own byte/time budget.
+    pub audit_timed_out: bool,
     /// Real READ_ONLY SQLite query (with WAL), after verified exit.
     pub read_only_complete: bool,
     /// Rows counted across all primary cookie databases.
@@ -145,13 +173,20 @@ impl ProfileCleanupEvidence {
 }
 
 #[cfg(any(windows, test))]
-pub(crate) async fn finish_owned_cleanup(
+pub(crate) async fn finish_owned_cleanup_async_with_mode<Exit, Audit, AuditFuture, Remove>(
     started: std::time::Instant,
     deadline: std::time::Instant,
-    exit: impl Fn() -> Option<bool>,
-    audit: impl FnOnce(&mut ProfileCleanupEvidence),
-    remove: impl FnOnce() -> bool,
-) -> CleanupResult {
+    exit: Exit,
+    audit: Audit,
+    remove: Remove,
+    delete_on_audit_failure: bool,
+) -> CleanupResult
+where
+    Exit: Fn() -> Option<bool>,
+    Audit: FnOnce() -> AuditFuture,
+    AuditFuture: std::future::Future<Output = ProfileCleanupEvidence>,
+    Remove: FnOnce() -> bool,
+{
     let deadline = deadline.min(started + std::time::Duration::from_secs(10));
     let mut evidence = ProfileCleanupEvidence::default();
     loop {
@@ -171,13 +206,20 @@ pub(crate) async fn finish_owned_cleanup(
     evidence.exit_wait_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
     evidence.exit_timed_out |= std::time::Instant::now() >= deadline;
     if evidence.environment_exited && !evidence.exit_timed_out && evidence.exit_wait_ms <= 10_000 {
-        audit(&mut evidence);
-        evidence.removed = evidence.read_only_complete
+        let audited = audit().await;
+        evidence.read_only_complete = audited.read_only_complete;
+        evidence.cookie_rows = audited.cookie_rows;
+        evidence.cookie_database_files = audited.cookie_database_files;
+        evidence.cookie_sidecar_files = audited.cookie_sidecar_files;
+        evidence.secret_scan_complete = audited.secret_scan_complete;
+        evidence.secret_detected = audited.secret_detected;
+        evidence.audit_timed_out = audited.audit_timed_out;
+        let audit_ok = evidence.read_only_complete
             && evidence.cookie_database_files > 0
             && evidence.secret_scan_complete
             && evidence.cookie_rows == 0
-            && !evidence.secret_detected
-            && remove();
+            && !evidence.secret_detected;
+        evidence.removed = (delete_on_audit_failure || audit_ok) && remove();
     }
     CleanupResult {
         removed: evidence.removed,
@@ -186,6 +228,51 @@ pub(crate) async fn finish_owned_cleanup(
         secret_detected: evidence.secret_detected,
         audits: vec![evidence],
     }
+}
+
+#[cfg(any(windows, test))]
+#[allow(dead_code)]
+pub(crate) async fn finish_owned_cleanup_with_mode(
+    started: std::time::Instant,
+    deadline: std::time::Instant,
+    exit: impl Fn() -> Option<bool>,
+    audit: impl FnOnce(&mut ProfileCleanupEvidence),
+    remove: impl FnOnce() -> bool,
+    delete_on_audit_failure: bool,
+) -> CleanupResult {
+    finish_owned_cleanup_async_with_mode(
+        started,
+        deadline,
+        exit,
+        || {
+            let mut evidence = ProfileCleanupEvidence::default();
+            audit(&mut evidence);
+            std::future::ready(evidence)
+        },
+        remove,
+        delete_on_audit_failure,
+    )
+    .await
+}
+
+#[cfg(any(windows, test))]
+#[allow(dead_code)]
+pub(crate) async fn finish_owned_cleanup(
+    started: std::time::Instant,
+    deadline: std::time::Instant,
+    exit: impl Fn() -> Option<bool>,
+    audit: impl FnOnce(&mut ProfileCleanupEvidence),
+    remove: impl FnOnce() -> bool,
+) -> CleanupResult {
+    finish_owned_cleanup_with_mode(
+        started,
+        deadline,
+        exit,
+        audit,
+        remove,
+        cfg!(not(debug_assertions)),
+    )
+    .await
 }
 
 #[cfg(windows)]
@@ -334,6 +421,73 @@ mod windows {
             return Err(io::Error::other("incomplete SPA lease record"));
         }
         Ok(bytes)
+    }
+
+    const AUDIT_CHUNK_BYTES: usize = 64 * 1024;
+    const AUDIT_MAX_BYTES: u64 = 64 * 1024 * 1024;
+
+    fn audit_deadline(deadline: Option<std::time::Instant>) -> io::Result<()> {
+        if deadline.is_some_and(|limit| std::time::Instant::now() >= limit) {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "SPA profile audit deadline",
+            ));
+        }
+        Ok(())
+    }
+
+    fn read_file_bounded(
+        path: &Path,
+        deadline: Option<std::time::Instant>,
+        remaining: &mut u64,
+    ) -> io::Result<()> {
+        use std::io::Read;
+        audit_deadline(deadline)?;
+        let mut file = File::open(path)?;
+        let mut buffer = [0u8; AUDIT_CHUNK_BYTES];
+        loop {
+            audit_deadline(deadline)?;
+            if *remaining == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "SPA audit byte budget",
+                ));
+            }
+            let read = file.read(&mut buffer)?;
+            if read == 0 {
+                return Ok(());
+            }
+            *remaining = (*remaining)
+                .checked_sub(read as u64)
+                .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "SPA audit byte budget"))?;
+        }
+    }
+
+    fn audit_profile_readability(root: &Path, deadline: std::time::Instant) -> io::Result<()> {
+        let mut pending = vec![root.to_path_buf()];
+        let mut remaining = AUDIT_MAX_BYTES;
+        while let Some(dir) = pending.pop() {
+            audit_deadline(Some(deadline))?;
+            for entry in fs::read_dir(dir)? {
+                audit_deadline(Some(deadline))?;
+                let file = entry?.path();
+                let metadata = check_no_reparse(&file)?;
+                if metadata.is_dir() {
+                    pending.push(file);
+                } else if metadata.is_file() {
+                    if file.file_name() == Some(OsStr::new(".lease")) {
+                        read_owned_lease(&file)?.ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::PermissionDenied, "lease unavailable")
+                        })?;
+                    } else {
+                        read_file_bounded(&file, Some(deadline), &mut remaining)?;
+                    }
+                } else {
+                    return Err(io::Error::other("unsupported SPA profile entry"));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// A sharing-locked exact LevelDB LOCK file has no payload only when its
@@ -698,8 +852,9 @@ mod windows {
             };
         };
         let path = profile.path().to_path_buf();
+        let remove_path = path.clone();
         let root = profile.root.clone();
-        super::finish_owned_cleanup(
+        super::finish_owned_cleanup_async_with_mode(
             close_requested,
             deadline,
             // Own the Send-only process through the wait/audit future. A shared
@@ -715,59 +870,74 @@ mod windows {
                     }
                 }
             },
-            |evidence| {
-                if validate_owned_path(&root, &path).is_err()
-                    || ensure_no_reparse_tree(&path).is_err()
-                {
-                    return;
-                }
-                // Scan bytes before SQLite can recover/checkpoint any side file.
-                match &secret_audit {
-                    Some(check) => {
-                        if !check(&path).record_into(evidence) {
-                            return;
-                        }
+            move || {
+                let path = path.clone();
+                let root = root.clone();
+                let secret_audit = secret_audit.clone();
+                async move {
+                    let mut evidence = super::ProfileCleanupEvidence::default();
+                    if validate_owned_path(&root, &path).is_err()
+                        || ensure_no_reparse_tree(&path).is_err()
+                    {
+                        return evidence;
                     }
-                    None => {
-                        // No fixture values exist in release builds, but complete readability
-                        // still precedes deletion; no sharing/access error becomes clean evidence.
-                        let mut pending = vec![path.clone()];
-                        while let Some(dir) = pending.pop() {
-                            let Ok(entries) = fs::read_dir(dir) else {
-                                return;
-                            };
-                            for entry in entries {
-                                let Ok(entry) = entry else {
-                                    return;
-                                };
-                                let file = entry.path();
-                                let Ok(metadata) = check_no_reparse(&file) else {
-                                    return;
-                                };
-                                if metadata.is_dir() {
-                                    pending.push(file);
-                                } else if metadata.is_file() {
-                                    match read_owned_lease(&file) {
-                                        Ok(Some(_)) => {}
-                                        Ok(None) if fs::read(file).is_ok() => {}
-                                        _ => return,
-                                    }
-                                } else {
-                                    return;
+                    let audit = tokio::task::spawn_blocking(move || {
+                        #[cfg(debug_assertions)]
+                        let scan = match secret_audit {
+                            Some(check) => check(&path),
+                            None => match audit_profile_readability(&path, deadline) {
+                                Ok(()) => super::SecretScanOutcome {
+                                    complete: true,
+                                    secret_detected: false,
+                                },
+                                Err(_) => super::SecretScanOutcome::default(),
+                            },
+                        };
+                        #[cfg(not(debug_assertions))]
+                        let scan = match audit_profile_readability(&path, deadline) {
+                            Ok(()) => super::SecretScanOutcome {
+                                complete: true,
+                                secret_detected: false,
+                            },
+                            Err(_) => super::SecretScanOutcome::default(),
+                        };
+                        let cookie = if scan.complete {
+                            inspect_cookie_databases_with_deadline(&path, Some(deadline))
+                        } else {
+                            Err(io::Error::new(
+                                io::ErrorKind::PermissionDenied,
+                                "SPA profile readability audit incomplete",
+                            ))
+                        };
+                        (scan, cookie)
+                    })
+                    .await;
+                    match audit {
+                        Ok((scan, cookie)) => {
+                            evidence.secret_detected = scan.secret_detected;
+                            evidence.secret_scan_complete = scan.complete;
+                            match cookie {
+                                Ok(audit) => {
+                                    evidence.read_only_complete = true;
+                                    evidence.cookie_rows = audit.rows;
+                                    evidence.cookie_database_files = audit.database_files;
+                                    evidence.cookie_sidecar_files = audit.sidecar_files;
+                                }
+                                Err(error) => {
+                                    evidence.audit_timed_out =
+                                        error.kind() == io::ErrorKind::TimedOut;
                                 }
                             }
                         }
-                        evidence.secret_scan_complete = true;
+                        Err(_) => {
+                            evidence.audit_timed_out = true;
+                        }
                     }
-                }
-                if let Ok(audit) = inspect_cookie_databases(&path) {
-                    evidence.read_only_complete = true;
-                    evidence.cookie_rows = audit.rows;
-                    evidence.cookie_database_files = audit.database_files;
-                    evidence.cookie_sidecar_files = audit.sidecar_files;
+                    evidence
                 }
             },
-            || profile.remove().is_ok() && !path.exists(),
+            || profile.remove().is_ok() && !remove_path.exists(),
+            cfg!(not(debug_assertions)),
         )
         .await
     }
@@ -862,6 +1032,13 @@ mod windows {
 
     /// Recursively inspects primary cookie DBs read-only; errors are never zero-row evidence.
     pub fn inspect_cookie_databases(root: &Path) -> io::Result<CookieAudit> {
+        inspect_cookie_databases_with_deadline(root, None)
+    }
+
+    fn inspect_cookie_databases_with_deadline(
+        root: &Path,
+        deadline: Option<std::time::Instant>,
+    ) -> io::Result<CookieAudit> {
         ensure_no_reparse_tree(root)?;
         let mut result = CookieAudit {
             database_files: 0,
@@ -870,9 +1047,12 @@ mod windows {
         };
         let mut pending = vec![root.to_path_buf()];
         let mut databases = Vec::new();
+        let mut remaining = AUDIT_MAX_BYTES;
         let mut visited = 0usize;
         while let Some(dir) = pending.pop() {
+            audit_deadline(deadline)?;
             for entry in fs::read_dir(dir)? {
+                audit_deadline(deadline)?;
                 visited += 1;
                 if visited > 20_000 {
                     return Err(io::Error::other("cookie audit tree limit"));
@@ -889,7 +1069,7 @@ mod windows {
                         "cookies-journal" | "cookies-wal" | "cookies-shm"
                     ) {
                         // Read before any SQLite open can checkpoint/remove a side file.
-                        fs::read(&path)?;
+                        read_file_bounded(&path, deadline, &mut remaining)?;
                         result.sidecar_files += 1;
                     }
                     if lower == "cookies" || lower.starts_with("cookies.sqlite") {
@@ -906,6 +1086,7 @@ mod windows {
             }
         }
         for path in databases {
+            audit_deadline(deadline)?;
             result.rows = result
                 .rows
                 .checked_add(cookie_rows(&path)?)
@@ -930,11 +1111,28 @@ mod windows {
         pub skipped_unknown: u32,
         pub positive_profiles: u32,
         pub positive_rows: u64,
+        pub audit_failed: u32,
+        pub timed_out: bool,
     }
 
     impl SweepResult {
         pub fn complete(&self) -> bool {
-            self.skipped_unknown == 0 && self.positive_profiles == 0
+            !self.timed_out && self.skipped_unknown == 0 && self.positive_profiles == 0
+        }
+
+        /// Stable, path-free reason code for startup recovery logging.
+        pub fn reason_code(&self) -> &'static str {
+            if self.timed_out {
+                "SPA_PROFILE_SWEEP_TIMEOUT"
+            } else if self.skipped_unknown > 0 {
+                "SPA_PROFILE_SWEEP_LEAF_FAILED"
+            } else if self.positive_profiles > 0 {
+                "SPA_PROFILE_SWEEP_COOKIE_ROWS"
+            } else if self.audit_failed > 0 {
+                "SPA_PROFILE_SWEEP_COOKIE_AUDIT_FAILED"
+            } else {
+                "SPA_PROFILE_SWEEP_OK"
+            }
         }
     }
 
@@ -945,11 +1143,63 @@ mod windows {
 
         /// Called only after the native callback, window absence, and browser exit succeeded.
         fn remove(self) -> io::Result<()> {
+            self.remove_before(std::time::Instant::now() + Duration::from_secs(10))
+        }
+
+        fn remove_tree_before(path: &Path, deadline: std::time::Instant) -> io::Result<()> {
+            Self::remove_tree_before_with(path, deadline, &std::time::Instant::now)
+        }
+
+        fn remove_tree_before_with<F>(
+            path: &Path,
+            deadline: std::time::Instant,
+            now: &F,
+        ) -> io::Result<()>
+        where
+            F: Fn() -> std::time::Instant,
+        {
+            if now() >= deadline {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "profile removal deadline",
+                ));
+            }
+            let metadata = check_no_reparse(path)?;
+            if metadata.is_dir() {
+                for entry in fs::read_dir(path)? {
+                    if now() >= deadline {
+                        return Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            "profile removal deadline",
+                        ));
+                    }
+                    let entry = entry?;
+                    Self::remove_tree_before_with(&entry.path(), deadline, now)?;
+                }
+                fs::remove_dir(path)
+            } else {
+                fs::remove_file(path)
+            }
+        }
+
+        fn remove_before(self, deadline: std::time::Instant) -> io::Result<()> {
             let Self { root, leaf, lock } = self;
+            if std::time::Instant::now() >= deadline {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "profile removal deadline",
+                ));
+            }
             validate_owned_path(&root, &leaf)?;
             ensure_no_reparse_tree(&leaf)?;
             // The lock file remains held until all browser data has been removed.
             for entry in fs::read_dir(&leaf)? {
+                if std::time::Instant::now() >= deadline {
+                    return Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "profile removal deadline",
+                    ));
+                }
                 let entry = entry?;
                 if entry.file_name() == OsStr::new(".lease") {
                     continue;
@@ -957,9 +1207,15 @@ mod windows {
                 let path = entry.path();
                 let metadata = check_no_reparse(&path)?;
                 if metadata.is_dir() {
-                    fs::remove_dir_all(path)?;
+                    Self::remove_tree_before(&path, deadline)?;
                 } else {
                     fs::remove_file(path)?;
+                }
+                if std::time::Instant::now() >= deadline {
+                    return Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "profile removal deadline",
+                    ));
                 }
             }
             {
@@ -972,6 +1228,12 @@ mod windows {
                 fs::remove_file(leaf.join(".lease"))?;
             }
             drop(lock);
+            if std::time::Instant::now() >= deadline {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "profile removal deadline",
+                ));
+            }
             fs::remove_dir(leaf)
         }
     }
@@ -1077,6 +1339,13 @@ mod windows {
     }
 
     fn sweep_in(root: &Path) -> io::Result<SweepResult> {
+        sweep_in_with_deadline(root, std::time::Instant::now() + Duration::from_secs(5))
+    }
+
+    fn sweep_in_with_deadline(
+        root: &Path,
+        deadline: std::time::Instant,
+    ) -> io::Result<SweepResult> {
         match fs::symlink_metadata(root) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 return Ok(SweepResult::default());
@@ -1087,6 +1356,10 @@ mod windows {
         ensure_root(root)?;
         let mut result = SweepResult::default();
         for (index, entry) in fs::read_dir(root)?.enumerate() {
+            if std::time::Instant::now() >= deadline {
+                result.timed_out = true;
+                break;
+            }
             if index >= 128 {
                 return Err(io::Error::other("SPA profile sweep limit"));
             }
@@ -1097,43 +1370,75 @@ mod windows {
                 continue;
             }
             let path = entry.path();
-            if check_no_reparse(&path)?.is_dir() {
+            let outcome = (|| -> io::Result<Option<(bool, bool, u64)>> {
+                if !check_no_reparse(&path)?.is_dir() {
+                    return Ok(None);
+                }
                 if !profile_acl_is_private(&path)? {
-                    result.skipped_unknown += 1;
-                    continue;
+                    return Ok(Some((false, false, 0)));
                 }
                 let lock_path = path.join(".lease");
-                let Ok(lock) = OpenOptions::new().read(true).write(true).open(&lock_path) else {
-                    result.skipped_unknown += 1;
-                    continue;
+                let lock = match OpenOptions::new().read(true).write(true).open(&lock_path) {
+                    Ok(lock) => lock,
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                        // A deadline must never leave an empty, lease-less orphan.
+                        if fs::read_dir(&path)?.next().is_none() {
+                            fs::remove_dir(&path)?;
+                            return Ok(Some((true, false, 0)));
+                        }
+                        return Ok(Some((false, false, 0)));
+                    }
+                    Err(error) => return Err(error),
                 };
                 if lock.try_lock().is_err() {
-                    result.skipped_active += 1;
-                    continue;
+                    return Ok(Some((false, true, 0)));
                 }
                 match recorded_browser_status(&lock)? {
                     BrowserLeaseStatus::Exited => {}
-                    BrowserLeaseStatus::Active => {
-                        result.skipped_active += 1;
-                        continue;
-                    }
-                    BrowserLeaseStatus::Unknown => {
-                        result.skipped_unknown += 1;
-                        continue;
-                    }
+                    BrowserLeaseStatus::Active => return Ok(Some((false, true, 0))),
+                    BrowserLeaseStatus::Unknown => return Ok(Some((false, false, 0))),
                 }
                 let lease = SpaProfileLease {
                     root: root.to_path_buf(),
-                    leaf: path,
+                    leaf: path.clone(),
                     lock: LeaseLock::new(lock_path, lock),
                 };
-                let rows = inspect_cookie_databases(lease.path())?.rows;
-                if rows > 0 {
-                    result.positive_profiles += 1;
-                    result.positive_rows = result.positive_rows.saturating_add(rows);
+                let rows = match inspect_cookie_databases(lease.path()) {
+                    Ok(audit) => audit.rows,
+                    Err(_) => {
+                        result.audit_failed = result.audit_failed.saturating_add(1);
+                        0
+                    }
+                };
+                lease.remove_before(deadline)?;
+                Ok(Some((true, false, rows)))
+            })();
+            match outcome {
+                Ok(Some((true, _, rows))) => {
+                    result.removed += 1;
+                    if rows > 0 {
+                        result.positive_profiles += 1;
+                        result.positive_rows = result.positive_rows.saturating_add(rows);
+                    }
                 }
-                lease.remove()?;
-                result.removed += 1;
+                Ok(Some((false, active, _))) => {
+                    // A locked or unproven owner is retained for a later startup.
+                    if active {
+                        result.skipped_active += 1;
+                    } else {
+                        result.skipped_unknown += 1;
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    // One broken leaf must not abort the remaining owned leaves or startup.
+                    if error.kind() == io::ErrorKind::TimedOut {
+                        result.timed_out = true;
+                    } else {
+                        eprintln!("SPA_PROFILE_SWEEP_LEAF_FAILED");
+                    }
+                    result.skipped_unknown += 1;
+                }
             }
         }
         Ok(result)
@@ -1725,31 +2030,6 @@ mod windows {
         }
 
         #[test]
-        fn no_cookie_database_in_app_dirs() {
-            let temp = tempfile::tempdir().unwrap();
-            let root = temp.path().join("spa-tmp");
-            let profile = create_in(&root).unwrap();
-            assert!(profile_acl_is_private(profile.path()).unwrap());
-            let database = profile.path().join("Cookies");
-            let connection = rusqlite::Connection::open(&database).unwrap();
-            connection
-                .pragma_update(None, "journal_mode", "WAL")
-                .unwrap();
-            connection
-                .execute("CREATE TABLE cookies (value TEXT)", [])
-                .unwrap();
-            assert_eq!(cookie_rows(&database).unwrap(), 0);
-            connection
-                .execute("INSERT INTO cookies VALUES ('x')", [])
-                .unwrap();
-            assert!(profile.path().join("Cookies-wal").exists());
-            assert_eq!(cookie_rows(&database).unwrap(), 1);
-            drop(connection);
-            profile.remove().unwrap();
-            assert!(!database.exists());
-        }
-
-        #[test]
         fn readonly_cookie_query_rejects_missing_and_unknown_schema_without_mutation() {
             let temp = tempfile::tempdir().unwrap();
             let missing = temp.path().join("Cookies");
@@ -2258,6 +2538,111 @@ mod windows {
             assert_eq!(sweep.removed, 1);
             assert!(!path.exists());
         }
+
+        #[test]
+        fn startup_sweep_has_a_bounded_budget_and_stable_reason_code() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            fs::create_dir_all(&root).unwrap();
+            fs::write(root.join("unrelated"), b"fixture").unwrap();
+            let sweep = sweep_in_with_deadline(&root, std::time::Instant::now());
+            let sweep = sweep.unwrap();
+            assert!(sweep.timed_out);
+            assert!(!sweep.complete());
+            assert_eq!(sweep.reason_code(), "SPA_PROFILE_SWEEP_TIMEOUT");
+        }
+
+        #[test]
+        fn startup_sweep_records_leaf_failure_without_raw_error_text() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            let path = profile.path().to_path_buf();
+            record_exited_browser(&profile);
+            drop(profile);
+            fs::remove_file(path.join(".lease")).unwrap();
+            fs::create_dir(path.join(".lease")).unwrap();
+            let sweep = sweep_in(&root).unwrap();
+            assert_eq!(sweep.skipped_unknown, 1);
+            assert_eq!(sweep.reason_code(), "SPA_PROFILE_SWEEP_LEAF_FAILED");
+            assert!(path.exists());
+        }
+
+        #[test]
+        fn startup_sweep_removes_empty_orphan_after_lease_disappears() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let profile = create_in(&root).unwrap();
+            let path = profile.path().to_path_buf();
+            record_exited_browser(&profile);
+            drop(profile);
+            fs::remove_file(path.join(".lease")).unwrap();
+            assert_eq!(sweep_in(&root).unwrap().removed, 1);
+            assert!(!path.exists());
+        }
+
+        #[test]
+        fn recursive_leaf_delete_checks_deadline_inside_deep_tree() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("tree");
+            fs::create_dir_all(root.join("a").join("b").join("c")).unwrap();
+            fs::write(root.join("a").join("b").join("c").join("file"), b"x").unwrap();
+            let calls = std::cell::Cell::new(0usize);
+            let now = || {
+                let call = calls.get();
+                calls.set(call + 1);
+                if call > 2 {
+                    std::time::Instant::now() + Duration::from_secs(1)
+                } else {
+                    std::time::Instant::now()
+                }
+            };
+            let deadline = std::time::Instant::now() + Duration::from_millis(100);
+            let error =
+                SpaProfileLease::remove_tree_before_with(&root, deadline, &now).unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            assert!(root.exists());
+        }
+
+        #[test]
+        fn cleanup_reason_codes_distinguish_cookie_audit_failure() {
+            let audit = crate::windows_spa_profile::ProfileCleanupEvidence {
+                environment_exited: true,
+                read_only_complete: true,
+                cookie_database_files: 1,
+                cookie_rows: 1,
+                ..Default::default()
+            };
+            let result = CleanupResult {
+                audits: vec![audit],
+                ..Default::default()
+            };
+            assert_eq!(
+                result.reason_code(),
+                "SPA_PROFILE_CLEANUP_COOKIE_AUDIT_FAILED"
+            );
+        }
+
+        #[test]
+        fn cleanup_reason_codes_distinguish_timeout_delete_and_success() {
+            assert_eq!(
+                CleanupResult::default().reason_code(),
+                "SPA_PROFILE_CLEANUP_DELETE_FAILED"
+            );
+            let mut timeout = CleanupResult::default();
+            timeout
+                .audits
+                .push(crate::windows_spa_profile::ProfileCleanupEvidence {
+                    exit_timed_out: true,
+                    ..Default::default()
+                });
+            assert_eq!(timeout.reason_code(), "SPA_PROFILE_CLEANUP_TIMEOUT");
+            let clean = CleanupResult {
+                removed: true,
+                ..Default::default()
+            };
+            assert_eq!(clean.reason_code(), "SPA_PROFILE_CLEANUP_OK");
+        }
     }
 }
 
@@ -2453,6 +2838,77 @@ mod tests {
         assert!(result.accepted());
         assert!(result.audits[0].accepted());
         assert_eq!(stage.get(), 3);
+    }
+
+    #[tokio::test]
+    async fn release_cleanup_deletes_after_audit_success() {
+        let result = super::finish_owned_cleanup_with_mode(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            || Some(true),
+            |e| {
+                e.read_only_complete = true;
+                e.secret_scan_complete = true;
+                e.cookie_database_files = 1;
+            },
+            || true,
+            true,
+        )
+        .await;
+        assert!(result.removed);
+        assert_eq!(result.reason_code(), "SPA_PROFILE_CLEANUP_OK");
+    }
+
+    #[tokio::test]
+    async fn release_cleanup_deletes_after_audit_failure_and_logs_reason() {
+        let result = super::finish_owned_cleanup_with_mode(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            || Some(true),
+            |e| e.cookie_rows = 1,
+            || true,
+            true,
+        )
+        .await;
+        assert!(result.removed);
+        assert_eq!(
+            result.reason_code(),
+            "SPA_PROFILE_CLEANUP_COOKIE_AUDIT_FAILED"
+        );
+    }
+
+    #[tokio::test]
+    async fn release_cleanup_deletes_after_audit_budget_exhaustion() {
+        let result = super::finish_owned_cleanup_with_mode(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            || Some(true),
+            |e| e.audit_timed_out = true,
+            || true,
+            true,
+        )
+        .await;
+        assert!(result.removed);
+        assert_eq!(result.reason_code(), "SPA_PROFILE_CLEANUP_TIMEOUT");
+    }
+
+    #[tokio::test]
+    async fn release_cleanup_delete_failure_keeps_zero_exit_reason() {
+        let result = super::finish_owned_cleanup_with_mode(
+            std::time::Instant::now(),
+            std::time::Instant::now() + std::time::Duration::from_secs(1),
+            || Some(true),
+            |e| {
+                e.read_only_complete = true;
+                e.secret_scan_complete = true;
+                e.cookie_database_files = 1;
+            },
+            || false,
+            true,
+        )
+        .await;
+        assert!(!result.removed);
+        assert_eq!(result.reason_code(), "SPA_PROFILE_CLEANUP_DELETE_FAILED");
     }
 
     #[test]

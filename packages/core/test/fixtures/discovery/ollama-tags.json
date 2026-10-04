@@ -1,0 +1,18 @@
+{
+  "_source": "https://docs.ollama.com/api/tags read 2026-10-03",
+  "models": [
+    {
+      "name": "example-llama:latest",
+      "modified_at": "2026-08-01T12:00:00.000Z",
+      "size": 4000000000,
+      "digest": "sha256:1234567890abcdef",
+      "details": {
+        "format": "gguf",
+        "family": "llama",
+        "families": ["llama"],
+        "parameter_size": "8B",
+        "quantization_level": "Q4_0"
+      }
+    }
+  ]
+}

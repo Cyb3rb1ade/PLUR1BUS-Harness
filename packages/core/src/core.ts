@@ -26,6 +26,14 @@ import { buildMethods } from "./rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
+import path from "node:path";
+import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
+import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
+import { createModelsScanJob } from "./discovery/job.ts";
+import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
+import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
+import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
+import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
@@ -72,6 +80,8 @@ export interface CoreOptions {
   supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** D112: model discovery adapters and options. */
+  discovery?: Partial<DiscoveryAdapters> & { scheduler?: boolean; store?: CatalogStore };
 }
 
 /** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
@@ -113,6 +123,7 @@ export function createCore(o: CoreOptions): Core {
   let orphans: OrphanWatch | null = null;
   let source: ConfigSource | null = null;
   let warmup: Warmup | null = null;
+  let scanScheduler: ScanScheduler | null = null;
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
@@ -180,7 +191,7 @@ export function createCore(o: CoreOptions): Core {
   }
 
   async function start(): Promise<void> {
-    for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal]) mkdirSync(d, { recursive: true, mode: 0o700 });
+    for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal, l.catalog, l.systemJobs]) mkdirSync(d, { recursive: true, mode: 0o700 });
     // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
     // written once it does.
     const early: [Level, string, Record<string, unknown> | undefined][] = [];
@@ -195,6 +206,8 @@ export function createCore(o: CoreOptions): Core {
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
     const platform = createPlatformCapabilities({ logger: log, runDir: l.run });
     platform.securePath(l.run, { mode: 0o700 });
+    platform.securePath(l.catalog, { mode: 0o700 });
+    platform.securePath(l.systemJobs, { mode: 0o700 });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
@@ -230,6 +243,7 @@ export function createCore(o: CoreOptions): Core {
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
+      if (plan.changed.some((k) => k.startsWith("models.scan."))) scanScheduler?.replan();
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
       log.debug("live keys applied", { keys: plan.restart.live });
     });
@@ -280,6 +294,77 @@ export function createCore(o: CoreOptions): Core {
       }
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
+      const discDefaults = defaultDiscoveryAdapters({ logger });
+      const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
+      const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
+      const discEvents = o.discovery?.events ?? discDefaults.events;
+      const discClock = o.discovery?.clock ?? discDefaults.clock;
+      const discRng = o.discovery?.rng ?? discDefaults.rng;
+      const curatedTable = loadMetadataTable();
+      const catalogStore = o.discovery?.store ?? createCatalogStore({
+        path: l.catalogModels,
+        tableRevision: curatedTable.revision,
+        clock: discClock,
+        securePath: platform.securePath,
+        logger,
+      });
+      const loadRes = catalogStore.load();
+      if (loadRes.file.tableRevision !== curatedTable.revision) {
+        const vendorOf = (p: string) => discProfiles.list().find((x) => x.id === p)?.vendor;
+        try {
+          await catalogStore.mutate((c) => ({
+            next: reenrichCatalog(c, curatedTable, vendorOf, logger ?? undefined),
+            result: null,
+          }));
+        } catch {
+          logger.warn("model.catalog.reenrich_failed");
+        }
+      }
+
+      const discSettings = () => ({
+        enabled: (cfg() as any).models?.scan?.enabled ?? true,
+        intervalHours: (cfg() as any).models?.scan?.intervalHours ?? 24,
+      });
+      const discRoles = () => (cfg() as any).modelRoles ?? {};
+
+      const discovery = createDiscoveryService({
+        store: catalogStore,
+        profiles: discProfiles,
+        credentials: discCredentials,
+        events: discEvents,
+        clock: discClock,
+        rng: discRng,
+        table: curatedTable,
+        roles: discRoles,
+        settings: discSettings,
+        logger,
+        onScanned: (p) => scanScheduler?.onScanned(p),
+        ...(o.discovery?.scanners ? { scanners: o.discovery.scanners } : {}),
+      });
+      discovery.onChanged((e) => server?.notify("models.changed", e));
+
+      const ledgerPath = path.join(l.systemJobs, "ledger.jsonl");
+      const systemJobs = createSystemJobs({
+        ledgerPath,
+        clock: discClock,
+        securePath: platform.securePath,
+        logger,
+        engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
+      });
+      systemJobs.register(createModelsScanJob(discovery, discSettings));
+
+      scanScheduler = createScanScheduler({
+        service: discovery,
+        store: catalogStore,
+        systemRun: async (provider, trigger, signal) => {
+          return await systemJobs.run("models.scan", { provider }, { trigger, signal });
+        },
+        clock: discClock,
+        rng: discRng,
+        settings: discSettings,
+        logger,
+      });
+
       const methods = buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
@@ -294,6 +379,8 @@ export function createCore(o: CoreOptions): Core {
           storeSchema = s.storeSchema;
           cacheEngineStatus(s);
         },
+        systemJobs,
+        discovery,
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -312,6 +399,7 @@ export function createCore(o: CoreOptions): Core {
       // A lifeline lost during the engine start orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
+      if (o.discovery?.scheduler !== false) scanScheduler.start();
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
@@ -394,6 +482,7 @@ export function createCore(o: CoreOptions): Core {
       // what is left of the budget) for those replies to be written before it ends the sockets.
       setState({ state: "stopping", since: clock() });
       statusClosed = true;
+      scanScheduler?.stop();
       warmup?.abort(); // first: the warm-up's wait ends before the engine closes under it
       if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       shutdown.abort(new Error("core stopping"));

@@ -709,7 +709,7 @@ const server = createServer((s) => {
       buf = buf.slice(i + 1);
       const reply = (result) => s.write(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result }) + "\n");
       if (msg.method === "module.auth") {
-        reply({ rpc: "1.4.0", instanceId, pid: process.pid, module: { name: "impostor", version: "0.1.0", apiVersion: "1" } });
+        reply({ rpc: "1.5.0", instanceId, pid: process.pid, module: { name: "impostor", version: "0.1.0", apiVersion: "1" } });
       } else if (msg.method === "module.shutdown") {
         s.end(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { accepted: true } }) + "\n", () => process.exit(0));
       }

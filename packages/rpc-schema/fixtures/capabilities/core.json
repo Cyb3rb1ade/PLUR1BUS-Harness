@@ -127,6 +127,26 @@
     "events.unsubscribe": {
       "stability": "stable",
       "since": "1.0.0"
+    },
+    "models.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "models.scan": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "models.setOverride": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "models.removeManual": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "models.acknowledge": {
+      "stability": "experimental",
+      "since": "1.5.0"
     }
   },
   "notifications": {
@@ -182,6 +202,10 @@
     "embedding.identity.changed": {
       "stability": "experimental",
       "since": "1.1.0"
+    },
+    "models.changed": {
+      "stability": "experimental",
+      "since": "1.5.0"
     }
   },
   "extensionPoints": {},

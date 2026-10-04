@@ -1,0 +1,32 @@
+{
+  "params": {},
+  "result": {
+    "models": [
+      {
+        "provider": "example-compat",
+        "id": "example-chat-large",
+        "displayName": "Example Chat Large",
+        "kind": "chat",
+        "contextWindow": 128000,
+        "capabilities": ["tools", "vision"],
+        "aliases": ["large"],
+        "status": "available",
+        "firstSeen": "2026-10-03T12:00:00.000Z",
+        "lastSeen": "2026-10-03T12:00:00.000Z",
+        "source": "scan",
+        "overrides": {}
+      }
+    ],
+    "providers": [
+      {
+        "provider": "example-compat",
+        "lastScanAt": "2026-10-03T12:00:00.000Z",
+        "lastResult": "ok",
+        "nextScanAt": "2026-10-04T12:00:00.000Z",
+        "consecutiveFailures": 0
+      }
+    ],
+    "newCount": 1,
+    "warnings": []
+  }
+}

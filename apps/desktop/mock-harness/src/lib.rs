@@ -1255,7 +1255,7 @@ async fn browser_check(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Resp
     Json(json!({"ok":true})).into_response()
 }
 async fn spa() -> Response {
-    ([(header::CONTENT_SECURITY_POLICY,"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws: ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")],Html(include_str!("spa.html"))).into_response()
+    ([(header::CONTENT_SECURITY_POLICY,"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")],Html(include_str!("spa.html"))).into_response()
 }
 async fn spa_script() -> Response {
     (

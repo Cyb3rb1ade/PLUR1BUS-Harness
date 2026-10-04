@@ -25,7 +25,6 @@ fn help_lists_the_2a_commands() {
 fn stubs_exit_2_and_name_their_milestone() {
     for (cmd, milestone) in [
         ("login", "M2"),
-        ("model", "M2"),
         ("channel", "M4"),
         ("user", "M2"),
         ("project", "M3"),

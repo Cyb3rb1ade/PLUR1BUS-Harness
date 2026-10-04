@@ -19,6 +19,7 @@ import unittest
 from typing import Any
 
 from tests import CLIENT_DIR
+from plur1bus_memory_client import RPC_VERSION
 
 _spec = importlib.util.spec_from_file_location("p1b_client_fakes", os.path.join(CLIENT_DIR, "tests", "fakes.py"))
 fakes = importlib.util.module_from_spec(_spec)
@@ -75,7 +76,7 @@ class WinCore:
     def _auth(self, params: dict) -> Any:
         if params.get("token") != self.token:
             return FakeError("E_UNAUTHORIZED", "bad-token", "unauthorized")
-        return {"contract": "1.4.1", "rpc": "1.4.0", "instanceId": "inst-fake", "pid": os.getpid(), "capabilities": self.capabilities}
+        return {"contract": "1.4.1", "rpc": RPC_VERSION, "instanceId": "inst-fake", "pid": os.getpid(), "capabilities": self.capabilities}
 
     @property
     def calls(self) -> list:
