@@ -1207,11 +1207,26 @@ Files: `apps/desktop/src-tauri/src/{profile_audit,windows_spa_profile,lib,spa_pr
 - Local Windows target check unavailable: MSVC `assert.h` missing in `ring`; native Windows CI remains required. Guarded-SPA WebView2 compatibility remains an explicit gap.
 - The native `no_cookie_database_in_app_dirs` test remains in `production_spa`; no vacuous directory-only substitute. Bundled pinned SQLite supports the Windows WAL audit.
 
-### WP6 gate
+## WP6 — IN PROGRESS (not accepted)
 
-WP5 is owner-merged; Step 0 main→WP6 merge `56ba3fdd` is done. WP6 stays paused pending the owner merge of #78.
+Branch: `feat/desktop-shell-wp06-lifecycle`. Owner merged #78 as `9ff52676`; normal main→WP6 merge `b331729a` completed. No owner merge, rebase, amend or force push performed by Codex.
 
-- [ ] After #78 merges, merge main→WP6 normally and resume existing lifecycle work.
-- [ ] Restore the WP6 status portion preserved in stash `c032d566`; retain the new WP5 report.
+Existing foundation: commit `48bb9fd9` supplies desktop-local D111 typed JSONL/redaction/private storage and local crash reporter APIs. Native bootstrap/UI/lifecycle integration remains to be implemented. The preserved stash `c032d566` was inspected; its historical WP5 tables were not restored over the merged report.
 
-No rebase, amend, force-push or owner-PR merge.
+### Carry-over A/B, 2026-10-04
+
+- Startup sweep partitions remaining time among remaining entries, audits/deletes each in turn, and reserves one second per leaf where its share permits; shorter shares skip the audit to preserve deletion time. Total startup budget stays 5 s. Timeout is recorded as `SPA_PROFILE_SWEEP_TIMEOUT`, deletion still runs. This prevents one slow audit from consuming the later profiles' shares.
+- `audit_after_exit` is the named production read/cookie closure, including sub-deadline selection; the real Windows shutdown path and `real_read_timeout_keeps_reason_and_still_deletes` both call it. Ownership/metadata/native-cookie adapters stay injected; the test performs real bounded file reads.
+- Observed macOS arm64: 9/9 `profile_audit::tests` PASS; desktop locked workspace Clippy/all-targets PASS. Mutation inside the production `audit_after_exit` read path converting errors to `PermissionDenied` makes the TIMEOUT test FAIL with `COOKIE_AUDIT_FAILED`; restored source passes.
+- `startup_sweep_slow_audit_deletes_leaf_and_processes_next` exists under Windows cfg: injected clock/slow audit, two owned temporary leaves, actual sweep and deletion, timeout reason, both paths absent. NOT RUN locally; requires native Windows CI. The cross-platform budget test passed locally.
+- Full desktop/root suites are running; no complete Green or new CI evidence yet. Local Windows MSVC target check attempted but cannot build `ring` with the macOS C toolchain/absent Windows SDK; this is not a Windows build pass.
+
+### Remaining WP6 acceptance
+
+- [ ] Native single-instance focus, close/hide/minimize, tray/menu/icons and quit modal.
+- [ ] Authenticated continuous events with cancellation/reconnect/revocation handling.
+- [ ] Real autostart toggle/minimized login and GNOME notification/background adapters.
+- [ ] Native D111 bootstrap/crash offer UI/secret registration integration.
+- [ ] Named acceptance tests, local Green, draft PR and exact-head Root/7-target desktop CI Run links.
+
+No WP6 completion or CI pass is claimed. `crates/plur1bus`, Core and Hermes are unchanged; Issue #79 belongs to Copilot.
