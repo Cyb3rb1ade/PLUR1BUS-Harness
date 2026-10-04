@@ -116,6 +116,103 @@ test('resources other than RT_MANIFEST #1 must also remain identical', () => {
   assert.equal(proof.otherResourcesEqual, false); assert.equal(proof.accepted, false);
 });
 
+// Model SDK insertion before the last .reloc section, with a nonzero directory
+// offset so equality must bind the directory range rather than just the section.
+function relocationFixture(manifest = false) {
+  const base = imageFixture({ manifest }), bytes = Buffer.alloc(manifest ? 0xc00 : 0xa00);
+  base.copy(bytes, 0, 0, 0x200); base.copy(bytes, 0x400, 0x200, 0x600);
+  const optional = 0x98, directories = optional + 112, sectionTable = optional + 240;
+  bytes.writeUInt16LE(manifest ? 4 : 3, 0x86);
+  bytes.writeUInt32LE(0x400, optional + 60); bytes.writeUInt32LE(0x1000, optional + 32);
+  bytes.writeUInt32LE(0x200, optional + 36); bytes.writeUInt32LE(manifest ? 0x5000 : 0x4000, optional + 56);
+  bytes.writeUInt32LE(manifest ? 0x600 : 0x400, optional + 8);
+  bytes.writeUInt32LE(0x400, sectionTable + 20); bytes.writeUInt32LE(0x600, sectionTable + 60);
+  if (manifest) {
+    base.copy(bytes, 0x800, 0x600, 0x800);
+    bytes.writeUInt32LE(0x800, sectionTable + 100);
+  } else {
+    bytes.writeUInt32LE(0, directories + 16); bytes.writeUInt32LE(0, directories + 20);
+  }
+  const section = sectionTable + (manifest ? 3 : 2) * 40, offset = manifest ? 0xa00 : 0x800;
+  const rva = manifest ? 0x4000 : 0x3000;
+  bytes.fill(0, section, section + 40); bytes.write('.reloc', section);
+  bytes.writeUInt32LE(0x100, section + 8); bytes.writeUInt32LE(rva, section + 12);
+  bytes.writeUInt32LE(0x200, section + 16); bytes.writeUInt32LE(offset, section + 20);
+  bytes.writeUInt32LE(0x42000040, section + 36);
+  bytes.writeUInt32LE(rva + 16, directories + 40); bytes.writeUInt32LE(12, directories + 44);
+  bytes.writeUInt32LE(0x1000, offset + 16); bytes.writeUInt32LE(12, offset + 20);
+  bytes.writeUInt16LE(0xa008, offset + 24); // DIR64 relocation at unchanged .text RVA + 8.
+  return bytes;
+}
+
+test('SDK resource insertion can move only the directory-bound unchanged relocation section', () => {
+  const before = inspectImage(relocationFixture()), after = inspectImage(relocationFixture(true));
+  const proof = imageEquivalence(before, after);
+  assert.equal(proof.nonResourceSectionsEqual, false); // The original strict fact remains visible.
+  assert.equal(proof.accepted, true);
+  assert.equal(proof.relocationSectionMove.relativeOffset, 16);
+  assert.equal(proof.relocationSectionMove.size, 12);
+  assert.equal(proof.relocationSectionMove.beforeRva, 0x3000);
+  assert.equal(proof.relocationSectionMove.afterRva, 0x4000);
+});
+
+test('relocation content, targets, directory metadata and unrelated address changes remain rejected', () => {
+  const before = inspectImage(relocationFixture()), directories = 0x108, sectionTable = 0x188;
+  for (const [reason, change] of [
+    ['relocation page target', b => b.writeUInt32LE(0x2000, 0xa10)],
+    ['relocation type or target offset', b => b.writeUInt16LE(0xa010, 0xa18)],
+    ['relocation padding content', b => { b[0xbff] = 1; }],
+    ['stale relocation directory RVA', b => b.writeUInt32LE(0x3010, directories + 40)],
+    ['different directory offset', b => b.writeUInt32LE(0x4012, directories + 40)],
+    ['different directory size', b => b.writeUInt32LE(10, directories + 44)],
+    ['other directory metadata', b => { b.writeUInt32LE(0x1010, directories + 48); b.writeUInt32LE(12, directories + 52); }],
+    ['other section address', b => b.writeUInt32LE(0x1100, sectionTable + 12)],
+    ['relocation section properties', b => b.writeUInt32LE(0xc2000040, sectionTable + 3 * 40 + 36)],
+    ['executable inserted resource', b => b.writeUInt32LE(0x60000060, sectionTable + 2 * 40 + 36)],
+    ['unexplained image size', b => b.writeUInt32LE(0x6000, 0x98 + 56)],
+    ['incorrect initialized-data normalization', b => b.writeUInt32LE(0x601, 0x98 + 8)],
+    ['stack or heap execution property', b => b.writeUInt32LE(0x2000, 0x98 + 72)],
+    ['unexplained relocation shift', b => {
+      b.writeUInt32LE(0x5000, sectionTable + 3 * 40 + 12); b.writeUInt32LE(0x5010, directories + 40);
+      b.writeUInt32LE(0x6000, 0x98 + 56);
+    }],
+    ['extra non-resource section', b => {
+      b.writeUInt16LE(5, 0x86); const at = sectionTable + 4 * 40;
+      b.write('.extra', at); b.writeUInt32LE(0x100, at + 8); b.writeUInt32LE(0x6000, at + 12);
+      b.writeUInt32LE(0x200, at + 16); b.writeUInt32LE(0xa00, at + 20); b.writeUInt32LE(0x40000040, at + 36);
+    }],
+  ]) {
+    const changed = relocationFixture(true); change(changed);
+    assert.equal(imageEquivalence(before, inspectImage(changed)).accepted, false, reason);
+  }
+});
+
+test('base relocation directory changes fail even without a section move', () => {
+  const original = relocationFixture(), changed = Buffer.from(original);
+  changed.writeUInt32LE(10, 0x108 + 44);
+  assert.equal(imageEquivalence(inspectImage(original), inspectImage(changed)).accepted, false);
+});
+
+test('the movement exception rejects executable sections and other directories referring into the moved range', () => {
+  for (const kind of ['executable', 'writable', 'other-directory']) {
+    const before = relocationFixture(), after = relocationFixture(true);
+    if (kind === 'other-directory') {
+      for (const bytes of [before, after]) { bytes.writeUInt32LE(0x3010, 0x108 + 48); bytes.writeUInt32LE(12, 0x108 + 52); }
+    } else {
+      const characteristics = kind === 'executable' ? 0x62000040 : 0xc2000040;
+      before.writeUInt32LE(characteristics, 0x188 + 2 * 40 + 36); after.writeUInt32LE(characteristics, 0x188 + 3 * 40 + 36);
+    }
+    assert.equal(imageEquivalence(inspectImage(before), inspectImage(after)).accepted, false, kind);
+  }
+});
+
+test('unbacked, truncated or absent relocation directory ranges fail closed', () => {
+  for (const [rva, size] of [[0x4010, 0], [0, 12], [0x8000, 12], [0x41ff, 12]]) {
+    const bytes = relocationFixture(true); bytes.writeUInt32LE(rva, 0x108 + 40); bytes.writeUInt32LE(size, 0x108 + 44);
+    assert.throws(() => inspectImage(bytes), /invalid-base-relocation-directory/);
+  }
+});
+
 test('list-only execution has fixed argv, no shell, a 20-second owned-child bound and no inherited credential', () => {
   const env = diagnosticEnvironment({ SystemRoot: 'C:\\Windows', PATH: 'C:\\Windows\\System32', GITHUB_TOKEN: 'private-value', HOME: 'C:\\real-user' }, 'C:\\scratch', path.win32);
   assert.equal(env.GITHUB_TOKEN, undefined); assert.equal(env.HOME, 'C:\\scratch');

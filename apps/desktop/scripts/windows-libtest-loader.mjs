@@ -61,8 +61,9 @@ export function inspectImage(bytes) {
   const u16 = n => bytes.readUInt16LE(checked(n, 2)), u32 = n => bytes.readUInt32LE(checked(n, 4));
   const pe = u32(0x3c), optional = pe + 24, sectionTable = optional + u16(pe + 20);
   const directories = optional + (parsed.format === 'PE32+' ? 112 : 96);
-  const resourceRva = u32(directories - 4) > 2 ? u32(directories + 16) : 0;
-  const resourceSize = u32(directories - 4) > 2 ? u32(directories + 20) : 0;
+  // parsePe already bounds the directory count against the optional header.
+  const dataDirectories = Array.from({ length: u32(directories - 4) }, (_, i) => ({ rva: u32(directories + i * 8), size: u32(directories + i * 8 + 4) }));
+  const { rva: resourceRva, size: resourceSize } = dataDirectories[2] ?? { rva: 0, size: 0 };
   const sections = [];
   for (let i = 0; i < u16(pe + 6); i++) {
     const start = checked(sectionTable + i * 40, 40), offset = u32(start + 20), rawSize = u32(start + 16);
@@ -76,6 +77,15 @@ export function inspectImage(bytes) {
     const section = unique(sections.filter(item => rva >= item.rva && rva + size <= item.rva + item.rawSize), 'invalid-resource-rva');
     return checked(section.offset + rva - section.rva, size);
   };
+  let relocationDirectory = null;
+  const relocation = dataDirectories[5];
+  if (relocation && (relocation.rva || relocation.size)) {
+    if (!relocation.rva || !relocation.size) fail('invalid-base-relocation-directory');
+    const section = unique(sections.filter(s => relocation.rva >= s.rva && relocation.rva + relocation.size <= s.rva + s.rawSize), 'invalid-base-relocation-directory');
+    const relativeOffset = relocation.rva - section.rva, offset = checked(section.offset + relativeOffset, relocation.size);
+    relocationDirectory = { ...relocation, section: section.name, relativeOffset,
+      sha256: sha256(bytes.subarray(offset, offset + relocation.size)) };
+  }
   const resources = [];
   if (resourceRva || resourceSize) {
     if (!resourceRva || resourceSize < 16) fail('invalid-resource-directory');
@@ -120,23 +130,77 @@ export function inspectImage(bytes) {
   resources.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right), 'en'));
   const publicSections = sections.map(({ offset: _offset, ...item }) => item);
   if (!publicSections.some(section => section.code)) fail('no-code-section');
+  // Bind all other DOS/COFF/optional-header bytes, including stack/heap sizes
+  // and loader flags. These excluded fields have resource/layout checks below;
+  // the SDK also recomputes the file checksum when updating resources.
+  const unchangedHeader = Buffer.from(bytes.subarray(0, sectionTable));
+  for (const [offset, size] of [[pe + 6, 2], [optional + 8, 4], [optional + 56, 4], [optional + 64, 4]]) unchangedHeader.fill(0, offset, offset + size);
+  for (const index of [2, 5]) if (index < dataDirectories.length) unchangedHeader.fill(0, directories + index * 8, directories + index * 8 + 8);
   return { sha256: sha256(bytes), size: bytes.length, machine: parsed.machine, architecture: parsed.architecture,
-    imports: parsed.imports, exports: parsed.exports, resources,
+    imports: parsed.imports, exports: parsed.exports, resources, dataDirectories, relocationDirectory,
+    sizeOfImage: u32(optional + 56), initializedDataSize: u32(optional + 8),
     manifests: resources.filter(resource => resource.manifest), sections: publicSections,
     executionHeader: { entryPoint: u32(optional + 16), subsystem: u16(optional + 68), dllCharacteristics: u16(optional + 70),
+      unchangedFieldsSha256: sha256(unchangedHeader),
+      format: parsed.format, characteristics: u16(pe + 22), sectionAlignment: u32(optional + 32), fileAlignment: u32(optional + 36),
       imageBase: parsed.format === 'PE32+' ? bytes.readBigUInt64LE(optional + 24).toString() : String(u32(optional + 28)) } };
 }
 
-/** A manifest experiment cannot run when any code, import or non-resource section changed. */
+// The SDK may insert .rsrc immediately before the last relocation section. Its
+// directory must still name the same bytes at the same offset within that one
+// section. No other section address, property, content or ordering may change.
+function relocationResourceInsertion(before, after, equal) {
+  const previous = before.sections.at(-1), moved = after.sections.at(-1), resource = after.sections.at(-2);
+  const oldDirectory = before.relocationDirectory, newDirectory = after.relocationDirectory;
+  const alignment = before.executionHeader.sectionAlignment;
+  if (!oldDirectory || !newDirectory || !previous || !moved || !resource || !alignment
+    || before.sections.some(s => s.resource) || before.resources.length
+    || before.dataDirectories[2]?.rva !== 0 || before.dataDirectories[2]?.size !== 0
+    || after.sections.length !== before.sections.length + 1
+    || new Set(before.sections.map(s => s.name)).size !== before.sections.length
+    || new Set(after.sections.map(s => s.name)).size !== after.sections.length
+    || !resource.resource || resource.characteristics !== 0x40000040 || resource.code
+    || previous.characteristics !== 0x42000040 || previous.resource || previous.code || moved.resource || moved.code
+    || oldDirectory.section !== previous.name || newDirectory.section !== moved.name
+    || !equal(before.sections.slice(0, -1), after.sections.slice(0, -2))
+    || !equal(previous, { ...moved, rva: previous.rva })
+    || resource.rva !== previous.rva || after.dataDirectories[2]?.rva !== resource.rva
+    || after.dataDirectories[2]?.size !== resource.virtualSize
+    || after.manifests.length !== 1 || after.resources.length !== 1) return null;
+  // An unchanged pointer from another directory must not acquire a different
+  // meaning when .rsrc occupies the old relocation address. Directory 4 uses
+  // file offsets, so its metadata is checked separately with every other entry.
+  if (before.dataDirectories.some((d, i) => i !== 4 && i !== 5 && d.rva
+    && d.rva < previous.rva + Math.max(previous.rawSize, previous.virtualSize)
+    && d.rva + Math.max(d.size, 1) > previous.rva)) return null;
+  const span = Math.ceil(Math.max(resource.rawSize, resource.virtualSize) / alignment) * alignment;
+  const initializedDataSize = after.sections.filter(s => s.characteristics & 0x40).reduce((total, s) => total + s.rawSize, 0);
+  if (!span || resource.rva % alignment || moved.rva !== previous.rva + span
+    || after.sizeOfImage !== before.sizeOfImage + span
+    || after.initializedDataSize !== initializedDataSize
+    || !equal(oldDirectory, { ...newDirectory, rva: oldDirectory.rva })) return null;
+  return { beforeRva: previous.rva, afterRva: moved.rva, insertedResourceSpan: span,
+    initializedDataSizeBefore: before.initializedDataSize, initializedDataSizeAfter: initializedDataSize,
+    relativeOffset: oldDirectory.relativeOffset, size: oldDirectory.size,
+    directorySha256: oldDirectory.sha256, sectionSha256: previous.sha256 };
+}
+
+/** Permit only manifest resources and the directory-proven SDK relocation move. */
 export function imageEquivalence(before, after) {
   const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const codeSectionsEqual = equal(before.sections.filter(s => s.code), after.sections.filter(s => s.code));
   const nonResourceSectionsEqual = equal(before.sections.filter(s => !s.resource), after.sections.filter(s => !s.resource));
+  const relocationSectionMove = nonResourceSectionsEqual ? null : relocationResourceInsertion(before, after, equal);
+  const relocationDirectoryPreserved = equal(before.relocationDirectory, after.relocationDirectory) || relocationSectionMove !== null;
+  const dataDirectoriesPreserved = before.dataDirectories.length === after.dataDirectories.length
+    && before.dataDirectories.every((directory, i) => i === 2 || (i === 5 && relocationSectionMove !== null) || equal(directory, after.dataDirectories[i]));
   const importsEqual = equal(before.imports, after.imports), exportsEqual = equal(before.exports, after.exports);
   const otherResourcesEqual = equal(before.resources.filter(r => !r.manifest), after.resources.filter(r => !r.manifest));
   const executionHeaderEqual = before.machine === after.machine && equal(before.executionHeader, after.executionHeader);
-  return { codeSectionsEqual, nonResourceSectionsEqual, importsEqual, exportsEqual, otherResourcesEqual, executionHeaderEqual,
-    accepted: codeSectionsEqual && nonResourceSectionsEqual && importsEqual && exportsEqual && otherResourcesEqual && executionHeaderEqual };
+  return { codeSectionsEqual, nonResourceSectionsEqual, relocationSectionMove, relocationDirectoryPreserved, dataDirectoriesPreserved,
+    importsEqual, exportsEqual, otherResourcesEqual, executionHeaderEqual,
+    accepted: codeSectionsEqual && (nonResourceSectionsEqual || relocationSectionMove !== null) && relocationDirectoryPreserved
+      && dataDirectoriesPreserved && importsEqual && exportsEqual && otherResourcesEqual && executionHeaderEqual };
 }
 
 /** Preserve loader search inputs, but provide no credentials or real runtime profile. */
