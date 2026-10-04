@@ -2426,7 +2426,7 @@ mod windows {
 
         #[test]
         fn cleanup_reason_codes_distinguish_cookie_audit_failure() {
-            let audit = super::ProfileCleanupEvidence {
+            let audit = crate::windows_spa_profile::ProfileCleanupEvidence {
                 environment_exited: true,
                 read_only_complete: true,
                 cookie_database_files: 1,
@@ -2450,7 +2450,7 @@ mod windows {
                 "SPA_PROFILE_CLEANUP_DELETE_FAILED"
             );
             let mut timeout = CleanupResult::default();
-            timeout.audits.push(super::ProfileCleanupEvidence {
+            timeout.audits.push(crate::windows_spa_profile::ProfileCleanupEvidence {
                 exit_timed_out: true,
                 ..Default::default()
             });
