@@ -20,6 +20,8 @@ pub struct NativeState {
     pub view: Mutex<TrayState>,
     pub connection: Mutex<Option<Connection>>,
     pub background: AtomicBool,
+    #[cfg(debug_assertions)]
+    pub fixture_autostart: AtomicBool,
     pub header: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
 }
 pub struct Windows<'a>(pub &'a tauri::AppHandle);
@@ -35,6 +37,13 @@ impl WindowHost for Windows<'_> {
         window.show().map_err(|_| WindowFailure::Show)?;
         window.unminimize().map_err(|_| WindowFailure::Unminimize)?;
         window.set_focus().map_err(|_| WindowFailure::Focus)
+    }
+    fn show(&self, label: &str) -> Result<(), WindowFailure> {
+        self.0
+            .get_webview_window(label)
+            .ok_or(WindowFailure::Unavailable)?
+            .show()
+            .map_err(|_| WindowFailure::Show)
     }
     fn hide(&self, label: &str) -> Result<(), WindowFailure> {
         self.0

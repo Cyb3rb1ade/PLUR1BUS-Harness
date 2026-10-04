@@ -28,6 +28,9 @@ pub trait WindowHost {
     fn exists(&self, label: &str) -> bool;
     /// Show, unminimize and focus the existing window; never construct a second instance.
     fn present(&self, label: &str) -> Result<(), WindowFailure>;
+    fn show(&self, label: &str) -> Result<(), WindowFailure> {
+        self.present(label)
+    }
     fn hide(&self, label: &str) -> Result<(), WindowFailure>;
     fn minimize(&self, label: &str) -> Result<(), WindowFailure>;
 }

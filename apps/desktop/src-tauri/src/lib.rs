@@ -2,6 +2,7 @@
 pub mod client;
 pub mod commands;
 pub mod connections;
+pub mod controller;
 pub mod crash;
 pub mod discovery;
 pub mod events;
@@ -71,8 +72,6 @@ pub fn run() {
     #[cfg(windows)]
     use std::sync::Arc;
     #[cfg(windows)]
-    use tauri::Manager;
-    #[cfg(windows)]
     let exit_gate = Arc::new(ProfileExitGate::default());
     #[allow(unused_mut)]
     let mut context = tauri::generate_context!();
@@ -84,7 +83,7 @@ pub fn run() {
     tauri::Builder::default()
         // The singleton plugin must run before other plugin/setup side effects.
         .plugin(tauri_plugin_single_instance::init(|app, _, _| native::focus(app)))
-        .plugin(tauri_plugin_autostart::Builder::new().arg("--autostart").macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent).build())
+        .plugin(controller::autostart::plugin())
         .plugin(tauri_plugin_notification::init())
         .manage(native::NativeState::default())
         .manage(commands::ConnectionState::default())
@@ -138,6 +137,8 @@ pub fn run() {
             commands::pair_code,
             commands::pair_local,
             commands::open_connection,
+            commands::autostart_get,
+            commands::autostart_set,
             commands::quit_request,
             commands::quit_offer,
             commands::quit_response,
@@ -146,9 +147,13 @@ pub fn run() {
         .on_page_load(|webview, payload| {
             if webview.label() == "shell"
                 && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
-                && webview.window().show().is_err()
             {
-                eprintln!("SHELL_WINDOW_SHOW_FAILED");
+                use tauri::Manager;
+                let app = webview.app_handle();
+                if std::env::args_os().any(|arg| arg == "--autostart") {
+                    let background = app.state::<native::NativeState>().background.load(std::sync::atomic::Ordering::SeqCst);
+                    if let Err(reason) = controller::autostart::on_login(&native::Windows(app), background) { eprintln!("{}", reason.code()); }
+                } else if webview.window().show().is_err() { eprintln!("SHELL_WINDOW_SHOW_FAILED"); }
             }
         })
         .build(context)

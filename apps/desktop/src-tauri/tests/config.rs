@@ -61,7 +61,9 @@ fn shell_capability_is_local_only() {
             "allow-quit-offer",
             "allow-quit-response",
             "core:event:allow-listen",
-            "core:event:allow-unlisten"
+            "core:event:allow-unlisten",
+            "allow-autostart-get",
+            "allow-autostart-set"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -102,6 +104,8 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "pair_code",
             "pair_local",
             "open_connection",
+            "autostart_get",
+            "autostart_set",
             "quit_request",
             "quit_offer",
             "quit_response"

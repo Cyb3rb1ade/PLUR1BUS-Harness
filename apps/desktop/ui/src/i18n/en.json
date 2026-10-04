@@ -140,5 +140,7 @@
   "quit.stop": "Stop harness",
   "quit.cancel": "Cancel",
   "quit.confirm": "Quit",
-  "quit.failed": "Could not quit. Please try again."
+  "quit.failed": "Could not quit. Please try again.",
+  "autostart.label": "Start PLUR1BUS at login",
+  "autostart.failed": "Could not change autostart. Please try again."
 }

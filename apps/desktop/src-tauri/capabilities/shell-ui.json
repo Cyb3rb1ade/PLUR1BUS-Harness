@@ -19,6 +19,8 @@
     "allow-quit-offer",
     "allow-quit-response",
     "core:event:allow-listen",
-    "core:event:allow-unlisten"
+    "core:event:allow-unlisten",
+    "allow-autostart-get",
+    "allow-autostart-set"
   ]
 }

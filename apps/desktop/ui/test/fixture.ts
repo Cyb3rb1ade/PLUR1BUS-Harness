@@ -7,6 +7,9 @@ import { openSheet } from "../src/components/sheet.ts";
 let settings: Settings = { theme: "system", locale: "system" };
 let failNextSave = false;
 let failQuit = false;
+let autostart = false;
+let autostartFail = false;
+const autostartCalls: boolean[] = [];
 let deferredSaves = false;
 const pendingSaves: Array<{ value: Settings; resolve: (value: Settings) => void; reject: (error: Error) => void }> = [];
 const boot = (window as any).__fixtureBoot as { platform?: "mac" | "win" | "gnome" | "kde"; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean } | undefined;
@@ -19,6 +22,8 @@ const connectionGate = boot?.deferConnections ? new Promise<void>(resolve=>{rele
 let completeLoads: () => void = () => {};
 const loaded = boot?.deferLoad ? new Promise<void>(resolve => { completeLoads = resolve; }) : Promise.resolve();
 const transport: DesktopTransport = {
+ async autostartGet(){return autostart;},
+ async autostartSet(value){autostartCalls.push(value);if(autostartFail)throw new Error("injected autostart error");autostart=value;return autostart;},
  async connectionsList(){await connectionGate;if(failConnections)throw "storage";return {connections:rows,active,tokenStore:"memory-only"};},
  async connectionsRename(id,name){rows=rows.map(row=>row.id===id?{...row,name}:row);},
  async connectionsRemove(id){rows=rows.filter(row=>row.id!==id);},
@@ -38,6 +43,8 @@ document.body.append(shellRoot);
 const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
+  autostartCalls: () => autostartCalls,
+  failAutostart: () => { autostartFail = true; },
   quitDecisions: [] as string[],
   setQuitFailure: (value: boolean) => { failQuit = value; },
   openQuit: () => openQuitDialog({choice:"keep-running",canStopHarness:false}, { confirm: async choice => { if (failQuit) throw new Error("injected rejection"); (window as any).testShell.quitDecisions.push(choice); }, cancel: async () => { (window as any).testShell.quitDecisions.push("cancel"); } }),

@@ -449,3 +449,21 @@ pub fn quit_response(
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn autostart_get(window: WebviewWindow) -> Result<bool, String> {
+    check(&window, "autostart_get")?;
+    use crate::controller::autostart::AppLauncher;
+    crate::controller::autostart::NativeLauncher(window.app_handle())
+        .is_enabled()
+        .map_err(|reason| reason.code().to_owned())
+}
+#[tauri::command]
+pub fn autostart_set(window: WebviewWindow, enabled: bool) -> Result<bool, String> {
+    check(&window, "autostart_set")?;
+    crate::controller::autostart::set_enabled(
+        &crate::controller::autostart::NativeLauncher(window.app_handle()),
+        enabled,
+    )
+    .map_err(|reason| reason.code().to_owned())
+}
