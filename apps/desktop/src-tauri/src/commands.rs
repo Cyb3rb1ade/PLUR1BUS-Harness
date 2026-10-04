@@ -217,7 +217,9 @@ pub async fn connections_remove(
 ) -> Result<(), String> {
     check(&window, "connections_remove")?;
     let store = connection_store(&window)?;
+    let app = window.app_handle().clone();
     credential_action(&state, move |tokens, _| {
+        crate::native::retire_connection(&app, request.id);
         crate::pair::remove_connection(
             &store,
             request.id,
@@ -237,7 +239,11 @@ pub async fn pair_code(
     check(&window, "pair_code")?;
     let store = connection_store(&window)?;
     let code = crate::secrets::SecretString::new(request.code);
+    let app = window.app_handle().clone();
     credential_action(&state, move |tokens, runtime| {
+        if let Some(id) = request.repair_id {
+            crate::native::retire_connection(&app, id);
+        }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let connection = runtime
             .block_on(crate::pair::pair_code(

@@ -121,6 +121,18 @@ impl EventOwner {
     pub fn stop(&self) {
         self.begin();
     }
+    /// Predicate and invalidation share the owner lock, preventing a concurrent selection race.
+    pub fn stop_if(&self, matches: impl FnOnce() -> bool) -> bool {
+        let mut slot = self.0.lock().unwrap();
+        if !matches() {
+            return false;
+        }
+        if let Some(task) = slot.task.take() {
+            task.abort();
+        }
+        slot.generation = slot.generation.wrapping_add(1);
+        true
+    }
     pub fn install(&self, generation: u64, task: JoinHandle<()>) -> bool {
         let mut slot = self.0.lock().unwrap();
         if slot.generation != generation {

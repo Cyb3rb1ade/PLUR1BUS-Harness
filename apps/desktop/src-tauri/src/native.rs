@@ -26,6 +26,51 @@ pub struct NativeState {
     pub fixture_autostart: AtomicBool,
     pub header: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
 }
+impl NativeState {
+    pub fn cancel_connection(&self, id: uuid::Uuid) -> bool {
+        self.events.stop_if(|| {
+            let mut active = self.connection.lock().unwrap();
+            if active.as_ref().is_some_and(|row| row.id == id) {
+                active.take();
+                true
+            } else {
+                false
+            }
+        })
+    }
+}
+/// Invoked inside the credential mutation owner, before removing or replacing a credential.
+pub fn retire_connection(app: &tauri::AppHandle, id: uuid::Uuid) {
+    let state = app.state::<NativeState>();
+    if !state.cancel_connection(id) {
+        return;
+    }
+    let generation = state.events.generation();
+    let gui = app.clone();
+    if app
+        .run_on_main_thread(move || {
+            let state = gui.state::<NativeState>();
+            state.events.with_current(generation, || {
+                if crate::spa::retire(&gui).is_err() {
+                    eprintln!("CONNECTION_SESSION_RETIRE_FAILED");
+                }
+                if let Some(window) = gui.get_webview_window("spa") {
+                    if window.destroy().is_err() {
+                        eprintln!("CONNECTION_WINDOW_RETIRE_FAILED");
+                    }
+                }
+                let mut view = state.view.lock().unwrap();
+                view.harness = crate::tray::HarnessState::Unpaired;
+                update_tray(&gui, &view);
+                drop(view);
+                navigate_shell(&gui, "#/connections");
+            });
+        })
+        .is_err()
+    {
+        eprintln!("CONNECTION_RETIRE_DISPATCH_FAILED");
+    }
+}
 pub struct Windows<'a>(pub &'a tauri::AppHandle);
 impl WindowHost for Windows<'_> {
     fn exists(&self, label: &str) -> bool {

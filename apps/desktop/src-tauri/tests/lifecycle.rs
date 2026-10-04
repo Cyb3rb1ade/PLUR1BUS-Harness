@@ -163,3 +163,44 @@ fn revoked_stream_persists_repair_state_and_removes_only_its_token() {
     assert!(tokens.get(&token_account(connection.id)).unwrap().is_none());
     assert!(tokens.get("other").unwrap().is_some());
 }
+
+#[tokio::test]
+async fn removal_or_repair_cancels_only_the_matching_native_connection() {
+    use plur1bus_desktop::{
+        connections::{Connection, Kind, Origin},
+        native::NativeState,
+    };
+    let state = NativeState::default();
+    let row = Connection::new(
+        "Fixture".into(),
+        Kind::Remote,
+        Origin::parse("http://127.0.0.1:9123").unwrap(),
+        "fixture-installation".into(),
+        "fixture-device".into(),
+        "fixture-hint".into(),
+    );
+    let id = row.id;
+    *state.connection.lock().unwrap() = Some(row);
+    let generation = state.events.begin();
+    let task = tokio::spawn(std::future::pending::<()>());
+    let aborted = task.abort_handle();
+    state.events.install(generation, task);
+    assert!(!state.cancel_connection(uuid::Uuid::now_v7()));
+    assert_eq!(state.events.generation(), generation);
+    assert!(!aborted.is_finished());
+    assert!(state.connection.lock().unwrap().is_some());
+    assert!(state.cancel_connection(id));
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        while !aborted.is_finished() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(state.connection.lock().unwrap().is_none());
+    assert!(state
+        .events
+        .with_current(generation, || panic!("retired update applied"))
+        .is_none());
+    assert!(!state.cancel_connection(id));
+}
