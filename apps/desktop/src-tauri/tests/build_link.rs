@@ -46,6 +46,28 @@ fn windows_msvc_resource_scope_preserves_every_other_output_and_resource() {
 }
 
 #[test]
+fn resource_named_directories_preserve_unrelated_search_output() {
+    let root = tempfile::tempdir().unwrap();
+    let out = root.path().join("resource.library");
+    std::fs::create_dir(&out).unwrap();
+    std::fs::write(out.join("resource.lib"), b"generated manifest resource").unwrap();
+    let original = format!(
+        "cargo:rustc-link-search=native={}\r\ncargo::rustc-link-search=all=C:\\work\\resource.library\\cache\r\ncargo:rustc-link-search=C:\\work\\resource.lib\r\ncargo:rustc-link-arg=/LIBPATH:C:\\work\\resource.lib\r\ncargo:rustc-link-arg=/DEFAULTLIB:C:\\work\\resource.library\\libcmt.lib\r\ncargo:rustc-link-arg-bin=resource.lib-launcher=/DEFAULTLIB:libcmt.lib\r\ncargo:warning=rustc-link-arg=resource.lib\r\ncargo:rustc-link-arg-bins={}\r\ncargo:rerun-if-changed=tauri.conf.json\r\n",
+        out.display(), out.join("resource.lib").display()
+    );
+    let output =
+        build_support::windows_resource_link_output("windows", "msvc", &out, &original).unwrap();
+    assert_eq!(
+        output,
+        original.replacen("cargo:rustc-link-arg-bins=", "cargo:rustc-link-arg=", 1)
+    );
+    assert_eq!(
+        std::fs::read(out.join("resource.lib")).unwrap(),
+        b"generated manifest resource"
+    );
+}
+
+#[test]
 fn missing_windows_msvc_generated_resource_fails_without_falling_back() {
     let out = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -156,6 +178,44 @@ fn missing_duplicate_or_changed_resource_directives_fail_closed() {
         std::fs::read(out.path().join("resource.lib")).unwrap(),
         b"generated resource"
     );
+}
+
+#[test]
+fn resource_input_directives_still_fail_closed_with_resource_named_directories() {
+    let root = tempfile::tempdir().unwrap();
+    let out = root.path().join("resource.library");
+    std::fs::create_dir(&out).unwrap();
+    std::fs::write(out.join("resource.lib"), b"generated resource").unwrap();
+    let original = tauri_output(&out);
+    // The valid search directive in this baseline must be accepted first;
+    // every rejection below must come from the additional resource input.
+    assert!(
+        build_support::windows_resource_link_output("windows", "msvc", &out, &original).is_ok()
+    );
+    for input in [
+        "rustc-link-arg=C:\\work\\resource.library\\resource.lib",
+        "rustc-link-arg-bins=resource.lib",
+        "rustc-link-arg-tests=resource.lib",
+        "rustc-link-arg-examples=resource.lib",
+        "rustc-link-arg-benches=resource.lib",
+        "rustc-link-arg-cdylib=resource.lib",
+        "rustc-cdylib-link-arg=resource.lib",
+        "rustc-link-arg-bin=main=resource.lib",
+        "rustc-link-arg=/DEFAULTLIB:resource.lib",
+        "rustc-link-arg=/wholearchive:\"C:\\work\\resource.library\\RESOURCE.LIB\"",
+        "rustc-link-lib=resource",
+        "rustc-link-lib=dylib=resource",
+        "rustc-link-lib=static:+verbatim=resource.lib",
+        "rustc-link-lib=static=resource:renamed",
+    ] {
+        for prefix in ["cargo:", "cargo::"] {
+            let output = format!("{original}{prefix}{input}\r\n");
+            let error =
+                build_support::windows_resource_link_output("windows", "msvc", &out, &output)
+                    .unwrap_err();
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidData, "{output}");
+        }
+    }
 }
 
 #[cfg(unix)]

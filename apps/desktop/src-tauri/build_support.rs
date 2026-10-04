@@ -55,11 +55,7 @@ pub fn windows_resource_link_output(
         } else {
             // Fail closed if the pinned dependency changes its resource output
             // shape; accepting an additional link input could duplicate it.
-            if line.starts_with("cargo:")
-                && line.contains("rustc-link-")
-                && (line.contains("resource.lib")
-                    || line.trim_end_matches(['\r', '\n']).ends_with("=resource"))
-            {
+            if is_resource_link_input(line) {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "unexpected Tauri resource link directive",
@@ -75,6 +71,53 @@ pub fn windows_resource_link_output(
         ));
     }
     Ok(rewritten)
+}
+
+fn is_resource_link_input(line: &str) -> bool {
+    let instruction = line
+        .trim_end_matches(['\r', '\n'])
+        .strip_prefix("cargo::")
+        .or_else(|| line.trim_end_matches(['\r', '\n']).strip_prefix("cargo:"));
+    let Some((name, value)) = instruction.and_then(|instruction| instruction.split_once('='))
+    else {
+        return false;
+    };
+    let input = match name {
+        "rustc-link-arg"
+        | "rustc-link-arg-bins"
+        | "rustc-link-arg-tests"
+        | "rustc-link-arg-examples"
+        | "rustc-link-arg-benches"
+        | "rustc-link-arg-cdylib"
+        | "rustc-cdylib-link-arg" => value,
+        "rustc-link-arg-bin" => value.split_once('=').map_or("", |(_, input)| input),
+        "rustc-link-lib" => {
+            // Cargo's [KIND[:MODIFIERS]=]NAME[:RENAME] syntax.
+            let name = value.rsplit_once('=').map_or(value, |(_, name)| name);
+            name.split_once(':').map_or(name, |(name, _)| name)
+        }
+        // Search paths and other metadata are not resource inputs, even when
+        // their values or directory components happen to contain resource.lib.
+        _ => return false,
+    };
+    let input = input.trim_matches('"');
+    let input = match input.split_once(':') {
+        Some((flag, input))
+            if flag.eq_ignore_ascii_case("/DEFAULTLIB")
+                || flag.eq_ignore_ascii_case("/WHOLEARCHIVE") =>
+        {
+            input
+        }
+        Some((flag, _)) if flag.starts_with('/') => return false,
+        _ => input,
+    };
+    // Windows paths must also be recognized by the portable host tests.
+    let filename = input
+        .trim_matches('"')
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("");
+    filename.eq_ignore_ascii_case("resource.lib") || filename.eq_ignore_ascii_case("resource")
 }
 
 pub fn isolate_msvcrt_shim(out_dir: &Path) -> io::Result<Option<PathBuf>> {
