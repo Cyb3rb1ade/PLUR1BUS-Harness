@@ -256,6 +256,69 @@ describe("scanners", () => {
     }
   });
 
+  it("invalid pagination cursor (too long, control chars, loop) fails as failed:invalid (Security M2)", async () => {
+    // Anthropic cursor too long (> 512 bytes)
+    const fAnthropicLong = await fake(() => ({
+      json: { data: [{ id: "m1" }], has_more: true, last_id: "c".repeat(513) },
+    }));
+    const cAnthropicLong = createPinnedClient({ baseUrl: fAnthropicLong.origin, lease: null, userAgent: "plur1bus/0.1.0" });
+    await assert.rejects(
+      SCANNERS["anthropic-models"]({ id: "a", discovery: "anthropic-models", baseUrl: fAnthropicLong.origin }, cAnthropicLong),
+      (e: unknown) => e instanceof ScanError && e.result === "failed:invalid" && e.reason === "invalid_entry",
+    );
+
+    // Anthropic cursor containing control character
+    const fAnthropicControl = await fake(() => ({
+      json: { data: [{ id: "m1" }], has_more: true, last_id: "c\u0000bad" },
+    }));
+    const cAnthropicControl = createPinnedClient({ baseUrl: fAnthropicControl.origin, lease: null, userAgent: "plur1bus/0.1.0" });
+    await assert.rejects(
+      SCANNERS["anthropic-models"]({ id: "a", discovery: "anthropic-models", baseUrl: fAnthropicControl.origin }, cAnthropicControl),
+      (e: unknown) => e instanceof ScanError && e.result === "failed:invalid" && e.reason === "invalid_entry",
+    );
+
+    // Anthropic cursor equals previous (loop prevention)
+    const fAnthropicLoop = await fake(() => ({
+      json: { data: [{ id: "m1" }], has_more: true, last_id: "same-cursor" },
+    }));
+    const cAnthropicLoop = createPinnedClient({ baseUrl: fAnthropicLoop.origin, lease: null, userAgent: "plur1bus/0.1.0" });
+    // First page sets afterId = "same-cursor"; second page with after_id=same-cursor returns last_id: "same-cursor"
+    await assert.rejects(
+      SCANNERS["anthropic-models"]({ id: "a", discovery: "anthropic-models", baseUrl: fAnthropicLoop.origin }, cAnthropicLoop),
+      (e: unknown) => e instanceof ScanError && e.result === "failed:invalid" && e.reason === "bad_envelope",
+    );
+
+    // Google nextPageToken too long (> 512 bytes)
+    const fGoogleLong = await fake(() => ({
+      json: { models: [{ name: "models/m1" }], nextPageToken: "tok-".repeat(150) },
+    }));
+    const cGoogleLong = createPinnedClient({ baseUrl: fGoogleLong.origin, lease: null, userAgent: "plur1bus/0.1.0" });
+    await assert.rejects(
+      SCANNERS["google-models"]({ id: "g", discovery: "google-models", baseUrl: fGoogleLong.origin }, cGoogleLong),
+      (e: unknown) => e instanceof ScanError && e.result === "failed:invalid" && e.reason === "invalid_entry",
+    );
+
+    // Google nextPageToken containing control character
+    const fGoogleControl = await fake(() => ({
+      json: { models: [{ name: "models/m1" }], nextPageToken: "tok\nline" },
+    }));
+    const cGoogleControl = createPinnedClient({ baseUrl: fGoogleControl.origin, lease: null, userAgent: "plur1bus/0.1.0" });
+    await assert.rejects(
+      SCANNERS["google-models"]({ id: "g", discovery: "google-models", baseUrl: fGoogleControl.origin }, cGoogleControl),
+      (e: unknown) => e instanceof ScanError && e.result === "failed:invalid" && e.reason === "invalid_entry",
+    );
+
+    // Google nextPageToken equals previous (loop prevention)
+    const fGoogleLoop = await fake(() => ({
+      json: { models: [{ name: "models/m1" }], nextPageToken: "same-token" },
+    }));
+    const cGoogleLoop = createPinnedClient({ baseUrl: fGoogleLoop.origin, lease: null, userAgent: "plur1bus/0.1.0" });
+    await assert.rejects(
+      SCANNERS["google-models"]({ id: "g", discovery: "google-models", baseUrl: fGoogleLoop.origin }, cGoogleLoop),
+      (e: unknown) => e instanceof ScanError && e.result === "failed:invalid" && e.reason === "bad_envelope",
+    );
+  });
+
   it("manual has no scanner", () => {
     assert.deepEqual(Object.keys(SCANNERS).sort(), ["anthropic-models", "google-models", "ollama-tags", "openai-models"]);
     assert.equal("manual" in SCANNERS, false);

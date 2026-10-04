@@ -596,4 +596,18 @@ describe("discovery service", () => {
     assert.equal(res.error?.reason, "renew_sign_in");
     assert.equal(res.error?.httpStatus, undefined);
   });
+
+  it("scanProvider with invalid cursor ends as failed:invalid (Security M2)", async () => {
+    const f = await fake(() => ({
+      json: { data: [{ id: "m1" }], has_more: true, last_id: "c".repeat(513) },
+    }));
+    const s = setup({
+      profiles: [{ id: "p", discovery: "anthropic-models", baseUrl: `${f.origin}/v1` }],
+      credentials: { p: null },
+    });
+
+    const res = await s.service.scanProvider("p", { trigger: "cron" });
+    assert.equal(res.result, "failed:invalid");
+    assert.equal(res.error?.reason, "invalid_entry");
+  });
 });

@@ -273,28 +273,99 @@ describe("reconcile", () => {
     );
   });
 
-  it("enforces resolved alias uniqueness on reconcile (F4)", () => {
-    const catalog = emptyCatalog(table.revision);
+  it("enforces resolved alias uniqueness per provider on reconcile with a colliding table (F4)", () => {
+    const collidingTable = loadMetadataTable({
+      schema: "plur1bus.model-metadata/1",
+      revision: "test-rev-colliding",
+      vendors: {
+        "test-vendor": [
+          {
+            pattern: "^col-.*$",
+            kind: "chat",
+            capabilities: [],
+            aliases: ["shared-alias"],
+          },
+        ],
+      },
+    });
+
+    const catalog = emptyCatalog(collidingTable.revision);
     const logs: string[] = [];
     const logger = { debug: (m: string) => { logs.push(m); } };
 
     const res = reconcile({
       catalog,
-      provider: "example-compat",
+      provider: "p1",
       raw: [
-        { id: "example-chat-large-20260101", created: 1000 },
-        { id: "example-chat-large", created: 2000 },
+        { id: "col-20260101", created: 1000 },
+        { id: "col-base", created: 2000 },
       ],
       now: now1,
-      table,
-      vendor: "example-vendor",
+      table: collidingTable,
+      vendor: "test-vendor",
       roles: {},
       logger,
     });
 
-    const mBase = res.catalog.models.find((m) => m.id === "example-chat-large")!;
-    const mDated = res.catalog.models.find((m) => m.id === "example-chat-large-20260101")!;
-    assert.deepEqual(mBase.aliases, ["example-chat-latest"]);
+    const mBase = res.catalog.models.find((m) => m.id === "col-base")!;
+    const mDated = res.catalog.models.find((m) => m.id === "col-20260101")!;
+    // col-base won because created: 2000 > 1000 (and also base match)
+    assert.deepEqual(mBase.aliases, ["shared-alias"]);
     assert.deepEqual(mDated.aliases, []);
+    assert.ok(logs.some((l) => l.includes("resolved alias collision")));
+  });
+
+  it("dedup is per-provider: same alias on different providers is allowed (F4)", () => {
+    const collidingTable = loadMetadataTable({
+      schema: "plur1bus.model-metadata/1",
+      revision: "test-rev-colliding",
+      vendors: {
+        "test-vendor": [
+          {
+            pattern: "^col-.*$",
+            kind: "chat",
+            capabilities: [],
+            aliases: ["shared-alias"],
+          },
+        ],
+      },
+    });
+
+    const p1Model: CatalogModel = {
+      provider: "p1",
+      id: "col-p1",
+      displayName: "Col P1",
+      kind: "chat",
+      capabilities: [],
+      aliases: ["shared-alias"],
+      status: "available",
+      firstSeen: now1,
+      lastSeen: now1,
+      source: "table",
+      overrides: {},
+    };
+
+    const catalog: CatalogFile = {
+      ...emptyCatalog(collidingTable.revision),
+      models: [p1Model],
+    };
+
+    // Reconcile p2: it also gets "shared-alias" from table
+    const res = reconcile({
+      catalog,
+      provider: "p2",
+      raw: [{ id: "col-p2" }],
+      now: now2,
+      table: collidingTable,
+      vendor: "test-vendor",
+      roles: {},
+    });
+
+    const m1 = res.catalog.models.find((m) => m.provider === "p1")!;
+    const m2 = res.catalog.models.find((m) => m.provider === "p2")!;
+    assert.deepEqual(m1.aliases, ["shared-alias"]);
+    assert.deepEqual(m2.aliases, ["shared-alias"]);
+    // Original p1Model was not mutated in place
+    assert.notEqual(res.catalog.models.find((m) => m.provider === "p1"), p1Model);
   });
 });
