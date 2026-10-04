@@ -119,24 +119,51 @@ type Stamp = { size: number; mtimeMs: number } | null;
 const stamp = (p: string): Stamp => { try { const st = statSync(p); return { size: st.size, mtimeMs: st.mtimeMs }; } catch { return null; } };
 const same = (a: Stamp, b: Stamp) => (a === null ? b === null : b !== null && a.size === b.size && a.mtimeMs === b.mtimeMs);
 
-function wrapImmutableDb(db: DatabaseSync, abs: string): DatabaseSync {
+/** SQLite primary error codes that indicate a database changing under an immutable reader:
+ *  5: SQLITE_BUSY, 6: SQLITE_LOCKED, 10: SQLITE_IOERR (e.g. short read), 11: SQLITE_CORRUPT, 26: SQLITE_NOTADB (§B.5). */
+export function isTornReadError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const err = e as { errcode?: number };
+  if (typeof err.errcode !== "number") return false;
+  const primary = err.errcode & 0xff;
+  return primary === 5 || primary === 6 || primary === 10 || primary === 11 || primary === 26;
+}
+
+export function wrapImmutableDb(db: DatabaseSync, abs: string): DatabaseSync {
   function translateError(e: unknown): never {
     if (e instanceof ImportError) throw e;
-    const err = e as { code?: string; errcode?: number; message?: string };
-    if (
-      err.code === "ERR_SQLITE_ERROR" ||
-      err.errcode === 11 ||
-      err.errcode === 5 ||
-      /malformed|corrupt|busy/i.test(err.message ?? "")
-    ) {
+    if (isTornReadError(e)) {
+      const errcode = (e as { errcode?: number }).errcode;
       throw new ImportError(
         "E_SOURCE_BUSY",
         "source-busy",
-        `${abs} changed while reading immutable fallback (${err.message ?? e}); stop the source and retry`,
+        `${abs} changed while reading immutable fallback (sqlite errcode ${errcode}); stop the source and retry`,
         3
       );
     }
     throw e;
+  }
+
+  function wrapIterator(iter: any): any {
+    return {
+      [Symbol.iterator]() {
+        return this;
+      },
+      next(...args: any[]) {
+        try {
+          return iter.next(...args);
+        } catch (e) {
+          translateError(e);
+        }
+      },
+      return(...args: any[]) {
+        try {
+          return typeof iter.return === "function" ? iter.return(...args) : { done: true, value: undefined };
+        } catch (e) {
+          translateError(e);
+        }
+      },
+    };
   }
 
   function wrapStatement(stmt: any): any {
@@ -146,7 +173,13 @@ function wrapImmutableDb(db: DatabaseSync, abs: string): DatabaseSync {
         if (typeof val === "function") {
           return function (...args: any[]) {
             try {
-              return val.apply(target, args);
+              const res = val.apply(target, args);
+              // Callers of the immutable path in packages/core/src/import use .all() or .get(),
+              // but wrap iterators defensively so next() translates errors if iterate() is used.
+              if (prop === "iterate" && res && typeof res.next === "function") {
+                return wrapIterator(res);
+              }
+              return res;
             } catch (e) {
               translateError(e);
             }
@@ -209,9 +242,9 @@ export function openSqliteReadOnly(path: string, opts: SqliteOpenOptions = {}): 
     try {
       rawDb = new DatabaseSync(url, { readOnly: true });
     } catch (e) {
-      const err = e as { code?: string; errcode?: number; message?: string };
-      if (err.code === "ERR_SQLITE_ERROR" || err.errcode === 11 || err.errcode === 5 || /malformed|corrupt|busy/i.test(err.message ?? "")) {
-        throw new ImportError("E_SOURCE_BUSY", "source-busy", `${abs} kept changing while opening immutable fallback (${err.message ?? e}); stop the source and retry`, 3);
+      if (isTornReadError(e)) {
+        const errcode = (e as { errcode?: number }).errcode;
+        throw new ImportError("E_SOURCE_BUSY", "source-busy", `${abs} kept changing while opening immutable fallback (sqlite errcode ${errcode}); stop the source and retry`, 3);
       }
       throw e;
     }

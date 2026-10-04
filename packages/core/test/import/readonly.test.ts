@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { closeSync, ftruncateSync, mkdirSync, openSync, readdirSync, readFileSync, writeFileSync, writeSync } from "node:fs";
 import { ImportError } from "../../src/import/types.ts";
 import { join } from "node:path";
-import { copyFileBounded, envKeyNames, isSecretFileName, loadLanceDb, openSqliteReadOnly, readBounded } from "../../src/import/readonly.ts";
+import { copyFileBounded, envKeyNames, isSecretFileName, isTornReadError, loadLanceDb, openSqliteReadOnly, readBounded, wrapImmutableDb } from "../../src/import/readonly.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { treeDigest } from "./tree.ts";
 
@@ -141,9 +141,178 @@ describe("read-only primitives", () => {
 
     assert.throws(
       () => h.db.prepare("SELECT count(*) FROM t").get(),
-      (e: unknown) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.reason === "source-busy",
-      "immutable query failure must be converted to typed E_SOURCE_BUSY"
+      (e: unknown) => {
+        assert.ok(e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.reason === "source-busy");
+        assert.match(e.message, /\(sqlite errcode \d+\)/);
+        return true;
+      },
+      "immutable query failure must be converted to typed E_SOURCE_BUSY with numeric errcode"
     );
+    h.close();
+  });
+
+  it("isTornReadError classifies only primary SQLite error codes 5, 6, 10, 11, 26 as torn reads", () => {
+    // Primary codes
+    assert.equal(isTornReadError({ errcode: 5 }), true); // SQLITE_BUSY
+    assert.equal(isTornReadError({ errcode: 6 }), true); // SQLITE_LOCKED
+    assert.equal(isTornReadError({ errcode: 10 }), true); // SQLITE_IOERR
+    assert.equal(isTornReadError({ errcode: 11 }), true); // SQLITE_CORRUPT
+    assert.equal(isTornReadError({ errcode: 26 }), true); // SQLITE_NOTADB
+
+    // Extended codes (errcode & 0xff matches primary)
+    assert.equal(isTornReadError({ errcode: 522 }), true); // 10 | (2 << 8) = SQLITE_IOERR_SHORT_READ
+    assert.equal(isTornReadError({ errcode: 267 }), true); // 11 | (1 << 8) = SQLITE_CORRUPT_VTAB
+
+    // Non-torn codes must return false
+    assert.equal(isTornReadError({ errcode: 1 }), false); // SQLITE_ERROR (syntax, no such table, etc.)
+    assert.equal(isTornReadError({ errcode: 19 }), false); // SQLITE_CONSTRAINT
+    assert.equal(isTornReadError({ errcode: 8 }), false); // SQLITE_READONLY
+    assert.equal(isTornReadError({ code: "ERR_SQLITE_ERROR" }), false); // No errcode
+    assert.equal(isTornReadError(null), false);
+    assert.equal(isTornReadError(new Error("corrupt")), false); // String matching is removed
+  });
+
+  it("wrapImmutableDb translates torn read errcodes and passes other errors unchanged", () => {
+    const mockDb = {
+      prepare(sql: string) {
+        if (sql === "torn_11") {
+          const err = new Error("database disk image is malformed");
+          (err as any).code = "ERR_SQLITE_ERROR";
+          (err as any).errcode = 11;
+          throw err;
+        }
+        if (sql === "torn_5") {
+          const err = new Error("database is locked");
+          (err as any).code = "ERR_SQLITE_ERROR";
+          (err as any).errcode = 5;
+          throw err;
+        }
+        if (sql === "torn_26") {
+          const err = new Error("file is not a database");
+          (err as any).code = "ERR_SQLITE_ERROR";
+          (err as any).errcode = 26;
+          throw err;
+        }
+        if (sql === "syntax_err") {
+          const err = new Error('near "FROM": syntax error');
+          (err as any).code = "ERR_SQLITE_ERROR";
+          (err as any).errcode = 1;
+          throw err;
+        }
+        return {
+          all() { return []; },
+          get() { return null; },
+          iterate() {
+            let called = false;
+            return {
+              next() {
+                if (!called) {
+                  called = true;
+                  const err = new Error("disk I/O error");
+                  (err as any).code = "ERR_SQLITE_ERROR";
+                  (err as any).errcode = 10;
+                  throw err;
+                }
+                return { done: true, value: undefined };
+              },
+            };
+          },
+        };
+      },
+      exec(sql: string) {
+        if (sql === "torn_exec") {
+          const err = new Error("database table is locked");
+          (err as any).code = "ERR_SQLITE_ERROR";
+          (err as any).errcode = 6;
+          throw err;
+        }
+      },
+    } as any;
+
+    const wrapped = wrapImmutableDb(mockDb, "/mock/test.db");
+
+    // errcode 11 -> E_SOURCE_BUSY with numeric errcode
+    assert.throws(
+      () => wrapped.prepare("torn_11"),
+      (e: unknown) => {
+        assert.ok(e instanceof ImportError);
+        assert.equal(e.code, "E_SOURCE_BUSY");
+        assert.equal(e.reason, "source-busy");
+        assert.ok(e.message.includes("(sqlite errcode 11)"));
+        return true;
+      }
+    );
+
+    // errcode 5 -> E_SOURCE_BUSY with numeric errcode
+    assert.throws(
+      () => wrapped.prepare("torn_5"),
+      (e: unknown) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.message.includes("(sqlite errcode 5)")
+    );
+
+    // errcode 26 -> E_SOURCE_BUSY with numeric errcode
+    assert.throws(
+      () => wrapped.prepare("torn_26"),
+      (e: unknown) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.message.includes("(sqlite errcode 26)")
+    );
+
+    // errcode 6 in exec -> E_SOURCE_BUSY with numeric errcode
+    assert.throws(
+      () => wrapped.exec("torn_exec"),
+      (e: unknown) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.message.includes("(sqlite errcode 6)")
+    );
+
+    // iterator next() with errcode 10 -> E_SOURCE_BUSY
+    const stmt = wrapped.prepare("valid");
+    const iter = stmt.iterate();
+    assert.throws(
+      () => iter.next(),
+      (e: unknown) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.message.includes("(sqlite errcode 10)")
+    );
+
+    // syntax error (errcode 1) passes through unchanged as raw SQLite error
+    assert.throws(
+      () => wrapped.prepare("syntax_err"),
+      (e: unknown) => !(e instanceof ImportError) && (e as any).errcode === 1 && (e as any).code === "ERR_SQLITE_ERROR"
+    );
+  });
+
+  it("openSqliteReadOnly on immutable fallback passes syntax and missing table errors through unchanged", () => {
+    const d = tempDir("p1b-imp-");
+    const p = join(d, "immutable_pass_through.db");
+    const writer = new DatabaseSync(p);
+    writer.exec("CREATE TABLE t(x);");
+    writer.close();
+
+    // Open directly with maxCopyBytes: 0 to force immutable
+    const h = openSqliteReadOnly(p, { maxCopyBytes: 0 });
+    assert.equal(h.mode, "immutable");
+
+    // Missing table error passes through as original ERR_SQLITE_ERROR, NOT E_SOURCE_BUSY
+    assert.throws(
+      () => h.db.prepare("SELECT * FROM no_such_table").all(),
+      (e: unknown) => {
+        assert.ok(!(e instanceof ImportError), "must not be converted to ImportError");
+        const err = e as { code?: string; errcode?: number; message?: string };
+        assert.equal(err.code, "ERR_SQLITE_ERROR");
+        assert.equal(err.errcode, 1);
+        assert.match(err.message ?? "", /no such table: no_such_table/);
+        return true;
+      }
+    );
+
+    // Syntax error passes through as original ERR_SQLITE_ERROR, NOT E_SOURCE_BUSY
+    assert.throws(
+      () => h.db.prepare("SELECT FROM").all(),
+      (e: unknown) => {
+        assert.ok(!(e instanceof ImportError), "must not be converted to ImportError");
+        const err = e as { code?: string; errcode?: number; message?: string };
+        assert.equal(err.code, "ERR_SQLITE_ERROR");
+        assert.equal(err.errcode, 1);
+        assert.match(err.message ?? "", /syntax error/);
+        return true;
+      }
+    );
+
     h.close();
   });
 
