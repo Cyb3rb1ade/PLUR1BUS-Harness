@@ -1144,15 +1144,15 @@ GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https
 ## WP5 — SPA proxy and profile acceptance
 
 Branch: `fix/desktop-wp5-followups` · Base: `origin/main` at `6b0b6745`.
-PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65)
-Status: **IN PROGRESS — WP5 follow-up; current-head CI pending.**
-WP5 merged as `6b0b6745`; previous implementation evidence below is historical, not follow-up acceptance.
+PR: [#78](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/78) (draft follow-up; #65 merged).
+Status: **GREEN · tested implementation head `943f8670803f76d75a14b6933cebe51a08ea79fd`**.
+This report commit is **docs-only after `943f8670`**; no implementation changed.
 
-Root CI: [run 37214689669](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689669). Desktop matrix: [run 37214689610](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610). Both are green on historical implementation head `eac16a74` (later WP5 documentation commits include `c39f642e`); the matrix contains seven target jobs plus Docker and Podman stub jobs.
+Root: [37220894790](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894790). Desktop: [37220894845](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845). Both are green at this head: seven target/guard jobs plus Docker/Podman; each target's executable scan passed.
 
 ### Accept table · 19 positive rows + 6 negative/security rows
 
-`P` means historical WP5 PASS; each cell links to its column job. Rows 1–19 map one-to-one to the 19 WP5 Accept names. Rows N1–N6 are additional negative/security regressions, not extra acceptance criteria: N1/N2/N3 → request-origin/forwarding; N4 → connection switching; N5/N6 → session metadata/cache. Follow-up validation is pending.
+`P` means PASS at the tested head; cells link to target jobs. Rows 1–19 map one-to-one to the 19 WP5 Accept names. N1–N6 are additional negative/security regressions: N1/N2 extend Accept 9, N3 extends 16, N4 extends 5, N5/N6 extend 19. They are not additional acceptance criteria.
 
 | Acceptance | macOS arm64 | Linux x64 | Linux ARM | Windows x64 guard on | Windows x64 guard off | Windows ARM guard on | Windows ARM guard off |
 |---|---|---|---|---|---|---|---|
@@ -1182,19 +1182,21 @@ Root CI: [run 37214689669](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/action
 | N5 negative: `session_meta_revalidation_rejects_api_major_change` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | N6 negative: `retry_revalidates_session_meta_after_ticket_reconnect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 
-[M]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700937
-[LX]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700872
-[LA]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700953
-[WX+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701004
-[WX-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701044
-[WA+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700883
-[WA-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700910
+[M]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836295
+[LX]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836318
+[LA]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836384
+[WX+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836294
+[WX-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836350
+[WA+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836321
+[WA-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836266
 
-Windows `no_cookie_database_in_app_dirs` uses the owner decision of 2026-10-04: the recursive live secret scan remains mandatory, while condition 1 (live native cookie query zero) applies only with the guard on; after all WebView2 processes for the temporary profile exit, `Cookies`, `-journal` and `-wal` are read-only checked for zero rows and no canary bytes, then the profile is deleted. **Deviation:** the debug-only guard-off leg waives live zero cookies to exercise the profile independently; the guard-on job is the production profile; guard-off proves that the profile itself does not retain cookies. The uniform document.cookie, CookieStore and service-worker guard is defense in depth on all three platforms. The guarded-SPA probe is Chromium against the mock harness; native WebView2 probing is unavailable in this CI and remains an explicit gap.
+Windows `no_cookie_database_in_app_dirs`: the 2026-10-04 owner decision covers post-exit reading only. All profile browser processes must exit before read-only SQLite/WAL zero-row and `Cookies`/`-journal`/`-wal` canary checks, then deletion. **Deviation:** guard-off permits live writes and waives condition 1 (native zero-cookie query); condition 1 applies only guard-on. Live readable-file secret scanning remains required. The uniform JS guard is defense in depth. Guarded-SPA compatibility uses Chromium/mock; WebView2 remains an explicit gap, separate from native cookie/profile acceptance.
 
 macOS DMG previously failed before packaging at native-driver `production p95 exceeds 5ms`; the serial driver fixed that gate. W2 treated a missing WebView2 cookie DB as exit 2; release now audits/logs/deletes and exits 0.
 
 ### Follow-up changes and checks
+
+Files: `apps/desktop/src-tauri/src/{profile_audit,windows_spa_profile,lib,spa_proxy}.rs` and `apps/desktop/scripts/check-release-seams.mjs`.
 
 - Shared production reader: 64 KiB chunks, 64 MiB per pass, injected-clock tests between chunks/files, shared file byte limit and unreadable-file errors. Audit ≤5 s inside the 10 s exit deadline, with 1 s reserved for deletion. Real read-budget errors retain TIMEOUT and still delete.
 - Startup: invalid owned `Cookies` audit still deletes (Windows test); setup-error seam still returns success. Sweep cookie inspection now receives its 5 s deadline.
@@ -1207,4 +1209,9 @@ macOS DMG previously failed before packaging at native-driver `production p95 ex
 
 ### WP6 gate
 
-WP5 is owner-merged. Step 0 main→WP6 merge `56ba3fdd` is done. WP6 remains paused until the owner merges this follow-up PR; then merge main→WP6 again with a normal merge commit. No rebase, amend, force-push or owner-PR merge.
+WP5 is owner-merged; Step 0 main→WP6 merge `56ba3fdd` is done. WP6 stays paused pending the owner merge of #78.
+
+- [ ] After #78 merges, merge main→WP6 normally and resume existing lifecycle work.
+- [ ] Restore the WP6 status portion preserved in stash `c032d566`; retain the new WP5 report.
+
+No rebase, amend, force-push or owner-PR merge.
