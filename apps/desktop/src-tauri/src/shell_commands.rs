@@ -14,6 +14,8 @@ pub const SHELL_COMMANDS: &[&str] = &[
     "quit_request",
     "quit_offer",
     "background_hint",
+    "crash_offers",
+    "crash_handled",
     "quit_response",
 ];
 
@@ -33,6 +35,8 @@ pub const APP_COMMANDS: &[&str] = &[
     "quit_request",
     "quit_offer",
     "background_hint",
+    "crash_offers",
+    "crash_handled",
     "quit_response",
     "shell_info",
 ];

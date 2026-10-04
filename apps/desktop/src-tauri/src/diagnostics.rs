@@ -6,6 +6,7 @@ pub struct Diagnostics {
     pub writer: Writer,
     pub crash: CrashReporter,
     pub secrets: Arc<SecretRegistry>,
+    ticker: Option<tauri::async_runtime::JoinHandle<()>>,
 }
 impl Diagnostics {
     /// Caller supplies its owned location; no implicit HOME lookup in this testable seam.
@@ -53,6 +54,7 @@ impl Diagnostics {
             writer,
             crash,
             secrets,
+            ticker: None,
         })
     }
 }
@@ -76,7 +78,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), &'static str> {
         )
     };
     let target = format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS);
-    let diagnostics =
+    let mut diagnostics =
         Diagnostics::open(&directory, &home, &target).map_err(|_| "DIAGNOSTIC_START_FAILED")?;
     #[cfg(debug_assertions)]
     let install_hook = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_none();
@@ -88,9 +90,28 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), &'static str> {
             .install_hook()
             .map_err(|_| "CRASH_HOOK_INSTALL_FAILED")?;
     }
+    let writer = diagnostics.writer.clone();
+    diagnostics.ticker = Some(tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            let writer = writer.clone();
+            match tauri::async_runtime::spawn_blocking(move || writer.tick()).await {
+                Ok(Ok(())) => {}
+                _ => eprintln!("DIAGNOSTIC_TICK_FAILED"),
+            }
+        }
+    }));
     *app.state::<crate::native::NativeState>()
         .diagnostics
         .lock()
         .unwrap() = Some(diagnostics);
     Ok(())
+}
+
+impl Drop for Diagnostics {
+    fn drop(&mut self) {
+        if let Some(ticker) = self.ticker.take() {
+            ticker.abort();
+        }
+    }
 }

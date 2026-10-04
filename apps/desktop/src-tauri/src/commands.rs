@@ -510,3 +510,69 @@ pub fn background_hint(window: WebviewWindow) -> Result<bool, String> {
         Ok(false)
     }
 }
+
+#[derive(serde::Serialize)]
+pub struct CrashOffer {
+    id: String,
+    details: String,
+}
+
+#[tauri::command]
+pub async fn crash_offers(window: WebviewWindow) -> Result<Vec<CrashOffer>, String> {
+    check(&window, "crash_offers")?;
+    let reporter = window
+        .app_handle()
+        .state::<crate::native::NativeState>()
+        .diagnostics
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|d| d.crash.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(reporter) = reporter else {
+            return Ok(Vec::new());
+        };
+        reporter
+            .pending()
+            .map(|offers| {
+                offers
+                    .into_iter()
+                    .map(|offer| CrashOffer {
+                        id: offer.id().to_owned(),
+                        details: offer.details().to_owned(),
+                    })
+                    .collect()
+            })
+            .map_err(|_| "CRASH_READ_FAILED".to_owned())
+    })
+    .await
+    .map_err(|_| "CRASH_READ_FAILED".to_owned())?
+}
+
+#[tauri::command]
+pub async fn crash_handled(window: WebviewWindow, id: String) -> Result<(), String> {
+    check(&window, "crash_handled")?;
+    let reporter = window
+        .app_handle()
+        .state::<crate::native::NativeState>()
+        .diagnostics
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|d| d.crash.clone())
+        .ok_or_else(|| "CRASH_UNAVAILABLE".to_owned())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let offers = reporter
+            .pending()
+            .map_err(|_| "CRASH_READ_FAILED".to_owned())?;
+        let offer = offers
+            .iter()
+            .find(|offer| offer.id() == id)
+            .ok_or_else(|| "CRASH_OFFER_UNKNOWN".to_owned())?;
+        reporter
+            .mark_handled(offer)
+            .map_err(|_| "CRASH_HANDLING_FAILED".to_owned())
+    })
+    .await
+    .map_err(|_| "CRASH_HANDLING_FAILED".to_owned())?
+}

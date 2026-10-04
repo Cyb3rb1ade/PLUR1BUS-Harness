@@ -60,6 +60,8 @@ fn shell_capability_is_local_only() {
             "allow-quit-request",
             "allow-quit-offer",
             "allow-background-hint",
+            "allow-crash-offers",
+            "allow-crash-handled",
             "allow-quit-response",
             "core:event:allow-listen",
             "core:event:allow-unlisten",
@@ -110,6 +112,8 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "quit_request",
             "quit_offer",
             "background_hint",
+            "crash_offers",
+            "crash_handled",
             "quit_response"
         ]
     );

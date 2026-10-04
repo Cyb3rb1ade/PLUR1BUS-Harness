@@ -18,6 +18,8 @@
     "allow-quit-request",
     "allow-quit-offer",
     "allow-background-hint",
+    "allow-crash-offers",
+    "allow-crash-handled",
     "allow-quit-response",
     "core:event:allow-listen",
     "core:event:allow-unlisten",

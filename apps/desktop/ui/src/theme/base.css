@@ -168,3 +168,5 @@ p { color: var(--ink-2); line-height: 1.5; }
 .quit-choice { display: flex; align-items: center; gap: 12px; min-height: 44px; min-width: 44px; cursor: pointer; }
 
 .quit-choice input { width: 44px; height: 44px; flex: 0 0 44px; margin: 0; accent-color: var(--primary-bg); }
+
+.crash-details { max-height: 40vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }

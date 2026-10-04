@@ -23,3 +23,8 @@ const pullBackgroundHint = async () => {
 };
 void listen("desktop-background-hint", () => { void pullBackgroundHint(); })
   .then(pullBackgroundHint).catch(() => {});
+
+void import("./views/crash-offer.ts").then(async ({showCrashOffers}) => {
+  const offers = await invoke<import("./views/crash-offer.ts").CrashOffer[]>("crash_offers");
+  await showCrashOffers(offers, id => invoke("crash_handled", {id}));
+}).catch(() => { /* Failed reads never consume local crash evidence. */ });

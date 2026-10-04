@@ -1,3 +1,4 @@
+import {showCrashOffers} from "../src/views/crash-offer.ts";
 import { showBackgroundHint } from "../src/views/background-hint.ts";
 import { createShell } from "../src/shell.ts";
 import type { DesktopTransport, Settings } from "../src/ipc.ts";
@@ -48,6 +49,9 @@ Object.assign(window, { testShell: {
   showBackgroundHint,
   autostartCalls: () => autostartCalls,
   failAutostart: () => { autostartFail = true; },
+  crashHandled: [] as string[],
+  crashCopied: [] as string[],
+  openCrash: (failCopy = false, failAck = false) => { void showCrashOffers([{id:"owned-crash",details:"<img src=x onerror=alert(1)> synthetic details"}], async id => { if(failAck)throw new Error("injected"); (window as any).testShell.crashHandled.push(id); }, async text => { if(failCopy)throw new Error("injected"); (window as any).testShell.crashCopied.push(text); }); },
   quitDecisions: [] as string[],
   setQuitFailure: (value: boolean) => { failQuit = value; },
   openQuit: () => openQuitDialog({choice:"keep-running",canStopHarness:false}, { confirm: async choice => { if (failQuit) throw new Error("injected rejection"); (window as any).testShell.quitDecisions.push(choice); }, cancel: async () => { (window as any).testShell.quitDecisions.push("cancel"); } }),

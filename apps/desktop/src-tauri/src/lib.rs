@@ -149,6 +149,8 @@ pub fn run() {
             commands::quit_request,
             commands::quit_offer,
             commands::background_hint,
+            commands::crash_offers,
+            commands::crash_handled,
             commands::quit_response,
             commands::shell_info
         ])
