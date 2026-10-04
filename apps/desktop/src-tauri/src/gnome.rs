@@ -73,12 +73,13 @@ pub fn start(app: &tauri::AppHandle) {
     let (sender, mut receiver) = mpsc::channel(64);
     *state.gnome.sender.lock().unwrap() = Some(sender);
     let handle = app.clone();
+    let mut pending = None;
     let task = tauri::async_runtime::spawn(async move {
         loop {
             if handle.state::<NativeState>().quit.is_approved() {
                 break;
             }
-            if run(&handle, &mut receiver).await.is_err() {
+            if run(&handle, &mut receiver, &mut pending).await.is_err() {
                 eprintln!("GNOME_CONNECTION_FAILED");
                 let state = handle.state::<NativeState>();
                 state.gnome.tray_host.store(false, Ordering::SeqCst);
@@ -95,6 +96,7 @@ pub fn start(app: &tauri::AppHandle) {
 async fn run(
     app: &tauri::AppHandle,
     receiver: &mut mpsc::Receiver<(u64, TrayState)>,
+    pending: &mut Option<(u64, TrayState)>,
 ) -> Result<(), notify::NotifyFailure> {
     let connection = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         zbus::connection::Builder::session()?
@@ -125,16 +127,16 @@ async fn run(
                     state.gnome.notice(state.events.generation(),state.view.lock().unwrap().clone());
                 }
             }
-            notice = receiver.recv() => {
+            notice = next_notice(receiver, pending) => {
                 let Some((generation,view)) = notice else {return Ok(())};
-                if app.state::<NativeState>().events.with_current(generation,||()).is_none() {continue;}
+                if app.state::<NativeState>().events.with_current(generation,||()).is_none() { *pending = None; continue; }
                 if is_flatpak() && app.state::<NativeState>().gnome.granted_background.load(Ordering::SeqCst)
                     && notify::portal::set_status(&connection,&view).await.is_err() { eprintln!("BACKGROUND_PORTAL_STATUS_FAILED"); }
-                if host || last.as_ref() == Some(&(generation,view.clone())) || app.state::<NativeState>().events.with_current(generation,||()).is_none() {continue;}
+                if host || last.as_ref() == Some(&(generation,view.clone())) || app.state::<NativeState>().events.with_current(generation,||()).is_none() { *pending = None; continue; }
                 let banner = Banner::from_state(&view);
                 match notify::dbus::show(&connection,&banner).await {
-                    Ok(id) => {ledger.record(id,generation,banner.actions);last=Some((generation,view));},
-                    Err(_) => eprintln!("GNOME_NOTIFY_FAILED"),
+                    Ok(id) => {ledger.record(id,generation,banner.actions);last=Some((generation,view)); *pending = None; },
+                    Err(_) => { *pending = Some((generation,view)); eprintln!("GNOME_NOTIFY_FAILED"); },
                 }
             }
             signal = actions.next() => {
@@ -227,4 +229,17 @@ pub async fn request_autostart(
         }
     }
     Ok(grant.autostart)
+}
+
+/// Cancellation leaves the caller-owned retry untouched and does not drain later events.
+pub async fn next_notice(
+    receiver: &mut mpsc::Receiver<(u64, TrayState)>,
+    pending: &Option<(u64, TrayState)>,
+) -> Option<(u64, TrayState)> {
+    if let Some(value) = pending.as_ref() {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        Some(value.clone())
+    } else {
+        receiver.recv().await
+    }
 }
