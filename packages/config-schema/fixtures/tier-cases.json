@@ -417,6 +417,34 @@
           "x-reserved": "M2 (D18)",
           "additionalProperties": true
         },
+        "models": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "scan": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "intervalHours": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 168,
+                  "default": 24,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              }
+            }
+          }
+        },
         "modules": {
           "description": "Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped.",
           "type": "object",

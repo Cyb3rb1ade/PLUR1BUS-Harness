@@ -7,8 +7,8 @@ const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.install", 
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.4.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.4.0");
+  it("declares rpc 1.5.0 and the closed error enum", () => {
+    assert.equal(RPC_VERSION, "1.5.0");
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",
@@ -16,14 +16,15 @@ describe("rpc-schema", () => {
     ]);
   });
 
-  it("has one valid params/result fixture for every method", () => {
-    for (const method of METHODS) {
-      const f = fx.methods[method];
-      assert.ok(f, `fixture missing for ${method}`);
-      assert.deepEqual(validateParams(method, f.params), { ok: true }, `${method} params`);
-      assert.deepEqual(validateResult(method, f.result), { ok: true }, `${method} result`);
+  it("has valid params/result fixture for every method and variant", () => {
+    for (const [key, f] of Object.entries(fx.methods)) {
+      const method = key.endsWith(".system") ? key.slice(0, -".system".length) : key;
+      assert.ok(METHODS.includes(method), `unknown method for fixture ${key}`);
+      assert.deepEqual(validateParams(method, f.params), { ok: true }, `${key} params`);
+      assert.deepEqual(validateResult(method, f.result), { ok: true }, `${key} result`);
     }
-    assert.deepEqual(Object.keys(fx.methods).sort(), [...METHODS].sort(), "no fixture without a method");
+    const coveredMethods = new Set(Object.keys(fx.methods).map((k) => (k.endsWith(".system") ? k.slice(0, -".system".length) : k)));
+    assert.deepEqual([...coveredMethods].sort(), [...METHODS].sort(), "every method has a fixture");
   });
 
   it("has one fixture per error code and one per notification", () => {

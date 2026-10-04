@@ -262,6 +262,14 @@ impl Layout {
     pub fn models(&self) -> PathBuf {
         self.home.join("models")
     }
+    /// `<home>/catalog`: model catalog directory.
+    pub fn catalog(&self) -> PathBuf {
+        self.home.join("catalog")
+    }
+    /// `<home>/catalog/models.json`: model catalog state.
+    pub fn catalog_models(&self) -> PathBuf {
+        self.catalog().join("models.json")
+    }
     /// `<home>/modules`: one `<name>/module.json` directory per installed module.
     #[allow(dead_code)] // setup's modules.bundled step (2a-H3b-b Task 4)
     pub fn modules_dir(&self) -> PathBuf {

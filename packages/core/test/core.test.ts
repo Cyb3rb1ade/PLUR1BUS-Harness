@@ -83,7 +83,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.9.0"); assert.equal(s.rpc, "1.4.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.9.0"); assert.equal(s.rpc, "1.5.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 
@@ -638,4 +638,84 @@ describe("core model warm-up (E4, S7)", () => {
       assert.equal(typeof r.joined.text, "string");
     } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
   });
+
+  it("re-enriches catalog entries at start when tableRevision differs (R8, State I5 / Surface F3)", async () => {
+    const home = newHome();
+    const l = layout(home);
+    mkdirSync(l.catalog, { recursive: true, mode: 0o700 });
+
+    const staleCatalog = {
+      schema: "plur1bus.model-catalog/1",
+      revision: 1,
+      tableRevision: "rev-0",
+      models: [
+        {
+          id: "example-embed-text",
+          rawId: "example-embed-text",
+          displayName: "Example Embed",
+          provider: "openai",
+          source: "table",
+          kind: "unknown",
+          capabilities: [],
+          aliases: [],
+          overrides: {},
+          firstSeen: "2026-01-01T00:00:00.000Z",
+          lastSeen: "2026-01-01T00:00:00.000Z",
+          status: "available",
+          api: { rawId: "example-embed-text" },
+        },
+      ],
+      providers: {},
+    };
+    writeFileSync(l.catalogModels, JSON.stringify(staleCatalog));
+
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    try {
+      const updated = JSON.parse(readFileSync(l.catalogModels, "utf8"));
+      assert.notEqual(updated.tableRevision, "rev-0", "tableRevision must be updated");
+      assert.equal(updated.models[0].kind, "embedding");
+    } finally {
+      await core.stop({ budgetMs: 5000 });
+    }
+  });
+
+  it("boot re-enrichment failure does not block core start (State N4)", async () => {
+    const home = newHome();
+    const l = layout(home);
+    mkdirSync(l.catalog, { recursive: true, mode: 0o700 });
+
+    const staleCatalog = {
+      schema: "plur1bus.model-catalog/1",
+      revision: 1,
+      tableRevision: "rev-0",
+      models: [],
+      providers: {},
+    };
+    writeFileSync(l.catalogModels, JSON.stringify(staleCatalog));
+
+    const { chmodSync } = await import("node:fs");
+    try {
+      chmodSync(l.catalog, 0o500);
+    } catch {
+      // If OS doesn't support directory permission restriction, skip
+      return;
+    }
+
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    try {
+      await core.start();
+      const client = await connect({ address: core.address, token: core.token });
+      try {
+        const s = await client.call<any>("core.status");
+        assert.equal(s.process.state, "ready");
+      } finally {
+        await client.close();
+      }
+    } finally {
+      try { chmodSync(l.catalog, 0o700); } catch {}
+      await core.stop({ budgetMs: 5000 });
+    }
+  });
 });
+

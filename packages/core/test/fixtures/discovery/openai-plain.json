@@ -1,0 +1,18 @@
+{
+  "_source": "https://platform.openai.com/docs/api-reference/models/list read 2026-10-03",
+  "object": "list",
+  "data": [
+    {
+      "id": "example-chat-large",
+      "object": "model",
+      "created": 1700000000,
+      "owned_by": "system"
+    },
+    {
+      "id": "example-embed-small",
+      "object": "model",
+      "created": 1700000100,
+      "owned_by": "system"
+    }
+  ]
+}

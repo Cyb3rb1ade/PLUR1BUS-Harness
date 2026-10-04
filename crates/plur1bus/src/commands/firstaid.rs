@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 21] = [
+const CHECK_IDS: [&str; 22] = [
     "config.valid",
     "run.permissions",
     "run.stale-files",
@@ -55,6 +55,7 @@ const CHECK_IDS: [&str; 21] = [
     "extensions.integrity",
     "extensions.consistency",
     "extensions.revoked",
+    "models.roles",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -93,7 +94,7 @@ pub struct Check {
 }
 
 impl Check {
-    fn ok(id: &'static str, summary: impl Into<String>) -> Self {
+    pub(crate) fn ok(id: &'static str, summary: impl Into<String>) -> Self {
         Self {
             id,
             status: Status::Ok,
@@ -102,7 +103,7 @@ impl Check {
             hint: None,
         }
     }
-    fn warn(
+    pub(crate) fn warn(
         id: &'static str,
         summary: impl Into<String>,
         detail: Option<Value>,
@@ -116,7 +117,7 @@ impl Check {
             hint,
         }
     }
-    fn fail(
+    pub(crate) fn fail(
         id: &'static str,
         summary: impl Into<String>,
         detail: Option<Value>,
@@ -130,7 +131,7 @@ impl Check {
             hint,
         }
     }
-    fn skip(id: &'static str, summary: impl Into<String>) -> Self {
+    pub(crate) fn skip(id: &'static str, summary: impl Into<String>) -> Self {
         Self {
             id,
             status: Status::Skip,
@@ -351,6 +352,10 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.push(super::firstaid_ext::check_ext_integrity(layout));
     checks.push(super::firstaid_ext::check_ext_consistency(layout));
     checks.push(super::firstaid_ext::check_ext_revoked(layout));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    checks.push(super::model::check_models_roles(layout));
     checks
 }
 

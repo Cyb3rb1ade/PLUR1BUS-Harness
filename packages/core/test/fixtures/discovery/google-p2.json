@@ -1,0 +1,11 @@
+{
+  "_source": "https://ai.google.dev/api/models read 2026-10-03",
+  "models": [
+    {
+      "name": "models/example-text-embedding-004",
+      "displayName": "Example Text Embedding 004",
+      "inputTokenLimit": 2048,
+      "supportedGenerationMethods": ["embedContent"]
+    }
+  ]
+}
