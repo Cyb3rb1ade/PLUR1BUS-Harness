@@ -525,6 +525,9 @@ class BindingTest(unittest.TestCase):
         entries = deaths = lost = 0
         with open(log, encoding="utf-8") as f:
             for line in f:
+                if line.startswith("T "):
+                    _, pid, exception, code = line.split()
+                    self.fail(f"lock worker {pid} failed: {exception} (winerror/errno={code})")
                 tag, pid = line.split()
                 if tag == "E":
                     must_lose.update(h for h in inside if h not in refused)
