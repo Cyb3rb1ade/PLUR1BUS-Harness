@@ -362,7 +362,7 @@ pub(crate) fn apply(
                 out.fail(
                     "E_CONFIG_INVALID",
                     &violation.message(),
-                    json!({ "reason": "openclaw-store-path" }),
+                    json!({ "reason": "foreign-host-store-path" }),
                     1,
                 );
             }

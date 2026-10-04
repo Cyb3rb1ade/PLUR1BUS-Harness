@@ -99,9 +99,9 @@ fn set_error(e: SetError) -> ExtError {
             message: format!("the configuration would be invalid: {}", errors.join("; ")),
             data: Value::Null,
         },
-        SetError::OpenclawStorePath(violation) => ExtError::new(
+        SetError::ForeignHostStorePath(violation) => ExtError::new(
             "E_CONFIG_INVALID",
-            "openclaw-store-path",
+            "foreign-host-store-path",
             violation.message(),
         ),
         SetError::Conflict { current } => ExtError::new(

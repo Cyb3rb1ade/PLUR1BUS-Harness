@@ -30,7 +30,7 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
         out.fail(
             "E_CONFIG_INVALID",
             &violation.message(),
-            serde_json::json!({ "reason": "openclaw-store-path" }),
+            serde_json::json!({ "reason": "foreign-host-store-path" }),
             1,
         );
     }

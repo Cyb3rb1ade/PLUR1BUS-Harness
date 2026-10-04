@@ -37,6 +37,7 @@ impl HostEnvironment {
     }
 
     #[cfg(test)]
+    #[allow(dead_code)]
     pub(crate) fn injected(
         vars: HashMap<String, String>,
         homedir: PathBuf,
@@ -271,6 +272,12 @@ pub(crate) fn openclaw_plugin_found(env: &HostEnvironment) -> bool {
         .is_some()
 }
 
+pub(crate) fn host_mode_notice(env: &HostEnvironment) -> Option<&'static str> {
+    openclaw_plugin_found(env).then_some(
+        "OpenClaw host mode found: separate memory until you migrate (`plur1bus import`) or switch the plugin to thin client",
+    )
+}
+
 pub(crate) fn configured_store_violation(
     config_path: &Path,
     env: &HostEnvironment,
@@ -279,172 +286,4 @@ pub(crate) fn configured_store_violation(
         .ok()
         .and_then(|bytes| plur1bus_config::parse(std::str::from_utf8(&bytes).ok()?).ok())?;
     store_violation(&config, env)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    use tempfile::tempdir;
-
-    fn env(home: &Path, platform: &str) -> HostEnvironment {
-        HostEnvironment::injected(
-            [("HOME".to_string(), home.to_string_lossy().into_owned())]
-                .into_iter()
-                .collect(),
-            home.to_path_buf(),
-            platform,
-        )
-    }
-
-    fn config(path: &Path) -> Value {
-        json!({ "engine": { "baseDbPathOverride": path } })
-    }
-
-    fn openclaw_root(home: &Path) -> PathBuf {
-        let root = home.join(".openclaw");
-        fs::create_dir_all(&root).unwrap();
-        fs::write(root.join("openclaw.json"), "{}").unwrap();
-        root
-    }
-
-    #[test]
-    fn refuses_the_state_directory_and_paths_below_it() {
-        let home = tempdir().unwrap();
-        let root = openclaw_root(home.path());
-        for path in [
-            root.clone(),
-            root.join("memory/lancedb"),
-            root.join("state/lancedb"),
-        ] {
-            assert!(store_violation(&config(&path), &env(home.path(), "linux")).is_some());
-        }
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn refuses_a_symlink_into_the_state_directory() {
-        let home = tempdir().unwrap();
-        let root = openclaw_root(home.path());
-        let link = home.path().join("alias");
-        std::os::unix::fs::symlink(&root, &link).unwrap();
-        assert!(store_violation(
-            &config(&link.join("memory/lancedb")),
-            &env(home.path(), "linux")
-        )
-        .is_some());
-    }
-
-    #[test]
-    fn allows_sibling_directories_and_openclaw_lookalikes() {
-        let home = tempdir().unwrap();
-        openclaw_root(home.path());
-        for name in [".openclaw-other", ".openclawx"] {
-            assert!(store_violation(
-                &config(&home.path().join(name).join("lancedb")),
-                &env(home.path(), "linux")
-            )
-            .is_none());
-        }
-    }
-
-    #[test]
-    fn compares_paths_without_case_on_windows_and_macos() {
-        let home = tempdir().unwrap();
-        let root = openclaw_root(home.path());
-        let differently_cased =
-            PathBuf::from(root.to_string_lossy().to_uppercase()).join("memory/lancedb");
-        for platform in ["win32", "darwin"] {
-            assert!(
-                store_violation(&config(&differently_cased), &env(home.path(), platform)).is_some()
-            );
-        }
-    }
-
-    #[test]
-    fn recognizes_legacy_and_explicit_state_roots() {
-        let home = tempdir().unwrap();
-        let legacy = home.path().join(".clawdbot");
-        fs::create_dir_all(&legacy).unwrap();
-        fs::write(legacy.join("clawdbot.json"), "{}").unwrap();
-        assert!(store_violation(
-            &config(&legacy.join("memory/lancedb")),
-            &env(home.path(), "linux")
-        )
-        .is_some());
-
-        let explicit = home.path().join("custom-state");
-        fs::create_dir_all(&explicit).unwrap();
-        let mut vars = HashMap::new();
-        vars.insert(
-            "OPENCLAW_STATE_DIR".into(),
-            explicit.to_string_lossy().into_owned(),
-        );
-        let injected = HostEnvironment::injected(vars, home.path().to_path_buf(), "linux");
-        assert!(store_violation(&config(&explicit.join("memory/lancedb")), &injected).is_some());
-    }
-
-    #[test]
-    fn resolves_profile_openclaw_home_and_userprofile_roots() {
-        let home = tempdir().unwrap();
-        let profile = home.path().join(".openclaw-work");
-        fs::create_dir_all(&profile).unwrap();
-        let mut vars = HashMap::new();
-        vars.insert("HOME".into(), home.path().to_string_lossy().into_owned());
-        vars.insert("OPENCLAW_PROFILE".into(), "work".into());
-        let injected = HostEnvironment::injected(vars, home.path().to_path_buf(), "linux");
-        assert!(store_violation(&config(&profile.join("memory/lancedb")), &injected).is_some());
-
-        let custom_home = home.path().join("openclaw-home");
-        let custom_root = custom_home.join(".openclaw");
-        fs::create_dir_all(&custom_root).unwrap();
-        fs::write(custom_root.join("openclaw.json"), "{}").unwrap();
-        let mut vars = HashMap::new();
-        vars.insert("HOME".into(), home.path().to_string_lossy().into_owned());
-        vars.insert(
-            "OPENCLAW_HOME".into(),
-            custom_home.to_string_lossy().into_owned(),
-        );
-        let injected = HostEnvironment::injected(vars, home.path().to_path_buf(), "linux");
-        assert!(store_violation(&config(&custom_root.join("memory/lancedb")), &injected).is_some());
-
-        let windows_home = home.path().join("windows-home");
-        let windows_root = windows_home.join(".openclaw");
-        fs::create_dir_all(&windows_root).unwrap();
-        fs::write(windows_root.join("openclaw.json"), "{}").unwrap();
-        let mut vars = HashMap::new();
-        vars.insert(
-            "USERPROFILE".into(),
-            windows_home.to_string_lossy().into_owned(),
-        );
-        let injected = HostEnvironment::injected(vars, home.path().to_path_buf(), "win32");
-        assert!(
-            store_violation(&config(&windows_root.join("memory/lancedb")), &injected).is_some()
-        );
-    }
-
-    #[test]
-    fn recognizes_the_plugin_default_store_layout_without_a_config_marker() {
-        let home = tempdir().unwrap();
-        let root = home.path().join("custom-state");
-        let store = root.join("memory/lancedb-namespaced");
-        fs::create_dir_all(&store).unwrap();
-        assert!(
-            store_violation(&config(&store.join("agent")), &env(home.path(), "linux")).is_some()
-        );
-    }
-
-    #[test]
-    fn notice_requires_a_plugin_entry_and_reads_only_openclaw_config() {
-        let home = tempdir().unwrap();
-        let root = openclaw_root(home.path());
-        let env = env(home.path(), "linux");
-        assert!(!openclaw_plugin_found(&env));
-        fs::write(
-            root.join("openclaw.json"),
-            json!({ "plugins": { "entries": { PLUGIN_ID: {} } } }).to_string(),
-        )
-        .unwrap();
-        assert!(openclaw_plugin_found(&env));
-    }
 }

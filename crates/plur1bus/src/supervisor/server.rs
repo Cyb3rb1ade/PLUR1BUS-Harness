@@ -219,11 +219,11 @@ fn set_error_reply(id: &Value, e: SetError) -> Value {
             Some(errors.join("; ")),
             None,
         ),
-        SetError::OpenclawStorePath(violation) => error_reply(
+        SetError::ForeignHostStorePath(violation) => error_reply(
             id,
             "E_CONFIG_INVALID",
             &violation.message(),
-            Some("openclaw-store-path"),
+            Some("foreign-host-store-path"),
             None,
             None,
         ),

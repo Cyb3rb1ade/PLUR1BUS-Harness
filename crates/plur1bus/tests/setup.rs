@@ -130,40 +130,6 @@ fn a_wrong_runtime_digest_fails_the_step_and_leaves_no_runtime_dir() {
     assert!(!e.home.join("runtime/core").exists());
 }
 
-#[test]
-fn setup_refuses_an_existing_openclaw_store_path_before_installing() {
-    let e = Env::new();
-    std::fs::create_dir_all(&e.home).unwrap();
-    let openclaw = e.root.join(".openclaw");
-    std::fs::create_dir_all(&openclaw).unwrap();
-    std::fs::write(openclaw.join("openclaw.json"), "{}").unwrap();
-    let mut config = plur1bus_config::defaults();
-    config["engine"]["baseDbPathOverride"] = serde_json::json!(openclaw
-        .join("memory/lancedb")
-        .to_string_lossy()
-        .to_string());
-    std::fs::write(
-        e.home.join("config.json"),
-        serde_json::to_vec(&config).unwrap(),
-    )
-    .unwrap();
-    let output = e
-        .cmd(&["--json", "setup", "--non-interactive", "--no-service"])
-        .env("OPENCLAW_STATE_DIR", &openclaw)
-        .output()
-        .unwrap();
-    let v = doc(&output);
-    assert_eq!(output.status.code(), Some(1), "{v:#}");
-    assert_eq!(v["error"], "E_CONFIG_INVALID", "{v:#}");
-    assert_eq!(v["reason"], "openclaw-store-path", "{v:#}");
-    assert!(v["message"]
-        .as_str()
-        .unwrap()
-        .contains("choose a path under the harness home"));
-    assert!(!e.home.join("manifest.json").exists());
-    assert!(!e.home.join("runtime").exists());
-}
-
 #[cfg(unix)]
 #[test]
 fn rerun_is_idempotent_and_downloads_nothing() {

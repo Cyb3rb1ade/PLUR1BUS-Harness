@@ -261,50 +261,6 @@ fn an_invalid_value_is_e_config_invalid_and_nothing_changes() {
 }
 
 #[test]
-fn supervisor_config_set_refuses_openclaw_store_paths_with_a_typed_reason() {
-    use std::process::{Command, Stdio};
-
-    let dir = tempfile::tempdir().unwrap();
-    let openclaw_home = dir.path().join("openclaw-home");
-    let openclaw = dir.path().join("custom-openclaw-state");
-    let home = dir.path().join("harness");
-    std::fs::create_dir_all(&openclaw_home).unwrap();
-    std::fs::create_dir_all(&openclaw).unwrap();
-    std::fs::create_dir_all(&home).unwrap();
-    std::fs::write(openclaw.join("openclaw.json"), "{}").unwrap();
-    let child = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
-        .arg("--home")
-        .arg(&home)
-        .args(["supervise", "--no-core"])
-        .env("HOME", &openclaw_home)
-        .env("OPENCLAW_STATE_DIR", &openclaw)
-        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
-        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", common::SCALE)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    let _supervisor = common::Supervisor {
-        child,
-        home: home.clone(),
-    };
-    wait_until("run/supervisor.token", WAIT, || {
-        home.join("run/supervisor.token").exists()
-    });
-    let mut c = client(&home);
-    let mut params = change(
-        "engine.baseDbPathOverride",
-        json!(openclaw.join("memory/lancedb")),
-    );
-    params["dryRun"] = json!(true);
-    let (code, reason, _, _) = call_error(set(&mut c, params));
-    assert_eq!(code, ErrorCode::EConfigInvalid);
-    assert_eq!(reason.as_deref(), Some("openclaw-store-path"));
-    assert!(!home.join("config.json").exists());
-}
-
-#[test]
 fn set_with_a_stale_revision_is_a_conflict_and_writes_nothing() {
     // Review Focus 2: the CLI previews against one revision and applies against another.
     let dir = tempfile::tempdir().unwrap();

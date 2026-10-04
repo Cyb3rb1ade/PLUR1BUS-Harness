@@ -52,8 +52,8 @@ pub struct Rejected {
 pub enum SetError {
     /// The schema refuses the result (`E_CONFIG_INVALID`).
     Invalid(Vec<String>),
-    /// The engine store would share an OpenClaw state directory (`E_CONFIG_INVALID`).
-    OpenclawStorePath(crate::coexistence::StoreViolation),
+    /// The engine store would share a foreign host state directory (`E_CONFIG_INVALID`).
+    ForeignHostStorePath(crate::coexistence::StoreViolation),
     /// `ifRevision` names another revision than the running one (`E_CONFLICT reason=config-changed`).
     Conflict { current: String },
     /// No valid configuration runs (`E_NOT_AVAILABLE reason=config-unavailable`).
@@ -367,7 +367,7 @@ fn set_inner(
             &plan.after,
             &crate::coexistence::HostEnvironment::current(),
         ) {
-            return Err(SetError::OpenclawStorePath(violation));
+            return Err(SetError::ForeignHostStorePath(violation));
         }
         let restart = restart_json(&plan.restart);
         if dry_run || (plan.changed.is_empty() && st.rejected.is_none()) {
