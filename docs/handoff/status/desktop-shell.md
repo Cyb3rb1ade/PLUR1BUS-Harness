@@ -1145,7 +1145,7 @@ GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https
 
 Branch: `feat/desktop-shell-wp05-spa-proxy`
 PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65)
-Fix head: `e5b5273e` (new local changes are not pushed yet)
+Fix head: `db00fdc0` (pushed; fresh CI [37195365473](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37195365473) is queued)
 Baseline: `c2ffa8274df92c6bb4e117af6cc3b76e9a01c16c`
 Status: **owner merge required before WP6 merge/continuation**
 
@@ -1153,10 +1153,10 @@ Status: **owner merge required before WP6 merge/continuation**
 
 | Target / evidence | Result at fix head | Run / note |
 |---|---|---|
-| Root CI | PENDING | Fresh run required after this round; prior baseline was green at [37182447187](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447187) |
-| macOS arm64 | PENDING | DMG explanation and fresh bundle evidence required; prior baseline job [111377566493](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566493) |
-| Linux x64 | PENDING | Strict zero-file rule and 5 s observer deadline; prior baseline job [111377566429](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566429) |
-| Linux arm64 | PENDING | Strict zero-file rule and 5 s observer deadline; prior baseline job [111377566495](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566495) |
+| Root CI | PENDING | Fresh run [37195365473](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37195365473) queued; prior baseline was green at [37182447187](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447187) |
+| macOS arm64 | PENDING | Fresh job queued; DMG explanation and bundle evidence required; prior baseline job [111377566493](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566493) |
+| Linux x64 | PENDING | Fresh job queued; strict zero-file rule and 5 s observer deadline; prior baseline job [111377566429](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566429) |
+| Linux arm64 | PENDING | Fresh job queued; strict zero-file rule and 5 s observer deadline; prior baseline job [111377566495](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566495) |
 | Windows x64 — guard **on** | PENDING | Real-app cookie guard variant; fresh CI matrix row |
 | Windows x64 — guard **off** | PENDING | Profile-only Canary variant; fresh CI matrix row |
 | Windows ARM — guard **on** | PENDING | Real-app cookie guard variant; fresh CI matrix row |
