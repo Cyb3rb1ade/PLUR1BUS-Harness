@@ -8,11 +8,28 @@ use std::{future::Future, time::Duration};
 use tokio::sync::watch;
 
 const MAX_FRAME: usize = 64 * 1024;
+/// A terminal result of native authenticated HTTP, never inferred from foreign SSE data.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SessionFailure {
+    Revoked,
+    Unauthorized,
+    InstallationMismatch,
+}
+impl SessionFailure {
+    pub fn client_error(self) -> ClientError {
+        match self {
+            Self::Revoked => ClientError::Revoked,
+            Self::Unauthorized => ClientError::Unauthorized,
+            Self::InstallationMismatch => ClientError::InstallationMismatch,
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventUpdate {
     pub state: HarnessState,
     pub secrets_locked: bool,
     pub connected: bool,
+    pub failure: Option<SessionFailure>,
 }
 #[derive(Default)]
 pub struct EventStream {
@@ -69,6 +86,7 @@ impl EventStream {
             secrets_locked: value.get("secrets").and_then(serde_json::Value::as_str)
                 == Some("locked"),
             connected: true,
+            failure: None,
         };
         // Invalid data cannot advance the replay cursor.
         if let Some(id) = id {
@@ -121,16 +139,20 @@ impl EventStream {
             if *stop.borrow() || stop.has_changed().is_err() {
                 return;
             }
-            if matches!(
-                result,
-                Err(ClientError::Revoked
-                    | ClientError::Unauthorized
-                    | ClientError::InstallationMismatch)
-            ) {
+            let failure = match result {
+                Err(ClientError::Revoked) => Some(SessionFailure::Revoked),
+                Err(ClientError::Unauthorized) => Some(SessionFailure::Unauthorized),
+                Err(ClientError::InstallationMismatch) => {
+                    Some(SessionFailure::InstallationMismatch)
+                }
+                _ => None,
+            };
+            if let Some(failure) = failure {
                 emit(EventUpdate {
                     state: HarnessState::Unpaired,
                     secrets_locked: false,
                     connected: false,
+                    failure: Some(failure),
                 });
                 return;
             }
@@ -138,6 +160,7 @@ impl EventStream {
                 state: HarnessState::Down,
                 secrets_locked: false,
                 connected: false,
+                failure: None,
             });
             let delay = self.next_delay(jitter());
             tokio::select! { _ = wait(delay) => {}, _ = stop.changed() => {} }
@@ -159,6 +182,7 @@ impl EventStream {
             state: HarnessState::Starting,
             secrets_locked: false,
             connected: true,
+            failure: None,
         }));
         let mut buffer = Vec::new();
         loop {

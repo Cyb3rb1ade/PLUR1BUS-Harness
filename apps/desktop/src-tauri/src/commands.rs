@@ -331,12 +331,28 @@ pub async fn open_connection(
                 &store,
             ))
             .map_err(|e| e.public_message())?;
+        let monitor = if app.try_state::<crate::native::NativeState>().is_some() {
+            let client = runtime
+                .block_on(crate::client::HarnessClient::from_connection(&row))
+                .map_err(|e| crate::pair::PairError::Client(e).public_message())?;
+            let token = crate::secrets::load_token_or_pairing_needed(tokens.as_ref(), row.id)
+                .map_err(|_| "pairing-needed")?;
+            Some((client, token))
+        } else {
+            None
+        };
         runtime.block_on(crate::spa::open_spa(
             &app,
             &mut row,
             tokens.as_ref(),
             &store,
         ))?;
+        if let Some((client, token)) = monitor {
+            // Spawn while entered into the async runtime; token remains native-only.
+            runtime.block_on(async {
+                crate::native::start_events(&app, row.clone(), client, token);
+            });
+        }
         Ok(Opened {
             selected: true,
             spa_available: true,

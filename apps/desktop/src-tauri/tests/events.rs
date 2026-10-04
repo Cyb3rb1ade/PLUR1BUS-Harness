@@ -19,6 +19,7 @@ fn bounded_parser_keeps_last_id_and_words_without_exposing_foreign_fields() {
     let update = stream.frame(b"id: 17\nevent: harness.status\ndata: {\"state\":\"ready\",\"secrets\":\"locked\",\"foreign\":\"synthetic\"}\n").unwrap().unwrap();
     assert_eq!(update.state, HarnessState::Ready);
     assert!(update.secrets_locked);
+    assert_eq!(update.failure, None);
     assert_eq!(stream.last_event_id(), Some("17"));
     assert!(stream
         .frame(b"id: 18\nevent: harness.status\ndata: broken")
@@ -125,6 +126,7 @@ async fn revoked_stream_goes_unpaired_and_stops() {
     let mut stream = EventStream::default();
     let mut revoked = false;
     let mut states = Vec::new();
+    let mut failures = Vec::new();
     let mut waits = Vec::new();
     tokio::time::timeout(
         Duration::from_secs(3),
@@ -135,6 +137,7 @@ async fn revoked_stream_goes_unpaired_and_stops() {
             stop,
             |update| {
                 states.push(update.state);
+                failures.push(update.failure);
                 if update.state == HarnessState::Ready && !revoked {
                     revoked = true;
                     mock.control.revoke_device(&connection.device_id);
@@ -150,6 +153,7 @@ async fn revoked_stream_goes_unpaired_and_stops() {
     .await
     .unwrap();
     assert_eq!(states.last(), Some(&HarnessState::Unpaired));
+    assert_eq!(failures.last(), Some(&Some(SessionFailure::Revoked)));
     assert_eq!(waits, vec![Duration::from_secs(1)]);
     assert_eq!(mock.control.recorded_event_replay_ids().len(), 2);
 }

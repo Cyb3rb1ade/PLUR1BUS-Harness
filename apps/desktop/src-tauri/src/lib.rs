@@ -6,7 +6,9 @@ pub mod crash;
 pub mod discovery;
 pub mod events;
 pub mod ids;
+pub mod lifecycle;
 pub mod logging;
+pub mod native;
 pub mod pair;
 pub mod policy;
 #[cfg(any(windows, test))]
@@ -72,10 +74,26 @@ pub fn run() {
     use tauri::Manager;
     #[cfg(windows)]
     let exit_gate = Arc::new(ProfileExitGate::default());
+    #[allow(unused_mut)]
+    let mut context = tauri::generate_context!();
+    #[cfg(debug_assertions)]
+    if let Some(root) = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR") {
+        context.config_mut().identifier =
+            lifecycle::fixture_identifier(ids::BUNDLE_ID, &root.to_string_lossy());
+    }
     tauri::Builder::default()
+        // The singleton plugin must run before other plugin/setup side effects.
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| native::focus(app)))
+        .plugin(tauri_plugin_autostart::Builder::new().arg("--autostart").macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent).build())
+        .plugin(tauri_plugin_notification::init())
+        .manage(native::NativeState::default())
         .manage(commands::ConnectionState::default())
         .manage(spa::SpaState::default())
+        .on_window_event(native::close)
         .setup(|app| {
+            // Until Linux tray/background capability is confirmed, keep its dash entry reachable.
+            use tauri::Manager;
+            app.state::<native::NativeState>().background.store(!cfg!(target_os = "linux"), std::sync::atomic::Ordering::SeqCst);
             #[cfg(windows)]
             {
                 setup_after_profile_sweep(|| windows_spa_profile::sweep(app.handle()), |result| match result {
@@ -125,7 +143,7 @@ pub fn run() {
                 eprintln!("SHELL_WINDOW_SHOW_FAILED");
             }
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("could not build the desktop shell")
         .run(move |app, event| {
             #[cfg(windows)]
