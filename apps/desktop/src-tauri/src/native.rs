@@ -111,21 +111,25 @@ pub fn start_events(
     let task = tokio::spawn(async move {
         let (_cancel, stop) = tokio::sync::watch::channel(false);
         EventStream::default()
-            .run(
+            .run_async(
                 &client,
                 &connection.installation_id,
                 &token,
                 stop,
                 |update| {
-                    enqueue_update(&handle, generation, update);
+                    let handle = handle.clone();
+                    async move {
+                        enqueue_update(&handle, generation, update).await;
+                    }
                 },
             )
             .await;
     });
     state.events.install(generation, task);
 }
-fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUpdate) {
+async fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUpdate) {
     let handle = app.clone();
+    let (ack, delivered) = tokio::sync::oneshot::channel();
     // Run the generation check and GUI mutation together on the main thread. Holding
     // EventOwner across a worker→GUI synchronous call could deadlock a concurrent switch.
     if app
@@ -138,14 +142,17 @@ fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUpdate) 
                 let value = view.clone();
                 drop(view);
                 update_tray(&handle, &value);
-                #[cfg(unix)]
-                state.gnome.notice(generation, value.clone());
                 let _ = handle.emit_to(
                     tauri::EventTarget::webview_window("shell"),
                     "desktop-tray-state",
                     value,
                 );
             });
+            let _ = ack.send(
+                applied
+                    .is_some()
+                    .then(|| state.view.lock().unwrap().clone()),
+            );
             if applied.is_some() {
                 if let Some(reason) = update.failure {
                     retire_terminal_session(&handle, generation, reason);
@@ -155,6 +162,20 @@ fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUpdate) 
         .is_err()
     {
         eprintln!("EVENT_UI_DISPATCH_FAILED");
+    }
+    if let Ok(Some(view)) = delivered.await {
+        #[cfg(unix)]
+        if app
+            .state::<NativeState>()
+            .gnome
+            .send(generation, view)
+            .await
+            .is_err()
+        {
+            eprintln!("GNOME_NOTIFY_QUEUE_CLOSED");
+        }
+        #[cfg(not(unix))]
+        let _ = view;
     }
 }
 

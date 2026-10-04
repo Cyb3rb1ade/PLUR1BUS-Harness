@@ -25,6 +25,14 @@ pub struct GnomeState {
     portal_busy: tokio::sync::Mutex<()>,
 }
 impl GnomeState {
+    pub async fn send(&self, generation: u64, state: TrayState) -> Result<(), ()> {
+        let sender = self.sender.lock().unwrap().clone();
+        if let Some(sender) = sender {
+            sender.send((generation, state)).await.map_err(|_| ())?;
+        }
+        Ok(())
+    }
+
     pub fn notice(&self, generation: u64, state: TrayState) {
         if let Some(sender) = self.sender.lock().unwrap().as_ref() {
             if sender.try_send((generation, state)).is_err() {
@@ -241,5 +249,36 @@ pub async fn next_notice(
         Some(value.clone())
     } else {
         receiver.recv().await
+    }
+}
+
+#[cfg(test)]
+mod queue_tests {
+    use super::*;
+    #[tokio::test]
+    async fn production_notification_send_waits_for_capacity_without_losing_order() {
+        let (sender, mut receiver) = mpsc::channel(64);
+        let state = std::sync::Arc::new(GnomeState::default());
+        *state.sender.lock().unwrap() = Some(sender);
+        for generation in 1..=64 {
+            state.send(generation, TrayState::default()).await.unwrap();
+        }
+        let producer = state.clone();
+        let mut task = tokio::spawn(async move { producer.send(65, TrayState::default()).await });
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), &mut task)
+                .await
+                .is_err()
+        );
+        assert_eq!(receiver.recv().await.unwrap().0, 1);
+        tokio::time::timeout(std::time::Duration::from_secs(1), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        for generation in 2..=65 {
+            assert_eq!(receiver.recv().await.unwrap().0, generation);
+        }
+        assert!(receiver.try_recv().is_err());
     }
 }

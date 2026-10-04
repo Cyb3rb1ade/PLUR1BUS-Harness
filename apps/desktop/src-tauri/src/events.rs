@@ -117,20 +117,70 @@ impl EventStream {
         )
         .await;
     }
+    pub async fn run_async<E: Future<Output = ()>>(
+        &mut self,
+        client: &HarnessClient,
+        installation: &str,
+        token: &SecretString,
+        stop: watch::Receiver<bool>,
+        emit: impl FnMut(EventUpdate) -> E,
+    ) {
+        self.run_with_timing_async(
+            client,
+            installation,
+            token,
+            stop,
+            emit,
+            rand::random::<f64>,
+            |delay| async move {
+                tokio::time::sleep(delay).await;
+            },
+        )
+        .await;
+    }
     #[allow(clippy::too_many_arguments)]
-    /// Deterministic timing seam; the client, HTTP stream, frame parser and cancellation are production code.
     pub async fn run_with_timing<F, Fut>(
         &mut self,
         client: &HarnessClient,
         installation: &str,
         token: &SecretString,
-        mut stop: watch::Receiver<bool>,
+        stop: watch::Receiver<bool>,
         mut emit: impl FnMut(EventUpdate),
+        jitter: impl FnMut() -> f64,
+        wait: F,
+    ) where
+        F: FnMut(Duration) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        self.run_with_timing_async(
+            client,
+            installation,
+            token,
+            stop,
+            |value| {
+                emit(value);
+                std::future::ready(())
+            },
+            jitter,
+            wait,
+        )
+        .await;
+    }
+    #[allow(clippy::too_many_arguments)]
+    /// Deterministic timing seam; the client, HTTP stream, frame parser and cancellation are production code.
+    pub async fn run_with_timing_async<F, Fut, E>(
+        &mut self,
+        client: &HarnessClient,
+        installation: &str,
+        token: &SecretString,
+        mut stop: watch::Receiver<bool>,
+        mut emit: impl FnMut(EventUpdate) -> E,
         mut jitter: impl FnMut() -> f64,
         mut wait: F,
     ) where
         F: FnMut(Duration) -> Fut,
         Fut: Future<Output = ()>,
+        E: Future<Output = ()>,
     {
         while !*stop.borrow() {
             let result = self
@@ -148,42 +198,63 @@ impl EventStream {
                 _ => None,
             };
             if let Some(failure) = failure {
-                emit(EventUpdate {
-                    state: HarnessState::Unpaired,
-                    secrets_locked: false,
-                    connected: false,
-                    failure: Some(failure),
-                });
+                if !publish(
+                    &mut stop,
+                    emit(EventUpdate {
+                        state: HarnessState::Unpaired,
+                        secrets_locked: false,
+                        connected: false,
+                        failure: Some(failure),
+                    }),
+                )
+                .await
+                {
+                    return;
+                }
                 return;
             }
-            emit(EventUpdate {
-                state: HarnessState::Down,
-                secrets_locked: false,
-                connected: false,
-                failure: None,
-            });
+            if !publish(
+                &mut stop,
+                emit(EventUpdate {
+                    state: HarnessState::Down,
+                    secrets_locked: false,
+                    connected: false,
+                    failure: None,
+                }),
+            )
+            .await
+            {
+                return;
+            }
             let delay = self.next_delay(jitter());
             tokio::select! { _ = wait(delay) => {}, _ = stop.changed() => {} }
         }
     }
-    async fn consume(
+    async fn consume<E: Future<Output = ()>>(
         &mut self,
         client: &HarnessClient,
         installation: &str,
         token: &SecretString,
         stop: &mut watch::Receiver<bool>,
-        emit: &mut impl FnMut(EventUpdate),
+        emit: &mut impl FnMut(EventUpdate) -> E,
     ) -> Result<(), ClientError> {
         let mut response = tokio::select! {
             response = client.status_events(installation, token, self.last_id.as_deref()) => response?,
             _ = stop.changed() => return Ok(()),
         };
-        emit(self.last_state.unwrap_or(EventUpdate {
-            state: HarnessState::Starting,
-            secrets_locked: false,
-            connected: true,
-            failure: None,
-        }));
+        if !publish(
+            stop,
+            emit(self.last_state.unwrap_or(EventUpdate {
+                state: HarnessState::Starting,
+                secrets_locked: false,
+                connected: true,
+                failure: None,
+            })),
+        )
+        .await
+        {
+            return Ok(());
+        }
         let mut buffer = Vec::new();
         loop {
             let chunk = tokio::select! {
@@ -208,10 +279,32 @@ impl EventStream {
                     break;
                 };
                 if let Some(update) = self.frame(&buffer[..end])? {
-                    emit(update);
+                    if !publish(stop, emit(update)).await {
+                        return Ok(());
+                    }
                 }
                 buffer.drain(..end + separator);
             }
         }
+    }
+}
+
+/// Stop remains responsive even while an observer waits for bounded queue capacity.
+async fn publish(stop: &mut watch::Receiver<bool>, emit: impl Future<Output = ()>) -> bool {
+    tokio::select! { _ = stop.changed() => false, _ = emit => true }
+}
+#[cfg(test)]
+mod observer_tests {
+    use super::*;
+    #[tokio::test]
+    async fn stop_interrupts_a_backpressured_observer() {
+        let (stop, mut receiver) = watch::channel(false);
+        let task =
+            tokio::spawn(async move { publish(&mut receiver, std::future::pending()).await });
+        stop.send(true).unwrap();
+        assert!(!tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .unwrap()
+            .unwrap());
     }
 }
