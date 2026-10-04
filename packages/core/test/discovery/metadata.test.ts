@@ -29,6 +29,17 @@ describe("model metadata table", () => {
     assert.throws(() => loadMetadataTable(table({ generic: [rule("^a$")], v: [rule("^a$")] })), /duplicate/);
   });
 
+  it("has no duplicate alias across rules within or across sections", () => {
+    assert.throws(
+      () => loadMetadataTable(table({ generic: [rule("^a$", { aliases: ["dup-alias"] }), rule("^b$", { aliases: ["dup-alias"] })] })),
+      /duplicate alias/,
+    );
+    assert.throws(
+      () => loadMetadataTable(table({ generic: [rule("^a$", { aliases: ["dup-alias"] })], v: [rule("^b$", { aliases: ["dup-alias"] })] })),
+      /duplicate alias/,
+    );
+  });
+
   it("every pattern is anchored, at most 200 characters and in the RE2-safe subset", () => {
     for (const bad of ["(a)\\1", "(?=x)", "(?<!x)", "(?<n>x)\\k<n>", `^${"a".repeat(200)}$`, "example"]) {
       assert.throws(() => loadMetadataTable(table({ generic: [rule(bad.startsWith("(") ? `^${bad}$` : bad)] })), Error, bad);
@@ -90,12 +101,12 @@ describe("model metadata table", () => {
   });
 
   it("heuristicKind", () => {
-    assert.equal(heuristicKind("whisper-large"), "asr");
-    assert.equal(heuristicKind("tts-1"), "tts");
-    assert.equal(heuristicKind("dall-e-3"), "image");
-    assert.equal(heuristicKind("gpt-live-example"), "realtime");
-    assert.equal(heuristicKind("acme-rerank-v2"), "rerank");
-    assert.equal(heuristicKind("acme-chat"), "unknown");
+    assert.equal(heuristicKind("example-whisper"), "asr");
+    assert.equal(heuristicKind("example-tts"), "tts");
+    assert.equal(heuristicKind("example-image"), "image");
+    assert.equal(heuristicKind("example-gpt-live-1"), "realtime");
+    assert.equal(heuristicKind("example-rerank-v2"), "rerank");
+    assert.equal(heuristicKind("example-chat"), "unknown");
   });
 
   it("source is table only when the table filled a field", () => {

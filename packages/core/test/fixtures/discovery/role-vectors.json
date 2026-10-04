@@ -18,35 +18,35 @@
   {
     "name": "longest provider prefix wins",
     "catalog": [
-      { "provider": "example", "id": "compat/x", "aliases": [], "status": "unavailable" },
-      { "provider": "example-compat", "id": "x", "aliases": [], "status": "available" }
+      { "provider": "or", "id": "x/y", "aliases": [], "status": "unavailable" },
+      { "provider": "or/x", "id": "y", "aliases": [], "status": "available" }
     ],
-    "value": "example-compat/x",
-    "expect": { "provider": "example-compat", "id": "x", "state": "available" }
+    "value": "or/x/y",
+    "expect": { "provider": "or/x", "id": "y", "state": "available" }
   },
   {
     "name": "bare model id",
     "catalog": [
-      { "provider": "anthropic", "id": "claude-3-5-sonnet", "aliases": [], "status": "available" }
+      { "provider": "anthropic", "id": "example-claude-3-5-sonnet", "aliases": [], "status": "available" }
     ],
-    "value": "claude-3-5-sonnet",
-    "expect": { "provider": "anthropic", "id": "claude-3-5-sonnet", "state": "available" }
+    "value": "example-claude-3-5-sonnet",
+    "expect": { "provider": "anthropic", "id": "example-claude-3-5-sonnet", "state": "available" }
   },
   {
     "name": "alias resolution under provider prefix",
     "catalog": [
-      { "provider": "openai", "id": "gpt-4o-2024-08-06", "aliases": ["gpt-4o"], "status": "available" }
+      { "provider": "openai", "id": "example-chat-large-20260101", "aliases": ["example-chat"], "status": "available" }
     ],
-    "value": "openai/gpt-4o",
-    "expect": { "provider": "openai", "id": "gpt-4o-2024-08-06", "state": "available" }
+    "value": "openai/example-chat",
+    "expect": { "provider": "openai", "id": "example-chat-large-20260101", "state": "available" }
   },
   {
     "name": "bare alias resolution",
     "catalog": [
-      { "provider": "openai", "id": "gpt-4o-2024-08-06", "aliases": ["gpt-4o"], "status": "available" }
+      { "provider": "openai", "id": "example-chat-large-20260101", "aliases": ["example-chat"], "status": "available" }
     ],
-    "value": "gpt-4o",
-    "expect": { "provider": "openai", "id": "gpt-4o-2024-08-06", "state": "available" }
+    "value": "example-chat",
+    "expect": { "provider": "openai", "id": "example-chat-large-20260101", "state": "available" }
   },
   {
     "name": "bare id on two providers with one available",

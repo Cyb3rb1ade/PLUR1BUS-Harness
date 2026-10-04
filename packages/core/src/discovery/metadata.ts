@@ -18,6 +18,7 @@ export function loadMetadataTable(raw: unknown = bundled): CompiledTable {
   const errors: string[] = [];
   const sections = new Map<string, { rule: MetadataRule; re: RegExp }[]>();
   const seen = new Map<string, string>();
+  const seenAliases = new Map<string, string>();
   const r = raw as { schema?: unknown; revision?: unknown; vendors?: unknown } | null;
   if (typeof r !== "object" || r === null) throw new Error("metadata table must be an object");
   if (r.schema !== "plur1bus.model-metadata/1") errors.push("schema must be plur1bus.model-metadata/1");
@@ -40,7 +41,21 @@ export function loadMetadataTable(raw: unknown = bundled): CompiledTable {
         if (!(MODEL_KINDS as readonly unknown[]).includes(rule.kind)) { errors.push(`${w}: kind is not in the vocabulary`); ok = false; }
         if (!(Array.isArray(rule.capabilities) && rule.capabilities.every((c) => (CAPABILITIES as readonly unknown[]).includes(c)))) { errors.push(`${w}: capabilities not in the vocabulary`); ok = false; }
         if (rule.contextWindow !== undefined && !(Number.isInteger(rule.contextWindow) && rule.contextWindow > 0)) { errors.push(`${w}: contextWindow must be a positive integer`); ok = false; }
-        if (rule.aliases !== undefined && !(Array.isArray(rule.aliases) && rule.aliases.every((a) => typeof a === "string"))) { errors.push(`${w}: aliases must be strings`); ok = false; }
+        if (rule.aliases !== undefined) {
+          if (!(Array.isArray(rule.aliases) && rule.aliases.every((a) => typeof a === "string"))) {
+            errors.push(`${w}: aliases must be strings`);
+            ok = false;
+          } else {
+            for (const a of rule.aliases) {
+              if (seenAliases.has(a)) {
+                errors.push(`${w}: duplicate alias (also ${seenAliases.get(a)})`);
+                ok = false;
+              } else {
+                seenAliases.set(a, w);
+              }
+            }
+          }
+        }
         if (!ok) return;
         let re: RegExp;
         try { re = new RegExp(p); } catch { errors.push(`${w}: pattern does not compile`); return; }

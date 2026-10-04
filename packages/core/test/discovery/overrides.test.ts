@@ -64,6 +64,36 @@ describe("overrides", () => {
       () => applyOverride(catalog, { provider: "p1", id: "m1", set: { aliases: ["m2"] } }, now, table, undefined),
       (e: unknown) => e instanceof CatalogError && e.code === "conflict" && e.field === "aliases",
     );
+
+    // Alias equal to another model's alias -> conflict (F4)
+    const catalogWithAlias: CatalogFile = {
+      ...emptyCatalog(table.revision),
+      models: [baseModel("m1"), { ...baseModel("m2"), aliases: ["m2-alias"] }],
+    };
+    assert.throws(
+      () => applyOverride(catalogWithAlias, { provider: "p1", id: "m1", set: { aliases: ["m2-alias"] } }, now, table, undefined),
+      (e: unknown) => e instanceof CatalogError && e.code === "conflict" && e.field === "aliases",
+    );
+
+    // String caps: > 512 bytes or control chars (Minor M5)
+    assert.throws(
+      () => applyOverride(catalog, { provider: "p1", id: "m1", set: { displayName: "a".repeat(513) } }, now, table, undefined),
+      (e: unknown) => e instanceof CatalogError && e.code === "invalid" && e.field === "displayName",
+    );
+    assert.throws(
+      () => applyOverride(catalog, { provider: "p1", id: "m1", set: { displayName: "bad\nname" } }, now, table, undefined),
+      (e: unknown) => e instanceof CatalogError && e.code === "invalid" && e.field === "displayName",
+    );
+    assert.throws(
+      () => applyOverride(catalog, { provider: "p1", id: "m1", set: { aliases: ["bad\x00alias"] } }, now, table, undefined),
+      (e: unknown) => e instanceof CatalogError && e.code === "invalid" && e.field === "aliases",
+    );
+
+    // Clear validation (Minor M5)
+    assert.throws(
+      () => applyOverride(catalog, { provider: "p1", id: "m1", clear: ["invalidKey" as any] }, now, table, undefined),
+      (e: unknown) => e instanceof CatalogError && e.code === "invalid" && e.field === "clear",
+    );
   });
 
   it("create makes a manual entry and duplicate create is conflict", () => {

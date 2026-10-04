@@ -87,8 +87,9 @@ pub fn resolve_role(value: &str, models: &[Value]) -> Option<ResolvedRole> {
         .iter()
         .filter_map(|m| m.get("provider")?.as_str().map(String::from))
         .collect();
-    providers.sort_by_key(|b| std::cmp::Reverse(b.len()));
+    providers.sort();
     providers.dedup();
+    providers.sort_by_key(|b| std::cmp::Reverse(b.len()));
 
     for p in providers {
         let prefix = format!("{p}/");

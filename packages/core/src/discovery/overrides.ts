@@ -22,9 +22,14 @@ export interface SetOverride {
   create?: boolean;
 }
 
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const OVERRIDE_KEYS = ["displayName", "kind", "contextWindow", "capabilities", "aliases"] as const;
+
 export function validateOverrides(set: ModelOverrides, provider: string, id: string, catalog: CatalogFile): void {
-  if (set.displayName !== undefined && (typeof set.displayName !== "string" || set.displayName.length === 0)) {
-    throw new CatalogError("invalid", "displayName");
+  if (set.displayName !== undefined) {
+    if (typeof set.displayName !== "string" || set.displayName.length === 0 || Buffer.byteLength(set.displayName, "utf8") > 512 || CONTROL.test(set.displayName)) {
+      throw new CatalogError("invalid", "displayName");
+    }
   }
   if (set.kind !== undefined && !(MODEL_KINDS as readonly unknown[]).includes(set.kind)) {
     throw new CatalogError("invalid", "kind");
@@ -36,17 +41,25 @@ export function validateOverrides(set: ModelOverrides, provider: string, id: str
     throw new CatalogError("invalid", "capabilities");
   }
   if (set.aliases !== undefined) {
-    if (!Array.isArray(set.aliases) || set.aliases.length > 16 || !set.aliases.every((a) => typeof a === "string")) {
+    if (!Array.isArray(set.aliases) || set.aliases.length > 16) {
       throw new CatalogError("invalid", "aliases");
     }
     const seen = new Set<string>();
     for (const a of set.aliases) {
+      if (typeof a !== "string" || a.length === 0 || Buffer.byteLength(a, "utf8") > 512 || CONTROL.test(a)) {
+        throw new CatalogError("invalid", "aliases");
+      }
       if (seen.has(a)) throw new CatalogError("invalid", "aliases");
       seen.add(a);
     }
     for (const m of catalog.models) {
-      if (m.provider === provider && m.id !== id && set.aliases.includes(m.id)) {
-        throw new CatalogError("conflict", "aliases");
+      if (m.provider === provider && m.id !== id) {
+        if (set.aliases.includes(m.id)) {
+          throw new CatalogError("conflict", "aliases");
+        }
+        if (m.aliases.some((existingAlias) => set.aliases!.includes(existingAlias))) {
+          throw new CatalogError("conflict", "aliases");
+        }
       }
     }
   }
@@ -59,10 +72,15 @@ export function applyOverride(
   t: CompiledTable,
   vendor: string | undefined,
 ): { catalog: CatalogFile; entry: CatalogModel } {
+  if (p.clear !== undefined && p.clear !== "all") {
+    if (!Array.isArray(p.clear) || !p.clear.every((k) => (OVERRIDE_KEYS as readonly unknown[]).includes(k))) {
+      throw new CatalogError("invalid", "clear");
+    }
+  }
   if (p.set) validateOverrides(p.set, p.provider, p.id, c);
 
   if (p.create) {
-    if (c.models.some((m) => m.provider === p.provider && m.id === p.id)) {
+    if (c.models.some((m) => m.provider === p.provider && (m.id === p.id || m.aliases.includes(p.id)))) {
       throw new CatalogError("conflict");
     }
     const overrides: ModelOverrides = p.set ? structuredClone(p.set) : {};
