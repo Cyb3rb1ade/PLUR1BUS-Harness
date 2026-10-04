@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs, { mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
@@ -16,6 +17,7 @@ import { layout } from "../../src/paths.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
 import { startFakeEndpoint, type FakeEndpoint } from "../helpers/fake-endpoint.ts";
 import { InMemoryProfileSource, StaticCredentialResolver } from "../../src/discovery/testing.ts";
+import type { CredentialResolver } from "../../src/discovery/ports.ts";
 import { createLoggerEvents } from "../../src/discovery/events-logger.ts";
 
 function newHome(extraConfig?: (cfg: any) => void): string {
@@ -467,6 +469,20 @@ describe("model discovery end-to-end", () => {
       await core.start();
       client = await connect({ address: core.address, token: core.token });
 
+      // Surface F2: wait for quiescence (engine.ready and warm-up done) before arming spies
+      while (true) {
+        const st = (await client.call("core.status", {})) as any;
+        if (st.engine?.ready && st.process?.state === "ready") break;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+
+      function isSubpath(parent: string, child: string): boolean {
+        const rel = relative(parent, child);
+        return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+      }
+
+      const projectRoot = realpathSync(resolve(fileURLToPath(import.meta.url), "../../../../.."));
+
       // Spy setup: wrap sync fs functions
       const targets = [
         "openSync", "readFileSync", "writeFileSync", "appendFileSync",
@@ -476,14 +492,25 @@ describe("model discovery end-to-end", () => {
 
       const originals: Partial<Record<keyof typeof fs, any>> = {};
       const outsidePaths: string[] = [];
+      let inHomeCalls = 0;
       let spyActive = false;
 
-      const check = (p: unknown) => {
+      const check = (rawP: unknown) => {
         if (!spyActive) return;
-        if (typeof p === "string") {
-          if (!p.startsWith(home) && !p.startsWith(realHome) && !p.includes("node_modules") && !p.includes("packages/core/dist")) {
-            outsidePaths.push(p);
-          }
+        if (typeof rawP !== "string") return;
+        let p = rawP;
+        if (p.startsWith("/proc/self/fd/")) {
+          try {
+            p = fs.readlinkSync(p);
+          } catch {}
+        }
+        if (isSubpath(realHome, p) || isSubpath(home, p)) {
+          inHomeCalls++;
+        } else if (isSubpath(projectRoot, p)) {
+          // Internal repository source/package files loaded during execution
+          return;
+        } else {
+          outsidePaths.push(rawP);
         }
       };
 
@@ -516,6 +543,7 @@ describe("model discovery end-to-end", () => {
         syncBuiltinESMExports();
       }
 
+      assert.ok(inHomeCalls > 0, `spy must observe at least one in-home filesystem access (got ${inHomeCalls})`);
       assert.deepEqual(outsidePaths, [], `Paths outside home were opened: ${outsidePaths.join(", ")}`);
     } finally {
       if (client) await client.close();
@@ -605,6 +633,7 @@ describe("model discovery end-to-end", () => {
       }
 
       assert.equal(spawnCount, 0, "No child processes should be spawned during model discovery");
+      assert.ok(targets.size > 0, "network spy must observe at least one network target");
       for (const t of targets) {
         assert.ok(
           t === `127.0.0.1:${endpoint.port}` || t.startsWith(home) || t.startsWith(realHome),
@@ -622,22 +651,54 @@ describe("model discovery end-to-end", () => {
     const CANARY_KEY = "CANARY-KEY-1";
     const CANARY_TOKEN = "Bearer CANARY-TOKEN-2";
     const CANARY_URL = "https://auth.example.invalid/authorize?code=CANARY-URL-3";
+    const CANARY_SUCCESS_TOKEN = "CANARY-SUCCESS-TOKEN-4";
+    const CANARY_INVALID_ID = "CANARY-INVALID-ID-5";
+    const CANARY_RESOLVER_SECRET = "CANARY-RESOLVER-SECRET-6";
+    const CANARY_RPC_PARAM = "CANARY-RPC-PARAM-7";
 
     const endpoint = await startFakeEndpoint((req) => {
-      return {
-        status: 401,
-        headers: { "WWW-Authenticate": `Bearer error="invalid_token", error_description="${CANARY_URL}"` },
-        json: { error: "unauthorized", canary_url: CANARY_URL },
-      };
+      if (req.url === "/v1/canary-401/models") {
+        return {
+          status: 401,
+          headers: { "WWW-Authenticate": `Bearer error="invalid_token", error_description="${CANARY_URL}"` },
+          json: { error: "unauthorized", canary_url: CANARY_URL },
+        };
+      }
+      if (req.url === "/v1/canary-success/models") {
+        return {
+          status: 200,
+          json: { data: [{ id: "example-chat-valid" }] },
+        };
+      }
+      if (req.url === "/v1/canary-invalid/models") {
+        return {
+          status: 200,
+          json: { data: [{ id: `${CANARY_INVALID_ID} with spaces and \x00 control` }] },
+        };
+      }
+      return { status: 404 };
     });
 
     const home = newHome();
     const profiles = new InMemoryProfileSource([
-      { id: "canary-prof", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1` },
+      { id: "canary-prof", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1/canary-401` },
+      { id: "canary-success", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1/canary-success` },
+      { id: "canary-invalid", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1/canary-invalid` },
+      { id: "canary-throw", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1/canary-success` },
     ]);
-    const credentials = new StaticCredentialResolver({
+    const staticCreds = new StaticCredentialResolver({
       "canary-prof": { origin: endpoint.origin, headerName: CANARY_KEY, headerValue: CANARY_TOKEN },
+      "canary-success": { origin: endpoint.origin, headerName: "Authorization", headerValue: `Bearer ${CANARY_SUCCESS_TOKEN}` },
+      "canary-invalid": { origin: endpoint.origin, headerName: "Authorization", headerValue: "Bearer token" },
     });
+    const credentials: CredentialResolver = {
+      resolve: async (p, origin) => {
+        if (p === "canary-throw") {
+          throw new Error(`Credential resolver failure containing ${CANARY_RESOLVER_SECRET}`);
+        }
+        return staticCreds.resolve(p, origin);
+      },
+    };
 
     const core = createCore({
       home,
@@ -660,6 +721,17 @@ describe("model discovery end-to-end", () => {
       const jobRun = await client.call("jobs.run", { job: "models.scan" });
       replies.push(JSON.stringify(jobRun));
 
+      try {
+        await client.call("models.setOverride", {
+          provider: "canary-prof",
+          id: "example-chat-valid",
+          set: { displayName: CANARY_RPC_PARAM },
+          clear: ["invalid_key_causes_rpc_error" as any],
+        });
+      } catch (err) {
+        replies.push(JSON.stringify(err));
+      }
+
       const filesToCheck = [
         join(home, "logs", "core.log"),
         join(home, "catalog", "models.json"),
@@ -667,7 +739,17 @@ describe("model discovery end-to-end", () => {
         join(layout(home).systemJobs, "ledger.jsonl"),
       ];
 
-      for (const canary of [CANARY_KEY, "CANARY-TOKEN-2", "CANARY-URL-3"]) {
+      const allCanaries = [
+        CANARY_KEY,
+        "CANARY-TOKEN-2",
+        "CANARY-URL-3",
+        CANARY_SUCCESS_TOKEN,
+        CANARY_INVALID_ID,
+        CANARY_RESOLVER_SECRET,
+        CANARY_RPC_PARAM,
+      ];
+
+      for (const canary of allCanaries) {
         for (const reply of replies) {
           assert.equal(reply.includes(canary), false, `Canary ${canary} leaked into RPC reply: ${reply}`);
         }
@@ -678,6 +760,12 @@ describe("model discovery end-to-end", () => {
           }
         }
       }
+
+      // Positive controls: verify files actually contain recorded activity
+      const logContent = readFileSync(join(home, "logs", "core.log"), "utf8");
+      assert.ok(logContent.includes("model.scan.failed"), "core.log should contain scan failure events");
+      const catContent = readFileSync(join(home, "catalog", "models.json"), "utf8");
+      assert.ok(catContent.includes("example-chat-valid"), "models.json should contain successful scan model");
     } finally {
       if (client) await client.close();
       await core.stop();
