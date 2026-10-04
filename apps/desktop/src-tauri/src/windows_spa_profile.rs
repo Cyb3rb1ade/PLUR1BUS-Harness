@@ -429,7 +429,7 @@ mod windows {
     fn read_file_bounded(
         path: &Path,
         deadline: Option<std::time::Instant>,
-        mut remaining: u64,
+        remaining: &mut u64,
     ) -> io::Result<()> {
         use std::io::Read;
         audit_deadline(deadline)?;
@@ -437,11 +437,17 @@ mod windows {
         let mut buffer = [0u8; AUDIT_CHUNK_BYTES];
         loop {
             audit_deadline(deadline)?;
+            if *remaining == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "SPA audit byte budget",
+                ));
+            }
             let read = file.read(&mut buffer)?;
             if read == 0 {
                 return Ok(());
             }
-            remaining = remaining
+            *remaining = (*remaining)
                 .checked_sub(read as u64)
                 .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "SPA audit byte budget"))?;
         }
@@ -449,6 +455,7 @@ mod windows {
 
     fn audit_profile_readability(root: &Path, deadline: std::time::Instant) -> io::Result<()> {
         let mut pending = vec![root.to_path_buf()];
+        let mut remaining = AUDIT_MAX_BYTES;
         while let Some(dir) = pending.pop() {
             audit_deadline(Some(deadline))?;
             for entry in fs::read_dir(dir)? {
@@ -463,7 +470,7 @@ mod windows {
                             io::Error::new(io::ErrorKind::PermissionDenied, "lease unavailable")
                         })?;
                     } else {
-                        read_file_bounded(&file, Some(deadline), AUDIT_MAX_BYTES)?;
+                        read_file_bounded(&file, Some(deadline), &mut remaining)?;
                     }
                 } else {
                     return Err(io::Error::other("unsupported SPA profile entry"));
@@ -1027,6 +1034,7 @@ mod windows {
         };
         let mut pending = vec![root.to_path_buf()];
         let mut databases = Vec::new();
+        let mut remaining = AUDIT_MAX_BYTES;
         let mut visited = 0usize;
         while let Some(dir) = pending.pop() {
             audit_deadline(deadline)?;
@@ -1048,7 +1056,7 @@ mod windows {
                         "cookies-journal" | "cookies-wal" | "cookies-shm"
                     ) {
                         // Read before any SQLite open can checkpoint/remove a side file.
-                        read_file_bounded(&path, deadline, AUDIT_MAX_BYTES)?;
+                        read_file_bounded(&path, deadline, &mut remaining)?;
                         result.sidecar_files += 1;
                     }
                     if lower == "cookies" || lower.starts_with("cookies.sqlite") {
