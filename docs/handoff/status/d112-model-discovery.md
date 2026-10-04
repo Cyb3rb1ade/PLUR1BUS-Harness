@@ -58,16 +58,16 @@ Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction; Review fixes r
 | Finding | Commit | Tests added (file::name) | Result | Notes |
 |---|---|---|---|---|
 | N1 scheduler vendor hammering | 918df432 | `scheduler.test.ts` (C1 trigger 2 / N1 2h fake clock) | pass | Backoff applied on unpersisted/failed nextScanAt; 1 run + 1 ledger pair per tick |
-| N4 boot re-enrichment | 918df432 | `core.test.ts` (N4 boot re-enrichment failure) | pass | Unguarded mutate caught; logs model.catalog.reenrich_failed without blocking start |
-| F4 alias uniqueness | 918df432 | `model-metadata.json`, `metadata.test.ts`, `reconcile.test.ts` | pass | Shipped table split; resolved alias uniqueness enforced after enrichment |
+| N4 boot re-enrichment | cde1e6c0 | `core.test.ts` (boot re-enrichment failure) | pass | Injected failing store in core.test.ts; verified mutateCalled, asserted model.catalog.reenrich_failed warning, pins fix against try/catch removal |
+| F4 alias uniqueness | cde1e6c0 | `model-metadata.json`, `metadata.test.ts`, `reconcile.test.ts` | pass | Per-provider dedup without mutating input models; reconcile.test.ts pins with colliding table; cross-provider duplicate aliases allowed |
 | N3 / State I6 ledger ACL | 918df432 | `system-jobs.test.ts` (I6 / N3), `catalog-store.test.ts` (I6) | pass | Fail closed on securePath applied:false; ACL checked before writing ledger rows |
 | State I1 lost update test | 918df432 | `service.test.ts` (override vs scan) | pass | Mutate runs inside store lock, override during scan preserved |
 | State I2 manual scan test | 918df432 | `scheduler.test.ts` (I2 manual scan) | pass | Manual scan replans timer without silently resetting auth backoff |
 | State I4 replan unhandled | 918df432 | `scheduler.test.ts` (I4 rejecting store.mutate) | pass | Mutate error caught, no unhandled rejection |
-| Security M2 cursor test | 918df432 | `validate.test.ts` (cursor string check) | pass | Validates cursor <= 512 bytes, no control chars |
+| Security M2 cursor test | cde1e6c0 | `validate.test.ts`, `scanners.test.ts`, `service.test.ts` | pass | Validates cursor <= 512 bytes, no control chars; scanner-level and service-level tests assert failed:invalid |
 | Security M4 credential test | 918df432 | `service.test.ts` (credential unavailable) | pass | Distinct reason with undefined httpStatus |
 | Security M5 mixed loopback test | 918df432 | `http.test.ts` (mixed loopback and positive loopback) | pass | Multiple addresses where one is non-loopback rejected |
-| Security M7 abort timer test | 918df432 | `http.test.ts` (connect timer cleared on abort) | pass | Connect timer cleared immediately on abort |
+| Security M7 abort timer test | cde1e6c0 | `http.test.ts` (abort clears connect timer and races socket event) | pass | Active timers tracked and socket event race tested; asserts 0 active timers and fails without if (done) return in socket handler |
 | Security M10 safe integer test | 918df432 | `validate.test.ts` (Number.isSafeInteger) | pass | Numbers must be safe integers |
 | Cleanups (D109, canary, F8) | 918df432 | `discovery-e2e.test.ts`, `validate.test.ts` | pass | 10s deadline on quiescence loop, sibling path assertion, RPC error throw asserted, example-llama3.2:latest id |
 

@@ -126,12 +126,16 @@ export function reconcile(i: ReconcileInput): ReconcileResult {
     updatedProviderModels.push(newEntry);
   }
 
+  const nextModels = dedupResolvedAliases(
+    [...otherModels, ...updatedProviderModels],
+    i.raw,
+    i.logger
+  );
+
   const nextCatalog: CatalogFile = {
     ...i.catalog,
-    models: [...otherModels, ...updatedProviderModels],
+    models: nextModels,
   };
-
-  dedupResolvedAliases(nextCatalog.models, i.raw, i.logger);
 
   // Role warnings
   const rWarnings = roleWarnings(nextCatalog, i.roles, i.provider);

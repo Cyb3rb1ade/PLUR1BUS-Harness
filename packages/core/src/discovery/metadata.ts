@@ -108,81 +108,117 @@ export function enrich(id: string, api: ApiFields, overrides: ModelOverrides, t:
   return { fields, source: tableFilled ? "table" : "scan" };
 }
 
-/** Enforce uniqueness of resolved alias -> id mapping after enrichment (F4). */
+/** Enforce uniqueness of resolved alias -> id mapping per provider after enrichment (F4).
+ * Returns a new array of models where duplicate aliases within any single provider have been dropped,
+ * without mutating input model objects.
+ */
 export function dedupResolvedAliases(
-  models: CatalogModel[],
+  models: readonly CatalogModel[],
   rawEntries?: readonly RawEntry[],
   logger?: { debug(m: string, f?: object): void }
-): void {
+): CatalogModel[] {
   const rawMap = new Map<string, RawEntry>();
   if (rawEntries) {
     for (const r of rawEntries) rawMap.set(r.id, r);
   }
 
-  const aliasMap = new Map<string, CatalogModel[]>();
+  const byProvider = new Map<string, CatalogModel[]>();
   for (const m of models) {
-    for (const a of m.aliases) {
-      const list = aliasMap.get(a) ?? [];
-      list.push(m);
-      aliasMap.set(a, list);
+    const list = byProvider.get(m.provider) ?? [];
+    list.push(m);
+    byProvider.set(m.provider, list);
+  }
+
+  const result: CatalogModel[] = [];
+
+  for (const [provider, provModels] of byProvider) {
+    const aliasMap = new Map<string, CatalogModel[]>();
+    for (const m of provModels) {
+      for (const a of m.aliases) {
+        const list = aliasMap.get(a) ?? [];
+        list.push(m);
+        aliasMap.set(a, list);
+      }
+    }
+
+    const droppedAliases = new Map<string, Set<string>>();
+
+    for (const [alias, claimants] of aliasMap) {
+      if (claimants.length <= 1) continue;
+
+      const scored = claimants.map((m) => {
+        const raw = rawMap.get(m.id);
+        const rawCreated = raw?.created;
+
+        const dateMatch = m.id.match(/-(\d{4})-?(\d{2})-?(\d{2})/);
+        let idDateMs: number | undefined;
+        if (dateMatch) {
+          const y = parseInt(dateMatch[1]!, 10);
+          const mon = parseInt(dateMatch[2]!, 10) - 1;
+          const d = parseInt(dateMatch[3]!, 10);
+          idDateMs = Date.UTC(y, mon, d);
+        }
+
+        const isBaseMatch = !dateMatch;
+
+        return {
+          model: m,
+          rawCreated,
+          idDateMs,
+          isBaseMatch,
+        };
+      });
+
+      scored.sort((a, b) => {
+        if (a.rawCreated !== undefined && b.rawCreated !== undefined) {
+          return b.rawCreated - a.rawCreated;
+        }
+        if (a.rawCreated !== undefined && b.rawCreated === undefined) return -1;
+        if (a.rawCreated === undefined && b.rawCreated !== undefined) return 1;
+
+        if (a.isBaseMatch && !b.isBaseMatch) return -1;
+        if (!a.isBaseMatch && b.isBaseMatch) return 1;
+
+        if (a.idDateMs !== undefined && b.idDateMs !== undefined) {
+          return b.idDateMs - a.idDateMs;
+        }
+        return a.model.id.localeCompare(b.model.id);
+      });
+
+      const winner = scored[0]!.model;
+      const losers = scored.slice(1).map((s) => s.model);
+
+      for (const loser of losers) {
+        let set = droppedAliases.get(loser.id);
+        if (!set) {
+          set = new Set();
+          droppedAliases.set(loser.id, set);
+        }
+        set.add(alias);
+      }
+
+      logger?.debug("resolved alias collision", {
+        provider,
+        alias,
+        winner: winner.id,
+        droppedFrom: losers.map((l) => l.id),
+      });
+    }
+
+    for (const m of provModels) {
+      const dropped = droppedAliases.get(m.id);
+      if (dropped && dropped.size > 0) {
+        result.push({
+          ...m,
+          aliases: m.aliases.filter((a) => !dropped.has(a)),
+        });
+      } else {
+        result.push({ ...m, aliases: [...m.aliases] });
+      }
     }
   }
 
-  for (const [alias, claimants] of aliasMap) {
-    if (claimants.length <= 1) continue;
-
-    const scored = claimants.map((m) => {
-      const raw = rawMap.get(m.id);
-      const rawCreated = raw?.created;
-
-      const dateMatch = m.id.match(/-(\d{4})-?(\d{2})-?(\d{2})/);
-      let idDateMs: number | undefined;
-      if (dateMatch) {
-        const y = parseInt(dateMatch[1]!, 10);
-        const mon = parseInt(dateMatch[2]!, 10) - 1;
-        const d = parseInt(dateMatch[3]!, 10);
-        idDateMs = Date.UTC(y, mon, d);
-      }
-
-      const isBaseMatch = !dateMatch;
-
-      return {
-        model: m,
-        rawCreated,
-        idDateMs,
-        isBaseMatch,
-      };
-    });
-
-    scored.sort((a, b) => {
-      if (a.rawCreated !== undefined && b.rawCreated !== undefined) {
-        return b.rawCreated - a.rawCreated;
-      }
-      if (a.rawCreated !== undefined && b.rawCreated === undefined) return -1;
-      if (a.rawCreated === undefined && b.rawCreated !== undefined) return 1;
-
-      if (a.isBaseMatch && !b.isBaseMatch) return -1;
-      if (!a.isBaseMatch && b.isBaseMatch) return 1;
-
-      if (a.idDateMs !== undefined && b.idDateMs !== undefined) {
-        return b.idDateMs - a.idDateMs;
-      }
-      return a.model.id.localeCompare(b.model.id);
-    });
-
-    const winner = scored[0]!.model;
-    const losers = scored.slice(1).map((s) => s.model);
-
-    for (const loser of losers) {
-      loser.aliases = loser.aliases.filter((a) => a !== alias);
-    }
-
-    logger?.debug("resolved alias collision", {
-      alias,
-      winner: winner.id,
-      droppedFrom: losers.map((l) => l.id),
-    });
-  }
+  return result;
 }
 
 /** Re-runs the table for entries whose source is "table" (from their stored API values); overrides, scan and manual entries stay. */
@@ -198,6 +234,6 @@ export function reenrichCatalog(
     const { contextWindow: _old, ...rest } = m; void _old;
     return { ...rest, ...fields, source };
   });
-  dedupResolvedAliases(models, undefined, logger);
-  return { ...c, tableRevision: t.revision, models };
+  const dedupedModels = dedupResolvedAliases(models, undefined, logger);
+  return { ...c, tableRevision: t.revision, models: dedupedModels };
 }

@@ -1,5 +1,6 @@
 import { describe, it, mock, after } from "node:test";
 import assert from "node:assert/strict";
+import http from "node:http";
 import net from "node:net";
 import { gzipSync } from "node:zlib";
 import { createPinnedClient, parseRetryAfter, ScanError, LIMITS } from "../../src/discovery/http.ts";
@@ -297,19 +298,80 @@ describe("pinned client", () => {
     assert.deepEqual(res, { ok: true });
   });
 
-  it("abort clears the connect timer immediately (Security M7)", async () => {
-    const f = await fake(() => ({ stall: true }));
-    const ac = new AbortController();
-    const c = createPinnedClient({
-      baseUrl: `${f.origin}/v1`,
-      lease: lease(f.origin),
-      userAgent: UA,
-      signal: ac.signal,
-      limits: { connectTimeoutMs: 5000 },
-    });
-    const reqPromise = c.get({ path: "/m" });
-    ac.abort();
-    await refused(reqPromise, "failed:network", "aborted");
+  it("abort clears connect timer and races socket event without leaving active timers (Security M7)", async () => {
+    const activeTimers = new Set<NodeJS.Timeout>();
+    const origSetTimeout = globalThis.setTimeout;
+    const origClearTimeout = globalThis.clearTimeout;
+    globalThis.setTimeout = function (fn: any, ms?: number, ...args: any[]) {
+      let t: NodeJS.Timeout;
+      const wrapped = (...a: any[]) => {
+        activeTimers.delete(t);
+        return fn(...a);
+      };
+      t = origSetTimeout(wrapped, ms, ...args) as unknown as NodeJS.Timeout;
+      activeTimers.add(t);
+      return t;
+    } as any;
+    globalThis.clearTimeout = function (t: any) {
+      activeTimers.delete(t);
+      return origClearTimeout(t);
+    };
+
+    try {
+      // 1. In-flight connect timer is cleared on abort
+      const ac1 = new AbortController();
+      const c1 = createPinnedClient({
+        baseUrl: "http://192.0.2.1:80/v1",
+        lease: null,
+        userAgent: UA,
+        signal: ac1.signal,
+        limits: { connectTimeoutMs: 10000, requestTimeoutMs: 30000 },
+      });
+      const req1 = c1.get({ path: "/m" });
+      // Allow socket to be created and connectTimer to be scheduled
+      await new Promise((r) => setImmediate(r));
+      assert.equal(activeTimers.size, 2, "both requestTimer and connectTimer active while connecting");
+
+      ac1.abort();
+      await refused(req1, "failed:network", "aborted");
+      await new Promise((r) => setImmediate(r));
+      assert.equal(activeTimers.size, 0, "no timers left active after abort");
+
+      // 2. Abort racing socket event: socket event arrives on an already-aborted request
+      // If `if (done) return` in `req.on("socket")` is deleted, connectTimer is scheduled and leaked.
+      let capturedReq: http.ClientRequest | null = null;
+      const origOn = http.ClientRequest.prototype.on;
+      http.ClientRequest.prototype.on = function (event: string, listener: any) {
+        if (event === "socket") capturedReq = this;
+        return origOn.call(this, event, listener);
+      };
+
+      const ac2 = new AbortController();
+      try {
+        const c2 = createPinnedClient({
+          baseUrl: "http://127.0.0.1:9999/v1",
+          lease: null,
+          userAgent: UA,
+          signal: ac2.signal,
+          limits: { connectTimeoutMs: 5000 },
+        });
+        ac2.abort();
+        const req2 = c2.get({ path: "/m" });
+        await refused(req2, "failed:network", "aborted");
+        assert.ok(capturedReq, "captured ClientRequest instance");
+
+        // Emit racing socket event on the already aborted request
+        (capturedReq as http.ClientRequest).emit("socket", new net.Socket());
+        await new Promise((r) => setImmediate(r));
+
+        assert.equal(activeTimers.size, 0, "no timer leaked when socket event races aborted request");
+      } finally {
+        http.ClientRequest.prototype.on = origOn;
+      }
+    } finally {
+      globalThis.setTimeout = origSetTimeout;
+      globalThis.clearTimeout = origClearTimeout;
+    }
   });
 });
 

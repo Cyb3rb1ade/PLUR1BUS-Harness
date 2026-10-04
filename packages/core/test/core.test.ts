@@ -8,6 +8,8 @@ import { connect, type CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { CORE_FEATURES } from "../src/capabilities.ts";
 import { createCore, type Core } from "../src/core.ts";
+import { createLogger } from "../src/logger.ts";
+import type { CatalogStore } from "../src/discovery/catalog-store.ts";
 import { appendJournalLine } from "../src/journal.ts";
 import { layout } from "../src/paths.ts";
 import { flatEmbedder, flatTestInternals } from "./helpers/flat-embedder.ts";
@@ -685,26 +687,47 @@ describe("core model warm-up (E4, S7)", () => {
     const l = layout(home);
     mkdirSync(l.catalog, { recursive: true, mode: 0o700 });
 
+    const warnings: string[] = [];
+    const logger = createLogger({ file: l.logFile("core"), level: "debug", role: "core", maxBytes: 1024 * 1024, keep: 1 });
+    const originalWarn = logger.warn.bind(logger);
+    logger.warn = (msg: string, fields?: Record<string, unknown>) => {
+      warnings.push(msg);
+      originalWarn(msg, fields);
+    };
+
     const staleCatalog = {
-      schema: "plur1bus.model-catalog/1",
+      schema: "plur1bus.model-catalog/1" as const,
       revision: 1,
       tableRevision: "rev-0",
       models: [],
       providers: {},
     };
-    writeFileSync(l.catalogModels, JSON.stringify(staleCatalog));
 
-    const { chmodSync } = await import("node:fs");
-    try {
-      chmodSync(l.catalog, 0o500);
-    } catch {
-      // If OS doesn't support directory permission restriction, skip
-      return;
-    }
+    let mutateCalled = false;
+    const failingStore: CatalogStore = {
+      load: () => ({ file: structuredClone(staleCatalog), recovered: "none" }),
+      read: () => structuredClone(staleCatalog),
+      mutate: async () => {
+        mutateCalled = true;
+        throw new Error("simulated disk full during boot re-enrichment");
+      },
+    };
 
-    const core = createCore({ home, testInternals: flatTestInternals() });
+    const core = createCore({
+      home,
+      testInternals: flatTestInternals(),
+      logger,
+      discovery: { store: failingStore },
+    });
+
     try {
       await core.start();
+      assert.equal(mutateCalled, true, "boot re-enrichment mutate was called");
+      assert.ok(
+        warnings.includes("model.catalog.reenrich_failed"),
+        `model.catalog.reenrich_failed was logged: ${JSON.stringify(warnings)}`
+      );
+
       const client = await connect({ address: core.address, token: core.token });
       try {
         const s = await client.call<any>("core.status");
@@ -713,7 +736,6 @@ describe("core model warm-up (E4, S7)", () => {
         await client.close();
       }
     } finally {
-      try { chmodSync(l.catalog, 0o700); } catch {}
       await core.stop({ budgetMs: 5000 });
     }
   });
