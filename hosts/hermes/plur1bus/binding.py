@@ -26,7 +26,7 @@ import posixpath
 import re
 import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 
 from ._filelock import ExclusiveLockFile
@@ -247,8 +247,20 @@ def resolve_hermes_home(
 # -- files ----------------------------------------------------------------------------------------
 
 
-def atomic_write_text(path: str, text: str, *, mode: int = 0o600, retry_s: float = 10.0) -> None:
-    """``<name>.tmp-<pid>`` -> fsync -> rename; Windows sharing violations retried with backoff."""
+def atomic_write_text(
+    path: str,
+    text: str,
+    *,
+    mode: int = 0o600,
+    retry_s: float = 10.0,
+    before_replace: Callable[[], None] | None = None,
+) -> None:
+    """``<name>.tmp-<pid>`` -> fsync -> rename; Windows sharing violations retried with backoff.
+
+    Optional ``before_replace`` runs after write/flush/fsync/close (and POSIX chmod), directly before
+    ``os.replace``, and again before every retry in the Windows sharing loop. If it raises, the temp
+    file is deleted and the original exception propagates. Unguarded callers omit the hook.
+    """
     directory = os.path.dirname(path) or "."
     tmp = f"{path}.tmp-{os.getpid()}"
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
@@ -263,6 +275,8 @@ def atomic_write_text(path: str, text: str, *, mode: int = 0o600, retry_s: float
         delay = 0.02
         while True:
             try:
+                if before_replace is not None:
+                    before_replace()
                 os.replace(tmp, path)
                 break
             except PermissionError as e:
@@ -366,7 +380,8 @@ def register_binding(plur1bus_home: str, agent_id: str, hermes_home: str, *, pla
     Lock protocol (shared with the plugin installer, ``binding.mjs`` ``withRegistryLock``; see
     ``ExclusiveLockFile``): ``hosts/.hermes-bindings.lock`` is created with O_EXCL holding
     ``<pid> <hostname> <ms> <nonce>``, broken (rename aside, re-check identity) when older than 60 s or its pid
-    on this host is dead, released by rename + nonce check, and verified (``LockLost``) right before the write.
+    on this host is dead, released by rename + nonce check, and verified immediately before the publishing
+    replace; residual window = microseconds between verify and replace; breaker mutex = option (i), later.
     It is not an flock: the Node installer cannot take one, so both sides must use the file's existence."""
     path = _registry_path(plur1bus_home)
     lock = ExclusiveLockFile(os.path.join(os.path.dirname(path), REGISTRY_LOCK_FILE))
@@ -375,6 +390,5 @@ def register_binding(plur1bus_home: str, agent_id: str, hermes_home: str, *, pla
         updated = registry_add(bindings, agent_id, _real(hermes_home), platform)
         if updated == bindings:
             return
-        held.verify()  # LockLost (nothing written) when the lock was judged stale and taken over meanwhile
         doc = {"schema": REGISTRY_SCHEMA, "bindings": dict(sorted(updated.items()))}
-        atomic_write_text(path, json.dumps(doc, indent=2) + "\n")
+        atomic_write_text(path, json.dumps(doc, indent=2) + "\n", before_replace=held.verify)
