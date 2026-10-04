@@ -315,7 +315,11 @@ The SPA command list contains only shell_info, guarded by exact label/current
 URL, with an empty features list. Tauri 2.12 capabilities are additive: on switch
 or close an origin-specific deny-shell-info retires the prior grant. Retired
 ports stay reserved for this process, preventing permission reuse. This costs
-one small retained listener per switch, until process exit.
+one small retained listener per switch, until process exit. Retirement cancels the
+whole WebSocket pump, including blocked sends and close handshakes, and drops both
+sockets without waiting for a stalled peer. Ordinary close is best effort with
+one shared grace of at most one second; active forwarding has no per-frame timeout.
+Bytes already accepted by the operating system cannot be recalled.
 
 Run the native fixture with Node 24.21:
 `node apps/desktop/scripts/native-spa.mjs --output <dir>` from a GUI session

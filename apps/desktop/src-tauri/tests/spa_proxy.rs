@@ -361,6 +361,60 @@ async fn websocket_upgrade_is_forwarded() {
 }
 
 #[tokio::test]
+async fn websocket_retirement_disconnects_logged_in_socket_and_keeps_port_reserved() {
+    with_test_timeout(
+        "websocket_retirement_disconnects_logged_in_socket_and_keeps_port_reserved",
+        async {
+            let f = fixture(Kind::Local).await;
+            assert_eq!(
+                request(&f.proxy, "/cookie").send().await.unwrap().status(),
+                200
+            );
+            let url = format!("{}/ws", f.proxy.origin().as_str().replacen("http", "ws", 1));
+            let mut req = url.into_client_request().unwrap();
+            req.headers_mut()
+                .insert("user-agent", f.proxy.user_agent().parse().unwrap());
+            req.headers_mut()
+                .insert("origin", f.proxy.origin().as_str().parse().unwrap());
+            let (mut ws, _) = tokio_tungstenite::connect_async(req).await.unwrap();
+            ws.send(tokio_tungstenite::tungstenite::Message::Text(
+                "authenticated-echo".into(),
+            ))
+            .await
+            .unwrap();
+            assert_eq!(
+                ws.next().await.unwrap().unwrap().into_text().unwrap(),
+                "authenticated-echo"
+            );
+            {
+                let seen = f.seen.0.lock().unwrap();
+                let (_, headers) = seen.iter().find(|(path, _)| path == "/ws").unwrap();
+                assert_eq!(headers["cookie"], "session=one");
+                assert!(!headers.contains_key("authorization"));
+                assert!(!headers.contains_key("user-agent"));
+            }
+            f.proxy.retire();
+            let ended = timeout(Duration::from_secs(2), ws.next())
+                .await
+                .expect("retired socket stayed open");
+            assert!(matches!(
+                ended,
+                None | Some(Err(_)) | Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_)))
+            ));
+            assert_eq!(
+                request(&f.proxy, "/echo").send().await.unwrap().status(),
+                403
+            );
+            assert!(
+                std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, f.proxy.port()))
+                    .is_err()
+            );
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn websocket_selected_subprotocol_is_mirrored_to_the_browser() {
     with_test_timeout(
         "websocket_selected_subprotocol_is_mirrored_to_the_browser",

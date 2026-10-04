@@ -13,7 +13,7 @@ use axum::{
     Router,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use rand::{rngs::OsRng, TryRngCore};
 use reqwest::cookie::{CookieStore, Jar};
 use std::{
@@ -537,44 +537,7 @@ async fn forward(
             }
         }
         return ws
-            .on_upgrade(move |mut down| async move {
-                let mut up = socket;
-                let mut shutdown = s.shutdown.subscribe();
-                if *shutdown.borrow() {
-                    let _ = up.close(None).await;
-                    return;
-                }
-                loop {
-                    tokio::select! {
-                        _ = shutdown.changed() => break,
-                        incoming = down.recv() => {
-                            let Some(Ok(message)) = incoming else { break };
-                            let message = match message {
-                                axum::extract::ws::Message::Text(value) => Message::Text(value.as_str().into()),
-                                axum::extract::ws::Message::Binary(value) => Message::Binary(value),
-                                axum::extract::ws::Message::Ping(value) => Message::Ping(value),
-                                axum::extract::ws::Message::Pong(value) => Message::Pong(value),
-                                axum::extract::ws::Message::Close(_) => Message::Close(None),
-                            };
-                            if up.send(message).await.is_err() { break }
-                        }
-                        incoming = up.next() => {
-                            let Some(Ok(message)) = incoming else { break };
-                            let message = match message {
-                                Message::Text(value) => axum::extract::ws::Message::Text(value.as_str().into()),
-                                Message::Binary(value) => axum::extract::ws::Message::Binary(value),
-                                Message::Ping(value) => axum::extract::ws::Message::Ping(value),
-                                Message::Pong(value) => axum::extract::ws::Message::Pong(value),
-                                Message::Close(_) => axum::extract::ws::Message::Close(None),
-                                Message::Frame(_) => continue,
-                            };
-                            if down.send(message).await.is_err() { break }
-                        }
-                    }
-                }
-                let _ = down.close().await;
-                let _ = up.close(None).await;
-            })
+            .on_upgrade(move |down| websocket_pump(down, socket, s.shutdown.subscribe()))
             .into_response();
     }
     let http = match s.client.streaming_http() {
@@ -665,6 +628,67 @@ async fn forward(
     result
 }
 
+// Shared by the actual upgrade path and deterministic backpressure regressions.
+async fn websocket_pump<D, U, DE, UE>(
+    mut down: D,
+    mut up: U,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
+) where
+    D: Stream<Item = Result<axum::extract::ws::Message, DE>>
+        + Sink<axum::extract::ws::Message>
+        + Unpin,
+    U: Stream<Item = Result<Message, UE>> + Sink<Message> + Unpin,
+{
+    // An upgrade may finish after its owner retired. Drop both sockets without
+    // polling them, including close/flush, in that case.
+    if *shutdown.borrow() {
+        return;
+    }
+    let forwarding = async {
+        loop {
+            tokio::select! {
+                incoming = down.next() => {
+                    let Some(Ok(message)) = incoming else { break };
+                    let message = match message {
+                        axum::extract::ws::Message::Text(value) => Message::Text(value.as_str().into()),
+                        axum::extract::ws::Message::Binary(value) => Message::Binary(value),
+                        axum::extract::ws::Message::Ping(value) => Message::Ping(value),
+                        axum::extract::ws::Message::Pong(value) => Message::Pong(value),
+                        axum::extract::ws::Message::Close(_) => break,
+                    };
+                    if up.send(message).await.is_err() { break }
+                }
+                incoming = up.next() => {
+                    let Some(Ok(message)) = incoming else { break };
+                    let message = match message {
+                        Message::Text(value) => axum::extract::ws::Message::Text(value.as_str().into()),
+                        Message::Binary(value) => axum::extract::ws::Message::Binary(value),
+                        Message::Ping(value) => axum::extract::ws::Message::Ping(value),
+                        Message::Pong(value) => axum::extract::ws::Message::Pong(value),
+                        Message::Close(_) => break,
+                        Message::Frame(_) => continue,
+                    };
+                    if down.send(message).await.is_err() { break }
+                }
+            }
+        }
+        // A normal close is best effort across both peers, with one shared grace.
+        // Retirement also cancels this grace; it never waits for a stalled peer.
+        let _ = tokio::time::timeout(Duration::from_secs(1), async {
+            let _ = tokio::join!(down.close(), up.close());
+        })
+        .await;
+    };
+    // The race must enclose sends as well as reads. Dropping the losing future
+    // abandons any pending write, then dropping this function's owned sockets
+    // ends the authenticated session. Bytes already handed to the OS stay sent.
+    tokio::select! {
+        biased;
+        _ = shutdown.changed() => {}
+        _ = forwarding => {}
+    }
+}
+
 #[cfg(all(test, debug_assertions))]
 mod tests {
     use super::*;
@@ -673,6 +697,316 @@ mod tests {
         body::Body, extract::ws::rejection::MethodNotGet,
         extract::ws::rejection::WebSocketUpgradeRejection, extract::State,
     };
+
+    use std::{
+        pin::Pin,
+        sync::atomic::AtomicUsize,
+        task::{Context, Poll, Waker},
+    };
+
+    #[derive(Clone, Copy, PartialEq)]
+    enum BlockAt {
+        Ready,
+        Flush,
+        Close,
+    }
+
+    #[derive(Default)]
+    struct SocketProbe {
+        blocked: tokio::sync::Notify,
+        released: AtomicBool,
+        waker: Mutex<Option<Waker>>,
+        sends: AtomicUsize,
+        flushes: AtomicUsize,
+        closes: AtomicUsize,
+        polls: AtomicUsize,
+        dropped: AtomicBool,
+    }
+    impl SocketProbe {
+        fn release(&self) {
+            self.released.store(true, Ordering::SeqCst);
+            if let Some(waker) = self.waker.lock().unwrap().take() {
+                waker.wake();
+            }
+        }
+    }
+
+    // A real Sink::send progresses through readiness, start_send and flush.
+    // The barrier is emitted only when the selected operation actually returns Pending.
+    struct ControlledSocket<M> {
+        incoming: Option<M>,
+        eof: bool,
+        block: Option<BlockAt>,
+        probe: Arc<SocketProbe>,
+    }
+    impl<M> ControlledSocket<M> {
+        fn new(incoming: Option<M>, eof: bool, block: Option<BlockAt>) -> Self {
+            Self {
+                incoming,
+                eof,
+                block,
+                probe: Arc::default(),
+            }
+        }
+        fn poll_operation(&self, operation: BlockAt, cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            self.probe.polls.fetch_add(1, Ordering::SeqCst);
+            if self.block == Some(operation) && !self.probe.released.load(Ordering::SeqCst) {
+                *self.probe.waker.lock().unwrap() = Some(cx.waker().clone());
+                self.probe.blocked.notify_one();
+                Poll::Pending
+            } else {
+                Poll::Ready(Ok(()))
+            }
+        }
+    }
+    impl<M: Unpin> Stream for ControlledSocket<M> {
+        type Item = Result<M, ()>;
+        fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            self.probe.polls.fetch_add(1, Ordering::SeqCst);
+            match self.incoming.take() {
+                Some(message) => Poll::Ready(Some(Ok(message))),
+                None if self.eof => Poll::Ready(None),
+                None => Poll::Pending,
+            }
+        }
+    }
+    impl<M: Unpin> Sink<M> for ControlledSocket<M> {
+        type Error = ();
+        fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            self.poll_operation(BlockAt::Ready, cx)
+        }
+        fn start_send(self: Pin<&mut Self>, _: M) -> Result<(), ()> {
+            self.probe.sends.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            let result = self.poll_operation(BlockAt::Flush, cx);
+            if result.is_ready() {
+                self.probe.flushes.fetch_add(1, Ordering::SeqCst);
+            }
+            result
+        }
+        fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            let result = self.poll_operation(BlockAt::Close, cx);
+            if result.is_ready() {
+                self.probe.closes.fetch_add(1, Ordering::SeqCst);
+            }
+            result
+        }
+    }
+    impl<M> Drop for ControlledSocket<M> {
+        fn drop(&mut self) {
+            self.probe.dropped.store(true, Ordering::SeqCst);
+        }
+    }
+    fn pump_owner() -> SpaProxy {
+        SpaProxy {
+            inner: test_inner(),
+            lifetime: Arc::new(()),
+            port: 12345,
+        }
+    }
+    async fn reached_pending(probe: &SocketProbe) {
+        tokio::time::timeout(Duration::from_secs(2), probe.blocked.notified())
+            .await
+            .expect("pump did not reach the controlled pending operation");
+    }
+    async fn completed_while_stalled(
+        task: &mut tokio::task::JoinHandle<()>,
+        down: &SocketProbe,
+        up: &SocketProbe,
+        bound: Duration,
+    ) {
+        let completed = tokio::time::timeout(bound, &mut *task).await;
+        // Abort only on failure, so a failing RED test cannot leak its stuck task.
+        if completed.is_err() {
+            task.abort();
+        }
+        completed
+            .expect("pump stayed alive while peer remained stalled")
+            .unwrap();
+        assert!(down.dropped.load(Ordering::SeqCst));
+        assert!(up.dropped.load(Ordering::SeqCst));
+        let progress = (
+            down.polls.load(Ordering::SeqCst),
+            up.polls.load(Ordering::SeqCst),
+        );
+        down.release();
+        up.release();
+        tokio::task::yield_now().await;
+        assert_eq!(
+            progress,
+            (
+                down.polls.load(Ordering::SeqCst),
+                up.polls.load(Ordering::SeqCst)
+            ),
+            "a dropped pump must never resume forwarding after the peer is released"
+        );
+    }
+    async fn blocked_send_retirement(to_upstream: bool, block: BlockAt) {
+        let owner = pump_owner();
+        let down = ControlledSocket::new(
+            to_upstream.then(|| axum::extract::ws::Message::Text("pending".into())),
+            false,
+            (!to_upstream).then_some(block),
+        );
+        let up = ControlledSocket::new(
+            (!to_upstream).then(|| Message::Text("pending".into())),
+            false,
+            to_upstream.then_some(block),
+        );
+        let (down_probe, up_probe) = (down.probe.clone(), up.probe.clone());
+        let destination = if to_upstream { &up_probe } else { &down_probe };
+        let mut task = tokio::spawn(websocket_pump(down, up, owner.inner.shutdown.subscribe()));
+        reached_pending(destination).await;
+        assert_eq!(
+            destination.sends.load(Ordering::SeqCst),
+            usize::from(block == BlockAt::Flush)
+        );
+        assert_eq!(destination.flushes.load(Ordering::SeqCst), 0);
+        owner.retire();
+        completed_while_stalled(
+            &mut task,
+            &down_probe,
+            &up_probe,
+            Duration::from_millis(500),
+        )
+        .await;
+        assert_eq!(destination.flushes.load(Ordering::SeqCst), 0);
+    }
+    #[tokio::test]
+    async fn websocket_retirement_cancels_upstream_send_readiness() {
+        blocked_send_retirement(true, BlockAt::Ready).await;
+    }
+    #[tokio::test]
+    async fn websocket_retirement_cancels_upstream_send_flush() {
+        blocked_send_retirement(true, BlockAt::Flush).await;
+    }
+    #[tokio::test]
+    async fn websocket_retirement_cancels_downstream_send_readiness() {
+        blocked_send_retirement(false, BlockAt::Ready).await;
+    }
+    #[tokio::test]
+    async fn websocket_retirement_cancels_downstream_send_flush() {
+        blocked_send_retirement(false, BlockAt::Flush).await;
+    }
+    async fn blocked_close(retire: bool, upstream: bool) {
+        let owner = pump_owner();
+        let down = ControlledSocket::<axum::extract::ws::Message>::new(
+            None,
+            true,
+            (!upstream).then_some(BlockAt::Close),
+        );
+        let up = ControlledSocket::<Message>::new(None, false, upstream.then_some(BlockAt::Close));
+        let (down_probe, up_probe) = (down.probe.clone(), up.probe.clone());
+        let blocked = if upstream { &up_probe } else { &down_probe };
+        let mut task = tokio::spawn(websocket_pump(down, up, owner.inner.shutdown.subscribe()));
+        reached_pending(blocked).await;
+        if retire {
+            owner.retire();
+        }
+        let bound = if retire {
+            Duration::from_millis(500)
+        } else {
+            Duration::from_secs(2)
+        };
+        completed_while_stalled(&mut task, &down_probe, &up_probe, bound).await;
+        assert_eq!(blocked.closes.load(Ordering::SeqCst), 0);
+    }
+    #[tokio::test]
+    async fn websocket_retirement_cancels_downstream_close() {
+        blocked_close(true, false).await;
+    }
+    #[tokio::test]
+    async fn websocket_retirement_cancels_upstream_close() {
+        blocked_close(true, true).await;
+    }
+    #[tokio::test]
+    async fn websocket_normal_close_backpressure_is_bounded() {
+        blocked_close(false, false).await;
+        blocked_close(false, true).await;
+    }
+    #[tokio::test]
+    async fn websocket_retirement_before_upgrade_drops_without_io() {
+        let owner = pump_owner();
+        owner.retire();
+        let down =
+            ControlledSocket::<axum::extract::ws::Message>::new(None, false, Some(BlockAt::Close));
+        let up = ControlledSocket::<Message>::new(None, false, Some(BlockAt::Close));
+        let (down_probe, up_probe) = (down.probe.clone(), up.probe.clone());
+        let mut task = tokio::spawn(websocket_pump(down, up, owner.inner.shutdown.subscribe()));
+        completed_while_stalled(
+            &mut task,
+            &down_probe,
+            &up_probe,
+            Duration::from_millis(500),
+        )
+        .await;
+        assert_eq!(down_probe.polls.load(Ordering::SeqCst), 0);
+        assert_eq!(up_probe.polls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn websocket_active_backpressure_can_resume_without_frame_timeout() {
+        for to_upstream in [true, false] {
+            let owner = pump_owner();
+            let down = ControlledSocket::new(
+                to_upstream.then(|| axum::extract::ws::Message::Text("delayed".into())),
+                to_upstream,
+                (!to_upstream).then_some(BlockAt::Flush),
+            );
+            let up = ControlledSocket::new(
+                (!to_upstream).then(|| Message::Text("delayed".into())),
+                !to_upstream,
+                to_upstream.then_some(BlockAt::Flush),
+            );
+            let (down_probe, up_probe) = (down.probe.clone(), up.probe.clone());
+            let blocked = if to_upstream { &up_probe } else { &down_probe };
+            let mut task = tokio::spawn(websocket_pump(down, up, owner.inner.shutdown.subscribe()));
+            reached_pending(blocked).await;
+            // Hold a genuine in-flight send past the normal-close grace. It must
+            // still be active, then complete its flush when the peer resumes.
+            assert!(tokio::time::timeout(Duration::from_millis(1100), &mut task)
+                .await
+                .is_err());
+            assert!(!down_probe.dropped.load(Ordering::SeqCst));
+            assert!(!up_probe.dropped.load(Ordering::SeqCst));
+            blocked.release();
+            tokio::time::timeout(Duration::from_millis(500), &mut task)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(blocked.sends.load(Ordering::SeqCst), 1);
+            assert_eq!(blocked.flushes.load(Ordering::SeqCst), 1);
+            assert!(down_probe.dropped.load(Ordering::SeqCst));
+            assert!(up_probe.dropped.load(Ordering::SeqCst));
+        }
+    }
+
+    #[tokio::test]
+    async fn websocket_close_frames_use_bounded_grace() {
+        for from_upstream in [true, false] {
+            let owner = pump_owner();
+            let down = ControlledSocket::new(
+                (!from_upstream).then_some(axum::extract::ws::Message::Close(None)),
+                false,
+                Some(BlockAt::Close),
+            );
+            let up = ControlledSocket::new(
+                from_upstream.then_some(Message::Close(None)),
+                false,
+                Some(BlockAt::Close),
+            );
+            let (down_probe, up_probe) = (down.probe.clone(), up.probe.clone());
+            let mut task = tokio::spawn(websocket_pump(down, up, owner.inner.shutdown.subscribe()));
+            reached_pending(&down_probe).await;
+            reached_pending(&up_probe).await;
+            completed_while_stalled(&mut task, &down_probe, &up_probe, Duration::from_secs(2))
+                .await;
+            assert_eq!(down_probe.sends.load(Ordering::SeqCst), 0);
+            assert_eq!(up_probe.sends.load(Ordering::SeqCst), 0);
+        }
+    }
 
     fn test_inner() -> Arc<Inner> {
         let origin = Origin::parse("http://127.0.0.1:12345").unwrap();
