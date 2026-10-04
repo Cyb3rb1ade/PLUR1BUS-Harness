@@ -253,7 +253,7 @@ pub fn is_owned_profile_path(root: &Path, path: &Path) -> bool {
 mod windows {
     use super::{
         known_browser_lock_name, owned_leaf_name, CleanupResult, CookieQueryDiagnostic,
-        CookieQueryResult, CookieQueryStage, Path, PathBuf, ProfileCleanupEvidence, PREFIX,
+        CookieQueryResult, CookieQueryStage, Path, PathBuf, PREFIX,
     };
     use rand::{rngs::OsRng, TryRngCore};
     use std::{
@@ -2426,7 +2426,7 @@ mod windows {
 
         #[test]
         fn cleanup_reason_codes_distinguish_cookie_audit_failure() {
-            let audit = ProfileCleanupEvidence {
+            let audit = super::ProfileCleanupEvidence {
                 environment_exited: true,
                 read_only_complete: true,
                 cookie_database_files: 1,
