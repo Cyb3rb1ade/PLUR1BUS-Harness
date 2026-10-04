@@ -1230,3 +1230,10 @@ Existing foundation: commit `48bb9fd9` supplies desktop-local D111 typed JSONL/r
 - [ ] Named acceptance tests, local Green, draft PR and exact-head Root/7-target desktop CI Run links.
 
 No WP6 completion or CI pass is claimed. `crates/plur1bus`, Core and Hermes are unchanged; Issue #79 belongs to Copilot.
+
+### State/event block (local only)
+
+- `tray.rs` keeps eight harness states/three optional runtime states in words; controller crash/runtime state and updater states have explicit precedence. Four badge classes preserve the owner icon mapping.
+- `events.rs` and `HarnessClient::status_events` use the existing pinned TLS/installation policy, bearer auth, 1/2/4/8/16/30 s capped exponential backoff with ±20% jitter, bounded SSE parsing, Last-Event-ID, cancellation and revoked→Unpaired stop. Foreign JSON fields never enter IPC/logs.
+- Observed local tests: `map_status_table`, `combine_table`, `every_state_keeps_words_and_maps_to_the_four_badge_shapes` (3 PASS); `stream_reconnects_with_backoff_and_last_event_id`, `revoked_stream_goes_unpaired_and_stops`, `reconnect_policy_caps_and_bounds_jitter`, `bounded_parser_keeps_last_id_and_words_without_exposing_foreign_fields` (4 PASS). The two stream tests use the mock harness and a real HTTP client, with injected delay/jitter. Desktop Clippy/all-targets PASS.
+- Root pnpm gen/build/lint/test and root Cargo fmt/Clippy/tests passed locally before this block. Initial desktop full-run Rust tests passed, but Rustdoc raced the deliberate missing-module RED setup; full rerun pending. No CI claim and no native tray/event wiring yet.

@@ -4,6 +4,7 @@ pub mod commands;
 pub mod connections;
 pub mod crash;
 pub mod discovery;
+pub mod events;
 pub mod ids;
 pub mod logging;
 pub mod pair;
@@ -15,6 +16,7 @@ pub mod settings;
 mod shell_commands;
 pub mod spa;
 pub mod spa_proxy;
+pub mod tray;
 pub mod windows_spa_profile;
 pub use plur1bus_desktop_contract as contract;
 
