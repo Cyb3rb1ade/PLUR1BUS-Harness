@@ -1,7 +1,7 @@
 // Platform-aware path helpers for the importer (plugin-distribution spec §B.1, §B.4). Every function takes the
 // platform explicitly and uses `path.win32` or `path.posix` accordingly — never the host's `node:path` — so the
 // Windows rules are unit-tested on Linux and a Windows host can read a POSIX-flavoured source (and back).
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { posix, win32 } from "node:path";
 import { ImportError } from "./types.ts";
 
@@ -95,41 +95,75 @@ export function locateSource(o: {
   try {
     const metaPath = H.join(o.accessRoot, "snapshot.json");
     if (existsSync(metaPath)) {
-      // Trust anchor check (I6): snapshot.json is only accepted under the Harness home's import directory (<home>/import/<run>/snapshot/)
+      // Trust anchor check: snapshot.json is only accepted under the Harness home's import directory (<home>/import/<run>/snapshot/)
       const candidateHome = o.harnessHome ?? o.home;
-      const homeImport = candidateHome ? H.resolve(H.join(candidateHome, "import")) : null;
-      const resolvedAccess = H.resolve(o.accessRoot);
-      const isUnderHomeImport =
-        homeImport !== null &&
-        (resolvedAccess.startsWith(homeImport + H.sep) || resolvedAccess === homeImport) &&
-        /[\\/]import[\\/][^\\/]+[\\/]snapshot$/i.test(resolvedAccess);
-      if (isUnderHomeImport) {
-        const meta = JSON.parse(readFileSync(metaPath, "utf8"));
-        if (meta && typeof meta === "object" && meta.version === 1) {
-          const allowedOrigins = ["native", "windows-from-wsl", "network", "container"];
-          const isAllowedOrigin = typeof meta.origin === "string" && (allowedOrigins.includes(meta.origin) || meta.origin.startsWith("wsl:"));
-          const isAllowedFlavour = meta.flavour === "posix" || meta.flavour === "win32";
-          if (isAllowedOrigin && isAllowedFlavour) {
-            const mounts = Array.isArray(meta.mounts) ? meta.mounts : [];
-            const safeMounts: Mount[] = [];
-            for (const m of mounts) {
-              if (m && typeof m.from === "string" && typeof m.to === "string") {
-                const targetPath = H.resolve(resolvedAccess, m.to);
-                if (targetPath.startsWith(resolvedAccess + H.sep) || targetPath === resolvedAccess) {
-                  safeMounts.push({ from: m.from, to: m.to });
+      if (candidateHome) {
+        let realHomeImport: string;
+        try {
+          realHomeImport = realpathSync(H.join(candidateHome, "import"));
+        } catch {
+          realHomeImport = H.resolve(H.join(candidateHome, "import"));
+        }
+        let realAccess: string;
+        try {
+          realAccess = realpathSync(o.accessRoot);
+        } catch {
+          realAccess = H.resolve(o.accessRoot);
+        }
+
+        const isCaseInsensitive = o.platform === "win32" || o.platform === "darwin";
+        const norm = (s: string) => (isCaseInsensitive ? s.toLowerCase() : s);
+        const normAccess = norm(realAccess);
+        const normHomeImport = norm(realHomeImport);
+
+        const isUnderHomeImport =
+          (normAccess.startsWith(normHomeImport + H.sep) || normAccess === normHomeImport) &&
+          /[\\/]import[\\/][^\\/]+[\\/]snapshot$/i.test(normAccess);
+
+        if (isUnderHomeImport) {
+          const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+          if (meta && typeof meta === "object" && meta.version === 1) {
+            const allowedOrigins = ["native", "windows-from-wsl", "network", "container"];
+            const isAllowedOrigin = typeof meta.origin === "string" && (allowedOrigins.includes(meta.origin) || meta.origin.startsWith("wsl:"));
+            const isAllowedFlavour = meta.flavour === "posix" || meta.flavour === "win32";
+            if (isAllowedOrigin && isAllowedFlavour) {
+              const mounts = Array.isArray(meta.mounts) ? meta.mounts : [];
+              const safeMounts: Mount[] = [];
+              for (const m of mounts) {
+                if (
+                  m &&
+                  typeof m.from === "string" &&
+                  typeof m.to === "string" &&
+                  !m.to.startsWith("/etc") &&
+                  !m.to.startsWith("\\etc") &&
+                  !/^[a-zA-Z]:[\\/]/i.test(m.to) &&
+                  !m.to.startsWith("/") &&
+                  !m.to.startsWith("\\")
+                ) {
+                  const targetPath = H.resolve(realAccess, m.to);
+                  let realTarget: string;
+                  try {
+                    realTarget = realpathSync(targetPath);
+                  } catch {
+                    realTarget = targetPath;
+                  }
+                  const normTarget = norm(realTarget);
+                  if (normTarget.startsWith(normAccess + H.sep) || normTarget === normAccess) {
+                    safeMounts.push({ from: m.from, to: m.to });
+                  }
                 }
               }
+              return {
+                origin: meta.origin,
+                flavour: meta.flavour,
+                hostFlavour,
+                accessRoot: o.accessRoot,
+                sourceRoot: typeof meta.sourceRoot === "string" ? meta.sourceRoot : o.accessRoot,
+                sourceHome: typeof meta.sourceHome === "string" ? meta.sourceHome : o.home,
+                accessHome: o.home,
+                mounts: safeMounts,
+              };
             }
-            return {
-              origin: meta.origin,
-              flavour: meta.flavour,
-              hostFlavour,
-              accessRoot: o.accessRoot,
-              sourceRoot: typeof meta.sourceRoot === "string" ? meta.sourceRoot : o.accessRoot,
-              sourceHome: typeof meta.sourceHome === "string" ? meta.sourceHome : o.home,
-              accessHome: o.home,
-              mounts: safeMounts,
-            };
           }
         }
       }

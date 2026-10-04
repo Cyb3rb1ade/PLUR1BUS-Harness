@@ -1,6 +1,7 @@
 // Snapshot producer for cross-platform and container imports (§B.3, gap G6, owner decisions C7, C10).
 // Provides native tree copying with bounded reads and manifest-based LanceDB consistency,
 // and WSL tar stream extraction with strict path traversal, symlink escape and device protections.
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   closeSync,
@@ -9,6 +10,7 @@ import {
   openSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -23,7 +25,7 @@ import {
   SQLITE_COPY_ATTEMPTS,
 } from "./readonly.ts";
 import { ImportError, type SourceType } from "./types.ts";
-import { defaultWslRunner, spawnWslTarStream, type WslRunner } from "./wsl.ts";
+import { defaultWslRunner, listWslDistros, spawnWslTarStream, type SpawnWslTarStreamOptions, type WslRunner } from "./wsl.ts";
 
 export const DEFAULT_SNAPSHOT_MAX_BYTES = 512 * 1024 * 1024; // 512 MiB
 export const DEFAULT_SNAPSHOT_MAX_FILES = 10_000;
@@ -36,7 +38,13 @@ export interface SnapshotFileInfo {
 }
 
 export interface SnapshotSqliteInfo {
-  status: "copy" | "immutable" | "source-busy";
+  status: "copy" | "source-busy";
+  attempts?: number;
+  reason?: string;
+}
+
+export interface SnapshotLanceInfo {
+  status: "copy" | "source-busy";
   attempts?: number;
   reason?: string;
 }
@@ -45,12 +53,14 @@ export interface SnapshotMetadata {
   version: 1;
   source: string;
   sourceRoot: string;
-  sourceHome?: string | null;
+  sourceHome?: string | null | undefined;
   origin: string;
   flavour: string;
   timestamp: string;
   files: SnapshotFileInfo[];
   sqlite: Record<string, SnapshotSqliteInfo>;
+  lancedb?: Record<string, SnapshotLanceInfo> | undefined;
+  skippedLinks?: string[] | undefined;
   envKeys: Record<string, string[]>;
 }
 
@@ -67,6 +77,7 @@ export interface CreateSnapshotOptions {
   maxFiles?: number | undefined;
   stagingDir?: string | undefined;
   wslRunner?: WslRunner | undefined;
+  wslSpawn?: typeof spawn | undefined;
   timeoutMs?: number | undefined;
   platform?: NodeJS.Platform | undefined;
   env?: NodeJS.ProcessEnv | undefined;
@@ -306,6 +317,9 @@ export async function extractTarStream(
 
       // Handle GNU long names / links and PAX headers
       if (typeflagChar === "L" || typeflagChar === "K" || typeflagChar === "x" || typeflagChar === "g") {
+        if (size > 1024 * 1024) {
+          throw new ImportError("E_TAR_SECURITY", "header-too-large", `Extended tar header payload exceeds 1 MiB (${size} bytes): ${rawName}`, 3);
+        }
         const payloadBuf = await reader.read(size);
         if (payloadBuf === null) {
           throw new ImportError("E_TAR_CORRUPT", "stream-truncated", "Tar stream ended unexpectedly during extended header", 3);
@@ -335,6 +349,10 @@ export async function extractTarStream(
       while (entryPath.startsWith("./")) entryPath = entryPath.slice(2);
       if (entryPath === "" || entryPath === ".") continue;
 
+      if (entryPath.includes("\0")) {
+        throw new ImportError("E_TAR_SECURITY", "invalid-path", "Tar entry path contains NUL byte", 3);
+      }
+
       // Security Check 1: No absolute paths
       if (entryPath.startsWith("/") || /^[a-zA-Z]:/.test(entryPath) || entryPath.startsWith("\\\\")) {
         throw new ImportError("E_TAR_SECURITY", "absolute-path", `Absolute path in tar entry is forbidden: ${entryPath}`, 3);
@@ -346,6 +364,21 @@ export async function extractTarStream(
         throw new ImportError("E_TAR_SECURITY", "path-traversal", `Path traversal ('..') in tar entry is forbidden: ${entryPath}`, 3);
       }
 
+      const targetPlatform = opts.targetPlatform ?? process.platform;
+      if (targetPlatform === "win32") {
+        for (const seg of segments) {
+          if (seg.includes(":")) {
+            throw new ImportError("E_TAR_SECURITY", "unportable-name", `Entry segment contains forbidden character ':': ${entryPath}`, 3);
+          }
+          if (seg.endsWith(".") || seg.endsWith(" ")) {
+            throw new ImportError("E_TAR_SECURITY", "unportable-name", `Entry segment has trailing dot or space: ${entryPath}`, 3);
+          }
+          if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$/i.test(seg)) {
+            throw new ImportError("E_TAR_SECURITY", "unportable-name", `Entry segment is a reserved Windows device name: ${entryPath}`, 3);
+          }
+        }
+      }
+
       const destPath = resolve(absStaging, entryPath);
       // Security Check 3: Must be inside staging dir
       if (!destPath.startsWith(absStaging + sep) && destPath !== absStaging) {
@@ -354,7 +387,20 @@ export async function extractTarStream(
 
       // Directory entry ('5' or ends with /)
       if (typeflagChar === "5" || entryPath.endsWith("/")) {
-        mkdirSync(destPath, { recursive: true });
+        totalFiles++;
+        if (totalFiles > maxFiles) {
+          throw new ImportError("E_LIMIT_EXCEEDED", "too-many-files", `Tar stream exceeded max file count (${maxFiles})`, 3);
+        }
+        try {
+          mkdirSync(destPath, { recursive: true });
+        } catch (err) {
+          if (err instanceof ImportError) throw err;
+          const e = err as NodeJS.ErrnoException;
+          throw new ImportError("E_IMPORT_FAILED", e.code ? `fs-${e.code.toLowerCase()}` : "fs-error", `Failed to create directory: ${e.message}`, 3);
+        }
+        if (size > 0) {
+          await reader.skip(size);
+        }
         const pad = (512 - (size % 512)) % 512;
         if (pad > 0) await reader.skip(pad);
         continue;
@@ -366,8 +412,15 @@ export async function extractTarStream(
         throw new ImportError("E_LIMIT_EXCEEDED", "too-many-files", `Tar stream exceeded max file count (${maxFiles})`, 3);
       }
 
-      mkdirSync(dirname(destPath), { recursive: true });
-      const fd = openSync(destPath, "w", 0o600);
+      let fd: number;
+      try {
+        mkdirSync(dirname(destPath), { recursive: true });
+        fd = openSync(destPath, "w", 0o600);
+      } catch (err) {
+        if (err instanceof ImportError) throw err;
+        const e = err as NodeJS.ErrnoException;
+        throw new ImportError("E_IMPORT_FAILED", e.code ? `fs-${e.code.toLowerCase()}` : "fs-error", `Failed to open destination file: ${e.message}`, 3);
+      }
       try {
         await reader.drainToFile(fd, size, (n) => {
           totalBytes += n;
@@ -503,7 +556,11 @@ export function parseLanceManifestVersion(filename: string): bigint {
 export function copyLanceTableWithManifest(
   tableSrc: string,
   tableDst: string,
-  opts: { allowLiveCopy?: boolean | undefined; maxBytes?: number | undefined }
+  opts: {
+    allowLiveCopy?: boolean | undefined;
+    maxBytes?: number | undefined;
+    afterCopy?: ((attempt: number) => void) | undefined;
+  }
 ): { success: boolean; attempts: number } {
   const versionsSrc = join(tableSrc, "_versions");
   if (!existsSync(versionsSrc)) {
@@ -530,6 +587,7 @@ export function copyLanceTableWithManifest(
 
     // Copy table files and subdirectories
     copyDirBounded(tableSrc, tableDst, opts.maxBytes ?? DEFAULT_SNAPSHOT_MAX_BYTES);
+    opts.afterCopy?.(attempt);
 
     // Re-check newest manifest
     const currentManifests = readdirSync(versionsSrc).filter((f) => f.endsWith(".manifest"));
@@ -547,7 +605,7 @@ export function copyLanceTableWithManifest(
   }
 
   if (opts.allowLiveCopy) {
-    throw new ImportError("E_SOURCE_BUSY", "source-busy", `LanceDB store ${tableSrc} kept changing while copied; stop the source and retry`, 3);
+    return { success: false, attempts: 3 };
   }
   throw new ImportError("E_SOURCE_BUSY", "source-running", `LanceDB store ${tableSrc} is being written to; source must be stopped (C7)`, 3);
 }
@@ -618,26 +676,37 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
   const maxFiles = opts.maxFiles ?? DEFAULT_SNAPSHOT_MAX_FILES;
   const runId = `snap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const stagingDir = opts.stagingDir ?? join(opts.home, "import", runId, "snapshot");
-
-  // Create staging directory with restricted permissions (0700, M1)
-  mkdirSync(stagingDir, { recursive: true, mode: 0o700 });
+  let stagingCreated = false;
 
   const loc = locateSource({
     accessRoot: opts.sourceRoot,
     platform,
     env: opts.env ?? process.env,
     home: opts.homedir ?? null,
+    harnessHome: opts.home,
   });
 
   const isWsl = loc.origin.startsWith("wsl:") || opts.sourceRoot.startsWith("wsl:");
   const sqliteStatuses: Record<string, SnapshotSqliteInfo> = {};
+  const lanceStatuses: Record<string, SnapshotLanceInfo> = {};
+  let skippedLinks: string[] = [];
 
   try {
+    mkdirSync(stagingDir, { recursive: true, mode: 0o700 });
+    stagingCreated = true;
+
     if (isWsl) {
       const distro = opts.distro ?? (loc.origin.startsWith("wsl:") ? loc.origin.slice(4) : "");
       if (!distro || /[\/\\:\0\r\n]/.test(distro) || distro.startsWith("-")) {
         throw new ImportError("E_INVALID_PARAMS", "invalid-distro-name", `Invalid WSL distro name: ${distro}`, 2);
       }
+
+      const runner = opts.wslRunner ?? defaultWslRunner;
+      const installedDistros = await listWslDistros(runner);
+      if (installedDistros.length > 0 && !installedDistros.some((d) => d.name === distro)) {
+        throw new ImportError("E_INVALID_PARAMS", "unknown-distro", `WSL distro "${distro}" is not in installed distros list`, 2);
+      }
+
       const timeoutMs = opts.timeoutMs ?? 30_000;
       const subpaths = opts.subpaths && opts.subpaths.length ? opts.subpaths : ["."];
       for (const p of subpaths) {
@@ -649,38 +718,69 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         }
       }
 
-      const runner = opts.wslRunner;
-      if (runner) {
-        // Custom or test runner path
-        const checkCmd = [
-          "wsl.exe",
-          "-d",
-          distro,
-          "--exec",
-          "sh",
-          "-c",
-          `if [ -f "${loc.sourceRoot}/gateway.pid" ] && kill -0 $(cat "${loc.sourceRoot}/gateway.pid" 2>/dev/null) 2>/dev/null; then echo running; elif [ -f "${loc.sourceRoot}/openclaw.pid" ] && kill -0 $(cat "${loc.sourceRoot}/openclaw.pid" 2>/dev/null) 2>/dev/null; then echo running; fi`
-        ];
-        const checkRes = await runner(checkCmd, { timeoutMs: 5000 }).catch(() => null);
-        const isRunning = checkRes && checkRes.exitCode === 0 && checkRes.stdout.toString("utf8").trim() === "running";
-        if (isRunning && !opts.allowLiveCopy) {
-          throw new ImportError("E_SOURCE_BUSY", "source-running", "WSL source is currently running; stop the source or pass --allow-live-copy (C7)", 3);
+      // Check running source inside WSL (N2, C7)
+      const checkCmd = [
+        "wsl.exe",
+        "-d",
+        distro,
+        "--exec",
+        "sh",
+        "-c",
+        'root="$1"\nfor f in "$root/gateway.pid" "$root/.gateway.pid" "$root/openclaw.pid" "$root/hermes.pid" "$root/state/gateway.pid" "$root/state/openclaw.pid"; do\n  if [ -f "$f" ]; then\n    pid=$(tr -dc "0-9" < "$f" 2>/dev/null)\n    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then\n      echo "running:$f:$pid"\n      exit 0\n    fi\n  fi\ndone\nfor l in "$root/gateway.lock" "$root/.gateway.lock"; do\n  if [ -f "$l" ]; then\n    echo "running:$l:lock"\n    exit 0\n  fi\ndone\necho "stopped"\n',
+        "sh",
+        loc.sourceRoot,
+      ];
+      const checkRes = await runner(checkCmd, { timeoutMs: 5000 });
+      if (checkRes && checkRes.exitCode === 0) {
+        const line = checkRes.stdout.toString("utf8").trim();
+        if (line.startsWith("running:")) {
+          if (!opts.allowLiveCopy) {
+            throw new ImportError("E_SOURCE_BUSY", "source-running", `WSL source is currently running (${line.slice(8)}); stop the source or pass --allow-live-copy (C7)`, 3);
+          }
         }
+      }
 
-        const cmd = ["wsl.exe", "-d", distro, "--exec", "tar", "-h", "-C", loc.sourceRoot, "-cf", "-", "--", ...subpaths];
-        const res = await runner(cmd, { timeoutMs });
+      // Check external symlinks inside WSL (N1)
+      const symlinkCmd = [
+        "wsl.exe",
+        "-d",
+        distro,
+        "--exec",
+        "sh",
+        "-c",
+        'root="$1"\ncd "$root" 2>/dev/null || exit 0\nreal_root=$(pwd -P 2>/dev/null || true)\n[ -z "$real_root" ] && exit 0\nfind . -type l 2>/dev/null | while IFS= read -r link; do\n  target=$(readlink -f "$link" 2>/dev/null || true)\n  case "$target" in\n    "$real_root"/*|"$real_root") ;;\n    *)\n      clean="${link#./}"\n      [ -n "$clean" ] && printf "%s\\n" "$clean"\n      ;;\n  esac\ndone\n',
+        "sh",
+        loc.sourceRoot,
+      ];
+      const symlinkRes = await runner(symlinkCmd, { timeoutMs: 10_000 });
+      if (symlinkRes && symlinkRes.exitCode === 0) {
+        const out = symlinkRes.stdout.toString("utf8");
+        for (const l of out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) {
+          skippedLinks.push(l);
+        }
+      }
+
+      const excludeArgs = skippedLinks.flatMap((l) => [`--exclude=${l}`, `--exclude=./${l}`]);
+
+      if (opts.wslRunner && !opts.wslSpawn) {
+        const cmd = ["wsl.exe", "-d", distro, "--exec", "tar", "-h", ...excludeArgs, "-C", loc.sourceRoot, "-cf", "-", "--", ...subpaths];
+        const res = await opts.wslRunner(cmd, { timeoutMs });
         if (res.exitCode !== 0) {
           throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar failed (exit ${res.exitCode}): ${res.stderr.toString("utf8")}`, 2);
         }
         await extractTarStream(res.stdout, stagingDir, { maxBytes, maxFiles, targetPlatform: platform });
       } else {
-        // Production streaming runner path (I2, I5)
-        const tarProcess = spawnWslTarStream(distro, loc.sourceRoot, subpaths, { timeoutMs });
+        const spawnOpts: SpawnWslTarStreamOptions = {
+          timeoutMs,
+          excludes: skippedLinks,
+        };
+        if (opts.wslSpawn) spawnOpts.spawnFn = opts.wslSpawn;
+        const tarProcess = spawnWslTarStream(distro, loc.sourceRoot, subpaths, spawnOpts);
         try {
           await extractTarStream(tarProcess.stream, stagingDir, { maxBytes, maxFiles, targetPlatform: platform });
-        } catch (err) {
-          tarProcess.abort();
-          throw err;
+          await tarProcess.waitClose();
+        } finally {
+          tarProcess.dispose();
         }
       }
     } else {
@@ -691,13 +791,18 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         throw new ImportError("E_SOURCE_BUSY", "source-running", `Source is currently running (${runCheck.reason}); stop the source or pass --allow-live-copy (C7)`, 3);
       }
 
+      const nativeSkipped: string[] = [];
       copyNativeTree(absSrc, stagingDir, stagingDir, {
         allowLiveCopy: opts.allowLiveCopy,
         maxBytes,
         sqliteStatuses,
+        lanceStatuses,
+        skippedLinks: nativeSkipped,
+        sourceRoot: absSrc,
         afterCopy: opts.afterCopy,
         copyFile: opts.copyFile,
       });
+      skippedLinks = nativeSkipped;
     }
 
     // Inspect files and generate snapshot.json
@@ -709,14 +814,18 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       sourceHome: loc.sourceHome,
       stagingDir,
       sqliteStatuses,
+      lanceStatuses,
+      skippedLinks,
     });
 
     writeFileSync(join(stagingDir, "snapshot.json"), JSON.stringify(metadata, null, 2) + "\n", "utf8");
     return { stagingDir, metadata };
   } catch (err) {
-    try {
-      rmSync(stagingDir, { recursive: true, force: true });
-    } catch {}
+    if (stagingCreated) {
+      try {
+        rmSync(stagingDir, { recursive: true, force: true });
+      } catch {}
+    }
     throw err;
   }
 }
@@ -729,6 +838,9 @@ function copyNativeTree(
     allowLiveCopy?: boolean | undefined;
     maxBytes: number;
     sqliteStatuses: Record<string, SnapshotSqliteInfo>;
+    lanceStatuses?: Record<string, SnapshotLanceInfo> | undefined;
+    skippedLinks: string[];
+    sourceRoot: string;
     afterCopy?: ((attempt: number, copy: string) => void) | undefined;
     copyFile?: ((src: string, dst: string, limit: number) => void) | undefined;
   }
@@ -740,10 +852,41 @@ function copyNativeTree(
     const srcPath = join(srcDir, e.name);
     const dstPath = join(dstDir, e.name);
 
-    if (e.isDirectory()) {
+    if (e.isSymbolicLink()) {
+      try {
+        const target = realpathSync(srcPath);
+        const normSrc = resolve(opts.sourceRoot);
+        if (target.startsWith(normSrc + sep) || target === normSrc) {
+          const st = statSync(target);
+          if (st.isDirectory()) {
+            copyNativeTree(target, dstPath, stagingRoot, opts);
+          } else if (st.isFile()) {
+            const doCopy = opts.copyFile ?? copyFileBounded;
+            doCopy(target, dstPath, opts.maxBytes);
+          }
+        } else {
+          const rel = relative(opts.sourceRoot, srcPath).replace(/\\/g, "/");
+          opts.skippedLinks.push(rel);
+        }
+      } catch {
+        const rel = relative(opts.sourceRoot, srcPath).replace(/\\/g, "/");
+        opts.skippedLinks.push(rel);
+      }
+    } else if (e.isDirectory()) {
       if (e.name === "_versions" || existsSync(join(srcPath, "_versions"))) {
         // LanceDB table directory
-        copyLanceTableWithManifest(srcPath, dstPath, { allowLiveCopy: opts.allowLiveCopy, maxBytes: opts.maxBytes });
+        const res = copyLanceTableWithManifest(srcPath, dstPath, {
+          allowLiveCopy: opts.allowLiveCopy,
+          maxBytes: opts.maxBytes,
+          afterCopy: opts.afterCopy ? (a) => opts.afterCopy!(a, dstPath) : undefined,
+        });
+        if (opts.lanceStatuses) {
+          const rel = relative(stagingRoot, dstPath).replace(/\\/g, "/");
+          opts.lanceStatuses[rel] = {
+            status: res.success ? "copy" : "source-busy",
+            attempts: res.attempts,
+          };
+        }
       } else {
         copyNativeTree(srcPath, dstPath, stagingRoot, opts);
       }
@@ -845,6 +988,8 @@ function generateSnapshotMetadata(o: {
   sourceHome?: string | null;
   stagingDir: string;
   sqliteStatuses: Record<string, SnapshotSqliteInfo>;
+  lanceStatuses?: Record<string, SnapshotLanceInfo> | undefined;
+  skippedLinks?: string[] | undefined;
 }): SnapshotMetadata {
   const files: SnapshotFileInfo[] = [];
   const envKeys: Record<string, string[]> = {};
@@ -872,7 +1017,7 @@ function generateSnapshotMetadata(o: {
   scan(o.stagingDir);
   files.sort((a, b) => a.path.localeCompare(b.path));
 
-  return {
+  const meta: SnapshotMetadata = {
     version: 1,
     source: o.source ?? o.sourceRoot,
     sourceRoot: o.sourceRoot,
@@ -884,4 +1029,11 @@ function generateSnapshotMetadata(o: {
     sqlite: o.sqliteStatuses,
     envKeys,
   };
+  if (o.lanceStatuses && Object.keys(o.lanceStatuses).length > 0) {
+    meta.lancedb = o.lanceStatuses;
+  }
+  if (o.skippedLinks && o.skippedLinks.length > 0) {
+    meta.skippedLinks = o.skippedLinks;
+  }
+  return meta;
 }

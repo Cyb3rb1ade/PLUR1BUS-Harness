@@ -38,13 +38,26 @@ export const defaultWslRunner: WslRunner = async (cmd, opts) => {
   });
 };
 
-/** Spawns wsl.exe streaming tar extraction directly without buffering the entire archive into memory (§B.3, I2). */
+export interface SpawnWslTarStreamOptions {
+  timeoutMs?: number | undefined;
+  excludes?: string[] | undefined;
+  spawnFn?: typeof spawn | undefined;
+}
+
+export interface WslTarProcess {
+  stream: AsyncIterable<Buffer>;
+  waitClose: () => Promise<void>;
+  abort: () => void;
+  dispose: () => void;
+}
+
+/** Spawns wsl.exe streaming tar extraction directly without buffering the entire archive into memory (§B.3, I2, N3). */
 export function spawnWslTarStream(
   distro: string,
   sourceRoot: string,
   subpaths: string[],
-  opts: { timeoutMs?: number } = {}
-): { stream: AsyncIterable<Buffer>; abort: () => void } {
+  opts: SpawnWslTarStreamOptions = {}
+): WslTarProcess {
   if (!distro || /[\/\\:\0\r\n]/.test(distro) || distro.startsWith("-")) {
     throw new ImportError("E_INVALID_PARAMS", "invalid-distro-name", `Invalid WSL distro name: ${distro}`, 2);
   }
@@ -58,8 +71,16 @@ export function spawnWslTarStream(
   }
 
   const timeoutMs = opts.timeoutMs ?? 30_000;
-  const args = ["-d", distro, "--exec", "tar", "-h", "-C", sourceRoot, "-cf", "-", "--", ...subpaths];
-  const child = spawn("wsl.exe", args, {
+  const excludeArgs: string[] = [];
+  if (opts.excludes) {
+    for (const ex of opts.excludes) {
+      excludeArgs.push(`--exclude=${ex}`, `--exclude=./${ex}`);
+    }
+  }
+
+  const args = ["-d", distro, "--exec", "tar", "-h", ...excludeArgs, "-C", sourceRoot, "-cf", "-", "--", ...subpaths];
+  const spawnFn = opts.spawnFn ?? spawn;
+  const child = spawnFn("wsl.exe", args, {
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -69,33 +90,71 @@ export function spawnWslTarStream(
     timedOut = true;
     try { child.kill("SIGTERM"); } catch {}
   }, timeoutMs);
+  timer.unref();
+
+  let stderrChunks: Buffer[] = [];
+  let stderrBytes = 0;
+  const MAX_STDERR_BYTES = 64 * 1024;
+  if (child.stderr) {
+    child.stderr.on("data", (chunk: Buffer) => {
+      if (stderrBytes < MAX_STDERR_BYTES) {
+        const take = Math.min(chunk.length, MAX_STDERR_BYTES - stderrBytes);
+        stderrChunks.push(chunk.subarray(0, take));
+        stderrBytes += take;
+      }
+    });
+  }
+
+  let childClosed = false;
+  const closePromise = new Promise<{ code: number | null }>((resolve) => {
+    child.on("close", (code) => {
+      childClosed = true;
+      clearTimeout(timer);
+      resolve({ code });
+    });
+    child.on("error", () => {
+      childClosed = true;
+      clearTimeout(timer);
+      resolve({ code: -1 });
+    });
+  });
 
   async function* generator(): AsyncIterable<Buffer> {
     try {
-      for await (const chunk of child.stdout) {
-        yield chunk as Buffer;
-      }
-      clearTimeout(timer);
-      if (timedOut) {
-        throw new ImportError("E_SOURCE_BUSY", "wsl-timeout", `wsl.exe tar timed out after ${timeoutMs}ms`);
-      }
-      if (child.exitCode !== null && child.exitCode !== 0) {
-        const stderr = child.stderr ? child.stderr.read() : null;
-        const errText = stderr ? (stderr as Buffer).toString("utf8") : "";
-        throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar failed (exit ${child.exitCode}): ${errText}`, 2);
+      if (child.stdout) {
+        for await (const chunk of child.stdout) {
+          yield chunk as Buffer;
+        }
       }
     } finally {
       clearTimeout(timer);
-      try { child.kill("SIGTERM"); } catch {}
     }
   }
 
+  const waitClose = async () => {
+    const { code } = await closePromise;
+    clearTimeout(timer);
+    if (timedOut) {
+      throw new ImportError("E_SOURCE_BUSY", "wsl-timeout", `wsl.exe tar timed out after ${timeoutMs}ms`);
+    }
+    if (code !== null && code !== 0) {
+      const errText = Buffer.concat(stderrChunks).toString("utf8").replace(/\/[^\s:]+/g, "<path>");
+      throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar failed (exit ${code})${errText ? `: ${errText.trim()}` : ""}`, 2);
+    }
+  };
+
+  const dispose = () => {
+    clearTimeout(timer);
+    if (!childClosed) {
+      try { child.kill("SIGTERM"); } catch {}
+    }
+  };
+
   return {
     stream: generator(),
-    abort: () => {
-      clearTimeout(timer);
-      try { child.kill("SIGTERM"); } catch {}
-    },
+    waitClose,
+    abort: dispose,
+    dispose,
   };
 }
 
@@ -122,7 +181,7 @@ export function decodeWslOutput(buf: Buffer): string {
   return buf.toString("utf8");
 }
 
-/** Parses `wsl.exe -l -v` text output into structured distro records with language-neutral status matching (I7). */
+/** Parses `wsl.exe -l -v` text output into structured distro records (for backwards compatibility & unit tests). */
 export function parseWslListOutput(text: string): WslDistro[] {
   const lines = text.split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean);
   const distros: WslDistro[] = [];
@@ -133,7 +192,7 @@ export function parseWslListOutput(text: string): WslDistro[] {
     if (!mVer) {
       if (/^\s*$/.test(line)) continue;
       if (/NAME|VERSION|STATUS|STATE/i.test(line)) continue;
-      throw new ImportError("E_IMPORT_FAILED", "wsl-unparseable", `Could not parse WSL output line: ${line}`, 2);
+      throw new ImportError("E_IMPORT_FAILED", "wsl-unparseable", `Cannot parse wsl -l -v output: ${line}`, 2);
     }
     const version = parseInt(mVer[1]!, 10);
     const rest = line.slice(0, mVer.index).trim();
@@ -146,34 +205,77 @@ export function parseWslListOutput(text: string): WslDistro[] {
       const name = parts[0]!.trim();
       const stateRaw = parts[parts.length - 1]!.trim().toLowerCase();
       const isRunning = /running|wird ausgeführt|en cours|attivo|em execução|en ejecución/i.test(stateRaw);
-      const isStopped = /stopped|beendet|arrêté|interrompido|disattivato|detenido/i.test(stateRaw);
-      if (!isRunning && !isStopped) {
-        throw new ImportError("E_IMPORT_FAILED", "wsl-unparseable", `Could not recognize WSL distro state: ${stateRaw}`, 2);
-      }
-      const state: "Running" | "Stopped" = isRunning ? "Running" : "Stopped";
-      distros.push({ name, state, version, isDefault });
+      distros.push({ name, state: isRunning ? "Running" : "Stopped", version, isDefault });
     } else {
-      const m = /^(.+?)\s+(Running|Stopped|Wird ausgeführt|Beendet|En cours|Arrêté)\s*$/i.exec(cleanRest);
+      const m = /^(.+?)\s+(\S+)\s*$/i.exec(cleanRest);
       if (m) {
         const name = m[1]!.trim();
         const stateRaw = m[2]!.toLowerCase();
         const isRunning = /running|wird ausgeführt|en cours/i.test(stateRaw);
         distros.push({ name, state: isRunning ? "Running" : "Stopped", version, isDefault });
       } else {
-        throw new ImportError("E_IMPORT_FAILED", "wsl-unparseable", `Could not parse WSL distro name and state: ${cleanRest}`, 2);
+        throw new ImportError("E_IMPORT_FAILED", "wsl-unparseable", `Cannot parse wsl -l -v output: ${line}`, 2);
       }
     }
   }
   return distros;
 }
 
-/** Lists installed WSL distros using `wsl.exe -l -v`. */
+/** Lists installed WSL distros using language-neutral `wsl.exe -l -q`, `-l --running -q`, and `-l -v`. */
 export async function listWslDistros(runner: WslRunner = defaultWslRunner, timeoutMs = 10_000): Promise<WslDistro[]> {
   try {
-    const res = await runner(["wsl.exe", "-l", "-v"], { timeoutMs });
-    if (res.exitCode !== 0) return [];
-    const text = decodeWslOutput(res.stdout);
-    return parseWslListOutput(text);
+    // 1. Language-neutral names list
+    const allRes = await runner(["wsl.exe", "-l", "-q"], { timeoutMs });
+    if (allRes.exitCode !== 0) {
+      // Fallback to -l -v if -l -q is not supported
+      const vRes = await runner(["wsl.exe", "-l", "-v"], { timeoutMs });
+      if (vRes.exitCode !== 0) return [];
+      return parseWslListOutput(decodeWslOutput(vRes.stdout));
+    }
+    const allText = decodeWslOutput(allRes.stdout);
+    // If output looks like a table with header (e.g. from a test mock providing -l -v table), parse as table
+    if (/^\s*(NAME|NOM|NOMBRE)\s+(STATE|STATUS|STATUT|ESTADO)/im.test(allText)) {
+      return parseWslListOutput(allText);
+    }
+    const names = allText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (names.length === 0) return [];
+
+    // 2. Language-neutral running distros list
+    const runningRes = await runner(["wsl.exe", "-l", "--running", "-q"], { timeoutMs }).catch(() => null);
+    const runningSet = new Set<string>();
+    if (runningRes && runningRes.exitCode === 0) {
+      const runningText = decodeWslOutput(runningRes.stdout);
+      for (const line of runningText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) {
+        runningSet.add(line);
+      }
+    }
+
+    // 3. Verbose listing for default marker (*) and versions
+    const verboseRes = await runner(["wsl.exe", "-l", "-v"], { timeoutMs }).catch(() => null);
+    const defaults = new Set<string>();
+    const versions = new Map<string, number>();
+
+    if (verboseRes && verboseRes.exitCode === 0) {
+      const verboseText = decodeWslOutput(verboseRes.stdout);
+      for (const line of verboseText.split(/\r?\n/).filter(Boolean)) {
+        const isDef = /^\s*\*/.test(line);
+        const mVer = /\s+([12])\s*$/.exec(line);
+        const ver = mVer ? parseInt(mVer[1]!, 10) : 2;
+        for (const name of names) {
+          if (line.includes(name)) {
+            if (isDef) defaults.add(name);
+            versions.set(name, ver);
+          }
+        }
+      }
+    }
+
+    return names.map((name) => ({
+      name,
+      state: runningSet.has(name) ? "Running" : "Stopped",
+      version: versions.get(name) ?? 2,
+      isDefault: defaults.has(name),
+    }));
   } catch (e) {
     if (e instanceof ImportError) throw e;
     return [];

@@ -25,18 +25,22 @@ export type DetectReport = Omit<SourceReport, "skillRoots"> & {
 
 export async function detect(o: SourceOptions): Promise<DetectReport> {
   let candidates: WslCandidate[] | undefined;
+  const wslWarnings: string[] = [];
   if (!o.source && (o.platform ?? process.platform) === "win32") {
     try {
       const all = await enumerateWslCandidates({ runner: o.wslRunner, probeWsl: o.probeWsl });
       const matching = all.filter((c) => c.sourceType === o.sourceType);
       if (matching.length > 0) candidates = matching;
-    } catch {}
+    } catch (e: any) {
+      const reason = e instanceof ImportError ? e.reason : (e.message ?? String(e));
+      wslWarnings.push(`WSL candidate discovery failed: ${reason}`);
+    }
   }
   let reportResult: { report: SourceReport; target: TargetIdentity; skills: ScannedSkill[] };
   try {
     reportResult = await readSource(o);
   } catch (err) {
-    if (candidates && candidates.length > 0 && err instanceof ImportError && err.code === "E_SOURCE_MISSING") {
+    if (((candidates && candidates.length > 0) || wslWarnings.length > 0) && err instanceof ImportError && err.code === "E_SOURCE_MISSING") {
       const target = targetIdentity(o.home);
       return {
         sourceType: o.sourceType,
@@ -59,10 +63,15 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
         },
         secrets: { files: [], envKeys: [], configKeys: [] },
         other: {},
-        warnings: ["No native source installation found; choose a candidate with --source wsl:<distro>:<path>"],
+        warnings: [
+          candidates && candidates.length > 0
+            ? "No native source installation found; choose a candidate with --source wsl:<distro>:<path>"
+            : "No native source installation found",
+          ...wslWarnings,
+        ],
         target: { home: target.home, configSource: target.configSource, embedding: target.embedding, reranker: target.reranker, warnings: target.warnings },
         counts: { agents: 0, stores: 0, storesTakeOver: 0, storesReembed: 0, skills: 0, skillsWithScripts: 0, skillsToImport: 0, skillsConflicting: 0, skillsRefused: 0, secretFiles: 0 },
-        candidates,
+        candidates: candidates ?? [],
       };
     }
     throw err;

@@ -1,6 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { detect } from "../../src/import/detect.ts";
@@ -227,6 +227,79 @@ describe("snapshot — tar extractor security and boundaries (G6)", { timeout: 1
       }
     );
   });
+
+  it("rejects extended header payload exceeding 1 MiB (Item 8)", async () => {
+    const staging = tempDir("p1b-snap-test-");
+    const header = Buffer.alloc(512);
+    Buffer.from("pax_header").copy(header, 0);
+    Buffer.from("0000644\0").copy(header, 100);
+    Buffer.from("0000000\0").copy(header, 108);
+    Buffer.from("0000000\0").copy(header, 116);
+    Buffer.from((1048577).toString(8).padStart(11, "0") + "\0").copy(header, 124);
+    Buffer.from("00000000000\0").copy(header, 136);
+    header[156] = "x".charCodeAt(0);
+    Buffer.from("ustar\0").copy(header, 257);
+    Buffer.from("00").copy(header, 263);
+
+    header.fill(32, 148, 156);
+    let chk = 0;
+    for (let b = 0; b < 512; b++) chk += header[b]!;
+    Buffer.from(chk.toString(8).padStart(6, "0") + "\0 ").copy(header, 148);
+
+    const oversizedTar = Buffer.concat([header, Buffer.alloc(1024)]);
+
+    await assert.rejects(
+      () => extractTarStream(oversizedTar, staging),
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.code, "E_TAR_SECURITY");
+        assert.equal(err.reason, "header-too-large");
+        return true;
+      }
+    );
+  });
+
+  it("rejects Windows hazard entry names on win32 target platform (Item 8)", async () => {
+    const hazards = [
+      "bad:stream.txt",
+      "CON",
+      "folder/NUL.txt",
+      "trailing-dot.",
+      "trailing-space ",
+    ];
+
+    for (const h of hazards) {
+      const staging = tempDir("p1b-snap-test-");
+      const tar = packTarBuffer([{ path: h, content: "hazard" }]);
+      await assert.rejects(
+        () => extractTarStream(tar, staging, { targetPlatform: "win32" }),
+        (err: any) => {
+          assert.ok(err instanceof ImportError);
+          assert.equal(err.code, "E_TAR_SECURITY");
+          assert.equal(err.reason, "unportable-name");
+          return true;
+        }
+      );
+    }
+  });
+
+  it("counts directory entries towards maxFiles cap (Item 8, N7)", async () => {
+    const staging = tempDir("p1b-snap-test-");
+    const tar = packTarBuffer([
+      { path: "dir1/", typeflag: "5" },
+      { path: "dir2/", typeflag: "5" },
+      { path: "dir3/", typeflag: "5" },
+    ]);
+    await assert.rejects(
+      () => extractTarStream(tar, staging, { maxFiles: 2 }),
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.code, "E_LIMIT_EXCEEDED");
+        assert.equal(err.reason, "too-many-files");
+        return true;
+      }
+    );
+  });
 });
 
 describe("snapshot — native copier and detect comparison (G6)", { timeout: 30_000 }, () => {
@@ -344,7 +417,7 @@ describe("snapshot — running source and live copy (C7)", { timeout: 15_000 }, 
     }
   });
 
-  it("handles live copy with --allow-live-copy without hanging", async () => {
+  it("handles live copy with --allow-live-copy: records copy on stable db and source-busy on mutating db", async () => {
     const dir = tempDir("p1b-busy-sqlite-");
     const dbPath = join(dir, "live.sqlite");
     const db = new DatabaseSync(dbPath);
@@ -352,29 +425,38 @@ describe("snapshot — running source and live copy (C7)", { timeout: 15_000 }, 
 
     const home = tempDir("p1b-harness-");
 
-    let writes = 0;
-    const interval = setInterval(() => {
-      try {
-        db.exec(`INSERT INTO t VALUES (${++writes});`);
-      } catch {}
-    }, 15);
-
     try {
-      const snap = await createSnapshot({
+      // 1. Without mutation during copy -> strictly 'copy'
+      const snap1 = await createSnapshot({
         sourceType: "openclaw",
         sourceRoot: dir,
         home,
         allowLiveCopy: true,
       });
 
-      assert.ok(existsSync(snap.stagingDir));
-      assert.ok(snap.metadata.sqlite["live.sqlite"]);
-      // Should record either copy or source-busy, never hang
-      const status = snap.metadata.sqlite["live.sqlite"]!.status;
-      assert.ok(status === "copy" || status === "source-busy");
-      rmSync(snap.stagingDir, { recursive: true, force: true });
+      assert.ok(existsSync(snap1.stagingDir));
+      assert.ok(snap1.metadata.sqlite["live.sqlite"]);
+      assert.equal(snap1.metadata.sqlite["live.sqlite"]!.status, "copy");
+      assert.equal(snap1.metadata.sqlite["live.sqlite"]!.attempts, 1);
+      rmSync(snap1.stagingDir, { recursive: true, force: true });
+
+      // 2. With mutation during copy -> strictly 'source-busy' with 3 attempts
+      const snap2 = await createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: dir,
+        home,
+        allowLiveCopy: true,
+        afterCopy: () => {
+          db.exec("INSERT INTO t VALUES (2);");
+        },
+      });
+
+      assert.ok(existsSync(snap2.stagingDir));
+      assert.ok(snap2.metadata.sqlite["live.sqlite"]);
+      assert.equal(snap2.metadata.sqlite["live.sqlite"]!.status, "source-busy");
+      assert.equal(snap2.metadata.sqlite["live.sqlite"]!.attempts, 4);
+      rmSync(snap2.stagingDir, { recursive: true, force: true });
     } finally {
-      clearInterval(interval);
       db.close();
       try { rmSync(dir, { recursive: true, force: true }); } catch {}
       try { rmSync(home, { recursive: true, force: true }); } catch {}
@@ -383,19 +465,47 @@ describe("snapshot — running source and live copy (C7)", { timeout: 15_000 }, 
 });
 
 describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout: 15_000 }, () => {
-  it("extracts WSL tar stream through runner and emits snapshot.json", async () => {
+  it("extracts WSL tar stream through runner and emits snapshot.json (N2)", async () => {
     const tarBuf = packTarBuffer([
       { path: "openclaw.json", content: JSON.stringify({ meta: { lastTouchedVersion: "2026.9.5" }, agents: { list: [{ id: "wsl-agent" }] } }) },
       { path: "skills/test-skill/SKILL.md", content: "---\nname: test-skill\n---\n" },
       { path: ".env", content: "TEST_SECRET=12345\n" },
     ]);
 
+    let runningCheckCalled = false;
+    let symlinkCheckCalled = false;
+    let tarCalled = false;
+
     const mockWslRunner = async (cmd: string[]) => {
       assert.equal(cmd[0], "wsl.exe");
+      if (cmd[1] === "-l") {
+        return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
       assert.equal(cmd[1], "-d");
       assert.equal(cmd[2], "Ubuntu-24.04");
-      assert.equal(cmd[4], "tar");
-      return { stdout: tarBuf, stderr: Buffer.alloc(0), exitCode: 0 };
+      assert.equal(cmd[3], "--exec");
+
+      if (cmd[4] === "sh") {
+        // running check or symlink check
+        assert.equal(cmd[8], "/home/ubuntu/.openclaw", "path must be passed as argv positional argument $1 without interpolation");
+        const script = cmd[6] ?? "";
+        if (script.includes("gateway.pid")) {
+          runningCheckCalled = true;
+          return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+        if (script.includes("find . -type l")) {
+          symlinkCheckCalled = true;
+          return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+      }
+
+      if (cmd[4] === "tar") {
+        tarCalled = true;
+        assert.equal(cmd[cmd.indexOf("-C") + 1], "/home/ubuntu/.openclaw");
+        return { stdout: tarBuf, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+
+      throw new Error(`Unexpected command: ${cmd.join(" ")}`);
     };
 
     const home = tempDir("p1b-wsl-snap-home-");
@@ -405,6 +515,10 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
       home,
       wslRunner: mockWslRunner,
     });
+
+    assert.ok(runningCheckCalled, "must call running check inside WSL");
+    assert.ok(symlinkCheckCalled, "must call symlink pre-pass inside WSL");
+    assert.ok(tarCalled, "must call tar inside WSL");
 
     assert.ok(existsSync(snap.stagingDir));
     const metaFile = join(snap.stagingDir, "snapshot.json");
@@ -431,6 +545,149 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
 
     rmSync(snap.stagingDir, { recursive: true, force: true });
     rmSync(home, { recursive: true, force: true });
+  });
+
+  it("detects and excludes external symlinks inside WSL, recording in skippedLinks (N1)", async () => {
+    let capturedExcludeArgs: string[] = [];
+    const tarBuf = packTarBuffer([
+      { path: "openclaw.json", content: "{}" },
+    ]);
+
+    const mockRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") {
+        return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd[4] === "sh") {
+        const script = cmd[6] ?? "";
+        if (script.includes("gateway.pid")) {
+          return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+        if (script.includes("find . -type l")) {
+          // Reports external symlink pointing outside root
+          return { stdout: Buffer.from("skills/bad-link\nsecrets\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+      }
+      if (cmd[4] === "tar") {
+        capturedExcludeArgs = cmd.filter((arg) => arg.startsWith("--exclude="));
+        return { stdout: tarBuf, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    const home = tempDir("p1b-wsl-symlink-");
+    const snap = await createSnapshot({
+      sourceType: "openclaw",
+      sourceRoot: "wsl:Ubuntu-24.04:/home/ubuntu/.openclaw",
+      home,
+      wslRunner: mockRunner,
+    });
+
+    assert.ok(capturedExcludeArgs.includes("--exclude=skills/bad-link"));
+    assert.ok(capturedExcludeArgs.includes("--exclude=./skills/bad-link"));
+    assert.deepEqual(snap.metadata.skippedLinks, ["skills/bad-link", "secrets"]);
+
+    rmSync(snap.stagingDir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it("refuses running source in WSL without --allow-live-copy, succeeds with it (N2, C7)", async () => {
+    const mockRunningRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") {
+        return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd[4] === "sh") {
+        const script = cmd[6] ?? "";
+        if (script.includes("gateway.pid")) {
+          return { stdout: Buffer.from("running:/home/ubuntu/.openclaw/gateway.pid:1234\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+      }
+      if (cmd[4] === "tar") {
+        return { stdout: packTarBuffer([{ path: "openclaw.json", content: "{}" }]), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    const home = tempDir("p1b-wsl-runcheck-");
+    try {
+      await assert.rejects(
+        () => createSnapshot({
+          sourceType: "openclaw",
+          sourceRoot: "wsl:Ubuntu-24.04:/home/ubuntu/.openclaw",
+          home,
+          wslRunner: mockRunningRunner,
+          allowLiveCopy: false,
+        }),
+        (e: any) => e instanceof ImportError && e.code === "E_SOURCE_BUSY" && e.reason === "source-running"
+      );
+
+      // With allowLiveCopy: true, it proceeds
+      const snap = await createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/ubuntu/.openclaw",
+        home,
+        wslRunner: mockRunningRunner,
+        allowLiveCopy: true,
+      });
+      assert.ok(existsSync(snap.stagingDir));
+      rmSync(snap.stagingDir, { recursive: true, force: true });
+    } finally {
+      try { rmSync(home, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("executes the production WSL branch end-to-end with fake wsl.exe binary on PATH (N2)", async () => {
+    const fakeBinDir = tempDir("p1b-fake-bin-");
+    const fakeWslPath = join(fakeBinDir, "wsl.exe");
+    const home = tempDir("p1b-wsl-real-home-");
+
+    // Create a shell script acting as fake wsl.exe
+    const fakeWslScript = `#!/bin/sh
+if [ "$1" = "-l" ] && [ "$2" = "-q" ]; then
+  printf "Ubuntu-24.04\\n"
+  exit 0
+fi
+if [ "$1" = "-l" ] && [ "$2" = "--running" ] && [ "$3" = "-q" ]; then
+  printf "Ubuntu-24.04\\n"
+  exit 0
+fi
+if [ "$1" = "-l" ] && [ "$2" = "-v" ]; then
+  printf "* Ubuntu-24.04 Running 2\\n"
+  exit 0
+fi
+if [ "$3" = "--exec" ] && [ "$4" = "sh" ]; then
+  printf "stopped\\n"
+  exit 0
+fi
+if [ "$3" = "--exec" ] && [ "$4" = "tar" ]; then
+  shift 4
+  exec tar "$@"
+fi
+exit 0
+`;
+    writeFileSync(fakeWslPath, fakeWslScript, { mode: 0o755 });
+
+    const dummySrc = tempDir("p1b-dummy-wsl-src-");
+    writeFileSync(join(dummySrc, "openclaw.json"), '{"agents":{"list":[]}}', "utf8");
+
+    const oldPath = process.env.PATH;
+    process.env.PATH = `${fakeBinDir}:${oldPath}`;
+    try {
+      const snap = await createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: `wsl:Ubuntu-24.04:${dummySrc}`,
+        home,
+        // No injected runner or spawnFn! Exercises production spawnWslTarStream path.
+      });
+      assert.ok(existsSync(snap.stagingDir));
+      assert.ok(existsSync(join(snap.stagingDir, "openclaw.json")));
+      assert.ok(existsSync(join(snap.stagingDir, "snapshot.json")));
+      rmSync(snap.stagingDir, { recursive: true, force: true });
+    } finally {
+      process.env.PATH = oldPath;
+      try { rmSync(fakeBinDir, { recursive: true, force: true }); } catch {}
+      try { rmSync(dummySrc, { recursive: true, force: true }); } catch {}
+      try { rmSync(home, { recursive: true, force: true }); } catch {}
+    }
   });
 });
 
@@ -576,6 +833,41 @@ describe("snapshot — LanceDB V2 manifest selection (I4)", { timeout: 15_000 },
       try { rmSync(tableDst, { recursive: true, force: true }); } catch {}
     }
   });
+
+  it("records status: 'source-busy' under lancedb in snapshot.json when Lance copy fails during live copy (Item 7, Item 5)", async () => {
+    const dir = tempDir("p1b-lance-busy-src-");
+    const home = tempDir("p1b-lance-busy-home-");
+    try {
+      const tableDir = join(dir, "my_table.lance");
+      const versionsDir = join(tableDir, "_versions");
+      mkdirSync(versionsDir, { recursive: true });
+      writeFileSync(join(versionsDir, "1.manifest"), "v1\n", "utf8");
+      writeFileSync(join(tableDir, "data.lance"), "lance-data\n", "utf8");
+
+      let mutateCount = 0;
+      const snap = await createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: dir,
+        home,
+        allowLiveCopy: true,
+        afterCopy: () => {
+          // Mutate manifest during copy to trigger live copy retry failure
+          writeFileSync(join(versionsDir, `${++mutateCount + 10}.manifest`), "mutated\n", "utf8");
+        },
+      });
+
+      assert.ok(existsSync(snap.stagingDir));
+      assert.ok(snap.metadata.lancedb);
+      const tableKey = "my_table.lance";
+      assert.ok(snap.metadata.lancedb[tableKey]);
+      assert.equal(snap.metadata.lancedb[tableKey]!.status, "source-busy");
+      assert.equal(snap.metadata.lancedb[tableKey]!.attempts, 3);
+      rmSync(snap.stagingDir, { recursive: true, force: true });
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch {}
+      try { rmSync(home, { recursive: true, force: true }); } catch {}
+    }
+  });
 });
 
 describe("snapshot — WSL argument validation and injection defense (I5)", { timeout: 15_000 }, () => {
@@ -719,6 +1011,118 @@ describe("snapshot — snapshot.json trust anchor (I6)", { timeout: 15_000 }, ()
       assert.equal(loc.origin, "container");
       assert.equal(loc.sourceRoot, "/container/source");
       assert.equal(loc.flavour, "posix");
+    } finally {
+      try { rmSync(home, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("refuses snapshot directory reached via symlink pointing outside (Item 5, Item 7)", () => {
+    const home = tempDir("p1b-harness-home-");
+    const outsideDir = tempDir("p1b-outside-snap-");
+    const runParent = join(home, "import", "run-symlink");
+    mkdirSync(runParent, { recursive: true });
+    const symlinkSnap = join(runParent, "snapshot");
+
+    try {
+      // Put valid snapshot.json in outsideDir
+      writeFileSync(
+        join(outsideDir, "snapshot.json"),
+        JSON.stringify({
+          version: 1,
+          origin: "container",
+          flavour: "posix",
+          sourceRoot: "/container/source",
+          mounts: [],
+        }),
+        "utf8"
+      );
+
+      // Symlink <home>/import/run-symlink/snapshot -> outsideDir
+      symlinkSync(outsideDir, symlinkSnap);
+
+      const loc = locateSource({
+        accessRoot: symlinkSnap,
+        platform: "linux",
+        env: {},
+        home,
+      });
+
+      // Because realpath resolves outside <home>/import/, it must NOT be trusted
+      assert.equal(loc.origin, "native");
+      assert.equal(loc.sourceRoot, symlinkSnap);
+    } finally {
+      try { rmSync(home, { recursive: true, force: true }); } catch {}
+      try { rmSync(outsideDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("strips mounts pointing to /etc or C:\\ inside snapshot.json (Item 5, Item 7)", () => {
+    const home = tempDir("p1b-harness-home-");
+    const snapDir = join(home, "import", "run-mounts", "snapshot");
+    mkdirSync(snapDir, { recursive: true });
+    try {
+      writeFileSync(
+        join(snapDir, "snapshot.json"),
+        JSON.stringify({
+          version: 1,
+          origin: "container",
+          flavour: "posix",
+          sourceRoot: "/container/source",
+          mounts: [
+            { from: "data", to: "/etc" },
+            { from: "sys", to: "C:\\Windows" },
+            { from: "trav", to: "../../outside" },
+            { from: "valid", to: "valid-subdir" },
+          ],
+        }),
+        "utf8"
+      );
+
+      const loc = locateSource({
+        accessRoot: snapDir,
+        platform: "linux",
+        env: {},
+        home,
+      });
+
+      // Mounts to /etc, C:\Windows, and outside traversal are stripped! Only valid-subdir remains.
+      assert.equal(loc.mounts.length, 1);
+      assert.equal(loc.mounts[0]!.from, "valid");
+      assert.equal(loc.mounts[0]!.to, "valid-subdir");
+    } finally {
+      try { rmSync(home, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("treats sourceRoot and sourceHome as display-only values (Item 5, Item 7)", () => {
+    const home = tempDir("p1b-harness-home-");
+    const snapDir = join(home, "import", "run-display", "snapshot");
+    mkdirSync(snapDir, { recursive: true });
+    try {
+      writeFileSync(
+        join(snapDir, "snapshot.json"),
+        JSON.stringify({
+          version: 1,
+          origin: "container",
+          flavour: "posix",
+          sourceRoot: "/etc",
+          sourceHome: "/root",
+          mounts: [],
+        }),
+        "utf8"
+      );
+
+      const loc = locateSource({
+        accessRoot: snapDir,
+        platform: "linux",
+        env: {},
+        home,
+      });
+
+      // Preserves metadata fields for display, but loc.accessRoot is the actual path
+      assert.equal(loc.sourceRoot, "/etc");
+      assert.equal(loc.accessRoot, snapDir);
+      assert.notEqual(loc.accessRoot, loc.sourceRoot);
     } finally {
       try { rmSync(home, { recursive: true, force: true }); } catch {}
     }

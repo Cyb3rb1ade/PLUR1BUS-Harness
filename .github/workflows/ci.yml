@@ -262,19 +262,8 @@ jobs:
           wsl.exe -d Ubuntu-24.04 -e bash -c '
             set -euo pipefail
             mkdir -p ~/.openclaw/ws-wsl/skills/notes
-            cat << "EOF" > ~/.openclaw/openclaw.json
-{
-  "meta": { "lastTouchedVersion": "2026.9.5" },
-  "agents": { "list": [ { "id": "wsl-agent", "workspace": "/root/.openclaw/ws-wsl" } ] }
-}
-EOF
-            cat << "EOF" > ~/.openclaw/ws-wsl/skills/notes/SKILL.md
----
-name: notes
-description: WSL test notes
----
-# notes
-EOF
+            printf '{\n  "meta": { "lastTouchedVersion": "2026.9.5" },\n  "agents": { "list": [ { "id": "wsl-agent", "workspace": "/root/.openclaw/ws-wsl" } ] }\n}\n' > ~/.openclaw/openclaw.json
+            printf -- '---\nname: notes\ndescription: WSL test notes\n---\n# notes\n' > ~/.openclaw/ws-wsl/skills/notes/SKILL.md
           '
           # Run detect with --probe-wsl against the WSL candidate from the Windows host
           out1=$(node packages/core/dist/import.js openclaw --detect --home "$RUNNER_TEMP/harness-home" --probe-wsl)

@@ -1,6 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { decodeWslOutput, listWslDistros, parseWslListOutput, probeWslDistro, enumerateWslCandidates, type WslRunner } from "../../src/import/wsl.ts";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
+import { decodeWslOutput, listWslDistros, parseWslListOutput, probeWslDistro, enumerateWslCandidates, spawnWslTarStream, type WslRunner } from "../../src/import/wsl.ts";
+import { packTarBuffer } from "../../src/import/snapshot.ts";
 import { ImportError } from "../../src/import/types.ts";
 
 describe("WSL discovery and probing (G5)", { timeout: 30_000 }, () => {
@@ -196,4 +199,155 @@ OPENCLAW=/home/alice/.openclaw
     assert.equal(candidates[1]!.probed, false);
     assert.equal(candidates[1]!.reason, "stopped (not probed)");
   });
+
+  it("listWslDistros parses UTF-16LE -l -q and -l --running -q output language-neutrally (Item 6, Item 8)", async () => {
+    const namesUtf16 = Buffer.from("Ubuntu-24.04\r\nDebian\r\nopenSUSE-15.5\r\n", "utf16le");
+    const runningUtf16 = Buffer.from("Ubuntu-24.04\r\n", "utf16le");
+    const verboseUtf16 = Buffer.from(
+      "  NAME            STATE           VERSION\r\n* Ubuntu-24.04    Running         2\r\n  Debian          Stopped         2\r\n  openSUSE-15.5   Stopped         1\r\n",
+      "utf16le"
+    );
+
+    const mockRunner: WslRunner = async (cmd) => {
+      if (cmd.includes("-l") && cmd.includes("--running") && cmd.includes("-q")) {
+        return { stdout: runningUtf16, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd.includes("-l") && cmd.includes("-q")) {
+        return { stdout: namesUtf16, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd.includes("-l") && cmd.includes("-v")) {
+        return { stdout: verboseUtf16, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    const distros = await listWslDistros(mockRunner);
+    assert.equal(distros.length, 3);
+
+    assert.deepEqual(distros[0], {
+      name: "Ubuntu-24.04",
+      state: "Running",
+      version: 2,
+      isDefault: true,
+    });
+
+    assert.deepEqual(distros[1], {
+      name: "Debian",
+      state: "Stopped",
+      version: 2,
+      isDefault: false,
+    });
+
+    assert.deepEqual(distros[2], {
+      name: "openSUSE-15.5",
+      state: "Stopped",
+      version: 1,
+      isDefault: false,
+    });
+  });
+
+  it("spawnWslTarStream passes subpaths with spaces, $(whoami) and semicolon unchanged as single arguments and rejects leading dash (Item 4, Item 6)", () => {
+    let capturedArgs: string[] = [];
+    const fakeSpawn = ((_cmd: string, args: string[]) => {
+      capturedArgs = args;
+      const child = new EventEmitter() as any;
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      child.kill = () => {};
+      return child;
+    }) as any;
+
+    const subpaths = ["sub path/file.txt", "$(whoami).txt", "hello;world.txt"];
+    const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", subpaths, { spawnFn: fakeSpawn });
+    proc.dispose();
+
+    // The subpaths must appear unchanged as the last 3 arguments
+    assert.deepEqual(capturedArgs.slice(-3), subpaths);
+    assert.equal(capturedArgs[capturedArgs.length - 4], "--", "must include '--' separator before subpaths");
+
+    // Leading dash subpath must be rejected
+    assert.throws(
+      () => spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["--checkpoint-action=exec=evil.sh"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+  });
+
+  it("spawnWslTarStream fails with wsl-tar-failed if process exits with code 2 even after valid stream (N3)", async () => {
+    const tarBuf = packTarBuffer([{ path: "hello.txt", content: "hello" }]);
+    const fakeSpawn = ((_cmd: string, _args: string[]) => {
+      const child = new EventEmitter() as any;
+      const stdout = new PassThrough();
+      const stderr = new PassThrough();
+      child.stdout = stdout;
+      child.stderr = stderr;
+      child.kill = () => {};
+
+      // Emit stdout data, then close with code 2 ("file changed as we read it")
+      process.nextTick(() => {
+        stdout.write(tarBuf);
+        stdout.end();
+        stderr.write("tar: file changed as we read it\n");
+        stderr.end();
+        process.nextTick(() => {
+          child.emit("close", 2);
+        });
+      });
+
+      return child;
+    }) as any;
+
+    const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["."], { spawnFn: fakeSpawn });
+
+    // Stream should complete
+    const chunks: Buffer[] = [];
+    for await (const chunk of proc.stream) {
+      chunks.push(chunk);
+    }
+    assert.ok(Buffer.concat(chunks).length > 0);
+
+    // But waitClose() must await child exit and throw wsl-tar-failed
+    await assert.rejects(
+      () => proc.waitClose(),
+      (e: any) => {
+        assert.ok(e instanceof ImportError);
+        assert.equal(e.code, "E_IMPORT_FAILED");
+        assert.equal(e.reason, "wsl-tar-failed");
+        return true;
+      }
+    );
+  });
+
+  it("spawnWslTarStream drains chatty stderr without stalling (N3)", async () => {
+    const fakeSpawn = ((_cmd: string, _args: string[]) => {
+      const child = new EventEmitter() as any;
+      const stdout = new PassThrough();
+      const stderr = new PassThrough();
+      child.stdout = stdout;
+      child.stderr = stderr;
+      child.kill = () => {};
+
+      process.nextTick(() => {
+        // Send empty tar eof
+        stdout.write(Buffer.alloc(1024));
+        stdout.end();
+        // Emit 100 KB of chatty stderr in chunks
+        for (let i = 0; i < 10; i++) {
+          stderr.write(Buffer.alloc(10 * 1024, "x"));
+        }
+        stderr.end();
+        process.nextTick(() => {
+          child.emit("close", 0);
+        });
+      });
+
+      return child;
+    }) as any;
+
+    const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["."], { spawnFn: fakeSpawn });
+    for await (const _chunk of proc.stream) {
+      // consume
+    }
+    await proc.waitClose();
+  });
 });
+
