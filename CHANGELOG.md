@@ -4,6 +4,16 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project does not yet follow semantic versioning
 (pre-1.0, milestone-cut releases).
 
+## [Unreleased]
+
+### Changed
+
+- Memory engine re-pinned to **`daac1bc3`** (port of plugin 7.18.5–7.18.20 onto main, plus the Windows
+  follow-up on native feature-cron delivery), contract **1.10.0**. Additive engine keys
+  (`captureChunkingJev`, `groupReasoningFilter`, nested recall/dreaming/runtime options) pass through
+  `engine.*`. `jobs.list` now includes `post-turn-refine` (19 jobs). The pin is the PR #212 HEAD until
+  that plugin PR is merged.
+
 ## [0.1.0] — M1b-2a
 
 The first end-to-end harness: a Rust CLI + supervisor, a TypeScript core process binding the memory engine over

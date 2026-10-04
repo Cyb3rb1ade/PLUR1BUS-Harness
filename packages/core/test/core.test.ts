@@ -85,7 +85,7 @@ describe("core", () => {
 
   it("core.status is ready with the registered agent idle and the real contract", async () => {
     const s = await c.call<any>("core.status");
-    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.9.0"); assert.equal(s.rpc, "1.5.0");
+    assert.equal(s.process.state, "ready"); assert.equal(s.contract, "1.10.0"); assert.equal(s.rpc, "1.5.0");
     assert.deepEqual(s.agents.map((a: any) => [a.agentId, a.activity.state]), [["bernd", "idle"]]);
   });
 
@@ -197,8 +197,9 @@ describe("core", () => {
     assert.equal(control.degraded?.reason, "principal-invalid");
   });
 
-  it("jobs.list has 18 jobs; jobs.run of a skipped job returns a JobRun; history lists it", async () => {
-    const { jobs } = await c.call<any>("jobs.list"); assert.equal(jobs.length, 18);
+  it("jobs.list has 19 jobs; jobs.run of a skipped job returns a JobRun; history lists it", async () => {
+    const { jobs } = await c.call<any>("jobs.list"); assert.equal(jobs.length, 19);
+    assert.ok(jobs.some((j: { name: string }) => j.name === "post-turn-refine"));
     const run = await c.call<any>("jobs.run", { agentId: "bernd", job: "gc-run" });
     assert.equal(run.job, "gc-run"); assert.ok(["completed", "skipped"].includes(run.outcome), run.outcome);
     const { runs } = await c.call<any>("jobs.history", { agentId: "bernd" }); assert.ok(runs.some((x: any) => x.runId === run.runId));

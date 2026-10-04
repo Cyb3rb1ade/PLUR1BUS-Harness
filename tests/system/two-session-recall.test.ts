@@ -62,7 +62,7 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       t.diagnostic(`models warm ${warmMs.toFixed(0)} ms after ready`);
 
       const status = cli(h, ["dreams", "status"]);
-      assert.equal(status.jobs.length, 18, JSON.stringify(status));
+      assert.equal(status.jobs.length, 19, JSON.stringify(status));
 
       let t0 = performance.now();
       const add = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the roadmap review is on Thursday at ten."]);

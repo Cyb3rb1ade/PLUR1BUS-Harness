@@ -5,7 +5,7 @@ import { RpcError } from "./rpc/errors.ts";
 /** The engine contract's supported major version (ADR-016 §1): the core accepts major 1 only. */
 export const SUPPORTED_CONTRACT_MAJOR = 1;
 /** The lowest minor the core runs on (S18): 1.8.0 (E4) adds `Engine.models` and the model-derived `EngineStatus`.
- *  The pinned engine is 1.9.0 (E5); the floor stays 1.8.0 because nothing here needs a 1.9.0 member (HB2). */
+ *  The pinned engine is 1.10.0 (port of 7.18.5–7.18.20); the floor stays 1.8.0 because nothing here needs a 1.10.0 member (HB2). */
 export const MIN_CONTRACT_MINOR = 8;
 
 /** Refuses to start against an engine whose `contract` isn't a `<int>.<int>.<int>` string with the
