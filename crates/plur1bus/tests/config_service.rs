@@ -403,7 +403,6 @@ fn a_truncated_then_completed_edit_applies_once() {
     let (before, _) = running(&mut c);
 
     std::fs::write(config_path(home), "{").unwrap();
-    std::thread::sleep(TICK * 3 / 2);
     // The watcher saw the truncated file and rejected it; the running configuration did not change.
     wait_until("the truncated file to be rejected", WAIT, || {
         status_config(&mut c)["rejected"].is_object()
@@ -874,16 +873,18 @@ fn a_watch_connection_that_pipelines_without_reading_is_closed() {
             break; // already closed
         }
     }
-    std::thread::sleep(TICK * 2);
     // Without reading anything: the supervisor must have closed the socket, so writing fails (a leaked writer
     // would keep it open, and the writes would only fill its buffer until they time out).
     let mut closed = None;
-    for _ in 0..10_000 {
+    wait_until("the pipelined watch connection to close", WAIT, || {
         if let Err(e) = w.write_all(line.as_bytes()) {
             closed = Some(e.kind());
-            break;
         }
-    }
+        matches!(
+            closed,
+            Some(std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset)
+        )
+    });
     assert!(
         matches!(
             closed,

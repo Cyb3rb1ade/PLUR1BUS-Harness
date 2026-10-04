@@ -463,7 +463,6 @@ fn two_supervisors_starting_at_once_leave_exactly_one() {
     let home = dir.path();
     let mut a = command(home).spawn().unwrap();
     let mut b = command(home).spawn().unwrap();
-    std::thread::sleep(Duration::from_millis(200));
     wait_for(&run_dir(home).join("supervisor.token"));
     let mut c = client(home);
     let pid = c.call("daemon.status", json!({})).unwrap()["supervisor"]["pid"]

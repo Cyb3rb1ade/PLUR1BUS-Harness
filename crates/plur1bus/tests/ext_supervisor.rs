@@ -779,7 +779,9 @@ fn concurrent_install_and_enable_is_busy() {
     let id = insp["inspectionId"].clone();
     let installing =
         std::thread::spawn(move || call(&home, "ext.install", json!({ "inspectionId": id })));
-    std::thread::sleep(Duration::from_millis(800));
+    common::wait_until("the stage worker runs", WAIT, || {
+        workers_of(&h.home).len() == 1
+    });
     let config_before = std::fs::read(h.home.join("config.json")).unwrap();
     let (e, r, _) = refused(
         &h.home,
@@ -903,6 +905,39 @@ fn workers_of(home: &Path) -> Vec<u32> {
         .collect()
 }
 
+#[cfg(all(unix, not(target_os = "linux")))]
+fn workers_of(home: &Path) -> Vec<u32> {
+    let out = Command::new("ps")
+        .args(["-axo", "pid=,command="])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter(|line| line.contains("__worker") && line.contains(&*home.to_string_lossy()))
+        .filter_map(|line| line.split_whitespace().next()?.parse().ok())
+        .collect()
+}
+
+#[cfg(windows)]
+fn workers_of(home: &Path) -> Vec<u32> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-CimInstance Win32_Process -Filter \"Name='plur1bus.exe'\" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('__worker') -and $_.CommandLine.ToLowerInvariant().Contains($env:PLUR1BUS_WORKER_HOME.ToLowerInvariant()) } | ForEach-Object { $_.ProcessId }",
+        ])
+        .env("PLUR1BUS_WORKER_HOME", home)
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|line| line.trim().parse().ok())
+        .collect()
+}
+
 /// Finding 9: `daemon.stop` during an install kills the running stage worker and waits for it; the supervisor exits
 /// promptly and no worker is left writing into staging.
 #[test]
@@ -914,12 +949,9 @@ fn daemon_stop_kills_a_running_worker() {
     let id = insp["inspectionId"].clone();
     let installing =
         std::thread::spawn(move || call(&home, "ext.install", json!({ "inspectionId": id })));
-    #[cfg(target_os = "linux")]
     common::wait_until("the stage worker runs", WAIT, || {
         workers_of(&h.home).len() == 1
     });
-    #[cfg(not(target_os = "linux"))]
-    std::thread::sleep(Duration::from_millis(1500));
     let started = Instant::now();
     stop(&mut s, &h.home);
     assert!(

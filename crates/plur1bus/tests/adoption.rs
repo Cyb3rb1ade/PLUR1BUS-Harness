@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const WAIT: Duration = Duration::from_secs(15);
 /// A grace no test outlives: the core stays orphaned until a new supervisor adopts it.
@@ -308,11 +308,25 @@ fn beyond_grace_the_core_exits_and_a_fresh_one_is_spawned() {
     let first = wait_child(&mut c, "ready", ready);
     let pid = first["pid"].as_u64().unwrap();
 
+    let killed_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
     s1.kill();
-    std::thread::sleep(Duration::from_secs(1));
+    wait_until("orphan exited", WAIT, || h.events("exiting").len() == 1);
     let exits = h.events("exiting");
     assert_eq!(exits.len(), 1, "the orphan exits after its grace");
     assert_eq!(exits[0]["pid"].as_u64(), Some(pid));
+    let exited_at = u128::from(exits[0]["at"].as_u64().unwrap());
+    assert!(
+        exited_at.saturating_sub(killed_at) >= 250,
+        "the orphan exited before its 300 ms grace (50 ms tolerance)"
+    );
+    let orphaned_at = u128::from(h.events("orphaned")[0]["at"].as_u64().unwrap());
+    assert!(
+        exited_at.saturating_sub(orphaned_at) >= 250,
+        "the orphan did not wait out its grace after detecting lifeline loss"
+    );
 
     let mut s2 = start(&h, "300");
     let mut c = client(&h.home);
