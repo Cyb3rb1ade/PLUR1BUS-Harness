@@ -81,6 +81,8 @@ struct AuditObservation {
     cookie_database_sidecar_files: u32,
     read_failures: u32,
     entries_disappeared: u32,
+    /// Full-root restarts after a missing nested Windows live-profile directory.
+    directory_rescans: u32,
     metadata_failures: u32,
     read_dir_failures: u32,
     symlink_entries: u32,
@@ -105,6 +107,7 @@ impl AuditObservation {
             cookie_database_sidecar_files: 0,
             read_failures: 0,
             entries_disappeared: 0,
+            directory_rescans: 0,
             metadata_failures: 0,
             read_dir_failures: 0,
             symlink_entries: 0,
@@ -142,6 +145,8 @@ impl AuditObservation {
                 == self.cookie_database_files
             && self.read_failures <= MAX_AUDIT_ITEMS
             && self.entries_disappeared <= MAX_AUDIT_ITEMS
+            && self.directory_rescans <= 2
+            && (self.directory_rescans == 0 || self.post_exit_sql_deferred)
             && self.metadata_failures <= MAX_AUDIT_ITEMS
             && self.read_dir_failures <= MAX_AUDIT_ITEMS
             && self.symlink_entries <= MAX_AUDIT_ITEMS
@@ -166,6 +171,7 @@ impl AuditObservation {
             && self.cookie_query == CookieQueryDiagnostic::default()
             && self.read_failures == 0
             && self.entries_disappeared == 0
+            && self.directory_rescans == 0
             && self.metadata_failures == 0
             && self.read_dir_failures == 0
             && self.symlink_entries == 0
@@ -183,6 +189,8 @@ impl AuditObservation {
             && (cfg!(windows) || self.cookie_database_files == 0)
             && self.read_failures == 0
             && self.entries_disappeared == 0
+            && self.directory_rescans <= 2
+            && (self.directory_rescans == 0 || (cfg!(windows) && self.post_exit_sql_deferred))
             && self.metadata_failures == 0
             && self.read_dir_failures == 0
             && self.symlink_entries == 0
@@ -938,6 +946,31 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn directory_rescan_evidence_is_required_bounded_and_windows_live_only() {
+        let mut audit = AuditObservation::unavailable();
+        audit.audit_complete = true;
+        audit.cookie_read_only_complete = true;
+        audit.failure_category = AuditFailureCategory::None;
+        assert!(audit.clean());
+        audit.directory_rescans = 1;
+        assert!(!audit.clean());
+        assert!(!audit.live_clean());
+        assert!(!audit.bounded());
+        audit.post_exit_sql_deferred = true;
+        audit.cookie_read_only_complete = false;
+        assert!(audit.bounded());
+        assert_eq!(audit.live_clean(), cfg!(windows));
+        audit.directory_rescans = 2;
+        assert!(audit.bounded());
+        audit.directory_rescans = 3;
+        assert!(!audit.bounded());
+        assert!(!audit.live_clean());
+        let mut raw = serde_json::to_value(audit).unwrap();
+        raw.as_object_mut().unwrap().remove("directoryRescans");
+        assert!(serde_json::from_value::<AuditObservation>(raw).is_err());
+    }
+
+    #[test]
     fn owner_audit_schema_rejects_unknown_fields_paths_and_false_native_evidence() {
         let mut audit = super::AuditObservation::unavailable();
         audit.post_exit_sql_deferred = true;
@@ -1031,6 +1064,7 @@ mod tests {
                     "cookieDatabaseFiles": 0,
                     "readFailures": 0,
                     "entriesDisappeared": 0,
+                    "directoryRescans": 0,
                     "metadataFailures": 0,
                     "readDirFailures": 0,
                     "symlinkEntries": 0,
@@ -1064,6 +1098,7 @@ mod tests {
                     "cookieDatabaseFiles": 4097,
                     "readFailures": 0,
                     "entriesDisappeared": 0,
+                    "directoryRescans": 0,
                     "metadataFailures": 0,
                     "readDirFailures": 0,
                     "symlinkEntries": 0,
