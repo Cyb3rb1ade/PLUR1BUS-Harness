@@ -222,12 +222,44 @@ pub mod dbus {
 #[cfg(unix)]
 pub mod portal {
     use super::{BackgroundGrant, NotifyFailure};
+    use crate::tray::TrayState;
     use futures_util::StreamExt;
     use std::{collections::HashMap, time::Duration};
     use zbus::{
         zvariant::{OwnedObjectPath, OwnedValue, Value},
         Connection, Proxy,
     };
+    /// Only closed product states cross the background-status boundary.
+    pub async fn set_status(
+        connection: &Connection,
+        state: &TrayState,
+    ) -> Result<(), NotifyFailure> {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            let portal = Proxy::new(
+                connection,
+                "org.freedesktop.portal.Desktop",
+                "/org/freedesktop/portal/desktop",
+                "org.freedesktop.portal.Background",
+            )
+            .await
+            .map_err(|_| NotifyFailure)?;
+            if portal
+                .get_property::<u32>("version")
+                .await
+                .map_err(|_| NotifyFailure)?
+                < 2
+            {
+                return Err(NotifyFailure);
+            }
+            let options = HashMap::from([("message", Value::from(state.harness.words()))]);
+            portal
+                .call::<_, _, ()>("SetStatus", &(options))
+                .await
+                .map_err(|_| NotifyFailure)
+        })
+        .await
+        .map_err(|_| NotifyFailure)?
+    }
     /// Subscribe before RequestBackground: the response may arrive before its method reply.
     pub async fn request_background(
         connection: &Connection,

@@ -127,6 +127,9 @@ async fn run(
             }
             notice = receiver.recv() => {
                 let Some((generation,view)) = notice else {return Ok(())};
+                if app.state::<NativeState>().events.with_current(generation,||()).is_none() {continue;}
+                if is_flatpak() && app.state::<NativeState>().gnome.granted_background.load(Ordering::SeqCst)
+                    && notify::portal::set_status(&connection,&view).await.is_err() { eprintln!("BACKGROUND_PORTAL_STATUS_FAILED"); }
                 if host || last.as_ref() == Some(&(generation,view.clone())) || app.state::<NativeState>().events.with_current(generation,||()).is_none() {continue;}
                 let banner = Banner::from_state(&view);
                 match notify::dbus::show(&connection,&banner).await {
@@ -214,5 +217,14 @@ pub async fn request_autostart(
         grant.background || state.gnome.tray_host.load(Ordering::SeqCst),
         Ordering::SeqCst,
     );
+    if grant.background {
+        let view = state.view.lock().unwrap().clone();
+        if notify::portal::set_status(&connection, &view)
+            .await
+            .is_err()
+        {
+            eprintln!("BACKGROUND_PORTAL_STATUS_FAILED");
+        }
+    }
     Ok(grant.autostart)
 }

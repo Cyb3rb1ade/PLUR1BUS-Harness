@@ -229,3 +229,63 @@ async fn native_action_subscription_rejects_foreign_stale_and_repeated_actions()
         .unwrap();
     assert_eq!(dbus::owned_action(&signal, &mut ledger, 8), None);
 }
+
+struct StatusPortal {
+    version: u32,
+    messages: Arc<Mutex<Vec<String>>>,
+}
+#[zbus::interface(name = "org.freedesktop.portal.Background")]
+impl StatusPortal {
+    #[zbus(property, name = "version")]
+    fn version(&self) -> u32 {
+        self.version
+    }
+    fn set_status(&self, mut options: HashMap<String, OwnedValue>) {
+        assert_eq!(options.len(), 1);
+        self.messages
+            .lock()
+            .unwrap()
+            .push(String::try_from(options.remove("message").unwrap()).unwrap());
+    }
+}
+#[tokio::test]
+async fn background_status_sends_only_closed_state_and_requires_portal_v2() {
+    for version in [1, 2] {
+        let messages = Arc::new(Mutex::new(vec![]));
+        let (server, client) = tokio::net::UnixStream::pair().unwrap();
+        let server = Builder::unix_stream(server)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(
+                "/org/freedesktop/portal/desktop",
+                StatusPortal {
+                    version,
+                    messages: messages.clone(),
+                },
+            )
+            .unwrap()
+            .build();
+        let client = Builder::unix_stream(client).p2p().build();
+        let (server, client) = tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(server, client)
+        })
+        .await
+        .unwrap();
+        let _server = server.unwrap();
+        let state = TrayState {
+            harness: HarnessState::Crashed,
+            ..Default::default()
+        };
+        let result = plur1bus_desktop::notify::portal::set_status(&client.unwrap(), &state).await;
+        assert_eq!(result.is_ok(), version == 2);
+        assert_eq!(
+            *messages.lock().unwrap(),
+            if version == 2 {
+                vec!["Crashed".to_owned()]
+            } else {
+                vec![]
+            }
+        );
+    }
+}
