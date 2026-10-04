@@ -7,7 +7,10 @@ use regex::{Captures, Regex};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::sync::{Arc, Mutex, OnceLock, RwLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock, RwLock,
+};
 use zeroize::Zeroizing;
 
 pub const REDACTION_RULES_JSON: &str = include_str!("redaction.json");
@@ -26,8 +29,21 @@ pub enum RedactionError {
 #[derive(Default)]
 pub struct SecretRegistry {
     values: RwLock<Vec<Zeroizing<String>>>,
+    unavailable: AtomicBool,
 }
 impl SecretRegistry {
+    /// Shared native credential boundary, initialized before any credentials are created.
+    pub fn process() -> Arc<Self> {
+        static REGISTRY: OnceLock<Arc<SecretRegistry>> = OnceLock::new();
+        REGISTRY.get_or_init(|| Arc::new(Self::default())).clone()
+    }
+    /// Never permit logging after a secret could not be registered.
+    pub fn register_sensitive(&self, value: &str) {
+        if self.register(value).is_err() {
+            self.unavailable.store(true, Ordering::SeqCst);
+        }
+    }
+
     pub fn register(&self, value: &str) -> Result<(), RedactionError> {
         if value.chars().count() < 8 {
             return Ok(());
@@ -291,6 +307,9 @@ impl Formatter {
     }
     pub fn redact_text(&self, input: &str) -> Result<String, RedactionError> {
         let _gate = self.0.gate.try_lock().map_err(|_| RedactionError::Busy)?;
+        if self.0.secrets.unavailable.load(Ordering::SeqCst) {
+            return Err(RedactionError::RegistryLimit);
+        }
         let secrets = self
             .0
             .secrets
@@ -301,6 +320,9 @@ impl Formatter {
     }
     pub fn redact_json(&self, input: &Value) -> Result<Value, RedactionError> {
         let _gate = self.0.gate.try_lock().map_err(|_| RedactionError::Busy)?;
+        if self.0.secrets.unavailable.load(Ordering::SeqCst) {
+            return Err(RedactionError::RegistryLimit);
+        }
         let secrets = self
             .0
             .secrets

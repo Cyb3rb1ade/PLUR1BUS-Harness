@@ -39,7 +39,7 @@ impl Diagnostics {
             builder.mode(0o700);
         }
         builder.create(directory)?;
-        let secrets = Arc::new(SecretRegistry::default());
+        let secrets = SecretRegistry::process();
         let formatter = Formatter::new(secrets.clone(), Arc::new(CredentialPaths::new(home)), true);
         let writer = Writer::open(
             directory,
@@ -78,7 +78,16 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), &'static str> {
     let target = format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS);
     let diagnostics =
         Diagnostics::open(&directory, &home, &target).map_err(|_| "DIAGNOSTIC_START_FAILED")?;
-    // Hook activation follows credential/cookie/ticket registry wiring, never precedes it.
+    #[cfg(debug_assertions)]
+    let install_hook = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_none();
+    #[cfg(not(debug_assertions))]
+    let install_hook = true;
+    if install_hook {
+        diagnostics
+            .crash
+            .install_hook()
+            .map_err(|_| "CRASH_HOOK_INSTALL_FAILED")?;
+    }
     *app.state::<crate::native::NativeState>()
         .diagnostics
         .lock()

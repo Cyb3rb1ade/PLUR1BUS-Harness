@@ -424,6 +424,13 @@ fn store_cookies(s: &Inner, headers: &HeaderMap, target: &Url) -> bool {
     if !s.active.load(Ordering::SeqCst) {
         return false;
     }
+    for header in headers.get_all(header::SET_COOKIE).iter() {
+        if let Ok(text) = header.to_str() {
+            if let Some((_, value)) = text.split(';').next().unwrap_or_default().split_once('=') {
+                crate::logging::SecretRegistry::process().register_sensitive(value);
+            }
+        }
+    }
     let mut values = headers.get_all(header::SET_COOKIE).iter();
     jar.set_cookies(&mut values, target);
     true
