@@ -2,7 +2,7 @@ use crate::settings::{Settings, SettingsStore};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WebviewWindow};
 
-pub use crate::shell_commands::SHELL_COMMANDS;
+pub use crate::shell_commands::{APP_COMMANDS, SHELL_COMMANDS};
 
 pub fn allowed_command(label: &str, command: &str) -> bool {
     label == "shell" && SHELL_COMMANDS.contains(&command)
@@ -110,7 +110,7 @@ pub struct ConnectionState(
 );
 /// Keep the mutation lock across the complete action while running synchronous
 /// credential APIs (including interactive prompts) outside async runtime workers.
-async fn credential_action<T: Send + 'static>(
+pub(crate) async fn credential_action<T: Send + 'static>(
     state: &ConnectionState,
     action: impl FnOnce(
             &mut Option<Box<dyn crate::secrets::TokenStore>>,
@@ -126,16 +126,19 @@ async fn credential_action<T: Send + 'static>(
         .map_err(|_| "keychain-error".to_owned())?
 }
 fn connection_store(window: &WebviewWindow) -> Result<crate::connections::Store, String> {
+    app_connection_store(window.app_handle())
+}
+pub(crate) fn app_connection_store(
+    app: &tauri::AppHandle,
+) -> Result<crate::connections::Store, String> {
+    Ok(crate::connections::Store::open(&app_config_dir(app)?))
+}
+pub(crate) fn app_config_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     #[cfg(debug_assertions)]
     if let Some(dir) = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR") {
-        return Ok(crate::connections::Store::open(std::path::Path::new(&dir)));
+        return Ok(dir.into());
     }
-    let dir = window
-        .app_handle()
-        .path()
-        .app_config_dir()
-        .map_err(|_| "storage")?;
-    Ok(crate::connections::Store::open(&dir))
+    app.path().app_config_dir().map_err(|_| "storage".into())
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -312,6 +315,7 @@ pub async fn open_connection(
 ) -> Result<Opened, String> {
     check(&window, "open_connection")?;
     let store = connection_store(&window)?;
+    let app = window.app_handle().clone();
     credential_action(&state, move |tokens, runtime| {
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let mut row = store
@@ -327,9 +331,15 @@ pub async fn open_connection(
                 &store,
             ))
             .map_err(|e| e.public_message())?;
+        runtime.block_on(crate::spa::open_spa(
+            &app,
+            &mut row,
+            tokens.as_ref(),
+            &store,
+        ))?;
         Ok(Opened {
             selected: true,
-            spa_available: false,
+            spa_available: true,
         })
     })
     .await
@@ -366,4 +376,30 @@ mod worker_tests {
         let (result, ()) = tokio::join!(first, second);
         result.unwrap();
     }
+}
+
+/// Native app information exposed to the paired SPA, with no D2 features.
+#[derive(Serialize)]
+pub struct ShellInfo {
+    pub product: &'static str,
+    pub version: &'static str,
+    pub platform: &'static str,
+    pub arch: &'static str,
+    pub features: Vec<&'static str>,
+}
+/// The SPA's only IPC command. Exact current URL and label are checked in Rust.
+#[tauri::command]
+pub fn shell_info(
+    webview: tauri::Webview,
+    state: tauri::State<'_, crate::spa::SpaState>,
+) -> Result<ShellInfo, String> {
+    let current = webview.url().map_err(|_| "SPA URL unavailable")?;
+    crate::spa::check_caller(&state, webview.label(), &current)?;
+    Ok(ShellInfo {
+        product: crate::ids::PRODUCT,
+        version: env!("CARGO_PKG_VERSION"),
+        platform: std::env::consts::OS,
+        arch: std::env::consts::ARCH,
+        features: vec![],
+    })
 }

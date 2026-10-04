@@ -88,13 +88,18 @@ struct Ticket {
     device_id: String,
     expires: i64,
 }
+#[derive(Clone, Serialize, Deserialize)]
+struct BrowserSession {
+    device_id: String,
+    csrf_hash: String,
+}
 #[derive(Serialize, Deserialize)]
 struct Store {
     installation_id: String,
     devices: BTreeMap<String, Device>,
     pair_codes: BTreeMap<String, PairCode>,
     tickets: BTreeMap<String, Ticket>,
-    sessions: BTreeMap<String, String>,
+    sessions: BTreeMap<String, BrowserSession>,
     status: String,
     secrets: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -122,6 +127,7 @@ struct Shared {
     clock: Arc<AtomicI64>,
     api_version: Mutex<String>,
     session_ticket_capability: AtomicBool,
+    reject_browser_tickets: AtomicBool,
     reported_id: Mutex<Option<String>>,
     failure: Mutex<Option<String>>,
     key_unlock_enabled: AtomicBool,
@@ -228,6 +234,7 @@ impl MockHarness {
             path,
             clock: options.clock,
             session_ticket_capability: AtomicBool::new(true),
+            reject_browser_tickets: AtomicBool::new(false),
             api_version: Mutex::new("1.0.0".into()),
             reported_id: Mutex::new(None),
             failure: Mutex::new(None),
@@ -457,6 +464,11 @@ impl MockControl {
         }
         self.shared.publish("harness.status", data);
     }
+    pub fn reject_browser_tickets(&self, reject: bool) {
+        self.shared
+            .reject_browser_tickets
+            .store(reject, Ordering::SeqCst);
+    }
     pub fn set_session_ticket_capability(&self, enabled: bool) {
         self.shared
             .session_ticket_capability
@@ -506,12 +518,25 @@ fn router(shared: Arc<Shared>, test_control: bool) -> Router {
         .route(routes::APPROVALS, get(approvals))
         .route(routes::APPROVAL_DECISION, post(approval_decision))
         .route("/", get(spa))
-        .route("/auth/ticket", get(spa));
+        .route("/auth/ticket", get(spa))
+        .route("/spa.js", get(spa_script))
+        .route("/api/v1/session/check", post(browser_check));
     if test_control {
         let controls = Router::new()
             .route("/__test/pair", post(test_pair))
             .route("/__test/revoke", post(test_revoke))
             .route("/__test/failure", post(test_failure))
+            .route("/__test/ticket-mode", post(test_ticket_mode))
+            .route("/__test/cookie-canary", post(test_cookie_canary))
+            .route(
+                "/__test/cookie-canary-check",
+                post(test_cookie_canary_check),
+            )
+            .route(
+                "/__test/download",
+                get(|| async { vec![0x5au8; 10 * 1024 * 1024] }),
+            )
+            .route("/__test/foreign-redirect", get(test_foreign_redirect))
             .route_layer(middleware::from_fn(loopback_test_control));
         router = router.merge(controls);
     }
@@ -522,6 +547,50 @@ fn router(shared: Arc<Shared>, test_control: bool) -> Router {
         ))
         .with_state(shared)
 }
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CookieCanary {
+    value: String,
+}
+fn valid_canary(value: &str) -> bool {
+    value.len() == 71
+        && value.starts_with("CANARY-")
+        && value[7..].bytes().all(|b| b.is_ascii_hexdigit())
+}
+async fn test_cookie_canary(Json(input): Json<CookieCanary>) -> Response {
+    if !valid_canary(&input.value) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    (
+        [(
+            header::SET_COOKIE,
+            format!(
+                "wp05_canary={}; HttpOnly; SameSite=Lax; Path=/",
+                input.value
+            ),
+        )],
+        Json(json!({"set":true})),
+    )
+        .into_response()
+}
+async fn test_cookie_canary_check(headers: HeaderMap, Json(input): Json<CookieCanary>) -> Response {
+    let found = valid_canary(&input.value)
+        && headers
+            .get(header::COOKIE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| {
+                v.split(';').any(|cookie| {
+                    cookie.trim().strip_prefix("wp05_canary=") == Some(input.value.as_str())
+                })
+            });
+    if found {
+        StatusCode::OK
+    } else {
+        StatusCode::FORBIDDEN
+    }
+    .into_response()
+}
+
 async fn record_request(
     State(shared): State<Arc<Shared>>,
     request: Request,
@@ -710,6 +779,9 @@ struct RedeemTicket {
     ticket: String,
 }
 async fn redeem_ticket(State(s): State<Arc<Shared>>, Json(body): Json<RedeemTicket>) -> Response {
+    if s.reject_browser_tickets.load(Ordering::SeqCst) {
+        return err("ticket-invalid", StatusCode::UNAUTHORIZED);
+    }
     let mut store = s.store.lock().unwrap();
     let Some(ticket) = store.tickets.remove(&hash(&body.ticket)) else {
         return err("ticket-invalid", StatusCode::UNAUTHORIZED);
@@ -724,11 +796,28 @@ async fn redeem_ticket(State(s): State<Arc<Shared>>, Json(body): Json<RedeemTick
     }
     let session = random_id();
     let csrf = random_id();
-    store.sessions.insert(hash(&session), ticket.device_id);
+    store.sessions.insert(
+        hash(&session),
+        BrowserSession {
+            device_id: ticket.device_id,
+            csrf_hash: hash(&csrf),
+        },
+    );
     if s.save(&store).is_err() {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
-    let cookie = format!("p1_session={session}; HttpOnly; SameSite=Lax; Path=/");
+    let secure = if s
+        .origin
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_some_and(|o| o.starts_with("https:"))
+    {
+        "; Secure"
+    } else {
+        ""
+    };
+    let cookie = format!("p1_session={session}; HttpOnly; SameSite=Lax; Path=/{secure}");
     ([(header::SET_COOKIE, cookie)], Json(json!({"csrf":csrf}))).into_response()
 }
 async fn whoami(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Response {
@@ -739,26 +828,10 @@ async fn whoami(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Response {
             Err(e) => return e.response(),
         }
     } else {
-        let Some(session) = headers
-            .get(header::COOKIE)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| {
-                v.split(';')
-                    .find_map(|c| c.trim().strip_prefix("p1_session="))
-            })
-        else {
-            return err("missing-token", StatusCode::UNAUTHORIZED);
-        };
-        let Some(id) = store.sessions.get(&hash(session)) else {
-            return err("invalid-session", StatusCode::UNAUTHORIZED);
-        };
-        let Some(d) = store.devices.get(id) else {
-            return err("invalid-session", StatusCode::UNAUTHORIZED);
-        };
-        if d.revoked {
-            return err("device-revoked", StatusCode::UNAUTHORIZED);
+        match browser_auth(&headers, &store) {
+            Ok((d, _)) => d,
+            Err(e) => return err(e, StatusCode::UNAUTHORIZED),
         }
-        d.clone()
     };
     Json(json!({"userId":"mock-owner","deviceId":device.id,"scopes":device.scopes})).into_response()
 }
@@ -852,8 +925,12 @@ async fn events(
 ) -> Response {
     {
         let store = s.store.lock().unwrap();
-        if let Err(e) = auth(&headers, &store, Some(scope::EVENTS_READ)) {
-            return e.response();
+        if headers.contains_key(header::AUTHORIZATION) {
+            if let Err(e) = auth(&headers, &store, Some(scope::EVENTS_READ)) {
+                return e.response();
+            }
+        } else if let Err(e) = browser_auth(&headers, &store) {
+            return err(e, StatusCode::UNAUTHORIZED);
         }
     }
     let topics: Vec<String> = query
@@ -953,13 +1030,39 @@ async fn events(
             }
         },
     ));
-    Sse::new(stream).into_response()
+    Sse::new(stream)
+        .keep_alive(
+            axum::response::sse::KeepAlive::new().interval(std::time::Duration::from_secs(11)),
+        )
+        .into_response()
 }
 async fn bridge(
     State(s): State<Arc<Shared>>,
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
+    if !headers.contains_key(header::AUTHORIZATION) {
+        {
+            let store = s.store.lock().unwrap();
+            if let Err(e) = browser_auth(&headers, &store) {
+                return err(e, StatusCode::UNAUTHORIZED);
+            }
+        }
+        if headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
+            != s.origin.lock().unwrap().as_deref()
+        {
+            return StatusCode::FORBIDDEN.into_response();
+        }
+        return ws
+            .on_upgrade(|mut socket| async move {
+                while let Some(Ok(message)) = socket.recv().await {
+                    if socket.send(message).await.is_err() {
+                        break;
+                    }
+                }
+            })
+            .into_response();
+    }
     let device = {
         let store = s.store.lock().unwrap();
         match auth(&headers, &store, Some(scope::BRIDGE_SERVE)) {
@@ -1091,8 +1194,75 @@ struct TestFailure {
 async fn test_failure(State(s): State<Arc<Shared>>, Json(body): Json<TestFailure>) -> Json<Value> {
     Json(json!({"fail": s.failure.lock().unwrap().as_deref() == Some(body.step.as_str())}))
 }
-async fn spa() -> Html<&'static str> {
-    Html(include_str!("spa.html"))
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TestTicketMode {
+    reject: bool,
+}
+async fn test_ticket_mode(
+    State(s): State<Arc<Shared>>,
+    Json(body): Json<TestTicketMode>,
+) -> Json<Value> {
+    s.reject_browser_tickets
+        .store(body.reject, Ordering::SeqCst);
+    Json(json!({"ok":true}))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TestRedirect {
+    target: String,
+}
+async fn test_foreign_redirect(
+    axum::extract::Query(body): axum::extract::Query<TestRedirect>,
+) -> Response {
+    (StatusCode::FOUND, [(header::LOCATION, body.target)]).into_response()
+}
+fn browser_auth(
+    headers: &HeaderMap,
+    store: &Store,
+) -> Result<(Device, BrowserSession), &'static str> {
+    let cookie = headers
+        .get(header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| {
+            v.split(';')
+                .find_map(|c| c.trim().strip_prefix("p1_session="))
+        })
+        .ok_or("missing-session")?;
+    let session = store.sessions.get(&hash(cookie)).ok_or("invalid-session")?;
+    let device = store
+        .devices
+        .get(&session.device_id)
+        .filter(|d| !d.revoked)
+        .ok_or("invalid-session")?;
+    Ok((device.clone(), session.clone()))
+}
+async fn browser_check(State(s): State<Arc<Shared>>, headers: HeaderMap) -> Response {
+    let store = s.store.lock().unwrap();
+    let (_, session) = match browser_auth(&headers, &store) {
+        Ok(v) => v,
+        Err(e) => return err(e, StatusCode::UNAUTHORIZED),
+    };
+    if headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
+        != s.origin.lock().unwrap().as_deref()
+        || headers
+            .get("x-csrf-token")
+            .and_then(|v| v.to_str().ok())
+            .is_none_or(|v| hash(v) != session.csrf_hash)
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    Json(json!({"ok":true})).into_response()
+}
+async fn spa() -> Response {
+    ([(header::CONTENT_SECURITY_POLICY,"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")],Html(include_str!("spa.html"))).into_response()
+}
+async fn spa_script() -> Response {
+    (
+        [(header::CONTENT_TYPE, "text/javascript")],
+        include_str!("spa.js"),
+    )
+        .into_response()
 }
 
 #[cfg(test)]

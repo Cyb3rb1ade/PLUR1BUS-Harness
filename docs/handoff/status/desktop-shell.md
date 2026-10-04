@@ -94,10 +94,11 @@ This follow-up commit records verification only.
 
 ## WP2 — Provisional mock harness, fake binaries and stub image
 
-Status: GREEN — implementation, independent review and full CI passed at `ad6f0f7`.
+Status: MERGED — owner merged PR #60 on2026-10-02 at06:54:47UTC, normal merge
+`e6c98cfd2084c48ac97cf0d272529ca772e716b7` (final PR head2998d35).
 Branch: `feat/desktop-shell-wp02-mock-harness`.
 PR: [#60](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/60), base `main`.
-READY FOR REVIEW since 2026-10-02; not merged.
+Earlier independent review/full CI passed at `ad6f0f7`; historical evidence follows.
 Original verified head: `5c5038281c6597d18f38d9d78cb0c2a0554f7666`.
 Part A implementation head: `8131a85f2a3df916a2cdd839b5da0401f3ae60e9`
 (initial fixes `7517ccc`, independent-review fixes `8131a85`).
@@ -252,15 +253,14 @@ CI targets: `macos-15`, `windows-2025`, `windows-11-arm`, `ubuntu-24.04`,
 
 ## WP3 — Shell UI frame
 
-Status: VERIFYING — owner corrections and independent re-review complete at
-`c6527a9`, published as `7aeebbf` after main merge `4a5a8b` (`6a7d656`).
-Local gates, all five desktop CI targets and complete root CI now PASS at
-`7aeebbf`. Root attempt 1 failed an unchanged HM2 timing test; the one targeted
-retry passed at the same head. Readiness still waits for corrected WP4 Green.
+Status: MERGED — owner merged #63 at2026-10-02T17:05:27Z with normal merge
+`444691bedbbc0a049ab18a038528d62230e9afe9`. Corrected published head7aeebbf
+passed complete root CI (one documented unchanged HM2 timing retry) and all five
+desktop targets; independent correction/R1 reviews passed.
 Branch: `feat/desktop-shell-wp03-ui-frame`.
 Base: `main` (PR #60 merged with merge commit `e6c98cf`).
-PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), **draft**.
-The owner merges #63, then #64, using merge commits. Every new WP3 commit is
+PR: [#63](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/63), MERGED.
+The owner merged #63, then #64, using merge commits. Every new WP3 commit is
 merged forward into WP4 (and WP5 when it exists), without rebase or force-push.
 Implementation head: `c6527a9` (owner corrections plus overlay focus R1 fix).
 Initial independent review found R1; its four regression cases now pass and
@@ -602,19 +602,20 @@ GREEN at exact `7aeebbfdf3eddcda11ee6168541b72971daf0c97`: root37009940205 attem
 
 ## WP4 — Connections, keychain and pairing
 
-Status: VERIFYING — owner corrections delivered at `7e835bb` after normal
-forward merge `e9a5aa3` of corrected WP3 `7aeebbf`. Local gates pass;
-independent review found one Important CA-outage/rollover classification gap.
-Fix eb46737 and scoped re-review PASS; fresh published-head CI remains required.
+Status: MERGED — owner merged #64 at2026-10-02T17:05:55Z with normal merge
+`5962e820046d0a881dc28fa779de03945e244590`. Corrected published head a1f0029
+(source eb46737) passed root37015257791 and desktop37015257725/37015254463
+on all five targets plusDocker/Podman. Independent correction/R1 reviews passed.
 Branch: `feat/desktop-shell-wp04-connections`.
-Base: `feat/desktop-shell-wp03-ui-frame` at `7aeebbf`; PR #63 remains draft.
-PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), DRAFT.
+Original stacked base: `feat/desktop-shell-wp03-ui-frame` at `7aeebbf`;
+retargeted to main when #63 merged.
+PR: [#64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/64), MERGED.
 Published historical head: `5713e7a9df1dae82b5b0f98e076e363681f69463`.
 Main `6a7d656` is included through WP3. The forward merge preserves the nine
 application-command permissions, Windows CRT isolation, focus/settings fixes,
 and restoration of the core importer test exactly to main. Config10/10 PASS.
 Current source head: `eb467376880cb679190c5b0edf97143fa2adfc3f`.
-Part B commits: `c7ee115`, `7e835bb`, `eb46737`; no push or GREEN claim yet.
+Part B commits: `c7ee115`, `7e835bb`, `eb46737`; report/published head `a1f0029f055efa77d4331ca815fc999644fc0277`, complete current-head CI PASS.
 
 ### Delivered scope and historical verification
 
@@ -1135,3 +1136,77 @@ fetched origin/main6a7d656. No gate was weakened.
 Publish the status checkpoint with corrected source, then observe exact final
 head root CI and five desktop targets/Docker/Podman before readiness/WP5.
 Both PRs remain draft until that complete gate. WP5 and WP6 are unstarted.
+
+### WP4 final corrected-head CI and readiness
+
+GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257791), [desktop PR37015257725](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257725), [desktop push37015254463](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015254463) all SUCCESS. Five native build/bundle targets and Docker/Podman PASS. No retry required for this WP4 head. Both corrected heads now GREEN; #63/#64 marked ready for review as owner requested. No merge into main, rebase, amend or force-push. Earlier checkpoints above remain history; real OS credential/manual limits still apply.
+
+## WP5 — SPA proxy and profile acceptance
+
+Branch: `feat/desktop-shell-wp05-spa-proxy`
+PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65)
+Status: **GREEN · head `eac16a74dbc9c0f61f5da1b51bc203bb1477eec3`**.
+
+Root CI: [run 37214689669](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689669). Desktop matrix: [run 37214689610](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610). Both are green on the reported implementation head; the matrix contains seven target jobs plus Docker and Podman stub jobs.
+
+### Accept table · 19 positive rows + 6 negative/security rows
+
+`P` means PASS; each cell links to its column job. The table has the 19 WP5 acceptance rows plus six negative/security regressions.
+
+| Acceptance | macOS arm64 | Linux x64 | Linux ARM | Windows x64 guard on | Windows x64 guard off | Windows ARM guard on | Windows ARM guard off |
+|---|---|---|---|---|---|---|---|
+| `navigation_table` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `caller_check_rejects_other_webview_and_other_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `shell_info_is_the_only_spa_command` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `switching_connection_replaces_the_capability` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `assert_no_token_on_disk` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `no_cookie_database_in_app_dirs` (post-exit read) | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `only_the_spa_webview_is_served_others_get_403` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `never_adds_authorization_or_the_device_token` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `page_cookies_and_authorization_are_dropped` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `origin_and_host_are_the_connection_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `sse_events_stream_without_buffering` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `websocket_upgrade_is_forwarded` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `bundled_local_and_remote_use_the_same_path` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `session_meta_is_fetched_once_for_many_browser_requests` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `non_get_methods_require_exact_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `websocket_unoffered_subprotocol_fails_closed` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `retired_listener_rejects_old_secret_and_reserves_port` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `session_meta_revalidation_rejects_api_major_change` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `retry_revalidates_session_meta_after_ticket_reconnect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+
+[M]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700937
+[LX]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700872
+[LA]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700953
+[WX+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701004
+[WX-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701044
+[WA+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700883
+[WA-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700910
+
+Windows `no_cookie_database_in_app_dirs` uses the owner decision of 2026-10-04: the live native query and recursive secret scan remain mandatory; after all WebView2 processes for the temporary profile exit, `Cookies`, `-journal` and `-wal` are read-only checked for zero rows and no canary bytes, then the profile is deleted. The guard-on job is the production profile; guard-off proves that the profile itself does not retain cookies. The uniform document.cookie, CookieStore and service-worker guard is defense in depth on all three platforms. The guarded-SPA probe is Chromium against the mock harness; native WebView2 probing is unavailable in this CI and remains an explicit gap.
+
+The earlier macOS DMG failure happened before packaging: the native production-driver run tripped its strict `production p95 exceeds 5ms` assertion. The corrected serial driver now reaches the DMG bundle. W2 was the release cleanup path treating a profile without a WebView2 cookie database as exit-code 2; release now audits, logs a fixed code, deletes, and exits 0.
+
+### Round-4 fixes and scoped reasons
+
+- Release cleanup always deletes after the audit, including audit failure, timeout, or delete failure; debug acceptance remains strict. The startup sweep deletes each leaf independently even when its audit cannot read a locked database.
+- The release audit uses `spawn_blocking`, chunked reads, a shared 64 MiB byte budget and deadline checks between chunks and files. Recursive leaf deletion checks the deadline per entry, and `.lease` is removed last; tests cover timeout inside a deep tree, orphan leaves, setup continuation, and all release reason-code branches.
+- **M3:** the previous vacuous Rust fixture for `no_cookie_database_in_app_dirs` was deleted; meaningful OS-specific production acceptance is the matrix row above.
+- **M4:** bounded chunked audit and blocking IO are implemented and covered by the cleanup tests.
+- **M5:** websocket upgrades require the exact SPA `Origin`; a no-Origin negative test is present.
+- **M6:** bundled `rusqlite` is required for the read-only Cookies/WAL audit and avoids host SQLite drift in Windows release checks.
+- **M7:** fixture-only seams are behind debug/test configuration; the release build compiles without them and release cleanup decisions are exercised through injected normal-test functions.
+- `/meta` is cached per session and revalidated on reconnect or installation change. Tests assert the exact reconnect count, API-major rejection, jar reset, and refusal of the old WebSocket.
+
+Local: desktop Rust tests, focused `spa`/`spa_proxy`, native examples, format, locked Clippy and release build passed. The local Windows target check cannot run on macOS because the MSVC cross-compiler lacks Windows headers; the green Windows target checks above are authoritative.
+
+
+### WP6 gate
+
+WP6 remains paused until the owner merges WP5. After that merge, fetch the exact merge commit and merge it into `feat/desktop-shell-wp06-lifecycle` with a normal merge commit; do not rebase, amend or force-push.

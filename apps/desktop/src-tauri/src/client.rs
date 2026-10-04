@@ -38,7 +38,7 @@ pub enum ClientError {
     TrustUnavailable,
     Protocol,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Meta {
     pub api_version: String,
@@ -182,6 +182,8 @@ pub struct HarnessClient {
     next_cert: Option<CertPin>,
     next_ca: Option<CertPin>,
     http: Option<reqwest::Client>,
+    stream: Option<reqwest::Client>,
+    tls: Option<Arc<rustls::ClientConfig>>,
     roots: Option<Vec<Vec<u8>>>,
     ca_failure: Option<ClientError>,
     observed: Arc<Mutex<Observed>>,
@@ -195,6 +197,8 @@ impl HarnessClient {
             next_cert: None,
             next_ca: None,
             http: None,
+            stream: None,
+            tls: None,
             roots: None,
             ca_failure: None,
             observed: Arc::default(),
@@ -230,23 +234,14 @@ impl HarnessClient {
         })?;
         Ok(client)
     }
-    fn build(
+    fn tls_config(
         &self,
         bootstrap: bool,
         ca: Option<&[u8]>,
         next_ca: Option<&[u8]>,
-    ) -> Result<reqwest::Client, ClientError> {
+    ) -> Result<Option<Arc<rustls::ClientConfig>>, ClientError> {
         if self.origin.as_str().starts_with("http://") {
-            return reqwest::Client::builder()
-                .use_rustls_tls()
-                .tls_built_in_root_certs(false)
-                .no_proxy()
-                .redirect(reqwest::redirect::Policy::none())
-                .timeout(Duration::from_secs(10))
-                .connect_timeout(Duration::from_secs(10))
-                .pool_max_idle_per_host(0)
-                .build()
-                .map_err(|_| ClientError::Network);
+            return Ok(None);
         }
         let verifier = Verifier {
             os: roots(None, true, self.roots.as_deref())?,
@@ -266,16 +261,46 @@ impl HarnessClient {
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(verifier))
         .with_no_client_auth();
-        reqwest::Client::builder()
-            .use_preconfigured_tls(tls)
+        Ok(Some(Arc::new(tls)))
+    }
+    fn transport(
+        tls: Option<&Arc<rustls::ClientConfig>>,
+        streaming: bool,
+    ) -> Result<reqwest::Client, ClientError> {
+        let mut builder = reqwest::Client::builder()
+            .use_rustls_tls()
+            .tls_built_in_root_certs(false)
             .tls_info(true)
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
-            .timeout(Duration::from_secs(10))
             .connect_timeout(Duration::from_secs(10))
-            .pool_max_idle_per_host(0)
-            .build()
-            .map_err(|_| ClientError::Network)
+            .pool_max_idle_per_host(0);
+        if let Some(tls) = tls {
+            builder = builder.use_preconfigured_tls((**tls).clone());
+        }
+        if !streaming {
+            builder = builder.timeout(Duration::from_secs(10));
+        }
+        builder.build().map_err(|_| ClientError::Network)
+    }
+    fn build(
+        &self,
+        bootstrap: bool,
+        ca: Option<&[u8]>,
+        next_ca: Option<&[u8]>,
+    ) -> Result<reqwest::Client, ClientError> {
+        Self::transport(self.tls_config(bootstrap, ca, next_ca)?.as_ref(), false)
+    }
+    /// Streaming uses the API client's prepared verifier without its total-body timeout.
+    pub fn streaming_http(&self) -> Result<reqwest::Client, ClientError> {
+        self.stream.clone().ok_or(ClientError::Protocol)
+    }
+    /// WebSocket upgrades reuse exactly the prepared TLS policy used by HTTP.
+    pub fn websocket_connector(&self) -> Result<Option<tokio_tungstenite::Connector>, ClientError> {
+        if self.stream.is_none() {
+            return Err(ClientError::Protocol);
+        }
+        Ok(self.tls.clone().map(tokio_tungstenite::Connector::Rustls))
     }
     async fn prepare(&mut self) -> Result<(), ClientError> {
         // Current and next are alternatives. An unavailable CA must not disable
@@ -310,7 +335,9 @@ impl HarnessClient {
         {
             return Err(self.ca_failure.clone().unwrap_or(ClientError::CaNotKnown));
         }
-        self.http = Some(self.build(false, ca.as_deref(), next.as_deref())?);
+        self.tls = self.tls_config(false, ca.as_deref(), next.as_deref())?;
+        self.http = Some(Self::transport(self.tls.as_ref(), false)?);
+        self.stream = Some(Self::transport(self.tls.as_ref(), true)?);
         Ok(())
     }
     fn remember_ca_failure(&mut self, error: ClientError) {
@@ -331,7 +358,7 @@ impl HarnessClient {
             None => self.build(false, None, None),
         }
     }
-    fn error(&self) -> ClientError {
+    pub(crate) fn error(&self) -> ClientError {
         let seen = self.observed.lock().unwrap();
         if !seen.rejected {
             return ClientError::Network;

@@ -141,8 +141,11 @@ Production clients have no public accept-invalid-certificate option. Ambient
 proxies, redirects and cookie storage are disabled; ordinary HTTP bodies are
 bounded to 65536 bytes and requests to ten seconds.
 
-Every authenticated route first rechecks meta, supported API major, capability
-and installation identity. A new pairing immediately pulls trust, persists both
+The proxy fetches `/api/v1/meta` once while creating each SPA session and
+validates the supported API major, capability and installation identity before
+serving browser traffic. The immutable session snapshot is reused for the
+session lifetime, so a transient later `/meta` outage cannot turn every browser
+request into a 502. A new SPA session repeats the full validation. A new pairing immediately pulls trust, persists both
 current and next pins, then acknowledges; every open repeats that sequence.
 After the server switches, a response's current trust must match the locally
 stored current or previously authenticated next trust. Only then is next promoted.
@@ -182,3 +185,30 @@ while both are staged: it carries only a public digest, never a credential.
 Test controls `advertise_os_trust`, `ca_response` and
 `set_session_ticket_capability` operate only in the mock process. They inject
 OS-current announcements, transport/response failures, and capability removal.
+
+### WP5 provisional browser sessions (not the M3 API)
+
+Ticket redemption retains a session hash, bound device and CSRF hash. The cookie
+is HttpOnly, SameSite=Lax, Path=/ and additionally Secure on TLS. Browser whoami,
+/events and /ws use that cookie separately from the Rust device bearer path.
+Browser WS is an echo fixture and grants no host-bridge capabilities. Existing
+device scopes and host.keyUnlock behavior remain unchanged. Revocation also
+rejects subsequent browser-session authentication.
+
+POST /api/v1/session/check is a provisional mutation fixture. A valid browser
+cookie, exact harness Origin and x-csrf-token are required; wrong or missing
+CSRF and foreign Origin return 403. The mock SPA keeps CSRF in renderer memory
+and loads /spa.js under script-src self. Missing/replayed/expired tickets
+navigate to /auth/ticket-failed. The desktop retries once then serves its error
+view. SSE keepalive after 11 seconds proves survival past the API deadline.
+
+M3 must map these cookie, CSRF and live-surface semantics onto its real browser
+routes. Session-check, mock SPA and echo WS remain fixtures. No server was
+implemented under packages/.
+
+WP5 native-only controls (enabled only by `test_control` and protected by the
+existing loopback peer guard) are `/__test/ticket-mode` (force failed browser
+redemptions), `/__test/download` (ten MiB of byte 0x5a), and
+`/__test/foreign-redirect` (a controlled redirect destination). They are mock
+fixtures, never proposed M3 routes. The Rust driver retains credentials only
+in memory and counts issued tickets without publishing their values.
