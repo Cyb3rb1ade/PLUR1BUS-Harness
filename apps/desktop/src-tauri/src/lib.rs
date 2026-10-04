@@ -10,6 +10,7 @@ pub mod ids;
 pub mod lifecycle;
 pub mod logging;
 pub mod native;
+pub mod notify;
 pub mod pair;
 pub mod policy;
 #[cfg(any(windows, test))]
