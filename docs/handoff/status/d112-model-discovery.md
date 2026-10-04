@@ -18,8 +18,10 @@ Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction) · head SHA: s
 ## Review Fixes (PR #70)
 
 | Finding | Commit | Tests added (file::name) | Result | Notes |
-|---|---|---|---|---|
-| surface F1 | pending | `hosts/hermes/tests/test_cli.py`, `fake_client.py` | pass | Read RPC_VERSION from generated client schema |
+| surface F1 | 51150eef | `hosts/hermes/tests/test_cli.py`, `fake_client.py` | pass | Read RPC_VERSION from generated client schema |
+| state C1 | pending | `scheduler.test.ts` (triggers 1, 2, 3) | pass | Re-arm max(nextScanAt, now + 1s), drop removed providers |
+| state I3 | pending | `scheduler.test.ts` (recovery from .prev) | pass | Clear lastScanAt/nextScanAt on recovery so catch-up triggers |
+| surface F7 | pending | `scheduler.test.ts` (spacing & 0-60s bound) | pass | Pin >= 2000 ms spacing and 0-60s upper bound |
 
 ## Deviations
 - Commit trailer: `Co-Authored-By: Antigravity <noreply@google.com>` instead of the plan's Claude trailers (agy prompt, hard rules).

@@ -14,6 +14,8 @@ export interface ScanScheduler {
   stop(): void;
   /** Currently armed timer targets. */
   armed(): { provider: string; at: number }[];
+  /** Re-plan timer for a provider after an explicit/manual scan. */
+  onScanned(provider: string): void;
 }
 
 export function createScanScheduler(o: {
@@ -62,7 +64,26 @@ export function createScanScheduler(o: {
       armedTimers.delete(provider);
       if (stopped) return;
       if (!o.settings().enabled) return;
-      if (runningScans.has(provider)) return;
+
+      const scannable = o.service.scannable().map((s) => s.id);
+      if (!scannable.includes(provider)) {
+        return;
+      }
+
+      // If a manual scan already ran and set nextScanAt into the future, re-arm instead of scanning
+      const preSt = o.store.read().providers[provider];
+      if (preSt?.nextScanAt) {
+        const preNextMs = Date.parse(preSt.nextScanAt);
+        if (Number.isFinite(preNextMs) && preNextMs > o.clock.now() + 1000) {
+          arm(provider, preNextMs, "cron");
+          return;
+        }
+      }
+
+      if (runningScans.has(provider)) {
+        arm(provider, o.clock.now() + 1000, "cron");
+        return;
+      }
 
       runningScans.add(provider);
       try {
@@ -78,13 +99,19 @@ export function createScanScheduler(o: {
       if (stopped) return;
       if (!o.settings().enabled) return;
 
-      const st = o.store.read().providers[provider];
-      if (st?.nextScanAt) {
-        const nextMs = Date.parse(st.nextScanAt);
-        if (Number.isFinite(nextMs)) {
-          arm(provider, nextMs, "cron");
-        }
+      const postScannable = o.service.scannable().map((s) => s.id);
+      if (!postScannable.includes(provider)) {
+        return;
       }
+
+      const st = o.store.read().providers[provider];
+      const nextMs = st?.nextScanAt ? Date.parse(st.nextScanAt) : NaN;
+      const minFutureMs = o.clock.now() + 1000;
+      const targetMs = Number.isFinite(nextMs)
+        ? Math.max(nextMs, minFutureMs)
+        : o.clock.now() + o.settings().intervalHours * 3600_000;
+
+      arm(provider, targetMs, "cron");
     }, delayMs);
 
     armedTimers.set(provider, { at: atMs, handle });
@@ -105,7 +132,10 @@ export function createScanScheduler(o: {
       const lastScanAt = st?.lastScanAt ? Date.parse(st.lastScanAt) : undefined;
       const nextScanAt = st?.nextScanAt ? Date.parse(st.nextScanAt) : undefined;
 
-      const isDue = (lastScanAt === undefined || now - lastScanAt >= intervalMs) && (nextScanAt === undefined || nextScanAt <= now);
+      const isDue =
+        lastScanAt === undefined ||
+        (nextScanAt !== undefined && nextScanAt <= now) ||
+        now - lastScanAt >= intervalMs;
       if (isDue) {
         const u = o.rng();
         const rawDelay = Math.round(u * 60_000);
@@ -161,6 +191,26 @@ export function createScanScheduler(o: {
 
     for (const pid of scannable) {
       const st = cat.providers[pid];
+      const isFailedOrAuth =
+        (st?.consecutiveFailures ?? 0) > 0 ||
+        st?.lastResult === "failed:auth" ||
+        st?.lastResult === "failed:invalid" ||
+        st?.lastResult === "failed:empty";
+
+      if (isFailedOrAuth && st?.nextScanAt) {
+        const storedNextAt = Date.parse(st.nextScanAt);
+        if (Number.isFinite(storedNextAt)) {
+          if (storedNextAt <= now) {
+            const u = o.rng();
+            const rawDelay = Math.max(1, Math.round(u * 60_000));
+            overdue.push({ provider: pid, rawDelay });
+          } else {
+            future.push({ provider: pid, at: storedNextAt });
+          }
+          continue;
+        }
+      }
+
       const lastScanAt = st?.lastScanAt ? Date.parse(st.lastScanAt) : undefined;
       if (lastScanAt !== undefined) {
         const newNextAt = nextRegularAt(lastScanAt, s.intervalHours, o.rng);
@@ -180,15 +230,19 @@ export function createScanScheduler(o: {
     }
 
     if (Object.keys(updates).length > 0) {
-      void o.store.mutate((c) => {
-        const nextProviders = { ...c.providers };
-        for (const [pid, nextIso] of Object.entries(updates)) {
-          if (nextProviders[pid]) {
-            nextProviders[pid] = { ...nextProviders[pid], nextScanAt: nextIso };
+      o.store
+        .mutate((c) => {
+          const nextProviders = { ...c.providers };
+          for (const [pid, nextIso] of Object.entries(updates)) {
+            if (nextProviders[pid]) {
+              nextProviders[pid] = { ...nextProviders[pid], nextScanAt: nextIso };
+            }
           }
-        }
-        return { next: { ...c, providers: nextProviders }, result: null };
-      });
+          return { next: { ...c, providers: nextProviders }, result: null };
+        })
+        .catch((err) => {
+          o.logger.debug("replan store mutate failed", { error: String(err) });
+        });
     }
 
     overdue.sort((a, b) => a.rawDelay - b.rawDelay);
@@ -204,6 +258,26 @@ export function createScanScheduler(o: {
 
     for (const item of future) {
       arm(item.provider, item.at, "cron");
+    }
+  }
+
+  function onScanned(provider: string) {
+    if (stopped) return;
+    const currentScannable = o.service.scannable().map((s) => s.id);
+    if (!currentScannable.includes(provider)) {
+      const existing = armedTimers.get(provider);
+      if (existing) {
+        existing.handle.cancel();
+        armedTimers.delete(provider);
+      }
+      return;
+    }
+    const st = o.store.read().providers[provider];
+    if (st?.nextScanAt) {
+      const nextMs = Date.parse(st.nextScanAt);
+      if (Number.isFinite(nextMs)) {
+        arm(provider, Math.max(nextMs, o.clock.now() + 1000), "cron");
+      }
     }
   }
 
@@ -228,5 +302,6 @@ export function createScanScheduler(o: {
     replan,
     stop,
     armed,
+    onScanned,
   };
 }

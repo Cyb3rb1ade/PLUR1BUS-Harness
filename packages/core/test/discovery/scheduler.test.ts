@@ -151,10 +151,33 @@ describe("discovery scheduler", () => {
     await clock.advance(5_999);
     assert.equal(scannedCalls.length, 0);
 
-    await clock.advance(2_001);
+    await clock.advance(1); // exactly at 6_000 ms: p1 runs
+    assert.equal(scannedCalls.length, 1);
+    assert.equal(scannedCalls[0]!.provider, "p1");
+    assert.equal(scannedCalls[0]!.at, now + 6_000);
+
+    await clock.advance(1_999); // at 7_999 ms: p2 has not run yet
+    assert.equal(scannedCalls.length, 1);
+
+    await clock.advance(1); // exactly at 8_000 ms: p2 runs (at least 2 s after p1)
     assert.equal(scannedCalls.length, 2);
-    assert.deepEqual(scannedCalls.map((c) => c.provider).sort(), ["p1", "p2"]);
+    assert.equal(scannedCalls[1]!.provider, "p2");
+    assert.equal(scannedCalls[1]!.at, now + 8_000);
+    assert.ok(scannedCalls[1]!.at - scannedCalls[0]!.at >= 2000);
     assert.equal(scannedCalls.find((c) => c.provider === "p3"), undefined);
+  });
+
+  it("catch-up scans with rng near 1.0 are scheduled near 60 s, not 59 s", async () => {
+    const { store, clock, scheduler, scannedCalls } = setup({
+      profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
+      rngValues: [0.999],
+    });
+    await store.load();
+    scheduler.start();
+    await clock.advance(59_000);
+    assert.equal(scannedCalls.length, 0);
+    await clock.advance(1_000);
+    assert.equal(scannedCalls.length, 1);
   });
 
   it("a start never scans a provider scanned within the interval", async () => {
@@ -398,5 +421,123 @@ describe("discovery scheduler", () => {
     const hist2 = systemJobs.history({});
     assert.equal(hist2.length, 2);
     assert.equal(hist2[1]?.trigger, "cron");
+  });
+
+  it("C1 trigger 1: already_running when a scan is in flight produces at most one run and re-arms in the future", async () => {
+    let resolveManualScan: () => void = () => {};
+    let manualScanStarted: () => void = () => {};
+    const manualStartedPromise = new Promise<void>((r) => { manualScanStarted = r; });
+    const manualPromise = new Promise<void>((r) => { resolveManualScan = r; });
+
+    const { store, clock, scheduler, service } = setup({
+      profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
+      rngValues: [0.1],
+      scannerOutput: async () => {
+        manualScanStarted();
+        await manualPromise;
+        return { entries: [{ id: "m1", name: "M1", kind: "chat" }], duplicates: 0, pages: 1 };
+      },
+    });
+    await store.load();
+    scheduler.start();
+
+    const manualScanOp = service.scanProvider("p1", "manual");
+    await manualStartedPromise;
+
+    await clock.advance(6000);
+    const armed = scheduler.armed();
+    assert.equal(armed.length, 1);
+    assert.ok(armed[0]!.at >= clock.now() + 1000, `expected timer >= now + 1000, got ${armed[0]!.at} vs now ${clock.now()}`);
+
+    resolveManualScan();
+    await manualScanOp;
+  });
+
+  it("C1 trigger 2: catalog write failure does not cause a hot loop and re-arms strictly in the future", async () => {
+    let failWrite = true;
+    const { store, clock, scheduler } = setup({
+      profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
+      rngValues: [0.1],
+    });
+    await store.load();
+    const origMutate = store.mutate.bind(store);
+    store.mutate = async (fn) => {
+      if (failWrite) {
+        throw new Error("ENOSPC: no space left on device");
+      }
+      return origMutate(fn);
+    };
+
+    scheduler.start();
+    await clock.advance(6000);
+
+    const armed = scheduler.armed();
+    assert.equal(armed.length, 1);
+    assert.ok(armed[0]!.at >= clock.now() + 1000, `expected timer >= now + 1000, got ${armed[0]!.at} vs now ${clock.now()}`);
+  });
+
+  it("C1 trigger 3: removed provider is dropped from timer set and does not loop", async () => {
+    const { store, clock, scheduler, service } = setup({
+      profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
+      rngValues: [0.1],
+    });
+    await store.load();
+    scheduler.start();
+
+    await clock.advance(6000);
+    assert.equal(scheduler.armed().length, 1);
+
+    // Remove provider from service
+    (service as any).scannable = () => [];
+
+    await clock.advance(25 * 3600_000);
+    assert.equal(scheduler.armed().length, 0);
+  });
+
+  it("I3: after recovery from .prev, a rescan is scheduled within catch-up window", async () => {
+    const { store, clock, scheduler, scannedCalls, dir } = setup({
+      profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
+      rngValues: [0.1],
+    });
+    await store.load();
+    const now = clock.now();
+    // Simulate a successful prior scan in .prev (two mutates so previous.revision > 0)
+    await store.mutate((c) => ({
+      next: {
+        ...c,
+        providers: {
+          p1: {
+            lastScanAt: new Date(now - 2000).toISOString(),
+            nextScanAt: new Date(now + 24 * 3600_000).toISOString(),
+          },
+        },
+      },
+      result: null,
+    }));
+    await store.mutate((c) => ({
+      next: {
+        ...c,
+        providers: {
+          p1: {
+            lastScanAt: new Date(now - 1000).toISOString(),
+            nextScanAt: new Date(now + 24 * 3600_000).toISOString(),
+          },
+        },
+      },
+      result: null,
+    }));
+    // Corrupt the main models.json file so store recovers from .prev
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(join(dir, "models.json"), "CORRUPT JSON");
+
+    // Load store - should recover from .prev
+    const res = await store.load();
+    assert.equal(res.recovered, "prev");
+
+    // Start scheduler - since it recovered from .prev, p1 should be due for immediate catch-up (within 60s)
+    scheduler.start();
+    await clock.advance(6000);
+    assert.equal(scannedCalls.length, 1);
+    assert.equal(scannedCalls[0]!.provider, "p1");
   });
 });

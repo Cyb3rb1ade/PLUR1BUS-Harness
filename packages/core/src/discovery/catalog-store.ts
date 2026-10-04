@@ -132,7 +132,12 @@ export function createCatalogStore(o: CatalogStoreOptions): CatalogStore {
     if (prev.ok) {
       // A rescan follows: the first catch-up must see every provider as never scanned (P12).
       const file = structuredClone(prev.file);
-      for (const st of Object.values(file.providers)) delete st.lastScanAt;
+      for (const st of Object.values(file.providers)) {
+        delete st.lastScanAt;
+        delete st.nextScanAt;
+        delete st.lastResult;
+        delete st.consecutiveFailures;
+      }
       current = file;
       o.logger.info("model catalog recovered from the previous copy");
       return { file: structuredClone(current), recovered: "prev", ...(quarantinedTo ? { quarantinedTo } : {}) };
