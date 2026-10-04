@@ -1,4 +1,4 @@
-Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction) · head SHA: see `git log` (a commit cannot name its own SHA; each task's SHA is filled in by the next commit) · 2026-10-03
+Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction; Review fixes completed) · head SHA: see `git log` · 2026-10-04
 
 | Task | Commit | Tests added (file::name) | Result | Notes |
 |---|---|---|---|---|
@@ -18,21 +18,65 @@ Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction) · head SHA: s
 ## Review Fixes (PR #70)
 
 | Finding | Commit | Tests added (file::name) | Result | Notes |
+|---|---|---|---|---|
 | surface F1 | 51150eef | `hosts/hermes/tests/test_cli.py`, `fake_client.py` | pass | Read RPC_VERSION from generated client schema |
-| state C1 | pending | `scheduler.test.ts` (triggers 1, 2, 3) | pass | Re-arm max(nextScanAt, now + 1s), drop removed providers |
-| state I3 | pending | `scheduler.test.ts` (recovery from .prev) | pass | Clear lastScanAt/nextScanAt on recovery so catch-up triggers |
-| surface F7 | pending | `scheduler.test.ts` (spacing & 0-60s bound) | pass | Pin >= 2000 ms spacing and 0-60s upper bound |
+| state C1 | e2d292d2 | `scheduler.test.ts` (triggers 1, 2, 3) | pass | Re-arm max(nextScanAt, now + 1s), drop removed providers |
+| state I3 | e2d292d2 | `scheduler.test.ts` (recovery from .prev) | pass | Clear lastScanAt/nextScanAt on recovery so catch-up triggers |
+| surface F7 | e2d292d2 | `scheduler.test.ts` (spacing & 0-60s bound) | pass | Pin >= 2000 ms spacing and 0-60s upper bound. Mutated code locally: without spacing/bound, tests fail. |
+| state I1 | e8308ea9 | `service.test.ts` (concurrent scan lock, override vs scan lock) | pass | Mutate runs inside store lock, no lost updates |
+| state I2 | e8308ea9 | `service.test.ts` (manual scan replans timer, auth backoff preserved) | pass | Manual scan respects auth-failed slot; explicit person action allowed but does not reset auth backoff |
+| state I4 | e8308ea9 | `service.test.ts` (replan store.mutate caught, state preserved) | pass | Await store.mutate promise, keep backoff and auth state across replan |
+| state I8 / security M3 | e8308ea9 | `service.test.ts`, `job.test.ts` (shutdown abort outcome: aborted) | pass | Shutdown/cancel abort is not an error; ledger row recorded as aborted, lastResult unchanged |
+| security I1 | e8308ea9 | `service.test.ts` (canary redaction on throwing resolver) | pass | Non-ScanError maps to internal_error, err.message redacted |
+| security I2 | e8308ea9 | `http.test.ts` (baseUrl validation before credential resolve) | pass | Validate URL before resolving credentials, malformed -> failed:invalid / invalid_base_url |
+| security M1 | e8308ea9 | `http.test.ts` (Location with userinfo -> failed:invalid) | pass | Never follow redirect with userinfo |
+| security M2 | e8308ea9 | `validate.test.ts`, `scanners.test.ts` (cursor validation <= 512B) | pass | Cursors validated in URLSearchParams only |
+| security M4 | e8308ea9 | `service.test.ts` (credential-unavailable distinct reason) | pass | Distinct reason credential_unavailable, no fake 401 |
+| security M5 | e8308ea9 | `http.test.ts` (localhost loopback check on all addresses) | pass | Strict loopback DNS resolution check |
+| security M7 | e8308ea9 | `http.test.ts` (connect timer cleared on abort) | pass | Clear connect timer on abort |
+| security M8 | e8308ea9 | `http.test.ts` (deflate, br, compression bombs) | pass | zlib deflate and brotli with 1 MiB cap |
+| security M10 | e8308ea9 | `validate.test.ts` (Number.isSafeInteger for limits/offsets) | pass | Require safe integer in validation |
+| surface F6 | e8308ea9 | `service.test.ts` (failed/empty scan leaves non-empty catalog byte-identical) | pass | Mutated code locally: without check, test fails. |
+| surface F11 | e8308ea9 | `system-jobs.test.ts` (jobs.list real intervalHours in schedule.every) | pass | Dynamic interval reflected in jobs.list |
+| state I5 / surface F3 | 5a073ecf | `core.test.ts` (reenrichCatalog on revision mismatch) | pass | Boot re-enrichment when shipped tableRevision differs |
+| state I6 | 5a073ecf | `system-jobs.test.ts`, `catalog-store.test.ts` (securePath result check) | pass | Fail closed on securePath failure, run once per file |
+| state I7 | 5a073ecf | `system-jobs.test.ts` (rotation at 1 MiB, newest-first, 50k scaling) | pass | 1 MiB rotation to .1, O(N) tail read, 50k rows in < 2 s |
+| surface F4 | eaea792a | `metadata.test.ts` (alias uniqueness across table) | pass | Error on duplicate alias, fixed shipped table duplicate |
+| surface F5 | eaea792a | `roles.test.ts` (longest-provider-prefix with : and /) | pass | Longest prefix match with provider:model/id. Mutated code locally: without sort, test fails. |
+| surface F8 | eaea792a | `metadata.test.ts`, `role-vectors.json` (example- prefix for test IDs) | pass | No real vendor model IDs in fixtures/vectors |
+| surface M5 | eaea792a | `overrides.test.ts` (512-byte cap on override reasoning) | pass | Reasoning string capped at 512 bytes |
+| surface M11 | eaea792a | `overrides.test.ts` (clear enum validation, alias collision prevention) | pass | Validated clear enum and alias collision prevention |
+| surface F10 | b4349a9c | `docs/provider-matrix.md` (Vertex AI, xAI discovery mapped to manual) | pass | Docs updated with discovery column & R9 refs |
+| surface F12 | b4349a9c | `packages/core/schemas/rpc.schema.json` (models.changed description) | pass | Reworded models.changed to reflect scan-only triggers |
+| surface F13 | b4349a9c | `jobs.run.json`, `jobs.run.system.json`, `jobs.list.json`, schema | pass | Agent jobs.run restored, jobs.run.system added, schema descriptions updated |
+| security M6 | b4349a9c | `docs/provider-matrix.md` (HTTP(S)_PROXY documented as ignored) | pass | Documented known limitation |
+| surface F2 | b5631b16 | `discovery-e2e.test.ts` (quiescent core.status, relative path check) | pass | Arm spies after engine ready, verified 5/5 passes |
+| surface F9 | b5631b16 | `discovery-e2e.test.ts`, `model-discovery.test.ts` (canary redaction) | pass | Full canary redaction check across CLI, logs, catalog, ledger, RPC errors |
+
+## Rulings
+- **state I2 (Manual scan on auth-failed slot):** A manual `models.scan` is allowed as an explicit user action and re-plans the provider's timer. However, it respects the auth-failed slot by not clearing or silently resetting the auth backoff counter upon failure.
+- **security M6 (HTTP(S)_PROXY):** Pinned client continues ignoring ambient proxy environment variables for request security and predictability. Documented as a known limitation in `docs/provider-matrix.md`.
+- **security M9 (Custom root CA / trust stores):** Open question for future enterprise/self-hosted deployment milestones; no code change made in D112.
+
+## Skipped Minors
+- **state M8 (Ledger field-level schema validation on read):** Skipped; read path defensively parses JSON lines and skips malformed rows; strict object schema validation deferred to future ledger hardening.
+- **state M9 (models.changed ID list truncation):** Skipped; spec §2.11 defines the change notification without max-item capping so subscribers receive full delta IDs.
+- **state M10 (Catalog directory fsync / Windows rename retry):** Skipped; POSIX fsync and atomic rename (.tmp -> .prev -> target) are robust and already handle power loss safely without catalog corruption.
+- **surface M1 (ADR-016 record updates):** Skipped; ADR-016 is an accepted architecture decision record preserved for historical design intent.
+- **surface M2 / M3 (AGENTS.md test seam notes):** Skipped; general project guidelines are maintained independently of feature branch docs.
+- **surface M4 (CLI cosmetic exit codes and last-scan wording):** Skipped; CLI adheres to unified error rendering and RPC status output conventions.
+- **surface M6 (User-Agent version literal):** Skipped; `plur1bus/0.1.0` is standard across core modules until centralized package metadata injection is wired.
+- **surface M8 (WebMCP jobs.run deny list):** Skipped; `jobs.run` requires explicit user capability opt-in and is not part of default WebMCP exposure.
+- **surface M10 (models.list.providers configured-only empty display):** Skipped; spec defines provider listing as active discovery state from scans.
 
 ## Deviations
 - Commit trailer: `Co-Authored-By: Antigravity <noreply@google.com>` instead of the plan's Claude trailers (agy prompt, hard rules).
 - `pnpm gen` had to run once in the fresh worktree before `packages/core` tests could load (`generated/` is not committed).
-
 - Task 2 step 4: `grep -c example-embed packages/core/dist/core.js` prints 0, because no entry point imports `metadata.ts` until Task 6/7 wires the service. Checked instead by bundling `metadata.ts` alone with esbuild: the table is inlined (count 1).
-
 - Task 3: `PinnedClientOptions.limits` is `Partial<Record<keyof typeof LIMITS, number>>`, not `Partial<typeof LIMITS>`, because the latter would only accept the literal default values and the plan's own tests pass 50 ms.
 
 ## Spec/plan gaps
 - A commit cannot contain its own SHA, so the table's SHA column lags one commit behind.
 
 ## Open
-- Review fixes in progress. (Task 12 remains blocked until D15, D110, D111 as instructed).
+- None for review findings. Task 12 remains blocked until D15, D110, D111 as instructed.
