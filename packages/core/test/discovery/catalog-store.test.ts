@@ -137,4 +137,17 @@ describe("catalog store", () => {
     const sp = createPlatformCapabilities({}).securePath;
     assert.equal((sp(s.path) as { applied?: boolean } | undefined)?.applied, true);
   });
+
+  it("securePath returning applied:false fails closed (State I6)", async () => {
+    const s = setup({
+      securePath: () => ({ applied: false }),
+    });
+    mkdirSync(join(s.dir, "catalog"));
+    const store = s.mk();
+    await assert.rejects(
+      () => store.mutate((c) => ({ next: c, result: null })),
+      (err: any) => err.name === "CatalogWriteError",
+    );
+    assert.equal(existsSync(s.path), false);
+  });
 });

@@ -265,6 +265,51 @@ describe("pinned client", () => {
       lookup: badLookup as any,
     });
     await refused(c.get({ path: "/m" }), "failed:invalid", "insecure_transport");
+
+    // Mixed addresses: one loopback, one non-loopback -> must be refused
+    const mixedLookup = (_hostname: string, _options: any, callback: any) => {
+      const cb = typeof _options === "function" ? _options : callback;
+      cb(null, [
+        { address: "127.0.0.1", family: 4 },
+        { address: "198.51.100.1", family: 4 },
+      ]);
+    };
+    const cMixed = createPinnedClient({
+      baseUrl: `http://localhost:${f.port}/v1`,
+      lease: lease(`http://localhost:${f.port}`),
+      userAgent: UA,
+      lookup: mixedLookup as any,
+    });
+    await refused(cMixed.get({ path: "/m" }), "failed:invalid", "insecure_transport");
+
+    // Pure loopback addresses -> accepted
+    const goodLookup = (_hostname: string, _options: any, callback: any) => {
+      const cb = typeof _options === "function" ? _options : callback;
+      cb(null, [{ address: "127.0.0.1", family: 4 }]);
+    };
+    const cGood = createPinnedClient({
+      baseUrl: `http://localhost:${f.port}/v1`,
+      lease: lease(`http://localhost:${f.port}`),
+      userAgent: UA,
+      lookup: goodLookup as any,
+    });
+    const res = await cGood.get({ path: "/m" });
+    assert.deepEqual(res, { ok: true });
+  });
+
+  it("abort clears the connect timer immediately (Security M7)", async () => {
+    const f = await fake(() => ({ stall: true }));
+    const ac = new AbortController();
+    const c = createPinnedClient({
+      baseUrl: `${f.origin}/v1`,
+      lease: lease(f.origin),
+      userAgent: UA,
+      signal: ac.signal,
+      limits: { connectTimeoutMs: 5000 },
+    });
+    const reqPromise = c.get({ path: "/m" });
+    ac.abort();
+    await refused(reqPromise, "failed:network", "aborted");
   });
 });
 

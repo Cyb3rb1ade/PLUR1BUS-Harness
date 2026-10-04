@@ -679,5 +679,43 @@ describe("core model warm-up (E4, S7)", () => {
       await core.stop({ budgetMs: 5000 });
     }
   });
+
+  it("boot re-enrichment failure does not block core start (State N4)", async () => {
+    const home = newHome();
+    const l = layout(home);
+    mkdirSync(l.catalog, { recursive: true, mode: 0o700 });
+
+    const staleCatalog = {
+      schema: "plur1bus.model-catalog/1",
+      revision: 1,
+      tableRevision: "rev-0",
+      models: [],
+      providers: {},
+    };
+    writeFileSync(l.catalogModels, JSON.stringify(staleCatalog));
+
+    const { chmodSync } = await import("node:fs");
+    try {
+      chmodSync(l.catalog, 0o500);
+    } catch {
+      // If OS doesn't support directory permission restriction, skip
+      return;
+    }
+
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    try {
+      await core.start();
+      const client = await connect({ address: core.address, token: core.token });
+      try {
+        const s = await client.call<any>("core.status");
+        assert.equal(s.process.state, "ready");
+      } finally {
+        await client.close();
+      }
+    } finally {
+      try { chmodSync(l.catalog, 0o700); } catch {}
+      await core.stop({ budgetMs: 5000 });
+    }
+  });
 });
 

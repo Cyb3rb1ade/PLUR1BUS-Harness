@@ -3,7 +3,7 @@ import type { Clock, Rng, TimerHandle } from "./ports.ts";
 import type { CatalogStore } from "./catalog-store.ts";
 import type { DiscoveryService, ScanSettings } from "./service.ts";
 import type { RunTrigger } from "./types.ts";
-import { nextRegularAt } from "./schedule.ts";
+import { backoffDelayMs, nextRegularAt } from "./schedule.ts";
 
 export interface ScanScheduler {
   /** Call once, after core.process.ready. */
@@ -30,6 +30,7 @@ export function createScanScheduler(o: {
   let started = false;
   let stopped = false;
   const armedTimers = new Map<string, { at: number; handle: TimerHandle }>();
+  const inMemoryFailures = new Map<string, number>();
   const runningScans = new Set<string>();
   const abortController = new AbortController();
 
@@ -99,19 +100,7 @@ export function createScanScheduler(o: {
       if (stopped) return;
       if (!o.settings().enabled) return;
 
-      const postScannable = o.service.scannable().map((s) => s.id);
-      if (!postScannable.includes(provider)) {
-        return;
-      }
-
-      const st = o.store.read().providers[provider];
-      const nextMs = st?.nextScanAt ? Date.parse(st.nextScanAt) : NaN;
-      const minFutureMs = o.clock.now() + 1000;
-      const targetMs = Number.isFinite(nextMs)
-        ? Math.max(nextMs, minFutureMs)
-        : o.clock.now() + o.settings().intervalHours * 3600_000;
-
-      arm(provider, targetMs, "cron");
+      rearmAfterRun(provider);
     }, delayMs);
 
     armedTimers.set(provider, { at: atMs, handle });
@@ -261,24 +250,42 @@ export function createScanScheduler(o: {
     }
   }
 
-  function onScanned(provider: string) {
-    if (stopped) return;
-    const currentScannable = o.service.scannable().map((s) => s.id);
-    if (!currentScannable.includes(provider)) {
+  function rearmAfterRun(provider: string) {
+    const postScannable = o.service.scannable().map((s) => s.id);
+    if (!postScannable.includes(provider)) {
       const existing = armedTimers.get(provider);
       if (existing) {
         existing.handle.cancel();
         armedTimers.delete(provider);
       }
+      inMemoryFailures.delete(provider);
       return;
     }
+
     const st = o.store.read().providers[provider];
-    if (st?.nextScanAt) {
-      const nextMs = Date.parse(st.nextScanAt);
-      if (Number.isFinite(nextMs)) {
-        arm(provider, Math.max(nextMs, o.clock.now() + 1000), "cron");
-      }
+    const nextMs = st?.nextScanAt ? Date.parse(st.nextScanAt) : NaN;
+    const minFutureMs = o.clock.now() + 1000;
+
+    let targetMs: number;
+    if (Number.isFinite(nextMs) && nextMs > o.clock.now()) {
+      inMemoryFailures.delete(provider);
+      targetMs = Math.max(nextMs, minFutureMs);
+    } else {
+      const failures = (inMemoryFailures.get(provider) ?? 0) + 1;
+      inMemoryFailures.set(provider, failures);
+      const delay = backoffDelayMs(failures, o.rng);
+      targetMs = Math.max(o.clock.now() + delay, minFutureMs);
     }
+
+    arm(provider, targetMs, "cron");
+  }
+
+  function onScanned(provider: string) {
+    if (stopped) return;
+    if (runningScans.has(provider)) {
+      return;
+    }
+    rearmAfterRun(provider);
   }
 
   function stop() {

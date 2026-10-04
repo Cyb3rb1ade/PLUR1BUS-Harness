@@ -469,8 +469,12 @@ describe("model discovery end-to-end", () => {
       await core.start();
       client = await connect({ address: core.address, token: core.token });
 
-      // Surface F2: wait for quiescence (engine.ready and warm-up done) before arming spies
+      // Surface F2: wait for quiescence (engine.ready and warm-up done) before arming spies (with 10s deadline)
+      const waitDeadline = Date.now() + 10_000;
       while (true) {
+        if (Date.now() > waitDeadline) {
+          throw new Error("timed out waiting for engine.ready and process.state ready");
+        }
         const st = (await client.call("core.status", {})) as any;
         if (st.engine?.ready && st.process?.state === "ready") break;
         await new Promise((r) => setTimeout(r, 20));
@@ -480,6 +484,11 @@ describe("model discovery end-to-end", () => {
         const rel = relative(parent, child);
         return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
       }
+
+      // Assert sibling paths such as <home>-other are rejected
+      assert.equal(isSubpath(home, `${home}-other`), false);
+      assert.equal(isSubpath(realHome, `${realHome}-other`), false);
+      assert.equal(isSubpath(home, join(home, "child")), true);
 
       const projectRoot = realpathSync(resolve(fileURLToPath(import.meta.url), "../../../../.."));
 
@@ -721,6 +730,7 @@ describe("model discovery end-to-end", () => {
       const jobRun = await client.call("jobs.run", { job: "models.scan" });
       replies.push(JSON.stringify(jobRun));
 
+      let threwRpcError = false;
       try {
         await client.call("models.setOverride", {
           provider: "canary-prof",
@@ -729,8 +739,10 @@ describe("model discovery end-to-end", () => {
           clear: ["invalid_key_causes_rpc_error" as any],
         });
       } catch (err) {
+        threwRpcError = true;
         replies.push(JSON.stringify(err));
       }
+      assert.ok(threwRpcError, "expected models.setOverride to throw an RPC error");
 
       const filesToCheck = [
         join(home, "logs", "core.log"),

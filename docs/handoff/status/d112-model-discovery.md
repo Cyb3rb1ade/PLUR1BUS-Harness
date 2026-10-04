@@ -1,4 +1,4 @@
-Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction; Review fixes completed) · head SHA: see `git log` · 2026-10-04
+Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction; Review fixes round 3 completed) · head SHA: see `git log` · 2026-10-04
 
 | Task | Commit | Tests added (file::name) | Result | Notes |
 |---|---|---|---|---|
@@ -53,12 +53,33 @@ Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction; Review fixes c
 | surface F2 | b5631b16 | `discovery-e2e.test.ts` (quiescent core.status, relative path check) | pass | Arm spies after engine ready, verified 5/5 passes |
 | surface F9 | b5631b16 | `discovery-e2e.test.ts`, `model-discovery.test.ts` (canary redaction) | pass | Full canary redaction check across CLI, logs, catalog, ledger, RPC errors |
 
+## Review Fixes Round 3 (PR #70)
+
+| Finding | Commit | Tests added (file::name) | Result | Notes |
+|---|---|---|---|---|
+| N1 scheduler vendor hammering | pending | `scheduler.test.ts` (C1 trigger 2 / N1 2h fake clock) | pass | Backoff applied on unpersisted/failed nextScanAt; 1 run + 1 ledger pair per tick |
+| N4 boot re-enrichment | pending | `core.test.ts` (N4 boot re-enrichment failure) | pass | Unguarded mutate caught; logs model.catalog.reenrich_failed without blocking start |
+| F4 alias uniqueness | pending | `model-metadata.json`, `metadata.test.ts`, `reconcile.test.ts` | pass | Shipped table split; resolved alias uniqueness enforced after enrichment |
+| N3 / State I6 ledger ACL | pending | `system-jobs.test.ts` (I6 / N3), `catalog-store.test.ts` (I6) | pass | Fail closed on securePath applied:false; ACL checked before writing ledger rows |
+| State I1 lost update test | pending | `service.test.ts` (override vs scan) | pass | Mutate runs inside store lock, override during scan preserved |
+| State I2 manual scan test | pending | `scheduler.test.ts` (I2 manual scan) | pass | Manual scan replans timer without silently resetting auth backoff |
+| State I4 replan unhandled | pending | `scheduler.test.ts` (I4 rejecting store.mutate) | pass | Mutate error caught, no unhandled rejection |
+| Security M2 cursor test | pending | `validate.test.ts` (cursor string check) | pass | Validates cursor <= 512 bytes, no control chars |
+| Security M4 credential test | pending | `service.test.ts` (credential unavailable) | pass | Distinct reason with undefined httpStatus |
+| Security M5 mixed loopback test | pending | `http.test.ts` (mixed loopback and positive loopback) | pass | Multiple addresses where one is non-loopback rejected |
+| Security M7 abort timer test | pending | `http.test.ts` (connect timer cleared on abort) | pass | Connect timer cleared immediately on abort |
+| Security M10 safe integer test | pending | `validate.test.ts` (Number.isSafeInteger) | pass | Numbers must be safe integers |
+| Cleanups (D109, canary, F8) | pending | `discovery-e2e.test.ts`, `validate.test.ts` | pass | 10s deadline on quiescence loop, sibling path assertion, RPC error throw asserted, example-llama3.2:latest id |
+
 ## Rulings
 - **state I2 (Manual scan on auth-failed slot):** A manual `models.scan` is allowed as an explicit user action and re-plans the provider's timer. However, it respects the auth-failed slot by not clearing or silently resetting the auth backoff counter upon failure.
 - **security M6 (HTTP(S)_PROXY):** Pinned client continues ignoring ambient proxy environment variables for request security and predictability. Documented as a known limitation in `docs/provider-matrix.md`.
-- **security M9 (Custom root CA / trust stores):** Open question for future enterprise/self-hosted deployment milestones; no code change made in D112.
+- **security M9 (JSON null in optional fields):** Open question for upstream vendors returning null in optional fields; no code change made in D112.
 
 ## Skipped Minors
+- **state M2 (Clamp in arm/replan):** Skipped; timer re-arm uses computed next slot with jitter, and startup clamps future slots to <= 1.1x interval.
+- **state M5 (Separate concurrency limits):** Skipped; bounded by 4 workers in scheduler and 4 maxParallel in service.
+- **state M6 (Skips without ledger row outside systemJobs.run):** Skipped; narrow window during fire-time disable, disabled status logged and timers canceled on disable.
 - **state M8 (Ledger field-level schema validation on read):** Skipped; read path defensively parses JSON lines and skips malformed rows; strict object schema validation deferred to future ledger hardening.
 - **state M9 (models.changed ID list truncation):** Skipped; spec §2.11 defines the change notification without max-item capping so subscribers receive full delta IDs.
 - **state M10 (Catalog directory fsync / Windows rename retry):** Skipped; POSIX fsync and atomic rename (.tmp -> .prev -> target) are robust and already handle power loss safely without catalog corruption.

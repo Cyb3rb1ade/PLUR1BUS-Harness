@@ -1,7 +1,7 @@
 // Model catalog reconciliation (spec §2.7, R4-R6, R14, R15; plan Task 5).
 // Pure: never reads a clock, a file or the network; does not bump revision.
 import type { ApiFields, CatalogFile, CatalogModel, RawEntry, ScanWarning } from "./types.ts";
-import { enrich, type CompiledTable } from "./metadata.ts";
+import { dedupResolvedAliases, enrich, type CompiledTable } from "./metadata.ts";
 import { roleWarnings } from "./roles.ts";
 
 export interface ReconcileInput {
@@ -12,6 +12,7 @@ export interface ReconcileInput {
   table: CompiledTable;
   vendor?: string;
   roles: Readonly<Record<string, string>>;
+  logger?: { debug(m: string, f?: object): void };
 }
 
 export interface ReconcileResult {
@@ -129,6 +130,8 @@ export function reconcile(i: ReconcileInput): ReconcileResult {
     ...i.catalog,
     models: [...otherModels, ...updatedProviderModels],
   };
+
+  dedupResolvedAliases(nextCatalog.models, i.raw, i.logger);
 
   // Role warnings
   const rWarnings = roleWarnings(nextCatalog, i.roles, i.provider);

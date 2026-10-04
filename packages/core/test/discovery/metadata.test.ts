@@ -138,4 +138,36 @@ describe("model metadata table", () => {
     assert.deepEqual(r.models[3]!.overrides, { kind: "tts" });
     assert.equal(c.tableRevision, "r1", "input is not mutated");
   });
+
+  it("enforces resolved alias uniqueness after enrichment, dropping alias from non-winning candidates (F4)", () => {
+    const t = loadMetadataTable(
+      table({
+        v: [
+          rule("^example-chat-large(-\\d{8})?$", {
+            aliases: ["example-chat-latest"],
+          }),
+        ],
+      })
+    );
+
+    const base = (id: string, source: CatalogModel["source"], extra: Partial<CatalogModel> = {}): CatalogModel => ({
+      provider: "p", id, displayName: id, kind: "chat", capabilities: [], aliases: [], status: "available",
+      firstSeen: "t", lastSeen: "t", source, overrides: {}, ...extra,
+    });
+
+    const c = {
+      ...emptyCatalog("r1"),
+      models: [
+        base("example-chat-large", "table", { api: {} }),
+        base("example-chat-large-20260101", "table", { api: {} }),
+      ],
+    };
+
+    const r = reenrichCatalog(c, t, () => "v");
+
+    const mBase = r.models.find((m) => m.id === "example-chat-large")!;
+    const mDated = r.models.find((m) => m.id === "example-chat-large-20260101")!;
+    assert.deepEqual(mBase.aliases, ["example-chat-latest"]);
+    assert.deepEqual(mDated.aliases, []);
+  });
 });

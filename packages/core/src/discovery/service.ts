@@ -244,6 +244,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
             now: nowIso,
             table: deps.table,
             roles: deps.roles(),
+            logger: deps.logger,
             ...(profile.vendor !== undefined ? { vendor: profile.vendor } : {}),
           });
 

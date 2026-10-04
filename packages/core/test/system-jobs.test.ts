@@ -4,6 +4,7 @@ import { readFileSync, statSync, appendFileSync, writeFileSync, existsSync } fro
 import { join } from "node:path";
 import { createPlatformCapabilities } from "../src/platform.ts";
 import { createSystemJobs, type SystemJobHandler } from "../src/system-jobs/index.ts";
+import { SystemJobsLedger } from "../src/system-jobs/ledger.ts";
 import { createModelsScanJob } from "../src/discovery/job.ts";
 import { buildMethods } from "../src/rpc/methods.ts";
 import { RpcError } from "../src/rpc/errors.ts";
@@ -551,5 +552,24 @@ describe("system jobs and jobs.* merge", () => {
     assert.equal(hist.length, 10);
     assert.equal(hist[0]!.runId, "bench-24999");
     assert.ok(elapsed < 2000, `history on 50k rows took ${elapsed}ms, must be < 2000ms`);
+  });
+
+  it("securePath returning applied:false fails closed for ledger (State I6 / N3)", () => {
+    const dir = tempDir("p1b-sys-jobs-acl-");
+    const ledgerPath = join(dir, "ledger.jsonl");
+    const ledger = new SystemJobsLedger({
+      ledgerPath,
+      securePath: () => ({ applied: false }),
+      logger: { warn: () => {} },
+    });
+
+    assert.throws(
+      () => ledger.begin({ runId: "r1", job: "test", trigger: "cron", startedAt: 100 }),
+      /securePath failed/,
+    );
+
+    // Ledger file has 0 bytes (no row written before ACL check)
+    assert.ok(existsSync(ledgerPath));
+    assert.equal(statSync(ledgerPath).size, 0);
   });
 });

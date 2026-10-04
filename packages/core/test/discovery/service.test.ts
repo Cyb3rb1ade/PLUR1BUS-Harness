@@ -9,6 +9,7 @@ import { FakeClock, InMemoryProfileSource, RecordingEvents, StaticCredentialReso
 import { startFakeEndpoint } from "../helpers/fake-endpoint.ts";
 import type { FakeEndpoint, FakeReply, FakeRequest } from "../helpers/fake-endpoint.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
+import { SCANNERS } from "../../src/discovery/scanners/index.ts";
 import type { ProfileInfo } from "../../src/discovery/ports.ts";
 import type { ModelsChanged, ScanRequest } from "../../src/discovery/service.ts";
 
@@ -29,6 +30,7 @@ function setup(opts: {
   enabled?: boolean;
   intervalHours?: number;
   hooks?: { beforeRename?: () => void };
+  scanners?: Partial<typeof SCANNERS>;
 } = {}) {
   const dir = tempDir("p1b-srv-");
   const path = join(dir, "catalog", "models.json");
@@ -71,6 +73,7 @@ function setup(opts: {
     settings: () => ({ enabled, intervalHours }),
     logger: log,
     maxParallel: 4,
+    ...(opts.scanners ? { scanners: opts.scanners } : {}),
   });
 
   return {
@@ -516,5 +519,81 @@ describe("discovery service", () => {
     const res = await s.service.scanProvider("p", { trigger: "cron" });
     assert.equal(res.result, "failed:server");
     assert.equal(res.error?.reason, "store_write_failed");
+  });
+
+  it("override vs scan: override applied during an in-flight scan is not lost (State I1)", async () => {
+    let scanWaitResolve: () => void = () => {};
+    const scanWaitPromise = new Promise<void>((r) => { scanWaitResolve = r; });
+
+    const s = setup({
+      profiles: [{ id: "p", discovery: "openai-models", baseUrl: "https://example.com/v1" }],
+      credentials: { p: null },
+      scanners: {
+        "openai-models": async () => {
+          await scanWaitPromise;
+          return {
+            entries: [{ id: "m1", name: "M1", kind: "chat" }],
+            duplicates: 0,
+            pages: 1,
+          };
+        },
+      },
+    });
+
+    // Seed catalog with model m1
+    await s.store.mutate((c) => ({
+      next: {
+        ...c,
+        models: [
+          {
+            provider: "p",
+            id: "m1",
+            displayName: "Original Name",
+            kind: "chat",
+            capabilities: [],
+            aliases: [],
+            status: "available",
+            firstSeen: "2026-01-01T00:00:00Z",
+            lastSeen: "2026-01-01T00:00:00Z",
+            source: "scan",
+            overrides: {},
+          },
+        ],
+      },
+      result: null,
+    }));
+
+    // Start scan in background
+    const scanPromise = s.service.scanProvider("p", { trigger: "manual" });
+
+    // Set override while scan is in flight
+    await s.service.setOverride({
+      provider: "p",
+      id: "m1",
+      set: { displayName: "Overridden Name" },
+    });
+
+    // Release scan
+    scanWaitResolve();
+    await scanPromise;
+
+    // Verify override is preserved
+    const cat = s.store.read();
+    const m = cat.models.find((x) => x.id === "m1");
+    assert.equal(m?.displayName, "Overridden Name");
+    assert.equal(m?.overrides.displayName, "Overridden Name");
+  });
+
+  it("credential unavailable gives distinct reason with no httpStatus (Security M4)", async () => {
+    const f = await fake(() => ({ json: { ok: true } }));
+    const s = setup({
+      profiles: [{ id: "p", discovery: "openai-models", baseUrl: `${f.origin}/v1` }],
+      credentials: { p: "renew_sign_in" },
+    });
+
+    const res = await s.service.scanProvider("p", { trigger: "cron" });
+    assert.equal(res.result, "failed:auth");
+    assert.equal(res.error?.reason, "renew_sign_in");
+    assert.equal(res.error?.httpStatus, undefined);
   });
 });

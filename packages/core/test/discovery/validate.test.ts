@@ -10,7 +10,7 @@ const mapOpenAi = (data: { id: unknown; created?: unknown }[]): RawEntry[] => da
 
 describe("entry validation", () => {
   it("accepts legal ids", () => {
-    for (const id of ["llama3.2:latest", "vendor/model@v1+x", "A", "a".repeat(256)]) assert.equal(checkId(id), id);
+    for (const id of ["example-llama3.2:latest", "vendor/model@v1+x", "A", "a".repeat(256)]) assert.equal(checkId(id), id);
     assert.ok(ID_RE.test("x"));
     const { entries } = finalizeEntries([{ id: "Model" }, { id: "model" }]);
     assert.deepEqual(entries.map((e) => e.id), ["Model", "model"]);
@@ -25,16 +25,19 @@ describe("entry validation", () => {
     assert.equal(mapOpenAi([{ id: "ok-1" }, { id: "ok-2", created: 2 }]).length, 2);
   });
 
-  it("caps strings by bytes and refuses control characters", () => {
+  it("caps strings by bytes and refuses control characters (security M2)", () => {
     invalid(() => checkString("\u20AC".repeat(171)));          // 513 bytes
     assert.equal(checkString("\u20AC".repeat(170) + "xx").length, 172); // 512 bytes
     invalid(() => checkString("a\u0007b")); invalid(() => checkString("a\u0085b")); invalid(() => checkString("a\u007fb"));
+    invalid(() => checkString("cursor\x00page")); // cursor control character
+    invalid(() => checkString("c".repeat(513))); // cursor > 512 bytes
     invalid(() => checkString(5));
   });
 
-  it("numbers are finite positive integers", () => {
-    for (const n of [0, -1, 1.5, Infinity, JSON.parse("1e400"), NaN, "3", null]) invalid(() => checkPositiveInt(n));
+  it("numbers are finite positive safe integers (security M10)", () => {
+    for (const n of [0, -1, 1.5, Infinity, JSON.parse("1e400"), NaN, "3", null, 2 ** 53, 1e308]) invalid(() => checkPositiveInt(n));
     assert.equal(checkPositiveInt(1), 1);
+    assert.equal(checkPositiveInt(Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
   });
 
   it("duplicates keep the first and are counted", () => {

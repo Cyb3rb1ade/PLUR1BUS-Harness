@@ -7,11 +7,17 @@
     ],
     "example-vendor": [
       {
-        "pattern": "^example-chat-large(-\\d{8})?$",
+        "pattern": "^example-chat-large$",
         "kind": "chat",
         "contextWindow": 128000,
         "capabilities": ["tools", "vision", "reasoning"],
         "aliases": ["example-chat-latest"]
+      },
+      {
+        "pattern": "^example-chat-large-\\d{8}$",
+        "kind": "chat",
+        "contextWindow": 128000,
+        "capabilities": ["tools", "vision", "reasoning"]
       },
       {
         "pattern": "^example-chat-small(-\\d{8})?$",

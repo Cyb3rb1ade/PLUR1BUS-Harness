@@ -85,7 +85,10 @@ describe("discovery scheduler", () => {
       roles: () => ({}),
       logger: { warn: () => {}, debug: () => {}, info: () => {} },
       settings: () => currentSettings,
+      onScanned: (pid) => onScannedHook?.(pid),
     });
+
+    let onScannedHook: ((pid: string) => void) | undefined;
 
     const systemJobs = createSystemJobs({
       ledgerPath,
@@ -121,6 +124,7 @@ describe("discovery scheduler", () => {
       scheduler,
       scannedCalls,
       setSettings: (s: { enabled: boolean; intervalHours: number }) => { currentSettings = s; },
+      setOnScanned: (fn: (pid: string) => void) => { onScannedHook = fn; },
     };
   }
 
@@ -454,27 +458,54 @@ describe("discovery scheduler", () => {
     await manualScanOp;
   });
 
-  it("C1 trigger 2: catalog write failure does not cause a hot loop and re-arms strictly in the future", async () => {
-    let failWrite = true;
-    const { store, clock, scheduler } = setup({
+  it("C1 trigger 2 / N1: persistently failing store.mutate over 2 h produces at most a handful of vendor calls following backoff schedule, with 1 run and 1 pair of ledger rows per tick", async () => {
+    let vendorCalls = 0;
+    const { store, clock, scheduler, systemJobs } = setup({
       profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
-      rngValues: [0.1],
+      rngValues: [0.5], // no jitter deviation
+      scannerOutput: async () => {
+        vendorCalls++;
+        return { entries: [{ id: "m1", name: "M1", kind: "chat" }], duplicates: 0, pages: 1 };
+      },
     });
     await store.load();
-    const origMutate = store.mutate.bind(store);
-    store.mutate = async (fn) => {
-      if (failWrite) {
-        throw new Error("ENOSPC: no space left on device");
-      }
-      return origMutate(fn);
+    const now = clock.now();
+    // Seed with stored past nextScanAt and lastScanAt
+    await store.mutate((c) => ({
+      next: {
+        ...c,
+        providers: {
+          p1: {
+            lastScanAt: new Date(now - 25 * 3600_000).toISOString(),
+            nextScanAt: new Date(now - 1000).toISOString(),
+          },
+        },
+      },
+      result: null,
+    }));
+
+    // Now persistently fail store.mutate
+    store.mutate = async () => {
+      throw new Error("ENOSPC: no space left on device");
     };
 
     scheduler.start();
-    await clock.advance(6000);
 
-    const armed = scheduler.armed();
-    assert.equal(armed.length, 1);
-    assert.ok(armed[0]!.at >= clock.now() + 1000, `expected timer >= now + 1000, got ${armed[0]!.at} vs now ${clock.now()}`);
+    // Advance fake clock 2 hours in 1-second ticks
+    const startNow = clock.now();
+    let prevRuns = 0;
+    while (clock.now() < startNow + 2 * 3600_000) {
+      await clock.advance(1000);
+      if (vendorCalls > prevRuns) {
+        assert.equal(vendorCalls, prevRuns + 1, "at most one run per tick");
+        const hist = systemJobs.history({});
+        assert.equal(hist.length, vendorCalls, "one run record per vendor call");
+        prevRuns = vendorCalls;
+      }
+    }
+
+    // Over 2 hours (7200s), backoff produces only 4 or 5 vendor calls
+    assert.ok(vendorCalls >= 3 && vendorCalls <= 6, `expected 3-6 vendor calls, got ${vendorCalls}`);
   });
 
   it("C1 trigger 3: removed provider is dropped from timer set and does not loop", async () => {
@@ -540,5 +571,68 @@ describe("discovery scheduler", () => {
     await clock.advance(6000);
     assert.equal(scannedCalls.length, 1);
     assert.equal(scannedCalls[0]!.provider, "p1");
+  });
+
+  it("I2: a manual scan re-plans the timer and does not reset auth backoff", async () => {
+    let failAuth = false;
+    const { store, clock, scheduler, service, scannedCalls, setOnScanned } = setup({
+      profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
+      scannerOutput: async () => {
+        if (failAuth) {
+          throw new ScanError("failed:auth", "renew_sign_in", { httpStatus: 401 });
+        }
+        return { entries: [{ id: "m1", name: "M1", kind: "chat" }], duplicates: 0, pages: 1 };
+      },
+    });
+    setOnScanned((pid: string) => scheduler.onScanned(pid));
+    await store.load();
+    scheduler.start();
+
+    // Catch up scan fires
+    await clock.advance(60_000);
+    assert.equal(scannedCalls.length, 1);
+
+    // Advance 10 hours
+    await clock.advance(10 * 3600_000);
+
+    // Manual scan that fails with auth error
+    failAuth = true;
+    const scanRes = await service.scanProvider("p1", { trigger: "manual" });
+    assert.equal(scanRes.result, "failed:auth");
+
+    // Auth failure stores next regular slot and does not bump consecutiveFailures
+    const st = store.read().providers.p1!;
+    assert.equal(st.consecutiveFailures, undefined);
+    assert.equal(st.lastResult, "failed:auth");
+
+    // The scheduler's timer was re-armed to the new slot in the future (~24h from now)
+    const rearmed = scheduler.armed();
+    assert.equal(rearmed.length, 1);
+    assert.ok(rearmed[0]!.at > clock.now() + 20 * 3600_000);
+  });
+
+  it("I4: replan() with a rejecting store.mutate produces no unhandled rejection", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (err: unknown) => { unhandled.push(err); };
+    process.on("unhandledRejection", onUnhandled);
+
+    try {
+      const { store, scheduler } = setup({
+        profiles: [{ id: "p1", discovery: "openai-models", baseUrl: "https://p1.example/v1" }],
+      });
+      await store.load();
+      scheduler.start();
+
+      store.mutate = async () => {
+        throw new Error("rejecting store.mutate");
+      };
+
+      scheduler.replan();
+      await new Promise((r) => setImmediate(r));
+
+      assert.equal(unhandled.length, 0);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
   });
 });

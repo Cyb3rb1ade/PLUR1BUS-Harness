@@ -311,10 +311,14 @@ export function createCore(o: CoreOptions): Core {
       const loadRes = catalogStore.load();
       if (loadRes.file.tableRevision !== curatedTable.revision) {
         const vendorOf = (p: string) => discProfiles.list().find((x) => x.id === p)?.vendor;
-        await catalogStore.mutate((c) => ({
-          next: reenrichCatalog(c, curatedTable, vendorOf),
-          result: null,
-        }));
+        try {
+          await catalogStore.mutate((c) => ({
+            next: reenrichCatalog(c, curatedTable, vendorOf, logger ?? undefined),
+            result: null,
+          }));
+        } catch {
+          logger.warn("model.catalog.reenrich_failed");
+        }
       }
 
       const discSettings = () => ({

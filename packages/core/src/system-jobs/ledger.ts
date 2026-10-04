@@ -91,6 +91,16 @@ export class SystemJobsLedger {
     }
 
     const fileExisted = existsSync(this.path);
+    if (!fileExisted) {
+      const initFd = openSync(this.path, "a", 0o600);
+      closeSync(initFd);
+      this.secureOnce(this.path);
+      this.secured = true;
+    } else if (!this.secured) {
+      this.secureOnce(this.path);
+      this.secured = true;
+    }
+
     let prefix = "";
     if (fileExisted) {
       try {
@@ -119,11 +129,6 @@ export class SystemJobsLedger {
       fsyncSync(fd);
     } finally {
       closeSync(fd);
-    }
-
-    if (!fileExisted || !this.secured) {
-      this.secureOnce(this.path);
-      this.secured = true;
     }
   }
 

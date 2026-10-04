@@ -272,4 +272,29 @@ describe("reconcile", () => {
       RangeError,
     );
   });
+
+  it("enforces resolved alias uniqueness on reconcile (F4)", () => {
+    const catalog = emptyCatalog(table.revision);
+    const logs: string[] = [];
+    const logger = { debug: (m: string) => { logs.push(m); } };
+
+    const res = reconcile({
+      catalog,
+      provider: "example-compat",
+      raw: [
+        { id: "example-chat-large-20260101", created: 1000 },
+        { id: "example-chat-large", created: 2000 },
+      ],
+      now: now1,
+      table,
+      vendor: "example-vendor",
+      roles: {},
+      logger,
+    });
+
+    const mBase = res.catalog.models.find((m) => m.id === "example-chat-large")!;
+    const mDated = res.catalog.models.find((m) => m.id === "example-chat-large-20260101")!;
+    assert.deepEqual(mBase.aliases, ["example-chat-latest"]);
+    assert.deepEqual(mDated.aliases, []);
+  });
 });
