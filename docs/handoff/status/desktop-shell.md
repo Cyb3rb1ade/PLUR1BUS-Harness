@@ -1150,6 +1150,8 @@ Status: **changes prepared; owner merge required before WP6 merge/continuation**
 
 The five-target acceptance at [Desktop CI 37182447190](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190) is green at the baseline head (7/7 jobs, first/restart native runs and bundles). Root CI [37182447187](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447187) is green at that head. The new fixes below require a fresh five-target/root run; no pass is claimed until that run exists.
 
+Local UI browser tests are **NOT RUN** for this fix: the installed Playwright package has no Chromium executable in this environment. The UI build, Rust tests, format and Clippy ran locally; CI must provide the browser evidence.
+
 | Target / run | Native acceptance | Bundle / notes |
 |---|---|---|
 | macOS arm64 — [job](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37182447190/job/111377566493) | baseline PASS, strict live zero-file | DMG baseline PASS |
