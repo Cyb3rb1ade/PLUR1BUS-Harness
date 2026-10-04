@@ -51,7 +51,7 @@ jobs:
           components: clippy, rustfmt
       - name: Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf xvfb
       - run: pnpm install --frozen-lockfile
       - name: Isolate UI test browser storage
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
@@ -67,8 +67,58 @@ jobs:
         working-directory: apps/desktop
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
         working-directory: apps/desktop
-      - run: cargo test --locked --workspace --no-fail-fast
+      # Stable Rust 1.95 rejects --report-time; bounded proxy tests emit named elapsed_ms.
+      # Isolate latency measurements from unrelated parallel tests; keep every test and limit.
+      - run: cargo test --locked --workspace --no-fail-fast -- --test-threads=1 --nocapture
+        id: desktop-rust-tests
+        timeout-minutes: 15
         working-directory: apps/desktop
+      - name: Windows libtest loader failure evidence
+        if: runner.os == 'Windows' && failure() && steps.desktop-rust-tests.outcome == 'failure'
+        timeout-minutes: 10
+        run: node apps/desktop/scripts/windows-libtest-loader.mjs --output "$RUNNER_TEMP/plur1bus-libtest-loader"
+      - name: Windows libtest loader evidence artifacts
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-libtest-loader-${{ matrix.os }}
+          path: ${{ runner.temp }}/plur1bus-libtest-loader/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Native fixture tests
+        run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver
+        working-directory: apps/desktop
+      - name: Native probe and Windows startup diagnostic tests
+        id: native-diagnostics
+        run: node --test apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
+      - name: Native transport spike (WebKitGTK)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node apps/desktop/scripts/transport-spike.mjs
+      - name: Native transport spike (WKWebView and WebView2)
+        if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        run: node apps/desktop/scripts/transport-spike.mjs
+      - name: Native transport observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-native-transport-${{ matrix.os }}
+          path: ${{ runner.temp }}/plur1bus-native-spike-run-*/native-*
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Native SPA login, restart and isolation (WebKitGTK)
+        if: runner.os == 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        run: xvfb-run -a node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
+      - name: Native SPA login, restart and isolation (WKWebView and WebView2)
+        if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
+        run: node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
+      - name: Native SPA observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-native-spa-${{ matrix.os }}
+          path: ${{ runner.temp }}/plur1bus-native-spa-observations/
+          if-no-files-found: warn
+          retention-days: 7
       - run: pnpm tauri build --debug --no-bundle -- --locked
         working-directory: apps/desktop
       - name: Unsigned online bundles
