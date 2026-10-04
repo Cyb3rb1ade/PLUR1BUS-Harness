@@ -20,6 +20,7 @@ pub struct GnomeState {
     pub granted_background: AtomicBool,
     tray_host: AtomicBool,
     pub hinted: AtomicBool,
+    pub hint_pending: AtomicBool,
     pub autostart_grant: Mutex<Option<bool>>,
     portal_busy: tokio::sync::Mutex<()>,
 }
@@ -120,7 +121,7 @@ async fn run(
                 state.background.store(host || state.gnome.granted_background.load(Ordering::SeqCst), Ordering::SeqCst);
                 if host { last = None; }
                 else {
-                    if !state.gnome.hinted.swap(true,Ordering::SeqCst) { let _ = app.emit_to(tauri::EventTarget::webview_window("shell"),"desktop-background-hint",()); }
+                    if !is_flatpak() && !state.gnome.hinted.swap(true,Ordering::SeqCst) { state.gnome.hint_pending.store(true,Ordering::SeqCst); let _ = app.emit_to(tauri::EventTarget::webview_window("shell"),"desktop-background-hint",()); }
                     state.gnome.notice(state.events.generation(),state.view.lock().unwrap().clone());
                 }
             }

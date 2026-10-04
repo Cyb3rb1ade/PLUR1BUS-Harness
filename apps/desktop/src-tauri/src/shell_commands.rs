@@ -13,6 +13,7 @@ pub const SHELL_COMMANDS: &[&str] = &[
     "autostart_set",
     "quit_request",
     "quit_offer",
+    "background_hint",
     "quit_response",
 ];
 
@@ -31,6 +32,7 @@ pub const APP_COMMANDS: &[&str] = &[
     "autostart_set",
     "quit_request",
     "quit_offer",
+    "background_hint",
     "quit_response",
     "shell_info",
 ];

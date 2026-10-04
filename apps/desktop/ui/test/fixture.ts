@@ -1,3 +1,4 @@
+import { showBackgroundHint } from "../src/views/background-hint.ts";
 import { createShell } from "../src/shell.ts";
 import type { DesktopTransport, Settings } from "../src/ipc.ts";
 import { openDialog } from "../src/components/dialog.ts";
@@ -44,6 +45,7 @@ document.body.append(shellRoot);
 const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
+  showBackgroundHint,
   autostartCalls: () => autostartCalls,
   failAutostart: () => { autostartFail = true; },
   quitDecisions: [] as string[],

@@ -486,3 +486,21 @@ pub async fn autostart_set(window: WebviewWindow, enabled: bool) -> Result<bool,
     )
     .map_err(|reason| reason.code().to_owned())
 }
+
+#[tauri::command]
+pub fn background_hint(window: WebviewWindow) -> Result<bool, String> {
+    check(&window, "background_hint")?;
+    #[cfg(unix)]
+    {
+        Ok(window
+            .app_handle()
+            .state::<crate::native::NativeState>()
+            .gnome
+            .hint_pending
+            .swap(false, std::sync::atomic::Ordering::SeqCst))
+    }
+    #[cfg(not(unix))]
+    {
+        Ok(false)
+    }
+}

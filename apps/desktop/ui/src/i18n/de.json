@@ -143,5 +143,7 @@
   "quit.failed": "Beenden fehlgeschlagen. Bitte erneut versuchen.",
   "autostart.label": "PLUR1BUS bei Anmeldung starten",
   "autostart.failed": "Autostart konnte nicht geändert werden. Bitte erneut versuchen.",
-  "autostart.unconfirmed": "Autostart wurde in dieser Sitzung noch nicht bestätigt. Eine Änderung fragt die Berechtigung an."
+  "autostart.unconfirmed": "Autostart wurde in dieser Sitzung noch nicht bestätigt. Eine Änderung fragt die Berechtigung an.",
+  "background.hint": "PLUR1BUS bleibt im Dash, weil kein Tray verfügbar ist. Schließen minimiert das Fenster.",
+  "background.dismiss": "Schlie\u00dfen"
 }

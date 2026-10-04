@@ -17,6 +17,7 @@
     "allow-open-connection",
     "allow-quit-request",
     "allow-quit-offer",
+    "allow-background-hint",
     "allow-quit-response",
     "core:event:allow-listen",
     "core:event:allow-unlisten",

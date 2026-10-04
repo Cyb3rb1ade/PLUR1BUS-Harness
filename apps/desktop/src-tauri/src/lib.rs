@@ -146,6 +146,7 @@ pub fn run() {
             commands::autostart_set,
             commands::quit_request,
             commands::quit_offer,
+            commands::background_hint,
             commands::quit_response,
             commands::shell_info
         ])
