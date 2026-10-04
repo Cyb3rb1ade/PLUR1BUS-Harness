@@ -92,7 +92,7 @@ struct AuditObservation {
     cookie_database_sidecar_files: u32,
     read_failures: u32,
     entries_disappeared: u32,
-    /// Full-root restarts after a missing nested Windows live-profile directory.
+    /// Full-root restarts after missing nested Windows live-profile directories or files.
     directory_rescans: u32,
     metadata_failures: u32,
     read_dir_failures: u32,
@@ -3283,7 +3283,7 @@ fn audit_with_mode<R: AuditReader>(
     let mut pending = vec![root.to_path_buf()];
     let mut visited = 0;
     let mut counted_cookie_files = std::collections::HashSet::new();
-    while let Some(path) = pending.pop() {
+    'walk: while let Some(path) = pending.pop() {
         let entries = match reader.read_dir(&path) {
             Ok(entries) => entries,
             Err(AuditFailureCategory::ReadDirMissing)
@@ -3373,6 +3373,23 @@ fn audit_with_mode<R: AuditReader>(
                     }
                     let bytes = match reader.read_file(&entry.path) {
                         Ok(bytes) => bytes,
+                        Err(AuditFailureCategory::FileReadMissing)
+                            if defer_sql
+                                && allow_locks
+                                && entry.path != root
+                                && native_profile_root
+                                    .is_some_and(|profile| entry.path.starts_with(profile))
+                                && observation.directory_rescans < 2 =>
+                        {
+                            // A file can vanish after successful enumeration/metadata.
+                            // Share the directory-disappearance budget and restart the
+                            // ENTIRE original root, retaining all prior evidence/items.
+                            // The interrupted walk never establishes complete coverage.
+                            observation.directory_rescans += 1;
+                            pending.clear();
+                            pending.push(root.to_path_buf());
+                            continue 'walk;
+                        }
                         Err(AuditFailureCategory::FileReadSharing)
                             if allow_locks
                                 && native_profile_root
@@ -4979,6 +4996,392 @@ mod tests {
         drop(held);
     }
 
+    // Delete a real file only after the real reader has enumerated it and read
+    // its file type. The shared production scanner receives the resulting error.
+    struct DisappearingFileReader {
+        inner: super::FilesystemAuditReader,
+        root: PathBuf,
+        transient: PathBuf,
+        disappearances_left: usize,
+        root_reads: usize,
+        file_reads: usize,
+        write_after_disappearance: Vec<(PathBuf, Vec<u8>)>,
+        remove_after_disappearance: Vec<PathBuf>,
+        remove_root: bool,
+    }
+
+    impl AuditReader for DisappearingFileReader {
+        fn read_dir(&mut self, path: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+            if path == self.root {
+                self.root_reads += 1;
+                if self.disappearances_left > 0 {
+                    std::fs::create_dir_all(self.transient.parent().unwrap()).unwrap();
+                    std::fs::write(&self.transient, b"readable before enumeration").unwrap();
+                }
+            }
+            let mut entries = self.inner.read_dir(path)?;
+            entries.sort_by(|a, b| a.path.cmp(&b.path));
+            Ok(entries)
+        }
+
+        fn read_file(&mut self, path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+            self.file_reads += 1;
+            if path == self.transient && self.disappearances_left > 0 {
+                self.disappearances_left -= 1;
+                std::fs::remove_file(path).unwrap();
+                for (added, bytes) in self.write_after_disappearance.drain(..) {
+                    std::fs::write(added, bytes).unwrap();
+                }
+                for removed in self.remove_after_disappearance.drain(..) {
+                    std::fs::remove_file(removed).unwrap();
+                }
+                if self.remove_root {
+                    std::fs::remove_dir_all(&self.root).unwrap();
+                }
+            }
+            if path.file_name() == Some(std::ffi::OsStr::new("LOCK")) {
+                return Err(AuditFailureCategory::FileReadSharing);
+            }
+            self.inner.read_file(path)
+        }
+    }
+
+    fn disappearing_file_reader(
+        root: &Path,
+        transient: PathBuf,
+        count: usize,
+    ) -> DisappearingFileReader {
+        DisappearingFileReader {
+            inner: super::FilesystemAuditReader::default(),
+            root: root.to_path_buf(),
+            transient,
+            disappearances_left: count,
+            root_reads: 0,
+            file_reads: 0,
+            write_after_disappearance: Vec::new(),
+            remove_after_disappearance: Vec::new(),
+            remove_root: false,
+        }
+    }
+
+    #[test]
+    fn live_file_disappearance_requires_a_complete_full_root_walk() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        let profile = root.join("native-profile");
+        std::fs::write(root.join("probe"), b"readable").unwrap();
+        let mut reader = disappearing_file_reader(root, profile.join("Cache/transient"), 1);
+        let observation =
+            super::audit_with_mode(root, &[], &mut reader, Some(&profile), true, true);
+        assert!(observation.audit_complete, "{observation:?}");
+        assert_eq!(reader.root_reads, 2);
+        assert_eq!(
+            reader.file_reads, 3,
+            "the original root file must be reread"
+        );
+        assert_eq!(observation.directory_rescans, 1);
+        assert_eq!(observation.read_failures, 0);
+        assert_eq!(observation.entries_disappeared, 0);
+        assert_eq!(observation.failure_category, AuditFailureCategory::None);
+        assert_eq!(observation.live_clean(), cfg!(windows));
+    }
+
+    #[test]
+    fn live_file_disappearance_finds_new_secret_outside_profile_on_full_root_retry() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        let profile = root.join("native-profile");
+        let marker = format!("CANARY-{}", uuid::Uuid::now_v7());
+        let mut reader = disappearing_file_reader(root, profile.join("Cache/transient"), 1);
+        reader.write_after_disappearance =
+            vec![(root.join("new-secret"), marker.as_bytes().to_vec())];
+        let observation = super::audit_with_mode(
+            root,
+            &[plur1bus_desktop::secrets::SecretString::new(marker)],
+            &mut reader,
+            Some(&profile),
+            true,
+            true,
+        );
+        assert!(observation.audit_complete, "{observation:?}");
+        assert!(observation.secret_detected);
+        assert!(!observation.live_clean());
+        assert_eq!(observation.directory_rescans, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::SecretDetected
+        );
+    }
+
+    #[test]
+    fn live_file_disappearance_cannot_erase_a_removed_secret() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        let profile = root.join("native-profile");
+        let marker = format!("CANARY-{}", uuid::Uuid::now_v7());
+        std::fs::write(root.join("probe"), marker.as_bytes()).unwrap();
+        let mut reader = disappearing_file_reader(root, profile.join("Cache/transient"), 1);
+        reader.remove_after_disappearance = vec![root.join("probe")];
+        let observation = super::audit_with_mode(
+            root,
+            &[plur1bus_desktop::secrets::SecretString::new(marker)],
+            &mut reader,
+            Some(&profile),
+            true,
+            true,
+        );
+        assert!(observation.audit_complete, "{observation:?}");
+        assert!(!root.join("probe").exists());
+        assert!(observation.secret_detected);
+        assert!(!observation.live_clean());
+        assert_eq!(observation.directory_rescans, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::SecretDetected
+        );
+    }
+
+    #[test]
+    fn live_file_disappearance_preserves_unique_or_removed_cookie_and_lock_evidence() {
+        for remove_observed in [false, true] {
+            let fixture = tempfile::tempdir().unwrap();
+            let root = fixture.path();
+            let profile = root.join("native-profile");
+            std::fs::create_dir(&profile).unwrap();
+            for name in ["Cookies", "Cookies-wal", "LOCK"] {
+                std::fs::write(profile.join(name), b"synthetic bytes").unwrap();
+            }
+            let mut reader = disappearing_file_reader(root, profile.join("Cache/transient"), 1);
+            if remove_observed {
+                reader.remove_after_disappearance = ["Cookies", "Cookies-wal", "LOCK"]
+                    .map(|name| profile.join(name))
+                    .to_vec();
+            }
+            let observation =
+                super::audit_with_mode(root, &[], &mut reader, Some(&profile), true, true);
+            assert!(observation.audit_complete, "{observation:?}");
+            assert_eq!(observation.directory_rescans, 1);
+            assert_eq!(observation.cookie_database_files, 2);
+            assert_eq!(observation.cookie_database_native_profile_files, 2);
+            assert_eq!(observation.cookie_database_primary_files, 1);
+            assert_eq!(observation.cookie_database_sidecar_files, 1);
+            assert_eq!(observation.cookie_database_other_root_files, 0);
+            assert_eq!(observation.locked_files, ["LOCK"]);
+            assert_eq!(reader.file_reads, if remove_observed { 4 } else { 7 });
+        }
+    }
+
+    #[test]
+    fn file_disappearance_does_not_retry_strict_or_outside_profile_scans() {
+        for (defer_sql, allow_locks, owned) in [
+            (false, false, true), // Closed scans, and macOS/Linux live policy.
+            (true, false, true),  // Windows post-exit secret scan.
+            (false, true, true),
+            (true, true, false), // A cache directory elsewhere in the scratch root.
+        ] {
+            let fixture = tempfile::tempdir().unwrap();
+            let root = fixture.path();
+            let profile = root.join("native-profile");
+            let file = if owned { &profile } else { root }.join("Cache/transient");
+            let mut reader = disappearing_file_reader(root, file, 1);
+            let observation = super::audit_with_mode(
+                root,
+                &[],
+                &mut reader,
+                Some(&profile),
+                defer_sql,
+                allow_locks,
+            );
+            assert!(!observation.audit_complete);
+            assert_eq!(reader.root_reads, 1);
+            assert_eq!(observation.directory_rescans, 0);
+            assert_eq!(observation.read_failures, 1);
+            assert_eq!(
+                observation.failure_category,
+                AuditFailureCategory::FileReadMissing
+            );
+            assert_eq!(observation.failure_target, AuditFailureTarget::CacheFile);
+        }
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        let mut reader = disappearing_file_reader(root, root.join("Cache/transient"), 1);
+        let observation = super::audit_with_mode(root, &[], &mut reader, None, true, true);
+        assert!(
+            !observation.audit_complete,
+            "no owned native profile was supplied"
+        );
+        assert_eq!(observation.directory_rescans, 0);
+    }
+
+    #[test]
+    fn live_file_disappearance_cannot_recover_a_missing_original_root() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        let mut reader = disappearing_file_reader(root, root.join("Cache/transient"), 1);
+        reader.remove_root = true;
+        let observation = super::audit_with_mode(root, &[], &mut reader, Some(root), true, true);
+        assert!(!observation.audit_complete);
+        assert_eq!(observation.directory_rescans, 1);
+        assert_eq!(observation.read_dir_failures, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::ReadDirMissing
+        );
+        assert_eq!(
+            observation.failure_target,
+            AuditFailureTarget::RootDirectory
+        );
+    }
+
+    #[test]
+    fn live_file_disappearance_exhausts_two_restarts() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        let mut reader = disappearing_file_reader(root, root.join("Cache/transient"), 10);
+        let observation = super::audit_with_mode(root, &[], &mut reader, Some(root), true, true);
+        assert!(!observation.audit_complete);
+        assert_eq!(reader.root_reads, 3);
+        assert_eq!(observation.directory_rescans, 2);
+        assert_eq!(observation.read_failures, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::FileReadMissing
+        );
+        assert_eq!(observation.failure_target, AuditFailureTarget::CacheFile);
+    }
+
+    #[test]
+    fn live_file_disappearance_preserves_the_global_item_bound() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        let profile = root.join("native-profile");
+        for index in 0..2050 {
+            std::fs::write(root.join(format!("file-{index}")), b"readable").unwrap();
+        }
+        let mut reader = disappearing_file_reader(root, profile.join("Cache/transient"), 1);
+        let observation =
+            super::audit_with_mode(root, &[], &mut reader, Some(&profile), true, true);
+        assert!(!observation.audit_complete);
+        assert_eq!(reader.root_reads, 2);
+        assert_eq!(observation.directory_rescans, 1);
+        assert_eq!(
+            observation.failure_category,
+            AuditFailureCategory::CounterLimit
+        );
+        // 2050 root files, two directories and the vanished file use 2053
+        // entries on pass one; only 2043 root files fit on pass two.
+        assert_eq!(reader.file_reads, 4094);
+    }
+
+    #[test]
+    fn file_disappearance_recovery_does_not_accept_hard_errors_or_symlinks() {
+        struct HardFailure {
+            inner: DisappearingFileReader,
+            failure: AuditFailureCategory,
+        }
+        impl AuditReader for HardFailure {
+            fn read_dir(&mut self, path: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+                let mut entries = self.inner.read_dir(path)?;
+                if path == self.inner.transient.parent().unwrap() {
+                    match self.failure {
+                        AuditFailureCategory::Metadata
+                        | AuditFailureCategory::EntryDisappeared
+                        | AuditFailureCategory::ReadDirOther
+                        | AuditFailureCategory::Deadline => {
+                            return Err(self.failure);
+                        }
+                        AuditFailureCategory::Symlink => {
+                            entries[0].kind = AuditEntryKind::Symlink;
+                        }
+                        _ => {}
+                    }
+                }
+                Ok(entries)
+            }
+            fn read_file(&mut self, _: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+                Err(self.failure)
+            }
+        }
+        for failure in [
+            AuditFailureCategory::FileReadAccessDenied,
+            AuditFailureCategory::FileReadOther,
+            AuditFailureCategory::Metadata,
+            AuditFailureCategory::EntryDisappeared,
+            AuditFailureCategory::ReadDirOther,
+            AuditFailureCategory::Deadline,
+            AuditFailureCategory::Symlink,
+        ] {
+            let fixture = tempfile::tempdir().unwrap();
+            let root = fixture.path();
+            let file = root.join("Cache/existing-file");
+            let mut reader = HardFailure {
+                inner: disappearing_file_reader(root, file.clone(), 1),
+                failure,
+            };
+            let observation =
+                super::audit_with_mode(root, &[], &mut reader, Some(root), true, true);
+            assert!(!observation.audit_complete);
+            assert_eq!(observation.directory_rescans, 0);
+            assert_eq!(observation.failure_category, failure);
+            assert!(file.exists(), "the error must not require a missing file");
+        }
+    }
+
+    #[test]
+    fn live_file_disappearance_and_directory_disappearance_share_two_restarts() {
+        struct MixedDisappearance {
+            inner: super::FilesystemAuditReader,
+            root: PathBuf,
+            root_reads: usize,
+            file_first: bool,
+        }
+        impl AuditReader for MixedDisappearance {
+            fn read_dir(&mut self, path: &Path) -> Result<Vec<AuditEntry>, AuditFailureCategory> {
+                if path == self.root {
+                    self.root_reads += 1;
+                    let profile = self.root.join("native-profile");
+                    std::fs::create_dir_all(&profile).unwrap();
+                    if (self.root_reads % 2 == 1) == self.file_first {
+                        std::fs::write(profile.join("file"), b"readable").unwrap();
+                    } else {
+                        std::fs::create_dir(profile.join("directory")).unwrap();
+                    }
+                } else if path == self.root.join("native-profile/directory") {
+                    std::fs::remove_dir(path).unwrap();
+                }
+                self.inner.read_dir(path)
+            }
+            fn read_file(&mut self, path: &Path) -> Result<Vec<u8>, AuditFailureCategory> {
+                std::fs::remove_file(path).unwrap();
+                self.inner.read_file(path)
+            }
+        }
+        for file_first in [false, true] {
+            let fixture = tempfile::tempdir().unwrap();
+            let root = fixture.path();
+            let profile = root.join("native-profile");
+            let mut reader = MixedDisappearance {
+                inner: super::FilesystemAuditReader::default(),
+                root: root.to_path_buf(),
+                root_reads: 0,
+                file_first,
+            };
+            let observation =
+                super::audit_with_mode(root, &[], &mut reader, Some(&profile), true, true);
+            assert!(!observation.audit_complete);
+            assert_eq!(reader.root_reads, 3);
+            assert_eq!(observation.directory_rescans, 2);
+            assert_eq!(
+                observation.failure_category,
+                if file_first {
+                    AuditFailureCategory::FileReadMissing
+                } else {
+                    AuditFailureCategory::ReadDirMissing
+                }
+            );
+        }
+    }
+
     // Inject actual deletion between enumeration and descent, without replacing
     // the shared scanner or the filesystem reader's error classification.
     struct DisappearingDirectoryReader {
@@ -5270,7 +5673,15 @@ mod tests {
                 super::audit_with_mode(root, &[], &mut reader, Some(root), true, true);
             assert!(!observation.audit_complete);
             assert!(!observation.live_clean());
-            assert_eq!(observation.directory_rescans, 1);
+            assert_eq!(
+                observation.directory_rescans,
+                if failure == AuditFailureCategory::FileReadMissing {
+                    2
+                } else {
+                    1
+                },
+                "missing files share the two-restart budget; hard failures never retry"
+            );
             assert_eq!(observation.failure_category, failure);
             if failure == AuditFailureCategory::ReadDirMissing {
                 assert_eq!(
