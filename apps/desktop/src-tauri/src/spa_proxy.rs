@@ -221,6 +221,12 @@ impl SpaProxy {
             }
         }
     }
+    /// Debug-only assertion seam: inspect the actual jar, independent of remembered secrets.
+    #[cfg(debug_assertions)]
+    pub fn session_jar_is_empty(&self) -> bool {
+        let url = Url::parse(self.inner.client.origin().as_str()).expect("validated origin");
+        self.inner.jar.lock().unwrap().cookies(&url).is_none()
+    }
     /// Refuse the readable launch carrier in HTTP targets and external navigation.
     pub fn has_launch_secret_in_target(&self, target: &str) -> bool {
         contains_launch_secret(target, &self.inner.user_agent)

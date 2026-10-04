@@ -638,6 +638,10 @@ async fn session_meta_is_cached_until_reconnect_revalidation() {
             ws.headers_mut()
                 .insert("origin", proxy.origin().as_str().parse().unwrap());
             assert!(tokio_tungstenite::connect_async(ws).await.is_ok());
+            assert!(
+                !proxy.session_jar_is_empty(),
+                "positive control: redeemed session cookie exists"
+            );
             m.control.set_meta(Some("replacement"), "1.0.0");
             assert_eq!(
                 proxy.revalidate_session_meta().await,
@@ -652,11 +656,9 @@ async fn session_meta_is_cached_until_reconnect_revalidation() {
                 403,
                 "a changed installation must retire the cached session"
             );
-            let mut remembered = Vec::new();
-            proxy.register_memory_secrets(|value| remembered.push(value.to_owned()));
             assert!(
-                remembered.iter().all(|value| value != "one"),
-                "retirement must clear the in-memory jar"
+                proxy.session_jar_is_empty(),
+                "retirement must clear every cookie"
             );
             let mut retired_ws =
                 format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
@@ -754,6 +756,24 @@ async fn session_meta_revalidation_rejects_api_major_change() {
                     .status(),
                 200
             );
+            assert!(
+                !proxy.session_jar_is_empty(),
+                "positive control: redeemed session cookie exists"
+            );
+            let mut positive_ws =
+                format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
+                    .into_client_request()
+                    .unwrap();
+            positive_ws
+                .headers_mut()
+                .insert("user-agent", proxy.user_agent().parse().unwrap());
+            positive_ws
+                .headers_mut()
+                .insert("origin", proxy.origin().as_str().parse().unwrap());
+            assert!(
+                tokio_tungstenite::connect_async(positive_ws).await.is_ok(),
+                "positive control before API conflict"
+            );
             m.control.set_meta(Some(&m.installation_id), "2.0.0");
             assert_eq!(
                 proxy.revalidate_session_meta().await,
@@ -762,9 +782,10 @@ async fn session_meta_revalidation_rejects_api_major_change() {
                     client: "1.0.0",
                 })
             );
-            let mut remembered = Vec::new();
-            proxy.register_memory_secrets(|value| remembered.push(value.to_owned()));
-            assert!(remembered.iter().all(|value| value != "one"));
+            assert!(
+                proxy.session_jar_is_empty(),
+                "API conflict must clear every cookie"
+            );
             let mut ws = format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
                 .into_client_request()
                 .unwrap();

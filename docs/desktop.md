@@ -307,8 +307,10 @@ can use them. Foreign navigation uses the classified Rust http/https/mailto
 opener; popups are blocked. Failed tickets are retried once, then the error view
 offers Copy log and Retry with 44px controls. Runtime and data are untouched.
 
-Windows debug runs have an explicit cookie-guard deviation for profile testing,
-approved in the 2026-10-04 owner decision. The guard defaults on on every
+The 2026-10-04 owner decision covers only the Windows post-exit read.
+Windows debug runs separately disable the cookie guard to test the profile
+independently of JavaScript suppression. This fixture-only deviation waives
+condition 1 (live native zero-cookie query); condition 1 applies with the guard on. The guard defaults on on every
 platform and is disabled only by the named CI fixture variant. Guard-on proves
 the Rust-jar-only browser policy; guard-off allows WebView cookie APIs so the
 native profile proof can observe them, then requires process exit, zero
@@ -316,14 +318,15 @@ SQLite/WAL rows and Canary bytes, and owned folder deletion. This is defence in
 depth and keeps the three platforms on one policy path; it does not weaken the
 release policy, which stays guarded and deletes even after a failed audit.
 The guarded-SPA test uses Chromium against a mock server, not WebView2; the
-native WebView2 behaviour is covered by the Windows acceptance leg rather than
-that Playwright probe. The injected guard also blocks `document.cookie`, the
+guarded-SPA compatibility on WebView2 remains an **explicit gap**. The
+Windows acceptance leg proves cookie/profile state, not SPA guard compatibility. The injected guard also blocks `document.cookie`, the
 Cookie Store API and service-worker registration while enabled.
 
 Ticket retries add only the nonsecret `shell-retry=1` query to force a document
 reload; a fragment change alone would not rerun redemption. The error page uses
 the saved shell language and theme and consumes the shared Glow token stylesheet.
-No ticket or device token crosses shell IPC.
+No ticket or device token crosses shell IPC. Revalidation failures, including
+transient network failures, retire the session; reconnect requires a fresh ticket.
 
 The shell command list contains only `shell_info`, guarded by exact label/current
 URL, with an empty features list; the authenticated SPA exposes no IPC command.
