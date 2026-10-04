@@ -420,7 +420,8 @@ describe("discovery scheduler", () => {
     await clock.advance(25 * 3600_000);
     const hist2 = systemJobs.history({});
     assert.equal(hist2.length, 2);
-    assert.equal(hist2[1]?.trigger, "cron");
+    assert.equal(hist2[0]?.trigger, "cron");
+    assert.equal(hist2[1]?.trigger, "harness");
   });
 
   it("C1 trigger 1: already_running when a scan is in flight produces at most one run and re-arms in the future", async () => {

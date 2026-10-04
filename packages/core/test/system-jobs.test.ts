@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, statSync, appendFileSync, writeFileSync } from "node:fs";
+import { readFileSync, statSync, appendFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createPlatformCapabilities } from "../src/platform.ts";
 import { createSystemJobs, type SystemJobHandler } from "../src/system-jobs/index.ts";
@@ -433,5 +433,109 @@ describe("system jobs and jobs.* merge", () => {
     await call("jobs.run", { job: "models.scan" });
     const jobRunNotifications = notifications.filter((n) => n.name === "job.run");
     assert.equal(jobRunNotifications.length, 0);
+  });
+
+  it("the ledger recovers from a torn final line without trailing newline", async () => {
+    const { systemJobs, ledgerPath } = setup();
+
+    // Write a torn line without trailing newline
+    writeFileSync(ledgerPath, '{"v":1,"phase":"started","runId":"torn-1"');
+
+    // Run a job, which appends to ledger
+    const svc = createMockDiscoveryService();
+    systemJobs.register(createModelsScanJob(svc as any, () => ({ enabled: true, intervalHours: 24 })));
+    await systemJobs.run("models.scan", {}, { trigger: "manual" });
+
+    // History should successfully read the new run, skipping the torn line
+    const hist = systemJobs.history({});
+    assert.equal(hist.length, 1);
+    assert.equal(hist[0].job, "models.scan");
+    assert.equal(hist[0].outcome, "completed");
+
+    // The raw file should have a newline separating the torn line and the started line
+    const content = readFileSync(ledgerPath, "utf8");
+    assert.ok(content.includes('{"v":1,"phase":"started","runId":"torn-1"\n{"v":1,"phase":"started"'));
+  });
+
+  it("the ledger rotates at 1 MiB and keeps .1", async () => {
+    const { systemJobs, ledgerPath } = setup();
+
+    // Write ~1 MiB of dummy entries
+    const dummyLine = JSON.stringify({
+      v: 1,
+      phase: "started",
+      runId: "dummy-old",
+      job: "test.old",
+      trigger: "manual",
+      startedAt: 1000,
+    }) + "\n";
+    const repeats = Math.ceil((1024 * 1024) / dummyLine.length) + 1;
+    writeFileSync(ledgerPath, dummyLine.repeat(repeats));
+
+    const initialStat = statSync(ledgerPath);
+    assert.ok(initialStat.size >= 1024 * 1024);
+
+    // Now run a job
+    const svc = createMockDiscoveryService();
+    systemJobs.register(createModelsScanJob(svc as any, () => ({ enabled: true, intervalHours: 24 })));
+    await systemJobs.run("models.scan", {}, { trigger: "manual" });
+
+    // Rotated file exists
+    const rotatedPath = `${ledgerPath}.1`;
+    assert.ok(existsSync(rotatedPath), "rotated file .1 should exist");
+    assert.ok(statSync(rotatedPath).size >= 1024 * 1024);
+
+    // Current ledger file is small (only the new run)
+    assert.ok(statSync(ledgerPath).size < 1024 * 1024);
+
+    // ReadAll / history reads both rotated and new
+    const hist = systemJobs.history({});
+    assert.ok(hist.length >= 2);
+    // Newest run is models.scan
+    assert.equal(hist[0].job, "models.scan");
+  });
+
+  it("history({ limit }) returns the newest runs first", async () => {
+    const { systemJobs, clock } = setup();
+    const svc = createMockDiscoveryService();
+    systemJobs.register(createModelsScanJob(svc as any, () => ({ enabled: true, intervalHours: 24 })));
+
+    // Run first job at t = 1000
+    clock.advance(1000);
+    await systemJobs.run("models.scan", {}, { trigger: "manual" });
+
+    // Run second job at t = 5000
+    clock.advance(4000);
+    await systemJobs.run("models.scan", {}, { trigger: "manual" });
+
+    const histAll = systemJobs.history({});
+    assert.equal(histAll.length, 2);
+    assert.ok(histAll[0].startedAt > histAll[1].startedAt, "histAll[0] must be newer than histAll[1]");
+
+    const histLimit = systemJobs.history({ limit: 1 });
+    assert.equal(histLimit.length, 1);
+    assert.equal(histLimit[0].startedAt, histAll[0].startedAt, "limit: 1 must return newest run");
+  });
+
+  it("readAll and history scale linearly on 50k rows under 2s", async () => {
+    const { systemJobs, ledgerPath } = setup();
+
+    // Generate 50,000 rows (25,000 runs with started and finished)
+    const chunks: string[] = [];
+    for (let i = 0; i < 25000; i++) {
+      chunks.push(
+        JSON.stringify({ v: 1, phase: "started", runId: `bench-${i}`, job: "bench", trigger: "cron", startedAt: i }) + "\n" +
+        JSON.stringify({ v: 1, phase: "finished", runId: `bench-${i}`, job: "bench", trigger: "cron", startedAt: i, finishedAt: i + 1, durationMs: 1, outcome: "completed", attempt: 1 }) + "\n"
+      );
+    }
+    writeFileSync(ledgerPath, chunks.join(""));
+
+    const start = performance.now();
+    const hist = systemJobs.history({ limit: 10 });
+    const elapsed = performance.now() - start;
+
+    assert.equal(hist.length, 10);
+    assert.equal(hist[0].runId, "bench-24999");
+    assert.ok(elapsed < 2000, `history on 50k rows took ${elapsed}ms, must be < 2000ms`);
   });
 });

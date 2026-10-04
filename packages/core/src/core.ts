@@ -30,7 +30,7 @@ import path from "node:path";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
-import { loadMetadataTable } from "./discovery/metadata.ts";
+import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
@@ -206,6 +206,8 @@ export function createCore(o: CoreOptions): Core {
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
     const platform = createPlatformCapabilities({ logger: log, runDir: l.run });
     platform.securePath(l.run, { mode: 0o700 });
+    platform.securePath(l.catalog, { mode: 0o700 });
+    platform.securePath(l.systemJobs, { mode: 0o700 });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
@@ -306,7 +308,14 @@ export function createCore(o: CoreOptions): Core {
         securePath: platform.securePath,
         logger,
       });
-      catalogStore.load();
+      const loadRes = catalogStore.load();
+      if (loadRes.file.tableRevision !== curatedTable.revision) {
+        const vendorOf = (p: string) => discProfiles.list().find((x) => x.id === p)?.vendor;
+        await catalogStore.mutate((c) => ({
+          next: reenrichCatalog(c, curatedTable, vendorOf),
+          result: null,
+        }));
+      }
 
       const discSettings = () => ({
         enabled: (cfg() as any).models?.scan?.enabled ?? true,
@@ -325,6 +334,7 @@ export function createCore(o: CoreOptions): Core {
         roles: discRoles,
         settings: discSettings,
         logger,
+        onScanned: (p) => scanScheduler?.onScanned(p),
         ...(o.discovery?.scanners ? { scanners: o.discovery.scanners } : {}),
       });
       discovery.onChanged((e) => server?.notify("models.changed", e));

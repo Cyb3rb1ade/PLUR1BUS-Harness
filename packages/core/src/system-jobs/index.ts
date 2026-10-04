@@ -185,6 +185,7 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
 
   function history(q: { job?: string; since?: number; limit?: number }): SystemRunRecord[] {
     let runs = ledger.readAll(inFlight);
+    runs.reverse();
     if (q.job) {
       runs = runs.filter((r) => r.job === q.job);
     }
