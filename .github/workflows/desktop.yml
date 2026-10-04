@@ -70,8 +70,21 @@ jobs:
       # Stable Rust 1.95 rejects --report-time; bounded proxy tests emit named elapsed_ms.
       # Isolate latency measurements from unrelated parallel tests; keep every test and limit.
       - run: cargo test --locked --workspace --no-fail-fast -- --test-threads=1 --nocapture
+        id: desktop-rust-tests
         timeout-minutes: 15
         working-directory: apps/desktop
+      - name: Windows libtest loader failure evidence
+        if: runner.os == 'Windows' && failure() && steps.desktop-rust-tests.outcome == 'failure'
+        timeout-minutes: 10
+        run: node apps/desktop/scripts/windows-libtest-loader.mjs --output "$RUNNER_TEMP/plur1bus-libtest-loader"
+      - name: Windows libtest loader evidence artifacts
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-libtest-loader-${{ matrix.os }}
+          path: ${{ runner.temp }}/plur1bus-libtest-loader/
+          if-no-files-found: warn
+          retention-days: 7
       - name: Native fixture tests
         run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver
         working-directory: apps/desktop
