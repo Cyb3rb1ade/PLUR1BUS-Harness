@@ -1141,170 +1141,175 @@ Both PRs remain draft until that complete gate. WP5 and WP6 are unstarted.
 
 GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257791), [desktop PR37015257725](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015257725), [desktop push37015254463](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37015254463) all SUCCESS. Five native build/bundle targets and Docker/Podman PASS. No retry required for this WP4 head. Both corrected heads now GREEN; #63/#64 marked ready for review as owner requested. No merge into main, rebase, amend or force-push. Earlier checkpoints above remain history; real OS credential/manual limits still apply.
 
-## WP5 — BLOCKED: Windows tests fail to load; Root Linux unit timeout
+## WP5 — BLOCKED: Windows test loader; Root current CI green
 
-Reviewed candidate source: `e64e6b07f201d6e4d1b50623cc359a9744247d9e` (Part4 actual shared state/retirement/retry coverage), independent SPEC/QUALITY APPROVED. Previous owner-postexit R1/R2/R3 reviews also clean. Local final full desktop all-target suite245 PASS/one real-keychain opt-in IGNORE, strict Clippy/fmt PASS, renewed root lint PASS. UI50 retains unchanged implementation1afd provenance. Candidate Windows/Linux native runs NOT RUN locally. Current6ff CI validates reviewed shared-path tests on macOS/Linux; Windows spa integration now aborts before tests with the library loader failure.
+Build repair candidate: `1d59ea66e031bc41b0f7feeb5da17a9544273dd8` (edaf5956 + P3-1 correction), independent scoped SPEC/QUALITY APPROVED, P3-1 CLOSED/no new findings; local full249 PASS/one existing opt-in IGNORE, focused14 PASS, strict Clippy/fmt/binaries/examples and renewed Root lint PASS. Windows compilation/native NOT RUN locally. Tables below describe the latest completed CI head2e; they do not claim this unpushed repair passed native acceptance. PR65 stays DRAFT/BLOCKED.
 
-Reviewed diagnostic candidate: `b8055a5b5b62876041924a469bccc2c37f636efc`, following79bba/a19, independent scoped SPEC/QUALITY APPROVED; sole R1-F1 header-size gap CLOSED. The comparison now permits only the actual SDK insertion of one manifest resource plus movement of byte-identical relocation data, with directory/section/header/layout proof. Unchanged-section paths require exact image/initialized-data size equality. Both retained x64/ARM pairs pass locally; four reviewer header mutations reject. Local diagnostic suite56 PASS/five existing Windows-only unavailable on macOS; Root lint PASS. Product/build sources retain approved245-test/strict-Clippy/fmt provenance; no broad suite repeated. Previous actual SDK prepare/embed succeeded in6ff CI; modified-copy native startup remains NOT RUN. Fresh diagnostic CI required; cause remains UNPROVEN and this is no product loader fix.
+### [macOS arm64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617/job/111334378706)
 
-Latest completed Desktop CI head: `6ff08633fffb079b0f52f481048fdf780f1ea5fb`; branch `feat/desktop-shell-wp05-spa-proxy`, based on `main@42a44c24` by normal mergea78f25ad. [Desktop37165282148](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148) completed: macOS, both Linux targets, their native first/restart/bundles and Docker/Podman PASS. Both Windows strict Clippy PASS, but library and new Part4 spa integration executables abort before tests with0xc0000139; other integration suites run. Windows native examples/SPA/bundles NOT RUN. PR65 remains DRAFT/BLOCKED. Exact libtest artifacts show original/no-manifest and unchanged-copy failure; SDK manifest insertion succeeds but its unchanged relocation-section address move fails the conservative equality gate, so modified-copy listing NOT RUN. R4 diagnostic R1/R2 comparison correction reviewed atb8055a5b; fresh runner observation pending, cause not yet proved. Source-stamp c19a PR merge has parents42a+6ff and identical Git tree23130af6 to the branch head.
+CI head: `2e041d30cf489428bfb7d2c62105888bd948a4c5`. Full platform CI including native first/restart, bundles and strict zero-file audit PASS. Independent artifact checks PASS; 100 latency pairs, p95 first/restart 0.829667/0.973083ms.
 
-Current Root [CI37165282161](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282161), head6ff, attempt1: **7 PASS/1 FAIL/2 SKIPPED**. Every failed job and first error: [unit(ubuntu-24.04)111326805057](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282161/job/111326805057) — `The action 'Run pnpm test' has timed out after 15 minutes.` Rawlog `/tmp/wp05-round3-6ff0863-root-111326805057.log`, SHA256 `b7cff7069ddc9046a8c07d80c6fc07cb55a800ec817187008f6cb118bb1e5a25`. macOS unit/python-host PASS; system/service skipped because the unit dependency failed. No retry or Core/Hermes edit; owner follow-up.
+| Acceptance test | Result |
+|---|---|
+| `navigation_table` | CI PASS |
+| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
+| `shell_info_is_the_only_spa_command` | CI PASS |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
+| `switching_connection_replaces_the_capability` | CI shared production-path PASS |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI shared production-path PASS |
+| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit PARTIAL |
+| `assert_no_token_on_disk` | CI PASS |
+| `quit and restart logs in again through a fresh ticket` | NATIVE CI PASS |
+| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
+| `never_adds_authorization_or_the_device_token` | CI PASS |
+| `page_cookies_and_authorization_are_dropped` | CI PASS |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
+| `origin_and_host_are_the_connection_origin` | CI PASS |
+| `sse_events_stream_without_buffering` | CI PASS |
+| `websocket_upgrade_is_forwarded` | CI PASS |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
+| `bundled_local_and_remote_use_the_same_path` | CI PASS |
+| `non_get_methods_require_exact_origin` | CI PASS |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
+
+### [Linux x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617/job/111334378790)
+
+CI head: `2e041d30cf489428bfb7d2c62105888bd948a4c5`. Full platform CI including native first/restart, bundles and strict zero-file audit PASS. Independent artifact checks PASS; 100 latency pairs, p95 first/restart 1.959433/1.872705ms.
+
+| Acceptance test | Result |
+|---|---|
+| `navigation_table` | CI PASS |
+| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
+| `shell_info_is_the_only_spa_command` | CI PASS |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
+| `switching_connection_replaces_the_capability` | CI shared production-path PASS |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI shared production-path PASS |
+| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit PARTIAL |
+| `assert_no_token_on_disk` | CI PASS |
+| `quit and restart logs in again through a fresh ticket` | NATIVE CI PASS |
+| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
+| `never_adds_authorization_or_the_device_token` | CI PASS |
+| `page_cookies_and_authorization_are_dropped` | CI PASS |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
+| `origin_and_host_are_the_connection_origin` | CI PASS |
+| `sse_events_stream_without_buffering` | CI PASS |
+| `websocket_upgrade_is_forwarded` | CI PASS |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
+| `bundled_local_and_remote_use_the_same_path` | CI PASS |
+| `non_get_methods_require_exact_origin` | CI PASS |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
+
+### [Linux ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617/job/111334378780)
+
+CI head: `2e041d30cf489428bfb7d2c62105888bd948a4c5`. Full platform CI including native first/restart, bundles and strict zero-file audit PASS. Independent artifact checks PASS; 100 latency pairs, p95 first/restart 2.328029/2.467178ms.
+
+| Acceptance test | Result |
+|---|---|
+| `navigation_table` | CI PASS |
+| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
+| `shell_info_is_the_only_spa_command` | CI PASS |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
+| `switching_connection_replaces_the_capability` | CI shared production-path PASS |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI shared production-path PASS |
+| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit PARTIAL |
+| `assert_no_token_on_disk` | CI PASS |
+| `quit and restart logs in again through a fresh ticket` | NATIVE CI PASS |
+| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
+| `never_adds_authorization_or_the_device_token` | CI PASS |
+| `page_cookies_and_authorization_are_dropped` | CI PASS |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
+| `origin_and_host_are_the_connection_origin` | CI PASS |
+| `sse_events_stream_without_buffering` | CI PASS |
+| `websocket_upgrade_is_forwarded` | CI PASS |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
+| `bundled_local_and_remote_use_the_same_path` | CI PASS |
+| `non_get_methods_require_exact_origin` | CI PASS |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
+
+### [Windows x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617/job/111334378692)
+
+CI head: `2e041d30cf489428bfb7d2c62105888bd948a4c5`. Strict all-target Clippy PASS; library and spa integration executables abort before tests with STATUS_ENTRYPOINT_NOT_FOUND; other integration suites PASS. Native first/restart/bundles NOT RUN.
+
+| Acceptance test | Result |
+|---|---|
+| `navigation_table` | CI unit PASS; native NOT RUN: library loader |
+| `caller_check_rejects_other_webview_and_other_origin` | CI unit PASS; native NOT RUN: library loader |
+| `shell_info_is_the_only_spa_command` | NOT RUN: spa integration loader0xc0000139; local PASS |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | NOT RUN: spa integration loader0xc0000139; local PASS |
+| `switching_connection_replaces_the_capability` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
+| `no_cookie_database_in_app_dirs` | post-exit read (owner decision 2026-10-04): NOT RUN; unit PARTIAL |
+| `assert_no_token_on_disk` | CI unit PASS; native NOT RUN: library loader |
+| `quit and restart logs in again through a fresh ticket` | NOT RUN: library loader stops native stage |
+| `only_the_spa_webview_is_served_others_get_403` | CI unit PASS; native NOT RUN: library loader |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI unit PASS; native NOT RUN: library loader |
+| `never_adds_authorization_or_the_device_token` | CI unit PASS; native NOT RUN: library loader |
+| `page_cookies_and_authorization_are_dropped` | CI unit PASS; native NOT RUN: library loader |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI unit PASS; native NOT RUN: library loader |
+| `origin_and_host_are_the_connection_origin` | CI unit PASS; native NOT RUN: library loader |
+| `sse_events_stream_without_buffering` | CI unit PASS; native NOT RUN: library loader |
+| `websocket_upgrade_is_forwarded` | CI unit PASS; native NOT RUN: library loader |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | CI unit PASS; native NOT RUN: library loader |
+| `bundled_local_and_remote_use_the_same_path` | CI unit PASS; native NOT RUN: library loader |
+| `non_get_methods_require_exact_origin` | CI unit PASS; native NOT RUN: library loader |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI unit PASS; native NOT RUN: library loader |
+
+### [Windows ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617/job/111334378713)
+
+CI head: `2e041d30cf489428bfb7d2c62105888bd948a4c5`. Strict all-target Clippy PASS; library and spa integration executables abort before tests with STATUS_ENTRYPOINT_NOT_FOUND; other integration suites PASS. Native first/restart/bundles NOT RUN.
+
+| Acceptance test | Result |
+|---|---|
+| `navigation_table` | CI unit PASS; native NOT RUN: library loader |
+| `caller_check_rejects_other_webview_and_other_origin` | CI unit PASS; native NOT RUN: library loader |
+| `shell_info_is_the_only_spa_command` | NOT RUN: spa integration loader0xc0000139; local PASS |
+| `spa_bridge_capability_is_scoped_to_the_spa_origin` | NOT RUN: spa integration loader0xc0000139; local PASS |
+| `switching_connection_replaces_the_capability` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
+| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
+| `no_cookie_database_in_app_dirs` | post-exit read (owner decision 2026-10-04): NOT RUN; unit PARTIAL |
+| `assert_no_token_on_disk` | CI unit PASS; native NOT RUN: library loader |
+| `quit and restart logs in again through a fresh ticket` | NOT RUN: library loader stops native stage |
+| `only_the_spa_webview_is_served_others_get_403` | CI unit PASS; native NOT RUN: library loader |
+| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI unit PASS; native NOT RUN: library loader |
+| `never_adds_authorization_or_the_device_token` | CI unit PASS; native NOT RUN: library loader |
+| `page_cookies_and_authorization_are_dropped` | CI unit PASS; native NOT RUN: library loader |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI unit PASS; native NOT RUN: library loader |
+| `origin_and_host_are_the_connection_origin` | CI unit PASS; native NOT RUN: library loader |
+| `sse_events_stream_without_buffering` | CI unit PASS; native NOT RUN: library loader |
+| `websocket_upgrade_is_forwarded` | CI unit PASS; native NOT RUN: library loader |
+| `pinned_origin_with_a_changed_certificate_fails_closed` | CI unit PASS; native NOT RUN: library loader |
+| `bundled_local_and_remote_use_the_same_path` | CI unit PASS; native NOT RUN: library loader |
+| `non_get_methods_require_exact_origin` | CI unit PASS; native NOT RUN: library loader |
+| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI unit PASS; native NOT RUN: library loader |
+
+
+Reviewed candidate source: `e64e6b07f201d6e4d1b50623cc359a9744247d9e` (Part4 actual shared state/retirement/retry coverage), independent SPEC/QUALITY APPROVED. Previous owner-postexit R1/R2/R3 reviews also clean. Local full desktop all-target suite249 PASS/one real-keychain opt-in IGNORE atedaf; focused14 PASS at1d59, strict Clippy/fmt PASS, renewed root lint PASS. UI50 retains unchanged implementation1afd provenance. Candidate Windows/Linux native runs NOT RUN locally. Current2e CI validates reviewed shared-path tests on macOS/Linux; Windows spa integration now aborts before tests with the library loader failure.
+
+Reviewed diagnostic candidate: `b8055a5b5b62876041924a469bccc2c37f636efc`, following79bba/a19, independent scoped SPEC/QUALITY APPROVED; sole R1-F1 header-size gap CLOSED. The comparison now permits only the actual SDK insertion of one manifest resource plus movement of byte-identical relocation data, with directory/section/header/layout proof. Unchanged-section paths require exact image/initialized-data size equality. Both retained x64/ARM pairs pass locally; four reviewer header mutations reject. Local diagnostic suite56 PASS/five existing Windows-only unavailable on macOS; Root lint PASS. Historical diagnostic retained245-test provenance; current build-repair249-test/strict-Clippy/fmt and focused14 results are recorded above. Actual ARM modified-copy startup is now proved below; x64 experiment is incomplete. This diagnostic is no product loader fix.
+
+Published CI head: `2e041d30cf489428bfb7d2c62105888bd948a4c5`, branch `feat/desktop-shell-wp05-spa-proxy`, main42a by normal mergea78f25ad (owner#71 included). [Desktop37167819617](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617) completed: macOS, both Linux targets, native first/restart/bundles and Docker/Podman PASS; both Windows library and spa integration executables abort before tests with0xc0000139. Native Windows/bundles NOT RUN. [Root37167819623](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819623) completed13/13 PASS on attempt1, exact head verified; no retry or Core/Hermes edits. PR65 stays DRAFT/BLOCKED.
+
+Actual ARM manifest-only A/B in both PR37167819617 and push37167817954: original and same-path unchanged copy0xc0000139; SDK-modified copy exits0 in41ms and lists37 tests. Reviewed PE code/import/header/relocation and exact manifest preservation proofs pass; original hash unchanged. This proves the ARM loader cause, not native SPA acceptance or test-body execution. PR tested merge077d4d has branch2e parent and identical Git tree. x64 diagnostics in both runs are INCOMPLETE: SDK discovery timed out at30027/30029ms; no baseline/modified-copy startup there. The actual x64 original library/spa failures remain recorded. R5 build-only repairedaf5956 plus1d59ea66 is independently approved, including P3-1 search-path correction; Windows native/product acceptance remains mandatory on fresh CI.
+
+Previous Root [CI37165282161](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282161), head6ff, attempt1: **7 PASS/1 FAIL/2 SKIPPED**. Every failed job and first error: [unit(ubuntu-24.04)111326805057](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282161/job/111326805057) — `The action 'Run pnpm test' has timed out after 15 minutes.` Rawlog `/tmp/wp05-round3-6ff0863-root-111326805057.log`, SHA256 `b7cff7069ddc9046a8c07d80c6fc07cb55a800ec817187008f6cb118bb1e5a25`. macOS unit/python-host PASS; system/service skipped because the unit dependency failed. No retry or Core/Hermes edit; owner follow-up.
 
 Every failed desktop job and first actual failure:
 
 | Job | First failure |
 |---|---|
-| [Windows ARM111326805207](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148/job/111326805207) | desktop library test process aborts `0xc0000139, STATUS_ENTRYPOINT_NOT_FOUND`, before `running ... tests`; rawlogSHA `4f1f0bd5b8bb1e4e9c6cd3b3568007c0a135cecd7dae2634f73880c273c6b621` |
-| [Windows x64111326805239](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148/job/111326805239) | same library loader failure; rawlogSHA `cc0a32677e5a36497a68cbe8c9bbcd153cda124abb5610b48adfdb2749ea7e38` |
+| [Windows ARM111334378713](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617/job/111334378713) | desktop library test process aborts `0xc0000139, STATUS_ENTRYPOINT_NOT_FOUND`, before `running ... tests`; rawlogSHA `4f7b4799eb667b12998e896eb45cfa403ef70d01280fc87b0c5fa9c47a1d3037` |
+| [Windows x64111334378692](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37167819617/job/111334378692) | same library loader failure; rawlogSHA `6bc008cfa6000cb27c8949657e3924b5ce4c7780f6b2f9fada7a90e2cc9bcec8` |
 
-Six actual native ZIPs/15 files for macOS/Linux were digest-verified; full index `/tmp/wp05-round3-ci-6ff0863/verified-artifact-index.json`, SHA-256 `959110e96f5283db531f011ba25b2a4b71df4b0c9d273007ac595909605479ed`. Independent v6 verification of all three native first/restart pairs: `/tmp/wp05-round3-ci-6ff0863-native-verification.json`, SHA-256 `5520f3a95c0bfcc06afae836627237094640d2454b855b5c806cfb8166a43478`. Failed Windows targets produced no native SPA artifacts; two loader diagnostic ZIPs are retained with their incomplete status, verified file inventory and merge-tree provenance in `/tmp/wp05-round3-libtest-6ff0863`. Loader indexSHA `2760e6ecaf69f1d06a60850e1dedd0e19702f366c38731230987a7f73a5b4f6b`; tested-commit provenanceSHA `0b69e87d81c325ee474d457e8e864dc7e18760d04ed393950204a0d0b08fac8c`.
+Six actual native ZIPs/15 files for macOS/Linux at2e were API-digest verified; full index `/tmp/wp05-round3-ci-2e041d3/verified-artifact-index.json`, SHA256 `7f684874150b31a083cc8bd004c2cfbf3cd016bcb21883c8686619895474fb2e`. Owner-aware v6 verification passes all three first/restart pairs: `/tmp/wp05-round3-ci-2e041d3-native-verification.json`, SHA256 `b372bfa33a6e3067a4d6247c56d90846c5b1e3035ddd2a4b25ec150b7cb0deef`. Windows produced no native SPA artifacts. Both loader diagnostic ZIPs and every inner hash verified: PR index `/tmp/wp05-round3-libtest-2e041d3/verified-artifact-index.json`, SHA256 `4865cf185d3e6f493328af73d800c2029a4cbf78d0c8229b76940f2307362eef`; independent push index `/tmp/wp05-round3-libtest-2e041d3-push/verified-artifact-index.json`, SHA256 `66fcdfaab5f22f3760ac02651cf6bfd43d8c3d15efca48887eeaea748de3259f`. ARM startup passes; x64 incomplete SDK discovery explicitly retained. Prior6ff full native/loader evidence remains in `/tmp/wp05-round3-ci-6ff0863` and `/tmp/wp05-round3-libtest-6ff0863` (Git history preserves their inventories).
 
 Previous Root [CI37162141810](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37162141810), head `4e5b66186111ce0baa03a163877788b29c49f1f4`, completed **13/13 PASS on attempt1**, including every unit/python-host/system/service job. No retries or Core/Hermes edits. Previous3b Root failure was only [unit(macos-15)111313836849](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37160866621/job/111313836849), first `Error: database disk image is malformed` (Core import busy read-only ERR11; rawlogSHA `a8a1f7d6f57f2172ac1e38cff1e7c661b0e9f9878c611538745f8b496b8d5eb0`). Fresh main42a already includes owner#71 by normal mergea78f25ad; no redundant merge.
 
 Historical27c native evidence remains preserved in `/tmp/wp05-round3-ci-27c4214` (10 ZIPs/27 files; indexSHA `cee3cfe5768bd371db33c16126b8615c4b09cf04afc1221deb5e0c28e71fc056`). Its macOS/Linux native/bundle passes and Windows post-exit0 rows cannot prove the new canary/locked-file/event/exit-budget requirements. Historical Root first macOS system failure was recall1030ms/budget1000; its sole retry failed core adoption10000ms; neither was retried further.
 
-Owner-approved deviation, 2026-10-04: Windows `no_cookie_database_in_app_dirs` uses **post-exit read (owner decision 2026-10-04)**. The native all-origin cookie-store query remains mandatory live, alongside a secret scan over every readable profile file and explicit names for locked files. A unique synthetic Canary must challenge both mock `Set-Cookie` through the Rust jar and the page's `document.cookie`. The test must prove actual environment/all-profile browser exit within 10 s, then read SQLite with WAL and byte-scan `Cookies`, `Cookies-journal`, and `Cookies-wal` before deleting the owned profile. Timeout must not trigger a read anyway. Reason: observed live WebView2 sharing violations prevent the read-only open; the owner permits moving this SQL proof after confirmed exit. Source: [owner decision](../2026-10-04-wp5-windows-cookie-check.md). Implementation is reviewed and locally green; fresh native validation is PENDING; old head 27c artifacts do not establish the new Canary, named-lock, exit-budget and side-file requirements. macOS/Linux strict zero-file and live checks remain unchanged, including Linux's absolute 5 s observer deadline. Part4 shared-state/retry coverage is reviewed and passes current6ff CI on macOS/Linux; Windows spa integration awaits loader repair; WP6 remains pending; PR #65 stays DRAFT/BLOCKED.
-
-### [macOS arm64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148/job/111326805269)
-
-CI head: `6ff08633fffb079b0f52f481048fdf780f1ea5fb`. Full platform CI including native first/restart, bundles and strict zero-file audit PASS. Independent artifact checks PASS; 100 latency pairs, p95 first/restart 2.91375/1.783458ms.
-
-| Acceptance test | Result |
-|---|---|
-| `navigation_table` | CI PASS |
-| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
-| `shell_info_is_the_only_spa_command` | CI PASS |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
-| `switching_connection_replaces_the_capability` | CI shared production-path PASS |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI shared production-path PASS |
-| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit PARTIAL |
-| `assert_no_token_on_disk` | CI PASS |
-| `quit and restart logs in again through a fresh ticket` | NATIVE CI PASS |
-| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
-| `never_adds_authorization_or_the_device_token` | CI PASS |
-| `page_cookies_and_authorization_are_dropped` | CI PASS |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
-| `origin_and_host_are_the_connection_origin` | CI PASS |
-| `sse_events_stream_without_buffering` | CI PASS |
-| `websocket_upgrade_is_forwarded` | CI PASS |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
-| `bundled_local_and_remote_use_the_same_path` | CI PASS |
-| `non_get_methods_require_exact_origin` | CI PASS |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
-
-### [Linux x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148/job/111326805272)
-
-CI head: `6ff08633fffb079b0f52f481048fdf780f1ea5fb`. Full platform CI including native first/restart, bundles and strict zero-file audit PASS. Independent artifact checks PASS; 100 latency pairs, p95 first/restart 1.924827/1.869673ms.
-
-| Acceptance test | Result |
-|---|---|
-| `navigation_table` | CI PASS |
-| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
-| `shell_info_is_the_only_spa_command` | CI PASS |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
-| `switching_connection_replaces_the_capability` | CI shared production-path PASS |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI shared production-path PASS |
-| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit PARTIAL |
-| `assert_no_token_on_disk` | CI PASS |
-| `quit and restart logs in again through a fresh ticket` | NATIVE CI PASS |
-| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
-| `never_adds_authorization_or_the_device_token` | CI PASS |
-| `page_cookies_and_authorization_are_dropped` | CI PASS |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
-| `origin_and_host_are_the_connection_origin` | CI PASS |
-| `sse_events_stream_without_buffering` | CI PASS |
-| `websocket_upgrade_is_forwarded` | CI PASS |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
-| `bundled_local_and_remote_use_the_same_path` | CI PASS |
-| `non_get_methods_require_exact_origin` | CI PASS |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
-
-### [Linux ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148/job/111326805245)
-
-CI head: `6ff08633fffb079b0f52f481048fdf780f1ea5fb`. Full platform CI including native first/restart, bundles and strict zero-file audit PASS. Independent artifact checks PASS; 100 latency pairs, p95 first/restart 2.174706/2.162268ms.
-
-| Acceptance test | Result |
-|---|---|
-| `navigation_table` | CI PASS |
-| `caller_check_rejects_other_webview_and_other_origin` | CI PASS |
-| `shell_info_is_the_only_spa_command` | CI PASS |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | CI PASS |
-| `switching_connection_replaces_the_capability` | CI shared production-path PASS |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | CI shared production-path PASS |
-| `no_cookie_database_in_app_dirs` | NATIVE CI PASS (strict zero-file); unit PARTIAL |
-| `assert_no_token_on_disk` | CI PASS |
-| `quit and restart logs in again through a fresh ticket` | NATIVE CI PASS |
-| `only_the_spa_webview_is_served_others_get_403` | CI PASS |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI PASS |
-| `never_adds_authorization_or_the_device_token` | CI PASS |
-| `page_cookies_and_authorization_are_dropped` | CI PASS |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI PASS |
-| `origin_and_host_are_the_connection_origin` | CI PASS |
-| `sse_events_stream_without_buffering` | CI PASS |
-| `websocket_upgrade_is_forwarded` | CI PASS |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | CI PASS |
-| `bundled_local_and_remote_use_the_same_path` | CI PASS |
-| `non_get_methods_require_exact_origin` | CI PASS |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI PASS |
-
-### [Windows x64](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148/job/111326805239)
-
-CI head: `6ff08633fffb079b0f52f481048fdf780f1ea5fb`. Strict all-target Clippy PASS; library and spa integration executables abort before tests with STATUS_ENTRYPOINT_NOT_FOUND; other integration suites PASS. Native first/restart/bundles NOT RUN.
-
-| Acceptance test | Result |
-|---|---|
-| `navigation_table` | CI unit PASS; native NOT RUN: library loader |
-| `caller_check_rejects_other_webview_and_other_origin` | CI unit PASS; native NOT RUN: library loader |
-| `shell_info_is_the_only_spa_command` | NOT RUN: spa integration loader0xc0000139; local PASS |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | NOT RUN: spa integration loader0xc0000139; local PASS |
-| `switching_connection_replaces_the_capability` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
-| `no_cookie_database_in_app_dirs` | post-exit read (owner decision 2026-10-04): NOT RUN; unit PARTIAL |
-| `assert_no_token_on_disk` | CI unit PASS; native NOT RUN: library loader |
-| `quit and restart logs in again through a fresh ticket` | NOT RUN: library loader stops native stage |
-| `only_the_spa_webview_is_served_others_get_403` | CI unit PASS; native NOT RUN: library loader |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI unit PASS; native NOT RUN: library loader |
-| `never_adds_authorization_or_the_device_token` | CI unit PASS; native NOT RUN: library loader |
-| `page_cookies_and_authorization_are_dropped` | CI unit PASS; native NOT RUN: library loader |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI unit PASS; native NOT RUN: library loader |
-| `origin_and_host_are_the_connection_origin` | CI unit PASS; native NOT RUN: library loader |
-| `sse_events_stream_without_buffering` | CI unit PASS; native NOT RUN: library loader |
-| `websocket_upgrade_is_forwarded` | CI unit PASS; native NOT RUN: library loader |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | CI unit PASS; native NOT RUN: library loader |
-| `bundled_local_and_remote_use_the_same_path` | CI unit PASS; native NOT RUN: library loader |
-| `non_get_methods_require_exact_origin` | CI unit PASS; native NOT RUN: library loader |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI unit PASS; native NOT RUN: library loader |
-
-### [Windows ARM](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37165282148/job/111326805207)
-
-CI head: `6ff08633fffb079b0f52f481048fdf780f1ea5fb`. Strict all-target Clippy PASS; library and spa integration executables abort before tests with STATUS_ENTRYPOINT_NOT_FOUND; other integration suites PASS. Native first/restart/bundles NOT RUN.
-
-| Acceptance test | Result |
-|---|---|
-| `navigation_table` | CI unit PASS; native NOT RUN: library loader |
-| `caller_check_rejects_other_webview_and_other_origin` | CI unit PASS; native NOT RUN: library loader |
-| `shell_info_is_the_only_spa_command` | NOT RUN: spa integration loader0xc0000139; local PASS |
-| `spa_bridge_capability_is_scoped_to_the_spa_origin` | NOT RUN: spa integration loader0xc0000139; local PASS |
-| `switching_connection_replaces_the_capability` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
-| `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | NOT RUN: spa integration executable loader0xc0000139; reviewed shared-path PASS locally |
-| `no_cookie_database_in_app_dirs` | post-exit read (owner decision 2026-10-04): NOT RUN; unit PARTIAL |
-| `assert_no_token_on_disk` | CI unit PASS; native NOT RUN: library loader |
-| `quit and restart logs in again through a fresh ticket` | NOT RUN: library loader stops native stage |
-| `only_the_spa_webview_is_served_others_get_403` | CI unit PASS; native NOT RUN: library loader |
-| `forwards_only_to_the_connection_origin_even_after_a_redirect` | CI unit PASS; native NOT RUN: library loader |
-| `never_adds_authorization_or_the_device_token` | CI unit PASS; native NOT RUN: library loader |
-| `page_cookies_and_authorization_are_dropped` | CI unit PASS; native NOT RUN: library loader |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | CI unit PASS; native NOT RUN: library loader |
-| `origin_and_host_are_the_connection_origin` | CI unit PASS; native NOT RUN: library loader |
-| `sse_events_stream_without_buffering` | CI unit PASS; native NOT RUN: library loader |
-| `websocket_upgrade_is_forwarded` | CI unit PASS; native NOT RUN: library loader |
-| `pinned_origin_with_a_changed_certificate_fails_closed` | CI unit PASS; native NOT RUN: library loader |
-| `bundled_local_and_remote_use_the_same_path` | CI unit PASS; native NOT RUN: library loader |
-| `non_get_methods_require_exact_origin` | CI unit PASS; native NOT RUN: library loader |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | CI unit PASS; native NOT RUN: library loader |
+Owner-approved deviation, 2026-10-04: Windows `no_cookie_database_in_app_dirs` uses **post-exit read (owner decision 2026-10-04)**. The native all-origin cookie-store query remains mandatory live, alongside a secret scan over every readable profile file and explicit names for locked files. A unique synthetic Canary must challenge both mock `Set-Cookie` through the Rust jar and the page's `document.cookie`. The test must prove actual environment/all-profile browser exit within 10 s, then read SQLite with WAL and byte-scan `Cookies`, `Cookies-journal`, and `Cookies-wal` before deleting the owned profile. Timeout must not trigger a read anyway. Reason: observed live WebView2 sharing violations prevent the read-only open; the owner permits moving this SQL proof after confirmed exit. Source: [owner decision](../2026-10-04-wp5-windows-cookie-check.md). Implementation is reviewed and locally green; fresh native validation is PENDING; old head 27c artifacts do not establish the new Canary, named-lock, exit-budget and side-file requirements. macOS/Linux strict zero-file and live checks remain unchanged, including Linux's absolute 5 s observer deadline. Part4 shared-state/retry coverage is reviewed and passes current2e CI on macOS/Linux; Windows spa integration awaits loader repair; WP6 remains pending; PR #65 stays DRAFT/BLOCKED.
 
 Test locations (shared across the five target tables):
 
@@ -1347,6 +1352,6 @@ Owner follow-ups outside WP5: fresh Root CI results will be reported by failed j
 Unfinished:
 
 - [ ] Fresh native verification of the reviewed post-exit/Canary/exit proof on Windows x64/ARM and both first/restart runs on allfive targets.
-- [ ] Part4 shared SpaState swap and actual second-ticket-error coverage reviewed/locally245 PASS and current6ff macOS/Linux CI PASS; Windows integration loader repair and runtime acceptance pending. Cookie unit directory scan explicitly PARTIAL; full acceptance native-covered.
+- [ ] Part4 shared SpaState swap and actual second-ticket-error coverage reviewed/locally245 PASS and current2e macOS/Linux CI PASS; Windows integration loader repair and runtime acceptance pending. Cookie unit directory scan explicitly PARTIAL; full acceptance native-covered.
 - [ ] New-head allfive desktop/native/bundle GREEN with links; read fresh Root CI and list every failing job first error for owner, without Core/Hermes edits.
 - [ ] Final review and PR65 ready only after all gates; no merge. Then WP6 stacked unless owner merged.
