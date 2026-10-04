@@ -1143,15 +1143,16 @@ GREEN at exact a1f0029f055efa77d4331ca815fc999644fc0277: [root37015257791](https
 
 ## WP5 — SPA proxy and profile acceptance
 
-Branch: `feat/desktop-shell-wp05-spa-proxy`
-PR: [#65](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/65)
-Status: **GREEN · head `eac16a74dbc9c0f61f5da1b51bc203bb1477eec3`**.
+Branch: `fix/desktop-wp5-followups` · Base: `origin/main` at `6b0b6745`.
+PR: [#78](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/78) (draft follow-up; #65 merged).
+Status: **GREEN · tested implementation head `943f8670803f76d75a14b6933cebe51a08ea79fd`**.
+This report commit is **docs-only after `943f8670`**; no implementation changed.
 
-Root CI: [run 37214689669](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689669). Desktop matrix: [run 37214689610](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610). Both are green on the reported implementation head; the matrix contains seven target jobs plus Docker and Podman stub jobs.
+Root: [37220894790](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894790). Desktop: [37220894845](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845). Both are green at this head: seven target/guard jobs plus Docker/Podman; each target's executable scan passed.
 
 ### Accept table · 19 positive rows + 6 negative/security rows
 
-`P` means PASS; each cell links to its column job. The table has the 19 WP5 acceptance rows plus six negative/security regressions.
+`P` means PASS at the tested head; cells link to target jobs. Rows 1–19 map one-to-one to the 19 WP5 Accept names. N1–N6 are additional negative/security regressions: N1/N2 extend Accept 9, N3 extends 16, N4 extends 5, N5/N6 extend 19. They are not additional acceptance criteria.
 
 | Acceptance | macOS arm64 | Linux x64 | Linux ARM | Windows x64 guard on | Windows x64 guard off | Windows ARM guard on | Windows ARM guard off |
 |---|---|---|---|---|---|---|---|
@@ -1162,51 +1163,55 @@ Root CI: [run 37214689669](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/action
 | `switching_connection_replaces_the_capability` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `a_replayed_ticket_page_is_retried_once_then_shows_the_error` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `assert_no_token_on_disk` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `no_cookie_database_in_app_dirs` (post-exit read) | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `no_cookie_database_in_app_dirs` (Windows post-exit; macOS/Linux live) | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `only_the_spa_webview_is_served_others_get_403` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `forwards_only_to_the_connection_origin_even_after_a_redirect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `never_adds_authorization_or_the_device_token` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `page_cookies_and_authorization_are_dropped` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| `set_cookie_stays_in_the_jar_and_the_webview_store_is_empty` | P [M] | P [LX] | P [LA] | P [WX+] | waived (guard-off rule, live writes allowed) [WX-] | P [WA+] | waived (guard-off rule, live writes allowed) [WA-] |
 | `origin_and_host_are_the_connection_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `sse_events_stream_without_buffering` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `websocket_upgrade_is_forwarded` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `pinned_origin_with_a_changed_certificate_fails_closed` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `bundled_local_and_remote_use_the_same_path` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 | `session_meta_is_fetched_once_for_many_browser_requests` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `non_get_methods_require_exact_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `websocket_unoffered_subprotocol_fails_closed` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `retired_listener_rejects_old_secret_and_reserves_port` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `session_meta_revalidation_rejects_api_major_change` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
-| `retry_revalidates_session_meta_after_ticket_reconnect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| N1 negative: `non_get_methods_require_exact_origin` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| N2 negative: `foreign_origin_and_upstream_cors_headers_cannot_grant_cors` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| N3 negative: `websocket_unoffered_subprotocol_fails_closed` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| N4 negative: `retired_listener_rejects_old_secret_and_reserves_port` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| N5 negative: `session_meta_revalidation_rejects_api_major_change` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
+| N6 negative: `retry_revalidates_session_meta_after_ticket_reconnect` | P [M] | P [LX] | P [LA] | P [WX+] | P [WX-] | P [WA+] | P [WA-] |
 
-[M]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700937
-[LX]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700872
-[LA]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700953
-[WX+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701004
-[WX-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472701044
-[WA+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700883
-[WA-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37214689610/job/111472700910
+[M]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836295
+[LX]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836318
+[LA]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836384
+[WX+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836294
+[WX-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836350
+[WA+]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836321
+[WA-]: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37220894845/job/111490836266
 
-Windows `no_cookie_database_in_app_dirs` uses the owner decision of 2026-10-04: the live native query and recursive secret scan remain mandatory; after all WebView2 processes for the temporary profile exit, `Cookies`, `-journal` and `-wal` are read-only checked for zero rows and no canary bytes, then the profile is deleted. The guard-on job is the production profile; guard-off proves that the profile itself does not retain cookies. The uniform document.cookie, CookieStore and service-worker guard is defense in depth on all three platforms. The guarded-SPA probe is Chromium against the mock harness; native WebView2 probing is unavailable in this CI and remains an explicit gap.
+Windows `no_cookie_database_in_app_dirs`: the 2026-10-04 owner decision covers post-exit reading only. All profile browser processes must exit before read-only SQLite/WAL zero-row and `Cookies`/`-journal`/`-wal` canary checks, then deletion. **Deviation:** guard-off permits live writes and waives condition 1 (native zero-cookie query); condition 1 applies only guard-on. Live readable-file secret scanning remains required. The uniform JS guard is defense in depth. Guarded-SPA compatibility uses Chromium/mock; WebView2 remains an explicit gap, separate from native cookie/profile acceptance.
 
-The earlier macOS DMG failure happened before packaging: the native production-driver run tripped its strict `production p95 exceeds 5ms` assertion. The corrected serial driver now reaches the DMG bundle. W2 was the release cleanup path treating a profile without a WebView2 cookie database as exit-code 2; release now audits, logs a fixed code, deletes, and exits 0.
+macOS DMG previously failed before packaging at native-driver `production p95 exceeds 5ms`; the serial driver fixed that gate. W2 treated a missing WebView2 cookie DB as exit 2; release now audits/logs/deletes and exits 0.
 
-### Round-4 fixes and scoped reasons
+### Follow-up changes and checks
 
-- Release cleanup always deletes after the audit, including audit failure, timeout, or delete failure; debug acceptance remains strict. The startup sweep deletes each leaf independently even when its audit cannot read a locked database.
-- The release audit uses `spawn_blocking`, chunked reads, a shared 64 MiB byte budget and deadline checks between chunks and files. Recursive leaf deletion checks the deadline per entry, and `.lease` is removed last; tests cover timeout inside a deep tree, orphan leaves, setup continuation, and all release reason-code branches.
-- **M3:** the previous vacuous Rust fixture for `no_cookie_database_in_app_dirs` was deleted; meaningful OS-specific production acceptance is the matrix row above.
-- **M4:** bounded chunked audit and blocking IO are implemented and covered by the cleanup tests.
-- **M5:** websocket upgrades require the exact SPA `Origin`; a no-Origin negative test is present.
-- **M6:** bundled `rusqlite` is required for the read-only Cookies/WAL audit and avoids host SQLite drift in Windows release checks.
-- **M7:** fixture-only seams are behind debug/test configuration; the release build compiles without them and release cleanup decisions are exercised through injected normal-test functions.
-- `/meta` is cached per session and revalidated on reconnect or installation change. Tests assert the exact reconnect count, API-major rejection, jar reset, and refusal of the old WebSocket.
+Files: `apps/desktop/src-tauri/src/{profile_audit,windows_spa_profile,lib,spa_proxy}.rs` and `apps/desktop/scripts/check-release-seams.mjs`.
 
-Local: desktop Rust tests, focused `spa`/`spa_proxy`, native examples, format, locked Clippy and release build passed. The local Windows target check cannot run on macOS because the MSVC cross-compiler lacks Windows headers; the green Windows target checks above are authoritative.
-
+- Shared production reader: 64 KiB chunks, 64 MiB per pass, injected-clock tests between chunks/files, shared file byte limit and unreadable-file errors. Audit ≤5 s inside the 10 s exit deadline, with 1 s reserved for deletion. Real read-budget errors retain TIMEOUT and still delete.
+- Startup: invalid owned `Cookies` audit still deletes (Windows test); setup-error seam still returns success. Sweep cookie inspection now receives its 5 s deadline.
+- Production exit decision: OK/AUDIT/TIMEOUT/DELETE_FAILED all assert exit 0. Raw window-show errors now emit `SHELL_WINDOW_SHOW_FAILED`.
+- Jar reset: nonempty positive control, actual empty jar after installation/API conflict; positive WebSocket before API conflict. Mutation proofs: removing jar clearing or losing the read-timeout kind fails the corresponding test.
+- M7: CI scans debug/release executables; debug fixture marker must exist, release fixture config and guard switches must be absent.
+- Local macOS: UI 51/51; locked Clippy; debug/release executable scan PASS. Native first/restart and root lint/test/Rust PASS. Desktop Rust PASS. Initial stale RPC build and missing Chromium corrected; one root read-only SQLite busy-source test failed before the serial rerun. No Core/Hermes edits.
+- Local Windows target check unavailable: MSVC `assert.h` missing in `ring`; native Windows CI remains required. Guarded-SPA WebView2 compatibility remains an explicit gap.
+- The native `no_cookie_database_in_app_dirs` test remains in `production_spa`; no vacuous directory-only substitute. Bundled pinned SQLite supports the Windows WAL audit.
 
 ### WP6 gate
 
-WP6 remains paused until the owner merges WP5. After that merge, fetch the exact merge commit and merge it into `feat/desktop-shell-wp06-lifecycle` with a normal merge commit; do not rebase, amend or force-push.
+WP5 is owner-merged; Step 0 main→WP6 merge `56ba3fdd` is done. WP6 stays paused pending the owner merge of #78.
+
+- [ ] After #78 merges, merge main→WP6 normally and resume existing lifecycle work.
+- [ ] Restore the WP6 status portion preserved in stash `c032d566`; retain the new WP5 report.
+
+No rebase, amend, force-push or owner-PR merge.

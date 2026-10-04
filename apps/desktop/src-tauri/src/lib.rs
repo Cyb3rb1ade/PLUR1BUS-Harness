@@ -6,6 +6,8 @@ pub mod discovery;
 pub mod ids;
 pub mod pair;
 pub mod policy;
+#[cfg(any(windows, test))]
+mod profile_audit;
 pub mod secrets;
 pub mod settings;
 mod shell_commands;
@@ -48,6 +50,16 @@ impl ProfileExitGate {
     }
 }
 
+#[cfg(any(windows, test))]
+fn setup_after_profile_sweep<T>(
+    sweep: impl FnOnce() -> std::io::Result<T>,
+    observe: impl FnOnce(std::io::Result<T>),
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Startup must continue even when the bounded owned-only sweep fails.
+    observe(sweep());
+    Ok(())
+}
+
 /// Start the shell with the three settings and app-information commands.
 pub fn run() {
     #[cfg(windows)]
@@ -62,13 +74,14 @@ pub fn run() {
         .setup(|app| {
             #[cfg(windows)]
             {
-                match windows_spa_profile::sweep(app.handle()) {
+                setup_after_profile_sweep(|| windows_spa_profile::sweep(app.handle()), |result| match result {
                     Ok(sweep) => {
                         eprintln!(
-                            "SPA_PROFILE_STARTUP_SWEEP reason_code={} positive_profiles={} positive_rows={} skipped_unknown={} skipped_active={} timed_out={}",
+                            "SPA_PROFILE_STARTUP_SWEEP reason_code={} positive_profiles={} positive_rows={} audit_failed={} skipped_unknown={} skipped_active={} timed_out={}",
                             sweep.reason_code(),
                             sweep.positive_profiles,
                             sweep.positive_rows,
+                            sweep.audit_failed,
                             sweep.skipped_unknown,
                             sweep.skipped_active,
                             sweep.timed_out
@@ -83,11 +96,10 @@ pub fn run() {
                             error.kind()
                         );
                     }
-                }
+                })
             }
             #[cfg(not(windows))]
-            let _ = app;
-            Ok(())
+            { let _ = app; Ok(()) }
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
@@ -104,10 +116,9 @@ pub fn run() {
         .on_page_load(|webview, payload| {
             if webview.label() == "shell"
                 && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+                && webview.window().show().is_err()
             {
-                if let Err(error) = webview.window().show() {
-                    eprintln!("Could not show the shell window: {error}");
-                }
+                eprintln!("SHELL_WINDOW_SHOW_FAILED");
             }
         })
         .build(tauri::generate_context!())
@@ -142,7 +153,7 @@ pub fn run() {
                                     "SPA_PROFILE_SHUTDOWN reason_code={}",
                                     result.reason_code()
                                 );
-                                0
+                                windows_spa_profile::cleanup_exit_code(&result)
                             };
                             gate.authorize();
                             handle.exit(exit_code);
@@ -168,5 +179,30 @@ mod profile_exit_tests {
         assert_eq!(gate.request(), ProfileExitAction::Wait);
         gate.authorize();
         assert_eq!(gate.request(), ProfileExitAction::Exit);
+    }
+}
+
+#[cfg(test)]
+mod startup_tests {
+    #[test]
+    fn setup_finishes_after_sweep_error() {
+        let observed = std::cell::Cell::new(false);
+        let result = super::setup_after_profile_sweep(
+            || {
+                Err::<(), _>(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "injected deleter",
+                ))
+            },
+            |result| {
+                assert_eq!(
+                    result.unwrap_err().kind(),
+                    std::io::ErrorKind::PermissionDenied
+                );
+                observed.set(true);
+            },
+        );
+        assert!(result.is_ok());
+        assert!(observed.get());
     }
 }

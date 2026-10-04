@@ -153,6 +153,12 @@ jobs:
       - name: Unsigned online bundles
         run: pnpm tauri build --bundles "${{ matrix.bundles }}" -- --locked
         working-directory: apps/desktop
+      - name: Prove fixture switches absent from release executable
+        shell: bash
+        run: |
+          suffix=""
+          if [[ "${{ runner.os }}" == "Windows" ]]; then suffix=".exe"; fi
+          node apps/desktop/scripts/check-release-seams.mjs "apps/desktop/target/debug/plur1bus-desktop${suffix}" "apps/desktop/target/release/plur1bus-desktop${suffix}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: desktop-unsigned-${{ matrix.os }}-${{ matrix.cookie_guard }}
