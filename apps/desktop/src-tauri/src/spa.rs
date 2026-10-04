@@ -427,7 +427,10 @@ pub async fn open_spa(
             #[cfg(not(debug_assertions))]
             let _ = (&title_app, window, title);
         });
-    #[cfg(windows)]
+    // Production SPAs use the same Rust-jar-only cookie policy on every OS.
+    // Windows debug native acceptance deliberately omits it so the WebView2
+    // canary exercises the real profile behavior rather than the guard itself.
+    #[cfg(not(all(windows, debug_assertions)))]
     let builder =
         builder.initialization_script_for_all_frames(include_str!("windows_spa_cookie_policy.js"));
     #[cfg(windows)]

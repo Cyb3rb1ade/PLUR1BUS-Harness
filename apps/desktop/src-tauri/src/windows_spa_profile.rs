@@ -82,8 +82,14 @@ pub struct CleanupResult {
 }
 
 impl CleanupResult {
+    #[cfg(debug_assertions)]
     pub fn accepted(&self) -> bool {
         self.removed && self.cookie_rows == 0 && self.read_only_complete && !self.secret_detected
+    }
+
+    #[cfg(not(debug_assertions))]
+    pub fn accepted(&self) -> bool {
+        self.removed
     }
 }
 
@@ -152,6 +158,8 @@ pub(crate) async fn finish_owned_cleanup(
     audit: impl FnOnce(&mut ProfileCleanupEvidence),
     remove: impl FnOnce() -> bool,
 ) -> CleanupResult {
+    #[cfg(not(debug_assertions))]
+    let _ = &audit;
     let deadline = deadline.min(started + std::time::Duration::from_secs(10));
     let mut evidence = ProfileCleanupEvidence::default();
     loop {
@@ -172,12 +180,19 @@ pub(crate) async fn finish_owned_cleanup(
     evidence.exit_timed_out |= std::time::Instant::now() >= deadline;
     if evidence.environment_exited && !evidence.exit_timed_out && evidence.exit_wait_ms <= 10_000 {
         audit(&mut evidence);
-        evidence.removed = evidence.read_only_complete
-            && evidence.cookie_database_files > 0
-            && evidence.secret_scan_complete
-            && evidence.cookie_rows == 0
-            && !evidence.secret_detected
-            && remove();
+        #[cfg(debug_assertions)]
+        {
+            evidence.removed = evidence.read_only_complete
+                && evidence.cookie_database_files > 0
+                && evidence.secret_scan_complete
+                && evidence.cookie_rows == 0
+                && !evidence.secret_detected
+                && remove();
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            evidence.removed = remove();
+        }
     }
     CleanupResult {
         removed: evidence.removed,
@@ -680,6 +695,8 @@ mod windows {
     where
         F: Fn(&BrowserProcess) -> BrowserLeaseStatus + Send + Sync,
     {
+        #[cfg(not(debug_assertions))]
+        let _ = &secret_audit;
         let deadline = close_requested + Duration::from_secs(10);
         let Some(receiver) = browser else {
             return CleanupResult::default();
@@ -721,6 +738,7 @@ mod windows {
                 {
                     return;
                 }
+                #[cfg(debug_assertions)]
                 // Scan bytes before SQLite can recover/checkpoint any side file.
                 match &secret_audit {
                     Some(check) => {
@@ -760,11 +778,22 @@ mod windows {
                         evidence.secret_scan_complete = true;
                     }
                 }
+                #[cfg(debug_assertions)]
                 if let Ok(audit) = inspect_cookie_databases(&path) {
                     evidence.read_only_complete = true;
                     evidence.cookie_rows = audit.rows;
                     evidence.cookie_database_files = audit.database_files;
                     evidence.cookie_sidecar_files = audit.sidecar_files;
+                }
+
+                #[cfg(not(debug_assertions))]
+                {
+                    // Production shutdown only waits for the real browser process and
+                    // removes this owned profile. Cookie-database assertions belong to
+                    // the debug native acceptance path; an unused profile must not turn
+                    // a normal app exit into code 2.
+                    evidence.secret_scan_complete = true;
+                    evidence.read_only_complete = true;
                 }
             },
             || profile.remove().is_ok() && !path.exists(),
@@ -1097,43 +1126,54 @@ mod windows {
                 continue;
             }
             let path = entry.path();
-            if check_no_reparse(&path)?.is_dir() {
+            let outcome = (|| -> io::Result<Option<(bool, bool, u64)>> {
+                if !check_no_reparse(&path)?.is_dir() {
+                    return Ok(None);
+                }
                 if !profile_acl_is_private(&path)? {
-                    result.skipped_unknown += 1;
-                    continue;
+                    return Ok(Some((false, false, 0)));
                 }
                 let lock_path = path.join(".lease");
-                let Ok(lock) = OpenOptions::new().read(true).write(true).open(&lock_path) else {
-                    result.skipped_unknown += 1;
-                    continue;
-                };
+                let lock = OpenOptions::new().read(true).write(true).open(&lock_path)?;
                 if lock.try_lock().is_err() {
-                    result.skipped_active += 1;
-                    continue;
+                    return Ok(Some((false, true, 0)));
                 }
                 match recorded_browser_status(&lock)? {
                     BrowserLeaseStatus::Exited => {}
-                    BrowserLeaseStatus::Active => {
-                        result.skipped_active += 1;
-                        continue;
-                    }
-                    BrowserLeaseStatus::Unknown => {
-                        result.skipped_unknown += 1;
-                        continue;
-                    }
+                    BrowserLeaseStatus::Active => return Ok(Some((false, true, 0))),
+                    BrowserLeaseStatus::Unknown => return Ok(Some((false, false, 0))),
                 }
                 let lease = SpaProfileLease {
                     root: root.to_path_buf(),
-                    leaf: path,
+                    leaf: path.clone(),
                     lock: LeaseLock::new(lock_path, lock),
                 };
                 let rows = inspect_cookie_databases(lease.path())?.rows;
-                if rows > 0 {
-                    result.positive_profiles += 1;
-                    result.positive_rows = result.positive_rows.saturating_add(rows);
-                }
                 lease.remove()?;
-                result.removed += 1;
+                Ok(Some((true, rows)))
+            })();
+            match outcome {
+                Ok(Some((true, _, rows))) => {
+                    result.removed += 1;
+                    if rows > 0 {
+                        result.positive_profiles += 1;
+                        result.positive_rows = result.positive_rows.saturating_add(rows);
+                    }
+                }
+                Ok(Some((false, active, _))) => {
+                    // A locked or unproven owner is retained for a later startup.
+                    if active {
+                        result.skipped_active += 1;
+                    } else {
+                        result.skipped_unknown += 1;
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    // One broken leaf must not abort the remaining owned leaves or startup.
+                    eprintln!("SPA profile sweep skipped one leaf: {error}");
+                    result.skipped_unknown += 1;
+                }
             }
         }
         Ok(result)

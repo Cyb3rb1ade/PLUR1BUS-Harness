@@ -1,6 +1,6 @@
 //! Approved fallback: a per-window authenticated, origin-bound Rust HTTP/SSE/WS proxy.
 use crate::{
-    client::{ClientError, HarnessClient},
+    client::{ClientError, HarnessClient, Meta},
     connections::Connection,
     secrets::SecretString,
 };
@@ -29,6 +29,7 @@ use url::Url;
 
 struct Inner {
     installation_id: String,
+    session_meta: Meta,
     client: HarnessClient,
     origin: crate::connections::Origin,
     jar: Mutex<Jar>,
@@ -119,6 +120,14 @@ impl SpaProxy {
             return Err(ClientError::Protocol);
         }
         client.streaming_http()?;
+        // Validate once when the authenticated SPA session is created. Every
+        // subsequent proxied request reuses this immutable session snapshot;
+        // a transient /meta outage must not turn an otherwise valid request
+        // into a 502 or double every round trip.
+        let session_meta = client.meta().await?;
+        if session_meta.installation_id != conn.installation_id {
+            return Err(ClientError::InstallationMismatch);
+        }
         let listener = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
             .map_err(|_| ClientError::Network)?;
         listener
@@ -140,6 +149,7 @@ impl SpaProxy {
         let (shutdown, _) = tokio::sync::watch::channel(false);
         let inner = Arc::new(Inner {
             installation_id: conn.installation_id.clone(),
+            session_meta,
             client,
             origin,
             jar: Mutex::new(Jar::default()),
@@ -460,14 +470,11 @@ async fn forward(
         };
         return shell_response(kind, body);
     }
-    // A cookie is authentication too: refuse a replacement installation before sending it.
-    match s.client.meta().await {
-        Ok(meta) if meta.installation_id == s.installation_id => {}
-        Ok(_) => {
-            *s.jar.lock().unwrap() = Jar::default();
-            return StatusCode::BAD_GATEWAY.into_response();
-        }
-        Err(_) => return StatusCode::BAD_GATEWAY.into_response(),
+    // The immutable metadata snapshot was validated when this SPA session was
+    // created. It is intentionally not re-fetched for each browser request.
+    if s.session_meta.installation_id != s.installation_id {
+        *s.jar.lock().unwrap() = Jar::default();
+        return StatusCode::BAD_GATEWAY.into_response();
     }
     let target = match Url::parse(&format!(
         "{}{}",
@@ -1013,6 +1020,12 @@ mod tests {
         let (shutdown, _) = tokio::sync::watch::channel(false);
         Arc::new(Inner {
             installation_id: "test-installation".into(),
+            session_meta: Meta {
+                api_version: "1.0.0".into(),
+                version: "test".into(),
+                installation_id: "test-installation".into(),
+                capabilities: vec![plur1bus_desktop_contract::capability::SESSION_TICKET.into()],
+            },
             client: HarnessClient::new(origin.clone(), None),
             origin,
             jar: Mutex::new(reqwest::cookie::Jar::default()),

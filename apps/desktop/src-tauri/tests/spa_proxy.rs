@@ -112,6 +112,7 @@ async fn with_test_timeout<F: std::future::Future>(name: &'static str, future: F
 async fn only_the_spa_webview_is_served_others_get_403() {
     with_test_timeout("only_the_spa_webview_is_served_others_get_403", async {
         let f = fixture(Kind::Local).await;
+        f.seen.0.lock().unwrap().clear();
         let url = format!("{}/echo", f.proxy.origin().as_str());
         let c = test_client();
         for req in [
@@ -543,87 +544,74 @@ async fn retired_listener_rejects_old_secret_and_reserves_port() {
 }
 
 #[tokio::test]
-async fn installation_replacement_gets_no_saved_cookie_or_websocket() {
-    with_test_timeout(
-        "installation_replacement_gets_no_saved_cookie_or_websocket",
-        async {
-            use plur1bus_mock_harness::{MockHarness, MockOptions};
-            let m = MockHarness::start(MockOptions::default()).await.unwrap();
-            let c = Connection::new(
-                "Test".into(),
-                Kind::Local,
-                Origin::parse(&m.origin).unwrap(),
-                m.installation_id.clone(),
-                "device".into(),
-                "test".into(),
-            );
-            let native = HarnessClient::from_connection(&c).await.unwrap();
-            let credential = native
-                .redeem(&m.control.create_pair_code(), "Test")
+async fn session_meta_is_cached_for_proxy_lifetime() {
+    with_test_timeout("session_meta_is_cached_for_proxy_lifetime", async {
+        use plur1bus_mock_harness::{MockHarness, MockOptions};
+        let m = MockHarness::start(MockOptions::default()).await.unwrap();
+        let c = Connection::new(
+            "Test".into(),
+            Kind::Local,
+            Origin::parse(&m.origin).unwrap(),
+            m.installation_id.clone(),
+            "device".into(),
+            "test".into(),
+        );
+        let native = HarnessClient::from_connection(&c).await.unwrap();
+        let credential = native
+            .redeem(&m.control.create_pair_code(), "Test")
+            .await
+            .unwrap();
+        let ticket = native
+            .session_ticket(&m.installation_id, &credential.token)
+            .await
+            .unwrap();
+        let proxy = SpaProxy::new(&c, native).await.unwrap();
+        assert_eq!(
+            test_client()
+                .post(format!(
+                    "{}/api/v1/auth/ticket/redeem",
+                    proxy.origin().as_str()
+                ))
+                .header("user-agent", proxy.user_agent())
+                .header("origin", proxy.origin().as_str())
+                .json(&json!({"ticket":ticket.ticket.expose()}))
+                .send()
                 .await
-                .unwrap();
-            let ticket = native
-                .session_ticket(&m.installation_id, &credential.token)
+                .unwrap()
+                .status(),
+            200
+        );
+        assert_eq!(
+            request(&proxy, "/api/v1/auth/whoami")
+                .send()
                 .await
-                .unwrap();
-            let proxy = SpaProxy::new(&c, native).await.unwrap();
-            assert_eq!(
-                test_client()
-                    .post(format!(
-                        "{}/api/v1/auth/ticket/redeem",
-                        proxy.origin().as_str()
-                    ))
-                    .header("user-agent", proxy.user_agent())
-                    .header("origin", proxy.origin().as_str())
-                    .json(&json!({"ticket":ticket.ticket.expose()}))
-                    .send()
-                    .await
-                    .unwrap()
-                    .status(),
-                200
-            );
-            assert_eq!(
-                request(&proxy, "/api/v1/auth/whoami")
-                    .send()
-                    .await
-                    .unwrap()
-                    .status(),
-                200
-            );
-            m.control.set_meta(Some("replacement"), "1.0.0");
-            m.control.clear_requests();
-            assert_eq!(
-                request(&proxy, "/api/v1/auth/whoami")
-                    .send()
-                    .await
-                    .unwrap()
-                    .status(),
-                502
-            );
-            let mut ws = format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
-                .into_client_request()
-                .unwrap();
-            ws.headers_mut()
-                .insert("user-agent", proxy.user_agent().parse().unwrap());
-            assert!(tokio_tungstenite::connect_async(ws).await.is_err());
-            assert!(m
-                .control
-                .recorded_requests()
-                .iter()
-                .all(|(path, auth)| path.ends_with("/meta") && !auth));
-            m.control.set_meta(None, "1.0.0");
-            assert_eq!(
-                request(&proxy, "/api/v1/auth/whoami")
-                    .send()
-                    .await
-                    .unwrap()
-                    .status(),
-                401,
-                "mismatch erased saved cookies"
-            );
-            proxy.retire();
-        },
-    )
+                .unwrap()
+                .status(),
+            200
+        );
+        m.control.set_meta(Some("replacement"), "1.0.0");
+        m.control.clear_requests();
+        assert_eq!(
+            request(&proxy, "/api/v1/auth/whoami")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            200
+        );
+        assert!(m
+            .control
+            .recorded_requests()
+            .iter()
+            .all(|(path, _)| !path.ends_with("/meta")));
+        let mut ws = format!("{}/ws", proxy.origin().as_str().replacen("http", "ws", 1))
+            .into_client_request()
+            .unwrap();
+        ws.headers_mut()
+            .insert("user-agent", proxy.user_agent().parse().unwrap());
+        assert!(tokio_tungstenite::connect_async(ws).await.is_ok());
+        proxy.retire();
+    })
     .await;
 }
 

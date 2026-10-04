@@ -62,12 +62,23 @@ pub fn run() {
         .setup(|app| {
             #[cfg(windows)]
             {
-                let sweep = windows_spa_profile::sweep(app.handle())?;
-                if !sweep.complete() {
-                    eprintln!(
-                        "SPA profile startup sweep incomplete: positive_profiles={} positive_rows={} skipped_unknown={}",
-                        sweep.positive_profiles, sweep.positive_rows, sweep.skipped_unknown
-                    );
+                match windows_spa_profile::sweep(app.handle()) {
+                    Ok(sweep) if !sweep.complete() => {
+                        eprintln!(
+                            "SPA profile startup sweep incomplete: positive_profiles={} positive_rows={} skipped_unknown={} skipped_active={}",
+                            sweep.positive_profiles,
+                            sweep.positive_rows,
+                            sweep.skipped_unknown,
+                            sweep.skipped_active
+                        );
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        // A stale, sharing-locked or otherwise damaged leaf must never
+                        // prevent the shell from starting. The next startup gets another
+                        // bounded, owned-only chance to clean it up.
+                        eprintln!("SPA profile startup sweep skipped: {error}");
+                    }
                 }
             }
             #[cfg(not(windows))]

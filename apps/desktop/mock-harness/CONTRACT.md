@@ -141,8 +141,11 @@ Production clients have no public accept-invalid-certificate option. Ambient
 proxies, redirects and cookie storage are disabled; ordinary HTTP bodies are
 bounded to 65536 bytes and requests to ten seconds.
 
-Every authenticated route first rechecks meta, supported API major, capability
-and installation identity. A new pairing immediately pulls trust, persists both
+The proxy fetches `/api/v1/meta` once while creating each SPA session and
+validates the supported API major, capability and installation identity before
+serving browser traffic. The immutable session snapshot is reused for the
+session lifetime, so a transient later `/meta` outage cannot turn every browser
+request into a 502. A new SPA session repeats the full validation. A new pairing immediately pulls trust, persists both
 current and next pins, then acknowledges; every open repeats that sequence.
 After the server switches, a response's current trust must match the locally
 stored current or previously authenticated next trust. Only then is next promoted.
