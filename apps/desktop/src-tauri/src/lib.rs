@@ -2,8 +2,10 @@
 pub mod client;
 pub mod commands;
 pub mod connections;
+pub mod crash;
 pub mod discovery;
 pub mod ids;
+pub mod logging;
 pub mod pair;
 pub mod policy;
 pub mod secrets;
