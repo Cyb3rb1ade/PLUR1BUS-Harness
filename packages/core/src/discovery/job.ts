@@ -16,10 +16,18 @@ export const MODELS_SCAN_JOB_SPEC: SystemJobSpec = {
 
 export function createModelsScanJob(
   svc: DiscoveryService,
-  _settings: () => ScanSettings,
+  settings: () => ScanSettings,
 ): SystemJobHandler {
   return {
-    spec: MODELS_SCAN_JOB_SPEC,
+    get spec(): SystemJobSpec {
+      return {
+        ...MODELS_SCAN_JOB_SPEC,
+        schedule: {
+          every: settings().intervalHours * 3_600_000,
+          jitter: 0.1,
+        },
+      };
+    },
 
     nextRunAt(): number | null {
       return svc.nextRunAt();
@@ -70,6 +78,14 @@ export function createModelsScanJob(
         },
         provider,
       );
+
+      if (ctx.signal.aborted || (results.length > 0 && results.every((r) => r.error?.reason === "aborted"))) {
+        return {
+          outcome: "abandoned",
+          reason: "aborted",
+          detail: results,
+        };
+      }
 
       const anyFailed = results.some((r) => r.result.startsWith("failed:"));
       if (anyFailed) {

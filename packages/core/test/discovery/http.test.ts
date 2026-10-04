@@ -72,7 +72,7 @@ describe("pinned client", () => {
   it("accepts a gzip body under the cap", async () => {
     const f = await fake(() => ({ body: gzipSync(Buffer.from(JSON.stringify({ a: 1 }))), headers: { "Content-Type": "application/json", "Content-Encoding": "gzip" } }));
     assert.deepEqual(await client(f).get({ path: "/models" }), { a: 1 });
-    assert.equal(f.requests[0]!.headers["accept-encoding"], "gzip");
+    assert.equal(f.requests[0]!.headers["accept-encoding"], "gzip, deflate, br");
   });
 
   it("refuses more than 8 MiB over all pages and an 11th page", async () => {
@@ -198,4 +198,73 @@ describe("pinned client", () => {
     const e = await refused(client(f).get({ path: "/m" }), "failed:server", "http_500");
     assert.ok(!JSON.stringify({ m: e.message, r: e.reason }).includes("CANARY-KEY-1"));
   });
+
+  it("refuses same-origin redirect with userinfo (Security M1)", async () => {
+    const f = await fake((req) => {
+      if (req.url === "/v1/redir") {
+        return { status: 302, headers: { Location: `${f.origin.replace("://", "://user:pass@")}/v1/target` } };
+      }
+      return { json: { ok: true } };
+    });
+    await refused(client(f).get({ path: "/redir" }), "failed:invalid", "bad_redirect");
+  });
+
+  it("accepts deflate and br, rejects bombs and unknown encoding (Security M8)", async () => {
+    const payload = JSON.stringify({ ok: true, data: "hello" });
+    const { deflateSync, brotliCompressSync } = await import("node:zlib");
+    // deflate ok
+    const fDeflate = await fake(() => ({
+      headers: { "Content-Type": "application/json", "Content-Encoding": "deflate" },
+      body: deflateSync(Buffer.from(payload)),
+    }));
+    const rDeflate = await client(fDeflate).get({ path: "/m" });
+    assert.deepEqual(rDeflate, { ok: true, data: "hello" });
+
+    // br ok
+    const fBr = await fake(() => ({
+      headers: { "Content-Type": "application/json", "Content-Encoding": "br" },
+      body: brotliCompressSync(Buffer.from(payload)),
+    }));
+    const rBr = await client(fBr).get({ path: "/m" });
+    assert.deepEqual(rBr, { ok: true, data: "hello" });
+
+    // deflate bomb (> 4 MiB)
+    const bigBuf = Buffer.alloc(LIMITS.maxBodyBytes + 1024, 0x61);
+    const fDeflateBomb = await fake(() => ({
+      headers: { "Content-Type": "application/json", "Content-Encoding": "deflate" },
+      body: deflateSync(bigBuf),
+    }));
+    await refused(client(fDeflateBomb).get({ path: "/m" }), "failed:invalid", "response_too_large");
+
+    // br bomb (> 4 MiB)
+    const fBrBomb = await fake(() => ({
+      headers: { "Content-Type": "application/json", "Content-Encoding": "br" },
+      body: brotliCompressSync(bigBuf),
+    }));
+    await refused(client(fBrBomb).get({ path: "/m" }), "failed:invalid", "response_too_large");
+
+    // unknown encoding
+    const fUnknown = await fake(() => ({
+      headers: { "Content-Type": "application/json", "Content-Encoding": "zstd" },
+      body: Buffer.from("data"),
+    }));
+    await refused(client(fUnknown).get({ path: "/m" }), "failed:invalid", "content_encoding");
+  });
+
+  it("localhost with credential verifies all resolved addresses are loopback (Security M5)", async () => {
+    const f = await fake(() => ({ json: { ok: true } }));
+    // Custom lookup returning a non-loopback IP for localhost
+    const badLookup = (_hostname: string, _options: any, callback: any) => {
+      const cb = typeof _options === "function" ? _options : callback;
+      cb(null, [{ address: "198.51.100.1", family: 4 }]);
+    };
+    const c = createPinnedClient({
+      baseUrl: `http://localhost:${f.port}/v1`,
+      lease: lease(`http://localhost:${f.port}`),
+      userAgent: UA,
+      lookup: badLookup as any,
+    });
+    await refused(c.get({ path: "/m" }), "failed:invalid", "insecure_transport");
+  });
 });
+

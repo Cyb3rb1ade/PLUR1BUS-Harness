@@ -16,7 +16,7 @@ import type { Clock, CredentialLease, CredentialResolver, DiscoveryEvents, Profi
 import { CredentialUnavailableError } from "./ports.ts";
 import type { CatalogStore } from "./catalog-store.ts";
 import type { CompiledTable } from "./metadata.ts";
-import { createPinnedClient, ScanError } from "./http.ts";
+import { createPinnedClient, parseBaseUrl, ScanError } from "./http.ts";
 import { SCANNERS } from "./scanners/index.ts";
 import { reconcile } from "./reconcile.ts";
 import { applyOverride, CatalogError, removeManualEntry, type SetOverride } from "./overrides.ts";
@@ -49,6 +49,7 @@ export interface DiscoveryServiceDeps {
   runId?: () => string;
   userAgent?: string;
   maxParallel?: number;
+  onScanned?: (provider: string) => void;
 }
 
 export interface ScanRequest {
@@ -196,13 +197,23 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
 
       const prevConsecutive = r.trigger === "manual" ? 0 : (existingSt?.consecutiveFailures ?? 0);
 
+      let base: URL;
+      try {
+        base = parseBaseUrl(profile.baseUrl);
+      } catch {
+        throw new ScanError("failed:invalid", "invalid_base_url");
+      }
+
+      if (r.signal?.aborted) {
+        throw new ScanError("failed:network", "aborted");
+      }
+
       let lease: CredentialLease | null = null;
       try {
-        const origin = new URL(profile.baseUrl).origin;
-        lease = await deps.credentials.resolve(profile.id, origin);
+        lease = await deps.credentials.resolve(profile.id, base.origin);
       } catch (err: unknown) {
         if (err instanceof CredentialUnavailableError) {
-          throw new ScanError("failed:auth", err.reason, { httpStatus: 401 });
+          throw new ScanError("failed:auth", err.reason);
         }
         throw err;
       }
@@ -220,23 +231,24 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         throw new ScanError("failed:empty" as unknown as ScanError["result"], "empty_list");
       }
 
-      const rec = reconcile({
-        catalog: deps.store.read(),
-        provider,
-        raw: output.entries,
-        now: nowIso,
-        table: deps.table,
-        roles: deps.roles(),
-        ...(profile.vendor !== undefined ? { vendor: profile.vendor } : {}),
-      });
-
       const nextScanAtMs = nextRegularAt(nowMs, settings.intervalHours, deps.rng);
       const nextScanAtIso = new Date(nextScanAtMs).toISOString();
 
+      let rec!: ReturnType<typeof reconcile>;
       try {
         await deps.store.mutate((c) => {
+          rec = reconcile({
+            catalog: c,
+            provider,
+            raw: output.entries,
+            now: nowIso,
+            table: deps.table,
+            roles: deps.roles(),
+            ...(profile.vendor !== undefined ? { vendor: profile.vendor } : {}),
+          });
+
           const updatedState: ProviderScanState = {
-            ...c.providers[provider],
+            ...rec.catalog.providers[provider],
             lastScanAt: nowIso,
             lastResult: "ok",
             nextScanAt: nextScanAtIso,
@@ -244,7 +256,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
           delete updatedState.consecutiveFailures;
 
           const nextProviders: Record<string, ProviderScanState> = {
-            ...c.providers,
+            ...rec.catalog.providers,
             [provider]: updatedState,
           };
           return {
@@ -257,74 +269,68 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         });
       } catch (writeErr) {
         deps.logger.warn("failed to persist catalog after scan", { error: String(writeErr) });
-        return {
+        throw new ScanError("failed:server", "store_write_failed");
+      }
+
+      try {
+        const discoveredCount = rec.new.length + rec.reappeared.length;
+        if (discoveredCount > 0) {
+          deps.events.discovered({
+            provider,
+            count: discoveredCount,
+            models: rec.new.slice(0, 20),
+            reappeared: rec.reappeared.slice(0, 20),
+            truncated: rec.new.length > 20 || rec.reappeared.length > 20,
+            traceId,
+          });
+        }
+
+        if (rec.unavailable.length > 0) {
+          const affectedRoles = rec.warnings
+            .filter((w) => w.code === "role_unavailable")
+            .map((w) => (w as { role: string }).role);
+          deps.events.unavailable({
+            provider,
+            count: rec.unavailable.length,
+            models: rec.unavailable.slice(0, 20),
+            roles: affectedRoles,
+            truncated: rec.unavailable.length > 20,
+            traceId,
+          });
+        }
+
+        deps.events.scanCompleted({
           provider,
           result: "ok",
-          new: rec.new,
-          reappeared: rec.reappeared,
-          unavailable: rec.unavailable,
-          unchanged: rec.unchanged,
-          duplicates: output.duplicates,
-          warnings: rec.warnings,
-          nextScanAt: new Date(nowMs + 300_000).toISOString(),
-        };
-      }
-
-      const discoveredCount = rec.new.length + rec.reappeared.length;
-      if (discoveredCount > 0) {
-        deps.events.discovered({
-          provider,
-          count: discoveredCount,
-          models: rec.new.slice(0, 20),
-          reappeared: rec.reappeared.slice(0, 20),
-          truncated: rec.new.length > 20 || rec.reappeared.length > 20,
+          durationMs: deps.clock.now() - startMs,
+          counts: {
+            new: rec.new.length,
+            reappeared: rec.reappeared.length,
+            unavailable: rec.unavailable.length,
+            unchanged: rec.unchanged,
+            duplicates: output.duplicates,
+          },
           traceId,
         });
-      }
 
-      if (rec.unavailable.length > 0) {
-        const affectedRoles = rec.warnings
-          .filter((w) => w.code === "role_unavailable")
-          .map((w) => (w as { role: string }).role);
-        deps.events.unavailable({
-          provider,
-          count: rec.unavailable.length,
-          models: rec.unavailable.slice(0, 20),
-          roles: affectedRoles,
-          truncated: rec.unavailable.length > 20,
-          traceId,
-        });
-      }
-
-      deps.events.scanCompleted({
-        provider,
-        result: "ok",
-        durationMs: deps.clock.now() - startMs,
-        counts: {
-          new: rec.new.length,
-          reappeared: rec.reappeared.length,
-          unavailable: rec.unavailable.length,
-          unchanged: rec.unchanged,
-          duplicates: output.duplicates,
-        },
-        traceId,
-      });
-
-      if (rec.new.length > 0 || rec.reappeared.length > 0 || rec.unavailable.length > 0) {
-        const changeEvent: ModelsChanged = {
-          provider,
-          discovered: rec.new,
-          reappeared: rec.reappeared,
-          unavailable: rec.unavailable,
-          at: nowIso,
-        };
-        for (const listener of changeListeners) {
-          try {
-            listener(changeEvent);
-          } catch {
-            /* ignore */
+        if (rec.new.length > 0 || rec.reappeared.length > 0 || rec.unavailable.length > 0) {
+          const changeEvent: ModelsChanged = {
+            provider,
+            discovered: rec.new,
+            reappeared: rec.reappeared,
+            unavailable: rec.unavailable,
+            at: nowIso,
+          };
+          for (const listener of changeListeners) {
+            try {
+              listener(changeEvent);
+            } catch {
+              /* ignore */
+            }
           }
         }
+      } catch (evtErr) {
+        deps.logger.warn("error emitting scan events", { error: String(evtErr) });
       }
 
       return {
@@ -342,7 +348,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
       let scanResult: ScanResultCode = "failed:network";
       let httpStatus: number | undefined;
       let retryAfterMs: number | undefined;
-      let reason = "unknown";
+      let reason = "internal_error";
       let retryable = false;
       let hint = "";
       let scanCode: ScanErrorInfo["code"] = "network";
@@ -356,7 +362,29 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         scanResult = "failed:empty";
         reason = "empty_list";
       } else {
-        reason = err instanceof Error ? err.message : String(err);
+        scanResult = "failed:server";
+        reason = "internal_error";
+        deps.logger.debug("unexpected scan error", { provider, reason: "internal_error" });
+      }
+
+      if (reason === "aborted" || r.signal?.aborted) {
+        return {
+          provider,
+          result: "failed:network",
+          new: [],
+          reappeared: [],
+          unavailable: [],
+          unchanged: 0,
+          duplicates: 0,
+          warnings: [],
+          nextScanAt: existingSt?.nextScanAt ?? new Date(deps.clock.now() + 300_000).toISOString(),
+          error: {
+            code: "network",
+            reason: "aborted",
+            retryable: false,
+            hint: "aborted",
+          },
+        };
       }
 
       if (scanResult === "failed:auth") {
@@ -373,7 +401,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         hint = "empty list";
       } else if (scanResult === "failed:server") {
         scanCode = reason === "rate_limited" ? "rate-limited" : "server";
-        retryable = true;
+        retryable = reason !== "store_write_failed" && reason !== "internal_error";
         hint = reason;
       } else {
         scanCode = reason.includes("timeout") ? "timeout" : "network";
@@ -467,6 +495,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
       };
     } finally {
       inFlight.delete(provider);
+      deps.onScanned?.(provider);
     }
   }
 

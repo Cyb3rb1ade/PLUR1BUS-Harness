@@ -23,7 +23,7 @@ const SOURCES = ["scan", "table", "manual"];
 const RESULTS = ["ok", "failed:auth", "failed:network", "failed:server", "failed:invalid", "failed:empty"];
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === "string";
-const isPosInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0;
+const isPosInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0;
 
 function checkApi(v: unknown, where: string, errors: string[]): void {
   if (!isObj(v)) { errors.push(`${where} must be an object`); return; }
@@ -39,7 +39,7 @@ export function validateCatalog(raw: unknown): { ok: true; file: CatalogFile } |
   const errors: string[] = [];
   if (!isObj(raw)) return { ok: false, errors: ["catalog must be an object"] };
   if (raw.schema !== "plur1bus.model-catalog/1") errors.push("schema must be plur1bus.model-catalog/1");
-  if (!(typeof raw.revision === "number" && Number.isInteger(raw.revision) && raw.revision >= 0)) errors.push("revision must be a non-negative integer");
+  if (!(typeof raw.revision === "number" && Number.isSafeInteger(raw.revision) && raw.revision >= 0)) errors.push("revision must be a non-negative integer");
   if (!isStr(raw.tableRevision)) errors.push("tableRevision must be a string");
   if (raw.acknowledgedAt !== undefined && !isStr(raw.acknowledgedAt)) errors.push("acknowledgedAt must be a string");
   if (!isObj(raw.providers)) errors.push("providers must be an object");
@@ -48,7 +48,7 @@ export function validateCatalog(raw: unknown): { ok: true; file: CatalogFile } |
       if (!isObj(st)) { errors.push(`providers.${id} must be an object`); continue; }
       for (const k of ["lastScanAt", "nextScanAt"]) if (st[k] !== undefined && !isStr(st[k])) errors.push(`providers.${id}.${k} must be a string`);
       if (st.lastResult !== undefined && !RESULTS.includes(st.lastResult as string)) errors.push(`providers.${id}.lastResult is not a result code`);
-      if (st.consecutiveFailures !== undefined && !(typeof st.consecutiveFailures === "number" && Number.isInteger(st.consecutiveFailures) && st.consecutiveFailures >= 0)) errors.push(`providers.${id}.consecutiveFailures must be a non-negative integer`);
+      if (st.consecutiveFailures !== undefined && !(typeof st.consecutiveFailures === "number" && Number.isSafeInteger(st.consecutiveFailures) && st.consecutiveFailures >= 0)) errors.push(`providers.${id}.consecutiveFailures must be a non-negative integer`);
     }
   }
   if (!Array.isArray(raw.models)) errors.push("models must be an array");
@@ -150,10 +150,16 @@ export function createCatalogStore(o: CatalogStoreOptions): CatalogStore {
     const tmp = `${o.path}.tmp-${process.pid}`;
     try {
       writeFileSynced(tmp, `${JSON.stringify(next, null, 2)}\n`);
-      o.securePath(tmp);
+      const secTmp = o.securePath(tmp) as { applied?: boolean } | void;
+      if (secTmp && secTmp.applied === false) {
+        throw new CatalogWriteError("securePath failed to apply permissions to temp catalog");
+      }
       if (previous.revision > 0) {
         writeFileSynced(prevPath, `${JSON.stringify(previous, null, 2)}\n`);
-        o.securePath(prevPath);
+        const secPrev = o.securePath(prevPath) as { applied?: boolean } | void;
+        if (secPrev && secPrev.applied === false) {
+          throw new CatalogWriteError("securePath failed to apply permissions to previous catalog");
+        }
       }
     } catch (e) {
       try { unlinkSync(tmp); } catch { /* best effort */ }

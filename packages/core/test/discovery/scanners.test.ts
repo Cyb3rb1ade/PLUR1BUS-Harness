@@ -163,13 +163,17 @@ describe("scanners", () => {
   });
 
   it("more than 10 pages fails", async () => {
-    const f = await fake(() => ({
-      json: {
-        data: [{ id: "m" }],
-        has_more: true,
-        last_id: "m",
-      },
-    }));
+    let page = 0;
+    const f = await fake(() => {
+      page++;
+      return {
+        json: {
+          data: [{ id: `m${page}` }],
+          has_more: true,
+          last_id: `cursor-${page}`,
+        },
+      };
+    });
     const profile: ProfileInfo = { id: "anthropic-test", discovery: "anthropic-models", baseUrl: f.origin };
     const client = createPinnedClient({ baseUrl: f.origin, lease: null, userAgent: "plur1bus/0.1.0" });
     await assert.rejects(

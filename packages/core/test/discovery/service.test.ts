@@ -82,6 +82,8 @@ function setup(opts: {
     events,
     loggerLines,
     service,
+    rng,
+    log,
     setEnabled: (v: boolean) => { enabled = v; },
     setIntervalHours: (v: number) => { intervalHours = v; },
     setRoles: (r: Record<string, string>) => { currentRoles = r; },
@@ -118,7 +120,7 @@ describe("discovery service", () => {
     assert.ok(Math.abs(nextMs - expectedMs) <= 0.1 * 24 * 3600_000);
   });
 
-  it("a mid-pagination failure reconciles nothing", async () => {
+  it("a mid-pagination failure reconciles nothing (Surface F6)", async () => {
     let page = 0;
     const f = await fake(() => {
       page++;
@@ -130,29 +132,52 @@ describe("discovery service", () => {
       credentials: { p: { origin: f.origin, headerName: "authorization", headerValue: "Bearer K" } },
     });
 
-    const beforeJson = JSON.stringify(s.store.read());
+    await s.store.mutate((c) => ({
+      next: {
+        ...c,
+        models: [
+          { provider: "seeded", id: "m-seed-1", displayName: "Seed 1", kind: "chat", capabilities: [], aliases: [], status: "available", firstSeen: "2026-01-01T00:00:00.000Z", lastSeen: "2026-01-01T00:00:00.000Z", source: "manual", overrides: {} },
+          { provider: "seeded", id: "m-seed-2", displayName: "Seed 2", kind: "chat", capabilities: [], aliases: [], status: "available", firstSeen: "2026-01-01T00:00:00.000Z", lastSeen: "2026-01-01T00:00:00.000Z", source: "manual", overrides: {} },
+        ],
+      },
+      result: null,
+    }));
+    const modelsBefore = JSON.stringify(s.store.read().models);
+
     const res = await s.service.scanProvider("p", { trigger: "cron" });
     assert.equal(res.result, "failed:server");
 
     const cat = s.store.read();
-    assert.equal(cat.models.length, 0);
+    assert.equal(JSON.stringify(cat.models), modelsBefore);
     assert.equal(cat.providers.p?.lastResult, "failed:server");
     assert.ok(cat.providers.p?.nextScanAt);
     assert.equal(s.events.log.some((e) => e.name === "discovered"), false);
   });
 
-  it("an empty list is failed:empty and changes no entry", async () => {
+  it("an empty list is failed:empty and changes no entry (Surface F6)", async () => {
     const f = await fake(() => ({ json: { data: [] } }));
     const s = setup({
       profiles: [{ id: "p", discovery: "openai-models", baseUrl: `${f.origin}/v1` }],
       credentials: { p: null },
     });
 
+    await s.store.mutate((c) => ({
+      next: {
+        ...c,
+        models: [
+          { provider: "seeded", id: "m-seed-1", displayName: "Seed 1", kind: "chat", capabilities: [], aliases: [], status: "available", firstSeen: "2026-01-01T00:00:00.000Z", lastSeen: "2026-01-01T00:00:00.000Z", source: "manual", overrides: {} },
+        ],
+      },
+      result: null,
+    }));
+    const modelsBefore = JSON.stringify(s.store.read().models);
+
     const res = await s.service.scanProvider("p", { trigger: "cron" });
     assert.equal(res.result, "failed:empty");
     assert.equal(res.error?.reason, "empty_list");
 
     const cat = s.store.read();
+    assert.equal(JSON.stringify(cat.models), modelsBefore);
     assert.equal(cat.providers.p?.lastScanAt, undefined);
     assert.equal(cat.providers.p?.lastResult, "failed:empty");
     assert.ok(s.events.log.some((e) => e.name === "failed"));
@@ -368,5 +393,128 @@ describe("discovery service", () => {
     checkNoCanary(JSON.stringify(s.events.log));
     checkNoCanary(JSON.stringify(s.loggerLines));
     checkNoCanary(readFileSync(s.path, "utf8"));
+  });
+
+  it("resolver error with canary is redacted to internal_error (Security I1)", async () => {
+    const CANARY = "CANARY-RESOLVER-LEAK-SECRET";
+    const f = await fake(() => ({ json: { data: [{ id: "m1" }] } }));
+    const s = setup({
+      profiles: [{ id: "p", discovery: "openai-models", baseUrl: `${f.origin}/v1` }],
+    });
+    // Override credential resolver to throw an unexpected foreign error with a secret
+    (s.service as any);
+    const customCreds = {
+      resolve: async () => { throw new Error(`auth failure with token ${CANARY}`); },
+    };
+    const svc = createDiscoveryService({
+      store: (s as any).store,
+      profiles: (s as any).profileSource,
+      credentials: customCreds as any,
+      events: (s as any).events,
+      clock: (s as any).clock,
+      rng: (s as any).rng,
+      table,
+      roles: () => ({}),
+      settings: () => ({ enabled: true, intervalHours: 24 }),
+      logger: (s as any).log,
+    });
+
+    const res = await svc.scanProvider("p", { trigger: "cron" });
+    assert.equal(res.result, "failed:server");
+    assert.equal(res.error?.reason, "internal_error");
+    assert.ok(!JSON.stringify(res).includes(CANARY), "canary leaked into scan result");
+    assert.ok(!JSON.stringify(s.events.log).includes(CANARY), "canary leaked into events");
+    assert.ok(!JSON.stringify(s.loggerLines).includes(CANARY), "canary leaked into logs");
+  });
+
+  it("validates baseUrl before resolving credentials and maps malformed to failed:invalid (Security I2)", async () => {
+    let resolverCalled = false;
+    const customCreds = {
+      resolve: async () => { resolverCalled = true; return null; },
+    };
+    const s = setup();
+    const svc = createDiscoveryService({
+      store: (s as any).store,
+      profiles: new InMemoryProfileSource([
+        { id: "p-bad", discovery: "openai-models", baseUrl: "not-a-valid-url" },
+        { id: "p-query", discovery: "openai-models", baseUrl: "https://example.com/v1?token=123" },
+      ]),
+      credentials: customCreds as any,
+      events: (s as any).events,
+      clock: (s as any).clock,
+      rng: (s as any).rng,
+      table,
+      roles: () => ({}),
+      settings: () => ({ enabled: true, intervalHours: 24 }),
+      logger: (s as any).log,
+    });
+
+    const res1 = await svc.scanProvider("p-bad", { trigger: "cron" });
+    assert.equal(res1.result, "failed:invalid");
+    assert.equal(res1.error?.reason, "invalid_base_url");
+    assert.equal(resolverCalled, false, "resolver must not be called when baseUrl is invalid");
+
+    const res2 = await svc.scanProvider("p-query", { trigger: "cron" });
+    assert.equal(res2.result, "failed:invalid");
+    assert.equal(res2.error?.reason, "invalid_base_url");
+    assert.equal(resolverCalled, false, "resolver must not be called when baseUrl has query");
+  });
+
+  it("concurrent scans in same tick do not lose models (State I1)", async () => {
+    const f1 = await fake(() => ({ json: { data: [{ id: "m-p1" }] } }));
+    const f2 = await fake(() => ({ json: { data: [{ id: "m-p2" }] } }));
+    const s = setup({
+      profiles: [
+        { id: "p1", discovery: "openai-models", baseUrl: `${f1.origin}/v1` },
+        { id: "p2", discovery: "openai-models", baseUrl: `${f2.origin}/v1` },
+      ],
+      credentials: { p1: null, p2: null },
+    });
+
+    await Promise.all([
+      s.service.scanProvider("p1", { trigger: "manual" }),
+      s.service.scanProvider("p2", { trigger: "manual" }),
+    ]);
+
+    const cat = s.store.read();
+    const p1Model = cat.models.find((m) => m.provider === "p1" && m.id === "m-p1");
+    const p2Model = cat.models.find((m) => m.provider === "p2" && m.id === "m-p2");
+    assert.ok(p1Model, "p1 model must not be lost");
+    assert.ok(p2Model, "p2 model must not be lost");
+  });
+
+  it("scan aborted by signal does not advance backoff, change nextScanAt, or emit scanFailed (State I8 / Security M3)", async () => {
+    const f = await fake(() => ({ stall: true }));
+    const s = setup({
+      profiles: [{ id: "p", discovery: "openai-models", baseUrl: `${f.origin}/v1` }],
+      credentials: { p: null },
+    });
+
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 10);
+
+    const res = await s.service.scanProvider("p", { trigger: "cron", signal: ac.signal });
+    assert.equal(res.result, "failed:network");
+    assert.equal(res.error?.reason, "aborted");
+
+    const cat = s.store.read();
+    assert.equal(cat.providers.p?.consecutiveFailures, undefined);
+    assert.equal(cat.providers.p?.lastResult, undefined);
+    assert.equal(s.events.log.some((e) => e.name === "failed"), false, "must not emit scanFailed event on abort");
+  });
+
+  it("store write failure returns failed:server and store_write_failed (State M4)", async () => {
+    const f = await fake(() => ({ json: { data: [{ id: "m1" }] } }));
+    const s = setup({
+      profiles: [{ id: "p", discovery: "openai-models", baseUrl: `${f.origin}/v1` }],
+      credentials: { p: null },
+      hooks: {
+        beforeRename: () => { throw new Error("simulated disk full"); },
+      },
+    });
+
+    const res = await s.service.scanProvider("p", { trigger: "cron" });
+    assert.equal(res.result, "failed:server");
+    assert.equal(res.error?.reason, "store_write_failed");
   });
 });

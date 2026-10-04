@@ -45,7 +45,9 @@ export const scanAnthropic: Scanner = async (_profile: ProfileInfo, client: Pinn
     if (typeof res.last_id !== "string" || res.last_id === "") {
       throw new ScanError("failed:invalid", "bad_envelope");
     }
-    afterId = res.last_id;
+    const nextCursor = checkString(res.last_id);
+    if (nextCursor === afterId) throw new ScanError("failed:invalid", "bad_envelope");
+    afterId = nextCursor;
   }
 
   const { entries, duplicates } = finalizeEntries(allEntries);

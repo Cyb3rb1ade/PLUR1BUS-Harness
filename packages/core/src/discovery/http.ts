@@ -3,8 +3,9 @@
 // A credential goes in a header only, never into a URL, an Error message or a log field.
 import http from "node:http";
 import https from "node:https";
+import dns from "node:dns";
 import type net from "node:net";
-import { gunzip } from "node:zlib";
+import { gunzip, inflate, brotliDecompress } from "node:zlib";
 import type { CredentialLease } from "./ports.ts";
 import type { ScanResultCode } from "./types.ts";
 
@@ -47,20 +48,29 @@ export function parseRetryAfter(value: string | undefined, nowMs: number): numbe
   return Math.min(Math.max(0, t - nowMs), MAX_RETRY_AFTER_MS);
 }
 
+function isLoopbackIp(ip: string): boolean {
+  return ip === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip);
+}
+
 function isLoopback(hostname: string): boolean {
   const h = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  return h === "localhost" || h === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
+  return h === "localhost" || isLoopbackIp(h);
+}
+
+export function parseBaseUrl(rawUrl: string): URL {
+  let base: URL;
+  try { base = new URL(rawUrl); } catch { throw new ScanError("failed:invalid", "invalid_base_url"); }
+  if ((base.protocol !== "http:" && base.protocol !== "https:") || base.username !== "" || base.password !== "" || base.search !== "" || base.hash !== "") {
+    throw new ScanError("failed:invalid", "invalid_base_url");
+  }
+  return base;
 }
 
 interface Reply { status: number; headers: http.IncomingHttpHeaders; body: Buffer }
 
 export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
   const limits: Limits = { ...LIMITS, ...o.limits };
-  let base: URL;
-  try { base = new URL(o.baseUrl); } catch { throw new ScanError("failed:invalid", "invalid_base_url"); }
-  if ((base.protocol !== "http:" && base.protocol !== "https:") || base.username !== "" || base.password !== "" || base.search !== "" || base.hash !== "") {
-    throw new ScanError("failed:invalid", "invalid_base_url");
-  }
+  const base = parseBaseUrl(o.baseUrl);
   if (o.lease !== null) {
     if (o.lease.origin !== base.origin) throw new ScanError("failed:invalid", "credential_origin_mismatch");
     if (base.protocol === "http:" && !isLoopback(base.hostname)) throw new ScanError("failed:invalid", "insecure_transport");
@@ -74,13 +84,47 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
     return new Promise<Reply>((resolve, reject) => {
       let done = false;
       let connectTimer: NodeJS.Timeout | undefined; let requestTimer: NodeJS.Timeout | undefined;
-      const finish = (fn: () => void) => { if (done) return; done = true; clearTimeout(connectTimer); clearTimeout(requestTimer); scanSignal.removeEventListener("abort", onAbort); fn(); };
+      const finish = (fn: () => void) => {
+        if (done) return;
+        done = true;
+        if (connectTimer) clearTimeout(connectTimer);
+        if (requestTimer) clearTimeout(requestTimer);
+        scanSignal.removeEventListener("abort", onAbort);
+        fn();
+      };
       const fail = (e: ScanError) => finish(() => { req.destroy(); reject(e); });
       const onAbort = () => fail(new ScanError("failed:network", o.signal?.aborted ? "aborted" : "scan_timeout"));
-      const headers: Record<string, string> = { Accept: "application/json", "Accept-Encoding": "gzip", "User-Agent": o.userAgent, ...extra };
+      const headers: Record<string, string> = { Accept: "application/json", "Accept-Encoding": "gzip, deflate, br", "User-Agent": o.userAgent, ...extra };
       if (o.lease) headers[o.lease.headerName] = o.lease.headerValue;
       const isHttps = url.protocol === "https:";
-      const req = (isHttps ? https : http).request(url, { method: "GET", agent: false, headers, ...(o.lookup ? { lookup: o.lookup } : {}) }, (res) => {
+
+      let lookupFn = o.lookup;
+      if (o.lease !== null && url.protocol === "http:" && url.hostname.toLowerCase() === "localhost") {
+        const baseLookup = lookupFn ?? dns.lookup;
+        lookupFn = ((hostname: string, options: any, callback: any) => {
+          const cb = typeof options === "function" ? options : callback;
+          const opts = typeof options === "function" ? {} : options;
+          baseLookup(hostname, { ...opts, all: true } as any, (err: any, addresses: any) => {
+            if (err) return cb(err);
+            const addrs: Array<{ address: string; family: number }> = Array.isArray(addresses)
+              ? addresses
+              : [{ address: addresses, family: 4 }];
+            for (const entry of addrs) {
+              const addr = typeof entry === "string" ? entry : entry.address;
+              if (!isLoopbackIp(addr)) {
+                return cb(new ScanError("failed:invalid", "insecure_transport"));
+              }
+            }
+            if (opts.all) {
+              cb(null, addrs);
+            } else {
+              cb(null, addrs[0]!.address, addrs[0]!.family);
+            }
+          });
+        }) as typeof o.lookup;
+      }
+
+      const req = (isHttps ? https : http).request(url, { method: "GET", agent: false, headers, ...(lookupFn ? { lookup: lookupFn } : {}) }, (res) => {
         const status = res.statusCode ?? 0;
         if (status >= 300) { // errors and redirects never have their body read
           res.destroy();
@@ -99,21 +143,39 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
         res.on("error", (e) => fail(mapNetError(e)));
         res.on("end", () => {
           const raw = Buffer.concat(chunks);
-          const enc = String(res.headers["content-encoding"] ?? "identity").toLowerCase();
+          const enc = String(res.headers["content-encoding"] ?? "identity").toLowerCase().trim();
           if (enc === "identity" || enc === "") return finish(() => resolve({ status, headers: res.headers, body: raw }));
-          if (enc !== "gzip") return fail(new ScanError("failed:invalid", "content_encoding"));
-          gunzip(raw, { maxOutputLength: limits.maxBodyBytes }, (err, out) => {
-            if (err) return fail(new ScanError("failed:invalid", (err as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE" ? "response_too_large" : "bad_gzip"));
+          const onDecompress = (err: Error | null, out: Buffer, badToken: string) => {
+            if (err) {
+              const code = (err as NodeJS.ErrnoException).code;
+              return fail(new ScanError("failed:invalid", code === "ERR_BUFFER_TOO_LARGE" ? "response_too_large" : badToken));
+            }
+            if (out.length > limits.maxBodyBytes) return fail(new ScanError("failed:invalid", "response_too_large"));
             finish(() => resolve({ status, headers: res.headers, body: out }));
-          });
+          };
+          if (enc === "gzip") {
+            return gunzip(raw, { maxOutputLength: limits.maxBodyBytes }, (err, out) => onDecompress(err, out, "bad_gzip"));
+          }
+          if (enc === "deflate") {
+            return inflate(raw, { maxOutputLength: limits.maxBodyBytes }, (err, out) => onDecompress(err, out, "bad_deflate"));
+          }
+          if (enc === "br") {
+            return brotliDecompress(raw, { maxOutputLength: limits.maxBodyBytes }, (err, out) => onDecompress(err, out, "bad_brotli"));
+          }
+          return fail(new ScanError("failed:invalid", "content_encoding"));
         });
       });
       req.on("error", (e) => fail(mapNetError(e)));
       req.on("socket", (s) => {
+        if (done) return;
         connectTimer = setTimeout(() => fail(new ScanError("failed:network", "connect_timeout")), limits.connectTimeoutMs);
-        s.once(isHttps ? "secureConnect" : "connect", () => clearTimeout(connectTimer));
+        if (connectTimer.unref) connectTimer.unref();
+        s.once(isHttps ? "secureConnect" : "connect", () => {
+          if (connectTimer) clearTimeout(connectTimer);
+        });
       });
       requestTimer = setTimeout(() => fail(new ScanError("failed:network", "request_timeout")), limits.requestTimeoutMs);
+      if (requestTimer.unref) requestTimer.unref();
       if (scanSignal.aborted) return onAbort();
       scanSignal.addEventListener("abort", onAbort, { once: true });
       req.end();
@@ -138,6 +200,7 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
         if (typeof loc !== "string") throw new ScanError("failed:invalid", `http_${r.status}`, { httpStatus: r.status });
         let next: URL;
         try { next = new URL(loc, url); } catch { throw new ScanError("failed:invalid", "bad_redirect"); }
+        if (next.username !== "" || next.password !== "") throw new ScanError("failed:invalid", "bad_redirect");
         if (next.origin !== base.origin) throw new ScanError("failed:invalid", "redirect_foreign_origin");
         if (hops >= limits.maxRedirects) throw new ScanError("failed:invalid", "too_many_redirects");
         url = next;
@@ -157,6 +220,7 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
 }
 
 function mapNetError(e: unknown): ScanError {
+  if (e instanceof ScanError) return e;
   const code = (e as NodeJS.ErrnoException | undefined)?.code ?? "";
   if (code === "ECONNREFUSED") return new ScanError("failed:network", "connection_refused");
   if (code === "ENOTFOUND" || code === "EAI_AGAIN") return new ScanError("failed:network", "dns_failure");
@@ -165,3 +229,4 @@ function mapNetError(e: unknown): ScanError {
   if (/^(ERR_TLS|ERR_SSL|CERT_|DEPTH_ZERO|UNABLE_TO|SELF_SIGNED|HOSTNAME_MISMATCH)/.test(code)) return new ScanError("failed:network", "tls_error");
   return new ScanError("failed:network", "network_error");
 }
+

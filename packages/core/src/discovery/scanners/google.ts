@@ -46,7 +46,9 @@ export const scanGoogle: Scanner = async (_profile: ProfileInfo, client: PinnedC
     }
 
     if (typeof res.nextPageToken !== "string" || res.nextPageToken === "") break;
-    pageToken = res.nextPageToken;
+    const nextCursor = checkString(res.nextPageToken);
+    if (nextCursor === pageToken) throw new ScanError("failed:invalid", "bad_envelope");
+    pageToken = nextCursor;
   }
 
   const { entries, duplicates } = finalizeEntries(allEntries);

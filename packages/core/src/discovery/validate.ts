@@ -16,7 +16,7 @@ export function checkString(v: unknown): string {
   return v;
 }
 export function checkPositiveInt(v: unknown): number {
-  return typeof v === "number" && Number.isFinite(v) && Number.isInteger(v) && v > 0 ? v : bad();
+  return typeof v === "number" && Number.isFinite(v) && Number.isSafeInteger(v) && v > 0 ? v : bad();
 }
 /** More than 5 000 entries fails (`too_many_entries`); duplicate ids keep the first and are counted. */
 export function finalizeEntries(entries: RawEntry[]): { entries: RawEntry[]; duplicates: number } {
