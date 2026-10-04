@@ -111,8 +111,8 @@ class ExclusiveLockFile:
 
     * take it by creating the file with ``O_CREAT | O_EXCL`` (mode 0600; no ``fcntl``, so it works on Windows),
       write ``<pid> <hostname> <ms> <nonce>`` (nonce = 128-bit hex, unique per hold) and close the fd before the
-      critical section. On Windows a ``PermissionError`` on create (name pending deletion) is retried like
-      ``FileExistsError``;
+      critical section. On Windows a sharing/access error on create (name pending deletion) is retried with
+      backoff 10 ms doubling to 100 ms, within the hold deadline;
     * a lock is stale when its mtime is older than ``STALE_S`` (60 s), or when it names a pid of this host that
       no longer runs and it is at least 1 s old (POSIX: ``kill(pid, 0)`` -> ``ESRCH``; Windows: ``OpenProcess``
       fails with ``ERROR_INVALID_PARAMETER`` or ``GetExitCodeProcess`` is not ``STILL_ACTIVE``; equivalent, not
@@ -152,26 +152,38 @@ class ExclusiveLockFile:
 
     @contextmanager
     def hold(self, timeout: float) -> Iterator[_Held]:
+        """Bound Windows acquisition retries, including stale-file cleanup, by the caller's deadline."""
         deadline = time.monotonic() + max(0.0, timeout)
         if not self._local.acquire(timeout=max(0.0, timeout)):
             raise LockTimeout(f"lock busy: {os.path.basename(self.path)}")
         try:
             os.makedirs(os.path.dirname(self.path) or ".", mode=0o700, exist_ok=True)
-            self._sweep()
+            self._sweep(deadline)
             nonce = os.urandom(16).hex()
+            delay = 0.01
+            attempted = False
             while True:
+                if os.name == "nt" and (attempted or timeout > 0) and time.monotonic() >= deadline:
+                    raise LockTimeout(f"lock busy: {os.path.basename(self.path)}")
+                attempted = True
                 try:
                     fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                     break
-                except (FileExistsError, PermissionError) as e:
-                    if isinstance(e, PermissionError) and os.name != "nt":
+                except OSError as e:
+                    sharing = _is_sharing_error(e)
+                    if not isinstance(e, FileExistsError) and not sharing:
                         raise
                     judged = self._judge_stale()
-                    if judged is not None and self._break(*judged):
+                    if judged is not None and self._break(*judged, deadline):
                         continue  # the stale lock is gone: retry the create at once
-                    if time.monotonic() >= deadline:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
                         raise LockTimeout(f"lock busy: {os.path.basename(self.path)}") from None
-                    time.sleep(self.POLL_S)
+                    if os.name == "nt":
+                        time.sleep(min(delay if sharing else self.POLL_S, remaining))
+                        delay = min(delay * 2, 0.1) if sharing else 0.01
+                    else:
+                        time.sleep(self.POLL_S)
             try:
                 os.write(fd, f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)} {nonce}\n".encode())
             except BaseException:
@@ -211,8 +223,10 @@ class ExclusiveLockFile:
             return None
         return (st, text) if _pid_dead(int(parts[0])) else None
 
-    def _break(self, st: os.stat_result, text: str) -> bool:
+    def _break(self, st: os.stat_result, text: str, deadline: float | None = None) -> bool:
         """Move the lock judged stale aside and remove it; True only when that stale file was removed."""
+        if os.name == "nt" and deadline is not None and time.monotonic() >= deadline:
+            return False
         brk = f"{self.path}.break-{os.urandom(16).hex()}"
         try:
             os.rename(self.path, brk)
@@ -224,9 +238,9 @@ class ExclusiveLockFile:
             return False  # swept meanwhile; it was old
         same = (st2.st_dev, st2.st_ino) == (st.st_dev, st.st_ino) and self._read_text(brk) == text
         if same:
-            self._unlink(brk)
+            self._unlink(brk, deadline)
             return True
-        self._restore(brk)
+        self._restore(brk, deadline)
         return False
 
     def _release(self, nonce: str) -> None:
@@ -282,25 +296,31 @@ class ExclusiveLockFile:
             return False
         return any(n.startswith(prefixes) and self._holds(self._read_text(os.path.join(d, n)), nonce) for n in names)
 
-    def _restore(self, moved: str) -> None:
+    def _restore(self, moved: str, deadline: float | None = None) -> None:
         """Put a lock that was moved aside by mistake back; ``os.link`` never overwrites a newer lock."""
         try:
             os.link(moved, self.path)
         except OSError:  # FileExistsError: a new lock exists, the moved one is obsolete
             pass
-        self._unlink(moved)
+        if deadline is None:
+            self._unlink(moved)
+        else:
+            self._unlink(moved, deadline)
 
     @staticmethod
-    def _unlink(path: str) -> None:
+    def _unlink(path: str, deadline: float | None = None) -> None:
         """Remove a moved-aside ``.break-``/``.rel-`` file; a Windows sharing error is retried briefly and then
         left to the sweep (it is never the lock's own name)."""
+        budget = 0.5
+        if os.name == "nt" and deadline is not None:
+            budget = min(budget, max(0.0, deadline - time.monotonic()))
         try:
-            _retry_sharing(lambda: os.unlink(path), 0.5)
-        except PermissionError:
-            if os.name != "nt":
+            _retry_sharing(lambda: os.unlink(path), budget)
+        except OSError as e:
+            if not _is_sharing_error(e):
                 raise
 
-    def _sweep(self) -> None:
+    def _sweep(self, deadline: float | None = None) -> None:
         d = os.path.dirname(self.path) or "."
         base = os.path.basename(self.path)
         try:
@@ -309,10 +329,12 @@ class ExclusiveLockFile:
             return
         now = time.time()
         for n in names:
+            if os.name == "nt" and deadline is not None and time.monotonic() >= deadline:
+                return
             if n.startswith((base + ".break-", base + ".rel-")):
                 try:
                     if now - os.stat(os.path.join(d, n)).st_mtime > self.STALE_S:
-                        self._unlink(os.path.join(d, n))
+                        self._unlink(os.path.join(d, n), deadline)
                 except OSError:
                     pass
 
@@ -321,10 +343,17 @@ _SHARING_WINERRORS = (5, 32, 33)  # ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION
 _SHARING_ERRNOS = (errno.EACCES, errno.EPERM, errno.EBUSY)
 
 
+def _is_sharing_error(error: OSError) -> bool:
+    if os.name != "nt":
+        return False
+    code = getattr(error, "winerror", None)
+    return code in _SHARING_WINERRORS if code is not None else error.errno in _SHARING_ERRNOS
+
+
 def _retry_sharing(op, budget_s: float) -> bool:
     """Run ``op`` (a rename or unlink). True when it succeeded, False when the source is gone
     (``FileNotFoundError``). On Windows a sharing/access error is retried for ``budget_s`` (backoff 10 ms
-    doubling to 100 ms) and then re-raised; any other error, and every ``PermissionError`` on POSIX, propagates."""
+    doubling to 100 ms) and then re-raised; any other error, and every sharing error on POSIX, propagates."""
     deadline = time.monotonic() + budget_s
     delay = 0.01
     while True:
@@ -333,12 +362,15 @@ def _retry_sharing(op, budget_s: float) -> bool:
             return True
         except FileNotFoundError:
             return False
-        except PermissionError as e:
-            if os.name != "nt" or not (getattr(e, "winerror", None) in _SHARING_WINERRORS or e.errno in _SHARING_ERRNOS):
+        except OSError as e:
+            if not _is_sharing_error(e):
                 raise
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(delay, remaining))
             if time.monotonic() >= deadline:
                 raise
-            time.sleep(delay)
             delay = min(delay * 2, 0.1)
 
 

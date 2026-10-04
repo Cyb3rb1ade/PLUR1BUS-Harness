@@ -21,10 +21,10 @@ lock_path, log_path, iters, die_at = sys.argv[1], sys.argv[2], int(sys.argv[3]),
 pid = os.getpid()
 
 
-def log(tag: str) -> None:
+def log(tag: str, detail: str = "") -> None:
     fd = os.open(log_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
     try:
-        os.write(fd, f"{tag} {pid}\n".encode())
+        os.write(fd, f"{tag} {pid}{detail}\n".encode())
     finally:
         os.close(fd)
 
@@ -42,5 +42,8 @@ for i in range(iters):
             except LockLost:
                 log("L")  # displaced mid-section: this holder writes nothing (the test allows an overlap only then)
             log("X")
-    except Exception:  # noqa: BLE001
-        log("T")
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "winerror", None)
+        if code is None:
+            code = getattr(e, "errno", None)
+        log("T", f" {type(e).__name__} {code}")
