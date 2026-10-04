@@ -94,12 +94,31 @@ pub fn start(app: &tauri::AppHandle) {
     *state.gnome.sender.lock().unwrap() = Some(sender);
     let handle = app.clone();
     let mut pending = None;
+    let mut connection: Option<zbus::Connection> = None;
     let task = tauri::async_runtime::spawn(async move {
         loop {
             if handle.state::<NativeState>().quit.is_approved() {
                 break;
             }
-            if run(&handle, &mut receiver, &mut pending).await.is_err() {
+            if connection.is_none() {
+                match connect_application(&handle).await {
+                    Ok(value) => connection = Some(value),
+                    Err(_) => {
+                        eprintln!("GNOME_BUS_CONNECT_FAILED");
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        continue;
+                    }
+                }
+            }
+            let bus = connection.as_ref().unwrap();
+            let failed = run(&handle, bus, &mut receiver, &mut pending)
+                .await
+                .is_err();
+            let closed = bus.is_closed();
+            if closed {
+                connection = None;
+            }
+            if failed {
                 eprintln!("GNOME_CONNECTION_FAILED");
                 let state = handle.state::<NativeState>();
                 state.gnome.tray_host.store(false, Ordering::SeqCst);
@@ -115,21 +134,12 @@ pub fn start(app: &tauri::AppHandle) {
 }
 async fn run(
     app: &tauri::AppHandle,
+    connection: &zbus::Connection,
     receiver: &mut mpsc::Receiver<(u64, TrayState)>,
     pending: &mut Option<(u64, TrayState)>,
 ) -> Result<(), notify::NotifyFailure> {
-    let connection = tokio::time::timeout(std::time::Duration::from_secs(3), async {
-        zbus::connection::Builder::session()?
-            .name(crate::ids::BUNDLE_ID)?
-            .serve_at("/app/plur1bus/desktop", Application::native(app.clone()))?
-            .build()
-            .await
-    })
-    .await
-    .map_err(|_| notify::NotifyFailure)?
-    .map_err(|_| notify::NotifyFailure)?;
     // Subscribe before Notify; a fast action can precede its method reply.
-    let mut actions = notify::dbus::subscribe_actions(&connection).await?;
+    let mut actions = notify::dbus::subscribe_actions(connection).await?;
     let mut ledger = ActionLedger::default();
     let mut last: Option<(u64, TrayState)> = None;
     let mut host = false;
@@ -137,7 +147,7 @@ async fn run(
     loop {
         tokio::select! {
             _ = probe.tick() => {
-                host = notify::dbus::tray_host(&connection).await.unwrap_or(false) && app.tray_by_id("resident").is_some();
+                host = notify::dbus::tray_host(connection).await.unwrap_or(false) && app.tray_by_id("resident").is_some();
                 let state = app.state::<NativeState>();
                 state.gnome.tray_host.store(host, Ordering::SeqCst);
                 state.background.store(host || state.gnome.granted_background.load(Ordering::SeqCst), Ordering::SeqCst);
@@ -151,10 +161,10 @@ async fn run(
                 let Some((generation,view)) = notice else {return Ok(())};
                 if app.state::<NativeState>().events.with_current(generation,||()).is_none() { *pending = None; continue; }
                 if is_flatpak() && app.state::<NativeState>().gnome.granted_background.load(Ordering::SeqCst)
-                    && notify::portal::set_status(&connection,&view).await.is_err() { eprintln!("BACKGROUND_PORTAL_STATUS_FAILED"); }
+                    && notify::portal::set_status(connection,&view).await.is_err() { eprintln!("BACKGROUND_PORTAL_STATUS_FAILED"); }
                 if host || last.as_ref() == Some(&(generation,view.clone())) || app.state::<NativeState>().events.with_current(generation,||()).is_none() { *pending = None; continue; }
                 let banner = Banner::from_state(&view);
-                match notify::dbus::show(&connection,&banner).await {
+                match notify::dbus::show(connection,&banner).await {
                     Ok(id) => {ledger.record(id,generation,banner.actions);last=Some((generation,view)); *pending = None; },
                     Err(_) => { *pending = Some((generation,view)); eprintln!("GNOME_NOTIFY_FAILED"); },
                 }
@@ -164,7 +174,7 @@ async fn run(
                 let Ok((id,_)) = signal.body().deserialize::<(u32,String)>() else {continue};
                 let generation = app.state::<NativeState>().events.generation();
                 if let Some(action) = notify::dbus::owned_action(&signal,&mut ledger,generation) {
-                    if notify::dbus::close(&connection,id).await.is_err() { eprintln!("GNOME_NOTIFY_CLOSE_FAILED"); }
+                    if notify::dbus::close(connection,id).await.is_err() { eprintln!("GNOME_NOTIFY_CLOSE_FAILED"); }
                     dispatch(app,generation,action);
                 }
             }
@@ -262,6 +272,22 @@ pub async fn next_notice(
     } else {
         receiver.recv().await
     }
+}
+
+async fn connect_application(
+    app: &tauri::AppHandle,
+) -> Result<zbus::Connection, notify::NotifyFailure> {
+    let connection = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        zbus::connection::Builder::session()?
+            .name(crate::ids::BUNDLE_ID)?
+            .serve_at("/app/plur1bus/desktop", Application::native(app.clone()))?
+            .build()
+            .await
+    })
+    .await
+    .map_err(|_| notify::NotifyFailure)?
+    .map_err(|_| notify::NotifyFailure)?;
+    Ok(connection)
 }
 
 #[cfg(test)]

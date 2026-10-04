@@ -16,6 +16,7 @@ use tauri::{Emitter, Manager};
 #[derive(Default)]
 pub struct NativeState {
     pub events: EventOwner,
+    pub diagnostics: Mutex<Option<crate::diagnostics::Diagnostics>>,
     pub quit: QuitSession,
     pub view: Mutex<TrayState>,
     pub connection: Mutex<Option<Connection>>,

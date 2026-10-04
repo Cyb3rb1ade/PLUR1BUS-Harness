@@ -4,6 +4,7 @@ pub mod commands;
 pub mod connections;
 pub mod controller;
 pub mod crash;
+pub mod diagnostics;
 pub mod discovery;
 pub mod events;
 #[cfg(unix)]
@@ -100,6 +101,7 @@ pub fn run() {
             let fixture = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some();
             #[cfg(not(debug_assertions))]
             let fixture = false;
+            if let Err(reason) = diagnostics::start(app.handle()) { eprintln!("{reason}"); }
             if !fixture && native::build_tray(app.handle()).is_err() { eprintln!("TRAY_SETUP_FAILED"); }
             #[cfg(target_os = "linux")]
             if !fixture { gnome::start(app.handle()); }
