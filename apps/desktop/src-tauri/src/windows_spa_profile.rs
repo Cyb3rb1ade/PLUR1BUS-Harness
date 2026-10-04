@@ -183,8 +183,8 @@ pub(crate) async fn finish_owned_cleanup_async_with_mode<Exit, Audit, AuditFutur
 ) -> CleanupResult
 where
     Exit: Fn() -> Option<bool>,
-    Audit: FnOnce(&mut ProfileCleanupEvidence) -> AuditFuture,
-    AuditFuture: std::future::Future<Output = ()>,
+    Audit: FnOnce() -> AuditFuture,
+    AuditFuture: std::future::Future<Output = ProfileCleanupEvidence>,
     Remove: FnOnce() -> bool,
 {
     let deadline = deadline.min(started + std::time::Duration::from_secs(10));
@@ -206,7 +206,14 @@ where
     evidence.exit_wait_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
     evidence.exit_timed_out |= std::time::Instant::now() >= deadline;
     if evidence.environment_exited && !evidence.exit_timed_out && evidence.exit_wait_ms <= 10_000 {
-        audit(&mut evidence).await;
+        let audited = audit().await;
+        evidence.read_only_complete = audited.read_only_complete;
+        evidence.cookie_rows = audited.cookie_rows;
+        evidence.cookie_database_files = audited.cookie_database_files;
+        evidence.cookie_sidecar_files = audited.cookie_sidecar_files;
+        evidence.secret_scan_complete = audited.secret_scan_complete;
+        evidence.secret_detected = audited.secret_detected;
+        evidence.audit_timed_out = audited.audit_timed_out;
         let audit_ok = evidence.read_only_complete
             && evidence.cookie_database_files > 0
             && evidence.secret_scan_complete
@@ -236,9 +243,10 @@ pub(crate) async fn finish_owned_cleanup_with_mode(
         started,
         deadline,
         exit,
-        |evidence| {
-            audit(evidence);
-            std::future::ready(())
+        || {
+            let mut evidence = ProfileCleanupEvidence::default();
+            audit(&mut evidence);
+            std::future::ready(evidence)
         },
         remove,
         delete_on_audit_failure,
@@ -842,6 +850,7 @@ mod windows {
             };
         };
         let path = profile.path().to_path_buf();
+        let remove_path = path.clone();
         let root = profile.root.clone();
         super::finish_owned_cleanup_async_with_mode(
             close_requested,
@@ -859,15 +868,16 @@ mod windows {
                     }
                 }
             },
-            move |evidence| {
+            move || {
                 let path = path.clone();
                 let root = root.clone();
                 let secret_audit = secret_audit.clone();
                 async move {
+                    let mut evidence = super::ProfileCleanupEvidence::default();
                     if validate_owned_path(&root, &path).is_err()
                         || ensure_no_reparse_tree(&path).is_err()
                     {
-                        return;
+                        return evidence;
                     }
                     let audit = tokio::task::spawn_blocking(move || {
                         #[cfg(debug_assertions)]
@@ -921,9 +931,10 @@ mod windows {
                             evidence.audit_timed_out = true;
                         }
                     }
+                    evidence
                 }
             },
-            || profile.remove().is_ok() && !path.exists(),
+            || profile.remove().is_ok() && !remove_path.exists(),
             cfg!(not(debug_assertions)),
         )
         .await
