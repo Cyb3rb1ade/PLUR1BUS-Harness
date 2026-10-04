@@ -307,22 +307,27 @@ can use them. Foreign navigation uses the classified Rust http/https/mailto
 opener; popups are blocked. Failed tickets are retried once, then the error view
 offers Copy log and Retry with 44px controls. Runtime and data are untouched.
 
-Windows debug runs have an explicit cookie-guard deviation for profile testing.
-The guard defaults on on every platform and is disabled only by the named CI
-fixture variant. Guard-on proves the Rust-jar-only browser policy; guard-off
-allows WebView cookie APIs so the native profile proof can observe them, then
-requires process exit, zero SQLite/WAL rows and Canary bytes, and owned folder
-deletion. Production builds stay guarded. The same-origin guarded SPA probe is
-part of the acceptance suite; this split isolates policy enforcement from
-WebView2 profile persistence without weakening the release policy.
+Windows debug runs have an explicit cookie-guard deviation for profile testing,
+approved in the 2026-10-04 owner decision. The guard defaults on on every
+platform and is disabled only by the named CI fixture variant. Guard-on proves
+the Rust-jar-only browser policy; guard-off allows WebView cookie APIs so the
+native profile proof can observe them, then requires process exit, zero
+SQLite/WAL rows and Canary bytes, and owned folder deletion. This is defence in
+depth and keeps the three platforms on one policy path; it does not weaken the
+release policy, which stays guarded and deletes even after a failed audit.
+The guarded-SPA test uses Chromium against a mock server, not WebView2; the
+native WebView2 behaviour is covered by the Windows acceptance leg rather than
+that Playwright probe. The injected guard also blocks `document.cookie`, the
+Cookie Store API and service-worker registration while enabled.
 
 Ticket retries add only the nonsecret `shell-retry=1` query to force a document
 reload; a fragment change alone would not rerun redemption. The error page uses
 the saved shell language and theme and consumes the shared Glow token stylesheet.
 No ticket or device token crosses shell IPC.
 
-The SPA command list contains only shell_info, guarded by exact label/current
-URL, with an empty features list. Tauri 2.12 capabilities are additive: on switch
+The shell command list contains only `shell_info`, guarded by exact label/current
+URL, with an empty features list; the authenticated SPA exposes no IPC command.
+Tauri 2.12 capabilities are additive: on switch
 or close an origin-specific deny-shell-info retires the prior grant. Retired
 ports stay reserved for this process, preventing permission reuse. This costs
 one small retained listener per switch, until process exit. Retirement cancels the

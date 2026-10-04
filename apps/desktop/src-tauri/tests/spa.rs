@@ -291,9 +291,9 @@ async fn retry_revalidates_session_meta_after_ticket_reconnect() {
             .iter()
             .filter(|(path, _)| path.ends_with("/meta"))
             .count();
-        assert!(
-            meta_count >= 2,
-            "ticket issuance and reconnect revalidation each call /meta"
+        assert_eq!(
+            meta_count, 2,
+            "ticket issuance and reconnect revalidation each call /meta exactly once"
         );
         state.retire_fixture_session();
     })

@@ -236,7 +236,13 @@ impl SpaProxy {
     /// Revalidate the cached session metadata after a reconnect or an explicit
     /// version refresh. Ordinary browser requests deliberately do not call this.
     pub async fn revalidate_session_meta(&self) -> Result<(), ClientError> {
-        let fresh = self.inner.client.meta().await?;
+        let fresh = match self.inner.client.meta().await {
+            Ok(fresh) => fresh,
+            Err(error) => {
+                self.retire();
+                return Err(error);
+            }
+        };
         if fresh.installation_id != self.inner.installation_id {
             self.retire();
             return Err(ClientError::InstallationMismatch);
@@ -304,7 +310,12 @@ fn singleton_header(
     values.next().is_none() && value.to_str().ok() == Some(expected)
 }
 fn authorized(req: &Request<Body>, s: &Inner) -> bool {
-    let origin_optional = req.method() == Method::GET || req.method() == Method::HEAD;
+    let websocket_upgrade = req
+        .headers()
+        .get(header::UPGRADE)
+        .is_some_and(|value| value.as_bytes().eq_ignore_ascii_case(b"websocket"));
+    let origin_optional =
+        !websocket_upgrade && (req.method() == Method::GET || req.method() == Method::HEAD);
     s.active.load(Ordering::SeqCst)
         && singleton_header(
             req.headers(),
