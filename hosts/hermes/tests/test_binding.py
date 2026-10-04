@@ -38,6 +38,34 @@ def _vectors(name: str) -> dict:
         return json.load(f)
 
 
+def _lock_timeout_diagnostics(path: str, side: str, last_holder: str | None) -> dict:
+    def valid_nonce(value: str) -> bool:
+        return len(value) == 32 and all(c in "0123456789abcdef" for c in value)
+
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            parts = f.read().split()
+        token = {
+            "pid": parts[0] if parts and parts[0].isascii() and parts[0].isdigit() else None,
+            "nonce": parts[3] if len(parts) >= 4 and valid_nonce(parts[3]) else None,
+        }
+    except OSError as e:
+        token = {"state": type(e).__name__}
+    base = os.path.basename(path)
+    prefixes = (base + ".rel-", base + ".break-")
+    try:
+        moved = []
+        for name in os.listdir(os.path.dirname(path)):
+            for prefix in prefixes:
+                if name.startswith(prefix):
+                    suffix = name[len(prefix):]
+                    moved.append(prefix + (suffix if valid_nonce(suffix) else "<redacted>"))
+        moved.sort()
+    except OSError as e:
+        moved = [type(e).__name__]
+    return {"timeout_side": side, "lock": token, "moved": moved, "last_holder": last_holder}
+
+
 class BindingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp(prefix="p1h-b-")
@@ -314,6 +342,57 @@ class BindingTest(unittest.TestCase):
             self.assertLess(abs(int(ms) / 1000 - time.time()), 5)
         self.assertFalse(os.path.exists(path))
 
+    def test_lock_timeout_diagnostics_are_redacted_and_tolerate_missing_files(self) -> None:
+        path = self._lock_path(self._dir("p"))
+        self.assertEqual(
+            _lock_timeout_diagnostics(path, "provider", None),
+            {"timeout_side": "provider", "lock": {"state": "FileNotFoundError"},
+             "moved": ["FileNotFoundError"], "last_holder": None},
+        )
+        nonce = "ab" * 16
+        os.makedirs(os.path.dirname(path))
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"123 private-host 123456 {nonce}\n")
+        for suffix in (f".rel-{nonce}", f".break-{nonce}", ".rel-private-host"):
+            with open(path + suffix, "w", encoding="utf-8") as f:
+                f.write("private content")
+        snapshot = _lock_timeout_diagnostics(path, "provider", "installer")
+        self.assertEqual(snapshot, {
+            "timeout_side": "provider", "lock": {"pid": "123", "nonce": nonce},
+            "moved": [f".hermes-bindings.lock.break-{nonce}", ".hermes-bindings.lock.rel-<redacted>",
+                      f".hermes-bindings.lock.rel-{nonce}"],
+            "last_holder": "installer",
+        })
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("private-pid private-host 123456 private-nonce\n")
+        snapshot = _lock_timeout_diagnostics(path, "installer", "provider")
+        self.assertEqual(snapshot["lock"], {"pid": None, "nonce": None})
+        self.assertNotIn("private", json.dumps(snapshot))
+        self.assertNotIn(self.root, json.dumps(snapshot))
+
+    def test_transcription_timeout_includes_diagnostics(self) -> None:
+        from unittest.mock import patch
+
+        original_hold = ExclusiveLockFile.hold
+
+        def hold(lock, timeout):
+            if timeout == 10:
+                raise LockTimeout("injected timeout")
+            return original_hold(lock, timeout)
+
+        case = BindingTest("test_basic_o_excl_exclusion_against_a_transcription_of_the_installer_lock")
+        result = unittest.TestResult()
+        with patch.object(ExclusiveLockFile, "hold", hold):
+            case.run(result)
+        self.assertEqual(result.errors, [])
+        self.assertEqual(len(result.failures), 1)
+        message = result.failures[0][1]
+        self.assertIn("injected timeout", message)
+        self.assertIn('"timeout_side": "provider"', message)
+        self.assertIn('"last_holder":', message)
+        self.assertNotIn(case.root, message)
+        self.assertNotIn(socket.gethostname(), message)
+
     def test_basic_o_excl_exclusion_against_a_transcription_of_the_installer_lock(self) -> None:
         """Only the basic O_EXCL exclusion and the stolen-lock release, against a Python transcription of the
         Node installer's ``withRegistryLock`` (binding.mjs): ``openSync(lock, "wx")``, content ``<pid> <hostname>
@@ -380,7 +459,10 @@ class BindingTest(unittest.TestCase):
         with open(counter, "w", encoding="utf-8") as f:
             f.write("0")
 
-        def bump() -> None:
+        last_holder: list[str | None] = [None]
+
+        def bump(side: str) -> None:
+            last_holder[0] = side
             with open(counter, encoding="utf-8") as f:
                 n = int(f.read())
             time.sleep(0.002)
@@ -388,20 +470,25 @@ class BindingTest(unittest.TestCase):
                 f.write(str(n + 1))
 
         errors: list[BaseException] = []
+        diagnostics: list[dict] = []
 
         def provider_side() -> None:
             try:
                 for _ in range(15):
                     with ExclusiveLockFile(path).hold(10):
-                        bump()
+                        bump("provider")
             except BaseException as e:  # noqa: BLE001
+                if isinstance(e, LockTimeout):
+                    diagnostics.append(_lock_timeout_diagnostics(path, "provider", last_holder[0]))
                 errors.append(e)
 
         def installer_side() -> None:
             try:
                 for _ in range(15):
-                    js_with_registry_lock(p1home, bump, 10)
+                    js_with_registry_lock(p1home, lambda: bump("installer"), 10)
             except BaseException as e:  # noqa: BLE001
+                if isinstance(e, RuntimeError):
+                    diagnostics.append(_lock_timeout_diagnostics(path, "installer", last_holder[0]))
                 errors.append(e)
 
         threads = [threading.Thread(target=provider_side), threading.Thread(target=installer_side)]
@@ -409,7 +496,7 @@ class BindingTest(unittest.TestCase):
             t.start()
         for t in threads:
             t.join(60)
-        self.assertEqual(errors, [])
+        self.assertEqual(errors, [], json.dumps(diagnostics, sort_keys=True))
         with open(counter, encoding="utf-8") as f:
             self.assertEqual(f.read(), "30")
         # Each side honours the other's stolen-lock rule: a lock holding a foreign nonce survives our release.
