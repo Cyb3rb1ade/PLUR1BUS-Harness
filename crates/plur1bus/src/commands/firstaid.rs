@@ -33,8 +33,10 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 22] = [
+const CHECK_IDS: [&str; 24] = [
     "config.valid",
+    "config.store-path",
+    "openclaw.host-mode",
     "run.permissions",
     "run.stale-files",
     "supervisor.state",
@@ -77,6 +79,7 @@ fn out_of_budget(deadline: Instant, checks: &mut Vec<Check>) -> bool {
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Ok,
+    Info,
     Warn,
     Fail,
     Skip,
@@ -259,6 +262,9 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         layout,
         daemon_status.map(|s| &s["config"]),
     ));
+    let host_env = crate::coexistence::HostEnvironment::current();
+    checks.push(check_store_path(layout, &host_env));
+    checks.push(check_openclaw_host_mode(&host_env));
     checks.push(check_run_permissions(layout));
     checks.push(check_run_stale_files(layout, env.platform));
 
@@ -382,6 +388,7 @@ fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
             Some(hint.to_string()),
         );
     }
+
     let path = layout.config_path();
     let text = match std::fs::read_to_string(&path) {
         Ok(t) => t,
@@ -417,6 +424,40 @@ fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
     match plur1bus_config::load(&path) {
         Ok(_) => Check::ok(ID, "config.json is valid"),
         Err(e) => Check::fail(ID, format!("config.json is invalid: {e}"), None, None),
+    }
+}
+
+fn check_store_path(layout: &Layout, env: &crate::coexistence::HostEnvironment) -> Check {
+    const ID: &str = "config.store-path";
+    match crate::coexistence::configured_store_violation(&layout.config_path(), env) {
+        Some(violation) => Check::fail(
+            ID,
+            violation.message(),
+            Some(json!({
+                "storePath": violation.store_path,
+                "openclawStateDir": violation.state_root,
+            })),
+            Some("choose a path under the harness home".to_string()),
+        ),
+        None => Check::ok(
+            ID,
+            "the configured store path is separate from OpenClaw state",
+        ),
+    }
+}
+
+fn check_openclaw_host_mode(env: &crate::coexistence::HostEnvironment) -> Check {
+    const ID: &str = "openclaw.host-mode";
+    if crate::coexistence::openclaw_plugin_found(env) {
+        Check {
+            id: ID,
+            status: Status::Info,
+            summary: "OpenClaw host mode found: separate memory until you migrate (`plur1bus import`) or switch the plugin to thin client".to_string(),
+            detail: None,
+            hint: None,
+        }
+    } else {
+        Check::skip(ID, "no OpenClaw host-mode plugin found")
     }
 }
 
@@ -1416,11 +1457,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
                         .map(|c| {
                             let mark = match c.status {
                                 Status::Ok => "ok",
+                                Status::Info => "info",
                                 Status::Warn => "warn",
                                 Status::Fail => "FAIL",
                                 Status::Skip => "skip",
                             };
-                            format!("{mark:<5} {:<24} {}", c.id, c.summary)
+                            if c.status == Status::Info {
+                                format!("{mark:<5} {}", c.summary)
+                            } else {
+                                format!("{mark:<5} {:<24} {}", c.id, c.summary)
+                            }
                         })
                         .collect::<Vec<_>>()
                         .join("\n")
@@ -2056,6 +2102,65 @@ mod tests {
         let check = check_config_valid(&layout, None);
         assert_eq!(check.status, Status::Ok);
         assert!(!layout.config_path().exists());
+    }
+
+    #[test]
+    fn doctor_fails_for_a_store_path_inside_openclaw_state() {
+        let home = tempfile::tempdir().unwrap();
+        let harness = tempfile::tempdir().unwrap();
+        let root = home.path().join(".openclaw");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("openclaw.json"), "{}").unwrap();
+        let layout = Layout::new(harness.path().to_path_buf());
+        let mut config = plur1bus_config::defaults();
+        config["engine"]["baseDbPathOverride"] =
+            json!(root.join("memory/lancedb").to_string_lossy().to_string());
+        std::fs::write(layout.config_path(), serde_json::to_vec(&config).unwrap()).unwrap();
+        let env = crate::coexistence::HostEnvironment::injected(
+            [(
+                "HOME".to_string(),
+                home.path().to_string_lossy().into_owned(),
+            )]
+            .into_iter()
+            .collect(),
+            home.path().to_path_buf(),
+            "linux",
+        );
+        let check = check_store_path(&layout, &env);
+        assert_eq!(check.status, Status::Fail, "{check:?}");
+        assert!(check.summary.contains(&root.display().to_string()));
+        assert!(check
+            .summary
+            .contains("choose a path under the harness home"));
+    }
+
+    #[test]
+    fn doctor_reports_openclaw_plugin_as_info_only_when_configured() {
+        let home = tempfile::tempdir().unwrap();
+        let root = home.path().join(".openclaw");
+        std::fs::create_dir_all(&root).unwrap();
+        let env = crate::coexistence::HostEnvironment::injected(
+            [(
+                "HOME".to_string(),
+                home.path().to_string_lossy().into_owned(),
+            )]
+            .into_iter()
+            .collect(),
+            home.path().to_path_buf(),
+            "linux",
+        );
+        assert_eq!(check_openclaw_host_mode(&env).status, Status::Skip);
+        std::fs::write(
+            root.join("openclaw.json"),
+            json!({ "plugins": { "entries": { "memory-lancedb-namespaced": {} } } }).to_string(),
+        )
+        .unwrap();
+        let check = check_openclaw_host_mode(&env);
+        assert_eq!(check.status, Status::Info, "{check:?}");
+        assert_eq!(
+            check.summary,
+            "OpenClaw host mode found: separate memory until you migrate (`plur1bus import`) or switch the plugin to thin client"
+        );
     }
 
     #[test]

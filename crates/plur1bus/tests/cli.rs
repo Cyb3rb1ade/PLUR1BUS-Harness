@@ -113,6 +113,42 @@ fn update_check_reports_not_installed_and_writes_nothing() {
 }
 
 #[test]
+fn config_set_refuses_an_openclaw_store_path_without_writing_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let harness = dir.path().join("harness");
+    let openclaw = dir.path().join(".openclaw");
+    std::fs::create_dir_all(&harness).unwrap();
+    std::fs::create_dir_all(&openclaw).unwrap();
+    std::fs::write(openclaw.join("openclaw.json"), "{}").unwrap();
+    let v = json_code(
+        &[
+            "--json",
+            "--home",
+            harness.to_str().unwrap(),
+            "config",
+            "set",
+            "engine.baseDbPathOverride",
+            openclaw.join("memory/lancedb").to_str().unwrap(),
+            "--yes",
+        ],
+        &[
+            ("HOME", dir.path().to_str().unwrap()),
+            ("OPENCLAW_STATE_DIR", openclaw.to_str().unwrap()),
+        ],
+        1,
+    );
+    assert_eq!(v["error"], "E_CONFIG_INVALID", "{v}");
+    assert_eq!(v["reason"], "openclaw-store-path", "{v}");
+    assert!(v["message"]
+        .as_str()
+        .unwrap()
+        .contains("choose a path under the harness home"));
+    let written: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(harness.join("config.json")).unwrap()).unwrap();
+    assert!(written["engine"]["baseDbPathOverride"].is_null());
+}
+
+#[test]
 fn update_without_check_is_the_m8_stub() {
     let v = json_code(&["--json", "update"], &[], 2);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");

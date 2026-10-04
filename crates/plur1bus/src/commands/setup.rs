@@ -23,6 +23,17 @@ impl Prompter for NoPrompts {
 
 pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
     super::refuse_in_container(out, "setup");
+    if let Some(violation) = crate::coexistence::configured_store_violation(
+        &layout.config_path(),
+        &crate::coexistence::HostEnvironment::current(),
+    ) {
+        out.fail(
+            "E_CONFIG_INVALID",
+            &violation.message(),
+            serde_json::json!({ "reason": "openclaw-store-path" }),
+            1,
+        );
+    }
     let opts = SetupOpts {
         non_interactive: args.non_interactive,
         accept_nc: args.accept_nc_licence,

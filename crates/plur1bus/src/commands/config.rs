@@ -355,6 +355,17 @@ pub(crate) fn apply(
                     1,
                 );
             }
+            if let Some(violation) = crate::coexistence::store_violation(
+                &plan.after,
+                &crate::coexistence::HostEnvironment::current(),
+            ) {
+                out.fail(
+                    "E_CONFIG_INVALID",
+                    &violation.message(),
+                    json!({ "reason": "openclaw-store-path" }),
+                    1,
+                );
+            }
             let restart = json!({
                 "live": plan.restart.live,
                 "core": plan.restart.core,
