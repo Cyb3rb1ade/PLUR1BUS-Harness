@@ -178,7 +178,7 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   const versionWarnings: string[] = [];
   if (state.schema !== null && state.schema > TESTED_STATE_SCHEMA) versionWarnings.push(`state schema ${state.schema} is newer than the tested ${TESTED_STATE_SCHEMA}`);
 
-  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir });
+  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir, harnessHome: ctx.home });
   const base = pathFor(loc.flavour).basename(loc.sourceRoot);
   const mapper = new SourcePathMapper(loc, { maps: ctx.maps, vars: { OPENCLAW_HOME: loc.sourceRoot }, rootNames: base === ".openclaw" || base === ".clawdbot" ? [".openclaw", ".clawdbot"] : [] });
   const cfgPath = mapperPath(mapper);

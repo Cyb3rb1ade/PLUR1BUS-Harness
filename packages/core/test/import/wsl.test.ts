@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { decodeWslOutput, listWslDistros, parseWslListOutput, probeWslDistro, enumerateWslCandidates, type WslRunner } from "../../src/import/wsl.ts";
 import { ImportError } from "../../src/import/types.ts";
 
-describe("WSL discovery and probing (G5)", () => {
+describe("WSL discovery and probing (G5)", { timeout: 30_000 }, () => {
   it("decodeWslOutput decodes UTF-16LE with BOM, without BOM, and UTF-8", () => {
     // UTF-16LE with BOM
     const str = "NAME STATE VERSION\nUbuntu Running 2";
@@ -59,6 +59,35 @@ describe("WSL discovery and probing (G5)", () => {
       version: 1,
       isDefault: false,
     });
+  });
+
+  it("parseWslListOutput handles German localized wsl -l -v output (I7)", () => {
+    const germanRaw = `  NAME                   STATUS           VERSION
+* Ubuntu-24.04           Wird ausgeführt  2
+  Debian                 Beendet          2
+`;
+    const distros = parseWslListOutput(germanRaw);
+    assert.equal(distros.length, 2);
+    assert.deepEqual(distros[0], {
+      name: "Ubuntu-24.04",
+      state: "Running",
+      version: 2,
+      isDefault: true,
+    });
+    assert.deepEqual(distros[1], {
+      name: "Debian",
+      state: "Stopped",
+      version: 2,
+      isDefault: false,
+    });
+  });
+
+  it("parseWslListOutput throws on unparseable output rather than returning empty array (I7)", () => {
+    const unparseable = `Some random error from driver\ncorrupted line without columns`;
+    assert.throws(
+      () => parseWslListOutput(unparseable),
+      (e: unknown) => e instanceof ImportError && e.reason === "wsl-unparseable"
+    );
   });
 
   it("listWslDistros handles an empty list (only header)", async () => {

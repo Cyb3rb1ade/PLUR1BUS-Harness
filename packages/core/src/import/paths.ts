@@ -82,25 +82,56 @@ const WSL_UNC = /^(?:\\\\|\/\/)(wsl\$|wsl\.localhost)[\\/]+([^\\/]+)((?:[\\/].*)
  *  `\\wsl.localhost\<distro>\…` root is a POSIX source inside that distro; `/mnt/<drive>/…` read inside WSL
  *  (`WSL_DISTRO_NAME`/`WSL_INTEROP` set) is a Windows source; a UNC share read on Windows is `network`; anything else
  *  is `native` with `home` as its home. */
-export function locateSource(o: { accessRoot: string; platform: NodeJS.Platform; env: NodeJS.ProcessEnv; home: string | null }): SourceLocation {
+export function locateSource(o: {
+  accessRoot: string;
+  platform: NodeJS.Platform;
+  env: NodeJS.ProcessEnv;
+  home: string | null;
+  harnessHome?: string | null;
+}): SourceLocation {
   const hostFlavour = flavourOf(o.platform);
   const H = pathFor(hostFlavour);
   const base = { hostFlavour, accessRoot: o.accessRoot };
   try {
     const metaPath = H.join(o.accessRoot, "snapshot.json");
     if (existsSync(metaPath)) {
-      const meta = JSON.parse(readFileSync(metaPath, "utf8"));
-      if (meta && typeof meta === "object" && meta.version === 1) {
-        return {
-          origin: meta.origin ?? "native",
-          flavour: meta.flavour ?? hostFlavour,
-          hostFlavour,
-          accessRoot: o.accessRoot,
-          sourceRoot: meta.sourceRoot ?? meta.source ?? o.accessRoot,
-          sourceHome: meta.sourceHome ?? o.home,
-          accessHome: o.home,
-          mounts: meta.mounts ?? [],
-        };
+      // Trust anchor check (I6): snapshot.json is only accepted under the Harness home's import directory (<home>/import/<run>/snapshot/)
+      const candidateHome = o.harnessHome ?? o.home;
+      const homeImport = candidateHome ? H.resolve(H.join(candidateHome, "import")) : null;
+      const resolvedAccess = H.resolve(o.accessRoot);
+      const isUnderHomeImport =
+        homeImport !== null &&
+        (resolvedAccess.startsWith(homeImport + H.sep) || resolvedAccess === homeImport) &&
+        /[\\/]import[\\/][^\\/]+[\\/]snapshot$/i.test(resolvedAccess);
+      if (isUnderHomeImport) {
+        const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+        if (meta && typeof meta === "object" && meta.version === 1) {
+          const allowedOrigins = ["native", "windows-from-wsl", "network", "container"];
+          const isAllowedOrigin = typeof meta.origin === "string" && (allowedOrigins.includes(meta.origin) || meta.origin.startsWith("wsl:"));
+          const isAllowedFlavour = meta.flavour === "posix" || meta.flavour === "win32";
+          if (isAllowedOrigin && isAllowedFlavour) {
+            const mounts = Array.isArray(meta.mounts) ? meta.mounts : [];
+            const safeMounts: Mount[] = [];
+            for (const m of mounts) {
+              if (m && typeof m.from === "string" && typeof m.to === "string") {
+                const targetPath = H.resolve(resolvedAccess, m.to);
+                if (targetPath.startsWith(resolvedAccess + H.sep) || targetPath === resolvedAccess) {
+                  safeMounts.push({ from: m.from, to: m.to });
+                }
+              }
+            }
+            return {
+              origin: meta.origin,
+              flavour: meta.flavour,
+              hostFlavour,
+              accessRoot: o.accessRoot,
+              sourceRoot: typeof meta.sourceRoot === "string" ? meta.sourceRoot : o.accessRoot,
+              sourceHome: typeof meta.sourceHome === "string" ? meta.sourceHome : o.home,
+              accessHome: o.home,
+              mounts: safeMounts,
+            };
+          }
+        }
       }
     }
   } catch {}
