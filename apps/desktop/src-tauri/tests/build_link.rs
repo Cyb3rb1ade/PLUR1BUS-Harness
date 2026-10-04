@@ -430,6 +430,8 @@ fn linked_resource_is_available() {
         let mut command = std::process::Command::new(env!("CARGO"));
         command
             .current_dir(self.root.path())
+            // CI may force colors; inspected verbose Cargo lines must stay plain.
+            .args(["--color", "never"])
             .args(args)
             .env("CARGO_TARGET_DIR", self.root.path().join("target"))
             .env_remove("CARGO_BUILD_TARGET")
