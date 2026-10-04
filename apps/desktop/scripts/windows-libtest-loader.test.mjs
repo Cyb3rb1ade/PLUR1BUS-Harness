@@ -193,6 +193,22 @@ test('base relocation directory changes fail even without a section move', () =>
   assert.equal(imageEquivalence(inspectImage(original), inspectImage(changed)).accepted, false);
 });
 
+for (const [field, relative] of [['SizeOfImage', 56], ['SizeOfInitializedData', 8]]) {
+  test(`no-move ${field} changes fail even when masked headers and sections match`, () => {
+    const original = relocationFixture(true), changed = Buffer.from(original);
+    const before = inspectImage(original);
+    assert.equal(imageEquivalence(before, inspectImage(changed)).accepted, true);
+    const offset = changed.readUInt32LE(0x3c) + 24 + relative;
+    changed.writeUInt32LE(changed.readUInt32LE(offset) + 4096, offset);
+    const proof = imageEquivalence(before, inspectImage(changed));
+    assert.equal(proof.nonResourceSectionsEqual, true);
+    assert.equal(proof.relocationSectionMove, null);
+    assert.equal(proof.executionHeaderEqual, true);
+    assert.equal(proof.accepted, false);
+    assert.equal(proof.layoutSizesPreserved, false);
+  });
+}
+
 test('the movement exception rejects executable sections and other directories referring into the moved range', () => {
   for (const kind of ['executable', 'writable', 'other-directory']) {
     const before = relocationFixture(), after = relocationFixture(true);

@@ -191,16 +191,18 @@ export function imageEquivalence(before, after) {
   const codeSectionsEqual = equal(before.sections.filter(s => s.code), after.sections.filter(s => s.code));
   const nonResourceSectionsEqual = equal(before.sections.filter(s => !s.resource), after.sections.filter(s => !s.resource));
   const relocationSectionMove = nonResourceSectionsEqual ? null : relocationResourceInsertion(before, after, equal);
+  const layoutSizesPreserved = relocationSectionMove !== null
+    || (before.sizeOfImage === after.sizeOfImage && before.initializedDataSize === after.initializedDataSize);
   const relocationDirectoryPreserved = equal(before.relocationDirectory, after.relocationDirectory) || relocationSectionMove !== null;
   const dataDirectoriesPreserved = before.dataDirectories.length === after.dataDirectories.length
     && before.dataDirectories.every((directory, i) => i === 2 || (i === 5 && relocationSectionMove !== null) || equal(directory, after.dataDirectories[i]));
   const importsEqual = equal(before.imports, after.imports), exportsEqual = equal(before.exports, after.exports);
   const otherResourcesEqual = equal(before.resources.filter(r => !r.manifest), after.resources.filter(r => !r.manifest));
   const executionHeaderEqual = before.machine === after.machine && equal(before.executionHeader, after.executionHeader);
-  return { codeSectionsEqual, nonResourceSectionsEqual, relocationSectionMove, relocationDirectoryPreserved, dataDirectoriesPreserved,
+  return { codeSectionsEqual, nonResourceSectionsEqual, relocationSectionMove, layoutSizesPreserved, relocationDirectoryPreserved, dataDirectoriesPreserved,
     importsEqual, exportsEqual, otherResourcesEqual, executionHeaderEqual,
     accepted: codeSectionsEqual && (nonResourceSectionsEqual || relocationSectionMove !== null) && relocationDirectoryPreserved
-      && dataDirectoriesPreserved && importsEqual && exportsEqual && otherResourcesEqual && executionHeaderEqual };
+      && layoutSizesPreserved && dataDirectoriesPreserved && importsEqual && exportsEqual && otherResourcesEqual && executionHeaderEqual };
 }
 
 /** Preserve loader search inputs, but provide no credentials or real runtime profile. */
