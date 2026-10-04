@@ -81,7 +81,11 @@ export interface CoreOptions {
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
   /** D112: model discovery adapters and options. */
-  discovery?: Partial<DiscoveryAdapters> & { scheduler?: boolean; store?: CatalogStore };
+  discovery?: Partial<DiscoveryAdapters> & {
+    scheduler?: boolean;
+    /** Test seam: custom catalog store for testing boot failures. Must not be set in production. */
+    store?: CatalogStore;
+  };
 }
 
 /** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
