@@ -31,7 +31,13 @@ export function defaultHermesHome(env: NodeJS.ProcessEnv, homedir: string, platf
 export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.ProcessEnv; homedir: string; platform?: NodeJS.Platform | undefined }): { root: string; resolvedFrom: string; profile: string | null } {
   const platform = o.platform ?? process.platform;
   const P = pathFor(platform);
-  if (o.source) return { root: P.resolve(expandTilde(o.source, o.homedir, platform)), resolvedFrom: "flag:--source", profile: null };
+  if (o.source) {
+    if (o.source.startsWith("wsl:")) {
+      const loc = locateSource({ accessRoot: o.source, platform, env: o.env, home: o.homedir });
+      return { root: loc.accessRoot, resolvedFrom: "flag:--source", profile: null };
+    }
+    return { root: P.resolve(expandTilde(o.source, o.homedir, platform)), resolvedFrom: "flag:--source", profile: null };
+  }
   const env = envGet(o.env, "HERMES_HOME", platform)?.trim();
   if (env) {
     const p = P.resolve(expandUser(expandVars(env, o.env, platform), o.env, o.homedir, platform));

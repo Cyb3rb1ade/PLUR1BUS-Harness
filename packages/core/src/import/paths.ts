@@ -1,6 +1,7 @@
 // Platform-aware path helpers for the importer (plugin-distribution spec §B.1, §B.4). Every function takes the
 // platform explicitly and uses `path.win32` or `path.posix` accordingly — never the host's `node:path` — so the
 // Windows rules are unit-tested on Linux and a Windows host can read a POSIX-flavoured source (and back).
+import { existsSync, readFileSync } from "node:fs";
 import { posix, win32 } from "node:path";
 import { ImportError } from "./types.ts";
 
@@ -85,8 +86,41 @@ export function locateSource(o: { accessRoot: string; platform: NodeJS.Platform;
   const hostFlavour = flavourOf(o.platform);
   const H = pathFor(hostFlavour);
   const base = { hostFlavour, accessRoot: o.accessRoot };
+  try {
+    const metaPath = H.join(o.accessRoot, "snapshot.json");
+    if (existsSync(metaPath)) {
+      const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+      if (meta && typeof meta === "object" && meta.version === 1) {
+        return {
+          origin: meta.origin ?? "native",
+          flavour: meta.flavour ?? hostFlavour,
+          hostFlavour,
+          accessRoot: o.accessRoot,
+          sourceRoot: meta.sourceRoot ?? meta.source ?? o.accessRoot,
+          sourceHome: meta.sourceHome ?? o.home,
+          accessHome: o.home,
+          mounts: meta.mounts ?? [],
+        };
+      }
+    }
+  } catch {}
+  const wslSyntax = /^wsl:([^:]+):(.*)$/.exec(o.accessRoot);
+  if (wslSyntax) {
+    const distro = wslSyntax[1]!;
+    const rawPath = wslSyntax[2]!.startsWith("/") ? wslSyntax[2]! : `/${wslSyntax[2]!}`;
+    const parts = normParts(rawPath.split(/[\\/]+/).filter(Boolean));
+    const sourceRoot = `/${parts.join("/")}`;
+    const prefix = `\\\\wsl.localhost\\${distro}`;
+    const accessRoot = hostFlavour === "win32" ? `${prefix}\\${parts.join("\\")}` : `${prefix}/${parts.join("/")}`;
+    const homeParts = parts[0] === "home" && parts.length >= 2 ? parts.slice(0, 2) : parts[0] === "root" ? ["root"] : null;
+    return {
+      origin: `wsl:${distro}`, flavour: "posix", hostFlavour, accessRoot, sourceRoot,
+      sourceHome: homeParts ? `/${homeParts.join("/")}` : null, accessHome: homeParts ? (hostFlavour === "win32" ? H.join(prefix, ...homeParts) : `${prefix}/${homeParts.join("/")}`) : null,
+      mounts: [{ from: "/mnt/*", to: "*:\\" }, { from: "/", to: prefix }],
+    };
+  }
   const wsl = WSL_UNC.exec(o.accessRoot);
-  if (wsl && hostFlavour === "win32") {
+  if (wsl && (hostFlavour === "win32" || o.accessRoot.startsWith("\\\\") || o.accessRoot.startsWith("//"))) {
     const prefix = `\\\\${wsl[1]}\\${wsl[2]}`;
     const parts = normParts(wsl[3]!.split(/[\\/]+/).filter(Boolean));
     const sourceRoot = `/${parts.join("/")}`;

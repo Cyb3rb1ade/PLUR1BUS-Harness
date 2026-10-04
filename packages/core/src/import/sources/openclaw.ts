@@ -48,7 +48,15 @@ export function resolveOpenclawRoot(o: RootInput): { root: string; resolvedFrom:
   const get = (n: string) => envGet(o.env, n, platform)?.trim() || undefined;
   const home = openclawHome(o.env, o.homedir, platform);
   let root: string; let resolvedFrom: string;
-  if (o.source) { root = P.resolve(expandTilde(o.source, o.homedir, platform)); resolvedFrom = "flag:--source"; }
+  if (o.source) {
+    if (o.source.startsWith("wsl:")) {
+      const loc = locateSource({ accessRoot: o.source, platform, env: o.env, home: o.homedir });
+      root = loc.accessRoot;
+    } else {
+      root = P.resolve(expandTilde(o.source, o.homedir, platform));
+    }
+    resolvedFrom = "flag:--source";
+  }
   else if (get("OPENCLAW_STATE_DIR")) { root = P.resolve(expandTilde(get("OPENCLAW_STATE_DIR")!, home, platform)); resolvedFrom = "env:OPENCLAW_STATE_DIR"; }
   else if (get("OPENCLAW_PROFILE") && get("OPENCLAW_PROFILE")!.toLowerCase() !== "default") {
     const p = get("OPENCLAW_PROFILE")!;

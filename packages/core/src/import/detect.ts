@@ -5,6 +5,7 @@ import { readSource, type SourceOptions } from "./source.ts";
 import { planSkills } from "./skills-import.ts";
 import type { ScannedSkill } from "./skills-scan.ts";
 import type { SourceReport } from "./types.ts";
+import { enumerateWslCandidates, type WslCandidate } from "./wsl.ts";
 
 export interface DetectSkill {
   id: string; name: string | null; description: string | null; path: string; tier: string; agentId: string | null;
@@ -18,9 +19,18 @@ export type DetectReport = Omit<SourceReport, "skillRoots"> & {
   skillRoots: { dir: string; tier: string; agentId: string | null; exists: boolean }[];
   skills: DetectSkill[];
   counts: Record<string, number>;
+  candidates?: WslCandidate[];
 };
 
 export async function detect(o: SourceOptions): Promise<DetectReport> {
+  let candidates: WslCandidate[] | undefined;
+  if (!o.source && (o.platform ?? process.platform) === "win32") {
+    try {
+      const all = await enumerateWslCandidates({ runner: o.wslRunner, probeWsl: o.probeWsl });
+      const matching = all.filter((c) => c.sourceType === o.sourceType);
+      if (matching.length > 0) candidates = matching;
+    } catch {}
+  }
   const { report, target, skills } = await readSource(o);
   const planned = planSkills(skills, o.home, o.sourceType, "skip");
   const detectSkills: DetectSkill[] = planned.map(({ skill: s, action, targetId, reason, harness }) => ({
@@ -48,5 +58,6 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
     skillRoots: report.skillRoots.map((r) => ({ dir: r.dir, tier: r.tier, agentId: r.agentId, exists: existsSync(r.dir) })),
     skills: detectSkills,
     counts,
+    ...(candidates ? { candidates } : {}),
   };
 }

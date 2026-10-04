@@ -235,3 +235,62 @@ jobs:
           "$PY" -m unittest discover -v -s clients/python/plur1bus-memory-client/tests/live -t clients/python/plur1bus-memory-client
           "$PY" -m unittest discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
         env: { PLUR1BUS_LIVE_REQUIRED: "1", PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware
+  wsl:
+    # Cross-platform migration WSL discovery and tar snapshot job (spec §B.7, gap G5/G6, decision C8).
+    # Non-blocking for the first four weeks (continue-on-error: true); runs on windows-2025.
+    runs-on: windows-2025
+    continue-on-error: true
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
+        with:
+          distribution: Ubuntu-24.04
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: engine git access over https
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen
+      - run: pnpm build
+      - name: synthetic WSL source and import detect
+        shell: bash
+        run: |
+          # Create synthetic openclaw installation inside Ubuntu-24.04 distro
+          wsl.exe -d Ubuntu-24.04 -e bash -c '
+            set -euo pipefail
+            mkdir -p ~/.openclaw/ws-wsl/skills/notes
+            cat << "EOF" > ~/.openclaw/openclaw.json
+            {
+              "meta": { "lastTouchedVersion": "2026.9.5" },
+              "agents": { "list": [ { "id": "wsl-agent", "workspace": "/root/.openclaw/ws-wsl" } ] }
+            }
+          EOF
+            cat << "EOF" > ~/.openclaw/ws-wsl/skills/notes/SKILL.md
+            ---
+            name: notes
+            description: WSL test notes
+            ---
+            # notes
+          EOF
+          '
+          # Run detect with --probe-wsl against the WSL candidate from the Windows host
+          node packages/core/dist/import.js openclaw --detect --home "$RUNNER_TEMP/harness-home" --probe-wsl
+          # Run direct detect against wsl: syntax
+          node packages/core/dist/import.js openclaw --detect --source "wsl:Ubuntu-24.04:/root/.openclaw" --home "$RUNNER_TEMP/harness-home"
+

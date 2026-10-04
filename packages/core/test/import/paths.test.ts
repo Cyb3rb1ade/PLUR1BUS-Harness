@@ -25,6 +25,15 @@ describe("locateSource", () => {
     const root = locateSource({ accessRoot: "\\\\wsl.localhost\\OpenClawGateway\\root\\.openclaw", platform: "win32", env: {}, home: "C:\\Users\\J" });
     assert.deepEqual([root.sourceRoot, root.sourceHome], ["/root/.openclaw", "/root"]);
   });
+  it("locates a wsl:<distro>:<path> source specification", () => {
+    const l = locateSource({ accessRoot: "wsl:Ubuntu-24.04:/home/juergen/.openclaw", platform: "win32", env: {}, home: "C:\\Users\\J" });
+    assert.equal(l.origin, "wsl:Ubuntu-24.04");
+    assert.equal(l.flavour, "posix");
+    assert.equal(l.sourceRoot, "/home/juergen/.openclaw");
+    assert.equal(l.accessRoot, "\\\\wsl.localhost\\Ubuntu-24.04\\home\\juergen\\.openclaw");
+    assert.equal(l.sourceHome, "/home/juergen");
+    assert.equal(l.accessHome, "\\\\wsl.localhost\\Ubuntu-24.04\\home\\juergen");
+  });
   it("reads /mnt/<drive> inside WSL as a Windows source", () => {
     const l = locateSource({ accessRoot: "/mnt/c/Users/J\u00fcrgen/AppData/Local/hermes", platform: "linux", env: { WSL_DISTRO_NAME: "Ubuntu" }, home: "/home/j" });
     assert.deepEqual([l.origin, l.flavour, l.sourceRoot, l.sourceHome, l.accessHome], ["windows-from-wsl", "win32", "C:\\Users\\J\u00fcrgen\\AppData\\Local\\hermes", "C:\\Users\\J\u00fcrgen", "/mnt/c/Users/J\u00fcrgen"]);
