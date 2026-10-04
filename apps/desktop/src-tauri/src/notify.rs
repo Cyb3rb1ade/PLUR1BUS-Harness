@@ -274,3 +274,33 @@ pub mod portal {
         }
     }
 }
+
+/// Bounded, one-shot registrations; only actions offered by this app can be resolved.
+#[derive(Default)]
+pub struct ActionLedger(std::collections::VecDeque<(u32, u64, [Action; 2])>);
+impl ActionLedger {
+    pub fn record(&mut self, id: u32, generation: u64, actions: [Action; 2]) {
+        if id == 0 {
+            return;
+        }
+        self.0.retain(|entry| entry.0 != id);
+        if self.0.len() == 64 {
+            self.0.pop_front();
+        }
+        self.0.push_back((id, generation, actions));
+    }
+    pub fn resolve(&mut self, id: u32, action: &str, generation: u64) -> Option<Action> {
+        let index = self.0.iter().position(|entry| entry.0 == id)?;
+        let entry = self.0.get(index)?;
+        if entry.1 != generation {
+            self.0.remove(index);
+            return None;
+        }
+        let action = Action::parse(action)?;
+        if !entry.2.contains(&action) {
+            return None;
+        }
+        self.0.remove(index);
+        Some(action)
+    }
+}
