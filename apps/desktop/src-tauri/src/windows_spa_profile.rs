@@ -231,6 +231,7 @@ where
 }
 
 #[cfg(any(windows, test))]
+#[allow(dead_code)]
 pub(crate) async fn finish_owned_cleanup_with_mode(
     started: std::time::Instant,
     deadline: std::time::Instant,
@@ -255,6 +256,7 @@ pub(crate) async fn finish_owned_cleanup_with_mode(
 }
 
 #[cfg(any(windows, test))]
+#[allow(dead_code)]
 pub(crate) async fn finish_owned_cleanup(
     started: std::time::Instant,
     deadline: std::time::Instant,
