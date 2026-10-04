@@ -15,7 +15,14 @@ pub(crate) struct HostEnvironment {
 impl HostEnvironment {
     pub(crate) fn current() -> Self {
         Self {
-            vars: std::env::vars().map(|(key, value)| (key, value)).collect(),
+            vars: std::env::vars_os()
+                .map(|(key, value)| {
+                    (
+                        key.to_string_lossy().into_owned(),
+                        value.to_string_lossy().into_owned(),
+                    )
+                })
+                .collect(),
             homedir: home::home_dir()
                 .or_else(|| std::env::current_dir().ok())
                 .unwrap_or_else(|| PathBuf::from(".")),
@@ -95,24 +102,29 @@ fn state_root(env: &HostEnvironment) -> PathBuf {
     if let Some(path) = env.get("OPENCLAW_STATE_DIR") {
         return absolute(&expand_tilde(path, &home));
     }
-    if let Some(profile) = env.get("OPENCLAW_PROFILE") {
-        if !profile.eq_ignore_ascii_case("default")
-            && !profile.is_empty()
-            && profile.len() <= 64
-            && profile
-                .bytes()
-                .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
-        {
-            return home.join(format!(".openclaw-{profile}"));
-        }
+    if let Some(profile) = openclaw_profile(env) {
+        return home.join(format!(".openclaw-{profile}"));
     }
     let fresh = home.join(".openclaw");
     let legacy = home.join(".clawdbot");
-    if !fresh.exists() && legacy.exists() {
+    if !fresh.is_dir() && legacy.is_dir() {
         legacy
     } else {
         fresh
     }
+}
+
+fn openclaw_profile(env: &HostEnvironment) -> Option<&str> {
+    env.get("OPENCLAW_PROFILE").filter(|profile| {
+        let bytes = profile.as_bytes();
+        !profile.eq_ignore_ascii_case("default")
+            && !bytes.is_empty()
+            && bytes.len() <= 64
+            && bytes[0].is_ascii_alphanumeric()
+            && bytes[1..]
+                .iter()
+                .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
+    })
 }
 
 fn expand_tilde(path: &str, home: &Path) -> PathBuf {
@@ -224,14 +236,13 @@ pub(crate) fn store_violation(config: &Value, env: &HostEnvironment) -> Option<S
         .unwrap_or_else(|| env.homedir.clone());
     let store_path = canonical_or_resolved(&expand_tilde(configured.trim(), &home));
     let root = state_root(env);
-    let explicit_root = env.get("OPENCLAW_STATE_DIR").is_some()
-        || env
-            .get("OPENCLAW_PROFILE")
-            .is_some_and(|profile| !profile.eq_ignore_ascii_case("default"));
+    let explicit_root = env.get("OPENCLAW_STATE_DIR").is_some() || openclaw_profile(env).is_some();
     let mut roots = marker_ancestors(&store_path);
-    if explicit_root && root.exists() {
-        roots.push(root.clone());
-    } else if has_marker(&root) || root.join("memory").join("lancedb-namespaced").exists() {
+    if root.is_dir()
+        && (explicit_root
+            || has_marker(&root)
+            || root.join("memory").join("lancedb-namespaced").exists())
+    {
         roots.push(root.clone());
     }
     roots.extend(plugin_store_roots(&store_path));

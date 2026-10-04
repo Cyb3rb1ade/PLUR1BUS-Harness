@@ -2075,6 +2075,8 @@ mod tests {
                 &Layout::new(tempfile::tempdir().unwrap().path().to_path_buf()),
                 None,
             ),
+            Check::ok("config.store-path", "x"),
+            Check::skip("openclaw.host-mode", "x"),
             Check::ok("run.permissions", "x"),
             Check::ok("run.stale-files", "x"),
         ];
@@ -2082,7 +2084,7 @@ mod tests {
         assert!(out_of_budget(past, &mut checks));
         let ids: Vec<&str> = checks.iter().map(|c| c.id).collect();
         assert_eq!(ids, CHECK_IDS);
-        for c in &checks[3..] {
+        for c in &checks[5..] {
             assert_eq!(c.status, Status::Warn, "{c:?}");
             assert_eq!(c.summary, "time budget exhausted");
         }
