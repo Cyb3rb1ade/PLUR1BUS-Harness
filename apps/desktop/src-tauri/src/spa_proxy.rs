@@ -20,7 +20,7 @@ use std::{
     borrow::Cow,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, RwLock,
     },
     time::Duration,
 };
@@ -30,7 +30,8 @@ use url::Url;
 struct Inner {
     installation_id: String,
     session_meta: Mutex<Meta>,
-    client: HarnessClient,
+    client: RwLock<HarnessClient>,
+    upstream_origin: crate::connections::Origin,
     origin: crate::connections::Origin,
     jar: Mutex<Jar>,
     active: AtomicBool,
@@ -150,7 +151,8 @@ impl SpaProxy {
         let inner = Arc::new(Inner {
             installation_id: conn.installation_id.clone(),
             session_meta: Mutex::new(session_meta),
-            client,
+            client: RwLock::new(client),
+            upstream_origin: conn.origin.clone(),
             origin,
             jar: Mutex::new(Jar::default()),
             active: AtomicBool::new(true),
@@ -209,7 +211,7 @@ impl SpaProxy {
         for value in self.inner.observed_secrets.lock().unwrap().iter() {
             register(value.expose());
         }
-        if let Ok(url) = Url::parse(self.inner.client.origin().as_str()) {
+        if let Ok(url) = Url::parse(self.inner.upstream_origin.as_str()) {
             if let Some(header) = self.inner.jar.lock().unwrap().cookies(&url) {
                 if let Ok(header) = header.to_str() {
                     for cookie in header.split(';') {
@@ -224,7 +226,7 @@ impl SpaProxy {
     /// Debug-only assertion seam: inspect the actual jar, independent of remembered secrets.
     #[cfg(debug_assertions)]
     pub fn session_jar_is_empty(&self) -> bool {
-        let url = Url::parse(self.inner.client.origin().as_str()).expect("validated origin");
+        let url = Url::parse(self.inner.upstream_origin.as_str()).expect("validated origin");
         self.inner.jar.lock().unwrap().cookies(&url).is_none()
     }
     /// Refuse the readable launch carrier in HTTP targets and external navigation.
@@ -242,7 +244,8 @@ impl SpaProxy {
     /// Revalidate the cached session metadata after a reconnect or an explicit
     /// version refresh. Ordinary browser requests deliberately do not call this.
     pub async fn revalidate_session_meta(&self) -> Result<(), ClientError> {
-        let fresh = match self.inner.client.meta().await {
+        let client = self.inner.client.read().unwrap().clone();
+        let fresh = match client.meta().await {
             Ok(fresh) => fresh,
             Err(error) => {
                 self.retire();
@@ -257,6 +260,15 @@ impl SpaProxy {
         Ok(())
     }
     /// Reserved port (retired origins cannot be leased again by this process).
+    /// Rust-only update after authenticated trust persistence. Admission and jar stay in this session.
+    pub fn update_transport(&self, client: HarnessClient) -> Result<(), ClientError> {
+        if client.origin() != &self.inner.upstream_origin {
+            return Err(ClientError::Protocol);
+        }
+        client.streaming_http()?;
+        *self.inner.client.write().unwrap() = client;
+        Ok(())
+    }
     pub fn port(&self) -> u16 {
         self.port
     }
@@ -403,7 +415,7 @@ fn upstream_headers(headers: &HeaderMap, s: &Inner, target: &Url) -> HeaderMap {
             result.append(name.clone(), value.clone());
         }
     }
-    let origin = s.client.origin().as_str();
+    let origin = s.upstream_origin.as_str();
     let authority = origin.split_once("://").expect("validated origin").1;
     result.insert(
         header::HOST,
@@ -513,12 +525,13 @@ async fn forward(
     }
     let target = match Url::parse(&format!(
         "{}{}",
-        s.client.origin().as_str(),
+        s.upstream_origin.as_str(),
         req.uri().path_and_query().map_or("/", |p| p.as_str())
     )) {
         Ok(v) => v,
         Err(_) => return StatusCode::BAD_REQUEST.into_response(),
     };
+    let client = s.client.read().unwrap().clone();
     let headers = upstream_headers(req.headers(), &s, &target);
     if req
         .headers()
@@ -538,7 +551,7 @@ async fn forward(
             return StatusCode::BAD_GATEWAY.into_response();
         };
         upstream.headers_mut().extend(headers);
-        let connector = match s.client.websocket_connector() {
+        let connector = match client.websocket_connector() {
             Ok(v) => v,
             Err(_) => return StatusCode::BAD_GATEWAY.into_response(),
         };
@@ -582,7 +595,7 @@ async fn forward(
             .on_upgrade(move |down| websocket_pump(down, socket, s.shutdown.subscribe()))
             .into_response();
     }
-    let http = match s.client.streaming_http() {
+    let http = match client.streaming_http() {
         Ok(v) => v,
         Err(_) => return StatusCode::BAD_GATEWAY.into_response(),
     };
@@ -630,7 +643,7 @@ async fn forward(
         let Some(location) = location.to_str().ok().and_then(|v| target.join(v).ok()) else {
             return StatusCode::BAD_GATEWAY.into_response();
         };
-        if !crate::policy::same_origin(&location, s.client.origin()) {
+        if !crate::policy::same_origin(&location, &s.upstream_origin) {
             return StatusCode::BAD_GATEWAY.into_response();
         };
         let rewritten = format!(
@@ -1061,7 +1074,8 @@ mod tests {
                 installation_id: "test-installation".into(),
                 capabilities: vec![plur1bus_desktop_contract::capability::SESSION_TICKET.into()],
             }),
-            client: HarnessClient::new(origin.clone(), None),
+            client: RwLock::new(HarnessClient::new(origin.clone(), None)),
+            upstream_origin: origin.clone(),
             origin,
             jar: Mutex::new(reqwest::cookie::Jar::default()),
             active: AtomicBool::new(true),

@@ -156,23 +156,207 @@ pub fn start_events(
     let handle = app.clone();
     let task = tokio::spawn(async move {
         let (_cancel, stop) = tokio::sync::watch::channel(false);
-        EventStream::default()
-            .run_async(
-                &client,
-                &connection.installation_id,
-                &token,
-                stop,
-                |update| {
+        let mut stream = EventStream::default();
+        let mut transport = client;
+        let mut row = connection;
+        loop {
+            tokio::select! {
+                _ = stream.run_async(&transport, &row.installation_id, &token, stop.clone(), |update| {
                     let handle = handle.clone();
-                    async move {
-                        enqueue_update(&handle, generation, update).await;
+                    async move { enqueue_update(&handle, generation, update).await; }
+                }) => break,
+                refreshed = next_trust_transport(&handle, generation, &row, &transport, &token) => {
+                    match refreshed {
+                        Some((next_row, next_transport)) => { row = next_row; transport = next_transport; },
+                        None => break,
                     }
-                },
-            )
-            .await;
+                }
+            }
+        }
     });
     state.events.install(generation, task);
 }
+/// Wait for a trust announcement without holding the credential owner. Only the short
+/// authenticated pull/persist/ack transaction serializes with repair/removal/selection.
+async fn next_trust_transport(
+    app: &tauri::AppHandle,
+    generation: u64,
+    row: &Connection,
+    client: &HarnessClient,
+    token: &SecretString,
+) -> Option<(Connection, HarnessClient)> {
+    loop {
+        if let Err(error) = client.trust_event(&row.installation_id, token).await {
+            let failure = match error {
+                crate::client::ClientError::Revoked => Some(SessionFailure::Revoked),
+                crate::client::ClientError::Unauthorized => Some(SessionFailure::Unauthorized),
+                crate::client::ClientError::InstallationMismatch => {
+                    Some(SessionFailure::InstallationMismatch)
+                }
+                _ => None,
+            };
+            if let Some(failure) = failure {
+                enqueue_update(
+                    app,
+                    generation,
+                    EventUpdate {
+                        state: crate::tray::HarnessState::Unpaired,
+                        secrets_locked: false,
+                        connected: false,
+                        failure: Some(failure),
+                    },
+                )
+                .await;
+                return None;
+            }
+            if matches!(
+                error,
+                crate::client::ClientError::CertChanged | crate::client::ClientError::CaNotKnown
+            ) {
+                let owner = crate::commands::ConnectionState(
+                    app.state::<crate::commands::ConnectionState>().0.clone(),
+                );
+                let handle = app.clone();
+                let id = row.id;
+                let observed = client.observed_pin();
+                let _ = crate::commands::credential_action(&owner, move |tokens, _| {
+                    let state = handle.state::<NativeState>();
+                    if state.events.generation() != generation {
+                        return Ok(());
+                    }
+                    let persisted = (|| {
+                        let store = crate::commands::app_connection_store(&handle)?;
+                        let mut saved = store
+                            .load()
+                            .map_err(|_| "TRUST_STORAGE_FAILED")?
+                            .into_iter()
+                            .find(|c| c.id == id)
+                            .ok_or("TRUST_ROW_MISSING")?;
+                        saved.observed_cert_pin = observed;
+                        if let Some(tokens) = tokens.as_ref() {
+                            crate::pair::mark_failure(&mut saved, &error, tokens.as_ref(), &store)
+                                .map_err(|_| "TRUST_REPAIR_PERSIST_FAILED")?;
+                        }
+                        Ok::<_, String>(())
+                    })();
+                    retire_connection(&handle, id);
+                    persisted?;
+                    Ok(())
+                })
+                .await;
+                return None;
+            }
+            eprintln!("TRUST_EVENT_RETRY");
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            continue;
+        }
+        let owner = crate::commands::ConnectionState(
+            app.state::<crate::commands::ConnectionState>().0.clone(),
+        );
+        let handle = app.clone();
+        let client = client.clone();
+        let token = SecretString::new(token.expose().to_owned());
+        let id = row.id;
+        let result = crate::commands::credential_action(&owner, move |tokens, runtime| {
+            let state = handle.state::<NativeState>();
+            if state.events.generation() != generation {
+                return Ok(None);
+            }
+            let store = crate::commands::app_connection_store(&handle)?;
+            let mut current = store
+                .load()
+                .map_err(|_| "TRUST_STORAGE_FAILED")?
+                .into_iter()
+                .find(|c| c.id == id)
+                .ok_or("TRUST_ROW_MISSING")?;
+            let before = state
+                .connection
+                .lock()
+                .unwrap()
+                .clone()
+                .filter(|c| c.id == id)
+                .ok_or("TRUST_GENERATION_RETIRED")?;
+            if let Err(error) = runtime.block_on(client.refresh_trust(&mut current, &token)) {
+                if let Some(tokens) = tokens.as_ref() {
+                    if let Some(Err(_)) = state.events.with_current(generation, || {
+                        crate::pair::mark_failure(&mut current, &error, tokens.as_ref(), &store)
+                    }) {
+                        eprintln!("TRUST_REPAIR_PERSIST_FAILED");
+                    }
+                }
+                if matches!(
+                    error,
+                    crate::client::ClientError::CertChanged
+                        | crate::client::ClientError::CaNotKnown
+                        | crate::client::ClientError::Revoked
+                        | crate::client::ClientError::Unauthorized
+                        | crate::client::ClientError::InstallationMismatch
+                ) {
+                    retire_connection(&handle, id);
+                }
+                return Err("TRUST_REFRESH_FAILED".into());
+            }
+            state
+                .events
+                .with_current(generation, || store.upsert(current.clone()))
+                .ok_or("TRUST_GENERATION_RETIRED")?
+                .map_err(|_| "TRUST_STORAGE_FAILED")?;
+            if let Err(error) = runtime.block_on(client.ack_trust(&current, &token)) {
+                if let Some(tokens) = tokens.as_ref() {
+                    if let Some(Err(_)) = state.events.with_current(generation, || {
+                        crate::pair::mark_failure(&mut current, &error, tokens.as_ref(), &store)
+                    }) {
+                        eprintln!("TRUST_REPAIR_PERSIST_FAILED");
+                    }
+                }
+                if matches!(
+                    error,
+                    crate::client::ClientError::CertChanged
+                        | crate::client::ClientError::CaNotKnown
+                        | crate::client::ClientError::Revoked
+                        | crate::client::ClientError::Unauthorized
+                        | crate::client::ClientError::InstallationMismatch
+                ) {
+                    retire_connection(&handle, id);
+                }
+                return Err("TRUST_ACK_FAILED".into());
+            }
+            let changed = before.cert_pin != current.cert_pin
+                || before.ca_pin != current.ca_pin
+                || before.next_cert_pin != current.next_cert_pin
+                || before.next_ca_pin != current.next_ca_pin;
+            if !changed {
+                return Ok(None);
+            }
+            let prepared = runtime
+                .block_on(HarnessClient::from_connection(&current))
+                .map_err(|_| "TRUST_TRANSPORT_FAILED")?;
+            state
+                .events
+                .with_current(generation, || {
+                    handle
+                        .state::<crate::spa::SpaState>()
+                        .update_trust_transport(&current, prepared.clone())?;
+                    *state.connection.lock().unwrap() = Some(current.clone());
+                    Ok::<_, crate::client::ClientError>(())
+                })
+                .ok_or("TRUST_GENERATION_RETIRED")?
+                .map_err(|_| "TRUST_TRANSPORT_FAILED")?;
+            Ok(Some((current, prepared)))
+        })
+        .await;
+        match result {
+            Ok(Some(updated)) => return Some(updated),
+            Ok(None) => {}
+            Err(_) => eprintln!("TRUST_SYNC_RETRY"),
+        }
+        if app.state::<NativeState>().events.generation() != generation {
+            return None;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+}
+
 async fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUpdate) {
     let handle = app.clone();
     let (ack, delivered) = tokio::sync::oneshot::channel();
