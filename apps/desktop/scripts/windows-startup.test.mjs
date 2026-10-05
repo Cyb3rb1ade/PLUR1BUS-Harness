@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, win32 } from 'node:path';
+import { runOwnedChild, removeExitedProfile } from './owned-process.mjs';
 import { parsePe, isApiSet } from './windows-pe.mjs';
 import { diagnoseWindowsStartup, MAIN_MARKER, startupResult, windowsJsonProbeEnvironments } from './windows-startup.mjs';
 
@@ -462,10 +463,10 @@ test('incremental load, map and path updates retain one module and nullable mapp
 });
 
 test('Windows helper executes real compile/load/name phases with isolated profile and preserves failure artifacts',
-  { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, t => {
+  { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, async t => {
     const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-helper-'));
     let success = false;
-    t.after(() => { if (success) rmSync(root, { recursive: true, force: true }); });
+    t.after(async () => { if (success) await removeExitedProfile(root); });
     const executable = join(root, 'transport_spike.exe');
     const machine = process.arch === 'arm64' ? 0xaa64 : process.arch === 'ia32' ? 0x14c : 0x8664;
     const bytes = peFixture({ machine, wide: machine !== 0x14c, imports: [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }] });
@@ -475,14 +476,27 @@ test('Windows helper executes real compile/load/name phases with isolated profil
       HOME: root, USERPROFILE: root, APPDATA: root, LOCALAPPDATA: root, TEMP: root, TMP: root,
       PSModuleAnalysisCachePath: join(root, 'module-cache'),
       PSModulePath: win32.join(process.env.SystemRoot ?? process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'Modules') };
+    // Run the one public query asynchronously, and await actual process/pipe
+    // closure before diagnostics read its artifacts or teardown removes them.
+    const inputPath = join(root, 'native-helper-input.json');
+    const progressPath = join(root, 'native-helper-progress.jsonl');
+    writeFileSync(inputPath, JSON.stringify({ machine, executableDirectory: root,
+      modules: [{ dll: 'kernel32.dll', symbols: [{ name: 'GetCurrentProcess' }] }] }));
+    helperResult = await runOwnedChild(win32.join(env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+      ['-NoProfile', '-NonInteractive', '-File', fileURLToPath(new URL('./windows-loader.ps1', import.meta.url)),
+        '-ProgressPath', progressPath, '-InputPath', inputPath], { cwd: root, env }, 12000);
     const report = diagnoseWindowsStartup({ root, executable, cwd: root, env,
       child: { status: 3221225785, stdout: '', stderr: '' } }, {
-      spawnSync: (...args) => { helperResult = spawnSync(...args); return helperResult; },
+      spawnSync: (_command, args) => {
+        const destination = args[args.indexOf('-ProgressPath') + 1];
+        writeFileSync(destination, readFileSync(progressPath));
+        return helperResult;
+      },
       readPeBytes: path => { if (path === executable) return bytes; throw Error('Optional static DLL read omitted in runtime test'); },
       readFileVersions: () => [],
     });
     const saved = JSON.parse(readFileSync(join(root, 'native-loader-exports.json'), 'utf8'));
-    assert.equal(helperResult?.status, 0, `Public helper artifacts retained at ${root}`);
+    assert.equal(helperResult?.status, 0, `WINDOWS_HELPER_EXIT_FAILED status=${helperResult?.status} signal=${helperResult?.signal} timedOut=${helperResult?.timedOut}`);
     assert.equal(saved.batches[0].progressStatus, 'validated');
     assert.equal(saved.batches[0].helperPhase, 'complete');
     assert.equal(saved.batches[0].architectureMatches, true);

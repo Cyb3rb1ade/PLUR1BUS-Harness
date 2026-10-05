@@ -85,6 +85,33 @@ impl WindowHost for Windows<'_> {
             .ok_or(WindowFailure::Unavailable)?;
         window.show().map_err(|_| WindowFailure::Show)?;
         window.unminimize().map_err(|_| WindowFailure::Unminimize)?;
+        #[cfg(target_os = "windows")]
+        {
+            // The pinned singleton plugin grants the primary PID foreground rights
+            // before WM_COPYDATA. Never use Tao's ALT/SendInput fallback here.
+            let hwnd = window.hwnd().map_err(|_| WindowFailure::Focus)?.0 as usize;
+            window
+                .with_webview(move |webview| {
+                    use windows_sys::Win32::UI::{
+                        Input::KeyboardAndMouse::SetActiveWindow,
+                        WindowsAndMessaging::SetForegroundWindow,
+                    };
+                    let hwnd = hwnd as windows_sys::Win32::Foundation::HWND;
+                    unsafe {
+                        if SetForegroundWindow(hwnd) == 0 {
+                            eprintln!("WINDOW_FOREGROUND_LOCK_DENIED");
+                        }
+                        SetActiveWindow(hwnd);
+                        if webview.controller().MoveFocus(
+                            webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC,
+                        ).is_err() {
+                            eprintln!("WINDOW_WEBVIEW_FOCUS_FAILED");
+                        }
+                    }
+                })
+                .map_err(|_| WindowFailure::Focus)
+        }
+        #[cfg(not(target_os = "windows"))]
         window.set_focus().map_err(|_| WindowFailure::Focus)
     }
     fn show(&self, label: &str) -> Result<(), WindowFailure> {

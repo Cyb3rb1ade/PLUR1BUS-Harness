@@ -69,9 +69,25 @@ mod fixture {
         }
         Err("FIXTURE_OBSERVER_TIMEOUT")
     }
+    #[cfg(any(windows, test))]
+    fn focus_matches(local_focus: bool, foreground: bool, strict: bool) -> bool {
+        local_focus && (!strict || foreground)
+    }
+    #[cfg(test)]
+    mod focus_tests {
+        #[test]
+        fn denied_initial_foreground_requires_local_focus_but_authorized_launch_is_strict() {
+            assert!(super::focus_matches(true, false, false));
+            assert!(!super::focus_matches(false, false, false));
+            assert!(!super::focus_matches(false, true, false));
+            assert!(!super::focus_matches(true, false, true));
+            assert!(super::focus_matches(true, true, true));
+        }
+    }
     // WebView2 child focus can leave Tao's top-level WM_SETFOCUS flag false.
-    // Require the real foreground window AND its queue's focused descendant.
-    fn window_has_keyboard_focus(window: &tauri::WebviewWindow) -> bool {
+    // Initial CI launch may be refused foreground by Windows. Local queue/WebView
+    // focus stays mandatory; an authorized second launcher must also be foreground.
+    fn window_has_keyboard_focus(window: &tauri::WebviewWindow, strict_foreground: bool) -> bool {
         #[cfg(target_os = "windows")]
         {
             use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -86,19 +102,26 @@ mod fixture {
             info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
             unsafe {
                 let thread = GetWindowThreadProcessId(hwnd, std::ptr::null_mut());
-                !hwnd.is_null()
-                    && GetForegroundWindow() == hwnd
+                let local_focus = !hwnd.is_null()
                     && IsWindowVisible(hwnd) != 0
                     && IsIconic(hwnd) == 0
                     && thread != 0
                     && GetGUIThreadInfo(thread, &mut info) != 0
                     && info.hwndActive == hwnd
                     && !info.hwndFocus.is_null()
-                    && (info.hwndFocus == hwnd || IsChild(hwnd, info.hwndFocus) != 0)
+                    && (info.hwndFocus == hwnd || IsChild(hwnd, info.hwndFocus) != 0);
+                focus_matches(
+                    local_focus,
+                    GetForegroundWindow() == hwnd,
+                    strict_foreground,
+                )
             }
         }
         #[cfg(not(target_os = "windows"))]
-        window.is_focused().unwrap_or(false)
+        {
+            let _ = strict_foreground;
+            window.is_focused().unwrap_or(false)
+        }
     }
     // Read-only OS observations: never activate, attach input queues or bypass foreground lock.
     fn focus_snapshot(app: &tauri::AppHandle, stage: &'static str, elapsed_ms: u128) {
@@ -296,33 +319,50 @@ mod fixture {
         eprintln!("FIXTURE_SHELL_VISIBLE");
         gui(app, |app| {
             focus_snapshot(&app, "before-focus", 0);
-            native::focus(&app);
+            let requested = plur1bus_desktop::lifecycle::focus_first(&native::Windows(&app));
             focus_snapshot(&app, "after-focus-call", 0);
-        })?;
+            requested.map_err(|_| "FIXTURE_FOREGROUND_REQUEST_FAILED")
+        })??;
         let focus_started = Instant::now();
         let focus_result = observe(app, |app| {
             app.get_webview_window("spa")
-                .is_some_and(|w| window_has_keyboard_focus(&w))
+                .is_some_and(|w| window_has_keyboard_focus(&w, false))
         });
         let elapsed_ms = focus_started.elapsed().as_millis();
         gui(app, move |app| {
             focus_snapshot(&app, "after-focus-observation", elapsed_ms)
         })?;
         focus_result.map_err(|_| "FIXTURE_SPA_NOT_FOCUSED")?;
+        #[cfg(target_os = "windows")]
+        gui(app, |app| {
+            if app
+                .get_webview_window("spa")
+                .is_some_and(|w| !window_has_keyboard_focus(&w, true))
+            {
+                eprintln!("WP6_FOCUS_SUMMARY foreground-lock-denied");
+            }
+        })?;
         report.lock().unwrap().spa_focus = true;
         eprintln!("FIXTURE_SPA_FOCUS_OBSERVED");
         gui(app, |app| {
             app.get_webview_window("spa").unwrap().hide().unwrap();
+            use plur1bus_desktop::lifecycle::WindowHost;
+            native::Windows(&app).present("shell").unwrap();
+        })?;
+        let launcher_has_foreground = gui(app, |app| {
             app.get_webview_window("shell")
-                .unwrap()
-                .set_focus()
-                .unwrap();
+                .is_some_and(|w| window_has_keyboard_focus(&w, true))
         })?;
         let mut child = std::process::Command::new(
             std::env::current_exe().map_err(|_| "FIXTURE_EXECUTABLE_FAILED")?,
         )
         .arg(root)
         .arg("--secondary")
+        .arg(if launcher_has_foreground {
+            "--foreground-authorized"
+        } else {
+            "--foreground-denied"
+        })
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -351,7 +391,8 @@ mod fixture {
         observe(app, move |app| {
             seen.load(Ordering::SeqCst)
                 && app.get_webview_window("spa").is_some_and(|w| {
-                    w.is_visible().unwrap_or(false) && window_has_keyboard_focus(&w)
+                    w.is_visible().unwrap_or(false)
+                        && window_has_keyboard_focus(&w, launcher_has_foreground)
                 })
         })?;
         report.lock().unwrap().second_instance_focus = true;
@@ -389,7 +430,7 @@ mod fixture {
         gui(app, |app| native::focus(&app))?;
         observe(app, |app| {
             app.get_webview_window("shell")
-                .is_some_and(|w| window_has_keyboard_focus(&w))
+                .is_some_and(|w| window_has_keyboard_focus(&w, false))
         })?;
         report.lock().unwrap().shell_focus = true;
         eprintln!("FIXTURE_SHELL_FOCUS_OBSERVED");
@@ -536,7 +577,7 @@ mod fixture {
             .build(context)
             .expect("NATIVE_FIXTURE_BUILD_FAILED");
         let final_report = report.clone();
-        app.run(move |app, event| {
+        let native_exit_code = app.run_return(move |app, event| {
             if native::guard_exit(app, &event) {
                 return;
             }
@@ -560,6 +601,7 @@ mod fixture {
                 }
             }
         });
+        eprintln!("FIXTURE_PROCESS_EXIT code={native_exit_code}");
         let report = report.lock().unwrap();
         let complete = report.second_instance_focus
             && report.spa_focus
@@ -570,7 +612,15 @@ mod fixture {
             && report.quit_cancel_preserves_app
             && report.quit_confirm_exits;
         println!("{}", serde_json::to_string(&*report).unwrap());
+        if native_exit_code != 0 {
+            eprintln!("FIXTURE_NATIVE_EXIT_FAILED code={native_exit_code}");
+            std::process::exit(native_exit_code);
+        }
         if failed.load(Ordering::SeqCst) || !complete {
+            eprintln!(
+                "FIXTURE_REPORT_INCOMPLETE failed={} complete={complete}",
+                failed.load(Ordering::SeqCst)
+            );
             std::process::exit(2);
         }
     }
