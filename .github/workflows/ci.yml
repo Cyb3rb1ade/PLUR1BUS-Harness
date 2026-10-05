@@ -300,8 +300,21 @@ jobs:
           echo "$out2" | grep -q "notes" || { echo "skill notes not found in detect output"; exit 1; }
 
           # Run snapshot creation against real WSL and assert external symlink was skipped (F1, N1)
-          out3=$(node packages/core/dist/import.js openclaw --snapshot --source "wsl:Ubuntu-24.04:/root/.openclaw" --home "$RUNNER_TEMP/harness-home")
-          echo "$out3"
+          node --experimental-strip-types -e '
+          import { createSnapshot } from "./packages/core/src/import/snapshot.ts";
+          const res = await createSnapshot({
+            sourceType: "openclaw",
+            source: "wsl:Ubuntu-24.04:/root/.openclaw",
+            home: process.env.RUNNER_TEMP + "/harness-home",
+            probeWsl: true,
+          });
+          console.log("Snapshot runId:", res.runId);
+          console.log("Skipped links:", res.metadata.skippedLinks);
+          if (!res.metadata.skippedLinks || res.metadata.skippedLinks.length === 0) {
+            console.error("Expected external symlink to be skipped!");
+            process.exit(1);
+          }
+          '
           if grep -rq "secret-ssh-token" "$RUNNER_TEMP/harness-home"; then
             echo "SECURITY VIOLATION: secret from outside WSL source root leaked into harness staging"
             exit 1
