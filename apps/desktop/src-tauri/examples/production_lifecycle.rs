@@ -75,8 +75,9 @@ mod fixture {
         #[cfg(target_os = "windows")]
         {
             use windows_sys::Win32::UI::WindowsAndMessaging::{
-                GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, IsChild, IsIconic,
-                IsWindowVisible, GUITHREADINFO,
+                GetAncestor, GetClassNameW, GetForegroundWindow, GetGUIThreadInfo,
+                GetWindowThreadProcessId, IsChild, IsIconic, IsWindowVisible, GA_ROOTOWNER,
+                GUITHREADINFO,
             };
             let Ok(handle) = window.hwnd() else {
                 return false;
@@ -105,8 +106,9 @@ mod fixture {
         #[cfg(target_os = "windows")]
         {
             use windows_sys::Win32::UI::WindowsAndMessaging::{
-                GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, IsChild, IsIconic,
-                IsWindowVisible, GUITHREADINFO,
+                GetAncestor, GetClassNameW, GetForegroundWindow, GetGUIThreadInfo,
+                GetWindowThreadProcessId, IsChild, IsIconic, IsWindowVisible, GA_ROOTOWNER,
+                GUITHREADINFO,
             };
             use windows_sys::Win32::{
                 Foundation::CloseHandle,
@@ -118,6 +120,24 @@ mod fixture {
             let mut foreground_pid = 0;
             let foreground_thread =
                 unsafe { GetWindowThreadProcessId(foreground, &mut foreground_pid) };
+            let foreground_root_owner = unsafe { GetAncestor(foreground, GA_ROOTOWNER) };
+            // Window class text stays local: only fixed categories leave this fixture.
+            let foreground_window_kind = unsafe {
+                let mut class = [0u16; 256];
+                let len = GetClassNameW(foreground, class.as_mut_ptr(), class.len() as i32);
+                if len == 0 {
+                    "unavailable"
+                } else {
+                    match String::from_utf16_lossy(&class[..len as usize]).as_str() {
+                        "#32770" => "dialog",
+                        "Chrome_WidgetWin_0" | "Chrome_WidgetWin_1" => "chromium",
+                        "ConsoleWindowClass" | "CASCADIA_HOSTING_WINDOW_CLASS" => "console",
+                        "Windows.UI.Core.CoreWindow" | "ApplicationFrameWindow" => "core-window",
+                        "Progman" | "WorkerW" | "Shell_TrayWnd" => "desktop-shell",
+                        _ => "other",
+                    }
+                }
+            };
             // Only a fixed process category leaves the fixture; never emit an image path.
             let foreground_process_kind = unsafe {
                 let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, foreground_pid);
@@ -207,6 +227,7 @@ mod fixture {
                 serde_json::json!({
                 "stage":stage,"elapsedMs":elapsed_ms,"foregroundHwnd":foreground as usize,
                 "foregroundPid":foreground_pid,"foregroundThread":foreground_thread,
+                "foregroundRootOwnerHwnd":foreground_root_owner as usize,"foregroundWindowKind":foreground_window_kind,
                 "processId":std::process::id(),"foregroundProcessKind":foreground_process_kind,"foregroundQueueAvailable":foreground_queue_available,
                 "foregroundActiveHwnd":foreground_active as usize,"foregroundKeyboardFocusHwnd":foreground_focus as usize,
                 "windows":windows})
