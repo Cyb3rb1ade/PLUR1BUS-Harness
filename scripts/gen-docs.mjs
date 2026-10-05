@@ -8,6 +8,7 @@
 // core.autocrlf does not read as stale.
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
@@ -84,9 +85,16 @@ marked M2, M3, M4, M1b-3 or M8 are stubs that name the milestone delivering them
 const configSchema = JSON.parse(readFileSync(new URL("packages/config-schema/schema/config.schema.json", root), "utf8"));
 const configType = (s) => Array.isArray(s.type) ? s.type.join("|") : (s.type ?? (s.enum ? "enum" : (s.const !== undefined ? "const" : "any")));
 const configDefault = (s) => s.default !== undefined ? `\`${JSON.stringify(s.default)}\`` : "";
+// The engine key count is read from the pinned engine's own schema (the same source
+// scripts/gen-engine-keys.mjs asserts against), so this text cannot go stale when the pin moves.
+const engineKeyCount = Object.keys(
+  createRequire(new URL("../packages/core/package.json", import.meta.url))(
+    "@cyb3rb1ade/plur1bus-memory/engine/config/engine-config.schema.json",
+  ).properties,
+).length;
 const configDescription = (path, s) =>
   path === "engine"
-    ? "Pass-through to the engine's EngineConfig — [55 engine keys, all advanced and core](config-engine-keys.md)."
+    ? `Pass-through to the engine's EngineConfig — [${engineKeyCount} engine keys, all advanced and core](config-engine-keys.md).`
     : (s.description ?? "");
 const basicRows = [];
 const advancedRows = [];
