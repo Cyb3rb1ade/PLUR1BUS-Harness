@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { layout } from "../../src/paths.ts";
 import { importHermes } from "../../src/import/importers/hermes.ts";
@@ -366,7 +367,7 @@ describe("Hermes Importer Batch 3", () => {
   });
 
   it("grep test: no direct @lancedb/lancedb imports in src/import/** (D28/T7)", () => {
-    const importDir = join(process.cwd(), "packages", "core", "src", "import");
+    const importDir = fileURLToPath(new URL("../../src/import", import.meta.url));
     const files: string[] = [];
     const scan = (d: string) => {
       for (const ent of readdirSync(d, { withFileTypes: true })) {

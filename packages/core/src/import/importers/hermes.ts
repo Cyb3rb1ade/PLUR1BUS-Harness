@@ -40,6 +40,7 @@ import { readHermesCronJobs, type HermesCronJob } from "./hermes-cron.ts";
 import { adoptStore, type StoreAdoptReport } from "./hermes-stores.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import { buildEngineConfig } from "../../engine-config.ts";
+import { platformCapabilities } from "../../platform.ts";
 import type { AgentImportReport } from "./openclaw-agents.ts";
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
@@ -50,7 +51,13 @@ function createImportHost(stateDir: string, workspaceDir: (id: string) => Promis
     configPath: () => join(stateDir, "config.json"),
     workspaceDir: async (id: string) => workspaceDir(id),
     config: () => ({} as any),
-    platform: { os: process.platform, arch: process.arch, memoryTotalBytes: () => 0, memoryFreeBytes: () => 0 },
+    platform: {
+      os: process.platform,
+      arch: process.arch,
+      memoryTotalBytes: () => 0,
+      memoryFreeBytes: () => 0,
+      ...platformCapabilities,
+    },
     runtime: null,
   } as unknown as HostServices;
 }

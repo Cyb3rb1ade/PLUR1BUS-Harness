@@ -72,11 +72,23 @@ export async function adoptStore(opts: {
   }
 
   // 2. Dry-run inspection on source store
-  const dryCheck = await engine.stores.adopt({
-    path: sourceStorePath,
-    expectedIdentity,
-    dryRun: true,
-  });
+  let dryCheck;
+  try {
+    dryCheck = await engine.stores.adopt({
+      path: sourceStorePath,
+      expectedIdentity,
+      dryRun: true,
+    });
+  } catch (err: any) {
+    return {
+      attempted: true,
+      sourcePath: sourceStorePath,
+      targetPath: l.lancedb,
+      verdict: "incompatible",
+      action: "aborted",
+      reason: err?.code ?? err?.message ?? "store-unreadable",
+    };
+  }
 
   if (dryCheck.verdict !== "ok") {
     return {
@@ -128,11 +140,23 @@ export async function adoptStore(opts: {
   copyDirectoryRecursive(sourceStorePath, targetStore);
 
   // 4. Adopt target store in engine
-  const adoptResult = await engine.stores.adopt({
-    path: targetStore,
-    expectedIdentity,
-    dryRun: false,
-  });
+  let adoptResult;
+  try {
+    adoptResult = await engine.stores.adopt({
+      path: targetStore,
+      expectedIdentity,
+      dryRun: false,
+    });
+  } catch (err: any) {
+    return {
+      attempted: true,
+      sourcePath: sourceStorePath,
+      targetPath: targetStore,
+      verdict: "incompatible",
+      action: "aborted",
+      reason: err?.code ?? err?.message ?? "store-unreadable",
+    };
+  }
 
   if (adoptResult.verdict !== "ok") {
     return {
