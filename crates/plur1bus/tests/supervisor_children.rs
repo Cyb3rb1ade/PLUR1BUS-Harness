@@ -637,3 +637,77 @@ fn missing_core_js_keeps_the_supervisor_up_with_a_fatal_child() {
     assert_eq!(child["pid"].as_u64(), pid_file(&h.home));
     assert_eq!(h.named_events("started").len(), 1);
 }
+
+#[cfg(unix)]
+#[test]
+fn logs_and_child_output_are_private_under_umask_022() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::process::CommandExt;
+
+    let h = Home::new();
+    let logs = h.home.join("logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    std::fs::set_permissions(&logs, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let old_log = logs.join("old.log");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(&old_log)
+        .unwrap();
+    std::fs::set_permissions(&old_log, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+    let mut command = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"));
+    command
+        .arg("--home")
+        .arg(&h.home)
+        .arg("supervise")
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0.02")
+        .env("PLUR1BUS_CORE_JS", fixture())
+        .env("PLUR1BUS_NODE", "node")
+        .env("FAKE_CORE_MODE", "ok")
+        .env("FAKE_CORE_EVENTS", &h.events)
+        .env("FAKE_CORE_GRACE_MS", "300")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    // SAFETY: umask is async-signal-safe and changes only the spawned supervisor's process.
+    unsafe {
+        command.pre_exec(|| {
+            libc::umask(0o022);
+            Ok(())
+        });
+    }
+    let supervisor = Supervisor {
+        child: command.spawn().unwrap(),
+    };
+    let out_log = logs.join("core.out.log");
+    wait_until("the fake core's canary output", WAIT, || {
+        std::fs::read_to_string(&out_log).is_ok_and(|text| text.contains("fake-core stderr marker"))
+    });
+
+    assert_eq!(
+        std::fs::metadata(&logs).unwrap().permissions().mode() & 0o777,
+        0o700
+    );
+    for entry in std::fs::read_dir(&logs).unwrap() {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_file() {
+            assert_eq!(
+                entry.metadata().unwrap().permissions().mode() & 0o777,
+                0o600,
+                "{}",
+                entry.file_name().to_string_lossy()
+            );
+        }
+    }
+    assert_eq!(
+        std::fs::metadata(&old_log).unwrap().permissions().mode() & 0o777,
+        0o600,
+        "the pre-existing broad log is tightened"
+    );
+    assert!(h
+        .log("supervisor.log")
+        .contains("\"msg\":\"log permissions tightened\""));
+    drop(supervisor);
+}

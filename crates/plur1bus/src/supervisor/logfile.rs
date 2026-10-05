@@ -19,7 +19,7 @@ impl RotatingFile {
     pub fn open(path: impl AsRef<Path>, max_bytes: u64, keep: u32) -> io::Result<Self> {
         let path = path.as_ref().to_path_buf();
         if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir)?;
+            super::create_private_log_dir(dir)?;
         }
         let file = append(&path)?;
         let size = file.metadata()?.len();
@@ -66,6 +66,7 @@ impl RotatingFile {
 }
 
 fn append(path: &Path) -> io::Result<File> {
+    drop(crate::audit::create_private(path, false)?);
     OpenOptions::new().create(true).append(true).open(path)
 }
 
