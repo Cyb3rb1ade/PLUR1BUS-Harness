@@ -181,6 +181,9 @@ pub struct ImportArgs {
     /// With --skills: refuse skill folders larger than this (default 8 MiB)
     #[arg(long, value_name = "BYTES")]
     pub max_skill_bytes: Option<u64>,
+    /// Resume an interrupted import run by run ID
+    #[arg(long, value_name = "RUN_ID")]
+    pub resume: Option<String>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]

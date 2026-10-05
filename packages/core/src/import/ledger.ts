@@ -1,7 +1,16 @@
 // Idempotency ledger for harness imports (docs/import.md §5.2, §5.3, Batch 4).
 // Durably records every applied mutation under `<home>/imports/<runId>/ledger.jsonl`
 // so that repeated or resumed runs are strictly idempotent.
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeSync,
+} from "node:fs";
 import { dirname } from "node:path";
 
 export type ConflictStrategy = "skip" | "rename" | "replace";
@@ -39,11 +48,13 @@ export function fileIdempotencyKey(agentId: string, relTarget: string, sha: stri
 
 export function channelIdempotencyKey(platform: string, allowFrom: string[]): string {
   const sorted = allowFrom.slice().sort().join(",");
-  return `channel:${platform}:${sorted}`;
+  const hash = createHash("sha256").update(sorted).digest("hex").slice(0, 16);
+  return `channel:${platform}:${hash}`;
 }
 
 export function cronIdempotencyKey(jobId: string, schedule: string): string {
-  return `cron:${jobId}:${schedule}`;
+  const hash = createHash("sha256").update(schedule).digest("hex").slice(0, 16);
+  return `cron:${jobId}:${hash}`;
 }
 
 export class ImportLedger {
@@ -57,16 +68,23 @@ export class ImportLedger {
     this.runId = runId;
     if (existsSync(filePath)) {
       try {
-        const lines = readFileSync(filePath, "utf8").split("\n");
+        const text = readFileSync(filePath, "utf8");
+        const lines = text.split("\n");
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          const entry = JSON.parse(trimmed) as LedgerEntry;
-          this.entriesByKey.set(entry.idempotencyKey, entry);
-          this.all.push(entry);
+          try {
+            const entry = JSON.parse(trimmed) as LedgerEntry;
+            if (entry && typeof entry.idempotencyKey === "string") {
+              this.entriesByKey.set(entry.idempotencyKey, entry);
+              this.all.push(entry);
+            }
+          } catch {
+            // Torn or corrupt line gracefully skipped without failing full ledger load
+          }
         }
       } catch {
-        // Corrupt or unparseable lines skipped on reload
+        // Unreadable file handled gracefully
       }
     }
   }
@@ -97,7 +115,13 @@ export class ImportLedger {
     };
 
     mkdirSync(dirname(this.filePath), { recursive: true, mode: 0o700 });
-    appendFileSync(this.filePath, JSON.stringify(entry) + "\n", { mode: 0o600 });
+    const fd = openSync(this.filePath, "a", 0o600);
+    try {
+      writeSync(fd, JSON.stringify(entry) + "\n");
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
 
     this.entriesByKey.set(entry.idempotencyKey, entry);
     this.all.push(entry);

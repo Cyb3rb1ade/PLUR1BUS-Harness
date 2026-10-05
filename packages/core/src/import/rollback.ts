@@ -2,24 +2,24 @@
 // Restores the target state prior to the import, verified via hashes, under withTargetLock.
 import { createHash } from "node:crypto";
 import {
-  closeSync,
   existsSync,
-  fsyncSync,
+  lstatSync,
   mkdirSync,
-  openSync,
   readdirSync,
   readFileSync,
   realpathSync,
-  rmdirSync,
   rmSync,
   unlinkSync,
-  writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { layout, type Layout } from "../paths.ts";
+import { layout } from "../paths.ts";
 import { withTargetLock } from "./single-writer.ts";
 import type { TargetSnapshotManifest } from "./snapshot-target.ts";
 import { ImportError, type SourceType } from "./types.ts";
+import { cleanEmptyDirs, isInsideDir, writeAtomicSync } from "./fs-atomic.ts";
+import type { LedgerEntry } from "./ledger.ts";
+
+export const RUN_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 export interface RollbackChange {
   path: string;
@@ -50,7 +50,9 @@ function walkFiles(dir: string): string[] {
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const ent of entries) {
     const full = join(dir, ent.name);
-    if (ent.isDirectory()) {
+    if (ent.isSymbolicLink()) {
+      results.push(full);
+    } else if (ent.isDirectory()) {
       results.push(...walkFiles(full));
     } else if (ent.isFile()) {
       results.push(full);
@@ -59,30 +61,27 @@ function walkFiles(dir: string): string[] {
   return results.sort();
 }
 
-function cleanEmptyDirs(dir: string, stopAt: string): void {
-  if (dir === stopAt || !dir.startsWith(stopAt)) return;
-  try {
-    const entries = readdirSync(dir);
-    if (entries.length === 0) {
-      rmdirSync(dir);
-      cleanEmptyDirs(dirname(dir), stopAt);
-    }
-  } catch {
-    // Ignore cleanup failures on non-empty dirs
+function validateManifestKey(relPath: string, home: string): void {
+  if (typeof relPath !== "string" || !relPath) {
+    throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", "empty manifest path");
   }
-}
-
-function writeAtomicFsync(path: string, content: Buffer): void {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  const tmp = `${path}.tmp.${process.pid}.${Date.now()}`;
-  const fd = openSync(tmp, "w", 0o600);
-  try {
-    writeFileSync(fd, content);
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
+  // Reject absolute paths, leading slashes, drive letters
+  if (relPath.startsWith("/") || relPath.startsWith("\\") || /^[a-zA-Z]:/.test(relPath)) {
+    throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", `absolute manifest key rejected: ${relPath}`);
   }
-  import("node:fs").then((fs) => fs.renameSync(tmp, path));
+  // Reject .. or . path segments
+  const segments = relPath.split(/[/\\]/);
+  if (segments.some((s) => s === ".." || s === "." || s === "")) {
+    throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", `path traversal in manifest key: ${relPath}`);
+  }
+  // Whitelist: config.json or agents/
+  if (relPath !== "config.json" && relPath !== "agents" && !relPath.startsWith("agents/")) {
+    throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", `manifest key outside allowed targets: ${relPath}`);
+  }
+  const resolved = resolve(home, relPath);
+  if (!isInsideDir(home, resolved)) {
+    throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", `manifest key escapes home: ${relPath}`);
+  }
 }
 
 export async function rollbackImport(opts: {
@@ -100,126 +99,211 @@ export async function rollbackImport(opts: {
   const invalid = (reason: string, msg: string) =>
     new ImportError("E_ROLLBACK_INVALID", reason, msg);
 
-  // 1. Read and validate report.json
-  let rep: any;
-  try {
-    rep = JSON.parse(readFileSync(opts.reportPath, "utf8"));
-  } catch (e: any) {
-    throw invalid("report-unreadable", `${opts.reportPath}: ${e.message}`);
-  }
-
-  const runId = rep.runId ?? rep.importId;
-  if (typeof runId !== "string" || !runId) {
-    throw invalid("run-id-invalid", "the report's runId is missing or invalid");
-  }
-  if (rep.mode !== "apply") {
-    throw invalid("not-an-apply-report", "only an --apply run can be rolled back");
-  }
-  if (rep.sourceType && rep.sourceType !== opts.sourceType) {
-    throw invalid("source-mismatch", `the report is for ${String(rep.sourceType)}, not ${opts.sourceType}`);
-  }
-
-  // Check report path location
-  const runDir = join(l.home, "imports", runId);
-  let realReportPath: string;
-  try {
-    realReportPath = realpathSync(opts.reportPath);
-  } catch {
-    throw invalid("report-missing", `the report file was not found at ${opts.reportPath}`);
-  }
-
-  const snapPath = join(runDir, "snapshot");
-  if (!existsSync(snapPath)) {
-    throw invalid("snapshot-missing", `snapshot directory missing at ${snapPath}`);
-  }
-
-  const rolledBackMarker = join(runDir, "rolled-back");
-  if (existsSync(join(rolledBackMarker, "status.json"))) {
-    throw invalid("already-rolled-back", `run ${runId} was already rolled back`);
-  }
-
-  // 2. Read and verify snapshot manifest
-  const manifestPath = join(snapPath, "manifest.json");
-  if (!existsSync(manifestPath)) {
-    throw invalid("snapshot-invalid", `snapshot manifest missing at ${manifestPath}`);
-  }
-
-  let manifest: TargetSnapshotManifest;
-  try {
-    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  } catch (e: any) {
-    throw invalid("snapshot-corrupt", `snapshot manifest is invalid: ${e.message}`);
-  }
-
-  // Verify snapshot file integrity
-  for (const [relPath, meta] of Object.entries(manifest.files)) {
-    const snapFile = join(snapPath, relPath);
-    if (!existsSync(snapFile)) {
-      throw invalid("snapshot-corrupt", `snapshot file ${relPath} is missing`);
+  // Core execution block
+  const runOperation = async (): Promise<RollbackReport> => {
+    // 1. Read and validate report.json
+    let rep: any;
+    try {
+      rep = JSON.parse(readFileSync(opts.reportPath, "utf8"));
+    } catch (e: any) {
+      throw invalid("report-unreadable", `${opts.reportPath}: ${e.message}`);
     }
-    const actualHash = sha256File(snapFile);
-    if (actualHash !== meta.sha256) {
-      throw invalid("snapshot-corrupt", `snapshot file ${relPath} hash mismatch`);
+
+    const runId = rep.runId ?? rep.importId;
+    if (typeof runId !== "string" || !RUN_ID_RE.test(runId)) {
+      throw invalid("run-id-invalid", `the report's runId is missing or invalid: ${String(runId)}`);
     }
-  }
-
-  // 3. Compute planned changes
-  // Collect all target files under l.home that are part of config or agents
-  const currentTargetFiles = new Set<string>();
-  if (existsSync(l.configPath)) {
-    currentTargetFiles.add("config.json");
-  }
-  if (existsSync(l.agents)) {
-    for (const f of walkFiles(l.agents)) {
-      const rel = relative(l.home, f).replaceAll("\\", "/");
-      currentTargetFiles.add(rel);
+    if (rep.mode !== "apply") {
+      throw invalid("not-an-apply-report", "only an --apply run can be rolled back");
     }
-  }
+    if (rep.sourceType && rep.sourceType !== opts.sourceType) {
+      throw invalid("source-mismatch", `the report is for ${String(rep.sourceType)}, not ${opts.sourceType}`);
+    }
 
-  const allKnownPaths = new Set([...Object.keys(manifest.files), ...currentTargetFiles]);
-  const changes: RollbackChange[] = [];
+    // Verify anchor containment
+    const runDir = join(l.home, "imports", runId);
+    if (!isInsideDir(join(l.home, "imports"), runDir)) {
+      throw invalid("run-id-invalid", "runId escapes imports directory");
+    }
 
-  for (const rel of [...allKnownPaths].sort()) {
-    const inSnap = Object.hasOwn(manifest.files, rel);
-    const inTarget = currentTargetFiles.has(rel);
-    const targetFile = join(l.home, rel);
+    let realReportPath: string;
+    let expectedReportPath: string;
+    try {
+      realReportPath = realpathSync(opts.reportPath);
+      expectedReportPath = realpathSync(join(runDir, "report.json"));
+    } catch {
+      throw invalid("report-missing", `the report file was not found at ${join(runDir, "report.json")}`);
+    }
+    if (realReportPath !== expectedReportPath) {
+      throw invalid("report-outside-home", `report path must match ${join(runDir, "report.json")}`);
+    }
 
-    if (inSnap && !inTarget) {
-      changes.push({ path: rel, change: "restore" });
-    } else if (!inSnap && inTarget) {
-      changes.push({ path: rel, change: "remove" });
-    } else if (inSnap && inTarget) {
-      const targetHash = sha256File(targetFile);
-      if (targetHash === manifest.files[rel]!.sha256) {
-        changes.push({ path: rel, change: "unchanged" });
-      } else {
-        changes.push({ path: rel, change: "revert" });
+    const snapPath = join(runDir, "snapshot");
+    if (!existsSync(snapPath)) {
+      throw invalid("snapshot-missing", `snapshot directory missing at ${snapPath}`);
+    }
+
+    const rolledBackMarker = join(runDir, "rolled-back");
+    if (existsSync(join(rolledBackMarker, "status.json"))) {
+      throw invalid("already-rolled-back", `run ${runId} was already rolled back`);
+    }
+
+    // 2. Read and verify snapshot manifest and its tamper hash
+    const manifestPath = join(snapPath, "manifest.json");
+    if (!existsSync(manifestPath)) {
+      throw invalid("snapshot-invalid", `snapshot manifest missing at ${manifestPath}`);
+    }
+
+    const manifestRaw = readFileSync(manifestPath, "utf8");
+    const actualManifestSha = createHash("sha256").update(manifestRaw).digest("hex");
+    if (!rep.snapshot?.manifestSha256 || rep.snapshot.manifestSha256 !== actualManifestSha) {
+      throw invalid("snapshot-corrupt", "snapshot manifest sha256 does not match report");
+    }
+
+    let manifest: TargetSnapshotManifest;
+    try {
+      manifest = JSON.parse(manifestRaw);
+    } catch (e: any) {
+      throw invalid("snapshot-corrupt", `snapshot manifest is invalid: ${e.message}`);
+    }
+
+    if (manifest.schema !== "import.snapshot/1" || manifest.runId !== runId) {
+      throw invalid("snapshot-corrupt", "manifest schema or runId mismatch");
+    }
+    if (!manifest.files || typeof manifest.files !== "object") {
+      throw invalid("snapshot-corrupt", "manifest files mapping missing");
+    }
+
+    // Validate every manifest key against traversal, absolute paths, and allowed boundaries
+    for (const [relPath, meta] of Object.entries(manifest.files)) {
+      validateManifestKey(relPath, l.home);
+      const snapFile = join(snapPath, relPath);
+      if (!isInsideDir(snapPath, snapFile)) {
+        throw invalid("snapshot-invalid", `snapshot file escapes snapshot directory: ${relPath}`);
+      }
+      if (!existsSync(snapFile)) {
+        throw invalid("snapshot-corrupt", `snapshot file ${relPath} is missing`);
+      }
+      const actualHash = sha256File(snapFile);
+      if (actualHash !== meta.sha256) {
+        throw invalid("snapshot-corrupt", `snapshot file ${relPath} hash mismatch`);
       }
     }
-  }
 
-  const out: RollbackReport = {
-    runId,
-    sourceType: opts.sourceType,
-    mode: opts.apply ? "apply" : "dry-run",
-    status: "planned",
-    reportPath: realReportPath,
-    snapshot: {
-      path: snapPath,
-      existed: manifest.configExisted || manifest.agentsExisted,
-      manifestSha256: rep.snapshot?.manifestSha256,
-    },
-    changes,
-    movedAside: null,
-    startedAt,
-  };
+    // 3. Read ledger to determine which files were created by this import (B4)
+    const ledgerPath = join(runDir, "ledger.jsonl");
+    const createdFiles = new Map<string, string>(); // relPath -> sha256
+    const renamedFiles = new Map<string, string>(); // relPath -> sha256
+    const createdAgents = new Set<string>();
 
-  if (!opts.apply) {
-    return out;
-  }
+    if (existsSync(ledgerPath)) {
+      try {
+        const text = readFileSync(ledgerPath, "utf8");
+        const lines = text.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const entry = JSON.parse(trimmed) as LedgerEntry;
+            if (entry.entity === "file" && entry.targetRef) {
+              const normTarget = entry.targetRef.replaceAll("\\", "/");
+              if (entry.action === "created") {
+                createdFiles.set(normTarget, entry.sha256 ?? "");
+              } else if (entry.action === "rename") {
+                renamedFiles.set(normTarget, entry.sha256 ?? "");
+              }
+            } else if (entry.entity === "agent" && entry.action === "created") {
+              const parts = entry.idempotencyKey.split(":");
+              const agentId = parts[2] || (entry.targetRef ? entry.targetRef.split("/")[1] ?? "" : "");
+              if (agentId) createdAgents.add(agentId);
+            }
+          } catch {
+            // Torn line gracefully ignored
+          }
+        }
+      } catch {
+        // Unreadable ledger handled gracefully
+      }
+    }
 
-  // 4. Execute apply under single-writer lock
-  return await withTargetLock(l, async () => {
+    // 4. Compute planned changes
+    const changes: RollbackChange[] = [];
+
+    // Files that existed before import (in snapshot manifest)
+    for (const [relPath, meta] of Object.entries(manifest.files)) {
+      const targetFile = join(l.home, relPath);
+      const lst = lstatSync(targetFile, { throwIfNoEntry: false });
+      if (lst && lst.isSymbolicLink()) {
+        throw invalid("unsafe-symlink", `symlink detected at target path: ${relPath}`);
+      }
+      if (!lst) {
+        changes.push({ path: relPath, change: "restore" });
+      } else {
+        const targetHash = sha256File(targetFile);
+        if (targetHash === meta.sha256) {
+          changes.push({ path: relPath, change: "unchanged" });
+        } else {
+          changes.push({ path: relPath, change: "revert" });
+        }
+      }
+    }
+
+    // Check if any file recorded as created or renamed by this run has been replaced with a symlink
+    for (const rel of [...createdFiles.keys(), ...renamedFiles.keys()]) {
+      const targetPath = join(l.home, rel);
+      const lst = lstatSync(targetPath, { throwIfNoEntry: false });
+      if (lst && lst.isSymbolicLink()) {
+        throw invalid("unsafe-symlink", `symlink detected at target path: ${rel}`);
+      }
+    }
+
+    // Files that did NOT exist in snapshot:
+    // Only remove if this run created or renamed them! User-created files are preserved.
+    if (existsSync(l.agents)) {
+      for (const f of walkFiles(l.agents)) {
+        const rel = relative(l.home, f).replaceAll("\\", "/");
+        if (Object.hasOwn(manifest.files, rel)) continue; // Already handled above
+
+        const isCreatedByRun = createdFiles.has(rel) || renamedFiles.has(rel);
+        if (isCreatedByRun) {
+          const lst = lstatSync(f, { throwIfNoEntry: false });
+          if (lst && lst.isSymbolicLink()) {
+            throw invalid("unsafe-symlink", `symlink detected at target path: ${rel}`);
+          }
+          changes.push({ path: rel, change: "remove" });
+        }
+        // If not created by run, do NOT add to changes: it survives!
+      }
+    }
+
+    // If config.json did not exist in snapshot but exists now and this run created it
+    if (!manifest.configExisted && existsSync(l.configPath)) {
+      changes.push({ path: "config.json", change: "remove" });
+    }
+
+    changes.sort((a, b) => a.path.localeCompare(b.path));
+
+    const out: RollbackReport = {
+      runId,
+      sourceType: opts.sourceType,
+      mode: opts.apply ? "apply" : "dry-run",
+      status: "planned",
+      reportPath: realReportPath,
+      snapshot: {
+        path: snapPath,
+        existed: manifest.configExisted || manifest.agentsExisted,
+        manifestSha256: rep.snapshot?.manifestSha256,
+      },
+      changes,
+      movedAside: null,
+      startedAt,
+    };
+
+    if (!opts.apply) {
+      return out;
+    }
+
+    // 5. Execute apply atomically
     mkdirSync(rolledBackMarker, { recursive: true, mode: 0o700 });
     const backupDir = join(rolledBackMarker, "replaced");
     mkdirSync(backupDir, { recursive: true, mode: 0o700 });
@@ -228,12 +312,16 @@ export async function rollbackImport(opts: {
       const targetPath = join(l.home, c.path);
       const snapFilePath = join(snapPath, c.path);
 
+      const lst = lstatSync(targetPath, { throwIfNoEntry: false });
+      if (lst && lst.isSymbolicLink()) {
+        throw invalid("unsafe-symlink", `refusing to touch symlink at target path: ${c.path}`);
+      }
+
       if (c.change === "remove") {
         if (existsSync(targetPath)) {
           // Backup before removal
           const bkp = join(backupDir, c.path);
-          mkdirSync(dirname(bkp), { recursive: true, mode: 0o700 });
-          writeFileSync(bkp, readFileSync(targetPath));
+          writeAtomicSync(bkp, readFileSync(targetPath), 0o600);
           unlinkSync(targetPath);
           cleanEmptyDirs(dirname(targetPath), l.home);
         }
@@ -241,12 +329,10 @@ export async function rollbackImport(opts: {
         if (existsSync(targetPath)) {
           // Backup current differing target
           const bkp = join(backupDir, c.path);
-          mkdirSync(dirname(bkp), { recursive: true, mode: 0o700 });
-          writeFileSync(bkp, readFileSync(targetPath));
+          writeAtomicSync(bkp, readFileSync(targetPath), 0o600);
         }
-        mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
         const snapContent = readFileSync(snapFilePath);
-        writeFileSync(targetPath, snapContent, { mode: 0o600 });
+        writeAtomicSync(targetPath, snapContent, 0o600);
       }
     }
 
@@ -255,19 +341,18 @@ export async function rollbackImport(opts: {
       unlinkSync(l.configPath);
     }
 
-    // If agents dir did not exist before apply, clean it up if empty or remove
+    // Clean up created agent directories if empty
+    for (const agentId of createdAgents) {
+      const ws = l.workspaceDir(agentId);
+      cleanEmptyDirs(ws, l.agents);
+      const ad = l.agentDir(agentId);
+      cleanEmptyDirs(ad, l.agents);
+    }
     if (!manifest.agentsExisted && existsSync(l.agents)) {
-      try {
-        const remaining = walkFiles(l.agents);
-        if (remaining.length === 0) {
-          rmSync(l.agents, { recursive: true, force: true });
-        }
-      } catch {
-        // ignore
-      }
+      cleanEmptyDirs(l.agents, l.home);
     }
 
-    // Verify post-restore state matches manifest
+    // Verify post-restore state matches manifest exactly
     for (const [relPath, meta] of Object.entries(manifest.files)) {
       const targetPath = join(l.home, relPath);
       if (!existsSync(targetPath)) {
@@ -279,7 +364,7 @@ export async function rollbackImport(opts: {
       }
     }
 
-    // Write completion marker
+    // Write completion marker atomically
     const finishedDate = opts.now ? opts.now() : new Date();
     const statusData = {
       runId,
@@ -287,11 +372,20 @@ export async function rollbackImport(opts: {
       rolledBackAt: finishedDate.toISOString(),
       changesCount: changes.length,
     };
-    writeFileSync(join(rolledBackMarker, "status.json"), JSON.stringify(statusData, null, 2) + "\n", { mode: 0o600 });
+    writeAtomicSync(join(rolledBackMarker, "status.json"), JSON.stringify(statusData, null, 2) + "\n", 0o600);
 
     out.status = "completed";
     out.movedAside = backupDir;
     out.finishedAt = finishedDate.toISOString();
     return out;
-  });
+  };
+
+  // Lock order (S1): acquire single-writer lock BEFORE reading report/manifest and planning on apply
+  if (opts.apply) {
+    return await withTargetLock(l, async () => {
+      return await runOperation();
+    });
+  }
+
+  return await runOperation();
 }

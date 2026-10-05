@@ -70,6 +70,10 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
     if a.migrate_secrets {
         v.push("--migrate-secrets".into());
     }
+    if let Some(r) = &a.resume {
+        v.push("--resume".into());
+        v.push(r.into());
+    }
     v.push("--home".into());
     v.push(layout.home.clone().into_os_string());
     v

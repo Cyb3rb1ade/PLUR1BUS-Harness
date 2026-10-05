@@ -27,7 +27,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         home: { type: "string" }, detect: { type: "boolean" }, skills: { type: "boolean" }, rollback: { type: "string" },
         source: { type: "string" }, profile: { type: "string" }, apply: { type: "boolean" }, enable: { type: "boolean" },
         "on-conflict": { type: "string" }, conflict: { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
-        "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" },
+        "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" }, resume: { type: "string" },
       },
     }) as { values: Record<string, string | boolean | string[] | undefined>; positionals: string[] });
   } catch (e) {
@@ -46,7 +46,14 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
     return fail("E_INVALID_PARAMS", "skills-only-flag", "--enable and --max-skill-bytes apply to --skills only");
   }
   if (values["migrate-secrets"] && mode !== "import") return fail("E_INVALID_PARAMS", "migrate-secrets-flag", "--migrate-secrets applies to import only");
+  if (values.resume !== undefined && mode !== "import") return fail("E_INVALID_PARAMS", "resume-import-only", "--resume applies to import only");
   if (mode === "rollback" && (values.source !== undefined || values.profile !== undefined || values.map !== undefined)) return fail("E_INVALID_PARAMS", "rollback-takes-report-only", "--rollback reads everything from the report; drop --source, --profile and --map");
+  if ((mode === "detect" || mode === "rollback") && (values["on-conflict"] !== undefined || values.conflict !== undefined)) {
+    return fail("E_INVALID_PARAMS", "conflict-mode-invalid", "--on-conflict / --conflict applies to import and --skills only");
+  }
+  if (values["on-conflict"] !== undefined && values.conflict !== undefined && values["on-conflict"] !== values.conflict) {
+    return fail("E_INVALID_PARAMS", "conflicting-conflict-flags", "cannot specify different values for both --on-conflict and --conflict");
+  }
   if (values.profile !== undefined && sourceType !== "hermes") return fail("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   const onConflict = ((values["on-conflict"] ?? values.conflict) ?? "skip") as string;
   if (!["skip", "rename", "replace"].includes(onConflict)) return fail("E_INVALID_PARAMS", "on-conflict", "--on-conflict / --conflict must be skip, rename or replace");
@@ -77,6 +84,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         apply: values.apply === true,
         migrateSecrets: values["migrate-secrets"] === true,
         onConflict: onConflict as ConflictStrategy,
+        resume: values.resume as string | undefined,
       });
       return { ok: true, schema: "import.openclaw/1", value: r as unknown as Record<string, unknown>, human: renderOpenclaw(r) };
     }
@@ -94,7 +102,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
     try {
       const text = readFileSync(values.rollback as string, "utf8");
       const parsed = JSON.parse(text);
-      if (parsed.schema === "import.openclaw/1" || (parsed.sourceType === "openclaw" && !parsed.skills)) {
+      if (parsed.schema === "import.openclaw/1" || (parsed.sourceType === "openclaw" && Array.isArray(parsed.profilesOrAgents))) {
         isFullOpenclawReport = true;
       }
     } catch {
