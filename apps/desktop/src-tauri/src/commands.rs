@@ -445,7 +445,7 @@ pub fn quit_offer(window: WebviewWindow) -> Result<Option<crate::lifecycle::Quit
     Ok(state.quit.is_pending().then(|| state.quit.request(false)))
 }
 #[tauri::command]
-pub fn quit_response(
+pub async fn quit_response(
     window: WebviewWindow,
     choice: Option<crate::lifecycle::QuitChoice>,
 ) -> Result<(), String> {
@@ -459,6 +459,12 @@ pub fn quit_response(
             state.events.stop();
             #[cfg(unix)]
             state.gnome.stop();
+            let diagnostics = { state.diagnostics.lock().unwrap().take() };
+            if let Some(diagnostics) = diagnostics {
+                if let Err(reason) = crate::diagnostics::shutdown_owned(diagnostics).await {
+                    eprintln!("{reason}");
+                }
+            }
             window.app_handle().exit(0);
         }
     }

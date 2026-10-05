@@ -11,6 +11,15 @@ pub struct Diagnostics {
 impl Diagnostics {
     /// Caller supplies its owned location; no implicit HOME lookup in this testable seam.
     pub fn open(directory: &Path, home: &str, target: &str) -> Result<Self> {
+        Self::open_with_clock(directory, home, target, Arc::new(SystemClock))
+    }
+    /// Same native bootstrap with an injected clock; callers still supply an owned directory.
+    pub fn open_with_clock(
+        directory: &Path,
+        home: &str,
+        target: &str,
+        clock: Arc<dyn LogClock>,
+    ) -> Result<Self> {
         if !directory.is_absolute()
             || directory.components().any(|part| {
                 matches!(
@@ -42,12 +51,7 @@ impl Diagnostics {
         builder.create(directory)?;
         let secrets = SecretRegistry::process();
         let formatter = Formatter::new(secrets.clone(), Arc::new(CredentialPaths::new(home)), true);
-        let writer = Writer::open(
-            directory,
-            WriterOptions::default(),
-            formatter,
-            Arc::new(SystemClock),
-        )?;
+        let writer = Writer::open(directory, WriterOptions::default(), formatter, clock)?;
         let crash = CrashReporter::new(writer.clone(), target)?;
         writer.emit(RecordInput::new(Event::AppStarted))?;
         Ok(Self {
@@ -56,6 +60,12 @@ impl Diagnostics {
             secrets,
             ticker: None,
         })
+    }
+    pub fn shutdown(mut self) -> Result<()> {
+        if let Some(ticker) = self.ticker.take() {
+            ticker.abort();
+        }
+        self.writer.tick()
     }
 }
 pub fn start(app: &tauri::AppHandle) -> Result<(), &'static str> {
@@ -113,5 +123,19 @@ impl Drop for Diagnostics {
         if let Some(ticker) = self.ticker.take() {
             ticker.abort();
         }
+    }
+}
+
+/// Quit waits for maintenance off the GUI thread, bounded within its observation budget.
+pub async fn shutdown_owned(diagnostics: Diagnostics) -> std::result::Result<(), &'static str> {
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        tauri::async_runtime::spawn_blocking(move || diagnostics.shutdown()),
+    )
+    .await
+    {
+        Ok(Ok(Ok(()))) => Ok(()),
+        Ok(_) => Err("DIAGNOSTIC_SHUTDOWN_FAILED"),
+        Err(_) => Err("DIAGNOSTIC_SHUTDOWN_TIMEOUT"),
     }
 }

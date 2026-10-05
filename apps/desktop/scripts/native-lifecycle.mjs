@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const desktop = fileURLToPath(new URL('..', import.meta.url));
 const fields = ['second_instance_focus', 'spa_focus', 'close_hides', 'close_minimizes', 'shell_focus', 'quit_modal_default', 'quit_cancel_preserves_app', 'quit_confirm_exits'];
+const fixtureReasons = new Set(['FIXTURE_CANCEL_APPROVED', 'FIXTURE_CLOSE_HIDES_OBSERVED', 'FIXTURE_CLOSE_MINIMIZES_OBSERVED', 'FIXTURE_EARLY_APPROVAL', 'FIXTURE_EXECUTABLE_FAILED', 'FIXTURE_GUI_DISPATCH_FAILED', 'FIXTURE_GUI_TIMEOUT', 'FIXTURE_OBSERVER_TIMEOUT', 'FIXTURE_QUIT_CANCEL_PRESERVES_APP_OBSERVED', 'FIXTURE_QUIT_MODAL_DEFAULT_OBSERVED', 'FIXTURE_SECOND_INSTANCE_FAILED', 'FIXTURE_SECOND_INSTANCE_FOCUS_OBSERVED', 'FIXTURE_SECOND_INSTANCE_REJECTED', 'FIXTURE_SECOND_INSTANCE_TIMEOUT', 'FIXTURE_SECOND_INSTANCE_WAIT_FAILED', 'FIXTURE_SETUP', 'FIXTURE_SHELL_FOCUS_OBSERVED', 'FIXTURE_SHELL_NOT_VISIBLE', 'FIXTURE_SHELL_VISIBLE', 'FIXTURE_SINGLETON_BYPASSED', 'FIXTURE_SPA_FOCUS_OBSERVED', 'FIXTURE_SPA_NOT_FOCUSED', 'FIXTURE_START']);
 function run(command, args, timeout, capture = false) {
   return new Promise((accept, reject) => {
     const child = spawn(command, args, { cwd: desktop, stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit' });
@@ -12,7 +13,7 @@ function run(command, args, timeout, capture = false) {
     const timer = setTimeout(() => { exceeded = true; child.kill('SIGKILL'); }, timeout);
     if (capture) {
       child.stdout.on('data', data => { output += data; if (output.length > 8192) child.kill('SIGKILL'); });
-      child.stderr.on('data', data => { for (const code of data.toString().matchAll(/\bFIXTURE_[A-Z_]+\b/g)) console.error(code[0]); }); // Only closed fixture reason codes.
+      child.stderr.on('data', data => { for (const code of data.toString().matchAll(/\bFIXTURE_[A-Z_]+\b/g)) { if (fixtureReasons.has(code[0])) console.error(code[0]); } }); // Only closed fixture reason codes.
     }
     child.on('error', error => { clearTimeout(timer); reject(error); });
     child.on('close', code => {
@@ -22,6 +23,7 @@ function run(command, args, timeout, capture = false) {
     });
   });
 }
+async function main() {
 await run('cargo', ['build', '--manifest-path', 'Cargo.toml', '--locked', '--example', 'production_lifecycle'], 300000);
 const root = await mkdtemp(join(tmpdir(), 'wp06-native-lifecycle-driver-'));
 try {
@@ -37,4 +39,12 @@ try {
   await rm(root, { recursive: true, force: true });
   try { await lstat(root); throw new Error('NATIVE_PROFILE_CLEANUP_FAILED'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+
+}
+try { await main(); }
+catch (error) {
+  const codes = new Set(['NATIVE_LIFECYCLE_TIMEOUT', 'NATIVE_LIFECYCLE_FAILED', 'NATIVE_LIFECYCLE_REPORT_MISSING', 'NATIVE_LIFECYCLE_INCOMPLETE', 'NATIVE_PROFILE_CLEANUP_FAILED']);
+  console.error(codes.has(error.message) ? error.message : 'NATIVE_LIFECYCLE_FAILED');
+  process.exitCode = 1;
 }

@@ -64,3 +64,107 @@ fn secret_registration_failure_closes_the_redaction_boundary() {
         .redact_json(&serde_json::json!({"reason":"otherwise readable"}))
         .is_err());
 }
+
+#[tokio::test]
+async fn confirmed_shutdown_flushes_expired_diagnostics_through_production_worker() {
+    use chrono::{DateTime, TimeDelta, Utc};
+    use std::sync::{Arc, Mutex};
+    struct Clock(Mutex<DateTime<Utc>>);
+    impl LogClock for Clock {
+        fn now(&self) -> DateTime<Utc> {
+            *self.0.lock().unwrap()
+        }
+    }
+    let root = tempfile::tempdir().unwrap();
+    let clock = Arc::new(Clock(Mutex::new("2026-10-04T10:00:00Z".parse().unwrap())));
+    let diagnostics = Diagnostics::open_with_clock(
+        &root.path().canonicalize().unwrap().join("logs"),
+        "/synthetic/home",
+        "fixture",
+        clock.clone(),
+    )
+    .unwrap();
+    let writer = diagnostics.writer.clone();
+    writer
+        .emit(RecordInput::new(Event::DeeplinkIgnored))
+        .unwrap();
+    writer
+        .emit(RecordInput::new(Event::DeeplinkIgnored))
+        .unwrap();
+    *clock.0.lock().unwrap() += TimeDelta::seconds(60);
+    plur1bus_desktop::diagnostics::shutdown_owned(diagnostics)
+        .await
+        .unwrap();
+    let records: Vec<String> = std::fs::read_dir(root.path().join("logs"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "jsonl")
+        })
+        .flat_map(|path| {
+            std::fs::read_to_string(path)
+                .unwrap()
+                .lines()
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert!(
+        records.iter().any(|line| {
+            let record: serde_json::Value = serde_json::from_str(line).unwrap();
+            record["event"] == "desktop.deeplink.ignored" && record["attrs"]["repeat"] == 2
+        }),
+        "production shutdown worker must persist the expired repeat summary"
+    );
+}
+
+#[tokio::test]
+async fn blocked_shutdown_worker_returns_the_closed_timeout_reason() {
+    use chrono::{DateTime, Utc};
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Condvar, Mutex,
+    };
+    struct Clock {
+        enabled: AtomicBool,
+        entered: AtomicBool,
+        released: Mutex<bool>,
+        signal: Condvar,
+    }
+    impl LogClock for Clock {
+        fn now(&self) -> DateTime<Utc> {
+            if self.enabled.load(Ordering::SeqCst) {
+                self.entered.store(true, Ordering::SeqCst);
+                let mut released = self.released.lock().unwrap();
+                while !*released {
+                    released = self.signal.wait(released).unwrap();
+                }
+            }
+            "2026-10-04T10:00:00Z".parse().unwrap()
+        }
+    }
+    let root = tempfile::tempdir().unwrap();
+    let clock = Arc::new(Clock {
+        enabled: AtomicBool::new(false),
+        entered: AtomicBool::new(false),
+        released: Mutex::new(false),
+        signal: Condvar::new(),
+    });
+    let diagnostics = Diagnostics::open_with_clock(
+        &root.path().canonicalize().unwrap().join("logs"),
+        "/synthetic/home",
+        "fixture",
+        clock.clone(),
+    )
+    .unwrap();
+    clock.enabled.store(true, Ordering::SeqCst);
+    let result = plur1bus_desktop::diagnostics::shutdown_owned(diagnostics).await;
+    *clock.released.lock().unwrap() = true;
+    clock.signal.notify_all();
+    assert!(
+        clock.entered.load(Ordering::SeqCst),
+        "real shutdown worker must enter the injected blocking clock"
+    );
+    assert_eq!(result, Err("DIAGNOSTIC_SHUTDOWN_TIMEOUT"));
+}
