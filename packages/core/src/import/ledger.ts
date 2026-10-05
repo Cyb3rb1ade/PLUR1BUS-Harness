@@ -9,6 +9,8 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
+  statSync,
   writeSync,
 } from "node:fs";
 import { dirname } from "node:path";
@@ -23,12 +25,13 @@ export type LedgerAction =
   | "replace"
   | "deferred"
   | "skipped"
-  | "rejected";
+  | "rejected"
+  | "repaired";
 
 export interface LedgerEntry {
   ts: string;
   runId: string;
-  entity: "agent" | "file" | "channel" | "cron";
+  entity: "agent" | "file" | "channel" | "cron" | "system";
   idempotencyKey: string;
   action: LedgerAction;
   sourceRef?: string | undefined;
@@ -119,16 +122,34 @@ export class ImportLedger {
 
     mkdirSync(dirname(this.filePath), { recursive: true, mode: 0o700 });
 
-    // If file exists and does not end with \n, append a newline before recording new entry
+    // If file exists and does not end with \n, append a newline and repair entry before recording new entry
     if (existsSync(this.filePath)) {
-      const buf = readFileSync(this.filePath);
-      if (buf.length > 0 && buf[buf.length - 1] !== 0x0a) {
-        const fdFix = openSync(this.filePath, "a", 0o600);
+      const st = statSync(this.filePath);
+      if (st.size > 0) {
+        let lastByte = 0x0a;
+        const fdRead = openSync(this.filePath, "r");
         try {
-          writeSync(fdFix, "\n");
-          fsyncSync(fdFix);
+          const singleByteBuf = Buffer.alloc(1);
+          readSync(fdRead, singleByteBuf, 0, 1, st.size - 1);
+          lastByte = singleByteBuf[0] ?? 0x0a;
         } finally {
-          closeSync(fdFix);
+          closeSync(fdRead);
+        }
+        if (lastByte !== 0x0a) {
+          const fdFix = openSync(this.filePath, "a", 0o600);
+          try {
+            const repairEntry: LedgerEntry = {
+              ts: new Date().toISOString(),
+              runId: this.runId,
+              entity: "system",
+              idempotencyKey: "repair:torn-line",
+              action: "repaired",
+            };
+            writeSync(fdFix, "\n" + JSON.stringify(repairEntry) + "\n");
+            fsyncSync(fdFix);
+          } finally {
+            closeSync(fdFix);
+          }
         }
       }
     }

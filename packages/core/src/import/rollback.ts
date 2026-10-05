@@ -260,6 +260,9 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
         if (!entry || typeof entry.idempotencyKey !== "string" || !entry.entity) {
           throw invalid("ledger-corrupt", `corrupt entry in ledger at line ${i + 1}`);
         }
+        if (entry.entity === "system" && entry.action === "repaired") {
+          continue;
+        }
         if (entry.entity === "file" && entry.targetRef) {
           const normTarget = entry.targetRef.replaceAll("\\", "/");
           if (entry.action === "created") {
@@ -273,6 +276,16 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
           if (agentId) createdAgents.add(agentId);
         }
       } catch (err: any) {
+        // If this line was followed by a repair marker, it is a repaired torn line: ignore it
+        const nextNonEmpty = lines.slice(i + 1).find((l) => l && l.trim().length > 0);
+        if (nextNonEmpty) {
+          try {
+            const nextEntry = JSON.parse(nextNonEmpty.trim());
+            if (nextEntry?.entity === "system" && nextEntry?.action === "repaired") {
+              continue;
+            }
+          } catch {}
+        }
         if (err instanceof ImportError) throw err;
         throw invalid("ledger-corrupt", `corrupt entry in ledger at line ${i + 1}: ${err.message}`);
       }
@@ -334,6 +347,7 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
           }
 
           // B4 rest: Check if user modified the file since import!
+          // Fail-safe: missing sha or unhashable file is treated as kept-modified
           const expectedSha = createdFiles.get(rel) || renamedFiles.get(rel);
           let currentSha = "";
           try {
@@ -341,7 +355,7 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
           } catch {
             // unreadable
           }
-          const isUserModified = Boolean(expectedSha && currentSha && currentSha !== expectedSha);
+          const isUserModified = Boolean(!expectedSha || !currentSha || currentSha !== expectedSha);
 
           if (isUserModified && !opts.force) {
             changes.push({ path: rel, change: "kept-modified" });
@@ -407,9 +421,13 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
         }
       } else if (c.change === "kept-modified") {
         if (existsSync(targetPath)) {
-          // Backup modified target without unlinking
-          const bkp = join(backupDir, c.path);
-          writeAtomicSync(bkp, readFileSync(targetPath), 0o600);
+          // Backup modified target without unlinking (best-effort if unreadable)
+          try {
+            const bkp = join(backupDir, c.path);
+            writeAtomicSync(bkp, readFileSync(targetPath), 0o600);
+          } catch {
+            // Unreadable file kept on disk, backup best-effort
+          }
         }
       } else if (c.change === "revert" || c.change === "restore") {
         if (existsSync(targetPath)) {
@@ -422,8 +440,12 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       }
     }
 
-    // If config did not exist before apply, ensure it is removed
+    // If config did not exist before apply, back it up and ensure it is removed
     if (!manifest.configExisted && existsSync(l.configPath)) {
+      try {
+        const bkp = join(backupDir, "config.json");
+        writeAtomicSync(bkp, readFileSync(l.configPath), 0o600);
+      } catch {}
       unlinkSync(l.configPath);
     }
 

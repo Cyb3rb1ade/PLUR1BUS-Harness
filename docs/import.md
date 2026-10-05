@@ -269,7 +269,13 @@ Reusing PLUR1BUS's own idempotency pattern (`/share`'s `idempotencyKey = hash([a
 
 ### 5.3 Resumability
 
-Each apply-phase write is committed with its idempotency key recorded in the import run's own ledger (a harness-side record, not written into the source) before moving to the next entity. An interrupted apply (crash, kill, network loss to the harness API) resumes by re-running the plan and skipping every entity whose idempotency key is already present in the ledger — this is the same mechanism idempotency (§5.2) already provides, so resumability requires no separate design, only that the ledger is durable and consulted before every write.
+Each apply-phase write is committed with its idempotency key recorded in the import run's own ledger (`<home>/imports/<runId>/ledger.jsonl`, a harness-side record, not written into the source) before moving to the next entity. An interrupted apply (crash, kill, network loss to the harness API) resumes by re-running with `--resume <runId>` and skipping every entity whose idempotency key is already present in the ledger.
+
+**Resumption prerequisites & guarantees:**
+- `--resume <runId>` requires that `<home>/imports/<runId>` exists, that `rolled-back/status.json` is absent (a rolled-back run cannot be resumed; refuses with `run-not-resumable`), and that the pre-apply snapshot manifest (`snapshot/manifest.json`) exists and is intact (refuses with `run-not-resumable`).
+- A resumed run **never** takes a new snapshot of the partially imported target state; it strictly reuses the original pre-apply snapshot.
+- **Torn ledger lines:** If a process crashes mid-append leaving a torn line without a trailing newline, the next append repairs the newline and records a repair marker (`{"entity":"system","action":"repaired"}`). Rollback tolerates and skips the repaired torn line preceding this marker, while the count of corrupt lines is recorded in the report under `counts.corruptLedgerLines` and `errors`. Manual recovery for an unmanaged corrupt ledger file consists of removing the malformed line from `ledger.jsonl`.
+- If the ledger is missing, unreadable, or contains unrepaired corrupt lines, rollback aborts fail-closed with `ledger-corrupt`.
 
 ### 5.4 Conflict strategy per entity type
 
@@ -285,6 +291,12 @@ Each apply-phase write is committed with its idempotency key recorded in the imp
 ### 5.5 Rollback
 
 The pre-apply snapshot (§5.1 step 2) is the rollback target. Rollback restores the harness-side PLUR1BUS stores, vault, config, users, and sessions to their pre-import state; it never touches the source installation (which was never modified — copy-never-move). Rollback is itself dry-run-previewable before being applied, consistent with the rest of the importer's default posture.
+
+**Rollback safety boundaries & preservation:**
+- **Single-writer lock:** rollback acquires `core.lock` before reading the report, validating the manifest, or planning mutations.
+- **Path containment & symlinks:** every path component from `<home>` to target is inspected with `lstat` for symlinks (`unsafe-symlink`); containment within `<home>` is verified against the deepest existing ancestor realpath.
+- **User modification preservation:** files created by the import that were subsequently modified by the user (or cannot be hashed) are **not** deleted; they are backed up to `rolled-back/replaced/`, left intact on disk, and reported as `kept-modified`. Passing `--force` overrides this and deletes the modified file after backing it up.
+- **Ledger integrity:** rollback requires a valid, readable ledger. Missing or unrepaired corrupt ledger entries cause rollback to fail-closed with `ledger-corrupt` rather than reporting completion with imported files left behind.
 
 ### 5.6 Secrets handling
 
@@ -342,17 +354,30 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
     "allowlistedKeysImported": ["TELEGRAM_BOT_TOKEN"],
     "foundNotImported": ["SOME_UNKNOWN_KEY"]
   },
-  "unresolvedBindings": [
-    { "sourceRef": "string", "reason": "ambiguous-channel-identity | unsupported-channel | case-normalization-uncertain" }
-  ],
   "archived": [
     { "kind": "plugins-config | cron-jobs-feature-family | memory-backend | ...", "path": "archive/relative/path" }
   ],
+  "counts": {
+    "agentsCreated": 0,
+    "agentsMatched": 0,
+    "agentsRejected": 0,
+    "filesCreated": 0,
+    "filesMatched": 0,
+    "filesConflicted": 0,
+    "filesRenamed": 0,
+    "filesReplaced": 0,
+    "filesSkipped": 0,
+    "channelsDeferred": 0,
+    "cronJobsDeferred": 0,
+    "corruptLedgerLines": 0
+  },
   "errors": [ { "sourceRef": "string", "reason": "string" } ]
 }
 ```
 
-**Human-readable rendering:** the same document as a short narrative + tables per agent/profile (counts, not content), an "unresolved bindings — needs a human" section, an "archived for manual review" section, and a "secrets: N found, M imported (opt-in), K found-not-imported (add manually)" summary line. Never lists memory-card text, session message content, or any secret value, matching the JSON schema's own exclusions.
+**Rollback report schema (`import.rollback/1`):** includes `changes[]` with `change` status values `"remove" | "restore" | "revert" | "unchanged" | "kept-modified"`.
+
+**Human-readable rendering:** the same document as a short narrative + tables per agent/profile (counts, not content), an "archived for manual review" section, and a "secrets: N found, M imported (opt-in), K found-not-imported (add manually)" summary line. Never lists memory-card text, session message content, or any secret value, matching the JSON schema's own exclusions.
 
 ### 5.8 Audit entries
 

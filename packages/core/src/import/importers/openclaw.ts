@@ -39,7 +39,6 @@ export interface OpenclawImportOptions {
   migrateSecrets?: boolean | undefined;
   onConflict?: ConflictStrategy | undefined;
   resume?: string | undefined;
-  runId?: string | undefined;
   env?: NodeJS.ProcessEnv | undefined;
   homedir?: string | undefined;
   platform?: NodeJS.Platform | undefined;
@@ -114,34 +113,6 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
   const l = layout(opts.home);
   const startDate = opts.now ? opts.now() : new Date();
 
-  let runId: string;
-  if (opts.resume) {
-    if (!RUN_ID_RE.test(opts.resume)) {
-      throw new ImportError("E_INVALID_PARAMS", "resume-id-invalid", `--resume must be a valid run ID: ${opts.resume}`);
-    }
-    runId = opts.resume;
-    const runDir = join(l.home, "imports", runId);
-    if (!existsSync(runDir)) {
-      throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `resumed run does not exist: ${runId}`);
-    }
-    const rolledBackStatus = join(runDir, "rolled-back", "status.json");
-    if (existsSync(rolledBackStatus)) {
-      throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `cannot resume a run that has already been rolled back: ${runId}`);
-    }
-    const snapManifest = join(runDir, "snapshot", "manifest.json");
-    const ledgerFile = join(runDir, "ledger.jsonl");
-    if (!existsSync(snapManifest) && !existsSync(ledgerFile)) {
-      throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `run ${runId} is not complete enough to resume (missing snapshot and ledger)`);
-    }
-  } else if (opts.runId) {
-    if (!RUN_ID_RE.test(opts.runId)) {
-      throw new ImportError("E_INVALID_PARAMS", "run-id-invalid", `run ID invalid: ${opts.runId}`);
-    }
-    runId = opts.runId;
-  } else {
-    runId = newRunId(startDate);
-  }
-
   const startedAt = startDate.toISOString();
   const onConflict: ConflictStrategy = opts.onConflict ?? "skip";
 
@@ -151,6 +122,34 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
   }
 
   const executeImport = async (isApply: boolean): Promise<OpenclawImportReport> => {
+    let runId: string;
+    if (opts.resume) {
+      if (!RUN_ID_RE.test(opts.resume)) {
+        throw new ImportError("E_INVALID_PARAMS", "resume-id-invalid", `--resume must be a valid run ID: ${opts.resume}`);
+      }
+      runId = opts.resume;
+      const runDir = join(l.home, "imports", runId);
+      if (!existsSync(runDir)) {
+        throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `resumed run does not exist: ${runId}`);
+      }
+      const rolledBackStatus = join(runDir, "rolled-back", "status.json");
+      if (existsSync(rolledBackStatus)) {
+        throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `cannot resume a run that has already been rolled back: ${runId}`);
+      }
+      const snapManifest = join(runDir, "snapshot", "manifest.json");
+      if (!existsSync(snapManifest)) {
+        throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `run ${runId} is missing snapshot manifest`);
+      }
+      try {
+        const manifestRaw = readFileSync(snapManifest, "utf8");
+        JSON.parse(manifestRaw);
+      } catch (err: any) {
+        throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `run ${runId} snapshot manifest is unreadable or corrupt: ${err.message}`);
+      }
+    } else {
+      runId = newRunId(startDate);
+    }
+
     const repDir = join(l.home, "imports", runId);
 
     // Detect OpenClaw source
@@ -177,8 +176,11 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     if (isApply) {
       mkdirSync(repDir, { recursive: true, mode: 0o700 });
-      const snapManifestPath = join(repDir, "snapshot", "manifest.json");
-      if (opts.resume && existsSync(snapManifestPath)) {
+      if (opts.resume) {
+        const snapManifestPath = join(repDir, "snapshot", "manifest.json");
+        if (!existsSync(snapManifestPath)) {
+          throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `run ${runId} is missing snapshot manifest`);
+        }
         const manifestRaw = readFileSync(snapManifestPath, "utf8");
         const manifestSha256 = createHash("sha256").update(manifestRaw).digest("hex");
         const parsedManifest = JSON.parse(manifestRaw);

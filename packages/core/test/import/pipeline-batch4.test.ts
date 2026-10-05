@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { acquireExclusiveLock } from "@plur1bus/module-api";
 import { layout } from "../../src/paths.ts";
 import { importOpenclaw } from "../../src/import/importers/openclaw.ts";
-import { rollbackImport } from "../../src/import/rollback.ts";
+import { rollbackImport, RUN_ID_RE } from "../../src/import/rollback.ts";
 import { renderOpenclaw, renderRollback } from "../../src/import/render.ts";
 import { runImport } from "../../src/import/cli.ts";
 import { ImportError } from "../../src/import/types.ts";
@@ -665,10 +665,9 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.equal(tmpFiles.length, 0, "temporary files must be cleaned up on crash/error");
   });
 
-  it("crash then --resume converges to complete import state (B3)", { timeout: 30_000 }, async () => {
+  it("crash then --resume converges to complete import state and rolls back cleanly (B3)", { timeout: 30_000 }, async () => {
     const home = tempDir("p1b-b4-crash-resume-");
     const l = layout(home);
-    const runId = "test-resume-convergence-run-1";
 
     // Simulate crash after partial write: throw when writing beta agent's files
     try {
@@ -684,7 +683,6 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
             home,
             source: fx.root,
             apply: true,
-            runId,
           });
         },
         /Simulated mid-import crash/,
@@ -692,6 +690,11 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     } finally {
       _testFsAtomicHooks.beforeRename = undefined;
     }
+
+    // Find the crashed runId from imports/
+    const importDirs = readdirSync(join(l.home, "imports"));
+    const runId = importDirs.find((d) => d.startsWith("run-") || RUN_ID_RE.test(d));
+    assert.ok(runId, "crashed run directory must exist");
 
     // Resume the interrupted run
     const resumedReport = await importOpenclaw({
@@ -712,6 +715,17 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
       resume: runId,
     });
     assert.equal(secondResume.counts.filesCreated, 0);
+
+    // Rollback after resumed run restores pre-import state cleanly
+    const rollbackRes = await rollbackImport({
+      home,
+      reportPath: resumedReport.reportPath!,
+      apply: true,
+      sourceType: "openclaw",
+    });
+    assert.equal(rollbackRes.status, "completed");
+    assert.ok(!existsSync(l.workspaceDir("alpha")));
+    assert.ok(!existsSync(l.workspaceDir("beta")));
   });
 
   it("--resume validation: rejects non-existent, rolled-back, or incomplete runs (N1)", { timeout: 30_000 }, async () => {
@@ -758,7 +772,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
       },
     );
 
-    // 3. Incomplete run (run directory exists but has neither snapshot manifest nor ledger)
+    // 3. Incomplete run (run directory exists but has no snapshot manifest)
     const emptyRunDir = join(l.home, "imports", "empty-run");
     mkdirSync(emptyRunDir, { recursive: true });
     await assert.rejects(
@@ -768,6 +782,27 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
           source: fx.root,
           apply: true,
           resume: "empty-run",
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.code, "E_RESUME_INVALID");
+        assert.equal(err.reason, "run-not-resumable");
+        return true;
+      },
+    );
+
+    // 4. Run has ledger but snapshot manifest is missing (blocker case)
+    const runWithLedgerOnly = join(l.home, "imports", "ledger-only-run");
+    mkdirSync(runWithLedgerOnly, { recursive: true });
+    writeFileSync(join(runWithLedgerOnly, "ledger.jsonl"), '{"ts":"2026-10-05T12:00:00Z","runId":"ledger-only-run","entity":"file","idempotencyKey":"k1","action":"created"}\n');
+    await assert.rejects(
+      async () => {
+        await importOpenclaw({
+          home,
+          source: fx.root,
+          apply: true,
+          resume: "ledger-only-run",
         });
       },
       (err: any) => {
@@ -790,7 +825,7 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     // Append a torn line (no trailing newline) to ledger
     appendFileSync(report.ledgerPath, "TORN_LINE_WITHOUT_NEWLINE");
 
-    // Resuming import repairs newline before next append and counts the corrupt line
+    // Resuming import repairs newline before next append, writes repair marker, and counts corrupt line
     const rep2 = await importOpenclaw({
       home,
       source: fx.root,
@@ -803,13 +838,27 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     // Verify ledger ends with newline and entries did not merge
     const ledgerContent = readFileSync(report.ledgerPath, "utf8");
     assert.ok(ledgerContent.endsWith("\n"));
+    assert.ok(ledgerContent.includes('"entity":"system"'));
+    assert.ok(ledgerContent.includes('"action":"repaired"'));
 
-    // Rollback with a corrupt ledger must abort with ledger-corrupt, never report completed
+    // After resume with repaired torn line, rollback succeeds and is not blocked forever
+    const rollbackRepaired = await rollbackImport({
+      home,
+      reportPath: rep2.reportPath!,
+      apply: true,
+      sourceType: "openclaw",
+    });
+    assert.equal(rollbackRepaired.status, "completed");
+
+    // Unrepaired corrupt ledger must abort with ledger-corrupt
+    const homeCorrupt = tempDir("p1b-b4-ledger-corrupt-");
+    const repCorrupt = await importOpenclaw({ home: homeCorrupt, source: fx.root, apply: true });
+    appendFileSync(repCorrupt.ledgerPath!, "CORRUPT_NON_REPAIRED_ENTRY\n");
     await assert.rejects(
       async () => {
         await rollbackImport({
-          home,
-          reportPath: report.reportPath!,
+          home: homeCorrupt,
+          reportPath: repCorrupt.reportPath!,
           apply: true,
           sourceType: "openclaw",
         });
