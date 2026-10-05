@@ -334,11 +334,10 @@ impl Drop for ImportLock {
         if rename_retrying(&self.path, &moved).is_err() {
             return; // gone (taken over) or busy: nothing of ours to delete
         }
-        match std::fs::read_to_string(&moved) {
-            Ok(text) if lock_field(&text, "nonce").as_deref() != Some(self.nonce.as_str()) => {
-                put_back(&moved, &self.path); // someone else's lock: never delete it
-            }
-            _ => {
+        // A failed re-read (a transient sharing violation) is retried once; never delete what we could not read.
+        let text = std::fs::read_to_string(&moved).or_else(|_| std::fs::read_to_string(&moved));
+        match text {
+            Ok(text) if lock_field(&text, "nonce").as_deref() == Some(self.nonce.as_str()) => {
                 if let Err(e) = remove_retrying(&moved) {
                     eprintln!(
                         "plur1bus: warning: could not release {}: {e}",
@@ -346,6 +345,7 @@ impl Drop for ImportLock {
                     );
                 }
             }
+            _ => put_back(&moved, &self.path), // someone else's lock, or unreadable: never delete it
         }
     }
 }
@@ -362,46 +362,104 @@ fn sibling(lock: &Path, suffix: &str) -> PathBuf {
     lock.with_file_name(name)
 }
 
-/// A string or integer field of a lock body as text; `None` when the body is no JSON object or lacks it.
+/// A string field of a lock body; `None` when the body is no JSON object or lacks it.
 fn lock_field(text: &str, key: &str) -> Option<String> {
     let v: Value = serde_json::from_str(text).ok()?;
-    match &v[key] {
-        Value::String(s) => Some(s.clone()),
-        Value::Number(n) => Some(n.to_string()),
-        _ => None,
+    v[key].as_str().map(str::to_owned)
+}
+
+/// The holder pid: a positive JSON integer that fits a pid (the importer's `Number.isInteger(pid) && pid > 0`).
+fn lock_pid(text: Option<&str>) -> Option<u32> {
+    let v: Value = serde_json::from_str(text?).ok()?;
+    v["pid"]
+        .as_u64()
+        .and_then(|p| u32::try_from(p).ok())
+        .filter(|p| *p > 0)
+}
+
+/// Which file a path named: dev/ino on unix, volume serial + file index on Windows, plus the last-write and (Windows)
+/// creation times. Two empty lock files at one path are told apart even when the inode number is reused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FileIdent {
+    key: (u64, u64),
+    modified: Option<std::time::SystemTime>,
+    created: Option<u64>,
+}
+
+/// One consistent view of a lock: the contents and the identity come from the same open handle, so a stale verdict is
+/// never computed from one file's age and another file's (empty) contents.
+#[derive(Debug, Clone)]
+struct Snapshot {
+    text: Option<String>,
+    ident: FileIdent,
+}
+
+fn ident_of(f: &std::fs::File, meta: &std::fs::Metadata) -> FileIdent {
+    #[cfg(unix)]
+    let (key, created) = {
+        use std::os::unix::fs::MetadataExt;
+        let _ = f;
+        ((meta.dev(), meta.ino()), None)
+    };
+    #[cfg(windows)]
+    let (key, created) = {
+        use std::os::windows::fs::MetadataExt;
+        (file_index(f).unwrap_or((0, 0)), Some(meta.creation_time()))
+    };
+    #[cfg(not(any(unix, windows)))]
+    let (key, created) = {
+        let _ = f;
+        ((0, 0), None)
+    };
+    FileIdent {
+        key,
+        modified: meta.modified().ok(),
+        created,
     }
 }
 
-fn lock_pid(text: Option<&str>) -> Option<u32> {
-    text.and_then(|t| lock_field(t, "pid"))
-        .and_then(|p| p.parse::<u32>().ok())
-        .filter(|p| *p > 0)
+/// `(volume serial, file index)` of an open file.
+#[cfg(windows)]
+fn file_index(f: &std::fs::File) -> Option<(u64, u64)> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    };
+    // SAFETY: an all-zero BY_HANDLE_FILE_INFORMATION is a valid value (plain integers and FILETIMEs).
+    let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+    // SAFETY: `f` is an open file, so its raw handle is valid for the call; `info` is a writable out-struct.
+    let ok = unsafe { GetFileInformationByHandle(f.as_raw_handle() as _, &mut info) };
+    (ok != 0).then(|| {
+        (
+            u64::from(info.dwVolumeSerialNumber),
+            (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+        )
+    })
+}
+
+/// Opens `p` once and reads metadata and contents through that handle. `Err(NotFound)` when it is gone.
+fn snapshot(p: &Path) -> std::io::Result<Snapshot> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(p)?;
+    let meta = f.metadata()?;
+    let mut s = String::new();
+    let text = f.read_to_string(&mut s).ok().map(|_| s);
+    Ok(Snapshot {
+        text,
+        ident: ident_of(&f, &meta),
+    })
 }
 
 /// Stale = the holder pid is dead, or it is ours (ext mutations are serialised in-process, X1-R15), or there is no
 /// readable pid and the file is older than [`LOCK_UNREADABLE_GRACE`]. A live foreign holder is never stale.
-fn lock_stale(text: Option<&str>, meta: &std::fs::Metadata) -> bool {
-    match lock_pid(text) {
+fn lock_stale(snap: &Snapshot) -> bool {
+    match lock_pid(snap.text.as_deref()) {
         Some(pid) => pid == std::process::id() || !pid_alive(pid),
-        None => meta
-            .modified()
-            .ok()
+        None => snap
+            .ident
+            .modified
             .and_then(|m| m.elapsed().ok())
             .is_some_and(|age| age > LOCK_UNREADABLE_GRACE),
-    }
-}
-
-/// The same file? dev/ino where the platform gives them; contents always.
-fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        a.dev() == b.dev() && a.ino() == b.ino()
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = (a, b);
-        true
     }
 }
 
@@ -410,6 +468,7 @@ fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
 fn put_back(moved: &Path, lock: &Path) {
     if let Err(e) = std::fs::hard_link(moved, lock) {
         if e.kind() != std::io::ErrorKind::AlreadyExists
+            && e.kind() != std::io::ErrorKind::NotFound
             && std::fs::symlink_metadata(lock).is_err()
             && rename_retrying(moved, lock).is_ok()
         {
@@ -419,14 +478,14 @@ fn put_back(moved: &Path, lock: &Path) {
     let _ = remove_retrying(moved); // a leftover is swept by the next taker
 }
 
-/// Removes the judged lock only if the moved-aside file is still it (same file, same contents); true when removed.
-fn break_stale(lock: &Path, judged: &std::fs::Metadata, text: Option<&str>) -> bool {
+/// Removes the judged lock only if the moved-aside file is still it (same identity incl. times, same contents); true
+/// when removed.
+fn break_stale(lock: &Path, judged: &Snapshot) -> bool {
     let moved = sibling(lock, &format!("break-{}", uuid::Uuid::new_v4()));
     if rename_retrying(lock, &moved).is_err() {
         return false;
     }
-    let same = std::fs::metadata(&moved).is_ok_and(|m| same_file(&m, judged))
-        && std::fs::read_to_string(&moved).ok().as_deref() == text;
+    let same = snapshot(&moved).is_ok_and(|s| s.ident == judged.ident && s.text == judged.text);
     if same {
         let _ = remove_retrying(&moved);
         return true;
@@ -447,10 +506,8 @@ fn sweep_leftovers(dir: &Path) {
             continue;
         }
         let p = entry.path();
-        if let Ok(meta) = std::fs::metadata(&p) {
-            if lock_stale(std::fs::read_to_string(&p).ok().as_deref(), &meta) {
-                let _ = remove_retrying(&p);
-            }
+        if snapshot(&p).is_ok_and(|s| lock_stale(&s)) {
+            let _ = remove_retrying(&p);
         }
     }
 }
@@ -480,10 +537,14 @@ pub fn lock_skills(layout: &Layout) -> Result<ImportLock, ExtError> {
                     json!({"pid": std::process::id(), "at": super::now_iso(), "nonce": nonce})
                         .to_string();
                 if let Err(e) = f.write_all(body.as_bytes()) {
-                    // Our own nonce-less file: identified by the open handle's metadata, removed only if still it.
-                    if let Ok(own) = f.metadata() {
+                    // Our own nonce-less file: identified through the open handle, removed only if still it.
+                    if let Ok(meta) = f.metadata() {
+                        let own = Snapshot {
+                            text: std::fs::read_to_string(&path).ok(),
+                            ident: ident_of(&f, &meta),
+                        };
                         drop(f);
-                        break_stale(&path, &own, std::fs::read_to_string(&path).ok().as_deref());
+                        break_stale(&path, &own);
                     }
                     return Err(ExtError::new(
                         "E_INTERNAL",
@@ -494,17 +555,23 @@ pub fn lock_skills(layout: &Layout) -> Result<ImportLock, ExtError> {
                 return Ok(ImportLock { path, nonce });
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                let Ok(judged) = std::fs::metadata(&path) else {
-                    continue; // gone meanwhile: try again
+                let judged = match snapshot(&path) {
+                    Ok(s) => s,
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue, // gone: try again
+                    Err(e) => {
+                        return Err(locked(format!(
+                            "cannot judge {} ({e}); another import may hold it",
+                            path.display()
+                        )))
+                    }
                 };
-                let text = std::fs::read_to_string(&path).ok();
-                if !lock_stale(text.as_deref(), &judged) {
-                    return Err(locked(match lock_pid(text.as_deref()) {
+                if !lock_stale(&judged) {
+                    return Err(locked(match lock_pid(judged.text.as_deref()) {
                         Some(pid) => format!("another import (pid {pid}) holds {}", path.display()),
                         None => format!("another import is taking {}", path.display()),
                     }));
                 }
-                break_stale(&path, &judged, text.as_deref());
+                break_stale(&path, &judged);
             }
             Err(e) => {
                 return Err(ExtError::new(
@@ -516,4 +583,113 @@ pub fn lock_skills(layout: &Layout) -> Result<ImportLock, ExtError> {
         }
     }
     Err(locked(format!("could not take {}", path.display())))
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::*;
+
+    fn lock_in(dir: &Path) -> PathBuf {
+        dir.join(".lock")
+    }
+
+    fn backdate(p: &Path, by: std::time::Duration) {
+        std::fs::File::options()
+            .write(true)
+            .open(p)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - by)
+            .unwrap();
+    }
+
+    fn left(dir: &Path) -> Vec<String> {
+        let mut v: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with(".lock."))
+            .collect();
+        v.sort();
+        v
+    }
+
+    /// R2 M1: two empty files at the lock path. The judged one is old (a stale leftover); before the takeover moves it,
+    /// it is rewritten in place — same inode, same (empty) contents, new mtime — exactly what a fresh holder mid-create
+    /// looks like after inode reuse. The identity check must refuse it.
+    #[test]
+    fn break_stale_refuses_an_empty_lock_with_another_mtime() {
+        let d = tempfile::tempdir().unwrap();
+        let lock = lock_in(d.path());
+        std::fs::write(&lock, "").unwrap();
+        backdate(&lock, LOCK_UNREADABLE_GRACE * 3);
+        let judged = snapshot(&lock).unwrap();
+        assert!(lock_stale(&judged));
+        std::fs::write(&lock, "").unwrap(); // same inode, same bytes, fresh mtime
+        backdate(&lock, std::time::Duration::from_millis(1));
+        assert!(!break_stale(&lock, &judged));
+        assert_eq!(std::fs::read_to_string(&lock).unwrap(), "");
+        assert!(left(d.path()).is_empty());
+    }
+
+    /// The judged file itself (identity and contents unchanged) is removed.
+    #[test]
+    fn break_stale_removes_the_judged_file() {
+        let d = tempfile::tempdir().unwrap();
+        let lock = lock_in(d.path());
+        std::fs::write(&lock, "").unwrap();
+        backdate(&lock, LOCK_UNREADABLE_GRACE * 3);
+        let judged = snapshot(&lock).unwrap();
+        assert!(break_stale(&lock, &judged));
+        assert!(!lock.exists());
+        assert!(left(d.path()).is_empty());
+    }
+
+    /// A replaced file (new inode / file index) with equal contents is refused too.
+    #[test]
+    fn break_stale_refuses_a_replaced_file_with_equal_contents() {
+        let d = tempfile::tempdir().unwrap();
+        let lock = lock_in(d.path());
+        std::fs::write(&lock, "").unwrap();
+        backdate(&lock, LOCK_UNREADABLE_GRACE * 3);
+        let judged = snapshot(&lock).unwrap();
+        let keep = d.path().join("keep"); // hold the old inode so it cannot be reused
+        std::fs::rename(&lock, &keep).unwrap();
+        std::fs::write(&lock, "").unwrap();
+        backdate(&lock, LOCK_UNREADABLE_GRACE * 3);
+        assert!(!break_stale(&lock, &judged));
+        assert!(lock.exists());
+        assert!(left(d.path()).is_empty());
+    }
+
+    /// Release (drop) re-reads on the moved-aside name: a lock that replaced ours is put back, ours is removed.
+    #[test]
+    fn release_puts_back_a_foreign_lock_and_removes_its_own() {
+        let d = tempfile::tempdir().unwrap();
+        let lock = lock_in(d.path());
+        std::fs::write(&lock, r#"{"pid":1,"at":"x","nonce":"mine"}"#).unwrap();
+        drop(ImportLock {
+            path: lock.clone(),
+            nonce: "mine".into(),
+        });
+        assert!(!lock.exists());
+        let foreign = r#"{"pid":1,"at":"x","nonce":"foreign"}"#;
+        std::fs::write(&lock, foreign).unwrap();
+        drop(ImportLock {
+            path: lock.clone(),
+            nonce: "mine".into(),
+        });
+        assert_eq!(std::fs::read_to_string(&lock).unwrap(), foreign);
+        assert!(left(d.path()).is_empty());
+    }
+
+    /// The pid must be a positive JSON integer, as on the importer side (R2 N1).
+    #[test]
+    fn lock_pid_accepts_only_positive_integers() {
+        assert_eq!(lock_pid(Some(r#"{"pid":42}"#)), Some(42));
+        assert_eq!(lock_pid(Some(r#"{"pid":"42"}"#)), None);
+        assert_eq!(lock_pid(Some(r#"{"pid":0}"#)), None);
+        assert_eq!(lock_pid(Some(r#"{"pid":-1}"#)), None);
+        assert_eq!(lock_pid(Some(r#"{"pid":1.5}"#)), None);
+        assert_eq!(lock_pid(Some("garbage")), None);
+    }
 }

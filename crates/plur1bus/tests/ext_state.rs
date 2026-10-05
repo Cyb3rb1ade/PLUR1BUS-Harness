@@ -314,6 +314,30 @@ fn long_lived_child() -> std::process::Child {
         .unwrap()
 }
 
+/// Kills and reaps the child on drop, so a failed assertion never leaks it.
+struct KillOnDrop(std::process::Child);
+impl Drop for KillOnDrop {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// A pid that is certainly dead: a child that has already exited and been reaped (not a hard-coded number, which can
+/// be live on Linux with a large `pid_max`).
+fn dead_pid() -> u32 {
+    #[cfg(unix)]
+    let mut c = std::process::Command::new("true").spawn().unwrap();
+    #[cfg(windows)]
+    let mut c = std::process::Command::new("cmd")
+        .args(["/C", "exit"])
+        .spawn()
+        .unwrap();
+    let pid = c.id();
+    c.wait().unwrap();
+    pid
+}
+
 #[test]
 fn lock_skills_refuses_a_live_holder_and_takes_over_a_dead_one() {
     let (_d, l) = home();
@@ -330,24 +354,28 @@ fn lock_skills_refuses_a_live_holder_and_takes_over_a_dead_one() {
     assert!(!lock.exists());
 
     // A live holder (another process): E_LOCKED skills-locked, and the file is untouched.
-    let mut child = long_lived_child();
+    let child = KillOnDrop(long_lived_child());
     fs::create_dir_all(l.imports()).unwrap();
-    let held = json!({"pid": child.id(), "at": "2026-09-28T10:00:00.000Z"}).to_string();
+    let held = json!({"pid": child.0.id(), "at": "2026-09-28T10:00:00.000Z"}).to_string();
     fs::write(&lock, &held).unwrap();
     let e = index::lock_skills(&l).unwrap_err();
     assert_eq!(e.code, "E_LOCKED");
     assert_eq!(e.reason, Some("skills-locked"));
-    assert!(e.message.contains(&child.id().to_string()), "{}", e.message);
+    assert!(
+        e.message.contains(&child.0.id().to_string()),
+        "{}",
+        e.message
+    );
     assert_eq!(fs::read_to_string(&lock).unwrap(), held);
-    child.kill().unwrap();
-    let _ = child.wait();
+    drop(child);
 
-    // A dead holder (pid 999999, with or without a nonce) is taken over.
+    // A dead holder (with or without a nonce) is taken over.
+    let dead = dead_pid();
     for text in [
-        r#"{"pid":999999,"at":"x"}"#,
-        r#"{"pid":999999,"at":"x","nonce":"dead"}"#,
+        json!({"pid": dead, "at": "x"}).to_string(),
+        json!({"pid": dead, "at": "x", "nonce": "dead"}).to_string(),
     ] {
-        fs::write(&lock, text).unwrap();
+        fs::write(&lock, &text).unwrap();
         let g = index::lock_skills(&l).unwrap();
         let v: Value = serde_json::from_str(&fs::read_to_string(&lock).unwrap()).unwrap();
         assert_eq!(v["pid"], std::process::id());
@@ -367,9 +395,7 @@ fn lock_skills_refuses_a_live_holder_and_takes_over_a_dead_one() {
         .open(&lock)
         .unwrap()
         .set_modified(
-            std::time::SystemTime::now()
-                - index::LOCK_UNREADABLE_GRACE
-                - std::time::Duration::from_secs(5),
+            std::time::SystemTime::now() - index::LOCK_UNREADABLE_GRACE - Duration::from_secs(5),
         )
         .unwrap();
     drop(index::lock_skills(&l).unwrap());
@@ -377,24 +403,24 @@ fn lock_skills_refuses_a_live_holder_and_takes_over_a_dead_one() {
 
     // Drop releases only a lock that is still ours: a foreign one (taken over meanwhile) is put back untouched.
     for foreign in [
-        r#"{"pid":999999,"at":"x"}"#,
-        r#"{"pid":999999,"at":"x","nonce":"foreign"}"#,
+        json!({"pid": dead, "at": "x"}).to_string(),
+        json!({"pid": dead, "at": "x", "nonce": "foreign"}).to_string(),
     ] {
         let g = index::lock_skills(&l).unwrap();
-        fs::write(&lock, foreign).unwrap();
+        fs::write(&lock, &foreign).unwrap();
         drop(g);
         assert_eq!(fs::read_to_string(&lock).unwrap(), foreign);
         fs::remove_file(&lock).unwrap();
     }
 
     // N1: a crashed release's leftover is swept when its holder is dead, kept while it lives; none of ours remain.
-    let mut child = long_lived_child();
+    let child = KillOnDrop(long_lived_child());
     fs::write(
         l.imports().join(".lock.rel-dead"),
-        r#"{"pid":999999,"at":"x"}"#,
+        json!({"pid": dead, "at": "x"}).to_string(),
     )
     .unwrap();
-    let live = json!({"pid": child.id(), "at": "x"}).to_string();
+    let live = json!({"pid": child.0.id(), "at": "x"}).to_string();
     fs::write(l.imports().join(".lock.break-live"), &live).unwrap();
     drop(index::lock_skills(&l).unwrap());
     let mut left: Vec<String> = fs::read_dir(l.imports())
@@ -405,8 +431,116 @@ fn lock_skills_refuses_a_live_holder_and_takes_over_a_dead_one() {
         .collect();
     left.sort();
     assert_eq!(left, vec![".lock.break-live".to_string()]);
-    child.kill().unwrap();
-    let _ = child.wait();
+    drop(child);
+}
+
+/// R2 S3: the CLI and the TypeScript importer share `imports/.lock`. A node process running the real
+/// `skills-registry.ts` holds it → `lock_skills` is refused and leaves it alone; once node releases, the CLI takes it;
+/// while the CLI holds it, the importer is refused. Skipped when `node` is not on PATH.
+#[test]
+fn imports_lock_interoperates_with_the_typescript_importer() {
+    use std::io::{BufRead, BufReader, Write as _};
+    use std::process::{Command, Stdio};
+    use std::sync::mpsc;
+
+    if Command::new("node").arg("--version").output().is_err() {
+        eprintln!("skipped: node not on PATH");
+        return;
+    }
+    let (d, l) = home();
+    let lock = l.imports().join(".lock");
+    let registry = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../packages/core/src/import/skills-registry.ts")
+        .canonicalize()
+        .unwrap();
+    let node = |script: &str| {
+        let mut c = Command::new("node");
+        c.args([
+            "--experimental-strip-types",
+            "--no-warnings",
+            "--input-type=module",
+            "-e",
+            script,
+        ])
+        .arg(&registry)
+        .arg(d.path());
+        c
+    };
+    const PRELUDE: &str = r#"import { pathToFileURL } from "node:url";
+const m = await import(pathToFileURL(process.argv[1]).href);"#;
+
+    // node holds the lock until its stdin closes.
+    let hold = format!(
+        r#"{PRELUDE}
+const release = m.acquireLock(process.argv[2]);
+console.log("held");
+process.stdin.resume();
+process.stdin.on("end", () => {{ release(); console.log("released"); }});"#
+    );
+    let mut child = KillOnDrop(
+        node(&hold)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let (tx, rx) = mpsc::channel();
+    let out = child.0.stdout.take().unwrap();
+    std::thread::spawn(move || {
+        for line in BufReader::new(out).lines().map_while(Result::ok) {
+            if tx.send(line).is_err() {
+                break;
+            }
+        }
+    });
+    let line = rx
+        .recv_timeout(Duration::from_secs(30))
+        .expect("node took the lock");
+    assert_eq!(line, "held");
+    let body: Value = serde_json::from_str(&fs::read_to_string(&lock).unwrap()).unwrap();
+    assert_eq!(body["pid"], child.0.id());
+    assert!(body["nonce"].is_string());
+
+    let e = index::lock_skills(&l).unwrap_err();
+    assert_eq!(e.code, "E_LOCKED");
+    assert!(
+        e.message.contains(&child.0.id().to_string()),
+        "{}",
+        e.message
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&fs::read_to_string(&lock).unwrap()).unwrap()["nonce"],
+        body["nonce"],
+        "the CLI must leave the importer's lock alone"
+    );
+
+    child.0.stdin.take().unwrap().flush().unwrap(); // dropping stdin closes it: node releases
+    let line = rx
+        .recv_timeout(Duration::from_secs(30))
+        .expect("node released");
+    assert_eq!(line, "released");
+    let _ = child.0.wait();
+    assert!(!lock.exists());
+
+    // The CLI holds it: the importer is refused and leaves it alone; after the CLI releases, the importer takes it.
+    let try_take = format!(
+        r#"{PRELUDE}
+try {{ const release = m.acquireLock(process.argv[2]); release(); console.log("ok"); }}
+catch (e) {{ console.log(`${{e.code}}/${{e.reason}}`); }}"#
+    );
+    let run = |script: &str| {
+        let o = node(script).stdin(Stdio::null()).output().unwrap();
+        assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+        String::from_utf8_lossy(&o.stdout).trim().to_string()
+    };
+    let g = index::lock_skills(&l).unwrap();
+    let ours = fs::read_to_string(&lock).unwrap();
+    assert_eq!(run(&try_take), "E_LOCKED/skills-locked");
+    assert_eq!(fs::read_to_string(&lock).unwrap(), ours);
+    drop(g);
+    assert!(!lock.exists());
+    assert_eq!(run(&try_take), "ok");
+    assert!(!lock.exists());
 }
 
 #[test]
