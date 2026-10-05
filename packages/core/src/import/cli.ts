@@ -1,11 +1,14 @@
 // The importer's argv → envelope (docs/import.md §8.1). The Rust CLI spawns `import.js` with already-parsed flags and
 // prints the envelope's `value` as the `--json` document (schema inserted there) or its `human` text.
+import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { detect } from "./detect.ts";
 import { importOpenclaw } from "./importers/openclaw.ts";
+import type { ConflictStrategy } from "./ledger.ts";
 import { parseMaps, type Mount } from "./paths.ts";
 import { renderDetect, renderOpenclaw, renderRollback, renderSkills } from "./render.ts";
-import { importSkills, rollback, type OnConflict } from "./skills-import.ts";
+import { rollbackImport } from "./rollback.ts";
+import { importSkills, rollback as rollbackSkills, type OnConflict } from "./skills-import.ts";
 import { DEFAULT_MAX_SKILL_BYTES } from "./skills-scan.ts";
 import { ImportError, type SourceType } from "./types.ts";
 
@@ -23,8 +26,9 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
       options: {
         home: { type: "string" }, detect: { type: "boolean" }, skills: { type: "boolean" }, rollback: { type: "string" },
         source: { type: "string" }, profile: { type: "string" }, apply: { type: "boolean" }, enable: { type: "boolean" },
-        "on-conflict": { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
-        "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" },
+        "on-conflict": { type: "string" }, conflict: { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
+        "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" }, resume: { type: "string" },
+        force: { type: "boolean" },
       },
     }) as { values: Record<string, string | boolean | string[] | undefined>; positionals: string[] });
   } catch (e) {
@@ -38,13 +42,23 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
     return fail("E_INVALID_PARAMS", "mode", "choose exactly one of --detect, --skills, --rollback <report>");
   }
   const mode = explicitModes[0] ?? "import";
-  if (values.apply && mode === "detect") return fail("E_INVALID_PARAMS", "apply-with-detect", "--detect is read-only; --apply applies to --skills and --rollback");
-  if ((values.enable || values["on-conflict"] !== undefined || values["max-skill-bytes"] !== undefined) && mode !== "skills") return fail("E_INVALID_PARAMS", "skills-only-flag", "--enable, --on-conflict and --max-skill-bytes apply to --skills only");
+  if (values.apply && mode === "detect") return fail("E_INVALID_PARAMS", "apply-with-detect", "--detect is read-only; --apply applies to --skills, --rollback, and import");
+  if ((values.enable || values["max-skill-bytes"] !== undefined) && mode !== "skills") {
+    return fail("E_INVALID_PARAMS", "skills-only-flag", "--enable and --max-skill-bytes apply to --skills only");
+  }
   if (values["migrate-secrets"] && mode !== "import") return fail("E_INVALID_PARAMS", "migrate-secrets-flag", "--migrate-secrets applies to import only");
+  if (values.resume !== undefined && mode !== "import") return fail("E_INVALID_PARAMS", "resume-import-only", "--resume applies to import only");
+  if (values.force && mode !== "rollback") return fail("E_INVALID_PARAMS", "force-rollback-only", "--force applies to rollback only");
   if (mode === "rollback" && (values.source !== undefined || values.profile !== undefined || values.map !== undefined)) return fail("E_INVALID_PARAMS", "rollback-takes-report-only", "--rollback reads everything from the report; drop --source, --profile and --map");
+  if ((mode === "detect" || mode === "rollback") && (values["on-conflict"] !== undefined || values.conflict !== undefined)) {
+    return fail("E_INVALID_PARAMS", "conflict-mode-invalid", "--on-conflict / --conflict applies to import and --skills only");
+  }
+  if (values["on-conflict"] !== undefined && values.conflict !== undefined && values["on-conflict"] !== values.conflict) {
+    return fail("E_INVALID_PARAMS", "conflicting-conflict-flags", "cannot specify different values for both --on-conflict and --conflict");
+  }
   if (values.profile !== undefined && sourceType !== "hermes") return fail("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
-  const onConflict = (values["on-conflict"] ?? "skip") as string;
-  if (!["skip", "rename", "replace"].includes(onConflict)) return fail("E_INVALID_PARAMS", "on-conflict", "--on-conflict must be skip, rename or replace");
+  const onConflict = ((values["on-conflict"] ?? values.conflict) ?? "skip") as string;
+  if (!["skip", "rename", "replace"].includes(onConflict)) return fail("E_INVALID_PARAMS", "on-conflict", "--on-conflict / --conflict must be skip, rename or replace");
   let maxBytes = DEFAULT_MAX_SKILL_BYTES;
   if (values["max-skill-bytes"] !== undefined) {
     const n = Number(values["max-skill-bytes"]);
@@ -71,6 +85,8 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         ...base,
         apply: values.apply === true,
         migrateSecrets: values["migrate-secrets"] === true,
+        onConflict: onConflict as ConflictStrategy,
+        resume: values.resume as string | undefined,
       });
       return { ok: true, schema: "import.openclaw/1", value: r as unknown as Record<string, unknown>, human: renderOpenclaw(r) };
     }
@@ -82,7 +98,31 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
       const r = await importSkills({ ...base, apply: values.apply === true, enable: values.enable === true, onConflict: onConflict as OnConflict }, renderSkills);
       return { ok: true, schema: "import.skills/1", value: r as unknown as Record<string, unknown>, human: renderSkills(r) };
     }
-    const r = rollback({ home: values.home, reportPath: values.rollback as string, apply: values.apply === true, sourceType: sourceType as SourceType });
+
+    // Rollback mode: determine if full import report or skills report
+    let isFullOpenclawReport = false;
+    try {
+      const text = readFileSync(values.rollback as string, "utf8");
+      const parsed = JSON.parse(text);
+      if (parsed.schema === "import.openclaw/1" || (parsed.sourceType === "openclaw" && Array.isArray(parsed.profilesOrAgents))) {
+        isFullOpenclawReport = true;
+      }
+    } catch {
+      // Pass through to let rollback handler report specific error
+    }
+
+    if (isFullOpenclawReport) {
+      const r = await rollbackImport({
+        home: values.home,
+        reportPath: values.rollback as string,
+        apply: values.apply === true,
+        force: values.force === true,
+        sourceType: sourceType as SourceType,
+      });
+      return { ok: true, schema: "import.rollback/1", value: r as unknown as Record<string, unknown>, human: renderRollback(r) };
+    }
+
+    const r = rollbackSkills({ home: values.home, reportPath: values.rollback as string, apply: values.apply === true, sourceType: sourceType as SourceType });
     return { ok: true, schema: "import.rollback/1", value: r as unknown as Record<string, unknown>, human: renderRollback(r) };
   } catch (e) {
     if (e instanceof ImportError) return fail(e.code, e.reason, e.message, e.exit);

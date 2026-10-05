@@ -67,6 +67,16 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
         v.push("--max-skill-bytes".into());
         v.push(n.to_string().into());
     }
+    if a.migrate_secrets {
+        v.push("--migrate-secrets".into());
+    }
+    if let Some(r) = &a.resume {
+        v.push("--resume".into());
+        v.push(r.into());
+    }
+    if a.force {
+        v.push("--force".into());
+    }
     v.push("--home".into());
     v.push(layout.home.clone().into_os_string());
     v
@@ -82,12 +92,12 @@ pub(crate) fn parse_envelope(stdout: &[u8]) -> Option<Value> {
 }
 
 pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
-    if !a.detect && !a.skills && a.rollback.is_none() {
+    if !a.detect && !a.skills && a.rollback.is_none() && a.source_type != ImportSource::Openclaw {
         crate::commands::stubs::milestone(
             out,
             "import",
             "M7",
-            "the full OpenClaw/Hermes import (docs/import.md); available now: --detect, --skills, --rollback",
+            "Hermes import will be available in Batch 3; available now: openclaw, --detect, --skills, --rollback",
         );
     }
     let js = locate_import_js(layout);
