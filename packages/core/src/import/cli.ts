@@ -2,8 +2,9 @@
 // prints the envelope's `value` as the `--json` document (schema inserted there) or its `human` text.
 import { parseArgs } from "node:util";
 import { detect } from "./detect.ts";
+import { importOpenclaw } from "./importers/openclaw.ts";
 import { parseMaps, type Mount } from "./paths.ts";
-import { renderDetect, renderRollback, renderSkills } from "./render.ts";
+import { renderDetect, renderOpenclaw, renderRollback, renderSkills } from "./render.ts";
 import { importSkills, rollback, type OnConflict } from "./skills-import.ts";
 import { DEFAULT_MAX_SKILL_BYTES } from "./skills-scan.ts";
 import { ImportError, type SourceType } from "./types.ts";
@@ -23,7 +24,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         home: { type: "string" }, detect: { type: "boolean" }, skills: { type: "boolean" }, rollback: { type: "string" },
         source: { type: "string" }, profile: { type: "string" }, apply: { type: "boolean" }, enable: { type: "boolean" },
         "on-conflict": { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
-        "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" },
+        "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" },
       },
     }) as { values: Record<string, string | boolean | string[] | undefined>; positionals: string[] });
   } catch (e) {
@@ -32,11 +33,14 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   const sourceType = positionals[0];
   if (positionals.length !== 1 || (sourceType !== "openclaw" && sourceType !== "hermes")) return fail("E_INVALID_PARAMS", "source-type", "expected exactly one source: openclaw or hermes");
   if (typeof values.home !== "string") return fail("E_INVALID_PARAMS", "home-missing", "--home is required");
-  const modes = [values.detect ? "detect" : null, values.skills ? "skills" : null, values.rollback !== undefined ? "rollback" : null].filter(Boolean);
-  if (modes.length !== 1) return fail("E_INVALID_PARAMS", "mode", "choose exactly one of --detect, --skills, --rollback <report>");
-  const mode = modes[0];
+  const explicitModes = [values.detect ? "detect" : null, values.skills ? "skills" : null, values.rollback !== undefined ? "rollback" : null].filter(Boolean);
+  if (explicitModes.length > 1 || (explicitModes.length === 0 && sourceType !== "openclaw")) {
+    return fail("E_INVALID_PARAMS", "mode", "choose exactly one of --detect, --skills, --rollback <report>");
+  }
+  const mode = explicitModes[0] ?? "import";
   if (values.apply && mode === "detect") return fail("E_INVALID_PARAMS", "apply-with-detect", "--detect is read-only; --apply applies to --skills and --rollback");
   if ((values.enable || values["on-conflict"] !== undefined || values["max-skill-bytes"] !== undefined) && mode !== "skills") return fail("E_INVALID_PARAMS", "skills-only-flag", "--enable, --on-conflict and --max-skill-bytes apply to --skills only");
+  if (values["migrate-secrets"] && mode !== "import") return fail("E_INVALID_PARAMS", "migrate-secrets-flag", "--migrate-secrets applies to import only");
   if (mode === "rollback" && (values.source !== undefined || values.profile !== undefined || values.map !== undefined)) return fail("E_INVALID_PARAMS", "rollback-takes-report-only", "--rollback reads everything from the report; drop --source, --profile and --map");
   if (values.profile !== undefined && sourceType !== "hermes") return fail("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   const onConflict = (values["on-conflict"] ?? "skip") as string;
@@ -62,6 +66,14 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
     allowLiveCopy: values["allow-live-copy"] === true,
   };
   try {
+    if (mode === "import") {
+      const r = await importOpenclaw({
+        ...base,
+        apply: values.apply === true,
+        migrateSecrets: values["migrate-secrets"] === true,
+      });
+      return { ok: true, schema: "import.openclaw/1", value: r as unknown as Record<string, unknown>, human: renderOpenclaw(r) };
+    }
     if (mode === "detect") {
       const r = await detect(base);
       return { ok: true, schema: "import.detect/1", value: r as unknown as Record<string, unknown>, human: renderDetect(r) };

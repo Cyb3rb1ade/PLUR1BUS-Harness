@@ -3,6 +3,7 @@
 import type { DetectReport } from "./detect.ts";
 import type { Field } from "./identity.ts";
 import type { RollbackReport, SkillsReport } from "./skills-import.ts";
+import type { OpenclawImportReport } from "./importers/openclaw.ts";
 
 const fmtVal = (v: unknown) => (v === null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
 const fmtField = (x: Field) => `${fmtVal(x.value)} [${x.source}]`;
@@ -86,3 +87,42 @@ export function renderRollback(r: RollbackReport): string {
   if (r.movedAside) L.push(`The replaced skills/ was moved to ${r.movedAside}`);
   return L.join("\n");
 }
+
+export function renderOpenclaw(r: OpenclawImportReport): string {
+  const L: string[] = [];
+  L.push(`OpenClaw import from ${r.source.root} — ${r.mode === "dry-run" ? "DRY RUN (nothing written; add --apply)" : `applied, run ${r.runId}`}`);
+  L.push(`Target: ${r.harness.home}`);
+  L.push("", `Agents (${r.agents.length}):`);
+  for (const a of r.agents) {
+    L.push(`  ${a.harnessAgentId.padEnd(16)} ${a.action} (${a.counts.filesCreated} files created, ${a.counts.filesMatched} matched)`);
+    for (const f of a.files) {
+      L.push(`    ${f.targetFile.padEnd(28)} ${f.action} (${f.bytes} B)`);
+    }
+  }
+  if (r.channels.length > 0) {
+    L.push("", `Channels (${r.channels.length}):`);
+    for (const ch of r.channels) {
+      L.push(`  ${ch.platform.padEnd(16)} allowFrom: ${ch.allowFrom.length ? ch.allowFrom.join(", ") : "—"}${ch.groups ? ` groups: ${ch.groups.join(", ")}` : ""}`);
+    }
+  }
+  L.push("", `Cron jobs (${r.cron.count} deferred, ${r.cron.excludedCount} managed excluded):`);
+  if (r.cron.jobs.length === 0) {
+    L.push("  none found");
+  }
+  for (const j of r.cron.jobs) {
+    L.push(`  ${j.id.padEnd(16)} schedule: ${j.schedule || "—"} (${j.status})`);
+  }
+  L.push("", `Secrets (${r.secrets.count} unmigrated):`);
+  if (r.secrets.unmigrated_secrets.length === 0) {
+    L.push("  none found");
+  } else {
+    L.push(`  keys: ${r.secrets.unmigrated_secrets.join(", ")}`);
+  }
+  if (r.reportPath) {
+    L.push("", `Report: ${r.reportPath}`);
+  }
+  const c = r.counts;
+  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched; ${c.filesCreated} files created, ${c.filesMatched} matched; ${c.channelsImported} channels; ${c.cronJobsDeferred} cron jobs deferred.`);
+  return L.join("\n");
+}
+
