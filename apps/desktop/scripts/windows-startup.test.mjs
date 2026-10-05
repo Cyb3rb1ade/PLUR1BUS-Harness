@@ -496,7 +496,11 @@ test('Windows helper executes real compile/load/name phases with isolated profil
       readFileVersions: () => [],
     });
     const saved = JSON.parse(readFileSync(join(root, 'native-loader-exports.json'), 'utf8'));
-    assert.equal(helperResult?.status, 0, `WINDOWS_HELPER_EXIT_FAILED status=${helperResult?.status} signal=${helperResult?.signal} timedOut=${helperResult?.timedOut}`);
+    const observedPhases = readFileSync(progressPath, 'utf8').trim().split('\n').flatMap(line => {
+      try { const record = JSON.parse(line); return typeof record.phase === 'string' && /^[a-z-]+$/.test(record.phase) ? [record.phase] : []; }
+      catch { return []; }
+    });
+    assert.equal(helperResult?.status, 0, `WINDOWS_HELPER_EXIT_FAILED status=${helperResult?.status} signal=${helperResult?.signal} timedOut=${helperResult?.timedOut} phase=${observedPhases.at(-1) ?? 'unavailable'}`);
     assert.equal(saved.batches[0].progressStatus, 'validated');
     assert.equal(saved.batches[0].helperPhase, 'complete');
     assert.equal(saved.batches[0].architectureMatches, true);

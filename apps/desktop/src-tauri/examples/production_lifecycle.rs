@@ -1,3 +1,6 @@
+#[cfg(all(windows, debug_assertions))]
+#[path = "support/browser_exit.rs"]
+mod browser_exit;
 #[cfg(debug_assertions)]
 mod fixture {
     // Native Wry lifecycle proof; private temporary profiles, no real credentials/services.
@@ -507,6 +510,10 @@ mod fixture {
         );
         context.config_mut().app.windows.clear();
         let setup_root = root.clone();
+        #[cfg(windows)]
+        let browsers = Arc::new(super::browser_exit::BrowserExits::default());
+        #[cfg(windows)]
+        let setup_browsers = browsers.clone();
         let setup_report = report.clone();
         let setup_modal = modal.clone();
         let setup_failed = failed.clone();
@@ -554,6 +561,10 @@ mod fixture {
                     .incognito(true)
                     .data_directory(setup_root.join("spa-profile"))
                     .build()?;
+                #[cfg(windows)]
+                for label in ["shell", "spa"] {
+                    setup_browsers.capture(&app.get_webview_window(label).unwrap())?;
+                }
                 let handle = app.handle().clone();
                 let report = setup_report.clone();
                 let modal = setup_modal.clone();
@@ -601,6 +612,11 @@ mod fixture {
                 }
             }
         });
+        #[cfg(windows)]
+        if let Err(reason) = browsers.wait(2) {
+            eprintln!("{reason} expected=2 budgetMs=10000");
+            std::process::exit(2);
+        }
         eprintln!("FIXTURE_PROCESS_EXIT code={native_exit_code}");
         let report = report.lock().unwrap();
         let complete = report.second_instance_focus

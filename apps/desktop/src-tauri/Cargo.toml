@@ -43,6 +43,7 @@ futures-util = "=0.3.31"
 tokio-tungstenite = { version = "=0.28.0", features = ["rustls-tls-native-roots"] }
 
 [dev-dependencies]
+memchr = "=2.8.3"
 plur1bus-mock-harness = { path = "../mock-harness", version = "=0.1.0" }
 jsonschema = { version = "=0.26.2", default-features = false }
 

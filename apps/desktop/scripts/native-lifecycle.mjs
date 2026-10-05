@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { removeExitedProfile } from './owned-process.mjs';
 const desktop = fileURLToPath(new URL('..', import.meta.url));
 const fields = ['second_instance_focus', 'spa_focus', 'close_hides', 'close_minimizes', 'shell_focus', 'quit_modal_default', 'quit_cancel_preserves_app', 'quit_confirm_exits'];
-const fixtureReasons = new Set(['FIXTURE_CANCEL_APPROVED', 'FIXTURE_CLOSE_HIDES_OBSERVED', 'FIXTURE_CLOSE_MINIMIZES_OBSERVED', 'FIXTURE_EARLY_APPROVAL', 'FIXTURE_EXECUTABLE_FAILED', 'FIXTURE_GUI_DISPATCH_FAILED', 'FIXTURE_GUI_TIMEOUT', 'FIXTURE_OBSERVER_TIMEOUT', 'FIXTURE_QUIT_CANCEL_PRESERVES_APP_OBSERVED', 'FIXTURE_QUIT_MODAL_DEFAULT_OBSERVED', 'FIXTURE_SECOND_INSTANCE_FAILED', 'FIXTURE_SECOND_INSTANCE_FOCUS_OBSERVED', 'FIXTURE_SECOND_INSTANCE_REJECTED', 'FIXTURE_SECOND_INSTANCE_TIMEOUT', 'FIXTURE_SECOND_INSTANCE_WAIT_FAILED', 'FIXTURE_SETUP', 'FIXTURE_SHELL_FOCUS_OBSERVED', 'FIXTURE_SHELL_NOT_VISIBLE', 'FIXTURE_SHELL_VISIBLE', 'FIXTURE_SINGLETON_BYPASSED', 'FIXTURE_SPA_FOCUS_OBSERVED', 'FIXTURE_SPA_NOT_FOCUSED', 'FIXTURE_START', 'FIXTURE_FOREGROUND_REQUEST_FAILED']);
+const fixtureReasons = new Set(['FIXTURE_CANCEL_APPROVED', 'FIXTURE_CLOSE_HIDES_OBSERVED', 'FIXTURE_CLOSE_MINIMIZES_OBSERVED', 'FIXTURE_EARLY_APPROVAL', 'FIXTURE_EXECUTABLE_FAILED', 'FIXTURE_GUI_DISPATCH_FAILED', 'FIXTURE_GUI_TIMEOUT', 'FIXTURE_OBSERVER_TIMEOUT', 'FIXTURE_QUIT_CANCEL_PRESERVES_APP_OBSERVED', 'FIXTURE_QUIT_MODAL_DEFAULT_OBSERVED', 'FIXTURE_SECOND_INSTANCE_FAILED', 'FIXTURE_SECOND_INSTANCE_FOCUS_OBSERVED', 'FIXTURE_SECOND_INSTANCE_REJECTED', 'FIXTURE_SECOND_INSTANCE_TIMEOUT', 'FIXTURE_SECOND_INSTANCE_WAIT_FAILED', 'FIXTURE_SETUP', 'FIXTURE_SHELL_FOCUS_OBSERVED', 'FIXTURE_SHELL_NOT_VISIBLE', 'FIXTURE_SHELL_VISIBLE', 'FIXTURE_SINGLETON_BYPASSED', 'FIXTURE_SPA_FOCUS_OBSERVED', 'FIXTURE_SPA_NOT_FOCUSED', 'FIXTURE_START', 'FIXTURE_FOREGROUND_REQUEST_FAILED', 'FIXTURE_BROWSER_CAPTURE_FAILED', 'FIXTURE_BROWSER_EXIT_TIMEOUT']);
 // Forward only the fixed read-only native focus schema; discard all other child text.
 function focusDiagnostic(line) {
   const prefix = 'WP6_FOCUS_DIAGNOSTIC ';
@@ -44,7 +44,7 @@ function run(command, args, timeout, capture = false) {
           const diagnostic = focusDiagnostic(line.trim());
           if (diagnostic) diagnostics.push(diagnostic);
           if (line.trim() === 'WP6_FOCUS_SUMMARY foreground-lock-denied') console.log(line.trim());
-          if (/^FIXTURE_(PROCESS_EXIT|NATIVE_EXIT_FAILED) code=-?\d+$/.test(line.trim())) diagnostics.push(line.trim());
+          if (/^FIXTURE_(PROCESS_EXIT|NATIVE_EXIT_FAILED) code=-?\d+$/.test(line.trim()) || /^FIXTURE_BROWSER_(CAPTURE_FAILED|EXIT_TIMEOUT) expected=\d+ budgetMs=10000$/.test(line.trim())) diagnostics.push(line.trim());
           for (const code of line.matchAll(/\bFIXTURE_[A-Z_]+\b/g)) {
             if (fixtureReasons.has(code[0])) diagnostics.push(code[0]);
           }

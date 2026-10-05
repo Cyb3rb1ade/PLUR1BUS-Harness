@@ -1627,7 +1627,7 @@ fn main() {
             {
                 let cleanup_known = known.clone();
                 app.state::<SpaState>().set_native_profile_audit(Arc::new(move |path| {
-                    post_exit_secret_audit(path, &cleanup_known.lock().unwrap())
+                    post_exit_secret_audit_shared(path, &cleanup_known)
                 }));
             }
             app.state::<SpaState>()
@@ -2089,7 +2089,7 @@ async fn negative_controls(
         Some(other_browser),
         other_gone,
         Some(Arc::new(move |path| {
-            post_exit_secret_audit(path, &known.lock().unwrap())
+            post_exit_secret_audit_shared(path, &known)
         })),
         other_close_requested,
     )
@@ -2349,7 +2349,7 @@ async fn finish(
                                 if let Some(lease) = lease {
                                     let audit_known = task_known.clone();
                                     let secret_audit = Arc::new(move |path: &std::path::Path| {
-                                        post_exit_secret_audit(path, &audit_known.lock().unwrap())
+                                        post_exit_secret_audit_shared(path, &audit_known)
                                     });
                                     *observer_cleanup = plur1bus_desktop::windows_spa_profile::cleanup_after_exit(
                                         lease, browser, task_gone, Some(secret_audit), close_requested,
@@ -2868,12 +2868,29 @@ async fn finish(
     );
 }
 fn contains_secret(bytes: &[u8], secrets: &[SecretString]) -> bool {
+    // Fixture audits run in debug builds. Use the optimized dependency's exact
+    // byte search so full-profile scans do not spend the cookie audit's deadline
+    // interpreting one Rust slice comparison per byte and marker.
     secrets.iter().any(|s| {
-        !s.expose().is_empty()
-            && bytes
-                .windows(s.expose().len())
-                .any(|v| v == s.expose().as_bytes())
+        !s.expose().is_empty() && memchr::memmem::find(bytes, s.expose().as_bytes()).is_some()
     })
+}
+
+#[cfg(test)]
+#[test]
+fn secret_search_matches_literal_byte_reference() {
+    let marker = SecretString::new("secret.[*]é".to_owned());
+    let empty = SecretString::new(String::new());
+    let known = [marker, empty];
+    for size in [0, 1, 31, 64, 4096] {
+        for offset in [0, size / 2, size] {
+            let mut bytes = vec![0xff; size];
+            let expected = false;
+            assert_eq!(contains_secret(&bytes, &known), expected);
+            bytes.splice(offset..offset, known[0].expose().as_bytes().iter().copied());
+            assert!(contains_secret(&bytes, &known));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -3100,6 +3117,22 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     #[cfg(not(windows))]
     let mut reader = FilesystemAuditReader::default();
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
+}
+
+#[cfg(windows)]
+fn post_exit_secret_audit_shared(
+    root: &std::path::Path,
+    known: &Mutex<Vec<SecretString>>,
+) -> plur1bus_desktop::windows_spa_profile::SecretScanOutcome {
+    // Do not serialize concurrent profile scans behind the canary registry
+    // while each cleanup's fixed audit deadline continues to run.
+    let snapshot: Vec<_> = known
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|secret| SecretString::new(secret.expose().to_owned()))
+        .collect();
+    post_exit_secret_audit(root, &snapshot)
 }
 
 #[cfg(windows)]

@@ -1,3 +1,6 @@
+#[cfg(all(windows, debug_assertions))]
+#[path = "support/browser_exit.rs"]
+mod browser_exit;
 #[cfg(debug_assertions)]
 mod fixture {
     use plur1bus_desktop::{commands, diagnostics, native, secrets::MemoryStore, spa::SpaState};
@@ -204,6 +207,10 @@ mod fixture {
             &root.to_string_lossy(),
         );
         context.config_mut().app.windows.clear();
+        #[cfg(windows)]
+        let browsers = Arc::new(super::browser_exit::BrowserExits::default());
+        #[cfg(windows)]
+        let setup_browsers = browsers.clone();
         let setup_report = report.clone();
         let setup_modal = modal.clone();
         let setup_escaped = escaped.clone();
@@ -254,6 +261,8 @@ mod fixture {
                         }
                     })
                     .build()?;
+                #[cfg(windows)]
+                setup_browsers.capture(&app.get_webview_window("shell").unwrap())?;
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
                     if let Err(reason) =
@@ -272,7 +281,7 @@ mod fixture {
             })
             .build(context)
             .expect("DIAGNOSTICS_BUILD_FAILED");
-        app.run(move |app, event| {
+        let native_exit_code = app.run_return(move |app, event| {
             if native::guard_exit(app, &event) {
                 return;
             }
@@ -300,6 +309,14 @@ mod fixture {
                 }
             }
         });
+        if native_exit_code != 0 {
+            std::process::exit(native_exit_code);
+        }
+        #[cfg(windows)]
+        if let Err(reason) = browsers.wait(1) {
+            eprintln!("{reason} expected=1 budgetMs=10000");
+            std::process::exit(2);
+        }
     }
 }
 #[cfg(debug_assertions)]

@@ -1,5 +1,6 @@
 import {spawn} from 'node:child_process';
-import {mkdtemp, rm, lstat} from 'node:fs/promises';
+import {mkdtemp} from 'node:fs/promises';
+import {removeExitedProfile} from './owned-process.mjs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -18,6 +19,7 @@ function run(command, args, timeout, capture = false) {
     child.on('error', () => {clearTimeout(timer); reject(new Error('NATIVE_DIAGNOSTICS_FAILED'));});
     child.on('close', code => {
       clearTimeout(timer);
+      for (const line of errors.split('\n')) if (/^FIXTURE_BROWSER_(CAPTURE_FAILED|EXIT_TIMEOUT) expected=\d+ budgetMs=10000$/.test(line.trim())) console.error(line.trim());
       for (const match of errors.matchAll(/\bDIAGNOSTICS_[A-Z_]+\b/g)) if (reasons.has(match[0])) console.error(match[0]);
       if (exceeded) reject(new Error('NATIVE_DIAGNOSTICS_TIMEOUT'));
       else accept({code, output, errors});
@@ -36,21 +38,20 @@ async function main() {
       if ((panic.output + panic.errors).includes(canary)) throw new Error('NATIVE_CRASH_REDACTION_FAILED');
     }
     const result = await run(executable, [root], 150000, true);
-    if (result.code !== 0) throw new Error('NATIVE_DIAGNOSTICS_FAILED');
+    if (result.code !== 0) throw new Error(`NATIVE_DIAGNOSTICS_CHILD_FAILED exitCode=${result.code}`);
     let report;
     try {report = JSON.parse(result.output.trim().split('\n').at(-1));}
     catch {throw new Error('NATIVE_DIAGNOSTICS_REPORT_MISSING');}
     if (Object.keys(report).length !== fields.length || fields.some(field => report[field] !== true)) throw new Error('NATIVE_DIAGNOSTICS_INCOMPLETE');
     console.log(JSON.stringify(report));
   } finally {
-    await rm(root, {recursive:true, force:true});
-    try {await lstat(root); throw new Error('NATIVE_PROFILE_CLEANUP_FAILED');}
-    catch (error) {if (error.code !== 'ENOENT') throw error;}
+    await removeExitedProfile(root);
   }
 }
 try {await main();}
 catch (error) {
   const codes = new Set(['NATIVE_DIAGNOSTICS_FAILED','NATIVE_DIAGNOSTICS_TIMEOUT','NATIVE_DIAGNOSTICS_REPORT_MISSING','NATIVE_DIAGNOSTICS_INCOMPLETE','NATIVE_CRASH_NOT_TRIGGERED','NATIVE_CRASH_REDACTION_FAILED','NATIVE_PROFILE_CLEANUP_FAILED']);
-  console.error(codes.has(error.message) ? error.message : 'NATIVE_DIAGNOSTICS_FAILED');
+  const observed = /^(?:OWNED_PROFILE_[A-Z_]+|NATIVE_DIAGNOSTICS_CHILD_FAILED) [A-Za-z0-9_= -]+$/.test(error.message);
+  console.error(codes.has(error.message) || observed ? error.message : 'NATIVE_DIAGNOSTICS_FAILED');
   process.exitCode = 1;
 }
