@@ -99,7 +99,25 @@ To maintain steady progress without violating architectural boundaries, work is 
   - **Manual / deliberate linking:** Upon manual, confirmed linking of a user with a channel identity (owner/operator action in CLI, wizard, or config), memories are transferred to the target principal via metadata backfill: dry-run capable (preview with counts), audited (actor, timestamp, from → to), and reversible via the audit record.
   - **Automatic / heuristic linking:** No backfill. Memories remain fail-closed with the legacy principal (`docs/import.md` §2.4).
   - **Cardinality:** N:1 (channel identities → user). A user can be linked to arbitrarily many channel identities (e.g. Telegram, Discord, and Matrix simultaneously). All map to the same user, and personal memories from all sources land aggregated there. The reverse direction is strictly exclusive: each channel identity belongs to at most one user. Linking an already-linked channel identity to a second user is rejected.
-  - **Engine Contract Requirement:** The backfill requires an engine operation (no direct LanceDB writes, D28/T7) — `memory.rebind({ fromPrincipal, toPrincipal, dryRun })`. Planned as Task 2.5 following Batch 2.
+  - **Engine Contract Requirement (Open Blocker):** The backfill requires an engine operation (no direct LanceDB writes, D28/T7). Grok's PR #216 does not contain this operation yet. Planned as Task 2.5 following Batch 2, blocked on Grok's engine contract 1.11.0 extension.
+
+### Engine API Proposal: `memory.rebind` (for Grok)
+
+```ts
+memory.rebind({
+  agentId?: string;      // Optional: target specific agent store, or all stores if omitted
+  fromPrincipal: string; // e.g. "user:v1:<hash>"
+  toPrincipal: string;   // e.g. "user:v2:<hash>"
+  dryRun?: boolean;      // Default: false
+}): Promise<{
+  matchedCount: number;  // Number of matching user-scope rows found
+  reboundCount: number;  // Number of rows updated (0 when dryRun is true)
+  dryRun: boolean;
+}>
+```
+- **Metadata-only:** Updates `ownerUserId = toPrincipal` and `updatedAt = Date.now()` on rows with `scope = 'user' AND ownerUserId = fromPrincipal`. Vectors and embeddings are untouched.
+- **Safety & Privacy:** Returns counters only; never returns memory content or secrets.
+- **Reversibility:** Reversible via the audit record by calling `memory.rebind({ fromPrincipal: toPrincipal, toPrincipal: fromPrincipal })`.
 
 ---
 

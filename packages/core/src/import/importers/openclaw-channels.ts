@@ -1,12 +1,13 @@
 // OpenClaw channel allowlist extractor (docs/import.md §2.2).
 // Maps `channels.<platform>.allowFrom` to harness bot-connection allowlists.
 // Safe metadata only; channel tokens are secrets handled separately.
+// Channels are reported as "deferred" until target channel integration is configured.
 
 export interface ChannelAllowlistReport {
   platform: string;
   allowFrom: string[];
   groups?: string[];
-  action: "imported";
+  action: "deferred";
 }
 
 export function readOpenclawChannels(cfg: Record<string, unknown>): ChannelAllowlistReport[] {
@@ -22,7 +23,7 @@ export function readOpenclawChannels(cfg: Record<string, unknown>): ChannelAllow
         platform,
         allowFrom,
         ...(groups ? { groups } : {}),
-        action: "imported",
+        action: "deferred",
       });
     }
   }

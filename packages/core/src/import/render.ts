@@ -94,9 +94,12 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
   L.push(`Target: ${r.harness.home}`);
   L.push("", `Agents (${r.agents.length}):`);
   for (const a of r.agents) {
-    L.push(`  ${a.harnessAgentId.padEnd(16)} ${a.action} (${a.counts.filesCreated} files created, ${a.counts.filesMatched} matched)`);
+    const details = a.action === "rejected"
+      ? `rejected (${a.reason ?? "invalid"})`
+      : `${a.action} (${a.counts.filesCreated} files created, ${a.counts.filesMatched} matched${a.counts.filesConflicted ? `, ${a.counts.filesConflicted} conflicted` : ""})`;
+    L.push(`  ${a.harnessAgentId.padEnd(16)} ${details}`);
     for (const f of a.files) {
-      L.push(`    ${f.targetFile.padEnd(28)} ${f.action} (${f.bytes} B)`);
+      L.push(`    ${f.targetFile.padEnd(28)} ${f.action}${f.reason ? ` (${f.reason})` : ""} (${f.bytes} B)`);
     }
   }
   if (r.channels.length > 0) {
@@ -122,7 +125,7 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
     L.push("", `Report: ${r.reportPath}`);
   }
   const c = r.counts;
-  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched; ${c.filesCreated} files created, ${c.filesMatched} matched; ${c.channelsImported} channels; ${c.cronJobsDeferred} cron jobs deferred.`);
+  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred ?? c.channelsImported} channels deferred; ${c.cronJobsDeferred} cron jobs deferred.`);
   return L.join("\n");
 }
 

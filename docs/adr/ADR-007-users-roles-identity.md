@@ -101,7 +101,7 @@ A fourth, smaller PR: turn ACL-violation logging (`logViolations`) on by default
 
 - **Write path:** after linking, new `user`-scope rows are written with the v2 principal. Before linking, or for unlinked identities, v1 as today.
 - **Read path:** the union `{v2} ∪ {v1 of every currently linked identity}`. No row is updated, no vector is touched, and therefore the `/share` re-embedding hazard (`memory-edit.js:508`) is never triggered by migration.
-- **Optional back-fill:** an explicit, audited, dry-runnable admin operation that rewrites `ownerUserId` from v1 to v2 in place — metadata only, vectors untouched. Must not go through `/share`.
+- **Optional back-fill:** an explicit, audited, dry-runnable admin operation that rewrites `ownerUserId` from v1 to v2 in place — metadata only, vectors untouched. Must not go through `/share`. This operation must be performed through the engine (e.g. `memory.rebind`); direct LanceDB store manipulation by host or importer is prohibited (D28/T7).
 - **Unlink** removes the identity from the union. Rows written under that v1 principal become unreadable to the user until it is re-linked; rows written under v2 are unaffected. This is documented in the UI at unlink time, because it is surprising.
 
 **Fail-closed rules.** An unlinked channel identity is a separate principal and gets its own v1 derivation — never the harness user's v2. If `channel`, `accountId` or `userId` is incomplete, there is **no** user principal and `user`-scope reads and writes fail with `acl.user.missing_principal` (`acl-middleware.js:102-159`) — the harness surfaces this as a visible degraded state, never as a silent empty recall. Merging two harness users, or attaching an identity already linked elsewhere, requires an identity-bound two-phase confirmation (user + chat + nonce, auftrag §11) from **both** sides plus an audit entry; the `/share` two-phase pattern (`index.js:10120-10190`) is the template.
@@ -185,10 +185,10 @@ The Q5 trade (five roles vs three) is a one-way door in one direction only. Ship
 1. **Q5 (needs a decision now):** confirm the five roles from §5.1 as presets with "simple mode", or reduce to Owner/Admin/Member?
 2. **2FA enforcement:** required for Owner and Admin, or optional everywhere for v0.1?
 3. **Break-glass notification:** should the affected user be notified immediately, or is an audit entry they can read sufficient?
-4. **Unlink-Semantik und Identitätsverknüpfung (Q4 — beantwortet 2026-10-05, Owner-Entscheidung):**
-   Bei einer manuellen, bewussten Verknüpfung eines Users mit einer Identität (Owner- bzw. Operator-Aktion in CLI, Wizard oder Config, bestätigt) werden deren Erinnerungen per Metadaten-Backfill auf den Ziel-Principal übernommen: dry-run-fähig (Vorschau mit Anzahl), auditiert (Akteur, Zeit, alt → neu) und umkehrbar über den Audit-Eintrag.
-   Bei automatischer oder heuristischer Zuordnung kein Backfill: Die Erinnerungen bleiben fail-closed beim alten Principal (`docs/import.md` §2.4).
-   **Kardinalität:** N:1 (Kanal-Identitäten → User). Ein User kann mit beliebig vielen Kanal-Identitäten verknüpft sein (z. B. Telegram, Discord und Matrix gleichzeitig). Alle führen auf denselben User, die Personen-Erinnerungen aller Quellen landen gesammelt dort. Exklusiv ist nur die Gegenrichtung: Jede Kanal-Identität gehört höchstens einem User; der Versuch, dieselbe Kanal-Identität mit einem zweiten User zu verknüpfen, wird abgelehnt.
+4. **Unlink semantics and identity linking (Q4 — answered 2026-10-05, owner decision):**
+   Upon manual, deliberate linking of a user with an identity (owner or operator action in CLI, wizard, or config, confirmed), its memories are transferred to the target principal via metadata backfill: dry-run capable (preview with count), audited (actor, timestamp, old → new), and reversible via the audit record. The backfill is performed via a dedicated engine operation (`memory.rebind`, D28/T7).
+   Upon automatic or heuristic association, no backfill: memories remain fail-closed with the old principal (`docs/import.md` §2.4).
+   **Cardinality:** N:1 (channel identities → user). A user can be linked to arbitrarily many channel identities (e.g. Telegram, Discord, and Matrix simultaneously). All lead to the same user; personal memories from all sources land aggregated there. Exclusivity applies only in the reverse direction: each channel identity belongs to at most one user; an attempt to link the same channel identity to a second user is rejected.
 5. **OIDC:** is SSO in scope for v0.1 at all, or deferred past M3? (It changes whether `user:v3` should be designed now.)
 6. **Hard delete:** should user-requested erasure also purge the audit log entries *about* that user, or is the content-free tombstone acceptable?
 

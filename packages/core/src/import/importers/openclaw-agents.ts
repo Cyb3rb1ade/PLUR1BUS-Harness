@@ -1,32 +1,66 @@
 // OpenClaw agent scaffolding and curated file migration (docs/import.md §2.2, D14, D15).
 // Places persona (SOUL.md) and D15 files in `l.workspaceDir(id)` (packages/core/src/paths.ts:35).
 // Idempotent: existing identical files are classified as `matched-existing` with zero writes.
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+// Conflict-safe: differing target files are classified as `conflict` and never overwritten by default.
+// Untrusted agentId safe: validated against harness AgentId pattern and reserved words.
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { scaffoldFiles } from "../../agents.ts";
 import type { Layout } from "../../paths.ts";
 import { isDir, isFile } from "../readonly.ts";
 import type { AgentInfo } from "../types.ts";
 
+const AGENT_ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const RESERVED_NAMES = /^(con|prn|aux|nul|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3])(\..*)?$/i;
+const FORBIDDEN_PROPERTIES = new Set(["__proto__", "prototype", "constructor"]);
+const MAX_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB size cap
+
 export interface MigratedFileReport {
   sourceFile: string;
   targetFile: string;
   targetPath: string;
-  action: "created" | "matched-existing" | "skipped";
+  action: "created" | "matched-existing" | "conflict" | "skipped";
+  reason?: string;
   bytes: number;
 }
 
 export interface AgentImportReport {
   sourceId: string;
   harnessAgentId: string;
-  action: "created" | "matched-existing";
+  action: "created" | "matched-existing" | "conflict" | "rejected";
+  reason?: string;
   workspaceDir: string;
   files: MigratedFileReport[];
   counts: {
     filesCreated: number;
     filesMatched: number;
+    filesConflicted: number;
     filesSkipped: number;
   };
+}
+
+export function validateAgentId(id: string): { ok: true } | { ok: false; reason: string } {
+  if (typeof id !== "string" || id.length === 0 || id.length > 64) {
+    return { ok: false, reason: "invalid-agent-id" };
+  }
+  if (!AGENT_ID_RE.test(id)) {
+    return { ok: false, reason: "invalid-agent-id" };
+  }
+  if (FORBIDDEN_PROPERTIES.has(id.toLowerCase())) {
+    return { ok: false, reason: "invalid-agent-id" };
+  }
+  if (RESERVED_NAMES.test(id)) {
+    return { ok: false, reason: "invalid-agent-id" };
+  }
+  return { ok: true };
 }
 
 interface CuratedCandidate {
@@ -41,20 +75,163 @@ function findFirstFile(candidates: string[]): string | null {
   return null;
 }
 
+function isInsideDir(parent: string, child: string): boolean {
+  const rel = relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
 export function planAndMigrateAgent(
   agent: AgentInfo,
   sourceRoot: string,
   l: Layout,
   existingAgentIds: Set<string>,
   apply: boolean,
+  onConflict: "skip" | "replace" = "skip",
 ): { report: AgentImportReport; isNewAgent: boolean } {
   const agentId = agent.agentId;
+
+  // C3: Validate untrusted agentId before any path or config use
+  const validation = validateAgentId(agentId);
+  if (!validation.ok) {
+    return {
+      report: {
+        sourceId: agentId,
+        harnessAgentId: agentId,
+        action: "rejected",
+        reason: validation.reason,
+        workspaceDir: "",
+        files: [],
+        counts: {
+          filesCreated: 0,
+          filesMatched: 0,
+          filesConflicted: 0,
+          filesSkipped: 0,
+        },
+      },
+      isNewAgent: false,
+    };
+  }
+
   const isNewAgent = !existingAgentIds.has(agentId);
   const agentAction = isNewAgent ? "created" : "matched-existing";
   const wsTarget = l.workspaceDir(agentId);
   const srcWs = agent.workspace;
 
   const fileReports: MigratedFileReport[] = [];
+  const usedTargetNames = new Set<string>();
+
+  const processFile = (src: string, targetFileName: string) => {
+    // Check if target name already used by another file in this migration run
+    if (usedTargetNames.has(targetFileName)) {
+      fileReports.push({
+        sourceFile: src,
+        targetFile: targetFileName,
+        targetPath: join(wsTarget, targetFileName),
+        action: "conflict",
+        reason: "target-name-collision",
+        bytes: 0,
+      });
+      return;
+    }
+    usedTargetNames.add(targetFileName);
+
+    // I2: Check symlink traversal escaping sourceRoot
+    try {
+      const st = lstatSync(src);
+      if (st.isSymbolicLink()) {
+        const real = realpathSync(src);
+        if (!isInsideDir(sourceRoot, real)) {
+          fileReports.push({
+            sourceFile: src,
+            targetFile: targetFileName,
+            targetPath: join(wsTarget, targetFileName),
+            action: "skipped",
+            reason: "symlink-escape",
+            bytes: 0,
+          });
+          return;
+        }
+      }
+      if (st.size > MAX_FILE_BYTES) {
+        fileReports.push({
+          sourceFile: src,
+          targetFile: targetFileName,
+          targetPath: join(wsTarget, targetFileName),
+          action: "skipped",
+          reason: "file-too-large",
+          bytes: st.size,
+        });
+        return;
+      }
+    } catch {
+      // Missing or unstat-able
+      return;
+    }
+
+    // Read byte-exact Buffer (no UTF-8 transcoding)
+    let srcBuffer: Buffer;
+    try {
+      srcBuffer = readFileSync(src);
+    } catch {
+      return;
+    }
+
+    if (srcBuffer.length > MAX_FILE_BYTES) {
+      fileReports.push({
+        sourceFile: src,
+        targetFile: targetFileName,
+        targetPath: join(wsTarget, targetFileName),
+        action: "skipped",
+        reason: "file-too-large",
+        bytes: srcBuffer.length,
+      });
+      return;
+    }
+
+    const targetPath = join(wsTarget, targetFileName);
+    const targetExists = existsSync(targetPath);
+    let action: "created" | "matched-existing" | "conflict" = "created";
+    let reason: string | undefined = undefined;
+
+    if (targetExists) {
+      try {
+        const targetBuffer = readFileSync(targetPath);
+        if (targetBuffer.equals(srcBuffer)) {
+          action = "matched-existing";
+        } else {
+          // Differing content
+          if (onConflict === "replace") {
+            action = "created";
+          } else {
+            action = "conflict";
+            reason = "content-differs";
+          }
+        }
+      } catch {
+        action = "conflict";
+        reason = "target-unreadable";
+      }
+    }
+
+    if (apply && action === "created") {
+      mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
+      if (targetExists && onConflict === "replace") {
+        writeFileSync(targetPath, srcBuffer, { mode: 0o600 });
+      } else {
+        // C2: wx flag for new creations prevents race overwrites
+        writeFileSync(targetPath, srcBuffer, { flag: "wx", mode: 0o600 });
+      }
+    }
+
+    fileReports.push({
+      sourceFile: src,
+      targetFile: targetFileName,
+      targetPath,
+      action,
+      ...(reason ? { reason } : {}),
+      bytes: srcBuffer.length,
+    });
+  };
 
   if (srcWs && isDir(srcWs)) {
     const candidates: CuratedCandidate[] = [
@@ -93,30 +270,7 @@ export function planAndMigrateAgent(
     for (const c of candidates) {
       const src = findFirstFile(c.sourceCandidates);
       if (!src) continue;
-      const targetPath = join(wsTarget, c.targetFileName);
-      const srcContent = readFileSync(src, "utf8");
-      const targetExists = isFile(targetPath);
-      let action: "created" | "matched-existing" = "created";
-
-      if (targetExists) {
-        const targetContent = readFileSync(targetPath, "utf8");
-        if (targetContent === srcContent) {
-          action = "matched-existing";
-        }
-      }
-
-      if (apply && action === "created") {
-        mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
-        writeFileSync(targetPath, srcContent, { mode: 0o600 });
-      }
-
-      fileReports.push({
-        sourceFile: src,
-        targetFile: c.targetFileName,
-        targetPath,
-        action,
-        bytes: Buffer.byteLength(srcContent, "utf8"),
-      });
+      processFile(src, c.targetFileName);
     }
 
     // Daily notes in ws/memory/
@@ -132,30 +286,7 @@ export function planAndMigrateAgent(
           const targetName = match
             ? `DailyNote_${match[1]}_${match[2] ?? "000000"}.md`
             : (entry.startsWith("DailyNote_") ? entry : `DailyNote_${entry}`);
-          const targetPath = join(wsTarget, targetName);
-          const srcContent = readFileSync(srcPath, "utf8");
-          const targetExists = isFile(targetPath);
-          let action: "created" | "matched-existing" = "created";
-
-          if (targetExists) {
-            const targetContent = readFileSync(targetPath, "utf8");
-            if (targetContent === srcContent) {
-              action = "matched-existing";
-            }
-          }
-
-          if (apply && action === "created") {
-            mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
-            writeFileSync(targetPath, srcContent, { mode: 0o600 });
-          }
-
-          fileReports.push({
-            sourceFile: srcPath,
-            targetFile: targetName,
-            targetPath,
-            action,
-            bytes: Buffer.byteLength(srcContent, "utf8"),
-          });
+          processFile(srcPath, targetName);
         }
       } catch {
         // Unreadable memory dir ignored
@@ -164,12 +295,13 @@ export function planAndMigrateAgent(
   }
 
   if (apply) {
-    // Scaffold template files if missing (SOUL.md, USER.md, persona-voice.md)
+    // Scaffold template files if missing (SOUL.md, USER.md, persona-voice.md in agentDir)
     scaffoldFiles(l, agentId);
   }
 
   const filesCreated = fileReports.filter((f) => f.action === "created").length;
   const filesMatched = fileReports.filter((f) => f.action === "matched-existing").length;
+  const filesConflicted = fileReports.filter((f) => f.action === "conflict").length;
   const filesSkipped = fileReports.filter((f) => f.action === "skipped").length;
 
   return {
@@ -182,6 +314,7 @@ export function planAndMigrateAgent(
       counts: {
         filesCreated,
         filesMatched,
+        filesConflicted,
         filesSkipped,
       },
     },
