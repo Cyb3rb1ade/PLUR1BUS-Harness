@@ -652,6 +652,7 @@ fn logs_and_child_output_are_private_under_umask_022() {
     std::fs::OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(&old_log)
         .unwrap();
     std::fs::set_permissions(&old_log, std::fs::Permissions::from_mode(0o644)).unwrap();
@@ -665,6 +666,7 @@ fn logs_and_child_output_are_private_under_umask_022() {
         .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0.02")
         .env("PLUR1BUS_CORE_JS", fixture())
         .env("PLUR1BUS_NODE", "node")
+        .env_remove("PLUR1BUS_TEST_INTERNALS")
         .env("FAKE_CORE_MODE", "ok")
         .env("FAKE_CORE_EVENTS", &h.events)
         .env("FAKE_CORE_GRACE_MS", "300")
