@@ -8,12 +8,9 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Changed
 
-- Memory engine re-pinned to **`f92f0b25`** (merge of plugin PR #212, port of 7.18.5–7.18.20 onto
-  main, plus the Windows follow-up on native feature-cron delivery), contract **1.10.0**. Additive
-  engine keys (`captureChunkingJev`, nested recall/dreaming/runtime options) pass through `engine.*`.
-  Top-level engine keys are **57** (`groupReasoningFilter` is adapter-only). `jobs.list` includes
-  `post-turn-refine` (19 jobs). Light dreams and episodes run inline in the Harness because the
-  host does not set `capabilities.postTurnRefineScheduled`.
+- Memory engine re-pinned to **`9bafa047`** (merge of plugin PR #217), contract **1.11.0**.
+  Additive: `Engine.memory.import` and `Engine.stores.adopt`. Top-level engine keys stay **57**.
+  The installer in `crates/plur1bus` still reports contract 1.9.0 (Copilot #89).
 
 ## [0.1.0] — M1b-2a
 

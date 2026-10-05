@@ -31,7 +31,7 @@ describe("engine-config", () => {
     const e = buildEngineConfig(cfg, l) as any;
     assert.equal(e.reranker.enabled, true); assert.equal(e.reranker.provider, "local-transformers");
   });
-  it("passes the 7.18.5–7.18.20 engine keys through (contract 1.10.0)", () => {
+  it("passes the 7.18.5–7.18.20 engine keys through (contract 1.11.0)", () => {
     const cfg = defaults();
     cfg.engine.captureChunkingMode = "automatisch";
     cfg.engine.captureChunkingJev = { apiKeyEnv: "TYPESAFE_API_KEY", model: "jev-latest", minConfidence: 0.85, timeoutMs: 5000 };

@@ -1,9 +1,18 @@
+import { mkdirSync } from "node:fs";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { assertEngineContract } from "../src/engine.ts";
+import { defaults } from "@plur1bus/config-schema";
+import { createAgentRegistry } from "../src/agents.ts";
+import { buildEngineConfig } from "../src/engine-config.ts";
+import { assertEngineContract, bindEngine } from "../src/engine.ts";
+import { createHarnessHost } from "../src/host.ts";
+import { createLogger } from "../src/logger.ts";
+import { layout } from "../src/paths.ts";
 import { RpcError } from "../src/rpc/errors.ts";
+import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
 
-// The engine's own `ContractVersion` type is pinned to the literal `"1.10.0"` at the current pin,
+// The engine's own `ContractVersion` type is pinned to the literal `"1.11.0"` at the current pin,
 // so these fixtures (deliberately mismatched or malformed) are widened to plain strings — exactly
 // what `assertEngineContract` must guard against at runtime, where the engine's declared type is
 // no guarantee against a differently-pinned build.
@@ -12,9 +21,9 @@ function fixture(contract: string): Parameters<typeof assertEngineContract>[0] {
 }
 
 describe("assertEngineContract", () => {
-  it("accepts 1.8.0, 1.10.0 and 1.99.0", () => {
+  it("accepts 1.8.0, 1.11.0 and 1.99.0", () => {
     assert.doesNotThrow(() => assertEngineContract(fixture("1.8.0")));
-    assert.doesNotThrow(() => assertEngineContract(fixture("1.10.0")));
+    assert.doesNotThrow(() => assertEngineContract(fixture("1.11.0")));
     assert.doesNotThrow(() => assertEngineContract(fixture("1.99.0")));
   });
 
@@ -41,6 +50,27 @@ describe("assertEngineContract", () => {
       assert.equal(err.error, "E_RPC_VERSION");
       assert.equal(err.reason, "engine-contract-minor");
       assert.equal(err.detail, "1.7.0");
+    }
+  });
+
+  it("the pinned engine reports 1.11.0 and exposes memory.import and stores.adopt", async () => {
+    const l = layout(tempDir("p1b-contract-111-"));
+    for (const d of [l.state, l.logs, l.agents, l.lancedb]) mkdirSync(d, { recursive: true, mode: 0o700 });
+    const cfg = defaults();
+    cfg.agents.bernd = {};
+    const reg = createAgentRegistry(cfg, l);
+    reg.scaffold("bernd");
+    const logger = createLogger({ file: l.logFile("core"), level: "info", role: "core" });
+    const engineConfig = buildEngineConfig(cfg, l);
+    const host = createHarnessHost({ layout: l, logger, config: cfg, engineConfig, agents: reg, events: () => {} });
+    const engine = bindEngine(host, engineConfig, flatTestInternals());
+    try {
+      assert.equal(engine.contract, "1.11.0");
+      assert.equal(typeof engine.memory.import, "function");
+      assert.equal(typeof engine.stores.adopt, "function");
+    } finally {
+      await engine.close({ budgetMs: 2000 });
+      await logger.close();
     }
   });
 
