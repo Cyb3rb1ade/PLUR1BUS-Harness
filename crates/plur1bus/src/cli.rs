@@ -168,7 +168,12 @@ pub struct ImportArgs {
     #[arg(long)]
     pub enable: bool,
     /// What to do when an id or file already exists in the harness (skip, rename, replace)
-    #[arg(long = "on-conflict", alias = "conflict", value_enum, value_name = "MODE")]
+    #[arg(
+        long = "on-conflict",
+        alias = "conflict",
+        value_enum,
+        value_name = "MODE"
+    )]
     pub on_conflict: Option<OnConflict>,
     /// Refused before M2 secret store is available
     #[arg(long = "migrate-secrets")]

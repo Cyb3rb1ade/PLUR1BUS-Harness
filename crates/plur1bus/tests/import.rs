@@ -45,9 +45,7 @@ fn openclaw_full_import_forwards_to_importer() {
         .env("PLUR1BUS_NODE", "node")
         .arg("--home")
         .arg(home.path())
-        .args([
-            "--json", "import", "openclaw", "--conflict", "replace",
-        ])
+        .args(["--json", "import", "openclaw", "--conflict", "replace"])
         .assert()
         .success()
         .get_output()
