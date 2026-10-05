@@ -237,9 +237,8 @@ jobs:
         env: { PLUR1BUS_LIVE_REQUIRED: "1", PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware
   wsl:
     # Cross-platform migration WSL discovery and tar snapshot job (spec §B.7, gap G5/G6, decision C8).
-    # Non-blocking for the first four weeks (continue-on-error: true); runs on windows-2025.
+    # Required blocking job for M7 acceptance; runs on windows-2025.
     runs-on: windows-2025
-    continue-on-error: true
     timeout-minutes: 20
     permissions:
       contents: read

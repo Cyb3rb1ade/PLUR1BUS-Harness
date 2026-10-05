@@ -56,6 +56,14 @@ shift
 if [ "$1" = "--" ]; then
   shift
 fi
+command -v mktemp >/dev/null 2>&1 || { echo "wsl-tools-missing (mktemp)" >&2; exit 4; }
+command -v find >/dev/null 2>&1 || { echo "wsl-tools-missing (find)" >&2; exit 4; }
+find /dev/null -print0 >/dev/null 2>&1 || { echo "wsl-tools-missing (find -print0)" >&2; exit 4; }
+command -v tar >/dev/null 2>&1 || { echo "wsl-tools-missing (tar)" >&2; exit 4; }
+if ! tar --help 2>&1 | grep -q -- "--null" && ! tar -cf /dev/null --null -T /dev/null </dev/null >/dev/null 2>&1; then
+  echo "wsl-tools-missing (tar --null)" >&2
+  exit 4
+fi
 cd "$root" || exit 1
 real_root=$(pwd -P 2>/dev/null)
 [ -z "$real_root" ] && exit 1
@@ -66,7 +74,7 @@ for p in "$@"; do
   [ -e "$p" ] || exit 3
   case "$p" in
     /*) exit 3 ;;
-    *..*) exit 3 ;;
+    ..|../*|*/..|*/../*) exit 3 ;;
   esac
   if [ -d "$p" ]; then
     real_p=$(cd "$p" 2>/dev/null && pwd -P)
@@ -82,7 +90,9 @@ for p in "$@"; do
 done
 tmp_file=$(mktemp 2>/dev/null || mktemp -t p1b_tar.XXXXXX)
 [ -z "$tmp_file" ] && exit 3
-trap 'rm -f "$tmp_file"' EXIT INT TERM
+trap 'rm -f "$tmp_file"' EXIT
+trap 'rm -f "$tmp_file"; exit 130' INT
+trap 'rm -f "$tmp_file"; exit 143' TERM
 find "$@" \\( -type f -o -type d \\) -print0 > "$tmp_file" || exit 3
 tar_verbatim=""
 if tar --help 2>&1 | grep -q -- "--verbatim-files-from"; then
@@ -200,6 +210,11 @@ export function spawnWslTarStream(
     if (code !== null && code !== 0) {
       if (code === 1 && allowLiveCopy) {
         return { tarWarnings: 1 };
+      }
+      const stderrStr = Buffer.concat(stderrChunks).toString("utf8");
+      const match = stderrStr.match(/wsl-tools-missing(?:\s*\(|:\s*)([^)\n]+)\)?/);
+      if (match && match[1]) {
+        throw new ImportError("E_IMPORT_FAILED", "wsl-tools-missing", `wsl-tools-missing (${match[1].trim()})`, 2);
       }
       throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar failed (exit ${code})`, 2);
     }

@@ -716,6 +716,8 @@ shift
 if [ "$1" = "--" ]; then
   shift
 fi
+command -v find >/dev/null 2>&1 || { echo "wsl-tools-missing (find)" >&2; exit 4; }
+find /dev/null -print0 >/dev/null 2>&1 || { echo "wsl-tools-missing (find -print0)" >&2; exit 4; }
 cd "$root" || exit 1
 real_root=$(pwd -P 2>/dev/null)
 [ -z "$real_root" ] && exit 1
@@ -726,7 +728,7 @@ for p in "$@"; do
   [ -e "$p" ] || exit 3
   case "$p" in
     /*) exit 3 ;;
-    *..*) exit 3 ;;
+    ..|../*|*/..|*/../*) exit 3 ;;
   esac
   if [ -d "$p" ]; then
     real_p=$(cd "$p" 2>/dev/null && pwd -P)
@@ -865,6 +867,11 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       ];
       const symlinkRes = await runner(symlinkCmd, { timeoutMs: 10_000 });
       if (!symlinkRes || symlinkRes.exitCode !== 0) {
+        const stderrStr = symlinkRes?.stderr ? (Buffer.isBuffer(symlinkRes.stderr) ? symlinkRes.stderr.toString("utf8") : String(symlinkRes.stderr)) : "";
+        const match = stderrStr.match(/wsl-tools-missing(?:\s*\(|:\s*)([^)\n]+)\)?/);
+        if (match && match[1]) {
+          throw new ImportError("E_IMPORT_FAILED", "wsl-tools-missing", `wsl-tools-missing (${match[1].trim()})`, 3);
+        }
         throw new ImportError("E_IMPORT_FAILED", "wsl-probe-failed", "WSL symlink scan failed", 3);
       }
       const symlinkOut = symlinkRes.stdout;
@@ -896,6 +903,13 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         if (closeRes.tarWarnings > 0) {
           tarWarnings = closeRes.tarWarnings;
         }
+      } catch (extractErr) {
+        try {
+          await tarProcess.waitClose(opts.allowLiveCopy);
+        } catch (closeErr) {
+          throw closeErr;
+        }
+        throw extractErr;
       } finally {
         tarProcess.dispose();
       }
