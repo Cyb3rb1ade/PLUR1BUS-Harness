@@ -1,7 +1,8 @@
-// OpenClaw importer pipeline (docs/import.md §1, §2, M7 Batch 2).
+// OpenClaw importer pipeline (docs/import.md §1, §2, §5, M7 Batch 2 & Batch 4).
 // Migrates agents, persona (SOUL.md), D15 curated files into `l.workspaceDir(id)`,
 // extracts channel allowlists, reports cron as deferred (zero disk writes),
-// reports secrets by key name only, and enforces the single-writer rule withTargetLock.
+// reports secrets by key name only, enforces single-writer lock withTargetLock,
+// writes pre-apply snapshot for rollback, records atomic ledger.jsonl, and supports conflict strategies.
 import {
   closeSync,
   existsSync,
@@ -16,7 +17,14 @@ import { dirname, join } from "node:path";
 import { defaults, validate, type HarnessConfig } from "@plur1bus/config-schema";
 import { layout } from "../../paths.ts";
 import { parseJson5 } from "../json5.ts";
+import {
+  channelIdempotencyKey,
+  cronIdempotencyKey,
+  ImportLedger,
+  type ConflictStrategy,
+} from "../ledger.ts";
 import { isFile, readBounded } from "../readonly.ts";
+import { createTargetSnapshot } from "../snapshot-target.ts";
 import { detectOpenclaw } from "../sources/openclaw.ts";
 import { newRunId } from "../skills-import.ts";
 import { withTargetLock } from "../single-writer.ts";
@@ -31,7 +39,7 @@ export interface OpenclawImportOptions {
   source?: string | undefined;
   apply?: boolean | undefined;
   migrateSecrets?: boolean | undefined;
-  onConflict?: "skip" | "replace" | undefined;
+  onConflict?: ConflictStrategy | undefined;
   env?: NodeJS.ProcessEnv | undefined;
   homedir?: string | undefined;
   platform?: NodeJS.Platform | undefined;
@@ -41,9 +49,11 @@ export interface OpenclawImportOptions {
 }
 
 export interface OpenclawImportReport {
+  importId: string;
   runId: string;
   schema: "import.openclaw/1";
   sourceType: "openclaw";
+  sourceVersion: string;
   source: {
     root: string;
     resolvedFrom: string;
@@ -53,7 +63,8 @@ export interface OpenclawImportReport {
   harness: {
     home: string;
   };
-  agents: AgentImportReport[];
+  profilesOrAgents: AgentImportReport[];
+  agents: AgentImportReport[]; // backward compatibility alias
   channels: ChannelAllowlistReport[];
   cron: {
     status: "deferred";
@@ -63,9 +74,14 @@ export interface OpenclawImportReport {
   };
   secrets: {
     opted_in: boolean;
-    unmigrated_secrets: string[];
+    allowlistedKeysImported: string[];
+    foundNotImported: string[];
+    unmigrated_secrets: string[]; // backward compatibility alias
     count: number;
   };
+  unresolvedBindings: Array<{ sourceRef: string; reason: string }>;
+  archived: Array<{ kind: string; path: string }>;
+  errors: Array<{ sourceRef: string; reason: string }>;
   counts: {
     agentsCreated: number;
     agentsMatched: number;
@@ -73,11 +89,19 @@ export interface OpenclawImportReport {
     filesCreated: number;
     filesMatched: number;
     filesConflicted: number;
+    filesRenamed: number;
+    filesReplaced: number;
     filesSkipped: number;
     channelsDeferred: number;
     channelsImported: number; // backward compatibility
     cronJobsDeferred: number;
   };
+  snapshot: {
+    path: string;
+    existed: boolean;
+    manifestSha256?: string;
+  } | null;
+  ledgerPath: string | null;
   reportPath: string | null;
   startedAt: string;
   finishedAt: string;
@@ -104,6 +128,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
   const startDate = opts.now ? opts.now() : new Date();
   const runId = newRunId(startDate);
   const startedAt = startDate.toISOString();
+  const onConflict: ConflictStrategy = opts.onConflict ?? "skip";
 
   // P4: Refuse --migrate-secrets until M2
   if (opts.migrateSecrets) {
@@ -111,6 +136,22 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
   }
 
   const executeImport = async (isApply: boolean): Promise<OpenclawImportReport> => {
+    const repDir = join(l.home, "imports", runId);
+
+    // Pre-apply snapshot of target state
+    let snapshotResult: { path: string; existed: boolean; manifestSha256: string } | null = null;
+    let ledger: ImportLedger | undefined = undefined;
+    let ledgerPath: string | null = null;
+    let replacedBackupDir: string | undefined = undefined;
+
+    if (isApply) {
+      mkdirSync(repDir, { recursive: true, mode: 0o700 });
+      snapshotResult = createTargetSnapshot(l, repDir, runId, () => startDate);
+      ledgerPath = join(repDir, "ledger.jsonl");
+      ledger = new ImportLedger(ledgerPath, runId);
+      replacedBackupDir = join(repDir, "replaced");
+    }
+
     // Detect OpenClaw source
     const ctx: SourceCtx = {
       sourceType: "openclaw",
@@ -160,6 +201,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
             filesCreated: 0,
             filesMatched: 0,
             filesConflicted: 0,
+            filesRenamed: 0,
+            filesReplaced: 0,
             filesSkipped: 0,
           },
         });
@@ -173,7 +216,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         l,
         existingAgentIds,
         isApply,
-        opts.onConflict ?? "skip",
+        onConflict,
+        ledger,
+        replacedBackupDir,
       );
 
       if (report.action !== "rejected" && isNewAgent && isApply) {
@@ -191,6 +236,17 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         if (cfgText) {
           const rawCfg = parseJson5(cfgText) as Record<string, unknown>;
           channelReports = readOpenclawChannels(rawCfg);
+          if (isApply && ledger) {
+            for (const ch of channelReports) {
+              ledger.record({
+                entity: "channel",
+                idempotencyKey: channelIdempotencyKey(ch.platform, ch.allowFrom),
+                action: "deferred",
+                sourceRef: `${ch.platform}:allowFrom`,
+                details: { allowFrom: ch.allowFrom, groups: ch.groups },
+              });
+            }
+          }
         }
       } catch {
         // Ignored if unparseable
@@ -199,6 +255,17 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     // Read user cron jobs from state/openclaw.sqlite (P5: deferred, zero writes)
     const { userJobs, excludedCount: cronExcludedCount } = readOpenclawCronJobs(sourceReport.source.root);
+    if (isApply && ledger) {
+      for (const job of userJobs) {
+        ledger.record({
+          entity: "cron",
+          idempotencyKey: cronIdempotencyKey(job.id, job.schedule),
+          action: "deferred",
+          sourceRef: job.id,
+          details: { name: job.name, schedule: job.schedule },
+        });
+      }
+    }
 
     // Collect secret key names (P4: names only, zero values)
     const secretKeySet = new Set<string>();
@@ -229,15 +296,19 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     const filesCreated = agentReports.reduce((n, a) => n + a.counts.filesCreated, 0);
     const filesMatched = agentReports.reduce((n, a) => n + a.counts.filesMatched, 0);
     const filesConflicted = agentReports.reduce((n, a) => n + a.counts.filesConflicted, 0);
+    const filesRenamed = agentReports.reduce((n, a) => n + a.counts.filesRenamed, 0);
+    const filesReplaced = agentReports.reduce((n, a) => n + a.counts.filesReplaced, 0);
     const filesSkipped = agentReports.reduce((n, a) => n + a.counts.filesSkipped, 0);
 
     const finishedDate = opts.now ? opts.now() : new Date();
     let reportPath: string | null = null;
 
     const resultReport: OpenclawImportReport = {
+      importId: runId,
       runId,
       schema: "import.openclaw/1",
       sourceType: "openclaw",
+      sourceVersion: sourceReport.version?.release ?? "unknown",
       source: {
         root: sourceReport.source.root,
         resolvedFrom: sourceReport.source.resolvedFrom,
@@ -247,6 +318,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       harness: {
         home: l.home,
       },
+      profilesOrAgents: agentReports,
       agents: agentReports,
       channels: channelReports,
       cron: {
@@ -257,9 +329,14 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       },
       secrets: {
         opted_in: false,
+        allowlistedKeysImported: [],
+        foundNotImported: unmigratedSecrets,
         unmigrated_secrets: unmigratedSecrets,
         count: unmigratedSecrets.length,
       },
+      unresolvedBindings: [],
+      archived: [],
+      errors: [],
       counts: {
         agentsCreated,
         agentsMatched,
@@ -267,11 +344,19 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         filesCreated,
         filesMatched,
         filesConflicted,
+        filesRenamed,
+        filesReplaced,
         filesSkipped,
         channelsDeferred: channelReports.length,
         channelsImported: channelReports.length,
         cronJobsDeferred: userJobs.length,
       },
+      snapshot: snapshotResult ? {
+        path: snapshotResult.path,
+        existed: snapshotResult.existed,
+        manifestSha256: snapshotResult.manifestSha256,
+      } : null,
+      ledgerPath,
       reportPath,
       startedAt,
       finishedAt: finishedDate.toISOString(),
@@ -279,8 +364,6 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     // If applying, write report to <home>/imports/<runId>/report.json
     if (isApply) {
-      const repDir = join(l.home, "imports", runId);
-      mkdirSync(repDir, { recursive: true, mode: 0o700 });
       reportPath = join(repDir, "report.json");
       resultReport.reportPath = reportPath;
       writeFileSync(reportPath, JSON.stringify(resultReport, null, 2) + "\n", { mode: 0o600 });

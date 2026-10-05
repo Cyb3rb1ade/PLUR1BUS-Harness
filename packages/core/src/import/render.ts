@@ -79,12 +79,12 @@ export function renderSkills(r: SkillsReport): string {
   return L.join("\n");
 }
 
-export function renderRollback(r: RollbackReport): string {
+export function renderRollback(r: RollbackReport | any): string {
   const L: string[] = [];
   L.push(`Rollback of run ${r.runId} (${r.sourceType}) — ${r.mode === "dry-run" ? "DRY RUN (nothing written; add --apply)" : "applied"}`);
-  L.push(`Snapshot: ${r.snapshot.path}${r.snapshot.existed ? "" : " (there was no skills/ before the run: it is removed)"}`);
-  for (const c of r.changes) L.push(`  ${c.id.padEnd(24)} ${c.change}`);
-  if (r.movedAside) L.push(`The replaced skills/ was moved to ${r.movedAside}`);
+  L.push(`Snapshot: ${r.snapshot.path}${r.snapshot.existed ? "" : " (target was empty before the run)"}`);
+  for (const c of r.changes) L.push(`  ${String(c.path ?? c.id ?? "").padEnd(28)} ${c.change}`);
+  if (r.movedAside) L.push(`The replaced state was moved to ${r.movedAside}`);
   return L.join("\n");
 }
 

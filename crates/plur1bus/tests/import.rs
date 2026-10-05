@@ -19,9 +19,9 @@ fn json_of(out: &[u8]) -> Value {
 }
 
 #[test]
-fn without_a_mode_it_is_the_m7_stub() {
+fn hermes_without_a_mode_is_the_m7_stub() {
     let out = bin()
-        .args(["--json", "import", "openclaw"])
+        .args(["--json", "import", "hermes"])
         .assert()
         .code(2)
         .get_output()
@@ -35,6 +35,27 @@ fn without_a_mode_it_is_the_m7_stub() {
         .assert()
         .code(2)
         .stderr(predicates::str::contains("M7"));
+}
+
+#[test]
+fn openclaw_full_import_forwards_to_importer() {
+    let home = tempfile::tempdir().unwrap();
+    let out = bin()
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .arg("--home")
+        .arg(home.path())
+        .args([
+            "--json", "import", "openclaw", "--conflict", "replace",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v = json_of(&out);
+    let argv: Vec<String> = serde_json::from_value(v["argv"].clone()).unwrap();
+    assert_eq!(&argv[..3], ["openclaw", "--on-conflict", "replace"]);
 }
 
 #[test]

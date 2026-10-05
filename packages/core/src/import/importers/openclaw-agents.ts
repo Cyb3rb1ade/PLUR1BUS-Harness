@@ -1,8 +1,9 @@
-// OpenClaw agent scaffolding and curated file migration (docs/import.md §2.2, D14, D15).
+// OpenClaw agent scaffolding and curated file migration (docs/import.md §2.2, D14, D15, Batch 4).
 // Places persona (SOUL.md) and D15 files in `l.workspaceDir(id)` (packages/core/src/paths.ts:35).
 // Idempotent: existing identical files are classified as `matched-existing` with zero writes.
-// Conflict-safe: differing target files are classified as `conflict` and never overwritten by default.
-// Untrusted agentId safe: validated against harness AgentId pattern and reserved words.
+// Conflict-safe: supports skip (default), rename, and replace conflict strategies.
+// Ledger-tracked: records every entity mutation into ImportLedger with idempotency keys.
+import { createHash } from "node:crypto";
 import {
   existsSync,
   lstatSync,
@@ -15,6 +16,12 @@ import {
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { scaffoldFiles } from "../../agents.ts";
 import type { Layout } from "../../paths.ts";
+import {
+  agentIdempotencyKey,
+  fileIdempotencyKey,
+  type ConflictStrategy,
+  type ImportLedger,
+} from "../ledger.ts";
 import { isDir, isFile } from "../readonly.ts";
 import type { AgentInfo } from "../types.ts";
 
@@ -27,9 +34,10 @@ export interface MigratedFileReport {
   sourceFile: string;
   targetFile: string;
   targetPath: string;
-  action: "created" | "matched-existing" | "conflict" | "skipped";
+  action: "created" | "matched-existing" | "conflict" | "rename" | "replace" | "skipped";
   reason?: string;
   bytes: number;
+  backupPath?: string;
 }
 
 export interface AgentImportReport {
@@ -43,6 +51,8 @@ export interface AgentImportReport {
     filesCreated: number;
     filesMatched: number;
     filesConflicted: number;
+    filesRenamed: number;
+    filesReplaced: number;
     filesSkipped: number;
   };
 }
@@ -80,13 +90,31 @@ function isInsideDir(parent: string, child: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
+function generateRenameTarget(targetFileName: string, wsTarget: string): { name: string; path: string } {
+  const dotIdx = targetFileName.lastIndexOf(".");
+  const base = dotIdx !== -1 ? targetFileName.slice(0, dotIdx) : targetFileName;
+  const ext = dotIdx !== -1 ? targetFileName.slice(dotIdx) : "";
+
+  for (let i = 1; i <= 1000; i++) {
+    const candidateName = i === 1 ? `${base}.openclaw${ext}` : `${base}.openclaw-${i}${ext}`;
+    const candidatePath = join(wsTarget, candidateName);
+    if (!existsSync(candidatePath)) {
+      return { name: candidateName, path: candidatePath };
+    }
+  }
+  const fallback = `${base}.openclaw-${Date.now()}${ext}`;
+  return { name: fallback, path: join(wsTarget, fallback) };
+}
+
 export function planAndMigrateAgent(
   agent: AgentInfo,
   sourceRoot: string,
   l: Layout,
   existingAgentIds: Set<string>,
   apply: boolean,
-  onConflict: "skip" | "replace" = "skip",
+  onConflict: ConflictStrategy = "skip",
+  ledger?: ImportLedger,
+  replacedBackupDir?: string,
 ): { report: AgentImportReport; isNewAgent: boolean } {
   const agentId = agent.agentId;
 
@@ -105,6 +133,8 @@ export function planAndMigrateAgent(
           filesCreated: 0,
           filesMatched: 0,
           filesConflicted: 0,
+          filesRenamed: 0,
+          filesReplaced: 0,
           filesSkipped: 0,
         },
       },
@@ -120,7 +150,9 @@ export function planAndMigrateAgent(
   const fileReports: MigratedFileReport[] = [];
   const usedTargetNames = new Set<string>();
 
-  const processFile = (src: string, targetFileName: string) => {
+  const processFile = (src: string, initialTargetFileName: string) => {
+    let targetFileName = initialTargetFileName;
+
     // Check if target name already used by another file in this migration run
     if (usedTargetNames.has(targetFileName)) {
       fileReports.push({
@@ -164,7 +196,6 @@ export function planAndMigrateAgent(
         return;
       }
     } catch {
-      // Missing or unstat-able
       return;
     }
 
@@ -188,10 +219,27 @@ export function planAndMigrateAgent(
       return;
     }
 
-    const targetPath = join(wsTarget, targetFileName);
+    const sha256 = createHash("sha256").update(srcBuffer).digest("hex");
+    const idKey = fileIdempotencyKey(agentId, targetFileName, sha256);
+
+    // Consult ledger for resumability / idempotency
+    if (ledger && ledger.has(idKey)) {
+      const prev = ledger.get(idKey)!;
+      fileReports.push({
+        sourceFile: src,
+        targetFile: prev.targetRef ?? targetFileName,
+        targetPath: join(wsTarget, prev.targetRef ?? targetFileName),
+        action: "matched-existing",
+        bytes: srcBuffer.length,
+      });
+      return;
+    }
+
+    let targetPath = join(wsTarget, targetFileName);
     const targetExists = existsSync(targetPath);
-    let action: "created" | "matched-existing" | "conflict" = "created";
+    let action: "created" | "matched-existing" | "conflict" | "rename" | "replace" = "created";
     let reason: string | undefined = undefined;
+    let backupPath: string | undefined = undefined;
 
     if (targetExists) {
       try {
@@ -199,9 +247,22 @@ export function planAndMigrateAgent(
         if (targetBuffer.equals(srcBuffer)) {
           action = "matched-existing";
         } else {
-          // Differing content
-          if (onConflict === "replace") {
-            action = "created";
+          // Differing content: apply conflict strategy
+          if (onConflict === "rename") {
+            const renamed = generateRenameTarget(targetFileName, wsTarget);
+            targetFileName = renamed.name;
+            targetPath = renamed.path;
+            action = "rename";
+            reason = "renamed-on-conflict";
+          } else if (onConflict === "replace") {
+            action = "replace";
+            reason = "replaced-on-conflict";
+            if (apply && replacedBackupDir) {
+              const bkp = join(replacedBackupDir, agentId, targetFileName);
+              mkdirSync(dirname(bkp), { recursive: true, mode: 0o700 });
+              writeFileSync(bkp, targetBuffer);
+              backupPath = bkp;
+            }
           } else {
             action = "conflict";
             reason = "content-differs";
@@ -213,13 +274,29 @@ export function planAndMigrateAgent(
       }
     }
 
-    if (apply && action === "created") {
-      mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
-      if (targetExists && onConflict === "replace") {
-        writeFileSync(targetPath, srcBuffer, { mode: 0o600 });
-      } else {
-        // C2: wx flag for new creations prevents race overwrites
+    if (apply) {
+      if (action === "created") {
+        mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
         writeFileSync(targetPath, srcBuffer, { flag: "wx", mode: 0o600 });
+      } else if (action === "rename") {
+        mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
+        writeFileSync(targetPath, srcBuffer, { flag: "wx", mode: 0o600 });
+      } else if (action === "replace") {
+        mkdirSync(dirname(targetPath), { recursive: true, mode: 0o700 });
+        writeFileSync(targetPath, srcBuffer, { mode: 0o600 });
+      }
+
+      if (ledger) {
+        ledger.record({
+          entity: "file",
+          idempotencyKey: idKey,
+          action: action === "conflict" ? "conflict-skip" : action,
+          sourceRef: src,
+          targetRef: targetFileName,
+          sha256,
+          reason: reason ?? null,
+          details: backupPath ? { backupPath } : undefined,
+        });
       }
     }
 
@@ -229,6 +306,7 @@ export function planAndMigrateAgent(
       targetPath,
       action,
       ...(reason ? { reason } : {}),
+      ...(backupPath ? { backupPath } : {}),
       bytes: srcBuffer.length,
     });
   };
@@ -297,11 +375,23 @@ export function planAndMigrateAgent(
   if (apply) {
     // Scaffold template files if missing (SOUL.md, USER.md, persona-voice.md in agentDir)
     scaffoldFiles(l, agentId);
+
+    if (ledger) {
+      ledger.record({
+        entity: "agent",
+        idempotencyKey: agentIdempotencyKey("openclaw", agentId),
+        action: agentAction,
+        sourceRef: agent.workspace ?? agentId,
+        targetRef: wsTarget,
+      });
+    }
   }
 
   const filesCreated = fileReports.filter((f) => f.action === "created").length;
   const filesMatched = fileReports.filter((f) => f.action === "matched-existing").length;
   const filesConflicted = fileReports.filter((f) => f.action === "conflict").length;
+  const filesRenamed = fileReports.filter((f) => f.action === "rename").length;
+  const filesReplaced = fileReports.filter((f) => f.action === "replace").length;
   const filesSkipped = fileReports.filter((f) => f.action === "skipped").length;
 
   return {
@@ -315,6 +405,8 @@ export function planAndMigrateAgent(
         filesCreated,
         filesMatched,
         filesConflicted,
+        filesRenamed,
+        filesReplaced,
         filesSkipped,
       },
     },

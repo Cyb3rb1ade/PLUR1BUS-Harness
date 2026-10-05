@@ -1143,9 +1143,9 @@ Projects — M3
 * `--source <PATH>` — Source root (default: $OPENCLAW_STATE_DIR / $OPENCLAW_PROFILE / ~/.openclaw, or $HERMES_HOME / ~/.hermes, %LOCALAPPDATA%\hermes on Windows); a \\wsl$\<distro>\... or \\wsl.localhost\<distro>\... path reads a WSL-hosted source
 * `--map <SOURCE=LOCAL>` — Map paths in the source's config that start with SOURCE to LOCAL (repeatable), for paths the importer cannot map itself
 * `--profile <NAME>` — Hermes only: import one named profile instead of the root and every profile
-* `--apply` — Write (with --skills or --rollback); without it nothing is written
+* `--apply` — Write (with --skills, --rollback, or full import); without it nothing is written
 * `--enable` — With --skills: enable the imported skills (default: they land disabled)
-* `--on-conflict <MODE>` — With --skills: what to do when a skill id already exists in the harness
+* `--on-conflict <MODE>` — What to do when an id or file already exists in the harness (skip, rename, replace)
 
   Possible values:
   - `skip`:
@@ -1155,6 +1155,7 @@ Projects — M3
   - `replace`:
     Replace it; the old folder is kept under <home>/imports/<run>/replaced
 
+* `--migrate-secrets` — Refused before M2 secret store is available
 * `--max-skill-bytes <BYTES>` — With --skills: refuse skill folders larger than this (default 8 MiB)
 
 

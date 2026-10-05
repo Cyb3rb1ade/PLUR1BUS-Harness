@@ -161,15 +161,18 @@ pub struct ImportArgs {
     /// Hermes only: import one named profile instead of the root and every profile
     #[arg(long, value_name = "NAME")]
     pub profile: Option<String>,
-    /// Write (with --skills or --rollback); without it nothing is written
+    /// Write (with --skills, --rollback, or full import); without it nothing is written
     #[arg(long)]
     pub apply: bool,
     /// With --skills: enable the imported skills (default: they land disabled)
     #[arg(long)]
     pub enable: bool,
-    /// With --skills: what to do when a skill id already exists in the harness
-    #[arg(long, value_enum, value_name = "MODE")]
+    /// What to do when an id or file already exists in the harness (skip, rename, replace)
+    #[arg(long = "on-conflict", alias = "conflict", value_enum, value_name = "MODE")]
     pub on_conflict: Option<OnConflict>,
+    /// Refused before M2 secret store is available
+    #[arg(long = "migrate-secrets")]
+    pub migrate_secrets: bool,
     /// With --skills: refuse skill folders larger than this (default 8 MiB)
     #[arg(long, value_name = "BYTES")]
     pub max_skill_bytes: Option<u64>,
