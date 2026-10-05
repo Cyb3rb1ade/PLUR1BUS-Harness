@@ -81,7 +81,7 @@ System (stack-level) test, run against a built release binary — see `.github/w
 
 ```bash
 cargo build --release -p plur1bus
-PLUR1BUS_BIN=target/release/plur1bus node --experimental-strip-types --test tests/system/*.test.ts
+PLUR1BUS_BIN=target/release/plur1bus node --experimental-strip-types --test --test-timeout=120000 tests/system/*.test.ts
 ```
 
 Env vars that matter when driving the core directly instead of through the CLI:
@@ -128,7 +128,7 @@ Env vars that matter when driving the core directly instead of through the CLI:
   ```bash
   cargo build --release -p plur1bus && pnpm build
   PLUR1BUS_BIN=target/release/plur1bus PLUR1BUS_REAL_MODELS=1 PLUR1BUS_MODELS_CACHE=~/.cache/plur1bus-models \
-    node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+    node --experimental-strip-types --test --test-timeout=300000 tests/system/two-session-recall.test.ts
   ```
 - `PLUR1BUS_SERVICE_TEST=1` — required, alongside `PLUR1BUS_SERVICE_FAKE` unset, for
   `tests/service_real.rs` to touch a real systemd/launchd/Task Scheduler installation instead of
