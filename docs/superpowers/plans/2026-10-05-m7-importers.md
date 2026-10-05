@@ -24,14 +24,13 @@ The importer targets the harness home directory layout and configuration schema.
    - *Status on `main`:* `packages/core/src/engine.ts` and `@cyb3rb1ade/plur1bus-memory` (contract 1.10.0) expose `recall`, `list`, `show`, `forget`, `correct`, `share`, `state`, `propose`, `proposals.*`. Direct memory card insertion (`memory.import` / `memory.write`) is **not exposed** in contract 1.10.0.
    - *Rule:* **D28 / T7 (one store = one engine owner).** The importer must **never** write directly into LanceDB tables via `@lancedb/lancedb`. Re-implementing the schema, embedding generation, deduplication, and provenance outside the engine violates architectural boundaries and will diverge on the next engine upgrade. Cards must go **only through the engine**.
    - *Blocker severity:* High (blocks Hermes memory card import in Batch 3).
-   - *Resolution:* A dedicated engine operation `memory.import({ agentId, cards, provenance: "imported" })` is required. The detailed API specification is provided in [Proposed Engine API for grok (`memory.import`)](#proposed-engine-api-for-grok-memoryimport) below. Batch 3 memory card import is paused pending this engine PR.
+   - *Resolution:* A dedicated engine operation `memory.import` and store adoption `stores.adopt` are specified in grok's engine design in the plugin repository (PR #216: `docs/superpowers/specs/2026-10-05-engine-import-and-store-adopt-design.md`) with owner review. See [Engine Contract Specification Reference: grok's Design (PR #216)](#engine-contract-specification-reference-groks-design-pr-216) below. Batch 3 memory card import and store adoption are paused pending this engine PR.
 
 3. **Store Take-Over, Format Verification & Single-Writer Rule:**
    - *Status on `main`:* Matching-identity LanceDB partition copying (`copy-never-move`) requires single-writer safety and engine compatibility verification.
    - *Rule:*
      - **Single-Writer Safety:** Before any write to target harness home, the importer checks `l.coreLock` (`<home>/state/core.lock`) and `l.corePid` (`<home>/run/core.pid`). If an active core is running, the importer refuses immediately with `target-running`.
-     - **Store Format Version:** In addition to embedding identity, the importer inspects the source store format schema version against `EngineStatus.storeSchema` of the pinned engine. A store from an incompatible or newer engine version must not be taken over blindly; it must be flagged for re-embedding or migration.
-     - **Store Registration:** The importer registers stores through the engine's designated store layout and registration path, never writing ad-hoc manifest files by hand.
+     - **Store Format Version & Adoption:** Governed by `stores.adopt` from grok's PR #216 spec. Verifies store format version and runs sample verification against the pinned engine before take-over, avoiding manual manifest manipulation.
 
 4. **Secret Store (BLOCKER for M2):**
    - *Status on `main`:* The official harness secret store (`@napi-rs/keyring` + encrypted file fallback) is scheduled for M2.
@@ -45,70 +44,21 @@ The importer targets the harness home directory layout and configuration schema.
 
 ---
 
-## Proposed Engine API for grok (`memory.import`)
+## Engine Contract Specification Reference: grok's Design (PR #216)
 
-To preserve **D28 / T7 (one store = one engine owner)** without bypassing the engine or using `@lancedb/lancedb` directly, the PLUR1BUS engine requires an additive `memory.import` operation on `MemoryOps` (contract 1.11.0 / engine PR for grok):
+The authoritative design for memory card import and store adoption is grok's specification in the plugin repository (`openclaw-plur1bus-memory` PR #216: `docs/superpowers/specs/2026-10-05-engine-import-and-store-adopt-design.md`, incorporated with owner review):
 
-### TypeScript Interface Specification
-
-```ts
-// packages/core/node_modules/@cyb3rb1ade/plur1bus-memory/types/engine.d.ts
-
-export interface MemoryImportCardInput {
-  scope: MemoryScope;                 // "agent-private" | "workspace" | "user"
-  text: string;                       // Card text content
-  summary?: string;                   // Optional summary; generated if omitted
-  createdAt?: number;                 // Epoch ms timestamp from source; defaults to Date.now()
-  origin?: string;                    // e.g. "import:hermes:MEMORY.md" or "import:openclaw"
-  epistemicStatus?: string;           // Optional epistemic tag
-  principal?: Principal;              // Target principal binding
-}
-
-export interface MemoryImportRequest {
-  agentId: AgentId;
-  cards: MemoryImportCardInput[];
-  provenance: "imported";             // Mandatory provenance tag
-  options?: {
-    dedup?: "content-hash" | "exact"; // Deduplication strategy (default "content-hash")
-    signal?: AbortSignal;
-  };
-}
-
-export interface MemoryImportCardResult {
-  id: string;                         // Assigned card ID
-  status: "created" | "duplicate" | "skipped";
-}
-
-export interface MemoryImportResult {
-  agentId: AgentId;
-  imported: number;                   // Number of cards successfully embedded & stored
-  skipped: number;                    // Number of duplicates / skipped cards
-  cards: MemoryImportCardResult[];
-}
-
-export interface MemoryOps {
-  // Existing: list, show, forget, correct, share, state, propose, proposals...
-  
-  /**
-   * Bulk import legacy memory cards into the agent's memory store.
-   * Embeds texts using the active engine embedder, enforces store schema,
-   * handles deduplication, and records provenance="imported".
-   *
-   * Rejects with MemoryOpError:
-   *   - "storage": engine is closed or storage write failed
-   *   - "invalid-input": malformed card structure, invalid scope, or empty batch
-   *   - "conflict": provenance is not "imported"
-   *   - "target-running": store is locked by another writer
-   */
-  import(req: MemoryImportRequest, p: Principal, a: AgentContext): Promise<MemoryImportResult>;
-}
-```
-
-### Engine Behavior & Semantics
-1. **Embedding Generation:** The engine chunks/embeds each card using its active embedding model and dimension, ensuring vectors match the active store.
-2. **Schema & Indices:** Cards are written to the engine's internal LanceDB table and FTS index with `provenance: "imported"`.
-3. **Deduplication:** Uses content-hash deduplication against existing cards in the store to prevent duplicate writes during re-import.
-4. **Error Handling:** Returns atomic summary; if the batch partially fails, rolls back or reports individual card statuses.
+1. **`memory.import` Operation:**
+   - Dedicated bulk card ingestion API on `Engine.memory`.
+   - Card structure includes `idempotencyKey` per card, `scope`, `text`, `createdAt`, and `provenance: "imported"`.
+   - Supports `dryRun: boolean` to preview imports without mutating LanceDB or generating embeddings.
+   - Per-card outcomes: `created`, `matched-existing`, or `rejected`.
+2. **`stores.adopt` Operation:**
+   - Dedicated store adoption API on `Engine.admin.stores` (or `stores.adopt`).
+   - Checks store format version compatibility, verifies embedding identity, and runs sample vector probes/checks before adopting partitions into harness management.
+3. **Blocker Status & Integration:**
+   - The importer will integrate directly against grok's contract once PR #216 is implemented in the engine and the harness engine pin is lifted.
+   - Store take-over and Hermes card import (Batch 3) wait for this engine contract; no interim workarounds or direct LanceDB writes are permitted.
 
 ---
 
