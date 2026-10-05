@@ -318,10 +318,36 @@ describe("pinned client", () => {
     };
 
     try {
-      // 1. In-flight connect timer is cleared on abort
+      const origOn = http.ClientRequest.prototype.on;
+    let capturedReq: http.ClientRequest | null = null;
+    let suppressConnect = false;
+
+    http.ClientRequest.prototype.on = function (event: string, listener: any) {
+      if (event === "socket") {
+        capturedReq = this;
+        const req = this;
+        if (suppressConnect) {
+          return origOn.call(this, event, (s: net.Socket) => {
+            // Test seam: prevent socket from connecting so connect timer hangs deterministically without external network
+            s.connect = () => s;
+            const origOnce = s.once.bind(s);
+            s.once = function (ev: string, cb: any) {
+              if (ev === "connect" || ev === "secureConnect") return this;
+              return origOnce(ev, cb);
+            };
+            return listener.call(req, s);
+          });
+        }
+      }
+      return origOn.call(this, event, listener);
+    };
+
+    try {
+      // 1. In-flight connect timer is cleared on abort (using local hang seam, no external network)
+      suppressConnect = true;
       const ac1 = new AbortController();
       const c1 = createPinnedClient({
-        baseUrl: "http://192.0.2.1:80/v1",
+        baseUrl: "http://127.0.0.1:9999/v1",
         lease: null,
         userAgent: UA,
         signal: ac1.signal,
@@ -336,42 +362,34 @@ describe("pinned client", () => {
       await refused(req1, "failed:network", "aborted");
       await new Promise((r) => setImmediate(r));
       assert.equal(activeTimers.size, 0, "no timers left active after abort");
+      suppressConnect = false;
 
       // 2. Abort racing socket event: socket event arrives on an already-aborted request
       // If `if (done) return` in `req.on("socket")` is deleted, connectTimer is scheduled and leaked.
-      let capturedReq: http.ClientRequest | null = null;
-      const origOn = http.ClientRequest.prototype.on;
-      http.ClientRequest.prototype.on = function (event: string, listener: any) {
-        if (event === "socket") capturedReq = this;
-        return origOn.call(this, event, listener);
-      };
-
       const ac2 = new AbortController();
-      try {
-        const c2 = createPinnedClient({
-          baseUrl: "http://127.0.0.1:9999/v1",
-          lease: null,
-          userAgent: UA,
-          signal: ac2.signal,
-          limits: { connectTimeoutMs: 5000 },
-        });
-        ac2.abort();
-        const req2 = c2.get({ path: "/m" });
-        await refused(req2, "failed:network", "aborted");
-        assert.ok(capturedReq, "captured ClientRequest instance");
+      capturedReq = null;
+      const c2 = createPinnedClient({
+        baseUrl: "http://127.0.0.1:9999/v1",
+        lease: null,
+        userAgent: UA,
+        signal: ac2.signal,
+        limits: { connectTimeoutMs: 5000 },
+      });
+      ac2.abort();
+      const req2 = c2.get({ path: "/m" });
+      await refused(req2, "failed:network", "aborted");
+      assert.ok(capturedReq, "captured ClientRequest instance");
 
-        // Emit racing socket event on the already aborted request
-        (capturedReq as http.ClientRequest).emit("socket", new net.Socket());
-        await new Promise((r) => setImmediate(r));
-
-        assert.equal(activeTimers.size, 0, "no timer leaked when socket event races aborted request");
-      } finally {
-        http.ClientRequest.prototype.on = origOn;
-      }
+      // Emit racing socket event on the already aborted request
+      (capturedReq as http.ClientRequest).emit("socket", new net.Socket());
+      assert.equal(activeTimers.size, 0, "no timer leaked when socket event races aborted request");
     } finally {
-      globalThis.setTimeout = origSetTimeout;
-      globalThis.clearTimeout = origClearTimeout;
+      http.ClientRequest.prototype.on = origOn;
     }
-  });
+  } finally {
+    globalThis.setTimeout = origSetTimeout;
+    globalThis.clearTimeout = origClearTimeout;
+  }
+});
 });
 

@@ -1,5 +1,6 @@
 mod audit;
 mod cli;
+mod coexistence;
 mod commands;
 mod container;
 mod ext;

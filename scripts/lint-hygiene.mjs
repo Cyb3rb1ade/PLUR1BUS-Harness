@@ -72,6 +72,9 @@ const ALLOW_FILES = new Set([
   "packages/core/src/import-bin.ts",
   "crates/plur1bus/src/commands/import.rs",
   "crates/plur1bus/tests/import.rs",
+  // The coexistence guard (spec §A.7) must name the other host's paths.
+  "crates/plur1bus/src/coexistence.rs",
+  "crates/plur1bus/tests/coexistence.rs",
 ]);
 // Directory prefixes exempt as a whole, for the same reason as the importer files above.
 const ALLOW_DIRS = ["packages/core/src/import/", "packages/core/test/import/"];
