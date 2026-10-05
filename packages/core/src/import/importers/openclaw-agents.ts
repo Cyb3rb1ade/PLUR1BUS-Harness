@@ -200,9 +200,11 @@ export function planAndMigrateAgent(
     let srcBuffer: Buffer;
     try {
       // O_NOFOLLOW only protects the leaf; reject linked directories within the source tree too.
-      const rel = relative(sourceRoot, src);
-      const root = resolve(!isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`)
-        ? sourceRoot : agent.workspace ?? dirname(src));
+      const root = resolve([sourceRoot, agent.workspace, agent.agentDir].find((candidate) => {
+        if (!candidate) return false;
+        const rel = relative(candidate, src);
+        return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`);
+      }) ?? dirname(src));
       for (let dir = resolve(dirname(src)); ; dir = dirname(dir)) {
         if (lstatSync(dir).isSymbolicLink()) {
           throw new ImportError("E_IMPORT_FAILED", "unsafe-symlink", `${relative(root, dir) || "."}: unsafe-symlink`);

@@ -256,6 +256,27 @@ describe("OpenClaw safe source reads", () => {
     } finally { fx.close(); }
   });
 
+  it("bounds parent checks at a configured external agent directory", { timeout }, async () => {
+    const fx = await buildM7OpenclawFixture();
+    try {
+      fs.unlinkSync(fx.curatedFiles.soul);
+      const external = tempDir("p1b-safe-agent-");
+      fs.mkdirSync(join(external, "agent"));
+      const alias = join(tempDir("p1b-safe-alias-"), "external");
+      fs.symlinkSync(external, alias, "junction");
+      const agentDir = join(alias, "agent");
+      fs.writeFileSync(join(agentDir, "SOUL.md"), CONTENT_MARKER);
+      const home = tempDir("p1b-safe-home-");
+      const { report } = planAndMigrateAgent(
+        { agentId: "alpha", workspace: fx.agents.matching.workspace, workspaceSource: "config", agentDir, foundIn: [] },
+        fx.root, layout(home), new Set(), true,
+      );
+      const soul = report.files.find((file) => file.targetFile === "SOUL.md")!;
+      assert.equal(soul.action, "created");
+      assert.equal(fs.readFileSync(soul.targetPath, "utf8"), CONTENT_MARKER);
+    } finally { fx.close(); }
+  });
+
   it("reports a source FIFO as skipped and continues with regular files", { timeout, skip: process.platform === "win32" ? "mkfifo is POSIX-only" : undefined }, async () => {
     const fx = await buildM7OpenclawFixture();
     try {
