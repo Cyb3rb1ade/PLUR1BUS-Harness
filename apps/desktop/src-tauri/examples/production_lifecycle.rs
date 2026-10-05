@@ -69,6 +69,37 @@ mod fixture {
         }
         Err("FIXTURE_OBSERVER_TIMEOUT")
     }
+    // WebView2 child focus can leave Tao's top-level WM_SETFOCUS flag false.
+    // Require the real foreground window AND its queue's focused descendant.
+    fn window_has_keyboard_focus(window: &tauri::WebviewWindow) -> bool {
+        #[cfg(target_os = "windows")]
+        {
+            use windows_sys::Win32::UI::WindowsAndMessaging::{
+                GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, IsChild, IsIconic,
+                IsWindowVisible, GUITHREADINFO,
+            };
+            let Ok(handle) = window.hwnd() else {
+                return false;
+            };
+            let hwnd = handle.0 as windows_sys::Win32::Foundation::HWND;
+            let mut info: GUITHREADINFO = unsafe { std::mem::zeroed() };
+            info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+            unsafe {
+                let thread = GetWindowThreadProcessId(hwnd, std::ptr::null_mut());
+                !hwnd.is_null()
+                    && GetForegroundWindow() == hwnd
+                    && IsWindowVisible(hwnd) != 0
+                    && IsIconic(hwnd) == 0
+                    && thread != 0
+                    && GetGUIThreadInfo(thread, &mut info) != 0
+                    && info.hwndActive == hwnd
+                    && !info.hwndFocus.is_null()
+                    && (info.hwndFocus == hwnd || IsChild(hwnd, info.hwndFocus) != 0)
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        window.is_focused().unwrap_or(false)
+    }
     // Read-only OS observations: never activate, attach input queues or bypass foreground lock.
     fn focus_snapshot(app: &tauri::AppHandle, stage: &'static str, elapsed_ms: u128) {
         #[cfg(target_os = "windows")]
@@ -156,7 +187,7 @@ mod fixture {
         let focus_started = Instant::now();
         let focus_result = observe(app, |app| {
             app.get_webview_window("spa")
-                .is_some_and(|w| w.is_focused().unwrap_or(false))
+                .is_some_and(|w| window_has_keyboard_focus(&w))
         });
         let elapsed_ms = focus_started.elapsed().as_millis();
         gui(app, move |app| {
@@ -205,7 +236,7 @@ mod fixture {
         observe(app, move |app| {
             seen.load(Ordering::SeqCst)
                 && app.get_webview_window("spa").is_some_and(|w| {
-                    w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false)
+                    w.is_visible().unwrap_or(false) && window_has_keyboard_focus(&w)
                 })
         })?;
         report.lock().unwrap().second_instance_focus = true;
@@ -243,7 +274,7 @@ mod fixture {
         gui(app, |app| native::focus(&app))?;
         observe(app, |app| {
             app.get_webview_window("shell")
-                .is_some_and(|w| w.is_focused().unwrap_or(false))
+                .is_some_and(|w| window_has_keyboard_focus(&w))
         })?;
         report.lock().unwrap().shell_focus = true;
         eprintln!("FIXTURE_SHELL_FOCUS_OBSERVED");
