@@ -880,8 +880,11 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             }
         }
     }
-    remove_run_files(layout);
+    // The last log line comes before the run files go: `daemon stop` returns once `run/supervisor.pid` is gone, and a
+    // line written after that would land in `logs/supervisor.log` after the caller already saw the stop as complete
+    // (a race the setup-profile test caught as a changed home).
     shared.log.info("supervisor stopped", json!({}));
+    remove_run_files(layout);
     drop(lock);
     0
 }
