@@ -1,5 +1,5 @@
 // Human renderings of the importer's documents — the same data as the JSON, as short sections. Never content, never
-// secret values (the documents they render carry none).
+// secret values, never plain channel user/group ids (those appear as counts + fingerprints only).
 import type { DetectReport } from "./detect.ts";
 import type { Field } from "./identity.ts";
 import type { RollbackReport as SkillsRollbackReport, SkillsReport } from "./skills-import.ts";
@@ -109,7 +109,8 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
   if (r.channels.length > 0) {
     L.push("", `Channels (${r.channels.length}):`);
     for (const ch of r.channels) {
-      L.push(`  ${ch.platform.padEnd(16)} allowFrom: ${ch.allowFrom.length ? ch.allowFrom.join(", ") : "—"}${ch.groups ? ` groups: ${ch.groups.join(", ")}` : ""}`);
+      const fp = (n: number, f: string[]) => (n ? `${n} [${f.join(", ")}]` : "—");
+      L.push(`  ${ch.platform.padEnd(16)} allowFrom: ${fp(ch.allowFromCount, ch.allowFromFingerprints)}${ch.groupsCount ? ` groups: ${fp(ch.groupsCount, ch.groupFingerprints)}` : ""}`);
     }
   }
   L.push("", `Cron jobs (${r.cron.count} deferred, ${r.cron.excludedCount} managed excluded):`);
