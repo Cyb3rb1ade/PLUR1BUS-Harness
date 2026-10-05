@@ -282,6 +282,8 @@ jobs:
           test -f /root/.openclaw/openclaw.json
       - name: synthetic WSL source and import detect
         shell: bash
+        env:
+          MSYS_NO_PATHCONV: "1"
         run: |
           # Verify fixture exists inside distro
           wsl.exe -d Ubuntu-24.04 -e test -f /root/.openclaw/openclaw.json || { echo "Fixture creation failed in WSL"; exit 1; }
