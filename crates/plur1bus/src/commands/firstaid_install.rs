@@ -10,6 +10,7 @@ use crate::commands::firstaid::{Check, Status};
 use crate::install::archive::sha256_file;
 use crate::install::manifest::InstallManifest;
 use crate::paths::Layout;
+use semver::Version;
 use serde_json::{json, Value};
 use std::path::Path;
 
@@ -134,8 +135,9 @@ fn installed_core_version(core_dir: &Path) -> Option<String> {
 }
 
 /// `runtime.core` (HB15): no manifest → `skip`. `runtime/core/core.js` missing, or `runtime/core/package.json`'s
-/// version not matching the manifest's `core.version` → `fail`. A running core (`core.status`) whose `contract` or
-/// `rpc` differ from the manifest's → `warn` (it still answers; a re-`setup`/`repair` should still true it back up).
+/// version not matching the manifest's `core.version` → `fail`. A running core (`core.status`) whose `contract` is
+/// incompatible with or older than the manifest's, or whose `rpc` differs → `warn` (it still answers; a re-`setup`/
+/// `repair` should still true it back up).
 /// Otherwise `ok`.
 pub(crate) fn check_runtime_core(
     layout: &Layout,
@@ -173,7 +175,7 @@ pub(crate) fn check_runtime_core(
     if let Some(status) = core_status {
         let contract = status["contract"].as_str().unwrap_or_default();
         let rpc = status["rpc"].as_str().unwrap_or_default();
-        if contract != m.core.contract || rpc != m.core.rpc {
+        if !contract_compatible(contract, &m.core.contract) || rpc != m.core.rpc {
             return warn(
                 ID,
                 format!(
@@ -189,6 +191,13 @@ pub(crate) fn check_runtime_core(
         }
     }
     ok(ID, format!("runtime/core is version {}", m.core.version))
+}
+
+fn contract_compatible(running: &str, installed: &str) -> bool {
+    let (Ok(running), Ok(installed)) = (Version::parse(running), Version::parse(installed)) else {
+        return false;
+    };
+    running.major == installed.major && running >= installed
 }
 
 /// Whether `dir` (or any of its subdirectories) holds at least one `*.onnx` file.
@@ -274,7 +283,7 @@ mod tests {
             },
             core: CoreUnit {
                 version: "0.1.0".into(),
-                contract: "1.9.0".into(),
+                contract: crate::install::manifest::CORE_CONTRACT.into(),
                 rpc: "1.3.0".into(),
                 sha256: None,
                 source: "release".into(),
@@ -384,6 +393,21 @@ mod tests {
         let c = check_runtime_core(&layout, Some(&m), Some(&running));
         assert_eq!(c.status, Status::Warn, "{c:?}");
         assert!(c.summary.contains("1.8.0"), "{c:?}");
+    }
+
+    #[test]
+    fn runtime_core_accepts_a_newer_additive_contract() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let mut m = manifest();
+        m.core.contract = "1.9.0".into();
+        write_core(&layout, &m.core.version);
+        let running = json!({
+            "contract": crate::install::manifest::CORE_CONTRACT,
+            "rpc": m.core.rpc
+        });
+        let c = check_runtime_core(&layout, Some(&m), Some(&running));
+        assert_eq!(c.status, Status::Ok, "{c:?}");
     }
 
     #[test]
