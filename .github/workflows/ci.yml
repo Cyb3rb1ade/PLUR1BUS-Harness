@@ -310,8 +310,8 @@ jobs:
           });
           console.log("Snapshot stagingDir:", res.stagingDir);
           console.log("Skipped links:", res.metadata.skippedLinks);
-          if (!res.metadata.skippedLinks || res.metadata.skippedLinks.length === 0) {
-            console.error("Expected external symlink to be skipped!");
+          if (!res.metadata.skippedLinks || !res.metadata.skippedLinks.some((l) => l.includes("leaked_key"))) {
+            console.error("Expected leaked_key to be in skippedLinks!", res.metadata.skippedLinks);
             process.exit(1);
           }
           '

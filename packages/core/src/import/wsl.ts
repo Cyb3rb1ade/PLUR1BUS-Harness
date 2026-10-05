@@ -62,8 +62,65 @@ real_root=$(pwd -P 2>/dev/null)
 if [ $# -eq 0 ]; then
   set -- "."
 fi
-find "$@" \\( -type f -o -type d \\) -print0 | tar --null --no-recursion -cf - -T -
+for p in "$@"; do
+  [ -e "$p" ] || exit 3
+  case "$p" in
+    /*) exit 3 ;;
+    *..*) exit 3 ;;
+  esac
+  if [ -d "$p" ]; then
+    real_p=$(cd "$p" 2>/dev/null && pwd -P)
+  else
+    real_dir=$(cd "$(dirname "$p")" 2>/dev/null && pwd -P)
+    real_p="$real_dir/$(basename "$p")"
+  fi
+  [ -z "$real_p" ] && exit 3
+  case "$real_p" in
+    "$real_root"/*|"$real_root") ;;
+    *) exit 3 ;;
+  esac
+done
+tmp_file=$(mktemp 2>/dev/null || mktemp -t p1b_tar.XXXXXX)
+[ -z "$tmp_file" ] && exit 3
+trap 'rm -f "$tmp_file"' EXIT INT TERM
+find "$@" \\( -type f -o -type d \\) -print0 > "$tmp_file" || exit 3
+tar_verbatim=""
+if tar --help 2>&1 | grep -q -- "--verbatim-files-from"; then
+  tar_verbatim="--verbatim-files-from"
+fi
+tar --null $tar_verbatim --no-recursion -cf - -T "$tmp_file"
 `;
+
+/** Validates that subpaths cannot escape the source root via '..', absolute paths, leading '-' or NUL bytes (F5). */
+export function validateAndNormalizeSubpaths(subpaths: string[]): string[] {
+  const result: string[] = [];
+  for (const p of subpaths) {
+    if (!p || typeof p !== "string") {
+      throw new ImportError("E_TAR_SECURITY", "invalid-subpath", "Subpath cannot be empty", 3);
+    }
+    if (p.includes("\0")) {
+      throw new ImportError("E_TAR_SECURITY", "invalid-subpath", "Subpath cannot contain NUL byte", 3);
+    }
+    if (p.startsWith("-")) {
+      throw new ImportError("E_TAR_SECURITY", "invalid-subpath", `Subpath cannot start with '-': ${p}`, 3);
+    }
+    // Refuse absolute paths (POSIX '/', Windows '\\', drive letter 'C:')
+    if (p.startsWith("/") || p.startsWith("\\") || /^[a-zA-Z]:/.test(p)) {
+      throw new ImportError("E_TAR_SECURITY", "invalid-subpath", `Subpath cannot be absolute: ${p}`, 3);
+    }
+    // Refuse any '..' segment
+    const segments = p.split(/[\/\\]+/);
+    for (const seg of segments) {
+      if (seg === "..") {
+        throw new ImportError("E_TAR_SECURITY", "invalid-subpath", `Subpath cannot contain '..' segments: ${p}`, 3);
+      }
+    }
+    // Normalise to ./prefix
+    const clean = segments.filter((s) => s.length > 0 && s !== ".").join("/");
+    result.push(clean.length > 0 ? `./${clean}` : ".");
+  }
+  return result.length > 0 ? result : ["."];
+}
 
 /** Spawns wsl.exe streaming tar extraction directly without buffering the entire archive into memory (§B.3, I2, N3). */
 export function spawnWslTarStream(
@@ -75,17 +132,10 @@ export function spawnWslTarStream(
   if (!distro || /[\/\\:\0\r\n]/.test(distro) || distro.startsWith("-")) {
     throw new ImportError("E_INVALID_PARAMS", "invalid-distro-name", `Invalid WSL distro name: ${distro}`, 2);
   }
-  for (const p of subpaths) {
-    if (p.startsWith("-")) {
-      throw new ImportError("E_TAR_SECURITY", "invalid-subpath", `Subpath cannot start with '-': ${p}`, 3);
-    }
-    if (p.includes("\0")) {
-      throw new ImportError("E_TAR_SECURITY", "invalid-subpath", "Subpath cannot contain NUL byte", 3);
-    }
-  }
+  const normSubpaths = validateAndNormalizeSubpaths(subpaths && subpaths.length > 0 ? subpaths : ["."]);
 
   const timeoutMs = opts.timeoutMs ?? 30_000;
-  const args = ["-d", distro, "--exec", "sh", "-c", WSL_TAR_FIND_SCRIPT, "sh", sourceRoot, "--", ...subpaths];
+  const args = ["-d", distro, "--exec", "sh", "-c", WSL_TAR_FIND_SCRIPT, "sh", sourceRoot, "--", ...normSubpaths];
   const spawnFn = opts.spawnFn ?? spawn;
   const child = spawnFn("wsl.exe", args, {
     stdio: ["ignore", "pipe", "pipe"],

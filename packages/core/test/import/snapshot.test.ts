@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { detect } from "../../src/import/detect.ts";
 import { locateSource } from "../../src/import/paths.ts";
@@ -440,7 +440,7 @@ describe("snapshot — running source and live copy (C7)", { timeout: 15_000 }, 
 
       assert.ok(existsSync(snap1.stagingDir));
       assert.ok(snap1.metadata.sqlite["live.sqlite"]);
-      assert.equal(snap1.metadata.sqlite["live.sqlite"]!.status, "copy");
+      assert.equal(snap1.metadata.sqlite["live.sqlite"]!.status, "copy-live-unverified");
       assert.equal(snap1.metadata.sqlite["live.sqlite"]!.attempts, 1);
       rmSync(snap1.stagingDir, { recursive: true, force: true });
 
@@ -777,8 +777,8 @@ describe("snapshot — relative path keys for duplicate database names (I3)", { 
 
       assert.ok(snap.metadata.sqlite[alphaKey], `Missing SQLite status for ${alphaKey}`);
       assert.ok(snap.metadata.sqlite[betaKey], `Missing SQLite status for ${betaKey}`);
-      assert.equal(snap.metadata.sqlite[alphaKey]!.status, "copy");
-      assert.equal(snap.metadata.sqlite[betaKey]!.status, "copy");
+      assert.equal(snap.metadata.sqlite[alphaKey]!.status, "copy-live-unverified");
+      assert.equal(snap.metadata.sqlite[betaKey]!.status, "copy-live-unverified");
 
       // Verify both files in staging are independent valid databases
       const checkDb1 = new DatabaseSync(join(snap.stagingDir, "agents", "alpha", "memory.sqlite"), { readOnly: true });
@@ -1333,9 +1333,9 @@ describe("snapshot — WSL production scripts and protections (Round 4, F1–F4)
       allowLiveCopy: true,
     });
 
-    // Valid db is kept and recorded as copy
+    // Valid db is kept and recorded as copy-live-unverified
     assert.ok(existsSync(join(snap.stagingDir, "state/good.db")));
-    assert.deepEqual(snap.metadata.sqlite["state/good.db"], { status: "copy", attempts: 1 });
+    assert.deepEqual(snap.metadata.sqlite["state/good.db"], { status: "copy-live-unverified", attempts: 1 });
 
     // Corrupt db is deleted from staging and recorded as source-busy
     assert.ok(!existsSync(join(snap.stagingDir, "state/corrupt.db")));
@@ -1358,6 +1358,139 @@ describe("snapshot — WSL production scripts and protections (Round 4, F1–F4)
         wslRunner: mockRunner,
       }),
       (err: any) => err instanceof ImportError && err.code === "E_INVALID_PARAMS" && err.reason === "unknown-distro"
+    );
+  });
+});
+
+describe("snapshot — WSL production scripts and protections (Round 5, F5–F7)", { timeout: 15_000 }, () => {
+  it("F5: subpaths escaping root (../outside, /etc, C:\\x) are rejected in TS and distro script exits 3", async () => {
+    const home = tempDir("p1b-wsl-f5-home-");
+    const mockRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    // TS rejects ../outside
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        subpaths: ["../outside"],
+        wslRunner: mockRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_TAR_SECURITY" && err.reason === "invalid-subpath"
+    );
+
+    // TS rejects a/../../x
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        subpaths: ["a/../../x"],
+        wslRunner: mockRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_TAR_SECURITY" && err.reason === "invalid-subpath"
+    );
+
+    // TS rejects absolute path
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        subpaths: ["/etc"],
+        wslRunner: mockRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_TAR_SECURITY" && err.reason === "invalid-subpath"
+    );
+
+    // TS rejects Windows drive letter
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        subpaths: ["C:\\x"],
+        wslRunner: mockRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_TAR_SECURITY" && err.reason === "invalid-subpath"
+    );
+
+    // Real distro script rejects escaping subpath with exit code 3
+    const srcDir = tempDir("p1b-wsl-f5-src-");
+    const outsideDir = tempDir("p1b-wsl-f5-outside-");
+    writeFileSync(join(outsideDir, "secret.txt"), "SECRET");
+    writeFileSync(join(srcDir, "valid.txt"), "VALID");
+
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", "../" + basename(outsideDir)]),
+      (err: any) => err.status === 3
+    );
+
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "../" + basename(outsideDir)]),
+      (err: any) => err.status === 3
+    );
+  });
+
+  it("F6: running check fails closed on empty or unexpected stdout with wsl-probe-failed", async () => {
+    const home = tempDir("p1b-wsl-f6-home-");
+
+    // Mock runner returning exit 0 with empty stdout
+    const emptyRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      if (cmd.some((c) => c.includes("gateway.pid"))) {
+        return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        wslRunner: emptyRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_IMPORT_FAILED" && err.reason === "wsl-probe-failed"
+    );
+
+    // Mock runner returning exit 0 with unexpected text
+    const unexpectedRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      if (cmd.some((c) => c.includes("gateway.pid"))) {
+        return { stdout: Buffer.from("something-unknown\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        wslRunner: unexpectedRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_IMPORT_FAILED" && err.reason === "wsl-probe-failed"
+    );
+  });
+
+  it("F7: missing subpath exits 3 and does not produce a silent empty snapshot", async () => {
+    const srcDir = tempDir("p1b-wsl-f7-src-");
+    writeFileSync(join(srcDir, "real.txt"), "content");
+
+    // Missing subpath in WSL_TAR_FIND_SCRIPT exits 3
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", "nonexistent-dir"]),
+      (err: any) => err.status === 3
+    );
+
+    // Missing subpath in WSL_SYMLINK_SCAN_SCRIPT exits 3
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "nonexistent-dir"]),
+      (err: any) => err.status === 3
     );
   });
 });

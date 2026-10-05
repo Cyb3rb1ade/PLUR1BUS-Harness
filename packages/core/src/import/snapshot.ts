@@ -27,7 +27,7 @@ import {
   SQLITE_COPY_ATTEMPTS,
 } from "./readonly.ts";
 import { ImportError, type SourceType } from "./types.ts";
-import { defaultWslRunner, listWslDistros, spawnWslTarStream, type SpawnWslTarStreamOptions, type WslRunner } from "./wsl.ts";
+import { defaultWslRunner, listWslDistros, spawnWslTarStream, type SpawnWslTarStreamOptions, validateAndNormalizeSubpaths, type WslRunner } from "./wsl.ts";
 
 export const DEFAULT_SNAPSHOT_MAX_BYTES = 512 * 1024 * 1024; // 512 MiB
 export const DEFAULT_SNAPSHOT_MAX_FILES = 10_000;
@@ -40,7 +40,7 @@ export interface SnapshotFileInfo {
 }
 
 export interface SnapshotSqliteInfo {
-  status: "copy" | "source-busy";
+  status: "copy" | "copy-live-unverified" | "source-busy";
   attempts?: number;
   reason?: string;
 }
@@ -722,6 +722,24 @@ real_root=$(pwd -P 2>/dev/null)
 if [ $# -eq 0 ]; then
   set -- "."
 fi
+for p in "$@"; do
+  [ -e "$p" ] || exit 3
+  case "$p" in
+    /*) exit 3 ;;
+    *..*) exit 3 ;;
+  esac
+  if [ -d "$p" ]; then
+    real_p=$(cd "$p" 2>/dev/null && pwd -P)
+  else
+    real_dir=$(cd "$(dirname "$p")" 2>/dev/null && pwd -P)
+    real_p="$real_dir/$(basename "$p")"
+  fi
+  [ -z "$real_p" ] && exit 3
+  case "$real_p" in
+    "$real_root"/*|"$real_root") ;;
+    *) exit 3 ;;
+  esac
+done
 find "$@" -type l -print0
 `;
 
@@ -796,15 +814,8 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       }
 
       const timeoutMs = opts.timeoutMs ?? 30_000;
-      const subpaths = opts.subpaths && opts.subpaths.length ? opts.subpaths : ["."];
-      for (const p of subpaths) {
-        if (p.startsWith("-")) {
-          throw new ImportError("E_TAR_SECURITY", "invalid-subpath", `Subpath cannot start with '-': ${p}`, 3);
-        }
-        if (p.includes("\0")) {
-          throw new ImportError("E_TAR_SECURITY", "invalid-subpath", "Subpath cannot contain NUL byte", 3);
-        }
-      }
+      const rawSubpaths = opts.subpaths && opts.subpaths.length ? opts.subpaths : ["."];
+      const subpaths = validateAndNormalizeSubpaths(rawSubpaths);
 
       const runner = opts.wslRunner ?? defaultWslRunner;
       const installedDistros = await listWslDistros(runner);
@@ -829,6 +840,9 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         throw new ImportError("E_IMPORT_FAILED", "wsl-probe-failed", "WSL running source check failed", 3);
       }
       const line = checkRes.stdout.toString("utf8").trim();
+      if (line !== "stopped" && !line.startsWith("running:")) {
+        throw new ImportError("E_IMPORT_FAILED", "wsl-probe-failed", `WSL running source check returned unexpected output: ${line}`, 3);
+      }
       if (line.startsWith("running:")) {
         if (!opts.allowLiveCopy) {
           throw new ImportError("E_SOURCE_BUSY", "source-running", `WSL source is currently running (${line.slice(8)}); stop the source or pass --allow-live-copy (C7)`, 3);
@@ -909,7 +923,7 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
               try { db?.close(); } catch {}
             }
             if (ok) {
-              sqliteStatuses[rel] = { status: "copy", attempts: 1 };
+              sqliteStatuses[rel] = { status: opts.allowLiveCopy ? "copy-live-unverified" : "copy", attempts: 1 };
             } else if (opts.allowLiveCopy) {
               try { rmSync(full, { force: true }); } catch {}
               try { rmSync(`${full}-wal`, { force: true }); } catch {}
@@ -1110,7 +1124,7 @@ function copySqliteFile(
   }
 
   if (success) {
-    opts.sqliteStatuses[relPath] = { status: "copy", attempts };
+    opts.sqliteStatuses[relPath] = { status: opts.allowLiveCopy ? "copy-live-unverified" : "copy", attempts };
   } else if (opts.allowLiveCopy) {
     try { rmSync(dst, { force: true }); } catch {}
     try { rmSync(walDst, { force: true }); } catch {}

@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import { decodeWslOutput, listWslDistros, parseWslListOutput, probeWslDistro, enumerateWslCandidates, spawnWslTarStream, type WslRunner } from "../../src/import/wsl.ts";
+import { decodeWslOutput, listWslDistros, parseWslListOutput, probeWslDistro, enumerateWslCandidates, spawnWslTarStream, validateAndNormalizeSubpaths, type WslRunner } from "../../src/import/wsl.ts";
 import { packTarBuffer } from "../../src/import/snapshot.ts";
 import { ImportError } from "../../src/import/types.ts";
 
@@ -261,8 +261,8 @@ OPENCLAW=/home/alice/.openclaw
     const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", subpaths, { spawnFn: fakeSpawn });
     proc.dispose();
 
-    // The subpaths must appear unchanged as the last 3 arguments
-    assert.deepEqual(capturedArgs.slice(-3), subpaths);
+    // The subpaths must appear normalized with './' prefix as the last 3 arguments
+    assert.deepEqual(capturedArgs.slice(-3), subpaths.map((p) => `./${p}`));
     assert.equal(capturedArgs[capturedArgs.length - 4], "--", "must include '--' separator before subpaths");
 
     // Leading dash subpath must be rejected
@@ -469,4 +469,55 @@ OPENCLAW=/home/alice/.openclaw
     );
   });
 });
+
+describe("validateAndNormalizeSubpaths (F5)", () => {
+  it("rejects subpaths with .. segments", () => {
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["../x"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["a/../../x"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["sub/.."]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+  });
+
+  it("rejects absolute paths (POSIX and Windows)", () => {
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["/etc"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["C:\\x"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["\\\\server\\share"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+  });
+
+  it("rejects leading dash and NUL bytes", () => {
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["-flag"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["foo\0bar"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+  });
+
+  it("accepts and normalizes valid subpaths", () => {
+    assert.deepEqual(validateAndNormalizeSubpaths(["a/b"]), ["./a/b"]);
+    assert.deepEqual(validateAndNormalizeSubpaths(["."]), ["."]);
+    assert.deepEqual(validateAndNormalizeSubpaths(["./a/b"]), ["./a/b"]);
+    assert.deepEqual(validateAndNormalizeSubpaths(["a", "b/c"]), ["./a", "./b/c"]);
+  });
+});
+
 
