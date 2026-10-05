@@ -456,7 +456,7 @@ fn check_host_mode_coexistence(env: &crate::coexistence::HostEnvironment) -> Che
             detail: None,
             hint: None,
         },
-        None => Check::skip(ID, "no separate host-mode plugin found"),
+        None => Check::ok(ID, "no separate host-mode plugin found"),
     }
 }
 

@@ -362,7 +362,7 @@ fn doctor_reports_notice_and_fails_for_an_unsafe_existing_store() {
             .iter()
             .find(|check| check["id"] == "host_mode_coexistence")
             .unwrap()["status"],
-        "skip"
+        "ok"
     );
 
     let mut config = plur1bus_config::defaults();
