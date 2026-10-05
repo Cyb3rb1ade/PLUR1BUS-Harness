@@ -141,6 +141,28 @@ mod fixture {
                             "msedgewebview2.exe" => "webview",
                             "logonui.exe" | "winlogon.exe" => "logon",
                             "dwm.exe" => "dwm",
+                            "production_spa.exe" => "spa-fixture",
+                            "production_driver.exe" => "spa-driver",
+                            "transport_spike.exe" => "transport-fixture",
+                            "production_lifecycle.exe" => "lifecycle-fixture",
+                            "production_diagnostics.exe" => "diagnostics-fixture",
+                            "node.exe" | "cargo.exe" | "rustc.exe" | "cmd.exe" => "build-host",
+                            "applicationframehost.exe"
+                            | "shellexperiencehost.exe"
+                            | "startmenuexperiencehost.exe"
+                            | "runtimebroker.exe" => "shell-host",
+                            "werfault.exe" | "werfaultsecure.exe" => "error-dialog",
+                            name if name.ends_with(".exe")
+                                && [
+                                    "production_spa-",
+                                    "production_driver-",
+                                    "transport_spike-",
+                                ]
+                                .iter()
+                                .any(|prefix| name.starts_with(prefix)) =>
+                            {
+                                "fixture-test"
+                            }
                             _ => "other",
                         }
                     }
