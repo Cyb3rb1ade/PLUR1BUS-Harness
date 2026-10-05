@@ -61,8 +61,8 @@ importers:
   packages/core:
     dependencies:
       '@cyb3rb1ade/plur1bus-memory':
-        specifier: git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#daac1bc3b38466b0a4d7f70a173568d4e9a6b7f1
-        version: https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/daac1bc3b38466b0a4d7f70a173568d4e9a6b7f1
+        specifier: git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#f92f0b251fd7b103284aa03d8f225e6c378a71f5
+        version: https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/f92f0b251fd7b103284aa03d8f225e6c378a71f5
       '@plur1bus/config-schema':
         specifier: workspace:*
         version: link:../config-schema
@@ -123,8 +123,8 @@ packages:
     resolution: {integrity: sha512-60vepv88RwcJtSHrD6MjIL6Ta3SOYbgfnkHb+ppAVK+o9mXprRtulx7VlRl3lN3bbvysAfCS7WMVfhUYemB0IQ==}
     engines: {node: '>= 16'}
 
-  '@cyb3rb1ade/plur1bus-memory@https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/daac1bc3b38466b0a4d7f70a173568d4e9a6b7f1':
-    resolution: {tarball: https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/daac1bc3b38466b0a4d7f70a173568d4e9a6b7f1}
+  '@cyb3rb1ade/plur1bus-memory@https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/f92f0b251fd7b103284aa03d8f225e6c378a71f5':
+    resolution: {tarball: https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/f92f0b251fd7b103284aa03d8f225e6c378a71f5}
     version: 7.18.4
     engines: {node: '>=24.16.0 <25 || >=26.1.0'}
 
@@ -938,7 +938,7 @@ snapshots:
       '@types/json-schema': 7.0.15
       js-yaml: 4.3.2
 
-  '@cyb3rb1ade/plur1bus-memory@https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/daac1bc3b38466b0a4d7f70a173568d4e9a6b7f1':
+  '@cyb3rb1ade/plur1bus-memory@https://codeload.github.com/Cyb3rb1ade/openclaw-plur1bus-memory/tar.gz/f92f0b251fd7b103284aa03d8f225e6c378a71f5':
     dependencies:
       '@lancedb/lancedb': 0.26.2(apache-arrow@18.1.0)
       apache-arrow: 18.1.0

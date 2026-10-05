@@ -35,14 +35,12 @@ describe("engine-config", () => {
     const cfg = defaults();
     cfg.engine.captureChunkingMode = "automatisch";
     cfg.engine.captureChunkingJev = { apiKeyEnv: "TYPESAFE_API_KEY", model: "jev-latest", minConfidence: 0.85, timeoutMs: 5000 };
-    cfg.engine.groupReasoningFilter = { enabled: true, prefixes: ["🧠"] };
-    cfg.engine.runtime = { deferPostTurnLlm: true, traceRegistrations: false };
+    cfg.engine.runtime = { deferPostTurnLlm: true };
     cfg.engine.dreaming = { narrative: { diaryFromUserChats: false } };
     cfg.engine.recall = { fullTextTopRecords: 3, fullTextMaxChars: 2000 };
     const e = buildEngineConfig(cfg, l) as any;
     assert.equal(e.captureChunkingMode, "automatisch");
     assert.equal(e.captureChunkingJev.model, "jev-latest");
-    assert.equal(e.groupReasoningFilter.enabled, true);
     assert.equal(e.runtime.deferPostTurnLlm, true);
     assert.equal(e.dreaming.narrative.diaryFromUserChats, false);
     assert.equal(e.recall.fullTextTopRecords, 3);

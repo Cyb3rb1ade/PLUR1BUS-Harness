@@ -11,7 +11,7 @@
     "test": "node ../../scripts/test-package.mjs"
   },
   "dependencies": {
-    "@cyb3rb1ade/plur1bus-memory": "git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#daac1bc3b38466b0a4d7f70a173568d4e9a6b7f1",
+    "@cyb3rb1ade/plur1bus-memory": "git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#f92f0b251fd7b103284aa03d8f225e6c378a71f5",
     "@plur1bus/config-schema": "workspace:*",
     "@plur1bus/module-api": "workspace:*",
     "@plur1bus/rpc-schema": "workspace:*"
