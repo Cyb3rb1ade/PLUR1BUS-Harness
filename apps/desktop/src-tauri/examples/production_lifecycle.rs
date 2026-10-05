@@ -74,12 +74,21 @@ mod fixture {
         #[cfg(target_os = "windows")]
         {
             use windows_sys::Win32::UI::WindowsAndMessaging::{
-                GetForegroundWindow, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+                GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, IsChild, IsIconic,
+                IsWindowVisible, GUITHREADINFO,
             };
             let foreground = unsafe { GetForegroundWindow() };
             let mut foreground_pid = 0;
             let foreground_thread =
                 unsafe { GetWindowThreadProcessId(foreground, &mut foreground_pid) };
+            let queue = |thread| {
+                let mut info: GUITHREADINFO = unsafe { std::mem::zeroed() };
+                info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+                let available = thread != 0 && unsafe { GetGUIThreadInfo(thread, &mut info) } != 0;
+                (available, info.hwndActive, info.hwndFocus)
+            };
+            let (foreground_queue_available, foreground_active, foreground_focus) =
+                queue(foreground_thread);
             let windows: Vec<_> = ["shell", "spa"]
                 .into_iter()
                 .map(|label| {
@@ -91,11 +100,18 @@ mod fixture {
                         .unwrap_or(std::ptr::null_mut());
                     let mut pid = 0;
                     let thread = unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
+                    let (queue_available, active, keyboard_focus) = queue(thread);
+                    let keyboard_focus_within = !hwnd.is_null()
+                        && !keyboard_focus.is_null()
+                        && (keyboard_focus == hwnd
+                            || unsafe { IsChild(hwnd, keyboard_focus) } != 0);
                     serde_json::json!({"label":label,"hwnd":hwnd as usize,
                     "visible":unsafe { IsWindowVisible(hwnd) } != 0,
                     "minimized":unsafe { IsIconic(hwnd) } != 0,
                     "foreground":hwnd == foreground && !hwnd.is_null(),
-                    "pid":pid,"thread":thread,
+                    "pid":pid,"thread":thread,"queueAvailable":queue_available,
+                    "activeHwnd":active as usize,"keyboardFocusHwnd":keyboard_focus as usize,
+                    "keyboardFocusWithin":keyboard_focus_within,
                     "tauriFocused":window.and_then(|w| w.is_focused().ok())})
                 })
                 .collect();
@@ -104,7 +120,9 @@ mod fixture {
                 serde_json::json!({
                 "stage":stage,"elapsedMs":elapsed_ms,"foregroundHwnd":foreground as usize,
                 "foregroundPid":foreground_pid,"foregroundThread":foreground_thread,
-                "processId":std::process::id(),"windows":windows})
+                "processId":std::process::id(),"foregroundQueueAvailable":foreground_queue_available,
+                "foregroundActiveHwnd":foreground_active as usize,"foregroundKeyboardFocusHwnd":foreground_focus as usize,
+                "windows":windows})
             );
         }
         #[cfg(not(target_os = "windows"))]
