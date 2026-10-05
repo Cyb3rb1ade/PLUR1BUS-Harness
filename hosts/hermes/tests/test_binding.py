@@ -66,6 +66,108 @@ def _lock_timeout_diagnostics(path: str, side: str, last_holder: str | None) -> 
     return {"timeout_side": side, "lock": token, "moved": moved, "last_holder": last_holder}
 
 
+# A Python transcription of the Node installer's registry lock (PLUR1BUS-Host-Addons
+# scripts/dist/installer/hermes/binding.mjs: withRegistryLock, releaseLock, settle, movedAside). It shares nothing
+# with ExclusiveLockFile but the path and the token format. The acquire omits the installer's stale/break path (the
+# exclusion test below needs only the O_EXCL exclusion); the release mirrors releaseLock in full, including the
+# put-back wait on ENOENT (settle, Host-Addons 954729b), so a lock a waiter moved aside is not abandoned.
+_JS_RELEASE_RETRY_S = 2.0
+_JS_SETTLE_POLL_S = 0.005
+
+
+def _js_read(path: str) -> str | None:
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def _js_holds(text: str | None, nonce: str) -> bool:
+    parts = (text or "").split()
+    return len(parts) >= 4 and parts[3] == nonce
+
+
+def _js_moved_aside(lock: str, nonce: str) -> bool:
+    d, base = os.path.split(lock)
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return False
+    return any(
+        n.startswith((base + ".break-", base + ".rel-")) and _js_holds(_js_read(os.path.join(d, n)), nonce)
+        for n in names
+    )
+
+
+def _js_settle(lock: str, nonce: str, budget_s: float) -> bool:
+    deadline = time.monotonic() + budget_s
+    while True:
+        if _js_holds(_js_read(lock), nonce):
+            return True
+        if not _js_moved_aside(lock, nonce):
+            return _js_holds(_js_read(lock), nonce)
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(_JS_SETTLE_POLL_S)
+
+
+def _js_acquire(p1home: str, deadline_s: float = 5.0) -> tuple[str, str]:
+    lock = os.path.join(p1home, "hosts", ".hermes-bindings.lock")
+    os.makedirs(os.path.dirname(lock), exist_ok=True)
+    nonce = os.urandom(16).hex()
+    end = time.monotonic() + deadline_s
+    while True:
+        try:
+            fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            break
+        except (FileExistsError, PermissionError) as e:
+            if isinstance(e, PermissionError) and os.name != "nt":  # win32: EPERM/EACCES = busy
+                raise
+            if time.monotonic() > end:
+                raise RuntimeError("the bindings registry is locked")
+            time.sleep(0.025)
+    os.write(fd, f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)} {nonce}\n".encode())
+    os.close(fd)
+    return lock, nonce
+
+
+def _js_release(lock: str, nonce: str) -> None:
+    """releaseLock: rename to ``<lock>.rel-<nonce>`` (win32 sharing errors retried); on ENOENT wait for a pending
+    put-back of our lock (settle) and retry, else it was broken and nothing of ours is left; unlink the moved file
+    only when it holds our nonce, else put it back (a stolen lock is never deleted)."""
+    rel = f"{lock}.rel-{nonce}"
+    deadline = time.monotonic() + _JS_RELEASE_RETRY_S
+    while True:
+        try:
+            os.rename(lock, rel)
+            break
+        except FileNotFoundError:
+            if not _js_settle(lock, nonce, max(0.0, deadline - time.monotonic())) or time.monotonic() >= deadline:
+                return
+        except PermissionError:
+            if os.name != "nt" or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.01)
+    text = _js_read(rel)  # closed before the unlink (Windows sharing)
+    if _js_holds(text, nonce):
+        os.unlink(rel)
+    elif text is not None:
+        try:
+            os.link(rel, lock)
+        except FileExistsError:
+            pass
+        os.unlink(rel)
+
+
+def _js_with_registry_lock(p1home: str, fn, deadline_s: float = 5.0):
+    lock, nonce = _js_acquire(p1home, deadline_s)
+    try:
+        return fn()
+    finally:
+        _js_release(lock, nonce)
+
+
 class BindingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp(prefix="p1h-b-")
@@ -393,53 +495,59 @@ class BindingTest(unittest.TestCase):
         self.assertNotIn(case.root, message)
         self.assertNotIn(socket.gethostname(), message)
 
-    def test_basic_o_excl_exclusion_against_a_transcription_of_the_installer_lock(self) -> None:
-        """Only the basic O_EXCL exclusion and the stolen-lock release, against a Python transcription of the
-        Node installer's ``withRegistryLock`` (binding.mjs): ``openSync(lock, "wx")``, content ``<pid> <hostname>
-        <ms> <nonce>``, release by rename to ``<lock>.rel-<nonce>`` and unlink only when the nonce is ours. It
-        shares nothing with ``ExclusiveLockFile`` but the path and the format, and has no stale or break path. A
-        real cross-language test (Node and Python workers on one lock, dying holders) is a PLUR1BUS-Host-Addons follow-up."""
+    def test_installer_release_waits_for_the_put_back_of_a_lock_a_break_moved_aside(self) -> None:
+        """Issue #75 candidate. A waiter judged the installer's first lock stale; the installer then released it and
+        took a fresh one, and the waiter's ``_break`` renamed that fresh lock aside (dev/inode differ -> ``_restore``
+        puts it back with ``os.link``). The installer's release rename runs while it is aside and finds nothing; it
+        must wait for the put-back and release it (binding.mjs ``releaseLock`` -> ``settle``), not return and leave a
+        live-pid lock nobody owns until the 60 s stale rule. The release is driven to its ENOENT before the put-back
+        link runs, so the interleaving is forced, not timed."""
+        from unittest import mock
 
-        def js_with_registry_lock(p1home: str, fn, deadline_s: float = 5.0):
-            lock = os.path.join(p1home, "hosts", ".hermes-bindings.lock")
-            os.makedirs(os.path.dirname(lock), exist_ok=True)
-            nonce = os.urandom(16).hex()
-            end = time.monotonic() + deadline_s
-            while True:
-                try:
-                    fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-                    break
-                except (FileExistsError, PermissionError) as e:
-                    if isinstance(e, PermissionError) and os.name != "nt":  # win32: EPERM/EACCES = busy
-                        raise
-                    if time.monotonic() > end:
-                        raise RuntimeError("the bindings registry is locked")
-                    time.sleep(0.025)
-            os.write(fd, f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)} {nonce}\n".encode())
-            os.close(fd)
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        lock, first = _js_acquire(p1home)
+        with open(path, encoding="utf-8") as f:
+            judged = (os.stat(path), f.read())  # what the waiter judged stale
+        _js_release(lock, first)
+        lock, second = _js_acquire(p1home)  # the fresh lock the break moves aside by mistake
+        real_rename, real_link = os.rename, os.link
+        release_saw_enoent = threading.Event()
+        release_thread: list[threading.Thread] = []
+
+        def rename(src, dst, *a, **kw):
             try:
-                return fn()
-            finally:
-                rel = f"{lock}.rel-{nonce}"
-                give_up = time.monotonic() + 2.0
-                while True:  # the release-rename retry the installer must mirror (I1): sharing errors on win32
-                    try:
-                        os.rename(lock, rel)
-                        break
-                    except FileNotFoundError:
-                        return
-                    except PermissionError:
-                        if os.name != "nt" or time.monotonic() >= give_up:
-                            raise
-                        time.sleep(0.01)
-                with open(rel, encoding="utf-8") as f:  # closed before the unlink (Windows sharing)
-                    ours = f.read().split()[3] == nonce
-                if not ours:
-                    try:
-                        os.link(rel, lock)
-                    except FileExistsError:
-                        pass
-                os.unlink(rel)
+                return real_rename(src, dst, *a, **kw)
+            except FileNotFoundError:
+                if str(dst).endswith(".rel-" + second):
+                    release_saw_enoent.set()
+                raise
+
+        def link_after_the_release_found_the_lock_gone(src, dst, *a, **kw):
+            if not release_thread:  # the put-back: first let the installer's release hit the moved-aside window
+                t = threading.Thread(target=_js_release, args=(lock, second), daemon=True)
+                release_thread.append(t)
+                t.start()
+                self.assertTrue(release_saw_enoent.wait(5), "the release rename ran while the lock was aside")
+            return real_link(src, dst, *a, **kw)
+
+        with mock.patch.object(os, "rename", rename), mock.patch.object(os, "link", link_after_the_release_found_the_lock_gone):
+            self.assertFalse(ExclusiveLockFile(path)._break(*judged))
+            release_thread[0].join(5)
+        self.assertFalse(release_thread[0].is_alive())
+        self.assertEqual(os.listdir(os.path.dirname(path)), [], "the installer released its put-back lock")
+        with ExclusiveLockFile(path).hold(0.3):
+            pass
+
+    def test_basic_o_excl_exclusion_against_a_transcription_of_the_installer_lock(self) -> None:
+        """Only the basic O_EXCL exclusion and the stolen-lock release, against the Python transcription of the
+        Node installer's ``withRegistryLock`` (binding.mjs; ``_js_with_registry_lock`` above): ``openSync(lock, "wx")``,
+        content ``<pid> <hostname> <ms> <nonce>``, release by rename to ``<lock>.rel-<nonce>`` and unlink only when the
+        nonce is ours. It shares nothing with ``ExclusiveLockFile`` but the path and the format; its acquire has no
+        stale or break path. The real cross-language tests (Node and Python workers on one lock, dying holders) are in
+        PLUR1BUS-Host-Addons (tests/dist-hermes-lock-interop.test.js)."""
+
+        js_with_registry_lock = _js_with_registry_lock
 
         p1home = self._dir("p")
         path = self._lock_path(p1home)
