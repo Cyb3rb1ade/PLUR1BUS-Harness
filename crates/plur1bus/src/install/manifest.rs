@@ -12,6 +12,7 @@ use std::sync::OnceLock;
 pub const INSTALL_SCHEMA_JSON: &str = include_str!("../../schema/install-manifest.schema.json");
 pub const RELEASE_SCHEMA_JSON: &str = include_str!("../../schema/release-manifest.schema.json");
 pub const INSTALL_SCHEMA_VERSION: u32 = 1;
+pub const CORE_CONTRACT: &str = "1.10.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -232,6 +233,22 @@ mod tests {
 
     const RELEASE_FIXTURE: &str = include_str!("../../tests/fixtures/release/stable.json");
 
+    #[test]
+    fn core_contract_matches_the_typescript_core_contract() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../packages/core/src/engine.ts");
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let contract = text
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("export const CORE_CONTRACT = \"")
+                    .and_then(|value| value.strip_suffix("\";"))
+            })
+            .unwrap_or_else(|| panic!("CORE_CONTRACT not found in {}", path.display()));
+        assert_eq!(CORE_CONTRACT, contract);
+    }
+
     fn sample() -> InstallManifest {
         let h = "a".repeat(64);
         InstallManifest {
@@ -252,7 +269,7 @@ mod tests {
             },
             core: CoreUnit {
                 version: "0.1.0".into(),
-                contract: "1.9.0".into(),
+                contract: CORE_CONTRACT.into(),
                 rpc: "1.3.0".into(),
                 sha256: Some(h.clone()),
                 source: "local".into(),

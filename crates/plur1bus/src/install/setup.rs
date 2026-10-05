@@ -1281,7 +1281,7 @@ mod tests {
             },
             core: CoreUnit {
                 version: "0.1.0".into(),
-                contract: "1.9.0".into(),
+                contract: crate::install::manifest::CORE_CONTRACT.into(),
                 rpc: "1.5.0".into(),
                 sha256: None,
                 source: "local".into(),
