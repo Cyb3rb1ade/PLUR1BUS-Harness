@@ -39,6 +39,7 @@ export interface OpenclawImportOptions {
   migrateSecrets?: boolean | undefined;
   onConflict?: ConflictStrategy | undefined;
   resume?: string | undefined;
+  runId?: string | undefined;
   env?: NodeJS.ProcessEnv | undefined;
   homedir?: string | undefined;
   platform?: NodeJS.Platform | undefined;
@@ -78,7 +79,6 @@ export interface OpenclawImportReport {
     unmigrated_secrets: string[]; // backward compatibility alias
     count: number;
   };
-  unresolvedBindings: Array<{ sourceRef: string; reason: string }>;
   archived: Array<{ kind: string; path: string }>;
   errors: Array<{ sourceRef: string; reason: string }>;
   counts: {
@@ -94,6 +94,7 @@ export interface OpenclawImportReport {
     channelsDeferred: number;
     channelsImported: number; // backward compatibility
     cronJobsDeferred: number;
+    corruptLedgerLines?: number;
   };
   snapshot: {
     path: string;
@@ -119,6 +120,24 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       throw new ImportError("E_INVALID_PARAMS", "resume-id-invalid", `--resume must be a valid run ID: ${opts.resume}`);
     }
     runId = opts.resume;
+    const runDir = join(l.home, "imports", runId);
+    if (!existsSync(runDir)) {
+      throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `resumed run does not exist: ${runId}`);
+    }
+    const rolledBackStatus = join(runDir, "rolled-back", "status.json");
+    if (existsSync(rolledBackStatus)) {
+      throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `cannot resume a run that has already been rolled back: ${runId}`);
+    }
+    const snapManifest = join(runDir, "snapshot", "manifest.json");
+    const ledgerFile = join(runDir, "ledger.jsonl");
+    if (!existsSync(snapManifest) && !existsSync(ledgerFile)) {
+      throw new ImportError("E_RESUME_INVALID", "run-not-resumable", `run ${runId} is not complete enough to resume (missing snapshot and ledger)`);
+    }
+  } else if (opts.runId) {
+    if (!RUN_ID_RE.test(opts.runId)) {
+      throw new ImportError("E_INVALID_PARAMS", "run-id-invalid", `run ID invalid: ${opts.runId}`);
+    }
+    runId = opts.runId;
   } else {
     runId = newRunId(startDate);
   }
@@ -351,9 +370,13 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         unmigrated_secrets: unmigratedSecrets,
         count: unmigratedSecrets.length,
       },
-      unresolvedBindings: [],
       archived: [],
-      errors,
+      errors: [
+        ...errors,
+        ...(ledger && ledger.corruptLineCount > 0
+          ? [{ sourceRef: ledger.filePath, reason: `corrupt-ledger-lines:${ledger.corruptLineCount}` }]
+          : []),
+      ],
       counts: {
         agentsCreated,
         agentsMatched,
@@ -367,6 +390,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         channelsDeferred: channelReports.length,
         channelsImported: channelReports.length,
         cronJobsDeferred: userJobs.length,
+        corruptLedgerLines: ledger?.corruptLineCount ?? 0,
       },
       snapshot: snapshotResult ? {
         path: snapshotResult.path,

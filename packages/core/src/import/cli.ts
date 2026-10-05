@@ -28,6 +28,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         source: { type: "string" }, profile: { type: "string" }, apply: { type: "boolean" }, enable: { type: "boolean" },
         "on-conflict": { type: "string" }, conflict: { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
         "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" }, resume: { type: "string" },
+        force: { type: "boolean" },
       },
     }) as { values: Record<string, string | boolean | string[] | undefined>; positionals: string[] });
   } catch (e) {
@@ -47,6 +48,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   }
   if (values["migrate-secrets"] && mode !== "import") return fail("E_INVALID_PARAMS", "migrate-secrets-flag", "--migrate-secrets applies to import only");
   if (values.resume !== undefined && mode !== "import") return fail("E_INVALID_PARAMS", "resume-import-only", "--resume applies to import only");
+  if (values.force && mode !== "rollback") return fail("E_INVALID_PARAMS", "force-rollback-only", "--force applies to rollback only");
   if (mode === "rollback" && (values.source !== undefined || values.profile !== undefined || values.map !== undefined)) return fail("E_INVALID_PARAMS", "rollback-takes-report-only", "--rollback reads everything from the report; drop --source, --profile and --map");
   if ((mode === "detect" || mode === "rollback") && (values["on-conflict"] !== undefined || values.conflict !== undefined)) {
     return fail("E_INVALID_PARAMS", "conflict-mode-invalid", "--on-conflict / --conflict applies to import and --skills only");
@@ -114,6 +116,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         home: values.home,
         reportPath: values.rollback as string,
         apply: values.apply === true,
+        force: values.force === true,
         sourceType: sourceType as SourceType,
       });
       return { ok: true, schema: "import.rollback/1", value: r as unknown as Record<string, unknown>, human: renderRollback(r) };

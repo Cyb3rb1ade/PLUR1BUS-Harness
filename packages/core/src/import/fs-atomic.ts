@@ -12,23 +12,36 @@ import {
   realpathSync,
   renameSync,
   rmdirSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
+
+export const _testFsAtomicHooks: {
+  beforeRename?: ((tmp: string, targetPath: string) => void) | undefined;
+} = {};
 
 export function writeAtomicSync(targetPath: string, content: Buffer | string, mode = 0o600): void {
   const dir = dirname(targetPath);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const rnd = randomBytes(4).toString("hex");
   const tmp = join(dir, `.${basename(targetPath)}.tmp.${process.pid}.${Date.now()}.${rnd}`);
-  const fd = openSync(tmp, "w", mode);
   try {
-    writeFileSync(fd, content);
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
+    const fd = openSync(tmp, "w", mode);
+    try {
+      writeFileSync(fd, content);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    if (_testFsAtomicHooks.beforeRename) {
+      _testFsAtomicHooks.beforeRename(tmp, targetPath);
+    }
+    renameSync(tmp, targetPath);
+  } catch (err) {
+    try { unlinkSync(tmp); } catch {}
+    throw err;
   }
-  renameSync(tmp, targetPath);
 
   // Best-effort directory fsync on platforms where opening directory fd is supported
   try {

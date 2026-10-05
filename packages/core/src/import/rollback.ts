@@ -23,7 +23,7 @@ export const RUN_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 export interface RollbackChange {
   path: string;
-  change: "remove" | "restore" | "revert" | "unchanged";
+  change: "remove" | "restore" | "revert" | "unchanged" | "kept-modified";
 }
 
 export interface RollbackReport {
@@ -45,7 +45,8 @@ function sha256File(path: string): string {
 }
 
 function walkFiles(dir: string): string[] {
-  if (!existsSync(dir)) return [];
+  const lst = lstatSync(dir, { throwIfNoEntry: false });
+  if (!lst || lst.isSymbolicLink() || !lst.isDirectory()) return [];
   const results: string[] = [];
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const ent of entries) {
@@ -53,12 +54,50 @@ function walkFiles(dir: string): string[] {
     if (ent.isSymbolicLink()) {
       results.push(full);
     } else if (ent.isDirectory()) {
-      results.push(...walkFiles(full));
+      const childLst = lstatSync(full, { throwIfNoEntry: false });
+      if (childLst && childLst.isSymbolicLink()) {
+        results.push(full);
+      } else {
+        results.push(...walkFiles(full));
+      }
     } else if (ent.isFile()) {
       results.push(full);
     }
   }
   return results.sort();
+}
+
+export function checkPathComponentsForSymlinks(home: string, relPath: string): void {
+  const normHome = resolve(home);
+  const parts = relPath.split(/[/\\]/).filter(Boolean);
+  let curr = normHome;
+  for (const part of parts) {
+    curr = join(curr, part);
+    const lst = lstatSync(curr, { throwIfNoEntry: false });
+    if (!lst) {
+      break;
+    }
+    if (lst.isSymbolicLink()) {
+      throw new ImportError("E_ROLLBACK_INVALID", "unsafe-symlink", `symlink detected along path: ${relPath}`);
+    }
+  }
+}
+
+export function verifyAncestorContainment(home: string, targetPath: string): void {
+  const normHome = resolve(home);
+  let homeReal = normHome;
+  try { homeReal = realpathSync(normHome); } catch {}
+
+  let curr = resolve(targetPath);
+  while (!existsSync(curr) && curr !== dirname(curr)) {
+    curr = dirname(curr);
+  }
+  let currReal = curr;
+  try { currReal = realpathSync(curr); } catch {}
+
+  if (!isInsideDir(homeReal, currReal)) {
+    throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", `target path escapes home: ${targetPath}`);
+  }
 }
 
 function validateManifestKey(relPath: string, home: string): void {
@@ -74,8 +113,8 @@ function validateManifestKey(relPath: string, home: string): void {
   if (segments.some((s) => s === ".." || s === "." || s === "")) {
     throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", `path traversal in manifest key: ${relPath}`);
   }
-  // Whitelist: config.json or agents/
-  if (relPath !== "config.json" && relPath !== "agents" && !relPath.startsWith("agents/")) {
+  // Whitelist: config.json or files under agents/
+  if (relPath !== "config.json" && (!relPath.startsWith("agents/") || relPath.length <= "agents/".length)) {
     throw new ImportError("E_ROLLBACK_INVALID", "snapshot-invalid", `manifest key outside allowed targets: ${relPath}`);
   }
   const resolved = resolve(home, relPath);
@@ -84,13 +123,16 @@ function validateManifestKey(relPath: string, home: string): void {
   }
 }
 
-export async function rollbackImport(opts: {
+export interface RollbackOptions {
   home: string;
   reportPath: string;
   apply: boolean;
   sourceType: SourceType;
+  force?: boolean;
   now?: () => Date;
-}): Promise<RollbackReport> {
+}
+
+export async function rollbackImport(opts: RollbackOptions): Promise<RollbackReport> {
   const home = resolve(opts.home);
   const l = layout(home);
   const startDate = opts.now ? opts.now() : new Date();
@@ -190,39 +232,49 @@ export async function rollbackImport(opts: {
       }
     }
 
-    // 3. Read ledger to determine which files were created by this import (B4)
+    // 3. Read ledger to determine which files were created by this import (B4, N2)
     const ledgerPath = join(runDir, "ledger.jsonl");
+    if (!existsSync(ledgerPath)) {
+      throw invalid("ledger-corrupt", `import ledger missing at ${ledgerPath}`);
+    }
+
+    let ledgerText: string;
+    try {
+      ledgerText = readFileSync(ledgerPath, "utf8");
+    } catch (e: any) {
+      throw invalid("ledger-corrupt", `import ledger unreadable: ${e.message}`);
+    }
+
     const createdFiles = new Map<string, string>(); // relPath -> sha256
     const renamedFiles = new Map<string, string>(); // relPath -> sha256
     const createdAgents = new Set<string>();
 
-    if (existsSync(ledgerPath)) {
+    const lines = ledgerText.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const trimmed = line.trim();
+      if (!trimmed) continue;
       try {
-        const text = readFileSync(ledgerPath, "utf8");
-        const lines = text.split("\n");
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          try {
-            const entry = JSON.parse(trimmed) as LedgerEntry;
-            if (entry.entity === "file" && entry.targetRef) {
-              const normTarget = entry.targetRef.replaceAll("\\", "/");
-              if (entry.action === "created") {
-                createdFiles.set(normTarget, entry.sha256 ?? "");
-              } else if (entry.action === "rename") {
-                renamedFiles.set(normTarget, entry.sha256 ?? "");
-              }
-            } else if (entry.entity === "agent" && entry.action === "created") {
-              const parts = entry.idempotencyKey.split(":");
-              const agentId = parts[2] || (entry.targetRef ? entry.targetRef.split("/")[1] ?? "" : "");
-              if (agentId) createdAgents.add(agentId);
-            }
-          } catch {
-            // Torn line gracefully ignored
-          }
+        const entry = JSON.parse(trimmed) as LedgerEntry;
+        if (!entry || typeof entry.idempotencyKey !== "string" || !entry.entity) {
+          throw invalid("ledger-corrupt", `corrupt entry in ledger at line ${i + 1}`);
         }
-      } catch {
-        // Unreadable ledger handled gracefully
+        if (entry.entity === "file" && entry.targetRef) {
+          const normTarget = entry.targetRef.replaceAll("\\", "/");
+          if (entry.action === "created") {
+            createdFiles.set(normTarget, entry.sha256 ?? "");
+          } else if (entry.action === "rename") {
+            renamedFiles.set(normTarget, entry.sha256 ?? "");
+          }
+        } else if (entry.entity === "agent" && entry.action === "created") {
+          const parts = entry.idempotencyKey.split(":");
+          const agentId = parts[2] || (entry.targetRef ? entry.targetRef.split("/")[1] ?? "" : "");
+          if (agentId) createdAgents.add(agentId);
+        }
+      } catch (err: any) {
+        if (err instanceof ImportError) throw err;
+        throw invalid("ledger-corrupt", `corrupt entry in ledger at line ${i + 1}: ${err.message}`);
       }
     }
 
@@ -231,7 +283,11 @@ export async function rollbackImport(opts: {
 
     // Files that existed before import (in snapshot manifest)
     for (const [relPath, meta] of Object.entries(manifest.files)) {
+      validateManifestKey(relPath, l.home);
+      checkPathComponentsForSymlinks(l.home, relPath);
       const targetFile = join(l.home, relPath);
+      verifyAncestorContainment(l.home, targetFile);
+
       const lst = lstatSync(targetFile, { throwIfNoEntry: false });
       if (lst && lst.isSymbolicLink()) {
         throw invalid("unsafe-symlink", `symlink detected at target path: ${relPath}`);
@@ -248,9 +304,11 @@ export async function rollbackImport(opts: {
       }
     }
 
-    // Check if any file recorded as created or renamed by this run has been replaced with a symlink
+    // Check if any file recorded as created or renamed by this run has ancestor symlinks
     for (const rel of [...createdFiles.keys(), ...renamedFiles.keys()]) {
+      checkPathComponentsForSymlinks(l.home, rel);
       const targetPath = join(l.home, rel);
+      verifyAncestorContainment(l.home, targetPath);
       const lst = lstatSync(targetPath, { throwIfNoEntry: false });
       if (lst && lst.isSymbolicLink()) {
         throw invalid("unsafe-symlink", `symlink detected at target path: ${rel}`);
@@ -260,9 +318,13 @@ export async function rollbackImport(opts: {
     // Files that did NOT exist in snapshot:
     // Only remove if this run created or renamed them! User-created files are preserved.
     if (existsSync(l.agents)) {
+      checkPathComponentsForSymlinks(l.home, "agents");
       for (const f of walkFiles(l.agents)) {
         const rel = relative(l.home, f).replaceAll("\\", "/");
         if (Object.hasOwn(manifest.files, rel)) continue; // Already handled above
+
+        checkPathComponentsForSymlinks(l.home, rel);
+        verifyAncestorContainment(l.home, f);
 
         const isCreatedByRun = createdFiles.has(rel) || renamedFiles.has(rel);
         if (isCreatedByRun) {
@@ -270,7 +332,22 @@ export async function rollbackImport(opts: {
           if (lst && lst.isSymbolicLink()) {
             throw invalid("unsafe-symlink", `symlink detected at target path: ${rel}`);
           }
-          changes.push({ path: rel, change: "remove" });
+
+          // B4 rest: Check if user modified the file since import!
+          const expectedSha = createdFiles.get(rel) || renamedFiles.get(rel);
+          let currentSha = "";
+          try {
+            currentSha = sha256File(f);
+          } catch {
+            // unreadable
+          }
+          const isUserModified = Boolean(expectedSha && currentSha && currentSha !== expectedSha);
+
+          if (isUserModified && !opts.force) {
+            changes.push({ path: rel, change: "kept-modified" });
+          } else {
+            changes.push({ path: rel, change: "remove" });
+          }
         }
         // If not created by run, do NOT add to changes: it survives!
       }
@@ -312,6 +389,9 @@ export async function rollbackImport(opts: {
       const targetPath = join(l.home, c.path);
       const snapFilePath = join(snapPath, c.path);
 
+      checkPathComponentsForSymlinks(l.home, c.path);
+      verifyAncestorContainment(l.home, targetPath);
+
       const lst = lstatSync(targetPath, { throwIfNoEntry: false });
       if (lst && lst.isSymbolicLink()) {
         throw invalid("unsafe-symlink", `refusing to touch symlink at target path: ${c.path}`);
@@ -324,6 +404,12 @@ export async function rollbackImport(opts: {
           writeAtomicSync(bkp, readFileSync(targetPath), 0o600);
           unlinkSync(targetPath);
           cleanEmptyDirs(dirname(targetPath), l.home);
+        }
+      } else if (c.change === "kept-modified") {
+        if (existsSync(targetPath)) {
+          // Backup modified target without unlinking
+          const bkp = join(backupDir, c.path);
+          writeAtomicSync(bkp, readFileSync(targetPath), 0o600);
         }
       } else if (c.change === "revert" || c.change === "restore") {
         if (existsSync(targetPath)) {

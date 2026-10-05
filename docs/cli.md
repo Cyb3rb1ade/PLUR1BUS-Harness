@@ -1158,6 +1158,7 @@ Projects — M3
 * `--migrate-secrets` — Refused before M2 secret store is available
 * `--max-skill-bytes <BYTES>` — With --skills: refuse skill folders larger than this (default 8 MiB)
 * `--resume <RUN_ID>` — Resume an interrupted import run by run ID
+* `--force` — Force rollback: delete user-modified files created by the import instead of keeping them
 
 
 

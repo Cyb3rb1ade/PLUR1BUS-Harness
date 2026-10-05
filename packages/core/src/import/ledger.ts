@@ -62,6 +62,7 @@ export class ImportLedger {
   readonly runId: string;
   private readonly entriesByKey = new Map<string, LedgerEntry>();
   private readonly all: LedgerEntry[] = [];
+  corruptLineCount = 0;
 
   constructor(filePath: string, runId: string) {
     this.filePath = filePath;
@@ -75,16 +76,18 @@ export class ImportLedger {
           if (!trimmed) continue;
           try {
             const entry = JSON.parse(trimmed) as LedgerEntry;
-            if (entry && typeof entry.idempotencyKey === "string") {
+            if (entry && typeof entry.idempotencyKey === "string" && entry.entity) {
               this.entriesByKey.set(entry.idempotencyKey, entry);
               this.all.push(entry);
+            } else {
+              this.corruptLineCount++;
             }
           } catch {
-            // Torn or corrupt line gracefully skipped without failing full ledger load
+            this.corruptLineCount++;
           }
         }
       } catch {
-        // Unreadable file handled gracefully
+        this.corruptLineCount++;
       }
     }
   }
@@ -115,6 +118,21 @@ export class ImportLedger {
     };
 
     mkdirSync(dirname(this.filePath), { recursive: true, mode: 0o700 });
+
+    // If file exists and does not end with \n, append a newline before recording new entry
+    if (existsSync(this.filePath)) {
+      const buf = readFileSync(this.filePath);
+      if (buf.length > 0 && buf[buf.length - 1] !== 0x0a) {
+        const fdFix = openSync(this.filePath, "a", 0o600);
+        try {
+          writeSync(fdFix, "\n");
+          fsyncSync(fdFix);
+        } finally {
+          closeSync(fdFix);
+        }
+      }
+    }
+
     const fd = openSync(this.filePath, "a", 0o600);
     try {
       writeSync(fd, JSON.stringify(entry) + "\n");

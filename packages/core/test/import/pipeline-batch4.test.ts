@@ -1,10 +1,14 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
+  rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -15,6 +19,7 @@ import { rollbackImport } from "../../src/import/rollback.ts";
 import { renderOpenclaw, renderRollback } from "../../src/import/render.ts";
 import { runImport } from "../../src/import/cli.ts";
 import { ImportError } from "../../src/import/types.ts";
+import { _testFsAtomicHooks } from "../../src/import/fs-atomic.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import {
   buildM7OpenclawFixture,
@@ -278,11 +283,39 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.ok(existsSync(userFileInsideImported), "user file inside imported workspace must survive rollback");
     assert.equal(readFileSync(userFileInsideImported, "utf8"), "User created scratchpad\n");
 
-    // User-edited file was backed up before being removed/restored
+    // User-edited file was backed up and kept intact as kept-modified (B4)
     assert.ok(rollbackRes.movedAside);
     const backupSoul = join(rollbackRes.movedAside, "agents/alpha/workspace/SOUL.md");
     assert.ok(existsSync(backupSoul), "modified file must be backed up in rolled-back/replaced/");
     assert.equal(readFileSync(backupSoul, "utf8"), "# User Edited SOUL\n");
+    assert.ok(existsSync(soulPath), "modified run-created file must survive on disk as kept-modified");
+    assert.equal(readFileSync(soulPath, "utf8"), "# User Edited SOUL\n");
+    assert.ok(rollbackRes.changes.some((c) => c.path.includes("SOUL.md") && c.change === "kept-modified"));
+  });
+
+  it("rollback with --force removes user-modified run-created files (B4)", { timeout: 30_000 }, async () => {
+    const home = tempDir("p1b-b4-force-");
+    const l = layout(home);
+
+    const importReport = await importOpenclaw({ home, source: fx.root, apply: true });
+    assert.ok(importReport.reportPath);
+
+    const soulPath = join(l.workspaceDir("alpha"), "SOUL.md");
+    writeFileSync(soulPath, "# User Modified SOUL\n");
+
+    const rollbackRes = await rollbackImport({
+      home,
+      reportPath: importReport.reportPath,
+      apply: true,
+      sourceType: "openclaw",
+      force: true,
+    });
+    assert.equal(rollbackRes.status, "completed");
+    assert.ok(rollbackRes.changes.some((c) => c.path.includes("SOUL.md") && c.change === "remove"));
+    assert.ok(!existsSync(soulPath), "with force: true, user-modified file is removed");
+    assert.ok(rollbackRes.movedAside);
+    const backupSoul = join(rollbackRes.movedAside, "agents/alpha/workspace/SOUL.md");
+    assert.ok(existsSync(backupSoul), "file was still backed up before removal");
   });
 
   it("rollback path traversal security: rejects traversal runId and manifest keys (B1)", { timeout: 30_000 }, async () => {
@@ -348,6 +381,45 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     );
   });
 
+  it("rollback path traversal security: rejects absolute manifest key (B1)", { timeout: 30_000 }, async () => {
+    const home = tempDir("p1b-b4-abs-manifest-");
+    const l = layout(home);
+
+    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    assert.ok(report.reportPath);
+
+    const validRunDir = join(l.home, "imports", report.runId);
+    const snapDir = join(validRunDir, "snapshot");
+    const manifestPath = join(snapDir, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+
+    const absKey = process.platform === "win32" ? "C:\\outside.txt" : "/etc/outside.txt";
+    manifest.files[absKey] = { sha256: "0000000000000000000000000000000000000000000000000000000000000000", size: 10 };
+    const tamperedManifestJson = JSON.stringify(manifest, null, 2) + "\n";
+    writeFileSync(manifestPath, tamperedManifestJson);
+
+    const reportRaw = JSON.parse(readFileSync(report.reportPath, "utf8"));
+    const { createHash } = await import("node:crypto");
+    reportRaw.snapshot.manifestSha256 = createHash("sha256").update(tamperedManifestJson).digest("hex");
+    writeFileSync(report.reportPath, JSON.stringify(reportRaw, null, 2) + "\n");
+
+    await assert.rejects(
+      async () => {
+        await rollbackImport({
+          home,
+          reportPath: report.reportPath!,
+          apply: true,
+          sourceType: "openclaw",
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.reason, "snapshot-invalid");
+        return true;
+      },
+    );
+  });
+
   it("rollback symlink security: refuses to touch symlink at target path (B1)", { timeout: 30_000 }, async () => {
     const home = tempDir("p1b-b4-symlink-");
     const l = layout(home);
@@ -361,37 +433,65 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
 
     // Plant a symlink pointing outside home at an imported file target
     const targetFile = join(l.workspaceDir("alpha"), "SOUL.md");
-    if (existsSync(targetFile)) {
-      const outsideSecret = join(tempDir("p1b-outside-"), "secret.txt");
-      writeFileSync(outsideSecret, "TOP_SECRET");
-      try {
-        const { unlinkSync } = await import("node:fs");
-        unlinkSync(targetFile);
-        symlinkSync(outsideSecret, targetFile);
+    assert.ok(existsSync(targetFile), "target file must exist before replacing with symlink");
+    const outsideSecret = join(tempDir("p1b-outside-"), "secret.txt");
+    writeFileSync(outsideSecret, "TOP_SECRET");
 
-        await assert.rejects(
-          async () => {
-            await rollbackImport({
-              home,
-              reportPath: report.reportPath!,
-              apply: true,
-              sourceType: "openclaw",
-            });
-          },
-          (err: any) => {
-            assert.ok(err instanceof ImportError);
-            assert.equal(err.reason, "unsafe-symlink");
-            return true;
-          },
-        );
-      } catch (e: any) {
-        if (process.platform === "win32" && e.code === "EPERM") {
-          // Windows non-admin symlink creation permission
-        } else {
-          throw e;
-        }
-      }
-    }
+    unlinkSync(targetFile);
+    symlinkSync(outsideSecret, targetFile);
+
+    await assert.rejects(
+      async () => {
+        await rollbackImport({
+          home,
+          reportPath: report.reportPath!,
+          apply: true,
+          sourceType: "openclaw",
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.reason, "unsafe-symlink");
+        return true;
+      },
+    );
+  });
+
+  it("rollback ancestor symlink security: refuses when ancestor directory is a symlink to outside (B1)", { timeout: 30_000 }, async () => {
+    const home = tempDir("p1b-b4-ancestor-symlink-");
+    const l = layout(home);
+
+    mkdirSync(home, { recursive: true });
+    writeFileSync(l.configPath, JSON.stringify({ schemaVersion: 1, core: { logLevel: "info" } }) + "\n");
+
+    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    assert.ok(report.reportPath);
+
+    // Replace agents/alpha with a symlink pointing to an outside directory
+    const outsideDir = tempDir("p1b-outside-dir-");
+    const alphaDir = l.agentDir("alpha");
+    rmSync(alphaDir, { recursive: true, force: true });
+    symlinkSync(outsideDir, alphaDir);
+
+    await assert.rejects(
+      async () => {
+        await rollbackImport({
+          home,
+          reportPath: report.reportPath!,
+          apply: true,
+          sourceType: "openclaw",
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.reason, "unsafe-symlink");
+        return true;
+      },
+    );
+
+    // Verify nothing was written to outside directory
+    const outsideEntries = readdirSync(outsideDir);
+    assert.equal(outsideEntries.length, 0, "nothing must be written outside through ancestor symlink");
   });
 
   it("rollback safety: refuses when core.lock is held and fails closed on unconditionally tampered snapshot (B5)", { timeout: 30_000 }, async () => {
@@ -467,7 +567,6 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.ok(Array.isArray(report.profilesOrAgents));
     assert.ok(Array.isArray(report.secrets.allowlistedKeysImported));
     assert.ok(Array.isArray(report.secrets.foundNotImported));
-    assert.ok(Array.isArray(report.unresolvedBindings));
     assert.ok(Array.isArray(report.archived));
     assert.ok(Array.isArray(report.errors));
     assert.ok(report.snapshot);
@@ -520,5 +619,207 @@ describe("Import Pipeline Batch 4 (Ledger, Rollback, §5.7 Reports, CLI)", () =>
     assert.equal(applyRollbackRes.schema, "import.rollback/1");
     assert.equal((applyRollbackRes.value as any).mode, "apply");
     assert.equal((applyRollbackRes.value as any).status, "completed");
+  });
+
+  it("rollback crash resilience: config.json remains intact and valid JSON on error during restore (B2)", { timeout: 30_000 }, async () => {
+    const home = tempDir("p1b-b4-crash-restore-");
+    const l = layout(home);
+
+    mkdirSync(home, { recursive: true });
+    const initialConfig = { schemaVersion: 1, core: { logLevel: "info" } };
+    writeFileSync(l.configPath, JSON.stringify(initialConfig, null, 2) + "\n");
+
+    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    assert.ok(report.reportPath);
+
+    try {
+      _testFsAtomicHooks.beforeRename = (_tmp, targetPath) => {
+        if (targetPath.endsWith("config.json")) {
+          throw new Error("Simulated crash during atomic rename of config.json");
+        }
+      };
+
+      await assert.rejects(
+        async () => {
+          await rollbackImport({
+            home,
+            reportPath: report.reportPath!,
+            apply: true,
+            sourceType: "openclaw",
+          });
+        },
+        /Simulated crash/,
+      );
+    } finally {
+      _testFsAtomicHooks.beforeRename = undefined;
+    }
+
+    // config.json must remain intact and valid JSON
+    assert.ok(existsSync(l.configPath));
+    const configAfter = JSON.parse(readFileSync(l.configPath, "utf8"));
+    assert.ok(configAfter.schemaVersion);
+
+    // No orphan temp files left behind in home
+    const rootFiles = readdirSync(home);
+    const tmpFiles = rootFiles.filter((f) => f.includes(".tmp."));
+    assert.equal(tmpFiles.length, 0, "temporary files must be cleaned up on crash/error");
+  });
+
+  it("crash then --resume converges to complete import state (B3)", { timeout: 30_000 }, async () => {
+    const home = tempDir("p1b-b4-crash-resume-");
+    const l = layout(home);
+    const runId = "test-resume-convergence-run-1";
+
+    // Simulate crash after partial write: throw when writing beta agent's files
+    try {
+      _testFsAtomicHooks.beforeRename = (_tmp, targetPath) => {
+        if (targetPath.includes("beta")) {
+          throw new Error("Simulated mid-import crash on beta agent");
+        }
+      };
+
+      await assert.rejects(
+        async () => {
+          await importOpenclaw({
+            home,
+            source: fx.root,
+            apply: true,
+            runId,
+          });
+        },
+        /Simulated mid-import crash/,
+      );
+    } finally {
+      _testFsAtomicHooks.beforeRename = undefined;
+    }
+
+    // Resume the interrupted run
+    const resumedReport = await importOpenclaw({
+      home,
+      source: fx.root,
+      apply: true,
+      resume: runId,
+    });
+    assert.equal(resumedReport.runId, runId);
+    assert.ok(existsSync(l.workspaceDir("alpha")));
+    assert.ok(existsSync(l.workspaceDir("beta")));
+
+    // Re-running resume converges with 0 new writes
+    const secondResume = await importOpenclaw({
+      home,
+      source: fx.root,
+      apply: true,
+      resume: runId,
+    });
+    assert.equal(secondResume.counts.filesCreated, 0);
+  });
+
+  it("--resume validation: rejects non-existent, rolled-back, or incomplete runs (N1)", { timeout: 30_000 }, async () => {
+    const home = tempDir("p1b-b4-resume-val-");
+    const l = layout(home);
+
+    // 1. Non-existent run
+    await assert.rejects(
+      async () => {
+        await importOpenclaw({
+          home,
+          source: fx.root,
+          apply: true,
+          resume: "non-existent-run-id",
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.code, "E_RESUME_INVALID");
+        assert.equal(err.reason, "run-not-resumable");
+        return true;
+      },
+    );
+
+    // 2. Already rolled back run
+    const rep = await importOpenclaw({ home, source: fx.root, apply: true });
+    assert.ok(rep.reportPath);
+    await rollbackImport({ home, reportPath: rep.reportPath, apply: true, sourceType: "openclaw" });
+
+    await assert.rejects(
+      async () => {
+        await importOpenclaw({
+          home,
+          source: fx.root,
+          apply: true,
+          resume: rep.runId,
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.code, "E_RESUME_INVALID");
+        assert.equal(err.reason, "run-not-resumable");
+        return true;
+      },
+    );
+
+    // 3. Incomplete run (run directory exists but has neither snapshot manifest nor ledger)
+    const emptyRunDir = join(l.home, "imports", "empty-run");
+    mkdirSync(emptyRunDir, { recursive: true });
+    await assert.rejects(
+      async () => {
+        await importOpenclaw({
+          home,
+          source: fx.root,
+          apply: true,
+          resume: "empty-run",
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.code, "E_RESUME_INVALID");
+        assert.equal(err.reason, "run-not-resumable");
+        return true;
+      },
+    );
+  });
+
+  it("ledger robustness: repairs torn last line, counts corrupt lines, aborts rollback on corrupt ledger (N2)", { timeout: 30_000 }, async () => {
+    const home = tempDir("p1b-b4-ledger-robust-");
+    const l = layout(home);
+
+    const report = await importOpenclaw({ home, source: fx.root, apply: true });
+    assert.ok(report.ledgerPath);
+    assert.ok(report.reportPath);
+
+    // Append a torn line (no trailing newline) to ledger
+    appendFileSync(report.ledgerPath, "TORN_LINE_WITHOUT_NEWLINE");
+
+    // Resuming import repairs newline before next append and counts the corrupt line
+    const rep2 = await importOpenclaw({
+      home,
+      source: fx.root,
+      apply: true,
+      resume: report.runId,
+    });
+    assert.ok((rep2.counts.corruptLedgerLines ?? 0) >= 1);
+    assert.ok(rep2.errors.some((e) => e.reason.includes("corrupt-ledger-lines")));
+
+    // Verify ledger ends with newline and entries did not merge
+    const ledgerContent = readFileSync(report.ledgerPath, "utf8");
+    assert.ok(ledgerContent.endsWith("\n"));
+
+    // Rollback with a corrupt ledger must abort with ledger-corrupt, never report completed
+    await assert.rejects(
+      async () => {
+        await rollbackImport({
+          home,
+          reportPath: report.reportPath!,
+          apply: true,
+          sourceType: "openclaw",
+        });
+      },
+      (err: any) => {
+        assert.ok(err instanceof ImportError);
+        assert.equal(err.code, "E_ROLLBACK_INVALID");
+        assert.equal(err.reason, "ledger-corrupt");
+        return true;
+      },
+    );
   });
 });

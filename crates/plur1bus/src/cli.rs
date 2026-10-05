@@ -184,6 +184,9 @@ pub struct ImportArgs {
     /// Resume an interrupted import run by run ID
     #[arg(long, value_name = "RUN_ID")]
     pub resume: Option<String>,
+    /// Force rollback: delete user-modified files created by the import instead of keeping them
+    #[arg(long)]
+    pub force: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]

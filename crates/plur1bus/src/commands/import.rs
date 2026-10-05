@@ -74,6 +74,9 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
         v.push("--resume".into());
         v.push(r.into());
     }
+    if a.force {
+        v.push("--force".into());
+    }
     v.push("--home".into());
     v.push(layout.home.clone().into_os_string());
     v

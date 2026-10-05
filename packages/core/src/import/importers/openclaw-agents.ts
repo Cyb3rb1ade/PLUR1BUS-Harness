@@ -24,7 +24,7 @@ import {
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
 import type { AgentInfo } from "../types.ts";
 
-export const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MiB per file
+export const MAX_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB per file
 
 const AGENT_ID_RE = /^[a-zA-Z0-9_-]+$/;
 const FORBIDDEN_PROPERTIES = new Set(["__proto__", "prototype", "constructor"]);
@@ -212,6 +212,17 @@ export function planAndMigrateAgent(
           });
           return;
         }
+      }
+      if (st.size > MAX_FILE_BYTES) {
+        fileReports.push({
+          sourceFile: src,
+          targetFile: targetFileName,
+          targetPath: join(wsTarget, targetFileName),
+          action: "skipped",
+          reason: "file-too-large",
+          bytes: st.size,
+        });
+        return;
       }
     } catch {
       return;
