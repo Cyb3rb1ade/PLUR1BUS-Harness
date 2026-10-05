@@ -108,10 +108,44 @@ mod fixture {
                 GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, IsChild, IsIconic,
                 IsWindowVisible, GUITHREADINFO,
             };
+            use windows_sys::Win32::{
+                Foundation::CloseHandle,
+                System::Threading::{
+                    OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
+                },
+            };
             let foreground = unsafe { GetForegroundWindow() };
             let mut foreground_pid = 0;
             let foreground_thread =
                 unsafe { GetWindowThreadProcessId(foreground, &mut foreground_pid) };
+            // Only a fixed process category leaves the fixture; never emit an image path.
+            let foreground_process_kind = unsafe {
+                let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, foreground_pid);
+                if process.is_null() {
+                    "unavailable"
+                } else {
+                    let mut image = [0u16; 1024];
+                    let mut len = image.len() as u32;
+                    let read = QueryFullProcessImageNameW(process, 0, image.as_mut_ptr(), &mut len);
+                    let _ = CloseHandle(process);
+                    if read == 0 {
+                        "unavailable"
+                    } else {
+                        let image =
+                            String::from_utf16_lossy(&image[..len as usize]).to_ascii_lowercase();
+                        match image.rsplit(['\\', '/']).next().unwrap_or("") {
+                            "explorer.exe" => "explorer",
+                            "powershell.exe" | "pwsh.exe" => "powershell",
+                            "conhost.exe" | "openconsole.exe" | "windowsterminal.exe" => "terminal",
+                            "msedge.exe" | "chrome.exe" => "browser",
+                            "msedgewebview2.exe" => "webview",
+                            "logonui.exe" | "winlogon.exe" => "logon",
+                            "dwm.exe" => "dwm",
+                            _ => "other",
+                        }
+                    }
+                }
+            };
             let queue = |thread| {
                 let mut info: GUITHREADINFO = unsafe { std::mem::zeroed() };
                 info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
@@ -151,7 +185,7 @@ mod fixture {
                 serde_json::json!({
                 "stage":stage,"elapsedMs":elapsed_ms,"foregroundHwnd":foreground as usize,
                 "foregroundPid":foreground_pid,"foregroundThread":foreground_thread,
-                "processId":std::process::id(),"foregroundQueueAvailable":foreground_queue_available,
+                "processId":std::process::id(),"foregroundProcessKind":foreground_process_kind,"foregroundQueueAvailable":foreground_queue_available,
                 "foregroundActiveHwnd":foreground_active as usize,"foregroundKeyboardFocusHwnd":foreground_focus as usize,
                 "windows":windows})
             );

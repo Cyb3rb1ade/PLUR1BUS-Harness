@@ -14,10 +14,10 @@ function focusDiagnostic(line) {
     const d = JSON.parse(line.slice(prefix.length));
     const keys = (v, names) => v && Object.keys(v).sort().join(',') === [...names].sort().join(',');
     const uint = v => Number.isSafeInteger(v) && v >= 0;
-    if (!keys(d, ['stage', 'elapsedMs', 'foregroundHwnd', 'foregroundPid', 'foregroundThread', 'processId', 'foregroundQueueAvailable', 'foregroundActiveHwnd', 'foregroundKeyboardFocusHwnd', 'windows']) ||
+    if (!keys(d, ['stage', 'elapsedMs', 'foregroundHwnd', 'foregroundPid', 'foregroundThread', 'processId', 'foregroundProcessKind', 'foregroundQueueAvailable', 'foregroundActiveHwnd', 'foregroundKeyboardFocusHwnd', 'windows']) ||
       !['before-focus', 'after-focus-call', 'after-focus-observation'].includes(d.stage) ||
       !['elapsedMs', 'foregroundHwnd', 'foregroundPid', 'foregroundThread', 'processId', 'foregroundActiveHwnd', 'foregroundKeyboardFocusHwnd'].every(k => uint(d[k])) ||
-      typeof d.foregroundQueueAvailable !== 'boolean' || !Array.isArray(d.windows) || d.windows.length !== 2 || !d.windows.every((w, i) =>
+      !['unavailable', 'explorer', 'powershell', 'terminal', 'browser', 'webview', 'logon', 'dwm', 'other'].includes(d.foregroundProcessKind) || typeof d.foregroundQueueAvailable !== 'boolean' || !Array.isArray(d.windows) || d.windows.length !== 2 || !d.windows.every((w, i) =>
         keys(w, ['label', 'hwnd', 'visible', 'minimized', 'foreground', 'pid', 'thread', 'tauriFocused', 'queueAvailable', 'activeHwnd', 'keyboardFocusHwnd', 'keyboardFocusWithin']) &&
         w.label === ['shell', 'spa'][i] && ['hwnd', 'pid', 'thread', 'activeHwnd', 'keyboardFocusHwnd'].every(k => uint(w[k])) &&
         ['visible', 'minimized', 'foreground', 'queueAvailable', 'keyboardFocusWithin'].every(k => typeof w[k] === 'boolean') &&
