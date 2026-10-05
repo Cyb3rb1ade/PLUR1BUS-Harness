@@ -120,6 +120,44 @@ mod fixture {
             let foreground_thread =
                 unsafe { GetWindowThreadProcessId(foreground, &mut foreground_pid) };
             let foreground_root_owner = unsafe { GetAncestor(foreground, GA_ROOTOWNER) };
+            let mut root_owner_pid = 0;
+            let root_owner_thread =
+                unsafe { GetWindowThreadProcessId(foreground_root_owner, &mut root_owner_pid) };
+            // Query only numeric process relations; no process names or paths leave the snapshot.
+            let process_relations = unsafe {
+                use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
+                use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+                    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+                    TH32CS_SNAPPROCESS,
+                };
+                use windows_sys::Win32::System::RemoteDesktop::ProcessIdToSessionId;
+                let ids = [std::process::id(), foreground_pid, root_owner_pid];
+                let mut parents = [None; 3];
+                let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+                if snapshot != INVALID_HANDLE_VALUE {
+                    let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+                    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+                    let mut available = Process32FirstW(snapshot, &mut entry) != 0;
+                    while available {
+                        for (index, pid) in ids.iter().enumerate() {
+                            if *pid != 0 && entry.th32ProcessID == *pid {
+                                parents[index] = Some(entry.th32ParentProcessID);
+                            }
+                        }
+                        available = Process32NextW(snapshot, &mut entry) != 0;
+                    }
+                    let _ = CloseHandle(snapshot);
+                }
+                let sessions = ids.map(|pid| {
+                    let mut session = 0;
+                    (pid != 0 && ProcessIdToSessionId(pid, &mut session) != 0).then_some(session)
+                });
+                serde_json::json!({"fixtureParentPid":parents[0],
+                    "foregroundParentPid":parents[1],"rootOwnerParentPid":parents[2],
+                    "fixtureSessionId":sessions[0],"foregroundSessionId":sessions[1],
+                    "rootOwnerSessionId":sessions[2]})
+            };
+
             // Window class text stays local: only fixed categories leave this fixture.
             let foreground_window_kind = unsafe {
                 let mut class = [0u16; 256];
@@ -227,6 +265,7 @@ mod fixture {
                 "stage":stage,"elapsedMs":elapsed_ms,"foregroundHwnd":foreground as usize,
                 "foregroundPid":foreground_pid,"foregroundThread":foreground_thread,
                 "foregroundRootOwnerHwnd":foreground_root_owner as usize,"foregroundWindowKind":foreground_window_kind,
+                "rootOwnerPid":root_owner_pid,"rootOwnerThread":root_owner_thread,"processRelations":process_relations,
                 "processId":std::process::id(),"foregroundProcessKind":foreground_process_kind,"foregroundQueueAvailable":foreground_queue_available,
                 "foregroundActiveHwnd":foreground_active as usize,"foregroundKeyboardFocusHwnd":foreground_focus as usize,
                 "windows":windows})

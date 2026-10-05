@@ -14,9 +14,11 @@ function focusDiagnostic(line) {
     const d = JSON.parse(line.slice(prefix.length));
     const keys = (v, names) => v && Object.keys(v).sort().join(',') === [...names].sort().join(',');
     const uint = v => Number.isSafeInteger(v) && v >= 0;
-    if (!keys(d, ['stage', 'elapsedMs', 'foregroundHwnd', 'foregroundPid', 'foregroundThread', 'processId', 'foregroundProcessKind', 'foregroundQueueAvailable', 'foregroundActiveHwnd', 'foregroundKeyboardFocusHwnd', 'foregroundRootOwnerHwnd', 'foregroundWindowKind', 'windows']) ||
+    if (!keys(d, ['stage', 'elapsedMs', 'foregroundHwnd', 'foregroundPid', 'foregroundThread', 'processId', 'foregroundProcessKind', 'foregroundQueueAvailable', 'foregroundActiveHwnd', 'foregroundKeyboardFocusHwnd', 'foregroundRootOwnerHwnd', 'foregroundWindowKind', 'rootOwnerPid', 'rootOwnerThread', 'processRelations', 'windows']) ||
       !['before-focus', 'after-focus-call', 'after-focus-observation'].includes(d.stage) ||
-      !['elapsedMs', 'foregroundHwnd', 'foregroundPid', 'foregroundThread', 'processId', 'foregroundActiveHwnd', 'foregroundKeyboardFocusHwnd', 'foregroundRootOwnerHwnd'].every(k => uint(d[k])) ||
+      !['elapsedMs', 'foregroundHwnd', 'foregroundPid', 'foregroundThread', 'processId', 'foregroundActiveHwnd', 'foregroundKeyboardFocusHwnd', 'foregroundRootOwnerHwnd', 'rootOwnerPid', 'rootOwnerThread'].every(k => uint(d[k])) ||
+      !keys(d.processRelations, ['fixtureParentPid', 'foregroundParentPid', 'rootOwnerParentPid', 'fixtureSessionId', 'foregroundSessionId', 'rootOwnerSessionId']) ||
+      !Object.values(d.processRelations).every(v => v === null || uint(v)) ||
       !['unavailable', 'dialog', 'chromium', 'console', 'core-window', 'desktop-shell', 'other'].includes(d.foregroundWindowKind) ||
       !['unavailable', 'explorer', 'powershell', 'terminal', 'browser', 'webview', 'logon', 'dwm', 'spa-fixture', 'spa-driver', 'transport-fixture', 'lifecycle-fixture', 'diagnostics-fixture', 'build-host', 'shell-host', 'error-dialog', 'fixture-test', 'other'].includes(d.foregroundProcessKind) || typeof d.foregroundQueueAvailable !== 'boolean' || !Array.isArray(d.windows) || d.windows.length !== 2 || !d.windows.every((w, i) =>
         keys(w, ['label', 'hwnd', 'visible', 'minimized', 'foreground', 'pid', 'thread', 'tauriFocused', 'queueAvailable', 'activeHwnd', 'keyboardFocusHwnd', 'keyboardFocusWithin']) &&
