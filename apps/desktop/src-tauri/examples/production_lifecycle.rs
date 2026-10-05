@@ -75,9 +75,8 @@ mod fixture {
         #[cfg(target_os = "windows")]
         {
             use windows_sys::Win32::UI::WindowsAndMessaging::{
-                GetAncestor, GetClassNameW, GetForegroundWindow, GetGUIThreadInfo,
-                GetWindowThreadProcessId, IsChild, IsIconic, IsWindowVisible, GA_ROOTOWNER,
-                GUITHREADINFO,
+                GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, IsChild, IsIconic,
+                IsWindowVisible, GUITHREADINFO,
             };
             let Ok(handle) = window.hwnd() else {
                 return false;
