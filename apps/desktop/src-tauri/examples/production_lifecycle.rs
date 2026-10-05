@@ -19,6 +19,7 @@ mod fixture {
     #[derive(Default, serde::Serialize)]
     struct Report {
         spa_focus: bool,
+        second_instance_focus: bool,
         close_hides: bool,
         close_minimizes: bool,
         shell_focus: bool,
@@ -72,19 +73,78 @@ mod fixture {
         app: &tauri::AppHandle,
         report: &Arc<Mutex<Report>>,
         modal: &Arc<AtomicBool>,
+        root: &std::path::Path,
+        second: &Arc<AtomicBool>,
     ) -> Result<(), &'static str> {
+        gui(app, |app| {
+            #[cfg(target_os = "macos")]
+            {
+                let _ = app.show();
+            }
+            app.get_webview_window("shell").unwrap().show().unwrap();
+        })?;
         observe(app, |app| {
             app.get_webview_window("shell")
                 .is_some_and(|w| w.is_visible().unwrap_or(false))
-        })?;
+        })
+        .map_err(|_| "FIXTURE_SHELL_NOT_VISIBLE")?;
+        eprintln!("FIXTURE_SHELL_VISIBLE");
         gui(app, |app| {
             native::focus(&app);
         })?;
         observe(app, |app| {
             app.get_webview_window("spa")
                 .is_some_and(|w| w.is_focused().unwrap_or(false))
-        })?;
+        })
+        .map_err(|_| "FIXTURE_SPA_NOT_FOCUSED")?;
         report.lock().unwrap().spa_focus = true;
+        eprintln!("FIXTURE_SPA_FOCUS_OBSERVED");
+        gui(app, |app| {
+            app.get_webview_window("spa").unwrap().hide().unwrap();
+            app.get_webview_window("shell")
+                .unwrap()
+                .set_focus()
+                .unwrap();
+        })?;
+        let mut child = std::process::Command::new(
+            std::env::current_exe().map_err(|_| "FIXTURE_EXECUTABLE_FAILED")?,
+        )
+        .arg(root)
+        .arg("--secondary")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|_| "FIXTURE_SECOND_INSTANCE_FAILED")?;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            match child
+                .try_wait()
+                .map_err(|_| "FIXTURE_SECOND_INSTANCE_WAIT_FAILED")?
+            {
+                Some(status) if status.success() => break,
+                Some(_) => return Err("FIXTURE_SECOND_INSTANCE_REJECTED"),
+                None if Instant::now() >= deadline => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err("FIXTURE_SECOND_INSTANCE_TIMEOUT");
+                }
+                None => std::thread::sleep(
+                    Duration::from_millis(20)
+                        .min(deadline.saturating_duration_since(Instant::now())),
+                ),
+            }
+        }
+        let seen = second.clone();
+        observe(app, move |app| {
+            seen.load(Ordering::SeqCst)
+                && app.get_webview_window("spa").is_some_and(|w| {
+                    w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false)
+                })
+        })?;
+        report.lock().unwrap().second_instance_focus = true;
+        eprintln!("FIXTURE_SECOND_INSTANCE_FOCUS_OBSERVED");
+
         gui(app, |app| {
             app.state::<native::NativeState>()
                 .background
@@ -96,6 +156,7 @@ mod fixture {
                 .is_some_and(|w| !w.is_visible().unwrap_or(true))
         })?;
         report.lock().unwrap().close_hides = true;
+        eprintln!("FIXTURE_CLOSE_HIDES_OBSERVED");
         gui(app, |app| {
             app.state::<native::NativeState>()
                 .background
@@ -108,6 +169,7 @@ mod fixture {
                 .is_some_and(|w| w.is_minimized().unwrap_or(false))
         })?;
         report.lock().unwrap().close_minimizes = true;
+        eprintln!("FIXTURE_CLOSE_MINIMIZES_OBSERVED");
         gui(app, |app| {
             app.get_webview_window("spa").unwrap().destroy().unwrap();
         })?;
@@ -118,6 +180,7 @@ mod fixture {
                 .is_some_and(|w| w.is_focused().unwrap_or(false))
         })?;
         report.lock().unwrap().shell_focus = true;
+        eprintln!("FIXTURE_SHELL_FOCUS_OBSERVED");
         // Exercise the actual ExitRequested event, shared guard and renderer modal.
         app.exit(0);
         let seen = modal.clone();
@@ -129,6 +192,7 @@ mod fixture {
             return Err("FIXTURE_EARLY_APPROVAL");
         }
         report.lock().unwrap().quit_modal_default = true;
+        eprintln!("FIXTURE_QUIT_MODAL_DEFAULT_OBSERVED");
         gui(app, |app| {
             app.get_webview_window("shell")
                 .unwrap()
@@ -142,6 +206,7 @@ mod fixture {
             return Err("FIXTURE_CANCEL_APPROVED");
         }
         report.lock().unwrap().quit_cancel_preserves_app = true;
+        eprintln!("FIXTURE_QUIT_CANCEL_PRESERVES_APP_OBSERVED");
         modal.store(false, Ordering::SeqCst);
         gui(app, |app| {
             native::request_quit(&app);
@@ -160,6 +225,7 @@ mod fixture {
         Ok(())
     }
     pub fn run() {
+        eprintln!("FIXTURE_START");
         // The external driver owns deletion: Tauri may terminate without unwinding.
         let root = std::env::args_os()
             .nth(1)
@@ -174,6 +240,10 @@ mod fixture {
                 ..Default::default()
             })
             .unwrap();
+        let secondary = std::env::args_os().any(|arg| arg == "--secondary");
+        let second = Arc::new(AtomicBool::new(false));
+        let singleton_second = second.clone();
+        let setup_second = second.clone();
         let report = Arc::new(Mutex::new(Report::default()));
         let modal = Arc::new(AtomicBool::new(false));
         let failed = Arc::new(AtomicBool::new(false));
@@ -188,6 +258,10 @@ mod fixture {
         let setup_modal = modal.clone();
         let setup_failed = failed.clone();
         let app = tauri::Builder::default()
+            .plugin(tauri_plugin_single_instance::init(move |app, _, _| {
+                singleton_second.store(true, Ordering::SeqCst);
+                native::focus(app);
+            }))
             .manage(native::NativeState::default())
             .manage(SpaState::default())
             .manage(commands::ConnectionState(Arc::new(
@@ -207,6 +281,10 @@ mod fixture {
                 commands::crash_handled
             ])
             .setup(move |app| {
+                if secondary {
+                    return Err("FIXTURE_SINGLETON_BYPASSED".into());
+                }
+                eprintln!("FIXTURE_SETUP");
                 native::build_tray(app.handle())?;
                 let title_modal = setup_modal.clone();
                 WebviewWindowBuilder::new(app, "shell", WebviewUrl::App("index.html".into()))
@@ -226,10 +304,13 @@ mod fixture {
                 let report = setup_report.clone();
                 let modal = setup_modal.clone();
                 let failed = setup_failed.clone();
+                let root = setup_root.clone();
+                let second = setup_second.clone();
                 std::thread::spawn(move || {
-                    if let Err(reason) = exercise(&handle, &report, &modal) {
+                    if let Err(reason) = exercise(&handle, &report, &modal, &root, &second) {
                         failed.store(true, Ordering::SeqCst);
                         eprintln!("{reason}");
+                        handle.state::<native::NativeState>().quit.request(false);
                         let _ = handle
                             .state::<native::NativeState>()
                             .quit
@@ -251,7 +332,8 @@ mod fixture {
             {
                 let mut result = final_report.lock().unwrap();
                 result.quit_confirm_exits = true;
-                let complete = result.spa_focus
+                let complete = result.second_instance_focus
+                    && result.spa_focus
                     && result.close_hides
                     && result.close_minimizes
                     && result.shell_focus
@@ -266,7 +348,8 @@ mod fixture {
             }
         });
         let report = report.lock().unwrap();
-        let complete = report.spa_focus
+        let complete = report.second_instance_focus
+            && report.spa_focus
             && report.close_hides
             && report.close_minimizes
             && report.shell_focus

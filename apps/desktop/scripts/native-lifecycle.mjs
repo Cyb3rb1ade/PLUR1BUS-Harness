@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const desktop = fileURLToPath(new URL('..', import.meta.url));
-const fields = ['spa_focus', 'close_hides', 'close_minimizes', 'shell_focus', 'quit_modal_default', 'quit_cancel_preserves_app', 'quit_confirm_exits'];
+const fields = ['second_instance_focus', 'spa_focus', 'close_hides', 'close_minimizes', 'shell_focus', 'quit_modal_default', 'quit_cancel_preserves_app', 'quit_confirm_exits'];
 function run(command, args, timeout, capture = false) {
   return new Promise((accept, reject) => {
     const child = spawn(command, args, { cwd: desktop, stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit' });
@@ -12,7 +12,7 @@ function run(command, args, timeout, capture = false) {
     const timer = setTimeout(() => { exceeded = true; child.kill('SIGKILL'); }, timeout);
     if (capture) {
       child.stdout.on('data', data => { output += data; if (output.length > 8192) child.kill('SIGKILL'); });
-      child.stderr.on('data', () => {}); // Never forward arbitrary renderer/native errors.
+      child.stderr.on('data', data => { for (const code of data.toString().matchAll(/\bFIXTURE_[A-Z_]+\b/g)) console.error(code[0]); }); // Only closed fixture reason codes.
     }
     child.on('error', error => { clearTimeout(timer); reject(error); });
     child.on('close', code => {
