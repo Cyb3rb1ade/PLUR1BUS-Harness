@@ -153,4 +153,41 @@ mod tests {
         assert!(!dir.path().join("supervisor.log.2").exists(), "keep = 1");
         assert!(fs::metadata(&path).unwrap().len() <= 100);
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn existing_and_rotated_logs_are_private() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("supervisor.log");
+        fs::write(&path, b"existing\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+
+        let mut log = RotatingFile::open(&path, 2, 2).unwrap();
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        log.write_all(b"one\n").unwrap();
+        log.write_all(b"two\n").unwrap();
+        log.flush().unwrap();
+        drop(log);
+
+        let rotated = |n: u32| dir.path().join(format!("supervisor.log.{n}"));
+        for file in [&path, &rotated(1), &rotated(2)] {
+            assert_eq!(
+                fs::metadata(file).unwrap().permissions().mode() & 0o777,
+                0o600,
+                "{file:?}"
+            );
+        }
+
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        drop(RotatingFile::open(&path, 2, 2).unwrap());
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
 }
