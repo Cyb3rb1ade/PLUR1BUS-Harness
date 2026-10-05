@@ -458,6 +458,7 @@ The Rust CLI spawns Node once on `import.js`, a second entry of `packages/core` 
 - LanceDB is opened only for `schema()`, `countRows()` and, when the table has an `embeddingFingerprint` column, a projection of that one column. No content column (`text`, …) is ever selected; the embedding cache's `debug_text` column is never selected.
 - Secrets are never read: `auth.json`, `auth-profiles.json`, `credentials/`, `agents/*/agent/openclaw-agent.sqlite` are reported by presence only; `.env` files are parsed for **key names** only (the value part of each line is discarded unread-into-output); config values at secret-shaped keys (`apiKey`, `token`, `secret`, `password`, `authorization`, `headers`, …) are reported by JSON path and whether they are an `${ENV}` reference.
 - No network, no provider call, no model load.
+- OpenClaw workspace source files use nonblocking `O_NOFOLLOW` opens (Windows: `lstat`/`fstat` identity checks), fd-based regular-file checks and bounded reads enforcing 16 MiB even after growth; linked source-tree parents are refused, though Node's filesystem API cannot make ancestor-directory checks atomic.
 - Tests assert the source fixture is byte-identical (paths, contents, mtimes) before and after, including while a writer keeps the fixture's SQLite database open in WAL mode.
 
 ### 8.3 Source root and version

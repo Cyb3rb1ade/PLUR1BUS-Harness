@@ -11,10 +11,11 @@ import {
   readFileSync,
   realpathSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { scaffoldFiles } from "../../agents.ts";
 import type { Layout } from "../../paths.ts";
-import { isDir, isFile } from "../readonly.ts";
+import { isDir } from "../readonly.ts";
+import { readSourceFileSafe } from "../fs-safe.ts";
 import {
   agentIdempotencyKey,
   fileIdempotencyKey,
@@ -22,7 +23,7 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
-import type { AgentInfo } from "../types.ts";
+import { ImportError, type AgentInfo } from "../types.ts";
 
 export const MAX_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB per file
 
@@ -80,7 +81,7 @@ interface CuratedCandidate {
 
 function findFirstFile(candidates: string[]): string | null {
   for (const c of candidates) {
-    if (isFile(c)) return c;
+    try { lstatSync(c); return c; } catch { /* missing candidate */ }
   }
   return null;
 }
@@ -196,61 +197,33 @@ export function planAndMigrateAgent(
     }
     usedTargetNames.add(targetFileName);
 
-    // I2: Check symlink traversal escaping sourceRoot
-    try {
-      const st = lstatSync(src);
-      if (st.isSymbolicLink()) {
-        const real = realpathSync(src);
-        if (!isInsideDir(sourceRoot, real)) {
-          fileReports.push({
-            sourceFile: src,
-            targetFile: targetFileName,
-            targetPath: join(wsTarget, targetFileName),
-            action: "skipped",
-            reason: "symlink-escape",
-            bytes: 0,
-          });
-          return;
-        }
-      }
-      if (st.size > MAX_FILE_BYTES) {
-        fileReports.push({
-          sourceFile: src,
-          targetFile: targetFileName,
-          targetPath: join(wsTarget, targetFileName),
-          action: "skipped",
-          reason: "file-too-large",
-          bytes: st.size,
-        });
-        return;
-      }
-    } catch {
-      return;
-    }
-
     let srcBuffer: Buffer;
     try {
-      srcBuffer = readFileSync(src);
-    } catch {
+      // O_NOFOLLOW only protects the leaf; reject linked directories within the source tree too.
+      const rel = relative(sourceRoot, src);
+      const root = resolve(!isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`)
+        ? sourceRoot : agent.workspace ?? dirname(src));
+      for (let dir = resolve(dirname(src)); ; dir = dirname(dir)) {
+        if (lstatSync(dir).isSymbolicLink()) {
+          throw new ImportError("E_IMPORT_FAILED", "unsafe-symlink", `${relative(root, dir) || "."}: unsafe-symlink`);
+        }
+        if (dir === root || dirname(dir) === dir) break;
+      }
+      srcBuffer = readSourceFileSafe(src, MAX_FILE_BYTES);
+    } catch (error) {
+      let reason = error instanceof ImportError ? error.reason : "source-unreadable";
+      if (reason === "unsafe-symlink") {
+        try {
+          if (!isInsideDir(realpathSync(sourceRoot), realpathSync(src))) reason = "symlink-escape";
+        } catch { /* dangling or changing symlink: keep unsafe-symlink */ }
+      }
       fileReports.push({
         sourceFile: src,
         targetFile: targetFileName,
         targetPath: join(wsTarget, targetFileName),
         action: "skipped",
-        reason: "source-unreadable",
+        reason,
         bytes: 0,
-      });
-      return;
-    }
-
-    if (srcBuffer.length > MAX_FILE_BYTES) {
-      fileReports.push({
-        sourceFile: src,
-        targetFile: targetFileName,
-        targetPath: join(wsTarget, targetFileName),
-        action: "skipped",
-        reason: "file-too-large",
-        bytes: srcBuffer.length,
       });
       return;
     }
@@ -397,7 +370,6 @@ export function planAndMigrateAgent(
         for (const entry of entries) {
           if (!entry.endsWith(".md")) continue;
           const srcPath = join(memoryDir, entry);
-          if (!isFile(srcPath)) continue;
           const match = entry.match(/^(\d{4}-\d{2}-\d{2})(?:_(\d{6}))?\.md$/);
           const targetName = match
             ? `DailyNote_${match[1]}_${match[2] ?? "000000"}.md`
