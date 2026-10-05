@@ -3,6 +3,7 @@ on:
   pull_request:
     paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
   push:
+    branches: [main]
     paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
   schedule:
     - cron: "23 3 * * *"
