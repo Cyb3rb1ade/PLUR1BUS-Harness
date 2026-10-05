@@ -10,7 +10,7 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 - Memory engine re-pinned to **`9bafa047`** (merge of plugin PR #217), contract **1.11.0**.
   Additive: `Engine.memory.import` and `Engine.stores.adopt`. Top-level engine keys stay **57**.
-  The installer in `crates/plur1bus` still reports contract 1.9.0 (Copilot #89).
+  `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is **1.11.0** (drift-guard from #89).
 
 ## [0.1.0] — M1b-2a
 
