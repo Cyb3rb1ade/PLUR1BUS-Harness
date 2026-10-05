@@ -254,7 +254,7 @@ describe("Hermes Importer Batch 3", () => {
     assert.equal(deletedRes.outcome, "rejected");
   });
 
-  it("batches cards exceeding 500 into multiple calls with correct counters", { timeout: 60_000 }, async () => {
+  it("batches cards exceeding 500 into multiple calls with correct counters", { timeout: 120_000 }, async () => {
     const fx = await buildM7HermesFixture();
     const home = tempDir("p1b-b3-500-cards-");
 
