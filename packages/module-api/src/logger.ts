@@ -55,7 +55,7 @@ function rotatingSink(file: string, maxBytes: number, keep: number): { write(lin
 }
 
 export function createLogger(o: { file: string; level: Level; role: string; stream?: WriteStream; maxBytes?: number; keep?: number }): HarnessLogger {
-  mkdirSync(dirname(o.file), { recursive: true });
+  mkdirSync(dirname(o.file), { recursive: true, mode: 0o700 });
   // The file sink is synchronous even without rotation: a stream opens its file later, on its own, so a logger nobody
   // closed wrote into its directory after the owner removed it, and a write after close() raised on the stream.
   const sink = o.stream
