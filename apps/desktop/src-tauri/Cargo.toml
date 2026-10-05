@@ -50,7 +50,7 @@ jsonschema = { version = "=0.26.2", default-features = false }
 zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
 libc = "=0.2.189"
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Com", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Com", "Win32_UI_WindowsAndMessaging", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem"] }
 rusqlite = { version = "=0.37.0", features = ["bundled"] }
 webview2-com = "=0.39.1"
 windows-core = "=0.62.2"

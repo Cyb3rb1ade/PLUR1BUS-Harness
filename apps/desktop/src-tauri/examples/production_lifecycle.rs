@@ -69,6 +69,47 @@ mod fixture {
         }
         Err("FIXTURE_OBSERVER_TIMEOUT")
     }
+    // Read-only OS observations: never activate, attach input queues or bypass foreground lock.
+    fn focus_snapshot(app: &tauri::AppHandle, stage: &'static str, elapsed_ms: u128) {
+        #[cfg(target_os = "windows")]
+        {
+            use windows_sys::Win32::UI::WindowsAndMessaging::{
+                GetForegroundWindow, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+            };
+            let foreground = unsafe { GetForegroundWindow() };
+            let mut foreground_pid = 0;
+            let foreground_thread =
+                unsafe { GetWindowThreadProcessId(foreground, &mut foreground_pid) };
+            let windows: Vec<_> = ["shell", "spa"]
+                .into_iter()
+                .map(|label| {
+                    let window = app.get_webview_window(label);
+                    let hwnd = window
+                        .as_ref()
+                        .and_then(|w| w.hwnd().ok())
+                        .map(|h| h.0 as windows_sys::Win32::Foundation::HWND)
+                        .unwrap_or(std::ptr::null_mut());
+                    let mut pid = 0;
+                    let thread = unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
+                    serde_json::json!({"label":label,"hwnd":hwnd as usize,
+                    "visible":unsafe { IsWindowVisible(hwnd) } != 0,
+                    "minimized":unsafe { IsIconic(hwnd) } != 0,
+                    "foreground":hwnd == foreground && !hwnd.is_null(),
+                    "pid":pid,"thread":thread,
+                    "tauriFocused":window.and_then(|w| w.is_focused().ok())})
+                })
+                .collect();
+            eprintln!(
+                "WP6_FOCUS_DIAGNOSTIC {}",
+                serde_json::json!({
+                "stage":stage,"elapsedMs":elapsed_ms,"foregroundHwnd":foreground as usize,
+                "foregroundPid":foreground_pid,"foregroundThread":foreground_thread,
+                "processId":std::process::id(),"windows":windows})
+            );
+        }
+        #[cfg(not(target_os = "windows"))]
+        let _ = (app, stage, elapsed_ms);
+    }
     fn exercise(
         app: &tauri::AppHandle,
         report: &Arc<Mutex<Report>>,
@@ -90,13 +131,20 @@ mod fixture {
         .map_err(|_| "FIXTURE_SHELL_NOT_VISIBLE")?;
         eprintln!("FIXTURE_SHELL_VISIBLE");
         gui(app, |app| {
+            focus_snapshot(&app, "before-focus", 0);
             native::focus(&app);
+            focus_snapshot(&app, "after-focus-call", 0);
         })?;
-        observe(app, |app| {
+        let focus_started = Instant::now();
+        let focus_result = observe(app, |app| {
             app.get_webview_window("spa")
                 .is_some_and(|w| w.is_focused().unwrap_or(false))
-        })
-        .map_err(|_| "FIXTURE_SPA_NOT_FOCUSED")?;
+        });
+        let elapsed_ms = focus_started.elapsed().as_millis();
+        gui(app, move |app| {
+            focus_snapshot(&app, "after-focus-observation", elapsed_ms)
+        })?;
+        focus_result.map_err(|_| "FIXTURE_SPA_NOT_FOCUSED")?;
         report.lock().unwrap().spa_focus = true;
         eprintln!("FIXTURE_SPA_FOCUS_OBSERVED");
         gui(app, |app| {
