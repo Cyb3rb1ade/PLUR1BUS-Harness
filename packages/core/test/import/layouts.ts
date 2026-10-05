@@ -9,7 +9,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CATALOG } from "../../src/import/catalog.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
-import { CONTENT_MARKER, E5, FAKE_TOKEN, lanceStore, link, linkDir, skill, write } from "./fixtures.ts";
+import { buildM7HermesFixture, buildM7OpenclawFixture, CONTENT_MARKER, E5, FAKE_TOKEN, lanceStore, link, linkDir, type M7HermesFixture, type M7OpenclawFixture, skill, write } from "./fixtures.ts";
 
 export type LayoutOs = "linux" | "macos" | "windows";
 export const LAYOUT_OSES: LayoutOs[] = ["linux", "macos", "windows"];
@@ -111,4 +111,35 @@ export async function buildLayout(os: LayoutOs): Promise<Layout> {
 
   const env: NodeJS.ProcessEnv = win ? { USERPROFILE: home, LOCALAPPDATA: join(home, "AppData", "Local") } : { HOME: home };
   return { os, base, home, openclawRoot, hermesRoot, origin, env, outsidePath, created, deepRel };
+}
+
+export interface M7Layout {
+  os: LayoutOs;
+  base: string;
+  home: string;
+  openclawRoot: string;
+  hermesRoot: string;
+  origin: { home: string; openclawRoot: string; hermesRoot: string; sep: string };
+  env: NodeJS.ProcessEnv;
+  openclaw: M7OpenclawFixture;
+  hermes: M7HermesFixture;
+}
+
+/** Builds an M7 layout containing synthetic OpenClaw and Hermes fixtures with two embedding identities. */
+export async function buildM7Layout(os: LayoutOs): Promise<M7Layout> {
+  const base = tempDir(`p1b-m7-layout-${os}-`);
+  const win = os === "windows";
+  const home = join(base, win ? "Users" : os === "macos" ? "Users" : "home", USER);
+  const lower = USER.toLowerCase();
+  const origin = win
+    ? { home: `C:\\Users\\${USER}`, openclawRoot: `C:\\Users\\${USER}\\.openclaw`, hermesRoot: `C:\\Users\\${USER}\\AppData\\Local\\hermes`, sep: "\\" }
+    : { home: `/${os === "macos" ? "Users" : "home"}/${lower}`, openclawRoot: `/${os === "macos" ? "Users" : "home"}/${lower}/.openclaw`, hermesRoot: `/${os === "macos" ? "Users" : "home"}/${lower}/.hermes`, sep: "/" };
+  const openclawRoot = join(home, ".openclaw");
+  const hermesRoot = win ? join(home, "AppData", "Local", "hermes") : join(home, ".hermes");
+
+  const openclaw = await buildM7OpenclawFixture({ base, root: openclawRoot });
+  const hermes = await buildM7HermesFixture({ base, root: hermesRoot });
+
+  const env: NodeJS.ProcessEnv = win ? { USERPROFILE: home, LOCALAPPDATA: join(home, "AppData", "Local") } : { HOME: home };
+  return { os, base, home, openclawRoot, hermesRoot, origin, env, openclaw, hermes };
 }
