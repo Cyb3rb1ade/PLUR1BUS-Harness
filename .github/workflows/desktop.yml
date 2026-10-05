@@ -110,12 +110,12 @@ jobs:
           retention-days: 7
       - name: Native fixture tests
         timeout-minutes: 10
-        run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver
+        run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver --example production_job
         working-directory: apps/desktop
       - name: Native probe and Windows startup diagnostic tests
         id: native-diagnostics
         timeout-minutes: 5
-        run: node --test apps/desktop/scripts/owned-process.test.mjs apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
+        run: node --test apps/desktop/scripts/owned-process.test.mjs apps/desktop/scripts/fixture-job.test.mjs apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
       - name: Native transport spike (WebKitGTK)
         if: runner.os == 'Linux'
         timeout-minutes: 10
