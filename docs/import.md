@@ -265,7 +265,8 @@ Reusing PLUR1BUS's own idempotency pattern (`/share`'s `idempotencyKey = hash([a
 | Skill | skill manifest `name` + `version` + source | Matches the skill-conflict policy (§4.1, §5.3) rather than creating a duplicate |
 | Cron job | source job id (or a hash of its schedule+prompt when the source has no stable id) | Re-run recognizes the existing harness job and does not duplicate it |
 | Channel/bot-connection allowlist entry | (channel, source user id) | Merge, never duplicate |
-| Memory card (Hermes path, §3.2) | hash of the card's source entry text + source file + source profile | A card already imported is not re-inserted; this mirrors Hermes's own entry-level dedup in its migrator (`openclaw_to_hermes.py:1304-1320`) |
+| Memory card (Hermes path, §3.2) | `hermes:${profile}:${sourceFile}:${cardHash}` — hash of the card's source entry text + source file + source profile (never containing `runId`) | A card already imported is recognized as `matched-existing` (zero writes). Deleted cards (`memory.forget`) produce `rejected` with `reason: "previously-imported-deleted"`; reruns never recreate deleted cards. |
+| Store take-over (`--adopt-store <path>`) | `store:${sourceStorePath}` | Pre-flight dry-run check via `engine.stores.adopt`. Incompatible stores cleanly abort without touching target. In apply mode, adopts store into target layout under `core.lock`. |
 
 ### 5.3 Resumability
 
@@ -297,6 +298,7 @@ The pre-apply snapshot (§5.1 step 2) is the rollback target. Rollback restores 
 - **Path containment & symlinks:** every path component from `<home>` to target is inspected with `lstat` for symlinks (`unsafe-symlink`); containment within `<home>` is verified against the deepest existing ancestor realpath.
 - **User modification preservation:** files created by the import that were subsequently modified by the user (or cannot be hashed) are **not** deleted; they are backed up to `rolled-back/replaced/`, left intact on disk, and reported as `kept-modified`. Passing `--force` overrides this and deletes the modified file after backing it up.
 - **Ledger integrity:** rollback requires a valid, readable ledger. Missing or unrepaired corrupt ledger entries cause rollback to fail-closed with `ledger-corrupt` rather than reporting completion with imported files left behind.
+- **Memory card rollback status:** Because the memory engine has no card-level undo operation yet, rollback honestly reports memory cards as `not-reverted (engine has no undo)` without modifying or deleting LanceDB.
 
 ### 5.6 Secrets handling
 

@@ -35,6 +35,8 @@ export interface RollbackReport {
   snapshot: { path: string; existed: boolean; manifestSha256?: string };
   changes: RollbackChange[];
   movedAside: string | null;
+  memoryCardsNotReverted?: number | undefined;
+  memoryUndoStatus?: "not-reverted (engine has no undo)" | undefined;
   startedAt: string;
   finishedAt?: string;
 }
@@ -248,6 +250,7 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     const createdFiles = new Map<string, string>(); // relPath -> sha256
     const renamedFiles = new Map<string, string>(); // relPath -> sha256
     const createdAgents = new Set<string>();
+    let memoryCardsImported = 0;
 
     const lines = ledgerText.split("\n");
     for (let i = 0; i < lines.length; i++) {
@@ -274,6 +277,9 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
           const parts = entry.idempotencyKey.split(":");
           const agentId = parts[2] || (entry.targetRef ? entry.targetRef.split("/")[1] ?? "" : "");
           if (agentId) createdAgents.add(agentId);
+        } else if (entry.entity === "memory") {
+          const count = (entry.details?.created as number ?? entry.details?.count as number ?? 1);
+          memoryCardsImported += count;
         }
       } catch (err: any) {
         // If this line was followed by a repair marker, it is a repaired torn line: ignore it
@@ -387,6 +393,8 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       },
       changes,
       movedAside: null,
+      memoryCardsNotReverted: memoryCardsImported > 0 ? memoryCardsImported : undefined,
+      memoryUndoStatus: memoryCardsImported > 0 ? "not-reverted (engine has no undo)" : undefined,
       startedAt,
     };
 

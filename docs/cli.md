@@ -1159,6 +1159,7 @@ Projects — M3
 * `--max-skill-bytes <BYTES>` — With --skills: refuse skill folders larger than this (default 8 MiB)
 * `--resume <RUN_ID>` — Resume an interrupted import run by run ID
 * `--force` — Force rollback: delete user-modified files created by the import instead of keeping them
+* `--adopt-store <PATH>` — Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
 
 
 

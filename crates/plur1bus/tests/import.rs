@@ -19,22 +19,22 @@ fn json_of(out: &[u8]) -> Value {
 }
 
 #[test]
-fn hermes_without_a_mode_is_the_m7_stub() {
+fn hermes_full_import_forwards_to_importer() {
+    let home = tempfile::tempdir().unwrap();
     let out = bin()
-        .args(["--json", "import", "hermes"])
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .arg("--home")
+        .arg(home.path())
+        .args(["--json", "import", "hermes", "--conflict", "replace", "--adopt-store", "/path/to/store"])
         .assert()
-        .code(2)
+        .success()
         .get_output()
         .stdout
         .clone();
     let v = json_of(&out);
-    assert_eq!(v["error"], "E_NOT_AVAILABLE");
-    assert_eq!(v["milestone"], "M7");
-    bin()
-        .args(["import", "hermes"])
-        .assert()
-        .code(2)
-        .stderr(predicates::str::contains("M7"));
+    let argv: Vec<String> = serde_json::from_value(v["argv"].clone()).unwrap();
+    assert_eq!(&argv[..5], ["hermes", "--on-conflict", "replace", "--adopt-store", "/path/to/store"]);
 }
 
 #[test]
