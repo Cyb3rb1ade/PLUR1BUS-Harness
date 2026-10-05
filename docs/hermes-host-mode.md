@@ -4,6 +4,8 @@
 
 Host mode lets a person who runs Hermes and nothing else use PLUR1BUS as Hermes' long-term memory. There is no PLUR1BUS web UI, no channels and no bundled modules: a local **sidecar** (the supervisor and the core, nothing more) holds the memory, and a small **directory provider** inside the Hermes home forwards Hermes' memory hooks to it over the core RPC. Rulings are cited by id (`HM2-R*` from the plan, `HM2-P`/`F*` from the pre-flight ledger).
 
+OpenClaw host mode and the Harness keep separate memory stores. The Harness refuses a configured store path inside an OpenClaw state directory; `plur1bus 1staid check` reports the separate memories as an informational notice when the OpenClaw plugin is configured. To consolidate, migrate with `plur1bus import` or switch the OpenClaw plugin to thin-client mode. The guard does not inspect the plugin store or migrate it automatically.
+
 ## Architecture
 
 ```

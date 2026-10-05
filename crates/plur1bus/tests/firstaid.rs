@@ -304,6 +304,8 @@ fn check_json_validates_the_document_shape() {
 
     const EXPECTED_ORDER: &[&str] = &[
         "config.valid",
+        "config.store-path",
+        "host_mode_coexistence",
         "run.permissions",
         "run.stale-files",
         "supervisor.state",
@@ -344,9 +346,9 @@ fn check_json_validates_the_document_shape() {
     }
 }
 
-/// HB15: the installer checks come after the first fifteen ids, in order (X1 appends three more after them).
+/// HB15: the installer checks come after the first seventeen ids, in order (X1 appends three more after them).
 #[test]
-fn check_json_lists_the_installer_ids_after_the_first_fifteen() {
+fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
     let h = Home::new();
     let out = check_cmd(&h).output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{out:?}");
@@ -357,9 +359,9 @@ fn check_json_lists_the_installer_ids_after_the_first_fifteen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 22, "{v}");
+    assert_eq!(ids.len(), 24, "{v}");
     assert_eq!(
-        &ids[15..18],
+        &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
         "{v}"
     );
@@ -890,13 +892,13 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 22, "{v}");
+    assert_eq!(ids.len(), 24, "{v}");
     assert_eq!(
-        &ids[15..18],
+        &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
     );
-    assert_eq!(&ids[18..21], &EXT_IDS, "{v}");
-    assert_eq!(&ids[21], "models.roles", "{v}");
+    assert_eq!(&ids[20..23], &EXT_IDS, "{v}");
+    assert_eq!(&ids[23], "models.roles", "{v}");
 }
 
 #[test]

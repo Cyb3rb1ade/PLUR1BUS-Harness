@@ -33,8 +33,10 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 22] = [
+const CHECK_IDS: [&str; 24] = [
     "config.valid",
+    "config.store-path",
+    "host_mode_coexistence",
     "run.permissions",
     "run.stale-files",
     "supervisor.state",
@@ -77,6 +79,7 @@ fn out_of_budget(deadline: Instant, checks: &mut Vec<Check>) -> bool {
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Ok,
+    Info,
     Warn,
     Fail,
     Skip,
@@ -259,6 +262,9 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         layout,
         daemon_status.map(|s| &s["config"]),
     ));
+    let host_env = crate::coexistence::HostEnvironment::current();
+    checks.push(check_store_path(layout, &host_env));
+    checks.push(check_host_mode_coexistence(&host_env));
     checks.push(check_run_permissions(layout));
     checks.push(check_run_stale_files(layout, env.platform));
 
@@ -382,6 +388,7 @@ fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
             Some(hint.to_string()),
         );
     }
+
     let path = layout.config_path();
     let text = match std::fs::read_to_string(&path) {
         Ok(t) => t,
@@ -417,6 +424,39 @@ fn check_config_valid(layout: &Layout, supervisor: Option<&Value>) -> Check {
     match plur1bus_config::load(&path) {
         Ok(_) => Check::ok(ID, "config.json is valid"),
         Err(e) => Check::fail(ID, format!("config.json is invalid: {e}"), None, None),
+    }
+}
+
+fn check_store_path(layout: &Layout, env: &crate::coexistence::HostEnvironment) -> Check {
+    const ID: &str = "config.store-path";
+    match crate::coexistence::configured_store_violation(&layout.config_path(), env) {
+        Some(violation) => Check::fail(
+            ID,
+            violation.message(),
+            Some(json!({
+                "storePath": violation.store_path,
+                "foreignStateDir": violation.state_root,
+            })),
+            Some("choose a path under the harness home".to_string()),
+        ),
+        None => Check::ok(
+            ID,
+            "the configured store path does not overlap a foreign host state directory",
+        ),
+    }
+}
+
+fn check_host_mode_coexistence(env: &crate::coexistence::HostEnvironment) -> Check {
+    const ID: &str = "host_mode_coexistence";
+    match crate::coexistence::host_mode_notice(env) {
+        Some(summary) => Check {
+            id: ID,
+            status: Status::Info,
+            summary: summary.to_string(),
+            detail: None,
+            hint: None,
+        },
+        None => Check::ok(ID, "no separate host-mode plugin found"),
     }
 }
 
@@ -1416,11 +1456,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
                         .map(|c| {
                             let mark = match c.status {
                                 Status::Ok => "ok",
+                                Status::Info => "info",
                                 Status::Warn => "warn",
                                 Status::Fail => "FAIL",
                                 Status::Skip => "skip",
                             };
-                            format!("{mark:<5} {:<24} {}", c.id, c.summary)
+                            if c.status == Status::Info {
+                                format!("{mark:<5} {}", c.summary)
+                            } else {
+                                format!("{mark:<5} {:<24} {}", c.id, c.summary)
+                            }
                         })
                         .collect::<Vec<_>>()
                         .join("\n")
@@ -2029,6 +2074,8 @@ mod tests {
                 &Layout::new(tempfile::tempdir().unwrap().path().to_path_buf()),
                 None,
             ),
+            Check::ok("config.store-path", "x"),
+            Check::skip("host_mode_coexistence", "x"),
             Check::ok("run.permissions", "x"),
             Check::ok("run.stale-files", "x"),
         ];
@@ -2036,7 +2083,7 @@ mod tests {
         assert!(out_of_budget(past, &mut checks));
         let ids: Vec<&str> = checks.iter().map(|c| c.id).collect();
         assert_eq!(ids, CHECK_IDS);
-        for c in &checks[3..] {
+        for c in &checks[5..] {
             assert_eq!(c.status, Status::Warn, "{c:?}");
             assert_eq!(c.summary, "time budget exhausted");
         }

@@ -255,7 +255,6 @@ fn an_invalid_value_is_e_config_invalid_and_nothing_changes() {
         let (e, ..) = call_error(set(&mut c, bad.clone()));
         assert_eq!(e, ErrorCode::EInvalidParams, "{bad}");
     }
-
     assert_eq!(std::fs::read(config_path(home)).unwrap(), bytes);
     assert_eq!(running(&mut c).1, rev);
     assert!(watch.changes_within(TICK * 3).is_empty());
