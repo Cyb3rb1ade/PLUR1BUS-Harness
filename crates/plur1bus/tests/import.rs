@@ -26,7 +26,15 @@ fn hermes_full_import_forwards_to_importer() {
         .env("PLUR1BUS_NODE", "node")
         .arg("--home")
         .arg(home.path())
-        .args(["--json", "import", "hermes", "--conflict", "replace", "--adopt-store", "/path/to/store"])
+        .args([
+            "--json",
+            "import",
+            "hermes",
+            "--conflict",
+            "replace",
+            "--adopt-store",
+            "/path/to/store",
+        ])
         .assert()
         .success()
         .get_output()
@@ -34,7 +42,16 @@ fn hermes_full_import_forwards_to_importer() {
         .clone();
     let v = json_of(&out);
     let argv: Vec<String> = serde_json::from_value(v["argv"].clone()).unwrap();
-    assert_eq!(&argv[..5], ["hermes", "--on-conflict", "replace", "--adopt-store", "/path/to/store"]);
+    assert_eq!(
+        &argv[..5],
+        [
+            "hermes",
+            "--on-conflict",
+            "replace",
+            "--adopt-store",
+            "/path/to/store"
+        ]
+    );
 }
 
 #[test]
