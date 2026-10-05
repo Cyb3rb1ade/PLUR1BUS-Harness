@@ -62,7 +62,7 @@ real_root=$(pwd -P 2>/dev/null)
 if [ $# -eq 0 ]; then
   set -- "."
 fi
-find "$@" \\( -type f -o -type d \\) -print0 | tar --null -T - --no-recursion -cf -
+find "$@" \\( -type f -o -type d \\) -print0 | tar --null --no-recursion -cf - -T -
 `;
 
 /** Spawns wsl.exe streaming tar extraction directly without buffering the entire archive into memory (§B.3, I2, N3). */

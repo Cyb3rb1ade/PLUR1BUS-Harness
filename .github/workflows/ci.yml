@@ -248,6 +248,10 @@ jobs:
       - uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
         with:
           distribution: Ubuntu-24.04
+          wsl-shell-user: root
+          wsl-conf: |
+            [user]
+            default=root
       - uses: pnpm/action-setup@v4
         with: { version: 10.28.0 }
       - uses: actions/setup-node@v4
@@ -255,31 +259,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm gen
       - run: pnpm build
-      - name: synthetic WSL source and import detect
-        shell: bash
+      - name: create synthetic openclaw fixture in WSL
+        shell: wsl-bash {0}
         run: |
-          # Create synthetic openclaw installation inside Ubuntu-24.04 distro
-          wsl.exe -d Ubuntu-24.04 -e bash -s <<'EOF'
           set -euo pipefail
-          mkdir -p ~/.openclaw/ws-wsl/skills/notes
-          mkdir -p ~/.ssh
-          echo "secret-ssh-token" > ~/.ssh/id_rsa
-          ln -s ~/.ssh/id_rsa ~/.openclaw/ws-wsl/skills/notes/leaked_key
-          cat <<'JSON' > ~/.openclaw/openclaw.json
+          mkdir -p /root/.openclaw/ws-wsl/skills/notes /root/.ssh
+          echo "secret-ssh-token" > /root/.ssh/id_rsa
+          ln -s /root/.ssh/id_rsa /root/.openclaw/ws-wsl/skills/notes/leaked_key
+          cat <<'JSON' > /root/.openclaw/openclaw.json
           {
             "meta": { "lastTouchedVersion": "2026.9.5" },
             "agents": { "list": [ { "id": "wsl-agent", "workspace": "/root/.openclaw/ws-wsl" } ] }
           }
           JSON
-          cat <<'SKILL' > ~/.openclaw/ws-wsl/skills/notes/SKILL.md
+          cat <<'SKILL' > /root/.openclaw/ws-wsl/skills/notes/SKILL.md
           ---
           name: notes
           description: WSL test notes
           ---
           # notes
           SKILL
-          EOF
-
+          test -f /root/.openclaw/openclaw.json
+      - name: synthetic WSL source and import detect
+        shell: bash
+        run: |
           # Verify fixture exists inside distro
           wsl.exe -d Ubuntu-24.04 -e test -f /root/.openclaw/openclaw.json || { echo "Fixture creation failed in WSL"; exit 1; }
 
