@@ -92,14 +92,14 @@ To maintain steady progress without violating architectural boundaries, work is 
 
 ---
 
-## Open Owner Question: ADR-007 Q4 (Unlink Semantics)
+## Owner Decision: ADR-007 Q4 (Identity Linking, Backfill & Cardinality)
 
-- **The Question (ADR-007 Q4):** When unlinking a channel identity (e.g. Telegram user ID) from a v2 user principal during import/migration, should the old identity's memories be hidden from the v2 principal or back-filled to the v2 principal?
-- **Owner Decision:**
-  - **Metadata-only back-fill to the v2 user principal (dry-runnable, audit-logged) before unlinking.**
-  - *Status:* **Approved Owner Decision.** Implementation follows this decision once the v2 principal migration logic is wired.
-  - *Rationale:* User memories represent valuable personal context. Discarding or hiding them causes perceived data loss. Back-filling updates the memory card's `principalId` attribute to the v2 principal while appending an audit record (`actor: "import", action: "backfill-identity"`).
-  - *Opt-out:* If the operator chooses `--no-identity-backfill`, the memories remain bound to the legacy v1 principal (`user:v1:<hash>`) and remain inaccessible to the unlinked v2 principal (fail-closed per §2.4).
+- **The Question (ADR-007 Q4):** How are memories handled when linking a channel identity to a harness user principal?
+- **Owner Decision (2026-10-05):**
+  - **Manual / deliberate linking:** Upon manual, confirmed linking of a user with a channel identity (owner/operator action in CLI, wizard, or config), memories are transferred to the target principal via metadata backfill: dry-run capable (preview with counts), audited (actor, timestamp, from → to), and reversible via the audit record.
+  - **Automatic / heuristic linking:** No backfill. Memories remain fail-closed with the legacy principal (`docs/import.md` §2.4).
+  - **Cardinality:** N:1 (channel identities → user). A user can be linked to arbitrarily many channel identities (e.g. Telegram, Discord, and Matrix simultaneously). All map to the same user, and personal memories from all sources land aggregated there. The reverse direction is strictly exclusive: each channel identity belongs to at most one user. Linking an already-linked channel identity to a second user is rejected.
+  - **Engine Contract Requirement:** The backfill requires an engine operation (no direct LanceDB writes, D28/T7) — `memory.rebind({ fromPrincipal, toPrincipal, dryRun })`. Planned as Task 2.5 following Batch 2.
 
 ---
 
@@ -123,7 +123,7 @@ To maintain steady progress without violating architectural boundaries, work is 
 | Batch | Scope | Effort | Status |
 |---|---|---|---|
 | **Batch 1** | **Synthetic Fixture Generator** (OpenClaw & Hermes, 2 embedding identities, OS layouts, smoke tests) | **3–5 ad** | Delivered in PR #91 |
-| **Batch 2** | **OpenClaw Importer** (Agents in `config.agents`, `SOUL.md` & D15 in `l.workspaceDir`, single-writer check, store takeover vs re-embedding, channels, deferred cron) | **5–8 ad** | Ready to start |
+| **Batch 2** | **OpenClaw Importer** (Agents in `config.agents`, `SOUL.md` & D15 in `l.workspaceDir`, single-writer check, channels, deferred cron) + **Task 2.5: Identity Linking & Back-Fill** (ADR-007 Q4) | **5–8 ad** | Implemented (Task 2.5 planned after Batch 2) |
 | **Batch 3** | **Hermes Importer** (Profiles → agents, `SOUL.md`, `§`-cards via `memory.import`, pairings, deferred cron, sessions excluded) | **4–6 ad** | Memory cards blocked on engine PR |
 | **Batch 4** | **Cross-Cutting Pipeline, Ledger, Reports & Rollback** (Idempotency ledger, target pre-apply snapshot/rollback, secret lease refusal, sanitized reports, Rust/Node CLI) | **4–6 ad** | Follows Batches 2 & 3 |
 | *Note* | *Cross-platform sources (WSL discovery, snapshot producer, tar streaming) completed in #85/#90* | *3–5 ad* | Merged to `main` |
@@ -192,6 +192,16 @@ To maintain steady progress without violating architectural boundaries, work is 
   - Tests matching store takeover with store format version check.
   - Tests mismatched store routing into re-embedding migration.
   - Tests deferred cron reporting with zero filesystem writes.
+- [ ] **Task 2.5: User Identity Linking & Memory Metadata Back-Fill (ADR-007 Q4)**
+  - Files: `packages/core/src/import/identity-link.ts`, `packages/core/test/import/identity-link.test.ts`
+  - Implementation planned after Batch 2 (requires engine `memory.rebind` in engine contract 1.11.0, grok PR #216).
+  - Enforces N:1 cardinality: multiple channel identities → 1 harness user.
+  - Rejects linking a channel identity to a second user with `E_CONFLICT` / `identity-already-linked`.
+  - Manual, confirmed linking triggers dry-runnable, audited metadata back-fill via engine `memory.rebind({ fromPrincipal, toPrincipal, dryRun })`.
+  - Automatic or heuristic source detection during import does NOT back-fill; memories remain fail-closed with the legacy principal (`docs/import.md` §2.4).
+  - Tests:
+    - 3 channel identities (e.g. Telegram, Discord, Matrix) linked to 1 user → back-fill aggregates memories from all 3 into the target user principal.
+    - Attempting to link an already-bound identity to a 2nd user → rejected with `identity-already-linked`.
 
 ---
 

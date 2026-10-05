@@ -185,7 +185,10 @@ The Q5 trade (five roles vs three) is a one-way door in one direction only. Ship
 1. **Q5 (needs a decision now):** confirm the five roles from §5.1 as presets with "simple mode", or reduce to Owner/Admin/Member?
 2. **2FA enforcement:** required for Owner and Admin, or optional everywhere for v0.1?
 3. **Break-glass notification:** should the affected user be notified immediately, or is an audit entry they can read sufficient?
-4. **Unlink semantics:** hide the old identity's memories (proposed), or offer a one-click back-fill to v2 at unlink time so nothing disappears?
+4. **Unlink-Semantik und Identitätsverknüpfung (Q4 — beantwortet 2026-10-05, Owner-Entscheidung):**
+   Bei einer manuellen, bewussten Verknüpfung eines Users mit einer Identität (Owner- bzw. Operator-Aktion in CLI, Wizard oder Config, bestätigt) werden deren Erinnerungen per Metadaten-Backfill auf den Ziel-Principal übernommen: dry-run-fähig (Vorschau mit Anzahl), auditiert (Akteur, Zeit, alt → neu) und umkehrbar über den Audit-Eintrag.
+   Bei automatischer oder heuristischer Zuordnung kein Backfill: Die Erinnerungen bleiben fail-closed beim alten Principal (`docs/import.md` §2.4).
+   **Kardinalität:** N:1 (Kanal-Identitäten → User). Ein User kann mit beliebig vielen Kanal-Identitäten verknüpft sein (z. B. Telegram, Discord und Matrix gleichzeitig). Alle führen auf denselben User, die Personen-Erinnerungen aller Quellen landen gesammelt dort. Exklusiv ist nur die Gegenrichtung: Jede Kanal-Identität gehört höchstens einem User; der Versuch, dieselbe Kanal-Identität mit einem zweiten User zu verknüpfen, wird abgelehnt.
 5. **OIDC:** is SSO in scope for v0.1 at all, or deferred past M3? (It changes whether `user:v3` should be designed now.)
 6. **Hard delete:** should user-requested erasure also purge the audit log entries *about* that user, or is the content-free tombstone acceptable?
 
