@@ -70,7 +70,8 @@ export interface SnapshotMetadata {
 
 export interface CreateSnapshotOptions {
   sourceType: SourceType;
-  sourceRoot: string;
+  sourceRoot?: string | undefined;
+  source?: string | undefined;
   home: string;
   origin?: Origin | undefined;
   flavour?: Flavour | undefined;
@@ -763,15 +764,16 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
   const stagingDir = opts.stagingDir ?? join(opts.home, "import", runId, "snapshot");
   let stagingCreated = false;
 
+  const rawSource = opts.sourceRoot ?? opts.source ?? "";
   const loc = locateSource({
-    accessRoot: opts.sourceRoot,
+    accessRoot: rawSource,
     platform,
     env: opts.env ?? process.env,
     home: opts.homedir ?? null,
     harnessHome: opts.home,
   });
 
-  const isWsl = loc.origin.startsWith("wsl:") || opts.sourceRoot.startsWith("wsl:");
+  const isWsl = loc.origin.startsWith("wsl:") || rawSource.startsWith("wsl:");
   const sqliteStatuses: Record<string, SnapshotSqliteInfo> = {};
   const lanceStatuses: Record<string, SnapshotLanceInfo> = {};
   let skippedLinks: string[] = [];
@@ -922,7 +924,7 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       scanSqlite(stagingDir);
     } else {
       // Native copier
-      const absSrc = resolve(opts.sourceRoot);
+      const absSrc = resolve(rawSource);
       const runCheck = isSourceRunning(absSrc);
       if (runCheck.running && !opts.allowLiveCopy) {
         throw new ImportError("E_SOURCE_BUSY", "source-running", `Source is currently running (${runCheck.reason}); stop the source or pass --allow-live-copy (C7)`, 3);
@@ -945,7 +947,7 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
     // Inspect files and generate snapshot.json
     const metadata = generateSnapshotMetadata({
       sourceRoot: loc.sourceRoot,
-      source: opts.sourceRoot,
+      source: rawSource,
       origin: loc.origin,
       flavour: loc.flavour,
       sourceHome: loc.sourceHome,
