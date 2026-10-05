@@ -192,6 +192,27 @@ fn no_update_when_the_release_is_not_newer() {
 }
 
 #[test]
+fn additive_contract_update_is_available_for_a_legacy_install() {
+    let h = Home::new();
+    h.write_manifest(|_| {}); // installed core contract is 1.9.0
+    h.write_module("fixture", "0.1.0", "1");
+    let mut release = base_release();
+    release["version"] = json!("0.2.0");
+    release["native"]["core"]["version"] = json!("0.2.0");
+    release["native"]["core"]["contract"] = json!("1.10.0");
+    let path = write_json(h._dir.path(), "stable.json", &release);
+    let (code, doc) = run(update_cmd(&h).args(["--manifest", path.to_str().unwrap()]));
+    assert_eq!(code, 0, "{doc}");
+    assert_eq!(doc["available"]["version"], "0.2.0");
+    assert_eq!(doc["blocked"], Value::Null);
+    assert_eq!(
+        doc["changes"],
+        json!([{ "unit": "core", "from": "0.1.0", "to": "0.2.0" }])
+    );
+    assert_eq!(doc["restart"]["core"], true);
+}
+
+#[test]
 fn a_core_change_plans_a_core_restart_only() {
     let h = Home::new();
     h.write_manifest(|_| {});
