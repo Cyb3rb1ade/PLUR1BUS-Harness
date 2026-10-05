@@ -285,6 +285,7 @@ mod fixture {
                     return Err("FIXTURE_SINGLETON_BYPASSED".into());
                 }
                 eprintln!("FIXTURE_SETUP");
+                plur1bus_desktop::diagnostics::start(app.handle())?;
                 native::build_tray(app.handle())?;
                 let title_modal = setup_modal.clone();
                 WebviewWindowBuilder::new(app, "shell", WebviewUrl::App("index.html".into()))
