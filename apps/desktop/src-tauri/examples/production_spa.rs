@@ -2280,15 +2280,25 @@ async fn finish(
             let task_gone = title_gone.clone();
             tauri::async_runtime::spawn(async move {
                 progress("audit");
+                // Retired SPA profiles are still being removed by their owned cleanup
+                // tasks. Settle those owners before walking the scratch tree; do not
+                // race a listed .lease against removal or spend extra rescan budget.
                 let root = PathBuf::from(std::env::var_os("WP05_NATIVE_SCRATCH").unwrap());
                 let live_root = root.clone();
                 let live_known = task_known.clone();
-                let pre_close_audit = tauri::async_runtime::spawn_blocking(move || {
-                    let known = live_known.lock().unwrap();
-                    live_audit(&live_root, &known)
-                })
-                .await
-                .unwrap_or_else(|_| AuditObservation::unavailable());
+                let scan = || async move {
+                    tauri::async_runtime::spawn_blocking(move || {
+                        let known = live_known.lock().unwrap();
+                        live_audit(&live_root, &known)
+                    }).await.unwrap_or_else(|_| AuditObservation::unavailable())
+                };
+                #[cfg(windows)]
+                let (spa_cleanup, pre_close_audit) = audit_after_retired_profiles(
+                    task_handle.state::<SpaState>().wait_profile_cleanups(task_teardown_deadline),
+                    scan,
+                ).await;
+                #[cfg(not(windows))]
+                let pre_close_audit = scan().await;
                 #[cfg(windows)]
                 {
                     let path = task_lease
@@ -2323,8 +2333,6 @@ async fn finish(
                 #[cfg(windows)]
                 let mut process_exit = ProcessExitObservation { applicable: true, complete: false };
                 #[cfg(windows)]
-                let mut spa_cleanup = plur1bus_desktop::windows_spa_profile::CleanupResult::default();
-                #[cfg(windows)]
                 let mut observer_cleanup = plur1bus_desktop::windows_spa_profile::CleanupResult::default();
                 #[cfg(windows)]
                 let (_, cleanup_acceptance_failed) = complete_windows_teardown(
@@ -2338,7 +2346,6 @@ async fn finish(
                         let task_browser = &task_browser;
                         let windows_absent = &mut windows_absent;
                         let process_exit = &mut process_exit;
-                        let spa_cleanup = &mut spa_cleanup;
                         let observer_cleanup = &mut observer_cleanup;
                         async move {
                             // Start owned cleanup alongside observation, as production retirement
@@ -2366,8 +2373,6 @@ async fn finish(
                                 *process_exit = wait_for_browser_processes(
                                     task_owners.clone(), exit_deadline,
                                 ).await;
-                                task_handle.state::<SpaState>()
-                                    .wait_profile_cleanups_into(cleanup_deadline, spa_cleanup).await;
                             };
                             // Store each completed result outside the cancellable future;
                             // another owner's timeout must not erase positive rows/secrets.
@@ -3157,6 +3162,20 @@ fn post_exit_secret_audit_with_reader(
     }
 }
 
+// Fixture-only ordering: preserve each retired owner's evidence before live traversal.
+// The caller supplies the existing acceptance deadline; this adds no retry or budget.
+#[cfg(any(windows, test))]
+async fn audit_after_retired_profiles<F: std::future::Future<Output = AuditObservation>>(
+    cleanup: impl std::future::Future<Output = plur1bus_desktop::windows_spa_profile::CleanupResult>,
+    scan: impl FnOnce() -> F,
+) -> (
+    plur1bus_desktop::windows_spa_profile::CleanupResult,
+    AuditObservation,
+) {
+    let retired = cleanup.await;
+    (retired, scan().await)
+}
+
 #[cfg(not(target_os = "linux"))]
 fn live_audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     #[cfg(windows)]
@@ -3596,6 +3615,83 @@ mod tests {
     };
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn retired_lease_removal_finishes_before_live_tree_scan() {
+        tauri::async_runtime::block_on(async {
+            let root = tempfile::tempdir().unwrap();
+            let retired = root.path().join("retired-profile");
+            std::fs::create_dir(&retired).unwrap();
+            std::fs::write(retired.join(".lease"), b"retired-canary").unwrap();
+            let known = [plur1bus_desktop::secrets::SecretString::new(
+                "retired-canary".into(),
+            )];
+            let initial = super::audit_with_reader(
+                root.path(),
+                &known,
+                &mut super::FilesystemAuditReader::default(),
+            );
+            assert!(
+                initial.secret_detected,
+                "a scan started before retirement sees the old owner"
+            );
+            let (evidence, live) = super::audit_after_retired_profiles(
+                async {
+                    tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+                    std::fs::remove_dir_all(retired).unwrap();
+                    plur1bus_desktop::windows_spa_profile::CleanupResult {
+                        removed: true,
+                        read_only_complete: true,
+                        ..Default::default()
+                    }
+                },
+                || async {
+                    super::audit_with_reader(
+                        root.path(),
+                        &known,
+                        &mut super::FilesystemAuditReader::default(),
+                    )
+                },
+            )
+            .await;
+            assert!(evidence.removed && evidence.read_only_complete);
+            assert!(live.clean());
+            assert_eq!(live.directory_rescans, 0);
+        });
+    }
+
+    #[test]
+    fn settling_retired_profiles_never_erases_failed_owner_evidence() {
+        tauri::async_runtime::block_on(async {
+            let (evidence, live) = super::audit_after_retired_profiles(
+                async {
+                    plur1bus_desktop::windows_spa_profile::CleanupResult {
+                        removed: false,
+                        read_only_complete: false,
+                        cookie_rows: 2,
+                        secret_detected: true,
+                        ..Default::default()
+                    }
+                },
+                || async {
+                    let root = tempfile::tempdir().unwrap();
+                    super::audit_with_reader(
+                        root.path(),
+                        &[],
+                        &mut super::FilesystemAuditReader::default(),
+                    )
+                },
+            )
+            .await;
+            assert!(
+                live.clean(),
+                "later empty coverage cannot exonerate an owner"
+            );
+            assert!(!evidence.removed && !evidence.read_only_complete);
+            assert_eq!(evidence.cookie_rows, 2);
+            assert!(evidence.secret_detected);
+        });
+    }
 
     #[test]
     fn expired_windows_acceptance_still_cleans_but_can_never_pass() {
