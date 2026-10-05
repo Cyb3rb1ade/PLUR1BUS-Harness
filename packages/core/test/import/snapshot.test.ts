@@ -1,6 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -1491,6 +1491,137 @@ describe("snapshot — WSL production scripts and protections (Round 5, F5–F7)
     assert.throws(
       () => execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "nonexistent-dir"]),
       (err: any) => err.status === 3
+    );
+  });
+});
+
+describe("snapshot — WSL follow-ups (M7 Part A)", { timeout: 15_000 }, () => {
+  it("allows legitimate names with dots like a..b in shell scripts and refuses .., a/.., ../a", () => {
+    const srcDir = tempDir("p1b-wsl-dots-src-");
+    writeFileSync(join(srcDir, "a..b"), "file-with-two-dots");
+    mkdirSync(join(srcDir, "sub..dir"));
+    writeFileSync(join(srcDir, "sub..dir", "nested.txt"), "nested");
+
+    // a..b and sub..dir are accepted by WSL_TAR_FIND_SCRIPT
+    const tarOut = execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", "./a..b", "./sub..dir"]);
+    assert.ok(tarOut.length > 0);
+
+    // a..b is accepted by WSL_SYMLINK_SCAN_SCRIPT
+    const symlinkOut = execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "./a..b"]);
+    assert.equal(symlinkOut.length, 0);
+
+    // .., a/.., ../a are refused by WSL_TAR_FIND_SCRIPT with exit 3
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", ".."]),
+      (err: any) => err.status === 3
+    );
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", "sub..dir/.."]),
+      (err: any) => err.status === 3
+    );
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", "../outside"]),
+      (err: any) => err.status === 3
+    );
+
+    // and also by WSL_SYMLINK_SCAN_SCRIPT
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", ".."]),
+      (err: any) => err.status === 3
+    );
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "sub..dir/.."]),
+      (err: any) => err.status === 3
+    );
+    assert.throws(
+      () => execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "../outside"]),
+      (err: any) => err.status === 3
+    );
+  });
+
+  it("trap handler in WSL_TAR_FIND_SCRIPT exits 130 on INT and 143 on TERM", () => {
+    const resInt = spawnSync("sh", ["-c", `
+      tmp_file=$(mktemp)
+      trap 'rm -f "$tmp_file"' EXIT
+      trap 'rm -f "$tmp_file"; exit 130' INT
+      trap 'rm -f "$tmp_file"; exit 143' TERM
+      kill -INT $$
+      echo "FAILED"
+    `]);
+    assert.equal(resInt.status, 130);
+
+    const resTerm = spawnSync("sh", ["-c", `
+      tmp_file=$(mktemp)
+      trap 'rm -f "$tmp_file"' EXIT
+      trap 'rm -f "$tmp_file"; exit 130' INT
+      trap 'rm -f "$tmp_file"; exit 143' TERM
+      kill -TERM $$
+      echo "FAILED"
+    `]);
+    assert.equal(resTerm.status, 143);
+  });
+
+  it("createSnapshot fails with wsl-tools-missing (<tool>) when tools are missing in WSL", async () => {
+    const home = tempDir("p1b-wsl-tools-home-");
+
+    // 1. Missing mktemp in tar process
+    const missingMktempRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      if (cmd.some((c) => c.includes("gateway.pid"))) {
+        return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd.some((c) => c.includes("WSL_SYMLINK_SCAN_SCRIPT") || c.includes("-type l"))) {
+        return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return {
+        stdout: Buffer.alloc(0),
+        stderr: Buffer.from("wsl-tools-missing (mktemp)\n"),
+        exitCode: 4,
+      };
+    };
+
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        wslRunner: missingMktempRunner,
+      }),
+      (err: any) =>
+        err instanceof ImportError &&
+        err.code === "E_IMPORT_FAILED" &&
+        err.reason === "wsl-tools-missing" &&
+        err.message.includes("(mktemp)")
+    );
+
+    // 2. Missing find in symlink scan
+    const missingFindRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      if (cmd.some((c) => c.includes("gateway.pid"))) {
+        return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd.some((c) => c.includes("WSL_SYMLINK_SCAN_SCRIPT") || c.includes("-type l"))) {
+        return {
+          stdout: Buffer.alloc(0),
+          stderr: Buffer.from("wsl-tools-missing (find)\n"),
+          exitCode: 4,
+        };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        wslRunner: missingFindRunner,
+      }),
+      (err: any) =>
+        err instanceof ImportError &&
+        err.code === "E_IMPORT_FAILED" &&
+        err.reason === "wsl-tools-missing" &&
+        err.message.includes("(find)")
     );
   });
 });

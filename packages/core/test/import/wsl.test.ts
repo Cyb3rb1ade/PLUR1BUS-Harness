@@ -517,6 +517,86 @@ describe("validateAndNormalizeSubpaths (F5)", () => {
     assert.deepEqual(validateAndNormalizeSubpaths(["."]), ["."]);
     assert.deepEqual(validateAndNormalizeSubpaths(["./a/b"]), ["./a/b"]);
     assert.deepEqual(validateAndNormalizeSubpaths(["a", "b/c"]), ["./a", "./b/c"]);
+    assert.deepEqual(validateAndNormalizeSubpaths(["a..b"]), ["./a..b"]);
+  });
+
+  it("rejects .., a/.. and ../a exact segments", () => {
+    assert.throws(
+      () => validateAndNormalizeSubpaths([".."]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["a/.."]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+    assert.throws(
+      () => validateAndNormalizeSubpaths(["../a"]),
+      (e: any) => e instanceof ImportError && e.reason === "invalid-subpath"
+    );
+  });
+});
+
+describe("spawnWslTarStream wsl-tools-missing (Part A)", () => {
+  it("fails with wsl-tools-missing when required tools are absent in WSL", async () => {
+    const fakeSpawn = ((_cmd: string, _args: string[]) => {
+      const child = new EventEmitter() as any;
+      const stdout = new PassThrough();
+      const stderr = new PassThrough();
+      child.stdout = stdout;
+      child.stderr = stderr;
+      child.kill = () => {};
+
+      process.nextTick(() => {
+        stdout.end();
+        stderr.write("wsl-tools-missing (mktemp)\n");
+        stderr.end();
+        child.emit("close", 4, null);
+      });
+
+      return child;
+    }) as any;
+
+    const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["."], { spawnFn: fakeSpawn });
+    for await (const _chunk of proc.stream) {}
+    await assert.rejects(
+      () => proc.waitClose(),
+      (e: any) =>
+        e instanceof ImportError &&
+        e.code === "E_IMPORT_FAILED" &&
+        e.reason === "wsl-tools-missing" &&
+        e.message === "wsl-tools-missing (mktemp)"
+    );
+  });
+
+  it("fails with wsl-tools-missing for tar --null", async () => {
+    const fakeSpawn = ((_cmd: string, _args: string[]) => {
+      const child = new EventEmitter() as any;
+      const stdout = new PassThrough();
+      const stderr = new PassThrough();
+      child.stdout = stdout;
+      child.stderr = stderr;
+      child.kill = () => {};
+
+      process.nextTick(() => {
+        stdout.end();
+        stderr.write("wsl-tools-missing (tar --null)\n");
+        stderr.end();
+        child.emit("close", 4, null);
+      });
+
+      return child;
+    }) as any;
+
+    const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["."], { spawnFn: fakeSpawn });
+    for await (const _chunk of proc.stream) {}
+    await assert.rejects(
+      () => proc.waitClose(),
+      (e: any) =>
+        e instanceof ImportError &&
+        e.code === "E_IMPORT_FAILED" &&
+        e.reason === "wsl-tools-missing" &&
+        e.message === "wsl-tools-missing (tar --null)"
+    );
   });
 });
 
