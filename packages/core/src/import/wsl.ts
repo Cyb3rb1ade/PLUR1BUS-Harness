@@ -46,10 +46,24 @@ export interface SpawnWslTarStreamOptions {
 
 export interface WslTarProcess {
   stream: AsyncIterable<Buffer>;
-  waitClose: () => Promise<void>;
+  waitClose: (allowLiveCopy?: boolean) => Promise<{ tarWarnings: number }>;
   abort: () => void;
   dispose: () => void;
 }
+
+export const WSL_TAR_FIND_SCRIPT = `root="$1"
+shift
+if [ "$1" = "--" ]; then
+  shift
+fi
+cd "$root" || exit 1
+real_root=$(pwd -P 2>/dev/null)
+[ -z "$real_root" ] && exit 1
+if [ $# -eq 0 ]; then
+  set -- "."
+fi
+find "$@" \\( -type f -o -type d \\) -print0 | tar --null -T - --no-recursion -cf -
+`;
 
 /** Spawns wsl.exe streaming tar extraction directly without buffering the entire archive into memory (§B.3, I2, N3). */
 export function spawnWslTarStream(
@@ -71,14 +85,7 @@ export function spawnWslTarStream(
   }
 
   const timeoutMs = opts.timeoutMs ?? 30_000;
-  const excludeArgs: string[] = [];
-  if (opts.excludes) {
-    for (const ex of opts.excludes) {
-      excludeArgs.push(`--exclude=${ex}`, `--exclude=./${ex}`);
-    }
-  }
-
-  const args = ["-d", distro, "--exec", "tar", "-h", ...excludeArgs, "-C", sourceRoot, "-cf", "-", "--", ...subpaths];
+  const args = ["-d", distro, "--exec", "sh", "-c", WSL_TAR_FIND_SCRIPT, "sh", sourceRoot, "--", ...subpaths];
   const spawnFn = opts.spawnFn ?? spawn;
   const child = spawnFn("wsl.exe", args, {
     stdio: ["ignore", "pipe", "pipe"],
@@ -106,16 +113,16 @@ export function spawnWslTarStream(
   }
 
   let childClosed = false;
-  const closePromise = new Promise<{ code: number | null }>((resolve) => {
-    child.on("close", (code) => {
+  const closePromise = new Promise<{ code: number | null; signal: string | null }>((resolve) => {
+    child.on("close", (code, signal) => {
       childClosed = true;
       clearTimeout(timer);
-      resolve({ code });
+      resolve({ code, signal });
     });
     child.on("error", () => {
       childClosed = true;
       clearTimeout(timer);
-      resolve({ code: -1 });
+      resolve({ code: -1, signal: null });
     });
   });
 
@@ -131,16 +138,22 @@ export function spawnWslTarStream(
     }
   }
 
-  const waitClose = async () => {
-    const { code } = await closePromise;
+  const waitClose = async (allowLiveCopy = false): Promise<{ tarWarnings: number }> => {
+    const { code, signal } = await closePromise;
     clearTimeout(timer);
     if (timedOut) {
       throw new ImportError("E_SOURCE_BUSY", "wsl-timeout", `wsl.exe tar timed out after ${timeoutMs}ms`);
     }
-    if (code !== null && code !== 0) {
-      const errText = Buffer.concat(stderrChunks).toString("utf8").replace(/\/[^\s:]+/g, "<path>");
-      throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar failed (exit ${code})${errText ? `: ${errText.trim()}` : ""}`, 2);
+    if (signal) {
+      throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar killed by signal ${signal}`, 2);
     }
+    if (code !== null && code !== 0) {
+      if (code === 1 && allowLiveCopy) {
+        return { tarWarnings: 1 };
+      }
+      throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar failed (exit ${code})`, 2);
+    }
+    return { tarWarnings: 0 };
   };
 
   const dispose = () => {
@@ -257,14 +270,18 @@ export async function listWslDistros(runner: WslRunner = defaultWslRunner, timeo
 
     if (verboseRes && verboseRes.exitCode === 0) {
       const verboseText = decodeWslOutput(verboseRes.stdout);
-      for (const line of verboseText.split(/\r?\n/).filter(Boolean)) {
-        const isDef = /^\s*\*/.test(line);
+      for (const rawLine of verboseText.split(/\r?\n/).filter(Boolean)) {
+        const line = rawLine.trim();
+        const isDef = /^\*/.test(line);
+        const cleanRest = line.replace(/^\*\s*/, "").trim();
+        const m = /^(\S+)\s+/i.exec(cleanRest);
         const mVer = /\s+([12])\s*$/.exec(line);
         const ver = mVer ? parseInt(mVer[1]!, 10) : 2;
-        for (const name of names) {
-          if (line.includes(name)) {
-            if (isDef) defaults.add(name);
-            versions.set(name, ver);
+        if (m) {
+          const lineName = m[1]!;
+          if (names.includes(lineName)) {
+            if (isDef) defaults.add(lineName);
+            versions.set(lineName, ver);
           }
         }
       }
@@ -278,7 +295,7 @@ export async function listWslDistros(runner: WslRunner = defaultWslRunner, timeo
     }));
   } catch (e) {
     if (e instanceof ImportError) throw e;
-    return [];
+    throw new ImportError("E_IMPORT_FAILED", "wsl-probe-failed", `Failed to list WSL distros: ${(e as Error).message}`, 2);
   }
 }
 

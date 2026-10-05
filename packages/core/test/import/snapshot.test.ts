@@ -1,6 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { detect } from "../../src/import/detect.ts";
@@ -12,7 +13,10 @@ import {
   isSourceRunning,
   packTarBuffer,
   parseLanceManifestVersion,
+  WSL_RUNNING_CHECK_SCRIPT,
+  WSL_SYMLINK_SCAN_SCRIPT,
 } from "../../src/import/snapshot.ts";
+import { WSL_TAR_FIND_SCRIPT } from "../../src/import/wsl.ts";
 import { ImportError } from "../../src/import/types.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { buildLayout, type Layout } from "./layouts.ts";
@@ -486,16 +490,20 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
       assert.equal(cmd[3], "--exec");
 
       if (cmd[4] === "sh") {
-        // running check or symlink check
+        // running check, symlink check, or tar find
         assert.equal(cmd[8], "/home/ubuntu/.openclaw", "path must be passed as argv positional argument $1 without interpolation");
         const script = cmd[6] ?? "";
         if (script.includes("gateway.pid")) {
           runningCheckCalled = true;
           return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
         }
-        if (script.includes("find . -type l")) {
+        if (script.includes("-type l")) {
           symlinkCheckCalled = true;
           return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+        if (script.includes("-type f") || script.includes("tar")) {
+          tarCalled = true;
+          return { stdout: tarBuf, stderr: Buffer.alloc(0), exitCode: 0 };
         }
       }
 
@@ -548,7 +556,6 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
   });
 
   it("detects and excludes external symlinks inside WSL, recording in skippedLinks (N1)", async () => {
-    let capturedExcludeArgs: string[] = [];
     const tarBuf = packTarBuffer([
       { path: "openclaw.json", content: "{}" },
     ]);
@@ -562,13 +569,15 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
         if (script.includes("gateway.pid")) {
           return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
         }
-        if (script.includes("find . -type l")) {
-          // Reports external symlink pointing outside root
-          return { stdout: Buffer.from("skills/bad-link\nsecrets\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+        if (script.includes("-type l")) {
+          // Reports external symlink pointing outside root (NUL-separated)
+          return { stdout: Buffer.from("skills/bad-link\0secrets\0"), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+        if (script.includes("-type f") || script.includes("tar")) {
+          return { stdout: tarBuf, stderr: Buffer.alloc(0), exitCode: 0 };
         }
       }
       if (cmd[4] === "tar") {
-        capturedExcludeArgs = cmd.filter((arg) => arg.startsWith("--exclude="));
         return { stdout: tarBuf, stderr: Buffer.alloc(0), exitCode: 0 };
       }
       return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
@@ -582,8 +591,6 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
       wslRunner: mockRunner,
     });
 
-    assert.ok(capturedExcludeArgs.includes("--exclude=skills/bad-link"));
-    assert.ok(capturedExcludeArgs.includes("--exclude=./skills/bad-link"));
     assert.deepEqual(snap.metadata.skippedLinks, ["skills/bad-link", "secrets"]);
 
     rmSync(snap.stagingDir, { recursive: true, force: true });
@@ -599,6 +606,12 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
         const script = cmd[6] ?? "";
         if (script.includes("gateway.pid")) {
           return { stdout: Buffer.from("running:/home/ubuntu/.openclaw/gateway.pid:1234\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+        if (script.includes("-type l")) {
+          return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+        }
+        if (script.includes("-type f") || script.includes("tar")) {
+          return { stdout: packTarBuffer([{ path: "openclaw.json", content: "{}" }]), stderr: Buffer.alloc(0), exitCode: 0 };
         }
       }
       if (cmd[4] === "tar") {
@@ -629,6 +642,7 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
         allowLiveCopy: true,
       });
       assert.ok(existsSync(snap.stagingDir));
+      assert.equal(snap.metadata.liveCopy, true);
       rmSync(snap.stagingDir, { recursive: true, force: true });
     } finally {
       try { rmSync(home, { recursive: true, force: true }); } catch {}
@@ -655,12 +669,8 @@ if [ "$1" = "-l" ] && [ "$2" = "-v" ]; then
   exit 0
 fi
 if [ "$3" = "--exec" ] && [ "$4" = "sh" ]; then
-  printf "stopped\\n"
-  exit 0
-fi
-if [ "$3" = "--exec" ] && [ "$4" = "tar" ]; then
   shift 4
-  exec tar "$@"
+  exec /bin/sh "$@"
 fi
 exit 0
 `;
@@ -1126,6 +1136,229 @@ describe("snapshot — snapshot.json trust anchor (I6)", { timeout: 15_000 }, ()
     } finally {
       try { rmSync(home, { recursive: true, force: true }); } catch {}
     }
+  });
+});
+
+describe("snapshot — WSL production scripts and protections (Round 4, F1–F4)", { timeout: 30_000 }, () => {
+  it("F1: real shell scripts skip newline, spaces, directory aliases and wildcard symlinks without leaking outside secrets", async () => {
+    const srcDir = tempDir("p1b-wsl-f1-src-");
+    const secretDir = tempDir("p1b-wsl-f1-secret-");
+    const secretFile = join(secretDir, "id_rsa");
+    writeFileSync(secretFile, "SUPER_SECRET_SSH_KEY_CONTENT", "utf8");
+
+    // Regular file
+    writeFileSync(join(srcDir, "valid.txt"), "valid content", "utf8");
+
+    // Subdir with normal file
+    mkdirSync(join(srcDir, "sub"), { recursive: true });
+    writeFileSync(join(srcDir, "sub", "normal.txt"), "normal content", "utf8");
+
+    // 1. Newline in symlink name
+    try {
+      symlinkSync(secretFile, join(srcDir, "link\nwith\nnewline"));
+    } catch {}
+
+    // 2. Leading and trailing spaces
+    try {
+      symlinkSync(secretFile, join(srcDir, " leadingspace"));
+      symlinkSync(secretFile, join(srcDir, "trailingspace "));
+    } catch {}
+
+    // 3. Directory alias in root pointing to sub, with out link inside sub
+    try {
+      symlinkSync(secretFile, join(srcDir, "sub", "leak_out"));
+      symlinkSync(join(srcDir, "sub"), join(srcDir, "alias"));
+    } catch {}
+
+    // 4. Wildcard names
+    try {
+      symlinkSync(secretFile, join(srcDir, "wild*card"));
+      symlinkSync(secretFile, join(srcDir, "bracket[x]"));
+    } catch {}
+
+    // Run real WSL_SYMLINK_SCAN_SCRIPT with sh
+    const symlinkOutput = execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "."]);
+    const skippedLinks: string[] = [];
+    let startIdx = 0;
+    for (let i = 0; i < symlinkOutput.length; i++) {
+      if (symlinkOutput[i] === 0) {
+        if (i > startIdx) {
+          let link = symlinkOutput.subarray(startIdx, i).toString("utf8");
+          if (link.startsWith("./")) link = link.slice(2);
+          if (link.length > 0) skippedLinks.push(link);
+        }
+        startIdx = i + 1;
+      }
+    }
+
+    // Run real WSL_TAR_FIND_SCRIPT with sh and stream into extractTarStream
+    const tarOutput = execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", "."]);
+    const stagingDir = tempDir("p1b-wsl-f1-staging-");
+    await extractTarStream(tarOutput, stagingDir);
+
+    // Verify:
+    // Staging must contain valid.txt and sub/normal.txt
+    assert.ok(existsSync(join(stagingDir, "valid.txt")));
+    assert.ok(existsSync(join(stagingDir, "sub", "normal.txt")));
+
+    // Staging must NEVER contain the secret file or any of the symlink names as files containing the secret!
+    function assertNoSecret(dir: string) {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) {
+          assertNoSecret(full);
+        } else if (e.isFile()) {
+          const content = readFileSync(full, "utf8");
+          assert.ok(!content.includes("SUPER_SECRET_SSH_KEY_CONTENT"), `Secret leaked to: ${full}`);
+        }
+      }
+    }
+    assertNoSecret(stagingDir);
+
+    // Symlinks must have been skipped
+    assert.ok(skippedLinks.length > 0);
+  });
+
+  it("F2: dangling symlink is skipped and reported in skippedLinks without failing tar (F2)", async () => {
+    const srcDir = tempDir("p1b-wsl-f2-src-");
+    writeFileSync(join(srcDir, "file.txt"), "hello", "utf8");
+    symlinkSync(join(srcDir, "nonexistent-target"), join(srcDir, "dangling"));
+
+    const symlinkOutput = execFileSync("sh", ["-c", WSL_SYMLINK_SCAN_SCRIPT, "sh", srcDir, "--", "."]);
+    const skippedLinks: string[] = [];
+    let startIdx = 0;
+    for (let i = 0; i < symlinkOutput.length; i++) {
+      if (symlinkOutput[i] === 0) {
+        if (i > startIdx) {
+          let link = symlinkOutput.subarray(startIdx, i).toString("utf8");
+          if (link.startsWith("./")) link = link.slice(2);
+          if (link.length > 0) skippedLinks.push(link);
+        }
+        startIdx = i + 1;
+      }
+    }
+    assert.ok(skippedLinks.includes("dangling"));
+
+    const tarOutput = execFileSync("sh", ["-c", WSL_TAR_FIND_SCRIPT, "sh", srcDir, "--", "."]);
+    const stagingDir = tempDir("p1b-wsl-f2-staging-");
+    await extractTarStream(tarOutput, stagingDir);
+    assert.ok(existsSync(join(stagingDir, "file.txt")));
+    assert.ok(!existsSync(join(stagingDir, "dangling")));
+  });
+
+  it("F3: pre-pass and running check fail closed with wsl-probe-failed on non-zero exit", async () => {
+    const home = tempDir("p1b-wsl-f3-home-");
+
+    // 1. Running check fails
+    const failingRunningRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      if (cmd[4] === "sh" && (cmd[6] ?? "").includes("gateway.pid")) {
+        return { stdout: Buffer.alloc(0), stderr: Buffer.from("error in check"), exitCode: 1 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        wslRunner: failingRunningRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_IMPORT_FAILED" && err.reason === "wsl-probe-failed"
+    );
+
+    // 2. Symlink scan fails
+    const failingSymlinkRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      if (cmd[4] === "sh" && (cmd[6] ?? "").includes("gateway.pid")) {
+        return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd[4] === "sh" && (cmd[6] ?? "").includes("-type l")) {
+        return { stdout: Buffer.alloc(0), stderr: Buffer.from("error in symlink scan"), exitCode: 1 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+        home,
+        wslRunner: failingSymlinkRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_IMPORT_FAILED" && err.reason === "wsl-probe-failed"
+    );
+  });
+
+  it("F4: PID check parses JSON pid file and leading numbers without mangling", async () => {
+    const srcDir = tempDir("p1b-wsl-f4-pid-");
+    writeFileSync(join(srcDir, "gateway.pid"), `{"pid": ${process.pid}, "port": 18789}\n`, "utf8");
+
+    const out = execFileSync("sh", ["-c", WSL_RUNNING_CHECK_SCRIPT, "sh", srcDir]).toString("utf8");
+    assert.ok(out.startsWith(`running:${join(srcDir, "gateway.pid")}:${process.pid}`), `Expected running with PID ${process.pid}, got: ${out}`);
+  });
+
+  it("F4: WSL with allowLiveCopy runs quick_check on staged SQLite and deletes corrupt DBs", async () => {
+    const home = tempDir("p1b-wsl-f4-sqlite-");
+    const validDbPath = tempDir("p1b-wsl-db-valid-");
+    const db = new DatabaseSync(join(validDbPath, "valid.db"));
+    db.exec("CREATE TABLE t (x INT); INSERT INTO t VALUES (1);");
+    db.close();
+    const validDbBuf = readFileSync(join(validDbPath, "valid.db"));
+
+    const tarBuf = packTarBuffer([
+      { path: "openclaw.json", content: "{}" },
+      { path: "state/good.db", content: validDbBuf },
+      { path: "state/corrupt.db", content: Buffer.from("NOT_A_SQLITE_DATABASE_HEADER") },
+    ]);
+
+    const mockRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      if (cmd[4] === "sh") {
+        const script = cmd[6] ?? "";
+        if (script.includes("gateway.pid")) return { stdout: Buffer.from("stopped\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+        if (script.includes("-type l")) return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+        if (script.includes("tar") || script.includes("-type f")) return { stdout: tarBuf, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    const snap = await createSnapshot({
+      sourceType: "openclaw",
+      sourceRoot: "wsl:Ubuntu-24.04:/home/u/.openclaw",
+      home,
+      wslRunner: mockRunner,
+      allowLiveCopy: true,
+    });
+
+    // Valid db is kept and recorded as copy
+    assert.ok(existsSync(join(snap.stagingDir, "state/good.db")));
+    assert.deepEqual(snap.metadata.sqlite["state/good.db"], { status: "copy", attempts: 1 });
+
+    // Corrupt db is deleted from staging and recorded as source-busy
+    assert.ok(!existsSync(join(snap.stagingDir, "state/corrupt.db")));
+    assert.equal(snap.metadata.sqlite["state/corrupt.db"]?.status, "source-busy");
+  });
+
+  it("Item 4: unknown WSL distro throws unknown-distro", async () => {
+    const home = tempDir("p1b-wsl-unk-home-");
+    const mockRunner = async (cmd: string[]) => {
+      if (cmd[1] === "-l") return { stdout: Buffer.from("Ubuntu-24.04\n"), stderr: Buffer.alloc(0), exitCode: 0 };
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    await assert.rejects(
+      () => createSnapshot({
+        sourceType: "openclaw",
+        sourceRoot: "wsl:ArchLinux:/home/u/.openclaw",
+        home,
+        distro: "ArchLinux",
+        wslRunner: mockRunner,
+      }),
+      (err: any) => err instanceof ImportError && err.code === "E_INVALID_PARAMS" && err.reason === "unknown-distro"
+    );
   });
 });
 

@@ -349,5 +349,124 @@ OPENCLAW=/home/alice/.openclaw
     }
     await proc.waitClose();
   });
+
+  it("listWslDistros uses exact name matching so prefix names do not inherit default marker or version (Item 6, M8)", async () => {
+    const namesUtf16 = Buffer.from("Ubuntu\r\nUbuntu-24.04\r\n", "utf16le");
+    const verboseUtf16 = Buffer.from(
+      "  NAME            STATE           VERSION\r\n* Ubuntu-24.04    Running         2\r\n  Ubuntu          Stopped         1\r\n",
+      "utf16le"
+    );
+
+    const mockRunner: WslRunner = async (cmd) => {
+      if (cmd.includes("-l") && cmd.includes("-q")) {
+        return { stdout: namesUtf16, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      if (cmd.includes("-l") && cmd.includes("-v")) {
+        return { stdout: verboseUtf16, stderr: Buffer.alloc(0), exitCode: 0 };
+      }
+      return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), exitCode: 0 };
+    };
+
+    const distros = await listWslDistros(mockRunner);
+    assert.equal(distros.length, 2);
+
+    const u = distros.find((d) => d.name === "Ubuntu")!;
+    const u24 = distros.find((d) => d.name === "Ubuntu-24.04")!;
+
+    assert.equal(u.isDefault, false);
+    assert.equal(u.version, 1);
+
+    assert.equal(u24.isDefault, true);
+    assert.equal(u24.version, 2);
+  });
+
+  it("spawnWslTarStream leaves no active timers behind after stream completes (N3)", async () => {
+    let clearedTimer = false;
+    const origClearTimeout = globalThis.clearTimeout;
+    (globalThis as any).clearTimeout = (id: any) => {
+      clearedTimer = true;
+      origClearTimeout(id);
+    };
+
+    try {
+      const fakeSpawn = ((_cmd: string, _args: string[]) => {
+        const child = new EventEmitter() as any;
+        const stdout = new PassThrough();
+        const stderr = new PassThrough();
+        child.stdout = stdout;
+        child.stderr = stderr;
+        child.kill = () => {};
+
+        process.nextTick(() => {
+          stdout.write(Buffer.alloc(1024));
+          stdout.end();
+          stderr.end();
+          child.emit("close", 0);
+        });
+
+        return child;
+      }) as any;
+
+      const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["."], { spawnFn: fakeSpawn });
+      for await (const _chunk of proc.stream) {}
+      await proc.waitClose();
+      assert.equal(clearedTimer, true, "timer must be cleared upon stream completion");
+    } finally {
+      globalThis.clearTimeout = origClearTimeout;
+    }
+  });
+
+  it("spawnWslTarStream with allowLiveCopy treats exit code 1 as a warning instead of aborting (F4)", async () => {
+    const tarBuf = packTarBuffer([{ path: "file.txt", content: "data" }]);
+    const fakeSpawn = ((_cmd: string, _args: string[]) => {
+      const child = new EventEmitter() as any;
+      const stdout = new PassThrough();
+      const stderr = new PassThrough();
+      child.stdout = stdout;
+      child.stderr = stderr;
+      child.kill = () => {};
+
+      process.nextTick(() => {
+        stdout.write(tarBuf);
+        stdout.end();
+        stderr.write("tar: file changed as we read it\n");
+        stderr.end();
+        child.emit("close", 1);
+      });
+
+      return child;
+    }) as any;
+
+    const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["."], { spawnFn: fakeSpawn });
+    for await (const _chunk of proc.stream) {}
+    const res = await proc.waitClose(true);
+    assert.equal(res.tarWarnings, 1);
+  });
+
+  it("spawnWslTarStream throws wsl-tar-failed when killed by a signal (M2)", async () => {
+    const fakeSpawn = ((_cmd: string, _args: string[]) => {
+      const child = new EventEmitter() as any;
+      const stdout = new PassThrough();
+      const stderr = new PassThrough();
+      child.stdout = stdout;
+      child.stderr = stderr;
+      child.kill = () => {};
+
+      process.nextTick(() => {
+        stdout.end();
+        stderr.end();
+        child.emit("close", null, "SIGKILL");
+      });
+
+      return child;
+    }) as any;
+
+    const proc = spawnWslTarStream("Ubuntu-24.04", "/home/user/.openclaw", ["."], { spawnFn: fakeSpawn });
+    for await (const _chunk of proc.stream) {}
+    await assert.rejects(
+      () => proc.waitClose(),
+      (e: any) => e instanceof ImportError && e.reason === "wsl-tar-failed" && e.message.includes("SIGKILL")
+    );
+  });
 });
 

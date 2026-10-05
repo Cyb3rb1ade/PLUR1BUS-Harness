@@ -259,12 +259,30 @@ jobs:
         shell: bash
         run: |
           # Create synthetic openclaw installation inside Ubuntu-24.04 distro
-          wsl.exe -d Ubuntu-24.04 -e bash -c '
-            set -euo pipefail
-            mkdir -p ~/.openclaw/ws-wsl/skills/notes
-            printf '{\n  "meta": { "lastTouchedVersion": "2026.9.5" },\n  "agents": { "list": [ { "id": "wsl-agent", "workspace": "/root/.openclaw/ws-wsl" } ] }\n}\n' > ~/.openclaw/openclaw.json
-            printf -- '---\nname: notes\ndescription: WSL test notes\n---\n# notes\n' > ~/.openclaw/ws-wsl/skills/notes/SKILL.md
-          '
+          wsl.exe -d Ubuntu-24.04 -e bash -s <<'EOF'
+          set -euo pipefail
+          mkdir -p ~/.openclaw/ws-wsl/skills/notes
+          mkdir -p ~/.ssh
+          echo "secret-ssh-token" > ~/.ssh/id_rsa
+          ln -s ~/.ssh/id_rsa ~/.openclaw/ws-wsl/skills/notes/leaked_key
+          cat <<'JSON' > ~/.openclaw/openclaw.json
+          {
+            "meta": { "lastTouchedVersion": "2026.9.5" },
+            "agents": { "list": [ { "id": "wsl-agent", "workspace": "/root/.openclaw/ws-wsl" } ] }
+          }
+          JSON
+          cat <<'SKILL' > ~/.openclaw/ws-wsl/skills/notes/SKILL.md
+          ---
+          name: notes
+          description: WSL test notes
+          ---
+          # notes
+          SKILL
+          EOF
+
+          # Verify fixture exists inside distro
+          wsl.exe -d Ubuntu-24.04 -e test -f /root/.openclaw/openclaw.json || { echo "Fixture creation failed in WSL"; exit 1; }
+
           # Run detect with --probe-wsl against the WSL candidate from the Windows host
           out1=$(node packages/core/dist/import.js openclaw --detect --home "$RUNNER_TEMP/harness-home" --probe-wsl)
           echo "$out1"
@@ -275,4 +293,12 @@ jobs:
           echo "$out2"
           echo "$out2" | grep -q "wsl-agent" || { echo "wsl-agent not found in detect output"; exit 1; }
           echo "$out2" | grep -q "notes" || { echo "skill notes not found in detect output"; exit 1; }
+
+          # Run snapshot creation against real WSL and assert external symlink was skipped (F1, N1)
+          out3=$(node packages/core/dist/import.js openclaw --snapshot --source "wsl:Ubuntu-24.04:/root/.openclaw" --home "$RUNNER_TEMP/harness-home")
+          echo "$out3"
+          if grep -rq "secret-ssh-token" "$RUNNER_TEMP/harness-home"; then
+            echo "SECURITY VIOLATION: secret from outside WSL source root leaked into harness staging"
+            exit 1
+          fi
 

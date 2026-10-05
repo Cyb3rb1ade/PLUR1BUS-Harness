@@ -3,6 +3,8 @@
 // and WSL tar stream extraction with strict path traversal, symlink escape and device protections.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import {
   closeSync,
   existsSync,
@@ -62,6 +64,8 @@ export interface SnapshotMetadata {
   lancedb?: Record<string, SnapshotLanceInfo> | undefined;
   skippedLinks?: string[] | undefined;
   envKeys: Record<string, string[]>;
+  liveCopy?: boolean | undefined;
+  tarWarnings?: number | undefined;
 }
 
 export interface CreateSnapshotOptions {
@@ -178,7 +182,13 @@ class TarStreamReader {
       const take = Math.min(this.buf.length, remaining);
       const slice = this.buf.subarray(0, take);
       this.buf = this.buf.subarray(take);
-      writeSync(fd, slice);
+      try {
+        writeSync(fd, slice);
+      } catch (err) {
+        if (err instanceof ImportError) throw err;
+        const e = err as NodeJS.ErrnoException;
+        throw new ImportError("E_IMPORT_FAILED", e.code ? `fs-${e.code.toLowerCase()}` : "fs-error", `Failed to write destination file: ${e.message}`, 3);
+      }
       remaining -= take;
       onBytes(take);
     }
@@ -193,6 +203,9 @@ class TarStreamReader {
           throw new ImportError("E_TAR_CORRUPT", "stream-truncated", "Tar stream ended unexpectedly during padding", 3);
         }
         this.totalStreamBytes += next.value.length;
+        if (this.totalStreamBytes > this.maxBytes + 16 * 1024 * 1024) {
+          throw new ImportError("E_LIMIT_EXCEEDED", "too-large", `Tar stream exceeded max bytes limit (${this.maxBytes})`, 3);
+        }
         this.buf = next.value;
       }
       const take = Math.min(this.buf.length, remaining);
@@ -222,7 +235,13 @@ export async function extractTarStream(
   const maxFiles = opts.maxFiles ?? DEFAULT_SNAPSHOT_MAX_FILES;
   const absStaging = resolve(stagingDir);
 
-  mkdirSync(absStaging, { recursive: true, mode: 0o700 });
+  try {
+    mkdirSync(absStaging, { recursive: true, mode: 0o700 });
+  } catch (err) {
+    if (err instanceof ImportError) throw err;
+    const e = err as NodeJS.ErrnoException;
+    throw new ImportError("E_IMPORT_FAILED", e.code ? `fs-${e.code.toLowerCase()}` : "fs-error", `Failed to create staging directory: ${e.message}`, 3);
+  }
 
   let totalFiles = 0;
   let totalBytes = 0;
@@ -605,6 +624,9 @@ export function copyLanceTableWithManifest(
   }
 
   if (opts.allowLiveCopy) {
+    try {
+      rmSync(tableDst, { recursive: true, force: true });
+    } catch {}
     return { success: false, attempts: 3 };
   }
   throw new ImportError("E_SOURCE_BUSY", "source-running", `LanceDB store ${tableSrc} is being written to; source must be stopped (C7)`, 3);
@@ -663,6 +685,69 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+export const WSL_RUNNING_CHECK_SCRIPT = `root="$1"
+cd "$root" || exit 1
+real_root=$(pwd -P 2>/dev/null)
+[ -z "$real_root" ] && exit 1
+for f in "$root/gateway.pid" "$root/.gateway.pid" "$root/openclaw.pid" "$root/hermes.pid" "$root/state/gateway.pid" "$root/state/openclaw.pid"; do
+  if [ -f "$f" ]; then
+    pid=$(sed -n -E 's/.*"pid"[[:space:]]*:[[:space:]]*([0-9]+).*/\\1/p' "$f" 2>/dev/null | head -n 1)
+    if [ -z "$pid" ]; then
+      pid=$(sed -n -E 's/^[[:space:]]*([0-9]+).*/\\1/p' "$f" 2>/dev/null | head -n 1)
+    fi
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      echo "running:$f:$pid"
+      exit 0
+    fi
+  fi
+done
+for l in "$root/gateway.lock" "$root/.gateway.lock"; do
+  if [ -f "$l" ]; then
+    echo "running:$l:lock"
+    exit 0
+  fi
+done
+echo "stopped"
+`;
+
+export const WSL_SYMLINK_SCAN_SCRIPT = `root="$1"
+shift
+if [ "$1" = "--" ]; then
+  shift
+fi
+cd "$root" || exit 1
+real_root=$(pwd -P 2>/dev/null)
+[ -z "$real_root" ] && exit 1
+if [ $# -eq 0 ]; then
+  set -- "."
+fi
+find "$@" -type l -print0
+`;
+
+function runnerToSpawn(runner: WslRunner): typeof spawn {
+  return ((cmd: string, args: string[]) => {
+    const child = new EventEmitter() as any;
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    child.stdout = stdout;
+    child.stderr = stderr;
+    child.kill = () => {};
+    process.nextTick(async () => {
+      try {
+        const res = await runner([cmd, ...args]);
+        if (res.stdout && res.stdout.length > 0) stdout.write(res.stdout);
+        stdout.end();
+        if (res.stderr && res.stderr.length > 0) stderr.write(res.stderr);
+        stderr.end();
+        child.emit("close", res.exitCode, null);
+      } catch (err) {
+        child.emit("error", err);
+      }
+    });
+    return child;
+  }) as any;
+}
+
 /**
  * Creates a complete snapshot of a source installation (§B.3, G6).
  * Supports:
@@ -690,21 +775,22 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
   const sqliteStatuses: Record<string, SnapshotSqliteInfo> = {};
   const lanceStatuses: Record<string, SnapshotLanceInfo> = {};
   let skippedLinks: string[] = [];
+  let tarWarnings = 0;
 
   try {
-    mkdirSync(stagingDir, { recursive: true, mode: 0o700 });
-    stagingCreated = true;
+    try {
+      mkdirSync(stagingDir, { recursive: true, mode: 0o700 });
+      stagingCreated = true;
+    } catch (err) {
+      if (err instanceof ImportError) throw err;
+      const e = err as NodeJS.ErrnoException;
+      throw new ImportError("E_IMPORT_FAILED", e.code ? `fs-${e.code.toLowerCase()}` : "fs-error", `Failed to create staging directory: ${e.message}`, 3);
+    }
 
     if (isWsl) {
       const distro = opts.distro ?? (loc.origin.startsWith("wsl:") ? loc.origin.slice(4) : "");
       if (!distro || /[\/\\:\0\r\n]/.test(distro) || distro.startsWith("-")) {
         throw new ImportError("E_INVALID_PARAMS", "invalid-distro-name", `Invalid WSL distro name: ${distro}`, 2);
-      }
-
-      const runner = opts.wslRunner ?? defaultWslRunner;
-      const installedDistros = await listWslDistros(runner);
-      if (installedDistros.length > 0 && !installedDistros.some((d) => d.name === distro)) {
-        throw new ImportError("E_INVALID_PARAMS", "unknown-distro", `WSL distro "${distro}" is not in installed distros list`, 2);
       }
 
       const timeoutMs = opts.timeoutMs ?? 30_000;
@@ -718,7 +804,13 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         }
       }
 
-      // Check running source inside WSL (N2, C7)
+      const runner = opts.wslRunner ?? defaultWslRunner;
+      const installedDistros = await listWslDistros(runner);
+      if (!installedDistros.some((d) => d.name === distro)) {
+        throw new ImportError("E_INVALID_PARAMS", "unknown-distro", `WSL distro "${distro}" is not in installed distros list`, 2);
+      }
+
+      // Check running source inside WSL (N2, C7, F3, F4)
       const checkCmd = [
         "wsl.exe",
         "-d",
@@ -726,21 +818,22 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         "--exec",
         "sh",
         "-c",
-        'root="$1"\nfor f in "$root/gateway.pid" "$root/.gateway.pid" "$root/openclaw.pid" "$root/hermes.pid" "$root/state/gateway.pid" "$root/state/openclaw.pid"; do\n  if [ -f "$f" ]; then\n    pid=$(tr -dc "0-9" < "$f" 2>/dev/null)\n    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then\n      echo "running:$f:$pid"\n      exit 0\n    fi\n  fi\ndone\nfor l in "$root/gateway.lock" "$root/.gateway.lock"; do\n  if [ -f "$l" ]; then\n    echo "running:$l:lock"\n    exit 0\n  fi\ndone\necho "stopped"\n',
+        WSL_RUNNING_CHECK_SCRIPT,
         "sh",
         loc.sourceRoot,
       ];
       const checkRes = await runner(checkCmd, { timeoutMs: 5000 });
-      if (checkRes && checkRes.exitCode === 0) {
-        const line = checkRes.stdout.toString("utf8").trim();
-        if (line.startsWith("running:")) {
-          if (!opts.allowLiveCopy) {
-            throw new ImportError("E_SOURCE_BUSY", "source-running", `WSL source is currently running (${line.slice(8)}); stop the source or pass --allow-live-copy (C7)`, 3);
-          }
+      if (!checkRes || checkRes.exitCode !== 0) {
+        throw new ImportError("E_IMPORT_FAILED", "wsl-probe-failed", "WSL running source check failed", 3);
+      }
+      const line = checkRes.stdout.toString("utf8").trim();
+      if (line.startsWith("running:")) {
+        if (!opts.allowLiveCopy) {
+          throw new ImportError("E_SOURCE_BUSY", "source-running", `WSL source is currently running (${line.slice(8)}); stop the source or pass --allow-live-copy (C7)`, 3);
         }
       }
 
-      // Check external symlinks inside WSL (N1)
+      // Scan symlinks inside WSL (N1, F1, F2, F3)
       const symlinkCmd = [
         "wsl.exe",
         "-d",
@@ -748,41 +841,85 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         "--exec",
         "sh",
         "-c",
-        'root="$1"\ncd "$root" 2>/dev/null || exit 0\nreal_root=$(pwd -P 2>/dev/null || true)\n[ -z "$real_root" ] && exit 0\nfind . -type l 2>/dev/null | while IFS= read -r link; do\n  target=$(readlink -f "$link" 2>/dev/null || true)\n  case "$target" in\n    "$real_root"/*|"$real_root") ;;\n    *)\n      clean="${link#./}"\n      [ -n "$clean" ] && printf "%s\\n" "$clean"\n      ;;\n  esac\ndone\n',
+        WSL_SYMLINK_SCAN_SCRIPT,
         "sh",
         loc.sourceRoot,
+        "--",
+        ...subpaths,
       ];
       const symlinkRes = await runner(symlinkCmd, { timeoutMs: 10_000 });
-      if (symlinkRes && symlinkRes.exitCode === 0) {
-        const out = symlinkRes.stdout.toString("utf8");
-        for (const l of out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) {
-          skippedLinks.push(l);
+      if (!symlinkRes || symlinkRes.exitCode !== 0) {
+        throw new ImportError("E_IMPORT_FAILED", "wsl-probe-failed", "WSL symlink scan failed", 3);
+      }
+      const symlinkOut = symlinkRes.stdout;
+      let startIdx = 0;
+      for (let i = 0; i < symlinkOut.length; i++) {
+        if (symlinkOut[i] === 0) {
+          if (i > startIdx) {
+            let link = symlinkOut.subarray(startIdx, i).toString("utf8");
+            if (link.startsWith("./")) link = link.slice(2);
+            if (link.length > 0) skippedLinks.push(link);
+          }
+          startIdx = i + 1;
         }
       }
 
-      const excludeArgs = skippedLinks.flatMap((l) => [`--exclude=${l}`, `--exclude=./${l}`]);
-
-      if (opts.wslRunner && !opts.wslSpawn) {
-        const cmd = ["wsl.exe", "-d", distro, "--exec", "tar", "-h", ...excludeArgs, "-C", loc.sourceRoot, "-cf", "-", "--", ...subpaths];
-        const res = await opts.wslRunner(cmd, { timeoutMs });
-        if (res.exitCode !== 0) {
-          throw new ImportError("E_IMPORT_FAILED", "wsl-tar-failed", `wsl.exe tar failed (exit ${res.exitCode}): ${res.stderr.toString("utf8")}`, 2);
+      // Spawn WSL tar process (Single production code path, §B.3, M1)
+      const spawnOpts: SpawnWslTarStreamOptions = {
+        timeoutMs,
+      };
+      if (opts.wslSpawn) {
+        spawnOpts.spawnFn = opts.wslSpawn;
+      } else if (opts.wslRunner) {
+        spawnOpts.spawnFn = runnerToSpawn(opts.wslRunner);
+      }
+      const tarProcess = spawnWslTarStream(distro, loc.sourceRoot, subpaths, spawnOpts);
+      try {
+        await extractTarStream(tarProcess.stream, stagingDir, { maxBytes, maxFiles, targetPlatform: platform });
+        const closeRes = await tarProcess.waitClose(opts.allowLiveCopy);
+        if (closeRes.tarWarnings > 0) {
+          tarWarnings = closeRes.tarWarnings;
         }
-        await extractTarStream(res.stdout, stagingDir, { maxBytes, maxFiles, targetPlatform: platform });
-      } else {
-        const spawnOpts: SpawnWslTarStreamOptions = {
-          timeoutMs,
-          excludes: skippedLinks,
-        };
-        if (opts.wslSpawn) spawnOpts.spawnFn = opts.wslSpawn;
-        const tarProcess = spawnWslTarStream(distro, loc.sourceRoot, subpaths, spawnOpts);
-        try {
-          await extractTarStream(tarProcess.stream, stagingDir, { maxBytes, maxFiles, targetPlatform: platform });
-          await tarProcess.waitClose();
-        } finally {
-          tarProcess.dispose();
+      } finally {
+        tarProcess.dispose();
+      }
+
+      // Staged SQLite verification for WSL (F4)
+      function scanSqlite(dir: string) {
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const e of entries) {
+          const full = join(dir, e.name);
+          if (e.isDirectory()) {
+            scanSqlite(full);
+          } else if (e.isFile() && (e.name.endsWith(".db") || e.name.endsWith(".sqlite"))) {
+            const rel = relative(stagingDir, full).replace(/\\/g, "/");
+            let ok = false;
+            let db: DatabaseSync | null = null;
+            try {
+              db = new DatabaseSync(full, { readOnly: true });
+              const check = db.prepare("PRAGMA quick_check").all() as Record<string, unknown>[];
+              if (check.length === 1 && Object.values(check[0]!)[0] === "ok") {
+                ok = true;
+              }
+            } catch {
+              ok = false;
+            } finally {
+              try { db?.close(); } catch {}
+            }
+            if (ok) {
+              sqliteStatuses[rel] = { status: "copy", attempts: 1 };
+            } else if (opts.allowLiveCopy) {
+              try { rmSync(full, { force: true }); } catch {}
+              try { rmSync(`${full}-wal`, { force: true }); } catch {}
+              try { rmSync(`${full}-shm`, { force: true }); } catch {}
+              sqliteStatuses[rel] = { status: "source-busy", attempts: 1, reason: "quick_check failed on live copy" };
+            } else {
+              throw new ImportError("E_SOURCE_BUSY", "source-running", `SQLite database ${rel} inconsistent; stop the source or pass --allow-live-copy (C7)`, 3);
+            }
+          }
         }
       }
+      scanSqlite(stagingDir);
     } else {
       // Native copier
       const absSrc = resolve(opts.sourceRoot);
@@ -816,6 +953,8 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       sqliteStatuses,
       lanceStatuses,
       skippedLinks,
+      liveCopy: opts.allowLiveCopy ? true : undefined,
+      tarWarnings: tarWarnings > 0 ? tarWarnings : undefined,
     });
 
     writeFileSync(join(stagingDir, "snapshot.json"), JSON.stringify(metadata, null, 2) + "\n", "utf8");
@@ -990,6 +1129,8 @@ function generateSnapshotMetadata(o: {
   sqliteStatuses: Record<string, SnapshotSqliteInfo>;
   lanceStatuses?: Record<string, SnapshotLanceInfo> | undefined;
   skippedLinks?: string[] | undefined;
+  liveCopy?: boolean | undefined;
+  tarWarnings?: number | undefined;
 }): SnapshotMetadata {
   const files: SnapshotFileInfo[] = [];
   const envKeys: Record<string, string[]> = {};
@@ -1034,6 +1175,12 @@ function generateSnapshotMetadata(o: {
   }
   if (o.skippedLinks && o.skippedLinks.length > 0) {
     meta.skippedLinks = o.skippedLinks;
+  }
+  if (o.liveCopy) {
+    meta.liveCopy = true;
+  }
+  if (o.tarWarnings && o.tarWarnings > 0) {
+    meta.tarWarnings = o.tarWarnings;
   }
   return meta;
 }

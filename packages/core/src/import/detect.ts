@@ -34,13 +34,26 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
     } catch (e: any) {
       const reason = e instanceof ImportError ? e.reason : (e.message ?? String(e));
       wslWarnings.push(`WSL candidate discovery failed: ${reason}`);
+      candidates = [
+        {
+          sourceType: o.sourceType,
+          distro: "wsl-unavailable",
+          state: "Stopped",
+          sourceRoot: "",
+          accessRoot: "",
+          sourceHome: "",
+          accessHome: "",
+          probed: false,
+          reason: `wsl-unavailable: ${reason}`,
+        },
+      ];
     }
   }
   let reportResult: { report: SourceReport; target: TargetIdentity; skills: ScannedSkill[] };
   try {
     reportResult = await readSource(o);
   } catch (err) {
-    if (((candidates && candidates.length > 0) || wslWarnings.length > 0) && err instanceof ImportError && err.code === "E_SOURCE_MISSING") {
+    if (((candidates && candidates.length > 0) || wslWarnings.length > 0) && err instanceof ImportError && (err.code === "E_SOURCE_MISSING" || err.code === "E_SOURCE_NOT_FOUND" || err.reason === "source-missing")) {
       const target = targetIdentity(o.home);
       return {
         sourceType: o.sourceType,
@@ -99,6 +112,7 @@ export async function detect(o: SourceOptions): Promise<DetectReport> {
   };
   return {
     ...report,
+    warnings: [...report.warnings, ...wslWarnings],
     target: { home: target.home, configSource: target.configSource, embedding: target.embedding, reranker: target.reranker, warnings: target.warnings },
     skillRoots: report.skillRoots.map((r) => ({ dir: r.dir, tier: r.tier, agentId: r.agentId, exists: existsSync(r.dir) })),
     skills: detectSkills,

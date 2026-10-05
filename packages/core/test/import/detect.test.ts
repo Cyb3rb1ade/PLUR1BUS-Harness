@@ -1,6 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { detect, type DetectReport } from "../../src/import/detect.ts";
+import { ImportError } from "../../src/import/types.ts";
 import { renderDetect } from "../../src/import/render.ts";
 import { CONTENT_MARKER, FAKE_TOKEN, harnessHome, hermesFixture, openclawFixture, SYMLINKS, type OpenclawFixture } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
@@ -57,5 +58,49 @@ describe("detect (Hermes)", () => {
     assert.equal(r.skills.find((s) => s.id === "meeting-notes")!.description, "Turn raw meeting notes into action items");
     assert.equal(treeDigest(fx.base), digest);
     for (const s of [JSON.stringify(r), renderDetect(r)]) { assert.ok(!s.includes(FAKE_TOKEN)); assert.ok(!s.includes(CONTENT_MARKER)); }
+  });
+
+  it("surfaces wsl-unavailable candidate and warnings when WSL enumeration fails on Windows platform (Item 6)", async () => {
+    const home = harnessHome();
+    const failingRunner = async () => {
+      throw new ImportError("E_SOURCE_BUSY", "wsl-timeout", "wsl.exe timed out");
+    };
+
+    // 1. Native source missing path
+    const report1 = await detect({
+      sourceType: "openclaw",
+      home,
+      platform: "win32",
+      wslRunner: failingRunner,
+      env: {},
+      homedir: "/nonexistent-home",
+    });
+
+    assert.ok(report1.warnings.some((w) => w.includes("WSL candidate discovery failed")));
+    assert.ok(report1.candidates);
+    assert.equal(report1.candidates.length, 1);
+    assert.equal(report1.candidates[0]!.distro, "wsl-unavailable");
+    assert.ok(report1.candidates[0]!.reason?.includes("wsl-unavailable"));
+
+    // 2. Native source found path
+    const fx = await openclawFixture();
+    try {
+      const report2 = await detect({
+        sourceType: "openclaw",
+        home,
+        platform: "win32",
+        wslRunner: failingRunner,
+        env: { OPENCLAW_HOME: fx.root },
+        homedir: fx.base,
+      });
+
+      assert.ok(report2.warnings.some((w) => w.includes("WSL candidate discovery failed")));
+      assert.ok(report2.candidates);
+      assert.equal(report2.candidates.length, 1);
+      assert.equal(report2.candidates[0]!.distro, "wsl-unavailable");
+      assert.ok(report2.candidates[0]!.reason?.includes("wsl-unavailable"));
+    } finally {
+      await fx.close();
+    }
   });
 });
