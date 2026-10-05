@@ -31,7 +31,13 @@ export function defaultHermesHome(env: NodeJS.ProcessEnv, homedir: string, platf
 export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.ProcessEnv; homedir: string; platform?: NodeJS.Platform | undefined }): { root: string; resolvedFrom: string; profile: string | null } {
   const platform = o.platform ?? process.platform;
   const P = pathFor(platform);
-  if (o.source) return { root: P.resolve(expandTilde(o.source, o.homedir, platform)), resolvedFrom: "flag:--source", profile: null };
+  if (o.source) {
+    if (o.source.startsWith("wsl:")) {
+      const loc = locateSource({ accessRoot: o.source, platform, env: o.env, home: o.homedir });
+      return { root: loc.accessRoot, resolvedFrom: "flag:--source", profile: null };
+    }
+    return { root: P.resolve(expandTilde(o.source, o.homedir, platform)), resolvedFrom: "flag:--source", profile: null };
+  }
   const env = envGet(o.env, "HERMES_HOME", platform)?.trim();
   if (env) {
     const p = P.resolve(expandUser(expandVars(env, o.env, platform), o.env, o.homedir, platform));
@@ -99,7 +105,7 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
 
   const agents: AgentInfo[] = profiles.map((p) => ({ agentId: p.agentId, workspace: p.dir, workspaceSource: p.agentId === "default" ? "root" : "profile", agentDir: p.dir, foundIn: [p.agentId === "default" ? "root" : "profiles"] }));
 
-  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir });
+  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir, harnessHome: ctx.home });
   const SP = pathFor(loc.flavour);
   const base = SP.basename(loc.sourceRoot);
   const mapper = new SourcePathMapper(loc, { maps: ctx.maps, rootNames: base === ".hermes" || base === "hermes" ? [".hermes", "hermes"] : [], env: loc.origin === "native" ? ctx.env : undefined });

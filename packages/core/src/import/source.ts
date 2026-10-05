@@ -20,11 +20,28 @@ export interface SourceOptions {
   /** The platform of the volume the harness copies to, for name hazards (default: `platform`). */
   targetPlatform?: NodeJS.Platform | undefined;
   maxBytes?: number;
+  probeWsl?: boolean | undefined;
+  allowLiveCopy?: boolean | undefined;
+  wslRunner?: any;
 }
 
 export async function readSource(o: SourceOptions): Promise<{ report: SourceReport; target: TargetIdentity; skills: ScannedSkill[] }> {
   const target = targetIdentity(o.home);
-  const ctx = { sourceType: o.sourceType, source: o.source, profile: o.profile, env: o.env ?? process.env, homedir: o.homedir ?? osHomedir(), platform: o.platform, targetPlatform: o.targetPlatform, maps: o.maps, home: o.home, target };
+  const ctx = {
+    sourceType: o.sourceType,
+    source: o.source,
+    profile: o.profile,
+    env: o.env ?? process.env,
+    homedir: o.homedir ?? osHomedir(),
+    platform: o.platform,
+    targetPlatform: o.targetPlatform,
+    maps: o.maps,
+    home: o.home,
+    target,
+    probeWsl: o.probeWsl,
+    allowLiveCopy: o.allowLiveCopy,
+    wslRunner: o.wslRunner,
+  };
   const report = o.sourceType === "openclaw" ? await detectOpenclaw(ctx) : await detectHermes(ctx);
   const skills = scanSkills(report.skillRoots, { maxBytes: o.maxBytes ?? DEFAULT_MAX_SKILL_BYTES, maxFiles: DEFAULT_MAX_SKILL_FILES, targetPlatform: o.targetPlatform ?? o.platform ?? process.platform });
   return { report, target, skills };

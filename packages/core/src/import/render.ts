@@ -42,6 +42,14 @@ export function renderDetect(r: DetectReport): string {
     for (const m of pt.mapped) L.push(`  ${m.key}: ${m.value} → ${m.path} [${m.how}]`);
     for (const u of pt.unmapped) L.push(`  ${u.key}: ${u.value} — unmapped (${u.reason})`);
   }
+  if (r.candidates && r.candidates.length) {
+    L.push("", `Candidates (WSL, ${r.candidates.length}):`);
+    for (const c of r.candidates) {
+      const state = c.state === "Running" ? "running" : "stopped";
+      const info = c.probed ? c.sourceRoot : (c.reason ?? "not probed");
+      L.push(`  ${c.distro} (${state}): ${info}`);
+    }
+  }
   L.push("", "Secrets (presence only):");
   if (!r.secrets.files.length && !r.secrets.configKeys.length) L.push("  none found");
   for (const f of r.secrets.files) L.push(`  ${f.path} (${f.kind})`);

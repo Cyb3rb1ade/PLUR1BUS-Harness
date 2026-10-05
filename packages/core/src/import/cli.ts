@@ -23,6 +23,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         home: { type: "string" }, detect: { type: "boolean" }, skills: { type: "boolean" }, rollback: { type: "string" },
         source: { type: "string" }, profile: { type: "string" }, apply: { type: "boolean" }, enable: { type: "boolean" },
         "on-conflict": { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
+        "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" },
       },
     }) as { values: Record<string, string | boolean | string[] | undefined>; positionals: string[] });
   } catch (e) {
@@ -48,7 +49,18 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   }
   let maps: Mount[] | undefined;
   try { maps = values.map ? parseMaps(values.map as string[]) : undefined; } catch (e) { return fail("E_INVALID_PARAMS", "map", (e as Error).message); }
-  const base = { sourceType: sourceType as SourceType, source: values.source as string | undefined, profile: values.profile as string | undefined, home: values.home, env, ...(homedir ? { homedir } : {}), maps, maxBytes };
+  const base = {
+    sourceType: sourceType as SourceType,
+    source: values.source as string | undefined,
+    profile: values.profile as string | undefined,
+    home: values.home,
+    env,
+    ...(homedir ? { homedir } : {}),
+    maps,
+    maxBytes,
+    probeWsl: values["probe-wsl"] === true,
+    allowLiveCopy: values["allow-live-copy"] === true,
+  };
   try {
     if (mode === "detect") {
       const r = await detect(base);

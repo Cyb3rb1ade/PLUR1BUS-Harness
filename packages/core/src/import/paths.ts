@@ -1,6 +1,7 @@
 // Platform-aware path helpers for the importer (plugin-distribution spec §B.1, §B.4). Every function takes the
 // platform explicitly and uses `path.win32` or `path.posix` accordingly — never the host's `node:path` — so the
 // Windows rules are unit-tested on Linux and a Windows host can read a POSIX-flavoured source (and back).
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { posix, win32 } from "node:path";
 import { ImportError } from "./types.ts";
 
@@ -81,12 +82,110 @@ const WSL_UNC = /^(?:\\\\|\/\/)(wsl\$|wsl\.localhost)[\\/]+([^\\/]+)((?:[\\/].*)
  *  `\\wsl.localhost\<distro>\…` root is a POSIX source inside that distro; `/mnt/<drive>/…` read inside WSL
  *  (`WSL_DISTRO_NAME`/`WSL_INTEROP` set) is a Windows source; a UNC share read on Windows is `network`; anything else
  *  is `native` with `home` as its home. */
-export function locateSource(o: { accessRoot: string; platform: NodeJS.Platform; env: NodeJS.ProcessEnv; home: string | null }): SourceLocation {
+export function locateSource(o: {
+  accessRoot: string;
+  platform: NodeJS.Platform;
+  env: NodeJS.ProcessEnv;
+  home: string | null;
+  harnessHome?: string | null;
+}): SourceLocation {
   const hostFlavour = flavourOf(o.platform);
   const H = pathFor(hostFlavour);
   const base = { hostFlavour, accessRoot: o.accessRoot };
+  try {
+    const metaPath = H.join(o.accessRoot, "snapshot.json");
+    if (existsSync(metaPath)) {
+      // Trust anchor check: snapshot.json is only accepted under the Harness home's import directory (<home>/import/<run>/snapshot/)
+      const candidateHome = o.harnessHome ?? o.home;
+      if (candidateHome) {
+        let realHomeImport: string;
+        try {
+          realHomeImport = realpathSync(H.join(candidateHome, "import"));
+        } catch {
+          realHomeImport = H.resolve(H.join(candidateHome, "import"));
+        }
+        let realAccess: string;
+        try {
+          realAccess = realpathSync(o.accessRoot);
+        } catch {
+          realAccess = H.resolve(o.accessRoot);
+        }
+
+        const isCaseInsensitive = o.platform === "win32" || o.platform === "darwin";
+        const norm = (s: string) => (isCaseInsensitive ? s.toLowerCase() : s);
+        const normAccess = norm(realAccess);
+        const normHomeImport = norm(realHomeImport);
+
+        const isUnderHomeImport =
+          (normAccess.startsWith(normHomeImport + H.sep) || normAccess === normHomeImport) &&
+          /[\\/]import[\\/][^\\/]+[\\/]snapshot$/i.test(normAccess);
+
+        if (isUnderHomeImport) {
+          const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+          if (meta && typeof meta === "object" && meta.version === 1) {
+            const allowedOrigins = ["native", "windows-from-wsl", "network", "container"];
+            const isAllowedOrigin = typeof meta.origin === "string" && (allowedOrigins.includes(meta.origin) || meta.origin.startsWith("wsl:"));
+            const isAllowedFlavour = meta.flavour === "posix" || meta.flavour === "win32";
+            if (isAllowedOrigin && isAllowedFlavour) {
+              const mounts = Array.isArray(meta.mounts) ? meta.mounts : [];
+              const safeMounts: Mount[] = [];
+              for (const m of mounts) {
+                if (
+                  m &&
+                  typeof m.from === "string" &&
+                  typeof m.to === "string" &&
+                  !m.to.startsWith("/etc") &&
+                  !m.to.startsWith("\\etc") &&
+                  !/^[a-zA-Z]:[\\/]/i.test(m.to) &&
+                  !m.to.startsWith("/") &&
+                  !m.to.startsWith("\\")
+                ) {
+                  const targetPath = H.resolve(realAccess, m.to);
+                  let realTarget: string;
+                  try {
+                    realTarget = realpathSync(targetPath);
+                  } catch {
+                    realTarget = targetPath;
+                  }
+                  const normTarget = norm(realTarget);
+                  if (normTarget.startsWith(normAccess + H.sep) || normTarget === normAccess) {
+                    safeMounts.push({ from: m.from, to: m.to });
+                  }
+                }
+              }
+              return {
+                origin: meta.origin,
+                flavour: meta.flavour,
+                hostFlavour,
+                accessRoot: o.accessRoot,
+                sourceRoot: typeof meta.sourceRoot === "string" ? meta.sourceRoot : o.accessRoot,
+                sourceHome: typeof meta.sourceHome === "string" ? meta.sourceHome : o.home,
+                accessHome: o.home,
+                mounts: safeMounts,
+              };
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+  const wslSyntax = /^wsl:([^:]+):(.*)$/.exec(o.accessRoot);
+  if (wslSyntax) {
+    const distro = wslSyntax[1]!;
+    const rawPath = wslSyntax[2]!.startsWith("/") ? wslSyntax[2]! : `/${wslSyntax[2]!}`;
+    const parts = normParts(rawPath.split(/[\\/]+/).filter(Boolean));
+    const sourceRoot = `/${parts.join("/")}`;
+    const prefix = `\\\\wsl.localhost\\${distro}`;
+    const accessRoot = hostFlavour === "win32" ? `${prefix}\\${parts.join("\\")}` : `${prefix}/${parts.join("/")}`;
+    const homeParts = parts[0] === "home" && parts.length >= 2 ? parts.slice(0, 2) : parts[0] === "root" ? ["root"] : null;
+    return {
+      origin: `wsl:${distro}`, flavour: "posix", hostFlavour, accessRoot, sourceRoot,
+      sourceHome: homeParts ? `/${homeParts.join("/")}` : null, accessHome: homeParts ? (hostFlavour === "win32" ? H.join(prefix, ...homeParts) : `${prefix}/${homeParts.join("/")}`) : null,
+      mounts: [{ from: "/mnt/*", to: "*:\\" }, { from: "/", to: prefix }],
+    };
+  }
   const wsl = WSL_UNC.exec(o.accessRoot);
-  if (wsl && hostFlavour === "win32") {
+  if (wsl && (hostFlavour === "win32" || o.accessRoot.startsWith("\\\\") || o.accessRoot.startsWith("//"))) {
     const prefix = `\\\\${wsl[1]}\\${wsl[2]}`;
     const parts = normParts(wsl[3]!.split(/[\\/]+/).filter(Boolean));
     const sourceRoot = `/${parts.join("/")}`;
