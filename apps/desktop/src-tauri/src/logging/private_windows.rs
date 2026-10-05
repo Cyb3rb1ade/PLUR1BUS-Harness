@@ -23,7 +23,7 @@ use windows_sys::Win32::{
     },
     Storage::FileSystem::{
         GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION, FILE_FLAG_BACKUP_SEMANTICS,
-        FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, READ_CONTROL, WRITE_DAC,
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ,
     },
     System::Threading::{GetCurrentProcess, OpenProcessToken},
 };
@@ -73,10 +73,14 @@ fn user() -> io::Result<Vec<usize>> {
     Ok(buffer)
 }
 pub(super) fn directory_options(options: &mut OpenOptions) {
+    // SetSecurityInfo must not propagate the directory's protected DACL into existing
+    // unowned children. Windows suppresses that propagation for MAXIMUM_ALLOWED handles.
+    // Ownership and the resulting exact user+SYSTEM DACL are still checked below.
+    const MAXIMUM_ALLOWED: u32 = 0x0200_0000;
     options
         .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
         .share_mode(FILE_SHARE_READ)
-        .access_mode(READ_CONTROL | WRITE_DAC | 0x80);
+        .access_mode(MAXIMUM_ALLOWED);
 }
 pub(super) fn require_owner(file: &File) -> io::Result<()> {
     check(file, false)

@@ -1,7 +1,12 @@
 use plur1bus_desktop::{diagnostics::Diagnostics, logging::*};
 
+// Production redaction deliberately fails closed during process-registry writes.
+// Keep unrelated registration out of this disk-persistence observation.
+static PROCESS_REGISTRY_TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[test]
 fn native_diagnostics_bootstrap_uses_owned_profile_and_shared_redaction() {
+    let _registry = PROCESS_REGISTRY_TEST.blocking_lock();
     let fixture = tempfile::tempdir().unwrap();
     let root = fixture.path().canonicalize().unwrap();
     let diagnostics =
@@ -67,6 +72,7 @@ fn secret_registration_failure_closes_the_redaction_boundary() {
 
 #[tokio::test]
 async fn confirmed_shutdown_flushes_expired_diagnostics_through_production_worker() {
+    let _registry = PROCESS_REGISTRY_TEST.lock().await;
     use chrono::{DateTime, TimeDelta, Utc};
     use std::sync::{Arc, Mutex};
     struct Clock(Mutex<DateTime<Utc>>);
@@ -85,12 +91,18 @@ async fn confirmed_shutdown_flushes_expired_diagnostics_through_production_worke
     )
     .unwrap();
     let writer = diagnostics.writer.clone();
-    writer
-        .emit(RecordInput::new(Event::DeeplinkIgnored))
-        .unwrap();
-    writer
-        .emit(RecordInput::new(Event::DeeplinkIgnored))
-        .unwrap();
+    assert_eq!(
+        writer
+            .emit(RecordInput::new(Event::DeeplinkIgnored))
+            .unwrap(),
+        EmitStatus::Written
+    );
+    assert_eq!(
+        writer
+            .emit(RecordInput::new(Event::DeeplinkIgnored))
+            .unwrap(),
+        EmitStatus::Deduplicated
+    );
     *clock.0.lock().unwrap() += TimeDelta::seconds(60);
     plur1bus_desktop::diagnostics::shutdown_owned(diagnostics)
         .await
