@@ -35,7 +35,7 @@
 | M4 | Channels: Telegram, Discord, Matrix, Buzz · `/web` chat handoff (D93) | PR-06 channel vocabulary (**M4 blocker**) | **23–36** (+1–2 handoff) | Q4; ADR-003 Q1–Q3 |
 | M5 | Collaboration: projects, consult/delegate, guardrails, trace · promote a chat to card/project (D92) | — | **19–30** (+1–2 promotion) | ADR-003 Q4/Q5 |
 | M6 | MCP/ACP/A2A · external coding agents · skills · plugins | — | **26–38** (skills/plugins UI moved to X3) | Q7; ADR-008 Q1–Q6; ADR-011 Q1–Q6 |
-| M7 | Importers: OpenClaw, Hermes (cross-platform sources: WSL discovery, snapshot producer, D90/D91) | PR-10 (identity migration path) | **17–27** (+3–5 for D90/D91, 2026-09-28) | ADR-007 Q4; plugin-distribution spec C7, C8, C12 |
+| M7 | Importers: OpenClaw, Hermes (cross-platform sources: WSL discovery, snapshot producer, D90/D91) | PR-10 (identity migration path) | **17–27** (+3–5 for D90/D91, 2026-09-28) | ADR-007 Q4 (beantwortet 2026-10-05); plugin-distribution spec C7, C8, C12 |
 | M8 | Platform hardening · installers · services · release v0.1.0 | PR-12, PR-13, PR-14 | **20–32** (+1–2 `1staid bundle`, OTLP export D111) | Q2; ADR-001 Q3/Q5 |
 | D1 | **Part of v0.1.0** (desktop spec §11 Q5, decided 2026-09-27): container bundle + thin shell, after M3 | M3; M2 | **20–30** (in the total) |
 | D2–D4 | Track D remainder: native integration + OS-signed releases, browser container/CEF panel, computer use + WebMCP — after D1, beside M4–M8 | D1 | **26–40** (not in the total) | — |
@@ -286,7 +286,7 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Pulled forward (owner, 2026-09-27):** `import --detect` (read-only) and `import --skills` (dry-run/apply/rollback) ship before M7 (`import.md` §8, §9); the rest of this scope stays here.
 
-**Blocking questions:** ADR-007 Q4 (unlink semantics affects the v1→v2 back-fill offered during import).
+**Blocking questions:** Keine mehr — ADR-007 Q4 beantwortet (Owner-Entscheidung 2026-10-05: manuelles Linking mit Metadaten-Backfill, fail-closed bei heuristischer Zuordnung, N:1-Kardinalität).
 
 **Effort 17–27 ad.** Fixture generation (both sources, two embedding identities) 3–5, OpenClaw importer 5–8, Hermes importer 4–6, wizard + report + rollback 2–3, **cross-platform sources 3–5** (2026-09-28, D90/D91: WSL discovery and probe, snapshot producer incl. the WSL `tar` stream, LanceDB copy-by-manifest and the running-source rule, the WSL CI job made required; plan tasks 6–7 of `docs/superpowers/specs/2026-09-28-plugin-distribution-and-migration-design.md` §B.9). The small fixes to the shipped `detect`/`skills` code (per-OS roots, path mapper, case/unportable-name checks, SQLite copy verification, per-OS layout fixtures) are track HM3, not M7.
 

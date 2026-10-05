@@ -258,7 +258,7 @@ export async function buildM7OpenclawFixture(opts?: { base?: string; root?: stri
     CREATE TABLE schema_meta (meta_key TEXT PRIMARY KEY, role TEXT, schema_version INTEGER);
     INSERT INTO schema_meta VALUES ('primary', 'primary', 17);
     CREATE TABLE cron_jobs (id TEXT PRIMARY KEY, name TEXT, schedule TEXT, prompt TEXT);
-    INSERT INTO cron_jobs VALUES ('j1', 'user-sync', '0 9 * * *', 'sync updates');
+    INSERT INTO cron_jobs VALUES ('j1', 'user-sync', '0 9 * * *', '${CONTENT_MARKER} sync updates');
     INSERT INTO cron_jobs VALUES ('j2', 'user-backup', '0 0 * * *', 'backup data');
     INSERT INTO cron_jobs VALUES ('memory-core:memory-dreaming-promotion', 'managed-dreaming', '0 3 * * *', 'internal dreaming');
     CREATE TABLE cron_run_logs (id TEXT PRIMARY KEY, job_id TEXT, ran_at INTEGER);

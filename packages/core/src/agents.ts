@@ -9,7 +9,7 @@ const TEMPLATE_DIR = new URL("./agent-templates/", import.meta.url);
 const TEMPLATES = ["SOUL.md", "USER.md", "persona-voice.md"] as const;
 
 /** The agent's workspace directory and its template files (never overwriting one that exists). */
-function scaffoldFiles(l: Layout, id: string): void {
+export function scaffoldFiles(l: Layout, id: string): void {
   mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
   for (const t of TEMPLATES) {
     const target = join(l.agentDir(id), t);

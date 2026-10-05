@@ -24,14 +24,13 @@ The importer targets the harness home directory layout and configuration schema.
    - *Status on `main`:* `packages/core/src/engine.ts` and `@cyb3rb1ade/plur1bus-memory` (contract 1.10.0) expose `recall`, `list`, `show`, `forget`, `correct`, `share`, `state`, `propose`, `proposals.*`. Direct memory card insertion (`memory.import` / `memory.write`) is **not exposed** in contract 1.10.0.
    - *Rule:* **D28 / T7 (one store = one engine owner).** The importer must **never** write directly into LanceDB tables via `@lancedb/lancedb`. Re-implementing the schema, embedding generation, deduplication, and provenance outside the engine violates architectural boundaries and will diverge on the next engine upgrade. Cards must go **only through the engine**.
    - *Blocker severity:* High (blocks Hermes memory card import in Batch 3).
-   - *Resolution:* A dedicated engine operation `memory.import({ agentId, cards, provenance: "imported" })` is required. The detailed API specification is provided in [Proposed Engine API for grok (`memory.import`)](#proposed-engine-api-for-grok-memoryimport) below. Batch 3 memory card import is paused pending this engine PR.
+   - *Resolution:* A dedicated engine operation `memory.import` and store adoption `stores.adopt` are specified in grok's engine design in the plugin repository (PR #216: `docs/superpowers/specs/2026-10-05-engine-import-and-store-adopt-design.md`) with owner review. See [Engine Contract Specification Reference: grok's Design (PR #216)](#engine-contract-specification-reference-groks-design-pr-216) below. Batch 3 memory card import and store adoption are paused pending this engine PR.
 
 3. **Store Take-Over, Format Verification & Single-Writer Rule:**
    - *Status on `main`:* Matching-identity LanceDB partition copying (`copy-never-move`) requires single-writer safety and engine compatibility verification.
    - *Rule:*
      - **Single-Writer Safety:** Before any write to target harness home, the importer checks `l.coreLock` (`<home>/state/core.lock`) and `l.corePid` (`<home>/run/core.pid`). If an active core is running, the importer refuses immediately with `target-running`.
-     - **Store Format Version:** In addition to embedding identity, the importer inspects the source store format schema version against `EngineStatus.storeSchema` of the pinned engine. A store from an incompatible or newer engine version must not be taken over blindly; it must be flagged for re-embedding or migration.
-     - **Store Registration:** The importer registers stores through the engine's designated store layout and registration path, never writing ad-hoc manifest files by hand.
+     - **Store Format Version & Adoption:** Governed by `stores.adopt` from grok's PR #216 spec. Verifies store format version and runs sample verification against the pinned engine before take-over, avoiding manual manifest manipulation.
 
 4. **Secret Store (BLOCKER for M2):**
    - *Status on `main`:* The official harness secret store (`@napi-rs/keyring` + encrypted file fallback) is scheduled for M2.
@@ -45,70 +44,21 @@ The importer targets the harness home directory layout and configuration schema.
 
 ---
 
-## Proposed Engine API for grok (`memory.import`)
+## Engine Contract Specification Reference: grok's Design (PR #216)
 
-To preserve **D28 / T7 (one store = one engine owner)** without bypassing the engine or using `@lancedb/lancedb` directly, the PLUR1BUS engine requires an additive `memory.import` operation on `MemoryOps` (contract 1.11.0 / engine PR for grok):
+The authoritative design for memory card import and store adoption is grok's specification in the plugin repository (`openclaw-plur1bus-memory` PR #216: `docs/superpowers/specs/2026-10-05-engine-import-and-store-adopt-design.md`, incorporated with owner review):
 
-### TypeScript Interface Specification
-
-```ts
-// packages/core/node_modules/@cyb3rb1ade/plur1bus-memory/types/engine.d.ts
-
-export interface MemoryImportCardInput {
-  scope: MemoryScope;                 // "agent-private" | "workspace" | "user"
-  text: string;                       // Card text content
-  summary?: string;                   // Optional summary; generated if omitted
-  createdAt?: number;                 // Epoch ms timestamp from source; defaults to Date.now()
-  origin?: string;                    // e.g. "import:hermes:MEMORY.md" or "import:openclaw"
-  epistemicStatus?: string;           // Optional epistemic tag
-  principal?: Principal;              // Target principal binding
-}
-
-export interface MemoryImportRequest {
-  agentId: AgentId;
-  cards: MemoryImportCardInput[];
-  provenance: "imported";             // Mandatory provenance tag
-  options?: {
-    dedup?: "content-hash" | "exact"; // Deduplication strategy (default "content-hash")
-    signal?: AbortSignal;
-  };
-}
-
-export interface MemoryImportCardResult {
-  id: string;                         // Assigned card ID
-  status: "created" | "duplicate" | "skipped";
-}
-
-export interface MemoryImportResult {
-  agentId: AgentId;
-  imported: number;                   // Number of cards successfully embedded & stored
-  skipped: number;                    // Number of duplicates / skipped cards
-  cards: MemoryImportCardResult[];
-}
-
-export interface MemoryOps {
-  // Existing: list, show, forget, correct, share, state, propose, proposals...
-  
-  /**
-   * Bulk import legacy memory cards into the agent's memory store.
-   * Embeds texts using the active engine embedder, enforces store schema,
-   * handles deduplication, and records provenance="imported".
-   *
-   * Rejects with MemoryOpError:
-   *   - "storage": engine is closed or storage write failed
-   *   - "invalid-input": malformed card structure, invalid scope, or empty batch
-   *   - "conflict": provenance is not "imported"
-   *   - "target-running": store is locked by another writer
-   */
-  import(req: MemoryImportRequest, p: Principal, a: AgentContext): Promise<MemoryImportResult>;
-}
-```
-
-### Engine Behavior & Semantics
-1. **Embedding Generation:** The engine chunks/embeds each card using its active embedding model and dimension, ensuring vectors match the active store.
-2. **Schema & Indices:** Cards are written to the engine's internal LanceDB table and FTS index with `provenance: "imported"`.
-3. **Deduplication:** Uses content-hash deduplication against existing cards in the store to prevent duplicate writes during re-import.
-4. **Error Handling:** Returns atomic summary; if the batch partially fails, rolls back or reports individual card statuses.
+1. **`memory.import` Operation:**
+   - Dedicated bulk card ingestion API on `Engine.memory`.
+   - Card structure includes `idempotencyKey` per card, `scope`, `text`, `createdAt`, and `provenance: "imported"`.
+   - Supports `dryRun: boolean` to preview imports without mutating LanceDB or generating embeddings.
+   - Per-card outcomes: `created`, `matched-existing`, or `rejected`.
+2. **`stores.adopt` Operation:**
+   - Dedicated store adoption API on `Engine.admin.stores` (or `stores.adopt`).
+   - Checks store format version compatibility, verifies embedding identity, and runs sample vector probes/checks before adopting partitions into harness management.
+3. **Blocker Status & Integration:**
+   - The importer will integrate directly against grok's contract once PR #216 is implemented in the engine and the harness engine pin is lifted.
+   - Store take-over and Hermes card import (Batch 3) wait for this engine contract; no interim workarounds or direct LanceDB writes are permitted.
 
 ---
 
@@ -142,14 +92,32 @@ To maintain steady progress without violating architectural boundaries, work is 
 
 ---
 
-## Open Owner Question: ADR-007 Q4 (Unlink Semantics)
+## Owner Decision: ADR-007 Q4 (Identity Linking, Backfill & Cardinality)
 
-- **The Question (ADR-007 Q4):** When unlinking a channel identity (e.g. Telegram user ID) from a v2 user principal during import/migration, should the old identity's memories be hidden from the v2 principal or back-filled to the v2 principal?
-- **Owner Decision:**
-  - **Metadata-only back-fill to the v2 user principal (dry-runnable, audit-logged) before unlinking.**
-  - *Status:* **Approved Owner Decision.** Implementation follows this decision once the v2 principal migration logic is wired.
-  - *Rationale:* User memories represent valuable personal context. Discarding or hiding them causes perceived data loss. Back-filling updates the memory card's `principalId` attribute to the v2 principal while appending an audit record (`actor: "import", action: "backfill-identity"`).
-  - *Opt-out:* If the operator chooses `--no-identity-backfill`, the memories remain bound to the legacy v1 principal (`user:v1:<hash>`) and remain inaccessible to the unlinked v2 principal (fail-closed per §2.4).
+- **The Question (ADR-007 Q4):** How are memories handled when linking a channel identity to a harness user principal?
+- **Owner Decision (2026-10-05):**
+  - **Manual / deliberate linking:** Upon manual, confirmed linking of a user with a channel identity (owner/operator action in CLI, wizard, or config), memories are transferred to the target principal via metadata backfill: dry-run capable (preview with counts), audited (actor, timestamp, from → to), and reversible via the audit record.
+  - **Automatic / heuristic linking:** No backfill. Memories remain fail-closed with the legacy principal (`docs/import.md` §2.4).
+  - **Cardinality:** N:1 (channel identities → user). A user can be linked to arbitrarily many channel identities (e.g. Telegram, Discord, and Matrix simultaneously). All map to the same user, and personal memories from all sources land aggregated there. The reverse direction is strictly exclusive: each channel identity belongs to at most one user. Linking an already-linked channel identity to a second user is rejected.
+  - **Engine Contract Requirement (Open Blocker):** The backfill requires an engine operation (no direct LanceDB writes, D28/T7). Grok's PR #216 does not contain this operation yet. Planned as Task 2.5 following Batch 2, blocked on Grok's engine contract 1.11.0 extension.
+
+### Engine API Proposal: `memory.rebind` (for Grok)
+
+```ts
+memory.rebind({
+  agentId?: string;      // Optional: target specific agent store, or all stores if omitted
+  fromPrincipal: string; // e.g. "user:v1:<hash>"
+  toPrincipal: string;   // e.g. "user:v2:<hash>"
+  dryRun?: boolean;      // Default: false
+}): Promise<{
+  matchedCount: number;  // Number of matching user-scope rows found
+  reboundCount: number;  // Number of rows updated (0 when dryRun is true)
+  dryRun: boolean;
+}>
+```
+- **Metadata-only:** Updates `ownerUserId = toPrincipal` and `updatedAt = Date.now()` on rows with `scope = 'user' AND ownerUserId = fromPrincipal`. Vectors and embeddings are untouched.
+- **Safety & Privacy:** Returns counters only; never returns memory content or secrets.
+- **Reversibility:** Reversible via the audit record by calling `memory.rebind({ fromPrincipal: toPrincipal, toPrincipal: fromPrincipal })`.
 
 ---
 
@@ -173,7 +141,7 @@ To maintain steady progress without violating architectural boundaries, work is 
 | Batch | Scope | Effort | Status |
 |---|---|---|---|
 | **Batch 1** | **Synthetic Fixture Generator** (OpenClaw & Hermes, 2 embedding identities, OS layouts, smoke tests) | **3–5 ad** | Delivered in PR #91 |
-| **Batch 2** | **OpenClaw Importer** (Agents in `config.agents`, `SOUL.md` & D15 in `l.workspaceDir`, single-writer check, store takeover vs re-embedding, channels, deferred cron) | **5–8 ad** | Ready to start |
+| **Batch 2** | **OpenClaw Importer** (Agents in `config.agents`, `SOUL.md` & D15 in `l.workspaceDir`, single-writer check, channels, deferred cron) + **Task 2.5: Identity Linking & Back-Fill** (ADR-007 Q4) | **5–8 ad** | Implemented (Task 2.5 planned after Batch 2) |
 | **Batch 3** | **Hermes Importer** (Profiles → agents, `SOUL.md`, `§`-cards via `memory.import`, pairings, deferred cron, sessions excluded) | **4–6 ad** | Memory cards blocked on engine PR |
 | **Batch 4** | **Cross-Cutting Pipeline, Ledger, Reports & Rollback** (Idempotency ledger, target pre-apply snapshot/rollback, secret lease refusal, sanitized reports, Rust/Node CLI) | **4–6 ad** | Follows Batches 2 & 3 |
 | *Note* | *Cross-platform sources (WSL discovery, snapshot producer, tar streaming) completed in #85/#90* | *3–5 ad* | Merged to `main` |
@@ -242,6 +210,16 @@ To maintain steady progress without violating architectural boundaries, work is 
   - Tests matching store takeover with store format version check.
   - Tests mismatched store routing into re-embedding migration.
   - Tests deferred cron reporting with zero filesystem writes.
+- [ ] **Task 2.5: User Identity Linking & Memory Metadata Back-Fill (ADR-007 Q4)**
+  - Files: `packages/core/src/import/identity-link.ts`, `packages/core/test/import/identity-link.test.ts`
+  - Implementation planned after Batch 2 (requires engine `memory.rebind` in engine contract 1.11.0, grok PR #216).
+  - Enforces N:1 cardinality: multiple channel identities → 1 harness user.
+  - Rejects linking a channel identity to a second user with `E_CONFLICT` / `identity-already-linked`.
+  - Manual, confirmed linking triggers dry-runnable, audited metadata back-fill via engine `memory.rebind({ fromPrincipal, toPrincipal, dryRun })`.
+  - Automatic or heuristic source detection during import does NOT back-fill; memories remain fail-closed with the legacy principal (`docs/import.md` §2.4).
+  - Tests:
+    - 3 channel identities (e.g. Telegram, Discord, Matrix) linked to 1 user → back-fill aggregates memories from all 3 into the target user principal.
+    - Attempting to link an already-bound identity to a 2nd user → rejected with `identity-already-linked`.
 
 ---
 
