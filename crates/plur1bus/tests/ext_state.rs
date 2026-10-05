@@ -342,21 +342,71 @@ fn lock_skills_refuses_a_live_holder_and_takes_over_a_dead_one() {
     child.kill().unwrap();
     let _ = child.wait();
 
-    // A dead holder (pid 999999) and an unreadable lock are taken over.
-    for text in [r#"{"pid":999999,"at":"x"}"#, "garbage"] {
+    // A dead holder (pid 999999, with or without a nonce) is taken over.
+    for text in [
+        r#"{"pid":999999,"at":"x"}"#,
+        r#"{"pid":999999,"at":"x","nonce":"dead"}"#,
+    ] {
         fs::write(&lock, text).unwrap();
         let g = index::lock_skills(&l).unwrap();
         let v: Value = serde_json::from_str(&fs::read_to_string(&lock).unwrap()).unwrap();
         assert_eq!(v["pid"], std::process::id());
+        assert!(v["nonce"].is_string());
         drop(g);
         assert!(!lock.exists());
     }
 
-    // Drop releases only a lock that is still ours.
-    let g = index::lock_skills(&l).unwrap();
-    fs::write(&lock, r#"{"pid":999999,"at":"x"}"#).unwrap();
-    drop(g);
-    assert!(lock.exists());
+    // N1: an unreadable lock within the grace is a holder between create and write — refused, untouched; after the
+    // grace it is a leftover and taken over.
+    fs::write(&lock, "garbage").unwrap();
+    let e = index::lock_skills(&l).unwrap_err();
+    assert_eq!(e.code, "E_LOCKED");
+    assert_eq!(fs::read_to_string(&lock).unwrap(), "garbage");
+    fs::File::options()
+        .write(true)
+        .open(&lock)
+        .unwrap()
+        .set_modified(
+            std::time::SystemTime::now()
+                - index::LOCK_UNREADABLE_GRACE
+                - std::time::Duration::from_secs(5),
+        )
+        .unwrap();
+    drop(index::lock_skills(&l).unwrap());
+    assert!(!lock.exists());
+
+    // Drop releases only a lock that is still ours: a foreign one (taken over meanwhile) is put back untouched.
+    for foreign in [
+        r#"{"pid":999999,"at":"x"}"#,
+        r#"{"pid":999999,"at":"x","nonce":"foreign"}"#,
+    ] {
+        let g = index::lock_skills(&l).unwrap();
+        fs::write(&lock, foreign).unwrap();
+        drop(g);
+        assert_eq!(fs::read_to_string(&lock).unwrap(), foreign);
+        fs::remove_file(&lock).unwrap();
+    }
+
+    // N1: a crashed release's leftover is swept when its holder is dead, kept while it lives; none of ours remain.
+    let mut child = long_lived_child();
+    fs::write(
+        l.imports().join(".lock.rel-dead"),
+        r#"{"pid":999999,"at":"x"}"#,
+    )
+    .unwrap();
+    let live = json!({"pid": child.id(), "at": "x"}).to_string();
+    fs::write(l.imports().join(".lock.break-live"), &live).unwrap();
+    drop(index::lock_skills(&l).unwrap());
+    let mut left: Vec<String> = fs::read_dir(l.imports())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with(".lock"))
+        .collect();
+    left.sort();
+    assert_eq!(left, vec![".lock.break-live".to_string()]);
+    child.kill().unwrap();
+    let _ = child.wait();
 }
 
 #[test]

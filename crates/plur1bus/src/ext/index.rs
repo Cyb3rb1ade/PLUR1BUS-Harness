@@ -2,13 +2,13 @@
 //! (`packages/core/src/import/skills-registry.ts`) is the reference: this module reads with the same refusals, writes
 //! the same bytes and takes the same lock, so the two writers can never interleave.
 use super::record::skill_id_ok;
-use super::state::{remove_retrying, write_private_atomic, ItemRecord};
+use super::state::{remove_retrying, rename_retrying, write_private_atomic, ItemRecord};
 use super::ExtError;
 use crate::paths::Layout;
 use crate::proc::pid_alive;
 use serde_json::{json, Value};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const INDEX_VERSION: u64 = 1;
 
@@ -315,26 +315,36 @@ pub fn write_index(layout: &Layout, idx: &SkillIndex) -> std::io::Result<()> {
     write_private_atomic(&index_path(layout), text.as_bytes())
 }
 
-/// `<home>/imports/.lock`, held while this value lives. Released on drop only if the file still names our pid.
+/// A lock with no readable pid younger than this is a holder between its exclusive create and its write, not a
+/// leftover: it is refused, not taken over (N1; same value as the importer's `LOCK_UNREADABLE_GRACE_MS`).
+pub const LOCK_UNREADABLE_GRACE: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// `<home>/imports/.lock`, held while this value lives. Released on drop only while the file still holds our nonce:
+/// renamed aside to `.lock.rel-<nonce>`, re-read there, deleted if ours, else put back (N1: it used to check the pid,
+/// then delete, so a lock taken over in between was deleted too).
 #[derive(Debug)]
 pub struct ImportLock {
     path: PathBuf,
-    pid: u32,
+    nonce: String,
 }
 
 impl Drop for ImportLock {
     fn drop(&mut self) {
-        let ours = std::fs::read_to_string(&self.path)
-            .ok()
-            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-            .and_then(|v| v["pid"].as_u64())
-            == Some(u64::from(self.pid));
-        if ours {
-            if let Err(e) = remove_retrying(&self.path) {
-                eprintln!(
-                    "plur1bus: warning: could not release {}: {e}",
-                    self.path.display()
-                );
+        let moved = sibling(&self.path, &format!("rel-{}", self.nonce));
+        if rename_retrying(&self.path, &moved).is_err() {
+            return; // gone (taken over) or busy: nothing of ours to delete
+        }
+        match std::fs::read_to_string(&moved) {
+            Ok(text) if lock_field(&text, "nonce").as_deref() != Some(self.nonce.as_str()) => {
+                put_back(&moved, &self.path); // someone else's lock: never delete it
+            }
+            _ => {
+                if let Err(e) = remove_retrying(&moved) {
+                    eprintln!(
+                        "plur1bus: warning: could not release {}: {e}",
+                        self.path.display()
+                    );
+                }
             }
         }
     }
@@ -344,15 +354,117 @@ fn locked(msg: String) -> ExtError {
     ExtError::new("E_LOCKED", "skills-locked", msg)
 }
 
-/// Takes the importer's own lock (X1-R14): exclusive create of `<home>/imports/.lock` holding `{pid, at}`. A lock whose
-/// pid is gone (or unreadable) is taken over; a live holder is `E_LOCKED reason=skills-locked`. A lock naming this very
-/// process is taken over as well, as the importer does: ext mutations are serialised in-process (X1-R15).
+/// `<dir>/.lock.<suffix>` next to the lock.
+fn sibling(lock: &Path, suffix: &str) -> PathBuf {
+    let mut name = lock.file_name().unwrap_or_default().to_os_string();
+    name.push(".");
+    name.push(suffix);
+    lock.with_file_name(name)
+}
+
+/// A string or integer field of a lock body as text; `None` when the body is no JSON object or lacks it.
+fn lock_field(text: &str, key: &str) -> Option<String> {
+    let v: Value = serde_json::from_str(text).ok()?;
+    match &v[key] {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+fn lock_pid(text: Option<&str>) -> Option<u32> {
+    text.and_then(|t| lock_field(t, "pid"))
+        .and_then(|p| p.parse::<u32>().ok())
+        .filter(|p| *p > 0)
+}
+
+/// Stale = the holder pid is dead, or it is ours (ext mutations are serialised in-process, X1-R15), or there is no
+/// readable pid and the file is older than [`LOCK_UNREADABLE_GRACE`]. A live foreign holder is never stale.
+fn lock_stale(text: Option<&str>, meta: &std::fs::Metadata) -> bool {
+    match lock_pid(text) {
+        Some(pid) => pid == std::process::id() || !pid_alive(pid),
+        None => meta
+            .modified()
+            .ok()
+            .and_then(|m| m.elapsed().ok())
+            .is_some_and(|age| age > LOCK_UNREADABLE_GRACE),
+    }
+}
+
+/// The same file? dev/ino where the platform gives them; contents always.
+fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        a.dev() == b.dev() && a.ino() == b.ino()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (a, b);
+        true
+    }
+}
+
+/// Puts a moved-aside lock back without overwriting a newer one (`hard_link` fails if one exists), then drops the
+/// moved name.
+fn put_back(moved: &Path, lock: &Path) {
+    if let Err(e) = std::fs::hard_link(moved, lock) {
+        if e.kind() != std::io::ErrorKind::AlreadyExists
+            && std::fs::symlink_metadata(lock).is_err()
+            && rename_retrying(moved, lock).is_ok()
+        {
+            return;
+        }
+    }
+    let _ = remove_retrying(moved); // a leftover is swept by the next taker
+}
+
+/// Removes the judged lock only if the moved-aside file is still it (same file, same contents); true when removed.
+fn break_stale(lock: &Path, judged: &std::fs::Metadata, text: Option<&str>) -> bool {
+    let moved = sibling(lock, &format!("break-{}", uuid::Uuid::new_v4()));
+    if rename_retrying(lock, &moved).is_err() {
+        return false;
+    }
+    let same = std::fs::metadata(&moved).is_ok_and(|m| same_file(&m, judged))
+        && std::fs::read_to_string(&moved).ok().as_deref() == text;
+    if same {
+        let _ = remove_retrying(&moved);
+        return true;
+    }
+    put_back(&moved, lock); // a fresh lock took its place meanwhile: never delete it
+    false
+}
+
+/// Sweeps `.lock.rel-*` / `.lock.break-*` leftovers (a crash mid-release) by the same stale rule.
+fn sweep_leftovers(dir: &Path) {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in rd.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if !(name.starts_with(".lock.rel-") || name.starts_with(".lock.break-")) {
+            continue;
+        }
+        let p = entry.path();
+        if let Ok(meta) = std::fs::metadata(&p) {
+            if lock_stale(std::fs::read_to_string(&p).ok().as_deref(), &meta) {
+                let _ = remove_retrying(&p);
+            }
+        }
+    }
+}
+
+/// Takes the importer's own lock (X1-R14): exclusive create of `<home>/imports/.lock` holding `{pid, at, nonce}`. A
+/// live foreign holder is `E_LOCKED reason=skills-locked`. A lock whose pid is gone, names this very process (as the
+/// importer does: ext mutations are serialised in-process, X1-R15), or is unreadable for longer than
+/// [`LOCK_UNREADABLE_GRACE`] is taken over — on a moved-aside name, re-verified as the judged file (N1).
 pub fn lock_skills(layout: &Layout) -> Result<ImportLock, ExtError> {
     let dir = layout.imports();
     std::fs::create_dir_all(&dir)
         .map_err(|e| ExtError::new("E_INTERNAL", "io", format!("{}: {e}", dir.display())))?;
     let path = dir.join(".lock");
-    let me = std::process::id();
+    sweep_leftovers(&dir);
     for _ in 0..2 {
         let mut o = std::fs::OpenOptions::new();
         o.write(true).create_new(true);
@@ -363,31 +475,36 @@ pub fn lock_skills(layout: &Layout) -> Result<ImportLock, ExtError> {
         }
         match o.open(&path) {
             Ok(mut f) => {
-                let body = json!({"pid": me, "at": super::now_iso()}).to_string();
-                f.write_all(body.as_bytes()).map_err(|e| {
-                    ExtError::new("E_INTERNAL", "io", format!("{}: {e}", path.display()))
-                })?;
-                return Ok(ImportLock { path, pid: me });
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                let holder = std::fs::read_to_string(&path)
-                    .ok()
-                    .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-                    .and_then(|v| v["pid"].as_u64())
-                    .and_then(|p| u32::try_from(p).ok());
-                if let Some(pid) = holder.filter(|p| *p != me && pid_alive(*p)) {
-                    return Err(locked(format!(
-                        "another import (pid {pid}) holds {}",
-                        path.display()
-                    )));
-                }
-                remove_retrying(&path).map_err(|e| {
-                    ExtError::new(
+                let nonce = uuid::Uuid::new_v4().to_string();
+                let body =
+                    json!({"pid": std::process::id(), "at": super::now_iso(), "nonce": nonce})
+                        .to_string();
+                if let Err(e) = f.write_all(body.as_bytes()) {
+                    // Our own nonce-less file: identified by the open handle's metadata, removed only if still it.
+                    if let Ok(own) = f.metadata() {
+                        drop(f);
+                        break_stale(&path, &own, std::fs::read_to_string(&path).ok().as_deref());
+                    }
+                    return Err(ExtError::new(
                         "E_INTERNAL",
                         "io",
-                        format!("cannot take over the stale lock {}: {e}", path.display()),
-                    )
-                })?;
+                        format!("{}: {e}", path.display()),
+                    ));
+                }
+                return Ok(ImportLock { path, nonce });
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                let Ok(judged) = std::fs::metadata(&path) else {
+                    continue; // gone meanwhile: try again
+                };
+                let text = std::fs::read_to_string(&path).ok();
+                if !lock_stale(text.as_deref(), &judged) {
+                    return Err(locked(match lock_pid(text.as_deref()) {
+                        Some(pid) => format!("another import (pid {pid}) holds {}", path.display()),
+                        None => format!("another import is taking {}", path.display()),
+                    }));
+                }
+                break_stale(&path, &judged, text.as_deref());
             }
             Err(e) => {
                 return Err(ExtError::new(

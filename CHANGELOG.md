@@ -12,6 +12,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   Additive: `Engine.memory.import` and `Engine.stores.adopt`. Top-level engine keys stay **57**.
   `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is **1.11.0** (drift-guard from #89).
 
+### Fixed
+
+- The skills lock `<home>/imports/.lock` (importer and `plur1bus ext`) now carries a nonce and is released only while
+  it is still ours (rename aside, re-check, delete or put back). Before, release checked the pid and then deleted, and
+  a takeover checked and then deleted, so a lock taken over in between was deleted too. A takeover is re-verified on a
+  moved-aside name; an unreadable lock is a holder mid-create for 10 s before it counts as a leftover. A live foreign
+  holder is still never taken over (lock audit N1).
+
 ## [0.1.0] — M1b-2a
 
 The first end-to-end harness: a Rust CLI + supervisor, a TypeScript core process binding the memory engine over
