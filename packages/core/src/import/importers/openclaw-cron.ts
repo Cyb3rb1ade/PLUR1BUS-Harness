@@ -1,14 +1,25 @@
 // Reading user-authored cron jobs from OpenClaw state database (docs/import.md §2.2, §2.2.1).
-// Excludes managed dreaming and feature cron jobs. Zero prompt content or secret values are reported.
+// Excludes managed dreaming and feature cron jobs. Zero prompt content, job names, delivery targets or secret values are reported.
 import { join } from "node:path";
 import { isFile, openSqliteReadOnly, sqliteTables } from "../readonly.ts";
 
 export interface OpenclawCronJob {
   id: string;
-  name: string;
   schedule: string;
-  deliver: string | null;
+  // Platform/keyword prefix of the delivery target only; the target itself (a chat/user id) is never reported.
+  deliverKind: string | null;
   status: "deferred";
+}
+
+const DELIVER_KINDS = new Set([
+  "telegram", "discord", "slack", "whatsapp", "signal", "matrix", "mattermost", "irc", "imessage", "email",
+  "webhook", "last", "none", "announce",
+]);
+
+export function deliverKind(deliver: string | null): string | null {
+  if (!deliver) return null;
+  const kind = deliver.split(":", 1)[0]!.trim().toLowerCase();
+  return DELIVER_KINDS.has(kind) ? kind : "other";
 }
 
 const MANAGED_PREFIXES = ["memory-core:"];
@@ -47,9 +58,8 @@ export function readOpenclawCronJobs(root: string): { userJobs: OpenclawCronJob[
       }
       userJobs.push({
         id,
-        name,
         schedule,
-        deliver,
+        deliverKind: deliverKind(deliver),
         status: "deferred",
       });
     }

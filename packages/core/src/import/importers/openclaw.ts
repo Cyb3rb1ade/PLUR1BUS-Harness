@@ -271,10 +271,10 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
             for (const ch of channelReports) {
               ledger.record({
                 entity: "channel",
-                idempotencyKey: channelIdempotencyKey(ch.platform, ch.allowFrom),
+                idempotencyKey: channelIdempotencyKey(ch.platform, [...ch.allowFromFingerprints, ...ch.groupFingerprints.map((f) => `g:${f}`)]),
                 action: "deferred",
                 sourceRef: `${ch.platform}:allowFrom`,
-                details: { count: ch.allowFrom.length },
+                details: { count: ch.allowFromCount, groups: ch.groupsCount },
               });
             }
           }

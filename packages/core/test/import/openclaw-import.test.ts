@@ -69,8 +69,10 @@ describe("OpenClaw importer (Batch 2)", () => {
     assert.equal(report.channels.length, 1);
     assert.equal(report.channels[0]!.platform, "telegram");
     assert.equal(report.channels[0]!.action, "deferred");
-    assert.deepEqual(report.channels[0]!.allowFrom, ["12345678", "87654321"]);
-    assert.deepEqual(report.channels[0]!.groups, ["-100123456789"]);
+    // L1: counts + fingerprints only, never the plain ids (see openclaw-import-leak.test.ts).
+    assert.equal(report.channels[0]!.allowFromCount, 2);
+    assert.equal(report.channels[0]!.groupsCount, 1);
+    assert.equal(report.channels[0]!.allowFromFingerprints.length, 2);
 
     // Verify deferred cron
     assert.equal(report.cron.status, "deferred");
