@@ -737,3 +737,15 @@ fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
         }
     }
 }
+
+/// Shared production and native-fixture exit interception. Windows profile cleanup follows approval.
+pub fn guard_exit(app: &tauri::AppHandle, event: &tauri::RunEvent) -> bool {
+    if let tauri::RunEvent::ExitRequested { api, .. } = event {
+        if !app.state::<NativeState>().quit.is_approved() {
+            api.prevent_exit();
+            request_quit(app);
+            return true;
+        }
+    }
+    false
+}

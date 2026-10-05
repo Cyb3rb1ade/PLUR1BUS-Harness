@@ -169,14 +169,9 @@ pub fn run() {
         .build(context)
         .expect("could not build the desktop shell")
         .run(move |app, event| {
+            #[cfg(windows)]
             use tauri::Manager;
-            if let tauri::RunEvent::ExitRequested { ref api, .. } = event {
-                if !app.state::<native::NativeState>().quit.is_approved() {
-                    api.prevent_exit();
-                    native::request_quit(app);
-                    return;
-                }
-            }
+            if native::guard_exit(app, &event) { return; }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event { native::focus(app); }
             #[cfg(windows)]
