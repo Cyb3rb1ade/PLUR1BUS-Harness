@@ -352,7 +352,7 @@ class WhichNoCwdTest(unittest.TestCase):
     def test_an_absolute_path_entry_is_searched(self) -> None:
         found = self._exe(self.bindir, "plur1bus")
         self._exe(self.cwd, "plur1bus")
-        self.assertEqual(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}"), found)
+        self.assertEqual(os.path.normcase(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}") or ""), os.path.normcase(found))
         self.assertIsNone(cli.which_no_cwd("plur1bus", path=self.cwd + "-nope"))
 
     def test_a_name_with_a_directory_part_is_refused(self) -> None:
@@ -362,7 +362,7 @@ class WhichNoCwdTest(unittest.TestCase):
     def test_windows_tries_pathext_without_the_cwd(self) -> None:
         found = self._exe(self.bindir, "plur1bus.exe")
         self._exe(self.cwd, "plur1bus.exe")
-        self.assertEqual(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}", platform="win32", pathext=".com;.exe"), found)
+        self.assertEqual(os.path.normcase(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}", platform="win32", pathext=".com;.exe") or ""), os.path.normcase(found))
         self.assertIsNone(cli.which_no_cwd("plur1bus", path=".", platform="win32", pathext=".com;.exe"))
 
     @requires_core
