@@ -45,6 +45,7 @@ fn main() {
         Cmd::Update(args) => commands::update::run(&out, &layout, args),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),
+        Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Login(_) => {
             commands::stubs::milestone(&out, "login", "M2", "API keys and OAuth templates (D16)")
         }
