@@ -89,9 +89,9 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// [experimental] Update check: what a release would change and which units would restart (`--check`)
+    /// [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
     ///
-    /// Applying an update is M8; without `--check` the command answers that milestone.
+    /// Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
     Update(UpdateArgs),
     /// Users — M2
     User(StubArgs),
@@ -249,18 +249,34 @@ pub struct SetupArgs {
     pub profile: Option<String>,
 }
 
-/// `plur1bus update` (spec §6.5, HB10).
+/// `plur1bus update` (spec §6.5, D78, HB10): apply a signed release (snapshot, swap, health gate, automatic
+/// rollback), roll back to the last snapshot, or check what a release would change.
 #[derive(Args, Debug)]
+#[command(args_conflicts_with_subcommands = true)]
 pub struct UpdateArgs {
+    #[command(subcommand)]
+    pub sub: Option<UpdateCmd>,
     /// Compare the installation with the release manifest and print the plan; changes nothing
-    #[arg(long)]
+    #[arg(long, conflicts_with = "rollback")]
     pub check: bool,
+    /// Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+    #[arg(long)]
+    pub rollback: bool,
+    /// Apply without asking (required outside a terminal)
+    #[arg(long)]
+    pub yes: bool,
     /// Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
     #[arg(long, value_name = "PATH|URL")]
     pub manifest: Option<String>,
     /// Release channel (default: the installed one)
     #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"])]
     pub channel: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UpdateCmd {
+    /// [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+    Status,
 }
 
 /// `plur1bus 1staid repair` (spec §6.6, HB16).

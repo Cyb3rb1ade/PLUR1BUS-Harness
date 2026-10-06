@@ -74,6 +74,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus core`↴](#plur1bus-core)
 * [`plur1bus core run`↴](#plur1bus-core-run)
 * [`plur1bus update`↴](#plur1bus-update)
+* [`plur1bus update status`↴](#plur1bus-update-status)
 * [`plur1bus user`↴](#plur1bus-user)
 * [`plur1bus model`↴](#plur1bus-model)
 * [`plur1bus model list`↴](#plur1bus-model-list)
@@ -133,7 +134,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
-* `update` — [experimental] Update check: what a release would change and which units would restart (`--check`)
+* `update` — [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 * `user` — Users — M2
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
@@ -1018,20 +1019,35 @@ Core process (internal)
 
 ## `plur1bus update`
 
-[experimental] Update check: what a release would change and which units would restart (`--check`)
+[experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 
-Applying an update is M8; without `--check` the command answers that milestone.
+Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
 
-**Usage:** `plur1bus update [OPTIONS]`
+**Usage:** `plur1bus update [OPTIONS]
+       update <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
 
 ###### **Options:**
 
 * `--check` — Compare the installation with the release manifest and print the plan; changes nothing
+* `--rollback` — Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+* `--yes` — Apply without asking (required outside a terminal)
 * `--manifest <PATH|URL>` — Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
 * `--channel <CHANNEL>` — Release channel (default: the installed one)
 
   Possible values: `stable`, `beta`
 
+
+
+
+## `plur1bus update status`
+
+[experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+
+**Usage:** `plur1bus update status`
 
 
 

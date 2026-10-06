@@ -15,6 +15,7 @@ mod proc;
 mod repair;
 mod service;
 mod supervisor;
+mod update;
 use clap::Parser;
 use cli::{Cli, Cmd};
 use output::Out;
