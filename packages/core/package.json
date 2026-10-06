@@ -16,5 +16,8 @@
     "@plur1bus/config-schema": "workspace:*",
     "@plur1bus/module-api": "workspace:*",
     "@plur1bus/rpc-schema": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "2.1.0"
   }
 }

@@ -1,4 +1,5 @@
-// Benchmarks (spec criterion 8): B1 `--help` p95 < 100 ms and B11 `core.status` roundtrip p95 < 5 ms are
+// Benchmarks (spec criterion 8): B1 `--help` p95 < 100 ms, B11 `core.status` roundtrip p95 < 5 ms and B6 prompt-zone
+// determinism (0 drifting zone hashes across 2 renders and 2 process starts, ADR-010) are
 // gates (exit 1 on a miss); B8 "core ready < 3 s without local models" is advisory (printed, never gating).
 // B9 (0 socket/spawn calls during recall assembly) lives in packages/core/test/b9-no-syscalls.test.ts.
 // Env: PLUR1BUS_BIN (default target/release/plur1bus); needs packages/core/dist/core.js (pnpm build).
@@ -15,6 +16,21 @@ const p95 = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length * 0.95)];
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 const gates = [];
 const advisory = [];
+
+// B6 (ADR-010 R3): the prompt builder's zone hashes are byte-identical across 2 renders and 2 process starts. The probe
+// (packages/core/test/fixtures/prompt-b6-probe.ts) renders the synthetic corpus twice per run; the two process starts run
+// under different time zones and locales. Value = number of drifts, so 0 passes. Needs no build and no binary.
+{
+  const probe = resolve("packages/core/test/fixtures/prompt-b6-probe.ts");
+  const run = (env) => execFileSync(process.execPath, ["--experimental-strip-types", "--no-warnings=ExperimentalWarning", probe], { encoding: "utf8", timeout: 30_000, env: { PATH: process.env.PATH ?? "", ...env } });
+  let drift = 0;
+  try {
+    const outs = [run({ TZ: "UTC", LC_ALL: "C" }), run({ TZ: "Pacific/Auckland", LC_ALL: "de_DE.UTF-8" })];
+    if (outs[0] !== outs[1]) drift += 1;
+    for (const out of outs) for (const runs of Object.values(JSON.parse(out))) if (JSON.stringify(runs[0]) !== JSON.stringify(runs[1])) drift += 1;
+  } catch (e) { console.error(`bench: B6 probe failed: ${e?.message ?? e}`); drift += 1; }
+  gates.push(["B6 prompt-zone hash drift", drift, 1, "renders x process starts"]);
+}
 
 // B1: --help p95 < 100 ms (50 timed runs after 3 untimed warm-ups for the page cache).
 for (let i = 0; i < 3; i += 1) execFileSync(BIN, ["--help"], { stdio: "ignore" });

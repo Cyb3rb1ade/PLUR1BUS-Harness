@@ -19,6 +19,7 @@ export interface HarnessConfig {
   decision: Record<string, unknown>;
   modelRoles: Record<string, string>;
   models: { scan: { enabled: boolean; intervalHours: number } };
+  secrets: { fileFallback: { enabled: boolean } };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
 }
 
