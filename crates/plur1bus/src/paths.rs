@@ -184,6 +184,14 @@ impl Layout {
     pub fn run(&self) -> PathBuf {
         self.home.join("run")
     }
+    /// Reads a token file under `run/`, after checking that `run/` is a real directory of ours that others cannot
+    /// write to (audit M2, [`plur1bus_rpc::trust::verify_run_dir`]). On violation nothing is read: the caller gets
+    /// the `E_UNAUTHORIZED` refusal (reason `run-dir-untrusted`). An unreadable file is the usual
+    /// `RpcError::Unavailable`.
+    pub fn read_token_file(&self, path: &Path) -> Result<String, plur1bus_rpc::RpcError> {
+        plur1bus_rpc::trust::verify_run_dir(&self.run())?;
+        std::fs::read_to_string(path).map_err(plur1bus_rpc::RpcError::from)
+    }
     pub fn core_token(&self) -> PathBuf {
         self.run().join("core.token")
     }
@@ -623,6 +631,45 @@ mod tests {
             );
             assert_eq!(got, PathBuf::from(v["home"].as_str().unwrap()), "{v}");
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_token_is_not_read_from_an_untrusted_run_dir() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        let mode = |p: &std::path::Path, m| {
+            std::fs::set_permissions(p, std::fs::Permissions::from_mode(m)).unwrap()
+        };
+        let reason = |e: plur1bus_rpc::RpcError| match e {
+            plur1bus_rpc::RpcError::Call { reason, .. } => reason.unwrap_or_default(),
+            other => panic!("expected a refusal, got {other:?}"),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(layout.run()).unwrap();
+        mode(&layout.run(), 0o700);
+        std::fs::write(layout.core_token(), "abc\n").unwrap();
+        assert_eq!(
+            layout.read_token_file(&layout.core_token()).unwrap(),
+            "abc\n"
+        );
+        // group-writable run/: refused, the file is not read
+        mode(&layout.run(), 0o770);
+        assert_eq!(
+            reason(layout.read_token_file(&layout.core_token()).unwrap_err()),
+            "run-dir-untrusted"
+        );
+        // symlinked run/: refused even though the target is private
+        mode(&layout.run(), 0o700);
+        let other = tempfile::tempdir().unwrap();
+        let home2 = other.path().join("home");
+        std::fs::create_dir_all(&home2).unwrap();
+        symlink(layout.run(), home2.join("run")).unwrap();
+        let linked = Layout::new(home2);
+        assert_eq!(
+            reason(linked.read_token_file(&linked.core_token()).unwrap_err()),
+            "run-dir-untrusted"
+        );
     }
 
     #[test]

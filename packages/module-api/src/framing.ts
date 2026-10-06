@@ -17,13 +17,19 @@ export function encodeLine(value: unknown): Buffer {
   return Buffer.from(`${text}\n`, "utf8");
 }
 
+/** What one chunk held: every parsed value, the parse errors of the lines that were not JSON, and, when the
+ *  unterminated tail passed the limit, the `LineTooLong` (the connection is no longer in sync then). */
+export interface DecodedChunk { values: unknown[]; bad: Error[]; tooLong?: LineTooLong }
+
 export class LineDecoder {
   #buf: Buffer = Buffer.alloc(0);
 
-  /** Returns every complete value in the chunk; keeps the partial tail. */
-  push(chunk: Buffer): unknown[] {
+  /** Splits the chunk into lines and parses each one on its own: a broken line never costs the valid lines around it
+   *  (a request that was parsed is still answered). Keeps the partial tail. */
+  decode(chunk: Buffer): DecodedChunk {
     this.#buf = this.#buf.length ? Buffer.concat([this.#buf, chunk]) : chunk;
-    const out: unknown[] = [];
+    const values: unknown[] = [];
+    const bad: Error[] = [];
     let start = 0;
     for (;;) {
       const nl = this.#buf.indexOf(0x0a, start);
@@ -31,19 +37,23 @@ export class LineDecoder {
       const line = this.#buf.subarray(start, nl);
       start = nl + 1;
       if (line.length === 0) continue;
-      // Advance buffer before parse to ensure bad lines are discarded even if parse throws
-      this.#buf = this.#buf.subarray(start);
-      try {
-        out.push(JSON.parse(line.toString("utf8")));
-      } catch (e) {
-        // Buffer has been advanced past the bad line, so check size and rethrow
-        if (this.#buf.length > MAX_LINE_BYTES) { const n = this.#buf.length; this.#buf = Buffer.alloc(0); throw new LineTooLong(n); }
-        throw e;
-      }
-      start = 0; // Reset start since buffer has been updated
+      try { values.push(JSON.parse(line.toString("utf8"))); } catch (e) { bad.push(e as Error); }
     }
     this.#buf = this.#buf.subarray(start);
-    if (this.#buf.length > MAX_LINE_BYTES) { const n = this.#buf.length; this.#buf = Buffer.alloc(0); throw new LineTooLong(n); }
-    return out;
+    if (this.#buf.length > MAX_LINE_BYTES) {
+      const n = this.#buf.length; this.#buf = Buffer.alloc(0);
+      return { values, bad, tooLong: new LineTooLong(n) };
+    }
+    return { values, bad };
+  }
+
+  /** Returns every complete value in the chunk; keeps the partial tail. Throws the first parse error or
+   *  `LineTooLong` after the whole chunk was consumed (the thrown error carries the values as `parsed`); servers use
+   *  [`decode`](#decode) to answer the valid lines and reject only the broken ones. */
+  push(chunk: Buffer): unknown[] {
+    const { values, bad, tooLong } = this.decode(chunk);
+    const failure = tooLong ?? bad[0];
+    if (failure) { (failure as Error & { parsed?: unknown[] }).parsed = values; throw failure; }
+    return values;
   }
 }

@@ -55,7 +55,7 @@ fn read_token_of(layout: &Layout, endpoint: Endpoint) -> Option<String> {
         // A module's token file is per module (`Layout::endpoints`); nothing reads one through this helper.
         Endpoint::Module => return None,
     };
-    let t = std::fs::read_to_string(path).ok()?.trim().to_string();
+    let t = layout.read_token_file(&path).ok()?.trim().to_string();
     (!t.is_empty()).then_some(t)
 }
 

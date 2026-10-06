@@ -56,6 +56,25 @@ describe("rpc server", () => {
     await c.close();
   });
 
+  it("answers the valid request of a chunk that also holds an unparseable line, and rejects only the broken one (Low)", { timeout: 15_000 }, async () => {
+    const sock = createConnection(address);
+    await new Promise<void>((res, rej) => { sock.once("connect", res); sock.once("error", rej); });
+    const dec = new LineDecoder(); const got: any[] = [];
+    sock.on("data", (chunk) => { got.push(...(dec.decode(chunk).values as any[])); });
+    sock.write(encodeLine({ jsonrpc: "2.0", id: 1, method: "core.auth", params: { token: TOKEN } }));
+    const waitFor = async (pred: () => boolean) => { const until = Date.now() + 5000; while (!pred() && Date.now() < until) await new Promise((r) => setTimeout(r, 10)); };
+    await waitFor(() => got.some((m) => m.id === 1));
+    // one write: a valid request, a line that is not JSON, another valid request
+    sock.write(Buffer.concat([encodeLine({ jsonrpc: "2.0", id: 2, method: "core.status", params: {} }), Buffer.from("{this is not json\n"), encodeLine({ jsonrpc: "2.0", id: 3, method: "core.status", params: {} })]));
+    await waitFor(() => got.some((m) => m.id === 2) && got.some((m) => m.id === 3) && got.some((m) => m.id === null));
+    sock.destroy();
+    assert.ok(got.find((m) => m.id === 2)?.result, "the first valid request is answered");
+    assert.ok(got.find((m) => m.id === 3)?.result, "the valid request after the broken line is answered");
+    const parseError = got.find((m) => m.id === null);
+    assert.equal(parseError?.error?.data?.reason, "parse-error");
+    assert.equal(parseError?.error?.code, -32700);
+  });
+
   it("validates params against the schema and answers E_INVALID_PARAMS with the path", async () => {
     const c = await connect({ address, token: TOKEN });
     await assert.rejects(c.call("memory.recall", { agentId: "bernd" }), (e: any) => e.error === "E_INVALID_PARAMS" && e.code === -32602 && /caller|query/.test(e.detail ?? ""));
