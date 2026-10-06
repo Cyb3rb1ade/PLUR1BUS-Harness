@@ -74,6 +74,14 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus core run`↴](#plur1bus-core-run)
 * [`plur1bus update`↴](#plur1bus-update)
 * [`plur1bus user`↴](#plur1bus-user)
+* [`plur1bus user ls`↴](#plur1bus-user-ls)
+* [`plur1bus user add`↴](#plur1bus-user-add)
+* [`plur1bus user pair`↴](#plur1bus-user-pair)
+* [`plur1bus user pair start`↴](#plur1bus-user-pair-start)
+* [`plur1bus user pair claim`↴](#plur1bus-user-pair-claim)
+* [`plur1bus user pair confirm`↴](#plur1bus-user-pair-confirm)
+* [`plur1bus user link`↴](#plur1bus-user-link)
+* [`plur1bus user unlink`↴](#plur1bus-user-unlink)
 * [`plur1bus model`↴](#plur1bus-model)
 * [`plur1bus model list`↴](#plur1bus-model-list)
 * [`plur1bus model scan`↴](#plur1bus-model-scan)
@@ -124,7 +132,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
 * `update` — [experimental] Update check: what a release would change and which units would restart (`--check`)
-* `user` — Users — M2
+* `user` — [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
@@ -1009,13 +1017,139 @@ Applying an update is M8; without `--check` the command answers that milestone.
 
 ## `plur1bus user`
 
-Users — M2
+[experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 
-**Usage:** `plur1bus user`
+One human across channels only by proof (D24, ADR-007): a one-time pairing code the owner confirms, or a link the owner makes by hand. Nothing is ever linked by a matching name.
+
+**Usage:** `plur1bus user <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — [experimental] List humans with their linked identities and the pairings still waiting
+* `add` — [experimental] Create a human (an opaque id; prints it)
+* `pair` — [experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+* `link` — [experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+* `unlink` — [experimental] Revoke a link at once (the record stays for the audit trail)
+
+
+
+## `plur1bus user ls`
+
+[experimental] List humans with their linked identities and the pairings still waiting
+
+**Usage:** `plur1bus user ls [OPTIONS]`
+
+###### **Options:**
+
+* `--all` — Include revoked links
+
+
+
+## `plur1bus user add`
+
+[experimental] Create a human (an opaque id; prints it)
+
+**Usage:** `plur1bus user add <NAME>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<NAME>`
+
+
+
+## `plur1bus user pair`
+
+[experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+
+**Usage:** `plur1bus user pair <COMMAND>`
+
+###### **Subcommands:**
+
+* `start` — [experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+* `claim` — [experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+* `confirm` — [experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+
+
+
+## `plur1bus user pair start`
+
+[experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+
+**Usage:** `plur1bus user pair start --channel <CHANNEL> <HUMAN>`
+
+###### **Arguments:**
+
+* `<HUMAN>` — The human's id (see `user ls`)
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+
+
+
+## `plur1bus user pair claim`
+
+[experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+
+**Usage:** `plur1bus user pair claim [OPTIONS] --channel <CHANNEL> --account <ACCOUNT> --user-id <USER_ID> <CODE>`
+
+###### **Arguments:**
+
+* `<CODE>`
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+* `--account <ACCOUNT>`
+* `--user-id <USER_ID>`
+* `--display-name <DISPLAY_NAME>`
+
+
+
+## `plur1bus user pair confirm`
+
+[experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+
+**Usage:** `plur1bus user pair confirm [OPTIONS] <PAIRING>`
+
+###### **Arguments:**
+
+* `<PAIRING>`
+
+###### **Options:**
+
+* `--reject`
+
+
+
+## `plur1bus user link`
+
+[experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+
+**Usage:** `plur1bus user link [OPTIONS] --channel <CHANNEL> --account <ACCOUNT> --user-id <USER_ID> <HUMAN>`
+
+###### **Arguments:**
+
+* `<HUMAN>` — The human's id (see `user ls`)
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+* `--account <ACCOUNT>`
+* `--user-id <USER_ID>`
+* `--display-name <DISPLAY_NAME>` — A label for people to read; never matched on
+
+
+
+## `plur1bus user unlink`
+
+[experimental] Revoke a link at once (the record stays for the audit trail)
+
+**Usage:** `plur1bus user unlink <LINK>`
+
+###### **Arguments:**
+
+* `<LINK>` — The link's id (see `user ls`)
 
 
 

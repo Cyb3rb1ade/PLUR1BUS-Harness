@@ -20,6 +20,7 @@ pub mod setup;
 pub mod skill;
 pub mod stubs;
 pub mod update;
+pub mod user;
 
 use crate::output::Out;
 use crate::paths::Layout;

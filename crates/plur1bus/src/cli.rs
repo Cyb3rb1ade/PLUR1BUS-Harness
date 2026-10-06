@@ -93,8 +93,14 @@ pub enum Cmd {
     ///
     /// Applying an update is M8; without `--check` the command answers that milestone.
     Update(UpdateArgs),
-    /// Users — M2
-    User(StubArgs),
+    /// [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
+    ///
+    /// One human across channels only by proof (D24, ADR-007): a one-time pairing code the owner confirms, or a link the
+    /// owner makes by hand. Nothing is ever linked by a matching name.
+    User {
+        #[command(subcommand)]
+        sub: UserCmd,
+    },
     /// [experimental] Models and provider profiles: list, scan and override
     Model {
         #[command(subcommand)]
@@ -1054,4 +1060,69 @@ mod tests {
             other => panic!("{other:?}"),
         }
     }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UserCmd {
+    /// [experimental] List humans with their linked identities and the pairings still waiting
+    Ls {
+        /// Include revoked links
+        #[arg(long)]
+        all: bool,
+    },
+    /// [experimental] Create a human (an opaque id; prints it)
+    Add { name: String },
+    /// [experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+    Pair {
+        #[command(subcommand)]
+        sub: PairCmd,
+    },
+    /// [experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+    Link {
+        /// The human's id (see `user ls`)
+        human: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long)]
+        account: String,
+        #[arg(long = "user-id")]
+        user_id: String,
+        /// A label for people to read; never matched on
+        #[arg(long)]
+        display_name: Option<String>,
+    },
+    /// [experimental] Revoke a link at once (the record stays for the audit trail)
+    Unlink {
+        /// The link's id (see `user ls`)
+        link: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PairCmd {
+    /// [experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+    Start {
+        /// The human's id (see `user ls`)
+        human: String,
+        #[arg(long)]
+        channel: String,
+    },
+    /// [experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+    Claim {
+        code: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long)]
+        account: String,
+        #[arg(long = "user-id")]
+        user_id: String,
+        #[arg(long)]
+        display_name: Option<String>,
+    },
+    /// [experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+    Confirm {
+        pairing: String,
+        #[arg(long)]
+        reject: bool,
+    },
 }
