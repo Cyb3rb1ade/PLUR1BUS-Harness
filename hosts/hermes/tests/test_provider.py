@@ -21,7 +21,7 @@ import plur1bus
 from plur1bus import Plur1busMemoryProvider, register
 from plur1bus._client import pmc
 from plur1bus.binding import BINDING_FILE
-from plur1bus.mapping import SYSTEM_PROMPT_BLOCK, TOOL_METHODS, TRUNCATED_MARKER
+from plur1bus.mapping import READ_ONLY_PROMPT_BLOCK, SYSTEM_PROMPT_BLOCK, TOOL_METHODS, TRUNCATED_MARKER, WRITE_TOOLS
 
 RECALL_TEXT = "- The roadmap review is on Thursday."
 
@@ -126,7 +126,7 @@ class ProviderTest(unittest.TestCase):
         recall = [prm for m, prm in core.calls if m == "memory.recall"][-1]
         self.assertEqual(recall["caller"], {"channel": "cli", "accountId": "hermes:cli", "userId": "local"})
         self.assertEqual(recall["sessionKey"], "sess-2")
-        self.assertEqual(q.system_prompt_block(), SYSTEM_PROMPT_BLOCK)
+        self.assertEqual(q.system_prompt_block(), READ_ONLY_PROMPT_BLOCK, "write tools are off by default")
         self.assertEqual(q.system_prompt_block(), q.system_prompt_block(), "fixed text (HM2-R14)")
 
     def test_prefetch_returns_the_joined_text_within_the_deadline(self) -> None:
@@ -426,7 +426,7 @@ class ProviderTest(unittest.TestCase):
     # -- tools ------------------------------------------------------------------------------------
 
     def test_tools_are_offered_only_for_advertised_methods(self) -> None:
-        self.sb.bind()
+        self.sb.bind(memory_write_tools=True)
         core = self.sb.start_core()
         p = self.sb.provider()
         before = sorted(s["name"] for s in p.get_tool_schemas())
@@ -445,8 +445,52 @@ class ProviderTest(unittest.TestCase):
         for s in q.get_tool_schemas():
             self.assertEqual(set(s), {"name", "description", "parameters"})
 
-    def test_forget_tool_calls_memory_forget_with_the_bound_agent(self) -> None:
+    def test_write_tools_are_off_unless_the_binding_enables_them(self) -> None:
+        """Audit M2: the model cannot forget, rewrite or share on its own by default."""
         self.sb.bind("hermes-work")
+        core = self.sb.start_core(capabilities=capabilities(all_optional=True))
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="telegram", user_id="42"))
+        offered = {s["name"] for s in p.get_tool_schemas()}
+        self.assertEqual(offered, {"plur1bus_memory_list", "plur1bus_memory_show"})
+        self.assertFalse(offered & WRITE_TOOLS)
+        for tool, args in (
+            ("plur1bus_memory_forget", {"id": "m-1"}),
+            ("plur1bus_memory_correct", {"id": "m-1", "text": "x"}),
+            ("plur1bus_memory_share", {"id": "m-1", "target": "workspace"}),
+        ):
+            self.assertEqual(json.loads(p.handle_tool_call(tool, args)), {"error": "E_DISABLED"}, tool)
+        self.assertFalse([m for m, _ in core.calls if m in ("memory.forget", "memory.correct", "memory.share")], "nothing reached the core")
+        self.assertIn("items", json.loads(p.handle_tool_call("plur1bus_memory_list", {})))
+        # The routing table before initialize still names every tool; the call is what is refused.
+        self.assertEqual(sorted(s["name"] for s in self.sb.provider().get_tool_schemas()), sorted(TOOL_METHODS))
+
+    def test_a_platform_without_an_id_leaves_memory_off(self) -> None:
+        """Audit M1: no sender id, no shared `local` identity: inert, one warning, no recall, no capture."""
+        logs = _capture_logs(self)
+        self.sb.bind()
+        core = self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="email"))
+        self.assertEqual(p.system_prompt_block(), "")
+        self.assertEqual(p.prefetch("when is the roadmap review"), "")
+        p.sync_turn("a question from an unknown sender", "answer")
+        self.assertEqual(p.get_tool_schemas(), [])
+        self.assertEqual([m for m, _ in core.calls if m.startswith("memory.")], [])
+        self.assertEqual(len([w for w in _warnings(logs) if "no user or chat id" in w]), 1)
+
+    def test_claimed_platforms_use_the_claimed_namespace(self) -> None:
+        self.sb.bind()
+        core = self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="webhook", user_id="admin"))
+        p.prefetch("when is the roadmap review")
+        recall = [prm for m, prm in core.calls if m == "memory.recall"][-1]
+        self.assertEqual(recall["caller"]["accountId"], "hermes:webhook:claimed")
+        self.assertTrue(recall["caller"]["userId"].startswith("claimed-"))
+
+    def test_forget_tool_calls_memory_forget_with_the_bound_agent(self) -> None:
+        self.sb.bind("hermes-work", memory_write_tools=True)
         core = self.sb.start_core(capabilities=capabilities(all_optional=True))
         p = self.sb.provider()
         p.initialize("s", **self.sb.init_kwargs(platform="telegram", user_id="42"))

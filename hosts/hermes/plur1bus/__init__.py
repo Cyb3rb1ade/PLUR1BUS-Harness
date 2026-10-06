@@ -46,7 +46,19 @@ from agent.memory_provider import MemoryProvider, is_trivial_prompt, spawn_conte
 from ._client import pmc
 from .binding import Binding, BindingInvalid, read_binding, resolve_hermes_home
 from .journal import CaptureJournal, is_journal_code
-from .mapping import SYSTEM_PROMPT_BLOCK, TOOL_METHODS, TOOL_SCHEMAS, ToolArgsError, caller_for, session_key_for, tool_params, turn_messages
+from .mapping import (
+    READ_ONLY_PROMPT_BLOCK,
+    SYSTEM_PROMPT_BLOCK,
+    TOOL_METHODS,
+    TOOL_SCHEMAS,
+    WRITE_TOOLS,
+    IdentityRefused,
+    ToolArgsError,
+    caller_for,
+    session_key_for,
+    tool_params,
+    turn_messages,
+)
 
 __all__ = ["Plur1busMemoryProvider", "register"]
 
@@ -182,7 +194,13 @@ class Plur1busMemoryProvider(MemoryProvider):
             self._warn("binding", f"plur1bus: no binding for this Hermes home; memory is off for this session. {BIND_HINT}")
             return
         self._journal = CaptureJournal.for_home(self._hermes_home)  # no I/O until the worker uses it
-        self._caller = caller_for(kwargs.get("platform"), kwargs.get("user_id"), kwargs.get("chat_id"))
+        try:
+            self._caller = caller_for(kwargs.get("platform"), kwargs.get("user_id"), kwargs.get("chat_id"))
+        except IdentityRefused:
+            # Fail closed (audit M1): without a sender id there is no identity that is not shared with others.
+            self._journal = None
+            self._warn("identity", "plur1bus: this platform supplied no user or chat id; memory is off for this session")
+            return
         self._session_key = session_key_for(self._session_id, kwargs.get("gateway_session_key"))
         self._rclient = self._factory(self._binding.home)
         self._wclient = self._factory(self._binding.home)
@@ -203,7 +221,9 @@ class Plur1busMemoryProvider(MemoryProvider):
         return self._binding is not None and self._rclient is not None
 
     def system_prompt_block(self) -> str:
-        return SYSTEM_PROMPT_BLOCK if self._active else ""
+        if not self._active:
+            return ""
+        return SYSTEM_PROMPT_BLOCK if self._binding.memory_write_tools else READ_ONLY_PROMPT_BLOCK
 
     def on_session_switch(self, new_session_id: str, *, parent_session_id: str = "", reset: bool = False, rewound: bool = False, **kwargs: Any) -> None:
         self._session_id = new_session_id or self._session_id
@@ -487,12 +507,18 @@ class Plur1busMemoryProvider(MemoryProvider):
             return []
         # Follows the live core.auth capabilities: empty while the core was never reached (see the
         # module docstring for when Hermes asks again).
-        return [dict(TOOL_SCHEMAS[t]) for t, m in TOOL_METHODS.items() if self._rclient.supports(m)]
+        return [dict(TOOL_SCHEMAS[t]) for t, m in TOOL_METHODS.items() if self._tool_enabled(t) and self._rclient.supports(m)]
+
+    def _tool_enabled(self, tool_name: str) -> bool:
+        """The write tools (forget, correct, share) need ``memoryWriteTools`` in the binding (audit M2)."""
+        return tool_name not in WRITE_TOOLS or bool(self._binding is not None and self._binding.memory_write_tools)
 
     def handle_tool_call(self, tool_name: str, args: dict[str, Any], **kwargs: Any) -> str:
         method = TOOL_METHODS.get(tool_name)
         if method is None or not self._active or not self._rclient.supports(method):
             return json.dumps({"error": "E_NOT_AVAILABLE"})
+        if not self._tool_enabled(tool_name):
+            return json.dumps({"error": "E_DISABLED"})
         try:
             p = tool_params(tool_name, args)
         except ToolArgsError:
