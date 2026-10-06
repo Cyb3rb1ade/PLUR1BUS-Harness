@@ -13,7 +13,7 @@ export * from "./types.ts";
 
 export interface DreamsOptions {
   engine: DreamEngine; layout: Layout; clock: Clock; logger: DreamLogger; agents: AgentRegistry;
-  securePath?: (p: string) => unknown;
+  securePath?: (p: string, options?: { mode?: number }) => unknown;
   /** Test seam / overrides forwarded to the scheduler. */
   scheduler?: Partial<SchedulerOptions>;
 }

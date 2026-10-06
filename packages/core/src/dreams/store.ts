@@ -58,7 +58,7 @@ type Row = Record<string, unknown>;
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 const num = (v: unknown): number | null => (typeof v === "number" ? v : typeof v === "bigint" ? Number(v) : null);
 
-export interface StoreOptions { securePath?: (p: string) => unknown }
+export interface StoreOptions { securePath?: (p: string, options?: { mode?: number }) => unknown }
 
 export class DreamStore {
   readonly #db: DatabaseSync;
@@ -68,7 +68,7 @@ export class DreamStore {
     this.path = path;
     if (path !== ":memory:") {
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-      o.securePath?.(dirname(path));
+      o.securePath?.(dirname(path), { mode: 0o700 }); // a directory needs its execute bit; the default mode is the file one
     }
     this.#db = new DatabaseSync(path);
     this.#db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;");
