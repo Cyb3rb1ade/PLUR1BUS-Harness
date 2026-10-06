@@ -14,6 +14,7 @@ import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
+import { buildIdentityMethods } from "../identity/rpc.ts";
 import type { BudgetService } from "../budget/index.ts";
 import { CatalogError } from "../discovery/overrides.ts";
 import { CatalogWriteError } from "../discovery/catalog-store.ts";
@@ -60,6 +61,8 @@ export interface MethodDeps {
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
   discovery?: import("../discovery/service.ts").DiscoveryService;
+  /** M3: the identity service (humans, linked channel identities, pairing); `identity.*` is served only when present. */
+  identity?: import("../identity/service.ts").IdentityService;
   /** M2: the `admin.reembed.*` handlers (embedding-migrate/rpc.ts), when the core built a migration driver. */
   reembed?: Record<string, Handler>;
   /** M2 L8: the budget service (absent when its store could not be opened). */
@@ -324,5 +327,6 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         mapDiscoveryError(err);
       }
     },
+    ...(d.identity ? buildIdentityMethods({ service: d.identity, isStopping: d.isStopping }) : {}),
   };
 }

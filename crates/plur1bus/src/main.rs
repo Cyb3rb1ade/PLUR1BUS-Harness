@@ -47,7 +47,7 @@ fn main() {
         Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
         Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
         Cmd::Update(args) => commands::update::run(&out, &layout, args),
-        Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
+        Cmd::User { sub } => commands::user::run(&out, &layout, sub),
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),
         Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),

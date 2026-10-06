@@ -26,6 +26,7 @@ pub mod skill;
 pub mod stubs;
 pub mod update;
 pub(crate) mod update_apply;
+pub mod user;
 
 use crate::output::Out;
 use crate::paths::Layout;
