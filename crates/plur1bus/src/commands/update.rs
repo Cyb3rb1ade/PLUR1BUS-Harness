@@ -1,7 +1,8 @@
 //! `plur1bus update --check` (spec §6.5, D78, HB10, H3b-b-2). Compares the install manifest with the signed
-//! release feed and names the units that would restart. Applying an update (without `--check`) is M8. Never
-//! writes anything: `update --check` only reads the install manifest and the release feed.
-use crate::cli::UpdateArgs;
+//! release feed and names the units that would restart. Never
+//! writes anything: `update --check` only reads the install manifest and the release feed. Applying (D78) lives in
+//! `update_apply.rs` beside it and in `crate::update`.
+use crate::cli::{UpdateArgs, UpdateCmd};
 use crate::install;
 use crate::output::Out;
 use crate::paths::Layout;
@@ -17,17 +18,17 @@ const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
 /// A minisign `.minisig` file is a few hundred bytes; anything past this is not one.
 const MAX_SIG_BYTES: u64 = 16 * 1024;
 
-pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
-    if !args.check {
-        super::stubs::milestone(
-            out,
-            "update",
-            "M8",
-            "downloading and applying a release (`update --check` shows what it would change)",
-        );
-    }
-    super::refuse_in_container(out, "update --check");
+/// The installed manifest and a parsed (and, when a key is baked, signature-verified) release feed.
+pub(super) struct Feed {
+    pub manifest: install::manifest::InstallManifest,
+    pub channel: String,
+    pub raw: Vec<u8>,
+    pub head: install::manifest::ReleaseHead,
+    pub native: Option<install::manifest::ReleaseNative>,
+    pub verified: bool,
+}
 
+fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs) -> Feed {
     let manifest = match install::manifest::read(layout) {
         Ok(Some(m)) => m,
         Ok(None) => out.fail(
@@ -48,7 +49,7 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
         .channel
         .clone()
         .unwrap_or_else(|| manifest.channel.clone());
-    let src = release_source(&args, &channel);
+    let src = release_source(args, &channel);
 
     let raw = match install::fetch::fetch_bytes(&src, MAX_MANIFEST_BYTES, DEADLINE) {
         Ok(b) => b,
@@ -70,12 +71,45 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
         ),
     };
 
-    let verified_flag = match verify_release(&raw, &channel, &src) {
+    let verified = match verify_release(&raw, &channel, &src) {
         Ok(v) => v,
         Err((reason, message)) => {
             out.fail("E_NOT_AVAILABLE", &message, json!({ "reason": reason }), 1)
         }
     };
+    Feed {
+        manifest,
+        channel,
+        raw,
+        head,
+        native,
+        verified,
+    }
+}
+
+pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
+    if let Some(UpdateCmd::Status) = args.sub {
+        super::update_apply::status(out, layout);
+    }
+    if args.rollback {
+        super::refuse_in_container(out, "update --rollback");
+        super::update_apply::rollback(out, layout);
+    }
+    if !args.check {
+        super::refuse_in_container(out, "update");
+        let feed = load_feed(out, layout, &args);
+        super::update_apply::apply(out, layout, &args, feed);
+    }
+    super::refuse_in_container(out, "update --check");
+
+    let Feed {
+        manifest,
+        channel: _,
+        raw,
+        head,
+        native,
+        verified: verified_flag,
+    } = load_feed(out, layout, &args);
 
     let doc: Value = serde_json::from_slice(&raw).unwrap_or(json!({}));
     let installed_modules = installed_modules(layout);
@@ -215,7 +249,7 @@ fn verify_release(raw: &[u8], channel: &str, src: &str) -> Result<bool, (&'stati
 
 /// The installed modules (`{name, version, apiVersion}`), read from `<home>/modules/*/module.json`, the on-disk
 /// truth D14 module-guide.md gives — never from the install manifest, which carries no `apiVersion`.
-fn installed_modules(layout: &Layout) -> Vec<Value> {
+pub(super) fn installed_modules(layout: &Layout) -> Vec<Value> {
     crate::modules::manifest::scan(layout)
         .into_iter()
         .filter_map(|i| {
@@ -233,7 +267,7 @@ fn installed_modules(layout: &Layout) -> Vec<Value> {
 /// `a > b`, comparing `major.minor.patch` numerically when both parse as semver's release triple; otherwise a
 /// plain string mismatch (a release build never ships a non-semver version, so this fallback is unreached in
 /// practice).
-fn is_newer(a: &str, b: &str) -> bool {
+pub(super) fn is_newer(a: &str, b: &str) -> bool {
     match (parse_semver_triple(a), parse_semver_triple(b)) {
         (Some(x), Some(y)) => x > y,
         _ => a != b,
@@ -254,7 +288,7 @@ fn parse_semver_triple(v: &str) -> Option<(u64, u64, u64)> {
 
 /// The units that differ between the installed manifest and the release's `native` object (`None` for an
 /// app-only release, HB10), and the restart consequence of each (Task 5 interfaces rules).
-fn plan_changes(
+pub(super) fn plan_changes(
     manifest: &install::manifest::InstallManifest,
     native: &Option<install::manifest::ReleaseNative>,
     head: &install::manifest::ReleaseHead,
