@@ -8,7 +8,7 @@ import { createStateStore, MigrationStateError, type Checkpoint } from "../../sr
 const tmp = () => mkdtempSync(path.join(tmpdir(), "p1-reembed-"));
 const cp = (over: Partial<Checkpoint> = {}): Checkpoint => ({
   v: 1, id: "m1", token: "tok", planDigest: "sha256:abc", createdAt: 1, updatedAt: 1, phase: "planned", sourceGeneration: "g0", targetGeneration: "generation-m1",
-  target: { provider: "fake", model: "b", dimensions: 8 }, counts: { rows: 10, tables: 2, rowsDone: 0, batchesDone: 0 }, throttleMs: 0, abortRequested: false, error: null, ...over,
+  target: { provider: "fake", model: "b", dimensions: 8 }, counts: { rows: 10, tables: 2, batches: 2, rowsDone: 0, batchesDone: 0 }, throttleMs: 0, abortRequested: false, error: null, ...over,
 });
 
 describe("migration checkpoint store", () => {
@@ -18,7 +18,7 @@ describe("migration checkpoint store", () => {
       const s = createStateStore(dir);
       assert.equal(s.read(), null);
       s.write(cp());
-      s.write(cp({ phase: "running", counts: { rows: 10, tables: 2, rowsDone: 8, batchesDone: 1 } }));
+      s.write(cp({ phase: "running", counts: { rows: 10, tables: 2, batches: 2, rowsDone: 8, batchesDone: 1 } }));
       assert.equal(s.read()?.phase, "running");
       assert.equal(s.read()?.counts.rowsDone, 8);
       if (process.platform !== "win32") assert.equal(statSync(s.path).mode & 0o777, 0o600);
@@ -46,7 +46,7 @@ describe("migration checkpoint store", () => {
       for (const [label, body] of [
         ["not json", "{"], ["unknown phase", JSON.stringify(cp({ phase: "bogus" as never }))], ["wrong version", JSON.stringify({ ...cp(), v: 2 })],
         ["oversized", JSON.stringify({ ...cp(), pad: "x".repeat(2 * 1024 * 1024) })], ["bad id", JSON.stringify(cp({ id: "../x" }))],
-        ["negative counts", JSON.stringify(cp({ counts: { rows: -1, tables: 0, rowsDone: 0, batchesDone: 0 } }))],
+        ["negative counts", JSON.stringify(cp({ counts: { rows: -1, tables: 0, batches: 0, rowsDone: 0, batchesDone: 0 } }))],
       ] as const) {
         writeFileSync(s.path, body);
         assert.throws(() => s.read(), (e: unknown) => e instanceof MigrationStateError && e.code === "state-corrupt", label);

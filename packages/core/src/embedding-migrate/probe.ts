@@ -48,17 +48,22 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stri
 const result = (verdict: Verdict, reasons: ProbeReason[], message: string, o: Partial<ProbeResult> = {}): ProbeResult =>
   ({ verdict, reasons, changed: [], storedId: null, targetId: null, message, ...o });
 
+/** The target-side refusals alone (no stored identity needed): null when the target is a valid, pinned fingerprint. */
+export function checkTarget(target: EmbeddingFingerprint): ProbeResult | null {
+  const t = idOf(target);
+  if (!("error" in t)) return null;
+  const moving = /immutable revision/.test(t.error);
+  return result("incompatible", [moving ? "target-revision-unpinned" : "target-identity-invalid"],
+    moving ? "the target model's revision is not pinned to an immutable value (a moving tag such as main or latest)" : "the target embedding identity is not a valid fingerprint (provider, model and dimensions are required)");
+}
+
 export function probeCompatibility(i: ProbeInput): ProbeResult {
   if (i.stored === null) return result("incompatible", ["stored-identity-missing"], "the store carries no readable embedding identity, so its vectors cannot be vouched for");
   const stored = idOf(i.stored);
   if ("error" in stored) return result("incompatible", ["stored-identity-invalid"], "the store's embedding identity is not a valid fingerprint");
-  const target = idOf(i.target);
-  if ("error" in target) {
-    const moving = /immutable revision/.test(target.error);
-    return result("incompatible", [moving ? "target-revision-unpinned" : "target-identity-invalid"],
-      moving ? "the target model's revision is not pinned to an immutable value (a moving tag such as main or latest)" : "the target embedding identity is not a valid fingerprint (provider, model and dimensions are required)",
-      { storedId: stored.id });
-  }
+  const refusal = checkTarget(i.target);
+  if (refusal) return { ...refusal, storedId: stored.id };
+  const target = idOf(i.target) as { id: string };
   const ids = { storedId: stored.id, targetId: target.id };
   if (i.targetProbe && !i.targetProbe.ok) {
     return result("incompatible", ["target-provider-unusable"], `the target embedding provider did not answer its readiness probe (${i.targetProbe.error ?? "failed"})`, ids);

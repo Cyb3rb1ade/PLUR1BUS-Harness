@@ -22,7 +22,7 @@ export interface Checkpoint {
   phase: Phase;
   sourceGeneration: string; targetGeneration: string;
   target: EmbeddingFingerprint;
-  counts: { rows: number; tables: number; rowsDone: number; batchesDone: number };
+  counts: { rows: number; tables: number; batches: number; rowsDone: number; batchesDone: number };
   throttleMs: number;
   abortRequested: boolean;
   error: { code: string; message: string } | null;
@@ -46,7 +46,7 @@ function parse(raw: unknown): Checkpoint {
   const id = str("id"); if (!ID_RE.test(id)) bad("id");
   const gens = [str("sourceGeneration"), str("targetGeneration")]; for (const g of gens) if (!ID_RE.test(g)) bad("generation");
   const phase = raw.phase; if (!PHASES.includes(phase as Phase)) bad("phase");
-  const c = raw.counts; if (!isObj(c) || !isInt(c.rows) || !isInt(c.tables) || !isInt(c.rowsDone) || !isInt(c.batchesDone)) bad("counts");
+  const c = raw.counts; if (!isObj(c) || !isInt(c.rows) || !isInt(c.tables) || !isInt(c.batches) || !isInt(c.rowsDone) || !isInt(c.batchesDone)) bad("counts");
   const counts = c as Record<string, number>;
   if (!isObj(raw.target) || typeof raw.target.provider !== "string" || typeof raw.target.model !== "string" || !isInt(raw.target.dimensions)) bad("target");
   if (!isInt(raw.createdAt) || !isInt(raw.updatedAt) || !isInt(raw.throttleMs) || typeof raw.abortRequested !== "boolean") bad("scalars");
@@ -58,7 +58,7 @@ function parse(raw: unknown): Checkpoint {
   return {
     v: 1, id, token: str("token"), planDigest: str("planDigest"), createdAt: raw.createdAt as number, updatedAt: raw.updatedAt as number, phase: phase as Phase,
     sourceGeneration: gens[0]!, targetGeneration: gens[1]!, target: raw.target as unknown as EmbeddingFingerprint,
-    counts: { rows: counts.rows!, tables: counts.tables!, rowsDone: counts.rowsDone!, batchesDone: counts.batchesDone! },
+    counts: { rows: counts.rows!, tables: counts.tables!, batches: counts.batches!, rowsDone: counts.rowsDone!, batchesDone: counts.batchesDone! },
     throttleMs: raw.throttleMs as number, abortRequested: raw.abortRequested as boolean, error,
   };
 }
