@@ -1798,7 +1798,10 @@ fn a_closed_stdout_pipe_keeps_the_failing_exit_code() {
 #[test]
 fn a_closed_stdout_pipe_on_a_successful_read_exits_0() {
     let home = tempfile::tempdir().unwrap();
-    for args in [&["config", "path"][..], &["--json", "config", "path"][..]] {
+    for args in [
+        &["config", "get", "core.logLevel"][..],
+        &["--json", "config", "get", "core.logLevel"][..],
+    ] {
         let (code, stderr) = closed_stdout(home.path(), args);
         assert_eq!(code, Some(0), "{args:?}: {stderr}");
     }

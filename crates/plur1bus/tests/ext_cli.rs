@@ -1103,9 +1103,17 @@ fn a_closed_stdout_pipe_does_not_skip_the_work_of_enable_and_disable() {
         common::run_closed_stdout(h.cmd().args(["skill", "enable", "demo-skill", "--yes"]));
     assert_eq!(c, Some(0), "{err}");
     assert!(!err.contains("panicked"), "{err}");
-    assert_eq!(h.index_enabled("demo-skill"), Some(true), "enable was skipped");
+    assert_eq!(
+        h.index_enabled("demo-skill"),
+        Some(true),
+        "enable was skipped"
+    );
 
     let (c, err) = common::run_closed_stdout(h.cmd().args(["skill", "disable", "demo-skill"]));
     assert_eq!(c, Some(0), "{err}");
-    assert_eq!(h.index_enabled("demo-skill"), Some(false), "disable was skipped");
+    assert_eq!(
+        h.index_enabled("demo-skill"),
+        Some(false),
+        "disable was skipped"
+    );
 }
