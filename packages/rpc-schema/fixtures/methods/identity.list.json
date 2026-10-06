@@ -1,0 +1,45 @@
+{
+  "params": {
+    "caller": {
+      "channel": "cli",
+      "accountId": "macbooker",
+      "userId": "cyberblade"
+    },
+    "includeRevoked": false
+  },
+  "result": {
+    "humans": [
+      {
+        "id": "0198a2c4-0000-7000-8000-000000000001",
+        "displayName": "Alex",
+        "createdAt": 1789999000000,
+        "identities": [
+          {
+            "id": "0198a2c4-0000-7000-8000-000000000002",
+            "humanId": "0198a2c4-0000-7000-8000-000000000001",
+            "channel": "telegram",
+            "accountId": "bot1",
+            "userId": "4242",
+            "displayName": "Alex",
+            "v1Principal": "user:v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "proofMethod": "pairing_code",
+            "linkedAt": 1790000000000,
+            "linkedBy": "cyberblade",
+            "revokedAt": null,
+            "revokedBy": null
+          }
+        ]
+      }
+    ],
+    "pairings": [
+      {
+        "id": "0198a2c4-0000-7000-8000-000000000003",
+        "humanId": "0198a2c4-0000-7000-8000-000000000001",
+        "channel": "discord",
+        "state": "pending",
+        "createdAt": 1790000100000,
+        "expiresAt": 1790000700000
+      }
+    ]
+  }
+}

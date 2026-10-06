@@ -1,0 +1,1 @@
+{"expect":{"kind":"rate_limit","status":429,"retryable":true,"retryAfterMs":1500},"response":{"status":429,"headers":{"retry-after-ms":"1500","retry-after":"9"},"body":{"error":{"message":"Slow down."}}}}

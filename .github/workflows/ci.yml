@@ -2,11 +2,40 @@ name: ci
 on:
   push: { branches: [main] }
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "29 3 * * *"
+  workflow_dispatch:
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ci:macos' && '-noop' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # PR: Linux + Windows legs always, macOS only `unit`; push to main, schedule and workflow_dispatch run everything.
+  # Decides which macOS legs run (policy and path list: docs/ci.md, scripts/ci/macos-plan.mjs). One cheap ubuntu job.
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      proceed: ${{ steps.plan.outputs.proceed }}
+      macos: ${{ steps.plan.outputs.macos }}
+      python_matrix: ${{ steps.plan.outputs.python_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node --test scripts/ci/macos-plan.test.mjs && node scripts/ci/macos-plan.mjs
   unit:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +75,13 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
         timeout-minutes: 15
+      # The vacuous-run guard must trip on every OS (a filter that matches nothing is what hid the Windows TS tests).
+      - name: test guard trips on an empty filter
+        shell: bash
+        run: |
+          if node scripts/run-ts-tests.mjs --filter=@nonexistent/pkg; then
+            echo "guard did not fail on an empty filter"; exit 1
+          fi
       # The release scripts (harness-release.yml): payload assembly and release-native.json.
       - run: node --experimental-strip-types --test --test-timeout=120000 "scripts/release/test/*.test.ts"
         timeout-minutes: 5
@@ -60,10 +96,12 @@ jobs:
         timeout-minutes: 20
       - run: pnpm docs:check
   system:
-    needs: unit
+    needs: [plan, unit]
+    if: needs.plan.outputs.proceed == 'true'
     strategy:
       matrix:
         os: [ubuntu-24.04, macos-15]
+        exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
@@ -119,11 +157,13 @@ jobs:
   # Ruling C5: Linux needs a user manager (lingering); if enabling it fails, the job keeps the unit-file tests
   # (tests/service.rs) and the real test runs on the owner's Ubuntu VM instead.
   service:
-    needs: unit
+    needs: [plan, unit]
+    if: needs.plan.outputs.proceed == 'true'
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
+        exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -160,15 +200,12 @@ jobs:
   # flat-embedder core built from this commit (no model download). windows-2025 is the gate for Task 3 (ruling F20):
   # the six NamedPipeTest real-pipe tests must run there, not skip. windows-11-arm is informational.
   python-host:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: ubuntu-24.04, python: "3.11" }
-          - { os: ubuntu-24.04, python: "3.13" }
-          - { os: macos-15, python: "3.13" }
-          - { os: windows-2025, python: "3.13" }
-          - { os: windows-11-arm, python: "3.13", informational: true }
+        include: ${{ fromJSON(needs.plan.outputs.python_matrix) }}
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.informational == true }}
     timeout-minutes: 45
@@ -239,6 +276,8 @@ jobs:
           "$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
         env: { PLUR1BUS_LIVE_REQUIRED: "1", PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware
   wsl:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
     # Cross-platform migration WSL discovery and tar snapshot job (spec §B.7, gap G5/G6, decision C8).
     # Required blocking job for M7 acceptance; runs on windows-2025.
     runs-on: windows-2025

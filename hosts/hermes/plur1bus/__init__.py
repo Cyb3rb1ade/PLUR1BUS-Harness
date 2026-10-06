@@ -45,7 +45,7 @@ from agent.memory_provider import MemoryProvider, is_trivial_prompt, spawn_conte
 
 from ._client import pmc
 from .binding import Binding, BindingInvalid, read_binding, resolve_hermes_home
-from .journal import CaptureJournal, clean_code, is_journal_code
+from .journal import CaptureJournal, clean_code, is_journal_error
 from .mapping import (
     READ_ONLY_PROMPT_BLOCK,
     SYSTEM_PROMPT_BLOCK,
@@ -375,7 +375,7 @@ class Plur1busMemoryProvider(MemoryProvider):
         except Exception as e:  # noqa: BLE001 - classified: journal or drop
             code = _code(e)
             self._set_error(code)
-            if is_journal_code(code):
+            if is_journal_error(e, code):
                 self._journal_inflight(inflight)
                 self._warn("capture", f"plur1bus: memory capture is unavailable ({code}); turns are kept in the local journal and sent later")
             else:

@@ -17,6 +17,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus 1staid`↴](#plur1bus-1staid)
 * [`plur1bus 1staid check`↴](#plur1bus-1staid-check)
 * [`plur1bus 1staid repair`↴](#plur1bus-1staid-repair)
+* [`plur1bus 1staid bundle`↴](#plur1bus-1staid-bundle)
 * [`plur1bus agent`↴](#plur1bus-agent)
 * [`plur1bus agent list`↴](#plur1bus-agent-list)
 * [`plur1bus agent create`↴](#plur1bus-agent-create)
@@ -36,6 +37,12 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
+* [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
+* [`plur1bus session`↴](#plur1bus-session)
+* [`plur1bus session list`↴](#plur1bus-session-list)
+* [`plur1bus session show`↴](#plur1bus-session-show)
+* [`plur1bus session archive`↴](#plur1bus-session-archive)
+* [`plur1bus chat`↴](#plur1bus-chat)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -61,6 +68,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus admin embedding`↴](#plur1bus-admin-embedding)
 * [`plur1bus admin embedding probe`↴](#plur1bus-admin-embedding-probe)
 * [`plur1bus admin embedding serve`↴](#plur1bus-admin-embedding-serve)
+* [`plur1bus backup`↴](#plur1bus-backup)
+* [`plur1bus backup create`↴](#plur1bus-backup-create)
+* [`plur1bus backup verify`↴](#plur1bus-backup-verify)
+* [`plur1bus backup restore`↴](#plur1bus-backup-restore)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
 * [`plur1bus daemon start`↴](#plur1bus-daemon-start)
 * [`plur1bus daemon stop`↴](#plur1bus-daemon-stop)
@@ -73,11 +84,23 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus core`↴](#plur1bus-core)
 * [`plur1bus core run`↴](#plur1bus-core-run)
 * [`plur1bus update`↴](#plur1bus-update)
+* [`plur1bus update status`↴](#plur1bus-update-status)
 * [`plur1bus user`↴](#plur1bus-user)
+* [`plur1bus user ls`↴](#plur1bus-user-ls)
+* [`plur1bus user add`↴](#plur1bus-user-add)
+* [`plur1bus user pair`↴](#plur1bus-user-pair)
+* [`plur1bus user pair start`↴](#plur1bus-user-pair-start)
+* [`plur1bus user pair claim`↴](#plur1bus-user-pair-claim)
+* [`plur1bus user pair confirm`↴](#plur1bus-user-pair-confirm)
+* [`plur1bus user link`↴](#plur1bus-user-link)
+* [`plur1bus user unlink`↴](#plur1bus-user-unlink)
 * [`plur1bus model`↴](#plur1bus-model)
 * [`plur1bus model list`↴](#plur1bus-model-list)
 * [`plur1bus model scan`↴](#plur1bus-model-scan)
 * [`plur1bus model override`↴](#plur1bus-model-override)
+* [`plur1bus budget`↴](#plur1bus-budget)
+* [`plur1bus budget status`↴](#plur1bus-budget-status)
+* [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -122,16 +145,20 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `1staid` — Check and repair the installation
 * `agent` — Agents (personas): list, create, remove, status
 * `memory` — Memory: add and recall through the core
+* `session` — Chat sessions: list, show, archive
+* `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
 * `dreams` — Dreaming jobs: status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
 * `admin` — [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
+* `backup` — [experimental] Backup and restore: create, verify, restore
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
-* `update` — [experimental] Update check: what a release would change and which units would restart (`--check`)
-* `user` — Users — M2
+* `update` — [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
+* `user` — [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 * `model` — [experimental] Models and provider profiles: list, scan and override
+* `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
@@ -191,6 +218,7 @@ Check and repair the installation
 
 * `check` — [experimental] Read-only diagnostics over the installation (spec §6.6)
 * `repair` — [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
+* `bundle` — [experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last log lines; never the audit log, payload capture, stores or secrets) and print its path
 
 
 
@@ -213,6 +241,21 @@ Check and repair the installation
 * `--yes` — Confirm every step of the plan without asking (required outside a terminal)
 * `--dry-run` — Print the plan and change nothing
 * `--only <STEP_ID>` — Plan only this step (repeatable)
+
+
+
+## `plur1bus 1staid bundle`
+
+[experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last log lines; never the audit log, payload capture, stores or secrets) and print its path
+
+**Usage:** `plur1bus 1staid bundle [OPTIONS]`
+
+###### **Options:**
+
+* `--out <PATH>` — Where to write the zip: a new file, or an existing directory (default: `<home>/bundles/`)
+* `--lines <N>` — Keep the last N lines of each log
+
+  Default value: `500`
 
 
 
@@ -293,6 +336,7 @@ Memory: add and recall through the core
 * `state` — [experimental] Memory subsystem state
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
+* `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
 
@@ -509,6 +553,113 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 * `--agent <AGENT>`
 * `--note <NOTE>`
+
+
+
+## `plur1bus memory reembed`
+
+[experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
+
+**Usage:** `plur1bus memory reembed [OPTIONS] <--plan|--run|--status|--abort>`
+
+###### **Options:**
+
+* `--plan` — Compare the store with --model and show what a migration would do; copies nothing
+* `--run` — Copy the planned migration into a new generation in throttled batches, validate it and switch
+* `--status` — Show the migration's phase and progress
+* `--abort` — Stop at the next batch boundary; --run continues the same migration
+* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+* `--dimensions <DIMENSIONS>` — Target vector dimensions, when the model supports more than one
+* `--query-prefix <QUERY_PREFIX>` — Query prefix of the target model
+* `--passage-prefix <PASSAGE_PREFIX>` — Passage prefix of the target model
+* `--throttle-ms <THROTTLE_MS>` — Milliseconds to pause between batches (default 250)
+* `--no-switch` — With --run: copy and validate, but do not switch to the new generation
+* `--no-wait` — With --run: return as soon as the run has started instead of following it
+* `--yes` — With --run: do not ask for confirmation (required outside a terminal)
+
+
+
+## `plur1bus session`
+
+Chat sessions: list, show, archive
+
+**Usage:** `plur1bus session <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List your chat sessions (pinned first, then by last turn)
+* `show` — [experimental] Show one session and its last messages
+* `archive` — [experimental] Archive a session (nothing is deleted)
+
+
+
+## `plur1bus session list`
+
+[experimental] List your chat sessions (pinned first, then by last turn)
+
+**Usage:** `plur1bus session list [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--kind <KIND>` — direct, card, project, channel or acp
+
+  Possible values: `direct`, `card`, `project`, `channel`, `acp`
+
+* `--archived <ARCHIVED>` — Show archived sessions: `only` or `any` (default: none)
+
+  Possible values: `only`, `any`
+
+* `--search <SEARCH>` — Full-text search over titles and messages
+* `--limit <LIMIT>`
+
+
+
+## `plur1bus session show`
+
+[experimental] Show one session and its last messages
+
+**Usage:** `plur1bus session show [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--messages <MESSAGES>` — How many of the last messages to show
+
+  Default value: `20`
+
+
+
+## `plur1bus session archive`
+
+[experimental] Archive a session (nothing is deleted)
+
+**Usage:** `plur1bus session archive <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus chat`
+
+[experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
+
+**Usage:** `plur1bus chat [OPTIONS] [MESSAGE]`
+
+###### **Arguments:**
+
+* `<MESSAGE>` — One message to send; without it, lines are read from stdin until EOF
+
+###### **Options:**
+
+* `--agent <AGENT>` — The agent to talk to (default: the only registered agent)
+* `--session <SESSION>` — Continue this session instead of starting a new one
+* `--no-memory` — Start the chat incognito: nothing of it is remembered
 
 
 
@@ -876,6 +1027,68 @@ Serving lasts only as long as this core process: it ends when the core stops or 
 
 
 
+## `plur1bus backup`
+
+[experimental] Backup and restore: create, verify, restore
+
+**Usage:** `plur1bus backup <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+* `verify` — [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+* `restore` — [experimental] Restore an archive into this home (the core must be stopped)
+
+
+
+## `plur1bus backup create`
+
+[experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+
+The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+
+**Usage:** `plur1bus backup create [OPTIONS]`
+
+###### **Options:**
+
+* `--out <OUT>` — where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
+* `--dry-run` — list what would be archived and where, without touching the core or writing anything
+
+
+
+## `plur1bus backup verify`
+
+[experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+
+Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry, checksum-mismatch, missing-entry) for an archive a restore would refuse.
+
+**Usage:** `plur1bus backup verify <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — the archive
+
+
+
+## `plur1bus backup restore`
+
+[experimental] Restore an archive into this home (the core must be stopped)
+
+Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+
+**Usage:** `plur1bus backup restore [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — the archive
+
+###### **Options:**
+
+* `--dry-run` — print what would be replaced, created and removed, without changing anything
+* `--yes` — apply without asking
+
+
+
 ## `plur1bus daemon`
 
 Supervisor control: start, stop, restart, status
@@ -997,15 +1210,22 @@ Core process (internal)
 
 ## `plur1bus update`
 
-[experimental] Update check: what a release would change and which units would restart (`--check`)
+[experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 
-Applying an update is M8; without `--check` the command answers that milestone.
+Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
 
-**Usage:** `plur1bus update [OPTIONS]`
+**Usage:** `plur1bus update [OPTIONS]
+       update <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
 
 ###### **Options:**
 
 * `--check` — Compare the installation with the release manifest and print the plan; changes nothing
+* `--rollback` — Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+* `--yes` — Apply without asking (required outside a terminal)
 * `--manifest <PATH|URL>` — Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
 * `--channel <CHANNEL>` — Release channel (default: the installed one)
 
@@ -1014,15 +1234,149 @@ Applying an update is M8; without `--check` the command answers that milestone.
 
 
 
+## `plur1bus update status`
+
+[experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+
+**Usage:** `plur1bus update status`
+
+
+
 ## `plur1bus user`
 
-Users — M2
+[experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 
-**Usage:** `plur1bus user`
+One human across channels only by proof (D24, ADR-007): a one-time pairing code the owner confirms, or a link the owner makes by hand. Nothing is ever linked by a matching name.
+
+**Usage:** `plur1bus user <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — [experimental] List humans with their linked identities and the pairings still waiting
+* `add` — [experimental] Create a human (an opaque id; prints it)
+* `pair` — [experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+* `link` — [experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+* `unlink` — [experimental] Revoke a link at once (the record stays for the audit trail)
+
+
+
+## `plur1bus user ls`
+
+[experimental] List humans with their linked identities and the pairings still waiting
+
+**Usage:** `plur1bus user ls [OPTIONS]`
+
+###### **Options:**
+
+* `--all` — Include revoked links
+
+
+
+## `plur1bus user add`
+
+[experimental] Create a human (an opaque id; prints it)
+
+**Usage:** `plur1bus user add <NAME>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<NAME>`
+
+
+
+## `plur1bus user pair`
+
+[experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+
+**Usage:** `plur1bus user pair <COMMAND>`
+
+###### **Subcommands:**
+
+* `start` — [experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+* `claim` — [experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+* `confirm` — [experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+
+
+
+## `plur1bus user pair start`
+
+[experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+
+**Usage:** `plur1bus user pair start --channel <CHANNEL> <HUMAN>`
+
+###### **Arguments:**
+
+* `<HUMAN>` — The human's id (see `user ls`)
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+
+
+
+## `plur1bus user pair claim`
+
+[experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+
+**Usage:** `plur1bus user pair claim [OPTIONS] --channel <CHANNEL> --account <ACCOUNT> --user-id <USER_ID> <CODE>`
+
+###### **Arguments:**
+
+* `<CODE>`
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+* `--account <ACCOUNT>`
+* `--user-id <USER_ID>`
+* `--display-name <DISPLAY_NAME>`
+
+
+
+## `plur1bus user pair confirm`
+
+[experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+
+**Usage:** `plur1bus user pair confirm [OPTIONS] <PAIRING>`
+
+###### **Arguments:**
+
+* `<PAIRING>`
+
+###### **Options:**
+
+* `--reject`
+
+
+
+## `plur1bus user link`
+
+[experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+
+**Usage:** `plur1bus user link [OPTIONS] --channel <CHANNEL> --account <ACCOUNT> --user-id <USER_ID> <HUMAN>`
+
+###### **Arguments:**
+
+* `<HUMAN>` — The human's id (see `user ls`)
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+* `--account <ACCOUNT>`
+* `--user-id <USER_ID>`
+* `--display-name <DISPLAY_NAME>` — A label for people to read; never matched on
+
+
+
+## `plur1bus user unlink`
+
+[experimental] Revoke a link at once (the record stays for the audit trail)
+
+**Usage:** `plur1bus user unlink <LINK>`
+
+###### **Arguments:**
+
+* `<LINK>` — The link's id (see `user ls`)
 
 
 
@@ -1090,6 +1444,59 @@ Users — M2
 * `--clear-all`
 * `--create`
 * `--remove`
+
+
+
+## `plur1bus budget`
+
+[experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+
+**Usage:** `plur1bus budget <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Show usage for the current day and month and every limit with its state
+* `set` — [experimental] Set or clear a limit, or the time zone budget periods follow
+
+
+
+## `plur1bus budget status`
+
+[experimental] Show usage for the current day and month and every limit with its state
+
+**Usage:** `plur1bus budget status [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <ID>` — only this agent's usage (and the global limits plus its own)
+
+
+
+## `plur1bus budget set`
+
+[experimental] Set or clear a limit, or the time zone budget periods follow
+
+A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals), token values are input + output tokens. A bound left out stays as it is.
+
+**Usage:** `plur1bus budget set [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — the limit covers all agents together
+* `--agent <ID>` — the limit covers this agent
+* `--period <PERIOD>` — the period the limit resets on (local calendar day or month)
+
+  Possible values: `day`, `month`
+
+* `--metric <METRIC>` — what is counted: cost in USD or input + output tokens
+
+  Possible values: `cost`, `tokens`
+
+* `--soft <VALUE>` — warn (once per period) above this value
+* `--hard <VALUE>` — refuse calls that would exceed this value
+* `--clear-soft` — remove the soft bound
+* `--clear-hard` — remove the hard bound
+* `--timezone <ZONE>` — an IANA time zone name the periods follow (default UTC)
 
 
 

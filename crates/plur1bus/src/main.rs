@@ -1,9 +1,11 @@
 mod audit;
+mod backup;
 mod cli;
 mod coexistence;
 mod commands;
 mod container;
 mod ext;
+mod firstaid_bundle;
 mod identity;
 mod install;
 mod journal;
@@ -14,6 +16,7 @@ mod proc;
 mod repair;
 mod service;
 mod supervisor;
+mod update;
 use clap::Parser;
 use cli::{Cli, Cmd};
 use output::Out;
@@ -40,11 +43,13 @@ fn main() {
         Cmd::FirstAid { sub } => commands::firstaid::run(&out, &layout, sub),
         Cmd::Module { sub } => commands::module::run(&out, &layout, sub),
         Cmd::Admin { sub } => commands::admin::run(&out, &layout, sub),
+        Cmd::Backup { sub } => commands::backup::run(&out, &layout, sub),
         Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
         Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
         Cmd::Update(args) => commands::update::run(&out, &layout, args),
-        Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
+        Cmd::User { sub } => commands::user::run(&out, &layout, sub),
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),
+        Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Login(_) => {
             commands::stubs::milestone(&out, "login", "M2", "API keys and OAuth templates (D16)")
@@ -56,6 +61,8 @@ fn main() {
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
+        Cmd::Session { sub } => commands::session::run(&out, &layout, sub),
+        Cmd::Chat(args) => commands::session::chat(&out, &layout, args),
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
         Cmd::Ext {
             cmd: cli::ExtCmd::Worker { op },
@@ -65,7 +72,9 @@ fn main() {
         Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),
     }
     // A real stdout write error (not a closed pipe) lost the output the caller asked for: do not report success.
-    if output::stdout_write_failed() {
-        std::process::exit(1);
+    // Commands that end the process themselves go through `output::exit`, which applies the same rule.
+    let code = output::final_exit_code(0);
+    if code != 0 {
+        std::process::exit(code);
     }
 }

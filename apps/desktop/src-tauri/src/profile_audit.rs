@@ -11,11 +11,31 @@ pub(crate) const MAX_BYTES: u64 = 64 * 1024 * 1024;
 pub(crate) const MAX_TIME: Duration = Duration::from_secs(5);
 pub(crate) const DELETE_RESERVE: Duration = Duration::from_secs(1);
 
+// Each startup leaf keeps a fixed one-second deletion reserve where its fair share permits it.
+// When the share is smaller, skip its audit rather than spend its deletion time reading.
+pub(crate) const SWEEP_DELETE_RESERVE: Duration = Duration::from_secs(1);
+pub(crate) fn sweep_leaf_deadlines(
+    now: Instant,
+    total: Instant,
+    leaves: usize,
+) -> (Instant, Instant) {
+    let share = total.saturating_duration_since(now) / leaves.max(1) as u32;
+    let remove = now + share;
+    let audit = remove
+        .checked_sub(SWEEP_DELETE_RESERVE)
+        .unwrap_or(now)
+        .max(now);
+    (audit, remove)
+}
+
 pub(crate) fn deadline(now: Instant, total: Instant) -> Instant {
     (now + MAX_TIME).min(total.checked_sub(DELETE_RESERVE).unwrap_or(now))
 }
 
-pub(crate) fn check_deadline(limit: Option<Instant>, now: &impl Fn() -> Instant) -> io::Result<()> {
+pub(crate) fn check_deadline(
+    limit: Option<Instant>,
+    now: &(impl Fn() -> Instant + ?Sized),
+) -> io::Result<()> {
     if limit.is_some_and(|limit| now() >= limit) {
         return Err(io::Error::new(
             io::ErrorKind::TimedOut,
@@ -29,7 +49,7 @@ pub(crate) fn read_file_bounded(
     path: &Path,
     limit: Option<Instant>,
     remaining: &mut u64,
-    now: &impl Fn() -> Instant,
+    now: &(impl Fn() -> Instant + ?Sized),
 ) -> io::Result<()> {
     check_deadline(limit, now)?;
     let mut file = File::open(path)?;
@@ -51,7 +71,7 @@ pub(crate) fn audit_profile_readability(
     root: &Path,
     limit: Instant,
     mut remaining: u64,
-    now: &impl Fn() -> Instant,
+    now: &(impl Fn() -> Instant + ?Sized),
     metadata: impl Fn(&Path) -> io::Result<std::fs::Metadata>,
     special: impl Fn(&Path) -> io::Result<bool>,
 ) -> io::Result<()> {
@@ -74,6 +94,47 @@ pub(crate) fn audit_profile_readability(
         }
     }
     Ok(())
+}
+
+pub(crate) struct ReadAudit<'a> {
+    pub root: &'a Path,
+    pub max_bytes: u64,
+    pub now: &'a dyn Fn() -> Instant,
+    pub metadata: &'a dyn Fn(&Path) -> io::Result<std::fs::Metadata>,
+    pub special: &'a dyn Fn(&Path) -> io::Result<bool>,
+}
+
+/// The production read/cookie closures live here, including sub-budget selection and error propagation.
+/// Platform ownership checks and native cookie IO are injected; bounded file reads are never substituted.
+pub(crate) fn audit_after_exit(
+    read: ReadAudit<'_>,
+    total: Instant,
+    validate: impl FnOnce(Instant) -> io::Result<()>,
+    secret: Option<&dyn Fn(&Path) -> super::windows_spa_profile::SecretScanOutcome>,
+    cookie: impl FnOnce(Instant) -> io::Result<super::windows_spa_profile::ProfileCleanupEvidence>,
+) -> super::windows_spa_profile::ProfileCleanupEvidence {
+    let limit = deadline((read.now)(), total);
+    post_exit_audit(
+        || {
+            validate(limit)?;
+            if let Some(scan) = secret {
+                return Ok(scan(read.root));
+            }
+            audit_profile_readability(
+                read.root,
+                limit,
+                read.max_bytes,
+                read.now,
+                read.metadata,
+                read.special,
+            )?;
+            Ok(super::windows_spa_profile::SecretScanOutcome {
+                complete: true,
+                secret_detected: false,
+            })
+        },
+        || cookie(limit),
+    )
 }
 
 pub(crate) fn post_exit_audit(
@@ -108,6 +169,18 @@ pub(crate) fn post_exit_audit(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sweep_slow_leaf_keeps_deletion_time_and_next_leaf_share() {
+        let start = Instant::now();
+        let total = start + Duration::from_secs(5);
+        let (audit, remove) = sweep_leaf_deadlines(start, total, 2);
+        assert_eq!(remove, start + Duration::from_millis(2500));
+        assert_eq!(remove.duration_since(audit), SWEEP_DELETE_RESERVE);
+        let (next_audit, next_remove) = sweep_leaf_deadlines(audit, total, 1);
+        assert!(next_audit > audit);
+        assert_eq!(next_remove, total);
+    }
+
     #[test]
     fn bounded_read_enforces_bytes_and_accepts_exact_budget() {
         let dir = tempfile::tempdir().unwrap();
@@ -265,27 +338,28 @@ mod tests {
                 start + Duration::from_secs(10),
                 || Some(true),
                 || async {
-                    post_exit_audit(
-                        || {
-                            let limit = if byte_timeout {
-                                start + MAX_TIME
-                            } else {
-                                start
-                            };
-                            audit_profile_readability(
-                                &path,
-                                limit,
-                                if byte_timeout { 1 } else { MAX_BYTES },
-                                &Instant::now,
-                                |p| std::fs::symlink_metadata(p),
-                                |_| Ok(false),
-                            )?;
-                            Ok(crate::windows_spa_profile::SecretScanOutcome {
-                                complete: true,
-                                secret_detected: false,
-                            })
+                    let calls = std::cell::Cell::new(0);
+                    let now = || {
+                        let call = calls.get();
+                        calls.set(call + 1);
+                        if !byte_timeout && call >= 3 {
+                            start + Duration::from_secs(6)
+                        } else {
+                            start
+                        }
+                    };
+                    audit_after_exit(
+                        ReadAudit {
+                            root: &path,
+                            max_bytes: if byte_timeout { 1 } else { MAX_BYTES },
+                            now: &now,
+                            metadata: &|p| std::fs::symlink_metadata(p),
+                            special: &|_| Ok(false),
                         },
-                        || panic!("SQL must not run after a readability failure"),
+                        start + Duration::from_secs(10),
+                        |_| Ok(()),
+                        None,
+                        |_| panic!("SQL must not run after a readability failure"),
                     )
                 },
                 || std::fs::remove_dir_all(&path).is_ok(),

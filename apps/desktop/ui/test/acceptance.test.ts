@@ -58,6 +58,7 @@ test("full keyboard traversal: ordered accessible names, wrap and visible 3:1 fo
             ...(section === "settings" && width < 1024 ? ["Sections"] : []),
             ...(section === "connections" ? ["Add remote", "Attach native local", "Refresh", ...(width < 1024 ? ["Choose connection"] : [])] : []),
             ...(width <= 1600 ? [section === "settings" ? "About this page" : "Connection details"] : []),
+            ...(section === "settings" && subpage === "runtime" ? ["Start PLUR1BUS at login"] : []),
             ...(section === "settings" && subpage === "advanced" ? ["System", "Light", "Dark", "System", "English", "Deutsch"] : []),
           ]), "How preferences work",
         ];
@@ -78,7 +79,7 @@ test("full keyboard traversal: ordered accessible names, wrap and visible 3:1 fo
             }
             const luminance = (rgb: number[]) => rgb.slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i]!, 0);
             const a = luminance(parse(style.outlineColor)), b = luminance(bg);
-            return { name: node.getAttribute("aria-label") ?? node.textContent?.trim(), style: style.outlineStyle, width: parseFloat(style.outlineWidth), contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
+            return { name: node.getAttribute("aria-label") ?? (node instanceof HTMLInputElement ? node.labels?.[0]?.textContent?.trim() : node.textContent?.trim()), style: style.outlineStyle, width: parseFloat(style.outlineWidth), contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
           });
           const context = `${theme}/${width}/${section}/${subpage}/${name}`;
           assert.equal(focused.name, name, context);

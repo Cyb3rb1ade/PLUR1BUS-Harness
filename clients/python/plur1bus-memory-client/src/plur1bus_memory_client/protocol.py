@@ -75,6 +75,8 @@ class Stream(Protocol):
 
     def peer_pid(self) -> int | None: ...
 
+    # POSIX streams also offer ``peer_uid() -> int | None`` (optional; absent means unknown).
+
     def close(self) -> None: ...
 
 

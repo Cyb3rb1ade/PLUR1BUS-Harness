@@ -1,6 +1,6 @@
 // D109 part 2: path canonicalisation. Conformance (per OS, Windows-only cases gated to win32) and red-team suites.
 // Every test works inside one mkdtemp directory that `after` removes; nothing is created or written outside it.
-import { after, before, describe, it } from "node:test";
+import { after, before, describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { constants as fsc } from "node:fs";
 import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
@@ -31,6 +31,22 @@ function allowed(r: PathResult): CanonicalPath {
   return r as CanonicalPath;
 }
 const canon = (input: string, extra: Partial<Parameters<typeof canonicalisePath>[1]> = {}) => canonicalisePath(input, { roots: roots(), ...extra });
+
+/** Whether this runner may create file symlinks, probed for real once (Windows needs Developer Mode or the symlink
+ *  privilege; junctions need neither). The swap races below need one planted; without it they are skipped with the
+ *  reason, never silently passed. */
+let symlinkProbe: Promise<boolean> | undefined;
+const canSymlink = (): Promise<boolean> => (symlinkProbe ??= (async () => {
+  const l = join(base, "probe-link");
+  try { await symlink(join(root, "file.txt"), l); await rm(l); return true; } catch { return false; }
+})());
+/** Plants a link, or skips the calling test with the reason when the runner cannot. Real errors surface once the
+ *  capability is proven. */
+async function plant(t: TestContext, target: string, at: string, type?: "dir" | "junction"): Promise<boolean> {
+  if (type !== "junction" && !(await canSymlink())) { t.skip("this runner cannot create symbolic links (Windows without the symlink privilege), which this swap race needs"); return false; }
+  await symlink(target, at, type);
+  return true;
+}
 
 before(async () => {
   base = await realpath(await mkdtemp(join(tmpdir(), "p1b-paths-")));
@@ -361,11 +377,11 @@ describe("D109 paths: red team, root escapes (every one refused)", T, () => {
 describe("D109 paths: red team, swap races between check and use", T, () => {
   const sw = async (name: string) => { const p = join(root, name); await writeFile(p, "original"); return p; };
 
-  it("leaf swapped for a symlink to an outside file after the check is refused and not followed", async () => {
+  it("leaf swapped for a symlink to an outside file after the check is refused and not followed", async (t) => {
     const p = await sw("race-leaf.txt");
     const c = allowed(await canon(p));
     await rm(p);
-    if (!(await symlink(join(outside, "secret.txt"), p).then(() => true, () => false))) return;
+    if (!(await plant(t, join(outside, "secret.txt"), p))) return;
     const r = await openVerified(c, fsc.O_RDONLY);
     assert.ok("ok" in r && r.ok === false, "must not return a handle");
     if ("ok" in r && !r.ok) assert.ok(["link-swap", "identity-changed"].includes(r.reason), r.reason);
@@ -379,40 +395,40 @@ describe("D109 paths: red team, swap races between check and use", T, () => {
     assert.ok("ok" in r && r.ok === false);
     if ("ok" in r && !r.ok) assert.equal(r.reason, "identity-changed");
   });
-  it("write target swapped for a symlink to an outside file is refused and the outside file stays intact", async () => {
+  it("write target swapped for a symlink to an outside file is refused and the outside file stays intact", async (t) => {
     const p = await sw("race-write.txt");
     const c = allowed(await canon(p, { access: "write" }));
     await rm(p);
-    if (!(await symlink(join(outside, "secret.txt"), p).then(() => true, () => false))) return;
+    if (!(await plant(t, join(outside, "secret.txt"), p))) return;
     const r = await openVerified(c, fsc.O_WRONLY | fsc.O_TRUNC);
     assert.ok("ok" in r && r.ok === false);
     assert.equal(await readFile(join(outside, "secret.txt"), "utf8"), secretText);
   });
-  it("a missing leaf that appears as a planted symlink is not followed or created through (O_EXCL)", async () => {
+  it("a missing leaf that appears as a planted symlink is not followed or created through (O_EXCL)", async (t) => {
     const p = join(root, "race-create.txt");
     const c = allowed(await canon(p, { access: "write" }));
     assert.equal(c.exists, false);
-    if (!(await symlink(join(outside, "planted.txt"), p).then(() => true, () => false))) return;
+    if (!(await plant(t, join(outside, "planted.txt"), p))) return;
     const r = await openVerified(c, fsc.O_WRONLY | fsc.O_CREAT);
     assert.ok("ok" in r && r.ok === false);
     assert.equal(await stat(join(outside, "planted.txt")).then(() => true, () => false), false, "nothing created outside");
   });
-  it("parent directory swapped for a link to an outside directory is refused", async () => {
+  it("parent directory swapped for a link to an outside directory is refused", async (t) => {
     await mkdir(join(root, "swapdir"));
     await writeFile(join(root, "swapdir", "f.txt"), "in");
     await writeFile(join(outside, "f.txt"), "out");
     const c = allowed(await canon(join(root, "swapdir", "f.txt")));
     await rename(join(root, "swapdir"), join(root, "swapdir.old"));
-    if (!(await symlink(outside, join(root, "swapdir"), win ? "junction" : "dir").then(() => true, () => false))) return;
+    if (!(await plant(t, outside, join(root, "swapdir"), win ? "junction" : "dir"))) return;
     const r = await openVerified(c, fsc.O_RDONLY);
     assert.ok("ok" in r && r.ok === false, "must not open the outside file");
     if ("ok" in r && !r.ok) assert.equal(r.reason, "identity-changed");
   });
-  it("parent swapped while creating a new file is refused before the create", async () => {
+  it("parent swapped while creating a new file is refused before the create", async (t) => {
     await mkdir(join(root, "swapnew"));
     const c = allowed(await canon(join(root, "swapnew", "n.txt"), { access: "write" }));
     await rename(join(root, "swapnew"), join(root, "swapnew.old"));
-    if (!(await symlink(outside, join(root, "swapnew"), win ? "junction" : "dir").then(() => true, () => false))) return;
+    if (!(await plant(t, outside, join(root, "swapnew"), win ? "junction" : "dir"))) return;
     const r = await openVerified(c, fsc.O_WRONLY | fsc.O_CREAT);
     assert.ok("ok" in r && r.ok === false);
     assert.equal(await stat(join(outside, "n.txt")).then(() => true, () => false), false);

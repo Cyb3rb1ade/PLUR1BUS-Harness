@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quit-request"
+description = "Enables the quit_request command without any pre-configured scope."
+commands.allow = ["quit_request"]
+
+[[permission]]
+identifier = "deny-quit-request"
+description = "Denies the quit_request command without any pre-configured scope."
+commands.deny = ["quit_request"]

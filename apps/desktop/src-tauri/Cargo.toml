@@ -14,7 +14,10 @@ tauri-build = { version = "=2.7.0", features = [] }
 
 [dependencies]
 plur1bus-desktop-contract = { path = "../desktop-contract", version = "=0.1.0" }
-tauri = { version = "=2.12.0", features = [] }
+tauri = { version = "=2.12.0", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "=2.5.0"
+tauri-plugin-autostart = "=2.6.0"
+tauri-plugin-notification = "=2.5.0"
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.150"
 tempfile = "=3.23.0"
@@ -26,6 +29,7 @@ uuid = { version = "=1.26.1", features = ["v7", "serde"] }
 url = "=2.5.8"
 base64 = "=0.22.1"
 sha2 = "=0.10.9"
+regex = "=1.13.1"
 reqwest = { version = "=0.12.24", default-features = false, features = ["json", "rustls-tls-native-roots", "stream", "cookies"] }
 rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "=0.8.2"
@@ -39,15 +43,21 @@ futures-util = "=0.3.31"
 tokio-tungstenite = { version = "=0.28.0", features = ["rustls-tls-native-roots"] }
 
 [dev-dependencies]
+memchr = "=2.8.3"
 plur1bus-mock-harness = { path = "../mock-harness", version = "=0.1.0" }
+jsonschema = { version = "=0.26.2", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
+zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
 libc = "=0.2.189"
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Com", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_JobObjects", "Win32_System_Console", "Win32_System_RemoteDesktop", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Com", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem"] }
 rusqlite = { version = "=0.37.0", features = ["bundled"] }
 webview2-com = "=0.39.1"
 windows-core = "=0.62.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"
+
+[target.'cfg(unix)'.dev-dependencies]
+zbus = { version = "=5.19.0", default-features = false, features = ["tokio", "p2p", "bus-impl"] }

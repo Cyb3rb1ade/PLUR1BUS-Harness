@@ -4,7 +4,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { closeSync, constants, existsSync, openSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { connect } from "@plur1bus/module-api";
+import { connectRun } from "./helpers/connect.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { layout } from "../src/paths.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
@@ -26,7 +26,7 @@ function startCore(home: string) {
 async function stopGracefully(child: ReturnType<typeof spawn>, home: string, address: string): Promise<number | null> {
   const exited = new Promise<number | null>((r) => child.once("exit", r));
   if (process.platform === "win32") {
-    const c = await connect({ address, token: readFileSync(layout(home).coreToken, "utf8") });
+    const c = await connectRun(layout(home), address);
     await c.call("core.shutdown", {}); await c.close();
   } else child.kill("SIGTERM");
   return exited;
@@ -39,7 +39,7 @@ describe("dist/core.js", () => {
     writeFileSync(l.configPath, JSON.stringify(cfg));
     const { child, ready } = startCore(home); const { address } = await ready;
     const token = readFileSync(l.coreToken, "utf8");
-    const c = await connect({ address, token }); assert.equal((await c.call<any>("core.status")).process.state, "ready"); await c.close();
+    const c = await connectRun(l, address); assert.equal((await c.call<any>("core.status")).process.state, "ready"); await c.close();
     const second = startCore(home); second.ready.catch(() => {}); // exit 3 is expected here; avoid an unhandled rejection from the unawaited `ready` promise
     const code = await new Promise<number | null>((r) => second.child.once("exit", r)); assert.equal(code, 3);
     assert.equal(await stopGracefully(child, home, address), 0);
@@ -51,7 +51,7 @@ describe("dist/core.js", () => {
     writeFileSync(l.configPath, JSON.stringify(cfg));
     const { child, ready } = startCore(home); const { address } = await ready;
     const exited = new Promise<number | null>((r) => child.once("exit", r));
-    const c = await connect({ address, token: readFileSync(l.coreToken, "utf8") });
+    const c = await connectRun(l, address);
     assert.deepEqual(await c.call<any>("core.shutdown", {}), { accepted: true }); await c.close();
     let timer: NodeJS.Timeout | undefined;
     const code = await Promise.race([exited, new Promise<"timeout">((r) => { timer = setTimeout(() => r("timeout"), 5000); })]);
@@ -95,7 +95,7 @@ describe("dist/core.js", () => {
     const { address } = await new Promise<{ address: string }>((res, rej) => { child.stdout.once("data", (d) => res(JSON.parse(String(d)))); child.once("exit", (c) => rej(new Error(`exited ${c}`))); });
     assert.equal(readFileSync(l.corePid, "utf8"), `${child.pid} ${instance}\n`);
     child.stdin.end();
-    const c = await connect({ address, token: readFileSync(l.coreToken, "utf8") });
+    const c = await connectRun(l, address);
     const t0 = Date.now(); let state = "";
     while (Date.now() - t0 < 3000 && state !== "orphaned") { state = (await c.call<any>("core.status")).process.state; if (state !== "orphaned") await new Promise((r) => setTimeout(r, 50)); }
     assert.equal(state, "orphaned");
@@ -126,7 +126,7 @@ describe("dist/core.js", () => {
       while (!up() && child.exitCode === null && Date.now() - t0 < 10_000) await new Promise((r) => setTimeout(r, 50));
       assert.ok(up(), "the core became ready");
       // Exercise the engine (default engine config, one capture) the way a real session does before its supervisor dies.
-      const c = await connect({ address: l.coreSocket, token: readFileSync(l.coreToken, "utf8") });
+      const c = await connectRun(l, l.coreSocket);
       try {
         const cap = await c.call<any>("memory.capture", { caller: { channel: "cli", accountId: "a1", userId: "u1" }, agentId: "bernd", sessionKey: "s1", wait: true, waitMs: 10_000,
           messages: [{ role: "user", content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant", content: "Noted." }] });

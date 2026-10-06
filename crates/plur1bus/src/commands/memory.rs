@@ -168,6 +168,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 Err(e) => out.from_rpc_error(&e),
             }
         }
+        MemoryCmd::Reembed(args) => super::memory_reembed::run(out, layout, args),
         other => super::memory_ops::run(out, layout, other),
     }
 }

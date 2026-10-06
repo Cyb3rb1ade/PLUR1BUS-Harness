@@ -126,8 +126,8 @@ describe("rpc-schema stability annotations", () => {
     assert.ok(schema.$defs.CoreStatus.properties.process);
   });
 
-  it("models.* are core, experimental, since 1.5.0, closed", () => {
-    const modelMethods = ["models.list", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge"];
+  it("models.* and budget.* are core, experimental, since 1.5.0, closed", () => {
+    const modelMethods = ["models.list", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge", "budget.status", "budget.set"];
     for (const name of modelMethods) {
       const def = methods[name];
       assert.ok(def, `${name} exists in methods`);
@@ -163,6 +163,20 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(validateParams("models.setOverride", { provider: "p", id: "m", clear: ["invalid_key"] }).ok, false);
     assert.equal(validateParams("models.setOverride", { provider: "p", id: "m", clear: ["displayName", "kind"] }).ok, true);
     assert.equal(validateParams("models.setOverride", { provider: "p", id: "m", clear: "all" }).ok, true);
+  });
+
+  it("identity.* are core, experimental, since 1.5.0, closed and carry the cli caller (owner only)", () => {
+    const names = ["identity.list", "identity.human.create", "identity.link", "identity.pair.start", "identity.pair.claim", "identity.pair.confirm", "identity.unlink"];
+    for (const name of names) {
+      const def = methods[name];
+      assert.ok(def, `${name} exists in methods`);
+      assert.equal((def as any)["x-server"], "core", `${name} x-server`);
+      assert.equal(def["x-stability"], "experimental", `${name} x-stability`);
+      assert.equal(def["x-since"], "1.5.0", `${name} x-since`);
+      assert.equal((def as any).params?.additionalProperties, false, `${name} params closed`);
+      assert.deepEqual((def as any).params.properties.caller, { $ref: "#/$defs/CallerIdentity" }, `${name} caller`);
+      assert.ok((def as any).params.required.includes("caller"), `${name} requires caller`);
+    }
   });
 });
 
