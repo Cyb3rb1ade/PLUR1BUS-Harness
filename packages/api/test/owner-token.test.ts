@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { runDir } from "@plur1bus/module-api";
 import { ensureOwnerToken, ownerTokenPath } from "../src/owner-token.ts";
 
 function home(): string {
@@ -16,7 +17,15 @@ test("the owner token is created once (64 hex chars, mode 0600) and then reused"
   try {
     const t = ensureOwnerToken(h);
     assert.match(t, /^[0-9a-f]{64}$/);
-    assert.equal(statSync(ownerTokenPath(h)).mode & 0o777, 0o600);
+    const st = lstatSync(ownerTokenPath(h));
+    assert.ok(st.isFile() && !st.isSymbolicLink(), "a regular file, never a link");
+    if (process.platform === "win32") {
+      // No POSIX modes on Windows: the product writes the token (mode ignored) into `run/`, whose user-only ACL the core
+      // applies, and trusts that directory. So what holds here is where the token lives, not st.mode.
+      assert.equal(dirname(ownerTokenPath(h)), runDir(h), "the token sits directly in the private run/ directory");
+    } else {
+      assert.equal(st.mode & 0o777, 0o600);
+    }
     assert.equal(ensureOwnerToken(h), t);
     assert.equal(readFileSync(ownerTokenPath(h), "utf8").trim(), t);
     const other = home(); try { assert.notEqual(ensureOwnerToken(other), t); } finally { rmSync(other, { recursive: true, force: true }); }
