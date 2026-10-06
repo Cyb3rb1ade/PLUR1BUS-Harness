@@ -527,7 +527,24 @@ fn invalid_disabled_and_agent_scoped_modules_are_listed_not_spawned() {
     h.config(1000, json!({ "fixture": { "enabled": false } }));
     let mut s = h.start(&[]);
     let mut c = client(&h.home);
-    let st = wait_for(&mut c, "core", "ready", |c| state(c) == "ready");
+    wait_for(&mut c, "core", "ready", |c| state(c) == "ready");
+    // Modules start after the core, and a manifest-invalid one is only recorded when its turn comes, so "core ready"
+    // does not yet mean every module is listed in its final state. Wait for each one's reason instead of snapshotting
+    // at core-ready (which raced under load: `broken` was not listed yet).
+    for name in [
+        "fixture",
+        "agent-mod",
+        "broken",
+        "needy",
+        "needs-disabled",
+        "needs-agent",
+        "needs-needs",
+    ] {
+        wait_for(&mut c, name, "its final state", |m| {
+            m["process"]["reason"].is_string()
+        });
+    }
+    let st = status(&mut c);
     std::thread::sleep(Duration::from_millis(300));
     let st2 = status(&mut c);
     for st in [&st, &st2] {
@@ -652,7 +669,11 @@ fn a_module_reporting_another_name_is_terminated_as_foreign() {
     wait_until("the impostor's pid file", WAIT, || {
         run.join("module-fixture.pid").exists()
     });
-    let mut s = h.start(&[]);
+    // Time scale 1: the supervisor escalates a foreign process to SIGTERM at 2 s x scale. At SCALE (0.02) that is
+    // 40 ms, which a loaded machine can spend before the `module.shutdown` call (new thread, connect, handshake) has
+    // reached the impostor, so it died of the signal instead of exiting 0. At 1 the shutdown path always wins the race
+    // it is asserted to win; the assertion below is unchanged.
+    let mut s = h.start_scaled("1", &[]);
     let mut c = client(&h.home);
     let st = wait_for(&mut c, "fixture", "ready", |m| state(m) == "ready");
     let deadline = Instant::now() + WAIT;

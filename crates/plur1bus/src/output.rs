@@ -1,6 +1,7 @@
 use plur1bus_rpc::RpcError;
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct Out {
     pub json: bool,
@@ -34,15 +35,79 @@ fn exit_code_for(code_name: &str) -> i32 {
     }
 }
 
+/// Writes `text` (plus a newline when asked) to `w` and flushes.
+pub(crate) fn emit_to<W: std::io::Write>(
+    w: &mut W,
+    text: &str,
+    newline: bool,
+) -> std::io::Result<()> {
+    w.write_all(text.as_bytes())?;
+    if newline {
+        w.write_all(b"\n")?;
+    }
+    w.flush()
+}
+
+/// What a failed stdout write means: `None` for a closed pipe (`plur1bus … | head -1`: the reader went away, which is
+/// not an error of the command), a stderr message for any other write error (a full disk behind a redirect).
+fn write_failure(e: &std::io::Error) -> Option<String> {
+    (e.kind() != std::io::ErrorKind::BrokenPipe)
+        .then(|| format!("plur1bus: cannot write to stdout: {e}"))
+}
+
+/// Set once stdout has failed (closed pipe or a real write error): later writes are dropped.
+static STDOUT_CLOSED: AtomicBool = AtomicBool::new(false);
+/// Set when the failure was a real write error rather than a closed pipe; `main` turns it into exit 1 at the end.
+static STDOUT_BROKEN: AtomicBool = AtomicBool::new(false);
+
+/// Whether a stdout write failed with something other than a closed pipe, so the output the caller asked for is lost.
+pub(crate) fn stdout_write_failed() -> bool {
+    STDOUT_BROKEN.load(Ordering::Relaxed)
+}
+
+/// `println!` that cannot panic on a closed or failing stdout; see [`write_stdout`].
+pub(crate) fn say(text: &str) {
+    write_stdout(text, true);
+}
+
+/// `print!` counterpart of [`say`]: `text` exactly as given.
+pub(crate) fn say_raw(text: &str) {
+    write_stdout(text, false);
+}
+
+/// Never exits: a command's output is not its work, and `say` is also called mid-flow, before an install, enable or
+/// repair has run, and on error paths that carry their own exit code. A closed pipe is remembered and every later write
+/// is silently dropped, so the command runs to its normal end and keeps its real exit code. Any other write error is
+/// reported once on stderr and recorded for [`stdout_write_failed`].
+fn write_stdout(text: &str, newline: bool) {
+    if STDOUT_CLOSED.load(Ordering::Relaxed) {
+        return;
+    }
+    if let Err(e) = emit_to(&mut std::io::stdout().lock(), text, newline) {
+        STDOUT_CLOSED.store(true, Ordering::Relaxed);
+        if let Some(msg) = write_failure(&e) {
+            STDOUT_BROKEN.store(true, Ordering::Relaxed);
+            eprintln!("{msg}");
+        }
+    }
+}
+
 impl Out {
     /// Prints `value` as `--json` (the raw RPC/CLI value, `schema: "<schema>"` inserted at the
     /// top level per ADR-016 §8 and ruling R13) or `human()` otherwise.
     pub fn ok<T: Serialize>(&self, schema: &str, value: &T, human: impl FnOnce() -> String) {
         if self.json {
-            let v = serde_json::to_value(value).unwrap();
-            println!("{}", serde_json::to_string(&document(schema, v)).unwrap());
+            let v = serde_json::to_value(value).unwrap_or_else(|e| {
+                self.fail(
+                    "E_INTERNAL",
+                    &format!("cannot serialise the result: {e}"),
+                    json!({}),
+                    1,
+                )
+            });
+            say(&document(schema, v).to_string());
         } else {
-            println!("{}", human());
+            say(&human());
         }
     }
     /// Prints an error and exits. JSON goes to stdout (stable shape, `schema: "error/1"`), human
@@ -55,7 +120,7 @@ impl Out {
                     a.insert(k.clone(), x.clone());
                 }
             }
-            println!("{}", document("error/1", v));
+            say(&document("error/1", v).to_string());
         } else {
             eprintln!("plur1bus: {message}");
             if let Some(line) = ids_line(&extra) {
@@ -198,5 +263,35 @@ mod tests {
         );
         assert_eq!(ids_line(&json!({ "reason": "storage" })), None);
         assert_eq!(ids_line(&json!({ "ids": {} })), None);
+    }
+
+    /// A writer that fails every write with `kind`.
+    struct Failing(std::io::ErrorKind);
+    impl std::io::Write for Failing {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(self.0.into())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Err(self.0.into())
+        }
+    }
+
+    #[test]
+    fn a_failing_stdout_is_an_error_not_a_panic() {
+        let e = emit_to(&mut Failing(std::io::ErrorKind::BrokenPipe), "x", true).unwrap_err();
+        assert_eq!(e.kind(), std::io::ErrorKind::BrokenPipe);
+        assert_eq!(write_failure(&e), None, "a closed pipe ends quietly");
+        let e = emit_to(&mut Failing(std::io::ErrorKind::StorageFull), "x", false).unwrap_err();
+        assert!(write_failure(&e)
+            .unwrap()
+            .contains("cannot write to stdout"));
+    }
+
+    #[test]
+    fn emit_to_writes_the_text_with_or_without_a_newline() {
+        let mut buf = Vec::new();
+        emit_to(&mut buf, "a", true).unwrap();
+        emit_to(&mut buf, "b", false).unwrap();
+        assert_eq!(buf, b"a\nb");
     }
 }

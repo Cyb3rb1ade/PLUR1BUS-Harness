@@ -29,6 +29,16 @@ export function supervisorTokenPath(home: string): string {
   return path.join(runDir(home), "supervisor.token");
 }
 
+/** `run/core.pid`: `<pid> <instanceId>` of the running core. */
+export function corePidPath(home: string): string {
+  return path.join(runDir(home), "core.pid");
+}
+
+/** `run/supervisor.pid`: `<pid> <instanceId>` of the running supervisor. */
+export function supervisorPidPath(home: string): string {
+  return path.join(runDir(home), "supervisor.pid");
+}
+
 /** The core's RPC address. */
 export function coreAddress(home: string, platform: NodeJS.Platform = process.platform): string {
   return unitAddress(home, "core", platform);

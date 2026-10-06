@@ -70,6 +70,22 @@ describe("tool naming and selection", () => {
     for (const m of include) assert.equal(byName(tools, m), undefined, m);
   });
 
+  it("secret methods are never offered as WebMCP tools, real or hypothetical (M2)", () => {
+    const secret = (Object.keys(caps.methods)).filter((m) => m.startsWith("secret."));
+    assert.equal(secret.length, 5, `the core advertises the secret.* methods: ${secret.join(", ")}`);
+    const all = [...secret, "secret.future.op"];
+    const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
+    const fakeSchema = structuredClone(SCHEMA) as any;
+    for (const m of all) {
+      assert.ok(isForbiddenMethod(m), m);
+      fakeCaps.methods[m] = { stability: "stable", since: "1.5.0", server: "core" };
+      fakeSchema.$defs.methods[m] ??= { "x-stability": "stable", "x-since": "1.5.0", "x-server": "core", params: { type: "object", additionalProperties: false, properties: {} } };
+      fakeSchema.$defs.methods[m]["x-stability"] = "stable";
+    }
+    const tools = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include: all });
+    for (const m of all) assert.equal(byName(tools, m), undefined, m);
+  });
+
   it("ext mutations are refused even as a hypothetical core method", () => {
     const mutations = ["ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update"];
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };

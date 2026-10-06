@@ -8,6 +8,7 @@ pub mod capabilities;
 pub mod client;
 pub mod error;
 pub mod transport;
+pub mod trust;
 #[cfg(windows)]
 pub mod win;
 pub use capabilities::{capabilities, SCHEMA_JSON};

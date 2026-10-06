@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
 import { connect, type CoreClient } from "./client.ts";
-import { supervisorAddress, supervisorTokenPath } from "./paths.ts";
+import { supervisorAddress, supervisorPidPath, supervisorTokenPath } from "./paths.ts";
+import { readRecordedPid, readRunToken } from "./trust.ts";
 
 /** `config.changed` params (rpc.schema.json `$defs/notifications/config.changed`). */
 export interface ConfigChanged {
@@ -26,6 +26,9 @@ export interface ConfigWatch {
 /** How long a `config.set` may take: it waits for a requested restart (stop budget plus ready timeout). */
 const SET_TIMEOUT_MS = 120_000;
 
+/** `{ expectedServerPid }` when the pid file named one (an absent key is what `exactOptionalPropertyTypes` wants). */
+const pidOption = (pid: number | undefined): { expectedServerPid?: number } => (pid === undefined ? {} : { expectedServerPid: pid });
+
 type WatchResult = { subscriptionId: string; config: Record<string, unknown>; revision: string };
 
 /** One attempt: read the token (the supervisor may have rotated it), connect, authenticate, `config.watch`. The whole
@@ -33,11 +36,11 @@ type WatchResult = { subscriptionId: string; config: Record<string, unknown>; re
  *  buffered from before the `config.watch` call on (I1): one that arrives right behind the reply, in the same read,
  *  is dispatched before any caller could register a listener. */
 async function attempt(home: string, timeoutMs: number): Promise<ConfigWatch> {
-  const token = readFileSync(supervisorTokenPath(home), "utf8").trim();
+  const token = readRunToken(home, supervisorTokenPath(home));
   let timer: NodeJS.Timeout | undefined;
   let late = false;
   const work = (async () => {
-    const client = await connect({ address: supervisorAddress(home), token, endpoint: "supervisor", connectTimeoutMs: timeoutMs, callTimeoutMs: SET_TIMEOUT_MS });
+    const client = await connect({ address: supervisorAddress(home), token, endpoint: "supervisor", connectTimeoutMs: timeoutMs, callTimeoutMs: SET_TIMEOUT_MS, ...pidOption(readRecordedPid(supervisorPidPath(home))) });
     if (late) { await client.close(); throw new Error("config.watch answered too late"); }
     const buffered: ConfigChanged[] = [];
     const stopBuffering = client.onNotification((method, params) => { if (method === "config.changed") buffered.push(params as ConfigChanged); });

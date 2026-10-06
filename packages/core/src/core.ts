@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
-import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch } from "@plur1bus/module-api";
+import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
@@ -27,6 +27,7 @@ import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 import path from "node:path";
+import { createCoreSecretStore } from "./secrets/runtime.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
@@ -78,6 +79,8 @@ export interface CoreOptions {
   /** B7 (H3B-R8): load the configuration from the supervisor's `config.watch` (falling back to config.json), and
    *  follow its `config.changed`. bin.ts sets it for `--lifeline stdin`; absent, the core reads config.json once. */
   supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
+  /** Test seam: options for the host's `securePath` (platform, execFile, ...), to drive the Windows ACL step on any host. */
+  securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
   /** D112: model discovery adapters and options. */
@@ -208,10 +211,25 @@ export function createCore(o: CoreOptions): Core {
     const log = logger;
     for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
-    const platform = createPlatformCapabilities({ logger: log, runDir: l.run });
-    platform.securePath(l.run, { mode: 0o700 });
+    const platform = createPlatformCapabilities({ logger: log, runDir: l.run, ...o.securePathOptions });
+    const runSecured = platform.securePath(l.run, { mode: 0o700 });
+    // Audit M3: fail closed, supervised or not. run/ is where the token goes; when its ACL could not be set (icacls
+    // blocked or failing on a home outside the user's private profile), the token would inherit whatever the parent
+    // directory allows. A supervisor's own run/ ACL (HB5) reaches the core only through PLUR1BUS_RUN_ACL=inherited,
+    // which the supervisor exports to its children only when its DACL took; securePath honours it above (no tool is
+    // run, `applied: true`), so a refusal here means nobody secured run/. A supervisor whose secure_run_dir failed
+    // exports nothing and deliberately falls back to the children's own securePath (plan H3b-b, Review Focus 5), so
+    // the core must not assume the supervisor owns run/: supervised, it exits and the supervisor restarts it.
+    if (!runSecured.applied && runSecured.reason === "acl-tool-unavailable") {
+      const supervised = o.lifeline !== undefined || o.supervisorConfig !== undefined;
+      const msg = "refusing to start: the access control list of run/ could not be restricted to this user (icacls failed or is blocked" + (supervised ? ", and the supervisor did not secure run/ either (no PLUR1BUS_RUN_ACL=inherited)" : "") + "), so the core would write its token into a directory that other accounts may read; fix icacls or use a private PLUR1BUS_HOME";
+      log.error(msg, { run: l.run, supervised });
+      throw new Error(msg);
+    }
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
+    // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
+    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
@@ -385,6 +403,10 @@ export function createCore(o: CoreOptions): Core {
         },
         systemJobs,
         discovery,
+        // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
+        // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,

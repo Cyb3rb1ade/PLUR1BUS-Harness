@@ -95,6 +95,16 @@ pub(crate) fn parse_envelope(stdout: &[u8]) -> Option<Value> {
     Some(v)
 }
 
+/// The CLI exit code for a failed importer envelope: its `exit` when that is a real failure status (1..=255), else 1.
+/// A bare `as i32` wrapped values such as 4294967296 to 0 (success), and a status above 255 is truncated by the OS.
+pub(crate) fn exit_code(env: &Value) -> i32 {
+    env["exit"]
+        .as_i64()
+        .and_then(|e| i32::try_from(e).ok())
+        .filter(|e| (1..=255).contains(e))
+        .unwrap_or(1)
+}
+
 pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
     let js = locate_import_js(layout);
     if !js.exists() {
@@ -150,7 +160,7 @@ pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
     } else {
         let code = env["error"].as_str().unwrap_or("E_IMPORT_FAILED");
         let message = env["message"].as_str().unwrap_or("import failed");
-        let exit = env["exit"].as_i64().map_or(1, |e| e as i32);
+        let exit = exit_code(&env);
         let mut extra = json!({});
         if let Some(r) = env["reason"].as_str() {
             extra["reason"] = json!(r);
@@ -257,5 +267,23 @@ mod tests {
         assert!(parse_envelope(b"{\"value\":{}}\n").is_none());
         assert!(parse_envelope(b"not json\n").is_none());
         assert!(parse_envelope(b"").is_none());
+    }
+
+    #[test]
+    fn an_out_of_range_exit_never_wraps_to_success() {
+        for (raw, want) in [
+            (json!(2), 2),
+            (json!(255), 255),
+            (json!(0), 1),
+            (json!(-1), 1),
+            (json!(256), 1),
+            (json!(4_294_967_296_i64), 1),
+            (json!(i64::MAX), 1),
+            (json!("2"), 1),
+            (Value::Null, 1),
+        ] {
+            assert_eq!(exit_code(&json!({ "exit": raw })), want, "{raw}");
+        }
+        assert_eq!(exit_code(&json!({})), 1);
     }
 }
