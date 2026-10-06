@@ -92,7 +92,8 @@ test("the result equals the committed golden file", T, async () => {
   const { events } = await replay([FIXTURE]);
   const got = JSON.stringify(lastResult(events), null, 2) + "\n";
   if (process.env["UPDATE_GOLDEN"] === "1" && !existsSync(GOLDEN)) writeFileSync(GOLDEN, got);
-  assert.equal(got, readFileSync(GOLDEN, "utf8"));
+  // A checkout with end-of-line conversion (Windows autocrlf) must not change the verdict.
+  assert.equal(got, readFileSync(GOLDEN, "utf8").replaceAll("\r\n", "\n"));
 });
 
 test("a slow trickle with gaps replays the same", T, async () => {
