@@ -56,6 +56,8 @@ export interface MethodDeps {
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
   discovery?: import("../discovery/service.ts").DiscoveryService;
+  /** M2: the `admin.reembed.*` handlers (embedding-migrate/rpc.ts), when the core built a migration driver. */
+  reembed?: Record<string, Handler>;
   /** M2 L8: the budget service (absent when its store could not be opened). */
   budget?: BudgetService;
   /** M2: the secret store and who a connection is. Absent, the `secret.*` methods are not served. */
@@ -180,6 +182,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
+    ...(d.reembed ?? {}),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {

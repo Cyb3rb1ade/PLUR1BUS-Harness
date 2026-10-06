@@ -84,7 +84,8 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("doctor.run", "system", { owner: A, admin: A, operator: A }),
 
   // The RPC `admin.*` family (obsidian, migrate, embedding): CLI-only for people, Owner/Admin.
-  ...["admin.obsidian.detect", "admin.obsidian.prepare", "admin.obsidian.confirm", "admin.migrate", "admin.embedding.probe", "admin.embedding.serve"]
+  ...["admin.obsidian.detect", "admin.obsidian.prepare", "admin.obsidian.confirm", "admin.migrate", "admin.embedding.probe", "admin.embedding.serve",
+   "admin.reembed.plan", "admin.reembed.run", "admin.reembed.status", "admin.reembed.abort"]
     .map((a) => spec(a, "system", OA)),
 ]);
 
