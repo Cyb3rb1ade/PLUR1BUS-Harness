@@ -8,15 +8,21 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Changed
 
-- Memory engine re-pinned to **`61025251`** (plugin `origin/main` after PR #232, previously `9bafa047`), contract
-  stays **1.11.0**; top-level engine keys stay **57**. `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is
-  unchanged. What changes for Harness users:
+- Memory engine re-pinned to **`6868b7b1`** (plugin `origin/main` after PR #237, previously `9bafa047`), contract
+  **1.12.0**; top-level engine keys stay **57**. `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is
+  **1.12.0** (drift-guard from #89); the contract floor stays 1.8.0. What changes for Harness users:
+  - **Contract 1.12.0 (plugin #219):** additive `Engine.memory.rebind` / `Engine.memory.unbind` (manual N:1
+    channel-identity link, user-scope owner metadata only; `unbind` restores the bindings recorded under a rebind id)
+    and `UserPrincipal` accepts `user:v2`. The Harness core does not call them yet; its engine-error map gains the
+    three new codes (`identity-already-bound` → `E_CONFLICT`, `ledger-corrupt` and `lock-lost` → `E_STORAGE`).
+  - **Dependency audit (plugin #237):** `onnxruntime-node`'s `global-agent` is overridden to 4.1.3, which drops
+    `roarr` and `sprintf-js` from the engine's tree.
   - **Lock ownership (plugin #220, #224):** file locks, including the job locks the engine takes, are released and
     reaped only by their owner, so a stale or reused lock no longer lets one process drop another's lock.
   - **Log redaction (plugin #225, #229, #231):** memory text, prompts, reminder text and peer ids stay out of engine
     logs; provider error bodies are no longer copied into error messages; webhook and provider URLs are kept out of
     errors and logs; text sidecars are written owner-only.
-  - Not included: plugin #233 (further leak-audit items) was still open at pin time.
+  - Not included: plugin #233 (further leak-audit items) was still open at the 61025251 pin; not checked since.
 
 ### Fixed
 
