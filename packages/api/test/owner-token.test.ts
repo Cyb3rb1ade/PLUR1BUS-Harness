@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
-import { runDir } from "@plur1bus/module-api";
+import { createSecurePath, runDir } from "@plur1bus/module-api";
 import { ensureOwnerToken, ownerTokenPath } from "../src/owner-token.ts";
 
 function home(): string {
@@ -17,14 +17,12 @@ test("the owner token is created once (64 hex chars, mode 0600) and then reused"
   try {
     const t = ensureOwnerToken(h);
     assert.match(t, /^[0-9a-f]{64}$/);
-    const st = lstatSync(ownerTokenPath(h));
-    assert.ok(st.isFile() && !st.isSymbolicLink(), "a regular file, never a link");
     if (process.platform === "win32") {
-      // No POSIX modes on Windows: the product writes the token (mode ignored) into `run/`, whose user-only ACL the core
-      // applies, and trusts that directory. So what holds here is where the token lives, not st.mode.
-      assert.equal(dirname(ownerTokenPath(h)), runDir(h), "the token sits directly in the private run/ directory");
+      // No POSIX mode bits: the private DACL (user + SYSTEM only) is the equivalent. Re-applying it succeeds only when the
+      // read-back DACL holds exactly those two, so `applied` proves the file is private (or covered by run/'s ACL).
+      assert.equal(createSecurePath({ runDir: runDir(h) })(ownerTokenPath(h)).applied, true);
     } else {
-      assert.equal(st.mode & 0o777, 0o600);
+      assert.equal(statSync(ownerTokenPath(h)).mode & 0o777, 0o600);
     }
     assert.equal(ensureOwnerToken(h), t);
     assert.equal(readFileSync(ownerTokenPath(h), "utf8").trim(), t);

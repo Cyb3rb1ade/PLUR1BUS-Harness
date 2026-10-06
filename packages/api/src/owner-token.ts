@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { lstatSync, readFileSync, writeFileSync, type Stats } from "node:fs";
+import { lstatSync, readFileSync, rmSync, writeFileSync, type Stats } from "node:fs";
 import path from "node:path";
-import { checkRunDir, runDir, UntrustedRunDir, type TrustOptions } from "@plur1bus/module-api";
+import { checkRunDir, createSecurePath, runDir, UntrustedRunDir, type TrustOptions } from "@plur1bus/module-api";
 
 export const OWNER_TOKEN_FILE = "api-owner.token";
 const SHAPE = /^[0-9a-f]{64}$/;
@@ -30,5 +30,11 @@ export function ensureOwnerToken(home: string, o: TrustOptions = {}): string {
   const token = randomBytes(32).toString("hex");
   try { writeFileSync(file, `${token}\n`, { mode: 0o600, flag: "wx" }); }
   catch (e) { if ((e as NodeJS.ErrnoException).code === "EEXIST") return ensureOwnerToken(home, o); throw e; } // lost a start race: use the winner's
+  // Windows has no mode bits (`mode` above is ignored there): the file gets the same user + SYSTEM DACL as every other run
+  // file (ruling S11), or is covered by the supervisor's run/ ACL. A token that could not be restricted is not kept.
+  if (!posix && process.platform === "win32") {
+    const r = createSecurePath({ runDir: dir })(file);
+    if (!r.applied) { rmSync(file, { force: true }); throw new Error(`${file} could not be restricted to this user (${r.reason}); no token was kept`); }
+  }
   return token;
 }
