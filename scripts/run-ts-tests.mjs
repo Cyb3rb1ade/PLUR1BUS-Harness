@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 export const EXCLUDED = ["@plur1bus/desktop-ui"];
 
 export function buildArgs(extra = []) {
-  return ["-r", ...EXCLUDED.map((p) => `--filter=!${p}`), "--workspace-concurrency=1", ...extra, "test"];
+  return ["-r", ...EXCLUDED.map((p) => `--filter=@nonexistent/${p}`), "--workspace-concurrency=1", ...extra, "test"];
 }
 
 /** Sum the `tests N` summary lines node's test runner prints (spec reporter: "ℹ tests 12"; TAP: "# tests 12"). */
