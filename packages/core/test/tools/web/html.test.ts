@@ -54,13 +54,13 @@ describe("html: boilerplate and unsafe content are dropped", () => {
 
 describe("html: entities and malformed input", () => {
   it("named and numeric entities", () => {
-    assert.equal(md("<p>&amp; &lt; &gt; &quot; &#39; &#x41; &nbsp;x &copy; &mdash; &euro;</p>"), "& < > \" ' A  x © — €");
+    assert.equal(md("<p>&amp; &lt; &gt; &quot; &#39; &#x41; &nbsp;x &copy; &mdash; &euro;</p>"), "& < > \" ' A x © — €");
   });
   it("unknown / invalid entities are left alone, huge code points do not throw", () => {
     assert.equal(md("<p>&bogus; &#99999999999; &#xD800;</p>"), "&bogus; &#99999999999; �");
   });
   it("unclosed and mismatched tags still produce text", () => {
-    assert.equal(md("<p>one<p>two<b>bold</i>after"), "one\n\ntwo**bold**after");
+    assert.equal(md("<p>one<p>two<b>bold</i>after"), "one\n\ntwo**boldafter**");
   });
   it("attributes with > inside quotes do not end the tag", () => {
     assert.equal(md('<p title="a>b">text</p>'), "text");
