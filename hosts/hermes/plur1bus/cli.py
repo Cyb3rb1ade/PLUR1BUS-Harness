@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -225,6 +224,30 @@ def _selftest_text(doc: dict) -> str:
 # -- bind -----------------------------------------------------------------------------------------
 
 
+def which_no_cwd(name: str, *, path: str | None = None, platform: str = sys.platform, pathext: str | None = None, pathsep: str = os.pathsep) -> str | None:
+    """Find ``name`` on the absolute entries of ``PATH`` only (audit, low). ``shutil.which`` on Windows looks in the
+    current directory first and honours ``.`` and empty entries, so a ``plur1bus.exe`` planted in the directory
+    ``hermes plur1bus bind`` runs from would win. Here an empty or relative entry is skipped, and ``name`` must not
+    contain a directory part. On Windows ``PATHEXT`` extensions are tried."""
+    if not name or os.path.basename(name) != name:
+        return None
+    search = os.environ.get("PATH", "") if path is None else path
+    exts = [""]
+    if platform == "win32":
+        raw = os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD") if pathext is None else pathext
+        listed = [e for e in raw.split(";") if e]
+        exts = [""] + listed if any(name.lower().endswith(e.lower()) for e in listed) else listed or [""]
+    for directory in search.split(pathsep):
+        directory = directory.strip().strip('"')
+        if not directory or not os.path.isabs(directory):
+            continue
+        for ext in exts:
+            candidate = os.path.join(directory, name + ext)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+    return None
+
+
 def _default_plur1bus_home() -> str:
     return pmc.default_home(os.environ, sys.platform, os.path.expanduser("~"))
 
@@ -247,7 +270,7 @@ def bind(
         existing = None  # rewritten below
     home = home or (existing.home if existing else None) or _default_plur1bus_home()
     home = os.path.abspath(home)
-    exe = bin or (existing.bin if existing else None) or shutil.which("plur1bus")
+    exe = bin or (existing.bin if existing else None) or which_no_cwd("plur1bus")
     agent_id = agent_id_for(hermes_home)
     doc.update(home=home, agentId=agent_id)
     if not exe:

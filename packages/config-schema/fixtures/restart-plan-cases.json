@@ -48,6 +48,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -95,6 +100,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -159,6 +169,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -208,6 +223,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -272,6 +292,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -323,6 +348,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -393,6 +423,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -440,6 +475,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -510,6 +550,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -561,6 +606,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -629,6 +679,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -680,6 +735,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -746,6 +806,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -793,6 +858,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -860,6 +930,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {
         "fixture": {
           "enabled": true,
@@ -912,6 +987,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {
@@ -983,6 +1063,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "after": {
@@ -1030,6 +1115,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {

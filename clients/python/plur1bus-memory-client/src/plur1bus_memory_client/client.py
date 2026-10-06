@@ -2,14 +2,14 @@
 
 Every (re)connect re-reads ``run/core.token`` and ``run/core.pid``, checks the OS-reported server pid
 against ``run/core.pid`` before the token is sent (ruling S11) and, on POSIX, refuses a ``run/`` that is
-not a directory owned by this user without group/other write bits (HM2-R7). Every call runs under one
+not a directory owned by this user without group/other write bits (HM2-R7), whose socket is not ours, or whose
+server runs as another uid (``E_UNAUTHORIZED``, see ``trust.py``). Every call runs under one
 monotonic deadline that covers connecting, sending, receiving and the single reconnect (F14).
 """
 
 from __future__ import annotations
 
 import os
-import stat
 import sys
 import threading
 import time
@@ -19,6 +19,7 @@ from typing import Any
 
 from .paths import core_address, core_pid_path, core_token_path, is_absolute_home, run_dir
 from .protocol import RpcError, encode_request, parse_rpc_version, read_response
+from .trust import check_peer_uid, check_run_dir, verify_address
 
 __all__ = [
     "Caller",
@@ -84,6 +85,8 @@ class MemoryClient:
         connect_timeout: float = 2.0,
         call_timeout: float = 5.0,
         transport_factory: TransportFactory | None = None,
+        euid: int | None = None,
+        lstat: Callable[[str], Any] | None = None,
     ) -> None:
         if not is_absolute_home(home, platform):
             raise ValueError("home must be an absolute path (pass the exact home the core runs with)")
@@ -93,6 +96,9 @@ class MemoryClient:
         self.connect_timeout = float(connect_timeout)
         self.call_timeout = float(call_timeout)
         self._factory = transport_factory or _default_factory(platform)
+        # Test seams for the trust checks (a foreign owner is simulated by injecting these); default: the real ones.
+        self._euid = euid
+        self._lstat = lstat or os.lstat
         self._lock = threading.Lock()
         self._stream: Any = None
         self._hello: dict | None = None
@@ -299,21 +305,21 @@ class MemoryClient:
                 pass
 
     def _check_run_dir(self) -> None:
+        """Local endpoint trust (docs/rpc.md): ``run/`` must be a real directory of this user that group and
+        others cannot write to, and the socket in it must be ours. Runs before the token is read."""
         path = run_dir(self.home)
         try:
-            st = os.lstat(path)
+            check_run_dir(path, platform=self.platform, euid=self._euid, lstat=self._lstat)
+            if self.address == os.path.join(path, os.path.basename(self.address)):
+                verify_address(self.address, platform=self.platform, euid=self._euid, lstat=self._lstat)
         except FileNotFoundError:
-            raise RpcError("E_CORE_UNAVAILABLE", "the home has no run directory", {"reason": "no-run-dir"}) from None
+            if not os.path.lexists(path):
+                raise RpcError("E_CORE_UNAVAILABLE", "the home has no run directory", {"reason": "no-run-dir"}) from None
+            # run/ exists; only the socket is missing: the connect reports the core as absent as it always did
+        except RpcError:
+            raise
         except OSError:
             raise RpcError("E_CORE_UNAVAILABLE", "the run directory is unreadable", {"reason": "run-dir-unreadable"}) from None
-        if os.name != "posix" or self.platform == "win32":
-            return
-        if not stat.S_ISDIR(st.st_mode):
-            raise RpcError("E_SERVER_IDENTITY", "run/ is not a directory", {"reason": "run-dir-not-a-directory"})
-        if st.st_uid != os.geteuid():
-            raise RpcError("E_SERVER_IDENTITY", "run/ belongs to another user", {"reason": "run-dir-owner"})
-        if st.st_mode & 0o022:
-            raise RpcError("E_SERVER_IDENTITY", "run/ is writable by others", {"reason": "run-dir-writable-by-others"})
 
     def _read_token(self) -> str:
         try:
@@ -377,6 +383,11 @@ class MemoryClient:
                         f"{detail}, run/core.pid names pid {expected}",
                         {"reason": "server-pid-mismatch", "expected": expected, "actual": actual},
                     )
+            if os.name == "posix" and self.platform != "win32":
+                # Audit M2: the kernel names the uid that listens; another user's server gets no token.
+                # A stream without the lookup (a test double, an exotic transport) is the unknown case: it passes.
+                lookup = getattr(stream, "peer_uid", None)
+                check_peer_uid(lookup() if callable(lookup) else None, self._euid)
             req_id = self._take_id()
             self._send_auth(stream, req_id, deadline)
             try:

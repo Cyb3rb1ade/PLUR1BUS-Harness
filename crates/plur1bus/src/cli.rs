@@ -100,6 +100,13 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ModelCmd,
     },
+    /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
+    ///
+    /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
+    Secret {
+        #[command(subcommand)]
+        sub: SecretCmd,
+    },
     /// Provider login (API keys, OAuth) — M2
     Login(StubArgs),
     /// Channels — M4
@@ -631,6 +638,38 @@ pub enum ModelCmd {
         #[arg(long)]
         remove: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SecretCmd {
+    /// [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
+    Status,
+    /// [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+    ///
+    /// One trailing newline is removed. Replacing a secret revokes the leases on the old value.
+    Set {
+        /// the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
+        name: String,
+        /// refused: a value never goes in an argument (kept only so the refusal does not echo it)
+        #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
+        rest: Vec<String>,
+    },
+    /// [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
+    Get {
+        name: String,
+        /// print the value itself (it is the only command that does)
+        #[arg(long)]
+        reveal: bool,
+    },
+    /// [experimental] Delete a secret from every available backend
+    Rm {
+        name: String,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] List secret names (never values)
+    Ls,
 }
 
 #[derive(Subcommand, Debug)]
