@@ -36,6 +36,11 @@ describe("prefix stability (ADR-010 §1, R3, R5)", () => {
     assert.equal(sysChanged.prefix.changedFrom, "system");
     const toolChanged = b.render(corpusInput(1, { tools: [...tools, { name: "extra" }] }));
     assert.equal(toolChanged.prefix.changedFrom, "tools");
+    // The provider's cache keys on the whole prefix: system and memory text are identical, their prefix hashes are not.
+    assert.equal(toolChanged.zoneHashes.system, base.zoneHashes.system);
+    assert.equal(toolChanged.zoneHashes.memory, base.zoneHashes.memory);
+    assert.notEqual(toolChanged.prefixHashes.system, base.prefixHashes.system);
+    assert.notEqual(toolChanged.prefixHashes.memory, base.prefixHashes.memory);
     assert.ok(toolChanged.events.some((e) => e.type === "prompt.prefix-invalidated" && e.from === "tools"));
   });
   it("tool registration order and object key order do not matter; case, unicode form and line endings are normalised", () => {
