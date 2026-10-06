@@ -80,8 +80,17 @@ class RunnerTest(unittest.TestCase):
         source = SUITE.replace("class T(unittest.TestCase)", "class T(object)")
         done = self._run(source)
         self.assertNotEqual(done.returncode, 0)
-        self.assertIn("Timeout (", done.stderr)  # faulthandler's own dump
         self.assertIn("test_swallows_everything", done.stderr)
+        self.assertIn("TIMEOUT after 1s in t_suite.Wedged.test_swallows_everything", done.stderr)
+        if HAS_ALARM:
+            # POSIX: the alarm's TestTimeout is swallowed by the test, so only the C-level backstop can end the run.
+            self.assertIn("Timeout (", done.stderr)  # faulthandler's own dump
+        else:
+            # Windows: the watchdog thread fires first (limit 1 s < backstop 2 s) and exits 1 itself. Not tautological:
+            # without the watchdog the backstop would print "Timeout (" and the watchdog lines would be absent.
+            self.assertEqual(done.returncode, 1)
+            self.assertIn("Windows watchdog exits the run", done.stderr)
+            self.assertNotIn("Timeout (", done.stderr)
 
     def test_fast_suite_matches_plain_unittest(self) -> None:
         source = textwrap.dedent(
