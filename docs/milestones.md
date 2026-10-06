@@ -104,8 +104,8 @@ criteria are met on this codebase:
    H3b-b Task 10's `harness-release.yml`, Windows OS-restart-after-kill still pending PR-11 per the spec).
 10. Skill freshness test (`skills/plur1bus-ops`) — done (H3b-b Task 9).
 11. **Engine side E1–E6:** E1 (`MemoryOps`), E2 (`admin.*`), E3 (`embedding.probe`/`serve`), E4 (`status()`
-    health) and E5 (host-neutral `engine-config.schema.json`) are merged; the engine is pinned at `9bafa047`
-    (merge of plugin PR #217), contract **1.11.0** (`memory.import`, `stores.adopt`). **E6** (`HostServices` neutralised, contract 2.0, observable/breaking) is **not
+    health) and E5 (host-neutral `engine-config.schema.json`) are merged; the engine is pinned at `61025251`
+    (plugin origin/main after PR #232; lock-ownership and log-redaction fixes on top of PR #217), contract **1.11.0** (`memory.import`, `stores.adopt`). **E6** (`HostServices` neutralised, contract 2.0, observable/breaking) is **not
     yet started** — it is scheduled before M4 per the spec, and this milestone does not depend on it.
 12. Fixture module, zero-edit install (`packages/module-fixture`, `module list`/`module graph`) — done (H3b-a).
 

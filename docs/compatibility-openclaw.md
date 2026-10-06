@@ -16,7 +16,7 @@ guessed. Paths are relative to the repository named in the "Repo" column of the 
 
 | Harness | Engine pin (plugin repo SHA) | Engine contract | Contract floor | Plugin version at the pin | OpenClaw min tested | OpenClaw latest tested | Hermes min / latest tested |
 |---|---|---|---|---|---|---|---|
-| `main` (unreleased, `bd3fb20b`) | `9bafa0477bb47a3d8386d0dc682137adba3aa466` (merge of plugin PR #217) | `1.11.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
+| `main` (unreleased, `bd3fb20b`) | `6102525114ae7792af71277f29f4678d977f019c` (plugin `origin/main` after PR #232) | `1.11.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
 
 Notes on the row:
 
@@ -32,7 +32,7 @@ Notes on the row:
   `.github/workflows/plugin-dist.yml`), so the value moves; the recorded `2026.9.6` is what the cited run saw
   (Host-Addons `docs/distribution/openclaw-cli-facts.md`, run 36528979525 at plugin-repo `fcab978b`, 2026-09-29, all 10
   `install` legs and `wsl` green; that run packed plugin `7.17.0`, not `7.18.4`).
-- **Whether the plugin at `7.18.4` / `9bafa047` has been run against OpenClaw min and latest: unverified.** The
+- **Whether the plugin at `7.18.4` / `61025251` has been run against OpenClaw min and latest: unverified.** The
   recorded green run predates it (plugin `7.17.0`). No later run is cited in the checked-in docs.
 - **Hermes:** the Harness's own `hermes-host.yml` runs the host-mode sidecar against `0.21.4` on ubuntu-24.04,
   macos-15 and windows-2025 (windows is `continue-on-error`) and against `0.21.5` on ubuntu-24.04 only. `0.21.4` is
@@ -47,7 +47,7 @@ Notes on the row:
 |---|---|---|---|
 | `1.9.0` | `b0e149b8` ("E4.3") | `7.16.11` | Harness `CHANGELOG.md` (`[0.1.0]` → Changed); Host-Addons `docs/distribution/openclaw-cli-facts.md` (tarball of this repo at `b0e149b8`, `7.16.11`) |
 | `1.10.0` | unverified | unverified | plugin `docs/engine-api.md` (1.10.0 entry) and plugin `CHANGELOG.md` ("7.18.5 … Contract 1.10.0"); the Harness did not pin this contract in a recorded SHA |
-| `1.11.0` | `9bafa0477bb47a3d8386d0dc682137adba3aa466` (full SHA from `pnpm-lock.yaml` and `packages/core/package.json`) | `7.18.4` (`package.json` at `9bafa047`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.11.0 entry: `MemoryOps.import`, `Engine.stores.adopt`, additive only) |
+| `1.11.0` | `9bafa0477bb47a3d8386d0dc682137adba3aa466` (first pinned at plugin #217; now `6102525114ae7792af71277f29f4678d977f019c`, full SHA from `pnpm-lock.yaml` and `packages/core/package.json`) | `7.18.4` (`package.json` at `9bafa047` and `61025251`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.11.0 entry: `MemoryOps.import`, `Engine.stores.adopt`, additive only) |
 
 Contract history 1.8.0 → 1.11.0, from plugin `docs/engine-api.md` ("Contract version 1.11.0 … amended twelve times"):
 
@@ -57,11 +57,11 @@ Contract history 1.8.0 → 1.11.0, from plugin `docs/engine-api.md` ("Contract v
 - **1.11.0:** `MemoryOps.import`, `Engine.stores.adopt`; additive members only.
 
 The plugin version stayed `7.18.4` across 1.10.0 and 1.11.0 (plugin `package.json` is `7.18.4` at both
-`9bafa047` and `origin/main` `f2160c3c`; the plugin `CHANGELOG.md` lists the 7.18.5–7.18.20 items as "Ported", not as
+`9bafa047` and `61025251`; the plugin `CHANGELOG.md` lists the 7.18.5–7.18.20 items as "Ported", not as
 version bumps). Do not read the plugin version as a monotone proxy for the contract.
 
-Plugin `origin/main` is three commits past the pin (`ce4c5c64`, `78b3c0f1`, merge `f2160c3c`, PR #220: registry-lock
-ownership fix). None of them changes the contract; the Harness does not take them until it re-pins.
+The pin `61025251` (plugin `origin/main` after PR #232) adds, on top of #217, the lock-ownership fixes (#220, #224)
+and the log-redaction fixes (#225, #229, #231); the contract is unchanged at 1.11.0. Plugin #233 was open at pin time.
 
 ## 3. The contract floor rule
 
@@ -99,7 +99,7 @@ Per the plugin's amendment rule (plugin `docs/engine-api.md` "Amending the contr
 `ContractVersion`, the conformance assertions and both adapters together in one plugin PR. For the Harness, a re-pin
 changes, in one PR: `packages/core/package.json` and `pnpm-lock.yaml` (SHA), `CORE_CONTRACT` in
 `packages/core/src/engine.ts` and `crates/plur1bus/src/install/manifest.rs`, `scripts/gen-engine-keys.mjs` and the
-generated `docs/config-engine-keys.md` (header "contract 1.11.0, engine @ 9bafa047"), `CHANGELOG.md`, and this file.
+generated `docs/config-engine-keys.md` (header "contract 1.11.0, engine @ 61025251"), `CHANGELOG.md`, and this file.
 `MIN_CONTRACT_MINOR` moves only when the core starts to need a newer member.
 
 ## 4. How to verify

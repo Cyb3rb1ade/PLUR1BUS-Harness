@@ -8,9 +8,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Changed
 
-- Memory engine re-pinned to **`9bafa047`** (merge of plugin PR #217), contract **1.11.0**.
-  Additive: `Engine.memory.import` and `Engine.stores.adopt`. Top-level engine keys stay **57**.
-  `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is **1.11.0** (drift-guard from #89).
+- Memory engine re-pinned to **`61025251`** (plugin `origin/main` after PR #232, previously `9bafa047`), contract
+  stays **1.11.0**; top-level engine keys stay **57**. `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is
+  unchanged. What changes for Harness users:
+  - **Lock ownership (plugin #220, #224):** file locks, including the job locks the engine takes, are released and
+    reaped only by their owner, so a stale or reused lock no longer lets one process drop another's lock.
+  - **Log redaction (plugin #225, #229, #231):** memory text, prompts, reminder text and peer ids stay out of engine
+    logs; provider error bodies are no longer copied into error messages; webhook and provider URLs are kept out of
+    errors and logs; text sidecars are written owner-only.
+  - Not included: plugin #233 (further leak-audit items) was still open at pin time.
 
 ### Fixed
 
