@@ -40,8 +40,14 @@ pub fn run(out: &Out, layout: &Layout, args: BundleArgs) -> ! {
             1,
         ),
     };
-    let dest = bundle::destination(layout, args.out.as_deref(), now_ms)
-        .unwrap_or_else(|e| out.fail("E_STORAGE", &format!("cannot prepare the output path: {e}"), json!({}), 1));
+    let dest = bundle::destination(layout, args.out.as_deref(), now_ms).unwrap_or_else(|e| {
+        out.fail(
+            "E_STORAGE",
+            &format!("cannot prepare the output path: {e}"),
+            json!({}),
+            1,
+        )
+    });
     if let Err(e) = bundle::write_zip(&built, &dest) {
         let code = if e.kind() == std::io::ErrorKind::AlreadyExists {
             "E_CONFLICT"

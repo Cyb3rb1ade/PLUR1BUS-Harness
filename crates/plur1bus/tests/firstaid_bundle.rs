@@ -61,9 +61,21 @@ impl Home {
                 CANARIES[2], CANARIES[3], CANARIES[4]
             ),
         );
-        write(&home.join("logs/core.out.log"), "plain stdout line\nsecond line\n");
-        write(&home.join("logs/audit.log"), &format!("{{\"at\":1,\"action\":\"x\",\"detail\":\"{}\"}}\n", CANARIES[6]));
-        write(&home.join("logs/payload.log"), &format!("prompt {}\n", CANARIES[7]));
+        write(
+            &home.join("logs/core.out.log"),
+            "plain stdout line\nsecond line\n",
+        );
+        write(
+            &home.join("logs/audit.log"),
+            &format!(
+                "{{\"at\":1,\"action\":\"x\",\"detail\":\"{}\"}}\n",
+                CANARIES[6]
+            ),
+        );
+        write(
+            &home.join("logs/payload.log"),
+            &format!("prompt {}\n", CANARIES[7]),
+        );
         write(&home.join("state/store.db"), CANARIES[8]);
         Home { _dir: dir, home }
     }
@@ -90,7 +102,8 @@ impl Home {
 }
 
 fn doc(o: &Output) -> Value {
-    serde_json::from_slice(&o.stdout).unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&o.stdout)))
+    serde_json::from_slice(&o.stdout)
+        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&o.stdout)))
 }
 
 fn unzip(path: &Path) -> BTreeMap<String, Vec<u8>> {
@@ -111,7 +124,12 @@ fn the_bundle_has_the_expected_parts_and_a_matching_manifest() {
     let out_dir = h._dir.path().join("out");
     std::fs::create_dir_all(&out_dir).unwrap();
     let o = h.bundle(&["--out", out_dir.to_str().unwrap()]);
-    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
     let d = doc(&o);
     assert_eq!(d["schema"], "1staid.bundle/1");
     let path = PathBuf::from(d["path"].as_str().unwrap());
@@ -134,16 +152,28 @@ fn the_bundle_has_the_expected_parts_and_a_matching_manifest() {
     for never in ["logs/audit.log", "logs/payload.log"] {
         assert!(!names.contains(&never), "{never} must not be bundled");
     }
-    assert!(!names.iter().any(|n| n.starts_with("state/") || n.starts_with("run/")), "{names:?}");
+    assert!(
+        !names
+            .iter()
+            .any(|n| n.starts_with("state/") || n.starts_with("run/")),
+        "{names:?}"
+    );
 
     let manifest: Value = serde_json::from_slice(&files["manifest.json"]).unwrap();
     assert_eq!(manifest["schema"], "1staid.bundle.manifest/1");
     let entries = manifest["entries"].as_array().unwrap();
-    assert_eq!(entries.len(), files.len() - 1, "every file but the manifest is listed");
+    assert_eq!(
+        entries.len(),
+        files.len() - 1,
+        "every file but the manifest is listed"
+    );
     for e in entries {
         let body = &files[e["path"].as_str().unwrap()];
         assert_eq!(e["size"].as_u64().unwrap() as usize, body.len());
-        let hex: String = Sha256::digest(body).iter().map(|b| format!("{b:02x}")).collect();
+        let hex: String = Sha256::digest(body)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
         assert_eq!(e["sha256"], hex.as_str(), "{}", e["path"]);
     }
     let check: Value = serde_json::from_slice(&files["check.json"]).unwrap();
@@ -156,7 +186,12 @@ fn no_marker_secret_survives_in_any_file_of_the_bundle() {
     let h = Home::new();
     let dest = h._dir.path().join("b.zip");
     let o = h.bundle(&["--out", dest.to_str().unwrap()]);
-    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
     for (name, body) in unzip(&dest) {
         let text = String::from_utf8_lossy(&body);
         for c in CANARIES {
@@ -168,7 +203,10 @@ fn no_marker_secret_survives_in_any_file_of_the_bundle() {
     // the diagnostics themselves are still there
     let files = unzip(&dest);
     let log = String::from_utf8_lossy(&files["logs/supervisor.log"]).into_owned();
-    assert!(log.contains("early line") && log.contains("[REDACTED:"), "{log}");
+    assert!(
+        log.contains("early line") && log.contains("[REDACTED:"),
+        "{log}"
+    );
     let cfg: Value = serde_json::from_slice(&files["config.json"]).unwrap();
     assert_eq!(cfg["supervisor"]["graceMs"], 900);
     assert_eq!(cfg["engine"]["apiKey"], "[REDACTED:key]");
@@ -179,7 +217,12 @@ fn no_marker_secret_survives_in_any_file_of_the_bundle() {
 fn the_last_lines_option_keeps_the_end_of_each_log() {
     let h = Home::new();
     let dest = h._dir.path().join("b.zip");
-    assert_eq!(h.bundle(&["--out", dest.to_str().unwrap(), "--lines", "1"]).status.code(), Some(0));
+    assert_eq!(
+        h.bundle(&["--out", dest.to_str().unwrap(), "--lines", "1"])
+            .status
+            .code(),
+        Some(0)
+    );
     let files = unzip(&dest);
     let log = String::from_utf8_lossy(&files["logs/supervisor.log"]).into_owned();
     assert_eq!(log.lines().count(), 1, "{log}");
@@ -192,11 +235,26 @@ fn the_default_destination_and_the_file_are_private() {
     use std::os::unix::fs::PermissionsExt;
     let h = Home::new();
     let o = h.bundle(&[]);
-    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
     let path = PathBuf::from(doc(&o)["path"].as_str().unwrap());
     assert!(path.starts_with(h.home.join("bundles")), "{path:?}");
-    assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
-    assert_eq!(std::fs::metadata(h.home.join("bundles")).unwrap().permissions().mode() & 0o777, 0o700);
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    assert_eq!(
+        std::fs::metadata(h.home.join("bundles"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
 }
 
 #[test]
@@ -213,9 +271,15 @@ fn an_existing_file_is_never_overwritten() {
 #[test]
 fn an_unparsable_config_is_left_out_not_copied() {
     let h = Home::new();
-    write(&h.home.join("config.json"), &format!("{{ broken {} ", CANARIES[0]));
+    write(
+        &h.home.join("config.json"),
+        &format!("{{ broken {} ", CANARIES[0]),
+    );
     let dest = h._dir.path().join("b.zip");
-    assert_eq!(h.bundle(&["--out", dest.to_str().unwrap()]).status.code(), Some(0));
+    assert_eq!(
+        h.bundle(&["--out", dest.to_str().unwrap()]).status.code(),
+        Some(0)
+    );
     let files = unzip(&dest);
     assert!(!files.contains_key("config.json"));
     let manifest: Value = serde_json::from_slice(&files["manifest.json"]).unwrap();
@@ -233,6 +297,11 @@ fn an_empty_home_still_bundles() {
     let h = Home { _dir: dir, home };
     let dest = h._dir.path().join("b.zip");
     let o = h.bundle(&["--out", dest.to_str().unwrap()]);
-    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
     assert!(unzip(&dest).contains_key("check.json"));
 }

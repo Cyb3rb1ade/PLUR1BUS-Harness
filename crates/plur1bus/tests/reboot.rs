@@ -28,7 +28,9 @@ fn fixture_core() -> PathBuf {
 fn fixture_module() -> PathBuf {
     std::env::var_os("PLUR1BUS_FIXTURE_MODULE")
         .map(PathBuf::from)
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/module-fixture/dist"))
+        .unwrap_or_else(|| {
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/module-fixture/dist")
+        })
 }
 
 fn wait_until(what: &str, mut f: impl FnMut() -> bool) {
@@ -112,7 +114,10 @@ impl Env {
             r#"{"schemaVersion":1,"supervisor":{"graceMs":1000}}"#,
         )
         .unwrap();
-        let out = env.cli(&["service", "install", "--no-start"]).output().unwrap();
+        let out = env
+            .cli(&["service", "install", "--no-start"])
+            .output()
+            .unwrap();
         assert_eq!(out.status.code(), Some(0), "{out:?}");
         env
     }
@@ -168,7 +173,8 @@ impl Env {
             .filter_map(|l| serde_json::from_str::<Value>(l).ok())
             .filter(|c| {
                 c["args"].as_array().is_some_and(|a| {
-                    a.iter().any(|x| x == "start" || x == "/Run" || x == "kickstart")
+                    a.iter()
+                        .any(|x| x == "start" || x == "/Run" || x == "kickstart")
                 })
             })
             .count()
@@ -179,10 +185,17 @@ impl Env {
     fn boot(&mut self) -> Value {
         let before = self.manager_start_calls();
         let start = self.cli(&["daemon", "start"]).spawn().unwrap();
-        wait_until("the manager's start command", || self.manager_start_calls() > before);
+        wait_until("the manager's start command", || {
+            self.manager_start_calls() > before
+        });
         self.launch_unit();
         let out = start.wait_with_output().unwrap();
-        assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let d: Value = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(d["via"], "service", "{d}");
         self.wait_stack_ready();
@@ -191,7 +204,11 @@ impl Env {
 
     fn client(&self) -> Option<Client> {
         let token = std::fs::read_to_string(self.home.join("run/supervisor.token")).ok()?;
-        let address = self.home.join("run/supervisor.sock").to_string_lossy().into_owned();
+        let address = self
+            .home
+            .join("run/supervisor.sock")
+            .to_string_lossy()
+            .into_owned();
         Client::connect(
             &address,
             token.trim(),
@@ -213,7 +230,10 @@ impl Env {
         wait_until("core and module ready", || {
             self.status().is_some_and(|s| {
                 let kids = s["children"].as_array().cloned().unwrap_or_default();
-                kids.len() == 2 && kids.iter().all(|c| c["process"]["state"] == "ready" || c["state"] == "ready")
+                kids.len() == 2
+                    && kids
+                        .iter()
+                        .all(|c| c["process"]["state"] == "ready" || c["state"] == "ready")
             })
         });
     }
@@ -248,7 +268,11 @@ impl Env {
     /// child), and wait until none is left. `run/` stays exactly as the dead processes left it.
     fn power_off(&mut self) -> Vec<u32> {
         let pids = self.stack_pids();
-        assert_eq!(pids.len(), 3, "supervisor, core and module are up before the reboot");
+        assert_eq!(
+            pids.len(),
+            3,
+            "supervisor, core and module are up before the reboot"
+        );
         // SAFETY: SIGSTOP on the supervisor so no child is respawned while the others are killed.
         unsafe { libc::kill(pids[0] as libc::pid_t, libc::SIGSTOP) };
         for p in pids.iter().rev() {
@@ -286,7 +310,14 @@ fn a_rebooted_stack_replaces_what_the_dead_processes_left_behind() {
 
     // what a power loss leaves: pid files, sockets, tokens and the lock file of processes that no longer exist
     let run = e.home.join("run");
-    for f in ["core.pid", "supervisor.pid", "module-fixture.pid", "supervisor.sock", "core.sock", "supervisor.lock"] {
+    for f in [
+        "core.pid",
+        "supervisor.pid",
+        "module-fixture.pid",
+        "supervisor.sock",
+        "core.sock",
+        "supervisor.lock",
+    ] {
         assert!(run.join(f).exists(), "{f} should be left behind");
     }
     let row = e.check_row("run.stale-files");
@@ -297,8 +328,16 @@ fn a_rebooted_stack_replaces_what_the_dead_processes_left_behind() {
         .iter()
         .map(|f| f.as_str().unwrap().to_string())
         .collect();
-    for f in ["core.pid", "supervisor.pid", "supervisor.sock", "module-fixture.pid"] {
-        assert!(files.contains(&f.to_string()), "{f} not reported stale: {files:?}");
+    for f in [
+        "core.pid",
+        "supervisor.pid",
+        "supervisor.sock",
+        "module-fixture.pid",
+    ] {
+        assert!(
+            files.contains(&f.to_string()),
+            "{f} not reported stale: {files:?}"
+        );
     }
 
     // the boot after it
@@ -325,9 +364,19 @@ fn a_discarded_run_directory_is_recreated_private() {
     std::fs::remove_dir_all(e.home.join("run")).unwrap();
 
     e.boot();
-    let mode = std::fs::metadata(e.home.join("run")).unwrap().permissions().mode() & 0o777;
+    let mode = std::fs::metadata(e.home.join("run"))
+        .unwrap()
+        .permissions()
+        .mode()
+        & 0o777;
     assert_eq!(mode, 0o700, "run/ is private again");
-    for f in ["supervisor.sock", "supervisor.token", "core.sock", "core.token", "module-fixture.pid"] {
+    for f in [
+        "supervisor.sock",
+        "supervisor.token",
+        "core.sock",
+        "core.token",
+        "module-fixture.pid",
+    ] {
         assert!(e.home.join("run").join(f).exists(), "{f} recreated");
     }
     assert_eq!(e.check_row("run.permissions")["status"], "ok");
@@ -340,11 +389,23 @@ fn a_repair_clears_the_stale_files_without_starting_anything() {
     e.boot();
     e.power_off();
     assert_eq!(e.check_row("run.stale-files")["status"], "warn");
-    let out = e.cli(&["1staid", "repair", "--yes", "--only", "run.stale-files.remove"]).output().unwrap();
+    let out = e
+        .cli(&[
+            "1staid",
+            "repair",
+            "--yes",
+            "--only",
+            "run.stale-files.remove",
+        ])
+        .output()
+        .unwrap();
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert_eq!(e.check_row("run.stale-files")["status"], "ok");
     assert!(e.stack_pids().is_empty() || e.stack_pids().iter().all(|p| pid_gone(*p)));
-    assert!(e.home.join("run/supervisor.lock").exists(), "the lock file is never removed (ADR-012 §10)");
+    assert!(
+        e.home.join("run/supervisor.lock").exists(),
+        "the lock file is never removed (ADR-012 §10)"
+    );
 }
 
 #[test]
@@ -358,12 +419,19 @@ fn a_second_start_after_a_reboot_never_makes_a_second_core() {
     let start = e.cli(&["daemon", "start"]).spawn().unwrap();
     let second = e.launch_unit();
     let out = start.wait_with_output().unwrap();
-    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     e.wait_stack_ready();
 
     // the loser of the single-instance race left (exit 3: lost the race)
     wait_until("the losing launch to exit", || {
-        e.supervisors.iter_mut().any(|c| c.try_wait().ok().flatten().is_some())
+        e.supervisors
+            .iter_mut()
+            .any(|c| c.try_wait().ok().flatten().is_some())
     });
     let exited: Vec<Option<i32>> = e
         .supervisors
@@ -375,7 +443,11 @@ fn a_second_start_after_a_reboot_never_makes_a_second_core() {
 
     let st = e.status().unwrap();
     assert_eq!(st["children"].as_array().unwrap().len(), 2, "{st}");
-    assert_eq!(e.events("started"), 2, "one core from the first boot, one from this one");
+    assert_eq!(
+        e.events("started"),
+        2,
+        "one core from the first boot, one from this one"
+    );
     let core = e.pid("core.pid").unwrap();
     assert!(!pid_gone(core));
 }

@@ -119,11 +119,22 @@ fn redact_config(v: &mut Value, path: &mut Vec<String>, r: &Redactor) {
             let keys: Vec<String> = map.keys().cloned().collect();
             for k in keys {
                 path.push(k.clone());
-                if path.iter().map(String::as_str).eq(["logs", "otlp", "headers"]) {
+                if path
+                    .iter()
+                    .map(String::as_str)
+                    .eq(["logs", "otlp", "headers"])
+                {
                     map.insert(k, json!("[REDACTED:key]"));
                 } else if let Some(child) = map.get_mut(&k) {
-                    let named = r.scan(&format!("\"{k}\":\"x-value-0123\"")).contains(&redact::RULE_KEY);
-                    if named && !child.is_object() && !child.is_array() && !child.is_null() && !child.is_boolean() {
+                    let named = r
+                        .scan(&format!("\"{k}\":\"x-value-0123\""))
+                        .contains(&redact::RULE_KEY);
+                    if named
+                        && !child.is_object()
+                        && !child.is_array()
+                        && !child.is_null()
+                        && !child.is_boolean()
+                    {
                         *child = json!("[REDACTED:key]");
                     } else {
                         redact_config(child, path, r);
@@ -152,7 +163,10 @@ fn seal(
         if !hits.is_empty() {
             refused.push((path.clone(), hits));
         }
-        parts.push(Part { path, bytes: clean.into_bytes() });
+        parts.push(Part {
+            path,
+            bytes: clean.into_bytes(),
+        });
     }
     if refused.is_empty() {
         Ok(parts)
@@ -193,11 +207,15 @@ pub fn build(
         }))
         .unwrap_or_default(),
     ));
-    let ok = !checks.iter().any(|c| c.status == crate::commands::firstaid::Status::Fail);
+    let ok = !checks
+        .iter()
+        .any(|c| c.status == crate::commands::firstaid::Status::Fail);
     texts.push((
         "check.json".into(),
-        serde_json::to_string_pretty(&json!({ "schema": "1staid.check/1", "ok": ok, "checks": checks }))
-            .unwrap_or_default(),
+        serde_json::to_string_pretty(
+            &json!({ "schema": "1staid.check/1", "ok": ok, "checks": checks }),
+        )
+        .unwrap_or_default(),
     ));
     texts.push((
         "service.json".into(),
@@ -220,7 +238,9 @@ pub fn build(
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
             omitted.push(json!({ "path": "config.json", "reason": "no config file" }))
         }
-        Err(e) => omitted.push(json!({ "path": "config.json", "reason": format!("unreadable: {e}") })),
+        Err(e) => {
+            omitted.push(json!({ "path": "config.json", "reason": format!("unreadable: {e}") }))
+        }
     }
 
     let mut logs: Vec<PathBuf> = fs::read_dir(layout.logs())
@@ -228,7 +248,10 @@ pub fn build(
             d.flatten()
                 .map(|e| e.path())
                 .filter(|p| {
-                    let n = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let n = p
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default();
                     n.ends_with(".log") && !EXCLUDED_LOGS.contains(&n.as_str()) && p.is_file()
                 })
                 .collect()
@@ -236,10 +259,16 @@ pub fn build(
         .unwrap_or_default();
     logs.sort();
     for p in logs {
-        let name = p.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let name = p
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
         match tail(&p, opts.lines) {
             Ok(t) => texts.push((format!("logs/{name}"), t)),
-            Err(e) => omitted.push(json!({ "path": format!("logs/{name}"), "reason": format!("unreadable: {e}") })),
+            Err(e) => omitted.push(
+                json!({ "path": format!("logs/{name}"), "reason": format!("unreadable: {e}") }),
+            ),
         }
     }
 
@@ -257,14 +286,25 @@ pub fn build(
     manifest.insert("omitted".into(), json!(omitted));
     manifest.insert(
         "excluded".into(),
-        json!(["audit log", "payload capture", "transcripts", "stores", "journal", "secret store", "run tokens"]),
+        json!([
+            "audit log",
+            "payload capture",
+            "transcripts",
+            "stores",
+            "journal",
+            "secret store",
+            "run tokens"
+        ]),
     );
     let manifest_text = serde_json::to_string_pretty(&Value::Object(manifest)).unwrap_or_default();
     let hits = r.scan(&manifest_text);
     if !hits.is_empty() {
         return Err(BundleError::Refused(vec![("manifest.json".into(), hits)]));
     }
-    parts.push(Part { path: "manifest.json".into(), bytes: manifest_text.into_bytes() });
+    parts.push(Part {
+        path: "manifest.json".into(),
+        bytes: manifest_text.into_bytes(),
+    });
     Ok(Bundle { parts, omitted })
 }
 
