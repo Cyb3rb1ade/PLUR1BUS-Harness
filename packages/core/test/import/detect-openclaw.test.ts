@@ -124,13 +124,16 @@ describe("detectOpenclaw on a store with unknown metadata", () => {
 });
 
 describe("detectOpenclaw with a symlinked config", () => {
-  it("follows a symlinked openclaw.json (dotfile managers)", needsFileSymlinks, async () => {
+  it("refuses a symlinked openclaw.json without reading its target", needsFileSymlinks, async () => {
     const d = tempDir("p1b-imp-");
     mkdirSync(join(d, "dotfiles")); mkdirSync(join(d, "state"));
     writeFileSync(join(d, "dotfiles", "openclaw.json"), "{ meta: { lastTouchedVersion: '2026.9.5' } }");
     symlinkSync(join(d, "dotfiles", "openclaw.json"), join(d, "state", "openclaw.json"));
-    const r = await detectOpenclaw(ctxFor(join(d, "state")));
-    assert.equal(r.version.release, "2026.9.5");
+    await assert.rejects(detectOpenclaw(ctxFor(join(d, "state"))), (error: unknown) => {
+      assert.ok(error instanceof ImportError);
+      assert.equal(error.reason, "unsafe-symlink");
+      return true;
+    });
   });
 });
 

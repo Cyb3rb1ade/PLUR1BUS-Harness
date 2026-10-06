@@ -19,7 +19,7 @@ import {
   ImportLedger,
   type ConflictStrategy,
 } from "../ledger.ts";
-import { isFile, readBounded } from "../readonly.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
 import { createTargetSnapshot } from "../snapshot-target.ts";
 import { detectOpenclaw } from "../sources/openclaw.ts";
 import { newRunId } from "../skills-import.ts";
@@ -261,10 +261,19 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     // Read channels from openclaw.json
     let channelReports: ChannelAllowlistReport[] = [];
-    if (sourceReport.source.configPath && isFile(sourceReport.source.configPath)) {
+    const errors: Array<{ sourceRef: string; reason: string }> = [];
+    if (sourceReport.source.configPath && existsNoFollow(sourceReport.source.configPath)) {
+      let cfgText: string | null = null;
       try {
-        const cfgText = readBounded(sourceReport.source.configPath, 16 * 1024 * 1024);
-        if (cfgText) {
+        cfgText = readSourceFileSafe(sourceReport.source.configPath, 16 * 1024 * 1024).toString("utf8");
+      } catch (error) {
+        errors.push({
+          sourceRef: "openclaw.json",
+          reason: error instanceof ImportError ? error.reason : "source-unreadable",
+        });
+      }
+      if (cfgText !== null) {
+        try {
           const rawCfg = parseJson5(cfgText) as Record<string, unknown>;
           channelReports = readOpenclawChannels(rawCfg);
           if (isApply && ledger) {
@@ -278,9 +287,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
               });
             }
           }
+        } catch {
+          // Ignored if unparseable
         }
-      } catch {
-        // Ignored if unparseable
       }
     }
 
@@ -331,7 +340,6 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     const filesReplaced = agentReports.reduce((n, a) => n + a.counts.filesReplaced, 0);
     const filesSkipped = agentReports.reduce((n, a) => n + a.counts.filesSkipped, 0);
 
-    const errors: Array<{ sourceRef: string; reason: string }> = [];
     for (const a of agentReports) {
       if (a.action === "rejected") {
         errors.push({ sourceRef: a.sourceId, reason: a.reason ?? "rejected" });
