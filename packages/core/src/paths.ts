@@ -25,6 +25,8 @@ export interface Layout {
   logs: string; logFile(role: string): string; runtime: string; models: string; modules: string; skills: string;
   /** D112: the model catalog directory and file, and the system jobs' ledger directory. */
   catalog: string; catalogModels: string; systemJobs: string;
+  /** M2: the encrypted-file secret store's directory (store.json, store.key). */
+  secrets: string;
 }
 
 export function layout(home: string): Layout {
@@ -37,6 +39,7 @@ export function layout(home: string): Layout {
     supervisorSocket: j("run", "supervisor.sock"), supervisorToken: j("run", "supervisor.token"), supervisorPid: j("run", "supervisor.pid"),
     logs: j("logs"), logFile: (role) => j("logs", `${role}.log`), runtime: j("runtime"), models: j("models"), modules: j("modules"), skills: j("skills"),
     catalog: j("catalog"), catalogModels: j("catalog", "models.json"), systemJobs: j("state", "system-jobs"),
+    secrets: j("state", "secrets"),
   };
 }
 

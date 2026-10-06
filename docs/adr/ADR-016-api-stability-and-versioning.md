@@ -249,3 +249,11 @@ Plan D112 (`docs/superpowers/plans/2026-10-03-d112-model-discovery.md`, `feat/d1
 **`1staid.check/1` ids stay append-only.** `models.roles` is appended after `extensions.revoked` (`CHECK_IDS` grows from 21 to 22).
 
 **The WebMCP deny list.** `models.scan`, `models.setOverride`, `models.removeManual`, `models.acknowledge` were added to `FORBIDDEN_EXACT` in `packages/webmcp/src/provider.ts` so administrative model discovery operations are never exposed as WebMCP tools.
+
+## Implementation record (M2 secret store)
+
+**RPC 1.5.0, additively.** The new core methods are `secret.status`, `secret.list`, `secret.set`, `secret.get` and `secret.delete`, all `experimental`, `x-server: "core"`, `x-since: "1.5.0"`; new `$defs` `SecretBackend`, `SecretMeta`, `SecretStatus`. This change makes no version bump (the task forbade one), so the methods sit in 1.5.0; if 1.5.0 has been released by the time this merges, bump to 1.6.0 and move `x-since` with it. `secret.get` is the only method that can return a secret value (`reveal: true`), owner only.
+
+**Config.** `secrets.fileFallback.enabled` (`x-restart: live`, `x-tier: advanced`, default `false`).
+
+**New CLI `schema` ids (G15).** `secret.status/1`, `secret.set/1`, `secret.get/1`, `secret.rm/1`, `secret.ls/1` (`crates/plur1bus/src/commands/secret.rs`). Every new leaf's `about` starts with `[experimental] `.

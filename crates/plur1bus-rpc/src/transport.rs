@@ -8,6 +8,12 @@ pub trait Stream: Read + Write + Send {
     /// (macOS), `GetNamedPipeServerProcessId` (Windows). `None` where the OS cannot tell. Unlike a pid file, this is
     /// the process that owns the socket now, so it is the only pid a supervisor may signal.
     fn peer_pid(&self) -> Option<u32>;
+    /// The uid the OS names as the process at the other end of a Unix socket (`SO_PEERCRED` on Linux, `getpeereid`
+    /// on macOS); `None` where the OS cannot tell and on Windows. A client refuses a server of another uid before it
+    /// sends anything (audit M2, [`crate::trust::check_peer_uid`]).
+    fn peer_uid(&self) -> Option<u32> {
+        None
+    }
 }
 
 #[cfg(unix)]
@@ -36,6 +42,60 @@ mod imp {
             use std::os::unix::io::AsRawFd;
             peer_pid_of(self.0.as_raw_fd())
         }
+        fn peer_uid(&self) -> Option<u32> {
+            use std::os::unix::io::AsRawFd;
+            peer_uid_of(self.0.as_raw_fd())
+        }
+    }
+
+    /// The effective uid the kernel recorded for the listening process (`SO_PEERCRED`).
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn peer_uid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
+        let mut cred = libc::ucred {
+            pid: 0,
+            uid: 0,
+            gid: 0,
+        };
+        let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+        // SAFETY: getsockopt writes at most `len` bytes into `cred`, a live local of that size.
+        let r = unsafe {
+            libc::getsockopt(
+                fd,
+                libc::SOL_SOCKET,
+                libc::SO_PEERCRED,
+                (&mut cred as *mut libc::ucred).cast(),
+                &mut len,
+            )
+        };
+        (r == 0).then_some(cred.uid)
+    }
+
+    /// The effective uid of the peer (`getpeereid`).
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd"
+    ))]
+    fn peer_uid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
+        let (mut uid, mut gid): (libc::uid_t, libc::gid_t) = (0, 0);
+        // SAFETY: getpeereid writes one uid_t and one gid_t into live locals.
+        let r = unsafe { libc::getpeereid(fd, &mut uid, &mut gid) };
+        (r == 0).then_some(uid)
+    }
+
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd"
+    )))]
+    fn peer_uid_of(_fd: std::os::unix::io::RawFd) -> Option<u32> {
+        None
     }
 
     /// The credentials the kernel recorded for the listening process when the connection was made.

@@ -3,12 +3,16 @@ on:
   pull_request:
     paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
   push:
+    branches: [main]
     paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   desktop:
     strategy:

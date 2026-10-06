@@ -26,12 +26,13 @@ export type LedgerAction =
   | "deferred"
   | "skipped"
   | "rejected"
-  | "repaired";
+  | "repaired"
+  | "adopted";
 
 export interface LedgerEntry {
   ts: string;
   runId: string;
-  entity: "agent" | "file" | "channel" | "cron" | "system";
+  entity: "agent" | "file" | "channel" | "cron" | "system" | "memory" | "store";
   idempotencyKey: string;
   action: LedgerAction;
   sourceRef?: string | undefined;
@@ -59,6 +60,20 @@ export function channelIdempotencyKey(platform: string, allowFrom: string[]): st
 export function cronIdempotencyKey(jobId: string, schedule: string): string {
   const hash = createHash("sha256").update(schedule).digest("hex").slice(0, 16);
   return `cron:${jobId}:${hash}`;
+}
+
+export function cardIdempotencyKey(sourceType: string, profile: string, sourceFile: string, text: string): string {
+  const hash = createHash("sha256").update(text.trim()).digest("hex").slice(0, 16);
+  return `${sourceType}:${profile}:${sourceFile}:${hash}`;
+}
+
+export function memoryBatchIdempotencyKey(agentId: string, batchIdx: number, keysHash: string): string {
+  return `memory:${agentId}:${batchIdx}:${keysHash}`;
+}
+
+export function storeIdempotencyKey(sourcePath: string): string {
+  const hash = createHash("sha256").update(sourcePath).digest("hex").slice(0, 16);
+  return `store:${hash}`;
 }
 
 export class ImportLedger {

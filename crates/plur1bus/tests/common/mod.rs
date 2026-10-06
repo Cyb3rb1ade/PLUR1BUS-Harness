@@ -354,3 +354,35 @@ pub fn assert_valid(pointer: &str, v: &Value) {
     let errors: Vec<String> = val.iter_errors(v).map(|e| e.to_string()).collect();
     assert!(errors.is_empty(), "{pointer}: {errors:?} in {v}");
 }
+
+/// Runs `cmd` with its stdout a pipe whose reader is already gone (`plur1bus … | head -1` after `head` exited), so
+/// every write to stdout fails with a broken pipe from the first byte on. Hard 60 s timeout (the child is killed).
+/// Returns the exit code (`None` if killed by a signal or the timeout) and stderr.
+pub fn run_closed_stdout(cmd: &mut Command) -> (Option<i32>, String) {
+    let (reader, writer) = std::io::pipe().unwrap();
+    drop(reader);
+    let mut child = cmd
+        .stdout(Stdio::from(writer))
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stderr = child.stderr.take().unwrap();
+    let t = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = stderr.read_to_string(&mut s);
+        s
+    });
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let status = loop {
+        if let Some(st) = child.try_wait().unwrap() {
+            break st.code();
+        }
+        if Instant::now() > deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            break None;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    (status, t.join().unwrap())
+}

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { join, relative } from "node:path";
 
 if (process.argv.includes("--self-test")) {
-  const result = spawnSync(process.execPath, ["--test", fileURLToPath(new URL("./lint-hygiene.test.mjs", import.meta.url))], { stdio: "inherit" });
+  const result = spawnSync(process.execPath, ["--test", "--test-timeout=120000", fileURLToPath(new URL("./lint-hygiene.test.mjs", import.meta.url))], { stdio: "inherit" });
   process.exit(result.status ?? 1);
 }
 

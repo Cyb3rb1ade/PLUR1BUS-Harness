@@ -21,6 +21,9 @@ describe("mapMemoryOpError", () => {
       ["conflict", "E_CONFLICT", undefined],
       ["storage", "E_STORAGE", { sourceId: "a", sharedId: "b", staleSharedId: "c" }],
       ["unsupported", "E_NOT_AVAILABLE", { capability: "shared-memory", reason: "platform" }],
+      ["identity-already-bound", "E_CONFLICT", undefined],
+      ["ledger-corrupt", "E_STORAGE", undefined],
+      ["lock-lost", "E_STORAGE", undefined],
     ];
     for (const [code, rpc, detail] of cases) {
       const r = mapMemoryOpError(opError(code, detail), { stopping: false });

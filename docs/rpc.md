@@ -10,6 +10,19 @@ module's own endpoint (`run/module-<name>.sock`, or the per-home `-module-<name>
 
 JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.
 
+## Local endpoint trust
+
+The trust boundary is the current OS user. On POSIX that rests on `run/` (a `0700` directory of the user) holding the sockets, tokens and pid files. Before a client reads a token or connects, it checks `run/`: it must be a real directory (not a symlink), owned by the current uid, and not writable by group or others; the socket must be a socket of the current uid. The Rust CLI and clients additionally refuse a server whose peer uid (`SO_PEERCRED` on Linux, `getpeereid` on macOS) is not the current uid. The Rust client and the TypeScript client answer a refusal with `E_UNAUTHORIZED` (TypeScript: reason `run-dir-untrusted` or `socket-untrusted`; Rust additionally `peer-uid-mismatch`) and send nothing. The Python client applies the directory checks and raises `E_SERVER_IDENTITY` with its own reasons (`run-dir-owner`, `run-dir-writable-by-others`, `run-dir-not-a-directory`); it has no peer-uid check, and neither has Node.
+
+Setups that are refused for this reason:
+
+- `sudo plur1bus …` against another user's home: the directory belongs to a different uid.
+- A Docker bind mount of the home whose files belong to a different uid than the process in the container (for example a container running as root over a home owned by the host user).
+- A home on WSL under `/mnt/c` (DrvFs), where every entry shows as world-writable.
+- A group- or world-writable home or `run/` (for example a sloppy umask or a shared `PLUR1BUS_HOME`), and a `run/` that is a symlink.
+
+On Windows, `run/` is protected by a DACL and the client compares the pipe server's process id with `run/core.pid` (or `run/supervisor.pid`) before it sends the token; a missing pid file is a refusal (`server-pid-unknown`), not a skipped check. The Rust and Python clients ask the OS (`GetNamedPipeServerProcessId`). **Limitation:** the TypeScript client (`@plur1bus/module-api`) has no native lookup, so it can only compare `hello.pid` with the recorded pid after `core.auth` was sent: a process that squats the pipe name receives the token and can claim any pid. A host that supplies a native lookup (`serverPidOf`) gets the refusal before the token is sent. Closing this for good needs the server to prove it holds the token (an HMAC over a client nonce) before the client sends it; that is not implemented.
+
 ## Error codes
 
 A closed enum; the core puts the code into every error response as `error.data.error`, with optional `reason`, `detail` and `ids` (a map of non-secret ids a caller needs to recover, e.g. after a half-finished shared-copy refresh).
@@ -3938,6 +3951,203 @@ Acknowledges newly discovered models, clearing the new-models indicator (D112).
 }
 ```
 
+### `secret.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Which secret backend is in use (OS keyring first, then the opt-in encrypted file), why, and how many secrets it holds. Owner only (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretStatus"
+}
+```
+
+### `secret.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Secret names and metadata, never values. Owner only (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secrets"
+  ],
+  "properties": {
+    "secrets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SecretMeta"
+      }
+    }
+  }
+}
+```
+
+### `secret.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Creates or replaces a secret; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "value"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretMeta"
+}
+```
+
+### `secret.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+A secret's metadata; with `reveal: true` also its value, the only RPC that returns one. Owner only; the call is audited before the value is released (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "reveal": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secret"
+  ],
+  "properties": {
+    "secret": {
+      "$ref": "#/$defs/SecretMeta"
+    },
+    "value": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `secret.delete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Deletes a secret from every available backend and revokes its leases. Owner only; audited (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "removed"
+  ],
+  "properties": {
+    "removed": {
+      "const": true
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
@@ -7216,6 +7426,137 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "error": {
       "$ref": "#/$defs/ModelScanErrorInfo"
+    }
+  }
+}
+```
+
+### `SecretBackend`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "keyring",
+    "file",
+    "memory"
+  ]
+}
+```
+
+### `SecretMeta`
+
+```json
+{
+  "description": "Experimental (1.5.0). A secret's name and timestamps; never its value (M2, ADR-005).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "backend",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "backend": {
+      "$ref": "#/$defs/SecretBackend"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `SecretStatus`
+
+```json
+{
+  "description": "Experimental (1.5.0). The secret store's state: `backend` is where values go now (`none` when neither the OS keyring nor the enabled encrypted file can serve), `degraded` is true whenever it is not the keyring (M2, ADR-005).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "backend",
+    "degraded",
+    "keyring",
+    "file",
+    "count",
+    "activeLeases"
+  ],
+  "properties": {
+    "backend": {
+      "type": "string",
+      "enum": [
+        "keyring",
+        "file",
+        "memory",
+        "none"
+      ]
+    },
+    "degraded": {
+      "type": "boolean"
+    },
+    "keyring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "available"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "activeLeases": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "remedy": {
+      "type": "string"
     }
   }
 }

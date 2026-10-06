@@ -2,6 +2,9 @@ name: ci
 on:
   push: { branches: [main] }
   pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   unit:
     strategy:
@@ -44,12 +47,12 @@ jobs:
       - run: pnpm test
         timeout-minutes: 15
       # The release scripts (harness-release.yml): payload assembly and release-native.json.
-      - run: node --experimental-strip-types --test "scripts/release/test/*.test.ts"
+      - run: node --experimental-strip-types --test --test-timeout=120000 "scripts/release/test/*.test.ts"
         timeout-minutes: 5
       # The Windows one-liner, install.ps1, against a local file:// release (Linux and macOS run install.sh in the
       # system job).
       - if: runner.os == 'Windows'
-        run: node --experimental-strip-types --test tests/system/install-scripts.test.ts
+        run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
         timeout-minutes: 5
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
@@ -95,19 +98,19 @@ jobs:
         shell: bash
         run: cargo run -q -p plur1bus-ext --features testkit --example make-fixtures -- "$RUNNER_TEMP/p1x-fx"
       # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
-      - run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts tests/system/setup.test.ts tests/system/install-scripts.test.ts tests/system/extensions.test.ts
+      - run: node --experimental-strip-types --test --test-timeout=120000 tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts tests/system/setup.test.ts tests/system/install-scripts.test.ts tests/system/extensions.test.ts
         timeout-minutes: 10
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_CI_RECALL_HARD_MS: "3000", PLUR1BUS_EXT_FIXTURES: "${{ runner.temp }}/p1x-fx" } # H3-R26: shared runners are not reference hardware
       # H3-R22: the same acceptance with a cold flat embedder (the first 2 query embeddings of each core process take
       # 350 ms, one at a time), so a recall that does not wait for the model warm-up overruns the 600 ms hard budget.
       - name: two-session recall (cold flat embedder)
-        run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+        run: node --experimental-strip-types --test --test-timeout=120000 tests/system/two-session-recall.test.ts
         timeout-minutes: 5
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SYSTEM_INTERNALS: flat-embedder-cold, PLUR1BUS_CI_RECALL_HARD_MS: "3000" }
       # Criterion 2 (S16, ruling H3-R19): 200 turns over 2 agents with random core kills and two supervisor kills;
       # the nightly runs 1 000. The seed is printed; replay a failure with PLUR1BUS_SOAK_SEED.
       - name: kill soak (200 turns)
-        run: node --experimental-strip-types --test tests/system/kill-soak.test.ts
+        run: node --experimental-strip-types --test --test-timeout=600000 tests/system/kill-soak.test.ts
         timeout-minutes: 15
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "200" }
       - run: pnpm bench
@@ -185,7 +188,7 @@ jobs:
       - name: client offline (Tasks 2, 3)
         shell: bash
         timeout-minutes: 10
-        run: '"$PY" -m unittest discover -v -s clients/python/plur1bus-memory-client/tests -t clients/python/plur1bus-memory-client'
+        run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s clients/python/plur1bus-memory-client/tests -t clients/python/plur1bus-memory-client'
       - name: real named pipes ran (Task 3 gate, F20)
         if: runner.os == 'Windows'
         shell: bash
@@ -201,7 +204,7 @@ jobs:
       - name: provider offline (Task 5)
         shell: bash
         timeout-minutes: 10
-        run: '"$PY" -m unittest discover -v -s hosts/hermes/tests -t hosts/hermes'
+        run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes'
       - uses: pnpm/action-setup@v4
         with: { version: 10.28.0 }
       - uses: actions/setup-node@v4
@@ -232,8 +235,8 @@ jobs:
         run: |
           exe=""; [ "$RUNNER_OS" = "Windows" ] && exe=".exe"
           export PLUR1BUS_BIN="$GITHUB_WORKSPACE/target/release/plur1bus$exe" PLUR1BUS_CORE_JS="$GITHUB_WORKSPACE/packages/core/dist/core.js"
-          "$PY" -m unittest discover -v -s clients/python/plur1bus-memory-client/tests/live -t clients/python/plur1bus-memory-client
-          "$PY" -m unittest discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
+          "$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s clients/python/plur1bus-memory-client/tests/live -t clients/python/plur1bus-memory-client
+          "$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
         env: { PLUR1BUS_LIVE_REQUIRED: "1", PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware
   wsl:
     # Cross-platform migration WSL discovery and tar snapshot job (spec §B.7, gap G5/G6, decision C8).

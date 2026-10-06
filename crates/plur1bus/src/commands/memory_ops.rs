@@ -44,10 +44,7 @@ pub(crate) fn parse_time_arg(s: &str, now_ms: u64) -> Result<u64, String> {
 }
 
 fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
+    crate::journal::now_ms()
 }
 
 fn parse_time_or_fail(out: &Out, flag: &str, s: &str) -> u64 {

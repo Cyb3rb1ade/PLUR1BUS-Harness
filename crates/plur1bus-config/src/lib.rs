@@ -270,6 +270,7 @@ pub fn parse(text: &str) -> Result<Config, ConfigError> {
 /// The exact text [`write_atomic`] writes: pretty JSON plus a newline. The supervisor hashes it to recognise its own
 /// writes when the watcher sees config.json change.
 pub fn serialize(config: &Config) -> String {
+    // infallible: `Config` is plain derived-Serialize data with string map keys.
     format!("{}\n", serde_json::to_string_pretty(config).unwrap())
 }
 
@@ -278,7 +279,8 @@ pub fn serialize(config: &Config) -> String {
 /// key order or formatting.
 pub fn revision(config: &Value) -> String {
     use sha2::{Digest, Sha256};
-    let digest = Sha256::digest(serde_json::to_string(config).unwrap().as_bytes());
+    // `Value`'s Display is infallible and equals `serde_json::to_string`.
+    let digest = Sha256::digest(config.to_string().as_bytes());
     digest[..8].iter().map(|b| format!("{b:02x}")).collect()
 }
 
@@ -451,11 +453,7 @@ fn json_eq(a: &Value, b: &Value) -> bool {
 /// open-map entry (e.g. `agents.bernd`) are therefore reported at the entry, symmetrically,
 /// because a missing side is treated as absent rather than as an empty object.
 fn diff(a: &Value, b: &Value, path: &mut Vec<String>, out: &mut Vec<String>) {
-    let a_obj = matches!(a, Value::Object(_));
-    let b_obj = matches!(b, Value::Object(_));
-    if a_obj && b_obj {
-        let am = a.as_object().unwrap();
-        let bm = b.as_object().unwrap();
+    if let (Some(am), Some(bm)) = (a.as_object(), b.as_object()) {
         let mut keys: std::collections::BTreeSet<&String> = am.keys().collect();
         keys.extend(bm.keys());
         for k in keys {

@@ -27,6 +27,15 @@ pub enum RpcError {
     Protocol(String),
 }
 
+/// The wire name of a closed error code. `ErrorCode` is a generated string enum, so serialising it cannot fail; the
+/// fallback only keeps a future non-string variant from panicking the CLI.
+fn error_name(error: &ErrorCode) -> String {
+    serde_json::to_value(error)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_else(|| "E_INTERNAL".to_string())
+}
+
 impl fmt::Display for RpcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -37,14 +46,7 @@ impl fmt::Display for RpcError {
                 detail,
                 ..
             } => {
-                write!(
-                    f,
-                    "{}: {message}",
-                    serde_json::to_value(error)
-                        .unwrap()
-                        .as_str()
-                        .unwrap_or("E_INTERNAL")
-                )?;
+                write!(f, "{}: {message}", error_name(error))?;
                 if let Some(r) = reason {
                     write!(f, " ({r})")?;
                 }
@@ -110,11 +112,7 @@ impl RpcError {
     /// The closed error name for `--json` output and exit-code mapping.
     pub fn code_name(&self) -> String {
         match self {
-            RpcError::Call { error, .. } => serde_json::to_value(error)
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
+            RpcError::Call { error, .. } => error_name(error),
             RpcError::Unavailable { .. } => "E_CORE_UNAVAILABLE".into(),
             RpcError::Version { .. } => "E_RPC_VERSION".into(),
             RpcError::Protocol(_) => "E_INTERNAL".into(),
