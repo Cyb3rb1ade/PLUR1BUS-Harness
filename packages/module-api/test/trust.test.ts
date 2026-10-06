@@ -19,7 +19,8 @@ after(() => { for (const d of made.splice(0)) rmSync(d, { recursive: true, force
 /** `<home>/run/core.sock` listening; counts connections and records every byte received. */
 async function fakeCore(runDir: string, hello: unknown = { contract: "1.4.1", rpc: "1.0.0", instanceId: "i", pid: 4242 }) {
   mkdirSync(runDir, { recursive: true });
-  const address = join(runDir, "core.sock");
+  // Windows has no usable unix socket in a temp dir (listen EACCES): the pipe stands in; the cases that run there pass `platform: "win32"` anyway.
+  const address = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-trust-test-${process.pid}-${Math.random().toString(36).slice(2)}` : join(runDir, "core.sock");
   const seen = { connections: 0, bytes: 0, methods: [] as string[] };
   const server: Server = createServer((sock: Socket) => {
     seen.connections++;
