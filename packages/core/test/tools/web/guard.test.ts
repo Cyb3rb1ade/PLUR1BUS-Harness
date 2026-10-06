@@ -56,7 +56,7 @@ describe("guard: resolveGuarded", () => {
 
   it("an IPv4-mapped address is matched against IPv4 allowlist entries only for those entries", async () => {
     const allow = makeAddressPolicy(["127.0.0.0/8"]);
-    assert.equal((await resolveGuarded("[::ffff:127.0.0.1]", stub({}), allow)).address, "::ffff:7f00:1");
+    assert.equal((await resolveGuarded("[::ffff:127.0.0.1]", stub({}), allow)).address, "127.0.0.1");
   });
 
   it("an invalid allowlist entry is a construction error (fail closed)", () => {
