@@ -16,6 +16,8 @@ import {
 import { join, relative } from "node:path";
 import { layout } from "../../src/paths.ts";
 import { importHermes } from "../../src/import/importers/hermes.ts";
+import { importHermesMemories } from "../../src/import/importers/hermes-memories.ts";
+import { ImportLedger } from "../../src/import/ledger.ts";
 import { readHermesSourceFileSafe } from "../../src/import/importers/hermes-fs-safe.ts";
 import { idFingerprint } from "../../src/import/fingerprint.ts";
 import { rollbackImport } from "../../src/import/rollback.ts";
@@ -95,6 +97,44 @@ async function rejectsWith(p: Promise<unknown>, reason: string): Promise<void> {
 }
 
 const timeout = 60_000;
+
+describe("Hermes memory mirror rename idempotence", () => {
+  for (const legacy of [false, true]) {
+    it(`reuses an identical ${legacy ? "legacy" : "numbered"} mirror over three runs`, { timeout }, async () => {
+      const root = tempDir("p1b-hermes-mirror-");
+      const profileDir = join(root, "source");
+      const l = layout(join(root, "home"));
+      const ws = l.workspaceDir("default");
+      mkdirSync(join(profileDir, "memories"), { recursive: true });
+      mkdirSync(ws, { recursive: true });
+      writeFileSync(join(profileDir, "memories", "MEMORY.md"), "synthetic memory\n");
+      writeFileSync(join(ws, "memories.md"), "existing curated memory\n");
+      const mirrorName = legacy ? "memories.imported.md" : "memories.imported-1.md";
+      if (legacy) writeFileSync(join(ws, mirrorName), "synthetic memory\n");
+      const engine = {
+        memory: { import: async (r: any) => ({
+          created: 0, matchedExisting: r.cards.length, rejected: 0,
+          cards: r.cards.map((c: any) => ({ idempotencyKey: c.idempotencyKey, outcome: "matched-existing" })),
+        }) },
+      } as unknown as Engine;
+
+      for (let run = 0; run < 3; run++) {
+        const ledger = new ImportLedger(join(root, `ledger-${run}.jsonl`), `run-${run}`);
+        await importHermesMemories({
+          profileDir, profileName: "default", agentId: "default", l,
+          engine, isApply: true, onConflict: "rename", ledger,
+        });
+        const entries = readFileSync(ledger.filePath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+        const mirror = entries.find((e) => e.entity === "file");
+        assert.equal(mirror.action, run === 0 && !legacy ? "rename" : "matched-existing");
+        assert.ok(mirror.targetRef.endsWith(`/${mirrorName}`));
+        assert.deepEqual(readdirSync(ws).filter((n) => n.startsWith("memories.imported")), [mirrorName]);
+        assert.equal(readFileSync(join(ws, mirrorName), "utf8"), "synthetic memory\n");
+        assert.equal(readFileSync(join(ws, "memories.md"), "utf8"), "existing curated memory\n");
+      }
+    });
+  }
+});
 
 describe("PR #100 B1/B2: --adopt-store runs before the target engine, never merges, aborts cleanly", () => {
   it("B1/P10: fresh home + default --conflict skip adopts the store byte-identically (not preview-ok)", { timeout }, async () => {
@@ -283,7 +323,7 @@ describe("PR #100 B3–B6", () => {
       } else {
         assert.equal(now, "MINE\n", `${strategy} must not overwrite the user's memories.md`);
       }
-      if (strategy === "rename") assert.ok(existsSync(join(l.workspaceDir("default"), "memories.imported.md")));
+      if (strategy === "rename") assert.ok(existsSync(join(l.workspaceDir("default"), "memories.imported-1.md")));
     }
   });
 

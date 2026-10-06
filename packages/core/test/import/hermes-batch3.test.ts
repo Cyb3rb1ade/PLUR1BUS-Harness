@@ -589,10 +589,14 @@ describe("Hermes Importer Batch 3", () => {
       "--apply",
     ]);
 
-    assert.equal(cliRes.ok, false);
-    if (!cliRes.ok) {
+    assert.equal(cliRes.ok, true);
+    if (cliRes.ok) {
       assert.equal(cliRes.exit, 1);
-      assert.equal(cliRes.error, "E_IMPORT_FAILED");
+      assert.equal(cliRes.schema, "import.hermes/1");
+      assert.ok((cliRes.value.errors as Array<{ reason: string }>).some((e) => e.reason === "symlink-refused"));
+      assert.ok(cliRes.human.includes("Errors:"));
+      assert.ok(cliRes.human.includes("symlink-refused"));
+      assert.ok(cliRes.human.includes(`--resume ${cliRes.value.runId}`));
     }
   });
 

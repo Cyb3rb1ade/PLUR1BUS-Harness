@@ -4,4 +4,4 @@ import { runImport } from "./import/cli.ts";
 
 for (const stream of [process.stdout, process.stderr]) stream.on("error", () => {});
 const envelope = await runImport(process.argv.slice(2));
-process.stdout.write(`${JSON.stringify(envelope)}\n`, () => process.exit(envelope.ok ? 0 : envelope.exit));
+process.stdout.write(`${JSON.stringify(envelope)}\n`, () => process.exit(envelope.exit ?? 0));
