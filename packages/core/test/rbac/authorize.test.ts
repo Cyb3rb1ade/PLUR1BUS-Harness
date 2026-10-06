@@ -42,7 +42,7 @@ describe("privacy (ADR-007 §Privacy)", () => {
   });
 
   it("agent-private cards need `manage` on that very agent", () => {
-    const m = (rights: Principal["agentRights"]) => p({ agentRights: rights });
+    const m = (rights: Record<string, "use" | "manage">) => p({ agentRights: rights });
     assert.deepEqual(authorize(m({ a1: "use" }), "memory.agent-private.read", priv("a1")), { effect: "deny", reason: "object-right-required" });
     assert.equal(authorize(m({ a1: "manage" }), "memory.agent-private.read", priv("a1")).effect, "allow");
     assert.equal(authorize(m({ a1: "manage" }), "memory.agent-private.read", priv("a2")).effect, "deny", "manage on one agent is not manage on another");

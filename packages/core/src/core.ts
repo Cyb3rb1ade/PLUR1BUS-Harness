@@ -23,6 +23,7 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
+import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
@@ -82,6 +83,9 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** M3 RBAC: who a call is made by, and where refusals are audited. Default: the token-authenticated local connection
+   *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
+  rbac?: { resolve?: PrincipalResolver; audit?: AuditSink };
   /** D112: model discovery adapters and options. */
   discovery?: Partial<DiscoveryAdapters> & {
     scheduler?: boolean;
@@ -384,7 +388,7 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
-      const methods = buildMethods({
+      const methods = guardMethods(buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
@@ -400,7 +404,7 @@ export function createCore(o: CoreOptions): Core {
         },
         systemJobs,
         discovery,
-      });
+      }), { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
