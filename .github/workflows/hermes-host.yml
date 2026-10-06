@@ -22,6 +22,7 @@
 name: hermes-host
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - "clients/**"
       - "hosts/**"
@@ -43,15 +44,41 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ci:macos' && '-noop' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # PR: the macOS real-hermes leg runs on label ci:macos or a platform-sensitive change; push, schedule, dispatch: all legs.
+  # Decides which macOS legs run (policy and path list: docs/ci.md, scripts/ci/macos-plan.mjs). One cheap ubuntu job.
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      proceed: ${{ steps.plan.outputs.proceed }}
+      macos: ${{ steps.plan.outputs.macos }}
+      python_matrix: ${{ steps.plan.outputs.python_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: "${{ github.event_name == 'pull_request' && 0 || 1 }}" }
+      - id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node --test scripts/ci/macos-plan.test.mjs && node scripts/ci/macos-plan.mjs
   real-hermes:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
         hermes: ["0.21.4"]
+        exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[]' || '[{"os":"macos-15"}]') }}
         include:
           # min: the interface HM2 was written against (743ee72 reports 0.21.4; there is no v0.21.4 tag).
           - hermes: "0.21.4"
