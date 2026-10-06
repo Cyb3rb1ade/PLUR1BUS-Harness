@@ -59,8 +59,10 @@ jobs:
       macos: ${{ steps.plan.outputs.macos }}
       python_matrix: ${{ steps.plan.outputs.python_matrix }}
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
       - id: plan
         env:
           EVENT_NAME: ${{ github.event_name }}
