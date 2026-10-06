@@ -272,6 +272,17 @@ pub struct RepairArgs {
     pub only: Vec<String>,
 }
 
+/// `plur1bus 1staid bundle` (M8, logging and diagnostics spec §2.9).
+#[derive(Args, Debug)]
+pub struct BundleArgs {
+    /// Where to write the zip: a new file, or an existing directory (default: `<home>/bundles/`)
+    #[arg(long, value_name = "PATH")]
+    pub out: Option<std::path::PathBuf>,
+    /// Keep the last N lines of each log
+    #[arg(long, value_name = "N", default_value_t = crate::firstaid_bundle::DEFAULT_LINES)]
+    pub lines: usize,
+}
+
 #[derive(Args, Debug)]
 pub struct StubArgs {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
@@ -284,6 +295,9 @@ pub enum FirstAidCmd {
     Check,
     /// [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
     Repair(RepairArgs),
+    /// [experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last
+    /// log lines; never the audit log, payload capture, stores or secrets) and print its path
+    Bundle(BundleArgs),
 }
 #[derive(Subcommand, Debug)]
 pub enum AgentCmd {

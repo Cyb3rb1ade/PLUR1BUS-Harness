@@ -6,6 +6,7 @@ pub mod daemon;
 pub mod dreams;
 pub mod ext;
 pub mod firstaid;
+pub(crate) mod firstaid_bundle;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
 pub mod import;
