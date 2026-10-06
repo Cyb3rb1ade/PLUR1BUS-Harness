@@ -442,6 +442,12 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
   };
   const pre = await checkParent();
   if (pre) return pre;
+  // Windows has no O_NOFOLLOW, and CREATE_NEW opened through a planted (dangling) symlink creates the file at the link's
+  // target, outside the root. So a create there first requires that nothing at all exists at the leaf (a link included).
+  if (windows && !c.exists && (flags & fsc.O_CREAT) !== 0) {
+    const planted = await lstat(c.canonical).then(() => true, (e: NodeJS.ErrnoException) => e.code !== "ENOENT");
+    if (planted) return refuse("identity-changed", "the target appeared since it was checked");
+  }
 
   let fh: FileHandle;
   try {
@@ -461,6 +467,11 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
     if (write && st.isFile() && st.nlink > 1n && !c.hardLinked) return await fail(refuse("hard-link", "the file gained a hard link since it was checked"));
     const post = await checkParent();
     if (post) return await fail(post);
+    if (windows && !c.exists) {
+      // A link planted after the lstat above is caught here at the latest: the path must still resolve to itself.
+      const real = normaliseNative(await realpath(c.canonical), true);
+      if (real !== c.canonical) return await fail(refuse("link-swap", "the created leaf resolves to a different path"));
+    }
     if (process.platform === "linux") {
       const now = await readlink(`/proc/self/fd/${fh.fd}`).catch(() => null);
       if (now !== null && now.replace(/ \(deleted\)$/u, "") !== c.canonical) return await fail(refuse("identity-changed", "the opened file lives at a different path than the one checked"));
