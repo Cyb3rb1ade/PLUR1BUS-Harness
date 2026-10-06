@@ -65,10 +65,12 @@ describe("migration driver: plan", () => {
     } finally { r.done(); }
   });
 
-  it("a second plan is refused while a migration is unfinished", async () => {
+  it("a second plan replaces one that never started, but is refused once anything was copied", async () => {
     const r = rig(); try {
       await r.driver.plan({ target });
-      await assert.rejects(r.driver.plan({ target: fp("c", 4) }), (e) => codeOf(e) === "migration-active");
+      assert.equal((await r.driver.plan({ target: fp("c", 4) })).plan?.id, "m2", "nothing was copied: replaced");
+      await r.driver.abort(); // aborted before any batch: still unfinished
+      await assert.rejects(r.driver.plan({ target: fp("d", 4) }), (e) => codeOf(e) === "migration-active");
     } finally { r.done(); }
   });
 });

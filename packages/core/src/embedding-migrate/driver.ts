@@ -103,7 +103,8 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     const throttleMs = req.throttleMs ?? DEFAULT_THROTTLE_MS;
     if (!Number.isSafeInteger(throttleMs) || throttleMs < 0 || throttleMs > MAX_THROTTLE_MS) throw new MigrationError("plan-refused", `throttleMs must be an integer between 0 and ${MAX_THROTTLE_MS}`);
     const existing = read();
-    if (existing && !TERMINAL.includes(existing.phase)) throw new MigrationError("migration-active", `migration ${existing.id} is ${existing.phase}; finish it with --run or stop it with --abort first`);
+    // A planned migration that never started has copied nothing: planning again simply replaces it.
+    if (existing && !TERMINAL.includes(existing.phase) && existing.phase !== "planned") throw new MigrationError("migration-active", `migration ${existing.id} is ${existing.phase}; finish it with --run or stop it with --abort first`);
     const refused = checkTarget(req.target);
     if (refused) return { probe: refused, plan: null };
 

@@ -71,7 +71,7 @@ bounds the load on the provider and the machine.
 
 | Error / reason | When |
 |---|---|
-| `E_CONFLICT` `migration-active` | `plan` while an earlier migration is unfinished |
+| `E_CONFLICT` `migration-active` | `plan` while an earlier migration has started and is unfinished (a planned one that never started is replaced) |
 | `E_CONFLICT` `migration-running` / `not-runnable` / `not-abortable` / `not-ready-to-switch` | the call does not fit the phase |
 | `E_NOT_FOUND` `no-migration` | `run`/`abort` without a plan |
 | `E_INVALID_PARAMS` `plan-refused` | the engine refused the plan (e.g. not enough free disk) |

@@ -90,6 +90,7 @@ describe("admin.reembed.* handlers", () => {
       await rejects(r.m["admin.reembed.run"]({}, {} as never) as Promise<unknown>, "E_NOT_FOUND", "no-migration");
       await rejects(r.m["admin.reembed.abort"]({}, {} as never) as Promise<unknown>, "E_NOT_FOUND", "no-migration");
       await r.call("admin.reembed.plan", { model: E5 });
+      await r.call("admin.reembed.abort");
       await rejects(r.m["admin.reembed.plan"]({ model: E5 }, {} as never) as Promise<unknown>, "E_CONFLICT", "migration-active");
     } finally { r.done(); }
   });
