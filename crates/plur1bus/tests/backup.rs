@@ -126,7 +126,10 @@ fn tree(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
                 out.insert(rel, None);
                 go(base, &e.path(), out);
             } else if e.file_type().unwrap().is_file() {
-                out.insert(rel, Some(fs::read(e.path()).unwrap()));
+                // A file a live supervisor holds locked (Windows) cannot be read and is not state either.
+                if let Ok(b) = fs::read(e.path()) {
+                    out.insert(rel, Some(b));
+                }
             } // sockets (a supervisor's run/ files) are not state
         }
     }
