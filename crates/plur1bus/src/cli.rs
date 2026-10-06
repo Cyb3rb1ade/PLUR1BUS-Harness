@@ -74,6 +74,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AdminCmd,
     },
+    /// [experimental] Backup and restore: create, verify, restore
+    Backup {
+        #[command(subcommand)]
+        sub: BackupCmd,
+    },
     /// Supervisor control: start, stop, restart, status
     Daemon {
         #[command(subcommand)]
@@ -630,6 +635,47 @@ pub enum ModuleCmd {
     Stop { name: String },
     /// [experimental] Restart a module (needs a running supervisor)
     Restart { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BackupCmd {
+    /// [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+    ///
+    /// The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite
+    /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
+    /// copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and
+    /// `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+    Create {
+        /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// list what would be archived and where, without touching the core or writing anything
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+    ///
+    /// Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry,
+    /// checksum-mismatch, missing-entry) for an archive a restore would refuse.
+    Verify {
+        /// the archive
+        file: PathBuf,
+    },
+    /// [experimental] Restore an archive into this home (the core must be stopped)
+    ///
+    /// Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in
+    /// `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or
+    /// `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+    Restore {
+        /// the archive
+        file: PathBuf,
+        /// print what would be replaced, created and removed, without changing anything
+        #[arg(long)]
+        dry_run: bool,
+        /// apply without asking
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
