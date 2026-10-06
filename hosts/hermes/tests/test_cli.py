@@ -336,6 +336,8 @@ class WhichNoCwdTest(unittest.TestCase):
         self.addCleanup(os.chdir, old)
 
     def _exe(self, directory: str, name: str) -> str:
+        if os.name == "nt" and not name.endswith(".exe"):
+            name += ".exe"  # Windows runs a file by its PATHEXT extension only
         path = os.path.join(directory, name)
         with open(path, "w") as f:
             f.write("#!/bin/sh\n")
