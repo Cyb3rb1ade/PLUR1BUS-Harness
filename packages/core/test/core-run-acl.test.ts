@@ -50,16 +50,34 @@ describe("core run/ ACL (audit M3)", () => {
     }
   });
 
-  it("under a supervisor (lifeline): warns and starts; the supervisor owns run/", { timeout: 60_000 }, async () => {
+  it("under a supervisor (lifeline) that did NOT secure run/ (no PLUR1BUS_RUN_ACL): refuses like unsupervised, no core.token or core.pid", { timeout: 30_000 }, async () => {
     const home = newHome();
     const lines: Line[] = []; const calls: string[] = [];
     const lifeline = new PassThrough();
-    const core = createCore({ home, logger: recorder(lines), testInternals: flatTestInternals(), securePathOptions: failingAcl(calls), lifeline });
+    const core = createCore({ home, logger: recorder(lines), testInternals: flatTestInternals(), securePathOptions: { ...failingAcl(calls), env: {} }, lifeline });
+    try {
+      await assert.rejects(core.start(), /refusing to start: .*supervisor did not secure run\/ either/);
+      assert.ok(calls.length > 0, "the core attempted its own restriction");
+      const l = layout(home);
+      assert.equal(existsSync(l.coreToken), false, "no token file");
+      assert.equal(existsSync(l.corePid), false, "no pid file");
+      assert.ok(lines.some((x) => x.level === "error" && /refusing to start/.test(x.msg)), "the refusal is logged");
+    } finally {
+      lifeline.end();
+      await core.stop({ budgetMs: 2000 }).catch(() => {});
+    }
+  });
+
+  it("under a supervisor (lifeline) whose DACL took (PLUR1BUS_RUN_ACL=inherited): starts, run/ covered by the supervisor, no refusal", { timeout: 60_000 }, async () => {
+    const home = newHome();
+    const lines: Line[] = []; const calls: string[] = [];
+    const lifeline = new PassThrough();
+    const core = createCore({ home, logger: recorder(lines), testInternals: flatTestInternals(), securePathOptions: { ...failingAcl(calls), env: { PLUR1BUS_RUN_ACL: "inherited" } }, lifeline });
     try {
       await core.start();
-      assert.ok(calls.length > 0, "the injected ACL tool was asked");
+      // (catalog/ and system-jobs/ are outside run/, so their own icacls attempts still happen and only warn.)
+      assert.ok(lines.some((x) => x.level === "debug" && /covered by the supervisor's run\/ ACL/.test(x.msg)), "run/ is covered by the supervisor's ACL");
       assert.equal(existsSync(layout(home).coreToken), true, "the supervised core writes its token");
-      assert.ok(lines.some((x) => x.level === "warn" && /supervisor owns it/.test(x.msg)), "a warning, not a failure");
       assert.equal(lines.some((x) => /refusing to start/.test(x.msg)), false);
     } finally {
       lifeline.end();
