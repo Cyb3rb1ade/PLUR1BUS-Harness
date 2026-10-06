@@ -363,6 +363,13 @@ update, M8), `user`, `model`, `login`, `channel`, `project` and `uninstall` (M8)
 `daemon`, `service`, `1staid check`, `admin`, `setup`, `update --check` and `1staid repair`
 are all real now.
 
+## Container image
+
+`Dockerfile`, `.dockerignore`, `deploy/compose.yaml`, `deploy/container/healthcheck.mjs`, `scripts/container-smoke.sh` and
+`.github/workflows/container.yml` build and test the harness image (M8; `docs/container.md`). Static invariants (digest pins,
+non-root, no secret in ARG/ENV, hardened compose) are `scripts/release/test/container-files.test.ts`; run the image smoke with
+`scripts/container-smoke.sh <image>`. The engine token is only ever a BuildKit secret.
+
 ## Desktop shell (`apps/desktop`)
 
 The desktop is a separate Cargo workspace, excluded from the root build. Its
