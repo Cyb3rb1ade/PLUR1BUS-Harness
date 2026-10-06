@@ -51,7 +51,7 @@ export function createMemoryAuditSink(): AuditSink & { events: AuditEvent[]; fai
   const self = {
     events: [] as AuditEvent[], failNext: false,
     record(e: AuditEvent) {
-      if (self.failNext) throw new SecretError("audit-unavailable", "the audit log cannot be written; no secret was released or changed");
+      if (self.failNext) { self.failNext = false; throw new SecretError("audit-unavailable", "the audit log cannot be written; no secret was released or changed"); }
       self.events.push({ ...e, detail: sanitizeDetail(e.detail) });
     },
   };

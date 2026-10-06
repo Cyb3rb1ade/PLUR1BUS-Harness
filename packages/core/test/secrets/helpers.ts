@@ -23,5 +23,5 @@ export function fakeKeyring(): KeyringModule & { items: Map<string, string>; dow
     setPassword(p: string) { items.set(this.k(), p); }
     deletePassword() { return items.delete(this.k()); }
   }
-  return Object.assign({ Entry }, { items, get down() { return state.down; }, set down(v: boolean) { state.down = v; } }) as never;
+  return { Entry, items, get down() { return state.down; }, set down(v: boolean) { state.down = v; } };
 }
