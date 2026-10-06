@@ -143,7 +143,7 @@ describe("ADR-009 acceptance", () => {
     await h.advance(DAY);
     await h.sched.stop();
     const files: string[] = [];
-    const walk = (d: string) => { for (const e of readdirSync(d)) { const p = path.join(d, e); statSync(p).isDirectory() ? walk(p) : files.push(path.relative(h.dir, p)); } };
+    const walk = (d: string) => { for (const e of readdirSync(d)) { const p = path.join(d, e); statSync(p).isDirectory() ? walk(p) : files.push(path.relative(h.dir, p).split(path.sep).join("/")); } };
     walk(h.dir);
     for (const f of files) assert.match(f, /^(dreams\.db(-wal|-shm)?|logs\/bernd\/(light|rem|deep)\/[0-9a-f-]{36}\.log)$/, `unexpected file ${f}`);
     assert.ok(files.some((f) => f === "dreams.db"));
