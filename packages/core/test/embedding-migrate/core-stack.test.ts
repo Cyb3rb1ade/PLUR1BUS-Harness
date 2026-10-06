@@ -5,7 +5,8 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
-import { connect, type CoreClient } from "@plur1bus/module-api";
+import type { CoreClient } from "@plur1bus/module-api";
+import { connect } from "../helpers/connect.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { validateResult } from "@plur1bus/rpc-schema";
 import { createCore, type Core } from "../../src/core.ts";
