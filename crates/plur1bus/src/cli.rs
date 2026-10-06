@@ -428,6 +428,51 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: ProposalsCmd,
     },
+    /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
+    Reembed(ReembedArgs),
+}
+
+/// `memory reembed`: exactly one of `--plan`, `--run`, `--status`, `--abort`. The migration covers the whole installation
+/// (the engine copies every agent's tables into one new generation) and keeps the old generation.
+#[derive(clap::Args, Debug)]
+#[command(group(clap::ArgGroup::new("action").required(true).multiple(false).args(["plan", "run", "status", "abort"])))]
+pub struct ReembedArgs {
+    /// Compare the store with --model and show what a migration would do; copies nothing
+    #[arg(long)]
+    pub plan: bool,
+    /// Copy the planned migration into a new generation in throttled batches, validate it and switch
+    #[arg(long)]
+    pub run: bool,
+    /// Show the migration's phase and progress
+    #[arg(long)]
+    pub status: bool,
+    /// Stop at the next batch boundary; --run continues the same migration
+    #[arg(long)]
+    pub abort: bool,
+    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"], required_if_eq("plan", "true"))]
+    pub model: Option<String>,
+    /// Target vector dimensions, when the model supports more than one
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub dimensions: Option<u32>,
+    /// Query prefix of the target model
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub query_prefix: Option<String>,
+    /// Passage prefix of the target model
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub passage_prefix: Option<String>,
+    /// Milliseconds to pause between batches (default 250)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub throttle_ms: Option<u32>,
+    /// With --run: copy and validate, but do not switch to the new generation
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub no_switch: bool,
+    /// With --run: return as soon as the run has started instead of following it
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub no_wait: bool,
+    /// With --run: do not ask for confirmation (required outside a terminal)
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub yes: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]

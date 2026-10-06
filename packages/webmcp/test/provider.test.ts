@@ -54,7 +54,7 @@ describe("tool naming and selection", () => {
 
   it("admin methods are never offered as WebMCP tools", () => {
     const admin = (Object.keys(caps.methods)).filter((m) => m.startsWith("admin."));
-    assert.equal(admin.length, 7, `the core advertises the admin.* methods: ${admin.join(", ")}`);
+    assert.equal(admin.length, 11, `the core advertises the admin.* methods: ${admin.join(", ")}`);
     // Even when the handshake calls them stable and core-served and the page names them in include (D55).
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;

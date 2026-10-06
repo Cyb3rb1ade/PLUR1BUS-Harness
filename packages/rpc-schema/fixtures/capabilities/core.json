@@ -124,6 +124,22 @@
       "stability": "experimental",
       "since": "1.3.0"
     },
+    "admin.reembed.plan": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.run": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.abort": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "events.subscribe": {
       "stability": "stable",
       "since": "1.0.0"

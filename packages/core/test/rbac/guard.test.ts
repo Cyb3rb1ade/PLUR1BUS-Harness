@@ -20,7 +20,8 @@ const params: Record<string, unknown> = {
   "models.setOverride": { provider: "p", model: "m" },
   "models.removeManual": { provider: "p", model: "m" },
   "admin.migrate": {}, "admin.obsidian.detect": {}, "admin.obsidian.prepare": {}, "admin.obsidian.confirm": {},
-  "admin.embedding.probe": {}, "admin.embedding.serve": {}, "admin.backup.snapshot": {},
+  "admin.embedding.probe": {}, "admin.embedding.serve": {},
+  "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {},
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */
