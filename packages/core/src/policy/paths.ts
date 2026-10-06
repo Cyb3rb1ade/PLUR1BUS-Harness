@@ -12,7 +12,7 @@
 // Allow side (roots, grants) is compared EXACTLY on the on-disk form the OS returns; the deny side is compared case-
 // and NFC-folded (`foldForDeny`), so it matches more, never less.
 import { constants as fsc } from "node:fs";
-import { lstat, open, readlink, realpath, stat } from "node:fs/promises";
+import { lstat, open, readdir, readlink, realpath, stat } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { homedir as osHomedir } from "node:os";
 import path from "node:path";
@@ -23,7 +23,7 @@ export type RefusalReason =
   | "short-name" | "alternate-stream" | "forbidden-char" | "trailing-dot-space" | "reserved-device-name"
   | "special-tree" | "unresolvable" | "dangling-link" | "link-loop" | "not-directory" | "no-identity"
   | "bad-root" | "root-identity-changed" | "outside-root" | "hard-link" | "deny-listed"
-  | "identity-changed" | "link-swap" | "unsupported-open";
+  | "identity-changed" | "link-swap" | "unsupported-open" | "not-found";
 
 export interface PathRefusal { ok: false; reason: RefusalReason; detail: string }
 
@@ -277,7 +277,8 @@ async function resolveRoots(roots: readonly PathRoot[], o: { windows: boolean; p
   return out;
 }
 
-const POSIX_SYSTEM = ["/etc", "/usr", "/System", "/Library", "/bin", "/sbin", "/boot", "/proc", "/sys", "/dev"];
+// macOS spells /etc, /var/db and /var/root through /private; the check runs on the real path, so those are listed too.
+const POSIX_SYSTEM = ["/etc", "/usr", "/System", "/Library", "/bin", "/sbin", "/boot", "/proc", "/sys", "/dev", "/private/etc", "/private/var/db", "/private/var/root"];
 const WIN_SYSTEM = ["C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)", "C:\\ProgramData"];
 
 /** Spec: home, drive roots, `/`, `/Users`, `C:\Users` and system trees are never roots. */
@@ -296,6 +297,49 @@ export function isForbiddenRoot(real: string, windows: boolean, home: string): b
   return false;
 }
 
+const DENY_SCAN_CAP = 20_000;
+
+interface DenyView { entries: DenyEntry[]; ids: Set<string>; scanOverflow: boolean }
+
+/**
+ * Deny entries are resolved the same way as the target: each `path` entry also contributes its real path (so `/tmp/x` and
+ * `/private/tmp/x`, or an entry reached through a link, both match the canonical target), and the identities of the
+ * files it can be aliased by are collected: a file entry's own dev/ino, and for a directory entry every regular file
+ * below it with link count > 1. RULING: if a directory holds more than DENY_SCAN_CAP entries, any hard-linked target is
+ * refused (fail closed). `name` entries cannot be resolved and are matched by spelling only.
+ */
+async function resolveDeny(deny: readonly DenyEntry[], windows: boolean, platform: NodeJS.Platform): Promise<DenyView> {
+  const entries: DenyEntry[] = [...deny];
+  const ids = new Set<string>();
+  let scanOverflow = false;
+  let budget = DENY_SCAN_CAP;
+  const walk = async (dir: string): Promise<void> => {
+    let names: import("node:fs").Dirent[];
+    try { names = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const d of names) {
+      if (budget-- <= 0) { scanOverflow = true; return; }
+      const full = path.join(dir, d.name);
+      if (d.isDirectory()) await walk(full);
+      else if (d.isFile()) {
+        try { const st = await stat(full, { bigint: true }); if (st.nlink > 1n) ids.add(`${st.dev}:${st.ino}`); } catch { /* vanished */ }
+      }
+    }
+  };
+  for (const e of deny) {
+    if (!("path" in e)) continue;
+    const syn = checkSyntax(e.path, { platform, windowsRules: windows, allowUnc: true });
+    if (isRefusal(syn) || !syn.absolute) continue; // matched by spelling only
+    const res = await resolveReal(assemble(syn), windows, platform);
+    if (isRefusal(res)) continue;
+    if (res.real !== e.path) entries.push({ path: res.real });
+    if (!res.exists) continue;
+    const st = await stat(res.real, { bigint: true });
+    if (st.isFile()) ids.add(`${st.dev}:${st.ino}`);
+    else if (st.isDirectory()) await walk(res.real);
+  }
+  return { entries, ids, scanOverflow };
+}
+
 /**
  * The policy's single entry point for a path argument. Fails closed: anything not positively inside a root (unless
  * `requireRoot: false`), on a deny-list entry, or not resolvable to a real target is a typed refusal.
@@ -308,7 +352,8 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
   const allowUnc = o.allowUnc ?? false;
   const home = o.home ?? osHomedir();
   const sep = windows ? "\\" : "/";
-  const deny = o.deny ?? [];
+  const denyView = await resolveDeny(o.deny ?? [], windows, platform);
+  const deny = denyView.entries;
 
   const syn = checkSyntax(input, { platform, windowsRules: windows, allowUnc });
   if (isRefusal(syn)) return syn;
@@ -338,6 +383,12 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
 
   const d2 = matchDeny(res.real, deny);
   if (d2) return refuse("deny-listed", "the real target matches the credential deny-list");
+  if (res.exists && res.hardLinked) {
+    // A hard link carries no trace of the file it aliases except its identity.
+    const st = await stat(res.real, { bigint: true });
+    if (denyView.ids.has(`${st.dev}:${st.ino}`)) return refuse("deny-listed", "the target is a hard link to a deny-listed file");
+    if (denyView.scanOverflow) return refuse("deny-listed", "hard-linked target while the deny-list scan was incomplete (fail closed)");
+  }
   const st2 = specialTree(res.real, platform);
   if (st2) return refuse("special-tree", `the real target is under /${st2}`);
   if (res.real.startsWith("\\\\") && !allowUnc) return refuse("unc-not-allowed", "the real target is a UNC path");
@@ -363,7 +414,7 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
 /**
  * Open a canonicalised path and verify, after the open, that it is still the file that was checked. The leaf is opened
  * without following links (`O_NOFOLLOW`; on Windows the identity and path re-checks carry the weight, RULING: Node has
- * no `FILE_FLAG_OPEN_REPARSE_POINT`). A target that did not exist is created with `O_EXCL`, so a link or file planted
+ * no `FILE_FLAG_OPEN_REPARSE_POINT`). A target that did not exist is created (only when the caller passed `O_CREAT`) with `O_EXCL`, so a link or file planted
  * since the check is an error rather than a redirect. Residual race: a parent directory swapped between the pre-check
  * and the `open` call is detected after the fact (parent identity, and `/proc/self/fd` on Linux), not prevented.
  */
@@ -373,7 +424,8 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
   const windows = process.platform === "win32";
   const pp = windows ? path.win32 : path.posix;
   let f = flags | (fsc.O_NOFOLLOW ?? 0);
-  if (!c.exists) f |= fsc.O_CREAT | fsc.O_EXCL;
+  // Only an explicit O_CREAT creates, and then exclusively; a read of a missing file stays ENOENT (`not-found`).
+  if (!c.exists && (flags & fsc.O_CREAT) !== 0) f |= fsc.O_EXCL;
   if (c.exists && (f & fsc.O_CREAT) !== 0) f &= ~fsc.O_CREAT;
 
   const parent = pp.dirname(c.canonical);
@@ -386,7 +438,7 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
       if (!c.exists && pp.dirname(c.canonical) !== c.canonical && !sameIdentity(pst, want)) return refuse("identity-changed", "the parent directory was replaced");
       if (c.exists && !sameIdentity(pst, want)) return refuse("identity-changed", "the parent directory was replaced");
       return null;
-    } catch { return refuse("identity-changed", "the parent directory is gone"); }
+    } catch { return c.exists ? refuse("identity-changed", "the parent directory is gone") : refuse("not-found", "the target's parent does not exist"); }
   };
   const pre = await checkParent();
   if (pre) return pre;
@@ -398,7 +450,7 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
     const code = (e as NodeJS.ErrnoException).code;
     if (code === "ELOOP" || code === "EMLINK") return refuse("link-swap", "the leaf is now a symbolic link");
     if (code === "EEXIST") return refuse("identity-changed", "the target appeared since it was checked");
-    if (code === "ENOENT") return refuse("identity-changed", "the target or its parent vanished");
+    if (code === "ENOENT") return refuse(c.exists ? "identity-changed" : "not-found", c.exists ? "the target or its parent vanished" : "the target does not exist");
     return refuse("unresolvable", `open failed (${code ?? "error"})`);
   }
   const fail = async (r: PathRefusal): Promise<PathRefusal> => { await fh.close().catch(() => {}); return r; };

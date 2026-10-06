@@ -427,6 +427,45 @@ describe("D109 paths: red team, swap races between check and use", T, () => {
   });
 });
 
+describe("D109 paths: review round 1 regressions", T, () => {
+  it("deny entries are resolved like targets: an entry spelled through a link matches the real path", async () => {
+    await mkdir(join(root, "realdeny"), { recursive: true });
+    await writeFile(join(root, "realdeny", "token"), "t");
+    const alias = join(base, "alias-deny"); // outside the root, so the entry itself is never a request path
+    if (!(await symlink(join(root, "realdeny"), alias, win ? "junction" : "dir").then(() => true, () => false))) return;
+    refused(await canon(join(root, "realdeny", "token"), { deny: [{ path: alias }] }), "deny-listed");
+    refused(await canon(join(root, "realdeny", "new"), { deny: [{ path: join(alias, "new") }], access: "write" }), "deny-listed");
+    await rm(alias, { recursive: true, force: true });
+  });
+  it("a read never creates: a missing file stays not-found and nothing appears on disk", async () => {
+    const p = join(root, "missing-read.txt");
+    const c = allowed(await canon(p));
+    assert.equal(c.exists, false);
+    const r = await openVerified(c, fsc.O_RDONLY);
+    assert.ok("ok" in r && r.ok === false);
+    if ("ok" in r && !r.ok) assert.equal(r.reason, "not-found");
+    assert.equal(await stat(p).then(() => true, () => false), false);
+    const w = allowed(await canon(p, { access: "write" }));
+    const r2 = await openVerified(w, fsc.O_WRONLY); // write without O_CREAT: still no creation
+    assert.ok("ok" in r2 && r2.ok === false);
+    assert.equal(await stat(p).then(() => true, () => false), false);
+    const nested = allowed(await canon(join(root, "no", "such", "dir", "f"), { access: "write" }));
+    const r3 = await openVerified(nested, fsc.O_WRONLY | fsc.O_CREAT);
+    assert.ok("ok" in r3 && r3.ok === false, "a missing parent is not-found, not created");
+  });
+  it("a hard link inside the root to a deny-listed file is refused (file entry and directory entry)", async () => {
+    const h = join(root, "hard-deny.txt");
+    await link(join(outside, "secret.txt"), h);
+    refused(await canon(h, { deny: [{ path: join(outside, "secret.txt") }] }), "deny-listed");
+    refused(await canon(h, { deny: [{ path: outside }] }), "deny-listed");
+    allowed(await canon(h, { deny: [{ path: join(root, "sub") }] })); // unrelated deny entries do not block it
+  });
+  it("home, system trees and their macOS /private spellings are never roots, checked on the real path", () => {
+    for (const p of ["/private/etc", "/private/etc/ssh", "/private/var/db", "/private/var/root/x"]) assert.ok(isForbiddenRoot(p, false, "/Users/u"), p);
+    assert.ok(!isForbiddenRoot("/private/tmp/work", false, "/Users/u"));
+  });
+});
+
 describe("D109 paths: macOS", { ...T, skip: !mac }, () => {
   it("resolves /var and /tmp through /private before the comparison", async () => {
     const r = allowed(await canonicalisePath("/tmp", { roots: [{ id: "t", path: "/private/tmp" }], requireRoot: true }).then((x) => x.ok ? x : canonicalisePath("/tmp", { roots: [{ id: "t", path: "/private/tmp" }], requireRoot: false })));
