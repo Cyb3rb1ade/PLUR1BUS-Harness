@@ -50,6 +50,7 @@ export function fileIdempotencyKey(agentId: string, relTarget: string, sha: stri
   return `file:${agentId}:${relTarget}:${sha}`;
 }
 
+// `entries` are fingerprints (import/fingerprint.ts), never plain ids.
 export function channelIdempotencyKey(platform: string, allowFrom: string[]): string {
   const sorted = allowFrom.slice().sort().join(",");
   const hash = createHash("sha256").update(sorted).digest("hex").slice(0, 16);

@@ -35,7 +35,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `extensions.limits.skillBytes` | integer | `16777216` | live |  |
 | `embedding.acceptedNcLicence` | boolean | `false` | core |  |
 | `embedding.acceptedNcLicenceAt` | string |  | core |  |
-| `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [55 engine keys, all advanced and core](config-engine-keys.md). |
+| `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
 | `oauth` | object | `{}` | live |  |
 | `decision` | object | `{}` | live |  |
 | `models.scan.enabled` | boolean | `true` | live |  |

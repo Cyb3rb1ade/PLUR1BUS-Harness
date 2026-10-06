@@ -2,11 +2,15 @@
 // Maps `channels.<platform>.allowFrom` to harness bot-connection allowlists.
 // Safe metadata only; channel tokens are secrets handled separately.
 // Channels are reported as "deferred" until target channel integration is configured.
+// The report carries counts + fingerprints only, never the plain ids (docs/import.md "Report privacy").
+import { idFingerprints } from "../fingerprint.ts";
 
 export interface ChannelAllowlistReport {
   platform: string;
-  allowFrom: string[];
-  groups?: string[];
+  allowFromCount: number;
+  allowFromFingerprints: string[];
+  groupsCount: number;
+  groupFingerprints: string[];
   action: "deferred";
 }
 
@@ -21,8 +25,10 @@ export function readOpenclawChannels(cfg: Record<string, unknown>): ChannelAllow
     if (allowFrom.length > 0 || (groups && groups.length > 0)) {
       reports.push({
         platform,
-        allowFrom,
-        ...(groups ? { groups } : {}),
+        allowFromCount: allowFrom.length,
+        allowFromFingerprints: idFingerprints(platform, allowFrom),
+        groupsCount: groups?.length ?? 0,
+        groupFingerprints: idFingerprints(platform, groups ?? []),
         action: "deferred",
       });
     }
