@@ -32,7 +32,7 @@ test("redaction patterns compile and match their canaries (joined at run time, n
     const text = (c.parts as string[]).join("");
     const m = new RegExp(p.pattern, `${p.flags ?? ""}`).exec(text);
     assert.ok(m, `${c.pattern} matches its canary`);
-    assert.equal(m[0], c.matches, c.pattern);
+    assert.equal(m[0], (c.matches as string[]).join(""), c.pattern);
     if (p.leftBoundary && m.index > 0) assert.ok(!/[A-Za-z0-9]/.test(text[m.index - 1]!), `${c.pattern}: left boundary`);
   }
   for (const n of committed.redactionNonMatches) {

@@ -12039,7 +12039,9 @@
         "abc123",
         "DEF456ghi789"
       ],
-      "matches": "Bearer abc123DEF456ghi789"
+      "matches": [
+        "Bearer abc123DEF456ghi789"
+      ]
     },
     {
       "rule": "pattern",
@@ -12050,7 +12052,9 @@
         "proj-",
         "FAKEFAKEFAKEFAKEFAKE0123"
       ],
-      "matches": "sk-proj-FAKEFAKEFAKEFAKEFAKE0123"
+      "matches": [
+        "sk-proj-FAKEFAKEFAKEFAKEFAKE0123"
+      ]
     },
     {
       "rule": "pattern",
@@ -12060,7 +12064,9 @@
         "_",
         "FAKEFAKEFAKEFAKE01234"
       ],
-      "matches": "ek_FAKEFAKEFAKEFAKE01234"
+      "matches": [
+        "ek_FAKEFAKEFAKEFAKE01234"
+      ]
     },
     {
       "rule": "pattern",
@@ -12070,7 +12076,9 @@
         "_",
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       ],
-      "matches": "ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      "matches": [
+        "ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ]
     },
     {
       "rule": "pattern",
@@ -12080,7 +12088,9 @@
         "_pat_",
         "BBBBBBBBBBBBBBBBBBBBBB"
       ],
-      "matches": "github_pat_BBBBBBBBBBBBBBBBBBBBBB"
+      "matches": [
+        "github_pat_BBBBBBBBBBBBBBBBBBBBBB"
+      ]
     },
     {
       "rule": "pattern",
@@ -12090,7 +12100,9 @@
         "b-",
         "1234567890-FAKE"
       ],
-      "matches": "xoxb-1234567890-FAKE"
+      "matches": [
+        "xoxb-1234567890-FAKE"
+      ]
     },
     {
       "rule": "pattern",
@@ -12100,7 +12112,9 @@
         "IA",
         "FAKEFAKEFAKE0123"
       ],
-      "matches": "AKIAFAKEFAKEFAKE0123"
+      "matches": [
+        "AKIAFAKEFAKEFAKE0123"
+      ]
     },
     {
       "rule": "pattern",
@@ -12110,7 +12124,9 @@
         "za",
         "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
       ],
-      "matches": "AIzaFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+      "matches": [
+        "AIzaFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+      ]
     },
     {
       "rule": "pattern",
@@ -12124,7 +12140,9 @@
         ".",
         "c2ln"
       ],
-      "matches": "eyJhbg.eyJzdWI.c2ln"
+      "matches": [
+        "eyJhbg.eyJzdWI.c2ln"
+      ]
     },
     {
       "rule": "pattern",
@@ -12136,7 +12154,13 @@
         "-----END ",
         "PRIVATE KEY-----"
       ],
-      "matches": "-----BEGIN PRIVATE KEY----- body -----END PRIVATE KEY-----"
+      "matches": [
+        "-----BEGIN ",
+        "PRIVATE KEY-----",
+        " body ",
+        "-----END ",
+        "PRIVATE KEY-----"
+      ]
     },
     {
       "rule": "pattern",
@@ -12146,7 +12170,9 @@
         "QkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQk",
         " y"
       ],
-      "matches": "QkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQk"
+      "matches": [
+        "QkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQk"
+      ]
     }
   ],
   "redactionNonMatches": [

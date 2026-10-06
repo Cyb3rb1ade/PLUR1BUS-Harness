@@ -261,7 +261,7 @@ fn redaction_data_matches_typescript_and_the_canaries_match() {
                 .regex()
                 .find(&text)
                 .unwrap_or_else(|| panic!("{} matches its canary", p.id));
-            assert_eq!(m.as_str(), c["matches"].as_str().unwrap(), "{}", p.id);
+            assert_eq!(m.as_str(), strings(&c["matches"]).concat(), "{}", p.id);
             if p.left_boundary && m.start() > 0 {
                 assert!(
                     !text.as_bytes()[m.start() - 1].is_ascii_alphanumeric(),
