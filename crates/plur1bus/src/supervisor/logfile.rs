@@ -19,7 +19,7 @@ impl RotatingFile {
     pub fn open(path: impl AsRef<Path>, max_bytes: u64, keep: u32) -> io::Result<Self> {
         let path = path.as_ref().to_path_buf();
         if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir)?;
+            super::create_private_log_dir(dir)?;
         }
         let file = append(&path)?;
         let size = file.metadata()?.len();
@@ -65,8 +65,70 @@ impl RotatingFile {
     }
 }
 
+pub(super) fn open_private_append(path: &Path) -> io::Result<File> {
+    let mut options = OpenOptions::new();
+    options.create(true).append(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_APPEND_DATA, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, SYNCHRONIZE,
+            WRITE_DAC,
+        };
+        // An explicit access mask replaces what `append(true)` would grant, and FILE_WRITE_DATA (in GENERIC_WRITE)
+        // would make every write start at offset 0 of a reopened file. Append-only access keeps appending.
+        options
+            .access_mode(FILE_APPEND_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE | WRITE_DAC)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let file = options.open(path)?;
+    if file.metadata()?.file_type().is_symlink() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "log path is a symbolic link",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        plur1bus_rpc::win::restrict_to_user(file.as_raw_handle())?;
+    }
+    Ok(file)
+}
+
+#[cfg(windows)]
+pub(super) fn secure_existing_file(path: &Path) -> io::Result<()> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, SYNCHRONIZE, WRITE_DAC,
+    };
+
+    let file = OpenOptions::new()
+        .access_mode(FILE_READ_ATTRIBUTES | SYNCHRONIZE | WRITE_DAC)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)?;
+    if file.metadata()?.file_type().is_symlink() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "log path is a symbolic link",
+        ));
+    }
+    plur1bus_rpc::win::restrict_to_user(file.as_raw_handle())
+}
+
 fn append(path: &Path) -> io::Result<File> {
-    OpenOptions::new().create(true).append(true).open(path)
+    open_private_append(path)
 }
 
 impl Write for RotatingFile {
@@ -151,5 +213,66 @@ mod tests {
         assert!(dir.path().join("supervisor.log.1").exists());
         assert!(!dir.path().join("supervisor.log.2").exists(), "keep = 1");
         assert!(fs::metadata(&path).unwrap().len() <= 100);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn existing_and_rotated_logs_are_private() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("supervisor.log");
+        fs::write(&path, b"existing\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+
+        let mut log = RotatingFile::open(&path, 2, 2).unwrap();
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        log.write_all(b"one\n").unwrap();
+        log.write_all(b"two\n").unwrap();
+        log.flush().unwrap();
+        drop(log);
+
+        let rotated = |n: u32| dir.path().join(format!("supervisor.log.{n}"));
+        for file in [&path, &rotated(1), &rotated(2)] {
+            assert_eq!(
+                fs::metadata(file).unwrap().permissions().mode() & 0o777,
+                0o600,
+                "{file:?}"
+            );
+        }
+
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        drop(RotatingFile::open(&path, 2, 2).unwrap());
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_log_is_refused_without_changing_its_target() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+
+        let dir = tempfile::tempdir().unwrap();
+        let logs = dir.path().join("logs");
+        fs::create_dir(&logs).unwrap();
+        let target = dir.path().join("outside.log");
+        fs::write(&target, b"leave this alone\n").unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).unwrap();
+        symlink(&target, logs.join("supervisor.log")).unwrap();
+
+        let error = RotatingFile::open(logs.join("supervisor.log"), 1024, 1)
+            .err()
+            .expect("a symbolic-link log must be refused");
+        assert!(error.raw_os_error().is_some(), "{error}");
+        assert_eq!(fs::read(&target).unwrap(), b"leave this alone\n");
+        assert_eq!(
+            fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+            0o644
+        );
     }
 }

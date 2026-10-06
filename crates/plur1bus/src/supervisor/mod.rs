@@ -219,8 +219,15 @@ pub struct Log {
 
 impl Log {
     pub fn open(path: &Path, max_bytes: u64, keep: u32) -> Self {
+        let file = match RotatingFile::open(path, max_bytes, keep) {
+            Ok(file) => Some(file),
+            Err(e) => {
+                eprintln!("plur1bus supervise: cannot open private log; output is dropped: {e}");
+                None
+            }
+        };
         Self {
-            file: Mutex::new(RotatingFile::open(path, max_bytes, keep).ok()),
+            file: Mutex::new(file),
         }
     }
     /// A log that writes nowhere (before `logs/` exists).
@@ -475,6 +482,85 @@ fn create_private_dir(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
+fn create_private_log_dir(dir: &Path) -> io::Result<()> {
+    create_private_dir(dir)?;
+    #[cfg(windows)]
+    {
+        plur1bus_rpc::win::user_sid().and_then(|sid| {
+            plur1bus_rpc::win::set_path_dacl(dir, &plur1bus_rpc::acl::run_dir_sddl(&sid))
+        })?;
+    }
+    Ok(())
+}
+
+fn tighten_log_tree(dir: &Path) -> io::Result<usize> {
+    let metadata = match fs::symlink_metadata(dir) {
+        Ok(metadata) if metadata.file_type().is_dir() => metadata,
+        Ok(_) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "logs path is not a directory",
+            ))
+        }
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            create_private_log_dir(dir)?;
+            return Ok(0);
+        }
+        Err(e) => return Err(e),
+    };
+    #[cfg(unix)]
+    let mut tightened = usize::from({
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o7777 != 0o700
+    });
+    #[cfg(not(unix))]
+    let _ = metadata;
+    #[cfg(windows)]
+    let mut tightened = 1;
+    #[cfg(not(any(unix, windows)))]
+    let mut tightened = 0;
+    create_private_log_dir(dir)?;
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            tightened += tighten_log_tree(&path)?;
+        } else if kind.is_file() {
+            tightened += tighten_log_file(&path)?;
+        } else if kind.is_symlink() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "logs contains a symbolic link",
+            ));
+        }
+    }
+    Ok(tightened)
+}
+
+fn tighten_log_file(path: &Path) -> io::Result<usize> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata = fs::symlink_metadata(path)?;
+        if metadata.permissions().mode() & 0o7777 == 0o600 {
+            return Ok(0);
+        }
+        drop(logfile::open_private_append(path)?);
+        Ok(1)
+    }
+    #[cfg(windows)]
+    {
+        logfile::secure_existing_file(path)?;
+        Ok(1)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = path;
+        Ok(0)
+    }
+}
+
 /// Makes this process's own stdin/stdout/stderr handles non-inheritable. Rust's `Command` on Windows calls
 /// `CreateProcessW` with `bInheritHandles = TRUE`, so a child inherits every inheritable handle of its parent, not only
 /// the three it is given. The std handles a process received are inheritable, so without this a long-lived child
@@ -587,21 +673,29 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         keep_std_handles_private();
     }
 
-    if let Err(e) =
-        create_private_dir(&layout.run()).and_then(|_| fs::create_dir_all(layout.logs()))
-    {
+    if let Err(e) = create_private_dir(&layout.run()) {
         fail(
             layout,
             1,
-            &format!(
-                "cannot create run/ and logs/ under {}: {e}",
-                layout.home.display()
-            ),
+            &format!("cannot create run/ under {}: {e}", layout.home.display()),
         );
     }
+    let tightened = match tighten_log_tree(&layout.logs()) {
+        Ok(n) => n,
+        Err(e) => fail(
+            layout,
+            1,
+            &format!(
+                "cannot create or secure logs/ under {}: {e}",
+                layout.home.display()
+            ),
+        ),
+    };
     // HB17: one record per start, before anything can fail with a remapped exit, so `1staid repair` can tell a
     // restart loop (under launchd, systemd or Task Scheduler alike) from the log. Opened like `fail`'s ad hoc log.
-    Log::open(&layout.log_file("supervisor"), u64::MAX, 1).info(
+    let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+    log.info("log permissions tightened", json!({ "entries": tightened }));
+    log.info(
         "supervisor started",
         json!({ "pid": std::process::id(), "manager": std::env::var("PLUR1BUS_SERVICE_MANAGER").ok() }),
     );
@@ -1277,6 +1371,50 @@ pub(crate) fn test_state() -> SupervisorState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_logs_directory_is_refused_without_touching_its_target() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("outside");
+        fs::create_dir(&target).unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).unwrap();
+        let target_file = target.join("outside.log");
+        fs::write(&target_file, b"leave this alone\n").unwrap();
+        let logs = dir.path().join("logs");
+        symlink(&target, &logs).unwrap();
+
+        assert!(tighten_log_tree(&logs).is_err());
+        assert_eq!(
+            fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+            0o755
+        );
+        assert_eq!(fs::read(&target_file).unwrap(), b"leave this alone\n");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn tightening_log_tree_does_not_require_append_access() {
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().unwrap();
+        let logs = dir.path().join("logs");
+        fs::create_dir(&logs).unwrap();
+        let path = logs.join("supervisor.log");
+        fs::write(&path, b"before\n").unwrap();
+
+        let sid = plur1bus_rpc::win::user_sid().unwrap();
+        let restricted = format!("D:P(A;;0x00140080;;;{sid})(A;;0x00140080;;;SY)");
+        plur1bus_rpc::win::set_path_dacl(&path, &restricted).unwrap();
+
+        assert_eq!(tighten_log_tree(&logs).unwrap(), 1);
+
+        let mut log = logfile::RotatingFile::open(&path, u64::MAX, 1).unwrap();
+        log.write_all(b"after\n").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"before\nafter\n");
+    }
 
     #[test]
     fn time_scale_must_be_finite_and_positive() {
