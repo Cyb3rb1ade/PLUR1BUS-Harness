@@ -45,19 +45,21 @@ from agent.memory_provider import MemoryProvider, is_trivial_prompt, spawn_conte
 
 from ._client import pmc
 from .binding import Binding, BindingInvalid, read_binding, resolve_hermes_home
-from .journal import CaptureJournal, is_journal_code
+from .journal import CaptureJournal, clean_code, is_journal_code
 from .mapping import (
     READ_ONLY_PROMPT_BLOCK,
     SYSTEM_PROMPT_BLOCK,
     TOOL_METHODS,
     TOOL_SCHEMAS,
     WRITE_TOOLS,
+    EntryInvalid,
     IdentityRefused,
     ToolArgsError,
     caller_for,
     session_key_for,
     tool_params,
     turn_messages,
+    validate_entry,
 )
 
 __all__ = ["Plur1busMemoryProvider", "register"]
@@ -83,8 +85,14 @@ def _default_factory(home: str) -> Any:
 
 
 def _code(exc: BaseException) -> str:
-    code = getattr(exc, "code", None)
-    return code if isinstance(code, str) else type(exc).__name__
+    """The error code of ``exc`` for logs and ``state.json``: bounded and cleaned (the core's text is not trusted)."""
+    return clean_code(getattr(exc, "code", None)) or clean_code(type(exc).__name__) or "E_UNKNOWN"
+
+
+class _EntryRejected(Exception):
+    """A queued capture failed validation; permanent, so it is set aside (code ``E_JOURNAL_ENTRY``)."""
+
+    code = "E_JOURNAL_ENTRY"
 
 
 class _Inflight:
@@ -348,22 +356,28 @@ class Plur1busMemoryProvider(MemoryProvider):
             self._set_error(code)
             if is_journal_code(code):
                 self._journal_inflight(inflight)
+                self._warn("capture", f"plur1bus: memory capture is unavailable ({code}); turns are kept in the local journal and sent later")
+            else:
                 if code == "E_AGENT_UNKNOWN":
                     self._warn("agent-unknown", f"plur1bus: agent {entry['agentId']} is not registered with PLUR1BUS ({code}); {BIND_HINT}")
-                else:
-                    self._warn("capture", f"plur1bus: memory capture is unavailable ({code}); turns are kept in the local journal and sent later")
-            else:
-                log.warning("plur1bus: the core refused a capture (%s); it was dropped", code)
+                log.warning("plur1bus: the core refused a capture (%s); it was set aside in the dead-letter file", code)
                 try:
-                    self._journal.reject()
-                except Exception:  # noqa: BLE001
-                    pass
+                    self._journal.dead_letter(entry, code)
+                except Exception:  # noqa: BLE001 - counted below: it cannot be kept
+                    self._lost += 1
+                    log.warning("plur1bus: a refused capture could not be set aside and is lost")
             self._flush_error()
             return
         self._set_error(None)
         self._flush_error()
 
     def _send_entry(self, entry: dict) -> None:
+        b = self._binding
+        try:
+            validate_entry(entry, b.agent_id if b is not None else "")
+        except EntryInvalid as e:
+            log.warning("plur1bus: a queued capture is not valid for this binding (%s)", e)
+            raise _EntryRejected() from None
         c = entry.get("caller") or {}
         caller = pmc.Caller(str(c.get("accountId") or "hermes:local"), str(c.get("userId") or "local"))
         self._wclient.capture(

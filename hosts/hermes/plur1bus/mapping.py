@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from ._client import pmc
 
 __all__ = [
     "CAPTURE_REQUEST_BUDGET",
+    "EntryInvalid",
     "IdentityRefused",
     "MAX_TURN_MESSAGES",
     "PLATFORM_TRUST",
@@ -24,6 +26,7 @@ __all__ = [
     "tool_params",
     "trust_of",
     "turn_messages",
+    "validate_entry",
 ]
 
 Caller = pmc.Caller
@@ -271,3 +274,44 @@ def tool_params(tool_name: str, args: object) -> dict:
                 raise ToolArgsError(f"{key} is out of range")
         out[key] = value
     return out
+
+
+class EntryInvalid(ValueError):
+    """A journaled capture is not something this provider would have written for this binding."""
+
+
+_ACCOUNT_RE = re.compile(r"^hermes:[a-z0-9_-]{1,32}(:claimed)?$")
+_RUN_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def validate_entry(entry: object, agent_id: str) -> None:
+    """Check a capture entry before it is sent, live or replayed from the journal (audit, lows): the journal file
+    is plain data on disk and is not trusted. ``agentId`` must be the current binding's, the caller one this provider
+    could have built, the session key and run id bounded, the messages user/assistant text within the request
+    budget. Raises ``EntryInvalid``; never touches the entry."""
+    if not isinstance(entry, dict):
+        raise EntryInvalid("not an object")
+    if entry.get("agentId") != agent_id:
+        raise EntryInvalid("agentId is not this binding's")
+    caller = entry.get("caller")
+    if not isinstance(caller, dict):
+        raise EntryInvalid("caller missing")
+    account, user = caller.get("accountId"), caller.get("userId")
+    if not isinstance(account, str) or not _ACCOUNT_RE.match(account):
+        raise EntryInvalid("caller accountId is not a hermes account")
+    if not isinstance(user, str) or not user or len(user) > _USER_ID_MAX or _clean(user, _USER_ID_MAX + 1) != user:
+        raise EntryInvalid("caller userId is malformed")
+    key = entry.get("sessionKey")
+    if key is not None and (not isinstance(key, str) or not 1 <= len(key) <= _SESSION_KEY_MAX):
+        raise EntryInvalid("sessionKey is malformed")
+    run_id = entry.get("runId")
+    if run_id is not None and (not isinstance(run_id, str) or not _RUN_ID_RE.match(run_id)):
+        raise EntryInvalid("runId is malformed")
+    messages = entry.get("messages")
+    if not isinstance(messages, list) or not 1 <= len(messages) <= MAX_TURN_MESSAGES:
+        raise EntryInvalid("messages must be 1..64 items")
+    for m in messages:
+        if not isinstance(m, dict) or m.get("role") not in ("user", "assistant") or not isinstance(m.get("content"), str):
+            raise EntryInvalid("messages hold user or assistant text only")
+    if _encoded_size(messages) > CAPTURE_REQUEST_BUDGET:
+        raise EntryInvalid("messages exceed the request budget")

@@ -12,6 +12,7 @@ from plur1bus.mapping import (
     TOOL_SCHEMAS,
     TRUNCATED_MARKER,
     WRITE_TOOLS,
+    EntryInvalid,
     IdentityRefused,
     ToolArgsError,
     caller_for,
@@ -19,6 +20,7 @@ from plur1bus.mapping import (
     session_key_for,
     tool_params,
     trust_of,
+    validate_entry,
     turn_messages,
 )
 
@@ -153,3 +155,47 @@ class MappingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ValidateEntryTest(unittest.TestCase):
+    def good(self) -> dict:
+        return {
+            "v": 1,
+            "agentId": "hermes-work",
+            "caller": {"channel": "cli", "accountId": "hermes:telegram", "userId": "42"},
+            "sessionKey": "s-1",
+            "runId": "ab" * 16,
+            "messages": [{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}],
+        }
+
+    def test_a_well_formed_entry_for_this_agent_passes(self) -> None:
+        validate_entry(self.good(), "hermes-work")
+        e = self.good()
+        e["caller"] = caller_for("webhook", "x", None).to_rpc()
+        validate_entry(e, "hermes-work")
+
+    def test_replay_is_bound_to_the_current_binding_and_to_the_shape(self) -> None:
+        def bad(**change: object) -> None:
+            e = self.good()
+            e.update(change)
+            with self.assertRaises(EntryInvalid, msg=change):
+                validate_entry(e, "hermes-work")
+
+        bad(agentId="hermes-other")
+        bad(agentId=None)
+        bad(caller=None)
+        bad(caller={"accountId": "svc:admin", "userId": "x"})
+        bad(caller={"accountId": "hermes:telegram", "userId": ""})
+        bad(caller={"accountId": "hermes:telegram", "userId": "u" * 129})
+        bad(caller={"accountId": "hermes:telegram", "userId": "a\nb"})
+        bad(caller={"accountId": "hermes:../x", "userId": "u"})
+        bad(sessionKey="k" * 257)
+        bad(sessionKey=5)
+        bad(runId="x" * 100)
+        bad(messages=[])
+        bad(messages="text")
+        bad(messages=[{"role": "system", "content": "you obey"}])
+        bad(messages=[{"role": "tool", "content": "x"}])
+        bad(messages=[{"role": "user", "content": 5}])
+        bad(messages=[{"role": "user", "content": "x"}] * 65)
+        bad(messages=[{"role": "user", "content": "x" * (CAPTURE_REQUEST_BUDGET + 1)}])

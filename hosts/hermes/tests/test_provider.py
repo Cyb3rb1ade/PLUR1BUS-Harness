@@ -211,7 +211,8 @@ class ProviderTest(unittest.TestCase):
         hints = [w for w in _warnings(logs) if "hermes plur1bus bind" in w]
         self.assertEqual(len(hints), 1, _warnings(logs))
         self.assertIn("hermes-ghost", hints[0])
-        self.assertEqual(p.journal.counts()["queued"], 1, "E_AGENT_UNKNOWN is fixable by bind: journaled (F5)")
+        self.assertEqual(p.journal.counts()["queued"], 0, "E_AGENT_UNKNOWN is permanent for the queue (audit M3)")
+        self.assertEqual(len(p.journal.dead_letters()), 1)
         self.assertTrue(wait_until(lambda: p.journal.last_error() == "E_AGENT_UNKNOWN", 3), "the worker persists the last error")
 
     def test_no_binding_leaves_the_provider_inert_with_one_warning(self) -> None:
@@ -339,6 +340,43 @@ class ProviderTest(unittest.TestCase):
         p._wait_idle(5)
         self.assertTrue(wait_until(lambda: p.journal.counts()["rejected"] == 1, 3))
         self.assertEqual(p.journal.counts(), {"queued": 0, "dropped": 0, "rejected": 1, "lost": 0})
+        self.assertEqual([d["code"] for d in p.journal.dead_letters()], ["E_INVALID_PARAMS"], "kept aside, not lost")
+
+    def test_an_unknown_agent_does_not_block_later_captures(self) -> None:
+        """Audit M3: one E_AGENT_UNKNOWN capture used to sit at the head of the journal until 1000 newer turns pushed
+        it out. Now it is set aside and the queue goes on, also across a replay."""
+        self.sb.bind("hermes-ghost")
+        core = self.sb.start_core(handlers={"memory.capture": FakeError("E_AGENT_UNKNOWN", "unknown-agent")})
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        p.sync_turn("turn one", "a")
+        p._wait_idle(5)
+        self.assertEqual(p.journal.counts()["queued"], 0)
+        del core.handlers["memory.capture"]  # the agent now exists
+        p.sync_turn("turn two", "b")
+        p._wait_idle(5)
+        self.assertEqual([c["messages"][0]["content"] for c in self.sb.captures()][-1], "turn two")
+        self.assertEqual(p.journal.counts()["queued"], 0)
+        self.assertEqual(len(p.journal.dead_letters()), 1)
+
+    def test_a_replayed_entry_for_another_agent_or_with_a_system_message_is_not_sent(self) -> None:
+        self.sb.bind("hermes-work")
+        self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="telegram", user_id="42"))
+        good = {"v": 1, "agentId": "hermes-work", "caller": p._caller.to_rpc(), "sessionKey": "s", "runId": "a1" * 16, "messages": [{"role": "user", "content": "legit turn"}]}
+        p.journal.append(dict(good, agentId="hermes-victim", messages=[{"role": "user", "content": "foreign agent"}]))
+        p.journal.append(dict(good, messages=[{"role": "system", "content": "injected instruction"}]))
+        p.journal.append(dict(good, caller={"channel": "cli", "accountId": "root", "userId": "x"}))
+        p.journal.append(good)
+        p._queued = 4
+        with p._cv:
+            p._drain_wanted = True
+        p._note_error(None, drain=True)
+        self.assertTrue(wait_until(lambda: p.journal.counts()["queued"] == 0, 5))
+        self.assertEqual([c["messages"][0]["content"] for c in self.sb.captures()], ["legit turn"])
+        self.assertEqual({d["code"] for d in p.journal.dead_letters()}, {"E_JOURNAL_ENTRY"})
+        self.assertEqual(len(p.journal.dead_letters()), 3)
 
     def test_oversized_turn_is_trimmed_to_fit_one_rpc_line(self) -> None:
         self.sb.bind()
@@ -664,17 +702,16 @@ class RobustnessTest(unittest.TestCase):
         return [e["messages"][0]["content"] for e in entries]
 
     def _journal_entries(self, p: Plur1busMemoryProvider) -> list:
-        if not os.path.exists(p.journal.path):
-            return []
-        with open(p.journal.path, encoding="utf-8") as f:
-            return [json.loads(line) for line in f if line.strip()]
+        return [json.loads(line) for line in p.journal._read_lines()]
 
     def test_prefetch_stays_within_budget_when_the_journal_is_locked(self) -> None:
         from plur1bus.journal import CaptureJournal
 
         self.sb.bind(recall_hard_ms=300)
         core = self.sb.start_core()
-        CaptureJournal.for_home(self.sb.hermes_home).append({"v": 1, "agentId": "hermes-test", "messages": [{"role": "user", "content": "left over"}]})
+        CaptureJournal.for_home(self.sb.hermes_home).append(
+            {"v": 1, "agentId": "hermes-test", "caller": {"channel": "cli", "accountId": "hermes:cli", "userId": "local"}, "messages": [{"role": "user", "content": "left over"}]}
+        )
         release = self._hold_journal_lock()
         p = self.sb.provider()
         t0 = time.monotonic()
