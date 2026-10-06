@@ -1,7 +1,7 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { connect, type CoreClient } from "@plur1bus/module-api";
@@ -15,7 +15,7 @@ import { tempDir } from "./helpers/temp-dir.ts";
 function newHome(): string {
   const home = tempDir("p1b-backup-");
   const cfg = defaults(); cfg.agents.bernd = {};
-  cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false } };
+  cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false } };
   writeFileSync(layout(home).configPath, JSON.stringify(cfg));
   return home;
 }
@@ -31,10 +31,16 @@ describe("admin.backup.snapshot (in-process core)", () => {
     db.exec("PRAGMA journal_mode=WAL; CREATE TABLE t(k TEXT PRIMARY KEY, v TEXT); INSERT INTO t VALUES('a','1'),('b','2');");
     db.close();
     core = createCore({ home, testInternals: flatTestInternals() });
-    await core.start();
-    c = await connect({ address: core.address, token: core.token });
+    try {
+      await core.start();
+      c = await connect({ address: core.address, token: core.token });
+    } catch (e) {
+      // A setup that fails halfway must not leave a running core behind (it would hold the run keeping the process alive).
+      await core.stop({ budgetMs: 5000 }).catch(() => {});
+      throw e;
+    }
   });
-  after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); rmSync(home, { recursive: true, force: true }); });
+  after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); });
 
   it("stages the store, the memory state and the SQLite databases with digests that match the files", async () => {
     const r = await c.call<any>("admin.backup.snapshot", { label: "t1" });
@@ -76,9 +82,10 @@ describe("admin.backup.snapshot with a store outside the home", () => {
     writeFileSync(l.configPath, JSON.stringify(cfg));
     const core = createCore({ home, testInternals: flatTestInternals() });
     await core.start();
-    const c = await connect({ address: core.address, token: core.token });
+    let c: CoreClient | undefined;
     try {
+      c = await connect({ address: core.address, token: core.token });
       await assert.rejects(c.call("admin.backup.snapshot", {}), (e: any) => e.error === "E_STORAGE" && e.reason === "store-outside-home");
-    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); rmSync(home, { recursive: true, force: true }); rmSync(outside, { recursive: true, force: true }); }
+    } finally { await c?.close(); await core.stop({ budgetMs: 5000 }); }
   });
 });
