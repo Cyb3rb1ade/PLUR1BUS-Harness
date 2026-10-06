@@ -8,6 +8,13 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- `@plur1bus/providers` (M2, part 1): the OpenAI-compatible `chat_completions` adapter — request builder, SSE
+  streaming with incremental tool-call assembly and usage, non-stream path, a typed error taxonomy
+  (`auth`, `rate_limit` with retry-after, `context_length`, `content_filter`, `bad_request`, `server`, `timeout`,
+  `network`, `protocol`, `aborted`), `AbortSignal` and injectable timeouts throughout, and a tool-argument repair
+  hook point (interface only). No auth logic: it takes a ready-made `Authorization` value. Tested against synthetic
+  fixtures and a local stub server only.
+
 - **D111 logging foundation, part 1: `log-schema`.** New package `@plur1bus/log-schema` and crate `plur1bus-log-schema`
   hold the JSONL log record schema, the audit record schema (the HB12 v1 fields kept, spec R1), the versioned event
   catalogue (128 events, each with an example), the OpenTelemetry/syslog level map and the redaction patterns as data,
