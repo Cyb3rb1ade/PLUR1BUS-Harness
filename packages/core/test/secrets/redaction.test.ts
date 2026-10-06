@@ -54,7 +54,7 @@ describe("redaction", () => {
   it("a keyring that echoes the value in its own error does not leak it through ours", async () => {
     const kr = fakeKeyring();
     const Base = kr.Entry;
-    class Echo extends Base { override setPassword(p: string): void { if (!this.user.startsWith("__")) throw Object.assign(new Error(`cannot store ${p}`), { code: "EACCES" }); super.setPassword(p); } }
+    class Echo extends Base { override setPassword(p: string): void { if (!(this as unknown as { user: string }).user.startsWith("__")) throw Object.assign(new Error(`cannot store ${p}`), { code: "EACCES" }); super.setPassword(p); } }
     const store = createSecretStore({
       keyring: createKeyringBackend({ service: "s", load: async () => ({ Entry: Echo }) }), file: createFileBackend({ dir: join(tempDir("p1b-red-"), "s"), secure }),
       fileFallback: () => false, audit: { record() {} },
