@@ -56,7 +56,7 @@ export interface ActionSpec {
 export type AllowReason = "role" | "own" | "object-right" | "break-glass";
 export type DenyReason =
   | "unauthenticated" | "invalid-principal" | "unknown-action" | "resource-mismatch" | "token-scope"
-  | "role-denied" | "not-owner" | "object-right-required" | "break-glass-required";
+  | "role-denied" | "not-owner" | "object-right-required" | "break-glass-required" | "audit-failed";
 
 export type Decision =
   | { readonly effect: "allow"; readonly reason: AllowReason; readonly breakGlassId?: string }
