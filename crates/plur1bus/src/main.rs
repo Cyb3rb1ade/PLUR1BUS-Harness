@@ -4,6 +4,7 @@ mod coexistence;
 mod commands;
 mod container;
 mod ext;
+mod firstaid_bundle;
 mod identity;
 mod install;
 mod journal;
