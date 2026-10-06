@@ -6,6 +6,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ## [Unreleased]
 
+### Added
+
+- `@plur1bus/providers` (M2, part 1): the OpenAI-compatible `chat_completions` adapter — request builder, SSE
+  streaming with incremental tool-call assembly and usage, non-stream path, a typed error taxonomy
+  (`auth`, `rate_limit` with retry-after, `context_length`, `content_filter`, `bad_request`, `server`, `timeout`,
+  `network`, `protocol`, `aborted`), `AbortSignal` and injectable timeouts throughout, and a tool-argument repair
+  hook point (interface only). No auth logic: it takes a ready-made `Authorization` value. Tested against synthetic
+  fixtures and a local stub server only.
+
 ### Changed
 
 - Memory engine re-pinned to **`9bafa047`** (merge of plugin PR #217), contract **1.11.0**.

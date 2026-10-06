@@ -1,0 +1,36 @@
+{
+  "text": "Let me check the weather in Zürich 🌤 and the time.",
+  "toolCalls": [
+    {
+      "id": "call_synthetic_0001",
+      "name": "get_weather",
+      "argumentsRaw": "{\"city\":\"Zürich\",\"unit\":\"c\"}",
+      "arguments": {
+        "city": "Zürich",
+        "unit": "c"
+      }
+    },
+    {
+      "id": "call_synthetic_0002",
+      "name": "get_time",
+      "argumentsRaw": "{\"tz\":\"Europe/Zurich\"}",
+      "arguments": {
+        "tz": "Europe/Zurich"
+      }
+    }
+  ],
+  "finishReason": "tool_calls",
+  "rawFinishReason": "tool_calls",
+  "meta": {
+    "id": "chatcmpl-synthetic-0001",
+    "model": "synthetic-model-1",
+    "systemFingerprint": "fp_synthetic"
+  },
+  "usage": {
+    "inputTokens": 57,
+    "outputTokens": 41,
+    "totalTokens": 98,
+    "cachedInputTokens": 32,
+    "reasoningTokens": 0
+  }
+}
