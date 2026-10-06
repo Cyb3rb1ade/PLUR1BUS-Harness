@@ -29,6 +29,7 @@ export interface AuditEvent { action: string; target: string; detail: Record<str
 export interface IdentityOptions {
   dbPath: string; clock: () => number; audit: (e: AuditEvent) => void;
   /** Lifetime of a code and of a claim waiting for the owner. Default 10 minutes (ADR-007 caps it at 1 hour). */
+  // RULING: 10 minutes ("short"; ADR-007's Hermes-derived 1 hour is the ceiling, not the default).
   codeTtlMs?: number;
 }
 

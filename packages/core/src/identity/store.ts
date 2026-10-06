@@ -27,6 +27,7 @@ const MIGRATIONS: readonly string[] = [
     channel TEXT NOT NULL, account_id TEXT NOT NULL, channel_user_id TEXT NOT NULL,
     display_name TEXT,
     v1_principal TEXT NOT NULL,
+    -- RULING: signed_challenge is part of the model, but no flow offers it yet (fail closed).
     proof_method TEXT NOT NULL CHECK (proof_method IN ('pairing_code', 'owner_manual', 'signed_challenge')),
     linked_at INTEGER NOT NULL, linked_by TEXT NOT NULL,
     revoked_at INTEGER, revoked_by TEXT

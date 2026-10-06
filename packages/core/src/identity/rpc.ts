@@ -10,6 +10,7 @@ export const IDENTITY_METHODS = ["identity.list", "identity.human.create", "iden
  * the schema already requires (`CallerIdentity.channel` is `cli`), who holds the core's token. Anything else is refused
  * here as well, so a future widening of `CallerIdentity` cannot silently open these methods.
  */
+// RULING: "owner/admin only" is the local cli caller until the M3 RBAC `authorize()` chokepoint exists (ADR-007).
 function owner(caller: CallerIdentity): Actor {
   if (caller?.channel !== "cli") throw new RpcError("E_DENIED", "identity management is owner only", { reason: "owner-only" });
   return { user: caller.userId, host: caller.accountId };

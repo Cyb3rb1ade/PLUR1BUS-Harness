@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 export interface LimitSpec { limit: number; windowMs: number; lockMs: number }
 /** Per claimant (channel identity) and over every claimant together: rotating accounts does not reset the global one. */
+// RULING: 5 failures per handle and 20 overall per 15 minutes, lock 15 minutes (ADR-007: "rate-limited", no number given).
 export const SOURCE_LIMIT: LimitSpec = { limit: 5, windowMs: 15 * 60_000, lockMs: 15 * 60_000 };
 export const GLOBAL_LIMIT: LimitSpec = { limit: 20, windowMs: 15 * 60_000, lockMs: 15 * 60_000 };
 export const GLOBAL_KEY = "global";
