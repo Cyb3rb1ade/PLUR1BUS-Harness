@@ -1,0 +1,33 @@
+# One GitHub issue per red nightly. The scheduled runs of ci, desktop, hermes-host and nightly are separate workflows,
+# so this one listens for them finishing (workflow_run) and acts ONLY on `schedule` runs that failed: never on a PR,
+# a push or a manual run. It has no checkout and no code from the run; the only write it holds is issues.
+name: nightly-report
+on:
+  workflow_run:
+    workflows: [ci, desktop, hermes-host, nightly]
+    types: [completed]
+permissions: {}
+jobs:
+  issue:
+    if: github.event.workflow_run.event == 'schedule' && github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      WORKFLOW: ${{ github.event.workflow_run.name }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+    steps:
+      - name: open or update the day's issue
+        shell: bash
+        run: |
+          title="Nightly CI red: $(date -u +%F)"
+          line="- ${WORKFLOW}: ${RUN_URL}"
+          number="$(gh issue list --state open --search "\"${title}\" in:title" --json number,title --jq "[.[] | select(.title == \"${title}\")][0].number // empty")"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$line"
+          else
+            gh issue create --title "$title" --body "$(printf 'Scheduled run(s) failed:\n%s' "$line")"
+          fi

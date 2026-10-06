@@ -1,6 +1,7 @@
 name: desktop
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths: ["apps/desktop/**", ".github/workflows/desktop.yml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts/lint-hygiene*"]
   push:
     branches: [main]
@@ -11,42 +12,49 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ci:macos' && '-noop' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # PR: the macOS dmg leg runs on label ci:macos or a platform-sensitive/apps/desktop change; push, schedule, dispatch: all legs.
+  # Decides which macOS legs run (policy and path list: docs/ci.md, scripts/ci/macos-plan.mjs). One cheap ubuntu job.
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      proceed: ${{ steps.plan.outputs.proceed }}
+      macos: ${{ steps.plan.outputs.macos }}
+      python_matrix: ${{ steps.plan.outputs.python_matrix }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: { fetch-depth: 0 }
+      - id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node --test scripts/ci/macos-plan.test.mjs && node scripts/ci/macos-plan.mjs --extra 'apps/desktop/**'
   desktop:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
     strategy:
       fail-fast: false
       matrix:
+        os: [macos-15, windows-2025, windows-11-arm, ubuntu-24.04, ubuntu-24.04-arm]
+        cookie_guard: ["on", "off"]
+        # cookie_guard "off" only on Windows. The macOS legs (the dmg) are dropped on a PR that neither carries the
+        # ci:macos label nor touches a platform-sensitive path (needs.plan.outputs.macos, docs/ci.md).
+        exclude: ${{ fromJSON(needs.plan.outputs.macos == 'true' && '[{"os":"macos-15","cookie_guard":"off"},{"os":"ubuntu-24.04","cookie_guard":"off"},{"os":"ubuntu-24.04-arm","cookie_guard":"off"}]' || '[{"os":"macos-15"},{"os":"ubuntu-24.04","cookie_guard":"off"},{"os":"ubuntu-24.04-arm","cookie_guard":"off"}]') }}
         include:
-          - os: macos-15
-            bundles: dmg
-            cookie_guard: "on"
-            rust_target: aarch64-apple-darwin
-          - os: windows-2025
-            bundles: nsis
-            cookie_guard: "on"
-            rust_target: x86_64-pc-windows-msvc
-          - os: windows-2025
-            bundles: nsis
-            cookie_guard: "off"
-            rust_target: x86_64-pc-windows-msvc
-          - os: windows-11-arm
-            bundles: nsis
-            cookie_guard: "on"
-            rust_target: aarch64-pc-windows-msvc
-          - os: windows-11-arm
-            bundles: nsis
-            cookie_guard: "off"
-            rust_target: aarch64-pc-windows-msvc
-          - os: ubuntu-24.04
-            bundles: deb,rpm,appimage
-            cookie_guard: "on"
-            rust_target: x86_64-unknown-linux-gnu
-          - os: ubuntu-24.04-arm
-            bundles: deb,rpm,appimage
-            cookie_guard: "on"
-            rust_target: aarch64-unknown-linux-gnu
+          - { os: macos-15, bundles: dmg, rust_target: aarch64-apple-darwin }
+          - { os: windows-2025, bundles: nsis, rust_target: x86_64-pc-windows-msvc }
+          - { os: windows-11-arm, bundles: nsis, rust_target: aarch64-pc-windows-msvc }
+          - { os: ubuntu-24.04, bundles: "deb,rpm,appimage", rust_target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, bundles: "deb,rpm,appimage", rust_target: aarch64-unknown-linux-gnu }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -176,6 +184,8 @@ jobs:
           retention-days: 7
   stub-smoke:
     name: stub smoke (${{ matrix.runtime }})
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:

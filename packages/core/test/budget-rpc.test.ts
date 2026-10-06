@@ -1,7 +1,8 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { connect, type CoreClient, RpcCallError } from "@plur1bus/module-api";
+import { type CoreClient, RpcCallError } from "@plur1bus/module-api";
+import { connect } from "./helpers/connect.ts";
 import { validateParams, validateResult } from "@plur1bus/rpc-schema";
 import { buildMethods } from "../src/rpc/methods.ts";
 import { createRpcServer, type RpcServer } from "../src/rpc/server.ts";
