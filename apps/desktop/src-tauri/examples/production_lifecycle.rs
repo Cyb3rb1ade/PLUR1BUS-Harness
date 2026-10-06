@@ -107,10 +107,6 @@ mod fixture {
         if window_has_keyboard_focus(&window, true) {
             return Ok(());
         }
-        // Fixture-only z-order preparation exposes our click target without claiming focus.
-        window
-            .set_always_on_top(true)
-            .map_err(|_| "FIXTURE_LAUNCHER_OCCLUDED")?;
         let hwnd = window
             .hwnd()
             .map_err(|_| "FIXTURE_LAUNCHER_WINDOW_MISSING")?
@@ -425,13 +421,52 @@ mod fixture {
         report.lock().unwrap().second_instance_focus_mode = Some("strict");
         eprintln!("WP6_FOCUS_SUMMARY second_instance_focus=strict");
         #[cfg(windows)]
-        gui(app, |app| activate_second_launcher(&app))??;
-        #[cfg(windows)]
-        observe(app, |app| {
-            app.get_webview_window("shell")
-                .is_some_and(|w| window_has_keyboard_focus(&w, true))
-        })
-        .map_err(|_| "FIXTURE_SECOND_LAUNCHER_NOT_FOREGROUND")?;
+        {
+            // Tauri queues z-order changes even from the GUI callback. Let the
+            // event loop apply them before verifying a click target. Exposure,
+            // input and strict foreground observation share the original 5s.
+            gui(app, |app| {
+                app.get_webview_window("shell")
+                    .ok_or("FIXTURE_LAUNCHER_WINDOW_MISSING")?
+                    .set_always_on_top(true)
+                    .map_err(|_| "FIXTURE_LAUNCHER_OCCLUDED")
+            })??;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut clicked = false;
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(if clicked {
+                        "FIXTURE_SECOND_LAUNCHER_NOT_FOREGROUND"
+                    } else {
+                        "FIXTURE_LAUNCHER_OCCLUDED"
+                    });
+                }
+                if !clicked {
+                    match gui_budget(app, |app| activate_second_launcher(&app), remaining)? {
+                        Ok(()) => clicked = true,
+                        Err("FIXTURE_LAUNCHER_OCCLUDED") => {}
+                        Err(reason) => return Err(reason),
+                    }
+                }
+                if clicked
+                    && gui_budget(
+                        app,
+                        |app| {
+                            app.get_webview_window("shell")
+                                .is_some_and(|w| window_has_keyboard_focus(&w, true))
+                        },
+                        deadline.saturating_duration_since(Instant::now()),
+                    )?
+                {
+                    break;
+                }
+                std::thread::sleep(
+                    Duration::from_millis(20)
+                        .min(deadline.saturating_duration_since(Instant::now())),
+                );
+            }
+        }
         #[cfg(windows)]
         gui(app, |app| {
             app.get_webview_window("shell")

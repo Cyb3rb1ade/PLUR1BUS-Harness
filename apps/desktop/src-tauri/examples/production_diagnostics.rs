@@ -8,6 +8,15 @@ mod fixture {
     use std::time::{Duration, Instant};
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+    const CRASH_MODAL_OBSERVER: &str = r#"(() => { const timer = setInterval(() => {
+          const dialog = document.querySelector('dialog[data-crash-offer]');
+          if (!dialog?.open) return;
+          clearInterval(timer);
+          const pre = dialog.querySelector('pre');
+          const text = pre?.textContent || '';
+          if (text.includes('PLUR1BUS desktop crash') && text.includes('Backtrace:') && pre.childElementCount === 0
+            && !text.includes('wp06NativeCrashCanary') && !text.includes('wp06NativeTicket') && !text.includes('wp06NativeCookie')) document.title = 'WP6_CRASH_MODAL';
+        }, 20); })();"#;
     #[derive(Default, serde::Serialize)]
     struct Report {
         restart_offers_crash: bool,
@@ -88,18 +97,6 @@ mod fixture {
             return Err("DIAGNOSTICS_CRASH_MISSING");
         }
         report.lock().unwrap().restart_offers_crash = true;
-        eval(
-            app,
-            r#"(() => { const timer = setInterval(() => {
-          const dialog = document.querySelector('dialog[data-crash-offer]');
-          if (!dialog?.open) return;
-          clearInterval(timer);
-          const pre = dialog.querySelector('pre');
-          const text = pre?.textContent || '';
-          if (text.includes('PLUR1BUS desktop crash') && text.includes('Backtrace:') && pre.childElementCount === 0
-            && !text.includes('wp06NativeCrashCanary') && !text.includes('wp06NativeTicket') && !text.includes('wp06NativeCookie')) document.title = 'WP6_CRASH_MODAL';
-        }, 20); })();"#,
-        )?;
         let seen = modal.clone();
         observe(app, move |_| seen.load(Ordering::SeqCst))
             .map_err(|_| "DIAGNOSTICS_MODAL_MISSING")?;
@@ -245,6 +242,16 @@ mod fixture {
                 WebviewWindowBuilder::new(app, "shell", WebviewUrl::App("index.html".into()))
                     .incognito(true)
                     .data_directory(root.join("shell-profile"))
+                    // An eval issued immediately after build can run in the
+                    // initial document and lose its timer on navigation.
+                    // Install the observer in each finished shell document.
+                    .on_page_load(|webview, payload| {
+                        if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+                            && webview.eval(CRASH_MODAL_OBSERVER).is_err()
+                        {
+                            eprintln!("DIAGNOSTICS_EVAL_FAILED");
+                        }
+                    })
                     .on_document_title_changed(move |_, title| {
                         if title == "WP6_CRASH_MODAL" {
                             title_modal.store(true, Ordering::SeqCst);

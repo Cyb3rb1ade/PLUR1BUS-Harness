@@ -1317,3 +1317,16 @@ attempt Exit101: ring assert.h needs missingMSVCSDK, UNAVAILABLE rather than
 a native pass. Exact Win32 helper binding check/Clippy PASS. WP5prefix remains
 byte-identical. New-head Root/all7Desktop CI required before PR87 leaves Draft;
 owner merges, no WP7 implementation in this fix task.
+
+Review-fix push1 `63a530dde7af21562fade3a55e0f7ca6123e00d7`: Root37432139585
+SUCCESS; PR37432139816 Mac/Linux3 SUCCESS, ARM2 fail
+FIXTURE_LAUNCHER_OCCLUDED before secondary spawn (same in both push ARM jobs).
+PRx64off and pushx64on DIAGNOSTICS_MODAL_MISSING; PRx64on native gates PASS.
+Push37432133757 x64off helper fails status=null/SIGKILL/timedOut=true,
+phase=complete at12047.914ms under unchanged12000ms; no blind retry/budget raise.
+SPA_PROFILE_SWEEP_LEAF_FAILED in this log is a passing intentional negative unit.
+Functional correction: shell exposure/input/strict focus share original5s, with
+GUI event-loop turns between queued topmost preparation and verified own click.
+Crash modal observer now installed on finished document, preventing its timer
+from being lost when the initial WebView navigates. No product focus/input change.
+Full validation Root/docs9, desktop alltargets/Rustdoc/Clippy/fmt, UI58, scripts44 PASS; WindowsARM target UNAVAILABLE101 (ring assert.h/MSVCSDK). Logs /tmp/wp06-review-fixture-order-*.log; pending next-headCI.
