@@ -14,7 +14,7 @@ describe("importer argv", () => {
   it("refuses bad argument combinations", async () => {
     const h = ["--home", "/tmp/x"];
     assert.equal(await reason(["zeroclaw", "--detect", ...h]), "E_INVALID_PARAMS/source-type/2");
-    assert.equal(await reason(["hermes", ...h]), "E_INVALID_PARAMS/mode/2");
+    assert.equal(await reason(["hermes", ...h]), "E_SOURCE_NOT_FOUND/source-missing/2");
     assert.equal(await reason(["hermes", "--detect", "--skills", ...h]), "E_INVALID_PARAMS/mode/2");
     assert.equal(await reason(["hermes", "--detect", "--apply", ...h]), "E_INVALID_PARAMS/apply-with-detect/2");
     assert.equal(await reason(["hermes", "--detect", "--enable", ...h]), "E_INVALID_PARAMS/skills-only-flag/2");

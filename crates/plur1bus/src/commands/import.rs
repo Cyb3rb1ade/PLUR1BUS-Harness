@@ -77,6 +77,10 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
     if a.force {
         v.push("--force".into());
     }
+    if let Some(s) = &a.adopt_store {
+        v.push("--adopt-store".into());
+        v.push(s.clone().into_os_string());
+    }
     v.push("--home".into());
     v.push(layout.home.clone().into_os_string());
     v
@@ -92,14 +96,6 @@ pub(crate) fn parse_envelope(stdout: &[u8]) -> Option<Value> {
 }
 
 pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
-    if !a.detect && !a.skills && a.rollback.is_none() && a.source_type != ImportSource::Openclaw {
-        crate::commands::stubs::milestone(
-            out,
-            "import",
-            "M7",
-            "Hermes import will be available in Batch 3; available now: openclaw, --detect, --skills, --rollback",
-        );
-    }
     let js = locate_import_js(layout);
     if !js.exists() {
         out.fail(

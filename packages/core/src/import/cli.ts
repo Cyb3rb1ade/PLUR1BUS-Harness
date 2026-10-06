@@ -4,9 +4,10 @@ import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { detect } from "./detect.ts";
 import { importOpenclaw } from "./importers/openclaw.ts";
+import { importHermes } from "./importers/hermes.ts";
 import type { ConflictStrategy } from "./ledger.ts";
 import { parseMaps, type Mount } from "./paths.ts";
-import { renderDetect, renderOpenclaw, renderRollback, renderSkills } from "./render.ts";
+import { renderDetect, renderHermes, renderOpenclaw, renderRollback, renderSkills } from "./render.ts";
 import { rollbackImport } from "./rollback.ts";
 import { importSkills, rollback as rollbackSkills, type OnConflict } from "./skills-import.ts";
 import { DEFAULT_MAX_SKILL_BYTES } from "./skills-scan.ts";
@@ -28,7 +29,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         source: { type: "string" }, profile: { type: "string" }, apply: { type: "boolean" }, enable: { type: "boolean" },
         "on-conflict": { type: "string" }, conflict: { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
         "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" }, resume: { type: "string" },
-        force: { type: "boolean" },
+        force: { type: "boolean" }, "adopt-store": { type: "string" },
       },
     }) as { values: Record<string, string | boolean | string[] | undefined>; positionals: string[] });
   } catch (e) {
@@ -38,7 +39,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   if (positionals.length !== 1 || (sourceType !== "openclaw" && sourceType !== "hermes")) return fail("E_INVALID_PARAMS", "source-type", "expected exactly one source: openclaw or hermes");
   if (typeof values.home !== "string") return fail("E_INVALID_PARAMS", "home-missing", "--home is required");
   const explicitModes = [values.detect ? "detect" : null, values.skills ? "skills" : null, values.rollback !== undefined ? "rollback" : null].filter(Boolean);
-  if (explicitModes.length > 1 || (explicitModes.length === 0 && sourceType !== "openclaw")) {
+  if (explicitModes.length > 1) {
     return fail("E_INVALID_PARAMS", "mode", "choose exactly one of --detect, --skills, --rollback <report>");
   }
   const mode = explicitModes[0] ?? "import";
@@ -55,6 +56,9 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   }
   if (values["on-conflict"] !== undefined && values.conflict !== undefined && values["on-conflict"] !== values.conflict) {
     return fail("E_INVALID_PARAMS", "conflicting-conflict-flags", "cannot specify different values for both --on-conflict and --conflict");
+  }
+  if (values["adopt-store"] !== undefined && (mode !== "import" || sourceType !== "hermes")) {
+    return fail("E_INVALID_PARAMS", "adopt-store-unsupported", "--adopt-store applies to Hermes import only");
   }
   if (values.profile !== undefined && sourceType !== "hermes") return fail("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   const onConflict = ((values["on-conflict"] ?? values.conflict) ?? "skip") as string;
@@ -81,14 +85,32 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   };
   try {
     if (mode === "import") {
-      const r = await importOpenclaw({
-        ...base,
-        apply: values.apply === true,
-        migrateSecrets: values["migrate-secrets"] === true,
-        onConflict: onConflict as ConflictStrategy,
-        resume: values.resume as string | undefined,
-      });
-      return { ok: true, schema: "import.openclaw/1", value: r as unknown as Record<string, unknown>, human: renderOpenclaw(r) };
+      if (sourceType === "openclaw") {
+        const r = await importOpenclaw({
+          ...base,
+          apply: values.apply === true,
+          migrateSecrets: values["migrate-secrets"] === true,
+          onConflict: onConflict as ConflictStrategy,
+          resume: values.resume as string | undefined,
+        });
+        return { ok: true, schema: "import.openclaw/1", value: r as unknown as Record<string, unknown>, human: renderOpenclaw(r) };
+      }
+      if (sourceType === "hermes") {
+        const r = await importHermes({
+          ...base,
+          apply: values.apply === true,
+          migrateSecrets: values["migrate-secrets"] === true,
+          onConflict: onConflict as ConflictStrategy,
+          resume: values.resume as string | undefined,
+          adoptStore: values["adopt-store"] as string | undefined,
+        });
+        if (r.errors.length > 0) {
+          // Exit 1 with reason codes only; the full report (apply) stays on disk and the run is resumable.
+          const where = r.reportPath ? `; report: ${r.reportPath}; resume with --resume ${r.runId}` : "";
+          return fail("E_IMPORT_FAILED", r.errors[0]?.reason ?? "import-failed", `import completed with ${r.errors.length} error(s): ${[...new Set(r.errors.map((e) => e.reason))].join(", ")}${where}`, 1);
+        }
+        return { ok: true, schema: "import.hermes/1", value: r as unknown as Record<string, unknown>, human: renderHermes(r) };
+      }
     }
     if (mode === "detect") {
       const r = await detect(base);
@@ -100,18 +122,22 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
     }
 
     // Rollback mode: determine if full import report or skills report
-    let isFullOpenclawReport = false;
+    let isFullImportReport = false;
     try {
       const text = readFileSync(values.rollback as string, "utf8");
       const parsed = JSON.parse(text);
-      if (parsed.schema === "import.openclaw/1" || (parsed.sourceType === "openclaw" && Array.isArray(parsed.profilesOrAgents))) {
-        isFullOpenclawReport = true;
+      if (
+        parsed.schema === "import.openclaw/1" ||
+        parsed.schema === "import.hermes/1" ||
+        ((parsed.sourceType === "openclaw" || parsed.sourceType === "hermes") && Array.isArray(parsed.profilesOrAgents))
+      ) {
+        isFullImportReport = true;
       }
     } catch {
       // Pass through to let rollback handler report specific error
     }
 
-    if (isFullOpenclawReport) {
+    if (isFullImportReport) {
       const r = await rollbackImport({
         home: values.home,
         reportPath: values.rollback as string,
