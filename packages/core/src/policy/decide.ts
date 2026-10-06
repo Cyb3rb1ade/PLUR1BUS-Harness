@@ -6,7 +6,7 @@ import {
   CAPABILITIES, DEFAULTS, GRANT_SCOPES, RISKS, riskRank, scopeRank, stricterClass,
   type CapabilityDef, type GrantScope, type PolicyClass, type Risk, type SurfaceTrust,
 } from "./capabilities.ts";
-import { effectRank, maxEffect, type Effect } from "./effects.ts";
+import { effectRank, isEffect, maxEffect, type Effect } from "./effects.ts";
 
 export type SubjectKind = "agent" | "subagent" | "acp-agent" | "mcp-client" | "acp-editor" | "a2a-peer" | "remote-harness";
 
@@ -136,14 +136,39 @@ export type Decision =
 
 const deny = (reason: DenyReason, rule: string): Decision => ({ kind: "deny", reason, rule });
 
-function matchesDeny(list: readonly string[], call: Call): boolean {
-  return list.some((p) => {
-    if (p.endsWith(".*")) {
-      const prefix = p.slice(0, -1);
-      return call.capability.startsWith(prefix) || call.tool.startsWith(prefix);
-    }
-    return p === call.tool || p === call.capability;
-  });
+/** One canonical form for every name compared against a config list: trimmed, case-folded. */
+function canon(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+/**
+ * ADR-003 `tools.deny` entries: an exact tool or capability name, or a glob where `*` matches any run of characters
+ * (`*`, `fs*`, `fs.*`), compared case-folded. RULING: an entry that is not a non-empty string cannot be read as a rule,
+ * so it denies everything (fail closed) instead of being skipped silently.
+ */
+function matchesDeny(list: readonly unknown[], call: Call, capability: string): "invalid" | boolean {
+  const names = [canon(call.tool), capability];
+  let hit = false;
+  for (const entry of list) {
+    if (typeof entry !== "string" || canon(entry).length === 0) return "invalid";
+    const re = new RegExp(`^${canon(entry).split("*").map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
+    if (names.some((n) => re.test(n))) hit = true;
+  }
+  return hit;
+}
+
+function validGrant(g: Grant): boolean {
+  const str = (v: unknown) => typeof v === "string" && v.length > 0;
+  const time = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  return (
+    g !== null && typeof g === "object" &&
+    str(g.id) && str(g.capability) && str(g.person) && str(g.agent) &&
+    (GRANT_SCOPES as readonly string[]).includes(g.scope) &&
+    time(g.createdAt) && (g.lastUsedAt === undefined || time(g.lastUsedAt)) && (g.expiresAt === undefined || time(g.expiresAt)) &&
+    (g.surface === 0 || g.surface === 1 || g.surface === 2 || g.surface === 3) &&
+    g.match !== null && typeof g.match === "object" &&
+    (g.match.kind === "action" || g.match.kind === "capability" || (g.match.kind === "path" && str(g.match.path) && (g.match.access === "read" || g.match.access === "write") && typeof g.match.recursive === "boolean"))
+  );
 }
 
 // ---- scope / surface / risk helpers (exported: grant creation and the surfaces reuse them) ----
@@ -223,7 +248,8 @@ export function pathCovered(grantPath: string, recursive: boolean, target: strin
 // ---- the evaluator ----
 
 export function decide(call: Call, ctx: Context, deps: Deps): Decision {
-  const def = CAPABILITIES.get(call.capability);
+  const capability = typeof call.capability === "string" ? canon(call.capability) : "";
+  const def = CAPABILITIES.get(capability);
   if (!def) return deny("policy-never", "unknown-capability"); // RULING: an unknown capability id is never, not approval
   const flags = call.flags;
 
@@ -233,16 +259,21 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   if (def.base.inside === "never") return deny("policy-never", "never");
   if (def.id === "secrets.use" && flags.secretSlotDeclared !== true) return deny("policy-never", "never:secret-slot");
   // (3) tools.deny
-  if (ctx.toolsDeny && matchesDeny(ctx.toolsDeny, call)) return deny("policy-never", "tools.deny");
+  if (ctx.toolsDeny) {
+    const m = matchesDeny(ctx.toolsDeny, call, def.id);
+    if (m === "invalid") return deny("policy-never", "tools.deny:invalid");
+    if (m) return deny("policy-never", "tools.deny");
+  }
   // Subject limits: narrowing only (ADR-003, ADR-008, D104).
   // RULING: an A2A peer reaches no tool through this evaluator at all (D109 §1: only the harness functions ADR-008 exposes).
   if (ctx.subject.kind === "a2a-peer") return deny("surface-untrusted", "a2a-peer");
-  if (ctx.tokenScopes && !ctx.tokenScopes.includes(call.capability)) return deny("policy-never", "token-scope");
-  if (ctx.subject.kind === "subagent" && !(ctx.handoff && ctx.handoff.scope.includes(call.capability))) {
+  if (ctx.tokenScopes && !ctx.tokenScopes.some((c) => canon(c) === def.id)) return deny("policy-never", "token-scope");
+  if (ctx.subject.kind === "subagent" && !(ctx.handoff && ctx.handoff.scope.some((c) => canon(c) === def.id))) {
     return deny("policy-never", "handoff-scope"); // RULING: a sub-agent without hand-off scope covering the capability is refused
   }
 
-  const effect = maxEffect(call.effect ?? def.intrinsicEffect, def.intrinsicEffect);
+  // RULING: an effect string outside the vocabulary is the strictest one (money), never harmless.
+  const effect = call.effect === undefined ? def.intrinsicEffect : isEffect(call.effect) ? maxEffect(call.effect, def.intrinsicEffect) : "money";
   const batch = isBatch(flags, call.targets);
   const tainted = ctx.taint?.tainted === true;
   const taintSuspends = tainted && ctx.taint?.readPrivate === true && (def.taintSensitive || effect === "external");
@@ -251,10 +282,11 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   let cls: PolicyClass = flags.outsideRoots ? def.base.outside : def.base.inside;
   if (def.id === "shell.exec" && flags.shellAllowlisted === true && !flags.outsideRoots && flags.privileged !== true) cls = "allowed";
   let via: "default" | "override" = "default";
-  const ov = ctx.overrides?.[call.capability];
+  const ov = overrideFor(ctx.overrides, def.id);
   if (ov && def.lowerable) {
     if (ov === "approval") cls = stricterClass(cls, "approval");
-    else if (cls === "approval") { cls = "allowed"; via = "override"; }
+    // RULING (Q12): roots are a hard limit; a per-agent "allowed" never lifts the approval that applies outside them.
+    else if (ov === "allowed" && cls === "approval" && !flags.outsideRoots) { cls = "allowed"; via = "override"; }
   }
   const floored =
     flags.privileged === true || flags.irreversible === true || batch ||
@@ -270,8 +302,8 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
 
   // (4) grants
   const now = deps.clock.now();
-  for (const g of candidateGrants(call, ctx, deps)) {
-    if (grantApplies(g, def, call, ctx, flags, effect, batch, taintSuspends, now)) {
+  for (const g of Number.isFinite(now) ? candidateGrants(call, ctx, deps, def.id) : []) {
+    if (validGrant(g) && grantApplies(g, def, call, ctx, flags, effect, batch, taintSuspends, now)) {
       const out: Decision = { kind: "allow", via: "grant", grantId: g.id };
       if (grantReviewDue(g, now)) out.reviewDue = true;
       return out;
@@ -281,6 +313,17 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   if (ctx.deniedActionHashes?.includes(call.actionHash)) return deny("repeat-denied", "fatigue:repeat-denied");
   if ((ctx.promptsThisHour ?? 0) >= DEFAULTS.maxPromptsPerTaskPerHour) return deny("prompt-cap", "fatigue:prompt-cap"); // RULING: over the cap = refused, not queued
   return ask(def, call, ctx, effect, taintSuspends, taintSuspends ? "taint-suspended" : cls === "approval" ? "approval-class" : "approval");
+}
+
+function overrideFor(o: Context["overrides"], id: string): "allowed" | "approval" | undefined {
+  if (!o) return undefined;
+  let out: "allowed" | "approval" | undefined;
+  for (const [k, v] of Object.entries(o)) {
+    if (canon(k) !== id) continue;
+    if (v === "approval") return "approval"; // the stricter of duplicate spellings wins
+    if (v === "allowed") out = "allowed";
+  }
+  return out;
 }
 
 function ask(def: CapabilityDef, call: Call, ctx: Context, effect: Effect, taintSuspended: boolean, why: string): Decision {
@@ -301,8 +344,8 @@ function ask(def: CapabilityDef, call: Call, ctx: Context, effect: Effect, taint
   };
 }
 
-function candidateGrants(call: Call, ctx: Context, deps: Deps): Grant[] {
-  const own = deps.grants.list({ person: ctx.principal.person, agent: ctx.subject.agentId, capability: call.capability });
+function candidateGrants(call: Call, ctx: Context, deps: Deps, capability: string): Grant[] {
+  const own = deps.grants.list({ person: ctx.principal.person, agent: ctx.subject.agentId, capability });
   const held: Grant[] = [];
   if (ctx.subject.kind === "subagent" && ctx.handoff) {
     for (const id of ctx.handoff.approvalsHeld) {
@@ -317,14 +360,14 @@ function grantApplies(
   g: Grant, def: CapabilityDef, call: Call, ctx: Context, flags: CallFlags,
   effect: Effect, batch: boolean, taintSuspends: boolean, now: number,
 ): boolean {
-  if (g.revoked === true || g.capability !== call.capability || g.person !== ctx.principal.person) return false;
+  if (g.revoked === true || canon(g.capability) !== def.id || g.person !== ctx.principal.person) return false;
   if (!GRANT_SCOPES.includes(g.scope)) return false;
   if (ctx.headless) { if (g.jobId !== ctx.headless.jobId || g.scope !== "always") return false; } // §9
   else if (g.jobId !== undefined) return false;
   const ownAgent = g.agent === ctx.subject.agentId;
   if (!ownAgent && !(ctx.subject.kind === "subagent" && ctx.handoff?.approvalsHeld.includes(g.id))) return false;
   if (scopeRank(g.scope) > scopeRank(maxScopeFor(def, { ...flags, batch }))) return false;
-  if (now >= grantExpiry(g)) return false;
+  if (g.createdAt > now || now >= grantExpiry(g)) return false; // a grant from the future is not valid yet (fail closed)
   if (g.surface < requiredSurface(def, g.scope, flags)) return false;
   if (taintSuspends && g.scope !== "once") return false;
   if (g.projectId !== undefined && g.projectId !== ctx.projectId) return false;

@@ -290,3 +290,40 @@ describe("effect axis and taxonomy table", () => {
     assert.deepEqual([...NEVER_CAPABILITIES].sort(), ["captcha.solve", "credential.entry", "harness.admin", "input.monitor", "policy.bypass"]);
   });
 });
+
+describe("review hardening (#121)", () => {
+  it("capability names are case-folded to one canonical form", T, () => {
+    assert.equal(run(call({ capability: "FS.Read" }), ctx()).kind, "allow");
+    assert.equal(run(call({ capability: "Harness.Admin" }), ctx()).kind, "deny");
+    assert.equal(run(call({ capability: "fs.read" }), ctx({ toolsDeny: ["FS.*"] })).kind, "deny");
+    assert.equal(run(call({ capability: "fs.write", targets: ["/x"] }), ctx({ tokenScopes: ["FS.WRITE"] })).kind, "allow");
+  });
+  it("tools.deny globs: '*' anywhere, regex characters stay literal", T, () => {
+    assert.equal(run(call({ tool: "mcp.search" }), ctx({ toolsDeny: ["mcp.*"] })).kind, "deny");
+    assert.equal(run(call({ tool: "mcpxsearch" }), ctx({ toolsDeny: ["mcp.search"] })).kind, "allow"); // '.' is not a wildcard
+    assert.equal(run(call(), ctx({ toolsDeny: ["f*.read"] })).kind, "deny");
+    assert.equal(run(call(), ctx({ toolsDeny: ["(fs"] })).kind, "allow");
+  });
+  it("a non-string tools.deny entry fails closed", T, () => {
+    assert.deepEqual(run(call(), ctx({ toolsDeny: [42 as never] })), { kind: "deny", reason: "policy-never", rule: "tools.deny:invalid" });
+  });
+  it("invalid grants are no grants: non-finite times, bad surface, bad scope, bad match, future creation", T, () => {
+    const c = call({ capability: "fs.delete" });
+    const mut = (o: Record<string, unknown>) => ({ ...grant("fs.delete", "task"), ...o }) as never;
+    for (const bad of [{ createdAt: Infinity }, { lastUsedAt: NaN }, { surface: 7 }, { surface: "3" }, { scope: "forever" }, { match: null }, { match: { kind: "path", path: "", access: "read", recursive: true } }, { id: "" }, { createdAt: NOW + HOUR }]) {
+      assert.equal(run(c, ctx(), [mut(bad)]).kind, "ask", JSON.stringify(bad));
+    }
+    assert.equal(run(c, ctx(), [grant("fs.delete", "task")], new FakeClock(NaN)).kind, "ask");
+  });
+  it("an unknown effect is treated as money", T, () => {
+    const r = run(call({ capability: "sys.read", effect: "Money" as never }), ctx());
+    assert.equal(r.kind, "ask");
+    if (r.kind === "ask") assert.equal(r.request.effect, "money");
+  });
+  it("overrides: 'approval' still raises, 'allowed' only applies inside the roots, the stricter duplicate wins", T, () => {
+    assert.equal(run(call(), ctx({ overrides: { "fs.read": "approval" } })).kind, "ask");
+    assert.equal(run(outRead(), ctx({ overrides: { "fs.read": "allowed" } })).kind, "ask");
+    assert.equal(run(call({ capability: "shell.exec", flags: { sandboxed: true } }), ctx({ overrides: { "shell.exec": "allowed" } })).kind, "allow");
+    assert.equal(run(call({ capability: "shell.exec", flags: { sandboxed: true } }), ctx({ overrides: { "shell.exec": "allowed", "SHELL.EXEC": "approval" } })).kind, "ask");
+  });
+});

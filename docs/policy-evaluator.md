@@ -9,7 +9,7 @@ dispatcher yet**; the approval store, path canonicalisation (`paths.ts`) and the
 - `capabilities.ts` — the capability table (default class inside/outside roots, grant ceiling, minimum surface, base risk) and
   `DEFAULTS` (grant lifetimes, the 90-day `always` expiry, prompt cap, batch size). **All defaults live here**, so owner answers to Q12–Q19 change one file.
 - `decide.ts` — `decide(call, ctx, { grants, clock })` returns `allow`, `ask(request)` or `deny(reason, rule)`.
-  Precedence: deny-list > never > `tools.deny` > grants > roots > default. Grants come in through `GrantSource`; time through `Clock`.
+  Precedence: deny-list > never > `tools.deny` > grants > roots > default. Names are case-folded; `tools.deny` entries are exact names or `*` globs (an unreadable entry denies everything); invalid grants (non-finite times, missing surface) are ignored; an unknown effect counts as `money`; a per-agent `allowed` override never lifts the roots. Grants come in through `GrantSource`; time through `Clock`.
   Also exports the helpers surfaces and the store will reuse: `maxScopeFor`, `requiredSurface`, `surfaceMayDecide`, `grantExpiry`, `grantReviewDue`, `pathCovered`.
 
 The caller computes the call's flags (`outsideRoots`, `denyListHit`, `privileged`, …) and passes canonical targets; the evaluator never
