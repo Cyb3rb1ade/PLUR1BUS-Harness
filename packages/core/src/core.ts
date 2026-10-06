@@ -214,10 +214,17 @@ export function createCore(o: CoreOptions): Core {
     const runSecured = platform.securePath(l.run, { mode: 0o700 });
     // Audit M3: fail closed. run/ is where the token goes; when its ACL could not be set (icacls blocked or failing on a
     // home outside the user's private profile), the token would inherit whatever the parent directory allows.
+    // Only without a supervisor: a supervised core runs under a supervisor that already secured run/ itself (a failing
+    // icacls here is harmless then), and exiting would only make the supervisor restart the core in a loop.
     if (!runSecured.applied && runSecured.reason === "acl-tool-unavailable") {
-      const msg = "refusing to start: the access control list of run/ could not be restricted to this user (icacls failed or is blocked), so the core would write its token into a directory that other accounts may read; fix icacls or use a private PLUR1BUS_HOME";
-      log.error(msg, { run: l.run });
-      throw new Error(msg);
+      const supervised = o.lifeline !== undefined || o.supervisorConfig !== undefined;
+      if (supervised) {
+        log.warn("run/ ACL could not be restricted by the core; the supervisor owns it", { run: l.run });
+      } else {
+        const msg = "refusing to start: the access control list of run/ could not be restricted to this user (icacls failed or is blocked), so the core would write its token into a directory that other accounts may read; fix icacls or use a private PLUR1BUS_HOME";
+        log.error(msg, { run: l.run });
+        throw new Error(msg);
+      }
     }
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });

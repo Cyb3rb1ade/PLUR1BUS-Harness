@@ -47,6 +47,24 @@ fn is_server_mismatch(e: &RpcError) -> bool {
     )
 }
 
+/// Turns a token read into an `Option` for call sites that treat "no token" as "core unavailable", but says why when the
+/// cause is a refusal (an untrusted `run/`, audit M2) instead of leaving it looking like an absent core. The line goes
+/// to stderr, so `--json` output stays clean.
+pub(crate) fn token_or_say_why<T>(read: Result<T, RpcError>) -> Option<T> {
+    match read {
+        Ok(v) => Some(v),
+        Err(RpcError::Call { reason, detail, .. }) => {
+            eprintln!(
+                "plur1bus: refusing to use run/ ({}): {}",
+                reason.unwrap_or_default(),
+                detail.unwrap_or_default()
+            );
+            None
+        }
+        Err(_) => None,
+    }
+}
+
 /// The token file of `endpoint`, trimmed.
 fn read_token_of(layout: &Layout, endpoint: Endpoint) -> Option<String> {
     let path = match endpoint {
@@ -55,7 +73,9 @@ fn read_token_of(layout: &Layout, endpoint: Endpoint) -> Option<String> {
         // A module's token file is per module (`Layout::endpoints`); nothing reads one through this helper.
         Endpoint::Module => return None,
     };
-    let t = layout.read_token_file(&path).ok()?.trim().to_string();
+    let t = token_or_say_why(layout.read_token_file(&path))?
+        .trim()
+        .to_string();
     (!t.is_empty()).then_some(t)
 }
 
@@ -110,6 +130,26 @@ mod tests {
             reason: "closed".into(),
             detail: String::new(),
         }));
+    }
+
+    #[test]
+    fn a_refused_token_read_is_none_and_a_good_one_passes_through() {
+        assert_eq!(token_or_say_why::<u8>(Ok(7)), Some(7));
+        let refusal = RpcError::Call {
+            error: ErrorCode::EUnauthorized,
+            jsonrpc: -32000,
+            message: "not trusted".into(),
+            reason: Some("run-dir-untrusted".into()),
+            detail: Some("run is a symlink".into()),
+            ids: None,
+            ext: None,
+        };
+        assert_eq!(token_or_say_why::<u8>(Err(refusal)), None);
+        let absent = RpcError::Unavailable {
+            reason: "core-unavailable".into(),
+            detail: String::new(),
+        };
+        assert_eq!(token_or_say_why::<u8>(Err(absent)), None);
     }
 
     #[test]
