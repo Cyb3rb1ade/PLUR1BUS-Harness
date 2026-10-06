@@ -3,7 +3,8 @@
 // Reports user-authored jobs as "deferred" (id, schedule, deliverKind only; zero disk writes; prompt text and target IDs excluded).
 import { join } from "node:path";
 import { deliverKind } from "./openclaw-cron.ts";
-import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { ImportError } from "../types.ts";
 
 export interface HermesCronJob {
   id: string;
@@ -26,14 +27,17 @@ export function readHermesCronJobs(
 
   for (const p of profiles) {
     const cronFile = join(p.dir, "cron", "jobs.json");
-    const readRes = readHermesSourceFileSafe(cronFile, 1024 * 1024);
-    if (!readRes.ok) {
-      if (readRes.error !== "not-found") errors?.push({ sourceRef: `${p.agentId}:cron/jobs.json`, reason: readRes.error });
+    if (!existsNoFollow(cronFile)) continue;
+    let content: string;
+    try {
+      content = readSourceFileSafe(cronFile, 1024 * 1024).toString("utf8");
+    } catch (error) {
+      errors?.push({ sourceRef: `${p.agentId}:cron/jobs.json`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
       continue;
     }
 
     try {
-      const data = JSON.parse(readRes.content);
+      const data = JSON.parse(content);
       const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
 
       for (const j of jobs) {

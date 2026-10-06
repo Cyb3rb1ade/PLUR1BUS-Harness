@@ -18,12 +18,12 @@ import { layout } from "../../src/paths.ts";
 import { importHermes } from "../../src/import/importers/hermes.ts";
 import { importHermesMemories } from "../../src/import/importers/hermes-memories.ts";
 import { ImportLedger } from "../../src/import/ledger.ts";
-import { readHermesSourceFileSafe } from "../../src/import/importers/hermes-fs-safe.ts";
+import { readSourceFileSafe } from "../../src/import/fs-safe.ts";
 import { idFingerprint } from "../../src/import/fingerprint.ts";
 import { rollbackImport } from "../../src/import/rollback.ts";
 import { renderHermes } from "../../src/import/render.ts";
 import { ImportError } from "../../src/import/types.ts";
-import { buildM7HermesFixture, lanceStore } from "./fixtures.ts";
+import { buildM7HermesFixture, lanceStore, SYMLINKS } from "./fixtures.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
@@ -342,24 +342,27 @@ describe("PR #100 B3–B6", () => {
 });
 
 describe("PR #100 M1: every Hermes source read is no-follow, regular-file-only and bounded", () => {
-  it("helper: symlink, FIFO, oversized and growth are refused; a regular file reads byte-exact", { timeout }, () => {
+  it("shared helper: symlink, FIFO, oversized and growth are refused; a regular file reads byte-exact", { timeout }, (t) => {
     const dir = tempDir("p1b-pr100-m1-unit-");
     const big = join(dir, "big.md");
     writeFileSync(big, Buffer.alloc(16 * MiB + 1, 0x61));
-    assert.deepEqual(readHermesSourceFileSafe(big, 16 * MiB), { ok: false, error: "file-too-large" });
+    assert.throws(() => readSourceFileSafe(big, 16 * MiB), (error: unknown) => error instanceof ImportError && error.reason === "file-too-large");
     const link = join(dir, "link.md");
-    symlinkSync(big, link);
-    assert.deepEqual(readHermesSourceFileSafe(link, 32 * MiB), { ok: false, error: "symlink-refused" });
+    try { symlinkSync(big, link); } catch (error) {
+      if (process.platform !== "win32") throw error;
+      t.skip(`file symlinks unavailable: ${(error as NodeJS.ErrnoException).code}`);
+      return;
+    }
+    assert.throws(() => readSourceFileSafe(link, 32 * MiB), (error: unknown) => error instanceof ImportError && error.reason === "unsafe-symlink");
     const bin = join(dir, "bin.md");
     const bytes = Buffer.from([0xff, 0xfe, 0x00, 0x41]);
     writeFileSync(bin, bytes);
-    const ok = readHermesSourceFileSafe(bin, 16);
-    assert.ok(ok.ok && ok.buffer.equals(bytes), "non-UTF-8 bytes survive unchanged");
-    assert.deepEqual(readHermesSourceFileSafe(join(dir, "nope"), 16), { ok: false, error: "not-found" });
+    assert.deepEqual(readSourceFileSafe(bin, 16), bytes, "non-UTF-8 bytes survive unchanged");
+    assert.throws(() => readSourceFileSafe(join(dir, "nope"), 16), (error: unknown) => error instanceof ImportError && error.reason === "source-unreadable");
     if (process.platform !== "win32") {
       const fifo = join(dir, "fifo.md");
       assert.equal(spawnSync("mkfifo", [fifo]).status, 0);
-      assert.deepEqual(readHermesSourceFileSafe(fifo, 16), { ok: false, error: "not-a-regular-file" });
+      assert.throws(() => readSourceFileSafe(fifo, 16), (error: unknown) => error instanceof ImportError && error.reason === "not-regular-file");
     }
   });
 
@@ -376,34 +379,39 @@ describe("PR #100 M1: every Hermes source read is no-follow, regular-file-only a
     const def = report.profilesOrAgents.find((p) => p.harnessAgentId === "default")!;
     const soul = def.files.find((f) => f.targetFile === "SOUL.md");
     assert.equal(soul?.action, "skipped");
-    assert.equal(soul?.reason, "symlink-refused");
-    assert.ok(report.errors.some((e) => e.sourceRef === "default:SOUL.md" && e.reason === "symlink-refused"));
+    assert.equal(soul?.reason, "unsafe-symlink");
+    assert.ok(report.errors.some((e) => e.sourceRef === "default:SOUL.md" && e.reason === "unsafe-symlink"));
     const ws = join(l.workspaceDir("default"), "SOUL.md");
     assert.ok(!existsSync(ws) || readFileSync(ws).length < MiB, "the 16 MiB target must never be copied");
   });
 
-  it("oversized regular SOUL.md, FIFO MEMORY.md, symlinked pairing and oversized cron files are all refused and reported", { timeout }, async () => {
+  it("symlinked MEMORY.md, FIFO cron, and oversized pairings are reported while other files import", { timeout }, async () => {
     const fx = await buildM7HermesFixture();
     const home = tempDir("p1b-pr100-m1-all-");
-    writeFileSync(join(fx.root, "SOUL.md"), Buffer.alloc(16 * MiB + 1, 0x63));
-    const pairing = join(fx.root, "platforms", "pairing", "telegram-approved.json");
-    const outside = join(tempDir("p1b-pr100-m1-out-"), "approved.json");
-    writeFileSync(outside, JSON.stringify({ "424242": {} }));
-    rmSync(pairing);
-    symlinkSync(outside, pairing);
-    writeFileSync(join(fx.root, "cron", "jobs.json"), Buffer.alloc(MiB + 1, 0x20));
-    if (process.platform !== "win32") {
-      rmSync(join(fx.root, "memories", "MEMORY.md"));
-      assert.equal(spawnSync("mkfifo", [join(fx.root, "memories", "MEMORY.md")]).status, 0);
+    const memory = join(fx.root, "memories", "MEMORY.md");
+    const outside = join(tempDir("p1b-pr100-m1-out-"), "memory.md");
+    writeFileSync(outside, "must-not-import");
+    rmSync(memory);
+    let memoryLinked = true;
+    try { symlinkSync(outside, memory); } catch (error) {
+      if (process.platform !== "win32") throw error;
+      memoryLinked = false;
     }
+    const cron = join(fx.root, "cron", "jobs.json");
+    rmSync(cron);
+    const pairing = join(fx.root, "platforms", "pairing", "telegram-approved.json");
+    writeFileSync(pairing, Buffer.alloc(MiB + 1, 0x20));
+    if (process.platform !== "win32") assert.equal(spawnSync("mkfifo", [cron]).status, 0);
+    else writeFileSync(cron, "{");
 
     const report = await importHermes({ home, source: fx.root, apply: true, testInternals: { embeddings: embedder(0) } });
     const reasons = report.errors.map((e) => `${e.sourceRef}=${e.reason}`);
-    assert.ok(reasons.includes("default:SOUL.md=file-too-large"), reasons.join(" "));
-    assert.ok(reasons.includes("platforms/pairing/telegram-approved.json=symlink-refused"), reasons.join(" "));
-    assert.ok(reasons.includes("default:cron/jobs.json=file-too-large"), reasons.join(" "));
-    if (process.platform !== "win32") assert.ok(reasons.includes("default:memories/MEMORY.md=not-a-regular-file"), reasons.join(" "));
-    assert.ok(!JSON.stringify(report).includes("424242"));
+    if (memoryLinked) assert.ok(reasons.includes("default:memories/MEMORY.md=unsafe-symlink"), reasons.join(" "));
+    assert.ok(reasons.includes("platforms/pairing/telegram-approved.json=file-too-large"), reasons.join(" "));
+    if (process.platform !== "win32") assert.ok(reasons.includes("default:cron/jobs.json=not-regular-file"), reasons.join(" "));
+    assert.ok(report.counts.memoryCardsImported > 0, "other profiles' memory cards continue importing");
+    assert.ok(report.counts.filesCreated > 0, "other persona files continue importing");
+    assert.ok(!JSON.stringify(report).includes("must-not-import"));
   });
 });
 

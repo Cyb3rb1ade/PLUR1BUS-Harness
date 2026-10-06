@@ -8,7 +8,8 @@ import { join, resolve } from "node:path";
 import { envGet, expandTilde, locateSource, pathFor, portabilityOf, SourcePathMapper } from "../paths.ts";
 import { classifyReranker, compareReranker } from "../identity.ts";
 import { parseJson5 } from "../json5.ts";
-import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables, sqliteWarning } from "../readonly.ts";
+import { envKeyNames, isDir, isFile, openSqliteReadOnly, sqliteTables, sqliteWarning } from "../readonly.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
 import { scanStoreRoot, subdirs } from "../store-scan.ts";
 import { ImportError, secretConfigKeys, type AgentInfo, type SecretsReport, type SkillRoot, type SourceCtx, type SourceReport } from "../types.ts";
 
@@ -112,8 +113,11 @@ function pluginVersion(root: string, cfg: Record<string, any>): { version: strin
   for (const d of subdirs(join(root, "npm", "projects"))) candidates.push(join(root, "npm", "projects", d, "node_modules", ...ENGINE_PACKAGE.split("/")));
   candidates.push(join(root, "npm", "node_modules", ...ENGINE_PACKAGE.split("/")));
   for (const dir of candidates) {
-    const text = readBounded(join(dir, "package.json"), 1024 * 1024);
-    if (!text) continue;
+    const packagePath = join(dir, "package.json");
+    if (!existsNoFollow(packagePath)) continue;
+    let text: string;
+    try { text = readSourceFileSafe(packagePath, 1024 * 1024).toString("utf8"); }
+    catch { continue; }
     try {
       const pkg = JSON.parse(text) as { name?: string; version?: string };
       if (pkg.name === ENGINE_PACKAGE && typeof pkg.version === "string") return { version: pkg.version, versionSource: "package.json", path: dir };
@@ -161,14 +165,18 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   const warnings: string[] = [];
   if (ctx.profile) throw new ImportError("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   if (!isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
-  const hasConfig = isFile(configPath);
+  const hasConfig = existsNoFollow(configPath);
   if (!hasConfig && !isFile(join(root, "state", "openclaw.sqlite"))) {
     throw new ImportError("E_SOURCE_NOT_FOUND", "not-an-openclaw-state-dir", `${root} has neither openclaw.json nor state/openclaw.sqlite`);
   }
   let cfg: Record<string, any> = {};
   if (hasConfig) {
-    const text = readBounded(configPath, 16 * 1024 * 1024);
-    if (text === null) throw new ImportError("E_SOURCE_UNSUPPORTED", "config-unreadable", `${configPath} is not a readable file under 16 MiB`);
+    let text: string;
+    try { text = readSourceFileSafe(configPath, 16 * 1024 * 1024).toString("utf8"); }
+    catch (error) {
+      const reason = error instanceof ImportError ? error.reason : "source-unreadable";
+      throw new ImportError("E_SOURCE_UNSUPPORTED", reason, `${configPath}: ${reason}`);
+    }
     try { cfg = obj(parseJson5(text)) ?? {}; } catch (e) { throw new ImportError("E_SOURCE_UNSUPPORTED", "config-unparseable", `${configPath}: ${(e as Error).message}`); }
     if (/["']?\$include["']?\s*:/.test(text)) warnings.push("openclaw.json uses $include; included files were not followed");
   }
