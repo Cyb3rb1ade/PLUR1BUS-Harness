@@ -1,0 +1,25 @@
+# Build context for the harness image (Dockerfile). Everything the image does not build from, and everything that must
+# never reach a layer.
+.git
+.github
+target
+**/target
+**/node_modules
+**/dist
+.env
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+# the repository's own root .npmrc (auto-install-peers=false) is project config the frozen install needs
+**/.npmrc
+!/.npmrc
+**/.netrc
+**/*.log
+.DS_Store
+.claude
+.superpowers
+docs
+tests
+apps/desktop/ui/dist
+apps/desktop/src-tauri/gen
