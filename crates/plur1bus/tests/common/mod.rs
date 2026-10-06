@@ -386,3 +386,63 @@ pub fn run_closed_stdout(cmd: &mut Command) -> (Option<i32>, String) {
     };
     (status, t.join().unwrap())
 }
+
+/// Leaves a socket file at `path` with nothing listening behind it, and proves the connect is refused.
+///
+/// `UnixListener::bind` + `drop` is not enough on macOS: std sets `FD_CLOEXEC` after `socket()`, so a child another
+/// test thread spawns in that window inherits the listening fd and keeps the "dead" socket alive until it exits. A
+/// connect then succeeds (and is closed by the child) instead of being refused. The inheriting child holds the old
+/// inode, so removing the file and binding a fresh socket escapes it; the connect check makes the precondition
+/// explicit instead of assumed.
+#[cfg(unix)]
+pub fn dead_socket(path: &std::path::Path) {
+    use std::os::unix::net::{UnixListener, UnixStream};
+    for _ in 0..100 {
+        let _ = std::fs::remove_file(path);
+        drop(UnixListener::bind(path).unwrap());
+        match UnixStream::connect(path) {
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => return,
+            _ => std::thread::sleep(std::time::Duration::from_millis(10)),
+        }
+    }
+    panic!("{}: could not leave a refused socket", path.display());
+}
+
+/// Runs `cmd` with stdout a regular file in a temp dir that cannot grow (`RLIMIT_FSIZE` at its size, `SIGXFSZ` ignored), so
+/// every stdout write fails with `EFBIG`: a real write error, portable to macOS (no `/dev/full`; std also ignores
+/// `EBADF` on stdout, so a read-only descriptor does not count). Returns the exit code and stderr.
+#[cfg(unix)]
+pub fn run_stdout_write_error(cmd: &mut Command) -> (Option<i32>, String) {
+    use std::os::unix::process::CommandExt;
+    let dir = tempfile::tempdir().unwrap();
+    // The limit is a few KiB, not 0, so the command's own small files still work; stdout is pre-filled to the limit.
+    const LIMIT: u64 = 256 * 1024;
+    let path = dir.path().join("stdout");
+    std::fs::write(&path, vec![0u8; LIMIT as usize]).unwrap();
+    let mut file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+    std::io::Seek::seek(&mut file, std::io::SeekFrom::End(0)).unwrap();
+    // SAFETY: only async-signal-safe libc calls between fork and exec.
+    unsafe {
+        cmd.pre_exec(|| {
+            libc::signal(libc::SIGXFSZ, libc::SIG_IGN);
+            let lim = libc::rlimit {
+                rlim_cur: LIMIT as libc::rlim_t,
+                rlim_max: LIMIT as libc::rlim_t,
+            };
+            if libc::setrlimit(libc::RLIMIT_FSIZE, &lim) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+    let out = cmd
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(file))
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    (
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
