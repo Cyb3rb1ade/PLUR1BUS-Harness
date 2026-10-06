@@ -52,7 +52,7 @@ export function createFixtureServer(): { server: Server; state: FixtureState } {
         const outcome = async (fn: () => Promise<unknown>) => { try { await fn(); return { ok: true }; } catch (e) { return { ok: false, code: (e as { code?: number }).code ?? null, message: String((e as Error).message) }; } };
         const sampling = await outcome(() => server.createMessage({ messages: [{ role: "user", content: { type: "text", text: "hi" } }], maxTokens: 8 }));
         const roots = await outcome(() => server.listRoots());
-        return text(JSON.stringify({ sampling, roots }));
+        return text(JSON.stringify({ sampling, roots, clientCapabilities: state.clientCapabilities ?? null, setLevelCalls: state.setLevelCalls }));
       }
       case "app": return text("app");
       default: return text(`unknown tool ${name}`, { isError: true });
