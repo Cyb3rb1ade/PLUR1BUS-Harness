@@ -37,6 +37,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
+* [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -315,6 +316,7 @@ Memory: add and recall through the core
 * `state` — [experimental] Memory subsystem state
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
+* `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
 
@@ -531,6 +533,29 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 * `--agent <AGENT>`
 * `--note <NOTE>`
+
+
+
+## `plur1bus memory reembed`
+
+[experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
+
+**Usage:** `plur1bus memory reembed [OPTIONS] <--plan|--run|--status|--abort>`
+
+###### **Options:**
+
+* `--plan` — Compare the store with --model and show what a migration would do; copies nothing
+* `--run` — Copy the planned migration into a new generation in throttled batches, validate it and switch
+* `--status` — Show the migration's phase and progress
+* `--abort` — Stop at the next batch boundary; --run continues the same migration
+* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+* `--dimensions <DIMENSIONS>` — Target vector dimensions, when the model supports more than one
+* `--query-prefix <QUERY_PREFIX>` — Query prefix of the target model
+* `--passage-prefix <PASSAGE_PREFIX>` — Passage prefix of the target model
+* `--throttle-ms <THROTTLE_MS>` — Milliseconds to pause between batches (default 250)
+* `--no-switch` — With --run: copy and validate, but do not switch to the new generation
+* `--no-wait` — With --run: return as soon as the run has started instead of following it
+* `--yes` — With --run: do not ask for confirmation (required outside a terminal)
 
 
 

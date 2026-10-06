@@ -116,6 +116,12 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.embedding.serve" => {
             pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
         }
+        "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
+        "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),
+        "admin.reembed.status" => {
+            pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
+        }
+        "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
@@ -203,6 +209,10 @@ fn every_method_fixture_round_trips() {
         "admin.migrate",
         "admin.embedding.probe",
         "admin.embedding.serve",
+        "admin.reembed.plan",
+        "admin.reembed.run",
+        "admin.reembed.status",
+        "admin.reembed.abort",
         "ext.list",
         "ext.show",
         "ext.inspect",
