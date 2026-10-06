@@ -1,7 +1,7 @@
 import { signal } from "@preact/signals";
 import { h } from "preact";
 import type { View } from "../view.ts";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { t } from "../i18n.ts";
 import { icon } from "../icons.ts";
 import { compact } from "../layout.ts";
@@ -29,7 +29,8 @@ export function Sidebar(): View {
   const menuButton = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
 
-  useEffect(() => {
+  // Layout effect: focus moves in the same commit that opens or closes the overlay.
+  useLayoutEffect(() => {
     if (open) root.current?.querySelector<HTMLElement>(".nav-link")?.focus();
     else if (wasOpen.current) menuButton.current?.focus();
     wasOpen.current = open;

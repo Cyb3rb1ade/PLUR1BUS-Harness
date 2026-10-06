@@ -57,7 +57,8 @@ function Shell({ r }: { r: Route }): View {
   }, [key]);
 
   return h("div", { class: "app", "data-menu": menuOpen.value ? "open" : "closed" },
-    h("button", { type: "button", class: "skip-link", onClick: () => main.current?.querySelector<HTMLElement>("h1")?.focus() }, t("app.skip")),
+    // A real in-page link so assistive tech and axe treat it as a skip link; the hash router must not see it, hence preventDefault.
+    h("a", { href: "#main", class: "skip-link", onClick: (e: Event) => { e.preventDefault(); main.current?.querySelector<HTMLElement>("h1")?.focus(); } }, t("app.skip")),
     h(Sidebar, {}),
     h("div", { class: "content", inert: menuOpen.value, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Escape") closeMenu(); } },
       h("header", { class: "topbar" }, h(HeaderActions, {})),

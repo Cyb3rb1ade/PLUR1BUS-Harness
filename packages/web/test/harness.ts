@@ -73,8 +73,9 @@ export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>
   }
 }
 
-export async function signIn(page: Page, user = USER, password = PASSWORD): Promise<void> {
-  await page.getByLabel("Username").fill(user);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+export async function signIn(page: Page, user = USER, password = PASSWORD, lang: "en" | "de" = "en"): Promise<void> {
+  const l = lang === "de" ? { user: "Benutzername", pass: "Passwort", go: "Anmelden" } : { user: "Username", pass: "Password", go: "Sign in" };
+  await page.getByLabel(l.user).fill(user);
+  await page.getByLabel(l.pass, { exact: true }).fill(password);
+  await page.getByRole("button", { name: l.go }).click();
 }

@@ -51,7 +51,7 @@ export function LoginPage(): View {
   const describedBy = invalid ? "login-error" : undefined;
 
   return h("div", { class: "login" },
-    h("div", { class: "login-tools" }, h(PreferenceControls, { idPrefix: "login" })),
+    h("header", { class: "login-tools" }, h(PreferenceControls, { idPrefix: "login" })),
     h("main", { class: "login-card", id: "main" },
       h("p", { class: "wordmark big", "aria-hidden": "true" }, "PLUR", h("span", { class: "one" }, "1"), "BUS"),
       h("h1", { tabIndex: -1 }, t("login.title")),
