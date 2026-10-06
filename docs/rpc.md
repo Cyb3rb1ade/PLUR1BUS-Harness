@@ -4252,473 +4252,6 @@ Removes a manual model entry from the catalog (D112).
 }
 ```
 
-### `session.create`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "caller",
-    "agentId"
-  ],
-  "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "agentId": {
-      "$ref": "#/$defs/AgentId"
-    },
-    "kind": {
-      "enum": [
-        "direct",
-        "channel"
-      ]
-    },
-    "title": {
-      "type": "string",
-      "maxLength": 200
-    },
-    "memoryMode": {
-      "$ref": "#/$defs/MemoryMode"
-    },
-    "chatKey": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 256
-    },
-    "replaceActive": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "session"
-  ],
-  "properties": {
-    "session": {
-      "$ref": "#/$defs/SessionRecord"
-    }
-  }
-}
-```
-
-### `session.list`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "caller"
-  ],
-  "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "kind": {
-      "$ref": "#/$defs/SessionKind"
-    },
-    "agentId": {
-      "$ref": "#/$defs/AgentId"
-    },
-    "archived": {
-      "enum": [
-        "exclude",
-        "only",
-        "any"
-      ]
-    },
-    "search": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 500
-    },
-    "limit": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 200
-    }
-  }
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "sessions",
-    "truncated"
-  ],
-  "properties": {
-    "sessions": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SessionRecord"
-      }
-    },
-    "truncated": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
-### `session.get`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "caller",
-    "sessionId"
-  ],
-  "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "sessionId": {
-      "$ref": "#/$defs/SessionId"
-    },
-    "messages": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 1000
-    }
-  }
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "session",
-    "runningTurnId"
-  ],
-  "properties": {
-    "session": {
-      "$ref": "#/$defs/SessionRecord"
-    },
-    "runningTurnId": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "messages": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SessionMessage"
-      }
-    }
-  }
-}
-```
-
-### `session.resume`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "caller",
-    "sessionId"
-  ],
-  "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "sessionId": {
-      "$ref": "#/$defs/SessionId"
-    },
-    "limit": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 1000
-    }
-  }
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "session",
-    "runningTurnId",
-    "messages",
-    "lastEventSeq"
-  ],
-  "properties": {
-    "session": {
-      "$ref": "#/$defs/SessionRecord"
-    },
-    "runningTurnId": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "messages": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SessionMessage"
-      }
-    },
-    "lastEventSeq": {
-      "type": "integer",
-      "minimum": 0
-    }
-  }
-}
-```
-
-### `session.archive`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-Archives a session (archive-first deletion: nothing is removed; there is no delete over RPC). Idempotent. A session with a running turn is E_CONFLICT.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "caller",
-    "sessionId"
-  ],
-  "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "sessionId": {
-      "$ref": "#/$defs/SessionId"
-    }
-  }
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "session"
-  ],
-  "properties": {
-    "session": {
-      "$ref": "#/$defs/SessionRecord"
-    }
-  }
-}
-```
-
-### `session.submit`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-Submits one user message and starts a turn. Returns at once with state running (events follow as session.event notifications and through session.events), or, with wait, after the turn ended with its state, reply and error. One running turn per session (else E_CONFLICT turn-in-progress); no configured provider is E_NOT_AVAILABLE reason no-provider. Recall and capture happen once per turn inside the core; memory mode is the session's, never a parameter.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "caller",
-    "sessionId",
-    "text"
-  ],
-  "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "sessionId": {
-      "$ref": "#/$defs/SessionId"
-    },
-    "text": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200000
-    },
-    "wait": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "sessionId",
-    "turnId",
-    "messageId",
-    "state"
-  ],
-  "properties": {
-    "sessionId": {
-      "$ref": "#/$defs/SessionId"
-    },
-    "turnId": {
-      "type": "string"
-    },
-    "messageId": {
-      "type": "string"
-    },
-    "state": {
-      "enum": [
-        "running",
-        "completed",
-        "failed"
-      ]
-    },
-    "reply": {
-      "type": "string"
-    },
-    "error": {
-      "type": "string"
-    }
-  }
-}
-```
-
-### `session.events`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "caller",
-    "sessionId"
-  ],
-  "properties": {
-    "caller": {
-      "$ref": "#/$defs/CallerIdentity"
-    },
-    "sessionId": {
-      "$ref": "#/$defs/SessionId"
-    },
-    "afterSeq": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "limit": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 2000
-    }
-  }
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "sessionId",
-    "events",
-    "lastSeq",
-    "running"
-  ],
-  "properties": {
-    "sessionId": {
-      "$ref": "#/$defs/SessionId"
-    },
-    "events": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SessionEvent"
-      }
-    },
-    "lastSeq": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "running": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
 ### `models.acknowledge`
 
 **Stability:** experimental · since 1.5.0
@@ -5306,6 +4839,829 @@ Deletes a secret from every available backend and revokes its leases. Owner only
   "properties": {
     "removed": {
       "const": true
+    }
+  }
+}
+```
+
+### `identity.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Lists humans with their active linked channel identities (revoked ones with includeRevoked) and the pairings that still wait. Owner only: the CLI caller. Never contains a pairing code.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "includeRevoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "humans",
+    "pairings"
+  ],
+  "properties": {
+    "humans": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IdentityHumanEntry"
+      }
+    },
+    "pairings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IdentityPairing"
+      }
+    }
+  }
+}
+```
+
+### `identity.human.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Creates a human principal (an opaque UUIDv7 id). Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "displayName"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/IdentityHuman"
+}
+```
+
+### `identity.link`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). The owner links a channel identity to a human by hand (proof owner_manual); never inferred. E_CONFLICT when the identity is already linked (N:1: an identity belongs to at most one human). Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "humanId",
+    "identity"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "humanId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "identity": {
+      "$ref": "#/$defs/IdentityHandle"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/IdentityLink"
+}
+```
+
+### `identity.pair.start`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Mints a one-time pairing code for a human on a channel: 8 characters, valid 10 minutes, single use, at most 3 pending per human and channel. The code is in this result only, once; it is stored as a salted hash and never logged. Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "humanId",
+    "channel"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "humanId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "channel": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,31}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pairingId",
+    "code",
+    "channel",
+    "expiresAt"
+  ],
+  "properties": {
+    "pairingId": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `identity.pair.claim`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). A channel adapter relays a code a person sent from a channel identity. A match consumes the code and parks the claim for the owner (links nothing). A wrong, expired, reused or wrong-channel code is E_DENIED reason invalid-code; failures are rate limited per identity and overall (E_DENIED reason rate-limited, detail retryAfterMs=N). E_CONFLICT when the identity is already linked.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "code",
+    "identity"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "identity": {
+      "$ref": "#/$defs/IdentityHandle"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pairingId",
+    "state",
+    "confirmBy"
+  ],
+  "properties": {
+    "pairingId": {
+      "type": "string"
+    },
+    "state": {
+      "const": "awaiting-confirmation"
+    },
+    "confirmBy": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `identity.pair.confirm`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). The owner approves or declines a claimed pairing. Approving links the identity (proof pairing_code). Owner only. Audited. E_DENIED reason expired when the claim was not confirmed in time; E_CONFLICT when the pairing is not waiting or the identity was linked meanwhile.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "pairingId",
+    "approve"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "pairingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approve": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pairingId",
+    "state"
+  ],
+  "properties": {
+    "pairingId": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/IdentityPairingState"
+    },
+    "link": {
+      "$ref": "#/$defs/IdentityLink"
+    }
+  }
+}
+```
+
+### `identity.unlink`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving to the human and leaves the union of linked principals. The record stays for the audit trail. Rows written under its v1 principal become unreadable to the human until it is linked again (ADR-007). Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "linkId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "linkId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/IdentityLink"
+}
+```
+
+### `session.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "kind": {
+      "enum": [
+        "direct",
+        "channel"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "memoryMode": {
+      "$ref": "#/$defs/MemoryMode"
+    },
+    "chatKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "replaceActive": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  }
+}
+```
+
+### `session.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "kind": {
+      "$ref": "#/$defs/SessionKind"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "archived": {
+      "enum": [
+        "exclude",
+        "only",
+        "any"
+      ]
+    },
+    "search": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessions",
+    "truncated"
+  ],
+  "properties": {
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionRecord"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `session.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "messages": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session",
+    "runningTurnId"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    }
+  }
+}
+```
+
+### `session.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session",
+    "runningTurnId",
+    "messages",
+    "lastEventSeq"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    },
+    "lastEventSeq": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `session.archive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Archives a session (archive-first deletion: nothing is removed; there is no delete over RPC). Idempotent. A session with a running turn is E_CONFLICT.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  }
+}
+```
+
+### `session.submit`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Submits one user message and starts a turn. Returns at once with state running (events follow as session.event notifications and through session.events), or, with wait, after the turn ended with its state, reply and error. One running turn per session (else E_CONFLICT turn-in-progress); no configured provider is E_NOT_AVAILABLE reason no-provider. Recall and capture happen once per turn inside the core; memory mode is the session's, never a parameter.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "text"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200000
+    },
+    "wait": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "messageId",
+    "state"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "turnId": {
+      "type": "string"
+    },
+    "messageId": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ]
+    },
+    "reply": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `session.events`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "afterSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "events",
+    "lastSeq",
+    "running"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
+    },
+    "lastSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "running": {
+      "type": "boolean"
     }
   }
 }
@@ -5903,37 +6259,6 @@ An extension's kind, state, version or overlays changed (install, uninstall, res
 }
 ```
 
-### `session.event`
-
-**Stability:** experimental · since 1.5.0
-
-**Served by:** core
-
-One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.
-
-```json
-{
-  "x-stability": "experimental",
-  "x-since": "1.5.0",
-  "x-server": "core",
-  "type": "object",
-  "additionalProperties": false,
-  "description": "One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.",
-  "required": [
-    "agentId",
-    "event"
-  ],
-  "properties": {
-    "agentId": {
-      "$ref": "#/$defs/AgentId"
-    },
-    "event": {
-      "$ref": "#/$defs/SessionEvent"
-    }
-  }
-}
-```
-
 ### `models.changed`
 
 **Stability:** experimental · since 1.5.0
@@ -5981,6 +6306,37 @@ Emitted when a scan alters available models in the catalog (D112).
     },
     "at": {
       "type": "string"
+    }
+  }
+}
+```
+
+### `session.event`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.",
+  "required": [
+    "agentId",
+    "event"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "event": {
+      "$ref": "#/$defs/SessionEvent"
     }
   }
 }
@@ -8091,6 +8447,234 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "soft",
         "hard"
       ]
+    }
+  }
+}
+```
+
+### `IdentityHandle`
+
+```json
+{
+  "description": "Experimental (1.5.0). A channel handle. displayName is a label for people and is never matched on.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel",
+    "accountId",
+    "userId"
+  ],
+  "properties": {
+    "channel": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,31}$"
+    },
+    "accountId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+### `IdentityHuman`
+
+```json
+{
+  "description": "Experimental (1.5.0). A human principal: an opaque UUIDv7 id, never reused.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "displayName",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer",
+      "description": "ms since the epoch"
+    }
+  }
+}
+```
+
+### `IdentityLink`
+
+```json
+{
+  "description": "Experimental (1.5.0). A channel identity linked to a human, with how it was proved and whether it was revoked. v1Principal is the engine's v1 principal of the handle (the read side of the union recall).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "humanId",
+    "channel",
+    "accountId",
+    "userId",
+    "v1Principal",
+    "proofMethod",
+    "linkedAt",
+    "linkedBy",
+    "revokedAt",
+    "revokedBy"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "humanId": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "accountId": {
+      "type": "string"
+    },
+    "userId": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "v1Principal": {
+      "type": "string",
+      "pattern": "^user:v1:[a-f0-9]{64}$"
+    },
+    "proofMethod": {
+      "type": "string",
+      "enum": [
+        "pairing_code",
+        "owner_manual",
+        "signed_challenge"
+      ]
+    },
+    "linkedAt": {
+      "type": "integer"
+    },
+    "linkedBy": {
+      "type": "string"
+    },
+    "revokedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "revokedBy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `IdentityHumanEntry`
+
+```json
+{
+  "description": "Experimental (1.5.0). A human with its linked identities.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "displayName",
+    "createdAt",
+    "identities"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "identities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IdentityLink"
+      }
+    }
+  }
+}
+```
+
+### `IdentityPairingState`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "pending",
+    "claimed",
+    "confirmed",
+    "declined",
+    "expired"
+  ]
+}
+```
+
+### `IdentityPairing`
+
+```json
+{
+  "description": "Experimental (1.5.0). A pairing that still waits (a pending code, or a claim waiting for the owner). Never carries the code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "humanId",
+    "channel",
+    "state",
+    "createdAt",
+    "expiresAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "humanId": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/IdentityPairingState"
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "expiresAt": {
+      "type": "integer"
+    },
+    "claimedBy": {
+      "$ref": "#/$defs/IdentityHandle"
+    },
+    "confirmBy": {
+      "type": "integer"
     }
   }
 }
