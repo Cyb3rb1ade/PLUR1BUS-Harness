@@ -1,0 +1,18 @@
+{
+  "name": "@plur1bus/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
+  "exports": { ".": { "source": "./src/index.ts", "types": "./src/index.ts", "default": "./dist/index.js" } },
+  "bin": { "plur1bus-api": "./dist/api.js" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "esbuild src/index.ts src/bin.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist --entry-names=[name] && node -e \"require('fs').renameSync('dist/bin.js','dist/api.js')\"",
+    "test": "node ../../scripts/test-package.mjs"
+  },
+  "dependencies": {
+    "@plur1bus/module-api": "workspace:*",
+    "@plur1bus/rpc-schema": "workspace:*"
+  }
+}

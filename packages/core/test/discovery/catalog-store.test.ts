@@ -134,6 +134,7 @@ describe("catalog store", () => {
 
   it("the real securePath applies a user+SYSTEM DACL on win32", { skip: !win }, async () => {
     const s = setup(); mkdirSync(join(s.dir, "catalog"));
+    writeFileSync(s.path, "{}"); // securePath of a missing path is { applied: false, reason: "missing" }
     const sp = createPlatformCapabilities({}).securePath;
     assert.equal((sp(s.path) as { applied?: boolean } | undefined)?.applied, true);
   });

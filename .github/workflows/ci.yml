@@ -46,6 +46,13 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
         timeout-minutes: 15
+      # The vacuous-run guard must trip on every OS (a filter that matches nothing is what hid the Windows TS tests).
+      - name: test guard trips on an empty filter
+        shell: bash
+        run: |
+          if node scripts/run-ts-tests.mjs --filter=@nonexistent/pkg; then
+            echo "guard did not fail on an empty filter"; exit 1
+          fi
       # The release scripts (harness-release.yml): payload assembly and release-native.json.
       - run: node --experimental-strip-types --test --test-timeout=120000 "scripts/release/test/*.test.ts"
         timeout-minutes: 5

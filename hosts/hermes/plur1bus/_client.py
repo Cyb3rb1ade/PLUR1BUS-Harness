@@ -26,7 +26,9 @@ else:
         _SRC = os.path.normpath(_SRC)
         if not os.path.isdir(os.path.join(_SRC, "plur1bus_memory_client")):
             raise
-        sys.path.insert(0, _SRC)
+        # Appended, never prepended: nothing earlier on sys.path may be shadowed by a harness checkout, and the
+        # import above already failed, so no earlier entry holds this package.
+        sys.path.append(_SRC)
         import plur1bus_memory_client as pmc  # noqa: F401
 
 __all__ = ["pmc", "VENDORED"]
