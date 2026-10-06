@@ -1,0 +1,96 @@
+{
+  "$comment": "D111 §4, data only (no redactor lives in this package). Rules apply in `order`. Patterns use the regular-expression subset common to ECMAScript and the Rust `regex` crate (no lookaround, no backreferences); `flags` is a subset of \"i\". `leftBoundary: true` means a match only counts when the character before it is not [A-Za-z0-9] (the data stands in for a lookbehind). `valueGroup` is the capture group whose text is replaced instead of the whole match; `replacement` defaults to `replacementTemplate` with {rule} filled in.",
+  "version": 1,
+  "replacementTemplate": "[REDACTED:{rule}]",
+  "order": ["secret", "key", "pattern", "url", "path", "pii"],
+  "rules": [
+    {
+      "id": "secret",
+      "kind": "registry",
+      "section": "§4 rule 1",
+      "description": "Exact secret-store values and leases the process holds (ADR-005), plus their base64 and URL-encoded forms; the registry is in memory only.",
+      "minLength": 8,
+      "encodings": ["raw", "base64", "url"]
+    },
+    {
+      "id": "key",
+      "kind": "key-name",
+      "section": "§4 rule 2",
+      "description": "A JSON key, key=value pair or header whose name matches has its value replaced.",
+      "flags": "i",
+      "pattern": "authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key"
+    },
+    {
+      "id": "pattern",
+      "kind": "patterns",
+      "section": "§4 rule 3",
+      "description": "Credential shapes redacted wherever they occur.",
+      "patterns": [
+        { "id": "bearer", "pattern": "Bearer\\s+\\S+", "flags": "i", "description": "Bearer token" },
+        { "id": "basic", "pattern": "Basic\\s+[A-Za-z0-9+/]{8,}={0,2}", "description": "Basic credentials (case-sensitive and at least 8 characters, so prose such as \"Basic info\" survives)" },
+        { "id": "sk", "pattern": "sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}", "leftBoundary": true, "description": "sk-…, sk-ant-…, sk-proj-… API keys" },
+        { "id": "ek", "pattern": "ek_[A-Za-z0-9_-]{16,}", "leftBoundary": true, "description": "ek_… values (D110)" },
+        { "id": "ghp", "pattern": "ghp_[A-Za-z0-9]{36,}", "leftBoundary": true, "description": "GitHub personal access token" },
+        { "id": "github-pat", "pattern": "github_pat_[A-Za-z0-9_]{22,}", "leftBoundary": true, "description": "GitHub fine-grained token" },
+        { "id": "slack", "pattern": "xox[abpr]-[A-Za-z0-9-]{10,}", "leftBoundary": true, "description": "Slack token" },
+        { "id": "aws-access-key", "pattern": "AKIA[0-9A-Z]{16}", "leftBoundary": true, "description": "AWS access key id" },
+        { "id": "google-api-key", "pattern": "AIza[0-9A-Za-z_-]{35}", "leftBoundary": true, "description": "Google API key" },
+        { "id": "jwt", "pattern": "eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+", "description": "JSON Web Token" },
+        { "id": "pem-private-key", "pattern": "-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\\s\\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)", "description": "PEM private-key block; an unterminated block is redacted to the end of the text" },
+        { "id": "plur1bus-env", "pattern": "PLUR1BUS_[A-Z0-9_]+=(\\S+)", "valueGroup": 1, "description": "the value of a PLUR1BUS_* environment assignment; the name stays" },
+        { "id": "base64url-run", "pattern": "[A-Za-z0-9_-]{43,}", "exemptWhenWholeMatchIs": "^[0-9A-Fa-f]+$", "description": "base64url runs of 43 or more characters, unless the run is pure hex (SHA-256, git ids and the extension audit's sha256 stay readable)" }
+      ]
+    },
+    {
+      "id": "url",
+      "kind": "url",
+      "section": "§4 rule 4",
+      "description": "Inside any URL: userinfo removed, query values and the fragment replaced, parameter names kept.",
+      "find": "[A-Za-z][A-Za-z0-9+.-]*://[^\\s\"'<>]+",
+      "steps": [
+        { "id": "userinfo", "pattern": "(://)([^/\\s?#@]+@)", "valueGroup": 2, "replacement": "", "description": "user:pass@ removed" },
+        { "id": "query-value", "pattern": "([?&][^=&#\\s]*=)([^&#\\s]*)", "valueGroup": 2, "description": "query values replaced" },
+        { "id": "fragment", "pattern": "(#)(.+)$", "valueGroup": 2, "description": "fragment replaced" }
+      ]
+    },
+    {
+      "id": "path",
+      "kind": "deny-paths",
+      "section": "§4 rule 5",
+      "description": "A path that canonicalises under a credential deny-list entry is replaced by the entry class and a short hash of the canonical path: <deny:ssh>/…#3f9a1c.",
+      "format": "<deny:{class}>/…#{hash}",
+      "hash": { "algorithm": "sha256", "hexChars": 6 },
+      "classes": [
+        { "id": "ssh", "segments": [[".ssh"]] },
+        { "id": "gnupg", "segments": [[".gnupg"]] },
+        { "id": "keychain", "segments": [["Library", "Keychains"]] },
+        { "id": "browser-profile", "segments": [[".mozilla"], [".config", "google-chrome"], [".config", "chromium"], ["Library", "Application Support", "Google", "Chrome"], ["Library", "Application Support", "Firefox"], ["AppData", "Local", "Google", "Chrome"], ["AppData", "Roaming", "Mozilla"]] },
+        { "id": "password-manager", "segments": [[".config", "1Password"], ["Library", "Group Containers", "2BUA8C4S2C.com.1password"], [".config", "Bitwarden"], ["AppData", "Roaming", "Bitwarden"], [".password-store"]] },
+        { "id": "cloud-cli", "segments": [[".aws"], [".azure"], [".config", "gcloud"], [".kube"], [".docker", "config.json"], [".config", "gh"]] },
+        { "id": "dotenv", "files": [".env", ".env.*", ".npmrc", ".netrc", ".pgpass"] }
+      ]
+    },
+    {
+      "id": "pii",
+      "kind": "patterns",
+      "section": "§4 rule 6",
+      "description": "Email addresses and phone numbers; applied only when logs.redactPii is true (default false).",
+      "enabledBy": "logs.redactPii",
+      "enabledByDefault": false,
+      "patterns": [
+        { "id": "email", "pattern": "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "description": "email address" },
+        { "id": "phone-e164", "pattern": "\\+[1-9][0-9]{6,14}", "description": "E.164 phone number" },
+        { "id": "phone-nanp", "pattern": "\\(?[0-9]{3}\\)?[ .-][0-9]{3}[ .-][0-9]{4}", "description": "North American number with separators" },
+        { "id": "phone-national", "pattern": "0[0-9]{2,4}[ /-][0-9]{4,8}", "description": "national format with a leading 0 and a separator (e.g. 030 12345678)" }
+      ]
+    }
+  ],
+  "neverLogged": [
+    { "id": "response-bodies", "description": "response bodies and fetched content (D94)" },
+    { "id": "file-contents", "description": "file contents (D109 §9)" },
+    { "id": "tool-results", "description": "tool results (D109 §9)" },
+    { "id": "transcripts", "description": "transcripts and conversation content" },
+    { "id": "panel-content", "description": "desktop panel page content and URLs (desktop spec §6.9)" },
+    { "id": "payloads", "description": "LLM prompt and response payloads outside an active, time-limited payload capture (§2.5)" }
+  ]
+}

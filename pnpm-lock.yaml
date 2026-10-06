@@ -73,6 +73,15 @@ importers:
         specifier: workspace:*
         version: link:../rpc-schema
 
+  packages/log-schema:
+    dependencies:
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.20.0)
+
   packages/module-api:
     dependencies:
       '@plur1bus/config-schema':
