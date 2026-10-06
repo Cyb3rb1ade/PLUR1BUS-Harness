@@ -1,0 +1,21 @@
+{
+  "name": "@plur1bus/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
+  "scripts": {
+    "build": "node --experimental-strip-types --no-warnings=ExperimentalWarning build.ts",
+    "test": "node ../../scripts/test-package.mjs"
+  },
+  "dependencies": {
+    "@preact/signals": "2.11.3",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "axe-core": "4.13.0",
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0",
+    "typescript": "5.9.3"
+  }
+}

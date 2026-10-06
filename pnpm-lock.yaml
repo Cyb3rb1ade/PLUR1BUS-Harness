@@ -108,6 +108,28 @@ importers:
         specifier: 16.0.0
         version: 16.0.0
 
+  packages/web:
+    dependencies:
+      '@preact/signals':
+        specifier: 2.11.3
+        version: 2.11.3(preact@10.29.8)
+      preact:
+        specifier: 10.29.8
+        version: 10.29.8
+    devDependencies:
+      axe-core:
+        specifier: 4.13.0
+        version: 4.13.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/webmcp:
     devDependencies:
       '@plur1bus/rpc-schema':
@@ -487,6 +509,14 @@ packages:
     peerDependencies:
       apache-arrow: '>=15.0.0 <=18.1.0'
 
+  '@preact/signals-core@1.14.4':
+    resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
+
+  '@preact/signals@2.11.3':
+    resolution: {integrity: sha512-mttwFM98G/JiriTgMwU+UWygL6sfVmYEiNcPSKkUnv4PxPpZhmP2ugGC4qi360+ZIHyQ8NY05bfJT3b4RUIGlw==}
+    peerDependencies:
+      preact: '>= 10.25.0 || >=11.0.0-0'
+
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
 
@@ -849,6 +879,14 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
+  preact@10.29.8:
+    resolution: {integrity: sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q==}
+    peerDependencies:
+      preact-render-to-string: '>=5'
+    peerDependenciesMeta:
+      preact-render-to-string:
+        optional: true
+
   prettier@3.9.9:
     resolution: {integrity: sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==}
     engines: {node: '>=14'}
@@ -1183,6 +1221,13 @@ snapshots:
       '@lancedb/lancedb-linux-x64-musl': 0.26.2
       '@lancedb/lancedb-win32-arm64-msvc': 0.26.2
       '@lancedb/lancedb-win32-x64-msvc': 0.26.2
+
+  '@preact/signals-core@1.14.4': {}
+
+  '@preact/signals@2.11.3(preact@10.29.8)':
+    dependencies:
+      '@preact/signals-core': 1.14.4
+      preact: 10.29.8
 
   '@protobufjs/aspromise@1.1.2':
     optional: true
@@ -1537,6 +1582,8 @@ snapshots:
   playwright@1.63.0:
     dependencies:
       playwright-core: 1.63.0
+
+  preact@10.29.8: {}
 
   prettier@3.9.9: {}
 
