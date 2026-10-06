@@ -7,6 +7,11 @@ import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch, type SecurePat
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
+import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
+import { createEnginePort } from "./embedding-migrate/engine-port.ts";
+import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
+import { createStateStore } from "./embedding-migrate/state.ts";
+import { createConfigSwitchPort } from "./embedding-migrate/switch.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
@@ -38,7 +43,7 @@ import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
  *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, "memory.capture"] as const;
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...REEMBED_METHODS, "memory.capture"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -128,6 +133,7 @@ export function createCore(o: CoreOptions): Core {
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
   let source: ConfigSource | null = null;
+  let reembed: MigrationDriver | null = null;
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let replay: JournalReplay | null = null;
@@ -384,6 +390,12 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
+      // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
+      const migration = createMigrationDriver({
+        engine: createEnginePort(eng), store: createStateStore(l.state), logger: log,
+        switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
+      });
+      reembed = migration;
       const methods = buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
@@ -400,6 +412,7 @@ export function createCore(o: CoreOptions): Core {
         },
         systemJobs,
         discovery,
+        reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log }),
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -521,6 +534,8 @@ export function createCore(o: CoreOptions): Core {
         if (!waited) logger?.warn("journal replay still running at stop; its file stays for the next start", { replayed: replay.status().replayed });
         replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
+      // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
+      await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;

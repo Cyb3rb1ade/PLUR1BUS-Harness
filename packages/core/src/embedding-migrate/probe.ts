@@ -12,7 +12,7 @@ export interface EmbeddingFingerprint {
 
 export type Verdict = "compatible" | "migration-needed" | "incompatible";
 export type ProbeReason =
-  | "stored-identity-missing" | "stored-identity-invalid" | "target-identity-invalid" | "target-revision-unpinned" | "target-provider-unusable"
+  | "stored-identity-missing" | "stored-identity-invalid" | "target-identity-invalid" | "target-revision-unpinned" | "target-provider-unusable" | "target-model-unpinned"
   | "provider-changed" | "model-changed" | "revision-changed" | "dimension-changed" | "endpoint-changed" | "query-prefix-changed"
   | "passage-prefix-changed" | "pooling-changed" | "normalisation-changed" | "dtype-changed" | "artifacts-changed";
 
@@ -45,6 +45,8 @@ const idOf = (fp: EmbeddingFingerprint): { id: string } | { error: string } => {
   try { return { id: embeddingFingerprintId(fp as unknown as Record<string, unknown>) }; } catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
 };
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+/** A refusal built outside the fingerprint comparison (the target could not even be described). */
+export const refuseTarget = (reason: ProbeReason, message: string): ProbeResult => result("incompatible", [reason], message);
 const result = (verdict: Verdict, reasons: ProbeReason[], message: string, o: Partial<ProbeResult> = {}): ProbeResult =>
   ({ verdict, reasons, changed: [], storedId: null, targetId: null, message, ...o });
 

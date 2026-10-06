@@ -58,6 +58,8 @@ export interface MigrationDriver {
   status(): Promise<StatusView>;
   abort(): Promise<PublicCheckpoint>;
   switch(): Promise<PublicCheckpoint>;
+  /** The core is stopping: ends an in-flight run at its next batch boundary (phase aborted, resumable) and waits up to `waitMs`. */
+  stop(waitMs: number): Promise<void>;
 }
 
 export const DEFAULT_THROTTLE_MS = 250;
@@ -215,18 +217,32 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     const c = read();
     if (!c) throw new MigrationError("no-migration", "no re-embedding migration to switch");
     if (c.phase !== "ready-to-switch" || loop) throw new MigrationError("not-ready-to-switch", `migration ${c.id} is ${c.phase}; a switch needs a copied and validated generation`);
-    if (!d.switchPort) throw new MigrationError("switch-unavailable", "this core cannot write the active embedding selection (no supervisor owns config.json); start the daemon and retry");
+    if (!d.switchPort) {
+      const err = new MigrationError("switch-unavailable", "this core cannot write the active embedding selection (no supervisor owns config.json); start the daemon and retry");
+      save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
+      throw err;
+    }
     const rec = await d.engine.status(c.id);
     if (!rec || rec.state !== "ready_to_switch") throw new MigrationError("not-ready-to-switch", `the engine reports ${rec?.state ?? "no record"} for ${c.id}`);
     try {
       await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId });
     } catch (e) {
-      if (e instanceof MigrationError) throw e;
-      throw new MigrationError("switch-failed", (e instanceof Error ? e.message : String(e)).slice(0, 500));
+      const err = e instanceof MigrationError ? e : new MigrationError("switch-failed", (e instanceof Error ? e.message : String(e)).slice(0, 500));
+      save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
+      throw err;
     }
     d.logger?.info("re-embedding switched", { id: c.id, generation: c.targetGeneration });
     return publicView(save(c, { phase: "switched", error: null }));
   }
 
-  return { plan, start, run: async () => (await start()).done, status, abort, switch: doSwitch };
+  async function stop(waitMs: number): Promise<void> {
+    if (!loop) return;
+    const l = loop;
+    l.ac.abort();
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([l.done.then(() => undefined), new Promise<void>((res) => { timer = setTimeout(res, waitMs); timer.unref(); })]);
+    clearTimeout(timer);
+  }
+
+  return { plan, start, run: async () => (await start()).done, status, abort, switch: doSwitch, stop };
 }

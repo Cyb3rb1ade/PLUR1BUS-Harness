@@ -193,7 +193,8 @@ describe("migration driver: switch and abort", () => {
       const failing = createMigrationDriver({ engine: r.fake.engine, store: createStateStore(r.dir), switchPort: { apply: async () => { throw new Error("config busy"); } }, sleep: async () => {} });
       await failing.plan({ target }); await failing.run();
       await assert.rejects(failing.switch(), (e) => codeOf(e) === "switch-failed" && /config busy/.test((e as Error).message));
-      assert.equal((await failing.status()).checkpoint?.phase, "ready-to-switch"); assert.equal(r.fake.state.activeGeneration, "g0");
+      const st = (await failing.status()).checkpoint!;
+      assert.equal(st.phase, "ready-to-switch"); assert.equal(st.error?.code, "switch-failed"); assert.equal(r.fake.state.activeGeneration, "g0");
     } finally { r.done(); }
   });
 
@@ -203,6 +204,18 @@ describe("migration driver: switch and abort", () => {
       await d.plan({ target }); await d.run();
       await assert.rejects(d.switch(), (e) => codeOf(e) === "switch-unavailable");
       assert.equal(r.fake.state.activeGeneration, "g0");
+      assert.equal((await d.status()).checkpoint?.error?.code, "switch-unavailable");
+    } finally { r.done(); }
+  });
+
+  it("stop ends an in-flight run at a batch boundary, resumably", async () => {
+    let stopP: Promise<void> | null = null;
+    const r = rig({ onSleep: (n, d) => { if (n === 3) stopP = d.stop(5_000); } }); try {
+      await r.driver.plan({ target });
+      const cp = await r.driver.run(); await stopP;
+      assert.equal(cp.phase, "aborted"); assert.equal(cp.error, null); assert.equal(cp.counts.batchesDone, 3);
+      assert.equal((await r.driver.run()).phase, "ready-to-switch");
+      await r.driver.stop(10); // nothing in flight: a no-op
     } finally { r.done(); }
   });
 

@@ -671,6 +671,41 @@
           "identity": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["model", "dimensions", "fingerprintId"], "properties": { "model": { "type": "string" }, "dimensions": { "type": "integer", "minimum": 1 }, "fingerprintId": { "type": "string" } } }, { "type": "null" }] }
         } }
       },
+      "admin.reembed.plan": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model (a pinned local-transformers model) and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk).",
+        "params": { "type": "object", "additionalProperties": false, "required": ["model"], "properties": {
+          "model": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "dimensions": { "type": "integer", "minimum": 1, "maximum": 65536 },
+          "queryPrefix": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "passagePrefix": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "throttleMs": { "type": "integer", "minimum": 0, "maximum": 60000 }
+        } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["probe", "plan"], "properties": { "probe": { "$ref": "#/$defs/ReembedProbe" }, "plan": { "oneOf": [{ "$ref": "#/$defs/ReembedPlanSummary" }, { "type": "null" }] } } }
+      },
+      "admin.reembed.run": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Starts (or continues, after an abort or a halt) the planned migration in the background and returns at once with the checkpoint; follow it with admin.reembed.status. Copies in throttled batches, validates, and (unless switch is false) switches: one config.set that makes the new generation active at the next core start; the old generation is kept. Recall is answered by the old generation until then. With phase ready-to-switch it performs only the switch. E_NOT_FOUND reason=no-migration, E_CONFLICT reason=migration-running|not-runnable, E_NOT_AVAILABLE reason=switch-unavailable.",
+        "params": { "type": "object", "additionalProperties": false, "properties": { "switch": { "type": "boolean" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["checkpoint"], "properties": { "checkpoint": { "$ref": "#/$defs/ReembedCheckpoint" } } }
+      },
+      "admin.reembed.status": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "The migration's checkpoint (null when none), the engine's own state for it, whether a run is active in this core, and progress counters.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {} },
+        "result": { "type": "object", "additionalProperties": false, "required": ["checkpoint", "engineState", "running", "progress"], "properties": {
+          "checkpoint": { "oneOf": [{ "$ref": "#/$defs/ReembedCheckpoint" }, { "type": "null" }] },
+          "engineState": { "type": ["string", "null"] },
+          "running": { "type": "boolean" },
+          "progress": { "type": "object", "additionalProperties": false, "required": ["rows", "rowsDone", "batches", "batchesDone", "percent"], "properties": { "rows": { "type": "integer", "minimum": 0 }, "rowsDone": { "type": "integer", "minimum": 0 }, "batches": { "type": "integer", "minimum": 0 }, "batchesDone": { "type": "integer", "minimum": 0 }, "percent": { "type": "integer", "minimum": 0, "maximum": 100 } } }
+        } }
+      },
+      "admin.reembed.abort": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Stops the migration at the next batch boundary (never mid-batch) and answers with the checkpoint, phase aborted. The copied generation stays and admin.reembed.run continues it. E_NOT_FOUND reason=no-migration, E_CONFLICT reason=not-abortable once it is switched or failed.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {} },
+        "result": { "type": "object", "additionalProperties": false, "required": ["checkpoint"], "properties": { "checkpoint": { "$ref": "#/$defs/ReembedCheckpoint" } } }
+      },
       "events.subscribe": {
         "x-stability": "stable", "x-since": "1.0.0", "x-server": "core",
         "params": { "type": "object", "additionalProperties": false, "properties": { "names": { "type": "array", "items": { "type": "string" } }, "agentId": { "$ref": "#/$defs/AgentId" } } },
@@ -1014,6 +1049,42 @@
     "EmbeddingIdentity": {
       "type": "object", "additionalProperties": false, "required": ["fingerprintId", "provider", "model", "dimensions"],
       "properties": { "fingerprintId": { "type": "string" }, "provider": { "type": "string" }, "model": { "type": "string" }, "dimensions": { "type": "integer", "minimum": 1 } }
+    },
+    "ReembedProbe": {
+      "type": "object", "additionalProperties": false, "required": ["verdict", "reasons", "changed", "storedId", "targetId", "message"],
+      "properties": {
+        "verdict": { "enum": ["compatible", "migration-needed", "incompatible"] },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "changed": { "type": "array", "items": { "type": "string" } },
+        "storedId": { "type": ["string", "null"] }, "targetId": { "type": ["string", "null"] },
+        "message": { "type": "string" }
+      }
+    },
+    "ReembedPlanSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sourceGeneration", "targetGeneration", "rows", "tables", "batches", "batchSize", "providerCalls", "sourceBytes", "targetBytes", "requiredFreeBytes", "freeBytes", "throttleMs", "minDurationMs", "probeStatus"],
+      "properties": {
+        "id": { "type": "string" }, "sourceGeneration": { "type": "string" }, "targetGeneration": { "type": "string" },
+        "rows": { "type": "integer", "minimum": 0 }, "tables": { "type": "integer", "minimum": 0 }, "batches": { "type": "integer", "minimum": 0 }, "batchSize": { "type": "integer", "minimum": 1 },
+        "providerCalls": { "type": "integer", "minimum": 0 }, "sourceBytes": { "type": "integer", "minimum": 0 }, "targetBytes": { "type": "integer", "minimum": 0 },
+        "requiredFreeBytes": { "type": "integer", "minimum": 0 }, "freeBytes": { "type": "integer", "minimum": 0 },
+        "throttleMs": { "type": "integer", "minimum": 0 }, "minDurationMs": { "type": "integer", "minimum": 0 }, "probeStatus": { "type": "string" }
+      }
+    },
+    "ReembedCheckpoint": {
+      "description": "The migration's Harness checkpoint without the engine's confirmation token. `aborted` is stopped and resumable (by request or after an engine error: see error); `validating` with error engine-validate-unavailable waits for an engine that can validate; `switched` and `failed` are final.",
+      "type": "object", "additionalProperties": false,
+      "required": ["v", "id", "planDigest", "createdAt", "updatedAt", "phase", "sourceGeneration", "targetGeneration", "target", "counts", "throttleMs", "abortRequested", "error"],
+      "properties": {
+        "v": { "const": 1 }, "id": { "type": "string" }, "planDigest": { "type": "string" },
+        "createdAt": { "type": "integer", "minimum": 0 }, "updatedAt": { "type": "integer", "minimum": 0 },
+        "phase": { "enum": ["planned", "running", "aborted", "validating", "ready-to-switch", "switched", "failed"] },
+        "sourceGeneration": { "type": "string" }, "targetGeneration": { "type": "string" },
+        "target": { "type": "object", "additionalProperties": true, "required": ["provider", "model", "dimensions"], "properties": { "provider": { "type": "string" }, "model": { "type": "string" }, "dimensions": { "type": "integer", "minimum": 1 } } },
+        "counts": { "type": "object", "additionalProperties": false, "required": ["rows", "tables", "batches", "rowsDone", "batchesDone"], "properties": { "rows": { "type": "integer", "minimum": 0 }, "tables": { "type": "integer", "minimum": 0 }, "batches": { "type": "integer", "minimum": 0 }, "rowsDone": { "type": "integer", "minimum": 0 }, "batchesDone": { "type": "integer", "minimum": 0 } } },
+        "throttleMs": { "type": "integer", "minimum": 0 }, "abortRequested": { "type": "boolean" },
+        "error": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": { "code": { "type": "string" }, "message": { "type": "string" } } }, { "type": "null" }] }
+      }
     },
     "MemoryCard": {
       "type": "object", "additionalProperties": false,

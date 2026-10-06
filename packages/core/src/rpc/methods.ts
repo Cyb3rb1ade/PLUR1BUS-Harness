@@ -54,6 +54,8 @@ export interface MethodDeps {
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
   discovery?: import("../discovery/service.ts").DiscoveryService;
+  /** M2: the `admin.reembed.*` handlers (embedding-migrate/rpc.ts), when the core built a migration driver. */
+  reembed?: Record<string, Handler>;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -166,6 +168,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
+    ...(d.reembed ?? {}),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {
