@@ -3,6 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, syml
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { createSecurePath, runDir } from "@plur1bus/module-api";
 import { ensureOwnerToken, ownerTokenPath } from "../src/owner-token.ts";
 
 function home(): string {
@@ -16,7 +17,13 @@ test("the owner token is created once (64 hex chars, mode 0600) and then reused"
   try {
     const t = ensureOwnerToken(h);
     assert.match(t, /^[0-9a-f]{64}$/);
-    assert.equal(statSync(ownerTokenPath(h)).mode & 0o777, 0o600);
+    if (process.platform === "win32") {
+      // No POSIX mode bits: the private DACL (user + SYSTEM only) is the equivalent. Re-applying it succeeds only when the
+      // read-back DACL holds exactly those two, so `applied` proves the file is private (or covered by run/'s ACL).
+      assert.equal(createSecurePath({ runDir: runDir(h) })(ownerTokenPath(h)).applied, true);
+    } else {
+      assert.equal(statSync(ownerTokenPath(h)).mode & 0o777, 0o600);
+    }
     assert.equal(ensureOwnerToken(h), t);
     assert.equal(readFileSync(ownerTokenPath(h), "utf8").trim(), t);
     const other = home(); try { assert.notEqual(ensureOwnerToken(other), t); } finally { rmSync(other, { recursive: true, force: true }); }
