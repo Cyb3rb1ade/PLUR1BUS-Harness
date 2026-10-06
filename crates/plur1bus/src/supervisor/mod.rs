@@ -551,7 +551,7 @@ fn tighten_log_file(path: &Path) -> io::Result<usize> {
     }
     #[cfg(windows)]
     {
-        drop(logfile::open_private_append(path)?);
+        logfile::secure_existing_file(path)?;
         Ok(1)
     }
     #[cfg(not(any(unix, windows)))]
@@ -1392,6 +1392,28 @@ mod tests {
             0o755
         );
         assert_eq!(fs::read(&target_file).unwrap(), b"leave this alone\n");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn tightening_log_tree_does_not_require_append_access() {
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().unwrap();
+        let logs = dir.path().join("logs");
+        fs::create_dir(&logs).unwrap();
+        let path = logs.join("supervisor.log");
+        fs::write(&path, b"before\n").unwrap();
+
+        let sid = plur1bus_rpc::win::user_sid().unwrap();
+        let restricted = format!("D:P(A;;0x00140080;;;{sid})(A;;0x00140080;;;SY)");
+        plur1bus_rpc::win::set_path_dacl(&path, &restricted).unwrap();
+
+        assert_eq!(tighten_log_tree(&logs).unwrap(), 1);
+
+        let mut log = logfile::RotatingFile::open(&path, u64::MAX, 1).unwrap();
+        log.write_all(b"after\n").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"before\nafter\n");
     }
 
     #[test]

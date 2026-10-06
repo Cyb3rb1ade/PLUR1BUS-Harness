@@ -106,6 +106,27 @@ pub(super) fn open_private_append(path: &Path) -> io::Result<File> {
     Ok(file)
 }
 
+#[cfg(windows)]
+pub(super) fn secure_existing_file(path: &Path) -> io::Result<()> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, SYNCHRONIZE, WRITE_DAC,
+    };
+
+    let file = OpenOptions::new()
+        .access_mode(FILE_READ_ATTRIBUTES | SYNCHRONIZE | WRITE_DAC)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)?;
+    if file.metadata()?.file_type().is_symlink() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "log path is a symbolic link",
+        ));
+    }
+    plur1bus_rpc::win::restrict_to_user(file.as_raw_handle())
+}
+
 fn append(path: &Path) -> io::Result<File> {
     open_private_append(path)
 }
