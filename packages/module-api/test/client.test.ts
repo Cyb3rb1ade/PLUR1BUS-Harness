@@ -20,6 +20,10 @@ function address(): string {
   return process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-${process.pid}-${Math.random().toString(36).slice(2)}` : join(tempDir(), "core.sock");
 }
 
+/** On Windows `connect` refuses a pipe without the pid expected to serve it, and the server's hello must name it: the
+ *  fakes below answer pid 1 (core) and 2 (supervisor). POSIX ignores it. */
+const asPid = (pid: number): { expectedServerPid?: number } => (process.platform === "win32" ? { expectedServerPid: pid } : {});
+
 /** Minimal fake core: auth, echo, one notification, slow method. */
 function fakeCore(addr: string, hello: unknown = { contract: "1.4.1", rpc: "1.0.0", instanceId: "i", pid: 1 }): Promise<any> {
   let liveConnections = 0;
@@ -51,20 +55,20 @@ describe("client", () => {
 
   it("authenticates on connect and exposes hello", async () => {
     server = await fakeCore(addr);
-    const c = await connect({ address: addr, token: TOKEN });
+    const c = await connect({ address: addr, token: TOKEN, ...asPid(1) });
     assert.deepEqual(c.hello, { contract: "1.4.1", rpc: "1.0.0", instanceId: "i", pid: 1 });
     assert.deepEqual(await c.call("echo", { x: 1 }), { x: 1 });
     await c.close();
   });
 
   it("maps a JSON-RPC error to RpcCallError with the closed code", async () => {
-    const c = await connect({ address: addr, token: TOKEN });
+    const c = await connect({ address: addr, token: TOKEN, ...asPid(1) });
     await assert.rejects(c.call("nope"), (e: any) => e instanceof RpcCallError && e.error === "E_INTERNAL" && e.reason === "method-not-found");
     await c.close();
   });
 
   it("a call error keeps reason, detail and ids", async () => {
-    const c = await connect({ address: addr, token: TOKEN });
+    const c = await connect({ address: addr, token: TOKEN, ...asPid(1) });
     await assert.rejects(c.call("storage"), (e: any) => {
       assert.ok(e instanceof RpcCallError);
       assert.equal(e.error, "E_STORAGE"); assert.equal(e.reason, "storage"); assert.equal(e.detail, "refresh");
@@ -76,11 +80,11 @@ describe("client", () => {
   });
 
   it("rejects a bad token at connect", async () => {
-    await assert.rejects(connect({ address: addr, token: "b".repeat(64) }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
+    await assert.rejects(connect({ address: addr, token: "b".repeat(64), ...asPid(1) }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
   });
 
   it("delivers notifications and times out a slow call", async () => {
-    const c = await connect({ address: addr, token: TOKEN, callTimeoutMs: 100 });
+    const c = await connect({ address: addr, token: TOKEN, callTimeoutMs: 100, ...asPid(1) });
     const seen: unknown[] = []; c.onNotification((m, p) => seen.push([m, p]));
     await c.call("notify");
     await new Promise((r) => setTimeout(r, 20));
@@ -91,7 +95,7 @@ describe("client", () => {
 
   it("connect to a missing socket fails fast with E_CORE_UNAVAILABLE", async () => {
     const t0 = performance.now();
-    await assert.rejects(connect({ address: address(), token: TOKEN, connectTimeoutMs: 300 }), (e: any) => e instanceof RpcCallError && e.error === "E_CORE_UNAVAILABLE");
+    await assert.rejects(connect({ address: address(), token: TOKEN, connectTimeoutMs: 300, ...asPid(1) }), (e: any) => e instanceof RpcCallError && e.error === "E_CORE_UNAVAILABLE");
     assert.ok(performance.now() - t0 < 300, "fails before the timeout on ENOENT");
   });
 
@@ -99,7 +103,7 @@ describe("client", () => {
     const noCapsAddr = address();
     const noCaps = await fakeCore(noCapsAddr);
     try {
-      const c = await connect({ address: noCapsAddr, token: TOKEN });
+      const c = await connect({ address: noCapsAddr, token: TOKEN, ...asPid(1) });
       assert.equal(c.supports("memory.propose"), true, "an older core with no capabilities answers for itself");
       await c.close();
     } finally { noCaps.close(); }
@@ -110,7 +114,7 @@ describe("client", () => {
       capabilities: { methods: { echo: { stability: "stable", since: "1.0.0" } }, notifications: {}, extensionPoints: {}, features: [] },
     });
     try {
-      const c = await connect({ address: withCapsAddr, token: TOKEN });
+      const c = await connect({ address: withCapsAddr, token: TOKEN, ...asPid(1) });
       assert.equal(c.supports("echo"), true);
       assert.equal(c.supports("memory.propose"), false);
       await c.close();
@@ -133,14 +137,14 @@ describe("client", () => {
     });
     await new Promise<void>((res) => sup.listen(supAddr, () => res()));
     try {
-      const c = await connect({ address: supAddr, token: TOKEN, endpoint: "supervisor" });
+      const c = await connect({ address: supAddr, token: TOKEN, endpoint: "supervisor", ...asPid(2) });
       assert.deepEqual(firstMethods, ["supervisor.auth"]);
       assert.deepEqual(c.hello, supHello);
       assert.equal(c.supports("daemon.status"), true);
       assert.equal(c.supports("memory.recall"), false);
       await c.close();
       // The default endpoint is still the core: against a supervisor it sends core.auth and is refused.
-      await assert.rejects(connect({ address: supAddr, token: TOKEN }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
+      await assert.rejects(connect({ address: supAddr, token: TOKEN, ...asPid(2) }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
       assert.deepEqual(firstMethods, ["supervisor.auth", "core.auth"]);
     } finally { sup.close(); }
   });
@@ -149,7 +153,7 @@ describe("client", () => {
     // Allow any pending close events from previous tests to settle
     await new Promise((r) => setTimeout(r, 50));
     const liveAtStart = (server as any).getLiveConnections();
-    await assert.rejects(connect({ address: addr, token: "b".repeat(64) }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
+    await assert.rejects(connect({ address: addr, token: "b".repeat(64), ...asPid(1) }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
     await new Promise((r) => setTimeout(r, 200));
     const liveAtEnd = (server as any).getLiveConnections();
     assert.strictEqual(liveAtEnd, liveAtStart, "socket was not cleaned up after failed auth");

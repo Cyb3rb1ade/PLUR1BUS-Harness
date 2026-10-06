@@ -12,7 +12,7 @@ JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $d
 
 ## Local endpoint trust
 
-The trust boundary is the current OS user. On POSIX that rests on `run/` (a `0700` directory of the user) holding the sockets, tokens and pid files. Before a client reads a token or connects, it checks `run/`: it must be a real directory (not a symlink), owned by the current uid, and not writable by group or others; the socket must be a socket of the current uid. The Rust CLI and clients additionally refuse a server whose peer uid (`SO_PEERCRED` on Linux, `getpeereid` on macOS) is not the current uid. The Rust client and the TypeScript client answer a refusal with `E_UNAUTHORIZED` (TypeScript: reason `run-dir-untrusted` or `socket-untrusted`; Rust additionally `peer-uid-mismatch`) and send nothing. The Python client applies the directory checks and raises `E_SERVER_IDENTITY` with its own reasons (`run-dir-owner`, `run-dir-writable-by-others`, `run-dir-not-a-directory`); it has no peer-uid check, and neither has Node.
+The trust boundary is the current OS user. On POSIX that rests on `run/` (a `0700` directory of the user) holding the sockets, tokens and pid files. Before a client reads a token or connects, it checks `run/`: it must be a real directory (not a symlink), owned by the current uid, and not writable by group or others; the socket must be a socket of the current uid. The Rust and Python clients additionally refuse a server whose peer uid (`SO_PEERCRED` on Linux; `getpeereid` in Rust and the equivalent `LOCAL_PEERCRED` in Python on macOS) is not the current uid, after connecting and before the token is sent; where the OS gives no answer the directory and socket checks are all there is. All three clients (Rust, TypeScript, Python) answer a refusal with `E_UNAUTHORIZED`, send nothing and read no token: reason `run-dir-untrusted` or `socket-untrusted` in all three, and `peer-uid-mismatch` in Rust and Python. **Limitation:** Node cannot ask the kernel for the peer uid of a unix socket, so the TypeScript client has the directory and socket checks only. The Python refusal also carries `data.legacy_code = "E_SERVER_IDENTITY"`, the code releases before this one raised for a bad `run/` (with the reasons `run-dir-owner`, `run-dir-writable-by-others`, `run-dir-not-a-directory`), so a host that classified the old code can still recognise it; `E_SERVER_IDENTITY` itself remains the code of the Python pid checks.
 
 Setups that are refused for this reason:
 
@@ -21,7 +21,7 @@ Setups that are refused for this reason:
 - A home on WSL under `/mnt/c` (DrvFs), where every entry shows as world-writable.
 - A group- or world-writable home or `run/` (for example a sloppy umask or a shared `PLUR1BUS_HOME`), and a `run/` that is a symlink.
 
-On Windows, `run/` is protected by a DACL and the client compares the pipe server's process id with `run/core.pid` (or `run/supervisor.pid`) before it sends the token; a missing pid file is a refusal (`server-pid-unknown`), not a skipped check. The Rust and Python clients ask the OS (`GetNamedPipeServerProcessId`). **Limitation:** the TypeScript client (`@plur1bus/module-api`) has no native lookup, so it can only compare `hello.pid` with the recorded pid after `core.auth` was sent: a process that squats the pipe name receives the token and can claim any pid. A host that supplies a native lookup (`serverPidOf`) gets the refusal before the token is sent. Closing this for good needs the server to prove it holds the token (an HMAC over a client nonce) before the client sends it; that is not implemented.
+On Windows, `run/` is protected by a DACL and the client compares the pipe server's process id with `run/core.pid` (or `run/supervisor.pid`) before it sends the token; a missing pid file is a refusal (`server-pid-unknown`), not a skipped check. The Rust and Python clients ask the OS (`GetNamedPipeServerProcessId`; the Python pid refusals stay `E_SERVER_IDENTITY`). **Limitation:** the TypeScript client (`@plur1bus/module-api`) has no native lookup, so it can only compare `hello.pid` with the recorded pid after `core.auth` was sent: a process that squats the pipe name receives the token and can claim any pid. A host that supplies a native lookup (`serverPidOf`) gets the refusal before the token is sent. Closing this for good needs the server to prove it holds the token (an HMAC over a client nonce) before the client sends it; that is not implemented.
 
 ## Error codes
 
@@ -3951,6 +3951,563 @@ Acknowledges newly discovered models, clearing the new-models indicator (D112).
 }
 ```
 
+### `budget.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Only this agent's usage, and the global limits plus this agent's own"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timeZone",
+    "priceVersion",
+    "now",
+    "periods",
+    "limits"
+  ],
+  "properties": {
+    "timeZone": {
+      "type": "string"
+    },
+    "priceVersion": {
+      "type": "string",
+      "description": "The price table in force now"
+    },
+    "now": {
+      "type": "string",
+      "description": "RFC 3339"
+    },
+    "periods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "period",
+          "key",
+          "start",
+          "end",
+          "total",
+          "agents"
+        ],
+        "properties": {
+          "period": {
+            "enum": [
+              "day",
+              "month"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "YYYY-MM-DD or YYYY-MM, local"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "total": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "events",
+              "inputTokens",
+              "outputTokens",
+              "cacheReadTokens",
+              "cacheWriteTokens",
+              "costMicros",
+              "unpricedEvents"
+            ],
+            "properties": {
+              "events": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inputTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "outputTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cacheReadTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cacheWriteTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "costMicros": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Micro-USD, summed over priced events only"
+              },
+              "unpricedEvents": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
+              }
+            }
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "agentId",
+                "total",
+                "models"
+              ],
+              "properties": {
+                "agentId": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "events",
+                    "inputTokens",
+                    "outputTokens",
+                    "cacheReadTokens",
+                    "cacheWriteTokens",
+                    "costMicros",
+                    "unpricedEvents"
+                  ],
+                  "properties": {
+                    "events": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "cacheReadTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "cacheWriteTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "costMicros": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Micro-USD, summed over priced events only"
+                    },
+                    "unpricedEvents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
+                    }
+                  }
+                },
+                "models": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "model",
+                      "events",
+                      "inputTokens",
+                      "outputTokens",
+                      "cacheReadTokens",
+                      "cacheWriteTokens",
+                      "costMicros",
+                      "unpricedEvents"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string"
+                      },
+                      "events": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "inputTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "outputTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cacheReadTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cacheWriteTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "costMicros": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "unpricedEvents": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BudgetLimitState"
+      }
+    }
+  }
+}
+```
+
+### `budget.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "minProperties": 1,
+  "properties": {
+    "limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "period",
+        "metric"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "global",
+            "agent"
+          ]
+        },
+        "agentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Required for scope agent, refused for global"
+        },
+        "period": {
+          "enum": [
+            "day",
+            "month"
+          ]
+        },
+        "metric": {
+          "enum": [
+            "cost",
+            "tokens"
+          ]
+        },
+        "soft": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "hard": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "An IANA zone name"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timeZone",
+    "limits"
+  ],
+  "properties": {
+    "timeZone": {
+      "type": "string"
+    },
+    "limit": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BudgetLimit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The limit as stored after the change; null when it was removed. Absent when only the time zone changed."
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BudgetLimit"
+      }
+    }
+  }
+}
+```
+
+### `secret.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Which secret backend is in use (OS keyring first, then the opt-in encrypted file), why, and how many secrets it holds. Owner only (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretStatus"
+}
+```
+
+### `secret.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Secret names and metadata, never values. Owner only (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secrets"
+  ],
+  "properties": {
+    "secrets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SecretMeta"
+      }
+    }
+  }
+}
+```
+
+### `secret.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Creates or replaces a secret; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "value"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretMeta"
+}
+```
+
+### `secret.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+A secret's metadata; with `reveal: true` also its value, the only RPC that returns one. Owner only; the call is audited before the value is released (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "reveal": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secret"
+  ],
+  "properties": {
+    "secret": {
+      "$ref": "#/$defs/SecretMeta"
+    },
+    "value": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `secret.delete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Deletes a secret from every available backend and revokes its leases. Owner only; audited (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "removed"
+  ],
+  "properties": {
+    "removed": {
+      "const": true
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
@@ -6580,6 +7137,131 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `BudgetLimit`
+
+```json
+{
+  "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "period",
+    "metric",
+    "soft",
+    "hard"
+  ],
+  "properties": {
+    "scope": {
+      "enum": [
+        "global",
+        "agent"
+      ]
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "period": {
+      "enum": [
+        "day",
+        "month"
+      ]
+    },
+    "metric": {
+      "enum": [
+        "cost",
+        "tokens"
+      ]
+    },
+    "soft": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "hard": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `BudgetLimitState`
+
+```json
+{
+  "description": "Experimental (1.5.0). A budget limit with its use in the current period and where that stands.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "period",
+    "metric",
+    "soft",
+    "hard",
+    "used",
+    "state"
+  ],
+  "properties": {
+    "scope": {
+      "enum": [
+        "global",
+        "agent"
+      ]
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "period": {
+      "enum": [
+        "day",
+        "month"
+      ]
+    },
+    "metric": {
+      "enum": [
+        "cost",
+        "tokens"
+      ]
+    },
+    "soft": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "hard": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "enum": [
+        "ok",
+        "soft",
+        "hard"
+      ]
+    }
+  }
+}
+```
+
 ### `RestartPlan`
 
 ```json
@@ -7229,6 +7911,137 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "error": {
       "$ref": "#/$defs/ModelScanErrorInfo"
+    }
+  }
+}
+```
+
+### `SecretBackend`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "keyring",
+    "file",
+    "memory"
+  ]
+}
+```
+
+### `SecretMeta`
+
+```json
+{
+  "description": "Experimental (1.5.0). A secret's name and timestamps; never its value (M2, ADR-005).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "backend",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "backend": {
+      "$ref": "#/$defs/SecretBackend"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `SecretStatus`
+
+```json
+{
+  "description": "Experimental (1.5.0). The secret store's state: `backend` is where values go now (`none` when neither the OS keyring nor the enabled encrypted file can serve), `degraded` is true whenever it is not the keyring (M2, ADR-005).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "backend",
+    "degraded",
+    "keyring",
+    "file",
+    "count",
+    "activeLeases"
+  ],
+  "properties": {
+    "backend": {
+      "type": "string",
+      "enum": [
+        "keyring",
+        "file",
+        "memory",
+        "none"
+      ]
+    },
+    "degraded": {
+      "type": "boolean"
+    },
+    "keyring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "available"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "activeLeases": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "remedy": {
+      "type": "string"
     }
   }
 }

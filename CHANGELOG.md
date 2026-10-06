@@ -14,11 +14,34 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   with one validator per language and a Rust/TypeScript parity test. `docs/log-schema.md` is generated and checked by
   `pnpm docs:check`. No logger or writer is wired in yet; nothing in the existing log files changes.
 
+- **Secret store (M2, ADR-005).** `plur1bus secret status|set|get|rm|ls` and the core's `secret.status|list|set|get|delete`
+  RPC (experimental, owner only; any other principal is refused with `E_DENIED`). Secrets go to the OS keyring
+  (`@napi-rs/keyring`, loaded on first use) and, only when `secrets.fileFallback.enabled` is `true` (default `false`),
+  to an encrypted file (`state/secrets/store.json`: AES-256-GCM, a fresh nonce per entry, the entry's name bound as
+  authenticated data, a machine-bound key file `store.key`, both 0600 or a user-and-SYSTEM ACL, written atomically). A
+  tampered, truncated or key-less file fails closed (`E_STORAGE`, reason `corrupt`) and the key is never regenerated over
+  existing entries. A value is read from stdin, never from an argument, and is printed only by `get --reveal`; every
+  access writes a value-free line to `logs/audit.log`, and when that line cannot be written no value is released or
+  changed. The engine gets short-lived, revocable leases (in-process; there is no RPC for them). `secret.*` is never
+  offered as a WebMCP tool. RPC stays at 1.5.0: the new methods carry `x-since: 1.5.0`.
+
 ### Changed
 
-- Memory engine re-pinned to **`9bafa047`** (merge of plugin PR #217), contract **1.11.0**.
-  Additive: `Engine.memory.import` and `Engine.stores.adopt`. Top-level engine keys stay **57**.
-  `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is **1.11.0** (drift-guard from #89).
+- Memory engine re-pinned to **`6868b7b1`** (plugin `origin/main` after PR #237, previously `9bafa047`), contract
+  **1.12.0**; top-level engine keys stay **57**. `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is
+  **1.12.0** (drift-guard from #89); the contract floor stays 1.8.0. What changes for Harness users:
+  - **Contract 1.12.0 (plugin #219):** additive `Engine.memory.rebind` / `Engine.memory.unbind` (manual N:1
+    channel-identity link, user-scope owner metadata only; `unbind` restores the bindings recorded under a rebind id)
+    and `UserPrincipal` accepts `user:v2`. The Harness core does not call them yet; its engine-error map gains the
+    three new codes (`identity-already-bound` → `E_CONFLICT`, `ledger-corrupt` and `lock-lost` → `E_STORAGE`).
+  - **Dependency audit (plugin #237):** `onnxruntime-node`'s `global-agent` is overridden to 4.1.3, which drops
+    `roarr` and `sprintf-js` from the engine's tree.
+  - **Lock ownership (plugin #220, #224):** file locks, including the job locks the engine takes, are released and
+    reaped only by their owner, so a stale or reused lock no longer lets one process drop another's lock.
+  - **Log redaction (plugin #225, #229, #231):** memory text, prompts, reminder text and peer ids stay out of engine
+    logs; provider error bodies are no longer copied into error messages; webhook and provider URLs are kept out of
+    errors and logs; text sidecars are written owner-only.
+  - Not included: plugin #233 (further leak-audit items) was still open at the 61025251 pin; not checked since.
 
 ### Fixed
 

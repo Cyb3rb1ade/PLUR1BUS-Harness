@@ -65,6 +65,31 @@ pub(crate) fn stdout_write_failed() -> bool {
     STDOUT_BROKEN.load(Ordering::Relaxed)
 }
 
+/// Writes a line to stderr and ignores every error. `eprintln!` panics when stderr is closed or full (`2>&-`), which
+/// would turn a closed-stderr run into exit 101 and lose the command's real exit code.
+pub(crate) fn say_err(text: &str) {
+    use std::io::Write;
+    let mut e = std::io::stderr().lock();
+    let _ = writeln!(e, "{text}");
+}
+
+/// The exit code a command that ends the process itself must use. Same rule as the end of `main`: a command that
+/// would exit 0 but lost its stdout output to a real write error (not a closed pipe) exits 1 instead, so success is
+/// never reported for output the caller asked for and did not get. Non-zero codes are kept, they already fail.
+pub(crate) fn final_exit_code(code: i32) -> i32 {
+    if code == 0 && stdout_write_failed() {
+        1
+    } else {
+        code
+    }
+}
+
+/// `process::exit` for commands that end the process themselves (`setup`, `firstaid repair`, `import`): applies
+/// [`final_exit_code`] so they do not bypass the write-error check at the end of `main`.
+pub(crate) fn exit(code: i32) -> ! {
+    std::process::exit(final_exit_code(code))
+}
+
 /// `println!` that cannot panic on a closed or failing stdout; see [`write_stdout`].
 pub(crate) fn say(text: &str) {
     write_stdout(text, true);
@@ -87,7 +112,7 @@ fn write_stdout(text: &str, newline: bool) {
         STDOUT_CLOSED.store(true, Ordering::Relaxed);
         if let Some(msg) = write_failure(&e) {
             STDOUT_BROKEN.store(true, Ordering::Relaxed);
-            eprintln!("{msg}");
+            say_err(&msg);
         }
     }
 }
@@ -122,9 +147,9 @@ impl Out {
             }
             say(&document("error/1", v).to_string());
         } else {
-            eprintln!("plur1bus: {message}");
+            say_err(&format!("plur1bus: {message}"));
             if let Some(line) = ids_line(&extra) {
-                eprintln!("{line}");
+                say_err(&line);
             }
         }
         std::process::exit(exit)

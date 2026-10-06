@@ -126,8 +126,8 @@ describe("rpc-schema stability annotations", () => {
     assert.ok(schema.$defs.CoreStatus.properties.process);
   });
 
-  it("models.* are core, experimental, since 1.5.0, closed", () => {
-    const modelMethods = ["models.list", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge"];
+  it("models.* and budget.* are core, experimental, since 1.5.0, closed", () => {
+    const modelMethods = ["models.list", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge", "budget.status", "budget.set"];
     for (const name of modelMethods) {
       const def = methods[name];
       assert.ok(def, `${name} exists in methods`);

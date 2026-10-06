@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
-import { connect } from "@plur1bus/module-api";
+import { connect } from "./helpers/connect.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore } from "../src/core.ts";
 import { layout } from "../src/paths.ts";
