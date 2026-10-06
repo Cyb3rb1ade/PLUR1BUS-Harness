@@ -17,6 +17,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus 1staid`↴](#plur1bus-1staid)
 * [`plur1bus 1staid check`↴](#plur1bus-1staid-check)
 * [`plur1bus 1staid repair`↴](#plur1bus-1staid-repair)
+* [`plur1bus 1staid bundle`↴](#plur1bus-1staid-bundle)
 * [`plur1bus agent`↴](#plur1bus-agent)
 * [`plur1bus agent list`↴](#plur1bus-agent-list)
 * [`plur1bus agent create`↴](#plur1bus-agent-create)
@@ -184,6 +185,7 @@ Check and repair the installation
 
 * `check` — [experimental] Read-only diagnostics over the installation (spec §6.6)
 * `repair` — [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
+* `bundle` — [experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last log lines; never the audit log, payload capture, stores or secrets) and print its path
 
 
 
@@ -206,6 +208,21 @@ Check and repair the installation
 * `--yes` — Confirm every step of the plan without asking (required outside a terminal)
 * `--dry-run` — Print the plan and change nothing
 * `--only <STEP_ID>` — Plan only this step (repeatable)
+
+
+
+## `plur1bus 1staid bundle`
+
+[experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last log lines; never the audit log, payload capture, stores or secrets) and print its path
+
+**Usage:** `plur1bus 1staid bundle [OPTIONS]`
+
+###### **Options:**
+
+* `--out <PATH>` — Where to write the zip: a new file, or an existing directory (default: `<home>/bundles/`)
+* `--lines <N>` — Keep the last N lines of each log
+
+  Default value: `500`
 
 
 
