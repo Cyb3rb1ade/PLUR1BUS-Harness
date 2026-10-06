@@ -54,8 +54,26 @@ pub fn append(layout: &Layout, line: &JournalLine<'_>) -> io::Result<()> {
 }
 
 pub fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
+    epoch_ms(std::time::SystemTime::now())
+}
+
+/// Milliseconds since the Unix epoch. A clock set before 1970 reads as 0 instead of panicking (the callers stamp
+/// audit and journal lines; a wrong stamp is better than a dead command).
+pub fn epoch_ms(t: std::time::SystemTime) -> u64 {
+    t.duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::epoch_ms;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn a_clock_before_1970_reads_as_zero_not_a_panic() {
+        assert_eq!(epoch_ms(UNIX_EPOCH - Duration::from_secs(1)), 0);
+        assert_eq!(epoch_ms(UNIX_EPOCH), 0);
+        assert_eq!(epoch_ms(UNIX_EPOCH + Duration::from_millis(1_234)), 1_234);
+        let _ = epoch_ms(SystemTime::now());
+    }
 }

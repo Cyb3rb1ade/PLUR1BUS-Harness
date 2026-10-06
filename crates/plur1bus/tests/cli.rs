@@ -1748,3 +1748,25 @@ fn offline_module_list_and_admin_obsidian_do_not_create_config_json() {
     assert_eq!(v["error"], "E_AGENT_UNKNOWN", "{v}");
     assert!(!dir.path().join("config.json").exists(), "admin obsidian");
 }
+
+/// K4: `println!` panics when stdout is a closed pipe (`plur1bus … | head -1`). The command must end quietly instead,
+/// with no panic message and not the panic exit status 101.
+#[cfg(unix)]
+#[test]
+fn a_closed_stdout_pipe_is_not_a_panic() {
+    use std::process::{Command as Std, Stdio};
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Std::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args(["--home"])
+        .arg(home.path())
+        .arg("__markdown")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(child.stdout.take()); // the reader goes away before the child has printed anything
+    let out = child.wait_with_output().unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!stderr.contains("panicked"), "stderr: {stderr}");
+    assert_ne!(out.status.code(), Some(101), "stderr: {stderr}");
+}

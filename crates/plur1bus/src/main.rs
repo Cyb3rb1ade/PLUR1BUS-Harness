@@ -31,7 +31,7 @@ fn main() {
             supervisor::run(&layout, supervisor::SuperviseOpts { no_core })
         }
         Cmd::Markdown => {
-            print!("{}", clap_markdown::help_markdown::<Cli>());
+            output::say_raw(&clap_markdown::help_markdown::<Cli>());
         }
         Cmd::Setup(args) => commands::setup::run(&out, &layout, args),
         Cmd::FirstAid {
