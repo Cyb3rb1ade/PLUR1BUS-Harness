@@ -5628,6 +5628,473 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 }
 ```
 
+### `session.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "kind": {
+      "enum": [
+        "direct",
+        "channel"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "memoryMode": {
+      "$ref": "#/$defs/MemoryMode"
+    },
+    "chatKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "replaceActive": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  }
+}
+```
+
+### `session.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "kind": {
+      "$ref": "#/$defs/SessionKind"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "archived": {
+      "enum": [
+        "exclude",
+        "only",
+        "any"
+      ]
+    },
+    "search": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessions",
+    "truncated"
+  ],
+  "properties": {
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionRecord"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `session.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "messages": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session",
+    "runningTurnId"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    }
+  }
+}
+```
+
+### `session.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session",
+    "runningTurnId",
+    "messages",
+    "lastEventSeq"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    },
+    "lastEventSeq": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `session.archive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Archives a session (archive-first deletion: nothing is removed; there is no delete over RPC). Idempotent. A session with a running turn is E_CONFLICT.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  }
+}
+```
+
+### `session.submit`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Submits one user message and starts a turn. Returns at once with state running (events follow as session.event notifications and through session.events), or, with wait, after the turn ended with its state, reply and error. One running turn per session (else E_CONFLICT turn-in-progress); no configured provider is E_NOT_AVAILABLE reason no-provider. Recall and capture happen once per turn inside the core; memory mode is the session's, never a parameter.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "text"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200000
+    },
+    "wait": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "messageId",
+    "state"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "turnId": {
+      "type": "string"
+    },
+    "messageId": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ]
+    },
+    "reply": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `session.events`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "afterSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "events",
+    "lastSeq",
+    "running"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
+    },
+    "lastSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "running": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
@@ -6267,6 +6734,37 @@ Emitted when a scan alters available models in the catalog (D112).
     },
     "at": {
       "type": "string"
+    }
+  }
+}
+```
+
+### `session.event`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.",
+  "required": [
+    "agentId",
+    "event"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "event": {
+      "$ref": "#/$defs/SessionEvent"
     }
   }
 }
@@ -9004,6 +9502,222 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "$ref": "#/$defs/IdentityHandle"
     },
     "confirmBy": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `SessionId`
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128
+}
+```
+
+### `SessionKind`
+
+```json
+{
+  "enum": [
+    "direct",
+    "card",
+    "project",
+    "channel",
+    "acp"
+  ]
+}
+```
+
+### `MemoryMode`
+
+```json
+{
+  "enum": [
+    "remember",
+    "incognito"
+  ]
+}
+```
+
+### `SessionRecord`
+
+```json
+{
+  "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The owner principal is never sent: a caller sees only its own sessions.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "agentId",
+    "scope",
+    "chatKey",
+    "title",
+    "pinned",
+    "memoryMode",
+    "createdAt",
+    "updatedAt",
+    "lastTurnAt",
+    "archivedAt",
+    "turnCount"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "kind": {
+      "$ref": "#/$defs/SessionKind"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "chatKey": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "pinned": {
+      "type": "boolean"
+    },
+    "memoryMode": {
+      "$ref": "#/$defs/MemoryMode"
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "updatedAt": {
+      "type": "integer"
+    },
+    "lastTurnAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "archivedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "turnCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `SessionMessage`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "seq",
+    "role",
+    "text",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "seq": {
+      "type": "integer"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "role": {
+      "enum": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ]
+    },
+    "text": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `SessionEventType`
+
+```json
+{
+  "enum": [
+    "turn.started",
+    "delta",
+    "tool.call",
+    "tool.result",
+    "turn.completed",
+    "turn.failed"
+  ]
+}
+```
+
+### `SessionEvent`
+
+```json
+{
+  "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "seq",
+    "turnId",
+    "type",
+    "data",
+    "at"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "type": {
+      "$ref": "#/$defs/SessionEventType"
+    },
+    "data": {
+      "type": "object"
+    },
+    "at": {
       "type": "integer"
     }
   }

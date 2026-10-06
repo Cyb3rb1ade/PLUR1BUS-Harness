@@ -197,14 +197,14 @@ fn hermes_dry_run_prints_report_with_errors_and_exits_one() {
             assert_eq!(report["profilesOrAgents"][0]["harnessAgentId"], "default");
             assert_eq!(report["errors"].as_array().unwrap().len(), 1);
             assert_eq!(report["errors"][0]["sourceRef"], "default:SOUL.md");
-            assert_eq!(report["errors"][0]["reason"], "symlink-refused");
+            assert_eq!(report["errors"][0]["reason"], "unsafe-symlink");
         } else {
             let human = String::from_utf8(output).unwrap();
             assert!(human.contains("DRY RUN"));
             assert!(human.contains("Profiles / Agents (1)"));
             assert!(human.contains("Summary:"));
             assert!(human.contains("Errors:"));
-            assert!(human.contains("default:SOUL.md: symlink-refused"));
+            assert!(human.contains("default:SOUL.md: unsafe-symlink"));
         }
         assert!(!home.exists(), "dry run wrote to the harness home");
     }

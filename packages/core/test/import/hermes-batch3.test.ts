@@ -572,7 +572,7 @@ describe("Hermes Importer Batch 3", () => {
     const badHome = tempDir("p1b-b3-cli-fail-");
     // Remove work profile memories so no ONNX download is attempted
     rmSync(join(badFx.root, "profiles", "work", "memories"), { recursive: true, force: true });
-    // Replace default MEMORY.md with a symlink to outside so safe reader fails with symlink-refused
+    // Replace default MEMORY.md with a symlink to outside so safe reader fails with unsafe-symlink
     const symlinkTarget = join(tempDir("outside-cli-"), "target.txt");
     writeFileSync(symlinkTarget, "outside secret");
     const badMemPath = join(badFx.root, "memories", "MEMORY.md");
@@ -593,9 +593,9 @@ describe("Hermes Importer Batch 3", () => {
     if (cliRes.ok) {
       assert.equal(cliRes.exit, 1);
       assert.equal(cliRes.schema, "import.hermes/1");
-      assert.ok((cliRes.value.errors as Array<{ reason: string }>).some((e) => e.reason === "symlink-refused"));
+      assert.ok((cliRes.value.errors as Array<{ reason: string }>).some((e) => e.reason === "unsafe-symlink"));
       assert.ok(cliRes.human.includes("Errors:"));
-      assert.ok(cliRes.human.includes("symlink-refused"));
+      assert.ok(cliRes.human.includes("unsafe-symlink"));
       assert.ok(cliRes.human.includes(`--resume ${cliRes.value.runId}`));
     }
   });

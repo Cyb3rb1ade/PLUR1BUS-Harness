@@ -21,6 +21,7 @@ pub mod plugin;
 pub mod repair;
 pub mod secret;
 pub mod service;
+pub mod session;
 pub mod setup;
 pub mod skill;
 pub mod stubs;

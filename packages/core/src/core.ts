@@ -29,6 +29,9 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
+import { engineTurnMemory } from "./session/memory-port.ts";
+import type { ChatProvider } from "./session/provider.ts";
+import { openSessionService, type SessionService } from "./session/service.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
@@ -94,6 +97,8 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** M1b-2c: the chat provider the turn loop uses; absent, `session.submit` answers E_NOT_AVAILABLE `no-provider` (the real adapters come with packages/providers). */
+  chatProvider?: ChatProvider;
   /** M3 RBAC: who a call is made by, and where refusals are audited. Default: the token-authenticated local connection
    *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
   rbac?: { resolve?: PrincipalResolver; audit?: AuditSink };
@@ -156,6 +161,7 @@ export function createCore(o: CoreOptions): Core {
   let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
   let budget: BudgetService | null = null;
   let replay: JournalReplay | null = null;
+  let sessions: SessionService | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
@@ -421,6 +427,12 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
+      // M1b-2c: the session store and turn loop; their handlers are merged below, the notifications go through `server`.
+      sessions = openSessionService({
+        dbPath: path.join(l.state, "sessions.sqlite"), clock, logger, agents: registry, isStopping: () => state.state === "stopping" || state.state === "stopped",
+        memory: engineTurnMemory({ engine: eng, config: cfg, agents: registry, logger, captureSignal: shutdown.signal, isStopping: () => state.state === "stopping" || state.state === "stopped" }),
+        provider: () => o.chatProvider ?? null, notify: (method, params, opts) => server?.notify(method, params, opts), signal: shutdown.signal,
+      });
       identity = createIdentityService({
         dbPath: path.join(l.state, "identity.sqlite"), clock,
         audit: createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock }),
@@ -432,7 +444,8 @@ export function createCore(o: CoreOptions): Core {
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
       });
       reembed = migration;
-      const methods = guardMethods(buildMethods({
+      const methods = guardMethods({
+        ...buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
@@ -458,7 +471,9 @@ export function createCore(o: CoreOptions): Core {
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
         // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
         secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
-      }), { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), now: clock });
+        }),
+        ...sessions.methods,
+      }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
@@ -523,6 +538,7 @@ export function createCore(o: CoreOptions): Core {
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
+      await step(log, "sessions close", async () => { await sessions?.close(); }); sessions = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "identity close", () => { identity?.close(); identity = null; });
@@ -597,6 +613,8 @@ export function createCore(o: CoreOptions): Core {
         if (!waited) logger?.warn("journal replay still running at stop; its file stays for the next start", { replayed: replay.status().replayed });
         replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
+      // M1b-2c: the shutdown abort above ends running turns (failed, `aborted`); they finish their writes before the engine closes.
+      await step(logger, "sessions close", async () => { await sessions?.close(); sessions = null; }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
