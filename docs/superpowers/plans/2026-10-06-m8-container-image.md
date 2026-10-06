@@ -43,8 +43,11 @@ no signing (the release pipeline, desktop D1, owns those).
 - **Health.** The HTTP API (`/api/v1/meta`, M3) does not exist yet, so RULING R2: health is the supervisor's `daemon.status` (core `ready`), not HTTP.
   No port is published until M3.
 - **Read-only root.** `read_only: true` + `tmpfs /tmp`; everything that writes lives on the two volumes.
-- **Models** are not in the image (DS18/§6.15.9): the smoke test uses the `flat-embedder` seam only through an explicit env opt-in? — RULING R3: smoke starts the real core; if the core needs models for `ready`, the
-  smoke test sets `PLUR1BUS_ALLOW_TEST_INTERNALS=1` seam via the supervisor's environment (to be confirmed while implementing; recorded in the PR).
+- **Models** are not in the image (DS18/§6.15.9). RULING R3: the smoke test starts the real core and gates on `ready` only; model warm-up is reported separately by `core.status` and does not gate health.
+- **Models volume path.** RULING R4: the spec's `/var/lib/plur1bus-models` does not match the engine, whose cache is `<home>/models` (`packages/core/src/paths.ts`); the second volume mounts at `/var/lib/plur1bus/models`.
+- **Toolchain.** RULING R5: the Rust stage deletes `rust-toolchain.toml`; the digest-pinned `rust:1.95-slim-bookworm` is the pin (otherwise rustup downloads "1.95" again under another name).
+- **arm64.** RULING R6: native arm64 only through `workflow_dispatch` (`ubuntu-24.04-arm`), not on PRs: that runner is not available to every repository and a queued job must not hold a PR; never QEMU.
+- **Reproducibility** is an informational job until one green run shows a stable image id.
 
 ## Acceptance → test
 
