@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use std::time::Duration;
 
 pub(crate) fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client, RpcError> {
-    let token = std::fs::read_to_string(layout.core_token()).map_err(RpcError::from)?;
+    let token = layout.read_token_file(&layout.core_token())?;
     super::connect_recorded(
         layout,
         &core_address(

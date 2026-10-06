@@ -12,9 +12,10 @@ import { acquireExclusiveLock, type ExclusiveLock } from "./lock.ts";
 import { createLogger, type HarnessLogger } from "./logger.ts";
 import { validateManifest, type ModuleManifest } from "./manifest.ts";
 import { createOrphanWatch } from "./orphan-watch.ts";
-import { coreAddress, coreTokenPath, moduleAddress, moduleRunFiles, runDir, supervisorTokenPath } from "./paths.ts";
+import { coreAddress, corePidPath, coreTokenPath, moduleAddress, moduleRunFiles, runDir, supervisorTokenPath } from "./paths.ts";
 import { RpcError } from "./rpc-error.ts";
 import { createSecurePath } from "./secure-path.ts";
+import { readRecordedPid, readRunToken } from "./trust.ts";
 
 /** What a module may log through: the harness logger without its lifecycle controls. */
 export type HarnessLikeLogger = Pick<HarnessLogger, "debug" | "info" | "warn" | "error" | "child">;
@@ -141,8 +142,9 @@ function openCoreLink(home: string, log: HarnessLogger) {
   async function attempt(): Promise<void> {
     if (closed) return;
     try {
-      const token = readFileSync(coreTokenPath(home), "utf8").trim(); // a fresh token: the core rewrites it on every start
-      const c = await connect({ address: coreAddress(home), token, endpoint: "core", connectTimeoutMs: 1000 });
+      const token = readRunToken(home, coreTokenPath(home)); // a fresh token: the core rewrites it on every start; run/ is checked first (M2)
+      const pid = readRecordedPid(corePidPath(home)); // S11: on Windows the connect is refused without it
+      const c = await connect({ address: coreAddress(home), token, endpoint: "core", connectTimeoutMs: 1000, ...(pid === undefined ? {} : { expectedServerPid: pid }) });
       if (closed) { await c.close(); return; }
       client = c; delay = CORE_BACKOFF_MS.first;
       log.info("core connected", { instanceId: c.hello.instanceId });

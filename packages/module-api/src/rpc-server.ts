@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { dirname } from "node:path";
 import { METHODS_BY_SERVER, buildCapabilities, validateParams, validateRequest, validateResult, type Deprecation, type RpcServerRole } from "@plur1bus/rpc-schema";
-import { LineDecoder, LineTooLong, encodeLine } from "./framing.ts";
+import { LineDecoder, encodeLine } from "./framing.ts";
 import type { HarnessLogger } from "./logger.ts";
 import { RpcError } from "./rpc-error.ts";
 
@@ -169,14 +169,12 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     c.authTimer = setTimeout(() => { if (!c.authed) { o.logger.debug("auth idle timeout", { connectionId: c.id }); sock.destroy(); } }, authIdleMs);
     sock.on("data", (chunk) => {
       if (c.closing) return;
-      let msgs: unknown[];
-      try { msgs = c.dec.push(chunk); }
-      catch (e) {
-        if (e instanceof LineTooLong) replyAndClose(c, null, new RpcError("E_INVALID_PARAMS", e.message, { reason: "line-too-long" }));
-        else errorReply(c, null, new RpcError("E_INVALID_PARAMS", "parse error", { reason: "parse-error", jsonrpcCode: -32700 }));
-        return;
-      }
-      for (const m of msgs) void dispatch(c, m);
+      // Each line is parsed on its own: the valid requests of this chunk are served, only the broken line gets the
+      // parse error (a valid request next to a garbled one used to be dropped and its client waited for a timeout).
+      const { values, bad, tooLong } = c.dec.decode(chunk);
+      for (const m of values) void dispatch(c, m);
+      for (let i = 0; i < bad.length; i++) errorReply(c, null, new RpcError("E_INVALID_PARAMS", "parse error", { reason: "parse-error", jsonrpcCode: -32700 }));
+      if (tooLong) replyAndClose(c, null, new RpcError("E_INVALID_PARAMS", tooLong.message, { reason: "line-too-long" }));
     });
     sock.on("close", () => {
       if (c.authTimer) clearTimeout(c.authTimer);
