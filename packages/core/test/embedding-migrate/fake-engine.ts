@@ -10,6 +10,15 @@ const idOf = (f: EmbeddingFingerprint) => `embedding:v1:sha256:${createHash("sha
 
 /** Deterministic text → unit vector; related words share buckets so recall ranking is meaningful. */
 export function embed(f: EmbeddingFingerprint, text: string): number[] {
+  // "perm-<k>" models are isometries of one base space: the same 64-dim embedding, dimensions permuted by k and zero-padded
+  // up to `dimensions`, so cosine (and therefore recall order) is identical across them while every vector differs.
+  const perm = /^perm-(\d+)$/.exec(f.model);
+  if (perm) {
+    const base = embed({ ...f, model: "perm", dimensions: 64 }, text); const k = Number(perm[1]);
+    const out = new Array<number>(f.dimensions).fill(0);
+    base.forEach((x, i) => { out[(i * 5 + k) % 64] = x; });
+    return out;
+  }
   const v = new Array<number>(f.dimensions).fill(0);
   for (const word of text.toLowerCase().split(/\W+/).filter(Boolean)) {
     const h = createHash("sha256").update(`${f.model}|${word}`).digest();
@@ -22,6 +31,7 @@ const cosine = (a: number[], b: number[]) => a.reduce((s, x, i) => s + x * b[i]!
 
 export interface FakeOptions {
   rows?: Record<string, number>; // table → row count
+  sourceModel?: string; sourceDims?: number;
   batchSize?: number;
   /** Throw this from the n-th (1-based) provider batch overall. */
   failBatch?: { n: number; error: Error };
@@ -30,7 +40,7 @@ export interface FakeOptions {
 }
 
 export function createFakeEngine(o: FakeOptions = {}) {
-  const source = fp("a", 8);
+  const source = fp(o.sourceModel ?? "a", o.sourceDims ?? 8);
   const tables = new Map<string, Row[]>();
   for (const [t, n] of Object.entries(o.rows ?? { memories: 10, shared: 5 })) {
     tables.set(t, Array.from({ length: n }, (_, i) => {
