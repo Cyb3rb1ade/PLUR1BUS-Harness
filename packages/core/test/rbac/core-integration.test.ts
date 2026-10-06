@@ -2,12 +2,13 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { connect, type CoreClient } from "@plur1bus/module-api";
+import type { CoreClient } from "@plur1bus/module-api";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore, type Core } from "../../src/core.ts";
 import { layout } from "../../src/paths.ts";
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import type { Principal } from "../../src/rbac/types.ts";
+import { connect } from "../helpers/connect.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
