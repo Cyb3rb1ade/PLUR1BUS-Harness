@@ -27,7 +27,7 @@ import {
 } from "./fixtures.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
-import type { HostServices, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { Engine, HostServices, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
 function createTestHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
   return {
@@ -254,7 +254,7 @@ describe("Hermes Importer Batch 3", () => {
     assert.equal(deletedRes.outcome, "rejected");
   });
 
-  it("batches cards exceeding 500 into multiple calls with correct counters", { timeout: 120_000 }, async () => {
+  it("batches cards exceeding 500 into multiple calls with correct counters", { timeout: 30_000 }, async () => {
     const fx = await buildM7HermesFixture();
     const home = tempDir("p1b-b3-500-cards-");
 
@@ -262,16 +262,45 @@ describe("Hermes Importer Batch 3", () => {
     const cards = Array.from({ length: 505 }, (_, i) => `Synthetic memory card entry number ${i}`);
     writeFileSync(join(fx.root, "memories", "MEMORY.md"), cards.join("\n§\n"));
 
+    let importCalls = 0;
+    const batchSizes: number[] = [];
+
+    const mockEngine = {
+      memory: {
+        import: async (req: any) => {
+          importCalls++;
+          batchSizes.push(req.cards.length);
+          return {
+            created: req.cards.length,
+            matchedExisting: 0,
+            rejected: 0,
+            cards: req.cards.map((c: any) => ({
+              idempotencyKey: c.idempotencyKey,
+              outcome: "created",
+            })),
+          };
+        },
+      },
+      close: async () => {},
+    } as unknown as Engine;
+
     const report = await importHermes({
       home,
       source: fx.root,
       apply: true,
-      testInternals: { embeddings: flatEmbedder() },
+      engine: mockEngine,
     });
 
     const defProf = report.profilesOrAgents.find((p) => p.harnessAgentId === "default");
     assert.ok(defProf?.memory);
     assert.equal(defProf.memory.importedCount, 505);
+
+    // Verify multiple calls occurred with batch size <= 500
+    assert.ok(importCalls >= 2, `expected at least 2 import calls, got ${importCalls}`);
+    assert.deepEqual(batchSizes, [500, 5, 2]); // default profile has 500 then 5; work profile has 2
+    for (const size of batchSizes) {
+      assert.ok(size <= 500, `batch size ${size} must be <= 500`);
+    }
 
     // Verify ledger has multiple memory batch entries
     const ledgerRaw = readFileSync(report.ledgerPath!, "utf8");
