@@ -3,7 +3,7 @@ import { canonicalJson, normalizeText, sha256Hex } from "./canonical.ts";
 import { lookupCacheProfile, normalizeModelId, type CacheProfile, type CacheTtl } from "./model-table.ts";
 import {
   DEFAULT_MEMORY_CAP_CHARS, DEFAULT_VOLATILE_CAP_CHARS, STABLE_ZONES,
-  type Breakpoint, type ConversationItem, type PromptEvent, type RenderInput, type RenderedPrompt, type Segment, type StableZone, type ZoneName,
+  type Breakpoint, type ConversationItem, type PromptEvent, type RenderInput, type RenderedPrompt, type Segment, type StableZone, type VolatileInput, type ZoneName,
 } from "./types.ts";
 
 /** ADR-010 R1: the second trailing breakpoint sits this many positions behind the last one, inside Anthropic's 20-position lookback. */
@@ -46,6 +46,22 @@ function positionsOf(convo: readonly Segment[]): number[] {
 }
 
 const project = (s: Segment) => ({ kind: s.kind, role: s.role, id: s.id, text: s.text });
+
+/**
+ * Joins the engine's recall blocks under the host cap (the harness's own `joinBlocks`, spec §6.6) and reports every clip or
+ * drop as a typed event (engine-spec L3). Shared by the builder (a one-shot volatile tail) and the session (a recall that
+ * later folds into the conversation, joined and reported once).
+ */
+export function joinRecall(agentId: string, model: string, v: VolatileInput, push: (e: PromptEvent) => void): { text: string; delivery: "tool_result" | "context"; toolUseId?: string } {
+  const blocks = v.blocks.map((b) => { const text = normalizeText(b.text); return { ...b, text, chars: text.length }; });
+  const { text, deferrals } = joinBlocks(blocks, v.capChars ?? DEFAULT_VOLATILE_CAP_CHARS);
+  for (const d of deferrals) {
+    push({ type: d.kind === "clipped" ? "prompt.block-clipped" : "prompt.block-dropped", agentId, model, block: d.block, from: d.from, to: d.to, reason: d.reason });
+  }
+  const delivery = v.delivery ?? "context";
+  if (delivery === "tool_result" && !v.toolUseId) throw new TypeError("volatile tool_result delivery needs toolUseId");
+  return { text, delivery, ...(v.toolUseId ? { toolUseId: v.toolUseId } : {}) };
+}
 
 export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptBuilder {
   const known = new Map<string, Record<StableZone, string>>();
@@ -90,15 +106,8 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
     // The volatile tail: engine blocks joined under the host cap, after the last breakpoint, never cached.
     const volSegs: Segment[] = [];
     if (input.volatile) {
-      const v = input.volatile;
-      const blocks = v.blocks.map((b) => { const text = normalizeText(b.text); return { ...b, text, chars: text.length }; });
-      const { text, deferrals } = joinBlocks(blocks, v.capChars ?? DEFAULT_VOLATILE_CAP_CHARS);
-      for (const d of deferrals) {
-        push({ type: d.kind === "clipped" ? "prompt.block-clipped" : "prompt.block-dropped", agentId, model, block: d.block, from: d.from, to: d.to, reason: d.reason });
-      }
-      const delivery = v.delivery ?? "context";
-      if (delivery === "tool_result" && !v.toolUseId) throw new TypeError("volatile tool_result delivery needs toolUseId");
-      if (text.length) volSegs.push(delivery === "tool_result" ? { zone: "volatile", kind: "tool_result", role: "user", text, id: v.toolUseId } : { zone: "volatile", kind: "context", role: "user", text });
+      const j = joinRecall(agentId, model, input.volatile, push);
+      if (j.text.length) volSegs.push(j.delivery === "tool_result" ? { zone: "volatile", kind: "tool_result", role: "user", text: j.text, id: j.toolUseId } : { zone: "volatile", kind: "context", role: "user", text: j.text });
     }
 
     const segments: Segment[] = [...toolSegs, ...systemSegs, ...memSegs, ...convSegs, ...volSegs];
