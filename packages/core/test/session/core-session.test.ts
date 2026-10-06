@@ -52,6 +52,7 @@ describe("session.* over a real core (fake provider)", () => {
       assert.deepEqual((await call<any>("session.events", { caller: ALICE, sessionId: session.id, afterSeq: 2 })).events.map((e: any) => e.seq), ev.events.slice(2).map((e: any) => e.seq));
 
       const got = await call<any>("session.get", { caller: ALICE, sessionId: session.id }); assert.equal(got.session.turnCount, 1); assert.equal(got.runningTurnId, null);
+      assert.deepEqual((await call<any>("session.get", { caller: ALICE, sessionId: session.id, messages: 1 })).messages.map((m: any) => m.role), ["assistant"]);
       const res = await call<any>("session.resume", { caller: ALICE, sessionId: session.id }); assert.deepEqual(res.messages.map((m: any) => m.role), ["user", "assistant"]); assert.equal(res.lastEventSeq, ev.lastSeq);
 
       // the capture reached the engine exactly once: its cards hold the Tuesday fact once

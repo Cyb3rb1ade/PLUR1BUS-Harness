@@ -123,6 +123,13 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<ModelsRemoveManualParams, ModelsRemoveManualResult>(name, f)
         }
         "models.acknowledge" => pair::<ModelsAcknowledgeParams, ModelsAcknowledgeResult>(name, f),
+        "session.create" => pair::<SessionCreateParams, SessionCreateResult>(name, f),
+        "session.list" => pair::<SessionListParams, SessionListResult>(name, f),
+        "session.get" => pair::<SessionGetParams, SessionGetResult>(name, f),
+        "session.resume" => pair::<SessionResumeParams, SessionResumeResult>(name, f),
+        "session.archive" => pair::<SessionArchiveParams, SessionArchiveResult>(name, f),
+        "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
+        "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -264,6 +271,7 @@ fn every_notification_fixture_round_trips() {
             "module.state" => round_trip::<types::ModuleStateNotification>(v, name),
             "ext.changed" => round_trip::<types::ExtChangedNotification>(v, name),
             "models.changed" => round_trip::<types::ModelsChangedNotification>(v, name),
+            "session.event" => round_trip::<types::SessionEventNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

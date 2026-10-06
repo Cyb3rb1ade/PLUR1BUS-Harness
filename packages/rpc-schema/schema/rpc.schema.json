@@ -1002,9 +1002,9 @@
       },
       "session.get": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "One session of the caller's, with the id of its running turn (if any). Another owner's session is E_NOT_FOUND.",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["session", "runningTurnId"], "properties": { "session": { "$ref": "#/$defs/SessionRecord" }, "runningTurnId": { "type": ["string", "null"] } } }
+        "description": "One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "messages": { "type": "integer", "minimum": 0, "maximum": 1000 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["session", "runningTurnId"], "properties": { "session": { "$ref": "#/$defs/SessionRecord" }, "runningTurnId": { "type": ["string", "null"] }, "messages": { "type": "array", "items": { "$ref": "#/$defs/SessionMessage" } } } }
       },
       "session.resume": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",

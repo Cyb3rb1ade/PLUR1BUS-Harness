@@ -75,7 +75,10 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
 
     "session.get": wrap(async (p: SessionGetParams, owner) => {
       const s = d.store.getOwned(p.sessionId, owner);
-      return { session: toWireSession(s), runningTurnId: d.store.runningTurn(s.id)?.id ?? null };
+      return {
+        session: toWireSession(s), runningTurnId: d.store.runningTurn(s.id)?.id ?? null,
+        ...(p.messages ? { messages: d.store.listMessages(s.id).slice(-p.messages).map(toWireMessage) } : {}),
+      };
     }),
 
     "session.resume": wrap(async (p: SessionResumeParams, owner) => {
