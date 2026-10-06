@@ -147,6 +147,34 @@
     "models.acknowledge": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "identity.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.human.create": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.link": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.pair.start": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.pair.claim": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.pair.confirm": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.unlink": {
+      "stability": "experimental",
+      "since": "1.5.0"
     }
   },
   "notifications": {

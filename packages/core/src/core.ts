@@ -34,6 +34,8 @@ import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
+import { createAuditWriter } from "./identity/audit.ts";
+import { createIdentityService, type IdentityService } from "./identity/service.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
@@ -130,6 +132,7 @@ export function createCore(o: CoreOptions): Core {
   let source: ConfigSource | null = null;
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
+  let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
@@ -384,6 +387,11 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
+      identity = createIdentityService({
+        dbPath: path.join(l.state, "identity.sqlite"), clock,
+        audit: createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock }),
+      });
+
       const methods = buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
@@ -400,6 +408,7 @@ export function createCore(o: CoreOptions): Core {
         },
         systemJobs,
         discovery,
+        identity,
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -458,6 +467,7 @@ export function createCore(o: CoreOptions): Core {
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
+      await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
       await step(log, "run files", () => removeRunFiles());
@@ -522,6 +532,7 @@ export function createCore(o: CoreOptions): Core {
         replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
+      await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;
         const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: remaining() });

@@ -54,7 +54,7 @@ const FORBIDDEN_EXACT = new Set([
   "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update",
   "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",
 ]);
-const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "update.", "secrets.", "login.", "auth."];
+const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secrets.", "login.", "auth."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];
 
 export function isForbiddenMethod(method: string): boolean {

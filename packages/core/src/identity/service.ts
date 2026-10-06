@@ -242,7 +242,7 @@ export function createIdentityService(o: IdentityOptions) {
     },
 
     /** The harness user a channel handle belongs to, by an active link only; never by name or any other similarity. */
-    resolve(i: { channel: string; accountId: string; userId: string }): { humanId: string; linkId: string } | null {
+    resolve(i: Pick<ChannelIdentity, "channel" | "accountId" | "userId"> & { displayName?: string }): { humanId: string; linkId: string } | null {
       const r = activeLink(i);
       return r ? { humanId: r.human_id as string, linkId: r.id as string } : null;
     },

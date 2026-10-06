@@ -106,6 +106,15 @@ describe("tool naming and selection", () => {
     assert.ok(byName(toolsWithList, "models.list") !== undefined);
   });
 
+  it("every identity.* method is refused, even when named in include (D24: identity is owner-side only)", () => {
+    for (const m of ["identity.list", "identity.human.create", "identity.link", "identity.pair.start", "identity.pair.claim", "identity.pair.confirm", "identity.unlink"]) {
+      assert.ok(isForbiddenMethod(m), `${m} is forbidden`);
+    }
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, call: fakeCall(), include: ["identity.list", "identity.pair.start"] });
+    assert.equal(byName(tools, "identity.list"), undefined);
+    assert.equal(byName(tools, "identity.pair.start"), undefined);
+  });
+
   it("ext.list and ext.inspect are not refused by the deny list", () => {
     for (const m of ["ext.list", "ext.inspect", "ext.show"]) assert.equal(isForbiddenMethod(m), false, m);
   });
