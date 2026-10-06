@@ -1,0 +1,34 @@
+{
+  "params": {
+    "limit": {
+      "scope": "agent",
+      "agentId": "main",
+      "period": "day",
+      "metric": "cost",
+      "soft": 2000000,
+      "hard": 5000000
+    },
+    "timeZone": "Europe/Berlin"
+  },
+  "result": {
+    "timeZone": "Europe/Berlin",
+    "limit": {
+      "scope": "agent",
+      "agentId": "main",
+      "period": "day",
+      "metric": "cost",
+      "soft": 2000000,
+      "hard": 5000000
+    },
+    "limits": [
+      {
+        "scope": "agent",
+        "agentId": "main",
+        "period": "day",
+        "metric": "cost",
+        "soft": 2000000,
+        "hard": 5000000
+      }
+    ]
+  }
+}

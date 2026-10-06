@@ -17,6 +17,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus 1staid`↴](#plur1bus-1staid)
 * [`plur1bus 1staid check`↴](#plur1bus-1staid-check)
 * [`plur1bus 1staid repair`↴](#plur1bus-1staid-repair)
+* [`plur1bus 1staid bundle`↴](#plur1bus-1staid-bundle)
 * [`plur1bus agent`↴](#plur1bus-agent)
 * [`plur1bus agent list`↴](#plur1bus-agent-list)
 * [`plur1bus agent create`↴](#plur1bus-agent-create)
@@ -36,6 +37,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals list`↴](#plur1bus-memory-proposals-list)
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
+* [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -73,11 +75,21 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus core`↴](#plur1bus-core)
 * [`plur1bus core run`↴](#plur1bus-core-run)
 * [`plur1bus update`↴](#plur1bus-update)
+* [`plur1bus update status`↴](#plur1bus-update-status)
 * [`plur1bus user`↴](#plur1bus-user)
 * [`plur1bus model`↴](#plur1bus-model)
 * [`plur1bus model list`↴](#plur1bus-model-list)
 * [`plur1bus model scan`↴](#plur1bus-model-scan)
 * [`plur1bus model override`↴](#plur1bus-model-override)
+* [`plur1bus budget`↴](#plur1bus-budget)
+* [`plur1bus budget status`↴](#plur1bus-budget-status)
+* [`plur1bus budget set`↴](#plur1bus-budget-set)
+* [`plur1bus secret`↴](#plur1bus-secret)
+* [`plur1bus secret status`↴](#plur1bus-secret-status)
+* [`plur1bus secret set`↴](#plur1bus-secret-set)
+* [`plur1bus secret get`↴](#plur1bus-secret-get)
+* [`plur1bus secret rm`↴](#plur1bus-secret-rm)
+* [`plur1bus secret ls`↴](#plur1bus-secret-ls)
 * [`plur1bus login`↴](#plur1bus-login)
 * [`plur1bus channel`↴](#plur1bus-channel)
 * [`plur1bus project`↴](#plur1bus-project)
@@ -123,9 +135,11 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
-* `update` — [experimental] Update check: what a release would change and which units would restart (`--check`)
+* `update` — [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 * `user` — Users — M2
 * `model` — [experimental] Models and provider profiles: list, scan and override
+* `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+* `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
 * `project` — Projects — M3
@@ -184,6 +198,7 @@ Check and repair the installation
 
 * `check` — [experimental] Read-only diagnostics over the installation (spec §6.6)
 * `repair` — [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
+* `bundle` — [experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last log lines; never the audit log, payload capture, stores or secrets) and print its path
 
 
 
@@ -206,6 +221,21 @@ Check and repair the installation
 * `--yes` — Confirm every step of the plan without asking (required outside a terminal)
 * `--dry-run` — Print the plan and change nothing
 * `--only <STEP_ID>` — Plan only this step (repeatable)
+
+
+
+## `plur1bus 1staid bundle`
+
+[experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last log lines; never the audit log, payload capture, stores or secrets) and print its path
+
+**Usage:** `plur1bus 1staid bundle [OPTIONS]`
+
+###### **Options:**
+
+* `--out <PATH>` — Where to write the zip: a new file, or an existing directory (default: `<home>/bundles/`)
+* `--lines <N>` — Keep the last N lines of each log
+
+  Default value: `500`
 
 
 
@@ -286,6 +316,7 @@ Memory: add and recall through the core
 * `state` — [experimental] Memory subsystem state
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
+* `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
 
@@ -502,6 +533,29 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 * `--agent <AGENT>`
 * `--note <NOTE>`
+
+
+
+## `plur1bus memory reembed`
+
+[experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
+
+**Usage:** `plur1bus memory reembed [OPTIONS] <--plan|--run|--status|--abort>`
+
+###### **Options:**
+
+* `--plan` — Compare the store with --model and show what a migration would do; copies nothing
+* `--run` — Copy the planned migration into a new generation in throttled batches, validate it and switch
+* `--status` — Show the migration's phase and progress
+* `--abort` — Stop at the next batch boundary; --run continues the same migration
+* `--model <MODEL>` — Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+* `--dimensions <DIMENSIONS>` — Target vector dimensions, when the model supports more than one
+* `--query-prefix <QUERY_PREFIX>` — Query prefix of the target model
+* `--passage-prefix <PASSAGE_PREFIX>` — Passage prefix of the target model
+* `--throttle-ms <THROTTLE_MS>` — Milliseconds to pause between batches (default 250)
+* `--no-switch` — With --run: copy and validate, but do not switch to the new generation
+* `--no-wait` — With --run: return as soon as the run has started instead of following it
+* `--yes` — With --run: do not ask for confirmation (required outside a terminal)
 
 
 
@@ -990,20 +1044,35 @@ Core process (internal)
 
 ## `plur1bus update`
 
-[experimental] Update check: what a release would change and which units would restart (`--check`)
+[experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 
-Applying an update is M8; without `--check` the command answers that milestone.
+Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
 
-**Usage:** `plur1bus update [OPTIONS]`
+**Usage:** `plur1bus update [OPTIONS]
+       update <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
 
 ###### **Options:**
 
 * `--check` — Compare the installation with the release manifest and print the plan; changes nothing
+* `--rollback` — Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+* `--yes` — Apply without asking (required outside a terminal)
 * `--manifest <PATH|URL>` — Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
 * `--channel <CHANNEL>` — Release channel (default: the installed one)
 
   Possible values: `stable`, `beta`
 
+
+
+
+## `plur1bus update status`
+
+[experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+
+**Usage:** `plur1bus update status`
 
 
 
@@ -1083,6 +1152,140 @@ Users — M2
 * `--clear-all`
 * `--create`
 * `--remove`
+
+
+
+## `plur1bus budget`
+
+[experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+
+**Usage:** `plur1bus budget <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Show usage for the current day and month and every limit with its state
+* `set` — [experimental] Set or clear a limit, or the time zone budget periods follow
+
+
+
+## `plur1bus budget status`
+
+[experimental] Show usage for the current day and month and every limit with its state
+
+**Usage:** `plur1bus budget status [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <ID>` — only this agent's usage (and the global limits plus its own)
+
+
+
+## `plur1bus budget set`
+
+[experimental] Set or clear a limit, or the time zone budget periods follow
+
+A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals), token values are input + output tokens. A bound left out stays as it is.
+
+**Usage:** `plur1bus budget set [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — the limit covers all agents together
+* `--agent <ID>` — the limit covers this agent
+* `--period <PERIOD>` — the period the limit resets on (local calendar day or month)
+
+  Possible values: `day`, `month`
+
+* `--metric <METRIC>` — what is counted: cost in USD or input + output tokens
+
+  Possible values: `cost`, `tokens`
+
+* `--soft <VALUE>` — warn (once per period) above this value
+* `--hard <VALUE>` — refuse calls that would exceed this value
+* `--clear-soft` — remove the soft bound
+* `--clear-hard` — remove the hard bound
+* `--timezone <ZONE>` — an IANA time zone name the periods follow (default UTC)
+
+
+
+## `plur1bus secret`
+
+[experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
+
+Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
+
+**Usage:** `plur1bus secret <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
+* `set` — [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+* `get` — [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
+* `rm` — [experimental] Delete a secret from every available backend
+* `ls` — [experimental] List secret names (never values)
+
+
+
+## `plur1bus secret status`
+
+[experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
+
+**Usage:** `plur1bus secret status`
+
+
+
+## `plur1bus secret set`
+
+[experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+
+One trailing newline is removed. Replacing a secret revokes the leases on the old value.
+
+**Usage:** `plur1bus secret set <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
+* `<REST>` — refused: a value never goes in an argument (kept only so the refusal does not echo it)
+
+
+
+## `plur1bus secret get`
+
+[experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
+
+**Usage:** `plur1bus secret get [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--reveal` — print the value itself (it is the only command that does)
+
+
+
+## `plur1bus secret rm`
+
+[experimental] Delete a secret from every available backend
+
+**Usage:** `plur1bus secret rm [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--yes` — skip the confirmation prompt (required outside a terminal)
+
+
+
+## `plur1bus secret ls`
+
+[experimental] List secret names (never values)
+
+**Usage:** `plur1bus secret ls`
 
 
 

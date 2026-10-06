@@ -1476,6 +1476,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
             }
         }
         FirstAidCmd::Repair(args) => super::repair::run(out, layout, args),
+        FirstAidCmd::Bundle(args) => super::firstaid_bundle::run(out, layout, args),
     }
 }
 

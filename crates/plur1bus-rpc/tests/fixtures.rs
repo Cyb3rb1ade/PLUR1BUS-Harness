@@ -116,6 +116,12 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.embedding.serve" => {
             pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
         }
+        "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
+        "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),
+        "admin.reembed.status" => {
+            pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
+        }
+        "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
@@ -123,6 +129,13 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<ModelsRemoveManualParams, ModelsRemoveManualResult>(name, f)
         }
         "models.acknowledge" => pair::<ModelsAcknowledgeParams, ModelsAcknowledgeResult>(name, f),
+        "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
+        "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
+        "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
+        "secret.list" => pair::<SecretListParams, SecretListResult>(name, f),
+        "secret.set" => pair::<SecretSetParams, SecretMeta>(name, f),
+        "secret.get" => pair::<SecretGetParams, SecretGetResult>(name, f),
+        "secret.delete" => pair::<SecretDeleteParams, SecretDeleteResult>(name, f),
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -196,6 +209,10 @@ fn every_method_fixture_round_trips() {
         "admin.migrate",
         "admin.embedding.probe",
         "admin.embedding.serve",
+        "admin.reembed.plan",
+        "admin.reembed.run",
+        "admin.reembed.status",
+        "admin.reembed.abort",
         "ext.list",
         "ext.show",
         "ext.inspect",

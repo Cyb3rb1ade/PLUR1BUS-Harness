@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.dev/schema/log-record/1",
+  "title": "PLUR1BUS log record (D111)",
+  "description": "One JSON object per line, UTF-8. The keys of a written record appear in the order of `x-key-order` (grep-stable); absent optional keys are omitted. JSON Schema cannot express key order, byte limits, the event catalogue or the per-event attrs; `validateRecord` (TypeScript) and `validate_line` (Rust) check those on top of this schema.",
+  "x-schema-version": "1",
+  "x-key-order": ["ts", "level", "source", "event", "msg", "trace_id", "span_id", "agent", "session", "turn", "task", "principal", "duration_ms", "err", "stream", "attrs"],
+  "x-limits": { "msgBytes": 2048, "attrsBytes": 8192, "lineBytes": 4096, "dedupWindowMs": 60000, "rateSustainedPerSecond": 100, "rateBurst": 500 },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "level", "source", "event", "msg"],
+  "dependentRequired": { "span_id": ["trace_id"] },
+  "properties": {
+    "ts": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$", "description": "RFC 3339 UTC, millisecond precision, the writer's clock (OTel Timestamp)." },
+    "level": { "$ref": "#/$defs/Level" },
+    "source": { "$ref": "#/$defs/Source" },
+    "event": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z0-9][a-z0-9_-]*){1,3}$", "maxLength": 128, "description": "Stable dotted code from the registered catalogue (OTel event.name)." },
+    "msg": { "type": "string", "maxLength": 2048, "description": "Harness-authored, constant per event; no interpolated foreign text (OTel Body). At most 2 KiB (bytes; checked by the validator)." },
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$", "not": { "const": "00000000000000000000000000000000" }, "description": "W3C trace id." },
+    "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$", "not": { "const": "0000000000000000" }, "description": "W3C span id." },
+    "agent": { "$ref": "#/$defs/HarnessId" },
+    "session": { "$ref": "#/$defs/HarnessId" },
+    "turn": { "type": "integer", "minimum": 0 },
+    "task": { "$ref": "#/$defs/HarnessId" },
+    "principal": { "$ref": "#/$defs/HarnessId", "description": "The ADR-007 pseudonymous principal; never a name, email or channel handle." },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "err": { "$ref": "#/$defs/Err" },
+    "stream": { "enum": ["stdout", "stderr"], "description": "Only on wrapped child output (OTel log.iostream)." },
+    "attrs": { "type": "object", "description": "Event-specific; narrowed by the catalogue entry's attrs group. At most 8 KiB after redaction (bytes; checked by the validator)." }
+  },
+  "$defs": {
+    "Level": { "enum": ["trace", "debug", "info", "warn", "error", "fatal"] },
+    "SourceKind": { "enum": ["harness", "extension", "provider", "model", "cli", "channel", "host", "desktop", "os"] },
+    "SourceId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._@/-]{0,127}$" },
+    "SourceKey": { "type": "string", "pattern": "^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$", "description": "`<kind>` or `<kind>:<id>`, for logs.levels and filters; id matched exactly or as a prefix at a `/` boundary." },
+    "Source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/SourceKind" },
+        "id": { "$ref": "#/$defs/SourceId" },
+        "version": { "type": ["string", "null"], "maxLength": 128, "description": "null when unknown." }
+      }
+    },
+    "HarnessId": { "type": "string", "pattern": "^[A-Za-z0-9._:@-]{1,128}$" },
+    "ErrCode": {
+      "description": "Closed: the RPC error codes (rpc-schema ErrorCode) and the provider classes. D94 typed failures join when D94 lands (open point).",
+      "enum": ["E_AGENT_UNKNOWN", "E_APPROVAL_REQUIRED", "E_CONFIG_INVALID", "E_CONFLICT", "E_CORE_UNAVAILABLE", "E_DENIED", "E_INTERNAL", "E_INVALID_PARAMS", "E_LOCKED", "E_MODULE_UNKNOWN", "E_NOT_AVAILABLE", "E_NOT_FOUND", "E_RPC_VERSION", "E_STORAGE", "E_UNAUTHORIZED", "rate-limited", "overloaded", "auth", "invalid-request", "server", "timeout", "network"]
+    },
+    "Err": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": { "$ref": "#/$defs/ErrCode" },
+        "reason": { "type": "string", "pattern": "^[a-z0-9_.-]{1,64}$", "description": "Short machine token." },
+        "retryable": { "type": "boolean" },
+        "hint": { "type": "string", "maxLength": 512, "description": "Harness-authored. Foreign error text goes to attrs.foreign_message." }
+      }
+    }
+  }
+}

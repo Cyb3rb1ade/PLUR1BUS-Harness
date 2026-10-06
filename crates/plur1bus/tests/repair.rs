@@ -4,6 +4,7 @@
 //! a `file://` mirror whose archive hash replaces the pin (`PLUR1BUS_TEST_NODE_SHA256`), and the supervised core is
 //! `tests/fixtures/fake-core.mjs` (the real built core where `memory recall` must work). Every run has no terminal on
 //! stdin, so `--yes` is what confirms.
+mod common;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -1279,4 +1280,19 @@ fn repair_plans_nothing_for_extension_checks() {
         fs::read_to_string(dir.join("SKILL.md")).unwrap(),
         "# tampered\n"
     );
+}
+
+/// A real stdout write error (`EFBIG`, see `common::run_stdout_write_error`) in a command that ends the process itself
+/// (`repair --dry-run` calls `output::exit(0)`) still exits 1.
+#[cfg(unix)]
+#[test]
+fn a_real_stdout_write_error_fails_a_dry_run_that_exits_itself() {
+    let e = Env::new();
+    e.install_service();
+    e.break_home();
+    let mut c = e.cmd(&["--json", "1staid", "repair", "--dry-run"]);
+    let (code, stderr) = common::run_stdout_write_error(&mut c);
+    assert!(!stderr.contains("panicked"), "{stderr}");
+    assert!(stderr.contains("cannot write to stdout"), "{stderr}");
+    assert_eq!(code, Some(1), "{stderr}");
 }

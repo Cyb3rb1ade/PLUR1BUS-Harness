@@ -14,6 +14,16 @@
     "allow-connections-remove",
     "allow-pair-code",
     "allow-pair-local",
-    "allow-open-connection"
+    "allow-open-connection",
+    "allow-quit-request",
+    "allow-quit-offer",
+    "allow-background-hint",
+    "allow-crash-offers",
+    "allow-crash-handled",
+    "allow-quit-response",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-autostart-get",
+    "allow-autostart-set"
   ]
 }
