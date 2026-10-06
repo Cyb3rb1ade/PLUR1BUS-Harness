@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod agent;
+pub mod backup;
 pub mod budget;
 pub mod config;
 pub mod core;

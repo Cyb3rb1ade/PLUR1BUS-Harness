@@ -44,6 +44,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "admin.reembed.run": rule("admin.reembed.run", system),
   "admin.reembed.status": rule("admin.reembed.status", system),
   "admin.reembed.abort": rule("admin.reembed.abort", system),
+  "admin.backup.snapshot": rule("admin.backup.snapshot", system),
   // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
   "identity.list": rule("users.read", system),
   "identity.human.create": rule("users.manage", system),

@@ -1855,6 +1855,105 @@ Store schema migration (engine AdminOps.migrate). from and to are decimal string
 }
 ```
 
+### `admin.backup.snapshot`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Stages the consistent, engine-owned part of a backup (plur1bus backup create): the engine's store snapshot (lib/snapshot/store-snapshot.js: store, memory/_archive, run-state, merge proposals) and every SQLite database under state/ copied with the SQLite backup API, into a new private directory <home>/state/backup-staging/<id> (staging, always inside the home). The caller packs the files and removes the directory; the core never deletes it. files carries a SHA-256 per file, recomputed after the copy. E_STORAGE reason=source-busy when the store kept changing for three tries, reason=insufficient-disk when the copy would not fit, reason=store-outside-home when the configured store lives outside the home.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "Free text folded into the snapshot id (ASCII, sanitised by the engine)."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "dir",
+    "storeTarget",
+    "engine",
+    "files"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^plur1bus-[A-Za-z0-9._-]+$"
+    },
+    "dir": {
+      "type": "string",
+      "description": "Absolute staging directory; entries are relative to it: store/**, memory/**, sqlite/**."
+    },
+    "storeTarget": {
+      "type": "string",
+      "description": "The store's path relative to the home, e.g. state/lancedb."
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "storeSchema"
+      ],
+      "properties": {
+        "contract": {
+          "type": "string"
+        },
+        "storeSchema": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "bytes",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### `admin.embedding.probe`
 
 **Stability:** experimental · since 1.3.0

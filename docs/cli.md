@@ -63,6 +63,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus admin embedding`↴](#plur1bus-admin-embedding)
 * [`plur1bus admin embedding probe`↴](#plur1bus-admin-embedding-probe)
 * [`plur1bus admin embedding serve`↴](#plur1bus-admin-embedding-serve)
+* [`plur1bus backup`↴](#plur1bus-backup)
+* [`plur1bus backup create`↴](#plur1bus-backup-create)
+* [`plur1bus backup verify`↴](#plur1bus-backup-verify)
+* [`plur1bus backup restore`↴](#plur1bus-backup-restore)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
 * [`plur1bus daemon start`↴](#plur1bus-daemon-start)
 * [`plur1bus daemon stop`↴](#plur1bus-daemon-stop)
@@ -140,6 +144,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
 * `admin` — [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
+* `backup` — [experimental] Backup and restore: create, verify, restore
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
@@ -928,6 +933,68 @@ Serving lasts only as long as this core process: it ends when the core stops or 
 ###### **Options:**
 
 * `--stop` — stop serving instead
+
+
+
+## `plur1bus backup`
+
+[experimental] Backup and restore: create, verify, restore
+
+**Usage:** `plur1bus backup <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+* `verify` — [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+* `restore` — [experimental] Restore an archive into this home (the core must be stopped)
+
+
+
+## `plur1bus backup create`
+
+[experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+
+The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+
+**Usage:** `plur1bus backup create [OPTIONS]`
+
+###### **Options:**
+
+* `--out <OUT>` — where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
+* `--dry-run` — list what would be archived and where, without touching the core or writing anything
+
+
+
+## `plur1bus backup verify`
+
+[experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+
+Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry, checksum-mismatch, missing-entry) for an archive a restore would refuse.
+
+**Usage:** `plur1bus backup verify <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — the archive
+
+
+
+## `plur1bus backup restore`
+
+[experimental] Restore an archive into this home (the core must be stopped)
+
+Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+
+**Usage:** `plur1bus backup restore [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — the archive
+
+###### **Options:**
+
+* `--dry-run` — print what would be replaced, created and removed, without changing anything
+* `--yes` — apply without asking
 
 
 

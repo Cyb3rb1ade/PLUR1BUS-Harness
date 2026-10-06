@@ -147,3 +147,4 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.reembed.run` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.status` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.abort` | system | ✔ | ✔ | – | – | – |
+| `admin.backup.snapshot` | system | ✔ | ✔ | – | – | – |
