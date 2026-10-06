@@ -115,7 +115,7 @@ jobs:
       - name: Native probe and Windows startup diagnostic tests
         id: native-diagnostics
         timeout-minutes: 5
-        run: node --test apps/desktop/scripts/owned-process.test.mjs apps/desktop/scripts/fixture-job.test.mjs apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
+        run: node --test apps/desktop/scripts/owned-process.test.mjs apps/desktop/scripts/fixture-job.test.mjs apps/desktop/scripts/lifecycle-report.test.mjs apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
       - name: Native transport spike (WebKitGTK)
         if: runner.os == 'Linux'
         timeout-minutes: 10

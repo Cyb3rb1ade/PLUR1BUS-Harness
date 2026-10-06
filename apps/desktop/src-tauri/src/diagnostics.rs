@@ -50,7 +50,8 @@ impl Diagnostics {
         }
         builder.create(directory)?;
         let secrets = SecretRegistry::process();
-        let formatter = Formatter::new(secrets.clone(), Arc::new(CredentialPaths::new(home)), true);
+        let formatter =
+            Formatter::new(secrets.clone(), Arc::new(CredentialPaths::new(home)), false);
         let writer = Writer::open(directory, WriterOptions::default(), formatter, clock)?;
         let crash = CrashReporter::new(writer.clone(), target)?;
         writer.emit(RecordInput::new(Event::AppStarted))?;

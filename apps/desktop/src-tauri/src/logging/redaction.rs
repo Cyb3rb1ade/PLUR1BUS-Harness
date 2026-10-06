@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex, OnceLock, RwLock,
 };
 use zeroize::Zeroizing;
@@ -30,6 +30,7 @@ pub enum RedactionError {
 pub struct SecretRegistry {
     values: RwLock<Vec<Zeroizing<String>>>,
     unavailable: AtomicBool,
+    registration_failures: AtomicU64,
 }
 impl SecretRegistry {
     /// Shared native credential boundary, initialized before any credentials are created.
@@ -37,11 +38,18 @@ impl SecretRegistry {
         static REGISTRY: OnceLock<Arc<SecretRegistry>> = OnceLock::new();
         REGISTRY.get_or_init(|| Arc::new(Self::default())).clone()
     }
-    /// Never permit logging after a secret could not be registered.
+    /// Saturation keeps credentials fail-closed, while writers retain a safe event envelope.
     pub fn register_sensitive(&self, value: &str) {
         if self.register(value).is_err() {
-            self.unavailable.store(true, Ordering::SeqCst);
+            self.registration_failures.fetch_add(1, Ordering::SeqCst);
+            if !self.unavailable.swap(true, Ordering::SeqCst) {
+                eprintln!("DIAGNOSTIC_SECRET_REGISTRY_SATURATED");
+            }
         }
+    }
+
+    pub fn registration_failures(&self) -> u64 {
+        self.registration_failures.load(Ordering::SeqCst)
     }
 
     pub fn register(&self, value: &str) -> Result<(), RedactionError> {
@@ -305,6 +313,10 @@ impl Formatter {
             gate: Mutex::new(()),
         }))
     }
+    pub fn registration_failures(&self) -> u64 {
+        self.0.secrets.registration_failures()
+    }
+
     pub fn redact_text(&self, input: &str) -> Result<String, RedactionError> {
         let _gate = self.0.gate.try_lock().map_err(|_| RedactionError::Busy)?;
         if self.0.secrets.unavailable.load(Ordering::SeqCst) {

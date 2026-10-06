@@ -164,6 +164,9 @@ pub struct DiagnosticError {
 #[derive(Clone, Debug)]
 pub enum Event {
     AppStarted,
+    RegistrySaturated {
+        failures: u64,
+    },
     AppCrashed {
         crash_id: String,
     },
@@ -204,6 +207,7 @@ impl Event {
     pub fn code(&self) -> &'static str {
         match self {
             Self::AppStarted => "desktop.app.started",
+            Self::RegistrySaturated { .. } => "log.registry.saturated",
             Self::AppCrashed { .. } => "desktop.app.crashed",
             Self::ConnectionLost { .. } => "desktop.connection.lost",
             Self::WebviewFailed { .. } => "desktop.webview.failed",
@@ -236,6 +240,7 @@ impl Event {
             }
             Self::LevelChanged { from, to } => json!({"from":from,"to":to}),
             Self::RetentionPruned { files } => json!({"files":files}),
+            Self::RegistrySaturated { failures } => json!({"failures":failures}),
             Self::RedactionFailed { event } => json!({"event":event}),
             Self::Unregistered { attempted } => json!({"attempted":attempted}),
         })
@@ -278,6 +283,11 @@ impl Event {
         #[serde(deny_unknown_fields)]
         struct Retention {
             files: u64,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Saturated {
+            failures: u64,
         }
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -342,6 +352,12 @@ impl Event {
             "log.retention.pruned" => {
                 let a: Retention = parse(attrs)?;
                 Self::RetentionPruned { files: a.files }
+            }
+            "log.registry.saturated" => {
+                let a: Saturated = parse(attrs)?;
+                Self::RegistrySaturated {
+                    failures: a.failures,
+                }
             }
             "log.redaction.failed" => {
                 let a: Failed = parse(attrs)?;

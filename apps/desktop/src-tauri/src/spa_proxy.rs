@@ -436,13 +436,7 @@ fn store_cookies(s: &Inner, headers: &HeaderMap, target: &Url) -> bool {
     if !s.active.load(Ordering::SeqCst) {
         return false;
     }
-    for header in headers.get_all(header::SET_COOKIE).iter() {
-        if let Ok(text) = header.to_str() {
-            if let Some((_, value)) = text.split(';').next().unwrap_or_default().split_once('=') {
-                crate::logging::SecretRegistry::process().register_sensitive(value);
-            }
-        }
-    }
+    // Cookie/Set-Cookie headers are redacted structurally, never registered as credentials.
     let mut values = headers.get_all(header::SET_COOKIE).iter();
     jar.set_cookies(&mut values, target);
     true
@@ -1085,6 +1079,59 @@ mod tests {
             observed_secrets: Mutex::new(Vec::new()),
             secondary_probe_403: AtomicBool::new(false),
         })
+    }
+
+    #[test]
+    fn ten_thousand_rotating_cookies_do_not_disable_redacted_logging() {
+        use crate::logging::*;
+        let inner = test_inner();
+        let target = Url::parse(inner.upstream_origin.as_str()).unwrap();
+        for index in 0..10_000 {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                header::SET_COOKIE,
+                format!("sid=rotating-cookie-{index:05}; Path=/")
+                    .parse()
+                    .unwrap(),
+            );
+            assert!(store_cookies(&inner, &headers, &target));
+        }
+        let registry = SecretRegistry::process();
+        assert_eq!(registry.registration_failures(), 0);
+        let fmt = Formatter::new(
+            registry,
+            Arc::new(CredentialPaths::new("/synthetic/home")),
+            false,
+        );
+        for index in [0, 9999] {
+            let cookie = format!("rotating-cookie-{index:05}");
+            for header in ["Cookie", "Set-Cookie"] {
+                assert!(!fmt
+                    .redact_text(&format!("{header}: sid={cookie}; other=another-cookie"))
+                    .unwrap()
+                    .contains(&cookie));
+            }
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let writer = Writer::open(
+            &directory.path().canonicalize().unwrap(),
+            WriterOptions {
+                version: Some("Set-Cookie: sid=rotating-cookie-09999".into()),
+                ..Default::default()
+            },
+            fmt,
+            Arc::new(SystemClock),
+        )
+        .unwrap();
+        assert_eq!(
+            writer.emit(RecordInput::new(Event::AppStarted)).unwrap(),
+            EmitStatus::Written
+        );
+        let records = writer.recent_lines().unwrap();
+        assert_eq!(records.len(), 1);
+        assert!(records[0].contains("[REDACTED:key]"));
+        assert!(!records[0].contains("rotating-cookie"));
+        validate_record(&serde_json::from_str(&records[0]).unwrap()).unwrap();
     }
 
     fn request(uri: &str, user_agent: &str) -> Request<Body> {

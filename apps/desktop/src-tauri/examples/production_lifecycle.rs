@@ -20,6 +20,7 @@ mod fixture {
     struct Report {
         spa_focus: bool,
         second_instance_focus: bool,
+        second_instance_focus_mode: Option<&'static str>,
         close_hides: bool,
         close_minimizes: bool,
         shell_focus: bool,
@@ -84,6 +85,78 @@ mod fixture {
             assert!(super::focus_matches(true, true, true));
         }
     }
+    // Test input only: activate a point belonging to our shell. This is not a
+    // product foreground workaround; the strict observer below remains decisive.
+    #[cfg(windows)]
+    fn activate_second_launcher(app: &tauri::AppHandle) -> Result<(), &'static str> {
+        use windows_sys::Win32::{
+            Foundation::{POINT, RECT},
+            UI::{
+                Input::KeyboardAndMouse::{
+                    SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN,
+                    MOUSEEVENTF_LEFTUP, MOUSEINPUT,
+                },
+                WindowsAndMessaging::{
+                    GetAncestor, GetWindowRect, SetCursorPos, WindowFromPoint, GA_ROOT,
+                },
+            },
+        };
+        let window = app
+            .get_webview_window("shell")
+            .ok_or("FIXTURE_LAUNCHER_WINDOW_MISSING")?;
+        if window_has_keyboard_focus(&window, true) {
+            return Ok(());
+        }
+        // Fixture-only z-order preparation exposes our click target without claiming focus.
+        window
+            .set_always_on_top(true)
+            .map_err(|_| "FIXTURE_LAUNCHER_OCCLUDED")?;
+        let hwnd = window
+            .hwnd()
+            .map_err(|_| "FIXTURE_LAUNCHER_WINDOW_MISSING")?
+            .0;
+        unsafe {
+            let mut rect: RECT = std::mem::zeroed();
+            if GetWindowRect(hwnd, &mut rect) == 0 {
+                return Err("FIXTURE_LAUNCHER_RECT_FAILED");
+            }
+            // Title bar, away from system buttons. Never click a foreign overlay.
+            let point = POINT {
+                x: rect.left + (rect.right - rect.left) / 2,
+                y: rect.top + 12,
+            };
+            if GetAncestor(WindowFromPoint(point), GA_ROOT) != hwnd {
+                return Err("FIXTURE_LAUNCHER_OCCLUDED");
+            }
+            if SetCursorPos(point.x, point.y) == 0 {
+                return Err("FIXTURE_LAUNCHER_INPUT_FAILED");
+            }
+            let mouse = |flags| INPUT {
+                r#type: INPUT_MOUSE,
+                Anonymous: INPUT_0 {
+                    mi: MOUSEINPUT {
+                        dx: 0,
+                        dy: 0,
+                        mouseData: 0,
+                        dwFlags: flags,
+                        time: 0,
+                        dwExtraInfo: 0,
+                    },
+                },
+            };
+            let inputs = [mouse(MOUSEEVENTF_LEFTDOWN), mouse(MOUSEEVENTF_LEFTUP)];
+            if SendInput(
+                inputs.len() as u32,
+                inputs.as_ptr(),
+                std::mem::size_of::<INPUT>() as i32,
+            ) != 2
+            {
+                return Err("FIXTURE_LAUNCHER_INPUT_FAILED");
+            }
+        }
+        Ok(())
+    }
+
     // WebView2 child focus can leave Tao's top-level WM_SETFOCUS flag false.
     // Initial CI launch may be refused foreground by Windows. Local queue/WebView
     // focus stays mandatory; an authorized second launcher must also be foreground.
@@ -349,20 +422,28 @@ mod fixture {
             use plur1bus_desktop::lifecycle::WindowHost;
             native::Windows(&app).present("shell").unwrap();
         })?;
-        let launcher_has_foreground = gui(app, |app| {
+        report.lock().unwrap().second_instance_focus_mode = Some("strict");
+        eprintln!("WP6_FOCUS_SUMMARY second_instance_focus=strict");
+        #[cfg(windows)]
+        gui(app, |app| activate_second_launcher(&app))??;
+        #[cfg(windows)]
+        observe(app, |app| {
             app.get_webview_window("shell")
                 .is_some_and(|w| window_has_keyboard_focus(&w, true))
-        })?;
+        })
+        .map_err(|_| "FIXTURE_SECOND_LAUNCHER_NOT_FOREGROUND")?;
+        #[cfg(windows)]
+        gui(app, |app| {
+            app.get_webview_window("shell")
+                .unwrap()
+                .set_always_on_top(false)
+                .map_err(|_| "FIXTURE_LAUNCHER_OCCLUDED")
+        })??;
         let mut child = std::process::Command::new(
             std::env::current_exe().map_err(|_| "FIXTURE_EXECUTABLE_FAILED")?,
         )
         .arg(root)
         .arg("--secondary")
-        .arg(if launcher_has_foreground {
-            "--foreground-authorized"
-        } else {
-            "--foreground-denied"
-        })
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -391,8 +472,7 @@ mod fixture {
         observe(app, move |app| {
             seen.load(Ordering::SeqCst)
                 && app.get_webview_window("spa").is_some_and(|w| {
-                    w.is_visible().unwrap_or(false)
-                        && window_has_keyboard_focus(&w, launcher_has_foreground)
+                    w.is_visible().unwrap_or(false) && window_has_keyboard_focus(&w, true)
                 })
         })?;
         report.lock().unwrap().second_instance_focus = true;
@@ -586,7 +666,8 @@ mod fixture {
             {
                 let mut result = final_report.lock().unwrap();
                 result.quit_confirm_exits = true;
-                let complete = result.second_instance_focus
+                let complete = result.second_instance_focus_mode == Some("strict")
+                    && result.second_instance_focus
                     && result.spa_focus
                     && result.close_hides
                     && result.close_minimizes
@@ -603,7 +684,8 @@ mod fixture {
         });
         eprintln!("FIXTURE_PROCESS_EXIT code={native_exit_code}");
         let report = report.lock().unwrap();
-        let complete = report.second_instance_focus
+        let complete = report.second_instance_focus_mode == Some("strict")
+            && report.second_instance_focus
             && report.spa_focus
             && report.close_hides
             && report.close_minimizes

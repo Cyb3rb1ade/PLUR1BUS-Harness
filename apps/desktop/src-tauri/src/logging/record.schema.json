@@ -57,7 +57,8 @@
         "log.level.expired",
         "log.retention.pruned",
         "log.redaction.failed",
-        "log.unregistered"
+        "log.unregistered",
+        "log.registry.saturated"
       ]
     },
     "msg": {
@@ -451,6 +452,35 @@
         ]
       },
       "x-maxBytes": 8192
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        },
+        "failures": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "failures"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
     }
   },
   "oneOf": [
@@ -668,6 +698,25 @@
         },
         "attrs": {
           "$ref": "#/$defs/unregistered"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "log.registry.saturated"
+        },
+        "level": {
+          "const": "warn"
+        },
+        "msg": {
+          "const": "Credential redaction registry saturated; free text suppressed."
+        },
+        "attrs": {
+          "$ref": "#/$defs/registry"
         }
       },
       "required": [

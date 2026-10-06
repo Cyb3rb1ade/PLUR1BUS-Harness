@@ -117,6 +117,7 @@ struct State {
     day: NaiveDate,
     recent: VecDeque<String>,
     dedup: HashMap<(SourceId, String, Option<ErrorCode>), Dedup>,
+    registry_failures_reported: u64,
 }
 struct Inner {
     directory: Arc<OwnedDirectory>,
@@ -159,6 +160,7 @@ impl Writer {
             day: now.date_naive(),
             recent: VecDeque::with_capacity(200),
             dedup: HashMap::new(),
+            registry_failures_reported: 0,
         };
         let source = options.source;
         let writer = Self(
@@ -187,6 +189,17 @@ impl Writer {
         let mut record = Record::new(input, self.1, self.0.options.version.clone(), now);
         if record.level < state.levels.resolve(self.1, now) {
             return Ok(EmitStatus::Filtered);
+        }
+        let failures = self.0.formatter.registration_failures();
+        if failures > state.registry_failures_reported {
+            let warning = Record::new(
+                RecordInput::new(Event::RegistrySaturated { failures }),
+                self.1,
+                None,
+                now,
+            );
+            self.write(&mut state, &warning, now)?;
+            state.registry_failures_reported = failures;
         }
         if self.format(&mut record).is_err() {
             self.redaction_failed(&mut state, now, &record.event)?;
@@ -286,6 +299,30 @@ impl Writer {
         serde_json::to_string(&record).map_err(|_| RedactionError::InputLimit)
     }
     fn format(&self, record: &mut Record) -> std::result::Result<(), RedactionError> {
+        if self.0.formatter.registration_failures() > 0 {
+            // Retain fixed catalogue metadata; remove all caller-controlled strings.
+            // Credentials are never evicted merely to keep the log alive.
+            record.source.version = None;
+            record.trace_id = None;
+            record.span_id = None;
+            if let Some(error) = &mut record.err {
+                error.reason = "[REDACTED:registry]".into();
+            }
+            if let Some(attrs) = record.attrs.as_mut().and_then(Value::as_object_mut) {
+                for key in ["crash_id", "sha256", "attempted"] {
+                    if let Some(value) = attrs.get_mut(key) {
+                        *value = json!("[REDACTED:registry]");
+                    }
+                }
+                if let Some(id) = attrs.get_mut("connection_id") {
+                    *id = json!(uuid::Uuid::nil());
+                }
+            }
+            return validate_record(
+                &serde_json::to_value(record).map_err(|_| RedactionError::InputLimit)?,
+            )
+            .map_err(|_| RedactionError::InputLimit);
+        }
         // Typed envelope is retained; free text is formatted without applying the generic `code` key rule to err.code.
         if let Some(version) = &mut record.source.version {
             *version = self.0.formatter.redact_text(version)?;

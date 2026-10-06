@@ -152,5 +152,19 @@
     },
     "since": "D111",
     "stability": "stable"
+  },
+  {
+    "event": "log.registry.saturated",
+    "level": "warn",
+    "msg": "Credential redaction registry saturated; free text suppressed.",
+    "stream": "diagnostic",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/registry"
+    },
+    "since": "D111",
+    "stability": "stable",
+    "kinds": [
+      "desktop"
+    ]
   }
 ]

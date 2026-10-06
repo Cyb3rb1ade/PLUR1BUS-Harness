@@ -102,7 +102,10 @@ pub fn run() {
             #[cfg(not(debug_assertions))]
             let fixture = false;
             if let Err(reason) = diagnostics::start(app.handle()) { eprintln!("{reason}"); }
-            if !fixture && native::build_tray(app.handle()).is_err() { eprintln!("TRAY_SETUP_FAILED"); }
+            if !fixture && native::build_tray(app.handle()).is_err() {
+                app.state::<native::NativeState>().tray_failed();
+                eprintln!("TRAY_SETUP_FAILED");
+            }
             #[cfg(target_os = "linux")]
             if !fixture { gnome::start(app.handle()); }
             #[cfg(windows)]
@@ -160,10 +163,11 @@ pub fn run() {
             {
                 use tauri::Manager;
                 let app = webview.app_handle();
-                if std::env::args_os().any(|arg| arg == "--autostart") {
+                let autostart = std::env::args_os().any(|arg| arg == "--autostart");
+                if autostart && app.state::<native::NativeState>().consume_autostart() {
                     let background = app.state::<native::NativeState>().background.load(std::sync::atomic::Ordering::SeqCst);
                     if let Err(reason) = controller::autostart::on_login(&native::Windows(app), background) { eprintln!("{}", reason.code()); }
-                } else if webview.window().show().is_err() { eprintln!("SHELL_WINDOW_SHOW_FAILED"); }
+                } else if !autostart && webview.window().show().is_err() { eprintln!("SHELL_WINDOW_SHOW_FAILED"); }
             }
         })
         .build(context)

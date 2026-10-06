@@ -204,3 +204,27 @@ async fn removal_or_repair_cancels_only_the_matching_native_connection() {
         .is_none());
     assert!(!state.cancel_connection(id));
 }
+
+#[test]
+fn failed_tray_setup_keeps_the_window_reachable_by_minimizing() {
+    let state = plur1bus_desktop::native::NativeState::default();
+    state
+        .background
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    state.tray_failed();
+    let windows = Windows::default();
+    close_resident(
+        &windows,
+        "shell",
+        state.background.load(std::sync::atomic::Ordering::SeqCst),
+    )
+    .unwrap();
+    assert_eq!(*windows.calls.borrow(), vec!["minimize:shell"]);
+}
+#[test]
+fn autostart_is_consumed_once_across_shell_reloads() {
+    let state = plur1bus_desktop::native::NativeState::default();
+    assert!(state.consume_autostart());
+    assert!(!state.consume_autostart());
+    assert!(!state.consume_autostart());
+}

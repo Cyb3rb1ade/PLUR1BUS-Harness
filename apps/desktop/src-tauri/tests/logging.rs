@@ -913,3 +913,59 @@ fn credential_paths_include_auth_records_quoted_paths_and_controlled_aliases() {
     assert!(out.contains("<deny:ssh>/…#"));
     assert!(!out.contains("/synthetic/alias"));
 }
+
+#[test]
+fn registry_saturation_is_counted_and_keeps_safe_event_records() {
+    let registry = Arc::new(SecretRegistry::default());
+    // Fill the bounded encoding store with distinct values; never evict credentials.
+    for index in 0..2000 {
+        registry.register_sensitive(&format!("credential-{index:04}/+suffix"));
+    }
+    let failures = registry.registration_failures();
+    assert!(failures > 0);
+    let directory = tempfile::tempdir().unwrap();
+    let fmt = Formatter::new(
+        registry,
+        Arc::new(CredentialPaths::new("/synthetic/home")),
+        false,
+    );
+    let writer = open(
+        directory.path(),
+        &Clock::new(),
+        WriterOptions::default(),
+        fmt,
+    );
+    assert_eq!(
+        writer
+            .emit(RecordInput::new(Event::AppCrashed {
+                crash_id: "credential-1999/+suffix".replace(['/', '+'], "-")
+            }))
+            .unwrap(),
+        EmitStatus::Written
+    );
+    assert_eq!(
+        writer.emit(RecordInput::new(Event::AppStarted)).unwrap(),
+        EmitStatus::Written
+    );
+    let records = lines(directory.path());
+    assert_eq!(records.len(), 3); // one visible count, then both original event envelopes
+    let values: Vec<Value> = records
+        .iter()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(values[0]["event"], "log.registry.saturated");
+    assert_eq!(values[0]["attrs"]["failures"], failures);
+    assert_eq!(values[1]["event"], "desktop.app.crashed");
+    assert_eq!(values[1]["attrs"]["crash_id"], "[REDACTED:registry]");
+    assert_eq!(values[2]["event"], "desktop.app.started");
+    let schema: Value = serde_json::from_str(RECORD_SCHEMA_JSON).unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    for value in values {
+        validate_record(&value).unwrap();
+        assert!(
+            validator.is_valid(&value),
+            "registry fallback violates wire schema"
+        );
+    }
+    assert!(!records.join("\n").contains("credential-"));
+}

@@ -21,6 +21,7 @@ pub struct NativeState {
     pub view: Mutex<TrayState>,
     pub connection: Mutex<Option<Connection>>,
     pub background: AtomicBool,
+    pub autostart_handled: AtomicBool,
     pub german: AtomicBool,
     #[cfg(unix)]
     pub gnome: crate::gnome::GnomeState,
@@ -29,6 +30,12 @@ pub struct NativeState {
     pub header: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
 }
 impl NativeState {
+    pub fn tray_failed(&self) {
+        self.background.store(false, Ordering::SeqCst);
+    }
+    pub fn consume_autostart(&self) -> bool {
+        !self.autostart_handled.swap(true, Ordering::SeqCst)
+    }
     pub fn cancel_connection(&self, id: uuid::Uuid) -> bool {
         self.events.stop_if(|| {
             let mut active = self.connection.lock().unwrap();
@@ -213,6 +220,7 @@ async fn next_trust_transport(
     client: &HarnessClient,
     token: &SecretString,
 ) -> Option<(Connection, HarnessClient)> {
+    let mut retry = EventStream::default();
     loop {
         if let Err(error) = client.trust_event(&row.installation_id, token).await {
             let failure = match error {
@@ -275,7 +283,7 @@ async fn next_trust_transport(
                 return None;
             }
             eprintln!("TRUST_EVENT_RETRY");
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(retry.next_delay(rand::random::<f64>())).await;
             continue;
         }
         let owner = crate::commands::ConnectionState(
@@ -375,13 +383,13 @@ async fn next_trust_transport(
         .await;
         match result {
             Ok(Some(updated)) => return Some(updated),
-            Ok(None) => {}
+            Ok(None) => retry.reset_backoff(),
             Err(_) => eprintln!("TRUST_SYNC_RETRY"),
         }
         if app.state::<NativeState>().events.generation() != generation {
             return None;
         }
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(retry.next_delay(rand::random::<f64>())).await;
     }
 }
 
