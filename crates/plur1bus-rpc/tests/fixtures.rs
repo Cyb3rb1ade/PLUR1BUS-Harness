@@ -116,6 +116,13 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.embedding.serve" => {
             pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
         }
+        "dreams.status" => pair::<DreamsStatusParams, DreamsStatusResult>(name, f),
+        "dreams.log" => pair::<DreamsLogParams, DreamsLogResult>(name, f),
+        "dreams.run" => pair::<DreamsRunParams, DreamsRunResult>(name, f),
+        "dreams.schedule.get" => pair::<DreamsScheduleGetParams, DreamsScheduleGetResult>(name, f),
+        "dreams.schedule.set" => pair::<DreamsScheduleSetParams, DreamsScheduleSetResult>(name, f),
+        "dreams.enable" => pair::<DreamsEnableParams, DreamsEnableResult>(name, f),
+        "dreams.disable" => pair::<DreamsDisableParams, DreamsDisableResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
