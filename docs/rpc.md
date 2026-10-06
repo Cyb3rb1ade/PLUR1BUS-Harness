@@ -1584,6 +1584,434 @@ Returns past job execution records. When agentId is omitted, returns system job 
 }
 ```
 
+### `dreams.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Dreaming status per agent and phase (ADR-009 Observability): schedule, next and last run from the ledger, breaker, importance accumulator, the diary file, and the scheduler counters. agentId omitted = every registered agent.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agents",
+    "counters",
+    "schemaVersion"
+  ],
+  "properties": {
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agentId",
+          "phases",
+          "diary"
+        ],
+        "properties": {
+          "agentId": {
+            "$ref": "#/$defs/AgentId"
+          },
+          "phases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/DreamPhaseStatus"
+            }
+          },
+          "diary": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "exists",
+                  "bytes"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "exists": {
+                    "type": "boolean"
+                  },
+                  "bytes": {
+                    "type": "integer"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "skips",
+        "triggers",
+        "breakerTrips",
+        "reconciled"
+      ],
+      "properties": {
+        "runs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "skips": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "triggers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "breakerTrips": {
+          "type": "integer"
+        },
+        "reconciled": {
+          "type": "integer"
+        }
+      }
+    },
+    "schemaVersion": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `dreams.log`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Dream run ledger rows, newest first. With runId: that one row plus the text of its per-run log.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runs"
+  ],
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamRun"
+      }
+    },
+    "log": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `dreams.run`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Runs a dreaming phase now, under every guard except the cron gate (a disabled phase still runs on demand). The result is the ledger row, skips included. dryRun evaluates the guards and answers a plan without a ledger row.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "$ref": "#/$defs/DreamRun"
+    },
+    {
+      "$ref": "#/$defs/DreamPlan"
+    }
+  ]
+}
+```
+
+### `dreams.schedule.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The three phase schedules of an agent.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedules"
+  ],
+  "properties": {
+    "schedules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamSchedule"
+      }
+    }
+  }
+}
+```
+
+### `dreams.schedule.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Edits one phase schedule: cron (5 fields), IANA timezone, enabled. An invalid cron or timezone is E_INVALID_PARAMS and nothing is written.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "minProperties": 3,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "cron": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "enabled": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedule"
+  ],
+  "properties": {
+    "schedule": {
+      "$ref": "#/$defs/DreamSchedule"
+    }
+  }
+}
+```
+
+### `dreams.enable`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Enables one phase schedule (its enable switch is never coupled to another setting).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedule"
+  ],
+  "properties": {
+    "schedule": {
+      "$ref": "#/$defs/DreamSchedule"
+    }
+  }
+}
+```
+
+### `dreams.disable`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Disables one phase schedule; cron and importance triggers stop, run-now still works.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedule"
+  ],
+  "properties": {
+    "schedule": {
+      "$ref": "#/$defs/DreamSchedule"
+    }
+  }
+}
+```
+
 ### `admin.obsidian.detect`
 
 **Stability:** experimental · since 1.3.0
@@ -6025,6 +6453,406 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "args": {
       "type": "object"
+    }
+  }
+}
+```
+
+### `DreamPhase`
+
+```json
+{
+  "enum": [
+    "light",
+    "rem",
+    "deep"
+  ]
+}
+```
+
+### `DreamOutcome`
+
+```json
+{
+  "enum": [
+    "completed",
+    "skipped",
+    "failed",
+    "aborted"
+  ]
+}
+```
+
+### `DreamTrigger`
+
+```json
+{
+  "enum": [
+    "cron",
+    "importance",
+    "manual",
+    "catchup"
+  ]
+}
+```
+
+### `DreamRun`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "description": "One row of the dream run ledger (ADR-009 dream_run). outcome is null while the run is open; every outcome other than completed carries a reason.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "agentId",
+    "phase",
+    "jobId",
+    "idempotencyKey",
+    "claimed",
+    "trigger",
+    "startedAt",
+    "outcome",
+    "reason",
+    "counts"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "partition": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "claimed": {
+      "type": "boolean",
+      "description": "True when this run holds the key that makes a rerun over the same corpus and window an idempotent skip."
+    },
+    "trigger": {
+      "$ref": "#/$defs/DreamTrigger"
+    },
+    "scheduledFor": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "startedAt": {
+      "type": "integer"
+    },
+    "finishedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "durationMs": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DreamOutcome"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "tokensIn": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "tokensOut": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "costMicros": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "Null until a price table exists (measured in tokens first, ADR-009 B5/Q1)."
+    },
+    "logPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+### `DreamSchedule`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase",
+    "cron",
+    "timezone",
+    "enabled",
+    "staggerOffsetS",
+    "nextRunAt"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "cron": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string",
+      "description": "IANA zone, stored explicitly."
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "staggerOffsetS": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `DreamPhaseStatus`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "phase",
+    "enabled",
+    "cron",
+    "timezone",
+    "staggerOffsetS",
+    "nextRunAt",
+    "running",
+    "lastRun",
+    "breaker",
+    "importance"
+  ],
+  "properties": {
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "cron": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "staggerOffsetS": {
+      "type": "integer"
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "running": {
+      "type": "boolean"
+    },
+    "lastRun": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DreamRun"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "breaker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "until",
+        "reason",
+        "sessionsUsed",
+        "limit"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "closed",
+            "open"
+          ]
+        },
+        "until": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sessionsUsed": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      }
+    },
+    "importance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accumulated",
+        "threshold",
+        "capturesSinceRun",
+        "minCorpus"
+      ],
+      "properties": {
+        "accumulated": {
+          "type": "number"
+        },
+        "threshold": {
+          "type": "number"
+        },
+        "capturesSinceRun": {
+          "type": "integer"
+        },
+        "minCorpus": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
+
+### `DreamPlan`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "description": "What dreams.run with dryRun answers: the guard chain evaluated without a ledger row or an engine call.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dryRun",
+    "wouldRun",
+    "reason",
+    "jobs",
+    "idempotencyKey",
+    "counts"
+  ],
+  "properties": {
+    "dryRun": {
+      "const": true
+    },
+    "wouldRun": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
     }
   }
 }

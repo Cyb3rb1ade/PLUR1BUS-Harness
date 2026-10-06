@@ -166,6 +166,22 @@ describe("dreams scheduler: crash consistency", () => {
   });
 });
 
+describe("dreams scheduler: one run per agent and phase", () => {
+  it("a second run of the same phase while one is in flight is a recorded skip, never a double run", async () => {
+    const h = mkHarness();
+    h.captures("bernd", 3);
+    let release!: () => void;
+    h.engine.behaviours.set("rem-dream", () => new Promise((r) => { release = () => r({}); }));
+    const first = h.sched.runPhase("bernd", "rem", { trigger: "manual" });
+    for (let i = 0; i < 20 && h.engine.callsOf("rem-dream") === 0; i++) await new Promise((r) => setImmediate(r));
+    const second = await h.sched.runPhase("bernd", "rem", { trigger: "manual" });
+    assert.equal(second.outcome, "skipped"); assert.equal(second.reason, "already_running");
+    release();
+    assert.equal((await first).outcome, "completed");
+    assert.equal(h.engine.callsOf("rem-dream"), 1);
+  });
+});
+
 describe("dreams scheduler: concurrency and stagger", () => {
   it("never runs more than 3 phase runs at once, and runs them all", async () => {
     const agents = Array.from({ length: 20 }, (_, i) => `a${String(i).padStart(2, "0")}`);
@@ -233,6 +249,30 @@ describe("dreams scheduler: triggers", () => {
     assert.equal(h.clock.pending(), 1);
     await h.sched.stop();
     assert.equal(h.clock.pending(), 0);
+  });
+});
+
+describe("dreams scheduler: retention (ADR-009 Q7 default)", () => {
+  it("removes per-run logs after 30 days and ledger rows after 365, never an open run", async () => {
+    const h = mkHarness();
+    h.captures("bernd", 3);
+    const run = await h.sched.runPhase("bernd", "rem", { trigger: "manual" });
+    assert.ok(existsSync(run.logPath!));
+    await h.clock.advance(29 * DAY);
+    h.sched.prune();
+    assert.ok(existsSync(run.logPath!), "still inside 30 days");
+    await h.clock.advance(2 * DAY);
+    h.sched.prune();
+    assert.equal(existsSync(run.logPath!), false, "log gone after 30 days");
+    const kept = h.store.getRun(run.runId)!;
+    assert.equal(kept.outcome, "completed", "the row outlives its log");
+    assert.equal(kept.logPath, null);
+    // an open run is never pruned, however old
+    h.store.insertRun({ runId: "open-1", agentId: "bernd", phase: "deep", jobId: "consolidate-daily", partition: null, idempotencyKey: "z", trigger: "manual", scheduledFor: null, startedAt: T0, logPath: null });
+    await h.clock.advance(340 * DAY);
+    h.sched.prune();
+    assert.equal(h.store.getRun(run.runId), undefined, "row gone after 365 days");
+    assert.ok(h.store.getRun("open-1"), "open run kept");
   });
 });
 

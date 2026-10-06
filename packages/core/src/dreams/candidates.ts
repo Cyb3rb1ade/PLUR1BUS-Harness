@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { CandidateRow } from "./types.ts";
 
 export interface GateConfig { minScore: number; minRecallCount: number; minUniqueQueries: number }
-/** OpenClaw's calibrated defaults (`dreaming.ts`, ADR-009 "Dreaming reference model"): minScore 0.75, 3 recalls, 3 queries. */
+/** The calibrated defaults ADR-009 takes from its reference model: minScore 0.75, 3 recalls, 3 distinct queries. */
 export const DEFAULT_GATES: GateConfig = { minScore: 0.75, minRecallCount: 3, minUniqueQueries: 3 };
 
 export interface GateResult { gate: "expiry" | "utility" | "recall-count" | "unique-queries" | "score"; passed: boolean; detail?: string }

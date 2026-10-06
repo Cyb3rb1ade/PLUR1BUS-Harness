@@ -1,14 +1,14 @@
 // The harness-owned dreaming scheduler (ADR-009). It schedules and guards the engine's jobs and makes every run, skip
 // included, visible; it holds no dreaming logic of its own and never registers a host cron (A6).
 import { createHash, randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import type { TimerHandle } from "../discovery/ports.ts";
 import { contentHash, DEFAULT_GATES, evaluate, type Decision, type GateConfig } from "./candidates.ts";
 import { isValidTimezone, nextAfter, parseCron } from "./cron.ts";
 import type { DreamStore } from "./store.ts";
 import {
-  BREAKER_PHASES, BREAKER_SESSIONS, CANDIDATE_TTL_MS, DAY_MS, MAX_CONCURRENT_RUNS, PHASE_DEFAULTS, PHASES, REASON, STAGGER_WINDOW_S,
+  BREAKER_PHASES, BREAKER_SESSIONS, CANDIDATE_TTL_MS, DAY_MS, LEDGER_RETENTION_MS, LOG_RETENTION_MS, MAX_CONCURRENT_RUNS, PHASE_DEFAULTS, PHASES, REASON, STAGGER_WINDOW_S,
   type CandidateSource, type Clock, type DreamEngine, type DreamEvent, type DreamJobRun, type DreamLogger, type DreamRun, type Outcome, type Phase,
   type PhaseDefaults, type RunCounts, type ScheduleRow, type Trigger,
 } from "./types.ts";
@@ -73,6 +73,7 @@ export class DreamScheduler {
   readonly #stop = new AbortController();
   readonly #counters: Counters = { runs: {}, skips: {}, triggers: {}, breakerTrips: 0, reconciled: 0 };
   #timer: TimerHandle | null = null;
+  #lastPrune = 0;
   #started = false;
   #stopped = false;
 
@@ -125,6 +126,7 @@ export class DreamScheduler {
     if (this.#started) return;
     this.#started = true;
     this.reconcile();
+    this.prune();
     this.syncAgents();
     const now = this.#o.clock.now();
     const catchups: Promise<unknown>[] = [];
@@ -159,6 +161,17 @@ export class DreamScheduler {
     return n;
   }
 
+  /** Retention: logs older than 30 days are removed (their rows stay), rows older than 365 days are deleted. */
+  prune(): void {
+    const now = this.#o.clock.now();
+    this.#lastPrune = now;
+    try {
+      const r = this.#o.store.prune(now - LEDGER_RETENTION_MS, now - LOG_RETENTION_MS);
+      for (const f of r.logs) { try { rmSync(f, { force: true }); } catch (e) { this.#o.logger.warn("dreams log removal failed", { file: f, err: String(e) }); } }
+      if (r.deleted > 0 || r.logs.length > 0) this.#o.logger.info("dreams retention", { rowsDeleted: r.deleted, logsRemoved: r.logs.length });
+    } catch (e) { this.#o.logger.warn("dreams retention failed", { err: String(e) }); }
+  }
+
   // ---- triggers -----------------------------------------------------------------------------------------------
 
   #dueSchedules(now: number): ScheduleRow[] {
@@ -181,6 +194,7 @@ export class DreamScheduler {
     if (this.#stopped) return;
     this.syncAgents();
     const now = this.#o.clock.now();
+    if (now - this.#lastPrune >= DAY_MS) this.prune();
     for (const agentId of this.#o.agents()) this.#refreshBreaker(agentId, now);
     const runs: Promise<unknown>[] = [];
     for (const s of this.#dueSchedules(now)) {
@@ -253,7 +267,9 @@ export class DreamScheduler {
   }
 
   #tripBreaker(agentId: string, now: number, reason: string): void {
-    const until = utcDayStart(now) + DAY_MS; // the sweep boundary: the session count starts over there
+    // RULING: open "until the next scheduled window" is read as the sweep boundary (next UTC midnight), the same sweep the
+    // engine's own breaker and `dreams status` count in; the session count starts over there.
+    const until = utcDayStart(now) + DAY_MS;
     for (const p of BREAKER_PHASES) this.#o.store.updateSchedule(agentId, p, { breakerState: "open", breakerUntil: until, breakerReason: reason });
     this.#counters.breakerTrips++;
     this.#emit({ name: "breaker.opened", agentId, reason });
@@ -296,6 +312,8 @@ export class DreamScheduler {
     const now = this.#o.clock.now();
     const runId = (this.#o.idFactory ?? randomUUID)();
     const jobs = this.#jobsFor(phase);
+    // RULING (ADR-009 Q5, default "stay private"): M1 dreams the agent-private partition only; workspace/user partitions get no
+    // schedule and no diary until the owner asks for a shared one.
     const partition = "agent-private";
     const key = this.#key(agentId, phase, sched, now, partition);
     const logPath = path.join(this.#o.logsDir, agentId, phase, `${runId}.log`);
@@ -328,7 +346,7 @@ export class DreamScheduler {
       return store.getRun(runId)!;
     };
 
-    if (this.#running.has(runKey)) return finish("skipped", "already_running", {});
+    if (this.#running.has(runKey)) return finish("skipped", REASON.alreadyRunning, {});
     this.#running.add(runKey); owned = true;
     try {
       const skip = this.#guards(agentId, phase, sched, jobs, key, now);
@@ -404,6 +422,8 @@ export class DreamScheduler {
       const reason = main.reason ?? "skipped";
       return finish("skipped", /^no_llm/.test(reason) ? REASON.noLlmRoute : reason, tally(), usage());
     }
+    // RULING: only a diary the engine reports as not written fails the run; `requireDiary` (off by default) also demands one,
+    // because the pinned engine's consolidate-daily reports none (TODO(engine): one guaranteed diary entry per deep sweep, C1).
     // A diary the engine says it could not write is a failure, not a footnote (causes 7, 11; A2 variant).
     const badDiary = results.find((x) => x.run.diary && x.run.diary.written === false);
     if (badDiary || (this.#o.requireDiary?.[phase] && !results.some((x) => x.run.diary?.written === true))) {
@@ -439,6 +459,8 @@ export class DreamScheduler {
     for (const c of store.listCandidates(agentId, "shortlisted")) {
       const d = evaluate(c, now, gates);
       if (d.promote) promotable.push({ candidateId: c.candidateId, decision: d });
+      // RULING: a candidate that fails a gate is not "rejected" (that state is for an owner/engine decision); it stays shortlisted
+      // with the gate-by-gate record and may still gain recalls until it expires.
       else { rejected++; store.setCandidateState(c.candidateId, "shortlisted", d); } // stays eligible to gain recalls until it expires; the decision records the gate
     }
     counts.rejected = rejected;

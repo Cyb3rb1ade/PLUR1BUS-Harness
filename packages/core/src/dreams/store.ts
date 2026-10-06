@@ -223,6 +223,17 @@ export class DreamStore {
     return r ? DreamStore.#toRun(r) : undefined;
   }
 
+  /** Retention (ADR-009 Q7): closed rows older than `ledgerBefore` are deleted; of the rest, those older than `logsBefore`
+   *  give up their log path (returned, so the caller removes the files). An open run is never touched. */
+  prune(ledgerBefore: number, logsBefore: number): { deleted: number; logs: string[] } {
+    return this.tx(() => {
+      const logs = this.#all("SELECT log_path FROM dream_run WHERE outcome IS NOT NULL AND log_path IS NOT NULL AND started_at < ?", logsBefore).map((r) => r.log_path as string);
+      this.#run("UPDATE dream_run SET log_path = NULL WHERE outcome IS NOT NULL AND log_path IS NOT NULL AND started_at < ?", logsBefore);
+      const deleted = this.#run("DELETE FROM dream_run WHERE outcome IS NOT NULL AND started_at < ?", ledgerBefore);
+      return { deleted, logs };
+    });
+  }
+
   /** Runs that never closed: a crash (or a kill) between the opening row and the finish. */
   openRuns(): DreamRun[] { return this.#all("SELECT * FROM dream_run WHERE outcome IS NULL").map(DreamStore.#toRun); }
 

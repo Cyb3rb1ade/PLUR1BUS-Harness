@@ -12,6 +12,8 @@ export type CandidateState = "shortlisted" | "promoted" | "rejected" | "expired"
 
 /** Reason codes (L16): every skip, failure and abort carries exactly one. Engine job reasons pass through unchanged
  *  when they explain a job-level skip or failure; these are the scheduler's own. */
+// RULING: `breaker_sessions`, not A3's `breaker_cost` — B5/Q1 removed the cost cap, so the session count is the only breach left.
+// `already_running` (one run per agent and phase at a time) takes the place of the engine-era `lock_held`.
 export const REASON = {
   idempotent: "idempotent",
   breakerOpen: "breaker_open",
@@ -20,6 +22,7 @@ export const REASON = {
   noCandidates: "no_candidates",
   noLlmRoute: "no_llm_route",
   noJobs: "no_jobs",
+  alreadyRunning: "already_running",
   crashed: "crashed",
   shutdown: "shutdown",
   diaryNotWritten: "diary_not_written",
@@ -91,6 +94,10 @@ export interface DreamLogger { info(m: string, f?: object): void; warn(m: string
 export interface PhaseDefaults { cron: string; minCorpus: number; importanceThreshold: number; minGapMs: number; jobs: readonly string[]; primary: string }
 
 const HOUR = 3_600_000;
+// RULING (ADR-009 Q2, default "ship both"): importance accumulation is the primary trigger, cron the floor. A stored capture
+// weighs 5 (the engine's pending importance 0.5 on the Generative Agents 1-10 scale); the thresholds are 150 (the paper's
+// value) for light and 2x / 3x that for rem and deep, with a minimum gap between importance-triggered runs so a burst of
+// captures cannot loop a phase (#65550). minCorpus counts stored captures since the phase last completed a run.
 /** RULING (ADR-009 phase mapping + sweep budget): one LLM job per phase, the model-free jobs of the phase beside it.
  *  The other LLM jobs the ADR table lists (classify-recent, afterthought, emotion-refine, persona-evolve) would break the
  *  3-session sweep budget; they stay on the engine's own cadence until the budget is measured (Q1). */
@@ -106,5 +113,8 @@ export const BREAKER_SESSIONS = 3;
 export const STAGGER_WINDOW_S = 1800;
 export const CANDIDATE_TTL_MS = 72 * HOUR;
 export const DAY_MS = 24 * HOUR;
+/** RULING (ADR-009 Q7 proposal): ledger rows 365 days, per-run logs 30 days, the diary forever. */
+export const LEDGER_RETENTION_MS = 365 * DAY_MS;
+export const LOG_RETENTION_MS = 30 * DAY_MS;
 /** Phases whose LLM sessions count against the sweep breaker (the engine's own breaker and the CLI count the same two). */
 export const BREAKER_PHASES: ReadonlySet<Phase> = new Set<Phase>(["rem", "deep"]);
