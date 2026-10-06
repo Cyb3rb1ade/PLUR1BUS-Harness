@@ -70,7 +70,7 @@ pub fn run(out: &Out, layout: &Layout, args: RepairArgs) -> ! {
             &json!({ "dryRun": true, "steps": plan.steps, "checkAfter": null }),
             || describe(&plan),
         );
-        std::process::exit(0);
+        crate::output::exit(0);
     }
 
     let interactive = std::io::stdin().is_terminal() && !out.json;
@@ -113,5 +113,5 @@ pub fn run(out: &Out, layout: &Layout, args: RepairArgs) -> ! {
             format!("{}\n{tail}", describe(&plan))
         },
     );
-    std::process::exit(if clean { 0 } else { 1 })
+    crate::output::exit(if clean { 0 } else { 1 })
 }

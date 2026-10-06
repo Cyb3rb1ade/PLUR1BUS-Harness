@@ -1,0 +1,1 @@
+{"expect":{"kind":"auth","status":401,"retryable":false,"code":"invalid_api_key"},"response":{"status":401,"headers":{},"body":{"error":{"message":"Incorrect API key provided: synthetic-secret-token-123","type":"invalid_request_error","code":"invalid_api_key"}}}}

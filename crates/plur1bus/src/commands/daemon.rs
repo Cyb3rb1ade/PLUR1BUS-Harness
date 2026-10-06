@@ -498,6 +498,7 @@ pub(crate) fn stop_supervisor(
 pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
     match cmd {
         DaemonCmd::Start { no_wait } => {
+            super::update_apply::recover_at_start(layout);
             let (started, via, status) = start(out, layout, no_wait);
             out.ok(
                 "daemon.start/1",

@@ -1,0 +1,727 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "level": {
+      "enum": [
+        "trace",
+        "debug",
+        "info",
+        "warn",
+        "error",
+        "fatal"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "desktop"
+        },
+        "id": {
+          "enum": [
+            "shell",
+            "controller",
+            "updater"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "version"
+      ]
+    },
+    "event": {
+      "enum": [
+        "desktop.app.started",
+        "desktop.app.crashed",
+        "desktop.connection.lost",
+        "desktop.webview.failed",
+        "desktop.update.failed",
+        "desktop.deeplink.ignored",
+        "log.level.changed",
+        "log.level.expired",
+        "log.retention.pruned",
+        "log.redaction.failed",
+        "log.unregistered",
+        "log.registry.saturated"
+      ]
+    },
+    "msg": {
+      "type": "string",
+      "maxLength": 2048,
+      "x-maxBytes": 2048
+    },
+    "trace_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "not": {
+        "const": "00000000000000000000000000000000"
+      }
+    },
+    "span_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "not": {
+        "const": "0000000000000000"
+      }
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "err": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "rate-limited",
+            "overloaded",
+            "auth",
+            "invalid-request",
+            "server",
+            "timeout",
+            "network",
+            "io",
+            "internal",
+            "unavailable",
+            "webview",
+            "panic"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^([A-Za-z0-9._-]{1,128}|\\[REDACTED:[a-z]+\\])$"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "hint": {
+          "enum": [
+            "retry",
+            "pair-again",
+            "restart-app",
+            "check-connection",
+            "open-logs"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "reason",
+        "retryable"
+      ]
+    },
+    "attrs": {
+      "type": "object",
+      "x-maxBytes": 8192
+    }
+  },
+  "required": [
+    "ts",
+    "level",
+    "source",
+    "event",
+    "msg"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:plur1bus:desktop:log:1",
+  "dependentRequired": {
+    "span_id": [
+      "trace_id"
+    ]
+  },
+  "$defs": {
+    "empty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "crash": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "crash_id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "crash_id"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "connection_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "retrying": {
+          "type": "boolean"
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "connection_id",
+        "retrying"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "webview": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "webview": {
+          "enum": [
+            "shell",
+            "spa"
+          ]
+        },
+        "failure": {
+          "enum": [
+            "terminated",
+            "unresponsive",
+            "launch-failed",
+            "navigation-failed"
+          ]
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "webview",
+        "failure"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "enum": [
+            "check",
+            "download",
+            "verify",
+            "install"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{64}|\\[REDACTED:[a-z]+\\])$"
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "phase"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "level": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "fatal"
+          ]
+        },
+        "to": {
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "fatal"
+          ]
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "desktop.app.started",
+            "desktop.app.crashed",
+            "desktop.connection.lost",
+            "desktop.webview.failed",
+            "desktop.update.failed",
+            "desktop.deeplink.ignored",
+            "log.level.changed",
+            "log.level.expired",
+            "log.retention.pruned",
+            "log.redaction.failed",
+            "log.unregistered"
+          ]
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "unregistered": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "attempted": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        }
+      },
+      "required": [
+        "attempted"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repeat": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "window_ms": {
+          "const": 60000
+        },
+        "failures": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "failures"
+      ],
+      "dependentRequired": {
+        "repeat": [
+          "window_ms"
+        ],
+        "window_ms": [
+          "repeat"
+        ]
+      },
+      "x-maxBytes": 8192
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "event": {
+          "const": "desktop.app.started"
+        },
+        "level": {
+          "const": "info"
+        },
+        "msg": {
+          "const": "desktop app started"
+        },
+        "attrs": {
+          "$ref": "#/$defs/empty"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "desktop.app.crashed"
+        },
+        "level": {
+          "const": "fatal"
+        },
+        "msg": {
+          "const": "desktop app crashed"
+        },
+        "attrs": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/crash"
+            },
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "repeat"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "window_ms"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "desktop.connection.lost"
+        },
+        "level": {
+          "const": "warn"
+        },
+        "msg": {
+          "const": "desktop connection lost"
+        },
+        "attrs": {
+          "$ref": "#/$defs/connection"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "desktop.webview.failed"
+        },
+        "level": {
+          "const": "error"
+        },
+        "msg": {
+          "const": "desktop webview failed"
+        },
+        "attrs": {
+          "$ref": "#/$defs/webview"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "desktop.update.failed"
+        },
+        "level": {
+          "const": "error"
+        },
+        "msg": {
+          "const": "desktop update failed"
+        },
+        "attrs": {
+          "$ref": "#/$defs/update"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "desktop.deeplink.ignored"
+        },
+        "level": {
+          "const": "info"
+        },
+        "msg": {
+          "const": "desktop deeplink ignored"
+        },
+        "attrs": {
+          "$ref": "#/$defs/empty"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "log.level.changed"
+        },
+        "level": {
+          "const": "info"
+        },
+        "msg": {
+          "const": "log level changed"
+        },
+        "attrs": {
+          "$ref": "#/$defs/level"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "log.level.expired"
+        },
+        "level": {
+          "const": "info"
+        },
+        "msg": {
+          "const": "log trace level expired"
+        },
+        "attrs": {
+          "$ref": "#/$defs/empty"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "log.retention.pruned"
+        },
+        "level": {
+          "const": "info"
+        },
+        "msg": {
+          "const": "log retention pruned"
+        },
+        "attrs": {
+          "$ref": "#/$defs/retention"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "log.redaction.failed"
+        },
+        "level": {
+          "const": "error"
+        },
+        "msg": {
+          "const": "log redaction failed"
+        },
+        "attrs": {
+          "$ref": "#/$defs/event"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "log.unregistered"
+        },
+        "level": {
+          "const": "warn"
+        },
+        "msg": {
+          "const": "unregistered log event"
+        },
+        "attrs": {
+          "$ref": "#/$defs/unregistered"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    {
+      "properties": {
+        "event": {
+          "const": "log.registry.saturated"
+        },
+        "level": {
+          "const": "warn"
+        },
+        "msg": {
+          "const": "Credential redaction registry saturated; free text suppressed."
+        },
+        "attrs": {
+          "$ref": "#/$defs/registry"
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    }
+  ]
+}

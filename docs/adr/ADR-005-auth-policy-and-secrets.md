@@ -211,3 +211,43 @@ The only genuinely contested axis is user convenience versus enforceable complia
 7. [ ] Specify the credential-pool failure classifier with an explicit *ambiguous vs confirmed* split and our own reason codes, plus per-model cooldowns; single cooldown authority shared with cron.
 8. [ ] Add a secret-redaction test over logs, API responses, exports, backups and import reports (grep the fixtures for known test tokens).
 9. [ ] Write the user-facing doc page "Using a Claude / Gemini subscription with the harness" pointing to API keys and the ACP route (ADR-011), linked from the disabled profile entries.
+
+## Implementation record (M2 secret store)
+
+What shipped for action items 5, 6 and 8 (`docs/superpowers/plans/2026-10-06-m2-secret-store.md`):
+
+- **One interface, three backends** (`packages/core/src/secrets/`): the OS keyring (`@napi-rs/keyring`, loaded lazily by a
+  variable specifier so a missing prebuild is a probe failure, not a start failure; names and timestamps, never values, in one
+  index entry because the keyring cannot enumerate; one keyring service per home), the encrypted file, and an in-memory test
+  backend. Selection is keyring first; the file serves only when `secrets.fileFallback.enabled` is `true` and the keyring is
+  unavailable; otherwise `none`, and every value operation answers `E_NOT_AVAILABLE` (reason `no-backend`) naming the flag.
+  Reads fall through to the other available backend, deletes clear both, so a keyring that appears later hides nothing.
+- **Q3 ruling (B19, owner decision still open).** The file's key is a machine-bound key file (`state/secrets/store.key`, 32
+  random bytes, created once, 0600 or user-and-SYSTEM ACL), as `decisions-for-owner.md` B19 recommends. The passphrase mode B19
+  keeps "available for higher-assurance installs" is not built. The fallback is off by default until the owner decides. The
+  desktop's host-keychain key delivery (`host.keyUnlock`, desktop spec) replaces the key file's source later without changing the
+  file format.
+- **Format.** `plur1bus.secrets-file/1`: per entry a random 96-bit nonce, AES-256-GCM, additional authenticated data = schema id
+  + NUL + name (a ciphertext moved to another name fails). Atomic write (temp file created `wx` and restricted before content,
+  fsync, rename). Any authentication failure, malformed entry, wrong schema, unreadable file or missing key with entries present is
+  `corrupt` (`E_STORAGE`); nothing partial is returned and the key is never regenerated over existing entries. Not defended: a
+  reader of both files as this user, and whole-entry rollback to an older valid copy.
+- **Leases (action 6).** `{ leaseId, name, value, expiresAt, purpose, profileId }`, default 60 s, cap 5 min, injectable clock,
+  revoked on rotate and delete, in memory only, no RPC (the engine is in-process; an RPC lease would hand a value to a client).
+- **Principals and RPC.** `owner`, `core` (leases only) and `agent`; anything else, including an unknown kind, is refused and the
+  refusal audited. `secret.status|list|set|get|delete` (RPC 1.5.0, experimental, `x-since: 1.5.0`, no version bump in this
+  change) take the principal from the connection, never from a parameter; today every connection that passed `core.auth` holds
+  `run/core.token` and is the owner, and per-connection principals plug into one hook when M3's users and D109's surface trust
+  land. `secret.` joins `secrets.` in WebMCP's forbidden prefixes. ADR-004's "write-only through the API" is narrowed by one
+  explicit, owner-only, audited call, `secret.get` with `reveal: true`, which `plur1bus secret get --reveal` needs.
+- **Audit and redaction (action 8).** Every access writes `{ at, actor, action, target, detail }` to `logs/audit.log` (the same
+  shape as `crates/plur1bus/src/audit.rs`, detail keys whitelisted) *before* the value is released or changed; when the line
+  cannot be written the operation fails. Backend and OS errors are reduced to a code. The CLI reads a value from stdin only and
+  refuses one in an argument without echoing it. `tests/system/secrets.test.ts` sweeps every CLI output (reveals aside), the core's
+  stderr and every file under the home for a marker value.
+- **Test seam.** `PLUR1BUS_SECRETS_KEYRING=off|memory`, honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`: no test reaches a real
+  keychain.
+- **Not done here.** D111 log-schema events for secret access (the audit line is the record until that package lands), per-user
+  credentials (Q5), a hidden-input prompt for `secret set` on a terminal (the value is piped), the importer's `--migrate-secrets`
+  (M7 consumes this API), and a smoke test of the real `@napi-rs/keyring` on the five CI targets (action 5's last clause; needs
+  a CI job, and workflows are not part of this change).

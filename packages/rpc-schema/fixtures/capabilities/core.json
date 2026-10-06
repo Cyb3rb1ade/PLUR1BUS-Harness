@@ -120,6 +120,22 @@
       "stability": "experimental",
       "since": "1.3.0"
     },
+    "admin.reembed.plan": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.run": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.abort": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "events.subscribe": {
       "stability": "stable",
       "since": "1.0.0"
@@ -145,6 +161,34 @@
       "since": "1.5.0"
     },
     "models.acknowledge": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "budget.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "budget.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.delete": {
       "stability": "experimental",
       "since": "1.5.0"
     },

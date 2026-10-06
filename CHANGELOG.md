@@ -6,6 +6,32 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ## [Unreleased]
 
+### Added
+
+- `@plur1bus/providers` (M2, part 1): the OpenAI-compatible `chat_completions` adapter — request builder, SSE
+  streaming with incremental tool-call assembly and usage, non-stream path, a typed error taxonomy
+  (`auth`, `rate_limit` with retry-after, `context_length`, `content_filter`, `bad_request`, `server`, `timeout`,
+  `network`, `protocol`, `aborted`), `AbortSignal` and injectable timeouts throughout, and a tool-argument repair
+  hook point (interface only). No auth logic: it takes a ready-made `Authorization` value. Tested against synthetic
+  fixtures and a local stub server only.
+
+- **D111 logging foundation, part 1: `log-schema`.** New package `@plur1bus/log-schema` and crate `plur1bus-log-schema`
+  hold the JSONL log record schema, the audit record schema (the HB12 v1 fields kept, spec R1), the versioned event
+  catalogue (128 events, each with an example), the OpenTelemetry/syslog level map and the redaction patterns as data,
+  with one validator per language and a Rust/TypeScript parity test. `docs/log-schema.md` is generated and checked by
+  `pnpm docs:check`. No logger or writer is wired in yet; nothing in the existing log files changes.
+
+- **Secret store (M2, ADR-005).** `plur1bus secret status|set|get|rm|ls` and the core's `secret.status|list|set|get|delete`
+  RPC (experimental, owner only; any other principal is refused with `E_DENIED`). Secrets go to the OS keyring
+  (`@napi-rs/keyring`, loaded on first use) and, only when `secrets.fileFallback.enabled` is `true` (default `false`),
+  to an encrypted file (`state/secrets/store.json`: AES-256-GCM, a fresh nonce per entry, the entry's name bound as
+  authenticated data, a machine-bound key file `store.key`, both 0600 or a user-and-SYSTEM ACL, written atomically). A
+  tampered, truncated or key-less file fails closed (`E_STORAGE`, reason `corrupt`) and the key is never regenerated over
+  existing entries. A value is read from stdin, never from an argument, and is printed only by `get --reveal`; every
+  access writes a value-free line to `logs/audit.log`, and when that line cannot be written no value is released or
+  changed. The engine gets short-lived, revocable leases (in-process; there is no RPC for them). `secret.*` is never
+  offered as a WebMCP tool. RPC stays at 1.5.0: the new methods carry `x-since: 1.5.0`.
+
 ### Changed
 
 - Memory engine re-pinned to **`6868b7b1`** (plugin `origin/main` after PR #237, previously `9bafa047`), contract

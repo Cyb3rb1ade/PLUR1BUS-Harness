@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-crash-offers"
+description = "Enables the crash_offers command without any pre-configured scope."
+commands.allow = ["crash_offers"]
+
+[[permission]]
+identifier = "deny-crash-offers"
+description = "Denies the crash_offers command without any pre-configured scope."
+commands.deny = ["crash_offers"]

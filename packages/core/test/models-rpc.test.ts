@@ -1,7 +1,8 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { connect, type CoreClient, RpcCallError } from "@plur1bus/module-api";
+import { type CoreClient, RpcCallError } from "@plur1bus/module-api";
+import { connect } from "./helpers/connect.ts";
 import { createPlatformCapabilities } from "../src/platform.ts";
 import { createCatalogStore } from "../src/discovery/catalog-store.ts";
 import { loadMetadataTable } from "../src/discovery/metadata.ts";

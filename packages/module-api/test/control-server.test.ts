@@ -11,6 +11,8 @@ import { tempDir } from "./helpers/temp-dir.ts";
 const TOKEN = "d".repeat(64);
 const address = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-ctl-test-${process.pid}` : join(tempDir("p1b-ctl-"), "module-fixture.sock");
 const status = (loadFixtures().methods as any)["module.status"].result;
+/** Windows: `connect` needs the pid expected to serve the pipe, and the hello below names this process. */
+const asPid: { expectedServerPid?: number } = process.platform === "win32" ? { expectedServerPid: process.pid } : {};
 const hello = () => ({ rpc: RPC_VERSION, instanceId: "mod-test", pid: process.pid, module: { name: "fixture", version: "0.1.0", apiVersion: "1" } });
 
 /** A raw connection: send lines, read replies, see the close. */
@@ -43,7 +45,7 @@ describe("module control server", () => {
   after(async () => { await server.close(); });
 
   it("module.auth answers the hello with a module-endpoint client", async () => {
-    const c = await connect({ address, token: TOKEN, endpoint: "module" });
+    const c = await connect({ address, token: TOKEN, endpoint: "module", ...asPid });
     assert.equal(c.hello.module?.name, "fixture");
     const s = await c.call("module.status", {});
     assert.deepEqual(validateResult("module.status", s), { ok: true });
@@ -60,7 +62,7 @@ describe("module control server", () => {
   });
 
   it("a wrong token closes the connection", async () => {
-    await assert.rejects(connect({ address, token: "e".repeat(64), endpoint: "module" }), (e: unknown) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED" && e.reason === "bad-token");
+    await assert.rejects(connect({ address, token: "e".repeat(64), endpoint: "module", ...asPid }), (e: unknown) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED" && e.reason === "bad-token");
     const r = await raw();
     r.send({ jsonrpc: "2.0", id: 1, method: "module.auth", params: { token: "e".repeat(64) } });
     assert.equal((await r.next()).error.data.reason, "bad-token");
@@ -68,15 +70,15 @@ describe("module control server", () => {
   });
 
   it("unknown params are E_INVALID_PARAMS", async () => {
-    const c = await connect({ address, token: TOKEN, endpoint: "module" });
+    const c = await connect({ address, token: TOKEN, endpoint: "module", ...asPid });
     await assert.rejects(c.call("module.status", { verbose: true }), (e: unknown) => e instanceof RpcCallError && e.error === "E_INVALID_PARAMS");
     await c.close();
   });
 
   it("a core method is not served on a module endpoint", async () => {
-    const c = await connect({ address, token: TOKEN, endpoint: "module" });
+    const c = await connect({ address, token: TOKEN, endpoint: "module", ...asPid });
     await assert.rejects(c.call("core.status", {}), (e: unknown) => e instanceof RpcCallError && e.reason === "method-not-found");
-    await assert.rejects(connect({ address, token: TOKEN, endpoint: "core" }), (e: unknown) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED" && e.reason === "auth-required");
+    await assert.rejects(connect({ address, token: TOKEN, endpoint: "core", ...asPid }), (e: unknown) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED" && e.reason === "auth-required");
     await c.close();
   });
 

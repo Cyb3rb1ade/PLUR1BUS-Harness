@@ -72,7 +72,7 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
         "check": check,
     });
     out.ok("setup/1", &doc, || describe(&steps, check.as_ref()));
-    std::process::exit(if failed || check_failures > 0 { 1 } else { 0 })
+    crate::output::exit(if failed || check_failures > 0 { 1 } else { 0 })
 }
 
 fn describe(steps: &[StepResult], check: Option<&Value>) -> String {

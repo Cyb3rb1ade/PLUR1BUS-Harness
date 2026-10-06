@@ -27,6 +27,9 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   let persisted: Settings = settings;
   const preferenceQueue: Array<{ change: Partial<Settings>; resolve: () => void }> = [];
   let saving = false;
+  let autostart: boolean | null = null;
+  let autostartBusy = false;
+  let autostartFailed = false;
   let platform: Platform = "mac";
   let systemLocale = "en";
   let route = routeFromHash(window.location.hash);
@@ -61,6 +64,14 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       connectionStatus = { ...connectionStatus, status: "error" };
     }).finally(() => { connectionRefresh = null; render(); });
     return connectionRefresh;
+  }
+  if (transport.autostartGet) void transport.autostartGet().then(value => { autostart = value; render(); }).catch(() => { autostartFailed = true; render(); });
+  async function setAutostart(value: boolean) {
+    if (!transport.autostartSet || autostartBusy) return;
+    autostartBusy = true; autostartFailed = false; render();
+    try { autostart = await transport.autostartSet(value); }
+    catch { autostartFailed = true; }
+    finally { autostartBusy = false; render(); }
   }
   const settingsLoad = transport.settingsGet().then(stored => {
     persisted = stored;
@@ -191,6 +202,18 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       const titleKey = `settings.${route.page}Title` as MessageKey;
       const bodyKey = `settings.${route.page}Body` as MessageKey;
       main.append(pageCard(t(titleKey), t(bodyKey)));
+      if (route.page === "runtime" && transport.autostartGet && transport.autostartSet) {
+        const section = element("section", "settings-card");
+        const label = element("label", "quit-choice");
+        const toggle = document.createElement("input"); toggle.type = "checkbox";
+        toggle.checked = autostart === true; toggle.indeterminate = autostart === null; toggle.disabled = autostartBusy;
+        toggle.dataset.focusKey = "autostart";
+        toggle.addEventListener("change", () => { void setAutostart(toggle.checked); });
+        append(label, toggle, document.createTextNode(t("autostart.label"))); section.append(label);
+        if (autostart === null) section.append(element("p", undefined, t("autostart.unconfirmed")));
+        if (autostartFailed) { const error = element("p", undefined, t("autostart.failed")); error.setAttribute("role", "alert"); section.append(error); }
+        main.append(section);
+      }
     }
     append(layout, main, panel());
     append(container, header, openSections, relatedButton(t("panel.open"), t("panel.body")), layout);
