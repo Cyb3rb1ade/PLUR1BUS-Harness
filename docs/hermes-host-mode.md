@@ -40,11 +40,11 @@ The turn path uses **stable** methods only (HM2-R5): `core.auth`, `memory.recall
 | `initialize` | Reads the binding (absent or invalid: provider inert, one warning naming `hermes plur1bus bind`), builds the caller and session key, opens two clients (read side and capture side), warms up within 1 s. | `core.auth`, `agent.open` when advertised (failure ignored) | HM2-R5 |
 | `system_prompt_block()` | A fixed one-paragraph note, no RPC, so Hermes' cached system prompt stays stable. | none | HM2-R14 |
 | `prefetch(query)` | Trivial prompts (`is_trivial_prompt`) return `""` without a call. Otherwise recalls with `budget.hardMs = recallHardMs` (default 600) and a transport deadline of `hardMs + 400 ms`, and returns `result.joined.text`. Any failure returns `""`. `queue_prefetch` is not implemented. | `memory.recall` | HM2-R14 |
-| `sync_turn(user, assistant)` | Queues the completed turn (user and assistant text only, at most 64 messages, request kept 64 KiB under the 4 MiB line limit, over-long content cut and marked `[truncated]`) for **one ordered background worker**; the hook itself does no I/O. Skipped when `agent_context` is not `primary` (cron, subagent) or the binding has `capture: false`. Each turn gets its own `runId`. | `memory.capture` | HM2-R13, F5 |
+| `sync_turn(user, assistant)` | Queues the completed turn (user and assistant text only, at most 64 messages, request kept 64 KiB under the 4 MiB line limit, over-long content cut and marked `[truncated]`) for **one ordered background worker**; the hook itself does no I/O. Skipped when `agent_context` is not `primary` (cron, subagent) or the binding has `capture: false`. Each turn gets its own `runId`. A core refusal that is permanent (including `E_AGENT_UNKNOWN`) moves the turn to the bounded 0600 `dead-letter.ndjson` (200 entries, 1 MiB) next to the journal and never blocks the queue; every queued entry is checked against the current binding before it is sent (agent id, caller, user/assistant messages), and journal records are framed with length and checksum so a torn tail is skipped. | `memory.capture` | HM2-R13, F5 |
 | `on_pre_compress` | Checkpoint API **v1**: waits up to 2 s for pending captures, then writes a checkpoint when advertised; returns `""`. Hermes' fail-closed checkpoint API v2 is not advertised (plan Q5). | `memory.checkpoint` (`reason: "compaction"`) | HM2-R15 |
 | `on_session_end` | Within 2 s: waits for pending captures, then a `session-end` checkpoint and `agent.close`, each only when advertised. | `memory.checkpoint`, `agent.close` | HM2-R5, R15 |
 | `shutdown` | Within 2 s: delivers what the worker can, journals every undelivered turn, counts any it could not write as `lost`, closes the clients. | none | HM2-R13 |
-| `get_tool_schemas` / `handle_tool_call` | The `plur1bus_memory_list`, `_show`, `_forget`, `_correct`, `_share` tools, offered only for methods the core advertises, except that before `initialize` all five schemas are returned (Hermes builds its tool routing table before `initialize` and before any connection); after `initialize` the list holds only advertised methods. Results are the JSON result, or `{"error": "<E_* code>"}`. Hermes asks for the tool list once right after the provider starts, so a core that is down at session start means no memory tools for that session. | `memory.list/show/forget/correct/share` | HM2-R5 |
+| `get_tool_schemas` / `handle_tool_call` | The `plur1bus_memory_list`, `_show` tools, and `_forget`, `_correct`, `_share` only when the binding sets `memoryWriteTools` (off by default), offered only for methods the core advertises, except that before `initialize` all five schemas are returned (Hermes builds its tool routing table before `initialize` and before any connection); after `initialize` the list holds only advertised methods. Results are the JSON result, or `{"error": "<E_* code>"}`. Hermes asks for the tool list once right after the provider starts, so a core that is down at session start means no memory tools for that session. | `memory.list/show/forget/correct/share` | HM2-R5 |
 | `get_config_schema` / `save_config` | Empty and a no-op: the installer writes the binding. | none | |
 
 Hermes' own message text reaches PLUR1BUS only through `memory.capture`; the recalled block is wrapped by the core in a `<memory-record>` fence, which the real-Hermes CI test checks on the second turn.
@@ -56,11 +56,19 @@ The RPC's `CallerIdentity` is closed (`{ channel: "cli", accountId, userId }`), 
 | Field | Value |
 |---|---|
 | `channel` | `"cli"` |
-| `accountId` | `"hermes:<platform>"`, the platform lower-cased and folded to `[a-z0-9_-]{1,32}`; missing becomes `local` |
-| `userId` | Hermes `user_id`, else `chat_id`, else `"local"`; control characters stripped, at most 128 characters |
+| `accountId` | `"hermes:<platform>"`, the platform lower-cased and folded to `[a-z0-9_-]{1,32}`; missing becomes `local`. A claimed platform gets `"hermes:<platform>:claimed"` |
+| `userId` | trusted platform: Hermes `user_id`, else `chat_id`; control characters stripped, at most 128 characters. Claimed platform: `claimed-<first 32 hex of sha256(id)>` |
 | session key | the gateway session key when Hermes has one, else the session id; over 256 characters it is cut and ends with `#<16 hex of sha256>` |
 
-The engine derives a distinct user principal per platform and user, with trust `proved` (the same OS user holds the core token). Limits:
+**Who is believed (security audit M1).** The RPC carries no trust (a client can never supply it), so the provider encodes it in the identity, from the data table `PLATFORM_TRUST` in `mapping.py`:
+
+| Class | Platforms | Identity |
+|---|---|---|
+| `trusted` (the platform authenticates the sender) | telegram, discord, slack, whatsapp, signal, matrix, mattermost | `hermes:<platform>` + the platform's user id (else chat id) |
+| `local` (one OS user) | cli, local | `hermes:<platform>` + id, else `local` |
+| `claimed` (the sender chooses the id) | every other platform: email, webhook, sms, API servers, unknown names | `hermes:<platform>:claimed` + a hash of the id, never equal to a proved user's principal |
+
+With no user id and no chat id on a non-local platform there is no safe identity: the provider stays inert for that session with one warning, instead of letting every such sender share `hermes:<platform>` / `local`. The engine derives a distinct user principal per account and user, with trust `proved` for the caller as sent (the same OS user holds the core token), so the claimed namespace is what keeps a spoofable id away from a real user's memories. Limits:
 
 - **No group/private setting (plan Q4, accepted).** Hermes turns carry no D22 setting, and the engine does not filter by setting today either; it lands with E7 and a later RPC minor. Until then a memory captured in a group chat is recalled for that user everywhere the same `accountId`/`userId` pair appears. The alternative (disable capture for gateway chats whose `chat_id` differs from `user_id`) was rejected because it loses memories in groups.
 - When a later RPC minor adds a host channel, the user-principal hash changes; the engine's user aliases (D24/E7) are for that.
@@ -77,6 +85,7 @@ The engine derives a distinct user principal per platform and user, with trust `
 | `agentId` | the PLUR1BUS agent this Hermes home uses |
 | `recallHardMs` | recall budget, default 600, allowed 50 to 10000 |
 | `capture` | default `true`; `false` turns capture off |
+| `memoryWriteTools` | default `false` (field absent). `true` offers `plur1bus_memory_forget`, `_correct` and `_share` to the model; without it they are not offered, not named in the system prompt block, and a call answers `{"error": "E_DISABLED"}`. Hermes has no per-call confirmation, so there is no confirm mode (audit M2) |
 | `installedBy`, `version` | provenance, informational |
 
 **One agent per Hermes home** (HM2-R8, amended by HM2-R8a). Hermes reports the profile `default` for every home outside `~/.hermes`, so a profile-name rule would collide. The id is keyed on `realpath(HERMES_HOME)`:
@@ -108,7 +117,7 @@ The capture journal uses a different, in-process-and-`flock` lock (`_filelock.Fi
 Host-adapter rule 1 applies: the provider reports degraded and drops nothing silently (HM2-R13, with F5, F6, F28).
 
 - **Recall** failure or timeout returns `""` and logs one warning per session; the turn continues.
-- **Capture** runs on the one worker and is never retried inline. A transport-class failure (`E_TRANSPORT`, `E_TIMEOUT`, `E_CORE_UNAVAILABLE`, `E_SERVER_IDENTITY`, `E_AGENT_UNKNOWN`) appends the entry to `$HERMES_HOME/plur1bus/journal.ndjson`. A permanent refusal drops that entry and counts it as `rejected`, so one bad turn never blocks the queue (F5).
+- **Capture** runs on the one worker and is never retried inline. A transport-class failure (`E_TRANSPORT`, `E_TIMEOUT`, `E_CORE_UNAVAILABLE`, `E_SERVER_IDENTITY`) appends the entry to `$HERMES_HOME/plur1bus/journal.ndjson`. A permanent refusal (`E_AGENT_UNKNOWN` too, since the audit) sets that entry aside in `dead-letter.ndjson` and counts it as `rejected` and `deadLettered`, so one bad turn never blocks the queue (F5). The directory is checked on every write (0700, owned by the user), the files are 0600, and error codes from the core are cut to 64 characters of `[A-Za-z0-9_.-]` before they reach a log or `state.json`.
 - The journal is mode 0600 (directory 0700), holds at most 1 000 entries and 4 MiB (the oldest are dropped and counted), and is replayed in order, in batches of 50, before the worker's next capture and after a successful recall; replay stops at the first transport-class failure. Replay is at-least-once per batch; duplicates are absorbed by the engine's turn replay guard because every entry carries its `runId`, while two genuinely identical turns get different ids and are both kept.
 - No hook touches the journal except `shutdown`, with a bounded lock; message text is written only to the journal (F6): log records, `status` and `selftest` output carry codes and counts. The core token is never logged or stored.
 - `E_AGENT_UNKNOWN` degrades and names `hermes plur1bus bind`.

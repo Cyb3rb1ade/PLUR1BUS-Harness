@@ -14,7 +14,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from tests import CLIENT_SRC, PROVIDER_DIR
+from tests import CLIENT_SRC, PROVIDER_DIR, STUBS_DIR
 from tests.fake_client import SILENT, FakeError, Sandbox, capabilities, requires_core, wait_until
 
 import plur1bus
@@ -986,3 +986,25 @@ class HermesImportTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FallbackImportTest(unittest.TestCase):
+    def test_the_checkout_client_is_appended_to_sys_path_not_prepended(self) -> None:
+        """Audit (low): the fallback must not put a foreign directory first on sys.path."""
+        import subprocess
+
+        code = (
+            "import sys\n"
+            f"sys.path[:0] = [{os.path.dirname(PROVIDER_DIR)!r}, {STUBS_DIR!r}, '/nonexistent-first']\n"
+            "before = list(sys.path)\n"
+            "import plur1bus._client as c\n"
+            "assert c.pmc.__file__\n"
+            "added = [p for p in sys.path if p not in before]\n"
+            "assert added, 'the fallback should have added the checkout source'\n"
+            "assert sys.path[: len(before)] == before, sys.path\n"
+            "assert sys.path[-len(added):] == added\n"
+            "print('ok')\n"
+        )
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, timeout=60, env=env, stdin=subprocess.DEVNULL)
+        self.assertEqual(out.stdout.strip(), "ok", out.stderr)

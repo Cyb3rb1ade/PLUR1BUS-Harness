@@ -319,3 +319,55 @@ class CliTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WhichNoCwdTest(unittest.TestCase):
+    def setUp(self) -> None:
+        import tempfile
+
+        self.tmp = tempfile.mkdtemp(prefix="p1h-which-")
+        self.addCleanup(__import__("shutil").rmtree, self.tmp, ignore_errors=True)
+        self.cwd = os.path.join(self.tmp, "cwd")
+        self.bindir = os.path.join(self.tmp, "bin")
+        os.makedirs(self.cwd)
+        os.makedirs(self.bindir)
+        old = os.getcwd()
+        os.chdir(self.cwd)
+        self.addCleanup(os.chdir, old)
+
+    def _exe(self, directory: str, name: str) -> str:
+        path = os.path.join(directory, name)
+        with open(path, "w") as f:
+            f.write("#!/bin/sh\n")
+        os.chmod(path, 0o755)
+        return path
+
+    def test_a_binary_in_the_current_directory_is_never_found(self) -> None:
+        self._exe(self.cwd, "plur1bus")
+        for path in ("", ".", os.pathsep + self.bindir, "." + os.pathsep + "relative/dir", f"bin{os.pathsep}"):
+            self.assertIsNone(cli.which_no_cwd("plur1bus", path=path), path)
+
+    def test_an_absolute_path_entry_is_searched(self) -> None:
+        found = self._exe(self.bindir, "plur1bus")
+        self._exe(self.cwd, "plur1bus")
+        self.assertEqual(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}"), found)
+        self.assertIsNone(cli.which_no_cwd("plur1bus", path=self.cwd + "-nope"))
+
+    def test_a_name_with_a_directory_part_is_refused(self) -> None:
+        self._exe(self.bindir, "plur1bus")
+        self.assertIsNone(cli.which_no_cwd(os.path.join(self.bindir, "plur1bus"), path=self.bindir))
+
+    def test_windows_tries_pathext_without_the_cwd(self) -> None:
+        found = self._exe(self.bindir, "plur1bus.exe")
+        self._exe(self.cwd, "plur1bus.exe")
+        self.assertEqual(cli.which_no_cwd("plur1bus", path=f".{os.pathsep}{self.bindir}", platform="win32", pathext=".com;.exe"), found)
+        self.assertIsNone(cli.which_no_cwd("plur1bus", path=".", platform="win32", pathext=".com;.exe"))
+
+    @requires_core
+    def test_bind_does_not_pick_up_a_binary_from_the_current_directory(self) -> None:
+        self._exe(self.cwd, "plur1bus")
+        sb = Sandbox(self)
+        with mock.patch.dict(os.environ, {"PATH": "." + os.pathsep}):
+            doc = cli.bind(sb.hermes_home, home=sb.p1home)
+        self.assertFalse(doc["ok"])
+        self.assertEqual(doc["error"]["code"], "E_NO_BINARY")
