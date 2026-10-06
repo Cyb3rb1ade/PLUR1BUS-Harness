@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createChatCompletionsAdapter, ProviderError } from "../src/index.ts";
-import { basicRequest, credentials, hold, sseHeaders, startStub, until } from "./helpers/stub.ts";
+import { basicRequest, credentials, hold, sleep, sseHeaders, startStub, until } from "./helpers/stub.ts";
 
 const T = { timeout: 15_000 };
 const part = (s: string) => `data: ${JSON.stringify({ id: "chatcmpl-synthetic-3", choices: [{ index: 0, delta: { content: s }, finish_reason: null }] })}\n\n`;
@@ -90,6 +90,25 @@ test("a consumer that stops iterating early cancels the request and frees the co
     const a = createChatCompletionsAdapter({ baseUrl: stub.baseUrl, credentials: credentials() });
     for await (const e of a.stream(basicRequest)) { if (e.type === "text_delta") break; }
     assert.ok(await until(() => closed), "breaking out of the loop closed the connection");
+  } finally { await stub.close(); }
+});
+
+test("the idle bound does not count the consumer's own processing time", T, async () => {
+  const stub = await startStub(async (_q, res) => {
+    sseHeaders(res);
+    res.write(part("a"));
+    await sleep(30);
+    res.write(part("b"));
+    res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`);
+    res.end();
+  });
+  try {
+    const a = createChatCompletionsAdapter({ baseUrl: stub.baseUrl, credentials: credentials(), timeouts: { idleMs: 150 } });
+    let text = "";
+    for await (const e of a.stream(basicRequest)) {
+      if (e.type === "text_delta") { text += e.text; await sleep(400); } // a slow consumer, longer than idleMs
+    }
+    assert.equal(text, "ab");
   } finally { await stub.close(); }
 });
 

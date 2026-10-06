@@ -33,7 +33,9 @@ const cases: Case[] = [
 
 for (const c of cases) {
   test(`malformed: ${c.name} → protocol error, no hang, connection released`, T, async () => {
-    const stub = await startStub(async (_q, res) => {
+    let requestSocketClosed = false;
+    const stub = await startStub(async (req, res) => {
+      req.socket.on("close", () => { requestSocketClosed = true; });
       if (c.headers) res.writeHead(200, c.headers); else sseHeaders(res);
       for (const w of c.wire) res.write(w);
       if (c.keepOpen) await hold(res); // a server that never closes: the adapter must not wait for it
@@ -49,10 +51,20 @@ for (const c of cases) {
         return true;
       });
       assert.ok(Date.now() - t0 < 3000, "failed fast, not by a timeout");
-      if (c.keepOpen) assert.ok(await until(() => stub.openSockets() === 0), "the adapter closed the connection after the error");
+      // The server sees this request's own connection close (generous bound: other connections in the pool may linger, and slow runners).
+      if (c.keepOpen) assert.ok(await until(() => requestSocketClosed, 10_000), "the adapter closed the connection after the error");
     } finally { await stub.close(); }
   });
 }
+
+test("an empty data line is skipped, not an error", T, async () => {
+  const stub = await startStub((_q, res) => { sseHeaders(res); res.write("data:\n\n"); res.write(chunk({ content: "a" })); res.write("data: \n\n"); res.write(chunk({}, "stop")); res.write(DONE); res.end(); });
+  try {
+    let last;
+    for await (const e of createChatCompletionsAdapter({ baseUrl: stub.baseUrl, credentials: credentials() }).stream(basicRequest)) last = e;
+    assert.equal(last?.type === "done" && last.result.text, "a");
+  } finally { await stub.close(); }
+});
 
 test("a stream that ends without [DONE] is accepted only with allowMissingDone and a finish_reason", T, async () => {
   const stub = await startStub((_q, res) => { sseHeaders(res); res.write(chunk({ content: "a" })); res.write(chunk({}, "stop")); res.end(); });

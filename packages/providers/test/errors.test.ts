@@ -69,10 +69,31 @@ test("Retry-After accepts seconds, an HTTP date and retry-after-ms; garbage is i
   assert.equal(parseRetryAfter(h({ "retry-after": "Thu, 01 Jan 2026 00:00:30 GMT" }), now), 30_000);
   assert.equal(parseRetryAfter(h({ "retry-after": "Wed, 31 Dec 2025 00:00:00 GMT" }), now), 0);
   assert.equal(parseRetryAfter(h({ "retry-after-ms": "250" }), now), 250);
-  assert.equal(parseRetryAfter(h({ "retry-after": "soon" }), now), undefined);
+  assert.equal(parseRetryAfter(h({ "retry-after": "Thursday, 01-Jan-26 00:01:00 GMT" }), now), 60_000);
+  assert.equal(parseRetryAfter(h({ "retry-after": "Thu Jan  1 00:00:05 2026" }), now), 5_000);
+  for (const bad of ["soon", "12abc", "1.5", "0x10", "Thu, 01 Jan 2026 00:00:30 +0100", "Thu 01 Jan 2026", "2026-01-01T00:00:30Z", "Jan 1 2026"]) {
+    assert.equal(parseRetryAfter(h({ "retry-after": bad }), now), undefined, bad);
+  }
+  assert.equal(parseRetryAfter(h({ "retry-after-ms": "1.5" }), now), undefined);
   assert.equal(parseRetryAfter(h({ "retry-after": "-5" }), now), undefined);
   assert.equal(parseRetryAfter(h({ "retry-after": "999999999" }), now), 24 * 3600 * 1000);
   assert.equal(parseRetryAfter(h({}), now), undefined);
+});
+
+test("a 200 JSON error body on a stream request is classified like the non-stream error", T, async () => {
+  const cases: [object, ProviderErrorKind][] = [
+    [{ error: { message: "slow down", type: "rate_limit_error", code: "rate_limit_exceeded" } }, "rate_limit"],
+    [{ error: { message: "too long", code: "context_length_exceeded" } }, "context_length"],
+    [{ error: { message: "oops", type: "server_error" } }, "server"],
+  ];
+  for (const [payload, kind] of cases) {
+    const stub = await startStub((_q, res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(payload)); });
+    try {
+      const a = createChatCompletionsAdapter({ baseUrl: stub.baseUrl, credentials: credentials() });
+      assert.equal((await failure(a.stream(basicRequest))).kind, kind);
+      assert.equal((await failure(a.complete(basicRequest))).kind, kind, "same answer on the non-stream path");
+    } finally { await stub.close(); }
+  }
 });
 
 test("an error object inside a 200 stream is classified by its code and type", T, async () => {

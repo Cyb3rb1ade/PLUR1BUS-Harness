@@ -57,15 +57,28 @@ export class ProviderError extends Error {
 const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 const MAX_MESSAGE_CHARS = 500;
 
-/** `retry-after-ms` (OpenAI) or `retry-after` (seconds or an HTTP date); undefined when absent or unusable. */
+const DAY = "(Mon|Tue|Wed|Thu|Fri|Sat|Sun)";
+const MON = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)";
+const LONG_DAY = "(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)";
+const TIME = "\\d{2}:\\d{2}:\\d{2}";
+const IMF_FIXDATE = new RegExp(`^${DAY}, \\d{2} ${MON} \\d{4} ${TIME} GMT$`);
+const RFC850_DATE = new RegExp(`^${LONG_DAY}, \\d{2}-${MON}-\\d{2} ${TIME} GMT$`);
+const ASCTIME_DATE = new RegExp(`^${DAY} ${MON} [ \\d]\\d ${TIME} \\d{4}$`);
+
+/**
+ * `retry-after-ms` (OpenAI: non-negative integer) or `retry-after` per RFC 9110 §10.2.3: delta-seconds, or an
+ * HTTP-date in one of its three forms (IMF-fixdate, RFC 850, asctime; all UTC). Anything else is ignored, never
+ * guessed at. A valid value is capped at 24 h.
+ */
 export function parseRetryAfter(headers: Headers, nowMs: number): number | undefined {
-  const ms = headers.get("retry-after-ms");
-  if (ms !== null && /^\d+(\.\d+)?$/.test(ms.trim())) return Math.min(Math.round(Number(ms)), MAX_RETRY_AFTER_MS);
+  const ms = headers.get("retry-after-ms")?.trim();
+  if (ms !== undefined && /^\d+$/.test(ms)) return Math.min(Number(ms), MAX_RETRY_AFTER_MS);
   const v = headers.get("retry-after")?.trim();
   if (!v) return undefined;
   if (/^\d+$/.test(v)) return Math.min(Number(v) * 1000, MAX_RETRY_AFTER_MS);
-  if (!/[a-z]/i.test(v)) return undefined;
-  const at = Date.parse(v);
+  let at = Number.NaN;
+  if (IMF_FIXDATE.test(v) || RFC850_DATE.test(v)) at = Date.parse(v);
+  else if (ASCTIME_DATE.test(v)) at = Date.parse(`${v} GMT`);
   if (Number.isNaN(at)) return undefined;
   return Math.min(Math.max(0, at - nowMs), MAX_RETRY_AFTER_MS);
 }

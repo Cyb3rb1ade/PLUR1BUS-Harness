@@ -1,5 +1,5 @@
 import { ChatAccumulator, parseCompletion } from "./accumulate.ts";
-import { classifyHttpError, ProviderError } from "./errors.ts";
+import { classifyHttpError, classifyStreamError, isRecord, ProviderError } from "./errors.ts";
 import { buildRequestBody } from "./request.ts";
 import { SseParser } from "./sse.ts";
 import type {
@@ -62,6 +62,9 @@ class Run {
   }
   headersArrived(): void { clearTimeout(this.#headers); this.#headers = undefined; }
 
+  /** A network read returned: the silence bound covers only the wait for the network, never the consumer's time. */
+  idleDone(): void { clearTimeout(this.#idle); this.#idle = undefined; }
+
   armIdle(): void {
     clearTimeout(this.#idle);
     if (this.#timeouts.idleMs !== null) this.#idle = setTimeout(() => this.#interrupt({ kind: "timeout", phase: "idle" }), this.#timeouts.idleMs);
@@ -94,6 +97,7 @@ async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerat
     for (;;) {
       run.armIdle();
       const { done, value } = await reader.read();
+      run.idleDone();
       if (done) return;
       yield value;
     }
@@ -191,6 +195,14 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
       const acc = new ChatAccumulator(redact, limits.maxToolArgumentBytes);
       try {
         const type = res.headers.get("content-type") ?? "";
+        if (/^application\/(\w+\+)?json\b/i.test(type)) {
+          // A 200 JSON body on a stream request: an error object some servers send in place of an SSE stream, else a server that ignored `stream`.
+          const text = await readText(res.body, run, limits.maxBodyBytes);
+          let json: unknown;
+          try { json = JSON.parse(text); } catch (cause) { throw new ProviderError("protocol", "response body is not valid JSON", { cause }); }
+          if (isRecord(json) && json["error"] !== undefined && json["error"] !== null) throw classifyStreamError(json, redact);
+          throw new ProviderError("protocol", "expected text/event-stream, got a JSON body");
+        }
         if (!/^text\/event-stream\b/i.test(type)) throw new ProviderError("protocol", `expected text/event-stream, got "${type.slice(0, 80)}"`);
         if (!res.body) throw new ProviderError("protocol", "response has no body");
         const parser = new SseParser(limits.maxEventBytes);
@@ -199,6 +211,7 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
           for (const ev of events) {
             if (done) return;
             if (ev.data === "[DONE]") { done = true; return; }
+            if (ev.data === "") continue; // an empty `data:` line is a keep-alive some servers send, not an error
             let json: unknown;
             try { json = JSON.parse(ev.data); } catch (cause) { throw new ProviderError("protocol", "SSE data is not valid JSON", { cause }); }
             yield* acc.push(json);
