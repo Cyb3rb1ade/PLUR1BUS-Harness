@@ -113,19 +113,29 @@ fn update_check_reports_not_installed_and_writes_nothing() {
 }
 
 #[test]
-fn update_without_check_is_the_m8_stub() {
-    let v = json_code(&["--json", "update"], &[], 2);
+fn update_applies_only_on_an_install_and_never_in_container_mode() {
+    // M8: `update` is real. In a home `setup` never ran it says so (exit 1) instead of answering a milestone.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let v = json_code(&["--json", "--home", h, "update", "--yes"], &[], 1);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
-    assert_eq!(v["milestone"], "M8");
-    // Also in container mode: only `--check` is refused there.
-    let v = json_code(&["--json", "update"], &[("PLUR1BUS_CONTAINER", "1")], 2);
-    assert_eq!(v["milestone"], "M8");
-    bin()
-        .env_remove("PLUR1BUS_CONTAINER")
-        .arg("update")
-        .assert()
-        .code(2)
-        .stderr(predicate::str::contains("M8"));
+    assert_eq!(v["reason"], "not-installed");
+    // The image owns the installation in container mode: apply and rollback are refused there, like `--check`.
+    for args in [
+        vec!["--json", "--home", h, "update", "--yes"],
+        vec!["--json", "--home", h, "update", "--rollback"],
+    ] {
+        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+        assert_eq!(v["reason"], "container-managed", "{args:?}");
+    }
+    // Nothing to roll back and no update yet: `status` reads, never writes.
+    let v = json_code(&["--json", "--home", h, "update", "status"], &[], 0);
+    assert_eq!(
+        (v["schema"].as_str(), v["phase"].as_str()),
+        (Some("update.status/1"), Some("idle"))
+    );
+    let v = json_code(&["--json", "--home", h, "update", "--rollback"], &[], 1);
+    assert_eq!(v["reason"], "nothing-to-roll-back");
 }
 
 #[test]
@@ -757,7 +767,7 @@ fn every_json_document_carries_a_schema_id() {
             ],
             0,
         ),
-        (vec!["--json", "update"], 2),
+        (vec!["--json", "--home", h, "update", "status"], 0),
     ];
     for (args, code) in cases {
         let assert = bin().args(&args).assert();

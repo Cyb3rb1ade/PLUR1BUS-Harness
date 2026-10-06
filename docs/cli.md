@@ -78,11 +78,15 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus core`↴](#plur1bus-core)
 * [`plur1bus core run`↴](#plur1bus-core-run)
 * [`plur1bus update`↴](#plur1bus-update)
+* [`plur1bus update status`↴](#plur1bus-update-status)
 * [`plur1bus user`↴](#plur1bus-user)
 * [`plur1bus model`↴](#plur1bus-model)
 * [`plur1bus model list`↴](#plur1bus-model-list)
 * [`plur1bus model scan`↴](#plur1bus-model-scan)
 * [`plur1bus model override`↴](#plur1bus-model-override)
+* [`plur1bus budget`↴](#plur1bus-budget)
+* [`plur1bus budget status`↴](#plur1bus-budget-status)
+* [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -135,9 +139,10 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
-* `update` — [experimental] Update check: what a release would change and which units would restart (`--check`)
+* `update` — [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 * `user` — Users — M2
 * `model` — [experimental] Models and provider profiles: list, scan and override
+* `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
@@ -1081,20 +1086,35 @@ Core process (internal)
 
 ## `plur1bus update`
 
-[experimental] Update check: what a release would change and which units would restart (`--check`)
+[experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 
-Applying an update is M8; without `--check` the command answers that milestone.
+Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
 
-**Usage:** `plur1bus update [OPTIONS]`
+**Usage:** `plur1bus update [OPTIONS]
+       update <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
 
 ###### **Options:**
 
 * `--check` — Compare the installation with the release manifest and print the plan; changes nothing
+* `--rollback` — Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+* `--yes` — Apply without asking (required outside a terminal)
 * `--manifest <PATH|URL>` — Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
 * `--channel <CHANNEL>` — Release channel (default: the installed one)
 
   Possible values: `stable`, `beta`
 
+
+
+
+## `plur1bus update status`
+
+[experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+
+**Usage:** `plur1bus update status`
 
 
 
@@ -1174,6 +1194,59 @@ Users — M2
 * `--clear-all`
 * `--create`
 * `--remove`
+
+
+
+## `plur1bus budget`
+
+[experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+
+**Usage:** `plur1bus budget <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Show usage for the current day and month and every limit with its state
+* `set` — [experimental] Set or clear a limit, or the time zone budget periods follow
+
+
+
+## `plur1bus budget status`
+
+[experimental] Show usage for the current day and month and every limit with its state
+
+**Usage:** `plur1bus budget status [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <ID>` — only this agent's usage (and the global limits plus its own)
+
+
+
+## `plur1bus budget set`
+
+[experimental] Set or clear a limit, or the time zone budget periods follow
+
+A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals), token values are input + output tokens. A bound left out stays as it is.
+
+**Usage:** `plur1bus budget set [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — the limit covers all agents together
+* `--agent <ID>` — the limit covers this agent
+* `--period <PERIOD>` — the period the limit resets on (local calendar day or month)
+
+  Possible values: `day`, `month`
+
+* `--metric <METRIC>` — what is counted: cost in USD or input + output tokens
+
+  Possible values: `cost`, `tokens`
+
+* `--soft <VALUE>` — warn (once per period) above this value
+* `--hard <VALUE>` — refuse calls that would exceed this value
+* `--clear-soft` — remove the soft bound
+* `--clear-hard` — remove the hard bound
+* `--timezone <ZONE>` — an IANA time zone name the periods follow (default UTC)
 
 
 

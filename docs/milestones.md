@@ -317,6 +317,8 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Effort 21–34 ad** (20–32 before D111; +1–2 D111 `1staid bundle` and OTLP export). Installers + non-interactive 5–8, services three OSes 3–5, CI matrix hardening + smoke E2E per target 5–8, PR-12/13/14 4–7, backup/restore 2–3, docs 3–5 (written incrementally from M1 and consolidated here).
 
+**Status — `update` (2026-10-06):** native `plur1bus update` per D78 is built (verified feed, snapshot, swap, health gate, automatic rollback, persistent state machine, `--rollback`, `update status`); see ADR-012 §11 and `docs/superpowers/plans/2026-10-06-m8-update-snapshot-gate-rollback.md`. Acceptance 3's "rolls back automatically on an injected failure" is covered by `crates/plur1bus/tests/update_apply.rs`; reboot survival and the container path remain.
+
 **Exit:** signed release, demo guide, full test report, known-issues list, `UPSTREAM.md`-equivalent compatibility matrix (harness × engine × OpenClaw).
 
 **Status — `1staid bundle` and reboot survival (2026-10-06):** `plur1bus 1staid bundle` (redacted diagnostic zip, spec §2.9) and the simulated-reboot integration tests (`crates/plur1bus/tests/reboot.rs`) are in; acceptance 3's "survival of a reboot per OS" is split into those tests and the manual protocol in `docs/reboot-survival.md`, which stays open per OS until it has been run on real machines. Plan: `docs/superpowers/plans/2026-10-06-m8-reboot-and-bundle.md`.

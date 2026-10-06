@@ -126,6 +126,8 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<ModelsRemoveManualParams, ModelsRemoveManualResult>(name, f)
         }
         "models.acknowledge" => pair::<ModelsAcknowledgeParams, ModelsAcknowledgeResult>(name, f),
+        "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
+        "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
         "secret.list" => pair::<SecretListParams, SecretListResult>(name, f),
         "secret.set" => pair::<SecretSetParams, SecretMeta>(name, f),

@@ -4050,6 +4050,366 @@ Acknowledges newly discovered models, clearing the new-models indicator (D112).
 }
 ```
 
+### `budget.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Only this agent's usage, and the global limits plus this agent's own"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timeZone",
+    "priceVersion",
+    "now",
+    "periods",
+    "limits"
+  ],
+  "properties": {
+    "timeZone": {
+      "type": "string"
+    },
+    "priceVersion": {
+      "type": "string",
+      "description": "The price table in force now"
+    },
+    "now": {
+      "type": "string",
+      "description": "RFC 3339"
+    },
+    "periods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "period",
+          "key",
+          "start",
+          "end",
+          "total",
+          "agents"
+        ],
+        "properties": {
+          "period": {
+            "enum": [
+              "day",
+              "month"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "YYYY-MM-DD or YYYY-MM, local"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "total": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "events",
+              "inputTokens",
+              "outputTokens",
+              "cacheReadTokens",
+              "cacheWriteTokens",
+              "costMicros",
+              "unpricedEvents"
+            ],
+            "properties": {
+              "events": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inputTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "outputTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cacheReadTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cacheWriteTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "costMicros": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Micro-USD, summed over priced events only"
+              },
+              "unpricedEvents": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
+              }
+            }
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "agentId",
+                "total",
+                "models"
+              ],
+              "properties": {
+                "agentId": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "events",
+                    "inputTokens",
+                    "outputTokens",
+                    "cacheReadTokens",
+                    "cacheWriteTokens",
+                    "costMicros",
+                    "unpricedEvents"
+                  ],
+                  "properties": {
+                    "events": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "cacheReadTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "cacheWriteTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "costMicros": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Micro-USD, summed over priced events only"
+                    },
+                    "unpricedEvents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
+                    }
+                  }
+                },
+                "models": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "model",
+                      "events",
+                      "inputTokens",
+                      "outputTokens",
+                      "cacheReadTokens",
+                      "cacheWriteTokens",
+                      "costMicros",
+                      "unpricedEvents"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string"
+                      },
+                      "events": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "inputTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "outputTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cacheReadTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cacheWriteTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "costMicros": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "unpricedEvents": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BudgetLimitState"
+      }
+    }
+  }
+}
+```
+
+### `budget.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "minProperties": 1,
+  "properties": {
+    "limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "period",
+        "metric"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "global",
+            "agent"
+          ]
+        },
+        "agentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Required for scope agent, refused for global"
+        },
+        "period": {
+          "enum": [
+            "day",
+            "month"
+          ]
+        },
+        "metric": {
+          "enum": [
+            "cost",
+            "tokens"
+          ]
+        },
+        "soft": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "hard": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "An IANA zone name"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timeZone",
+    "limits"
+  ],
+  "properties": {
+    "timeZone": {
+      "type": "string"
+    },
+    "limit": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BudgetLimit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The limit as stored after the change; null when it was removed. Absent when only the time zone changed."
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BudgetLimit"
+      }
+    }
+  }
+}
+```
+
 ### `secret.status`
 
 **Stability:** experimental · since 1.5.0
@@ -6871,6 +7231,131 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           }
         }
       }
+    }
+  }
+}
+```
+
+### `BudgetLimit`
+
+```json
+{
+  "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "period",
+    "metric",
+    "soft",
+    "hard"
+  ],
+  "properties": {
+    "scope": {
+      "enum": [
+        "global",
+        "agent"
+      ]
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "period": {
+      "enum": [
+        "day",
+        "month"
+      ]
+    },
+    "metric": {
+      "enum": [
+        "cost",
+        "tokens"
+      ]
+    },
+    "soft": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "hard": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `BudgetLimitState`
+
+```json
+{
+  "description": "Experimental (1.5.0). A budget limit with its use in the current period and where that stands.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "period",
+    "metric",
+    "soft",
+    "hard",
+    "used",
+    "state"
+  ],
+  "properties": {
+    "scope": {
+      "enum": [
+        "global",
+        "agent"
+      ]
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "period": {
+      "enum": [
+        "day",
+        "month"
+      ]
+    },
+    "metric": {
+      "enum": [
+        "cost",
+        "tokens"
+      ]
+    },
+    "soft": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "hard": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "enum": [
+        "ok",
+        "soft",
+        "hard"
+      ]
     }
   }
 }

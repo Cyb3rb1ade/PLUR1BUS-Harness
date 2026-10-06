@@ -100,6 +100,11 @@ describe("tool naming and selection", () => {
     for (const m of mutations) assert.equal(byName(tools, m), undefined, m);
   });
 
+  it("budget.set is refused (a limit is a person's decision); budget.status is not", () => {
+    assert.ok(isForbiddenMethod("budget.set"));
+    assert.equal(isForbiddenMethod("budget.status"), false);
+  });
+
   it("models.scan, setOverride, removeManual, acknowledge are refused; models.list is opt-in", () => {
     const forbidden = ["models.scan", "models.setOverride", "models.removeManual", "models.acknowledge"];
     for (const m of forbidden) assert.ok(isForbiddenMethod(m), `${m} is forbidden`);

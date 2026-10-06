@@ -94,9 +94,9 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// [experimental] Update check: what a release would change and which units would restart (`--check`)
+    /// [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
     ///
-    /// Applying an update is M8; without `--check` the command answers that milestone.
+    /// Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
     Update(UpdateArgs),
     /// Users — M2
     User(StubArgs),
@@ -104,6 +104,11 @@ pub enum Cmd {
     Model {
         #[command(subcommand)]
         sub: ModelCmd,
+    },
+    /// [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+    Budget {
+        #[command(subcommand)]
+        sub: BudgetCmd,
     },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
@@ -249,18 +254,34 @@ pub struct SetupArgs {
     pub profile: Option<String>,
 }
 
-/// `plur1bus update` (spec §6.5, HB10).
+/// `plur1bus update` (spec §6.5, D78, HB10): apply a signed release (snapshot, swap, health gate, automatic
+/// rollback), roll back to the last snapshot, or check what a release would change.
 #[derive(Args, Debug)]
+#[command(args_conflicts_with_subcommands = true)]
 pub struct UpdateArgs {
+    #[command(subcommand)]
+    pub sub: Option<UpdateCmd>,
     /// Compare the installation with the release manifest and print the plan; changes nothing
-    #[arg(long)]
+    #[arg(long, conflicts_with = "rollback")]
     pub check: bool,
+    /// Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+    #[arg(long)]
+    pub rollback: bool,
+    /// Apply without asking (required outside a terminal)
+    #[arg(long)]
+    pub yes: bool,
     /// Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
     #[arg(long, value_name = "PATH|URL")]
     pub manifest: Option<String>,
     /// Release channel (default: the installed one)
     #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"])]
     pub channel: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UpdateCmd {
+    /// [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+    Status,
 }
 
 /// `plur1bus 1staid repair` (spec §6.6, HB16).
@@ -638,6 +659,50 @@ pub enum AdminCmd {
     Embedding {
         #[command(subcommand)]
         sub: EmbeddingCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BudgetCmd {
+    /// [experimental] Show usage for the current day and month and every limit with its state
+    Status {
+        /// only this agent's usage (and the global limits plus its own)
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+    },
+    /// [experimental] Set or clear a limit, or the time zone budget periods follow
+    ///
+    /// A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of
+    /// `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals),
+    /// token values are input + output tokens. A bound left out stays as it is.
+    Set {
+        /// the limit covers all agents together
+        #[arg(long, conflicts_with = "agent")]
+        global: bool,
+        /// the limit covers this agent
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+        /// the period the limit resets on (local calendar day or month)
+        #[arg(long, value_parser = ["day", "month"])]
+        period: Option<String>,
+        /// what is counted: cost in USD or input + output tokens
+        #[arg(long, value_parser = ["cost", "tokens"])]
+        metric: Option<String>,
+        /// warn (once per period) above this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        soft: Option<String>,
+        /// refuse calls that would exceed this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        hard: Option<String>,
+        /// remove the soft bound
+        #[arg(long, conflicts_with = "soft")]
+        clear_soft: bool,
+        /// remove the hard bound
+        #[arg(long, conflicts_with = "hard")]
+        clear_hard: bool,
+        /// an IANA time zone name the periods follow (default UTC)
+        #[arg(long, value_name = "ZONE")]
+        timezone: Option<String>,
     },
 }
 

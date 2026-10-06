@@ -697,7 +697,7 @@ pub fn install_core(layout: &Layout, src: CoreSource) -> Result<CoreUnit, StepEr
 }
 
 /// The directory holding `core.js`: `dir` itself, or its only subdirectory.
-fn payload_root(dir: &Path) -> Option<PathBuf> {
+pub(crate) fn payload_root(dir: &Path) -> Option<PathBuf> {
     if dir.join("core.js").is_file() {
         return Some(dir.to_path_buf());
     }
