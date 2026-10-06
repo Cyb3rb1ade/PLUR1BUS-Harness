@@ -171,8 +171,8 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
     let caller = identity::caller();
 
     match cmd {
-        MemoryCmd::Add { .. } | MemoryCmd::Recall { .. } => {
-            unreachable!("memory add/recall are dispatched by commands::memory::run")
+        MemoryCmd::Add { .. } | MemoryCmd::Recall { .. } | MemoryCmd::Reembed(_) => {
+            unreachable!("memory add/recall/reembed are dispatched by commands::memory::run")
         }
         MemoryCmd::List {
             agent,

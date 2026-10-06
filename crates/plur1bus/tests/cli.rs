@@ -113,19 +113,29 @@ fn update_check_reports_not_installed_and_writes_nothing() {
 }
 
 #[test]
-fn update_without_check_is_the_m8_stub() {
-    let v = json_code(&["--json", "update"], &[], 2);
+fn update_applies_only_on_an_install_and_never_in_container_mode() {
+    // M8: `update` is real. In a home `setup` never ran it says so (exit 1) instead of answering a milestone.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let v = json_code(&["--json", "--home", h, "update", "--yes"], &[], 1);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
-    assert_eq!(v["milestone"], "M8");
-    // Also in container mode: only `--check` is refused there.
-    let v = json_code(&["--json", "update"], &[("PLUR1BUS_CONTAINER", "1")], 2);
-    assert_eq!(v["milestone"], "M8");
-    bin()
-        .env_remove("PLUR1BUS_CONTAINER")
-        .arg("update")
-        .assert()
-        .code(2)
-        .stderr(predicate::str::contains("M8"));
+    assert_eq!(v["reason"], "not-installed");
+    // The image owns the installation in container mode: apply and rollback are refused there, like `--check`.
+    for args in [
+        vec!["--json", "--home", h, "update", "--yes"],
+        vec!["--json", "--home", h, "update", "--rollback"],
+    ] {
+        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+        assert_eq!(v["reason"], "container-managed", "{args:?}");
+    }
+    // Nothing to roll back and no update yet: `status` reads, never writes.
+    let v = json_code(&["--json", "--home", h, "update", "status"], &[], 0);
+    assert_eq!(
+        (v["schema"].as_str(), v["phase"].as_str()),
+        (Some("update.status/1"), Some("idle"))
+    );
+    let v = json_code(&["--json", "--home", h, "update", "--rollback"], &[], 1);
+    assert_eq!(v["reason"], "nothing-to-roll-back");
 }
 
 #[test]
@@ -757,7 +767,7 @@ fn every_json_document_carries_a_schema_id() {
             ],
             0,
         ),
-        (vec!["--json", "update"], 2),
+        (vec!["--json", "--home", h, "update", "status"], 0),
     ];
     for (args, code) in cases {
         let assert = bin().args(&args).assert();
@@ -1809,27 +1819,6 @@ fn a_supervisor_without_config_methods_leaves_config_json_to_the_cli() {
     );
 }
 
-/// Leaves a socket file at `path` with nothing listening behind it, and proves the connect is refused.
-///
-/// `UnixListener::bind` + `drop` is not enough on macOS: std sets `FD_CLOEXEC` after `socket()`, so a child another
-/// test thread spawns in that window inherits the listening fd and keeps the "dead" socket alive until it exits. A
-/// connect then succeeds (and is closed by the child) instead of being refused. The inheriting child holds the old
-/// inode, so removing the file and binding a fresh socket escapes it; the connect check makes the precondition
-/// explicit instead of assumed.
-#[cfg(unix)]
-fn dead_socket(path: &std::path::Path) {
-    use std::os::unix::net::{UnixListener, UnixStream};
-    for _ in 0..100 {
-        let _ = std::fs::remove_file(path);
-        drop(UnixListener::bind(path).unwrap());
-        match UnixStream::connect(path) {
-            Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => return,
-            _ => std::thread::sleep(std::time::Duration::from_millis(10)),
-        }
-    }
-    panic!("{}: could not leave a refused socket", path.display());
-}
-
 #[cfg(unix)]
 #[test]
 fn a_live_pid_with_a_refused_socket_counts_as_no_supervisor() {
@@ -1844,7 +1833,7 @@ fn a_live_pid_with_a_refused_socket_counts_as_no_supervisor() {
         format!("{} x\n", std::process::id()),
     )
     .unwrap();
-    dead_socket(&run.join("supervisor.sock"));
+    common::dead_socket(&run.join("supervisor.sock"));
     let v = json_out(&[
         "--json",
         "--home",
@@ -2027,4 +2016,74 @@ fn a_closed_stdout_pipe_on_a_successful_read_exits_0() {
         let (code, stderr) = closed_stdout(home.path(), args);
         assert_eq!(code, Some(0), "{args:?}: {stderr}");
     }
+}
+
+/// Runs the binary with stdout AND stderr pipes whose readers are gone, so every write to either fails from byte 0.
+#[cfg(unix)]
+fn closed_stdout_and_stderr(home: &std::path::Path, args: &[&str]) -> Option<i32> {
+    let (r1, w1) = std::io::pipe().unwrap();
+    let (r2, w2) = std::io::pipe().unwrap();
+    drop((r1, r2));
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .arg("--home")
+        .arg(home)
+        .args(args)
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::from(w1))
+        .stderr(std::process::Stdio::from(w2))
+        .spawn()
+        .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        if let Some(st) = child.try_wait().unwrap() {
+            return st.code();
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+/// `write_stdout` and `fail` must not panic (exit 101) when stderr is closed as well as stdout: the exit code is kept.
+#[cfg(unix)]
+#[test]
+fn closed_stdout_and_stderr_keep_the_exit_code_without_a_panic() {
+    let home = tempfile::tempdir().unwrap();
+    assert_eq!(
+        closed_stdout_and_stderr(home.path(), &["__markdown"]),
+        Some(0)
+    );
+    assert_eq!(
+        closed_stdout_and_stderr(home.path(), &["config", "get", "core.logLevel"]),
+        Some(0)
+    );
+    // Failing command, human and --json: `fail` writes to stderr / stdout, both gone.
+    assert_eq!(
+        closed_stdout_and_stderr(home.path(), &["config", "get", "no.such.key"]),
+        Some(1)
+    );
+    assert_eq!(
+        closed_stdout_and_stderr(home.path(), &["--json", "config", "get", "no.such.key"]),
+        Some(1)
+    );
+}
+
+/// A real write error (`EFBIG`, see `common::run_stdout_write_error`) exits 1 for a command that returns to `main`,
+/// and is reported once on stderr.
+#[cfg(unix)]
+#[test]
+fn a_real_stdout_write_error_exits_1() {
+    let home = tempfile::tempdir().unwrap();
+    let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"));
+    c.arg("--home")
+        .arg(home.path())
+        .args(["config", "get", "core.logLevel"])
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1");
+    let (code, stderr) = common::run_stdout_write_error(&mut c);
+    assert!(stderr.contains("cannot write to stdout"), "{stderr}");
+    assert_eq!(code, Some(1), "{stderr}");
 }

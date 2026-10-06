@@ -89,9 +89,9 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// [experimental] Update check: what a release would change and which units would restart (`--check`)
+    /// [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
     ///
-    /// Applying an update is M8; without `--check` the command answers that milestone.
+    /// Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
     Update(UpdateArgs),
     /// Users — M2
     User(StubArgs),
@@ -99,6 +99,18 @@ pub enum Cmd {
     Model {
         #[command(subcommand)]
         sub: ModelCmd,
+    },
+    /// [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+    Budget {
+        #[command(subcommand)]
+        sub: BudgetCmd,
+    },
+    /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
+    ///
+    /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
+    Secret {
+        #[command(subcommand)]
+        sub: SecretCmd,
     },
     /// Provider login (API keys, OAuth) — M2
     Login(StubArgs),
@@ -237,18 +249,34 @@ pub struct SetupArgs {
     pub profile: Option<String>,
 }
 
-/// `plur1bus update` (spec §6.5, HB10).
+/// `plur1bus update` (spec §6.5, D78, HB10): apply a signed release (snapshot, swap, health gate, automatic
+/// rollback), roll back to the last snapshot, or check what a release would change.
 #[derive(Args, Debug)]
+#[command(args_conflicts_with_subcommands = true)]
 pub struct UpdateArgs {
+    #[command(subcommand)]
+    pub sub: Option<UpdateCmd>,
     /// Compare the installation with the release manifest and print the plan; changes nothing
-    #[arg(long)]
+    #[arg(long, conflicts_with = "rollback")]
     pub check: bool,
+    /// Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+    #[arg(long)]
+    pub rollback: bool,
+    /// Apply without asking (required outside a terminal)
+    #[arg(long)]
+    pub yes: bool,
     /// Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
     #[arg(long, value_name = "PATH|URL")]
     pub manifest: Option<String>,
     /// Release channel (default: the installed one)
     #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"])]
     pub channel: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UpdateCmd {
+    /// [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+    Status,
 }
 
 /// `plur1bus 1staid repair` (spec §6.6, HB16).
@@ -265,6 +293,17 @@ pub struct RepairArgs {
     pub only: Vec<String>,
 }
 
+/// `plur1bus 1staid bundle` (M8, logging and diagnostics spec §2.9).
+#[derive(Args, Debug)]
+pub struct BundleArgs {
+    /// Where to write the zip: a new file, or an existing directory (default: `<home>/bundles/`)
+    #[arg(long, value_name = "PATH")]
+    pub out: Option<std::path::PathBuf>,
+    /// Keep the last N lines of each log
+    #[arg(long, value_name = "N", default_value_t = crate::firstaid_bundle::DEFAULT_LINES)]
+    pub lines: usize,
+}
+
 #[derive(Args, Debug)]
 pub struct StubArgs {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
@@ -277,6 +316,9 @@ pub enum FirstAidCmd {
     Check,
     /// [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
     Repair(RepairArgs),
+    /// [experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last
+    /// log lines; never the audit log, payload capture, stores or secrets) and print its path
+    Bundle(BundleArgs),
 }
 #[derive(Subcommand, Debug)]
 pub enum AgentCmd {
@@ -381,6 +423,51 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: ProposalsCmd,
     },
+    /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
+    Reembed(ReembedArgs),
+}
+
+/// `memory reembed`: exactly one of `--plan`, `--run`, `--status`, `--abort`. The migration covers the whole installation
+/// (the engine copies every agent's tables into one new generation) and keeps the old generation.
+#[derive(clap::Args, Debug)]
+#[command(group(clap::ArgGroup::new("action").required(true).multiple(false).args(["plan", "run", "status", "abort"])))]
+pub struct ReembedArgs {
+    /// Compare the store with --model and show what a migration would do; copies nothing
+    #[arg(long)]
+    pub plan: bool,
+    /// Copy the planned migration into a new generation in throttled batches, validate it and switch
+    #[arg(long)]
+    pub run: bool,
+    /// Show the migration's phase and progress
+    #[arg(long)]
+    pub status: bool,
+    /// Stop at the next batch boundary; --run continues the same migration
+    #[arg(long)]
+    pub abort: bool,
+    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"], required_if_eq("plan", "true"))]
+    pub model: Option<String>,
+    /// Target vector dimensions, when the model supports more than one
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub dimensions: Option<u32>,
+    /// Query prefix of the target model
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub query_prefix: Option<String>,
+    /// Passage prefix of the target model
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub passage_prefix: Option<String>,
+    /// Milliseconds to pause between batches (default 250)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub throttle_ms: Option<u32>,
+    /// With --run: copy and validate, but do not switch to the new generation
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub no_switch: bool,
+    /// With --run: return as soon as the run has started instead of following it
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub no_wait: bool,
+    /// With --run: do not ask for confirmation (required outside a terminal)
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub yes: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -643,6 +730,50 @@ pub enum AdminCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum BudgetCmd {
+    /// [experimental] Show usage for the current day and month and every limit with its state
+    Status {
+        /// only this agent's usage (and the global limits plus its own)
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+    },
+    /// [experimental] Set or clear a limit, or the time zone budget periods follow
+    ///
+    /// A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of
+    /// `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals),
+    /// token values are input + output tokens. A bound left out stays as it is.
+    Set {
+        /// the limit covers all agents together
+        #[arg(long, conflicts_with = "agent")]
+        global: bool,
+        /// the limit covers this agent
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+        /// the period the limit resets on (local calendar day or month)
+        #[arg(long, value_parser = ["day", "month"])]
+        period: Option<String>,
+        /// what is counted: cost in USD or input + output tokens
+        #[arg(long, value_parser = ["cost", "tokens"])]
+        metric: Option<String>,
+        /// warn (once per period) above this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        soft: Option<String>,
+        /// refuse calls that would exceed this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        hard: Option<String>,
+        /// remove the soft bound
+        #[arg(long, conflicts_with = "soft")]
+        clear_soft: bool,
+        /// remove the hard bound
+        #[arg(long, conflicts_with = "hard")]
+        clear_hard: bool,
+        /// an IANA time zone name the periods follow (default UTC)
+        #[arg(long, value_name = "ZONE")]
+        timezone: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum ModelCmd {
     /// [experimental] List the model catalog (reads the file read-only when the core is down)
     List {
@@ -685,6 +816,38 @@ pub enum ModelCmd {
         #[arg(long)]
         remove: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SecretCmd {
+    /// [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
+    Status,
+    /// [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+    ///
+    /// One trailing newline is removed. Replacing a secret revokes the leases on the old value.
+    Set {
+        /// the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
+        name: String,
+        /// refused: a value never goes in an argument (kept only so the refusal does not echo it)
+        #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
+        rest: Vec<String>,
+    },
+    /// [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
+    Get {
+        name: String,
+        /// print the value itself (it is the only command that does)
+        #[arg(long)]
+        reveal: bool,
+    },
+    /// [experimental] Delete a secret from every available backend
+    Rm {
+        name: String,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] List secret names (never values)
+    Ls,
 }
 
 #[derive(Subcommand, Debug)]

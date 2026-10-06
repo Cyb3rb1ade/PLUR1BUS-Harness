@@ -147,6 +147,7 @@ struct Shared {
     proof_offer: Mutex<Option<tls::ProofOffer>>,
     proof_attempts: Mutex<(i64, u32)>,
     requests: Mutex<Vec<(String, bool)>>,
+    event_replay_ids: Mutex<Vec<Option<String>>>,
     revoke_after: Mutex<Option<String>>,
     redemption_token_length: Mutex<Option<usize>>,
 }
@@ -255,6 +256,7 @@ impl MockHarness {
             proof_offer: Mutex::new(None),
             proof_attempts: Mutex::new((0, 0)),
             requests: Mutex::new(Vec::new()),
+            event_replay_ids: Mutex::new(Vec::new()),
             revoke_after: Mutex::new(None),
             redemption_token_length: Mutex::new(None),
         });
@@ -303,6 +305,14 @@ impl MockControl {
 
     pub fn recorded_requests(&self) -> Vec<(String, bool)> {
         self.shared.requests.lock().unwrap().clone()
+    }
+    pub fn event_cursor(&self) -> u64 {
+        self.shared.event_id.load(Ordering::SeqCst)
+    }
+
+    /// Synthetic SSE replay cursors only; never records bearer headers or device secrets.
+    pub fn recorded_event_replay_ids(&self) -> Vec<Option<String>> {
+        self.shared.event_replay_ids.lock().unwrap().clone()
     }
     pub fn clear_requests(&self) {
         self.shared.requests.lock().unwrap().clear()
@@ -923,6 +933,12 @@ async fn events(
     Query(query): Query<EventQuery>,
     headers: HeaderMap,
 ) -> Response {
+    s.event_replay_ids.lock().unwrap().push(
+        headers
+            .get("last-event-id")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned),
+    );
     {
         let store = s.store.lock().unwrap();
         if headers.contains_key(header::AUTHORIZATION) {

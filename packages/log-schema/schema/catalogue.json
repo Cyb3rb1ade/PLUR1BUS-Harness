@@ -1,0 +1,6272 @@
+{
+  "$comment": "D111 §3. Diagnostic and payload entries describe `attrs` of a diagnostic record; audit entries describe `detail` of an audit record (schema/audit.schema.json, spec R1). A group with `open: true` tolerates further keys (legacy HB12 details). The event catalogue; the source of truth for both writers and the reader. Entries carry one full example record each (validated by the tests). Names are stable API (R10): a rename is a new event plus a deprecation.",
+  "version": "1.0.0",
+  "nameRule": "^[a-z][a-z0-9_-]*(\\.[a-z0-9][a-z0-9_-]*){1,3}$",
+  "streams": [
+    "diagnostic",
+    "audit",
+    "payload"
+  ],
+  "commonAttrs": {
+    "repeat": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+    },
+    "window_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "dedup or rate-limit window length"
+    },
+    "link_trace_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "a foreign trace id that was not adopted (§2.8)"
+    },
+    "foreign_message": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "untrusted foreign error text, truncated and redacted by the writer"
+    },
+    "untrusted": {
+      "type": "boolean",
+      "description": "true on wrapped third-party output"
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "the value was cut to its limit"
+    },
+    "bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "original size in bytes when truncated"
+    }
+  },
+  "attrGroups": {
+    "log_level": {
+      "description": "A level change or its expiry.",
+      "properties": {
+        "source_key": {
+          "type": "string",
+          "pattern": "^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$"
+        },
+        "from": {
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "fatal"
+          ],
+          "description": "previous level"
+        },
+        "to": {
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "fatal"
+          ],
+          "description": "new level"
+        },
+        "until": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "logs.traceUntil, RFC 3339"
+        }
+      }
+    },
+    "log_suppressed": {
+      "description": "Writer-side suppression.",
+      "properties": {
+        "dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "records dropped"
+        },
+        "window_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "window length"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "log_unregistered": {
+      "description": "An event name that is not in the catalogue.",
+      "properties": {
+        "attempted": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "the attempted event name, truncated"
+        }
+      }
+    },
+    "log_unattributed": {
+      "description": "A line whose source or event does not fit the file it came from.",
+      "properties": {
+        "original": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "the original line, truncated and redacted"
+        },
+        "expected_source": {
+          "type": "string",
+          "maxLength": 140,
+          "description": "source key the file belongs to"
+        },
+        "file": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "log file name"
+        }
+      }
+    },
+    "log_retention": {
+      "description": "Age-based retention pruning.",
+      "properties": {
+        "stream": {
+          "enum": [
+            "diagnostic",
+            "audit",
+            "activity",
+            "usage",
+            "payload"
+          ]
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "files removed"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "bytes freed"
+        },
+        "older_than_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "retention applied"
+        }
+      }
+    },
+    "log_redaction_failed": {
+      "description": "A redactor threw; the record was dropped.",
+      "properties": {
+        "attempted_event": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "event name of the dropped record"
+        }
+      }
+    },
+    "output_line": {
+      "description": "One wrapped line of third-party output (§2.4).",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 4096,
+          "description": "the sanitised, truncated, redacted line"
+        },
+        "untrusted": {
+          "const": true,
+          "description": "always true"
+        }
+      }
+    },
+    "output_suppressed": {
+      "description": "Output dropped by the per-stream rate limit.",
+      "properties": {
+        "dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "lines dropped in the window"
+        },
+        "window_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "window length"
+        }
+      }
+    },
+    "process_event": {
+      "description": "A process or child lifecycle point.",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "role: supervisor, core, module-<name>, …"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "OS process id"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "harness version"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "process_exit": {
+      "description": "A process or child exit.",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "role"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "OS process id"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "exit code, null when killed by a signal"
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "signal name, null for a normal exit"
+        },
+        "planned": {
+          "type": "boolean",
+          "description": "an intended stop"
+        },
+        "expected_code": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the intended exit code (supervisor.process.exited)"
+        }
+      }
+    },
+    "restart": {
+      "description": "A scheduled restart.",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "role"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based attempt"
+        },
+        "delay_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "backoff before the restart"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "last exit code"
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "last signal"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "given_up": {
+      "description": "Restarts abandoned.",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "role"
+        },
+        "attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "attempts made"
+        },
+        "window_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "window the attempts fell in"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "health": {
+      "description": "A health-check outcome.",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "role"
+        },
+        "consecutive_failures": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "failures in a row"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "deadline that was missed"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "adoption": {
+      "description": "A running child adopted by a new supervisor.",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "role"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "OS process id"
+        }
+      }
+    },
+    "config_change": {
+      "description": "A configuration apply or rejection.",
+      "properties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "maxItems": 64,
+          "description": "changed config keys"
+        },
+        "revision": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "config content hash"
+        },
+        "restart_class": {
+          "enum": [
+            "live",
+            "core",
+            "module"
+          ],
+          "description": "x-restart class"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "subscriber": {
+      "description": "A watch subscriber that was dropped.",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "config or module"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "queued": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "notifications queued when dropped"
+        }
+      }
+    },
+    "rpc_failure": {
+      "description": "A failed RPC call.",
+      "properties": {
+        "method": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "RPC method name"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "peer": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "calling surface"
+        }
+      }
+    },
+    "engine_status": {
+      "description": "The memory engine's status.",
+      "properties": {
+        "status": {
+          "enum": [
+            "ready",
+            "degraded",
+            "failed"
+          ]
+        },
+        "component": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "engine component"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "recall": {
+      "description": "A recall.",
+      "properties": {
+        "soft_budget_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "soft budget"
+        },
+        "hard_budget_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "hard budget"
+        },
+        "results": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "results returned"
+        },
+        "degraded_reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why degraded, when it was"
+        }
+      }
+    },
+    "engine_op": {
+      "description": "A capture or ACL decision in the engine.",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "operation"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "agent_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "agents involved"
+        }
+      }
+    },
+    "engine_model": {
+      "description": "In-core model load.",
+      "properties": {
+        "model": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "model id"
+        },
+        "runtime": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "onnx, …"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "scheduler": {
+      "description": "A scheduler run.",
+      "properties": {
+        "job": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "job id"
+        },
+        "run_id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "run id"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "skip or failure reason code (ADR-009)"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "attempt"
+        }
+      }
+    },
+    "api_request": {
+      "description": "An API request or stream.",
+      "properties": {
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+            "HEAD"
+          ]
+        },
+        "route": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "route template, never the URL"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "HTTP status"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "module": {
+      "description": "A module process's own lifecycle.",
+      "properties": {
+        "module": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "module name"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "maxItems": 64,
+          "description": "invalid config keys"
+        }
+      }
+    },
+    "ext_load": {
+      "description": "An extension that failed to load.",
+      "properties": {
+        "extension": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "extension id"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "mcp": {
+      "description": "An MCP server or call.",
+      "properties": {
+        "server": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "server id"
+        },
+        "tool": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "tool name"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "deadline"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "attempt"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "exit code"
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "signal"
+        },
+        "planned": {
+          "type": "boolean",
+          "description": "an intended stop"
+        },
+        "protocol_code": {
+          "type": "integer",
+          "description": "JSON-RPC/MCP error code"
+        }
+      }
+    },
+    "skill_script": {
+      "description": "A skill script run.",
+      "properties": {
+        "skill": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "skill id"
+        },
+        "script": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "script name"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "exit code"
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "signal"
+        }
+      }
+    },
+    "provider_request": {
+      "description": "An LLM provider request, metadata only (§2.5). Names map to OTel GenAI attributes at export.",
+      "properties": {
+        "model": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "model id"
+        },
+        "capability": {
+          "enum": [
+            "chat",
+            "embedding",
+            "rerank",
+            "oauth",
+            "realtime"
+          ]
+        },
+        "provider_request_id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "the vendor's request id"
+        },
+        "http_status": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "HTTP status"
+        },
+        "retry_after_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds the vendor asked to wait"
+        },
+        "retry_in_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "delay before the scheduled retry"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based attempt"
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "attempt limit"
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "tokens in"
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "tokens out"
+        },
+        "cache_read_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "cache-read tokens"
+        },
+        "cache_write_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "cache-write tokens"
+        },
+        "ttft_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "time to first token"
+        },
+        "finish_reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "finish reason"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "rate-limit ceiling"
+        },
+        "remaining": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "rate-limit remaining"
+        },
+        "reset_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds until reset"
+        }
+      }
+    },
+    "provider_oauth": {
+      "description": "A provider OAuth/key lifecycle point.",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "profile id"
+        },
+        "expires_in_s": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "seconds until expiry"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "provider_payload": {
+      "description": "A captured payload (payload stream only; content lives in the payload file, never here).",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "agent id"
+        },
+        "capture_id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "capture window id"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "payload size"
+        }
+      }
+    },
+    "local_model": {
+      "description": "A local model server or in-process model.",
+      "properties": {
+        "model": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "model id"
+        },
+        "runtime": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "ollama, llamacpp, mlx, transformers"
+        },
+        "rss_mb": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "resident memory"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "exit code"
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "signal"
+        },
+        "planned": {
+          "type": "boolean",
+          "description": "an intended stop"
+        }
+      }
+    },
+    "cli_agent": {
+      "description": "A CLI agent session.",
+      "properties": {
+        "cli": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "codex, claude-code, gemini, grok"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "exit code"
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "signal"
+        },
+        "planned": {
+          "type": "boolean",
+          "description": "an intended stop"
+        },
+        "acp_code": {
+          "type": "integer",
+          "description": "typed ACP error code"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "channel": {
+      "description": "A channel connection or message (no content).",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "telegram, discord, …"
+        },
+        "account": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "account id"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "attempt"
+        },
+        "retry_after_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds to wait"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "delivered": {
+          "type": "boolean",
+          "description": "delivered after retries"
+        }
+      }
+    },
+    "host": {
+      "description": "The host helper and bridge.",
+      "properties": {
+        "helper": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "helper or bridge"
+        },
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "host capability"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "desktop": {
+      "description": "The desktop shell.",
+      "properties": {
+        "component": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "shell, controller, updater"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "crash_id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "crash file id"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "exit code"
+        }
+      }
+    },
+    "os_service": {
+      "description": "The OS service manager.",
+      "properties": {
+        "manager": {
+          "enum": [
+            "launchd",
+            "systemd",
+            "windows-scm",
+            "power"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "unit name"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "exit code"
+        }
+      }
+    },
+    "audit_licence": {
+      "description": "Legacy HB12 `licence.accept-nc` detail (open: further keys are tolerated).",
+      "open": true,
+      "properties": {
+        "useClass": {
+          "enum": [
+            "general",
+            "research",
+            "commercial"
+          ]
+        },
+        "acceptedAt": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "RFC 3339"
+        }
+      }
+    },
+    "audit_setup": {
+      "description": "Legacy HB12 `setup.complete` detail (open).",
+      "open": true,
+      "properties": {
+        "target": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "release target"
+        },
+        "channel": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "release channel"
+        },
+        "core": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "core source"
+        },
+        "profile": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "install profile"
+        }
+      }
+    },
+    "audit_repair": {
+      "description": "Legacy HB12 `repair.<step>` detail (open).",
+      "open": true,
+      "properties": {
+        "status": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "step outcome"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "why"
+        },
+        "detail": {
+          "description": "step-specific detail (any JSON)"
+        }
+      }
+    },
+    "audit_ext_install": {
+      "description": "Legacy HB12 `ext.install` detail (open).",
+      "open": true,
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "extension id"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "version"
+        },
+        "kind": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "skill, plugin, module"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "package hash; survives redaction (pure hex)"
+        },
+        "trust": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "trust tier"
+        },
+        "keyId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "description": "signing key id"
+        },
+        "acknowledged": {
+          "description": "acknowledged warnings (any JSON)"
+        },
+        "replaced": {
+          "type": "boolean",
+          "description": "replaced an installed version"
+        },
+        "via": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "host surface"
+        }
+      }
+    },
+    "audit_ext_state": {
+      "description": "Legacy HB12 `ext.enable` / `ext.disable` detail (open).",
+      "open": true,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "skill, plugin, module"
+        },
+        "agents": {
+          "description": "null, \"all\" or a list of agent ids"
+        },
+        "via": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "host surface"
+        }
+      }
+    },
+    "audit_ext_remove": {
+      "description": "Legacy HB12 `ext.uninstall` / `ext.purge` / `ext.restore` detail (open).",
+      "open": true,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "skill, plugin, module"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "version"
+        },
+        "trashId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "trash entry id"
+        },
+        "purged": {
+          "type": "boolean",
+          "description": "purged, not just trashed"
+        },
+        "cascade": {
+          "description": "dependents handled (any JSON)"
+        },
+        "moved": {
+          "description": "paths moved (any JSON)"
+        },
+        "secrets": {
+          "description": "deleted secrets (any JSON)"
+        },
+        "via": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "host surface"
+        }
+      }
+    },
+    "audit_module": {
+      "description": "A module install or uninstall.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "module name"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "version"
+        }
+      }
+    },
+    "audit_config_set": {
+      "description": "A configuration change. x-sensitive values are redacted by the writer.",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "config key"
+        },
+        "restart_class": {
+          "enum": [
+            "live",
+            "core",
+            "module"
+          ]
+        },
+        "old": {
+          "description": "previous value (any JSON), redacted when x-sensitive"
+        },
+        "new": {
+          "description": "new value (any JSON), redacted when x-sensitive"
+        }
+      }
+    },
+    "audit_secret": {
+      "description": "A secret-store change; never the value.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "secret name"
+        }
+      }
+    },
+    "audit_auth": {
+      "description": "A login or logout.",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "profile id"
+        }
+      }
+    },
+    "audit_payload_capture": {
+      "description": "Payload capture switched.",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "agent id"
+        },
+        "until": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "end of the window, RFC 3339"
+        },
+        "actor": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "who"
+        }
+      }
+    },
+    "audit_otlp": {
+      "description": "OTLP export switched.",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "collector endpoint, redacted by the URL rule"
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "maxItems": 64,
+          "description": "exported signals"
+        }
+      }
+    },
+    "audit_retention": {
+      "description": "A retention change.",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "logs.retentionDays.<stream>"
+        },
+        "old_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "previous days"
+        },
+        "new_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "new days"
+        }
+      }
+    },
+    "audit_approval": {
+      "description": "A D109 approval request or decision (mirrored from the store).",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "request id"
+        },
+        "decision": {
+          "enum": [
+            "pending",
+            "approved",
+            "denied",
+            "expired"
+          ]
+        },
+        "tool": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "tool name"
+        },
+        "store_ref": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "store row id and chain value"
+        }
+      }
+    },
+    "audit_grant": {
+      "description": "A D109 grant change (mirrored from the store).",
+      "properties": {
+        "grant_id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "grant id"
+        },
+        "scope": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "grant scope"
+        },
+        "until": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "expiry, RFC 3339"
+        },
+        "store_ref": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "store row id and chain value"
+        }
+      }
+    },
+    "audit_policy": {
+      "description": "A policy denial (mirrored from the store).",
+      "properties": {
+        "tool": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "tool name"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        },
+        "store_ref": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "store row id and chain value"
+        }
+      }
+    },
+    "audit_integrity": {
+      "description": "An audit-chain integrity failure.",
+      "properties": {
+        "store_ref": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "store row id and chain value"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$",
+          "description": "why"
+        }
+      }
+    },
+    "audit_device": {
+      "description": "A device pairing change.",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "device id"
+        }
+      }
+    },
+    "audit_break_glass": {
+      "description": "Break-glass access.",
+      "properties": {
+        "target": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "what was accessed"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "stated reason"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "event": "log.level.changed",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "log level changed",
+      "attrs": "log_level",
+      "requiredAttrs": [
+        "source_key",
+        "to"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "log.level.changed",
+          "msg": "log level changed",
+          "attrs": {
+            "source_key": "provider:openai",
+            "to": "debug",
+            "from": "info",
+            "until": "2026-10-01T09:44:03.218Z"
+          }
+        }
+      ]
+    },
+    {
+      "event": "log.level.expired",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "log level expired",
+      "attrs": "log_level",
+      "requiredAttrs": [
+        "source_key",
+        "from"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "log.level.expired",
+          "msg": "log level expired",
+          "attrs": {
+            "source_key": "provider:openai",
+            "from": "info",
+            "to": "debug",
+            "until": "2026-10-01T09:44:03.218Z"
+          }
+        }
+      ]
+    },
+    {
+      "event": "log.suppressed",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "log records suppressed",
+      "attrs": "log_suppressed",
+      "requiredAttrs": [
+        "dropped"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "log.suppressed",
+          "msg": "log records suppressed",
+          "attrs": {
+            "dropped": 120,
+            "window_ms": 1000,
+            "reason": "rate-limit"
+          }
+        }
+      ]
+    },
+    {
+      "event": "log.unregistered",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "unregistered log event",
+      "attrs": "log_unregistered",
+      "requiredAttrs": [
+        "attempted"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "log.unregistered",
+          "msg": "unregistered log event",
+          "attrs": {
+            "attempted": "made.up.event"
+          }
+        }
+      ]
+    },
+    {
+      "event": "log.unattributed",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "log line does not match its file",
+      "attrs": "log_unattributed",
+      "requiredAttrs": [
+        "original"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "written by the reader, not by the emitting process",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "log.unattributed",
+          "msg": "log line does not match its file",
+          "attrs": {
+            "original": "{\"ts\":\"…\"}",
+            "expected_source": "extension:plugin/example",
+            "file": "plugin-example.log"
+          }
+        }
+      ]
+    },
+    {
+      "event": "log.retention.pruned",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "old log files pruned",
+      "attrs": "log_retention",
+      "requiredAttrs": [
+        "stream",
+        "files"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "log.retention.pruned",
+          "msg": "old log files pruned",
+          "attrs": {
+            "stream": "diagnostic",
+            "files": 3,
+            "bytes": 41943040,
+            "older_than_days": 14
+          }
+        }
+      ]
+    },
+    {
+      "event": "log.redaction.failed",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "log record dropped, redaction failed",
+      "attrs": "log_redaction_failed",
+      "requiredAttrs": [
+        "attempted_event"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "log.redaction.failed",
+          "msg": "log record dropped, redaction failed",
+          "attrs": {
+            "attempted_event": "provider.request.failed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "process.output.line",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "process output",
+      "attrs": "output_line",
+      "requiredAttrs": [
+        "text",
+        "untrusted"
+      ],
+      "streamed": true,
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "emitted by the harness wrapper on a child's behalf; the level is never taken from the text",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "module/fixture",
+            "version": "0.1.0"
+          },
+          "event": "process.output.line",
+          "msg": "process output",
+          "stream": "stdout",
+          "attrs": {
+            "text": "listening on port 8123",
+            "untrusted": true
+          }
+        }
+      ]
+    },
+    {
+      "event": "process.output.suppressed",
+      "kinds": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "process output suppressed",
+      "attrs": "output_suppressed",
+      "requiredAttrs": [
+        "dropped",
+        "window_ms"
+      ],
+      "streamed": true,
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "module/fixture",
+            "version": "0.1.0"
+          },
+          "event": "process.output.suppressed",
+          "msg": "process output suppressed",
+          "stream": "stdout",
+          "attrs": {
+            "dropped": 9400,
+            "window_ms": 1000
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.process.started",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "supervisor started",
+      "attrs": "process_event",
+      "requiredAttrs": [
+        "role",
+        "pid"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.process.started",
+          "msg": "supervisor started",
+          "attrs": {
+            "role": "core",
+            "pid": 4242,
+            "version": "0.1.0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.process.stopping",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "supervisor stopping",
+      "attrs": "process_event",
+      "requiredAttrs": [
+        "role"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.process.stopping",
+          "msg": "supervisor stopping",
+          "attrs": {
+            "role": "core",
+            "pid": 4242,
+            "version": "0.1.0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.process.exited",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info",
+        "error"
+      ],
+      "levelRule": "info on the intended code, error on any other",
+      "msg": "supervisor exiting",
+      "attrs": "process_exit",
+      "requiredAttrs": [
+        "exit_code",
+        "planned"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "replaces the F9 message match that `1staid repair` used for service.silent-exit",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.process.exited",
+          "msg": "supervisor exiting",
+          "attrs": {
+            "exit_code": 1,
+            "planned": false,
+            "role": "core",
+            "pid": 4242,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.child.spawned",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "child process spawned",
+      "attrs": "process_event",
+      "requiredAttrs": [
+        "role",
+        "pid"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.child.spawned",
+          "msg": "child process spawned",
+          "attrs": {
+            "role": "core",
+            "pid": 4242,
+            "version": "0.1.0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.child.exited",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info",
+        "error",
+        "fatal"
+      ],
+      "levelRule": "info when planned, error when unexpected, fatal when unexpected for a harness-tier child (§5, R5)",
+      "msg": "child process exited",
+      "attrs": "process_exit",
+      "requiredAttrs": [
+        "role",
+        "planned"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.child.exited",
+          "msg": "child process exited",
+          "attrs": {
+            "role": "core",
+            "planned": false,
+            "pid": 4242,
+            "exit_code": 1,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.child.restarting",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "child process restarting",
+      "attrs": "restart",
+      "requiredAttrs": [
+        "role",
+        "attempt",
+        "delay_ms"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.child.restarting",
+          "msg": "child process restarting",
+          "attrs": {
+            "role": "core",
+            "attempt": 2,
+            "delay_ms": 2000,
+            "exit_code": 1,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.child.given_up",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "fatal",
+      "levels": [
+        "fatal"
+      ],
+      "msg": "child restarts given up",
+      "attrs": "given_up",
+      "requiredAttrs": [
+        "role",
+        "attempts"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "fatal",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.child.given_up",
+          "msg": "child restarts given up",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "role": "core",
+            "attempts": 5,
+            "window_ms": 60000
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.health.failed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "child health check failed",
+      "attrs": "health",
+      "requiredAttrs": [
+        "role"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.health.failed",
+          "msg": "child health check failed",
+          "attrs": {
+            "role": "core",
+            "consecutive_failures": 3,
+            "timeout_ms": 2000
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.health.hung",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "child process hung",
+      "attrs": "health",
+      "requiredAttrs": [
+        "role",
+        "timeout_ms"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.health.hung",
+          "msg": "child process hung",
+          "attrs": {
+            "role": "core",
+            "timeout_ms": 2000,
+            "consecutive_failures": 3
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.adoption.completed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "running child adopted",
+      "attrs": "adoption",
+      "requiredAttrs": [
+        "role",
+        "pid"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.adoption.completed",
+          "msg": "running child adopted",
+          "attrs": {
+            "role": "core",
+            "pid": 4242
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.config.applied",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "configuration applied",
+      "attrs": "config_change",
+      "requiredAttrs": [
+        "keys"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.config.applied",
+          "msg": "configuration applied",
+          "attrs": {
+            "keys": [
+              "core.logLevel"
+            ],
+            "revision": "sha256:3f9a1c0d",
+            "restart_class": "live"
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.config.rejected",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "configuration rejected",
+      "attrs": "config_change",
+      "requiredAttrs": [
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.config.rejected",
+          "msg": "configuration rejected",
+          "attrs": {
+            "reason": "example-reason",
+            "keys": [
+              "core.logLevel"
+            ],
+            "revision": "sha256:3f9a1c0d",
+            "restart_class": "live"
+          }
+        }
+      ]
+    },
+    {
+      "event": "supervisor.subscriber.dropped",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "watch subscriber dropped",
+      "attrs": "subscriber",
+      "requiredAttrs": [
+        "channel",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "supervisor",
+            "version": "0.1.0"
+          },
+          "event": "supervisor.subscriber.dropped",
+          "msg": "watch subscriber dropped",
+          "attrs": {
+            "channel": "config",
+            "reason": "queue-full",
+            "queued": 256
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.process.started",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "core started",
+      "attrs": "process_event",
+      "requiredAttrs": [
+        "pid"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.process.started",
+          "msg": "core started",
+          "attrs": {
+            "pid": 4242,
+            "role": "core",
+            "version": "0.1.0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.process.ready",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "core ready",
+      "attrs": "process_event",
+      "requiredAttrs": [
+        "pid"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.process.ready",
+          "msg": "core ready",
+          "duration_ms": 1840,
+          "attrs": {
+            "pid": 4242,
+            "role": "core",
+            "version": "0.1.0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.process.stopping",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "core stopping",
+      "attrs": "process_event",
+      "requiredAttrs": [],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.process.stopping",
+          "msg": "core stopping",
+          "attrs": {
+            "role": "core",
+            "pid": 4242,
+            "version": "0.1.0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.config.applied",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "configuration applied",
+      "attrs": "config_change",
+      "requiredAttrs": [
+        "keys"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.config.applied",
+          "msg": "configuration applied",
+          "attrs": {
+            "keys": [
+              "core.logLevel"
+            ],
+            "revision": "sha256:3f9a1c0d",
+            "restart_class": "live"
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.config.fallback",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "reading config.json without a supervisor",
+      "attrs": "config_change",
+      "requiredAttrs": [
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.config.fallback",
+          "msg": "reading config.json without a supervisor",
+          "attrs": {
+            "reason": "example-reason",
+            "keys": [
+              "core.logLevel"
+            ],
+            "revision": "sha256:3f9a1c0d",
+            "restart_class": "live"
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.watch.lost",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "config watch lost",
+      "attrs": "config_change",
+      "requiredAttrs": [
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.watch.lost",
+          "msg": "config watch lost",
+          "attrs": {
+            "reason": "example-reason",
+            "keys": [
+              "core.logLevel"
+            ],
+            "revision": "sha256:3f9a1c0d",
+            "restart_class": "live"
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.orphan.detected",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "supervisor gone, core orphaned",
+      "attrs": "process_event",
+      "requiredAttrs": [
+        "pid"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.orphan.detected",
+          "msg": "supervisor gone, core orphaned",
+          "attrs": {
+            "pid": 4242,
+            "role": "core",
+            "version": "0.1.0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "core.rpc.failed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error",
+        "debug"
+      ],
+      "levelRule": "error on E_INTERNAL or E_STORAGE, debug for every other enum code",
+      "msg": "rpc call failed",
+      "attrs": "rpc_failure",
+      "requiredAttrs": [
+        "method"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "core.rpc.failed",
+          "msg": "rpc call failed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "method": "memory.recall",
+            "reason": "store-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.status.degraded",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "engine degraded",
+      "attrs": "engine_status",
+      "requiredAttrs": [
+        "status",
+        "component"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.status.degraded",
+          "msg": "engine degraded",
+          "attrs": {
+            "status": "degraded",
+            "component": "reranker",
+            "reason": "model-missing"
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.status.failed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "engine failed",
+      "attrs": "engine_status",
+      "requiredAttrs": [
+        "status",
+        "component"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.status.failed",
+          "msg": "engine failed",
+          "attrs": {
+            "status": "degraded",
+            "component": "reranker",
+            "reason": "model-missing"
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.recall.completed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "recall completed",
+      "attrs": "recall",
+      "requiredAttrs": [
+        "results"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.recall.completed",
+          "msg": "recall completed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 1840,
+          "attrs": {
+            "results": 7,
+            "soft_budget_ms": 400,
+            "hard_budget_ms": 600
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.recall.budget_exceeded",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "recall budget exceeded",
+      "attrs": "recall",
+      "requiredAttrs": [
+        "hard_budget_ms"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.recall.budget_exceeded",
+          "msg": "recall budget exceeded",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 1840,
+          "attrs": {
+            "hard_budget_ms": 600,
+            "soft_budget_ms": 400,
+            "results": 7
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.capture.failed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "capture failed",
+      "attrs": "engine_op",
+      "requiredAttrs": [
+        "operation",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.capture.failed",
+          "msg": "capture failed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "operation": "capture",
+            "reason": "store-write-failed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.acl.denied",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "engine ACL denied an operation",
+      "attrs": "engine_op",
+      "requiredAttrs": [
+        "operation"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "diagnostic, not audit (R11)",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.acl.denied",
+          "msg": "engine ACL denied an operation",
+          "attrs": {
+            "operation": "capture",
+            "reason": "store-write-failed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.model.loading",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "engine model loading",
+      "attrs": "engine_model",
+      "requiredAttrs": [
+        "model"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.model.loading",
+          "msg": "engine model loading",
+          "attrs": {
+            "model": "embedding-default",
+            "runtime": "onnx"
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.model.ready",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "engine model ready",
+      "attrs": "engine_model",
+      "requiredAttrs": [
+        "model"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.model.ready",
+          "msg": "engine model ready",
+          "duration_ms": 1840,
+          "attrs": {
+            "model": "embedding-default",
+            "runtime": "onnx"
+          }
+        }
+      ]
+    },
+    {
+      "event": "scheduler.run.started",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "scheduler run started",
+      "attrs": "scheduler",
+      "requiredAttrs": [
+        "job"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "harness",
+            "id": "scheduler",
+            "version": "0.1.0"
+          },
+          "event": "scheduler.run.started",
+          "msg": "scheduler run started",
+          "attrs": {
+            "job": "dream.rem",
+            "run_id": "r_01J0",
+            "reason": "no-new-captures"
+          }
+        }
+      ]
+    },
+    {
+      "event": "scheduler.run.skipped",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info",
+        "warn"
+      ],
+      "msg": "scheduler run skipped",
+      "attrs": "scheduler",
+      "requiredAttrs": [
+        "job",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "never below info (ADR-009): a skip that changes a user-visible outcome is always logged with a reason code",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "scheduler",
+            "version": "0.1.0"
+          },
+          "event": "scheduler.run.skipped",
+          "msg": "scheduler run skipped",
+          "attrs": {
+            "job": "dream.rem",
+            "reason": "no-new-captures",
+            "run_id": "r_01J0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "scheduler.run.completed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "scheduler run completed",
+      "attrs": "scheduler",
+      "requiredAttrs": [
+        "job"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "scheduler",
+            "version": "0.1.0"
+          },
+          "event": "scheduler.run.completed",
+          "msg": "scheduler run completed",
+          "duration_ms": 1840,
+          "attrs": {
+            "job": "dream.rem",
+            "run_id": "r_01J0",
+            "reason": "no-new-captures"
+          }
+        }
+      ]
+    },
+    {
+      "event": "scheduler.run.failed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "scheduler run failed",
+      "attrs": "scheduler",
+      "requiredAttrs": [
+        "job",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "harness",
+            "id": "scheduler",
+            "version": "0.1.0"
+          },
+          "event": "scheduler.run.failed",
+          "msg": "scheduler run failed",
+          "duration_ms": 1840,
+          "attrs": {
+            "job": "dream.rem",
+            "reason": "no-new-captures",
+            "run_id": "r_01J0"
+          }
+        }
+      ]
+    },
+    {
+      "event": "api.request.completed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "api request completed",
+      "attrs": "api_request",
+      "requiredAttrs": [
+        "method",
+        "route",
+        "status"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "harness",
+            "id": "api",
+            "version": "0.1.0"
+          },
+          "event": "api.request.completed",
+          "msg": "api request completed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 1840,
+          "attrs": {
+            "method": "GET",
+            "route": "/api/v1/chats",
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "event": "api.auth.failed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "api authentication failed",
+      "attrs": "api_request",
+      "requiredAttrs": [
+        "method",
+        "route"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "api",
+            "version": "0.1.0"
+          },
+          "event": "api.auth.failed",
+          "msg": "api authentication failed",
+          "attrs": {
+            "method": "GET",
+            "route": "/api/v1/chats",
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "event": "api.rate.limited",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "api request rate limited",
+      "attrs": "api_request",
+      "requiredAttrs": [
+        "method",
+        "route"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "api",
+            "version": "0.1.0"
+          },
+          "event": "api.rate.limited",
+          "msg": "api request rate limited",
+          "attrs": {
+            "method": "GET",
+            "route": "/api/v1/chats",
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "event": "api.stream.dropped",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "api stream dropped",
+      "attrs": "api_request",
+      "requiredAttrs": [
+        "route",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "api",
+            "version": "0.1.0"
+          },
+          "event": "api.stream.dropped",
+          "msg": "api stream dropped",
+          "attrs": {
+            "route": "/api/v1/chats",
+            "reason": "example-reason",
+            "method": "GET",
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "event": "module.process.started",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "module started",
+      "attrs": "module",
+      "requiredAttrs": [
+        "module"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "module/fixture",
+            "version": "0.1.0"
+          },
+          "event": "module.process.started",
+          "msg": "module started",
+          "attrs": {
+            "module": "fixture",
+            "reason": "bad-value",
+            "keys": [
+              "modules.fixture.interval"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "event": "module.config.invalid",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "module configuration invalid",
+      "attrs": "module",
+      "requiredAttrs": [
+        "module",
+        "keys"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "module/fixture",
+            "version": "0.1.0"
+          },
+          "event": "module.config.invalid",
+          "msg": "module configuration invalid",
+          "attrs": {
+            "module": "fixture",
+            "keys": [
+              "modules.fixture.interval"
+            ],
+            "reason": "bad-value"
+          }
+        }
+      ]
+    },
+    {
+      "event": "module.core.connected",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "module connected to core",
+      "attrs": "module",
+      "requiredAttrs": [
+        "module"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "module/fixture",
+            "version": "0.1.0"
+          },
+          "event": "module.core.connected",
+          "msg": "module connected to core",
+          "attrs": {
+            "module": "fixture",
+            "reason": "bad-value",
+            "keys": [
+              "modules.fixture.interval"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "event": "module.core.lost",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "module lost its connection to core",
+      "attrs": "module",
+      "requiredAttrs": [
+        "module"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "module/fixture",
+            "version": "0.1.0"
+          },
+          "event": "module.core.lost",
+          "msg": "module lost its connection to core",
+          "attrs": {
+            "module": "fixture",
+            "reason": "bad-value",
+            "keys": [
+              "modules.fixture.interval"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "event": "ext.load.failed",
+      "kinds": [
+        "extension"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "extension failed to load",
+      "attrs": "ext_load",
+      "requiredAttrs": [
+        "extension",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "extension",
+            "id": "mcp-server/files",
+            "version": "1.2.0"
+          },
+          "event": "ext.load.failed",
+          "msg": "extension failed to load",
+          "attrs": {
+            "extension": "plugin/example",
+            "reason": "manifest-invalid"
+          }
+        }
+      ]
+    },
+    {
+      "event": "mcp.server.started",
+      "kinds": [
+        "extension"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "mcp server started",
+      "attrs": "mcp",
+      "requiredAttrs": [
+        "server"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "extension",
+            "id": "mcp-server/files",
+            "version": "1.2.0"
+          },
+          "event": "mcp.server.started",
+          "msg": "mcp server started",
+          "attrs": {
+            "server": "mcp-server/files",
+            "tool": "read",
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "mcp.server.exited",
+      "kinds": [
+        "extension"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info",
+        "error"
+      ],
+      "levelRule": "info when planned, error when unexpected",
+      "msg": "mcp server exited",
+      "attrs": "mcp",
+      "requiredAttrs": [
+        "server",
+        "planned"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "extension",
+            "id": "mcp-server/files",
+            "version": "1.2.0"
+          },
+          "event": "mcp.server.exited",
+          "msg": "mcp server exited",
+          "attrs": {
+            "server": "mcp-server/files",
+            "planned": false,
+            "tool": "read",
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "mcp.server.timeout",
+      "kinds": [
+        "extension"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "mcp server timed out",
+      "attrs": "mcp",
+      "requiredAttrs": [
+        "server",
+        "timeout_ms"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "extension",
+            "id": "mcp-server/files",
+            "version": "1.2.0"
+          },
+          "event": "mcp.server.timeout",
+          "msg": "mcp server timed out",
+          "attrs": {
+            "server": "mcp-server/files",
+            "timeout_ms": 1,
+            "tool": "read",
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "mcp.call.completed",
+      "kinds": [
+        "extension"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "mcp call completed",
+      "attrs": "mcp",
+      "requiredAttrs": [
+        "server",
+        "tool"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "extension",
+            "id": "mcp-server/files",
+            "version": "1.2.0"
+          },
+          "event": "mcp.call.completed",
+          "msg": "mcp call completed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 1840,
+          "attrs": {
+            "server": "mcp-server/files",
+            "tool": "read",
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "mcp.call.failed",
+      "kinds": [
+        "extension"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error",
+        "warn"
+      ],
+      "levelRule": "error on a typed protocol error, warn on a timeout that is retried",
+      "msg": "mcp call failed",
+      "attrs": "mcp",
+      "requiredAttrs": [
+        "server",
+        "tool"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "extension",
+            "id": "mcp-server/files",
+            "version": "1.2.0"
+          },
+          "event": "mcp.call.failed",
+          "msg": "mcp call failed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 1840,
+          "attrs": {
+            "server": "mcp-server/files",
+            "tool": "read",
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "skill.script.exited",
+      "kinds": [
+        "extension"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info",
+        "error"
+      ],
+      "levelRule": "info on exit 0, error on a non-zero exit or a signal",
+      "msg": "skill script exited",
+      "attrs": "skill_script",
+      "requiredAttrs": [
+        "skill",
+        "script",
+        "exit_code"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "extension",
+            "id": "mcp-server/files",
+            "version": "1.2.0"
+          },
+          "event": "skill.script.exited",
+          "msg": "skill script exited",
+          "attrs": {
+            "skill": "plur1bus-ops",
+            "script": "diagnose",
+            "exit_code": 0,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.request.completed",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "provider request completed",
+      "attrs": "provider_request",
+      "requiredAttrs": [
+        "model",
+        "capability"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.request.completed",
+          "msg": "provider request completed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 1840,
+          "attrs": {
+            "model": "gpt-5.5",
+            "capability": "chat",
+            "provider_request_id": "req_example0001",
+            "http_status": 429,
+            "retry_after_s": 12,
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.request.retrying",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "provider request retrying",
+      "attrs": "provider_request",
+      "requiredAttrs": [
+        "model",
+        "attempt",
+        "retry_in_ms"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.request.retrying",
+          "msg": "provider request retrying",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "model": "gpt-5.5",
+            "attempt": 1,
+            "retry_in_ms": 1,
+            "capability": "chat",
+            "provider_request_id": "req_example0001",
+            "http_status": 429,
+            "retry_after_s": 12
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.request.failed",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error",
+        "warn"
+      ],
+      "levelRule": "warn when err.retryable and a retry is scheduled",
+      "msg": "provider request failed",
+      "attrs": "provider_request",
+      "requiredAttrs": [
+        "model",
+        "capability"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.request.failed",
+          "msg": "provider request failed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 1840,
+          "err": {
+            "code": "server",
+            "reason": "http-500",
+            "retryable": false,
+            "hint": "retry after the provider recovers"
+          },
+          "attrs": {
+            "model": "gpt-5.5",
+            "capability": "chat",
+            "provider_request_id": "req_example0001",
+            "http_status": 429,
+            "retry_after_s": 12,
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.rate.limited",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "provider rate limit",
+      "attrs": "provider_request",
+      "requiredAttrs": [
+        "model"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.rate.limited",
+          "msg": "provider rate limit",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "model": "gpt-5.5",
+            "capability": "chat",
+            "provider_request_id": "req_example0001",
+            "http_status": 429,
+            "retry_after_s": 12,
+            "attempt": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.oauth.refreshed",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "provider token refreshed",
+      "attrs": "provider_oauth",
+      "requiredAttrs": [
+        "profile"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.oauth.refreshed",
+          "msg": "provider token refreshed",
+          "attrs": {
+            "profile": "openai-oauth",
+            "expires_in_s": 3600
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.oauth.refresh_failed",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "provider token refresh failed",
+      "attrs": "provider_oauth",
+      "requiredAttrs": [
+        "profile",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.oauth.refresh_failed",
+          "msg": "provider token refresh failed",
+          "err": {
+            "code": "server",
+            "reason": "http-500",
+            "retryable": false,
+            "hint": "retry after the provider recovers"
+          },
+          "attrs": {
+            "profile": "openai-oauth",
+            "reason": "example-reason",
+            "expires_in_s": 3600
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.auth.expiring",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "provider credential expiring",
+      "attrs": "provider_oauth",
+      "requiredAttrs": [
+        "profile",
+        "expires_in_s"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.auth.expiring",
+          "msg": "provider credential expiring",
+          "attrs": {
+            "profile": "openai-oauth",
+            "expires_in_s": 3600
+          }
+        }
+      ]
+    },
+    {
+      "event": "provider.payload.captured",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "payload",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "provider payload captured",
+      "attrs": "provider_payload",
+      "requiredAttrs": [
+        "agent",
+        "capture_id"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "note": "payload stream only; the content is in logs/payload.log",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@3"
+          },
+          "event": "provider.payload.captured",
+          "msg": "provider payload captured",
+          "attrs": {
+            "agent": "bernd",
+            "capture_id": "cap_01J0",
+            "bytes": 5120
+          }
+        }
+      ]
+    },
+    {
+      "event": "model.load.started",
+      "kinds": [
+        "model"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "model load started",
+      "attrs": "local_model",
+      "requiredAttrs": [
+        "model"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "model",
+            "id": "ollama/llama3",
+            "version": "0.5.1"
+          },
+          "event": "model.load.started",
+          "msg": "model load started",
+          "attrs": {
+            "model": "ollama/llama3",
+            "runtime": "ollama"
+          }
+        }
+      ]
+    },
+    {
+      "event": "model.load.completed",
+      "kinds": [
+        "model"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "model load completed",
+      "attrs": "local_model",
+      "requiredAttrs": [
+        "model"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "model",
+            "id": "ollama/llama3",
+            "version": "0.5.1"
+          },
+          "event": "model.load.completed",
+          "msg": "model load completed",
+          "duration_ms": 1840,
+          "attrs": {
+            "model": "ollama/llama3",
+            "runtime": "ollama"
+          }
+        }
+      ]
+    },
+    {
+      "event": "model.load.failed",
+      "kinds": [
+        "model"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "model load failed",
+      "attrs": "local_model",
+      "requiredAttrs": [
+        "model",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "model",
+            "id": "ollama/llama3",
+            "version": "0.5.1"
+          },
+          "event": "model.load.failed",
+          "msg": "model load failed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "model": "ollama/llama3",
+            "reason": "example-reason",
+            "runtime": "ollama"
+          }
+        }
+      ]
+    },
+    {
+      "event": "model.process.exited",
+      "kinds": [
+        "model"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info",
+        "error"
+      ],
+      "levelRule": "info when planned, error when unexpected",
+      "msg": "model process exited",
+      "attrs": "local_model",
+      "requiredAttrs": [
+        "model",
+        "planned"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "model",
+            "id": "ollama/llama3",
+            "version": "0.5.1"
+          },
+          "event": "model.process.exited",
+          "msg": "model process exited",
+          "attrs": {
+            "model": "ollama/llama3",
+            "planned": false,
+            "runtime": "ollama"
+          }
+        }
+      ]
+    },
+    {
+      "event": "model.memory.pressure",
+      "kinds": [
+        "model"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "model memory pressure",
+      "attrs": "local_model",
+      "requiredAttrs": [
+        "model",
+        "rss_mb"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "model",
+            "id": "ollama/llama3",
+            "version": "0.5.1"
+          },
+          "event": "model.memory.pressure",
+          "msg": "model memory pressure",
+          "attrs": {
+            "model": "ollama/llama3",
+            "rss_mb": 1,
+            "runtime": "ollama"
+          }
+        }
+      ]
+    },
+    {
+      "event": "model.unloaded",
+      "kinds": [
+        "model"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "model unloaded",
+      "attrs": "local_model",
+      "requiredAttrs": [
+        "model"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "model",
+            "id": "ollama/llama3",
+            "version": "0.5.1"
+          },
+          "event": "model.unloaded",
+          "msg": "model unloaded",
+          "attrs": {
+            "model": "ollama/llama3",
+            "runtime": "ollama"
+          }
+        }
+      ]
+    },
+    {
+      "event": "cli.session.started",
+      "kinds": [
+        "cli"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "cli agent session started",
+      "attrs": "cli_agent",
+      "requiredAttrs": [
+        "cli"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "cli",
+            "id": "codex",
+            "version": "0.9.0"
+          },
+          "event": "cli.session.started",
+          "msg": "cli agent session started",
+          "attrs": {
+            "cli": "codex",
+            "exit_code": 0,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "cli.session.exited",
+      "kinds": [
+        "cli"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info",
+        "error"
+      ],
+      "levelRule": "info on exit 0, error otherwise",
+      "msg": "cli agent session exited",
+      "attrs": "cli_agent",
+      "requiredAttrs": [
+        "cli",
+        "exit_code"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "cli",
+            "id": "codex",
+            "version": "0.9.0"
+          },
+          "event": "cli.session.exited",
+          "msg": "cli agent session exited",
+          "attrs": {
+            "cli": "codex",
+            "exit_code": 0,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "cli.acp.failed",
+      "kinds": [
+        "cli"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "cli agent protocol error",
+      "attrs": "cli_agent",
+      "requiredAttrs": [
+        "cli",
+        "acp_code"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "cli",
+            "id": "codex",
+            "version": "0.9.0"
+          },
+          "event": "cli.acp.failed",
+          "msg": "cli agent protocol error",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "cli": "codex",
+            "acp_code": 1,
+            "exit_code": 0,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "cli.login.required",
+      "kinds": [
+        "cli"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "cli agent login required",
+      "attrs": "cli_agent",
+      "requiredAttrs": [
+        "cli"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "cli",
+            "id": "codex",
+            "version": "0.9.0"
+          },
+          "event": "cli.login.required",
+          "msg": "cli agent login required",
+          "attrs": {
+            "cli": "codex",
+            "exit_code": 0,
+            "signal": null
+          }
+        }
+      ]
+    },
+    {
+      "event": "channel.connection.lost",
+      "kinds": [
+        "channel"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "channel connection lost",
+      "attrs": "channel",
+      "requiredAttrs": [
+        "channel"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "channel",
+            "id": "telegram/bernd-bot",
+            "version": "0.1.0"
+          },
+          "event": "channel.connection.lost",
+          "msg": "channel connection lost",
+          "attrs": {
+            "channel": "telegram",
+            "account": "bernd-bot",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "channel.connection.restored",
+      "kinds": [
+        "channel"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "channel connection restored",
+      "attrs": "channel",
+      "requiredAttrs": [
+        "channel"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "channel",
+            "id": "telegram/bernd-bot",
+            "version": "0.1.0"
+          },
+          "event": "channel.connection.restored",
+          "msg": "channel connection restored",
+          "attrs": {
+            "channel": "telegram",
+            "account": "bernd-bot",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "channel.message.received",
+      "kinds": [
+        "channel"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "channel message received",
+      "attrs": "channel",
+      "requiredAttrs": [
+        "channel"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "note": "no content",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "channel",
+            "id": "telegram/bernd-bot",
+            "version": "0.1.0"
+          },
+          "event": "channel.message.received",
+          "msg": "channel message received",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "channel": "telegram",
+            "account": "bernd-bot",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "channel.message.sent",
+      "kinds": [
+        "channel"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "channel message sent",
+      "attrs": "channel",
+      "requiredAttrs": [
+        "channel"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "note": "no content",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "channel",
+            "id": "telegram/bernd-bot",
+            "version": "0.1.0"
+          },
+          "event": "channel.message.sent",
+          "msg": "channel message sent",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "channel": "telegram",
+            "account": "bernd-bot",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "channel.delivery.failed",
+      "kinds": [
+        "channel"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error",
+        "warn"
+      ],
+      "levelRule": "warn when retried, error when failed for good",
+      "msg": "channel delivery failed",
+      "attrs": "channel",
+      "requiredAttrs": [
+        "channel",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "channel",
+            "id": "telegram/bernd-bot",
+            "version": "0.1.0"
+          },
+          "event": "channel.delivery.failed",
+          "msg": "channel delivery failed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "channel": "telegram",
+            "reason": "socket-closed",
+            "account": "bernd-bot"
+          }
+        }
+      ]
+    },
+    {
+      "event": "channel.rate.limited",
+      "kinds": [
+        "channel"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "channel rate limited",
+      "attrs": "channel",
+      "requiredAttrs": [
+        "channel"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "channel",
+            "id": "telegram/bernd-bot",
+            "version": "0.1.0"
+          },
+          "event": "channel.rate.limited",
+          "msg": "channel rate limited",
+          "attrs": {
+            "channel": "telegram",
+            "account": "bernd-bot",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "host.helper.connected",
+      "kinds": [
+        "host"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "host helper connected",
+      "attrs": "host",
+      "requiredAttrs": [
+        "helper"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "host",
+            "id": "helper",
+            "version": "0.1.0"
+          },
+          "event": "host.helper.connected",
+          "msg": "host helper connected",
+          "attrs": {
+            "helper": "helper",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "host.helper.lost",
+      "kinds": [
+        "host"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "host helper lost",
+      "attrs": "host",
+      "requiredAttrs": [
+        "helper"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "host",
+            "id": "helper",
+            "version": "0.1.0"
+          },
+          "event": "host.helper.lost",
+          "msg": "host helper lost",
+          "attrs": {
+            "helper": "helper",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "host.call.denied",
+      "kinds": [
+        "host"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "host call denied",
+      "attrs": "host",
+      "requiredAttrs": [
+        "capability"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "host",
+            "id": "helper",
+            "version": "0.1.0"
+          },
+          "event": "host.call.denied",
+          "msg": "host call denied",
+          "attrs": {
+            "capability": "example-reason",
+            "helper": "helper",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "host.signature.invalid",
+      "kinds": [
+        "host"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "host helper signature invalid",
+      "attrs": "host",
+      "requiredAttrs": [
+        "helper"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "host",
+            "id": "helper",
+            "version": "0.1.0"
+          },
+          "event": "host.signature.invalid",
+          "msg": "host helper signature invalid",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "helper": "helper",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "host.bridge.failed",
+      "kinds": [
+        "host"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "host bridge failed",
+      "attrs": "host",
+      "requiredAttrs": [
+        "helper",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "host",
+            "id": "helper",
+            "version": "0.1.0"
+          },
+          "event": "host.bridge.failed",
+          "msg": "host bridge failed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "helper": "helper",
+            "reason": "socket-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "desktop.app.started",
+      "kinds": [
+        "desktop"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "desktop app started",
+      "attrs": "desktop",
+      "requiredAttrs": [
+        "component"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "desktop",
+            "id": "shell",
+            "version": "0.1.0"
+          },
+          "event": "desktop.app.started",
+          "msg": "desktop app started",
+          "attrs": {
+            "component": "shell",
+            "reason": "ipc-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "desktop.app.crashed",
+      "kinds": [
+        "desktop"
+      ],
+      "stream": "diagnostic",
+      "level": "fatal",
+      "levels": [
+        "fatal"
+      ],
+      "msg": "desktop app crashed",
+      "attrs": "desktop",
+      "requiredAttrs": [
+        "component",
+        "crash_id"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "note": "written at the next start from the crash file",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "fatal",
+          "source": {
+            "kind": "desktop",
+            "id": "shell",
+            "version": "0.1.0"
+          },
+          "event": "desktop.app.crashed",
+          "msg": "desktop app crashed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "component": "shell",
+            "crash_id": "example-crash_id",
+            "reason": "ipc-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "desktop.connection.lost",
+      "kinds": [
+        "desktop"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "desktop lost its connection",
+      "attrs": "desktop",
+      "requiredAttrs": [
+        "component"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "desktop",
+            "id": "shell",
+            "version": "0.1.0"
+          },
+          "event": "desktop.connection.lost",
+          "msg": "desktop lost its connection",
+          "attrs": {
+            "component": "shell",
+            "reason": "ipc-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "desktop.webview.failed",
+      "kinds": [
+        "desktop"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "desktop webview failed",
+      "attrs": "desktop",
+      "requiredAttrs": [
+        "component",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "desktop",
+            "id": "shell",
+            "version": "0.1.0"
+          },
+          "event": "desktop.webview.failed",
+          "msg": "desktop webview failed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "component": "shell",
+            "reason": "ipc-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "desktop.update.failed",
+      "kinds": [
+        "desktop"
+      ],
+      "stream": "diagnostic",
+      "level": "error",
+      "levels": [
+        "error"
+      ],
+      "msg": "desktop update failed",
+      "attrs": "desktop",
+      "requiredAttrs": [
+        "component",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "error",
+          "source": {
+            "kind": "desktop",
+            "id": "shell",
+            "version": "0.1.0"
+          },
+          "event": "desktop.update.failed",
+          "msg": "desktop update failed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "component": "shell",
+            "reason": "ipc-closed"
+          }
+        }
+      ]
+    },
+    {
+      "event": "desktop.deeplink.ignored",
+      "kinds": [
+        "desktop"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "desktop deep link ignored",
+      "attrs": "desktop",
+      "requiredAttrs": [
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "note": "no arguments are logged",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "desktop",
+            "id": "shell",
+            "version": "0.1.0"
+          },
+          "event": "desktop.deeplink.ignored",
+          "msg": "desktop deep link ignored",
+          "attrs": {
+            "reason": "ipc-closed",
+            "component": "shell"
+          }
+        }
+      ]
+    },
+    {
+      "event": "os.service.installed",
+      "kinds": [
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "os service installed",
+      "attrs": "os_service",
+      "requiredAttrs": [
+        "manager"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "os",
+            "id": "systemd",
+            "version": "256"
+          },
+          "event": "os.service.installed",
+          "msg": "os service installed",
+          "attrs": {
+            "manager": "systemd",
+            "unit": "plur1bus.service",
+            "reason": "restart"
+          }
+        }
+      ]
+    },
+    {
+      "event": "os.service.restarted",
+      "kinds": [
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "os service restarted by the service manager",
+      "attrs": "os_service",
+      "requiredAttrs": [
+        "manager"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "os",
+            "id": "systemd",
+            "version": "256"
+          },
+          "event": "os.service.restarted",
+          "msg": "os service restarted by the service manager",
+          "attrs": {
+            "manager": "systemd",
+            "unit": "plur1bus.service",
+            "reason": "restart"
+          }
+        }
+      ]
+    },
+    {
+      "event": "os.service.failed",
+      "kinds": [
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "fatal",
+      "levels": [
+        "fatal"
+      ],
+      "msg": "os service failed",
+      "attrs": "os_service",
+      "requiredAttrs": [
+        "manager",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "fatal",
+          "source": {
+            "kind": "os",
+            "id": "systemd",
+            "version": "256"
+          },
+          "event": "os.service.failed",
+          "msg": "os service failed",
+          "err": {
+            "code": "E_INTERNAL",
+            "reason": "unexpected",
+            "retryable": false,
+            "hint": "see the diagnostic stream"
+          },
+          "attrs": {
+            "manager": "systemd",
+            "reason": "restart",
+            "unit": "plur1bus.service"
+          }
+        }
+      ]
+    },
+    {
+      "event": "os.power.resumed",
+      "kinds": [
+        "os"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "system resumed from sleep",
+      "attrs": "os_service",
+      "requiredAttrs": [
+        "manager"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "os",
+            "id": "systemd",
+            "version": "256"
+          },
+          "event": "os.power.resumed",
+          "msg": "system resumed from sleep",
+          "attrs": {
+            "manager": "systemd",
+            "unit": "plur1bus.service",
+            "reason": "restart"
+          }
+        }
+      ]
+    },
+    {
+      "event": "licence.accept-nc",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_licence",
+      "requiredAttrs": [
+        "useClass"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "licence.accept-nc",
+          "target": "embedding.acceptedNcLicence",
+          "detail": {
+            "useClass": "research",
+            "acceptedAt": "2026-10-01T09:14:03.218Z"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "setup.complete",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_setup",
+      "requiredAttrs": [],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "setup.complete",
+          "target": "/home/user/.plur1bus",
+          "detail": {
+            "target": "x86_64-unknown-linux-gnu",
+            "channel": "stable",
+            "core": "bundled",
+            "profile": "standalone"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "repair.*",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_repair",
+      "requiredAttrs": [
+        "status"
+      ],
+      "family": true,
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "repair.run.permissions.fix",
+          "target": "run/",
+          "detail": {
+            "status": "applied",
+            "reason": "permissions were group-writable",
+            "detail": {}
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "ext.install",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_ext_install",
+      "requiredAttrs": [
+        "id",
+        "version",
+        "sha256"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "ext.install",
+          "target": "example.skill",
+          "detail": {
+            "id": "example.skill",
+            "version": "1.0.0",
+            "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "kind": "skill",
+            "trust": "first-party",
+            "keyId": null,
+            "replaced": false,
+            "via": "cli"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "ext.enable",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_ext_state",
+      "requiredAttrs": [],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "ext.enable",
+          "target": "example.skill",
+          "detail": {
+            "kind": "skill",
+            "agents": "all",
+            "via": "cli"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "ext.disable",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_ext_state",
+      "requiredAttrs": [],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "ext.disable",
+          "target": "example.skill",
+          "detail": {
+            "kind": "skill",
+            "agents": "all",
+            "via": "cli"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "ext.uninstall",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_ext_remove",
+      "requiredAttrs": [],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "ext.uninstall",
+          "target": "example.skill",
+          "detail": {
+            "kind": "skill",
+            "version": "1.0.0",
+            "trashId": "t_01J0",
+            "purged": false,
+            "via": "cli"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "ext.purge",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_ext_remove",
+      "requiredAttrs": [],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "ext.purge",
+          "target": "example.skill",
+          "detail": {
+            "kind": "skill",
+            "version": "1.0.0",
+            "trashId": "t_01J0",
+            "purged": false,
+            "via": "cli"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "ext.restore",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_ext_remove",
+      "requiredAttrs": [],
+      "activity": false,
+      "since": "D111",
+      "stability": "stable",
+      "note": "pre-D111 HB12 action, unchanged",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "ext.restore",
+          "target": "example.skill",
+          "detail": {
+            "kind": "skill",
+            "version": "1.0.0",
+            "trashId": "t_01J0",
+            "purged": false,
+            "via": "cli"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "config.set",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_config_set",
+      "requiredAttrs": [
+        "key"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "config.set",
+          "target": "core.logLevel",
+          "detail": {
+            "key": "core.logLevel",
+            "restart_class": "live",
+            "old": "info",
+            "new": "debug"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "module.install",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_module",
+      "requiredAttrs": [
+        "name"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "module.install",
+          "target": "fixture",
+          "detail": {
+            "name": "fixture",
+            "version": "0.1.0"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "module.uninstall",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_module",
+      "requiredAttrs": [
+        "name"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "stable",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "module.uninstall",
+          "target": "fixture",
+          "detail": {
+            "name": "fixture",
+            "version": "0.1.0"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "secret.create",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_secret",
+      "requiredAttrs": [
+        "name"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "secret.create",
+          "target": "provider/openai/api-key",
+          "detail": {
+            "name": "provider/openai/api-key"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "secret.rotate",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_secret",
+      "requiredAttrs": [
+        "name"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "secret.rotate",
+          "target": "provider/openai/api-key",
+          "detail": {
+            "name": "provider/openai/api-key"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "secret.delete",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_secret",
+      "requiredAttrs": [
+        "name"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "secret.delete",
+          "target": "provider/openai/api-key",
+          "detail": {
+            "name": "provider/openai/api-key"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "auth.login",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_auth",
+      "requiredAttrs": [
+        "profile"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "auth.login",
+          "target": "openai-oauth",
+          "detail": {
+            "profile": "openai-oauth"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "auth.logout",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_auth",
+      "requiredAttrs": [
+        "profile"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "auth.logout",
+          "target": "openai-oauth",
+          "detail": {
+            "profile": "openai-oauth"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "log.payload_capture.enabled",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_payload_capture",
+      "requiredAttrs": [
+        "agent",
+        "until"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "log.payload_capture.enabled",
+          "target": "bernd",
+          "detail": {
+            "agent": "bernd",
+            "until": "2026-10-01T10:14:03.218Z",
+            "actor": "owner"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "log.payload_capture.disabled",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_payload_capture",
+      "requiredAttrs": [
+        "agent"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "log.payload_capture.disabled",
+          "target": "bernd",
+          "detail": {
+            "agent": "bernd",
+            "until": "2026-10-01T10:14:03.218Z",
+            "actor": "owner"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "logs.otlp.enabled",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_otlp",
+      "requiredAttrs": [
+        "endpoint"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "logs.otlp.enabled",
+          "target": "https://collector.example.test:4318",
+          "detail": {
+            "endpoint": "https://collector.example.test:4318",
+            "signals": [
+              "diagnostic"
+            ]
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "logs.otlp.disabled",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_otlp",
+      "requiredAttrs": [],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "logs.otlp.disabled",
+          "target": "https://collector.example.test:4318",
+          "detail": {
+            "endpoint": "https://collector.example.test:4318",
+            "signals": [
+              "diagnostic"
+            ]
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "logs.retention.changed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_retention",
+      "requiredAttrs": [
+        "key",
+        "new_days"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "logs.retention.changed",
+          "target": "logs.retentionDays.audit",
+          "detail": {
+            "key": "logs.retentionDays.audit",
+            "new_days": 400,
+            "old_days": 0
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "approval.requested",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_approval",
+      "requiredAttrs": [
+        "request_id",
+        "tool"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "approval.requested",
+          "target": "ap_01J0",
+          "detail": {
+            "request_id": "ap_01J0",
+            "tool": "fs.write",
+            "decision": "approved",
+            "store_ref": "42:3f9a1c0d"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "approval.decided",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_approval",
+      "requiredAttrs": [
+        "request_id",
+        "decision"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "approval.decided",
+          "target": "ap_01J0",
+          "detail": {
+            "request_id": "ap_01J0",
+            "decision": "approved",
+            "tool": "fs.write",
+            "store_ref": "42:3f9a1c0d"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "grant.created",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_grant",
+      "requiredAttrs": [
+        "grant_id",
+        "scope"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "grant.created",
+          "target": "gr_01J0",
+          "detail": {
+            "grant_id": "gr_01J0",
+            "scope": "fs.read:/projects/example",
+            "store_ref": "43:7c1e9a20"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "grant.revoked",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_grant",
+      "requiredAttrs": [
+        "grant_id"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "grant.revoked",
+          "target": "gr_01J0",
+          "detail": {
+            "grant_id": "gr_01J0",
+            "scope": "fs.read:/projects/example",
+            "store_ref": "43:7c1e9a20"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "grant.expired",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_grant",
+      "requiredAttrs": [
+        "grant_id"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "grant.expired",
+          "target": "gr_01J0",
+          "detail": {
+            "grant_id": "gr_01J0",
+            "scope": "fs.read:/projects/example",
+            "store_ref": "43:7c1e9a20"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "policy.denied",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_policy",
+      "requiredAttrs": [
+        "tool",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "policy.denied",
+          "target": "shell.run",
+          "detail": {
+            "tool": "shell.run",
+            "reason": "deny-list",
+            "store_ref": "44:0a1b2c3d"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "approvals.integrity_failed",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_integrity",
+      "requiredAttrs": [
+        "store_ref"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "approvals.integrity_failed",
+          "target": "45:00000000",
+          "detail": {
+            "store_ref": "45:00000000",
+            "reason": "chain-mismatch"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "device.paired",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_device",
+      "requiredAttrs": [
+        "device_id"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "device.paired",
+          "target": "dev_01J0",
+          "detail": {
+            "device_id": "dev_01J0"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "device.revoked",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_device",
+      "requiredAttrs": [
+        "device_id"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "device.revoked",
+          "target": "dev_01J0",
+          "detail": {
+            "device_id": "dev_01J0"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "user.break_glass",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "audit_break_glass",
+      "requiredAttrs": [
+        "target",
+        "reason"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "u_9f3a",
+            "host": "h_a1"
+          },
+          "action": "user.break_glass",
+          "target": "session:s_01J0",
+          "detail": {
+            "target": "session:s_01J0",
+            "reason": "owner-requested-recovery"
+          },
+          "v": 2
+        }
+      ]
+    }
+  ]
+}

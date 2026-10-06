@@ -1,0 +1,12 @@
+{
+  "$comment": "D111 §2.6. `rank` orders levels for filters; `otel` is the OpenTelemetry SeverityNumber (the first of the four numbers each range reserves) and its SeverityText; `syslog` is the RFC 5424 severity. trace and debug share syslog 7 (RFC 5424 has no finer level).",
+  "version": 1,
+  "levels": [
+    { "name": "trace", "rank": 0, "otel": { "severityNumber": 1, "severityText": "TRACE" }, "syslog": { "severity": 7, "name": "debug" }, "meaning": "step-by-step internals; only for a limited time (logs.traceUntil)" },
+    { "name": "debug", "rank": 1, "otel": { "severityNumber": 5, "severityText": "DEBUG" }, "syslog": { "severity": 7, "name": "debug" }, "meaning": "developer detail, successful routine operations" },
+    { "name": "info", "rank": 2, "otel": { "severityNumber": 9, "severityText": "INFO" }, "syslog": { "severity": 6, "name": "informational" }, "meaning": "state changes a person may want to see; every skip with its reason (ADR-009)" },
+    { "name": "warn", "rank": 3, "otel": { "severityNumber": 13, "severityText": "WARN" }, "syslog": { "severity": 4, "name": "warning" }, "meaning": "degraded but self-healing, retrying, or a limit reached" },
+    { "name": "error", "rank": 4, "otel": { "severityNumber": 17, "severityText": "ERROR" }, "syslog": { "severity": 3, "name": "error" }, "meaning": "an operation failed and will not succeed without a retry decision or intervention, proven by a hard signal" },
+    { "name": "fatal", "rank": 5, "otel": { "severityNumber": 21, "severityText": "FATAL" }, "syslog": { "severity": 2, "name": "critical" }, "meaning": "a process or service died" }
+  ]
+}

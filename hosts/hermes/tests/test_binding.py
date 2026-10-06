@@ -904,3 +904,30 @@ with mod.ExclusiveLockFile(lock_path).hold(30):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BindingAuditTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.dir = tempfile.mkdtemp(prefix="p1b-")
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+
+    def test_write_tools_default_off_and_round_trip(self) -> None:
+        self.assertFalse(Binding(home="/opt/p1b", agent_id="hermes-x").memory_write_tools)
+        doc = Binding(home="/opt/p1b", agent_id="hermes-x").to_json()
+        self.assertNotIn("memoryWriteTools", doc, "off is the absent field")
+        self.assertFalse(Binding.from_json(doc).memory_write_tools, "an older file without the field means off")
+        on = Binding(home="/opt/p1b", agent_id="hermes-x", memory_write_tools=True)
+        write_binding(self.dir, on)
+        self.assertTrue(read_binding(self.dir).memory_write_tools)
+        for bad in ("yes", 1, None):
+            d = on.to_json()
+            d["memoryWriteTools"] = bad
+            with self.assertRaises(BindingInvalid):
+                Binding.from_json(d)
+
+    def test_invalid_utf8_is_an_invalid_binding_not_an_exception(self) -> None:
+        with open(os.path.join(self.dir, "plur1bus.json"), "wb") as f:
+            f.write(b'{"schema": "plur1bus.hermes-binding/1", "home": "\xff\xfe"}')
+        with self.assertRaises(BindingInvalid) as cm:
+            read_binding(self.dir)
+        self.assertIn("UTF-8", cm.exception.reason)

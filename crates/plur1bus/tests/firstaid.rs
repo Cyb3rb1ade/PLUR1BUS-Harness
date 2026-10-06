@@ -2,6 +2,7 @@
 //! `tests/fixtures/fake-core.mjs`, reached through `PLUR1BUS_CORE_JS`/`PLUR1BUS_NODE`, mirroring `tests/daemon.rs`.
 //! The one test that needs `core.status.deprecationsUsed` (a real field the fake core does not implement) starts
 //! the actual built core instead (`plur1bus core run --test-internals flat-embedder`).
+mod common;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -393,8 +394,8 @@ fn stale_run_files_are_a_warning() {
     let run = h.home.join("run");
     std::fs::create_dir_all(&run).unwrap();
     std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
-    drop(std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap());
-    drop(std::os::unix::net::UnixListener::bind(run.join("core.sock")).unwrap());
+    common::dead_socket(&run.join("supervisor.sock"));
+    common::dead_socket(&run.join("core.sock"));
     // Pids that cannot exist (above every pid_max), so the check sees them as dead.
     std::fs::write(
         run.join("supervisor.pid"),

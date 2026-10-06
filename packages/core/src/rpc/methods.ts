@@ -3,7 +3,7 @@ import type { HarnessConfig } from "@plur1bus/config-schema";
 import type {
   AgentCloseParams, AgentOpenParams, AgentStatusParams, CallerIdentity, CoreAdoptParams, CoreShutdownParams, CoreStatusResult, JobsHistoryParams, JobsRunParams,
   MemoryCaptureParams, MemoryCaptureResult, MemoryCheckpointParams, MemoryCheckpointResult, MemoryRecallParams, MemoryRecallResult,
-  ModelsAcknowledgeParams, ModelsListParams, ModelsRemoveManualParams, ModelsScanParams, ModelsSetOverrideParams,
+  BudgetSetParams, BudgetStatusParams, ModelsAcknowledgeParams, ModelsListParams, ModelsRemoveManualParams, ModelsScanParams, ModelsSetOverrideParams,
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
 import { buildAdminMethods } from "../admin-ops.ts";
@@ -13,8 +13,10 @@ import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
+import type { BudgetService } from "../budget/index.ts";
 import { CatalogError } from "../discovery/overrides.ts";
 import { CatalogWriteError } from "../discovery/catalog-store.ts";
+import { buildSecretMethods } from "../secrets/rpc.ts";
 import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
 
@@ -59,6 +61,12 @@ export interface MethodDeps {
   dreams?: () => import("../dreams/scheduler.ts").DreamScheduler | null;
   /** Why `dreams` is null when its store failed to open (shown as the refusal's detail). */
   dreamsError?: () => string | undefined;
+  /** M2: the `admin.reembed.*` handlers (embedding-migrate/rpc.ts), when the core built a migration driver. */
+  reembed?: Record<string, Handler>;
+  /** M2 L8: the budget service (absent when its store could not be opened). */
+  budget?: BudgetService;
+  /** M2: the secret store and who a connection is. Absent, the `secret.*` methods are not served. */
+  secrets?: import("../secrets/rpc.ts").SecretMethodDeps;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -84,6 +92,13 @@ const projectCheckpoint = (c: CheckpointResult): MemoryCheckpointResult => ({ ag
 
 /** G17/H3-R21: the refusal a stopping core gives memory calls; clients treat it like an unreachable core. */
 const coreStopping = (): RpcError => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
+
+/** A budget input error (bad id, count, zone, soft > hard) is the caller's: E_INVALID_PARAMS. */
+function mapBudgetError(err: unknown): never {
+  if (err instanceof RangeError) throw new RpcError("E_INVALID_PARAMS", err.message);
+  throw err;
+}
+const iso = (ms: number) => new Date(ms).toISOString();
 
 export function buildMethods(d: MethodDeps): Record<string, Handler> {
   const openAgents = new Map<string, { close(): Promise<void> }>(); // one map per core
@@ -175,7 +190,9 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents, ...(d.dreamsError ? { unavailableBecause: d.dreamsError } : {}) }),
+    ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
+    ...(d.reembed ?? {}),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {
@@ -283,6 +300,25 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       } catch (err) {
         mapDiscoveryError(err);
       }
+    },
+    "budget.status": async (p: BudgetStatusParams) => {
+      if (!d.budget) throw new RpcError("E_INTERNAL", "budget service unavailable");
+      try {
+        const st = d.budget.status(p?.agentId !== undefined ? { agentId: p.agentId } : {});
+        return {
+          timeZone: st.timeZone, priceVersion: st.priceVersion, now: iso(st.now),
+          periods: st.periods.map((x) => ({ ...x, start: iso(x.start), end: iso(x.end) })),
+          limits: st.limits,
+        };
+      } catch (err) { mapBudgetError(err); }
+    },
+    "budget.set": async (p: BudgetSetParams) => {
+      if (!d.budget) throw new RpcError("E_INTERNAL", "budget service unavailable");
+      try {
+        if (p.timeZone !== undefined) d.budget.setTimeZone(p.timeZone);
+        const set = p.limit ? { limit: d.budget.setLimit(p.limit as Parameters<BudgetService["setLimit"]>[0]) } : {};
+        return { timeZone: d.budget.timeZone(), ...set, limits: d.budget.limits() };
+      } catch (err) { mapBudgetError(err); }
     },
     "models.acknowledge": async (_p: ModelsAcknowledgeParams) => {
       if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");

@@ -100,6 +100,13 @@ pub fn settings_set(
 ) -> Result<Settings, String> {
     check(&window, "settings_set")?;
     store(&window)?.set(&request.settings)?;
+    if window
+        .app_handle()
+        .try_state::<crate::native::NativeState>()
+        .is_some()
+    {
+        crate::native::refresh_language(window.app_handle(), request.settings.locale);
+    }
     Ok(request.settings)
 }
 
@@ -217,7 +224,9 @@ pub async fn connections_remove(
 ) -> Result<(), String> {
     check(&window, "connections_remove")?;
     let store = connection_store(&window)?;
+    let app = window.app_handle().clone();
     credential_action(&state, move |tokens, _| {
+        crate::native::retire_connection(&app, request.id);
         crate::pair::remove_connection(
             &store,
             request.id,
@@ -237,7 +246,11 @@ pub async fn pair_code(
     check(&window, "pair_code")?;
     let store = connection_store(&window)?;
     let code = crate::secrets::SecretString::new(request.code);
+    let app = window.app_handle().clone();
     credential_action(&state, move |tokens, runtime| {
+        if let Some(id) = request.repair_id {
+            crate::native::retire_connection(&app, id);
+        }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let connection = runtime
             .block_on(crate::pair::pair_code(
@@ -331,12 +344,28 @@ pub async fn open_connection(
                 &store,
             ))
             .map_err(|e| e.public_message())?;
+        let monitor = if app.try_state::<crate::native::NativeState>().is_some() {
+            let client = runtime
+                .block_on(crate::client::HarnessClient::from_connection(&row))
+                .map_err(|e| crate::pair::PairError::Client(e).public_message())?;
+            let token = crate::secrets::load_token_or_pairing_needed(tokens.as_ref(), row.id)
+                .map_err(|_| "pairing-needed")?;
+            Some((client, token))
+        } else {
+            None
+        };
         runtime.block_on(crate::spa::open_spa(
             &app,
             &mut row,
             tokens.as_ref(),
             &store,
         ))?;
+        if let Some((client, token)) = monitor {
+            // Spawn while entered into the async runtime; token remains native-only.
+            runtime.block_on(async {
+                crate::native::start_events(&app, row.clone(), client, token);
+            });
+        }
         Ok(Opened {
             selected: true,
             spa_available: true,
@@ -402,4 +431,161 @@ pub fn shell_info(
         arch: std::env::consts::ARCH,
         features: vec![],
     })
+}
+
+#[tauri::command]
+pub fn quit_request(window: WebviewWindow) -> Result<crate::lifecycle::QuitOffer, String> {
+    check(&window, "quit_request")?;
+    Ok(crate::native::request_quit(window.app_handle()))
+}
+#[tauri::command]
+pub fn quit_offer(window: WebviewWindow) -> Result<Option<crate::lifecycle::QuitOffer>, String> {
+    check(&window, "quit_offer")?;
+    let state = window.state::<crate::native::NativeState>();
+    Ok(state.quit.is_pending().then(|| state.quit.request(false)))
+}
+#[tauri::command]
+pub async fn quit_response(
+    window: WebviewWindow,
+    choice: Option<crate::lifecycle::QuitChoice>,
+) -> Result<(), String> {
+    check(&window, "quit_response")?;
+    let state = window.state::<crate::native::NativeState>();
+    match choice {
+        None => state.quit.cancel(),
+        Some(choice) => {
+            // Bundled harness stopping is not available until WP8's controller adapter.
+            state.quit.approve(choice, false).map_err(str::to_owned)?;
+            state.events.stop();
+            #[cfg(unix)]
+            state.gnome.stop();
+            let diagnostics = { state.diagnostics.lock().unwrap().take() };
+            if let Some(diagnostics) = diagnostics {
+                if let Err(reason) = crate::diagnostics::shutdown_owned(diagnostics).await {
+                    eprintln!("{reason}");
+                }
+            }
+            window.app_handle().exit(0);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn autostart_get(window: WebviewWindow) -> Result<Option<bool>, String> {
+    check(&window, "autostart_get")?;
+    #[cfg(target_os = "linux")]
+    if crate::gnome::is_flatpak() {
+        return Ok(*window
+            .app_handle()
+            .state::<crate::native::NativeState>()
+            .gnome
+            .autostart_grant
+            .lock()
+            .unwrap());
+    }
+    use crate::controller::autostart::AppLauncher;
+    crate::controller::autostart::NativeLauncher(window.app_handle())
+        .is_enabled()
+        .map(Some)
+        .map_err(|reason| reason.code().to_owned())
+}
+#[tauri::command]
+pub async fn autostart_set(window: WebviewWindow, enabled: bool) -> Result<bool, String> {
+    check(&window, "autostart_set")?;
+    #[cfg(target_os = "linux")]
+    if crate::gnome::is_flatpak() {
+        return crate::gnome::request_autostart(window.app_handle(), enabled)
+            .await
+            .map_err(str::to_owned);
+    }
+    crate::controller::autostart::set_enabled(
+        &crate::controller::autostart::NativeLauncher(window.app_handle()),
+        enabled,
+    )
+    .map_err(|reason| reason.code().to_owned())
+}
+
+#[tauri::command]
+pub fn background_hint(window: WebviewWindow) -> Result<bool, String> {
+    check(&window, "background_hint")?;
+    #[cfg(unix)]
+    {
+        Ok(window
+            .app_handle()
+            .state::<crate::native::NativeState>()
+            .gnome
+            .hint_pending
+            .swap(false, std::sync::atomic::Ordering::SeqCst))
+    }
+    #[cfg(not(unix))]
+    {
+        Ok(false)
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct CrashOffer {
+    id: String,
+    details: String,
+}
+
+#[tauri::command]
+pub async fn crash_offers(window: WebviewWindow) -> Result<Vec<CrashOffer>, String> {
+    check(&window, "crash_offers")?;
+    let reporter = window
+        .app_handle()
+        .state::<crate::native::NativeState>()
+        .diagnostics
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|d| d.crash.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(reporter) = reporter else {
+            return Ok(Vec::new());
+        };
+        reporter
+            .pending()
+            .map(|offers| {
+                offers
+                    .into_iter()
+                    .map(|offer| CrashOffer {
+                        id: offer.id().to_owned(),
+                        details: offer.details().to_owned(),
+                    })
+                    .collect()
+            })
+            .map_err(|_| "CRASH_READ_FAILED".to_owned())
+    })
+    .await
+    .map_err(|_| "CRASH_READ_FAILED".to_owned())?
+}
+
+#[tauri::command]
+pub async fn crash_handled(window: WebviewWindow, id: String) -> Result<(), String> {
+    check(&window, "crash_handled")?;
+    let reporter = window
+        .app_handle()
+        .state::<crate::native::NativeState>()
+        .diagnostics
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|d| d.crash.clone())
+        .ok_or_else(|| "CRASH_UNAVAILABLE".to_owned())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let offers = reporter
+            .pending()
+            .map_err(|_| "CRASH_READ_FAILED".to_owned())?;
+        let offer = offers
+            .iter()
+            .find(|offer| offer.id() == id)
+            .ok_or_else(|| "CRASH_OFFER_UNKNOWN".to_owned())?;
+        reporter
+            .mark_handled(offer)
+            .map_err(|_| "CRASH_HANDLING_FAILED".to_owned())
+    })
+    .await
+    .map_err(|_| "CRASH_HANDLING_FAILED".to_owned())?
 }
