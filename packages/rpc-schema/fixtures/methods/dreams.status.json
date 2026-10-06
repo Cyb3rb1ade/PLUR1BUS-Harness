@@ -1,0 +1,7 @@
+{ "params": { "agentId": "bernd" },
+  "result": { "agents": [ { "agentId": "bernd", "diary": { "path": "agents/bernd/workspace/dreaming.md", "exists": true, "bytes": 812 }, "phases": [
+    { "phase": "deep", "enabled": true, "cron": "0 4 * * *", "timezone": "Europe/Berlin", "staggerOffsetS": 412, "nextRunAt": 1758769200000, "running": false,
+      "lastRun": { "runId": "run-1", "agentId": "bernd", "phase": "deep", "jobId": "consolidate-daily", "partition": "agent-private", "idempotencyKey": "k1", "claimed": true, "trigger": "manual", "scheduledFor": null, "startedAt": 1758700000000, "finishedAt": 1758700001000, "durationMs": 1000, "outcome": "completed", "reason": null, "counts": { "jobs": 3, "llmSessions": 1 }, "tokensIn": 100, "tokensOut": 50, "costMicros": null, "logPath": "state/dreams/logs/bernd/deep/run-1.log", "error": null },
+      "breaker": { "state": "closed", "until": null, "reason": null, "sessionsUsed": 1, "limit": 3 },
+      "importance": { "accumulated": 0, "threshold": 450, "capturesSinceRun": 0, "minCorpus": 3 } } ] } ],
+    "counters": { "runs": { "completed": 1 }, "skips": {}, "triggers": { "manual": 1 }, "breakerTrips": 0, "reconciled": 0 }, "schemaVersion": 1 } }
