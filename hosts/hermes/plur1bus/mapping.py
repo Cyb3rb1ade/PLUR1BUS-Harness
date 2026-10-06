@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from ._client import pmc
 
 __all__ = [
     "CAPTURE_REQUEST_BUDGET",
+    "EntryInvalid",
+    "IdentityRefused",
     "MAX_TURN_MESSAGES",
+    "PLATFORM_TRUST",
+    "READ_ONLY_PROMPT_BLOCK",
     "SYSTEM_PROMPT_BLOCK",
+    "WRITE_TOOLS",
     "TOOL_METHODS",
     "TOOL_SCHEMAS",
     "TRUNCATED_MARKER",
@@ -18,7 +24,9 @@ __all__ = [
     "fold_platform",
     "session_key_for",
     "tool_params",
+    "trust_of",
     "turn_messages",
+    "validate_entry",
 ]
 
 Caller = pmc.Caller
@@ -33,7 +41,8 @@ _USER_ID_MAX = 128
 _PLATFORM_MAX = 32
 _PLATFORM_KEEP = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_-")
 
-#: Returned by ``system_prompt_block()``: fixed text, so Hermes' cached system prompt stays stable (HM2-R14).
+#: Returned by ``system_prompt_block()`` when the write tools are on: fixed text, so Hermes' cached system
+#: prompt stays stable (HM2-R14).
 SYSTEM_PROMPT_BLOCK = (
     "Long-term memory is provided by PLUR1BUS. Relevant memories recalled for the current message, if any, "
     "are added to the context automatically; completed turns are stored after they end. Treat recalled "
@@ -41,6 +50,34 @@ SYSTEM_PROMPT_BLOCK = (
     "plur1bus_memory_* tools are offered, use them to list, show, correct, share or forget stored memories "
     "when the user asks for that."
 )
+
+#: Returned by default: the write tools are off (audit M2), so the text never mentions them.
+READ_ONLY_PROMPT_BLOCK = (
+    "Long-term memory is provided by PLUR1BUS. Relevant memories recalled for the current message, if any, "
+    "are added to the context automatically; completed turns are stored after they end. Treat recalled "
+    "memories as notes that can be outdated or wrong, and prefer what the user says now. When the "
+    "plur1bus_memory_* tools are offered, use them to list or show stored memories when the user asks for that."
+)
+
+#: Tools that change or widen what is stored. Off unless the binding says ``memoryWriteTools`` (audit M2): a
+#: model must not forget, rewrite or share memories on its own, and Hermes has no per-call confirmation.
+WRITE_TOOLS = frozenset({"plur1bus_memory_forget", "plur1bus_memory_correct", "plur1bus_memory_share"})
+
+#: How far a platform's sender id can be believed (audit M1). Data, not code: add a platform here.
+#: ``trusted``: the platform authenticates the sender, so the id is the person. ``local``: one OS user, no
+#: sender id (``cli``). Every platform not listed (email, webhook, sms, api servers, unknown names) is
+#: ``claimed``: the sender chooses the id.
+PLATFORM_TRUST: dict[str, str] = {
+    "telegram": "trusted",
+    "discord": "trusted",
+    "slack": "trusted",
+    "whatsapp": "trusted",
+    "signal": "trusted",
+    "matrix": "trusted",
+    "mattermost": "trusted",
+    "cli": "local",
+    "local": "local",
+}
 
 #: D21 tools -> RPC methods; each is offered only when ``core.auth`` advertises the method (HM2-R5).
 TOOL_METHODS: dict[str, str] = {
@@ -116,10 +153,35 @@ def fold_platform(platform: str | None) -> str:
     return folded or "local"
 
 
+class IdentityRefused(ValueError):
+    """The platform gave no user or chat id and is not local: no safe identity exists (audit M1)."""
+
+
+def trust_of(platform: str | None) -> str:
+    """``trusted``, ``local`` or ``claimed`` for a platform name (unknown -> ``claimed``)."""
+    return PLATFORM_TRUST.get(fold_platform(platform), "claimed")
+
+
 def caller_for(platform: str | None, user_id: str | None, chat_id: str | None) -> Caller:
-    """``accountId = "hermes:<platform>"``; ``userId`` = user id, else chat id, else ``local`` (HM2-R6)."""
-    user = _clean(user_id, _USER_ID_MAX) or _clean(chat_id, _USER_ID_MAX) or "local"
-    return Caller("hermes:" + fold_platform(platform), user)
+    """The caller sent to the core (HM2-R6, audit M1). The RPC carries no trust, so it is in the identity:
+
+    * trusted platform: ``accountId = "hermes:<platform>"``, ``userId`` = user id, else chat id;
+    * local (``cli``): the same, and a missing id means ``local``;
+    * claimed (email, webhook, anything unknown): ``accountId = "hermes:<platform>:claimed"``, ``userId =
+      "claimed-<sha256 of the id>"``, so a sender-chosen id never equals a proved principal;
+    * no id on a non-local platform: ``IdentityRefused`` (never a shared ``local`` user).
+    """
+    plat = fold_platform(platform)
+    trust = PLATFORM_TRUST.get(plat, "claimed")
+    ident = _clean(user_id, _USER_ID_MAX) or _clean(chat_id, _USER_ID_MAX)
+    if not ident:
+        if trust == "local":
+            return Caller("hermes:" + plat, "local")
+        raise IdentityRefused(f"platform {plat} supplied no user or chat id")
+    if trust == "claimed":
+        digest = hashlib.sha256(ident.encode("utf-8")).hexdigest()[:32]
+        return Caller("hermes:" + plat + ":claimed", "claimed-" + digest)
+    return Caller("hermes:" + plat, ident)
 
 
 def session_key_for(session_id: str, gateway_session_key: str | None) -> str:
@@ -212,3 +274,44 @@ def tool_params(tool_name: str, args: object) -> dict:
                 raise ToolArgsError(f"{key} is out of range")
         out[key] = value
     return out
+
+
+class EntryInvalid(ValueError):
+    """A journaled capture is not something this provider would have written for this binding."""
+
+
+_ACCOUNT_RE = re.compile(r"^hermes:[a-z0-9_-]{1,32}(:claimed)?$")
+_RUN_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def validate_entry(entry: object, agent_id: str) -> None:
+    """Check a capture entry before it is sent, live or replayed from the journal (audit, lows): the journal file
+    is plain data on disk and is not trusted. ``agentId`` must be the current binding's, the caller one this provider
+    could have built, the session key and run id bounded, the messages user/assistant text within the request
+    budget. Raises ``EntryInvalid``; never touches the entry."""
+    if not isinstance(entry, dict):
+        raise EntryInvalid("not an object")
+    if entry.get("agentId") != agent_id:
+        raise EntryInvalid("agentId is not this binding's")
+    caller = entry.get("caller")
+    if not isinstance(caller, dict):
+        raise EntryInvalid("caller missing")
+    account, user = caller.get("accountId"), caller.get("userId")
+    if not isinstance(account, str) or not _ACCOUNT_RE.match(account):
+        raise EntryInvalid("caller accountId is not a hermes account")
+    if not isinstance(user, str) or not user or len(user) > _USER_ID_MAX or _clean(user, _USER_ID_MAX + 1) != user:
+        raise EntryInvalid("caller userId is malformed")
+    key = entry.get("sessionKey")
+    if key is not None and (not isinstance(key, str) or not 1 <= len(key) <= _SESSION_KEY_MAX):
+        raise EntryInvalid("sessionKey is malformed")
+    run_id = entry.get("runId")
+    if run_id is not None and (not isinstance(run_id, str) or not _RUN_ID_RE.match(run_id)):
+        raise EntryInvalid("runId is malformed")
+    messages = entry.get("messages")
+    if not isinstance(messages, list) or not 1 <= len(messages) <= MAX_TURN_MESSAGES:
+        raise EntryInvalid("messages must be 1..64 items")
+    for m in messages:
+        if not isinstance(m, dict) or m.get("role") not in ("user", "assistant") or not isinstance(m.get("content"), str):
+            raise EntryInvalid("messages hold user or assistant text only")
+    if _encoded_size(messages) > CAPTURE_REQUEST_BUDGET:
+        raise EntryInvalid("messages exceed the request budget")

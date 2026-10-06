@@ -6,6 +6,19 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ## [Unreleased]
 
+### Added
+
+- **Secret store (M2, ADR-005).** `plur1bus secret status|set|get|rm|ls` and the core's `secret.status|list|set|get|delete`
+  RPC (experimental, owner only; any other principal is refused with `E_DENIED`). Secrets go to the OS keyring
+  (`@napi-rs/keyring`, loaded on first use) and, only when `secrets.fileFallback.enabled` is `true` (default `false`),
+  to an encrypted file (`state/secrets/store.json`: AES-256-GCM, a fresh nonce per entry, the entry's name bound as
+  authenticated data, a machine-bound key file `store.key`, both 0600 or a user-and-SYSTEM ACL, written atomically). A
+  tampered, truncated or key-less file fails closed (`E_STORAGE`, reason `corrupt`) and the key is never regenerated over
+  existing entries. A value is read from stdin, never from an argument, and is printed only by `get --reveal`; every
+  access writes a value-free line to `logs/audit.log`, and when that line cannot be written no value is released or
+  changed. The engine gets short-lived, revocable leases (in-process; there is no RPC for them). `secret.*` is never
+  offered as a WebMCP tool. RPC stays at 1.5.0: the new methods carry `x-since: 1.5.0`.
+
 ### Changed
 
 - Memory engine re-pinned to **`6868b7b1`** (plugin `origin/main` after PR #237, previously `9bafa047`), contract
