@@ -4,6 +4,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ErrorCode, McpError, ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { Clock } from "./clock.ts";
 import { buildChildEnv } from "./env.ts";
@@ -112,7 +113,8 @@ export class McpConnection {
     const ms = d.def.timeouts.connectMs;
     const dl = new Deadline(d.clock, ms, signal);
     try {
-      await conn.client.connect(conn.transport, { signal: dl.signal, timeout: ms + SDK_TIMER_SLACK_MS });
+      // exactOptionalPropertyTypes: the SDK's transports declare optional members the strict `Transport` interface does not.
+      await conn.client.connect(conn.transport as Transport, { signal: dl.signal, timeout: ms + SDK_TIMER_SLACK_MS });
       conn.pidValue = conn.transport instanceof StdioClientTransport ? conn.transport.pid : null;
       d.logger.info("mcp.server.started", { server: d.def.name, scope: d.def.scope.kind, transport: d.def.transport.type, pid: conn.pidValue });
       return conn;

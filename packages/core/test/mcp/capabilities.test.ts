@@ -19,7 +19,7 @@ async function probe(def: McpServerDefinition) {
     await conn.callTool("log_now", {});
     const echo = await conn.callTool("echo", { text: "still works" });
     const second = await conn.callTool("probe_client", {});
-    const text = (r: { content?: unknown }) => ((r.content as Array<{ text: string }>)[0]).text;
+    const text = (r: { content?: unknown }) => (r.content as Array<{ text: string }>)[0]!.text;
     return { first: JSON.parse(text(first)), second: JSON.parse(text(second)), echo: text(echo), serverCaps: conn.serverInfo };
   } finally { await conn.close("graceful"); }
 }

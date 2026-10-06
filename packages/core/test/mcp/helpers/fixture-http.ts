@@ -2,6 +2,7 @@
 import { createServer, type IncomingMessage, type Server as HttpServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { createFixtureServer, type FixtureState } from "./fixture-server.ts";
@@ -40,7 +41,7 @@ export async function startFixtureHttp(): Promise<FixtureHttp> {
           onsessioninitialized: (id) => { transports.set(id, t); },
         });
         t.onclose = () => { if (t.sessionId) transports.delete(t.sessionId); };
-        await server.connect(t);
+        await server.connect(t as Transport);
         transport = t;
       }
       if (!transport) { res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "no session" }, id: null })); return; }

@@ -18,6 +18,9 @@ export const FIXTURE_TOOLS = [
   { name: "echo", description: "Echo the text back.", inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } },
   { name: "fail", description: "Always reports a tool error.", inputSchema: { type: "object", properties: {} } },
   { name: "hang", description: "Never answers.", inputSchema: { type: "object", properties: {} } },
+  { name: "sleep", description: "Answers after n ms.", inputSchema: { type: "object", properties: { ms: { type: "number" } }, required: ["ms"] } },
+  { name: "change_tools", description: "Sends tools/list_changed.", inputSchema: { type: "object", properties: {} } },
+  { name: "crash", description: "Exits the process mid-call.", inputSchema: { type: "object", properties: {} } },
   { name: "pid", description: "The server's process id.", inputSchema: { type: "object", properties: {} } },
   { name: "grow", description: "Returns n bytes of text.", inputSchema: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } },
   { name: "leak_env", description: "Prints an environment variable to stderr and returns it.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
@@ -40,6 +43,9 @@ export function createFixtureServer(): { server: Server; state: FixtureState } {
       case "echo": return text(`echo:${String(args.text)}`);
       case "fail": return text("it broke", { isError: true });
       case "hang": return await new Promise<never>(() => { /* never settles */ });
+      case "sleep": await new Promise((r) => setTimeout(r, Number(args.ms))); return text("slept");
+      case "change_tools": await server.sendToolListChanged(); return text("changed");
+      case "crash": process.exit(1); // eslint-disable-line no-unreachable
       case "pid": return text(String(process.pid));
       case "grow": return text("x".repeat(Number(args.n)));
       case "leak_env": {
