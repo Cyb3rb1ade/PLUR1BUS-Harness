@@ -42,7 +42,7 @@ async function measure(page: Page): Promise<Metrics> {
       return r.width > 2 && r.height > 2 && s.visibility !== "hidden" && s.display !== "none" ? r : null;
     };
     const sidebar = document.querySelector(".sidebar") as HTMLElement;
-    const interactive = [...document.querySelectorAll("a[href], button, select, input")].filter((e) => !e.classList.contains("skip-link"));
+    const interactive = Array.from(document.querySelectorAll("a[href], button, select, input")).filter((e) => !e.classList.contains("skip-link"));
     const sizes = interactive.map(vis).filter((r): r is DOMRect => r !== null).map((r) => Math.min(r.width, r.height));
     let minFont = Infinity;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -104,7 +104,7 @@ describe("layout at the reference widths", opts, () => {
         await page.getByRole("heading", { name: "Sign in", level: 1 }).waitFor();
         const s = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
         assert.equal(s, false, `${width}`);
-        const sizes = await page.evaluate(() => [...document.querySelectorAll("a, button, select, input")].map((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }));
+        const sizes = await page.evaluate(() => Array.from(document.querySelectorAll("a, button, select, input")).map((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }));
         assert.ok(Math.min(...sizes) >= (width < 1024 ? 44 : 24), `${width}: ${Math.min(...sizes)}`);
       });
     }
