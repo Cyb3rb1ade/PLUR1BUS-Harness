@@ -155,7 +155,7 @@ pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
         out.ok(&schema, &value, || human);
         let exit = env["exit"].as_i64().map_or(0, |e| e as i32);
         if exit != 0 {
-            std::process::exit(exit);
+            crate::output::exit(exit);
         }
     } else {
         let code = env["error"].as_str().unwrap_or("E_IMPORT_FAILED");

@@ -65,7 +65,9 @@ fn main() {
         Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),
     }
     // A real stdout write error (not a closed pipe) lost the output the caller asked for: do not report success.
-    if output::stdout_write_failed() {
-        std::process::exit(1);
+    // Commands that end the process themselves go through `output::exit`, which applies the same rule.
+    let code = output::final_exit_code(0);
+    if code != 0 {
+        std::process::exit(code);
     }
 }

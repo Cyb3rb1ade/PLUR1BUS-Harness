@@ -2,6 +2,7 @@
 //! healthy one through `core.adopt` (the connection becomes the core's lifeline), and terminates a hung or foreign
 //! one — identified by the socket's peer credentials, never by a pid read from a file — before spawning a fresh core.
 //! The core is `tests/fixtures/fake-core.mjs`; every duration is scaled by 0.02 except the fake core's own grace.
+mod common;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -567,7 +568,7 @@ fn a_stale_core_socket_probes_absent() {
     let h = Home::new();
     let run = h.home.join("run");
     std::fs::create_dir_all(&run).unwrap();
-    drop(std::os::unix::net::UnixListener::bind(run.join("core.sock")).unwrap());
+    common::dead_socket(&run.join("core.sock"));
     assert!(run.join("core.sock").exists());
     std::fs::write(
         run.join("core.pid"),
