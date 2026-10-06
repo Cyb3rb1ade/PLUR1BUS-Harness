@@ -33,6 +33,7 @@ import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
+import { createDreams, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
@@ -88,6 +89,9 @@ export interface CoreOptions {
     /** Test seam: custom catalog store for testing boot failures. Must not be set in production. */
     store?: CatalogStore;
   };
+  /** M1b-3: the dreaming scheduler (ADR-009). `scheduler` forces it on or off; RULING: unset, it runs unless the core
+   *  runs with test internals, so the system and soak tests never meet an importance- or cron-triggered dream. */
+  dreams?: { scheduler?: boolean; clock?: import("./discovery/ports.ts").Clock; defaultTimezone?: string };
 }
 
 /** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
@@ -130,6 +134,7 @@ export function createCore(o: CoreOptions): Core {
   let source: ConfigSource | null = null;
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
+  let dreams: Dreams | null = null;
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
@@ -400,6 +405,7 @@ export function createCore(o: CoreOptions): Core {
         },
         systemJobs,
         discovery,
+        dreams: () => dreams?.scheduler ?? null,
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -419,6 +425,14 @@ export function createCore(o: CoreOptions): Core {
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
       if (o.discovery?.scheduler !== false) scanScheduler.start();
+      // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
+      try {
+        dreams = createDreams({
+          engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: registry, securePath: platform.securePath,
+          ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
+        });
+        if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
+      } catch (err) { dreams = null; logger.error("dreaming scheduler unavailable", { err }); }
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
@@ -502,6 +516,14 @@ export function createCore(o: CoreOptions): Core {
       setState({ state: "stopping", since: clock() });
       statusClosed = true;
       scanScheduler?.stop();
+      // Dreams stop before the engine closes under them; a run the engine cannot interrupt gets a bounded wait.
+      await step(logger, "dreams", async () => {
+        const d = dreams; dreams = null;
+        if (!d) return;
+        let timer: NodeJS.Timeout | null = null;
+        await Promise.race([d.stop(), new Promise<void>((res) => { timer = setTimeout(res, Math.min(5_000, budgetMs / 4)); })]);
+        if (timer) clearTimeout(timer);
+      });
       warmup?.abort(); // first: the warm-up's wait ends before the engine closes under it
       if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       shutdown.abort(new Error("core stopping"));

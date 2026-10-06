@@ -119,7 +119,8 @@ export class DreamStore {
   }
 
   listSchedules(agentId?: string): ScheduleRow[] {
-    const rows = agentId === undefined ? this.#all("SELECT * FROM dream_schedule ORDER BY agent_id, phase") : this.#all("SELECT * FROM dream_schedule WHERE agent_id = ? ORDER BY phase", agentId);
+    const order = "CASE phase WHEN 'light' THEN 0 WHEN 'rem' THEN 1 ELSE 2 END"; // the phases' own order, not alphabetical
+    const rows = agentId === undefined ? this.#all(`SELECT * FROM dream_schedule ORDER BY agent_id, ${order}`) : this.#all(`SELECT * FROM dream_schedule WHERE agent_id = ? ORDER BY ${order}`, agentId);
     return rows.map(DreamStore.#toSchedule);
   }
 

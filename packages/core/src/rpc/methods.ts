@@ -8,6 +8,7 @@ import type {
 import type { ActivityTracker } from "../activity.ts";
 import { buildAdminMethods } from "../admin-ops.ts";
 import type { AgentRegistry } from "../agents.ts";
+import { buildDreamsMethods } from "../dreams/methods.ts";
 import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
@@ -54,6 +55,8 @@ export interface MethodDeps {
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
   discovery?: import("../discovery/service.ts").DiscoveryService;
+  /** M1b-3: the dreaming scheduler (ADR-009); null while it is not running (`dreams.*` then answers E_NOT_AVAILABLE). */
+  dreams?: () => import("../dreams/scheduler.ts").DreamScheduler | null;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -140,7 +143,11 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         ...(p.sessionKey ? { sessionKey: p.sessionKey } : {}), ...(p.runId ? { runId: p.runId } : {}),
       });
       const settle = handle.done
-        .then((r) => { d.logger.info("capture done", { agentId: p.agentId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason }); return r; })
+        .then((r) => {
+          d.logger.info("capture done", { agentId: p.agentId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason });
+          if (r.stored > 0) d.dreams?.()?.recordCapture(p.agentId); // the importance signal of ADR-009's primary trigger
+          return r;
+        })
         .finally(() => d.activity.idle(p.agentId));
       settle.catch((e) => d.logger.warn("capture failed", { agentId: p.agentId, captureId: handle.id, err: e })); // never an unhandled rejection
       const pending: MemoryCaptureResult = { id: handle.id, acceptedAt: handle.acceptedAt, pending: true };
@@ -165,6 +172,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     },
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
+    ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents }),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),

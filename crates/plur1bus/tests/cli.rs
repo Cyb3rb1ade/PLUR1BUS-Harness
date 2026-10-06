@@ -807,6 +807,154 @@ fn dreams_without_a_core_says_so_and_validates_args() {
     assert_eq!(v["error"], "E_CORE_UNAVAILABLE");
 }
 
+#[test]
+fn dreams_phase_commands_validate_their_arguments_before_any_core_call() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", h, "agent", "create", "bernd"])
+        .assert()
+        .success();
+    // a phase run for an unregistered agent
+    bin()
+        .args(["--home", h, "dreams", "run", "deep", "--agent", "ghost"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("not registered"));
+    // --dry-run is for phases only
+    bin()
+        .args([
+            "--home",
+            h,
+            "dreams",
+            "run",
+            "gc-run",
+            "--agent",
+            "bernd",
+            "--dry-run",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("light, rem and deep"));
+    // a schedule edit that changes nothing
+    bin()
+        .args([
+            "--home", h, "dreams", "schedule", "set", "deep", "--agent", "bernd",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("nothing to change"));
+    // an unknown phase is a usage error, and log needs an agent unless it names a run
+    bin()
+        .args(["--home", h, "dreams", "enable", "dawn", "--agent", "bernd"])
+        .assert()
+        .code(2);
+    bin().args(["--home", h, "dreams", "log"]).assert().code(2);
+    bin()
+        .args([
+            "--home", h, "dreams", "log", "--phase", "deep", "--job", "gc-run", "--agent", "bernd",
+        ])
+        .assert()
+        .code(2);
+}
+
+#[cfg(unix)]
+#[test]
+fn dreams_phase_commands_call_the_scheduler_methods_and_print_their_documents() {
+    let run = serde_json::json!({
+        "runId": "run-1", "agentId": "bernd", "phase": "deep", "jobId": "consolidate-daily", "partition": "agent-private",
+        "idempotencyKey": "k", "claimed": false, "trigger": "manual", "scheduledFor": null, "startedAt": 1000, "finishedAt": 1500, "durationMs": 500,
+        "outcome": "skipped", "reason": "min_corpus", "counts": {}, "tokensIn": null, "tokensOut": null, "costMicros": null, "logPath": null, "error": null
+    });
+    let schedule = serde_json::json!({
+        "agentId": "bernd", "phase": "deep", "cron": "0 4 * * *", "timezone": "UTC", "enabled": false, "staggerOffsetS": 7, "nextRunAt": null
+    });
+    let cases: Vec<(&str, Vec<&str>, serde_json::Value, &str, &str)> = vec![
+        (
+            "dreams.run",
+            vec!["dreams", "run", "deep", "--agent", "bernd"],
+            run.clone(),
+            "dreams.run/1",
+            "deep: skipped (min_corpus)",
+        ),
+        (
+            "dreams.run",
+            vec!["dreams", "run", "deep", "--agent", "bernd", "--dry-run"],
+            serde_json::json!({"dryRun": true, "wouldRun": false, "reason": "idempotent", "jobs": ["consolidate-daily"], "idempotencyKey": "k", "counts": {}}),
+            "dreams.run/1",
+            "would skip (idempotent)",
+        ),
+        (
+            "dreams.log",
+            vec!["dreams", "log", "--run", "run-1"],
+            serde_json::json!({"runs": [run.clone()], "log": "start deep trigger=manual\nfinish outcome=skipped"}),
+            "dreams.log/1",
+            "finish outcome=skipped",
+        ),
+        (
+            "dreams.schedule.get",
+            vec!["dreams", "schedule", "get", "--agent", "bernd"],
+            serde_json::json!({"schedules": [schedule.clone()]}),
+            "dreams.schedule.get/1",
+            "off",
+        ),
+        (
+            "dreams.schedule.set",
+            vec![
+                "dreams",
+                "schedule",
+                "set",
+                "deep",
+                "--agent",
+                "bernd",
+                "--cron",
+                "0 4 * * *",
+            ],
+            serde_json::json!({"schedule": schedule.clone()}),
+            "dreams.schedule.set/1",
+            "0 4 * * *",
+        ),
+        (
+            "dreams.disable",
+            vec!["dreams", "disable", "deep", "--agent", "bernd"],
+            serde_json::json!({"schedule": schedule.clone()}),
+            "dreams.disable/1",
+            "deep",
+        ),
+    ];
+    for (method, args, result, schema, human) in cases {
+        let dir = tempfile::tempdir().unwrap();
+        let h = dir.path().to_str().unwrap();
+        bin()
+            .args(["--home", h, "agent", "create", "bernd"])
+            .assert()
+            .success();
+        fake_core::spawn(
+            dir.path(),
+            fake_core::hello_with_capabilities(&[]),
+            Some((method, serde_json::json!({ "result": result }))),
+        );
+        let mut full = vec!["--home", h];
+        full.extend(&args);
+        bin()
+            .args(&full)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(human));
+        let mut json_args = vec!["--json", "--home", h];
+        json_args.extend(&args);
+        let out = bin()
+            .args(&json_args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(v["schema"], schema, "{args:?}");
+    }
+}
+
 /// A minimal fake core for the `plur1bus memory …` tests: writes `run/core.token` and binds
 /// `run/core.sock` under `home` (mirrors `crates/plur1bus-rpc/tests/client.rs`'s
 /// `fake_core_with`), answers `core.auth` with `hello`, and — if given — answers one other
