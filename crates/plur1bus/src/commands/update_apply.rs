@@ -11,7 +11,8 @@ use serde_json::{json, Value};
 use std::io::{BufRead, IsTerminal, Write};
 
 fn host() -> Result<(SystemHost, std::path::PathBuf), String> {
-    let current = std::env::current_exe().map_err(|e| format!("cannot locate the plur1bus binary: {e}"))?;
+    let current =
+        std::env::current_exe().map_err(|e| format!("cannot locate the plur1bus binary: {e}"))?;
     let target = update::target_binary()?;
     Ok((SystemHost::new(current), target))
 }
@@ -45,10 +46,18 @@ fn plan_from(out: &Out, layout: &Layout, feed: &Feed) -> Option<Plan> {
         );
     }
     let Some(native) = &feed.native else {
-        refuse(out, "no-native-release", "this release has no native binaries");
+        refuse(
+            out,
+            "no-native-release",
+            "this release has no native binaries",
+        );
     };
     let Some(t) = Target::current() else {
-        refuse(out, "target-unsupported", "no release target for this platform");
+        refuse(
+            out,
+            "target-unsupported",
+            "no release target for this platform",
+        );
     };
     let (changes, _, _, _) = plan_changes(m, &feed.native, &feed.head, &installed_modules(layout));
     let unsupported: Vec<&str> = changes
@@ -68,13 +77,27 @@ fn plan_from(out: &Out, layout: &Layout, feed: &Feed) -> Option<Plan> {
         );
     }
     let Some(binary) = native.binary.get(t.id()) else {
-        refuse(out, "target-unsupported", &format!("the release has no binary for {}", t.id()));
+        refuse(
+            out,
+            "target-unsupported",
+            &format!("the release has no binary for {}", t.id()),
+        );
     };
     let core = if changes.iter().any(|c| c["unit"] == "core") {
         let Some(p) = native.core.payload.get(t.id()) else {
-            refuse(out, "target-unsupported", &format!("the release has no core payload for {}", t.id()));
+            refuse(
+                out,
+                "target-unsupported",
+                &format!("the release has no core payload for {}", t.id()),
+            );
         };
-        Some((Asset { url: p.url.clone(), sha256: p.sha256.clone() }, native.core.clone()))
+        Some((
+            Asset {
+                url: p.url.clone(),
+                sha256: p.sha256.clone(),
+            },
+            native.core.clone(),
+        ))
     } else {
         None
     };
@@ -82,7 +105,10 @@ fn plan_from(out: &Out, layout: &Layout, feed: &Feed) -> Option<Plan> {
         from: m.binary.version.clone(),
         to: feed.head.version.clone(),
         channel: feed.channel.clone(),
-        binary: Asset { url: binary.url.clone(), sha256: binary.sha256.clone() },
+        binary: Asset {
+            url: binary.url.clone(),
+            sha256: binary.sha256.clone(),
+        },
         core,
     })
 }
@@ -90,7 +116,10 @@ fn plan_from(out: &Out, layout: &Layout, feed: &Feed) -> Option<Plan> {
 fn notes(raw: &[u8]) -> Option<String> {
     let doc: Value = serde_json::from_slice(raw).ok()?;
     let n = doc.get("notes")?;
-    n["en"].as_str().or_else(|| n.as_object()?.values().find_map(Value::as_str)).map(str::to_string)
+    n["en"]
+        .as_str()
+        .or_else(|| n.as_object()?.values().find_map(Value::as_str))
+        .map(str::to_string)
 }
 
 fn confirm(out: &Out, args: &UpdateArgs, plan: &Plan, raw: &[u8]) {
@@ -100,7 +129,10 @@ fn confirm(out: &Out, args: &UpdateArgs, plan: &Plan, raw: &[u8]) {
     if !std::io::stdin().is_terminal() || out.json {
         out.fail(
             "E_INVALID_PARAMS",
-            &format!("updating to {} needs a confirmation: re-run with --yes (nothing was changed)", plan.to),
+            &format!(
+                "updating to {} needs a confirmation: re-run with --yes (nothing was changed)",
+                plan.to
+            ),
             json!({ "reason": "confirmation-required" }),
             2,
         );
@@ -114,7 +146,12 @@ fn confirm(out: &Out, args: &UpdateArgs, plan: &Plan, raw: &[u8]) {
     let mut line = String::new();
     let _ = std::io::stdin().lock().read_line(&mut line);
     if !matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
-        out.fail("E_CANCELLED", "cancelled; nothing was changed", json!({ "reason": "declined" }), 1);
+        out.fail(
+            "E_CANCELLED",
+            "cancelled; nothing was changed",
+            json!({ "reason": "declined" }),
+            1,
+        );
     }
 }
 

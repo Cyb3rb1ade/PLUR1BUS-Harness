@@ -62,8 +62,14 @@ fn run(bin: &Path, layout: &Layout, args: &[&str], timeout: Duration) -> Result<
         })
     };
     let (ho, he) = (
-        read(out.take().map(|r| Box::new(r) as Box<dyn std::io::Read + Send>)),
-        read(err.take().map(|r| Box::new(r) as Box<dyn std::io::Read + Send>)),
+        read(
+            out.take()
+                .map(|r| Box::new(r) as Box<dyn std::io::Read + Send>),
+        ),
+        read(
+            err.take()
+                .map(|r| Box::new(r) as Box<dyn std::io::Read + Send>),
+        ),
     );
     let status = loop {
         match child.try_wait() {
@@ -85,29 +91,46 @@ fn run(bin: &Path, layout: &Layout, args: &[&str], timeout: Duration) -> Result<
 }
 
 fn failed(what: &str, r: &Ran) -> String {
-    let detail = if r.stderr.trim().is_empty() { r.stdout.trim() } else { r.stderr.trim() };
+    let detail = if r.stderr.trim().is_empty() {
+        r.stdout.trim()
+    } else {
+        r.stderr.trim()
+    };
     format!("{what} exited with {:?}: {detail}", r.code)
 }
 
 impl Host for SystemHost {
     fn stop(&self, layout: &Layout) -> Result<bool, String> {
-        let r = run(&self.current, layout, &["--json", "daemon", "stop"], STEP_TIMEOUT)?;
+        let r = run(
+            &self.current,
+            layout,
+            &["--json", "daemon", "stop"],
+            STEP_TIMEOUT,
+        )?;
         if r.code != Some(0) {
             return Err(failed("daemon stop", &r));
         }
-        let doc: Value = serde_json::from_str(&r.stdout).map_err(|e| format!("daemon stop: {e}"))?;
+        let doc: Value =
+            serde_json::from_str(&r.stdout).map_err(|e| format!("daemon stop: {e}"))?;
         Ok(doc["wasRunning"].as_bool().unwrap_or(false))
     }
 
     fn start(&self, layout: &Layout, bin: &Path) -> Result<(), String> {
         let r = run(bin, layout, &["--json", "daemon", "start"], STEP_TIMEOUT)?;
-        if r.code == Some(0) { Ok(()) } else { Err(failed("daemon start", &r)) }
+        if r.code == Some(0) {
+            Ok(())
+        } else {
+            Err(failed("daemon start", &r))
+        }
     }
 
     fn gate(&self, layout: &Layout, bin: &Path, version: &str) -> Result<(), String> {
         let v = run(bin, layout, &["--version"], Duration::from_secs(20))?;
         if v.code != Some(0) || !v.stdout.split_whitespace().any(|w| w == version) {
-            return Err(format!("the new binary reports `{}`, expected {version}", v.stdout.trim()));
+            return Err(format!(
+                "the new binary reports `{}`, expected {version}",
+                v.stdout.trim()
+            ));
         }
         let deadline = Instant::now() + self.gate_timeout;
         loop {
@@ -116,7 +139,10 @@ impl Host for SystemHost {
                 Err(m) => m,
             };
             if Instant::now() >= deadline {
-                return Err(format!("not healthy within {} s: {last}", self.gate_timeout.as_secs()));
+                return Err(format!(
+                    "not healthy within {} s: {last}",
+                    self.gate_timeout.as_secs()
+                ));
             }
             std::thread::sleep(POLL);
         }
@@ -129,12 +155,24 @@ impl Host for SystemHost {
 
 /// One pass: the core child is `ready`, and `1staid check` has no `fail`.
 fn gate_once(bin: &Path, layout: &Layout) -> Result<(), String> {
-    let s = run(bin, layout, &["--json", "daemon", "status"], Duration::from_secs(20))?;
+    let s = run(
+        bin,
+        layout,
+        &["--json", "daemon", "status"],
+        Duration::from_secs(20),
+    )?;
     let doc: Value = serde_json::from_str(&s.stdout).map_err(|_| failed("daemon status", &s))?;
-    if crate::commands::daemon::core_child(&doc).and_then(|c| c["process"]["state"].as_str()) != Some("ready") {
+    if crate::commands::daemon::core_child(&doc).and_then(|c| c["process"]["state"].as_str())
+        != Some("ready")
+    {
         return Err("the core is not ready".into());
     }
-    let c = run(bin, layout, &["--json", "1staid", "check"], Duration::from_secs(60))?;
+    let c = run(
+        bin,
+        layout,
+        &["--json", "1staid", "check"],
+        Duration::from_secs(60),
+    )?;
     let doc: Value = serde_json::from_str(&c.stdout).map_err(|_| failed("1staid check", &c))?;
     if c.code == Some(0) && doc["ok"].as_bool() == Some(true) {
         Ok(())

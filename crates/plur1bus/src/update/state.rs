@@ -178,14 +178,7 @@ mod tests {
     #[test]
     fn phases_are_ordered_as_the_flow_runs_and_terminals_are_marked() {
         use Phase::*;
-        let flow = [
-            Stopping,
-            Snapshotted,
-            Swapping,
-            Swapped,
-            Started,
-            Gated,
-        ];
+        let flow = [Stopping, Snapshotted, Swapping, Swapped, Started, Gated];
         assert!(flow.windows(2).all(|w| w[0] < w[1]));
         assert!(flow.iter().all(|p| !p.is_terminal()));
         assert!(!RollingBack.is_terminal());

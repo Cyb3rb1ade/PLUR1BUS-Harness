@@ -93,10 +93,12 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
     }
     if args.rollback {
         super::refuse_in_container(out, "update --rollback");
+        super::update_apply::recover_at_start(layout);
         super::update_apply::rollback(out, layout);
     }
     if !args.check {
         super::refuse_in_container(out, "update");
+        super::update_apply::recover_at_start(layout);
         let feed = load_feed(out, layout, &args);
         super::update_apply::apply(out, layout, &args, feed);
     }

@@ -100,8 +100,9 @@ pub fn core_in(layout: &Layout) -> Result<(), String> {
     if core.exists() {
         fs::rename(&core, &held).map_err(|e| io_err(&core, e))?;
     }
-    let mut meta: Meta = serde_json::from_slice(&fs::read(dir.join(META)).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    let mut meta: Meta =
+        serde_json::from_slice(&fs::read(dir.join(META)).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
     meta.core_moved = held.exists();
     write_meta(&dir, &meta)
 }
@@ -157,7 +158,11 @@ pub fn restore(layout: &Layout, target_bin: &Path, meta: &Meta) -> Result<(), St
         }
     };
     one("config.json", &meta.config_sha256, layout.config_path())?;
-    one("manifest.json", &meta.manifest_sha256, layout.install_manifest())?;
+    one(
+        "manifest.json",
+        &meta.manifest_sha256,
+        layout.install_manifest(),
+    )?;
     let held = dir.join("core");
     if meta.core_moved && held.exists() {
         let core = layout.runtime().join("core");

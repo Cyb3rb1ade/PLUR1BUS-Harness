@@ -103,14 +103,21 @@ fn enter(layout: &Layout, s: &mut State, phase: Phase) -> Result<(), String> {
 fn download(layout: &Layout, plan: &Plan) -> Result<(), UpdateError> {
     let staging = state::staging_dir(layout);
     state::remove_dir(&staging);
-    fs::create_dir_all(&staging).map_err(|e| UpdateError::new("io", format!("{}: {e}", staging.display())))?;
+    fs::create_dir_all(&staging)
+        .map_err(|e| UpdateError::new("io", format!("{}: {e}", staging.display())))?;
     let fail = |e: fetch::FetchError| {
         state::remove_dir(&staging);
         UpdateError::new(e.reason(), format!("download failed: {e}"))
     };
     let bin = staging.join("plur1bus");
-    fetch::fetch_verified(&plan.binary.url, &bin, &plan.binary.sha256, BINARY_MAX_BYTES, DOWNLOAD_DEADLINE)
-        .map_err(fail)?;
+    fetch::fetch_verified(
+        &plan.binary.url,
+        &bin,
+        &plan.binary.sha256,
+        BINARY_MAX_BYTES,
+        DOWNLOAD_DEADLINE,
+    )
+    .map_err(fail)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -119,14 +126,23 @@ fn download(layout: &Layout, plan: &Plan) -> Result<(), UpdateError> {
     }
     if let Some((asset, _)) = &plan.core {
         let tar = staging.join("core.tar.gz");
-        fetch::fetch_verified(&asset.url, &tar, &asset.sha256, CORE_MAX_BYTES, DOWNLOAD_DEADLINE)
-            .map_err(fail)?;
+        fetch::fetch_verified(
+            &asset.url,
+            &tar,
+            &asset.sha256,
+            CORE_MAX_BYTES,
+            DOWNLOAD_DEADLINE,
+        )
+        .map_err(fail)?;
         let into = staging.join("core-extract");
         let extracted = archive::verify_and_extract(&tar, &asset.sha256, &into, 0);
         let _ = fs::remove_file(&tar);
         if let Err(e) = extracted {
             state::remove_dir(&staging);
-            return Err(UpdateError::new(e.reason(), format!("core payload refused: {e}")));
+            return Err(UpdateError::new(
+                e.reason(),
+                format!("core payload refused: {e}"),
+            ));
         }
         let root = crate::install::setup::payload_root(&into).ok_or_else(|| {
             UpdateError::new("core-payload-invalid", "the core payload has no core.js")
@@ -195,13 +211,26 @@ fn ensure_idle(layout: &Layout, host: &dyn Host) -> Result<(), UpdateError> {
 
 /// Runs the whole flow for `plan`. `Err`: refused or failed before the first write (nothing changed). `Ok`: the
 /// final state, `Committed` or, after an automatic rollback, `RolledBack`/`Failed`.
-pub fn apply(layout: &Layout, host: &dyn Host, plan: &Plan, target_bin: &Path) -> Result<State, UpdateError> {
+pub fn apply(
+    layout: &Layout,
+    host: &dyn Host,
+    plan: &Plan,
+    target_bin: &Path,
+) -> Result<State, UpdateError> {
     ensure_idle(layout, host)?;
     let installed = manifest::read(layout)
         .map_err(|m| UpdateError::new("not-installed", m))?
-        .ok_or_else(|| UpdateError::new("not-installed", "no install manifest: run `plur1bus setup` first"))?;
+        .ok_or_else(|| {
+            UpdateError::new(
+                "not-installed",
+                "no install manifest: run `plur1bus setup` first",
+            )
+        })?;
     if installed.binary.version != plan.from {
-        return Err(UpdateError::new("not-installed", "the install manifest changed under the update"));
+        return Err(UpdateError::new(
+            "not-installed",
+            "the install manifest changed under the update",
+        ));
     }
     download(layout, plan)?;
 
@@ -234,9 +263,11 @@ pub fn apply(layout: &Layout, host: &dyn Host, plan: &Plan, target_bin: &Path) -
         enter(layout, &mut st, Phase::Swapping).map_err(|m| ("io", m))?;
         swap(layout, plan, target_bin, &mut st).map_err(|m| ("swap-failed", m))?;
         enter(layout, &mut st, Phase::Swapped).map_err(|m| ("io", m))?;
-        host.start(layout, target_bin).map_err(|m| ("start-failed", m))?;
+        host.start(layout, target_bin)
+            .map_err(|m| ("start-failed", m))?;
         enter(layout, &mut st, Phase::Started).map_err(|m| ("io", m))?;
-        host.gate(layout, target_bin, &plan.to).map_err(|m| ("health-gate-failed", m))?;
+        host.gate(layout, target_bin, &plan.to)
+            .map_err(|m| ("health-gate-failed", m))?;
         enter(layout, &mut st, Phase::Gated).map_err(|m| ("io", m))
     })();
     match flow {
@@ -307,7 +338,9 @@ fn rollback(layout: &Layout, host: &dyn Host, mut st: State, reason: &str, messa
         Ok(_) => {
             if st.was_running {
                 if let Err(m) = host.start(layout, &st.target_bin) {
-                    st.message = Some(format!("{message}; the previous version was restored but did not start: {m}"));
+                    st.message = Some(format!(
+                        "{message}; the previous version was restored but did not start: {m}"
+                    ));
                 }
             }
             let _ = enter(layout, &mut st, Phase::RolledBack);
@@ -348,7 +381,13 @@ pub fn recover(layout: &Layout, host: &dyn Host) -> Result<Option<State>, String
             commit(layout, host, &mut st)?;
             st
         }
-        _ => rollback(layout, host, st, "interrupted", "the update was interrupted after the swap"),
+        _ => rollback(
+            layout,
+            host,
+            st,
+            "interrupted",
+            "the update was interrupted after the swap",
+        ),
     };
     Ok(Some(settled))
 }
@@ -359,7 +398,12 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
     let last = state::load(layout)
         .map_err(|m| UpdateError::new("state-unreadable", m))?
         .filter(|s| s.phase == Phase::Committed)
-        .ok_or_else(|| UpdateError::new("nothing-to-roll-back", "no committed update has a snapshot to go back to"))?;
+        .ok_or_else(|| {
+            UpdateError::new(
+                "nothing-to-roll-back",
+                "no committed update has a snapshot to go back to",
+            )
+        })?;
     let meta = snapshot::verify(layout).map_err(|m| UpdateError::new("snapshot-invalid", m))?;
     let mut st = State {
         id: state::new_id(),
@@ -375,7 +419,9 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
     };
     let io = |m: String| UpdateError::new("io", m);
     enter(layout, &mut st, Phase::RollingBack).map_err(io)?;
-    st.was_running = host.stop(layout).map_err(|m| UpdateError::new("stop-failed", m))?;
+    st.was_running = host
+        .stop(layout)
+        .map_err(|m| UpdateError::new("stop-failed", m))?;
     if let Err(m) = snapshot::restore(layout, &st.target_bin, &meta) {
         st.message = Some(m.clone());
         let _ = enter(layout, &mut st, Phase::Failed);
@@ -383,7 +429,9 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
     }
     if st.was_running {
         if let Err(m) = host.start(layout, &st.target_bin) {
-            st.message = Some(format!("restored, but the previous version did not start: {m}"));
+            st.message = Some(format!(
+                "restored, but the previous version did not start: {m}"
+            ));
         }
     }
     enter(layout, &mut st, Phase::RolledBack).map_err(UpdateError::new_io)?;

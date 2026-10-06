@@ -263,7 +263,7 @@ pub struct UpdateArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum UpdateCmd {
-    /// Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+    /// [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
     Status,
 }
 

@@ -20,7 +20,10 @@ impl Host for Fake {
         Ok(self.running)
     }
     fn start(&self, _: &Layout, bin: &Path) -> Result<(), String> {
-        self.calls.borrow_mut().push(format!("start:{}", fs::read_to_string(bin).unwrap_or_default()));
+        self.calls.borrow_mut().push(format!(
+            "start:{}",
+            fs::read_to_string(bin).unwrap_or_default()
+        ));
         match self.start_err_once.borrow_mut().take() {
             Some(m) => Err(m),
             None => Ok(()),
@@ -61,9 +64,23 @@ fn env() -> Env {
         updated_at: 1,
         channel: "stable".into(),
         target: "linux-x64".into(),
-        binary: Unit { version: "0.1.0".into(), sha256: Some(sha(&bin)) },
-        node: NodeUnit { version: "24.21.0".into(), archive_sha256: h.clone(), binary_sha256: h.clone(), path: "/n".into() },
-        core: CoreUnit { version: "0.1.0".into(), contract: "1.9.0".into(), rpc: "1.3.0".into(), sha256: None, source: "local".into() },
+        binary: Unit {
+            version: "0.1.0".into(),
+            sha256: Some(sha(&bin)),
+        },
+        node: NodeUnit {
+            version: "24.21.0".into(),
+            archive_sha256: h.clone(),
+            binary_sha256: h.clone(),
+            path: "/n".into(),
+        },
+        core: CoreUnit {
+            version: "0.1.0".into(),
+            contract: "1.9.0".into(),
+            rpc: "1.3.0".into(),
+            sha256: None,
+            source: "local".into(),
+        },
         modules: vec![],
         skills: vec![],
         profile: None,
@@ -75,10 +92,18 @@ fn env() -> Env {
         from: "0.1.0".into(),
         to: "0.2.0".into(),
         channel: "stable".into(),
-        binary: Asset { url: new_bin.to_string_lossy().into(), sha256: sha(&new_bin) },
+        binary: Asset {
+            url: new_bin.to_string_lossy().into(),
+            sha256: sha(&new_bin),
+        },
         core: None,
     };
-    Env { _d: d, layout, bin, plan }
+    Env {
+        _d: d,
+        layout,
+        bin,
+        plan,
+    }
 }
 
 fn with_core(e: &mut Env) {
@@ -87,12 +112,23 @@ fn with_core(e: &mut Env) {
     fs::create_dir_all(&src).unwrap();
     fs::write(src.join("core.js"), "new core").unwrap();
     let f = fs::File::create(&tar).unwrap();
-    let mut b = tar::Builder::new(flate2::write::GzEncoder::new(f, flate2::Compression::fast()));
+    let mut b = tar::Builder::new(flate2::write::GzEncoder::new(
+        f,
+        flate2::Compression::fast(),
+    ));
     b.append_dir_all(".", &src).unwrap();
     b.into_inner().unwrap().finish().unwrap();
     e.plan.core = Some((
-        Asset { url: tar.to_string_lossy().into(), sha256: sha(&tar) },
-        manifest::ReleaseCore { version: "0.2.0".into(), contract: "1.10.0".into(), rpc: "1.3.0".into(), payload: BTreeMap::new() },
+        Asset {
+            url: tar.to_string_lossy().into(),
+            sha256: sha(&tar),
+        },
+        manifest::ReleaseCore {
+            version: "0.2.0".into(),
+            contract: "1.10.0".into(),
+            rpc: "1.3.0".into(),
+            payload: BTreeMap::new(),
+        },
     ));
 }
 
@@ -108,20 +144,34 @@ fn originals(e: &Env) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
 fn the_happy_path_swaps_gates_and_commits_the_manifest() {
     let mut e = env();
     with_core(&mut e);
-    let host = Fake { running: true, ..Default::default() };
+    let host = Fake {
+        running: true,
+        ..Default::default()
+    };
     let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
     assert_eq!(st.phase, Phase::Committed);
     assert_eq!(fs::read(&e.bin).unwrap(), b"new-binary");
-    assert_eq!(fs::read(e.layout.runtime().join("core/core.js")).unwrap(), b"new core");
+    assert_eq!(
+        fs::read(e.layout.runtime().join("core/core.js")).unwrap(),
+        b"new core"
+    );
     let m = manifest::read(&e.layout).unwrap().unwrap();
-    assert_eq!((m.binary.version.as_str(), m.core.version.as_str()), ("0.2.0", "0.2.0"));
+    assert_eq!(
+        (m.binary.version.as_str(), m.core.version.as_str()),
+        ("0.2.0", "0.2.0")
+    );
     assert_eq!(m.binary.sha256.as_deref(), Some(sha(&e.bin).as_str()));
     // stop, then start of the NEW binary, then the gate
     assert_eq!(*host.calls.borrow(), ["stop", "start:new-binary", "gate"]);
     // the snapshot is kept for --rollback, the staging area is gone
-    assert!(state::snapshot_dir(&e.layout).join("snapshot.json").is_file());
+    assert!(state::snapshot_dir(&e.layout)
+        .join("snapshot.json")
+        .is_file());
     assert!(!state::staging_dir(&e.layout).exists());
-    assert_eq!(state::load(&e.layout).unwrap().unwrap().phase, Phase::Committed);
+    assert_eq!(
+        state::load(&e.layout).unwrap().unwrap().phase,
+        Phase::Committed
+    );
 }
 
 #[test]
@@ -129,23 +179,46 @@ fn a_failed_health_gate_rolls_back_byte_identically_and_restarts_the_old_version
     let mut e = env();
     with_core(&mut e);
     let before = originals(&e);
-    let host = Fake { running: true, gate_err: Some("1staid check failed: core".into()), ..Default::default() };
+    let host = Fake {
+        running: true,
+        gate_err: Some("1staid check failed: core".into()),
+        ..Default::default()
+    };
     let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
     assert_eq!(st.phase, Phase::RolledBack);
     assert_eq!(st.reason.as_deref(), Some("health-gate-failed"));
     assert!(st.message.unwrap().contains("1staid check failed"));
     assert_eq!(originals(&e), before);
-    assert_eq!(fs::read(e.layout.runtime().join("core/core.js")).unwrap(), b"old core");
-    assert_eq!(*host.calls.borrow(), ["stop", "start:new-binary", "gate", "stop", "start:old-binary"]);
+    assert_eq!(
+        fs::read(e.layout.runtime().join("core/core.js")).unwrap(),
+        b"old core"
+    );
+    assert_eq!(
+        *host.calls.borrow(),
+        [
+            "stop",
+            "start:new-binary",
+            "gate",
+            "stop",
+            "start:old-binary"
+        ]
+    );
 }
 
 #[test]
 fn a_start_failure_rolls_back_and_a_daemon_that_was_off_stays_off() {
     let e = env();
     let before = originals(&e);
-    let host = Fake { running: false, start_err_once: RefCell::new(Some("boom".into())), ..Default::default() };
+    let host = Fake {
+        running: false,
+        start_err_once: RefCell::new(Some("boom".into())),
+        ..Default::default()
+    };
     let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
-    assert_eq!((st.phase, st.reason.as_deref()), (Phase::RolledBack, Some("start-failed")));
+    assert_eq!(
+        (st.phase, st.reason.as_deref()),
+        (Phase::RolledBack, Some("start-failed"))
+    );
     assert_eq!(originals(&e), before);
     assert_eq!(*host.calls.borrow(), ["stop", "start:new-binary", "stop"]);
 }
@@ -169,7 +242,12 @@ fn a_tampered_core_payload_is_refused_too() {
     let mut e = env();
     with_core(&mut e);
     e.plan.core.as_mut().unwrap().0.sha256 = "1".repeat(64);
-    assert_eq!(apply(&e.layout, &Fake::default(), &e.plan, &e.bin).unwrap_err().reason, "digest-mismatch");
+    assert_eq!(
+        apply(&e.layout, &Fake::default(), &e.plan, &e.bin)
+            .unwrap_err()
+            .reason,
+        "digest-mismatch"
+    );
     assert_eq!(fs::read(&e.bin).unwrap(), b"old-binary");
 }
 
@@ -190,17 +268,29 @@ fn crash_at(e: &Env, phase: Phase) {
 
 #[test]
 fn a_crash_after_the_swap_is_rolled_back_at_the_next_start() {
-    for phase in [Phase::Swapping, Phase::Swapped, Phase::Started, Phase::RollingBack] {
+    for phase in [
+        Phase::Swapping,
+        Phase::Swapped,
+        Phase::Started,
+        Phase::RollingBack,
+    ] {
         let mut e = env();
         with_core(&mut e);
         let before = originals(&e);
         crash_at(&e, phase);
-        assert_ne!(originals(&e), before, "{phase:?}: the crash must have changed something");
+        assert_ne!(
+            originals(&e),
+            before,
+            "{phase:?}: the crash must have changed something"
+        );
         let host = Fake::default();
         let st = recover(&e.layout, &host).unwrap().unwrap();
         assert_eq!(st.phase, Phase::RolledBack, "{phase:?}");
         assert_eq!(originals(&e), before, "{phase:?}");
-        assert_eq!(fs::read(e.layout.runtime().join("core/core.js")).unwrap(), b"old core");
+        assert_eq!(
+            fs::read(e.layout.runtime().join("core/core.js")).unwrap(),
+            b"old core"
+        );
         // settled: a second pass is a no-op
         assert!(recover(&e.layout, &host).unwrap().is_none());
     }
@@ -212,7 +302,10 @@ fn a_crash_before_the_swap_changes_nothing_and_a_crash_after_the_gate_rolls_forw
     let before = originals(&e);
     crash_at(&e, Phase::Snapshotted);
     let st = recover(&e.layout, &Fake::default()).unwrap().unwrap();
-    assert_eq!((st.phase, st.reason.as_deref()), (Phase::RolledBack, Some("interrupted")));
+    assert_eq!(
+        (st.phase, st.reason.as_deref()),
+        (Phase::RolledBack, Some("interrupted"))
+    );
     assert_eq!(originals(&e), before);
 
     let e = env();
@@ -220,17 +313,29 @@ fn a_crash_before_the_swap_changes_nothing_and_a_crash_after_the_gate_rolls_forw
     let st = recover(&e.layout, &Fake::default()).unwrap().unwrap();
     assert_eq!(st.phase, Phase::Committed);
     assert_eq!(fs::read(&e.bin).unwrap(), b"new-binary");
-    assert_eq!(manifest::read(&e.layout).unwrap().unwrap().binary.version, "0.2.0");
+    assert_eq!(
+        manifest::read(&e.layout).unwrap().unwrap().binary.version,
+        "0.2.0"
+    );
 }
 
 #[test]
 fn recovery_leaves_a_live_owner_alone_and_a_second_update_is_refused() {
     let e = env();
     crash_at(&e, Phase::Swapped);
-    let host = Fake { alive: true, ..Default::default() };
+    let host = Fake {
+        alive: true,
+        ..Default::default()
+    };
     assert!(recover(&e.layout, &host).unwrap().is_none());
-    assert_eq!(apply(&e.layout, &host, &e.plan, &e.bin).unwrap_err().reason, "update-in-progress");
-    assert_eq!(state::load(&e.layout).unwrap().unwrap().phase, Phase::Swapped);
+    assert_eq!(
+        apply(&e.layout, &host, &e.plan, &e.bin).unwrap_err().reason,
+        "update-in-progress"
+    );
+    assert_eq!(
+        state::load(&e.layout).unwrap().unwrap().phase,
+        Phase::Swapped
+    );
 }
 
 #[test]
@@ -240,7 +345,11 @@ fn a_tampered_snapshot_is_never_restored() {
     fs::write(state::snapshot_dir(&e.layout).join("plur1bus"), "evil").unwrap();
     let st = recover(&e.layout, &Fake::default()).unwrap().unwrap();
     assert_eq!(st.phase, Phase::Failed);
-    assert_eq!(fs::read(&e.bin).unwrap(), b"new-binary", "nothing is restored from a bad snapshot");
+    assert_eq!(
+        fs::read(&e.bin).unwrap(),
+        b"new-binary",
+        "nothing is restored from a bad snapshot"
+    );
     assert!(st.message.unwrap().contains("rollback refused"));
 }
 
@@ -249,18 +358,35 @@ fn manual_rollback_restores_the_last_committed_update_once() {
     let mut e = env();
     with_core(&mut e);
     let before = originals(&e);
-    let host = Fake { running: true, ..Default::default() };
+    let host = Fake {
+        running: true,
+        ..Default::default()
+    };
     apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
     let st = rollback_manual(&e.layout, &host).unwrap();
-    assert_eq!((st.phase, st.trigger.as_str()), (Phase::RolledBack, "manual-rollback"));
+    assert_eq!(
+        (st.phase, st.trigger.as_str()),
+        (Phase::RolledBack, "manual-rollback")
+    );
     assert_eq!((st.from.as_str(), st.to.as_str()), ("0.2.0", "0.1.0"));
     assert_eq!(originals(&e), before);
-    assert_eq!(fs::read(e.layout.runtime().join("core/core.js")).unwrap(), b"old core");
-    assert_eq!(rollback_manual(&e.layout, &host).unwrap_err().reason, "nothing-to-roll-back");
+    assert_eq!(
+        fs::read(e.layout.runtime().join("core/core.js")).unwrap(),
+        b"old core"
+    );
+    assert_eq!(
+        rollback_manual(&e.layout, &host).unwrap_err().reason,
+        "nothing-to-roll-back"
+    );
 }
 
 #[test]
 fn manual_rollback_without_an_update_says_so() {
     let e = env();
-    assert_eq!(rollback_manual(&e.layout, &Fake::default()).unwrap_err().reason, "nothing-to-roll-back");
+    assert_eq!(
+        rollback_manual(&e.layout, &Fake::default())
+            .unwrap_err()
+            .reason,
+        "nothing-to-roll-back"
+    );
 }
