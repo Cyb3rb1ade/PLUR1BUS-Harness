@@ -60,7 +60,9 @@ RUN --mount=type=secret,id=engine_token,required=false \
     && test -f /out/core/dist/import.js \
     && cd /out/core \
     && node --input-type=module -e "for (const m of ['@plur1bus/module-api','@plur1bus/rpc-schema','@plur1bus/config-schema']) await import(m)" \
-    && rm -rf /out/core/src /out/core/test
+    && rm -rf /out/core/src /out/core/test \
+    # pnpm stamps these with the install time: they would make two builds of one commit differ
+    && find /out/core -maxdepth 2 \( -name .modules.yaml -o -name '.pnpm-workspace-state*' \) -delete
 
 # ---- 3. runtime ------------------------------------------------------------------------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime

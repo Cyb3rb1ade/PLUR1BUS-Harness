@@ -77,6 +77,23 @@ jobs:
             --provenance=false --sbom=false \
             .
           docker image inspect --format '{{.Id}}' "$IMAGE" | tee image-id.txt
+          docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > image-layers.txt
+      - name: smoke test
+        run: scripts/container-smoke.sh "$IMAGE"
+        timeout-minutes: 12
+      - name: vulnerability scans (informational)
+        if: matrix.arch == 'amd64'
+        continue-on-error: true
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1 image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 "$IMAGE" || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/grype:v0.86.1 "docker:$IMAGE" || true
+      - uses: actions/upload-artifact@v4
+        if: matrix.arch == 'amd64'
+        with:
+          name: image-id
+          path: |
+            image-id.txt
+            image-layers.txt
       - name: size
         run: |
           set -euo pipefail
@@ -91,20 +108,6 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           docker history --format '{{.Size}}\t{{.CreatedBy}}' --no-trunc "$IMAGE" | cut -c1-160 | sort -hr | head -8
           if [ "$gz_mb" -gt "$SIZE_TARGET_MB" ]; then echo "::warning::compressed image ${gz_mb} MB exceeds the ${SIZE_TARGET_MB} MB target"; fi
-      - name: smoke test
-        run: scripts/container-smoke.sh "$IMAGE"
-        timeout-minutes: 12
-      - name: vulnerability scans (informational)
-        if: matrix.arch == 'amd64'
-        continue-on-error: true
-        run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1 image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 "$IMAGE" || true
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/grype:v0.86.1 "docker:$IMAGE" --fail-on never || true
-      - uses: actions/upload-artifact@v4
-        if: matrix.arch == 'amd64'
-        with:
-          name: image-id
-          path: image-id.txt
 
   reproducible:
     # Informational until a green run shows a stable digest on the runner: a second, cache-less build from the same commit
@@ -133,4 +136,9 @@ jobs:
           second="$(docker image inspect --format '{{.Id}}' "$IMAGE")"
           first="$(cat image-id.txt)"
           echo "first : $first"; echo "second: $second"
+          if [ "$first" != "$second" ]; then
+            docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > second-layers.txt
+            echo "layers that differ (first vs second):"; diff image-layers.txt second-layers.txt || true
+            docker history --no-trunc --format '{{.Size}}\t{{.CreatedBy}}' "$IMAGE" | cut -c1-140
+          fi
           [ "$first" = "$second" ] || { echo "::warning::the two builds differ (not bit-reproducible yet)"; exit 1; }
