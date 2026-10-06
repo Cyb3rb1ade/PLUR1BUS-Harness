@@ -100,6 +100,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ModelCmd,
     },
+    /// [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+    Budget {
+        #[command(subcommand)]
+        sub: BudgetCmd,
+    },
     /// Provider login (API keys, OAuth) — M2
     Login(StubArgs),
     /// Channels — M4
@@ -571,6 +576,50 @@ pub enum AdminCmd {
     Embedding {
         #[command(subcommand)]
         sub: EmbeddingCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BudgetCmd {
+    /// [experimental] Show usage for the current day and month and every limit with its state
+    Status {
+        /// only this agent's usage (and the global limits plus its own)
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+    },
+    /// [experimental] Set or clear a limit, or the time zone budget periods follow
+    ///
+    /// A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of
+    /// `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals),
+    /// token values are input + output tokens. A bound left out stays as it is.
+    Set {
+        /// the limit covers all agents together
+        #[arg(long, conflicts_with = "agent")]
+        global: bool,
+        /// the limit covers this agent
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+        /// the period the limit resets on (local calendar day or month)
+        #[arg(long, value_parser = ["day", "month"])]
+        period: Option<String>,
+        /// what is counted: cost in USD or input + output tokens
+        #[arg(long, value_parser = ["cost", "tokens"])]
+        metric: Option<String>,
+        /// warn (once per period) above this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        soft: Option<String>,
+        /// refuse calls that would exceed this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        hard: Option<String>,
+        /// remove the soft bound
+        #[arg(long, conflicts_with = "soft")]
+        clear_soft: bool,
+        /// remove the hard bound
+        #[arg(long, conflicts_with = "hard")]
+        clear_hard: bool,
+        /// an IANA time zone name the periods follow (default UTC)
+        #[arg(long, value_name = "ZONE")]
+        timezone: Option<String>,
     },
 }
 
