@@ -22,7 +22,7 @@ docker buildx build --secret id=engine_token,env=GH_ENGINE_READ_TOKEN -t plur1bu
   two RUNs that fetch dependencies, handed to git through that RUN's environment, and is in no ARG, ENV, COPY or layer. The
   secret is optional (`required=false`): a public engine builds without it.
 - **Reproducibility.** Frozen lockfiles, `--locked`, digests, `SOURCE_DATE_EPOCH` and `rewrite-timestamp=true`. CI rebuilds
-  without cache and compares image ids (informational until it has been green; see the workflow).
+  without cache and compares image ids (informational; the first run on `cee0633` produced identical image ids once pnpm's install-time stamp files were removed from the deployed tree).
 - `.dockerignore` keeps `.git`, `target/`, `node_modules/`, `dist/`, env files, keys and `.npmrc`/`.netrc` out of the context.
 - No models in the image: they download into the models volume on first use (about 600 MB, with the existing licence gate).
 - arm64: `linux/arm64` is built natively (`workflow_dispatch` with `arm64: true` on `ubuntu-24.04-arm`), never under QEMU.
@@ -78,11 +78,11 @@ backoff.
 ## Size
 
 CI measures every build and writes the table to the job summary (`container.yml`, step "size"). Target (spec §6.15.9): ≤ 350 MB
-compressed per architecture, gated at +10 % by the release pipeline (D1). The first CI measurements are recorded here:
+compressed per architecture, gated at +10 % by the release pipeline (D1). The first CI measurement is recorded here (the pnpm-deployed core is 741 MB uncompressed of the 987 MB, the Node base 148 MB, Debian 75 MB, the CLI 16 MB):
 
 | Build | Uncompressed | gzip of `docker save` |
 |---|---|---|
-| amd64 (`container.yml`, PR run) | _recorded from the first green run_ | _recorded from the first green run_ |
+| amd64, PR #127 (`cee0633`) | 987 MB | 328 MB (target 350) |
 
 ## CI
 
