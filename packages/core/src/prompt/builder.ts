@@ -6,7 +6,8 @@ import {
   type Breakpoint, type ConversationItem, type PromptEvent, type RenderInput, type RenderedPrompt, type Segment, type StableZone, type VolatileInput, type ZoneName,
 } from "./types.ts";
 
-/** ADR-010 R1: the second trailing breakpoint sits this many positions behind the last one, inside Anthropic's 20-position lookback. */
+/** ADR-010 R1: the second trailing breakpoint sits this many positions behind the last one, inside Anthropic's 20-position lookback.
+ *  RULING: 15, the low end of the ADR's "~15–20 positions back", so it keeps hitting for a full turn of growth. */
 const INTERIOR_BACK = 15;
 
 export interface PromptBuilder {
@@ -26,13 +27,14 @@ function safeKeep(text: string, keep: number): number {
   return unit >= 0xd800 && unit <= 0xdbff ? keep - 1 : keep;
 }
 
-/** Clip the frozen snapshot to `cap` chars on a line (record) boundary when that keeps at least half the cap; else hard-cut. */
+/** RULING: clip the frozen snapshot to `cap` chars on a line (record) boundary when that keeps at least half the cap; else hard-cut. */
 function clipSnapshot(text: string, cap: number): string {
   const hard = safeKeep(text, cap);
   const nl = text.lastIndexOf("\n", hard);
   return (nl >= cap / 2 ? text.slice(0, nl) : text.slice(0, hard)).trimEnd();
 }
 
+/** RULING: chars / 4 is a deliberately low token estimate (CJK is denser), so R2 warns early rather than late. */
 const tokens = (chars: number): number => Math.ceil(chars / 4);
 
 /** Collapses consecutive `tool_use` (and consecutive `tool_result`) segments into one position, as Anthropic's lookback counts them. */
@@ -86,7 +88,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
     // Zone 2: system parts, in the caller's order (order is meaning here).
     const systemSegs: Segment[] = input.system.map(normalizeText).filter((t) => t.length).map((text) => ({ zone: "system", kind: "system", text }));
 
-    // Zone 3: the frozen snapshot, capped (L3: a clip is an event).
+    // Zone 3: the frozen snapshot, capped (L3: a clip is an event). RULING: default cap is the engine's 17 000-char inject budget.
     const memCap = input.zoneCaps?.memory ?? DEFAULT_MEMORY_CAP_CHARS;
     let memText = normalizeText(input.memory);
     if (memText.length > memCap) {
@@ -107,7 +109,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
     const volSegs: Segment[] = [];
     if (input.volatile) {
       const j = joinRecall(agentId, model, input.volatile, push);
-      if (j.text.length) volSegs.push(j.delivery === "tool_result" ? { zone: "volatile", kind: "tool_result", role: "user", text: j.text, id: j.toolUseId } : { zone: "volatile", kind: "context", role: "user", text: j.text });
+      if (j.text.length) volSegs.push(j.delivery === "tool_result" ? { zone: "volatile", kind: "tool_result", role: "user", text: j.text, id: j.toolUseId! } : { zone: "volatile", kind: "context", role: "user", text: j.text });
     }
 
     const segments: Segment[] = [...toolSegs, ...systemSegs, ...memSegs, ...convSegs, ...volSegs];
@@ -125,9 +127,10 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
     if (profile.mechanism === "explicit" && profile.maxBreakpoints > 0) {
       const wanted: CacheTtl = input.cacheTtl ?? "5m";
       const stableTtl = profile.ttls.includes(wanted) ? wanted : profile.ttls[0]!;
+      // RULING: the trailing breakpoint always takes the shortest TTL (its content changes every turn); 1h entries therefore precede 5m ones.
       const trailingTtl: CacheTtl = profile.ttls.includes("5m") ? "5m" : profile.ttls[0]!;
       const hasTrailing = convSegs.length > 0;
-      // Lowest priority first: tools, system, memory. The trailing breakpoint is kept before any zone breakpoint.
+      // RULING: if the model allows fewer breakpoints than wanted, drop tools first, then system, then memory; the trailing one is kept before any zone.
       let zones = (STABLE_ZONES as readonly ZoneName[]).filter((z) => indexOf(z) >= 0);
       const room = profile.maxBreakpoints - (hasTrailing ? 1 : 0);
       if (zones.length > room) zones = zones.slice(zones.length - Math.max(room, 0));
