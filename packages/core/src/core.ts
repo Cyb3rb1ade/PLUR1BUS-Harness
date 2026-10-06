@@ -430,7 +430,7 @@ export function createCore(o: CoreOptions): Core {
       // M1b-2c: the session store and turn loop; their handlers are merged below, the notifications go through `server`.
       sessions = openSessionService({
         dbPath: path.join(l.state, "sessions.sqlite"), clock, logger, agents: registry, isStopping: () => state.state === "stopping" || state.state === "stopped",
-        memory: engineTurnMemory({ engine: eng, config: cfg, agents: registry, logger, captureSignal: shutdown.signal, isStopping: () => state.state === "stopping" || state.state === "stopped" }),
+        memory: engineTurnMemory({ engine: eng, config: cfg, agents: registry, logger, captureSignal: shutdown.signal, isStopping: () => state.state === "stopping" || state.state === "stopped", onStoredCapture: (agentId) => dreams?.scheduler.recordCapture(agentId) }),
         provider: () => o.chatProvider ?? null, notify: (method, params, opts) => server?.notify(method, params, opts), signal: shutdown.signal,
       });
       identity = createIdentityService({
