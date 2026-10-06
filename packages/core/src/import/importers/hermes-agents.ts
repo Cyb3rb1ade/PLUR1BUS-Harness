@@ -20,13 +20,14 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { ImportError } from "../types.ts";
 import {
   validateAgentId,
   type ImportedFileReport,
   type AgentImportReport,
   MAX_FILE_BYTES,
 } from "./openclaw-agents.ts";
-import { existsNoFollow, readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 
 function parseBaseExt(fileName: string): { base: string; ext: string } {
   if (fileName.startsWith(".") && fileName.indexOf(".", 1) === -1) {
@@ -136,20 +137,20 @@ export function planAndMigrateHermesAgent(
     }
     usedTargetNames.add(targetFileName);
 
-    const readRes = readHermesSourceFileSafe(src, MAX_FILE_BYTES);
-    if (!readRes.ok) {
+    let srcBuffer: Buffer;
+    try {
+      srcBuffer = readSourceFileSafe(src, MAX_FILE_BYTES);
+    } catch (error) {
       fileReports.push({
         sourceFile: src,
         targetFile: targetFileName,
         targetPath: join(wsTarget, targetFileName),
         action: "skipped",
-        reason: readRes.error,
+        reason: error instanceof ImportError ? error.reason : "source-unreadable",
         bytes: 0,
       });
       return;
     }
-
-    const srcBuffer = readRes.buffer; // byte-exact; never round-tripped through a string
 
     const srcSha = createHash("sha256").update(srcBuffer).digest("hex");
     let targetFilePath = join(wsTarget, targetFileName);
@@ -340,7 +341,7 @@ export function planAndMigrateHermesAgent(
   }
 
   // 1. Process SOUL.md if present
-  // existsNoFollow, not isFile: a symlink or FIFO is reported (symlink-refused / not-a-regular-file), never skipped silently.
+  // existsNoFollow, not isFile: a symlink or FIFO is reported, never skipped silently.
   const soulPath = join(profileDir, "SOUL.md");
   if (existsNoFollow(soulPath)) {
     processFile(soulPath, "SOUL.md");

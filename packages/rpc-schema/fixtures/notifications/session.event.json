@@ -1,0 +1,1 @@
+{"agentId": "bernd", "event": {"sessionId": "ses_1", "seq": 2, "turnId": "trn_1", "type": "delta", "data": {"index": 0, "text": "hi"}, "at": 1550}}

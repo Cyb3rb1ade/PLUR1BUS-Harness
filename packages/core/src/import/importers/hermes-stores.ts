@@ -17,7 +17,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  readFileSync,
   renameSync,
   rmSync,
 } from "node:fs";
@@ -27,6 +26,7 @@ import type { Layout } from "../../paths.ts";
 import { isDir } from "../readonly.ts";
 import { storeIdempotencyKey, type ImportLedger, type ConflictStrategy } from "../ledger.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
+import { readSourceFileSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import { defaults } from "@plur1bus/config-schema";
@@ -85,7 +85,7 @@ export function copyStoreDirectorySafe(src: string, dst: string): void {
     if (ent.isDirectory()) {
       copyStoreDirectorySafe(srcPath, dstPath);
     } else if (ent.isFile()) {
-      const buf = readFileSync(srcPath);
+      const buf = readSourceFileSafe(srcPath, Number.MAX_SAFE_INTEGER);
       writeAtomicSync(dstPath, buf, 0o600);
     } else {
       throw new ImportError("E_STORE_INCOMPATIBLE", "unsafe-store-entry", `store contains non-regular entry: ${ent.name}`);

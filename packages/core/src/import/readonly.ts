@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
+import { readSourceFileSafe } from "./fs-safe.ts";
 import { ImportError } from "./types.ts";
 
 /** Databases up to this size (plus WAL) are copied to a temp dir and read there. */
@@ -34,8 +35,12 @@ export function isDir(path: string): boolean {
 
 /** Key names of a dotenv file. The value part of each line is dropped as the line is parsed; nothing of it is returned. */
 export function envKeyNames(path: string): string[] {
-  const text = readBounded(path, 1024 * 1024);
-  if (text === null) return [];
+  let text: string;
+  try {
+    text = readSourceFileSafe(path, 1024 * 1024).toString("utf8");
+  } catch {
+    return [];
+  }
   const keys: string[] = [];
   for (const line of text.split(/\r?\n/)) {
     const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line);

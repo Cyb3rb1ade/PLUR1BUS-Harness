@@ -110,12 +110,21 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AdminObsidianConfirmParams, AdminObsidianConfirmResult>(name, f)
         }
         "admin.migrate" => pair::<AdminMigrateParams, AdminMigrateResult>(name, f),
+        "admin.backup.snapshot" => {
+            pair::<AdminBackupSnapshotParams, AdminBackupSnapshotResult>(name, f)
+        }
         "admin.embedding.probe" => {
             pair::<AdminEmbeddingProbeParams, AdminEmbeddingProbeResult>(name, f)
         }
         "admin.embedding.serve" => {
             pair::<AdminEmbeddingServeParams, AdminEmbeddingServeResult>(name, f)
         }
+        "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
+        "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),
+        "admin.reembed.status" => {
+            pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
+        }
+        "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
@@ -123,6 +132,24 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<ModelsRemoveManualParams, ModelsRemoveManualResult>(name, f)
         }
         "models.acknowledge" => pair::<ModelsAcknowledgeParams, ModelsAcknowledgeResult>(name, f),
+        "session.create" => pair::<SessionCreateParams, SessionCreateResult>(name, f),
+        "session.list" => pair::<SessionListParams, SessionListResult>(name, f),
+        "session.get" => pair::<SessionGetParams, SessionGetResult>(name, f),
+        "session.resume" => pair::<SessionResumeParams, SessionResumeResult>(name, f),
+        "session.archive" => pair::<SessionArchiveParams, SessionArchiveResult>(name, f),
+        "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
+        "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
+        "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
+        "identity.human.create" => {
+            pair::<IdentityHumanCreateParams, IdentityHumanCreateResult>(name, f)
+        }
+        "identity.link" => pair::<IdentityLinkParams, IdentityLinkResult>(name, f),
+        "identity.pair.start" => pair::<IdentityPairStartParams, IdentityPairStartResult>(name, f),
+        "identity.pair.claim" => pair::<IdentityPairClaimParams, IdentityPairClaimResult>(name, f),
+        "identity.pair.confirm" => {
+            pair::<IdentityPairConfirmParams, IdentityPairConfirmResult>(name, f)
+        }
+        "identity.unlink" => pair::<IdentityUnlinkParams, IdentityUnlinkResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
@@ -201,8 +228,13 @@ fn every_method_fixture_round_trips() {
         "admin.obsidian.prepare",
         "admin.obsidian.confirm",
         "admin.migrate",
+        "admin.backup.snapshot",
         "admin.embedding.probe",
         "admin.embedding.serve",
+        "admin.reembed.plan",
+        "admin.reembed.run",
+        "admin.reembed.status",
+        "admin.reembed.abort",
         "ext.list",
         "ext.show",
         "ext.inspect",
@@ -271,6 +303,7 @@ fn every_notification_fixture_round_trips() {
             "module.state" => round_trip::<types::ModuleStateNotification>(v, name),
             "ext.changed" => round_trip::<types::ExtChangedNotification>(v, name),
             "models.changed" => round_trip::<types::ModelsChangedNotification>(v, name),
+            "session.event" => round_trip::<types::SessionEventNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

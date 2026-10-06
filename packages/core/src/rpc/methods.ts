@@ -7,11 +7,14 @@ import type {
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
 import { buildAdminMethods } from "../admin-ops.ts";
+import { buildBackupMethods } from "../backup-ops.ts";
+import type { Layout } from "../paths.ts";
 import type { AgentRegistry } from "../agents.ts";
 import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
+import { buildIdentityMethods } from "../identity/rpc.ts";
 import type { BudgetService } from "../budget/index.ts";
 import { CatalogError } from "../discovery/overrides.ts";
 import { CatalogWriteError } from "../discovery/catalog-store.ts";
@@ -52,10 +55,16 @@ export interface MethodDeps {
   adopt: (nonce: string, connectionId: string) => CoreStatusResult;
   /** After an applied `admin.migrate`: refreshes `core.status.engine.storeSchema`. */
   onMigrated: () => void | Promise<void>;
+  /** M8: where `admin.backup.snapshot` stages (the home layout and the engine's configured store path). */
+  backup?: { layout: Layout; baseDbPath: string };
   /** D112: harness-side system jobs registry. */
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
   discovery?: import("../discovery/service.ts").DiscoveryService;
+  /** M3: the identity service (humans, linked channel identities, pairing); `identity.*` is served only when present. */
+  identity?: import("../identity/service.ts").IdentityService;
+  /** M2: the `admin.reembed.*` handlers (embedding-migrate/rpc.ts), when the core built a migration driver. */
+  reembed?: Record<string, Handler>;
   /** M2 L8: the budget service (absent when its store could not be opened). */
   budget?: BudgetService;
   /** M2: the secret store and who a connection is. Absent, the `secret.*` methods are not served. */
@@ -180,6 +189,9 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
+    ...(d.reembed ?? {}),
+
+    ...(d.backup ? buildBackupMethods({ engine: d.engine, layout: d.backup.layout, baseDbPath: d.backup.baseDbPath, logger: d.logger, isStopping: d.isStopping }) : {}),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {
@@ -315,5 +327,6 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         mapDiscoveryError(err);
       }
     },
+    ...(d.identity ? buildIdentityMethods({ service: d.identity, isStopping: d.isStopping }) : {}),
   };
 }

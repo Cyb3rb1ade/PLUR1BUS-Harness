@@ -12,7 +12,7 @@
 // Allow side (roots, grants) is compared EXACTLY on the on-disk form the OS returns; the deny side is compared case-
 // and NFC-folded (`foldForDeny`), so it matches more, never less.
 import { constants as fsc } from "node:fs";
-import { lstat, open, readdir, readlink, realpath, stat, unlink } from "node:fs/promises";
+import { lstat, open, readdir, readlink, realpath, stat } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { homedir as osHomedir } from "node:os";
 import path from "node:path";
@@ -442,15 +442,11 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
   };
   const pre = await checkParent();
   if (pre) return pre;
-
-  // Windows: libuv maps O_CREAT|O_EXCL to CREATE_NEW, which follows a dangling symbolic link and creates its target
-  // (O_NOFOLLOW does not exist there). A missing leaf is therefore re-checked with lstat right before the create, so a
-  // link planted since the check is refused without creating anything; the narrow window after the lstat is closed by
-  // the post-open check below.
-  const creating = windows && !c.exists && (f & fsc.O_CREAT) !== 0;
-  if (creating) {
-    const planted = await lstat(c.canonical).catch(() => null);
-    if (planted) return refuse(planted.isSymbolicLink() ? "link-swap" : "identity-changed", "the target appeared since it was checked");
+  // Windows has no O_NOFOLLOW, and CREATE_NEW opened through a planted (dangling) symlink creates the file at the link's
+  // target, outside the root. So a create there first requires that nothing at all exists at the leaf (a link included).
+  if (windows && !c.exists && (flags & fsc.O_CREAT) !== 0) {
+    const planted = await lstat(c.canonical).then(() => true, (e: NodeJS.ErrnoException) => e.code !== "ENOENT");
+    if (planted) return refuse("identity-changed", "the target appeared since it was checked");
   }
 
   let fh: FileHandle;
@@ -464,17 +460,6 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
     return refuse("unresolvable", `open failed (${code ?? "error"})`);
   }
   const fail = async (r: PathRefusal): Promise<PathRefusal> => { await fh.close().catch(() => {}); return r; };
-  if (creating) {
-    // The file was just created exclusively by this call. If the leaf now is a link (planted in the lstat/open window),
-    // the create went through it: remove what this call made at the real location and refuse.
-    const lst = await lstat(c.canonical).catch(() => null);
-    if (!lst || lst.isSymbolicLink()) {
-      const through = await realpath(c.canonical).catch(() => null);
-      await fh.close().catch(() => {});
-      if (through !== null) await unlink(through).catch(() => {});
-      return refuse("link-swap", "the create went through a link planted since the check; the created file was removed");
-    }
-  }
   try {
     const st = await fh.stat({ bigint: true });
     const id = identityOf(st);
@@ -482,6 +467,11 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
     if (write && st.isFile() && st.nlink > 1n && !c.hardLinked) return await fail(refuse("hard-link", "the file gained a hard link since it was checked"));
     const post = await checkParent();
     if (post) return await fail(post);
+    if (windows && !c.exists) {
+      // A link planted after the lstat above is caught here at the latest: the path must still resolve to itself.
+      const real = normaliseNative(await realpath(c.canonical), true);
+      if (real !== c.canonical) return await fail(refuse("link-swap", "the created leaf resolves to a different path"));
+    }
     if (process.platform === "linux") {
       const now = await readlink(`/proc/self/fd/${fh.fd}`).catch(() => null);
       if (now !== null && now.replace(/ \(deleted\)$/u, "") !== c.canonical) return await fail(refuse("identity-changed", "the opened file lives at a different path than the one checked"));

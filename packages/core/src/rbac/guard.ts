@@ -40,6 +40,19 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "admin.migrate": rule("admin.migrate", system),
   "admin.embedding.probe": rule("admin.embedding.probe", system),
   "admin.embedding.serve": rule("admin.embedding.serve", system),
+  "admin.reembed.plan": rule("admin.reembed.plan", system),
+  "admin.reembed.run": rule("admin.reembed.run", system),
+  "admin.reembed.status": rule("admin.reembed.status", system),
+  "admin.reembed.abort": rule("admin.reembed.abort", system),
+  "admin.backup.snapshot": rule("admin.backup.snapshot", system),
+  // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
+  "identity.list": rule("users.read", system),
+  "identity.human.create": rule("users.manage", system),
+  "identity.link": rule("users.manage", system),
+  "identity.unlink": rule("users.manage", system),
+  "identity.pair.start": rule("users.manage", system),
+  "identity.pair.claim": rule("users.manage", system),
+  "identity.pair.confirm": rule("users.manage", system),
 });
 
 export interface GuardOptions {

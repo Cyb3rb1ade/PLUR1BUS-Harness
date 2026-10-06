@@ -1,0 +1,24 @@
+{
+  "params": {
+    "caller": {
+      "channel": "cli",
+      "accountId": "macbooker",
+      "userId": "cyberblade"
+    },
+    "linkId": "0198a2c4-0000-7000-8000-000000000002"
+  },
+  "result": {
+    "id": "0198a2c4-0000-7000-8000-000000000002",
+    "humanId": "0198a2c4-0000-7000-8000-000000000001",
+    "channel": "telegram",
+    "accountId": "bot1",
+    "userId": "4242",
+    "displayName": "Alex",
+    "v1Principal": "user:v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "proofMethod": "pairing_code",
+    "linkedAt": 1790000000000,
+    "linkedBy": "cyberblade",
+    "revokedAt": 1790000900000,
+    "revokedBy": "cyberblade"
+  }
+}

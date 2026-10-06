@@ -1207,11 +1207,130 @@ Files: `apps/desktop/src-tauri/src/{profile_audit,windows_spa_profile,lib,spa_pr
 - Local Windows target check unavailable: MSVC `assert.h` missing in `ring`; native Windows CI remains required. Guarded-SPA WebView2 compatibility remains an explicit gap.
 - The native `no_cookie_database_in_app_dirs` test remains in `production_spa`; no vacuous directory-only substitute. Bundled pinned SQLite supports the Windows WAL audit.
 
-### WP6 gate
+## WP6 — IN PROGRESS (not accepted)
 
-WP5 is owner-merged; Step 0 main→WP6 merge `56ba3fdd` is done. WP6 stays paused pending the owner merge of #78.
+Branch `feat/desktop-shell-wp06-lifecycle`; review base `e6909fad`; owner-authorized PR87 review fixes (2026-10-06) active; [Draft PR87](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/87). Windows retention confirmed in all four native CI jobs; ARM initial CI foreground refusal handled by owner-approved local-focus policy. Owner #78 `9ff52676`, main merges `b331729a`/`9009978f` (owner `77a26989`). Core/Hermes/crates/plur1bus reserved for Copilot #79; no rebase/amend/force-push/config/owner merge. WP5 ProfileExitGate/5s Linux GUI observer preserved.
 
-- [ ] After #78 merges, merge main→WP6 normally and resume existing lifecycle work.
-- [ ] Restore the WP6 status portion preserved in stash `c032d566`; retain the new WP5 report.
+### Implemented and retained limits
 
-No rebase, amend, force-push or owner-PR merge.
+- CarryoverA/B own d635ab99: startup deletion reserve and real production
+  audit-timeout closures9PASS/mutationFAIL/restoredPASS. WP5 gate retained.
+- Trust: authenticated typed SSE, owned cursor/cancel/generation fencing,
+  credential-owner-free waits, persist/ack refusal retirement, origin/carrier/jar
+  preserved. TLS71PASS /tmp/wp06-active-trust-suite.log; removal/repair retires
+  matching task before mutation. Native GUI/ackfailure/removalrepair open.
+- Lifecycle: guarded Quit/KeepRunning default; approval before ProfileExitGate;
+  actual hide/minimize/refocus/singleton. Guard-bypass mutationFAIL/restored;
+  WP8/WP10 runtime/updater actions disabled. Final CI evidence below.
+- GNOME/Flatpak: private actor, localized notifications, owned single-use action
+  ledger64, foreign rejection, portal handle/response/grant order,120s/Close3s
+  budgets. Backpressure/cancel/reconnect/version/order mutations proven
+  /tmp/wp06-backpressure-restored.log. Native listing/recovery/packaging open.
+- Diagnostics: private sink, exact credentials+structural redaction, owned crash
+  receipt/restart offer; Dismiss consumes, Cancel preserves. Real60s ticker,
+  GUI5s/timer125s. Shutdown aborts ticker and awaits worker offGUI≤2s;
+  blocked-worker tested. Mark-handled mutationFAIL/restored. Release refuses
+  fixture seams. Clipboard/cookie/physicalEscape native checks open.
+- Tray: EN/DE eight states, RuntimeMissing/SecretsLocked, stable IDs/44px.
+  AppKit getters and protected SettingsIPC8PASS; refresh mutationFAIL/restored,
+  invalidPNG→template→colour fallback /tmp/wp06-native-tray-restored.log.
+  Physicalmenu/theme/SystemDE/settererror checks open.
+- Windows ACL MAXIMUM_ALLOWED avoids touching unowned children; private ACL,
+  owner/reparse/share guards retained. f443 retention all4WindowsPASS unchanged;
+  shutdown registry isolation5PASS /tmp/wp06-shutdown-registry-isolation.log.
+
+### Required before acceptance
+
+Native GNOME bus recovery/Background Apps listing×/Flatpak packaging handshake; trust supervisor/GUI/ackfailure/removalrepair; clipboard/cookie redaction; physical tray/theme/SystemDE/settererror; Singleton/focus repeat/mutation after unlock. C17 protocol tests do not replace native acceptance. Final exact-head Root and all7Desktop jobs green, run links; Draft87/no ownermerge. WP5 gate preserved.
+
+### Round3 implemented and accepted by CI · historical evidence
+
+Two authorized functional pushes:869908b3 then e6909fad. Windows fixture-only
+Job Object launcher outside the job; CREATE_SUSPENDED→assign→resume;
+descendants inherit; KILL_ON_JOB_CLOSE. After actual Quit and host exit,
+ActiveProcesses must reach0 within10s. Timeout reports member image/PID/parent,
+retains failure, terminates and confirms zero before SAFE_TO_DELETE/profile
+retry. Resident close-hides never starts drain. Diagnostics uses the same job.
+Native inheritance/accounting/timeout/termination/kill-on-close tests passed;
+no product focus or timing hack. Native worker entrypoints are selected by their
+owning tests; no acceptance test skipped.
+
+ARMoff on869 failed before Lifecycle: audit-failed/exit2/29835ms,
+file-read-missing targetlease, two rescans/readFailures1; closed audit and
+teardown complete. Live scratch scan raced retirement of earlier profiles.
+e690 waits existing owned cleanup futures BEFORE live scan under original
+deadline, retains returned audit/cookie/secret evidence, never consumes twice.
+Two regressions PASS; old-order mutation FAIL/restored source. Artifacts:
+/tmp/wp06-round3-pr-arm-off-artifacts.zip. Full local e690 Root/docs9 commands,
+Desktop366PASS/one existingIGNORE, UI58, scripts43PASS/5platformSKIP,
+Clippy/fmt/finalLint0; WindowsARMtargetUNAVAILABLE101 missingMSVCSDK.
+Logs /tmp/wp06-round3-fix2-*.log. Exact-head final CI links below.
+
+Retained prior fixes: singleton2.5.0 ASFW(primaryPid) before forwarding;
+product nativeforeground/localactive/WebView2MoveFocus, no input workaround;
+initial-CI localactive+childfocus+visible/unminimized/request policy and explicit
+foreground-lock-denied. The old conditional second-instance leniency is now
+superseded by I2 below. Secret canary snapshot releases mutex before I/O;
+zeroizing exact memchr scan; helper waits actual close before10×100ms
+sharing-only cleanup; original12s remains. Historical main sweep failure must
+be distinguished from its deliberate passing negative fixture. CarryoverA/B
+startup-delete-reserve and real production audit-timeout closures remain
+own d635ab99 directly tested; no duplication. WP5 status prefix unchanged.
+
+### PR87 owner review fixes · 2026-10-06
+
+Prior exact head e6909fad0c5bb818171b5f8735bcd57e0924b15a is fully GREEN:
+[Root37372007900](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37372007900),
+[DesktopPR37372007915](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37372007915),
+[DesktopPush37372001887](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37372001887).
+Owner retried three runner-acquisition failures; final all seven desktop jobs,
+including all four Windows variants, and Root passed. Round3 stop/push cap was
+honored; the separate review-fix prompt now authorizes the following changes.
+
+| Finding | Fix | Verification |
+|---|---|---|
+| I1 rotating cookies disable diagnostics | No Cookie/Set-Cookie value registration; structural header redaction. Credential encodings remain bounded to8192 without eviction. First registration failure prints one fixed warning; diagnostics record registration-failure counter. At saturation retain original closed event envelope with all variable credential-shaped fields suppressed instead of dropping the event. | Actual store_cookies10,000 rotations→redacted Writer record PASS; saturation→warning/counter+two original events PASS, internal and JSON schemas valid. |
+| I2 runner launcher lacks foreground rights | After the original5s activation attempt, compare GetForegroundWindow with launcher HWND. Foreground owner runs strict secondary check; otherwise report skipped(launcher-no-foreground), never true. No secondary without rights; remaining lifecycle and actual Quit/job drain/cleanup still required. Same-run exact-head summary requires at least one strict x64 leg and all four closed reports. | Strict/skip/incomplete/head/all-skipped policy and real summary CLI regressions PASS. Native CI pending; owner Windows ARM VM check remains an open D1 release gate. |
+| M1 tray failure strands hidden window | Failed build clears background capability; close minimizes. | State+resident-close regression PASS. |
+| M3 trust retry fixed1s | Reuse EventStream exponential jitter backoff, reset after successful transaction. | Existing shared backoff/stream suite; new-head full desktop gate. |
+| M6 autostart reapplied at reload | Atomic once-only consumption; later autostart shell reloads preserve window state. | Once/reload regression PASS. |
+| M8 PII forced on | Desktop formatter uses D111 default false; credential/header redaction stays on. | Existing opt-in/off formatter tests and diagnostics/native gate. |
+
+WP7 follow-ups explicitly retained from owner review: M4 release EventOwner
+before keychain/store I/O while preserving credential-owner serialization and
+stale-generation fencing; M5 localized crash title plus constrained Open-folder
+command; M7 group-writable-home policy/warning with owned-leaf protections.
+M2 macOS logout/restart requires owner's native check: native::guard_exit
+intercepts every unapproved Tauri ExitRequested and asks the modal. Pinned
+Tao0.37.1 app_delegate.rs applicationWillTerminate calls AppState::exit; no
+applicationShouldTerminate override or NSWorkspaceWillPowerOff observer exists
+in our code. Tauri runtime converts explicit exit/last-window-destroy requests
+to ExitRequested. Ordinary Quit interception is proved; OS logout/restart has
+NOT been proved and must not be called accepted from static source inspection.
+Other remaining native acceptance gaps in the section above stay explicit.
+
+Full local Root/docs9commands PASS; locked desktop alltargets/Rustdoc370PASS
+(one existingIGNORE), Clippy/fmt PASS; UIbuild/58tests PASS; scripts44PASS with
+five platformSKIPs; finalRootlint PASS. Logs /tmp/wp06-review-fixes-*.log,
+validation JSON /tmp/wp06-review-fixes-validation.json. Native Windows target
+attempt Exit101: ring assert.h needs missingMSVCSDK, UNAVAILABLE rather than
+a native pass. Exact Win32 helper binding check/Clippy PASS. WP5prefix remains
+byte-identical. New-head Root/all7Desktop CI required before PR87 leaves Draft;
+owner merges, no WP7 implementation in this fix task.
+
+Review-fix push1 `63a530dde7af21562fade3a55e0f7ca6123e00d7`: Root37432139585
+SUCCESS; PR37432139816 Mac/Linux3 SUCCESS, ARM2 fail
+FIXTURE_LAUNCHER_OCCLUDED before secondary spawn (same in both push ARM jobs).
+PRx64off and pushx64on DIAGNOSTICS_MODAL_MISSING; PRx64on native gates PASS.
+Push37432133757 x64off helper fails status=null/SIGKILL/timedOut=true,
+phase=complete at12047.914ms under unchanged12000ms; no blind retry/budget raise.
+SPA_PROFILE_SWEEP_LEAF_FAILED in this log is a passing intentional negative unit.
+Functional correction: shell exposure/input/strict focus share original5s, with
+GUI event-loop turns between queued topmost preparation and verified own click.
+Crash modal observer now installed on finished document, preventing its timer
+from being lost when the initial WebView navigates. No product focus/input change.
+Full validation Root/docs9, desktop alltargets/Rustdoc/Clippy/fmt, UI58, scripts44 PASS; WindowsARM target UNAVAILABLE101 (ring assert.h/MSVCSDK). Logs /tmp/wp06-review-fixture-order-*.log; pending next-headCI.
+
+### Owner-authorized launcher skip round · maximum two pushes
+
+Previous head4d26f738 Root/Desktop evidence remains historical; Windows jobs failed, including ARM launcher occlusion and x64 DIAGNOSTICS_MODAL_MISSING. New fixture-only skip policy above is authorized by the owner. Zero pushes in this round; Root check/gen/build/test/lint/workspace Rust/Clippy/fmt/docs PASS, desktop alltargets370PASS/one existingIGNORE and Rustdoc PASS, UI58PASS, scripts47PASS/5platformSKIP. Initial Root bin.test file failed without a cause; isolated TAP8PASS and complete Root rerun PASS, no Core/Hermes edit. Desktop Clippy/fmt PASS. Windows ARM target attempt UNAVAILABLE101: ring assert.h requires missing MSVC SDK. Logs /tmp/wp06-launcher-skip-*.log. No product change or observer/budget increase. PR87 stays Draft until exact-head Root/all7Desktop plus strict-x64 summary are green. Skips are explicitly not passes; owner verifies ARM manually before D1 release.

@@ -40,7 +40,7 @@ from typing import TypeVar
 from ._filelock import FileLock, LockTimeout
 from .binding import atomic_write_text
 
-__all__ = ["CaptureJournal", "JOURNAL_CODES", "JOURNAL_DIR", "JOURNAL_FILE", "LockTimeout", "clean_code", "is_journal_code"]
+__all__ = ["CaptureJournal", "JOURNAL_CODES", "JOURNAL_DIR", "JOURNAL_FILE", "LockTimeout", "clean_code", "is_journal_code", "is_journal_error"]
 
 log = logging.getLogger("plur1bus")
 log.addHandler(logging.NullHandler())  # records reach Hermes' handlers by propagation; no stderr fallback
@@ -64,6 +64,23 @@ DRAIN_BATCH = 50
 
 def is_journal_code(code: object) -> bool:
     return isinstance(code, str) and code in JOURNAL_CODES
+
+
+def is_journal_error(exc: object, code: object = None) -> bool:
+    """True when a failed capture should be journaled and retried later instead of being set aside.
+
+    Besides the transport codes, this covers the client's local-endpoint trust refusal: since the memory client
+    reports an untrusted run/ or socket as ``E_UNAUTHORIZED`` with ``data["legacy_code"] == "E_SERVER_IDENTITY"``
+    (trust.is_trust_refusal), the same condition that used to be ``E_SERVER_IDENTITY``. It is local and fixable
+    (wrong owner or mode of run/), so the turn stays in the 0600 journal and is sent once the endpoint is trusted.
+    A plain ``E_UNAUTHORIZED`` from the core (bad token) is not journaled.
+    """
+    if code is None:
+        code = getattr(exc, "code", None)
+    if is_journal_code(code):
+        return True
+    data = getattr(exc, "data", None)
+    return code == "E_UNAUTHORIZED" and isinstance(data, dict) and data.get("legacy_code") == "E_SERVER_IDENTITY"
 
 
 def clean_code(code: object) -> str | None:
@@ -435,7 +452,7 @@ class CaptureJournal:
                     send(entry)
                 except Exception as e:  # noqa: BLE001 - classified below
                     code = _code_of(e)
-                    if is_journal_code(code):
+                    if is_journal_error(e, code):
                         stop = True
                         break
                     log.warning("plur1bus: set aside a journaled capture the core refused (%s)", code or type(e).__name__)

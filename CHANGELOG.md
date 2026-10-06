@@ -8,6 +8,25 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Session store and turn loop (M1b-2c, part 1):** the core keeps chat sessions in `<home>/state/sessions.sqlite`
+  (`node:sqlite` + FTS5) and runs a submit/event turn loop with one engine `recall` before and one `capture` after each
+  turn. New experimental RPC: `session.create|list|get|resume|archive|submit|events` and the opt-in `session.event`
+  notification; new experimental CLI: `plur1bus session list|show|archive` and `plur1bus chat`. No real model provider is
+  wired in yet: without one `session.submit` answers `E_NOT_AVAILABLE reason=no-provider`.
+
+- `@plur1bus/providers` (M2, part 1): the OpenAI-compatible `chat_completions` adapter — request builder, SSE
+  streaming with incremental tool-call assembly and usage, non-stream path, a typed error taxonomy
+  (`auth`, `rate_limit` with retry-after, `context_length`, `content_filter`, `bad_request`, `server`, `timeout`,
+  `network`, `protocol`, `aborted`), `AbortSignal` and injectable timeouts throughout, and a tool-argument repair
+  hook point (interface only). No auth logic: it takes a ready-made `Authorization` value. Tested against synthetic
+  fixtures and a local stub server only.
+
+- **D111 logging foundation, part 1: `log-schema`.** New package `@plur1bus/log-schema` and crate `plur1bus-log-schema`
+  hold the JSONL log record schema, the audit record schema (the HB12 v1 fields kept, spec R1), the versioned event
+  catalogue (128 events, each with an example), the OpenTelemetry/syslog level map and the redaction patterns as data,
+  with one validator per language and a Rust/TypeScript parity test. `docs/log-schema.md` is generated and checked by
+  `pnpm docs:check`. No logger or writer is wired in yet; nothing in the existing log files changes.
+
 - **Secret store (M2, ADR-005).** `plur1bus secret status|set|get|rm|ls` and the core's `secret.status|list|set|get|delete`
   RPC (experimental, owner only; any other principal is refused with `E_DENIED`). Secrets go to the OS keyring
   (`@napi-rs/keyring`, loaded on first use) and, only when `secrets.fileFallback.enabled` is `true` (default `false`),

@@ -1,0 +1,170 @@
+[
+  {
+    "event": "desktop.app.started",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "info",
+    "msg": "desktop app started",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/empty"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "desktop.app.crashed",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "fatal",
+    "msg": "desktop app crashed",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/crash"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "desktop.connection.lost",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "warn",
+    "msg": "desktop connection lost",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/connection"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "desktop.webview.failed",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "error",
+    "msg": "desktop webview failed",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/webview"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "desktop.update.failed",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "error",
+    "msg": "desktop update failed",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/update"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "desktop.deeplink.ignored",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "info",
+    "msg": "desktop deeplink ignored",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/empty"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "log.level.changed",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "info",
+    "msg": "log level changed",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/level"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "log.level.expired",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "info",
+    "msg": "log trace level expired",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/empty"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "log.retention.pruned",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "info",
+    "msg": "log retention pruned",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/retention"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "log.redaction.failed",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "error",
+    "msg": "log redaction failed",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/event"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "log.unregistered",
+    "kinds": [
+      "desktop"
+    ],
+    "stream": "diagnostic",
+    "level": "warn",
+    "msg": "unregistered log event",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/unregistered"
+    },
+    "since": "D111",
+    "stability": "stable"
+  },
+  {
+    "event": "log.registry.saturated",
+    "level": "warn",
+    "msg": "Credential redaction registry saturated; free text suppressed.",
+    "stream": "diagnostic",
+    "attrs": {
+      "$ref": "record.schema.json#/$defs/registry"
+    },
+    "since": "D111",
+    "stability": "stable",
+    "kinds": [
+      "desktop"
+    ]
+  }
+]

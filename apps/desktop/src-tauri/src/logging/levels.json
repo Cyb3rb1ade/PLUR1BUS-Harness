@@ -1,0 +1,8 @@
+[
+  {"level":"trace","otel":1,"syslog":7},
+  {"level":"debug","otel":5,"syslog":7},
+  {"level":"info","otel":9,"syslog":6},
+  {"level":"warn","otel":13,"syslog":4},
+  {"level":"error","otel":17,"syslog":3},
+  {"level":"fatal","otel":21,"syslog":2}
+]
