@@ -60,7 +60,7 @@ jobs:
       python_matrix: ${{ steps.plan.outputs.python_matrix }}
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: "${{ github.event_name == 'pull_request' && 0 || 1 }}" }
+        with: { fetch-depth: 0 }
       - id: plan
         env:
           EVENT_NAME: ${{ github.event_name }}
