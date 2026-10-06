@@ -49,6 +49,15 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/api:
+    dependencies:
+      '@plur1bus/module-api':
+        specifier: workspace:*
+        version: link:../module-api
+      '@plur1bus/rpc-schema':
+        specifier: workspace:*
+        version: link:../rpc-schema
+
   packages/config-schema:
     dependencies:
       ajv:
