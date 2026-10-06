@@ -1,6 +1,7 @@
 use plur1bus_rpc::RpcError;
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct Out {
     pub json: bool,
@@ -34,9 +35,7 @@ fn exit_code_for(code_name: &str) -> i32 {
     }
 }
 
-/// Writes `text` plus a newline to `w`. A closed pipe (`plur1bus … | head -1`) ends the process quietly with status 0:
-/// what the command had to do is done, and `println!` would panic here. Any other write error (a full disk behind a
-/// redirect) is reported on stderr with exit 1.
+/// Writes `text` (plus a newline when asked) to `w` and flushes.
 pub(crate) fn emit_to<W: std::io::Write>(
     w: &mut W,
     text: &str,
@@ -49,13 +48,24 @@ pub(crate) fn emit_to<W: std::io::Write>(
     w.flush()
 }
 
-/// What a failed stdout write means for the process; `None` for a closed pipe (quiet success).
+/// What a failed stdout write means: `None` for a closed pipe (`plur1bus … | head -1`: the reader went away, which is
+/// not an error of the command), a stderr message for any other write error (a full disk behind a redirect).
 fn write_failure(e: &std::io::Error) -> Option<String> {
     (e.kind() != std::io::ErrorKind::BrokenPipe)
         .then(|| format!("plur1bus: cannot write to stdout: {e}"))
 }
 
-/// `println!` that cannot panic on a closed or failing stdout; see [`emit_to`].
+/// Set once stdout has failed (closed pipe or a real write error): later writes are dropped.
+static STDOUT_CLOSED: AtomicBool = AtomicBool::new(false);
+/// Set when the failure was a real write error rather than a closed pipe; `main` turns it into exit 1 at the end.
+static STDOUT_BROKEN: AtomicBool = AtomicBool::new(false);
+
+/// Whether a stdout write failed with something other than a closed pipe, so the output the caller asked for is lost.
+pub(crate) fn stdout_write_failed() -> bool {
+    STDOUT_BROKEN.load(Ordering::Relaxed)
+}
+
+/// `println!` that cannot panic on a closed or failing stdout; see [`write_stdout`].
 pub(crate) fn say(text: &str) {
     write_stdout(text, true);
 }
@@ -65,14 +75,19 @@ pub(crate) fn say_raw(text: &str) {
     write_stdout(text, false);
 }
 
+/// Never exits: a command's output is not its work, and `say` is also called mid-flow, before an install, enable or
+/// repair has run, and on error paths that carry their own exit code. A closed pipe is remembered and every later write
+/// is silently dropped, so the command runs to its normal end and keeps its real exit code. Any other write error is
+/// reported once on stderr and recorded for [`stdout_write_failed`].
 fn write_stdout(text: &str, newline: bool) {
+    if STDOUT_CLOSED.load(Ordering::Relaxed) {
+        return;
+    }
     if let Err(e) = emit_to(&mut std::io::stdout().lock(), text, newline) {
-        match write_failure(&e) {
-            None => std::process::exit(0),
-            Some(msg) => {
-                eprintln!("{msg}");
-                std::process::exit(1)
-            }
+        STDOUT_CLOSED.store(true, Ordering::Relaxed);
+        if let Some(msg) = write_failure(&e) {
+            STDOUT_BROKEN.store(true, Ordering::Relaxed);
+            eprintln!("{msg}");
         }
     }
 }

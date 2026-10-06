@@ -1749,24 +1749,57 @@ fn offline_module_list_and_admin_obsidian_do_not_create_config_json() {
     assert!(!dir.path().join("config.json").exists(), "admin obsidian");
 }
 
-/// K4: `println!` panics when stdout is a closed pipe (`plur1bus … | head -1`). The command must end quietly instead,
-/// with no panic message and not the panic exit status 101.
+/// K4: `println!` panics when stdout is a closed pipe (`plur1bus … | head -1`). The output helper must not panic and
+/// must not decide the exit code: a successful read command still exits 0, a failing one keeps its code.
+#[cfg(unix)]
+fn closed_stdout(home: &std::path::Path, args: &[&str]) -> (Option<i32>, String) {
+    let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"));
+    c.arg("--home")
+        .arg(home)
+        .args(args)
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .stdin(std::process::Stdio::null());
+    let (code, stderr) = common::run_closed_stdout(&mut c);
+    assert!(!stderr.contains("panicked"), "stderr: {stderr}");
+    assert_ne!(code, Some(101), "stderr: {stderr}");
+    (code, stderr)
+}
+
 #[cfg(unix)]
 #[test]
 fn a_closed_stdout_pipe_is_not_a_panic() {
-    use std::process::{Command as Std, Stdio};
     let home = tempfile::tempdir().unwrap();
-    let mut child = Std::new(env!("CARGO_BIN_EXE_plur1bus"))
-        .args(["--home"])
+    let (code, stderr) = closed_stdout(home.path(), &["__markdown"]);
+    assert_eq!(code, Some(0), "a successful command stays 0: {stderr}");
+}
+
+/// A closed stdout must not turn a failing command into a success: `config get` of an unknown key is exit 1 with the
+/// pipe open, and exit 1 with it closed (the `fail` document is dropped, the exit code is not).
+#[cfg(unix)]
+#[test]
+fn a_closed_stdout_pipe_keeps_the_failing_exit_code() {
+    let home = tempfile::tempdir().unwrap();
+    let open = bin()
+        .args(["--json", "--home"])
         .arg(home.path())
-        .arg("__markdown")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    drop(child.stdout.take()); // the reader goes away before the child has printed anything
-    let out = child.wait_with_output().unwrap();
-    let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(!stderr.contains("panicked"), "stderr: {stderr}");
-    assert_ne!(out.status.code(), Some(101), "stderr: {stderr}");
+        .args(["config", "get", "no.such.key"])
+        .assert()
+        .failure()
+        .get_output()
+        .status
+        .code();
+    assert_eq!(open, Some(1));
+    let (code, stderr) = closed_stdout(home.path(), &["--json", "config", "get", "no.such.key"]);
+    assert_eq!(code, Some(1), "stderr: {stderr}");
+}
+
+/// A successful read command with a closed stdout (human and `--json`) exits 0.
+#[cfg(unix)]
+#[test]
+fn a_closed_stdout_pipe_on_a_successful_read_exits_0() {
+    let home = tempfile::tempdir().unwrap();
+    for args in [&["config", "path"][..], &["--json", "config", "path"][..]] {
+        let (code, stderr) = closed_stdout(home.path(), args);
+        assert_eq!(code, Some(0), "{args:?}: {stderr}");
+    }
 }
