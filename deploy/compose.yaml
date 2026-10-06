@@ -1,0 +1,45 @@
+# PLUR1BUS harness on a VPS or any Docker/Podman-compose host (M8; desktop spec §6.15.11). Docs: docs/container.md.
+#
+#   PLUR1BUS_IMAGE=ghcr.io/cyb3rb1ade/plur1bus-harness@sha256:<digest> docker compose -f deploy/compose.yaml up -d
+#
+# Pin a digest, never a tag. Nothing is published to the host: the harness API (M3) will be added as
+# `127.0.0.1:18700:18700` when it exists. Secrets are not set here.
+name: plur1bus
+
+services:
+  harness:
+    image: ${PLUR1BUS_IMAGE:-plur1bus-harness:local}
+    container_name: plur1bus-harness
+    # Our PID 1 (`plur1bus init`, DS19) is not there yet: Docker's tini reaps zombies and forwards signals meanwhile.
+    init: true
+    restart: unless-stopped
+    # The supervisor stops the modules and the core on SIGTERM within its 120 s budget (daemon.stop).
+    stop_grace_period: 150s
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 1024
+    mem_limit: 3g
+    environment:
+      TZ: ${TZ:-UTC}
+      PLUR1BUS_CONTAINER: "1"
+      PLUR1BUS_HOME: /var/lib/plur1bus
+    volumes:
+      - plur1bus-state:/var/lib/plur1bus
+      # the engine's model cache is <home>/models (packages/core/src/paths.ts)
+      - plur1bus-models:/var/lib/plur1bus/models
+    healthcheck:
+      test: ["CMD", "node", "/opt/plur1bus/healthcheck.mjs"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+
+volumes:
+  plur1bus-state:
+  plur1bus-models:

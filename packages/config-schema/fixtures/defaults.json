@@ -45,5 +45,10 @@
       "intervalHours": 24
     }
   },
+  "secrets": {
+    "fileFallback": {
+      "enabled": false
+    }
+  },
   "modules": {}
 }
