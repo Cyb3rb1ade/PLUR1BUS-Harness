@@ -81,7 +81,7 @@ export function buildBackupMethods(d: BackupDeps): Record<(typeof BACKUP_METHODS
         const manifest = JSON.parse(await readFile(join(snap.dir, "snapshot.json"), "utf8")) as { files: Array<{ path: string; bytes: number; sha256: string }> };
         for (const f of manifest.files) files.push({ path: f.path, bytes: f.bytes, sha256: f.sha256 });
 
-        const dbs = await findDatabases(state, [join(state, "core.lock"), base, join(state, "memory", ".snapshots"), root]);
+        const dbs = await findDatabases(state, [join(state, "core.lock"), base, join(state, "memory", ".snapshots"), join(state, "journal"), join(state, "system-jobs"), root]);
         for (const src of dbs) {
           if (d.isStopping()) throw stopping();
           const relPath = `sqlite/${toPosix(relative(state, src))}`;

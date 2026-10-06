@@ -30,10 +30,10 @@ ADR-009 §11 (backup order: stores first, then the dream ledger).
 A `tar.gz`; the first entry is `manifest.json`, then `data/<archive-path>` entries. Manifest:
 
 ```json
-{ "schema": "plur1bus.backup/1", "createdAt": "…Z", "harness": { "version": "…" }, "platform": { "os": "…", "arch": "…" },
+{ "schema": "plur1bus.backup/1", "createdAtMs": 1791298800000, "harness": { "version": "…" }, "platform": { "os": "…", "arch": "…" },
   "engine": { "contract": "1.12.0", "storeSchema": "1" }, "storeTarget": "state/lancedb",
   "units": [ { "archive": "store", "target": "state/lancedb", "kind": "dir" }, … ],
-  "absent": [ "state/memory/run-state.json" ],
+  "absent": [ "state/memory/run-state.json" ], "dirs": [ "agents/bernd/workspace" ], "skipped": [],
   "files": [ { "path": "store/…", "bytes": 12, "sha256": "…" }, … ],
   "secrets": { "included": false, "note": "…" } }
 ```
