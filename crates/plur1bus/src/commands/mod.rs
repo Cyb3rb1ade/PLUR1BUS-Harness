@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod agent;
+pub mod backup;
 pub mod config;
 pub mod core;
 pub mod daemon;
