@@ -1254,6 +1254,57 @@
         "description": "Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving to the human and leaves the union of linked principals. The record stays for the audit trail. Rows written under its v1 principal become unreadable to the human until it is linked again (ADR-007). Owner only. Audited.",
         "params": {"type": "object", "additionalProperties": false, "required": ["caller", "linkId"], "properties": {"caller": { "$ref": "#/$defs/CallerIdentity" }, "linkId": { "type": "string", "minLength": 1 }}},
         "result": { "$ref": "#/$defs/IdentityLink" }
+      },
+      "session.create": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": {
+          "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "kind": { "enum": ["direct", "channel"] },
+          "title": { "type": "string", "maxLength": 200 }, "memoryMode": { "$ref": "#/$defs/MemoryMode" },
+          "chatKey": { "type": "string", "minLength": 1, "maxLength": 256 }, "replaceActive": { "type": "boolean" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["session"], "properties": { "session": { "$ref": "#/$defs/SessionRecord" } } }
+      },
+      "session.list": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller"], "properties": {
+          "caller": { "$ref": "#/$defs/CallerIdentity" }, "kind": { "$ref": "#/$defs/SessionKind" }, "agentId": { "$ref": "#/$defs/AgentId" },
+          "archived": { "enum": ["exclude", "only", "any"] }, "search": { "type": "string", "minLength": 1, "maxLength": 500 }, "limit": { "type": "integer", "minimum": 1, "maximum": 200 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["sessions", "truncated"], "properties": { "sessions": { "type": "array", "items": { "$ref": "#/$defs/SessionRecord" } }, "truncated": { "type": "boolean" } } }
+      },
+      "session.get": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "messages": { "type": "integer", "minimum": 0, "maximum": 1000 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["session", "runningTurnId"], "properties": { "session": { "$ref": "#/$defs/SessionRecord" }, "runningTurnId": { "type": ["string", "null"] }, "messages": { "type": "array", "items": { "$ref": "#/$defs/SessionMessage" } } } }
+      },
+      "session.resume": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "limit": { "type": "integer", "minimum": 1, "maximum": 1000 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["session", "runningTurnId", "messages", "lastEventSeq"], "properties": {
+          "session": { "$ref": "#/$defs/SessionRecord" }, "runningTurnId": { "type": ["string", "null"] }, "messages": { "type": "array", "items": { "$ref": "#/$defs/SessionMessage" } }, "lastEventSeq": { "type": "integer", "minimum": 0 } } }
+      },
+      "session.archive": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Archives a session (archive-first deletion: nothing is removed; there is no delete over RPC). Idempotent. A session with a running turn is E_CONFLICT.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["session"], "properties": { "session": { "$ref": "#/$defs/SessionRecord" } } }
+      },
+      "session.submit": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Submits one user message and starts a turn. Returns at once with state running (events follow as session.event notifications and through session.events), or, with wait, after the turn ended with its state, reply and error. One running turn per session (else E_CONFLICT turn-in-progress); no configured provider is E_NOT_AVAILABLE reason no-provider. Recall and capture happen once per turn inside the core; memory mode is the session's, never a parameter.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId", "text"], "properties": {
+          "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "text": { "type": "string", "minLength": 1, "maxLength": 200000 }, "wait": { "type": "boolean" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["sessionId", "turnId", "messageId", "state"], "properties": {
+          "sessionId": { "$ref": "#/$defs/SessionId" }, "turnId": { "type": "string" }, "messageId": { "type": "string" }, "state": { "enum": ["running", "completed", "failed"] },
+          "reply": { "type": "string" }, "error": { "type": "string" } } }
+      },
+      "session.events": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "afterSeq": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1, "maximum": 2000 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["sessionId", "events", "lastSeq", "running"], "properties": { "sessionId": { "$ref": "#/$defs/SessionId" }, "events": { "type": "array", "items": { "$ref": "#/$defs/SessionEvent" } }, "lastSeq": { "type": "integer", "minimum": 0 }, "running": { "type": "boolean" } } }
       }
     },
     "BudgetLimit": {
@@ -1329,6 +1380,34 @@
         "createdAt": { "type": "integer" }, "expiresAt": { "type": "integer" },
         "claimedBy": { "$ref": "#/$defs/IdentityHandle" }, "confirmBy": { "type": "integer" }
       }
+    },
+    "SessionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "SessionKind": { "enum": ["direct", "card", "project", "channel", "acp"] },
+    "MemoryMode": { "enum": ["remember", "incognito"] },
+    "SessionRecord": {
+      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The owner principal is never sent: a caller sees only its own sessions.",
+      "x-stability": "experimental", "x-since": "1.5.0",
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "agentId", "scope", "chatKey", "title", "pinned", "memoryMode", "createdAt", "updatedAt", "lastTurnAt", "archivedAt", "turnCount"],
+      "properties": {
+        "id": { "$ref": "#/$defs/SessionId" }, "kind": { "$ref": "#/$defs/SessionKind" }, "agentId": { "$ref": "#/$defs/AgentId" }, "scope": { "type": "string" },
+        "chatKey": { "type": ["string", "null"] }, "title": { "type": "string" }, "pinned": { "type": "boolean" }, "memoryMode": { "$ref": "#/$defs/MemoryMode" },
+        "createdAt": { "type": "integer" }, "updatedAt": { "type": "integer" }, "lastTurnAt": { "type": ["integer", "null"] }, "archivedAt": { "type": ["integer", "null"] },
+        "turnCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "SessionMessage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "seq", "role", "text", "createdAt"],
+      "properties": { "id": { "type": "string" }, "seq": { "type": "integer" }, "turnId": { "type": ["string", "null"] }, "role": { "enum": ["system", "user", "assistant", "tool"] }, "text": { "type": "string" }, "createdAt": { "type": "integer" } }
+    },
+    "SessionEventType": { "enum": ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed"] },
+    "SessionEvent": {
+      "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
+      "x-stability": "experimental", "x-since": "1.5.0",
+      "type": "object", "additionalProperties": false,
+      "required": ["sessionId", "seq", "turnId", "type", "data", "at"],
+      "properties": { "sessionId": { "$ref": "#/$defs/SessionId" }, "seq": { "type": "integer", "minimum": 1 }, "turnId": { "type": ["string", "null"] }, "type": { "$ref": "#/$defs/SessionEventType" }, "data": { "type": "object" }, "at": { "type": "integer" } }
     },
     "RestartPlan": {
       "description": "Experimental (1.3.0). A restart plan (ADR-013 §3): the changed live keys, whether the core restarts, and the modules that restart.",
@@ -1673,6 +1752,12 @@
           "unavailable": { "type": "array", "items": { "type": "string" } },
           "at": { "type": "string" }
         }
+      },
+      "session.event": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core", "type": "object", "additionalProperties": false,
+        "description": "One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.",
+        "required": ["agentId", "event"],
+        "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "event": { "$ref": "#/$defs/SessionEvent" } }
       }
     }
   }
