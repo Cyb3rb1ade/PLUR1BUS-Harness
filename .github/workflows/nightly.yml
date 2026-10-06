@@ -51,7 +51,7 @@ jobs:
           key: models-${{ runner.os }}-intfloat-multilingual-e5-small-woxpas-ai-bge-reranker-v2-m3-onnx-v1
       - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
       - name: system test (real models)
-        run: node --experimental-strip-types --test tests/system/two-session-recall.test.ts
+        run: node --experimental-strip-types --test --test-timeout=300000 tests/system/two-session-recall.test.ts
         timeout-minutes: 30
         # H3-R26: shared CI runners are not reference hardware. The CI recall budget keeps a slow runner from
         # aborting the recall (degraded must still be null); the 400/600 ms targets are reported as diagnostics and
@@ -62,7 +62,7 @@ jobs:
       - name: kill soak (1 000 turns)
         # Runs even when the real-model system test failed: the two acceptances are independent.
         if: ${{ !cancelled() }}
-        run: node --experimental-strip-types --test tests/system/kill-soak.test.ts
+        run: node --experimental-strip-types --test --test-timeout=1800000 tests/system/kill-soak.test.ts
         timeout-minutes: 60
         # Recall budget 3 s here (PR CI keeps 1 s): the 1 000-turn run grows each agent's table, and recall slows with
         # every LanceDB fragment (known engine follow-up); the soak prints per-third p95/max so the growth stays visible.
