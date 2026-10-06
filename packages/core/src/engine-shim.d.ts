@@ -12,3 +12,7 @@ declare module "@cyb3rb1ade/plur1bus-memory/lib/group-reasoning-filter.js" {
     logger?: { info?: (...args: unknown[]) => void };
   }): (event: Record<string, unknown>, ctx: Record<string, unknown>) => { handled: true } | undefined;
 }
+declare module "@cyb3rb1ade/plur1bus-memory/lib/reembedding/fingerprint.js" {
+  export function embeddingFingerprintId(fingerprint: Record<string, unknown>): string;
+  export function compareEmbeddingFingerprints(left: Record<string, unknown>, right: Record<string, unknown>): { equal: boolean; requiresMigration: boolean; leftId: string; rightId: string };
+}
