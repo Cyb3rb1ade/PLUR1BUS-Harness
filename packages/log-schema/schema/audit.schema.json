@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plur1bus.dev/schema/audit-record/1",
+  "title": "PLUR1BUS audit record (D111 R1)",
+  "description": "One line of logs/audit.log. The v1 fields of HB12 (`at`, `actor`, `action`, `target`, `detail`) are kept unchanged; D111 only adds optional fields to new lines (`v: 2`, `source`, `trace_id`, `agent`, `session`, `task`, `surface`, `store_ref`). Audit is its own record type: it is not a diagnostic record and has no `ts`, `level` or `msg`. `action` is a catalogue event of the audit stream; `detail` is validated against that entry's attrs group. A reader aliases `at` to `ts`, `action` to `event` and `actor` to `principal` (R1).",
+  "x-schema-version": "1",
+  "x-key-order": [
+    "at",
+    "actor",
+    "action",
+    "target",
+    "detail",
+    "v",
+    "source",
+    "trace_id",
+    "agent",
+    "session",
+    "task",
+    "surface",
+    "store_ref"
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "at",
+    "actor",
+    "action",
+    "target",
+    "detail"
+  ],
+  "properties": {
+    "at": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds (a number, not a string)."
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user",
+        "host"
+      ],
+      "properties": {
+        "user": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "host": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    },
+    "action": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z0-9][a-z0-9_-]*){1,3}$",
+      "maxLength": 128,
+      "description": "A registered audit event name."
+    },
+    "target": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "detail": {
+      "type": "object",
+      "description": "Narrowed by the catalogue entry's attrs group; at most 8 KiB (bytes; checked by the validator)."
+    },
+    "v": {
+      "const": 2,
+      "description": "Present on lines written under D111; absent on v1 lines."
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "trace_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "not": {
+        "const": "00000000000000000000000000000000"
+      }
+    },
+    "agent": {
+      "$ref": "#/$defs/HarnessId"
+    },
+    "session": {
+      "$ref": "#/$defs/HarnessId"
+    },
+    "task": {
+      "$ref": "#/$defs/HarnessId"
+    },
+    "surface": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._/-]{0,63}$",
+      "description": "Where the action came from (cli, desktop, api, …)."
+    },
+    "store_ref": {
+      "type": "string",
+      "maxLength": 128,
+      "description": "D109 mirror lines: row id and chain value of the authoritative store row (R2)."
+    }
+  },
+  "$defs": {
+    "SourceKind": {
+      "enum": [
+        "harness",
+        "extension",
+        "provider",
+        "model",
+        "cli",
+        "channel",
+        "host",
+        "desktop",
+        "os"
+      ]
+    },
+    "SourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._@/-]{0,127}$"
+    },
+    "Source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "version"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "id": {
+          "$ref": "#/$defs/SourceId"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "description": "null when unknown."
+        }
+      }
+    },
+    "HarnessId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:@-]{1,128}$"
+    }
+  }
+}

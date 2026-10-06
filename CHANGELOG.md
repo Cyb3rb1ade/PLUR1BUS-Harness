@@ -6,6 +6,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ## [Unreleased]
 
+### Added
+
+- **D111 logging foundation, part 1: `log-schema`.** New package `@plur1bus/log-schema` and crate `plur1bus-log-schema`
+  hold the JSONL log record schema, the audit record schema (the HB12 v1 fields kept, spec R1), the versioned event
+  catalogue (128 events, each with an example), the OpenTelemetry/syslog level map and the redaction patterns as data,
+  with one validator per language and a Rust/TypeScript parity test. `docs/log-schema.md` is generated and checked by
+  `pnpm docs:check`. No logger or writer is wired in yet; nothing in the existing log files changes.
+
 ### Changed
 
 - Memory engine re-pinned to **`9bafa047`** (merge of plugin PR #217), contract **1.11.0**.

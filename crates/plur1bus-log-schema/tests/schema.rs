@@ -1,6 +1,8 @@
 //! The Rust side of the acceptance list that does not need the TypeScript fixtures: the level map, unknown events,
 //! invalid levels, and the rules `validate_line` enforces.
-use plur1bus_log_schema::{catalogue, is_source_key, lookup_event, validate_line, Level};
+use plur1bus_log_schema::{
+    catalogue, is_source_key, lookup_event, validate_audit_line, validate_line, Level,
+};
 use serde_json::{json, Value};
 
 /// Hard timeout for every test (the work is a few milliseconds; a hang fails with a name instead of eating the job).
@@ -130,7 +132,6 @@ fn every_catalogue_entry_is_consistent() {
         let c = catalogue();
         assert!(c.events.len() >= 120);
         for e in &c.events {
-            assert!(e.allows_level(e.default_level()), "{}", e.event);
             assert!(c.attr_groups.contains_key(&e.attrs), "{}", e.event);
             assert_eq!(e.since, "D111");
             if e.stream == "audit" {
@@ -146,7 +147,7 @@ fn every_catalogue_entry_is_consistent() {
         );
         assert_eq!(
             lookup_event("process.output.line").unwrap().levels,
-            ["info"],
+            Some(vec!["info".to_string()]),
             "foreign text never raises a level"
         );
     });
@@ -209,5 +210,32 @@ fn source_keys() {
         ] {
             assert!(!is_source_key(bad), "{bad}");
         }
+    });
+}
+
+#[test]
+fn audit_is_its_own_record_type() {
+    within(|| {
+        // Lines exactly as audit::append writes them today (v1).
+        let v1 = r#"{"at":1790846043218,"actor":{"user":"u1","host":"h1"},"action":"licence.accept-nc","target":"embedding.acceptedNcLicence","detail":{"useClass":"research","acceptedAt":"2026-10-01T09:14:03.218Z"}}"#;
+        assert!(validate_audit_line(v1).is_ok());
+        let repair = r#"{"at":1,"actor":{"user":"u","host":"h"},"action":"repair.run.permissions.fix","target":"run/","detail":{"status":"applied"}}"#;
+        assert!(
+            validate_audit_line(repair).is_ok(),
+            "repair.<step> is a family"
+        );
+        // A diagnostic record is not an audit line, and an audit action is not a diagnostic record.
+        let diag = line(&example("provider.request.failed"));
+        assert_eq!(
+            validate_audit_line(&diag).unwrap_err().code.as_str(),
+            "schema"
+        );
+        let mut r = example("provider.request.failed");
+        r["event"] = json!("ext.install");
+        assert_eq!(code(&line(&r)), "wrong_stream");
+        assert_eq!(
+            validate_audit_line("{nope").unwrap_err().code.as_str(),
+            "not_object"
+        );
     });
 }

@@ -16,6 +16,8 @@ use std::{
 
 pub const RECORD_SCHEMA_JSON: &str =
     include_str!("../../../packages/log-schema/schema/record.schema.json");
+pub const AUDIT_SCHEMA_JSON: &str =
+    include_str!("../../../packages/log-schema/schema/audit.schema.json");
 pub const CATALOGUE_JSON: &str = include_str!("../../../packages/log-schema/schema/catalogue.json");
 pub const LEVELS_JSON: &str = include_str!("../../../packages/log-schema/schema/levels.json");
 pub const REDACTION_JSON: &str = include_str!("../../../packages/log-schema/schema/redaction.json");
@@ -136,6 +138,21 @@ pub fn key_order() -> Vec<&'static str> {
         .collect()
 }
 
+pub fn audit_schema() -> &'static Value {
+    static S: OnceLock<Value> = OnceLock::new();
+    S.get_or_init(|| parse("audit.schema.json", AUDIT_SCHEMA_JSON))
+}
+
+/// The top-level keys of an audit line, in order.
+pub fn audit_key_order() -> Vec<&'static str> {
+    audit_schema()["x-key-order"]
+        .as_array()
+        .expect("x-key-order")
+        .iter()
+        .map(|k| k.as_str().expect("key"))
+        .collect()
+}
+
 pub fn source_kinds() -> Vec<&'static str> {
     record_schema()["$defs"]["SourceKind"]["enum"]
         .as_array()
@@ -191,11 +208,16 @@ pub struct Entry {
     pub event: String,
     pub kinds: Vec<String>,
     pub stream: String,
-    pub level: String,
-    pub levels: Vec<String>,
+    /// Diagnostic and payload entries only; an audit line has no level or msg.
+    #[serde(default)]
+    pub level: Option<String>,
+    #[serde(default)]
+    pub levels: Option<Vec<String>>,
     #[serde(default)]
     pub level_rule: Option<String>,
-    pub msg: String,
+    #[serde(default)]
+    pub msg: Option<String>,
+    /// Name of the attrs group; for an audit entry the group describes `detail`.
     pub attrs: String,
     pub required_attrs: Vec<String>,
     #[serde(default)]
@@ -205,17 +227,34 @@ pub struct Entry {
     pub activity: bool,
     pub since: String,
     pub stability: String,
+    /// R10: a deprecated event stays registered until `removeAfter`.
+    #[serde(default)]
+    pub deprecated: Option<Deprecated>,
     #[serde(default)]
     pub note: Option<String>,
     pub examples: Vec<Value>,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Deprecated {
+    pub since: String,
+    pub remove_after: String,
+    pub replacement: String,
+}
+
 impl Entry {
-    pub fn default_level(&self) -> Level {
-        Level::parse(&self.level).expect("catalogue level")
+    pub fn is_audit(&self) -> bool {
+        self.stream == "audit"
+    }
+    /// The default level of a diagnostic or payload entry; `None` for an audit entry.
+    pub fn default_level(&self) -> Option<Level> {
+        self.level
+            .as_deref()
+            .map(|l| Level::parse(l).expect("catalogue level"))
     }
     pub fn allows_level(&self, level: Level) -> bool {
-        self.levels.iter().any(|l| l == level.as_str())
+        self.levels.iter().flatten().any(|l| l == level.as_str())
     }
 }
 
@@ -236,6 +275,9 @@ pub struct Catalogue {
 #[serde(deny_unknown_fields)]
 pub struct AttrGroup {
     pub description: String,
+    /// Tolerates further keys (legacy HB12 audit details).
+    #[serde(default)]
+    pub open: bool,
     pub properties: serde_json::Map<String, Value>,
 }
 
@@ -298,7 +340,7 @@ pub fn attrs_schema_for(entry: &Entry) -> Value {
     }
     serde_json::json!({
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": group.open,
         "properties": props,
         "required": entry.required_attrs,
     })
@@ -376,6 +418,7 @@ pub enum Code {
     NotObject,
     InvalidLevel,
     UnknownEvent,
+    WrongStream,
     MsgTooLong,
     AttrsTooLarge,
     Schema,
@@ -393,6 +436,7 @@ impl Code {
             Code::NotObject => "not_object",
             Code::InvalidLevel => "invalid_level",
             Code::UnknownEvent => "unknown_event",
+            Code::WrongStream => "wrong_stream",
             Code::MsgTooLong => "msg_too_long",
             Code::AttrsTooLarge => "attrs_too_large",
             Code::Schema => "schema",
@@ -527,7 +571,7 @@ fn top_level_keys(line: &str) -> Vec<String> {
 
 /// Validates one log line against the schema and the catalogue. The checks run in a fixed order and the first failure
 /// names the code (the TypeScript `validateLine` runs the same order; `fixtures/vectors.json` pins it):
-/// object (a repeated top-level key is `key_order`) → level in the table → event registered → msg bytes → attrs bytes
+/// object (a repeated top-level key is `key_order`) → level in the table → event registered (and not an audit action) → msg bytes → attrs bytes
 /// → JSON Schema → key order → level allowed for the event → source kind allowed → stream present iff the event is
 /// wrapped output → attrs group.
 pub fn validate_line(line: &str) -> Result<&'static Entry, Invalid> {
@@ -553,6 +597,17 @@ pub fn validate_line(line: &str) -> Result<&'static Entry, Invalid> {
             Code::UnknownEvent,
             format!("event {} is not in the catalogue", r["event"]),
         );
+    }
+    if let Some(Some(e)) = entry {
+        if e.is_audit() {
+            return fail(
+                Code::WrongStream,
+                format!(
+                    "{} is an audit action; write it as an audit record (validate_audit_line)",
+                    e.event
+                ),
+            );
+        }
     }
     let lim = limits();
     if let Some(msg) = r.get("msg").and_then(Value::as_str) {
@@ -610,7 +665,12 @@ pub fn validate_line(line: &str) -> Result<&'static Entry, Invalid> {
             format!(
                 "{} may be written at {}, not {}",
                 hit.event,
-                hit.levels.join(", "),
+                hit.levels
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 level.as_str()
             ),
         );
@@ -643,6 +703,97 @@ pub fn validate_line(line: &str) -> Result<&'static Entry, Invalid> {
     let attrs = r.get("attrs").unwrap_or(&empty);
     if let Some(e) = attrs_validator(hit).iter_errors(attrs).next() {
         return fail(Code::AttrsInvalid, format!("attrs{} {e}", e.instance_path));
+    }
+    Ok(hit)
+}
+
+fn audit_validator() -> &'static jsonschema::Validator {
+    static V: OnceLock<jsonschema::Validator> = OnceLock::new();
+    V.get_or_init(|| {
+        jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(audit_schema())
+            .expect("audit schema compiles")
+    })
+}
+
+/// Validates one audit line (R1), the same order as the TypeScript `validateAuditLine`: object (a repeated top-level
+/// key is `key_order`) → action registered in the audit stream → detail bytes → JSON Schema → key order → source kind
+/// allowed (when `source` is present) → detail against the entry's group.
+pub fn validate_audit_line(line: &str) -> Result<&'static Entry, Invalid> {
+    let Ok(Value::Object(r)) = serde_json::from_str::<Value>(line) else {
+        return fail(Code::NotObject, "not a JSON object");
+    };
+    let keys = top_level_keys(line);
+    let mut seen = std::collections::HashSet::new();
+    if !keys.iter().all(|k| seen.insert(k.as_str())) {
+        return fail(Code::KeyOrder, "a key appears more than once");
+    }
+    let entry = r.get("action").and_then(Value::as_str).map(lookup_event);
+    match entry {
+        Some(Some(e)) if e.is_audit() => {}
+        Some(_) => {
+            return fail(
+                Code::UnknownEvent,
+                format!(
+                    "action {} is not an audit action in the catalogue",
+                    r["action"]
+                ),
+            )
+        }
+        None => {}
+    }
+    let lim = limits();
+    if let Some(detail @ (Value::Object(_) | Value::Array(_))) = r.get("detail") {
+        if serde_json::to_string(detail)
+            .map(|s| s.len())
+            .unwrap_or(usize::MAX)
+            > lim.attrs_bytes
+        {
+            return fail(
+                Code::AttrsTooLarge,
+                format!("detail exceeds {} bytes", lim.attrs_bytes),
+            );
+        }
+    }
+    let whole = Value::Object(r.clone());
+    if let Some(e) = audit_validator().iter_errors(&whole).next() {
+        return fail(Code::Schema, format!("{} {e}", e.instance_path));
+    }
+    let order = audit_key_order();
+    let mut last: isize = -1;
+    for key in &keys {
+        let at = order
+            .iter()
+            .position(|k| k == key)
+            .map(|p| p as isize)
+            .unwrap_or(-1);
+        if at <= last {
+            return fail(
+                Code::KeyOrder,
+                format!(
+                    "key {key} is out of order; the order is {}",
+                    order.join(", ")
+                ),
+            );
+        }
+        last = at;
+    }
+    let hit = entry.flatten().expect("a registered audit action");
+    if let Some(kind) = r.get("source").and_then(|s| s["kind"].as_str()) {
+        if !hit.kinds.iter().any(|k| k == kind) {
+            return fail(
+                Code::SourceKindNotAllowed,
+                format!(
+                    "{} may only be emitted by {}, not {kind}",
+                    hit.event,
+                    hit.kinds.join(", ")
+                ),
+            );
+        }
+    }
+    if let Some(e) = attrs_validator(hit).iter_errors(&r["detail"]).next() {
+        return fail(Code::AttrsInvalid, format!("detail{} {e}", e.instance_path));
     }
     Ok(hit)
 }

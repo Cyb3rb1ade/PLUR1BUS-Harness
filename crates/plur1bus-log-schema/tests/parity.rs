@@ -93,6 +93,7 @@ fn record_constants_match_typescript() {
     within(|| {
         let v = vectors();
         assert_eq!(strings(&v["keyOrder"]), ls::key_order());
+        assert_eq!(strings(&v["auditKeyOrder"]), ls::audit_key_order());
         assert_eq!(strings(&v["sourceKinds"]), ls::source_kinds());
         let l = ls::limits();
         assert_eq!(
@@ -114,8 +115,8 @@ fn catalogue_matches_typescript() {
             assert_eq!(t["event"], r.event);
             assert_eq!(strings(&t["kinds"]), r.kinds, "{}", r.event);
             assert_eq!(t["stream"], r.stream, "{}", r.event);
-            assert_eq!(t["level"], r.level, "{}", r.event);
-            assert_eq!(strings(&t["levels"]), r.levels, "{}", r.event);
+            assert_eq!(t["level"], json!(r.level), "{}", r.event);
+            assert_eq!(t["levels"], json!(r.levels), "{}", r.event);
             assert_eq!(t["attrs"], r.attrs, "{}", r.event);
             assert_eq!(
                 strings(&t["requiredAttrs"]),
@@ -150,21 +151,21 @@ fn every_vector_gets_the_typescript_verdict() {
                 x["line"].as_str().unwrap(),
                 x["expect"].as_str().unwrap(),
             );
-            let got = match ls::validate_line(line) {
+            let run = |l: &str| match x["validator"].as_str().unwrap() {
+                "audit" => ls::validate_audit_line(l),
+                "diagnostic" => ls::validate_line(l),
+                other => panic!("validator {other}"),
+            };
+            let got = match run(line) {
                 Ok(_) => "ok",
                 Err(e) => e.code.as_str(),
             };
-            assert_eq!(
-                got,
-                expect,
-                "vector {name}: {:?}",
-                ls::validate_line(line).err()
-            );
+            assert_eq!(got, expect, "vector {name}: {:?}", run(line).err());
             codes.insert(expect.to_string());
         }
         assert_eq!(
             codes.len(),
-            12,
+            13,
             "every verdict code is exercised: {codes:?}"
         );
     });
@@ -202,7 +203,12 @@ fn the_schema_validates_every_catalogue_example() {
                 .unwrap()["line"]
                 .as_str()
                 .unwrap();
-            let hit = ls::validate_line(line).unwrap_or_else(|err| panic!("{}: {err:?}", e.event));
+            let check = if e.is_audit() {
+                ls::validate_audit_line
+            } else {
+                ls::validate_line
+            };
+            let hit = check(line).unwrap_or_else(|err| panic!("{}: {err:?}", e.event));
             assert_eq!(hit.event, e.event, "the example resolves to its own entry");
             // The embedded example is the same record, key order aside.
             assert_eq!(
@@ -284,6 +290,30 @@ fn redaction_data_matches_typescript_and_the_canaries_match() {
                 !exempt && !blocked
             });
             assert!(!counts, "{} must not count on {}", p.id, n["note"]);
+        }
+    });
+}
+
+#[test]
+fn key_names_match_typescript() {
+    within(|| {
+        let v = vectors();
+        let rule = ls::redaction()["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["id"] == "key")
+            .unwrap()
+            .clone();
+        let snake =
+            regex::Regex::new(&format!("(?i){}", rule["pattern"].as_str().unwrap())).unwrap();
+        let camel = regex::Regex::new(rule["camelPattern"].as_str().unwrap()).unwrap();
+        let hit = |n: &str| snake.is_match(n) || camel.is_match(n);
+        for n in strings(&v["keyNames"]["redact"]) {
+            assert!(hit(&n), "{n} is redacted");
+        }
+        for n in strings(&v["keyNames"]["keep"]) {
+            assert!(!hit(&n), "{n} is not redacted (token counts are metadata)");
         }
     });
 }

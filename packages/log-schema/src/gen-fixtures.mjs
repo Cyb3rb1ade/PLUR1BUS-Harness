@@ -4,15 +4,18 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CATALOGUE, LEVELS, REDACTION, SOURCE_KINDS, KEY_ORDER, LIMITS, validateLine, attrsSchemaFor } from "./index.ts";
+import { CATALOGUE, LEVELS, REDACTION, SOURCE_KINDS, KEY_ORDER, AUDIT_KEY_ORDER, LIMITS, validateLine, validateAuditLine, attrsSchemaFor } from "./index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "..", "fixtures");
 
 export function buildVectors() {
-  const valid = CATALOGUE.events.map((e) => ({ name: `example:${e.event}`, line: JSON.stringify(e.examples[0]), expect: "ok" }));
+  const valid = CATALOGUE.events.map((e) => ({ name: `example:${e.event}`, validator: e.stream === "audit" ? "audit" : "diagnostic", line: JSON.stringify(e.examples[0]), expect: "ok" }));
   const base = structuredClone(CATALOGUE.events.find((e) => e.event === "provider.request.failed").examples[0]);
-  const mut = (name, expect, f) => { const r = structuredClone(base); const out = f(r) ?? r; return { name, line: typeof out === "string" ? out : JSON.stringify(out), expect }; };
+  const mut = (name, expect, f) => { const r = structuredClone(base); const out = f(r) ?? r; return { name, validator: "diagnostic", line: typeof out === "string" ? out : JSON.stringify(out), expect }; };
+  const abase = structuredClone(CATALOGUE.events.find((e) => e.event === "ext.install").examples[0]);
+  const amut = (name, expect, f) => { const r = structuredClone(abase); const out = f(r) ?? r; return { name, validator: "audit", line: typeof out === "string" ? out : JSON.stringify(out), expect }; };
+  const areorder = (r, first) => ({ [first]: r[first], ...Object.fromEntries(Object.entries(r).filter(([k]) => k !== first)) });
   const reorder = (r, first) => ({ [first]: r[first], ...Object.fromEntries(Object.entries(r).filter(([k]) => k !== first)) });
   const invalid = [
     mut("level:unknown-word", "invalid_level", (r) => { r.level = "verbose"; }),
@@ -58,10 +61,29 @@ export function buildVectors() {
     mut("attrs:wrong-type", "attrs_invalid", (r) => { r.attrs.http_status = "429"; }),
     mut("attrs:forged-untrusted-false", "attrs_invalid", () => { const r = structuredClone(CATALOGUE.events.find((e) => e.event === "process.output.line").examples[0]); r.attrs.untrusted = false; return r; }),
     mut("attrs:absent-but-required", "attrs_invalid", (r) => { delete r.attrs; }),
+    mut("stream:audit-action-in-a-diagnostic-record", "wrong_stream", (r) => { r.event = "ext.install"; }),
+    amut("audit:v1-line-without-v", "ok", (r) => { delete r.v; }),
+    amut("audit:legacy-detail-with-extra-keys-is-tolerated", "ok", (r) => { r.detail.futureKey = 1; }),
+    amut("audit:diagnostic-record-is-not-an-audit-line", "schema", () => JSON.parse(JSON.stringify(base))),
+    amut("audit:diagnostic-action-is-unknown", "unknown_event", (r) => { r.action = "provider.request.failed"; }),
+    amut("audit:unregistered-action", "unknown_event", (r) => { r.action = "made.up.action"; }),
+    amut("audit:at-as-iso-string", "schema", (r) => { r.at = "2026-10-01T09:14:03.218Z"; }),
+    amut("audit:at-negative", "schema", (r) => { r.at = -1; }),
+    amut("audit:actor-missing-host", "schema", (r) => { delete r.actor.host; }),
+    amut("audit:missing-target", "schema", (r) => { delete r.target; }),
+    amut("audit:extra-key", "schema", (r) => { r.level = "info"; }),
+    amut("audit:v-not-2", "schema", (r) => { r.v = 3; }),
+    amut("audit:detail-too-large", "attrs_too_large", (r) => { r.detail.pad = "z".repeat(LIMITS.attrsBytes); }),
+    amut("audit:order-detail-before-target", "key_order", (r) => areorder(r, "detail")),
+    amut("audit:duplicate-key", "key_order", () => JSON.stringify(abase).replace(/^\{/, `{"at":1,`)),
+    amut("audit:source-kind-not-allowed", "source_kind_not_allowed", (r) => { r.source = { kind: "extension", id: "plugin/evil", version: "1" }; }),
+    amut("audit:detail-wrong-type", "attrs_invalid", (r) => { r.detail.sha256 = "not-a-hash"; }),
+    amut("audit:detail-missing-required", "attrs_invalid", (r) => { delete r.detail.sha256; }),
+    amut("audit:not-json", "not_object", () => "{nope"),
   ];
   // Self-check: every generated expectation must hold in the TS implementation before it is committed as the contract.
   for (const v of [...valid, ...invalid]) {
-    const res = validateLine(v.line);
+    const res = (v.validator === "audit" ? validateAuditLine : validateLine)(v.line);
     const got = res.ok ? "ok" : res.code;
     if (got !== v.expect) throw new Error(`vector ${v.name}: expected ${v.expect}, TypeScript says ${got}${res.ok ? "" : ` (${res.detail})`}`);
   }
@@ -71,10 +93,11 @@ export function buildVectors() {
     catalogueVersion: CATALOGUE.version,
     sourceKinds: [...SOURCE_KINDS],
     keyOrder: [...KEY_ORDER],
+    auditKeyOrder: [...AUDIT_KEY_ORDER],
     limits: { ...LIMITS },
     levels: LEVELS.map((l) => ({ name: l.name, rank: l.rank, severityNumber: l.otel.severityNumber, severityText: l.otel.severityText, syslogSeverity: l.syslog.severity, syslogName: l.syslog.name })),
     vectors: [...valid, ...invalid],
-    events: CATALOGUE.events.map((e) => ({ event: e.event, kinds: e.kinds, stream: e.stream, level: e.level, levels: e.levels, attrs: e.attrs, requiredAttrs: e.requiredAttrs, streamed: Boolean(e.streamed), family: Boolean(e.family), activity: e.activity, stability: e.stability, attrsSchema: attrsSchemaFor(e) })),
+    events: CATALOGUE.events.map((e) => ({ event: e.event, kinds: e.kinds, stream: e.stream, level: e.level ?? null, levels: e.levels ?? null, attrs: e.attrs, requiredAttrs: e.requiredAttrs, streamed: Boolean(e.streamed), family: Boolean(e.family), activity: e.activity, stability: e.stability, attrsSchema: attrsSchemaFor(e) })),
     redaction: {
       order: REDACTION.order,
       rules: REDACTION.rules.map((r) => ({ id: r.id, kind: r.kind, patterns: r.patterns?.map((p) => p.id) ?? r.steps?.map((p) => p.id) ?? r.classes?.map((c) => c.id) ?? [] })),
@@ -92,6 +115,10 @@ export function buildVectors() {
       { rule: "pattern", pattern: "pem-private-key", parts: canary(["-----BEGIN ", "PRIVATE KEY-----", " body ", "-----END ", "PRIVATE KEY-----"]), matches: ["-----BEGIN ", "PRIVATE KEY-----", " body ", "-----END ", "PRIVATE KEY-----"] },
       { rule: "pattern", pattern: "base64url-run", parts: canary(["x ", "Qk".repeat(22), " y"]), matches: ["Qk".repeat(22)] },
     ],
+    keyNames: {
+      redact: ["authorization", "Authorization", "Proxy-Authorization", "access_token", "refresh_token", "token", "x-api-key", "api_key", "apiKey", "client_secret", "clientSecret", "password", "set-cookie", "id_token_hint", "idTokenHint", "code_verifier", "session-key", "accessToken", "X-Auth-Token", "private_key"],
+      keep: ["input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens", "max_tokens", "total_tokens", "inputTokens", "outputTokens", "tokens", "duration_ms", "ticketing", "secretary", "passwords_checked", "model", "provider_request_id", "retry_after_s"],
+    },
     redactionNonMatches: [
       { pattern: "base64url-run", text: "a".repeat(64), note: "pure hex is exempt" },
       { pattern: "base64url-run", text: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", note: "a SHA-256 stays readable" },

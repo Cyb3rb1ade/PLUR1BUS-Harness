@@ -16,9 +16,10 @@
       "id": "key",
       "kind": "key-name",
       "section": "§4 rule 2",
-      "description": "A JSON key, key=value pair or header whose name matches has its value replaced.",
+      "description": "A JSON key, key=value pair or header whose name matches has its value replaced. A name matches when one of its delimited segments is a listed word, or (camelCase names) when it contains the word as a capitalised part. Plural token counts (input_tokens, outputTokens, max_tokens) are not credentials and do not match; `token` alone, access_token, accessToken and id_token_hint do.",
       "flags": "i",
-      "pattern": "authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key"
+      "pattern": "(?:^|[^a-z0-9])(?:authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key)(?:[^a-z0-9]|$)",
+      "camelPattern": "[a-z](?:Token|Secret|Password|Passwd|ApiKey|Cookie|Authorization|Ticket|Csrf|PrivateKey|SessionKey|Refresh|ClientSecret)(?:[A-Z]|$)"
     },
     {
       "id": "pattern",

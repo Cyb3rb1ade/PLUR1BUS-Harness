@@ -30,6 +30,21 @@
     "stream",
     "attrs"
   ],
+  "auditKeyOrder": [
+    "at",
+    "actor",
+    "action",
+    "target",
+    "detail",
+    "v",
+    "source",
+    "trace_id",
+    "agent",
+    "session",
+    "task",
+    "surface",
+    "store_ref"
+  ],
   "limits": {
     "msgBytes": 2048,
     "attrsBytes": 8192,
@@ -91,858 +106,1143 @@
   "vectors": [
     {
       "name": "example:log.level.changed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.changed\",\"msg\":\"log level changed\",\"attrs\":{\"source_key\":\"provider:openai\",\"to\":\"debug\",\"from\":\"info\",\"until\":\"2026-10-01T09:44:03.218Z\"}}",
       "expect": "ok"
     },
     {
       "name": "example:log.level.expired",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.level.expired\",\"msg\":\"log level expired\",\"attrs\":{\"source_key\":\"provider:openai\",\"from\":\"info\",\"to\":\"debug\",\"until\":\"2026-10-01T09:44:03.218Z\"}}",
       "expect": "ok"
     },
     {
       "name": "example:log.suppressed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.suppressed\",\"msg\":\"log records suppressed\",\"attrs\":{\"dropped\":120,\"window_ms\":1000,\"reason\":\"rate-limit\"}}",
       "expect": "ok"
     },
     {
       "name": "example:log.unregistered",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.unregistered\",\"msg\":\"unregistered log event\",\"attrs\":{\"attempted\":\"made.up.event\"}}",
       "expect": "ok"
     },
     {
       "name": "example:log.unattributed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.unattributed\",\"msg\":\"log line does not match its file\",\"attrs\":{\"original\":\"{\\\"ts\\\":\\\"…\\\"}\",\"expected_source\":\"extension:plugin/example\",\"file\":\"plugin-example.log\"}}",
       "expect": "ok"
     },
     {
       "name": "example:log.retention.pruned",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.retention.pruned\",\"msg\":\"old log files pruned\",\"attrs\":{\"stream\":\"diagnostic\",\"files\":3,\"bytes\":41943040,\"older_than_days\":14}}",
       "expect": "ok"
     },
     {
       "name": "example:log.redaction.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.redaction.failed\",\"msg\":\"log record dropped, redaction failed\",\"attrs\":{\"attempted_event\":\"provider.request.failed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:process.output.line",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"stream\":\"stdout\",\"attrs\":{\"text\":\"listening on port 8123\",\"untrusted\":true}}",
       "expect": "ok"
     },
     {
       "name": "example:process.output.suppressed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"process.output.suppressed\",\"msg\":\"process output suppressed\",\"stream\":\"stdout\",\"attrs\":{\"dropped\":9400,\"window_ms\":1000}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.process.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.process.started\",\"msg\":\"supervisor started\",\"attrs\":{\"role\":\"core\",\"pid\":4242,\"version\":\"0.1.0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.process.stopping",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.process.stopping\",\"msg\":\"supervisor stopping\",\"attrs\":{\"role\":\"core\",\"pid\":4242,\"version\":\"0.1.0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.process.exited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.process.exited\",\"msg\":\"supervisor exiting\",\"attrs\":{\"exit_code\":1,\"planned\":false,\"role\":\"core\",\"pid\":4242,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.child.spawned",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.child.spawned\",\"msg\":\"child process spawned\",\"attrs\":{\"role\":\"core\",\"pid\":4242,\"version\":\"0.1.0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.child.exited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.child.exited\",\"msg\":\"child process exited\",\"attrs\":{\"role\":\"core\",\"planned\":false,\"pid\":4242,\"exit_code\":1,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.child.restarting",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.child.restarting\",\"msg\":\"child process restarting\",\"attrs\":{\"role\":\"core\",\"attempt\":2,\"delay_ms\":2000,\"exit_code\":1,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.child.given_up",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"fatal\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.child.given_up\",\"msg\":\"child restarts given up\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"role\":\"core\",\"attempts\":5,\"window_ms\":60000}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.health.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.health.failed\",\"msg\":\"child health check failed\",\"attrs\":{\"role\":\"core\",\"consecutive_failures\":3,\"timeout_ms\":2000}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.health.hung",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.health.hung\",\"msg\":\"child process hung\",\"attrs\":{\"role\":\"core\",\"timeout_ms\":2000,\"consecutive_failures\":3}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.adoption.completed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.adoption.completed\",\"msg\":\"running child adopted\",\"attrs\":{\"role\":\"core\",\"pid\":4242}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.config.applied",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.config.applied\",\"msg\":\"configuration applied\",\"attrs\":{\"keys\":[\"core.logLevel\"],\"revision\":\"sha256:3f9a1c0d\",\"restart_class\":\"live\"}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.config.rejected",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.config.rejected\",\"msg\":\"configuration rejected\",\"attrs\":{\"reason\":\"example-reason\",\"keys\":[\"core.logLevel\"],\"revision\":\"sha256:3f9a1c0d\",\"restart_class\":\"live\"}}",
       "expect": "ok"
     },
     {
       "name": "example:supervisor.subscriber.dropped",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"supervisor\",\"version\":\"0.1.0\"},\"event\":\"supervisor.subscriber.dropped\",\"msg\":\"watch subscriber dropped\",\"attrs\":{\"channel\":\"config\",\"reason\":\"queue-full\",\"queued\":256}}",
       "expect": "ok"
     },
     {
       "name": "example:core.process.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.started\",\"msg\":\"core started\",\"attrs\":{\"pid\":4242,\"role\":\"core\",\"version\":\"0.1.0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:core.process.ready",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.ready\",\"msg\":\"core ready\",\"duration_ms\":1840,\"attrs\":{\"pid\":4242,\"role\":\"core\",\"version\":\"0.1.0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:core.process.stopping",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.process.stopping\",\"msg\":\"core stopping\",\"attrs\":{\"role\":\"core\",\"pid\":4242,\"version\":\"0.1.0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:core.config.applied",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.config.applied\",\"msg\":\"configuration applied\",\"attrs\":{\"keys\":[\"core.logLevel\"],\"revision\":\"sha256:3f9a1c0d\",\"restart_class\":\"live\"}}",
       "expect": "ok"
     },
     {
       "name": "example:core.config.fallback",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.config.fallback\",\"msg\":\"reading config.json without a supervisor\",\"attrs\":{\"reason\":\"example-reason\",\"keys\":[\"core.logLevel\"],\"revision\":\"sha256:3f9a1c0d\",\"restart_class\":\"live\"}}",
       "expect": "ok"
     },
     {
       "name": "example:core.watch.lost",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.watch.lost\",\"msg\":\"config watch lost\",\"attrs\":{\"reason\":\"example-reason\",\"keys\":[\"core.logLevel\"],\"revision\":\"sha256:3f9a1c0d\",\"restart_class\":\"live\"}}",
       "expect": "ok"
     },
     {
       "name": "example:core.orphan.detected",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.orphan.detected\",\"msg\":\"supervisor gone, core orphaned\",\"attrs\":{\"pid\":4242,\"role\":\"core\",\"version\":\"0.1.0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:core.rpc.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"core.rpc.failed\",\"msg\":\"rpc call failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"method\":\"memory.recall\",\"reason\":\"store-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.status.degraded",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.status.degraded\",\"msg\":\"engine degraded\",\"attrs\":{\"status\":\"degraded\",\"component\":\"reranker\",\"reason\":\"model-missing\"}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.status.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.status.failed\",\"msg\":\"engine failed\",\"attrs\":{\"status\":\"degraded\",\"component\":\"reranker\",\"reason\":\"model-missing\"}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.recall.completed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"debug\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.recall.completed\",\"msg\":\"recall completed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"attrs\":{\"results\":7,\"soft_budget_ms\":400,\"hard_budget_ms\":600}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.recall.budget_exceeded",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.recall.budget_exceeded\",\"msg\":\"recall budget exceeded\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"attrs\":{\"hard_budget_ms\":600,\"soft_budget_ms\":400,\"results\":7}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.capture.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.capture.failed\",\"msg\":\"capture failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"operation\":\"capture\",\"reason\":\"store-write-failed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.acl.denied",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.acl.denied\",\"msg\":\"engine ACL denied an operation\",\"attrs\":{\"operation\":\"capture\",\"reason\":\"store-write-failed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.model.loading",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.model.loading\",\"msg\":\"engine model loading\",\"attrs\":{\"model\":\"embedding-default\",\"runtime\":\"onnx\"}}",
       "expect": "ok"
     },
     {
       "name": "example:engine.model.ready",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.model.ready\",\"msg\":\"engine model ready\",\"duration_ms\":1840,\"attrs\":{\"model\":\"embedding-default\",\"runtime\":\"onnx\"}}",
       "expect": "ok"
     },
     {
       "name": "example:scheduler.run.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"debug\",\"source\":{\"kind\":\"harness\",\"id\":\"scheduler\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.started\",\"msg\":\"scheduler run started\",\"attrs\":{\"job\":\"dream.rem\",\"run_id\":\"r_01J0\",\"reason\":\"no-new-captures\"}}",
       "expect": "ok"
     },
     {
       "name": "example:scheduler.run.skipped",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"scheduler\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.skipped\",\"msg\":\"scheduler run skipped\",\"attrs\":{\"job\":\"dream.rem\",\"reason\":\"no-new-captures\",\"run_id\":\"r_01J0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:scheduler.run.completed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"scheduler\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.completed\",\"msg\":\"scheduler run completed\",\"duration_ms\":1840,\"attrs\":{\"job\":\"dream.rem\",\"run_id\":\"r_01J0\",\"reason\":\"no-new-captures\"}}",
       "expect": "ok"
     },
     {
       "name": "example:scheduler.run.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"scheduler\",\"version\":\"0.1.0\"},\"event\":\"scheduler.run.failed\",\"msg\":\"scheduler run failed\",\"duration_ms\":1840,\"attrs\":{\"job\":\"dream.rem\",\"reason\":\"no-new-captures\",\"run_id\":\"r_01J0\"}}",
       "expect": "ok"
     },
     {
       "name": "example:api.request.completed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"debug\",\"source\":{\"kind\":\"harness\",\"id\":\"api\",\"version\":\"0.1.0\"},\"event\":\"api.request.completed\",\"msg\":\"api request completed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"attrs\":{\"method\":\"GET\",\"route\":\"/api/v1/chats\",\"status\":200}}",
       "expect": "ok"
     },
     {
       "name": "example:api.auth.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"api\",\"version\":\"0.1.0\"},\"event\":\"api.auth.failed\",\"msg\":\"api authentication failed\",\"attrs\":{\"method\":\"GET\",\"route\":\"/api/v1/chats\",\"status\":200}}",
       "expect": "ok"
     },
     {
       "name": "example:api.rate.limited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"api\",\"version\":\"0.1.0\"},\"event\":\"api.rate.limited\",\"msg\":\"api request rate limited\",\"attrs\":{\"method\":\"GET\",\"route\":\"/api/v1/chats\",\"status\":200}}",
       "expect": "ok"
     },
     {
       "name": "example:api.stream.dropped",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"api\",\"version\":\"0.1.0\"},\"event\":\"api.stream.dropped\",\"msg\":\"api stream dropped\",\"attrs\":{\"route\":\"/api/v1/chats\",\"reason\":\"example-reason\",\"method\":\"GET\",\"status\":200}}",
       "expect": "ok"
     },
     {
       "name": "example:module.process.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"module.process.started\",\"msg\":\"module started\",\"attrs\":{\"module\":\"fixture\",\"reason\":\"bad-value\",\"keys\":[\"modules.fixture.interval\"]}}",
       "expect": "ok"
     },
     {
       "name": "example:module.config.invalid",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"module.config.invalid\",\"msg\":\"module configuration invalid\",\"attrs\":{\"module\":\"fixture\",\"keys\":[\"modules.fixture.interval\"],\"reason\":\"bad-value\"}}",
       "expect": "ok"
     },
     {
       "name": "example:module.core.connected",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"module.core.connected\",\"msg\":\"module connected to core\",\"attrs\":{\"module\":\"fixture\",\"reason\":\"bad-value\",\"keys\":[\"modules.fixture.interval\"]}}",
       "expect": "ok"
     },
     {
       "name": "example:module.core.lost",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"module.core.lost\",\"msg\":\"module lost its connection to core\",\"attrs\":{\"module\":\"fixture\",\"reason\":\"bad-value\",\"keys\":[\"modules.fixture.interval\"]}}",
       "expect": "ok"
     },
     {
       "name": "example:ext.load.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"extension\",\"id\":\"mcp-server/files\",\"version\":\"1.2.0\"},\"event\":\"ext.load.failed\",\"msg\":\"extension failed to load\",\"attrs\":{\"extension\":\"plugin/example\",\"reason\":\"manifest-invalid\"}}",
       "expect": "ok"
     },
     {
       "name": "example:mcp.server.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"extension\",\"id\":\"mcp-server/files\",\"version\":\"1.2.0\"},\"event\":\"mcp.server.started\",\"msg\":\"mcp server started\",\"attrs\":{\"server\":\"mcp-server/files\",\"tool\":\"read\",\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:mcp.server.exited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"extension\",\"id\":\"mcp-server/files\",\"version\":\"1.2.0\"},\"event\":\"mcp.server.exited\",\"msg\":\"mcp server exited\",\"attrs\":{\"server\":\"mcp-server/files\",\"planned\":false,\"tool\":\"read\",\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:mcp.server.timeout",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"extension\",\"id\":\"mcp-server/files\",\"version\":\"1.2.0\"},\"event\":\"mcp.server.timeout\",\"msg\":\"mcp server timed out\",\"attrs\":{\"server\":\"mcp-server/files\",\"timeout_ms\":1,\"tool\":\"read\",\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:mcp.call.completed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"debug\",\"source\":{\"kind\":\"extension\",\"id\":\"mcp-server/files\",\"version\":\"1.2.0\"},\"event\":\"mcp.call.completed\",\"msg\":\"mcp call completed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"attrs\":{\"server\":\"mcp-server/files\",\"tool\":\"read\",\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:mcp.call.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"extension\",\"id\":\"mcp-server/files\",\"version\":\"1.2.0\"},\"event\":\"mcp.call.failed\",\"msg\":\"mcp call failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"attrs\":{\"server\":\"mcp-server/files\",\"tool\":\"read\",\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:skill.script.exited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"extension\",\"id\":\"mcp-server/files\",\"version\":\"1.2.0\"},\"event\":\"skill.script.exited\",\"msg\":\"skill script exited\",\"attrs\":{\"skill\":\"plur1bus-ops\",\"script\":\"diagnose\",\"exit_code\":0,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.request.completed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"debug\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.completed\",\"msg\":\"provider request completed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.request.retrying",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.retrying\",\"msg\":\"provider request retrying\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"model\":\"gpt-5.5\",\"attempt\":1,\"retry_in_ms\":1,\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.request.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.rate.limited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.rate.limited\",\"msg\":\"provider rate limit\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.oauth.refreshed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.oauth.refreshed\",\"msg\":\"provider token refreshed\",\"attrs\":{\"profile\":\"openai-oauth\",\"expires_in_s\":3600}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.oauth.refresh_failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.oauth.refresh_failed\",\"msg\":\"provider token refresh failed\",\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"profile\":\"openai-oauth\",\"reason\":\"example-reason\",\"expires_in_s\":3600}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.auth.expiring",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.auth.expiring\",\"msg\":\"provider credential expiring\",\"attrs\":{\"profile\":\"openai-oauth\",\"expires_in_s\":3600}}",
       "expect": "ok"
     },
     {
       "name": "example:provider.payload.captured",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.payload.captured\",\"msg\":\"provider payload captured\",\"attrs\":{\"agent\":\"bernd\",\"capture_id\":\"cap_01J0\",\"bytes\":5120}}",
       "expect": "ok"
     },
     {
       "name": "example:model.load.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"model\",\"id\":\"ollama/llama3\",\"version\":\"0.5.1\"},\"event\":\"model.load.started\",\"msg\":\"model load started\",\"attrs\":{\"model\":\"ollama/llama3\",\"runtime\":\"ollama\"}}",
       "expect": "ok"
     },
     {
       "name": "example:model.load.completed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"model\",\"id\":\"ollama/llama3\",\"version\":\"0.5.1\"},\"event\":\"model.load.completed\",\"msg\":\"model load completed\",\"duration_ms\":1840,\"attrs\":{\"model\":\"ollama/llama3\",\"runtime\":\"ollama\"}}",
       "expect": "ok"
     },
     {
       "name": "example:model.load.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"model\",\"id\":\"ollama/llama3\",\"version\":\"0.5.1\"},\"event\":\"model.load.failed\",\"msg\":\"model load failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"model\":\"ollama/llama3\",\"reason\":\"example-reason\",\"runtime\":\"ollama\"}}",
       "expect": "ok"
     },
     {
       "name": "example:model.process.exited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"model\",\"id\":\"ollama/llama3\",\"version\":\"0.5.1\"},\"event\":\"model.process.exited\",\"msg\":\"model process exited\",\"attrs\":{\"model\":\"ollama/llama3\",\"planned\":false,\"runtime\":\"ollama\"}}",
       "expect": "ok"
     },
     {
       "name": "example:model.memory.pressure",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"model\",\"id\":\"ollama/llama3\",\"version\":\"0.5.1\"},\"event\":\"model.memory.pressure\",\"msg\":\"model memory pressure\",\"attrs\":{\"model\":\"ollama/llama3\",\"rss_mb\":1,\"runtime\":\"ollama\"}}",
       "expect": "ok"
     },
     {
       "name": "example:model.unloaded",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"model\",\"id\":\"ollama/llama3\",\"version\":\"0.5.1\"},\"event\":\"model.unloaded\",\"msg\":\"model unloaded\",\"attrs\":{\"model\":\"ollama/llama3\",\"runtime\":\"ollama\"}}",
       "expect": "ok"
     },
     {
       "name": "example:cli.session.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"cli\",\"id\":\"codex\",\"version\":\"0.9.0\"},\"event\":\"cli.session.started\",\"msg\":\"cli agent session started\",\"attrs\":{\"cli\":\"codex\",\"exit_code\":0,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:cli.session.exited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"cli\",\"id\":\"codex\",\"version\":\"0.9.0\"},\"event\":\"cli.session.exited\",\"msg\":\"cli agent session exited\",\"attrs\":{\"cli\":\"codex\",\"exit_code\":0,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:cli.acp.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"cli\",\"id\":\"codex\",\"version\":\"0.9.0\"},\"event\":\"cli.acp.failed\",\"msg\":\"cli agent protocol error\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"cli\":\"codex\",\"acp_code\":1,\"exit_code\":0,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:cli.login.required",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"cli\",\"id\":\"codex\",\"version\":\"0.9.0\"},\"event\":\"cli.login.required\",\"msg\":\"cli agent login required\",\"attrs\":{\"cli\":\"codex\",\"exit_code\":0,\"signal\":null}}",
       "expect": "ok"
     },
     {
       "name": "example:channel.connection.lost",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"channel\",\"id\":\"telegram/bernd-bot\",\"version\":\"0.1.0\"},\"event\":\"channel.connection.lost\",\"msg\":\"channel connection lost\",\"attrs\":{\"channel\":\"telegram\",\"account\":\"bernd-bot\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:channel.connection.restored",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"channel\",\"id\":\"telegram/bernd-bot\",\"version\":\"0.1.0\"},\"event\":\"channel.connection.restored\",\"msg\":\"channel connection restored\",\"attrs\":{\"channel\":\"telegram\",\"account\":\"bernd-bot\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:channel.message.received",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"debug\",\"source\":{\"kind\":\"channel\",\"id\":\"telegram/bernd-bot\",\"version\":\"0.1.0\"},\"event\":\"channel.message.received\",\"msg\":\"channel message received\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"channel\":\"telegram\",\"account\":\"bernd-bot\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:channel.message.sent",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"debug\",\"source\":{\"kind\":\"channel\",\"id\":\"telegram/bernd-bot\",\"version\":\"0.1.0\"},\"event\":\"channel.message.sent\",\"msg\":\"channel message sent\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"attrs\":{\"channel\":\"telegram\",\"account\":\"bernd-bot\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:channel.delivery.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"channel\",\"id\":\"telegram/bernd-bot\",\"version\":\"0.1.0\"},\"event\":\"channel.delivery.failed\",\"msg\":\"channel delivery failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"channel\":\"telegram\",\"reason\":\"socket-closed\",\"account\":\"bernd-bot\"}}",
       "expect": "ok"
     },
     {
       "name": "example:channel.rate.limited",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"channel\",\"id\":\"telegram/bernd-bot\",\"version\":\"0.1.0\"},\"event\":\"channel.rate.limited\",\"msg\":\"channel rate limited\",\"attrs\":{\"channel\":\"telegram\",\"account\":\"bernd-bot\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:host.helper.connected",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"host\",\"id\":\"helper\",\"version\":\"0.1.0\"},\"event\":\"host.helper.connected\",\"msg\":\"host helper connected\",\"attrs\":{\"helper\":\"helper\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:host.helper.lost",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"host\",\"id\":\"helper\",\"version\":\"0.1.0\"},\"event\":\"host.helper.lost\",\"msg\":\"host helper lost\",\"attrs\":{\"helper\":\"helper\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:host.call.denied",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"host\",\"id\":\"helper\",\"version\":\"0.1.0\"},\"event\":\"host.call.denied\",\"msg\":\"host call denied\",\"attrs\":{\"capability\":\"example-reason\",\"helper\":\"helper\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:host.signature.invalid",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"host\",\"id\":\"helper\",\"version\":\"0.1.0\"},\"event\":\"host.signature.invalid\",\"msg\":\"host helper signature invalid\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"helper\":\"helper\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:host.bridge.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"host\",\"id\":\"helper\",\"version\":\"0.1.0\"},\"event\":\"host.bridge.failed\",\"msg\":\"host bridge failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"helper\":\"helper\",\"reason\":\"socket-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:desktop.app.started",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"desktop\",\"id\":\"shell\",\"version\":\"0.1.0\"},\"event\":\"desktop.app.started\",\"msg\":\"desktop app started\",\"attrs\":{\"component\":\"shell\",\"reason\":\"ipc-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:desktop.app.crashed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"fatal\",\"source\":{\"kind\":\"desktop\",\"id\":\"shell\",\"version\":\"0.1.0\"},\"event\":\"desktop.app.crashed\",\"msg\":\"desktop app crashed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"component\":\"shell\",\"crash_id\":\"example-crash_id\",\"reason\":\"ipc-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:desktop.connection.lost",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"desktop\",\"id\":\"shell\",\"version\":\"0.1.0\"},\"event\":\"desktop.connection.lost\",\"msg\":\"desktop lost its connection\",\"attrs\":{\"component\":\"shell\",\"reason\":\"ipc-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:desktop.webview.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"desktop\",\"id\":\"shell\",\"version\":\"0.1.0\"},\"event\":\"desktop.webview.failed\",\"msg\":\"desktop webview failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"component\":\"shell\",\"reason\":\"ipc-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:desktop.update.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"desktop\",\"id\":\"shell\",\"version\":\"0.1.0\"},\"event\":\"desktop.update.failed\",\"msg\":\"desktop update failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"component\":\"shell\",\"reason\":\"ipc-closed\"}}",
       "expect": "ok"
     },
     {
       "name": "example:desktop.deeplink.ignored",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"desktop\",\"id\":\"shell\",\"version\":\"0.1.0\"},\"event\":\"desktop.deeplink.ignored\",\"msg\":\"desktop deep link ignored\",\"attrs\":{\"reason\":\"ipc-closed\",\"component\":\"shell\"}}",
       "expect": "ok"
     },
     {
       "name": "example:os.service.installed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"os\",\"id\":\"systemd\",\"version\":\"256\"},\"event\":\"os.service.installed\",\"msg\":\"os service installed\",\"attrs\":{\"manager\":\"systemd\",\"unit\":\"plur1bus.service\",\"reason\":\"restart\"}}",
       "expect": "ok"
     },
     {
       "name": "example:os.service.restarted",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"warn\",\"source\":{\"kind\":\"os\",\"id\":\"systemd\",\"version\":\"256\"},\"event\":\"os.service.restarted\",\"msg\":\"os service restarted by the service manager\",\"attrs\":{\"manager\":\"systemd\",\"unit\":\"plur1bus.service\",\"reason\":\"restart\"}}",
       "expect": "ok"
     },
     {
       "name": "example:os.service.failed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"fatal\",\"source\":{\"kind\":\"os\",\"id\":\"systemd\",\"version\":\"256\"},\"event\":\"os.service.failed\",\"msg\":\"os service failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"manager\":\"systemd\",\"reason\":\"restart\",\"unit\":\"plur1bus.service\"}}",
       "expect": "ok"
     },
     {
       "name": "example:os.power.resumed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"os\",\"id\":\"systemd\",\"version\":\"256\"},\"event\":\"os.power.resumed\",\"msg\":\"system resumed from sleep\",\"attrs\":{\"manager\":\"systemd\",\"unit\":\"plur1bus.service\",\"reason\":\"restart\"}}",
       "expect": "ok"
     },
     {
       "name": "example:licence.accept-nc",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"licence.accept-nc\",\"msg\":\"noncommercial licence accepted\",\"attrs\":{\"licence\":\"noncommercial\",\"version\":\"1\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"licence.accept-nc\",\"target\":\"embedding.acceptedNcLicence\",\"detail\":{\"useClass\":\"research\",\"acceptedAt\":\"2026-10-01T09:14:03.218Z\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:setup.complete",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"setup.complete\",\"msg\":\"setup completed\",\"attrs\":{\"outcome\":\"ok\",\"steps\":9}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"setup.complete\",\"target\":\"/home/user/.plur1bus\",\"detail\":{\"target\":\"x86_64-unknown-linux-gnu\",\"channel\":\"stable\",\"core\":\"bundled\",\"profile\":\"standalone\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:repair.*",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"repair.run.permissions.fix\",\"msg\":\"repair step\",\"attrs\":{\"step\":\"run.permissions.fix\",\"outcome\":\"applied\",\"risk\":\"safe\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"repair.run.permissions.fix\",\"target\":\"run/\",\"detail\":{\"status\":\"applied\",\"reason\":\"permissions were group-writable\",\"detail\":{}},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:ext.install",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"ext.install\",\"msg\":\"extension install\",\"attrs\":{\"id\":\"example.skill\",\"outcome\":\"ok\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"trust\":\"first-party\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:ext.enable",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"ext.enable\",\"msg\":\"extension enable\",\"attrs\":{\"id\":\"example.skill\",\"outcome\":\"ok\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"trust\":\"first-party\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.enable\",\"target\":\"example.skill\",\"detail\":{\"kind\":\"skill\",\"agents\":\"all\",\"via\":\"cli\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:ext.disable",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"ext.disable\",\"msg\":\"extension disable\",\"attrs\":{\"id\":\"example.skill\",\"outcome\":\"ok\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"trust\":\"first-party\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.disable\",\"target\":\"example.skill\",\"detail\":{\"kind\":\"skill\",\"agents\":\"all\",\"via\":\"cli\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:ext.uninstall",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"ext.uninstall\",\"msg\":\"extension uninstall\",\"attrs\":{\"id\":\"example.skill\",\"outcome\":\"ok\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"trust\":\"first-party\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.uninstall\",\"target\":\"example.skill\",\"detail\":{\"kind\":\"skill\",\"version\":\"1.0.0\",\"trashId\":\"t_01J0\",\"purged\":false,\"via\":\"cli\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:ext.purge",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"ext.purge\",\"msg\":\"extension purge\",\"attrs\":{\"id\":\"example.skill\",\"outcome\":\"ok\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"trust\":\"first-party\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.purge\",\"target\":\"example.skill\",\"detail\":{\"kind\":\"skill\",\"version\":\"1.0.0\",\"trashId\":\"t_01J0\",\"purged\":false,\"via\":\"cli\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:ext.restore",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"ext.restore\",\"msg\":\"extension restore\",\"attrs\":{\"id\":\"example.skill\",\"outcome\":\"ok\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"trust\":\"first-party\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.restore\",\"target\":\"example.skill\",\"detail\":{\"kind\":\"skill\",\"version\":\"1.0.0\",\"trashId\":\"t_01J0\",\"purged\":false,\"via\":\"cli\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:config.set",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"config.set\",\"msg\":\"configuration changed\",\"attrs\":{\"key\":\"core.logLevel\",\"restart_class\":\"live\",\"old\":\"info\",\"new\":\"debug\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"config.set\",\"target\":\"core.logLevel\",\"detail\":{\"key\":\"core.logLevel\",\"restart_class\":\"live\",\"old\":\"info\",\"new\":\"debug\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:module.install",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"module.install\",\"msg\":\"module installed\",\"attrs\":{\"name\":\"fixture\",\"version\":\"0.1.0\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"module.install\",\"target\":\"fixture\",\"detail\":{\"name\":\"fixture\",\"version\":\"0.1.0\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:module.uninstall",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"module.uninstall\",\"msg\":\"module uninstalled\",\"attrs\":{\"name\":\"fixture\",\"version\":\"0.1.0\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"module.uninstall\",\"target\":\"fixture\",\"detail\":{\"name\":\"fixture\",\"version\":\"0.1.0\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:secret.create",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"secret.create\",\"msg\":\"secret created\",\"attrs\":{\"name\":\"provider/openai/api-key\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"secret.create\",\"target\":\"provider/openai/api-key\",\"detail\":{\"name\":\"provider/openai/api-key\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:secret.rotate",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"secret.rotate\",\"msg\":\"secret rotated\",\"attrs\":{\"name\":\"provider/openai/api-key\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"secret.rotate\",\"target\":\"provider/openai/api-key\",\"detail\":{\"name\":\"provider/openai/api-key\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:secret.delete",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"secret.delete\",\"msg\":\"secret deleted\",\"attrs\":{\"name\":\"provider/openai/api-key\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"secret.delete\",\"target\":\"provider/openai/api-key\",\"detail\":{\"name\":\"provider/openai/api-key\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:auth.login",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"auth.login\",\"msg\":\"login\",\"attrs\":{\"profile\":\"openai-oauth\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"auth.login\",\"target\":\"openai-oauth\",\"detail\":{\"profile\":\"openai-oauth\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:auth.logout",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"auth.logout\",\"msg\":\"logout\",\"attrs\":{\"profile\":\"openai-oauth\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"auth.logout\",\"target\":\"openai-oauth\",\"detail\":{\"profile\":\"openai-oauth\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:log.payload_capture.enabled",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.payload_capture.enabled\",\"msg\":\"payload capture enabled\",\"attrs\":{\"agent\":\"bernd\",\"until\":\"2026-10-01T10:14:03.218Z\",\"actor\":\"owner\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"log.payload_capture.enabled\",\"target\":\"bernd\",\"detail\":{\"agent\":\"bernd\",\"until\":\"2026-10-01T10:14:03.218Z\",\"actor\":\"owner\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:log.payload_capture.disabled",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"log.payload_capture.disabled\",\"msg\":\"payload capture disabled\",\"attrs\":{\"agent\":\"bernd\",\"until\":\"2026-10-01T10:14:03.218Z\",\"actor\":\"owner\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"log.payload_capture.disabled\",\"target\":\"bernd\",\"detail\":{\"agent\":\"bernd\",\"until\":\"2026-10-01T10:14:03.218Z\",\"actor\":\"owner\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:logs.otlp.enabled",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"logs.otlp.enabled\",\"msg\":\"OTLP export enabled\",\"attrs\":{\"endpoint\":\"https://collector.example.test:4318\",\"signals\":[\"diagnostic\"]}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"logs.otlp.enabled\",\"target\":\"https://collector.example.test:4318\",\"detail\":{\"endpoint\":\"https://collector.example.test:4318\",\"signals\":[\"diagnostic\"]},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:logs.otlp.disabled",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"logs.otlp.disabled\",\"msg\":\"OTLP export disabled\",\"attrs\":{\"endpoint\":\"https://collector.example.test:4318\",\"signals\":[\"diagnostic\"]}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"logs.otlp.disabled\",\"target\":\"https://collector.example.test:4318\",\"detail\":{\"endpoint\":\"https://collector.example.test:4318\",\"signals\":[\"diagnostic\"]},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:logs.retention.changed",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"logs.retention.changed\",\"msg\":\"log retention changed\",\"attrs\":{\"key\":\"logs.retentionDays.audit\",\"new_days\":400,\"old_days\":0}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"logs.retention.changed\",\"target\":\"logs.retentionDays.audit\",\"detail\":{\"key\":\"logs.retentionDays.audit\",\"new_days\":400,\"old_days\":0},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:approval.requested",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"approval.requested\",\"msg\":\"approval requested\",\"attrs\":{\"request_id\":\"ap_01J0\",\"tool\":\"fs.write\",\"decision\":\"approved\",\"store_ref\":\"42:3f9a1c0d\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"approval.requested\",\"target\":\"ap_01J0\",\"detail\":{\"request_id\":\"ap_01J0\",\"tool\":\"fs.write\",\"decision\":\"approved\",\"store_ref\":\"42:3f9a1c0d\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:approval.decided",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"approval.decided\",\"msg\":\"approval decided\",\"attrs\":{\"request_id\":\"ap_01J0\",\"decision\":\"approved\",\"tool\":\"fs.write\",\"store_ref\":\"42:3f9a1c0d\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"approval.decided\",\"target\":\"ap_01J0\",\"detail\":{\"request_id\":\"ap_01J0\",\"decision\":\"approved\",\"tool\":\"fs.write\",\"store_ref\":\"42:3f9a1c0d\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:grant.created",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"grant.created\",\"msg\":\"grant created\",\"attrs\":{\"grant_id\":\"gr_01J0\",\"scope\":\"fs.read:/projects/example\",\"store_ref\":\"43:7c1e9a20\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"grant.created\",\"target\":\"gr_01J0\",\"detail\":{\"grant_id\":\"gr_01J0\",\"scope\":\"fs.read:/projects/example\",\"store_ref\":\"43:7c1e9a20\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:grant.revoked",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"grant.revoked\",\"msg\":\"grant revoked\",\"attrs\":{\"grant_id\":\"gr_01J0\",\"scope\":\"fs.read:/projects/example\",\"store_ref\":\"43:7c1e9a20\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"grant.revoked\",\"target\":\"gr_01J0\",\"detail\":{\"grant_id\":\"gr_01J0\",\"scope\":\"fs.read:/projects/example\",\"store_ref\":\"43:7c1e9a20\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:grant.expired",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"grant.expired\",\"msg\":\"grant expired\",\"attrs\":{\"grant_id\":\"gr_01J0\",\"scope\":\"fs.read:/projects/example\",\"store_ref\":\"43:7c1e9a20\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"grant.expired\",\"target\":\"gr_01J0\",\"detail\":{\"grant_id\":\"gr_01J0\",\"scope\":\"fs.read:/projects/example\",\"store_ref\":\"43:7c1e9a20\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:policy.denied",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"policy.denied\",\"msg\":\"policy denied an action\",\"attrs\":{\"tool\":\"shell.run\",\"reason\":\"deny-list\",\"store_ref\":\"44:0a1b2c3d\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"policy.denied\",\"target\":\"shell.run\",\"detail\":{\"tool\":\"shell.run\",\"reason\":\"deny-list\",\"store_ref\":\"44:0a1b2c3d\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:approvals.integrity_failed",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"approvals.integrity_failed\",\"msg\":\"approval chain integrity failed\",\"err\":{\"code\":\"E_INTERNAL\",\"reason\":\"unexpected\",\"retryable\":false,\"hint\":\"see the diagnostic stream\"},\"attrs\":{\"store_ref\":\"45:00000000\",\"reason\":\"chain-mismatch\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"approvals.integrity_failed\",\"target\":\"45:00000000\",\"detail\":{\"store_ref\":\"45:00000000\",\"reason\":\"chain-mismatch\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:device.paired",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"device.paired\",\"msg\":\"device paired\",\"attrs\":{\"device_id\":\"dev_01J0\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"device.paired\",\"target\":\"dev_01J0\",\"detail\":{\"device_id\":\"dev_01J0\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:device.revoked",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"device.revoked\",\"msg\":\"device revoked\",\"attrs\":{\"device_id\":\"dev_01J0\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"device.revoked\",\"target\":\"dev_01J0\",\"detail\":{\"device_id\":\"dev_01J0\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "example:user.break_glass",
-      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"user.break_glass\",\"msg\":\"break-glass access\",\"attrs\":{\"target\":\"session:s_01J0\",\"reason\":\"owner-requested-recovery\"}}",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"user.break_glass\",\"target\":\"session:s_01J0\",\"detail\":{\"target\":\"session:s_01J0\",\"reason\":\"owner-requested-recovery\"},\"v\":2}",
       "expect": "ok"
     },
     {
       "name": "level:unknown-word",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"verbose\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "invalid_level"
     },
     {
       "name": "level:uppercase",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"INFO\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "invalid_level"
     },
     {
       "name": "level:number",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":9,\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "invalid_level"
     },
     {
       "name": "event:unregistered",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"made.up.event\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "unknown_event"
     },
     {
       "name": "event:bad-shape",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"Not A Name\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "unknown_event"
     },
     {
       "name": "event:family-needs-a-step",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"repair\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "unknown_event"
     },
     {
       "name": "event:looks-forged",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"supervisor.child.given_up.forged\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "unknown_event"
     },
     {
       "name": "msg:too-long",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "msg_too_long"
     },
     {
       "name": "msg:too-long-multibyte",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "msg_too_long"
     },
     {
       "name": "attrs:too-large",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"capability\":\"chat\",\"provider_request_id\":\"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1,\"foreign_message\":\"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\"finish_reason\":\"stop\",\"pad\":\"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\"}}",
       "expect": "attrs_too_large"
     },
     {
       "name": "schema:missing-source",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:missing-msg",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:extra-key",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1},\"extra\":1}",
       "expect": "schema"
     },
     {
       "name": "schema:bad-ts-shape",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01 09:14:03\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:ts-not-a-real-day",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-02-30T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:ts-hour-24",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T24:00:00.000Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:ts-leap-day-ok-but-month-13",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-13-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:source-kind-unknown",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"plugin\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:source-version-missing",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:trace-id-short",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"abc\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:trace-id-zero",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"00000000000000000000000000000000\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:span-without-trace",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:err-code-not-in-enum",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"E_MADE_UP\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:err-extra-key",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\",\"message\":\"foreign text\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:duration-negative",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":-1,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "schema"
     },
     {
       "name": "schema:turn-not-integer",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1},\"turn\":1.5}",
       "expect": "schema"
     },
     {
       "name": "schema:stream-bad-value",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1},\"stream\":\"stdin\"}",
       "expect": "schema"
     },
     {
       "name": "schema:array",
+      "validator": "diagnostic",
       "line": "[]",
       "expect": "not_object"
     },
     {
       "name": "schema:not-json",
+      "validator": "diagnostic",
       "line": "{not json",
       "expect": "not_object"
     },
     {
       "name": "order:level-before-ts",
+      "validator": "diagnostic",
       "line": "{\"level\":\"error\",\"ts\":\"2026-10-01T09:14:03.218Z\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "key_order"
     },
     {
       "name": "order:attrs-first",
+      "validator": "diagnostic",
       "line": "{\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1},\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"}}",
       "expect": "key_order"
     },
     {
       "name": "order:duplicate-key",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "key_order"
     },
     {
       "name": "level:not-allowed-for-event",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"fatal\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "level_not_allowed"
     },
     {
       "name": "level:trace-not-allowed",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"trace\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "level_not_allowed"
     },
     {
       "name": "kind:harness-forging-a-provider-event",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":null},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "source_kind_not_allowed"
     },
     {
       "name": "kind:extension-forging-supervisor-event",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"fatal\",\"source\":{\"kind\":\"extension\",\"id\":\"plugin/evil\",\"version\":\"1\"},\"event\":\"supervisor.child.given_up\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"role\":\"core\",\"attempts\":5}}",
       "expect": "source_kind_not_allowed"
     },
     {
       "name": "stream:wrapped-without-stream",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"attrs\":{\"text\":\"listening on port 8123\",\"untrusted\":true}}",
       "expect": "stream_mismatch"
     },
     {
       "name": "stream:on-a-normal-event",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"stream\":\"stderr\",\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "stream_mismatch"
     },
     {
       "name": "attrs:missing-required",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "attrs_invalid"
     },
     {
       "name": "attrs:unknown-key",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1,\"surprise\":true}}",
       "expect": "attrs_invalid"
     },
     {
       "name": "attrs:wrong-type",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":\"429\",\"retry_after_s\":12,\"attempt\":1}}",
       "expect": "attrs_invalid"
     },
     {
       "name": "attrs:forged-untrusted-false",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"module/fixture\",\"version\":\"0.1.0\"},\"event\":\"process.output.line\",\"msg\":\"process output\",\"stream\":\"stdout\",\"attrs\":{\"text\":\"listening on port 8123\",\"untrusted\":false}}",
       "expect": "attrs_invalid"
     },
     {
       "name": "attrs:absent-but-required",
+      "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"}}",
       "expect": "attrs_invalid"
+    },
+    {
+      "name": "stream:audit-action-in-a-diagnostic-record",
+      "validator": "diagnostic",
+      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"ext.install\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
+      "expect": "wrong_stream"
+    },
+    {
+      "name": "audit:v1-line-without-v",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"}}",
+      "expect": "ok"
+    },
+    {
+      "name": "audit:legacy-detail-with-extra-keys-is-tolerated",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\",\"futureKey\":1},\"v\":2}",
+      "expect": "ok"
+    },
+    {
+      "name": "audit:diagnostic-record-is-not-an-audit-line",
+      "validator": "audit",
+      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"error\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
+      "expect": "schema"
+    },
+    {
+      "name": "audit:diagnostic-action-is-unknown",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"provider.request.failed\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "unknown_event"
+    },
+    {
+      "name": "audit:unregistered-action",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"made.up.action\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "unknown_event"
+    },
+    {
+      "name": "audit:at-as-iso-string",
+      "validator": "audit",
+      "line": "{\"at\":\"2026-10-01T09:14:03.218Z\",\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "schema"
+    },
+    {
+      "name": "audit:at-negative",
+      "validator": "audit",
+      "line": "{\"at\":-1,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "schema"
+    },
+    {
+      "name": "audit:actor-missing-host",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "schema"
+    },
+    {
+      "name": "audit:missing-target",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "schema"
+    },
+    {
+      "name": "audit:extra-key",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2,\"level\":\"info\"}",
+      "expect": "schema"
+    },
+    {
+      "name": "audit:v-not-2",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":3}",
+      "expect": "schema"
+    },
+    {
+      "name": "audit:detail-too-large",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\",\"pad\":\"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\"},\"v\":2}",
+      "expect": "attrs_too_large"
+    },
+    {
+      "name": "audit:order-detail-before-target",
+      "validator": "audit",
+      "line": "{\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"v\":2}",
+      "expect": "key_order"
+    },
+    {
+      "name": "audit:duplicate-key",
+      "validator": "audit",
+      "line": "{\"at\":1,\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "key_order"
+    },
+    {
+      "name": "audit:source-kind-not-allowed",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2,\"source\":{\"kind\":\"extension\",\"id\":\"plugin/evil\",\"version\":\"1\"}}",
+      "expect": "source_kind_not_allowed"
+    },
+    {
+      "name": "audit:detail-wrong-type",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"sha256\":\"not-a-hash\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "attrs_invalid"
+    },
+    {
+      "name": "audit:detail-missing-required",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"u_9f3a\",\"host\":\"h_a1\"},\"action\":\"ext.install\",\"target\":\"example.skill\",\"detail\":{\"id\":\"example.skill\",\"version\":\"1.0.0\",\"kind\":\"skill\",\"trust\":\"first-party\",\"keyId\":null,\"replaced\":false,\"via\":\"cli\"},\"v\":2}",
+      "expect": "attrs_invalid"
+    },
+    {
+      "name": "audit:not-json",
+      "validator": "audit",
+      "line": "{nope",
+      "expect": "not_object"
     }
   ],
   "events": [
@@ -9491,13 +9791,11 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_licence",
       "requiredAttrs": [
-        "licence"
+        "useClass"
       ],
       "streamed": false,
       "family": false,
@@ -9505,7 +9803,7 @@
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -9540,19 +9838,21 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "licence": {
-            "type": "string",
-            "maxLength": 64,
-            "description": "licence id"
+          "useClass": {
+            "enum": [
+              "general",
+              "research",
+              "commercial"
+            ]
           },
-          "version": {
+          "acceptedAt": {
             "type": "string",
             "maxLength": 32,
-            "description": "licence version"
+            "description": "RFC 3339"
           }
         },
         "required": [
-          "licence"
+          "useClass"
         ]
       }
     },
@@ -9562,21 +9862,17 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_setup",
-      "requiredAttrs": [
-        "outcome"
-      ],
+      "requiredAttrs": [],
       "streamed": false,
       "family": false,
       "activity": false,
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -9611,21 +9907,28 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "steps": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "steps run"
+          "target": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "release target"
           },
-          "outcome": {
-            "enum": [
-              "ok",
-              "partial"
-            ]
+          "channel": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "release channel"
+          },
+          "core": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "core source"
+          },
+          "profile": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "install profile"
           }
         },
-        "required": [
-          "outcome"
-        ]
+        "required": []
       }
     },
     {
@@ -9634,14 +9937,11 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_repair",
       "requiredAttrs": [
-        "step",
-        "outcome"
+        "status"
       ],
       "streamed": false,
       "family": true,
@@ -9649,7 +9949,7 @@
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -9684,28 +9984,22 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "step": {
+          "status": {
             "type": "string",
-            "pattern": "^[a-z0-9_.:-]{1,64}$",
-            "description": "repair step id"
+            "maxLength": 32,
+            "description": "step outcome"
           },
-          "outcome": {
-            "enum": [
-              "applied",
-              "skipped",
-              "failed"
-            ]
+          "reason": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "why"
           },
-          "risk": {
-            "enum": [
-              "safe",
-              "risky"
-            ]
+          "detail": {
+            "description": "step-specific detail (any JSON)"
           }
         },
         "required": [
-          "step",
-          "outcome"
+          "status"
         ]
       }
     },
@@ -9715,14 +10009,13 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
-      "attrs": "audit_ext",
+      "level": null,
+      "levels": null,
+      "attrs": "audit_ext_install",
       "requiredAttrs": [
         "id",
-        "outcome"
+        "version",
+        "sha256"
       ],
       "streamed": false,
       "family": false,
@@ -9730,7 +10023,7 @@
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -9775,28 +10068,46 @@
             "maxLength": 64,
             "description": "version"
           },
+          "kind": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "skill, plugin, module"
+          },
           "sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "description": "package hash; survives redaction (pure hex)"
           },
           "trust": {
-            "enum": [
-              "first-party",
-              "third-party",
-              "unsigned"
-            ]
+            "type": "string",
+            "maxLength": 32,
+            "description": "trust tier"
           },
-          "outcome": {
-            "enum": [
-              "ok",
-              "failed"
-            ]
+          "keyId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "signing key id"
+          },
+          "acknowledged": {
+            "description": "acknowledged warnings (any JSON)"
+          },
+          "replaced": {
+            "type": "boolean",
+            "description": "replaced an installed version"
+          },
+          "via": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "host surface"
           }
         },
         "required": [
           "id",
-          "outcome"
+          "version",
+          "sha256"
         ]
       }
     },
@@ -9806,22 +10117,17 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
-      "attrs": "audit_ext",
-      "requiredAttrs": [
-        "id",
-        "outcome"
-      ],
+      "level": null,
+      "levels": null,
+      "attrs": "audit_ext_state",
+      "requiredAttrs": [],
       "streamed": false,
       "family": false,
       "activity": true,
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -9856,39 +10162,21 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "id": {
+          "kind": {
             "type": "string",
-            "maxLength": 128,
-            "description": "extension id"
+            "maxLength": 32,
+            "description": "skill, plugin, module"
           },
-          "version": {
+          "agents": {
+            "description": "null, \"all\" or a list of agent ids"
+          },
+          "via": {
             "type": "string",
-            "maxLength": 64,
-            "description": "version"
-          },
-          "sha256": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "description": "package hash; survives redaction (pure hex)"
-          },
-          "trust": {
-            "enum": [
-              "first-party",
-              "third-party",
-              "unsigned"
-            ]
-          },
-          "outcome": {
-            "enum": [
-              "ok",
-              "failed"
-            ]
+            "maxLength": 32,
+            "description": "host surface"
           }
         },
-        "required": [
-          "id",
-          "outcome"
-        ]
+        "required": []
       }
     },
     {
@@ -9897,22 +10185,17 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
-      "attrs": "audit_ext",
-      "requiredAttrs": [
-        "id",
-        "outcome"
-      ],
+      "level": null,
+      "levels": null,
+      "attrs": "audit_ext_state",
+      "requiredAttrs": [],
       "streamed": false,
       "family": false,
       "activity": true,
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -9947,39 +10230,21 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "id": {
+          "kind": {
             "type": "string",
-            "maxLength": 128,
-            "description": "extension id"
+            "maxLength": 32,
+            "description": "skill, plugin, module"
           },
-          "version": {
+          "agents": {
+            "description": "null, \"all\" or a list of agent ids"
+          },
+          "via": {
             "type": "string",
-            "maxLength": 64,
-            "description": "version"
-          },
-          "sha256": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "description": "package hash; survives redaction (pure hex)"
-          },
-          "trust": {
-            "enum": [
-              "first-party",
-              "third-party",
-              "unsigned"
-            ]
-          },
-          "outcome": {
-            "enum": [
-              "ok",
-              "failed"
-            ]
+            "maxLength": 32,
+            "description": "host surface"
           }
         },
-        "required": [
-          "id",
-          "outcome"
-        ]
+        "required": []
       }
     },
     {
@@ -9988,22 +10253,17 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
-      "attrs": "audit_ext",
-      "requiredAttrs": [
-        "id",
-        "outcome"
-      ],
+      "level": null,
+      "levels": null,
+      "attrs": "audit_ext_remove",
+      "requiredAttrs": [],
       "streamed": false,
       "family": false,
       "activity": true,
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -10038,39 +10298,41 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "id": {
+          "kind": {
             "type": "string",
-            "maxLength": 128,
-            "description": "extension id"
+            "maxLength": 32,
+            "description": "skill, plugin, module"
           },
           "version": {
             "type": "string",
             "maxLength": 64,
             "description": "version"
           },
-          "sha256": {
+          "trashId": {
             "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "description": "package hash; survives redaction (pure hex)"
+            "maxLength": 64,
+            "description": "trash entry id"
           },
-          "trust": {
-            "enum": [
-              "first-party",
-              "third-party",
-              "unsigned"
-            ]
+          "purged": {
+            "type": "boolean",
+            "description": "purged, not just trashed"
           },
-          "outcome": {
-            "enum": [
-              "ok",
-              "failed"
-            ]
+          "cascade": {
+            "description": "dependents handled (any JSON)"
+          },
+          "moved": {
+            "description": "paths moved (any JSON)"
+          },
+          "secrets": {
+            "description": "deleted secrets (any JSON)"
+          },
+          "via": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "host surface"
           }
         },
-        "required": [
-          "id",
-          "outcome"
-        ]
+        "required": []
       }
     },
     {
@@ -10079,22 +10341,17 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
-      "attrs": "audit_ext",
-      "requiredAttrs": [
-        "id",
-        "outcome"
-      ],
+      "level": null,
+      "levels": null,
+      "attrs": "audit_ext_remove",
+      "requiredAttrs": [],
       "streamed": false,
       "family": false,
       "activity": false,
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -10129,39 +10386,41 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "id": {
+          "kind": {
             "type": "string",
-            "maxLength": 128,
-            "description": "extension id"
+            "maxLength": 32,
+            "description": "skill, plugin, module"
           },
           "version": {
             "type": "string",
             "maxLength": 64,
             "description": "version"
           },
-          "sha256": {
+          "trashId": {
             "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "description": "package hash; survives redaction (pure hex)"
+            "maxLength": 64,
+            "description": "trash entry id"
           },
-          "trust": {
-            "enum": [
-              "first-party",
-              "third-party",
-              "unsigned"
-            ]
+          "purged": {
+            "type": "boolean",
+            "description": "purged, not just trashed"
           },
-          "outcome": {
-            "enum": [
-              "ok",
-              "failed"
-            ]
+          "cascade": {
+            "description": "dependents handled (any JSON)"
+          },
+          "moved": {
+            "description": "paths moved (any JSON)"
+          },
+          "secrets": {
+            "description": "deleted secrets (any JSON)"
+          },
+          "via": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "host surface"
           }
         },
-        "required": [
-          "id",
-          "outcome"
-        ]
+        "required": []
       }
     },
     {
@@ -10170,22 +10429,17 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
-      "attrs": "audit_ext",
-      "requiredAttrs": [
-        "id",
-        "outcome"
-      ],
+      "level": null,
+      "levels": null,
+      "attrs": "audit_ext_remove",
+      "requiredAttrs": [],
       "streamed": false,
       "family": false,
       "activity": false,
       "stability": "stable",
       "attrsSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "repeat": {
             "type": "integer",
@@ -10220,39 +10474,41 @@
             "minimum": 0,
             "description": "original size in bytes when truncated"
           },
-          "id": {
+          "kind": {
             "type": "string",
-            "maxLength": 128,
-            "description": "extension id"
+            "maxLength": 32,
+            "description": "skill, plugin, module"
           },
           "version": {
             "type": "string",
             "maxLength": 64,
             "description": "version"
           },
-          "sha256": {
+          "trashId": {
             "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "description": "package hash; survives redaction (pure hex)"
+            "maxLength": 64,
+            "description": "trash entry id"
           },
-          "trust": {
-            "enum": [
-              "first-party",
-              "third-party",
-              "unsigned"
-            ]
+          "purged": {
+            "type": "boolean",
+            "description": "purged, not just trashed"
           },
-          "outcome": {
-            "enum": [
-              "ok",
-              "failed"
-            ]
+          "cascade": {
+            "description": "dependents handled (any JSON)"
+          },
+          "moved": {
+            "description": "paths moved (any JSON)"
+          },
+          "secrets": {
+            "description": "deleted secrets (any JSON)"
+          },
+          "via": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "host surface"
           }
         },
-        "required": [
-          "id",
-          "outcome"
-        ]
+        "required": []
       }
     },
     {
@@ -10261,10 +10517,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_config_set",
       "requiredAttrs": [
         "key"
@@ -10340,10 +10594,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_module",
       "requiredAttrs": [
         "name"
@@ -10411,10 +10663,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_module",
       "requiredAttrs": [
         "name"
@@ -10482,10 +10732,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_secret",
       "requiredAttrs": [
         "name"
@@ -10548,10 +10796,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_secret",
       "requiredAttrs": [
         "name"
@@ -10614,10 +10860,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_secret",
       "requiredAttrs": [
         "name"
@@ -10680,10 +10924,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_auth",
       "requiredAttrs": [
         "profile"
@@ -10746,10 +10988,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_auth",
       "requiredAttrs": [
         "profile"
@@ -10812,10 +11052,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_payload_capture",
       "requiredAttrs": [
         "agent",
@@ -10890,10 +11128,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_payload_capture",
       "requiredAttrs": [
         "agent"
@@ -10966,10 +11202,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_otlp",
       "requiredAttrs": [
         "endpoint"
@@ -11041,10 +11275,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_otlp",
       "requiredAttrs": [],
       "streamed": false,
@@ -11112,10 +11344,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_retention",
       "requiredAttrs": [
         "key",
@@ -11190,10 +11420,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_approval",
       "requiredAttrs": [
         "request_id",
@@ -11276,10 +11504,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_approval",
       "requiredAttrs": [
         "request_id",
@@ -11362,10 +11588,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_grant",
       "requiredAttrs": [
         "grant_id",
@@ -11445,10 +11669,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_grant",
       "requiredAttrs": [
         "grant_id"
@@ -11526,10 +11748,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_grant",
       "requiredAttrs": [
         "grant_id"
@@ -11607,11 +11827,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info",
-        "warn"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_policy",
       "requiredAttrs": [
         "tool",
@@ -11686,10 +11903,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "error",
-      "levels": [
-        "error"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_integrity",
       "requiredAttrs": [
         "store_ref"
@@ -11757,10 +11972,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_device",
       "requiredAttrs": [
         "device_id"
@@ -11823,10 +12036,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_device",
       "requiredAttrs": [
         "device_id"
@@ -11889,10 +12100,8 @@
         "harness"
       ],
       "stream": "audit",
-      "level": "info",
-      "levels": [
-        "info"
-      ],
+      "level": null,
+      "levels": null,
       "attrs": "audit_break_glass",
       "requiredAttrs": [
         "target",
@@ -12175,6 +12384,48 @@
       ]
     }
   ],
+  "keyNames": {
+    "redact": [
+      "authorization",
+      "Authorization",
+      "Proxy-Authorization",
+      "access_token",
+      "refresh_token",
+      "token",
+      "x-api-key",
+      "api_key",
+      "apiKey",
+      "client_secret",
+      "clientSecret",
+      "password",
+      "set-cookie",
+      "id_token_hint",
+      "idTokenHint",
+      "code_verifier",
+      "session-key",
+      "accessToken",
+      "X-Auth-Token",
+      "private_key"
+    ],
+    "keep": [
+      "input_tokens",
+      "output_tokens",
+      "cache_read_tokens",
+      "cache_write_tokens",
+      "max_tokens",
+      "total_tokens",
+      "inputTokens",
+      "outputTokens",
+      "tokens",
+      "duration_ms",
+      "ticketing",
+      "secretary",
+      "passwords_checked",
+      "model",
+      "provider_request_id",
+      "retry_after_s"
+    ]
+  },
   "redactionNonMatches": [
     {
       "pattern": "base64url-run",
