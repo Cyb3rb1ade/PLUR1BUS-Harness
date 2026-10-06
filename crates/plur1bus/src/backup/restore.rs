@@ -130,7 +130,26 @@ fn extract(archive: &Path, staging: &Path, opts: &RestoreOpts) -> Result<Manifes
     for d in &manifest.dirs {
         fs::create_dir_all(live(staging, d))?;
     }
+    private_dirs(staging)?;
     Ok(manifest)
+}
+
+/// Directories this restore created are private to the user (0700 on unix; Windows inherits the home's ACL).
+#[cfg(unix)]
+fn private_dirs(dir: &Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
+    for e in fs::read_dir(dir)? {
+        let e = e?;
+        if e.file_type()?.is_dir() {
+            private_dirs(&e.path())?;
+        }
+    }
+    Ok(())
+}
+#[cfg(not(unix))]
+fn private_dirs(_: &Path) -> io::Result<()> {
+    Ok(())
 }
 
 /// One completed step of the swap, kept to undo it.
