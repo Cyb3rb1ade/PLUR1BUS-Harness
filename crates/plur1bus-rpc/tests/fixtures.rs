@@ -110,6 +110,9 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AdminObsidianConfirmParams, AdminObsidianConfirmResult>(name, f)
         }
         "admin.migrate" => pair::<AdminMigrateParams, AdminMigrateResult>(name, f),
+        "admin.backup.snapshot" => {
+            pair::<AdminBackupSnapshotParams, AdminBackupSnapshotResult>(name, f)
+        }
         "admin.embedding.probe" => {
             pair::<AdminEmbeddingProbeParams, AdminEmbeddingProbeResult>(name, f)
         }
@@ -136,6 +139,17 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<ModelsRemoveManualParams, ModelsRemoveManualResult>(name, f)
         }
         "models.acknowledge" => pair::<ModelsAcknowledgeParams, ModelsAcknowledgeResult>(name, f),
+        "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
+        "identity.human.create" => {
+            pair::<IdentityHumanCreateParams, IdentityHumanCreateResult>(name, f)
+        }
+        "identity.link" => pair::<IdentityLinkParams, IdentityLinkResult>(name, f),
+        "identity.pair.start" => pair::<IdentityPairStartParams, IdentityPairStartResult>(name, f),
+        "identity.pair.claim" => pair::<IdentityPairClaimParams, IdentityPairClaimResult>(name, f),
+        "identity.pair.confirm" => {
+            pair::<IdentityPairConfirmParams, IdentityPairConfirmResult>(name, f)
+        }
+        "identity.unlink" => pair::<IdentityUnlinkParams, IdentityUnlinkResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
@@ -214,6 +228,7 @@ fn every_method_fixture_round_trips() {
         "admin.obsidian.prepare",
         "admin.obsidian.confirm",
         "admin.migrate",
+        "admin.backup.snapshot",
         "admin.embedding.probe",
         "admin.embedding.serve",
         "admin.reembed.plan",

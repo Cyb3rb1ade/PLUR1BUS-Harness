@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod agent;
+pub mod backup;
 pub mod budget;
 pub mod config;
 pub mod core;
@@ -25,6 +26,7 @@ pub mod skill;
 pub mod stubs;
 pub mod update;
 pub(crate) mod update_apply;
+pub mod user;
 
 use crate::output::Out;
 use crate::paths::Layout;

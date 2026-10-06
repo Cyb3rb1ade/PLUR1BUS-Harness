@@ -68,6 +68,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus admin embedding`↴](#plur1bus-admin-embedding)
 * [`plur1bus admin embedding probe`↴](#plur1bus-admin-embedding-probe)
 * [`plur1bus admin embedding serve`↴](#plur1bus-admin-embedding-serve)
+* [`plur1bus backup`↴](#plur1bus-backup)
+* [`plur1bus backup create`↴](#plur1bus-backup-create)
+* [`plur1bus backup verify`↴](#plur1bus-backup-verify)
+* [`plur1bus backup restore`↴](#plur1bus-backup-restore)
 * [`plur1bus daemon`↴](#plur1bus-daemon)
 * [`plur1bus daemon start`↴](#plur1bus-daemon-start)
 * [`plur1bus daemon stop`↴](#plur1bus-daemon-stop)
@@ -82,6 +86,14 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus update`↴](#plur1bus-update)
 * [`plur1bus update status`↴](#plur1bus-update-status)
 * [`plur1bus user`↴](#plur1bus-user)
+* [`plur1bus user ls`↴](#plur1bus-user-ls)
+* [`plur1bus user add`↴](#plur1bus-user-add)
+* [`plur1bus user pair`↴](#plur1bus-user-pair)
+* [`plur1bus user pair start`↴](#plur1bus-user-pair-start)
+* [`plur1bus user pair claim`↴](#plur1bus-user-pair-claim)
+* [`plur1bus user pair confirm`↴](#plur1bus-user-pair-confirm)
+* [`plur1bus user link`↴](#plur1bus-user-link)
+* [`plur1bus user unlink`↴](#plur1bus-user-unlink)
 * [`plur1bus model`↴](#plur1bus-model)
 * [`plur1bus model list`↴](#plur1bus-model-list)
 * [`plur1bus model scan`↴](#plur1bus-model-scan)
@@ -137,11 +149,12 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
 * `admin` — [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
+* `backup` — [experimental] Backup and restore: create, verify, restore
 * `daemon` — Supervisor control: start, stop, restart, status
 * `service` — OS service registration of the supervisor (user context, no admin rights)
 * `core` — Core process (internal)
 * `update` — [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
-* `user` — Users — M2
+* `user` — [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
@@ -1025,6 +1038,68 @@ Serving lasts only as long as this core process: it ends when the core stops or 
 
 
 
+## `plur1bus backup`
+
+[experimental] Backup and restore: create, verify, restore
+
+**Usage:** `plur1bus backup <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+* `verify` — [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+* `restore` — [experimental] Restore an archive into this home (the core must be stopped)
+
+
+
+## `plur1bus backup create`
+
+[experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+
+The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+
+**Usage:** `plur1bus backup create [OPTIONS]`
+
+###### **Options:**
+
+* `--out <OUT>` — where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
+* `--dry-run` — list what would be archived and where, without touching the core or writing anything
+
+
+
+## `plur1bus backup verify`
+
+[experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+
+Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry, checksum-mismatch, missing-entry) for an archive a restore would refuse.
+
+**Usage:** `plur1bus backup verify <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — the archive
+
+
+
+## `plur1bus backup restore`
+
+[experimental] Restore an archive into this home (the core must be stopped)
+
+Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+
+**Usage:** `plur1bus backup restore [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>` — the archive
+
+###### **Options:**
+
+* `--dry-run` — print what would be replaced, created and removed, without changing anything
+* `--yes` — apply without asking
+
+
+
 ## `plur1bus daemon`
 
 Supervisor control: start, stop, restart, status
@@ -1180,13 +1255,139 @@ Needs a verified release feed. Stops the daemon, snapshots the binary, `config.j
 
 ## `plur1bus user`
 
-Users — M2
+[experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 
-**Usage:** `plur1bus user`
+One human across channels only by proof (D24, ADR-007): a one-time pairing code the owner confirms, or a link the owner makes by hand. Nothing is ever linked by a matching name.
+
+**Usage:** `plur1bus user <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — [experimental] List humans with their linked identities and the pairings still waiting
+* `add` — [experimental] Create a human (an opaque id; prints it)
+* `pair` — [experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+* `link` — [experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+* `unlink` — [experimental] Revoke a link at once (the record stays for the audit trail)
+
+
+
+## `plur1bus user ls`
+
+[experimental] List humans with their linked identities and the pairings still waiting
+
+**Usage:** `plur1bus user ls [OPTIONS]`
+
+###### **Options:**
+
+* `--all` — Include revoked links
+
+
+
+## `plur1bus user add`
+
+[experimental] Create a human (an opaque id; prints it)
+
+**Usage:** `plur1bus user add <NAME>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<NAME>`
+
+
+
+## `plur1bus user pair`
+
+[experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+
+**Usage:** `plur1bus user pair <COMMAND>`
+
+###### **Subcommands:**
+
+* `start` — [experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+* `claim` — [experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+* `confirm` — [experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+
+
+
+## `plur1bus user pair start`
+
+[experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+
+**Usage:** `plur1bus user pair start --channel <CHANNEL> <HUMAN>`
+
+###### **Arguments:**
+
+* `<HUMAN>` — The human's id (see `user ls`)
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+
+
+
+## `plur1bus user pair claim`
+
+[experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+
+**Usage:** `plur1bus user pair claim [OPTIONS] --channel <CHANNEL> --account <ACCOUNT> --user-id <USER_ID> <CODE>`
+
+###### **Arguments:**
+
+* `<CODE>`
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+* `--account <ACCOUNT>`
+* `--user-id <USER_ID>`
+* `--display-name <DISPLAY_NAME>`
+
+
+
+## `plur1bus user pair confirm`
+
+[experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+
+**Usage:** `plur1bus user pair confirm [OPTIONS] <PAIRING>`
+
+###### **Arguments:**
+
+* `<PAIRING>`
+
+###### **Options:**
+
+* `--reject`
+
+
+
+## `plur1bus user link`
+
+[experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+
+**Usage:** `plur1bus user link [OPTIONS] --channel <CHANNEL> --account <ACCOUNT> --user-id <USER_ID> <HUMAN>`
+
+###### **Arguments:**
+
+* `<HUMAN>` — The human's id (see `user ls`)
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+* `--account <ACCOUNT>`
+* `--user-id <USER_ID>`
+* `--display-name <DISPLAY_NAME>` — A label for people to read; never matched on
+
+
+
+## `plur1bus user unlink`
+
+[experimental] Revoke a link at once (the record stays for the audit trail)
+
+**Usage:** `plur1bus user unlink <LINK>`
+
+###### **Arguments:**
+
+* `<LINK>` — The link's id (see `user ls`)
 
 
 

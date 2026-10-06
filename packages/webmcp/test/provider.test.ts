@@ -54,7 +54,7 @@ describe("tool naming and selection", () => {
 
   it("admin methods are never offered as WebMCP tools", () => {
     const admin = (Object.keys(caps.methods)).filter((m) => m.startsWith("admin."));
-    assert.equal(admin.length, 10, `the core advertises the admin.* methods: ${admin.join(", ")}`);
+    assert.equal(admin.length, 11, `the core advertises the admin.* methods: ${admin.join(", ")}`);
     // Even when the handshake calls them stable and core-served and the page names them in include (D55).
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;
@@ -125,6 +125,15 @@ describe("tool naming and selection", () => {
 
     const toolsWithList = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include: ["models.list"] });
     assert.ok(byName(toolsWithList, "models.list") !== undefined);
+  });
+
+  it("every identity.* method is refused, even when named in include (D24: identity is owner-side only)", () => {
+    for (const m of ["identity.list", "identity.human.create", "identity.link", "identity.pair.start", "identity.pair.claim", "identity.pair.confirm", "identity.unlink"]) {
+      assert.ok(isForbiddenMethod(m), `${m} is forbidden`);
+    }
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, call: fakeCall(), include: ["identity.list", "identity.pair.start"] });
+    assert.equal(byName(tools, "identity.list"), undefined);
+    assert.equal(byName(tools, "identity.pair.start"), undefined);
   });
 
   it("ext.list and ext.inspect are not refused by the deny list", () => {

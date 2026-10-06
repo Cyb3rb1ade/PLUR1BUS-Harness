@@ -74,6 +74,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AdminCmd,
     },
+    /// [experimental] Backup and restore: create, verify, restore
+    Backup {
+        #[command(subcommand)]
+        sub: BackupCmd,
+    },
     /// Supervisor control: start, stop, restart, status
     Daemon {
         #[command(subcommand)]
@@ -93,8 +98,14 @@ pub enum Cmd {
     ///
     /// Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
     Update(UpdateArgs),
-    /// Users — M2
-    User(StubArgs),
+    /// [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
+    ///
+    /// One human across channels only by proof (D24, ADR-007): a one-time pairing code the owner confirms, or a link the
+    /// owner makes by hand. Nothing is ever linked by a matching name.
+    User {
+        #[command(subcommand)]
+        sub: UserCmd,
+    },
     /// [experimental] Models and provider profiles: list, scan and override
     Model {
         #[command(subcommand)]
@@ -701,6 +712,47 @@ pub enum ModuleCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum BackupCmd {
+    /// [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+    ///
+    /// The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite
+    /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
+    /// copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and
+    /// `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+    Create {
+        /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// list what would be archived and where, without touching the core or writing anything
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+    ///
+    /// Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry,
+    /// checksum-mismatch, missing-entry) for an archive a restore would refuse.
+    Verify {
+        /// the archive
+        file: PathBuf,
+    },
+    /// [experimental] Restore an archive into this home (the core must be stopped)
+    ///
+    /// Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in
+    /// `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or
+    /// `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+    Restore {
+        /// the archive
+        file: PathBuf,
+        /// print what would be replaced, created and removed, without changing anything
+        #[arg(long)]
+        dry_run: bool,
+        /// apply without asking
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum AdminCmd {
     /// [experimental] Obsidian vault setup for an agent: detect, prepare, confirm
     Obsidian {
@@ -1285,4 +1337,69 @@ mod tests {
             other => panic!("{other:?}"),
         }
     }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UserCmd {
+    /// [experimental] List humans with their linked identities and the pairings still waiting
+    Ls {
+        /// Include revoked links
+        #[arg(long)]
+        all: bool,
+    },
+    /// [experimental] Create a human (an opaque id; prints it)
+    Add { name: String },
+    /// [experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+    Pair {
+        #[command(subcommand)]
+        sub: PairCmd,
+    },
+    /// [experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+    Link {
+        /// The human's id (see `user ls`)
+        human: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long)]
+        account: String,
+        #[arg(long = "user-id")]
+        user_id: String,
+        /// A label for people to read; never matched on
+        #[arg(long)]
+        display_name: Option<String>,
+    },
+    /// [experimental] Revoke a link at once (the record stays for the audit trail)
+    Unlink {
+        /// The link's id (see `user ls`)
+        link: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PairCmd {
+    /// [experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+    Start {
+        /// The human's id (see `user ls`)
+        human: String,
+        #[arg(long)]
+        channel: String,
+    },
+    /// [experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+    Claim {
+        code: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long)]
+        account: String,
+        #[arg(long = "user-id")]
+        user_id: String,
+        #[arg(long)]
+        display_name: Option<String>,
+    },
+    /// [experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+    Confirm {
+        pairing: String,
+        #[arg(long)]
+        reject: bool,
+    },
 }

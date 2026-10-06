@@ -65,6 +65,8 @@ Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` 
 `admin.migrate`, `admin.embedding.*`, `admin.reembed.*`). A test pins that every `admin.*` method in the schema has a rule.
 The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`.
 
+The M3 `identity.*` methods are secured by the nearest existing pattern: `identity.list` → `users.read`, and `identity.human.create`, `identity.link`, `identity.unlink`, `identity.pair.start|claim|confirm` → `users.manage` (system resource, Owner and Admin). Their descriptions say "Owner only"; today every connection is the owner, so nothing changes, and whether these should be Owner-only is for the roles ruling (R4/R5 open).
+
 **Not yet secured** (they stay owner-equivalent for the local connection): `core.*`, `memory.recall|capture|checkpoint|
 list|show|correct|share|state|propose|proposals.*|proposal`, `agent.open|close|list|activity`, `jobs.list|history`,
 `models.list|scan|acknowledge`, `dreams.status|log|schedule.get`. Params are schema-validated before the guard runs, so a malformed call is
@@ -147,3 +149,4 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.reembed.run` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.status` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.abort` | system | ✔ | ✔ | – | – | – |
+| `admin.backup.snapshot` | system | ✔ | ✔ | – | – | – |

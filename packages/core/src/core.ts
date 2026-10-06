@@ -7,6 +7,7 @@ import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch, type SecurePat
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
+import { BACKUP_METHODS } from "./backup-ops.ts";
 import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
 import { createEnginePort } from "./embedding-migrate/engine-port.ts";
 import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
@@ -43,11 +44,13 @@ import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.t
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
 import { createDreams, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
+import { createAuditWriter } from "./identity/audit.ts";
+import { createIdentityService, type IdentityService } from "./identity/service.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
  *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...REEMBED_METHODS, "memory.capture"] as const;
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -150,6 +153,7 @@ export function createCore(o: CoreOptions): Core {
   let scanScheduler: ScanScheduler | null = null;
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
+  let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
   let budget: BudgetService | null = null;
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
@@ -417,6 +421,11 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
+      identity = createIdentityService({
+        dbPath: path.join(l.state, "identity.sqlite"), clock,
+        audit: createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock }),
+      });
+
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
       const migration = createMigrationDriver({
         engine: createEnginePort(eng), store: createStateStore(l.state), logger: log,
@@ -441,6 +450,8 @@ export function createCore(o: CoreOptions): Core {
         discovery,
         dreams: () => dreams?.scheduler ?? null,
         dreamsError: () => dreamsError,
+        identity,
+        backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
         reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log }),
         ...(budget ? { budget } : {}),
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
@@ -514,6 +525,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "config watch", async () => { await source?.close(); });
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
+      await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
       await step(log, "run files", () => removeRunFiles());
@@ -588,6 +600,7 @@ export function createCore(o: CoreOptions): Core {
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
+      await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;
