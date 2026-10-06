@@ -55,6 +55,8 @@ fn main() {
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
+        Cmd::Session { sub } => commands::session::run(&out, &layout, sub),
+        Cmd::Chat(args) => commands::session::chat(&out, &layout, args),
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
         Cmd::Ext {
             cmd: cli::ExtCmd::Worker { op },
