@@ -14,7 +14,7 @@ import { DEFAULT_MAX_SKILL_BYTES } from "./skills-scan.ts";
 import { ImportError, type SourceType } from "./types.ts";
 
 export type Envelope =
-  | { ok: true; schema: string; value: Record<string, unknown>; human: string }
+  | { ok: true; schema: string; value: Record<string, unknown>; human: string; exit?: number }
   | { ok: false; error: string; message: string; reason: string; exit: number };
 
 const fail = (error: string, reason: string, message: string, exit = 2): Envelope => ({ ok: false, error, message, reason, exit });
@@ -104,12 +104,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
           resume: values.resume as string | undefined,
           adoptStore: values["adopt-store"] as string | undefined,
         });
-        if (r.errors.length > 0) {
-          // Exit 1 with reason codes only; the full report (apply) stays on disk and the run is resumable.
-          const where = r.reportPath ? `; report: ${r.reportPath}; resume with --resume ${r.runId}` : "";
-          return fail("E_IMPORT_FAILED", r.errors[0]?.reason ?? "import-failed", `import completed with ${r.errors.length} error(s): ${[...new Set(r.errors.map((e) => e.reason))].join(", ")}${where}`, 1);
-        }
-        return { ok: true, schema: "import.hermes/1", value: r as unknown as Record<string, unknown>, human: renderHermes(r) };
+        return { ok: true, schema: "import.hermes/1", value: r as unknown as Record<string, unknown>, human: renderHermes(r), exit: r.errors.length > 0 ? 1 : 0 };
       }
     }
     if (mode === "detect") {

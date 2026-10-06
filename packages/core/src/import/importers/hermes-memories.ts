@@ -8,7 +8,7 @@
 // Errors from memory.import are tracked in errors[] and counted as rejected, never swallowed.
 // NEVER writes directly to LanceDB or imports external vector store libraries.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import type { Layout } from "../../paths.ts";
 import {
@@ -153,9 +153,25 @@ function writeMirrorWithConflict(opts: {
     const dir = dirname(targetPath);
     const ext = ".md";
     const base = basename(targetPath, ext);
+    for (const name of readdirSync(dir).sort()) {
+      if (name !== `${base}.imported${ext}` && !(name.startsWith(`${base}.imported-`) && name.endsWith(ext))) continue;
+      const matchPath = join(dir, name);
+      const existing = readHermesSourceFileSafe(matchPath, Buffer.byteLength(content));
+      if (existing.ok && createHash("sha256").update(existing.buffer).digest("hex") === sha) {
+        ledger?.record({
+          entity: "file",
+          idempotencyKey: fileIdempotencyKey(agentId, relative(l.workspaceDir(agentId), matchPath), sha),
+          action: "matched-existing",
+          sourceRef,
+          targetRef: relative(l.home, matchPath).replaceAll("\\", "/"),
+          sha256: sha,
+        });
+        return;
+      }
+    }
     let idx = 1;
-    let renamePath = join(dir, `${base}.imported${ext}`);
-    while (existsSync(renamePath)) {
+    let renamePath = join(dir, `${base}.imported-${idx}${ext}`);
+    while (existsNoFollow(renamePath)) {
       idx++;
       renamePath = join(dir, `${base}.imported-${idx}${ext}`);
     }

@@ -184,8 +184,12 @@ export function renderHermes(r: any): string {
   if (r.reportPath) {
     L.push("", `Report: ${r.reportPath}`);
   }
+  if (r.errors.length) {
+    L.push("", "Errors:");
+    for (const e of r.errors) L.push(`  ${e.sourceRef}: ${e.reason}`);
+    if (r.reportPath) L.push(`Resume with: plur1bus import hermes --resume ${r.runId}`);
+  }
   const c = r.counts;
   L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.memoryCardsImported} memory cards imported, ${c.memoryCardsSkippedDuplicate} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred} channel pairings deferred; ${c.cronJobsDeferred} cron jobs deferred.`);
   return L.join("\n");
 }
-

@@ -143,6 +143,10 @@ pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
         let human = env["human"].as_str().unwrap_or_default().to_string();
         let value = env.get("value").cloned().unwrap_or_else(|| json!({}));
         out.ok(&schema, &value, || human);
+        let exit = env["exit"].as_i64().map_or(0, |e| e as i32);
+        if exit != 0 {
+            std::process::exit(exit);
+        }
     } else {
         let code = env["error"].as_str().unwrap_or("E_IMPORT_FAILED");
         let message = env["message"].as_str().unwrap_or("import failed");
