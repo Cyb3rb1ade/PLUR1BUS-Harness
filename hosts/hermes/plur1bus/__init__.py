@@ -72,6 +72,9 @@ SHUTDOWN_BUDGET_S = 2.0
 PRE_COMPRESS_WAIT_S = 2.0
 PRE_COMPRESS_CALL_S = 1.0
 CAPTURE_DEADLINE_S = 5.0
+#: Turns the worker has not taken yet; past this the oldest is dropped and counted ``lost`` (a stuck worker must
+#: not grow memory without bound).
+MAX_PENDING_TURNS = 200
 TOOL_DEADLINE_S = 5.0
 #: The only context whose turns are captured (Hermes: skip automatic writes for non-primary contexts).
 CAPTURE_CONTEXTS = frozenset({"primary"})
@@ -293,7 +296,13 @@ class Plur1busMemoryProvider(MemoryProvider):
             if self._stopped:
                 return
             self._items.append(entry)
+            overflow = len(self._items) - MAX_PENDING_TURNS
+            for _ in range(max(0, overflow)):
+                self._items.popleft()
+                self._lost += 1
             self._cv.notify_all()
+        if overflow > 0:
+            log.warning("plur1bus: capture queue full, dropped %d oldest turn(s)", overflow)
         self._ensure_worker()
 
     def _ensure_worker(self) -> None:
@@ -306,38 +315,50 @@ class Plur1busMemoryProvider(MemoryProvider):
         worker.start()
 
     def _worker_loop(self) -> None:
+        while True:
+            try:
+                if self._worker_step():
+                    return
+            except Exception as e:  # noqa: BLE001 - the capture worker must outlive any one bad iteration
+                log.warning("plur1bus: capture worker error (%s); continuing", _code(e))
+                time.sleep(0.05)
+
+    def _worker_step(self) -> bool:
+        """One wake of the worker; True when it should exit."""
         journal = self._journal
         assert journal is not None
-        while True:
-            with self._cv:
-                while not (self._stopped or self._items or self._error_dirty or (self._drain_wanted and not self._closing)):
-                    self._cv.wait()
-                if self._stopped:
-                    return
-                write_error, code = self._error_dirty, self._last_error
-                self._error_dirty = False
-                want_drain = self._drain_wanted and not self._closing
-                self._drain_wanted = False
-                inflight = None
-                if self._items:
-                    inflight = self._inflight = _Inflight(self._items.popleft())
+        with self._cv:
+            while not (self._stopped or self._items or self._error_dirty or (self._drain_wanted and not self._closing)):
+                self._cv.wait()
+            if self._stopped:
+                return True
+            write_error, code = self._error_dirty, self._last_error
+            self._error_dirty = False
+            want_drain = self._drain_wanted and not self._closing
+            self._drain_wanted = False
+            inflight = None
+            if self._items:
+                inflight = self._inflight = _Inflight(self._items.popleft())
+        try:
             if write_error:
                 try:
                     journal.note_error(code)
                 except Exception as e:  # noqa: BLE001 - status only
-                    log.info("plur1bus: could not record the last error (%s)", type(e).__name__)
+                    log.info("plur1bus: could not record the last error (%s)", _code(e))
             if self._queued is None:
                 try:
                     self._queued = journal.counts()["queued"]
-                except OSError:
+                except Exception as e:  # noqa: BLE001 - counts() never raises on a bad file; anything else is a bug to survive
+                    log.info("plur1bus: could not count the journal (%s)", _code(e))
                     self._queued = 0
             if inflight is None:
                 if want_drain and self._queued:
                     self._drain()
-                continue
-            try:
-                self._process(inflight)
-            finally:
+                return False
+            self._process(inflight)
+            return False
+        finally:
+            if inflight is not None:
                 with self._cv:
                     self._inflight = None
                     self._cv.notify_all()

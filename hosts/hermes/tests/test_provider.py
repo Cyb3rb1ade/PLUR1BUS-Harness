@@ -734,6 +734,73 @@ class RobustnessTest(unittest.TestCase):
         p.prefetch("the next successful recall wakes the replay")
         self.assertTrue(wait_until(lambda: "left over" in self._users(self.sb.captures()), 15), "replayed once the lock is free")
 
+    def test_a_malformed_state_file_does_not_kill_the_capture_worker(self) -> None:
+        """Audit (low): counters in state.json that are not numbers used to raise inside the worker thread."""
+        self.sb.bind()
+        core = self.sb.start_core()
+        self.sb.stop_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        os.makedirs(p.journal.dir, mode=0o700, exist_ok=True)
+        with open(p.journal.state_path, "w", encoding="utf-8") as f:
+            f.write('{"dropped": "abc", "rejected": [1], "lost": {"a": 1}, "lastError": 7}')
+        p.sync_turn("first turn while the state file is garbage", "a")
+        p.sync_turn("second turn", "b")
+        p._wait_idle(5)
+        self.assertEqual(p.journal.counts()["queued"], 2)
+        self.assertTrue(p._worker.is_alive(), "the worker survived")
+        core.start()
+        p.sync_turn("third turn", "c")
+        p._wait_idle(5)
+        self.assertEqual(self._users(self.sb.captures()), ["first turn while the state file is garbage", "second turn", "third turn"])
+
+    def test_an_unexpected_error_in_the_worker_is_survived(self) -> None:
+        self.sb.bind()
+        self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        real = p._journal.counts
+        calls = [0]
+
+        def boom() -> dict:
+            calls[0] += 1
+            if calls[0] == 1:
+                raise RuntimeError("unexpected")
+            return real()
+
+        with mock.patch.object(p._journal, "counts", boom):
+            p.sync_turn("a turn during the failure", "a")
+            p._wait_idle(5)
+            p.sync_turn("a turn after it", "b")
+            p._wait_idle(5)
+        self.assertTrue(p._worker.is_alive())
+        self.assertIn("a turn after it", self._users(self.sb.captures()))
+
+    def test_the_in_memory_capture_queue_is_bounded(self) -> None:
+        self.sb.bind()
+        self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        gate = threading.Event()
+        self.addCleanup(gate.set)
+        real = p._send_entry
+
+        def blocked(entry: dict) -> None:
+            gate.wait(10)
+            real(entry)
+
+        with mock.patch.object(plur1bus, "MAX_PENDING_TURNS", 5), mock.patch.object(p, "_send_entry", blocked):
+            for i in range(20):
+                p.sync_turn(f"turn {i}", "a")
+            self.assertTrue(wait_until(lambda: p._inflight is not None, 3))
+            with p._cv:
+                pending = len(p._items)
+            self.assertLessEqual(pending, 5)
+            self.assertGreaterEqual(p.lost, 14, "what overflowed is counted, never silent")
+            gate.set()
+            p._wait_idle(10)
+        self.assertEqual(self._users(self.sb.captures())[-1], "turn 19", "the newest turns are kept")
+
     def test_slow_state_writes_do_not_delay_prefetch(self) -> None:
         from plur1bus import journal as journal_mod
 
