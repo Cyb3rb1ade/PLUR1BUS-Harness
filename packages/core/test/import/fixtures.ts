@@ -409,6 +409,7 @@ skills:
   write(join(root, "skills", ".curator_state"), "{}");
 
   const store = join(root, "memory", "lancedb-namespaced");
+  write(join(store, "_schema.json"), JSON.stringify({ schemaVersion: "1" }));
   await lanceStore(join(store, "default"), 384, 2);
 
   const workDir = join(root, "profiles", "work");

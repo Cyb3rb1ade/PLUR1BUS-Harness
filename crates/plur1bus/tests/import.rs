@@ -19,22 +19,39 @@ fn json_of(out: &[u8]) -> Value {
 }
 
 #[test]
-fn hermes_without_a_mode_is_the_m7_stub() {
+fn hermes_full_import_forwards_to_importer() {
+    let home = tempfile::tempdir().unwrap();
     let out = bin()
-        .args(["--json", "import", "hermes"])
+        .env("PLUR1BUS_IMPORT_JS", fake())
+        .env("PLUR1BUS_NODE", "node")
+        .arg("--home")
+        .arg(home.path())
+        .args([
+            "--json",
+            "import",
+            "hermes",
+            "--conflict",
+            "replace",
+            "--adopt-store",
+            "/path/to/store",
+        ])
         .assert()
-        .code(2)
+        .success()
         .get_output()
         .stdout
         .clone();
     let v = json_of(&out);
-    assert_eq!(v["error"], "E_NOT_AVAILABLE");
-    assert_eq!(v["milestone"], "M7");
-    bin()
-        .args(["import", "hermes"])
-        .assert()
-        .code(2)
-        .stderr(predicates::str::contains("M7"));
+    let argv: Vec<String> = serde_json::from_value(v["argv"].clone()).unwrap();
+    assert_eq!(
+        &argv[..5],
+        [
+            "hermes",
+            "--on-conflict",
+            "replace",
+            "--adopt-store",
+            "/path/to/store"
+        ]
+    );
 }
 
 #[test]
@@ -142,6 +159,55 @@ fn real_importer() -> PathBuf {
         p.display()
     );
     p
+}
+
+#[cfg(unix)]
+#[test]
+fn hermes_dry_run_prints_report_with_errors_and_exits_one() {
+    let tmp = tempfile::tempdir().unwrap();
+    let src = tmp.path().join("hermes");
+    let home = tmp.path().join("home");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::write(src.join("config.yaml"), "_config_version: 45\n").unwrap();
+    std::fs::write(src.join("persona.md"), "synthetic persona\n").unwrap();
+    std::os::unix::fs::symlink(src.join("persona.md"), src.join("SOUL.md")).unwrap();
+
+    for json in [true, false] {
+        let mut cmd = bin();
+        cmd.timeout(std::time::Duration::from_secs(30))
+            .env("PLUR1BUS_IMPORT_JS", real_importer())
+            .env("PLUR1BUS_NODE", "node")
+            .arg("--home")
+            .arg(&home);
+        if json {
+            cmd.arg("--json");
+        }
+        let output = cmd
+            .args(["import", "hermes", "--source"])
+            .arg(&src)
+            .assert()
+            .code(1)
+            .get_output()
+            .stdout
+            .clone();
+        if json {
+            let report = json_of(&output);
+            assert_eq!(report["schema"], "import.hermes/1");
+            assert_eq!(report["mode"], "dry-run");
+            assert_eq!(report["profilesOrAgents"][0]["harnessAgentId"], "default");
+            assert_eq!(report["errors"].as_array().unwrap().len(), 1);
+            assert_eq!(report["errors"][0]["sourceRef"], "default:SOUL.md");
+            assert_eq!(report["errors"][0]["reason"], "symlink-refused");
+        } else {
+            let human = String::from_utf8(output).unwrap();
+            assert!(human.contains("DRY RUN"));
+            assert!(human.contains("Profiles / Agents (1)"));
+            assert!(human.contains("Summary:"));
+            assert!(human.contains("Errors:"));
+            assert!(human.contains("default:SOUL.md: symlink-refused"));
+        }
+        assert!(!home.exists(), "dry run wrote to the harness home");
+    }
 }
 
 #[test]
