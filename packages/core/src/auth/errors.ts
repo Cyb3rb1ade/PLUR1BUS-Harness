@@ -1,7 +1,6 @@
 export type AuthErrorCode =
   | "reauth_required"      // the stored login is dead (refresh token expired/revoked): a person must sign in again
   | "refresh_failed"       // the token endpoint could not be reached or answered 5xx: retry later, login is intact
-  | "persist_failed"       // the secret store refused a rotated token; it is kept in memory and persisted on the next call
   | "no_credential"        // nothing stored under the secret reference, or the pool has no entries
   | "all_cooling_down"     // every pool credential is in cooldown
   | "unknown_profile"
