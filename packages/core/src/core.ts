@@ -23,6 +23,9 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
+import { engineTurnMemory } from "./session/memory-port.ts";
+import type { ChatProvider } from "./session/provider.ts";
+import { openSessionService, type SessionService } from "./session/service.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
@@ -82,6 +85,8 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** M1b-2c: the chat provider the turn loop uses; absent, `session.submit` answers E_NOT_AVAILABLE `no-provider` (the real adapters come with packages/providers). */
+  chatProvider?: ChatProvider;
   /** D112: model discovery adapters and options. */
   discovery?: Partial<DiscoveryAdapters> & {
     scheduler?: boolean;
@@ -131,6 +136,7 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let replay: JournalReplay | null = null;
+  let sessions: SessionService | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
@@ -384,7 +390,14 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
-      const methods = buildMethods({
+      // M1b-2c: the session store and turn loop; their handlers are merged below, the notifications go through `server`.
+      sessions = openSessionService({
+        dbPath: path.join(l.state, "sessions.sqlite"), clock, logger, agents: registry, isStopping: () => state.state === "stopping" || state.state === "stopped",
+        memory: engineTurnMemory({ engine: eng, config: cfg, agents: registry, logger, captureSignal: shutdown.signal, isStopping: () => state.state === "stopping" || state.state === "stopped" }),
+        provider: () => o.chatProvider ?? null, notify: (method, params, opts) => server?.notify(method, params, opts), signal: shutdown.signal,
+      });
+      const methods = {
+        ...buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
@@ -400,7 +413,9 @@ export function createCore(o: CoreOptions): Core {
         },
         systemJobs,
         discovery,
-      });
+        }),
+        ...sessions.methods,
+      };
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
@@ -457,6 +472,7 @@ export function createCore(o: CoreOptions): Core {
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
+      await step(log, "sessions close", async () => { await sessions?.close(); }); sessions = null;
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -521,6 +537,8 @@ export function createCore(o: CoreOptions): Core {
         if (!waited) logger?.warn("journal replay still running at stop; its file stays for the next start", { replayed: replay.status().replayed });
         replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
+      // M1b-2c: the shutdown abort above ends running turns (failed, `aborted`); they finish their writes before the engine closes.
+      await step(logger, "sessions close", async () => { await sessions?.close(); sessions = null; }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;

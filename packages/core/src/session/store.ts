@@ -275,6 +275,12 @@ export class SessionStore {
     return out;
   }
 
+  /** The newest event seq of a session (0 when it has none), null for an unknown session. */
+  lastEventSeq(sessionId: string): number | null {
+    const r = this.#get("SELECT last_event_seq FROM sessions WHERE id = ?", sessionId);
+    return r ? (r.last_event_seq as number) : null;
+  }
+
   runningTurn(sessionId: string): TurnRecord | null {
     const r = this.#get("SELECT * FROM turns WHERE session_id = ? AND state = 'running'", sessionId);
     return r ? toTurn(r) : null;

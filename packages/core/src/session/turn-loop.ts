@@ -23,7 +23,7 @@ export interface TurnRunnerDeps {
 }
 
 export interface TurnHandle { turnId: string; sessionId: string; messageId: string; done: Promise<TurnOutcome> }
-export interface TurnOutcome { state: "completed" | "failed"; error?: string; assistantMessageId?: string }
+export interface TurnOutcome { state: "completed" | "failed"; error?: string; assistantMessageId?: string; reply?: string }
 
 export class NoProviderError extends SessionError {
   constructor() { super("conflict", "no chat provider is configured", "no-provider"); }
@@ -90,11 +90,11 @@ export class TurnRunner {
       if (!done) return { state: "failed", error: "turn-not-running" };
       this.#emit(done.event, session);
       await this.#after(session, caller, turnId, text, reply, incognito);
-      return { state: "completed", assistantMessageId: done.message.id };
+      return { state: "completed", assistantMessageId: done.message.id, reply };
     } catch (e) {
       const error = signal.aborted ? "aborted" : e instanceof Error ? e.message : String(e);
-      const ev = store.failTurn(turnId, error);
-      if (ev) this.#emit(ev, session);
+      try { const ev = store.failTurn(turnId, error); if (ev) this.#emit(ev, session); }
+      catch (e2) { this.#d.logger?.warn("session turn could not be marked failed; recovery will at the next start", { sessionId: session.id, turnId, err: e2 }); }
       this.#d.logger?.warn("session turn failed", { sessionId: session.id, turnId, error });
       return { state: "failed", error };
     }

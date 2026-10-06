@@ -144,6 +144,34 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "session.create": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.resume": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.archive": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.submit": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.events": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "models.acknowledge": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -202,6 +230,10 @@
     "embedding.identity.changed": {
       "stability": "experimental",
       "since": "1.1.0"
+    },
+    "session.event": {
+      "stability": "experimental",
+      "since": "1.5.0"
     },
     "models.changed": {
       "stability": "experimental",
