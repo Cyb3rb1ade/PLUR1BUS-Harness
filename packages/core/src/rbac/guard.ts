@@ -44,6 +44,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "admin.reembed.run": rule("admin.reembed.run", system),
   "admin.reembed.status": rule("admin.reembed.status", system),
   "admin.reembed.abort": rule("admin.reembed.abort", system),
+  "admin.backup.snapshot": rule("admin.backup.snapshot", system),
 });
 
 export interface GuardOptions {

@@ -105,7 +105,7 @@ export const ENTRIES: readonly Entry[] = [
   { action: "doctor.read", page: "Import, Doctor", verb: "doctor" },
   { action: "doctor.run", page: "Import, Doctor", verb: "doctor" },
   ...["admin.obsidian.detect", "admin.obsidian.prepare", "admin.obsidian.confirm", "admin.migrate", "admin.embedding.probe", "admin.embedding.serve",
-   "admin.reembed.plan", "admin.reembed.run", "admin.reembed.status", "admin.reembed.abort"]
+   "admin.reembed.plan", "admin.reembed.run", "admin.reembed.status", "admin.reembed.abort", "admin.backup.snapshot"]
     .map((action): Entry => ({ action, page: "Import, Doctor", verb: "import" })),
 ];
 

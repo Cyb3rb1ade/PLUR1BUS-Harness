@@ -110,6 +110,9 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AdminObsidianConfirmParams, AdminObsidianConfirmResult>(name, f)
         }
         "admin.migrate" => pair::<AdminMigrateParams, AdminMigrateResult>(name, f),
+        "admin.backup.snapshot" => {
+            pair::<AdminBackupSnapshotParams, AdminBackupSnapshotResult>(name, f)
+        }
         "admin.embedding.probe" => {
             pair::<AdminEmbeddingProbeParams, AdminEmbeddingProbeResult>(name, f)
         }
@@ -214,6 +217,7 @@ fn every_method_fixture_round_trips() {
         "admin.obsidian.prepare",
         "admin.obsidian.confirm",
         "admin.migrate",
+        "admin.backup.snapshot",
         "admin.embedding.probe",
         "admin.embedding.serve",
         "admin.reembed.plan",
