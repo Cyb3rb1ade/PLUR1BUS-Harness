@@ -11,6 +11,7 @@ pub(crate) mod firstaid_install;
 pub mod import;
 pub mod memory;
 pub mod memory_ops;
+pub mod memory_reembed;
 pub mod model;
 pub mod module;
 pub mod plugin;
