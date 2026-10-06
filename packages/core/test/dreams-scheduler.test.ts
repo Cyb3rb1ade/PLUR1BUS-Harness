@@ -227,6 +227,7 @@ describe("dreams scheduler: concurrency and stagger", () => {
 describe("dreams scheduler: triggers", () => {
   it("accumulated importance fires a phase before its cron; the minimum gap stops a loop", async () => {
     const h = mkHarness({ over: { phases: { light: { importanceThreshold: 10, minGapMs: HOUR } } } });
+    await h.sched.start();
     h.sched.recordCapture("bernd", 5); await h.sched.idle();
     assert.equal(h.store.listRuns({ phase: "light" }).length, 0, "below the threshold");
     h.sched.recordCapture("bernd", 5); await h.sched.idle();
@@ -238,6 +239,16 @@ describe("dreams scheduler: triggers", () => {
     await h.clock.advance(HOUR);
     h.sched.recordCapture("bernd", 10); await h.sched.idle();
     assert.equal(h.store.listRuns({ phase: "light" }).length, 2);
+    await h.sched.stop();
+  });
+
+  it("a scheduler that was never started records the signal but fires nothing, however much importance accumulates", async () => {
+    const h = mkHarness({ over: { phases: { light: { importanceThreshold: 1 } } } });
+    for (let i = 0; i < 5; i++) h.sched.recordCapture("bernd", 10);
+    await h.sched.idle();
+    assert.equal(h.store.listRuns().length, 0);
+    assert.equal(h.store.getSchedule("bernd", "light")!.capturesAcc, 5);
+    assert.equal((await h.sched.runPhase("bernd", "light", { trigger: "manual" })).outcome, "completed", "the recorded corpus is there for a manual run");
   });
 
   it("a disabled phase never fires on cron or importance, but still runs on demand", async () => {

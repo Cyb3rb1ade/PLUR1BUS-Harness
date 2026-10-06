@@ -213,6 +213,9 @@ export class DreamScheduler {
     this.syncAgents();
     if (!this.#o.agents().includes(agentId)) return;
     this.#o.store.recordCapture(agentId, importance, now);
+    // RULING: the signal is always recorded (manual runs and `dreams status` use it); only a started scheduler acts on it, so
+    // a core with its timers off (test internals) never fires an importance-triggered dream.
+    if (!this.#started) return;
     for (const phase of PHASES) {
       const s = this.#o.store.getSchedule(agentId, phase);
       if (!s || !s.enabled || this.#running.has(`${agentId}\0${phase}`)) continue;
