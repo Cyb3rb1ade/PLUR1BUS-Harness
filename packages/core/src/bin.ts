@@ -5,6 +5,7 @@ import { createCore } from "./core.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { InMemoryProfileSource, StaticCredentialResolver } from "./discovery/testing.ts";
 import type { ProfileInfo } from "./discovery/ports.ts";
+import { FakeChatProvider } from "./session/provider.ts";
 
 // Under a supervisor, stdout and stderr are pipes that the supervisor reads. A SIGKILLed supervisor leaves them without
 // a reader while the core lives on through its lifeline grace (S5, C1), so every later write fails with EPIPE. The
@@ -68,10 +69,18 @@ if (process.env.PLUR1BUS_TEST_DISCOVERY_PROFILES) {
   };
 }
 
+// M1b-2c test seam: the deterministic fake chat provider, until the real adapters (packages/providers) are wired in.
+let chatProvider: FakeChatProvider | undefined;
+if (process.env.PLUR1BUS_TEST_CHAT_PROVIDER !== undefined) {
+  if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") { console.error("PLUR1BUS_TEST_CHAT_PROVIDER requires PLUR1BUS_ALLOW_TEST_INTERNALS=1"); process.exit(2); }
+  if (process.env.PLUR1BUS_TEST_CHAT_PROVIDER !== "fake") { console.error(`unknown PLUR1BUS_TEST_CHAT_PROVIDER ${process.env.PLUR1BUS_TEST_CHAT_PROVIDER}`); process.exit(2); }
+  chatProvider = new FakeChatProvider();
+}
+
 // A core.shutdown RPC takes the same stop-and-exit path as SIGTERM (I1): without it the process outlived the stop.
 const core = createCore({
   ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}),
-  ...(discoveryOptions ? { discovery: discoveryOptions } : {}),
+  ...(discoveryOptions ? { discovery: discoveryOptions } : {}), ...(chatProvider ? { chatProvider } : {}),
   ...(values.instance ? { instanceId: values.instance.toLowerCase() } : {}), ...(values.lifeline === "stdin" ? { lifeline: process.stdin, supervisorConfig: {} } : {}), // B7: 3 × 1 s config.watch
   onShutdownRequested: (budgetMs) => stop("core.shutdown", budgetMs),
   onOrphanGraceExpired: () => stop("lifeline grace expired"),

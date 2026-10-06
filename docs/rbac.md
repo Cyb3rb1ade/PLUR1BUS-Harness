@@ -69,7 +69,7 @@ The M3 `identity.*` methods are secured by the nearest existing pattern: `identi
 
 **Not yet secured** (they stay owner-equivalent for the local connection): `core.*`, `memory.recall|capture|checkpoint|
 list|show|correct|share|state|propose|proposals.*|proposal`, `agent.open|close|list|activity`, `jobs.list|history`,
-`models.list|scan|acknowledge`, `dreams.status|log|schedule.get`. Params are schema-validated before the guard runs, so a malformed call is
+`models.list|scan|acknowledge`, `dreams.status|log|schedule.get`, `session.create|list|get|resume|archive|submit|events` (M1b-2c: per-caller, the owner is derived from the caller identity inside the handler and another owner's session is `E_NOT_FOUND`; classified like the per-caller `memory.*` and `agent.*` methods). Params are schema-validated before the guard runs, so a malformed call is
 `E_INVALID_PARAMS` even for a caller who would be refused.
 
 ## Rulings (document defaults; owner questions stay open)

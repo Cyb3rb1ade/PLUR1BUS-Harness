@@ -54,6 +54,13 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: MemoryCmd,
     },
+    /// Chat sessions: list, show, archive
+    Session {
+        #[command(subcommand)]
+        sub: SessionCmd,
+    },
+    /// [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
+    Chat(ChatArgs),
     /// Dreaming: phase schedules, status, run, log
     Dreams {
         #[command(subcommand)]
@@ -782,6 +789,50 @@ pub enum AdminCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum SessionCmd {
+    /// [experimental] List your chat sessions (pinned first, then by last turn)
+    List {
+        #[arg(long)]
+        agent: Option<String>,
+        /// direct, card, project, channel or acp
+        #[arg(long, value_parser = ["direct", "card", "project", "channel", "acp"])]
+        kind: Option<String>,
+        /// Show archived sessions: `only` or `any` (default: none)
+        #[arg(long, value_parser = ["only", "any"])]
+        archived: Option<String>,
+        /// Full-text search over titles and messages
+        #[arg(long)]
+        search: Option<String>,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Show one session and its last messages
+    Show {
+        id: String,
+        /// How many of the last messages to show
+        #[arg(long, default_value_t = 20)]
+        messages: u32,
+    },
+    /// [experimental] Archive a session (nothing is deleted)
+    Archive { id: String },
+}
+
+#[derive(clap::Args, Debug)]
+pub struct ChatArgs {
+    /// The agent to talk to (default: the only registered agent)
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// Continue this session instead of starting a new one
+    #[arg(long)]
+    pub session: Option<String>,
+    /// Start the chat incognito: nothing of it is remembered
+    #[arg(long)]
+    pub no_memory: bool,
+    /// One message to send; without it, lines are read from stdin until EOF
+    pub message: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
 pub enum BudgetCmd {
     /// [experimental] Show usage for the current day and month and every limit with its state
     Status {
@@ -1230,6 +1281,66 @@ mod tests {
     fn parse(args: &[&str]) -> Cli {
         Cli::try_parse_from(std::iter::once("plur1bus").chain(args.iter().copied()))
             .unwrap_or_else(|e| panic!("{args:?}: {e}"))
+    }
+
+    #[test]
+    fn session_and_chat_parse_their_flags() {
+        match parse(&[
+            "session",
+            "list",
+            "--kind",
+            "card",
+            "--archived",
+            "any",
+            "--search",
+            "boiler",
+            "--limit",
+            "5",
+        ])
+        .cmd
+        {
+            Cmd::Session {
+                sub:
+                    SessionCmd::List {
+                        kind,
+                        archived,
+                        search,
+                        limit,
+                        agent,
+                    },
+            } => {
+                assert_eq!(
+                    (kind.as_deref(), archived.as_deref(), search.as_deref()),
+                    (Some("card"), Some("any"), Some("boiler"))
+                );
+                assert_eq!((limit, agent), (Some(5), None));
+            }
+            other => panic!("{other:?}"),
+        }
+        match parse(&["session", "show", "ses_1"]).cmd {
+            Cmd::Session {
+                sub: SessionCmd::Show { id, messages },
+            } => assert_eq!((id.as_str(), messages), ("ses_1", 20)),
+            other => panic!("{other:?}"),
+        }
+        match parse(&["chat", "--agent", "bernd", "--no-memory", "hello"]).cmd {
+            Cmd::Chat(a) => {
+                assert_eq!(
+                    (
+                        a.agent.as_deref(),
+                        a.session,
+                        a.no_memory,
+                        a.message.as_deref()
+                    ),
+                    (Some("bernd"), None, true, Some("hello"))
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(Cli::try_parse_from(["plur1bus", "session", "list", "--kind", "bogus"]).is_err());
+        assert!(
+            Cli::try_parse_from(["plur1bus", "session", "list", "--archived", "exclude"]).is_err()
+        );
     }
 
     #[test]

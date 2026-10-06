@@ -38,6 +38,11 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory proposals accept`↴](#plur1bus-memory-proposals-accept)
 * [`plur1bus memory proposals reject`↴](#plur1bus-memory-proposals-reject)
 * [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
+* [`plur1bus session`↴](#plur1bus-session)
+* [`plur1bus session list`↴](#plur1bus-session-list)
+* [`plur1bus session show`↴](#plur1bus-session-show)
+* [`plur1bus session archive`↴](#plur1bus-session-archive)
+* [`plur1bus chat`↴](#plur1bus-chat)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -145,6 +150,8 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `1staid` — Check and repair the installation
 * `agent` — Agents (personas): list, create, remove, status
 * `memory` — Memory: add and recall through the core
+* `session` — Chat sessions: list, show, archive
+* `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
 * `dreams` — Dreaming: phase schedules, status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
@@ -574,6 +581,90 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 * `--no-switch` — With --run: copy and validate, but do not switch to the new generation
 * `--no-wait` — With --run: return as soon as the run has started instead of following it
 * `--yes` — With --run: do not ask for confirmation (required outside a terminal)
+
+
+
+## `plur1bus session`
+
+Chat sessions: list, show, archive
+
+**Usage:** `plur1bus session <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List your chat sessions (pinned first, then by last turn)
+* `show` — [experimental] Show one session and its last messages
+* `archive` — [experimental] Archive a session (nothing is deleted)
+
+
+
+## `plur1bus session list`
+
+[experimental] List your chat sessions (pinned first, then by last turn)
+
+**Usage:** `plur1bus session list [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--kind <KIND>` — direct, card, project, channel or acp
+
+  Possible values: `direct`, `card`, `project`, `channel`, `acp`
+
+* `--archived <ARCHIVED>` — Show archived sessions: `only` or `any` (default: none)
+
+  Possible values: `only`, `any`
+
+* `--search <SEARCH>` — Full-text search over titles and messages
+* `--limit <LIMIT>`
+
+
+
+## `plur1bus session show`
+
+[experimental] Show one session and its last messages
+
+**Usage:** `plur1bus session show [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--messages <MESSAGES>` — How many of the last messages to show
+
+  Default value: `20`
+
+
+
+## `plur1bus session archive`
+
+[experimental] Archive a session (nothing is deleted)
+
+**Usage:** `plur1bus session archive <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus chat`
+
+[experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
+
+**Usage:** `plur1bus chat [OPTIONS] [MESSAGE]`
+
+###### **Arguments:**
+
+* `<MESSAGE>` — One message to send; without it, lines are read from stdin until EOF
+
+###### **Options:**
+
+* `--agent <AGENT>` — The agent to talk to (default: the only registered agent)
+* `--session <SESSION>` — Continue this session instead of starting a new one
+* `--no-memory` — Start the chat incognito: nothing of it is remembered
 
 
 

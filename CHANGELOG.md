@@ -8,6 +8,12 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Session store and turn loop (M1b-2c, part 1):** the core keeps chat sessions in `<home>/state/sessions.sqlite`
+  (`node:sqlite` + FTS5) and runs a submit/event turn loop with one engine `recall` before and one `capture` after each
+  turn. New experimental RPC: `session.create|list|get|resume|archive|submit|events` and the opt-in `session.event`
+  notification; new experimental CLI: `plur1bus session list|show|archive` and `plur1bus chat`. No real model provider is
+  wired in yet: without one `session.submit` answers `E_NOT_AVAILABLE reason=no-provider`.
+
 - `@plur1bus/providers` (M2, part 1): the OpenAI-compatible `chat_completions` adapter — request builder, SSE
   streaming with incremental tool-call assembly and usage, non-stream path, a typed error taxonomy
   (`auth`, `rate_limit` with retry-after, `context_length`, `content_filter`, `bad_request`, `server`, `timeout`,
