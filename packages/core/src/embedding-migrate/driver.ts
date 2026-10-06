@@ -221,6 +221,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     try {
       await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId });
     } catch (e) {
+      if (e instanceof MigrationError) throw e;
       throw new MigrationError("switch-failed", (e instanceof Error ? e.message : String(e)).slice(0, 500));
     }
     d.logger?.info("re-embedding switched", { id: c.id, generation: c.targetGeneration });
