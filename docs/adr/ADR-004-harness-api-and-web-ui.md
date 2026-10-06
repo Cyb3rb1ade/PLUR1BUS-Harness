@@ -186,3 +186,15 @@ The decisive factor is not rendering technology but **where enforcement lives**.
 6. [ ] Specify the settings index schema (key, label de/en, help de/en, page, role, sensitivity) — it is the single source for the settings page, the search, the CLI `config` command and the wizard.
 7. [ ] Write the a11y acceptance checklist (focus order, visible focus ring from the Glow tokens, live regions for SSE updates, 4.5:1 minimum on both themes) into `tests/` as an automated gate, not a manual step.
 8. [ ] Confirm with ADR-008 that `/mcp`, `/a2a/**` and `/.well-known/agent-card.json` mount under this API and inherit its auth, RBAC and rate limits.
+
+## Implementation record (M3 API foundation, 2026-10-06)
+
+First slice of the *Harness API* table, in `packages/api` (plan `docs/superpowers/plans/2026-10-06-m3-api-foundation.md`; generated surface map `docs/api-surface.md` and `docs/openapi.json`, which also discharge action item 2 for the routes that exist). The package is a peer client of the core over its local RPC, not part of the core process.
+
+- **AuthN.** One principal, the owner, until ADR-007's users store lands. `POST /api/v1/session` takes the owner token (`run/api-owner.token`, mode 0600); the core's RPC token is never accepted by the web surface. Cookie: `HttpOnly`, **`SameSite=Strict`** (the table above says `Lax`; the same-origin SPA does not need `Lax`, and `Strict` is the stricter reading the task set), `Secure` and `__Host-` over TLS. Pairing (D35) and personal API tokens are not implemented; a `Bearer` header is not a credential.
+- **CSRF.** One-time token per write, bound to the session (`GET /api/v1/csrf`, `X-CSRF-Token`). Login has no session to bind to and relies on `Origin`/`Sec-Fetch-Site`, `SameSite=Strict` and a JSON-only content type.
+- **CSP.** `default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`, no `script-src`, no nonce: every response is JSON. The per-response nonce of the table above arrives with the SPA.
+- **Deny by default.** Every route except login answers 401 without a session, `GET /api/v1/health` included.
+- **Binding.** Loopback hosts only; `remote.publish` is not read yet.
+- **Errors.** `error/1` (ADR-016 §8, G15) with a member of the closed `ErrorCode` enum and a `reason`; no code was added.
+

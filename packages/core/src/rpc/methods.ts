@@ -16,6 +16,7 @@ import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 import { CatalogError } from "../discovery/overrides.ts";
 import { CatalogWriteError } from "../discovery/catalog-store.ts";
+import { buildSecretMethods } from "../secrets/rpc.ts";
 import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
 
@@ -58,6 +59,8 @@ export interface MethodDeps {
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
   discovery?: import("../discovery/service.ts").DiscoveryService;
+  /** M2: the secret store and who a connection is. Absent, the `secret.*` methods are not served. */
+  secrets?: import("../secrets/rpc.ts").SecretMethodDeps;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -169,6 +172,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     },
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
+    ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
 
     ...(d.backup ? buildBackupMethods({ engine: d.engine, layout: d.backup.layout, baseDbPath: d.backup.baseDbPath, logger: d.logger, isStopping: d.isStopping }) : {}),

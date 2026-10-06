@@ -28,6 +28,7 @@ import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 import path from "node:path";
+import { createCoreSecretStore } from "./secrets/runtime.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
@@ -228,6 +229,8 @@ export function createCore(o: CoreOptions): Core {
     }
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
+    // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
+    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
@@ -402,6 +405,10 @@ export function createCore(o: CoreOptions): Core {
         systemJobs,
         discovery,
         backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
+        // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
+        // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
