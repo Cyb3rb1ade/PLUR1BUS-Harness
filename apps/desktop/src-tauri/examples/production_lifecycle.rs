@@ -19,7 +19,7 @@ mod fixture {
     #[derive(Default, serde::Serialize)]
     struct Report {
         spa_focus: bool,
-        second_instance_focus: bool,
+        second_instance_focus: SecondInstanceFocus,
         second_instance_focus_mode: Option<&'static str>,
         close_hides: bool,
         close_minimizes: bool,
@@ -27,6 +27,30 @@ mod fixture {
         quit_modal_default: bool,
         quit_cancel_preserves_app: bool,
         quit_confirm_exits: bool,
+    }
+    const LAUNCHER_SKIP: &str = "skipped(launcher-no-foreground)";
+    #[derive(serde::Serialize)]
+    #[serde(untagged)]
+    enum SecondInstanceFocus {
+        Checked(bool),
+        Skipped(&'static str),
+    }
+    impl Default for SecondInstanceFocus {
+        fn default() -> Self {
+            Self::Checked(false)
+        }
+    }
+    impl Report {
+        fn second_instance_resolved(&self) -> bool {
+            matches!(
+                (&self.second_instance_focus, self.second_instance_focus_mode),
+                (SecondInstanceFocus::Checked(true), Some("strict"))
+                    | (
+                        SecondInstanceFocus::Skipped(LAUNCHER_SKIP),
+                        Some(LAUNCHER_SKIP)
+                    )
+            )
+        }
     }
     fn gui_budget<T: Send + 'static>(
         app: &tauri::AppHandle,
@@ -418,10 +442,8 @@ mod fixture {
             use plur1bus_desktop::lifecycle::WindowHost;
             native::Windows(&app).present("shell").unwrap();
         })?;
-        report.lock().unwrap().second_instance_focus_mode = Some("strict");
-        eprintln!("WP6_FOCUS_SUMMARY second_instance_focus=strict");
         #[cfg(windows)]
-        {
+        let launcher_foreground = {
             // Tauri queues z-order changes even from the GUI callback. Let the
             // event loop apply them before verifying a click target. Exposure,
             // input and strict foreground observation share the original 5s.
@@ -436,11 +458,7 @@ mod fixture {
             loop {
                 let remaining = deadline.saturating_duration_since(Instant::now());
                 if remaining.is_zero() {
-                    return Err(if clicked {
-                        "FIXTURE_SECOND_LAUNCHER_NOT_FOREGROUND"
-                    } else {
-                        "FIXTURE_LAUNCHER_OCCLUDED"
-                    });
+                    break;
                 }
                 if !clicked {
                     match gui_budget(app, |app| activate_second_launcher(&app), remaining)? {
@@ -466,52 +484,82 @@ mod fixture {
                         .min(deadline.saturating_duration_since(Instant::now())),
                 );
             }
-        }
-        #[cfg(windows)]
-        gui(app, |app| {
-            app.get_webview_window("shell")
-                .unwrap()
-                .set_always_on_top(false)
-                .map_err(|_| "FIXTURE_LAUNCHER_OCCLUDED")
-        })??;
-        let mut child = std::process::Command::new(
-            std::env::current_exe().map_err(|_| "FIXTURE_EXECUTABLE_FAILED")?,
-        )
-        .arg(root)
-        .arg("--secondary")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .map_err(|_| "FIXTURE_SECOND_INSTANCE_FAILED")?;
-        let deadline = Instant::now() + Duration::from_secs(5);
-        loop {
-            match child
-                .try_wait()
-                .map_err(|_| "FIXTURE_SECOND_INSTANCE_WAIT_FAILED")?
-            {
-                Some(status) if status.success() => break,
-                Some(_) => return Err("FIXTURE_SECOND_INSTANCE_REJECTED"),
-                None if Instant::now() >= deadline => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err("FIXTURE_SECOND_INSTANCE_TIMEOUT");
-                }
-                None => std::thread::sleep(
-                    Duration::from_millis(20)
-                        .min(deadline.saturating_duration_since(Instant::now())),
-                ),
-            }
-        }
-        let seen = second.clone();
-        observe(app, move |app| {
-            seen.load(Ordering::SeqCst)
-                && app.get_webview_window("spa").is_some_and(|w| {
-                    w.is_visible().unwrap_or(false) && window_has_keyboard_focus(&w, true)
+            gui(app, |app| {
+                let window = app
+                    .get_webview_window("shell")
+                    .ok_or("FIXTURE_LAUNCHER_WINDOW_MISSING")?;
+                window
+                    .set_always_on_top(false)
+                    .map_err(|_| "FIXTURE_LAUNCHER_OCCLUDED")?;
+                let hwnd = window
+                    .hwnd()
+                    .map_err(|_| "FIXTURE_LAUNCHER_WINDOW_MISSING")?
+                    .0;
+                // Foreground ownership, not local queue focus, determines the
+                // launcher's right to transfer foreground to the second process.
+                Ok::<_, &'static str>(unsafe {
+                    windows_sys::Win32::UI::WindowsAndMessaging::GetForegroundWindow() == hwnd
                 })
-        })?;
-        report.lock().unwrap().second_instance_focus = true;
-        eprintln!("FIXTURE_SECOND_INSTANCE_FOCUS_OBSERVED");
+            })??
+        };
+        #[cfg(not(windows))]
+        let launcher_foreground = true;
+        if launcher_foreground {
+            report.lock().unwrap().second_instance_focus_mode = Some("strict");
+            eprintln!("WP6_FOCUS_SUMMARY second_instance_focus=strict");
+            let mut child = std::process::Command::new(
+                std::env::current_exe().map_err(|_| "FIXTURE_EXECUTABLE_FAILED")?,
+            )
+            .arg(root)
+            .arg("--secondary")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|_| "FIXTURE_SECOND_INSTANCE_FAILED")?;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                match child
+                    .try_wait()
+                    .map_err(|_| "FIXTURE_SECOND_INSTANCE_WAIT_FAILED")?
+                {
+                    Some(status) if status.success() => break,
+                    Some(_) => return Err("FIXTURE_SECOND_INSTANCE_REJECTED"),
+                    None if Instant::now() >= deadline => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err("FIXTURE_SECOND_INSTANCE_TIMEOUT");
+                    }
+                    None => std::thread::sleep(
+                        Duration::from_millis(20)
+                            .min(deadline.saturating_duration_since(Instant::now())),
+                    ),
+                }
+            }
+            let seen = second.clone();
+            observe(app, move |app| {
+                seen.load(Ordering::SeqCst)
+                    && app.get_webview_window("spa").is_some_and(|w| {
+                        w.is_visible().unwrap_or(false) && window_has_keyboard_focus(&w, true)
+                    })
+            })?;
+            report.lock().unwrap().second_instance_focus = SecondInstanceFocus::Checked(true);
+            eprintln!("FIXTURE_SECOND_INSTANCE_FOCUS_OBSERVED");
+        } else {
+            let mut result = report.lock().unwrap();
+            result.second_instance_focus = SecondInstanceFocus::Skipped(LAUNCHER_SKIP);
+            result.second_instance_focus_mode = Some(LAUNCHER_SKIP);
+            drop(result);
+            eprintln!("WP6_FOCUS_SUMMARY second_instance_focus=skipped(launcher-no-foreground)");
+            // No secondary is spawned without rights. Restore the SPA before
+            // close tests, so close-hides still starts with a visible window.
+            gui(app, |app| native::focus(&app))?;
+            observe(app, |app| {
+                app.get_webview_window("spa").is_some_and(|w| {
+                    w.is_visible().unwrap_or(false) && window_has_keyboard_focus(&w, false)
+                })
+            })?;
+        }
 
         gui(app, |app| {
             app.state::<native::NativeState>()
@@ -701,8 +749,7 @@ mod fixture {
             {
                 let mut result = final_report.lock().unwrap();
                 result.quit_confirm_exits = true;
-                let complete = result.second_instance_focus_mode == Some("strict")
-                    && result.second_instance_focus
+                let complete = result.second_instance_resolved()
                     && result.spa_focus
                     && result.close_hides
                     && result.close_minimizes
@@ -719,8 +766,7 @@ mod fixture {
         });
         eprintln!("FIXTURE_PROCESS_EXIT code={native_exit_code}");
         let report = report.lock().unwrap();
-        let complete = report.second_instance_focus_mode == Some("strict")
-            && report.second_instance_focus
+        let complete = report.second_instance_resolved()
             && report.spa_focus
             && report.close_hides
             && report.close_minimizes

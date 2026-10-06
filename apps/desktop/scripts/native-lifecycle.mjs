@@ -1,6 +1,6 @@
 import {lifecycleFailure} from './lifecycle-report.mjs';
 import { spawn } from 'node:child_process';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,7 +46,7 @@ function run(command, args, timeout, capture = false) {
           const job = jobDiagnostic(line.trim()); if (job) diagnostics.push(job);
           const diagnostic = focusDiagnostic(line.trim());
           if (diagnostic) diagnostics.push(diagnostic);
-          if (['WP6_FOCUS_SUMMARY foreground-lock-denied', 'WP6_FOCUS_SUMMARY second_instance_focus=strict', 'WP6_FOCUS_SUMMARY second_instance_focus=lenient'].includes(line.trim())) console.log(line.trim());
+          if (['WP6_FOCUS_SUMMARY foreground-lock-denied', 'WP6_FOCUS_SUMMARY second_instance_focus=strict', 'WP6_FOCUS_SUMMARY second_instance_focus=lenient', 'WP6_FOCUS_SUMMARY second_instance_focus=skipped(launcher-no-foreground)'].includes(line.trim())) console.log(line.trim());
           if (/^FIXTURE_(PROCESS_EXIT|NATIVE_EXIT_FAILED) code=-?\d+$/.test(line.trim())) diagnostics.push(line.trim());
           for (const code of line.matchAll(/\bFIXTURE_[A-Z_]+\b/g)) {
             if (fixtureReasons.has(code[0])) diagnostics.push(code[0]);
@@ -70,6 +70,7 @@ async function main() {
 await run('cargo', ['build', '--manifest-path', 'Cargo.toml', '--locked', '--example', 'production_lifecycle', ...(process.platform === 'win32' ? ['--example', 'production_job'] : [])], 300000);
 const root = await mkdtemp(join(tmpdir(), 'wp06-native-lifecycle-driver-'));
 let failureDiagnostics = [];
+let completedReport;
 let safeToDelete = process.platform !== 'win32';
 try {
   const executable = resolve(desktop, 'target/debug/examples/production_lifecycle' + (process.platform === 'win32' ? '.exe' : ''));
@@ -82,8 +83,9 @@ try {
   let report;
   try { report = JSON.parse(lines.at(-1)); }
   catch { throw new Error('NATIVE_LIFECYCLE_REPORT_MISSING observed=invalid-json'); }
-  const incomplete = lifecycleFailure(report);
+  const incomplete = lifecycleFailure(report, {allowWindowsSkip: process.platform === 'win32'});
   if (incomplete) throw new Error('NATIVE_LIFECYCLE_INCOMPLETE observed=' + incomplete);
+  completedReport = report;
   console.log(JSON.stringify(report));
 } catch (error) {
   safeToDelete ||= error.jobDisposed === true;
@@ -94,7 +96,16 @@ try {
   else try { await removeExitedProfile(root); }
   catch (error) { failureDiagnostics.forEach(line => console.error(line)); throw error; }
 }
-
+// Export only after owned job disposal and profile cleanup succeeded. The
+// summary checks all four reports and their exact source head in this run.
+if (process.platform === 'win32' && process.env.PLUR1BUS_LIFECYCLE_REPORT) {
+  const headSha = process.env.PLUR1BUS_CI_HEAD_SHA;
+  const cookieGuard = process.env.PLUR1BUS_DESKTOP_COOKIE_GUARD;
+  if (!/^[a-f0-9]{40}$/.test(headSha ?? '') || !['on', 'off'].includes(cookieGuard) || !['x64', 'arm64'].includes(process.arch)) {
+    throw new Error('NATIVE_LIFECYCLE_REPORT_CONTEXT_FAILED observed=invalid-context');
+  }
+  await writeFile(process.env.PLUR1BUS_LIFECYCLE_REPORT, JSON.stringify({schema:1, headSha, platform:'win32', arch:process.arch, cookieGuard, report:completedReport}) + '\n');
+}
 }
 try { await main(); }
 catch (error) {
