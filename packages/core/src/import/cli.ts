@@ -57,6 +57,9 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
   if (values["on-conflict"] !== undefined && values.conflict !== undefined && values["on-conflict"] !== values.conflict) {
     return fail("E_INVALID_PARAMS", "conflicting-conflict-flags", "cannot specify different values for both --on-conflict and --conflict");
   }
+  if (values["adopt-store"] !== undefined && (mode !== "import" || sourceType !== "hermes")) {
+    return fail("E_INVALID_PARAMS", "adopt-store-unsupported", "--adopt-store applies to Hermes import only");
+  }
   if (values.profile !== undefined && sourceType !== "hermes") return fail("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   const onConflict = ((values["on-conflict"] ?? values.conflict) ?? "skip") as string;
   if (!["skip", "rename", "replace"].includes(onConflict)) return fail("E_INVALID_PARAMS", "on-conflict", "--on-conflict / --conflict must be skip, rename or replace");
@@ -101,6 +104,9 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
           resume: values.resume as string | undefined,
           adoptStore: values["adopt-store"] as string | undefined,
         });
+        if (r.errors.length > 0) {
+          return fail("E_IMPORT_FAILED", r.errors[0]?.reason ?? "import-failed", `import completed with ${r.errors.length} error(s)`, 1);
+        }
         return { ok: true, schema: "import.hermes/1", value: r as unknown as Record<string, unknown>, human: renderHermes(r) };
       }
     }

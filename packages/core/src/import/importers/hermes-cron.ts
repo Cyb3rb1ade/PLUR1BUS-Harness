@@ -1,14 +1,15 @@
 // Hermes cron jobs reader (docs/import.md §3.3, M7 Batch 3).
 // Reads cron/jobs.json across Hermes root and profiles.
-// Reports user-authored jobs as "deferred" (id, schedule only; zero disk writes; prompt text excluded).
-import { existsSync, readFileSync } from "node:fs";
+// Reports user-authored jobs as "deferred" (id, schedule, deliverKind only; zero disk writes; prompt text and target IDs excluded).
 import { join } from "node:path";
-import { isFile } from "../readonly.ts";
+import { deliverKind } from "./openclaw-cron.ts";
+import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 
 export interface HermesCronJob {
   id: string;
   schedule: string;
-  deliver?: string | undefined;
+  deliverKind: string | null;
+  status: "deferred";
   sourceProfile?: string | undefined;
 }
 
@@ -22,11 +23,11 @@ export function readHermesCronJobs(profiles: Array<{ agentId: string; dir: strin
 
   for (const p of profiles) {
     const cronFile = join(p.dir, "cron", "jobs.json");
-    if (!isFile(cronFile)) continue;
+    const readRes = readHermesSourceFileSafe(cronFile, 1024 * 1024);
+    if (!readRes.ok) continue;
 
     try {
-      const raw = readFileSync(cronFile, "utf8");
-      const data = JSON.parse(raw);
+      const data = JSON.parse(readRes.content);
       const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
 
       for (const j of jobs) {
@@ -46,10 +47,13 @@ export function readHermesCronJobs(profiles: Array<{ agentId: string; dir: strin
         }
         seenJobIds.add(dedupKey);
 
+        const rawDeliver = typeof j.deliver === "string" ? j.deliver : (typeof j.delivery === "string" ? j.delivery : null);
+
         userJobs.push({
           id,
           schedule,
-          deliver: typeof j.deliver === "string" ? j.deliver.trim() : undefined,
+          deliverKind: deliverKind(rawDeliver),
+          status: "deferred",
           sourceProfile: p.agentId,
         });
       }

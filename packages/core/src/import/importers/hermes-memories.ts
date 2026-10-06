@@ -3,20 +3,24 @@
 // Normalizes CRLF, discards whitespace-only cards, enforces <= 500 cards batch limit.
 // Idempotency keys are deterministic from (profile, sourceFile, cardHash), never from runId.
 // USER.md cards are reported as unresolved-user-scope unless an unambiguous user principal is provided.
-// Generates curated memories.md markdown mirror in l.workspaceDir(agentId) for imported cards.
+// Generates curated memories.md and USER.md markdown mirrors in l.workspaceDir(agentId) for imported cards,
+// routed through the conflict strategy (skip/rename/replace).
+// Errors from memory.import are tracked in errors[] and counted as rejected, never swallowed.
 // NEVER writes directly to LanceDB or imports external vector store libraries.
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { basename, dirname, join, relative } from "node:path";
 import type { Layout } from "../../paths.ts";
-import { isFile, readBounded } from "../readonly.ts";
+import { isFile } from "../readonly.ts";
 import {
   cardIdempotencyKey,
   fileIdempotencyKey,
   memoryBatchIdempotencyKey,
+  type ConflictStrategy,
   type ImportLedger,
 } from "../ledger.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
+import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
@@ -49,6 +53,119 @@ export interface HermesMemoryImportResult {
     outcome: "created" | "matched-existing" | "rejected";
     reason?: string | undefined;
   }>;
+  errors: Array<{ sourceRef: string; reason: string }>;
+}
+
+function writeMirrorWithConflict(opts: {
+  targetPath: string;
+  content: string;
+  relTarget: string;
+  sourceRef: string;
+  agentId: string;
+  onConflict: ConflictStrategy;
+  replacedBackupDir?: string | undefined;
+  ledger?: ImportLedger | undefined;
+  l: Layout;
+}): void {
+  const { targetPath, content, relTarget, sourceRef, agentId, onConflict, replacedBackupDir, ledger, l } = opts;
+  const sha = createHash("sha256").update(content).digest("hex");
+
+  if (!existsSync(targetPath)) {
+    writeAtomicSync(targetPath, content, 0o600);
+    if (ledger) {
+      ledger.record({
+        entity: "file",
+        idempotencyKey: fileIdempotencyKey(agentId, relTarget, sha),
+        action: "created",
+        sourceRef,
+        targetRef: relative(l.home, targetPath).replaceAll("\\", "/"),
+        sha256: sha,
+      });
+    }
+    return;
+  }
+
+  // Target exists: check if content matches
+  let existingContent = "";
+  try {
+    existingContent = readFileSync(targetPath, "utf8");
+  } catch {
+    existingContent = "";
+  }
+  const existingSha = createHash("sha256").update(existingContent).digest("hex");
+  if (existingSha === sha) {
+    if (ledger) {
+      ledger.record({
+        entity: "file",
+        idempotencyKey: fileIdempotencyKey(agentId, relTarget, sha),
+        action: "matched-existing",
+        sourceRef,
+        targetRef: relative(l.home, targetPath).replaceAll("\\", "/"),
+        sha256: sha,
+      });
+    }
+    return;
+  }
+
+  // Content differs: apply conflict strategy
+  if (onConflict === "skip") {
+    if (ledger) {
+      ledger.record({
+        entity: "file",
+        idempotencyKey: fileIdempotencyKey(agentId, relTarget, sha),
+        action: "conflict-skip",
+        sourceRef,
+        targetRef: relative(l.home, targetPath).replaceAll("\\", "/"),
+        sha256: sha,
+        reason: "content-differs",
+      });
+    }
+    return;
+  }
+
+  if (onConflict === "replace") {
+    if (replacedBackupDir) {
+      const rel = relative(l.home, targetPath).replaceAll("\\", "/");
+      const bkp = join(replacedBackupDir, rel);
+      mkdirSync(dirname(bkp), { recursive: true, mode: 0o700 });
+      writeAtomicSync(bkp, existingContent, 0o600);
+    }
+    writeAtomicSync(targetPath, content, 0o600);
+    if (ledger) {
+      ledger.record({
+        entity: "file",
+        idempotencyKey: fileIdempotencyKey(agentId, relTarget, sha),
+        action: "replace",
+        sourceRef,
+        targetRef: relative(l.home, targetPath).replaceAll("\\", "/"),
+        sha256: sha,
+      });
+    }
+    return;
+  }
+
+  if (onConflict === "rename") {
+    const dir = dirname(targetPath);
+    const ext = ".md";
+    const base = basename(targetPath, ext);
+    let idx = 1;
+    let renamePath = join(dir, `${base}.imported${ext}`);
+    while (existsSync(renamePath)) {
+      idx++;
+      renamePath = join(dir, `${base}.imported-${idx}${ext}`);
+    }
+    writeAtomicSync(renamePath, content, 0o600);
+    if (ledger) {
+      ledger.record({
+        entity: "file",
+        idempotencyKey: fileIdempotencyKey(agentId, relative(l.workspaceDir(agentId), renamePath), sha),
+        action: "rename",
+        sourceRef,
+        targetRef: relative(l.home, renamePath).replaceAll("\\", "/"),
+        sha256: sha,
+      });
+    }
+  }
 }
 
 export async function importHermesMemories(opts: {
@@ -56,12 +173,25 @@ export async function importHermesMemories(opts: {
   profileName: string;
   agentId: string;
   l: Layout;
-  engine: Engine;
+  engine?: Engine | undefined;
   isApply: boolean;
   ledger?: ImportLedger | undefined;
   userPrincipal?: any | undefined;
+  onConflict?: ConflictStrategy | undefined;
+  replacedBackupDir?: string | undefined;
 }): Promise<HermesMemoryImportResult> {
-  const { profileDir, profileName, agentId, l, engine, isApply, ledger, userPrincipal } = opts;
+  const {
+    profileDir,
+    profileName,
+    agentId,
+    l,
+    engine,
+    isApply,
+    ledger,
+    userPrincipal,
+    onConflict = "skip",
+    replacedBackupDir,
+  } = opts;
 
   let totalCards = 0;
   let importedCount = 0;
@@ -69,8 +199,10 @@ export async function importHermesMemories(opts: {
   let rejectedCount = 0;
   let unresolvedUserScopeCount = 0;
   const cardResults: HermesMemoryImportResult["cardResults"] = [];
+  const errors: Array<{ sourceRef: string; reason: string }> = [];
 
   const successfulMemoryTexts: string[] = [];
+  const successfulUserTexts: string[] = [];
 
   // Principal for system import
   const principal: Principal = {
@@ -86,57 +218,234 @@ export async function importHermesMemories(opts: {
   // 1. Process memories/MEMORY.md (agent-scoped)
   const memoryMdPath = join(profileDir, "memories", "MEMORY.md");
   if (isFile(memoryMdPath)) {
-    try {
-      const st = lstatSync(memoryMdPath);
-      if (!st.isSymbolicLink()) {
-        const text = readBounded(memoryMdPath, MAX_MEMORY_FILE_BYTES);
-        if (text) {
-          const rawCards = splitHermesCards(text);
-          totalCards += rawCards.length;
+    const readRes = readHermesSourceFileSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES);
+    if (!readRes.ok) {
+      errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: readRes.error });
+    } else {
+      const rawCards = splitHermesCards(readRes.content);
+      totalCards += rawCards.length;
 
-          // Prepare card inputs with deterministic idempotency keys
-          const cardInputs: Array<{
-            idempotencyKey: string;
-            text: string;
-            provenance: "imported";
-            sourceRef: string;
-            scope: "agent-private";
-          }> = [];
+      const seenKeysInRun = new Set<string>();
+      const cardInputs: Array<{
+        idempotencyKey: string;
+        text: string;
+        provenance: "imported";
+        sourceRef: string;
+        scope: "agent-private";
+        isDuplicateInRun: boolean;
+      }> = [];
 
-          for (let i = 0; i < rawCards.length; i++) {
-            const cardText = rawCards[i];
-            if (!cardText) continue;
-            const key = cardIdempotencyKey("hermes", profileName, "memories/MEMORY.md", cardText);
-            cardInputs.push({
-              idempotencyKey: key,
-              text: cardText,
-              provenance: "imported",
-              sourceRef: `hermes:${profileName}:memories/MEMORY.md#${i + 1}`,
-              scope: "agent-private",
+      for (let i = 0; i < rawCards.length; i++) {
+        const cardText = rawCards[i];
+        if (!cardText) continue;
+        const key = cardIdempotencyKey("hermes", profileName, "memories/MEMORY.md", cardText);
+        const isDuplicateInRun = seenKeysInRun.has(key);
+        seenKeysInRun.add(key);
+        cardInputs.push({
+          idempotencyKey: key,
+          text: cardText,
+          provenance: "imported",
+          sourceRef: `hermes:${profileName}:memories/MEMORY.md#${i + 1}`,
+          scope: "agent-private",
+          isDuplicateInRun,
+        });
+      }
+
+      if (!engine && !isApply) {
+        // Pure dry-run preview without engine: compute planned counts directly
+        for (const c of cardInputs) {
+          if (c.isDuplicateInRun) {
+            skippedDuplicateCount++;
+            cardResults.push({
+              idempotencyKey: c.idempotencyKey,
+              outcome: "matched-existing",
+              reason: "duplicate-in-batch",
             });
+          } else {
+            importedCount++;
+            cardResults.push({
+              idempotencyKey: c.idempotencyKey,
+              outcome: "created",
+            });
+            successfulMemoryTexts.push(c.text);
           }
+        }
+      } else if (engine) {
+        // Chunk into batches of at most 500 cards
+        for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
+          const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
+          const batch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
 
-          // Chunk into batches of at most 500 cards
-          for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
-            const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
-            const batch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
-
-            const result = await engine.memory.import(
+          let result: any;
+          try {
+            result = await engine.memory.import(
               {
                 agentId,
                 principal,
-                cards: batch,
+                cards: batch.map(({ idempotencyKey, text, provenance, sourceRef, scope }) => ({
+                  idempotencyKey,
+                  text,
+                  provenance,
+                  sourceRef,
+                  scope,
+                })),
                 dryRun: !isApply,
               },
               principal,
               systemAgent,
             );
+          } catch (err: any) {
+            const code = err?.code || err?.reason || "storage";
+            errors.push({
+              sourceRef: `${profileName}:memories/MEMORY.md#batch-${batchIdx}`,
+              reason: `memory-import-failed:${code}`,
+            });
+            rejectedCount += batch.length;
+            for (const batchCard of batch) {
+              cardResults.push({
+                idempotencyKey: batchCard.idempotencyKey,
+                outcome: "rejected",
+                reason: code,
+              });
+            }
+            continue;
+          }
+
+          let batchCreated = result.created;
+          let batchMatchedExisting = result.matchedExisting;
+          let batchRejected = result.rejected;
+
+          // Grok engine #217 edge case: if engine reports duplicate-in-batch cards under rejected,
+          // attribute them to matchedExisting instead of rejected
+          const cards = result.cards ?? [];
+          for (const cr of cards) {
+            if (cr.outcome === "rejected" && cr.reason === "duplicate-in-batch") {
+              batchMatchedExisting++;
+              if (batchRejected > 0) batchRejected--;
+            }
+          }
+
+          importedCount += batchCreated;
+          skippedDuplicateCount += batchMatchedExisting;
+          rejectedCount += batchRejected;
+
+          for (let j = 0; j < cards.length; j++) {
+            const cr = cards[j];
+            const batchCard = batch[j];
+            if (!cr || !batchCard) continue;
+            const effectiveOutcome = (cr.outcome === "rejected" && cr.reason === "duplicate-in-batch")
+              ? "matched-existing"
+              : cr.outcome;
+            cardResults.push({
+              idempotencyKey: cr.idempotencyKey,
+              outcome: effectiveOutcome,
+              reason: cr.reason,
+            });
+
+            if (effectiveOutcome === "created" || effectiveOutcome === "matched-existing") {
+              successfulMemoryTexts.push(batchCard.text);
+            }
+          }
+
+          if (isApply && ledger) {
+            const keysCombined = batch.map((c) => c.idempotencyKey).join(";");
+            const keysHash = createHash("sha256").update(keysCombined).digest("hex").slice(0, 16);
+            const batchAction =
+              result.created > 0
+                ? "created"
+                : result.matchedExisting > 0
+                ? "matched-existing"
+                : "rejected";
+
+            ledger.record({
+              entity: "memory",
+              idempotencyKey: memoryBatchIdempotencyKey(agentId, batchIdx, keysHash),
+              action: batchAction,
+              sourceRef: `memories/MEMORY.md#batch-${batchIdx}`,
+              details: {
+                batchIndex: batchIdx,
+                count: batch.length,
+                created: result.created,
+                matchedExisting: result.matchedExisting,
+                rejected: result.rejected,
+                keysHash,
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Process memories/USER.md
+  // ADR-007 Q4: without an unambiguous user binding, USER.md memories are NOT imported to LanceDB.
+  // They are reported as unresolved-user-scope.
+  const userMdPath = join(profileDir, "memories", "USER.md");
+  if (isFile(userMdPath)) {
+    const readRes = readHermesSourceFileSafe(userMdPath, MAX_MEMORY_FILE_BYTES);
+    if (!readRes.ok) {
+      errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: readRes.error });
+    } else {
+      const userCards = splitHermesCards(readRes.content);
+      totalCards += userCards.length;
+
+      if (userPrincipal) {
+        // Explicit user binding provided: import to user scope
+        const cardInputs = userCards.map((cardText, i) => ({
+          idempotencyKey: cardIdempotencyKey("hermes", profileName, "memories/USER.md", cardText),
+          text: cardText,
+          provenance: "imported" as const,
+          sourceRef: `hermes:${profileName}:memories/USER.md#${i + 1}`,
+          scope: "user" as const,
+        }));
+
+        if (!engine && !isApply) {
+          for (const c of cardInputs) {
+            importedCount++;
+            cardResults.push({
+              idempotencyKey: c.idempotencyKey,
+              outcome: "created",
+            });
+            successfulUserTexts.push(c.text);
+          }
+        } else if (engine) {
+          for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
+            const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
+            const batch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
+
+            let result: any;
+            try {
+              result = await engine.memory.import(
+                {
+                  agentId,
+                  principal: userPrincipal,
+                  cards: batch,
+                  dryRun: !isApply,
+                },
+                principal,
+                systemAgent,
+              );
+            } catch (err: any) {
+              const code = err?.code || err?.reason || "storage";
+              errors.push({
+                sourceRef: `${profileName}:memories/USER.md#batch-${batchIdx}`,
+                reason: `memory-import-failed:${code}`,
+              });
+              rejectedCount += batch.length;
+              for (const batchCard of batch) {
+                cardResults.push({
+                  idempotencyKey: batchCard.idempotencyKey,
+                  outcome: "rejected",
+                  reason: code,
+                });
+              }
+              continue;
+            }
 
             importedCount += result.created;
             skippedDuplicateCount += result.matchedExisting;
             rejectedCount += result.rejected;
 
-            // Track card results
             for (let j = 0; j < result.cards.length; j++) {
               const cr = result.cards[j];
               const batchCard = batch[j];
@@ -148,26 +457,18 @@ export async function importHermesMemories(opts: {
               });
 
               if (cr.outcome === "created" || cr.outcome === "matched-existing") {
-                successfulMemoryTexts.push(batchCard.text);
+                successfulUserTexts.push(batchCard.text);
               }
             }
 
-            // Record batch in ledger if applying
             if (isApply && ledger) {
               const keysCombined = batch.map((c) => c.idempotencyKey).join(";");
               const keysHash = createHash("sha256").update(keysCombined).digest("hex").slice(0, 16);
-              const batchAction =
-                result.created > 0
-                  ? "created"
-                  : result.matchedExisting > 0
-                  ? "matched-existing"
-                  : "rejected";
-
               ledger.record({
                 entity: "memory",
-                idempotencyKey: memoryBatchIdempotencyKey(agentId, batchIdx, keysHash),
-                action: batchAction,
-                sourceRef: `memories/MEMORY.md#batch-${batchIdx}`,
+                idempotencyKey: memoryBatchIdempotencyKey(agentId, 1000 + batchIdx, keysHash),
+                action: result.created > 0 ? "created" : "matched-existing",
+                sourceRef: `memories/USER.md#batch-${batchIdx}`,
                 details: {
                   batchIndex: batchIdx,
                   count: batch.length,
@@ -180,120 +481,55 @@ export async function importHermesMemories(opts: {
             }
           }
         }
-      }
-    } catch {
-      // Memory read error handled safely
-    }
-  }
-
-  // 2. Process memories/USER.md
-  // ADR-007 Q4: without an unambiguous user binding, USER.md memories are NOT imported to LanceDB.
-  // They are reported as unresolved-user-scope.
-  const userMdPath = join(profileDir, "memories", "USER.md");
-  if (isFile(userMdPath)) {
-    try {
-      const st = lstatSync(userMdPath);
-      if (!st.isSymbolicLink()) {
-        const text = readBounded(userMdPath, MAX_MEMORY_FILE_BYTES);
-        if (text) {
-          const userCards = splitHermesCards(text);
-          totalCards += userCards.length;
-
-          if (userPrincipal) {
-            // Explicit user binding provided: import to user scope
-            const cardInputs = userCards.map((cardText, i) => ({
-              idempotencyKey: cardIdempotencyKey("hermes", profileName, "memories/USER.md", cardText),
-              text: cardText,
-              provenance: "imported" as const,
-              sourceRef: `hermes:${profileName}:memories/USER.md#${i + 1}`,
-              scope: "user" as const,
-            }));
-
-            for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
-              const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
-              const batch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
-
-              const result = await engine.memory.import(
-                {
-                  agentId,
-                  principal: userPrincipal,
-                  cards: batch,
-                  dryRun: !isApply,
-                },
-                principal,
-                systemAgent,
-              );
-
-              importedCount += result.created;
-              skippedDuplicateCount += result.matchedExisting;
-              rejectedCount += result.rejected;
-
-              for (const cr of result.cards) {
-                cardResults.push({
-                  idempotencyKey: cr.idempotencyKey,
-                  outcome: cr.outcome,
-                  reason: cr.reason,
-                });
-              }
-
-              if (isApply && ledger) {
-                const keysCombined = batch.map((c) => c.idempotencyKey).join(";");
-                const keysHash = createHash("sha256").update(keysCombined).digest("hex").slice(0, 16);
-                ledger.record({
-                  entity: "memory",
-                  idempotencyKey: memoryBatchIdempotencyKey(agentId, 1000 + batchIdx, keysHash),
-                  action: result.created > 0 ? "created" : "matched-existing",
-                  sourceRef: `memories/USER.md#batch-${batchIdx}`,
-                  details: {
-                    batchIndex: batchIdx,
-                    count: batch.length,
-                    created: result.created,
-                    matchedExisting: result.matchedExisting,
-                    rejected: result.rejected,
-                    keysHash,
-                  },
-                });
-              }
-            }
-          } else {
-            // No unambiguous user binding: fail-closed per ADR-007 Q4
-            unresolvedUserScopeCount += userCards.length;
-            for (let i = 0; i < userCards.length; i++) {
-              const uc = userCards[i];
-              if (!uc) continue;
-              const key = cardIdempotencyKey("hermes", profileName, "memories/USER.md", uc);
-              cardResults.push({
-                idempotencyKey: key,
-                outcome: "rejected",
-                reason: "unresolved-user-scope",
-              });
-            }
-          }
+      } else {
+        // No unambiguous user binding: fail-closed per ADR-007 Q4
+        unresolvedUserScopeCount += userCards.length;
+        for (let i = 0; i < userCards.length; i++) {
+          const uc = userCards[i];
+          if (!uc) continue;
+          const key = cardIdempotencyKey("hermes", profileName, "memories/USER.md", uc);
+          cardResults.push({
+            idempotencyKey: key,
+            outcome: "rejected",
+            reason: "unresolved-user-scope",
+          });
         }
       }
-    } catch {
-      // Ignored
     }
   }
 
-  // 3. Write curated markdown mirror to l.workspaceDir(agentId)/memories.md
+  // 3. Write curated markdown mirrors in l.workspaceDir(agentId)
   // Only from cards that were actually created or matched-existing in the store
-  if (isApply && successfulMemoryTexts.length > 0) {
+  if (isApply) {
     const wsDir = l.workspaceDir(agentId);
     if (existsSync(wsDir)) {
-      const mirrorContent = successfulMemoryTexts.join("\n\n§\n\n") + "\n";
-      const mirrorPath = join(wsDir, "memories.md");
-      const sha = createHash("sha256").update(mirrorContent).digest("hex");
-      writeAtomicSync(mirrorPath, mirrorContent, 0o600);
-
-      if (ledger) {
-        ledger.record({
-          entity: "file",
-          idempotencyKey: fileIdempotencyKey(agentId, "workspace/memories.md", sha),
-          action: "created",
+      if (successfulMemoryTexts.length > 0) {
+        const mirrorContent = successfulMemoryTexts.join("\n\n§\n\n") + "\n";
+        writeMirrorWithConflict({
+          targetPath: join(wsDir, "memories.md"),
+          content: mirrorContent,
+          relTarget: "workspace/memories.md",
           sourceRef: "memories/MEMORY.md",
-          targetRef: `agents/${agentId}/workspace/memories.md`,
-          sha256: sha,
+          agentId,
+          onConflict,
+          replacedBackupDir,
+          ledger,
+          l,
+        });
+      }
+
+      if (successfulUserTexts.length > 0) {
+        const userMirrorContent = successfulUserTexts.join("\n\n§\n\n") + "\n";
+        writeMirrorWithConflict({
+          targetPath: join(wsDir, "USER.md"),
+          content: userMirrorContent,
+          relTarget: "workspace/USER.md",
+          sourceRef: "memories/USER.md",
+          agentId,
+          onConflict,
+          replacedBackupDir,
+          ledger,
+          l,
         });
       }
     }
@@ -306,5 +542,6 @@ export async function importHermesMemories(opts: {
     unresolvedUserScopeCount,
     totalCards,
     cardResults,
+    errors,
   };
 }

@@ -8,6 +8,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   unlinkSync,
 } from "node:fs";
@@ -37,6 +38,7 @@ export interface RollbackReport {
   movedAside: string | null;
   memoryCardsNotReverted?: number | undefined;
   memoryUndoStatus?: "not-reverted (engine has no undo)" | undefined;
+  storeUndoStatus?: "restored" | "removed" | "not-reverted" | undefined;
   startedAt: string;
   finishedAt?: string;
 }
@@ -251,6 +253,7 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     const renamedFiles = new Map<string, string>(); // relPath -> sha256
     const createdAgents = new Set<string>();
     let memoryCardsImported = 0;
+    let storeAction: string | null = null;
 
     const lines = ledgerText.split("\n");
     for (let i = 0; i < lines.length; i++) {
@@ -280,6 +283,8 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
         } else if (entry.entity === "memory") {
           const count = (entry.details?.created as number ?? entry.details?.count as number ?? 1);
           memoryCardsImported += count;
+        } else if (entry.entity === "store") {
+          storeAction = entry.action;
         }
       } catch (err: any) {
         // If this line was followed by a repair marker, it is a repaired torn line: ignore it
@@ -378,6 +383,23 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       changes.push({ path: "config.json", change: "remove" });
     }
 
+    // Handle store adoption rollback
+    let storeUndoStatus: "restored" | "removed" | "not-reverted" | undefined = undefined;
+    const replacedStoreBackup = join(runDir, "replaced", "lancedb");
+    if (storeAction === "replace") {
+      if (existsSync(replacedStoreBackup)) {
+        changes.push({ path: "state/lancedb", change: "restore" });
+        storeUndoStatus = "restored";
+      } else {
+        storeUndoStatus = "not-reverted";
+      }
+    } else if (storeAction === "adopted") {
+      if (existsSync(l.lancedb)) {
+        changes.push({ path: "state/lancedb", change: "remove" });
+        storeUndoStatus = "removed";
+      }
+    }
+
     changes.sort((a, b) => a.path.localeCompare(b.path));
 
     const out: RollbackReport = {
@@ -395,6 +417,7 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
       movedAside: null,
       memoryCardsNotReverted: memoryCardsImported > 0 ? memoryCardsImported : undefined,
       memoryUndoStatus: memoryCardsImported > 0 ? "not-reverted (engine has no undo)" : undefined,
+      storeUndoStatus,
       startedAt,
     };
 
@@ -407,7 +430,27 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     const backupDir = join(rolledBackMarker, "replaced");
     mkdirSync(backupDir, { recursive: true, mode: 0o700 });
 
+    // Handle store restore or removal before/during files loop
+    if (storeAction === "replace" && existsSync(replacedStoreBackup)) {
+      if (existsSync(l.lancedb)) {
+        const storeBkp = join(backupDir, "state", "lancedb");
+        mkdirSync(dirname(storeBkp), { recursive: true, mode: 0o700 });
+        rmSync(storeBkp, { recursive: true, force: true });
+        renameSync(l.lancedb, storeBkp);
+      }
+      renameSync(replacedStoreBackup, l.lancedb);
+    } else if (storeAction === "adopted" && existsSync(l.lancedb)) {
+      const storeBkp = join(backupDir, "state", "lancedb");
+      mkdirSync(dirname(storeBkp), { recursive: true, mode: 0o700 });
+      rmSync(storeBkp, { recursive: true, force: true });
+      renameSync(l.lancedb, storeBkp);
+    }
+
     for (const c of changes) {
+      if (c.path === "state/lancedb") {
+        // Already handled above
+        continue;
+      }
       const targetPath = join(l.home, c.path);
       const snapFilePath = join(snapPath, c.path);
 

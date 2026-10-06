@@ -27,6 +27,7 @@ import {
   type AgentImportReport,
   MAX_FILE_BYTES,
 } from "./openclaw-agents.ts";
+import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 
 function parseBaseExt(fileName: string): { base: string; ext: string } {
   if (fileName.startsWith(".") && fileName.indexOf(".", 1) === -1) {
@@ -135,51 +136,20 @@ export function planAndMigrateHermesAgent(
     }
     usedTargetNames.add(targetFileName);
 
-    try {
-      const st = lstatSync(src);
-      if (st.isSymbolicLink()) {
-        const real = realpathSync(src);
-        if (!isInsideDir(hermesRoot, real)) {
-          fileReports.push({
-            sourceFile: src,
-            targetFile: targetFileName,
-            targetPath: join(wsTarget, targetFileName),
-            action: "skipped",
-            reason: "symlink-escape",
-            bytes: 0,
-          });
-          return;
-        }
-      }
-      if (st.size > MAX_FILE_BYTES) {
-        fileReports.push({
-          sourceFile: src,
-          targetFile: targetFileName,
-          targetPath: join(wsTarget, targetFileName),
-          action: "skipped",
-          reason: "file-too-large",
-          bytes: st.size,
-        });
-        return;
-      }
-    } catch {
-      return;
-    }
-
-    let srcBuffer: Buffer;
-    try {
-      srcBuffer = readFileSync(src);
-    } catch {
+    const readRes = readHermesSourceFileSafe(src, MAX_FILE_BYTES);
+    if (!readRes.ok) {
       fileReports.push({
         sourceFile: src,
         targetFile: targetFileName,
         targetPath: join(wsTarget, targetFileName),
         action: "skipped",
-        reason: "source-unreadable",
+        reason: readRes.error,
         bytes: 0,
       });
       return;
     }
+
+    const srcBuffer = Buffer.from(readRes.content, "utf8");
 
     const srcSha = createHash("sha256").update(srcBuffer).digest("hex");
     let targetFilePath = join(wsTarget, targetFileName);
@@ -375,11 +345,10 @@ export function planAndMigrateHermesAgent(
     processFile(soulPath, "SOUL.md");
   }
 
-  // 2. Process USER.md if present (either in profile root or memories/USER.md)
-  const userCandidates = [join(profileDir, "USER.md"), join(profileDir, "memories", "USER.md")];
-  const userPath = userCandidates.find(isFile);
-  if (userPath) {
-    processFile(userPath, "USER.md");
+  // 2. Process USER.md only if present in profile root (memories/USER.md is handled by memory cards per ADR-007 Q4)
+  const rootUserPath = join(profileDir, "USER.md");
+  if (isFile(rootUserPath)) {
+    processFile(rootUserPath, "USER.md");
   }
 
   const filesCreated = fileReports.filter((f) => f.action === "created").length;

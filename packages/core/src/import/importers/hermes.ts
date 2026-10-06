@@ -254,10 +254,34 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
       replacedBackupDir = join(repDir, "replaced");
     }
 
-    // Obtain Engine instance for memory cards and store adoption
+    // 1. Store Take-Over (--adopt-store): runs BEFORE target engine is opened
+    let storeAdoptReport: StoreAdoptReport | undefined = undefined;
+    if (opts.adoptStore) {
+      storeAdoptReport = await adoptStore({
+        sourceStorePath: opts.adoptStore,
+        l,
+        isApply,
+        runId,
+        repDir: isApply ? repDir : undefined,
+        ledger,
+        onConflict,
+        replacedBackupDir,
+        testInternals: opts.testInternals,
+      });
+
+      if (storeAdoptReport.verdict === "incompatible") {
+        throw new ImportError(
+          "E_STORE_INCOMPATIBLE",
+          storeAdoptReport.reason ?? "identity-mismatch",
+          `store adoption failed: ${storeAdoptReport.reason}`,
+        );
+      }
+    }
+
+    // 2. Obtain Engine instance for memory cards: ONLY in apply mode (or if opts.engine was passed)
     let engine = opts.engine;
     let createdEngineLocally = false;
-    if (!engine) {
+    if (isApply && !engine) {
       engine = createEngine(
         createImportHost(l.state, async (id: string) => l.workspaceDir(id)),
         buildEngineConfig(rawConfig, l) as any,
@@ -267,27 +291,6 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
     }
 
     try {
-      // 1. Store Take-Over (--adopt-store)
-      let storeAdoptReport: StoreAdoptReport | undefined = undefined;
-      if (opts.adoptStore) {
-        storeAdoptReport = await adoptStore({
-          sourceStorePath: opts.adoptStore,
-          l,
-          engine,
-          isApply,
-          ledger,
-          onConflict,
-          replacedBackupDir,
-        });
-
-        if (storeAdoptReport.verdict === "incompatible") {
-          throw new ImportError(
-            "E_STORE_INCOMPATIBLE",
-            storeAdoptReport.reason ?? "identity-mismatch",
-            `store adoption failed: ${storeAdoptReport.reason}`,
-          );
-        }
-      }
 
       // 2. Migrate agents, SOUL.md, USER.md and memory cards
       const profileReports: HermesProfileImportReport[] = [];
@@ -298,6 +301,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
       let totalCardsSkippedDuplicate = 0;
       let totalCardsRejected = 0;
       let totalUnresolvedUserScope = 0;
+      const errors: Array<{ sourceRef: string; reason: string }> = [];
 
       for (const agent of sourceReport.agents) {
         const normId = typeof agent.agentId === "string" ? agent.agentId.toLowerCase() : "";
@@ -352,12 +356,20 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
           isApply,
           ledger,
           userPrincipal: opts.userPrincipal,
+          onConflict,
+          replacedBackupDir,
         });
 
         totalCardsImported += memoryRes.importedCount;
         totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
         totalCardsRejected += memoryRes.rejectedCount;
         totalUnresolvedUserScope += memoryRes.unresolvedUserScopeCount;
+
+        if (memoryRes.errors.length > 0) {
+          for (const err of memoryRes.errors) {
+            errors.push(err);
+          }
+        }
 
         profileReports.push({
           ...agentReport,
@@ -378,10 +390,10 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         for (const ch of channelReports) {
           ledger.record({
             entity: "channel",
-            idempotencyKey: channelIdempotencyKey(ch.platform, ch.allowFromHashes),
+            idempotencyKey: channelIdempotencyKey(ch.platform, ch.allowFromFingerprints),
             action: "deferred",
             sourceRef: `platforms/pairing/${ch.platform}-approved.json`,
-            details: { platform: ch.platform, count: ch.count },
+            details: { platform: ch.platform, count: ch.allowFromCount },
           });
         }
       }
@@ -436,7 +448,6 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
       const filesReplaced = profileReports.reduce((n, a) => n + a.counts.filesReplaced, 0);
       const filesSkipped = profileReports.reduce((n, a) => n + a.counts.filesSkipped, 0);
 
-      const errors: Array<{ sourceRef: string; reason: string }> = [];
       for (const a of profileReports) {
         if (a.action === "rejected") {
           errors.push({ sourceRef: a.sourceId, reason: a.reason ?? "rejected" });
@@ -530,52 +541,6 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
       }
     }
   };
-
-  // Pre-flight check for store adoption: if incompatible, abort before acquiring lock or touching target
-  if (opts.adoptStore) {
-    let rawConfig: any;
-    if (existsSync(l.configPath)) {
-      try {
-        rawConfig = JSON.parse(readFileSync(l.configPath, "utf8"));
-      } catch (e: any) {
-        throw new ImportError("E_CONFIG_INVALID", "target-config-corrupt", `target config is not valid JSON: ${e.message}`);
-      }
-    } else {
-      rawConfig = defaults();
-    }
-    let preflightEngine = opts.engine;
-    let tmpCheckDir: string | null = null;
-    if (!preflightEngine) {
-      tmpCheckDir = mkdtempSync(join(tmpdir(), "p1b-adopt-check-"));
-      preflightEngine = createEngine(
-        createImportHost(join(tmpCheckDir, "state"), async (id: string) => join(tmpCheckDir!, "workspaces", id)),
-        buildEngineConfig(rawConfig, layout(tmpCheckDir)) as any,
-        opts.testInternals ? { internals: opts.testInternals } : undefined,
-      );
-    }
-    try {
-      const preCheck = await adoptStore({
-        sourceStorePath: opts.adoptStore,
-        l,
-        engine: preflightEngine,
-        isApply: false,
-      });
-      if (preCheck.verdict === "incompatible") {
-        throw new ImportError(
-          "E_STORE_INCOMPATIBLE",
-          preCheck.reason ?? "identity-mismatch",
-          `store adoption failed: ${preCheck.reason}`,
-        );
-      }
-    } finally {
-      if (tmpCheckDir) {
-        try {
-          await preflightEngine.close({ budgetMs: 1_000 });
-        } catch {}
-        rmSync(tmpCheckDir, { recursive: true, force: true });
-      }
-    }
-  }
 
   if (opts.apply) {
     return await withTargetLock(l, async () => {

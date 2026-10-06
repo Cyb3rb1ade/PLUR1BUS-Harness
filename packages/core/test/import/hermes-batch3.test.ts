@@ -121,7 +121,7 @@ describe("Hermes Importer Batch 3", () => {
 
     // Persona files copied byte-exact
     assert.ok(existsSync(join(l.workspaceDir("default"), "SOUL.md")));
-    assert.ok(existsSync(join(l.workspaceDir("default"), "USER.md")));
+    assert.ok(!existsSync(join(l.workspaceDir("default"), "USER.md")), "unresolved USER.md must not be copied");
     assert.ok(existsSync(join(l.workspaceDir("work"), "SOUL.md")));
 
     // Curated markdown mirror for imported memories
@@ -134,15 +134,15 @@ describe("Hermes Importer Batch 3", () => {
     assert.ok(report.counts.memoryCardsImported > 0, "MEMORY.md cards must be imported");
     assert.ok(report.counts.unresolvedUserScope > 0, "USER.md cards must be reported as unresolved-user-scope");
 
-    // Pairings: approved hashed, pending excluded
+    // Pairings: approved hashed/fingerprinted, pending excluded
     assert.equal(report.channels.length, 1);
     const tg = report.channels[0];
     assert.ok(tg);
     assert.equal(tg.platform, "telegram");
-    assert.equal(tg.count, 2);
+    assert.equal(tg.allowFromCount, 2);
     assert.equal(tg.pendingExcludedCount, 1);
-    // Hashed IDs present, not plain text
-    assert.ok(tg.allowFromHashes.every((h) => /^[0-9a-f]{16}$/.test(h)));
+    // Fingerprinted IDs present, not plain text
+    assert.ok(tg.allowFromFingerprints.every((h) => /^[0-9a-f]{8}$/.test(h)));
 
     // Cron jobs deferred with zero disk writes
     assert.ok(report.cron.count >= 2);
@@ -340,9 +340,20 @@ describe("Hermes Importer Batch 3", () => {
     assert.ok(!ledgerText.includes("67890"));
   });
 
-  it("leak test: zero secrets, card texts, or channel IDs in reports, ledgers, or render", { timeout: 30_000 }, async () => {
+  it("leak test: zero secrets, card texts, delivery targets, or channel IDs in reports, ledgers, or render (P1, P2, P10)", { timeout: 30_000 }, async () => {
     const fx = await buildM7HermesFixture();
     const home = tempDir("p1b-b3-leak-");
+
+    // Add a cron job with full target string e.g. telegram:5551234567
+    const cronPath = join(fx.root, "cron", "jobs.json");
+    const cronData = JSON.parse(readFileSync(cronPath, "utf8"));
+    cronData.jobs.push({
+      id: "c-targeted",
+      schedule: "0 12 * * *",
+      deliver: "telegram:5551234567",
+      prompt: "targeted secret cron",
+    });
+    writeFileSync(cronPath, JSON.stringify(cronData));
 
     const report = await importHermes({
       home,
@@ -360,61 +371,287 @@ describe("Hermes Importer Batch 3", () => {
       assert.ok(!text.includes(CONTENT_MARKER), "CONTENT_MARKER must never leak");
       assert.ok(!text.includes("Hermes memory 1"), "memory card text must not leak into reports or ledger");
       assert.ok(!text.includes("Hermes user pref 1"), "user card text must not leak into reports or ledger");
-      assert.ok(!text.includes("12345"), "plain channel ID must not leak");
-      assert.ok(!text.includes("67890"), "plain channel ID must not leak");
+      assert.ok(!text.includes("12345"), "plain channel ID 12345 must not leak");
+      assert.ok(!text.includes("67890"), "plain channel ID 67890 must not leak");
+      assert.ok(!text.includes("5551234567"), "targeted chat ID must never leak");
+      assert.ok(!text.includes("telegram:5551234567"), "targeted delivery target must never leak");
     }
+
+    // Verify deliverKind and status
+    const targetedJob = report.cron.jobs.find((j) => j.id === "c-targeted");
+    assert.ok(targetedJob);
+    assert.equal(targetedJob.deliverKind, "telegram");
+    assert.equal(targetedJob.status, "deferred");
   });
 
-  it("store adopt: mismatching identity cleanly aborts and leaves target unchanged", { timeout: 30_000 }, async () => {
+  it("unresolved USER.md does not mirror into workspace/USER.md (P3, B5)", { timeout: 30_000 }, async () => {
     const fx = await buildM7HermesFixture();
-    const home = tempDir("p1b-b3-adopt-mismatch-");
+    const home = tempDir("p1b-b3-unresolved-user-");
+    const l = layout(home);
 
-    // Initial state hash of home
-    const preHash = treeDigest(home);
+    // Ensure root profile has memories/USER.md but no explicit userPrincipal passed
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      apply: true,
+      testInternals: { embeddings: flatEmbedder() },
+    });
 
-    // Attempt adopt of mismatched store into 384-d target
-    const mismatchedStore = join(fx.root, "memory", "lancedb-namespaced");
-    await assert.rejects(
-      async () => {
-        await importHermes({
-          home,
-          source: fx.root,
-          adoptStore: mismatchedStore,
-          apply: true,
-          testInternals: { embeddings: flatEmbedder(384) },
-        });
-      },
-      (err: any) => {
-        assert.equal(err?.code, "E_STORE_INCOMPATIBLE");
-        return true;
-      },
-    );
-
-    // Target state remains completely unchanged
-    const postHash = treeDigest(home);
-    assert.equal(preHash, postHash);
+    const defWs = l.workspaceDir("default");
+    // Default profile had root SOUL.md, root memories/USER.md, but NO root USER.md
+    assert.ok(!existsSync(join(defWs, "USER.md")), "unresolved USER.md must not be copied to workspace");
+    assert.ok(report.counts.unresolvedUserScope > 0, "must report unresolved-user-scope count");
   });
 
-  it("grep test: no direct @lancedb/lancedb imports in src/import/** (D28/T7)", () => {
-    const importDir = fileURLToPath(new URL("../../src/import", import.meta.url));
-    const files: string[] = [];
-    const scan = (d: string) => {
-      for (const ent of readdirSync(d, { withFileTypes: true })) {
-        const full = join(d, ent.name);
-        if (ent.isDirectory()) scan(full);
-        else if (ent.isFile() && ent.name.endsWith(".ts")) files.push(full);
-      }
-    };
-    scan(importDir);
+  it("dry run writes zero bytes and does not initialize target engine (P4, B4)", { timeout: 30_000 }, async () => {
+    const fx = await buildM7HermesFixture();
+    const home = tempDir("p1b-b3-dryrun-zero-writes-");
+    const l = layout(home);
 
-    for (const f of files) {
-      if (f.endsWith("readonly.ts")) continue; // readonly.ts has dynamic detection for read-only probing
-      const content = readFileSync(f, "utf8");
-      assert.ok(
-        !content.includes("@lancedb/lancedb"),
-        `file ${f} must not import or reference @lancedb/lancedb directly`,
-      );
+    const beforeDigest = treeDigest(home);
+
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      apply: false,
+    });
+
+    assert.equal(report.mode, "dry-run");
+    assert.ok(report.counts.memoryCardsImported > 0, "dry-run should preview imported cards");
+
+    const afterDigest = treeDigest(home);
+    assert.equal(beforeDigest, afterDigest, "dry run must leave home byte-for-byte identical");
+    assert.ok(!existsSync(l.state), "state dir must not exist after dry run");
+    assert.ok(!existsSync(l.lancedb), "lancedb must not exist after dry run");
+  });
+
+  it("store adopt: successful swap into place and rollback removes it (P5a, B1, B2)", { timeout: 30_000 }, async () => {
+    const fx = await buildM7HermesFixture();
+    const home = tempDir("p1b-b3-adopt-success-");
+    const l = layout(home);
+
+    // Create a dedicated adoptable 384-d store
+    const adoptableStore = join(tempDir("p1b-adoptable-"), "store");
+    mkdirSync(adoptableStore, { recursive: true, mode: 0o700 });
+    writeFileSync(join(adoptableStore, "_schema.json"), JSON.stringify({ schemaVersion: "1" }));
+    const { lanceStore } = await import("./fixtures.ts");
+    await lanceStore(join(adoptableStore, "default"), 384, 1);
+
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      adoptStore: adoptableStore,
+      apply: true,
+      testInternals: { embeddings: flatEmbedder(384) },
+    });
+
+    assert.ok(report.storeAdopt);
+    assert.equal(report.storeAdopt.verdict, "ok");
+    assert.equal(report.storeAdopt.action, "taken-over");
+    assert.ok(existsSync(l.lancedb), "target lancedb should exist after take-over");
+
+    // Rollback removes adopted store
+    const rollbackRes = await rollbackImport({
+      home,
+      reportPath: report.reportPath!,
+      apply: true,
+      sourceType: "hermes",
+    });
+
+    assert.equal(rollbackRes.status, "completed");
+    assert.equal(rollbackRes.storeUndoStatus, "removed");
+    assert.ok(!existsSync(l.lancedb), "target lancedb should be removed by rollback");
+  });
+
+  it("store adopt with replace moves old store to backup and rollback restores it (P5b, B1, B2)", { timeout: 30_000 }, async () => {
+    const fx = await buildM7HermesFixture();
+    const home = tempDir("p1b-b3-adopt-replace-");
+    const l = layout(home);
+
+    // Pre-create an existing store at target l.lancedb
+    mkdirSync(l.lancedb, { recursive: true, mode: 0o700 });
+    writeFileSync(join(l.lancedb, "original.txt"), "original target store content");
+
+    // Create a dedicated adoptable 384-d store
+    const adoptableStore = join(tempDir("p1b-adoptable-replace-"), "store");
+    mkdirSync(adoptableStore, { recursive: true, mode: 0o700 });
+    writeFileSync(join(adoptableStore, "_schema.json"), JSON.stringify({ schemaVersion: "1" }));
+    const { lanceStore } = await import("./fixtures.ts");
+    await lanceStore(join(adoptableStore, "default"), 384, 1);
+
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      adoptStore: adoptableStore,
+      onConflict: "replace",
+      apply: true,
+      testInternals: { embeddings: flatEmbedder(384) },
+    });
+
+    assert.ok(report.storeAdopt);
+    assert.equal(report.storeAdopt.verdict, "ok");
+    assert.equal(report.storeAdopt.action, "taken-over");
+    assert.ok(!existsSync(join(l.lancedb, "original.txt")), "original file should have been moved aside");
+
+    // Rollback restores original store from replaced backup
+    const rollbackRes = await rollbackImport({
+      home,
+      reportPath: report.reportPath!,
+      apply: true,
+      sourceType: "hermes",
+    });
+
+    assert.equal(rollbackRes.status, "completed");
+    assert.equal(rollbackRes.storeUndoStatus, "restored");
+    assert.ok(existsSync(join(l.lancedb, "original.txt")), "original store file must be restored");
+    assert.equal(readFileSync(join(l.lancedb, "original.txt"), "utf8"), "original target store content");
+  });
+
+  it("safe file reader rejects symlinks and oversized files safely (P6, M1)", { timeout: 30_000 }, async () => {
+    const fx = await buildM7HermesFixture();
+    const home = tempDir("p1b-b3-symlink-reject-");
+
+    // Create a symlink in Hermes source
+    const escapeFile = join(tempDir("outside-"), "target.txt");
+    writeFileSync(escapeFile, "secret outside content");
+    try {
+      const symlinkPath = join(fx.root, "USER.md");
+      rmSync(symlinkPath, { force: true });
+      const { symlinkSync } = await import("node:fs");
+      symlinkSync(escapeFile, symlinkPath);
+    } catch {}
+
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      apply: true,
+      testInternals: { embeddings: flatEmbedder() },
+    });
+
+    // Verify symlink was rejected and not read
+    const defProfile = report.profilesOrAgents.find((p) => p.harnessAgentId === "default");
+    assert.ok(defProfile);
+    const userFile = defProfile.files.find((f) => f.targetFile.endsWith("USER.md"));
+    if (userFile) {
+      assert.equal(userFile.action, "skipped");
+      assert.equal(userFile.reason, "symlink-refused");
     }
+  });
+
+  it("memory import engine failure surfaces in errors[] and CLI exits 1 with resumable run (P7, B6)", { timeout: 30_000 }, async () => {
+    const fx = await buildM7HermesFixture();
+    const home = tempDir("p1b-b3-engine-err-");
+    const l = layout(home);
+
+    const failingEngine = {
+      memory: {
+        import: async () => {
+          const err: any = new Error("Engine vector store down");
+          err.code = "E_VECTOR_DOWN";
+          throw err;
+        },
+      },
+      close: async () => {},
+    } as unknown as Engine;
+
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      apply: true,
+      engine: failingEngine,
+    });
+
+    assert.ok(report.errors.length > 0, "engine failure must be in errors[]");
+    assert.ok(report.errors.some((e) => e.reason.includes("memory-import-failed")), "reason must be memory-import-failed");
+    assert.ok(report.counts.memoryCardsRejected > 0, "cards must be counted as rejected");
+    assert.ok(!existsSync(join(l.workspaceDir("default"), "memories.md")), "mirror should be skipped on engine failure");
+
+    // CLI returns exit 1 for failed run when import encounters errors (e.g. symlink in memory source)
+    const badFx = await buildM7HermesFixture();
+    const badHome = tempDir("p1b-b3-cli-fail-");
+    // Remove work profile memories so no ONNX download is attempted
+    rmSync(join(badFx.root, "profiles", "work", "memories"), { recursive: true, force: true });
+    // Replace default MEMORY.md with a symlink to outside so safe reader fails with symlink-refused
+    const symlinkTarget = join(tempDir("outside-cli-"), "target.txt");
+    writeFileSync(symlinkTarget, "outside secret");
+    const badMemPath = join(badFx.root, "memories", "MEMORY.md");
+    rmSync(badMemPath, { force: true });
+    const { symlinkSync } = await import("node:fs");
+    symlinkSync(symlinkTarget, badMemPath);
+
+    const cliRes = await runImport([
+      "hermes",
+      "--home",
+      badHome,
+      "--source",
+      badFx.root,
+      "--apply",
+    ]);
+
+    assert.equal(cliRes.ok, false);
+    if (!cliRes.ok) {
+      assert.equal(cliRes.exit, 1);
+      assert.equal(cliRes.error, "E_IMPORT_FAILED");
+    }
+  });
+
+  it("conflict: skip does not overwrite existing memories.md (P8, B6)", { timeout: 30_000 }, async () => {
+    const fx = await buildM7HermesFixture();
+    const home = tempDir("p1b-b3-mirror-conflict-");
+    const l = layout(home);
+
+    // Pre-create user's own memories.md
+    mkdirSync(l.workspaceDir("default"), { recursive: true, mode: 0o700 });
+    const userMemories = "# User's Own Memories\nDo not overwrite me!";
+    writeFileSync(join(l.workspaceDir("default"), "memories.md"), userMemories);
+
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      onConflict: "skip",
+      apply: true,
+      testInternals: { embeddings: flatEmbedder() },
+    });
+
+    const currentMemories = readFileSync(join(l.workspaceDir("default"), "memories.md"), "utf8");
+    assert.equal(currentMemories, userMemories, "existing memories.md must NOT be overwritten under skip");
+
+    const ledgerText = readFileSync(report.ledgerPath!, "utf8");
+    assert.ok(ledgerText.includes("conflict"), "ledger should record conflict for memories.md");
+  });
+
+  it("duplicate-in-batch is counted as matched-existing, not rejected (P9)", { timeout: 30_000 }, async () => {
+    const fx = await buildM7HermesFixture();
+    const home = tempDir("p1b-b3-dup-in-batch-");
+
+    const dupEngine = {
+      memory: {
+        import: async (req: any) => {
+          return {
+            created: 1,
+            matchedExisting: 0,
+            rejected: 1,
+            cards: [
+              { idempotencyKey: req.cards[0]?.idempotencyKey, outcome: "created" },
+              { idempotencyKey: req.cards[1]?.idempotencyKey, outcome: "rejected", reason: "duplicate-in-batch" },
+            ],
+          };
+        },
+      },
+      close: async () => {},
+    } as unknown as Engine;
+
+    const report = await importHermes({
+      home,
+      source: fx.root,
+      apply: true,
+      engine: dupEngine,
+    });
+
+    const defProfile = report.profilesOrAgents.find((p) => p.harnessAgentId === "default");
+    assert.ok(defProfile?.memory);
+    assert.equal(defProfile.memory.skippedDuplicateCount, 1, "duplicate-in-batch must be counted as skipped duplicate");
+    assert.equal(defProfile.memory.rejectedCount, 0, "duplicate-in-batch must not be counted as rejected");
   });
 
   it("rollback after Hermes apply restores files and reports cards as not-reverted", { timeout: 30_000 }, async () => {

@@ -92,6 +92,9 @@ export function renderRollback(r: PipelineRollbackReport | SkillsRollbackReport)
   if ("memoryCardsNotReverted" in r && r.memoryCardsNotReverted) {
     L.push(`Memory cards: ${r.memoryCardsNotReverted} ${r.memoryUndoStatus ?? "not-reverted (engine has no undo)"}`);
   }
+  if ("storeUndoStatus" in r && r.storeUndoStatus) {
+    L.push(`Store: ${r.storeUndoStatus}`);
+  }
   return L.join("\n");
 }
 
@@ -157,7 +160,8 @@ export function renderHermes(r: any): string {
   if (r.channels && r.channels.length > 0) {
     L.push("", `Channels / Pairings (${r.channels.length}):`);
     for (const ch of r.channels) {
-      L.push(`  ${ch.platform.padEnd(16)} ${ch.count} approved pairing entries (hashed)${ch.pendingExcludedCount ? `, ${ch.pendingExcludedCount} pending excluded` : ""}`);
+      const fp = (n: number, f: string[]) => (n ? `${n} [${f.join(", ")}]` : "—");
+      L.push(`  ${ch.platform.padEnd(16)} allowFrom: ${fp(ch.allowFromCount, ch.allowFromFingerprints)}${ch.pendingExcludedCount ? `, ${ch.pendingExcludedCount} pending excluded` : ""}`);
     }
   }
   L.push("", `Cron jobs (${r.cron.count} deferred${r.cron.excludedCount ? `, ${r.cron.excludedCount} excluded` : ""}):`);
@@ -165,7 +169,7 @@ export function renderHermes(r: any): string {
     L.push("  none found");
   }
   for (const j of r.cron.jobs) {
-    L.push(`  ${j.id.padEnd(16)} schedule: ${j.schedule || "—"} (deferred)`);
+    L.push(`  ${j.id.padEnd(16)} schedule: ${j.schedule || "—"}${j.deliverKind ? ` delivery: ${j.deliverKind}` : ""} (deferred)`);
   }
   if (r.storeAdopt && r.storeAdopt.attempted) {
     L.push("", "Store take-over:");

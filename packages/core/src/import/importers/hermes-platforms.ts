@@ -1,23 +1,26 @@
 // Hermes platform pairings allowlist extractor (docs/import.md §3.3, M7 Batch 3).
 // Scans platforms/pairing/*-approved.json and *-pending.json.
-// Approved pairing user IDs are hashed with SHA-256; plain text IDs never appear in reports or ledgers.
+// Approved pairing user IDs are non-reversibly fingerprinted (#104); plain text IDs never appear in reports or ledgers.
 // Pending pairing codes (*-pending.json) are strictly excluded (§3.2).
 // Channel allowlists are reported as "deferred" until target channel integration is configured.
-import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { isDir, isFile } from "../readonly.ts";
+import { idFingerprints } from "../fingerprint.ts";
+import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 
 export interface HermesChannelAllowlistReport {
   platform: string;
-  count: number;
-  allowFromHashes: string[];
+  allowFromCount: number;
+  allowFromFingerprints: string[];
+  groupsCount: number;
+  groupFingerprints: string[];
   action: "deferred";
   pendingExcludedCount: number;
 }
 
 export function readHermesPairings(searchDirs: string[]): HermesChannelAllowlistReport[] {
-  const reportsByPlatform = new Map<string, { hashes: Set<string>; pendingCount: number }>();
+  const reportsByPlatform = new Map<string, { rawIds: Set<string>; pendingCount: number }>();
 
   for (const dir of searchDirs) {
     const pairingDir = join(dir, "platforms", "pairing");
@@ -38,20 +41,20 @@ export function readHermesPairings(searchDirs: string[]): HermesChannelAllowlist
         const platform = ent.slice(0, ent.length - "-approved.json".length);
         if (!platform) continue;
 
+        const readRes = readHermesSourceFileSafe(fullPath, 1024 * 1024);
+        if (!readRes.ok) continue;
+
         try {
-          const content = readFileSync(fullPath, "utf8");
-          const data = JSON.parse(content);
+          const data = JSON.parse(readRes.content);
           if (data && typeof data === "object" && !Array.isArray(data)) {
             let record = reportsByPlatform.get(platform);
             if (!record) {
-              record = { hashes: new Set<string>(), pendingCount: 0 };
+              record = { rawIds: new Set<string>(), pendingCount: 0 };
               reportsByPlatform.set(platform, record);
             }
             for (const rawId of Object.keys(data)) {
               if (rawId && typeof rawId === "string") {
-                // Hash channel ID so plain text never leaks
-                const hash = createHash("sha256").update(rawId).digest("hex").slice(0, 16);
-                record.hashes.add(hash);
+                record.rawIds.add(rawId);
               }
             }
           }
@@ -62,13 +65,15 @@ export function readHermesPairings(searchDirs: string[]): HermesChannelAllowlist
         const platform = ent.slice(0, ent.length - "-pending.json".length);
         if (!platform) continue;
 
+        const readRes = readHermesSourceFileSafe(fullPath, 1024 * 1024);
+        if (!readRes.ok) continue;
+
         try {
-          const content = readFileSync(fullPath, "utf8");
-          const data = JSON.parse(content);
+          const data = JSON.parse(readRes.content);
           if (data && typeof data === "object" && !Array.isArray(data)) {
             let record = reportsByPlatform.get(platform);
             if (!record) {
-              record = { hashes: new Set<string>(), pendingCount: 0 };
+              record = { rawIds: new Set<string>(), pendingCount: 0 };
               reportsByPlatform.set(platform, record);
             }
             record.pendingCount += Object.keys(data).length;
@@ -82,10 +87,14 @@ export function readHermesPairings(searchDirs: string[]): HermesChannelAllowlist
 
   const reports: HermesChannelAllowlistReport[] = [];
   for (const [platform, record] of reportsByPlatform.entries()) {
+    const sortedRaw = [...record.rawIds].sort();
+    const fingerprints = idFingerprints(platform, sortedRaw);
     reports.push({
       platform,
-      count: record.hashes.size,
-      allowFromHashes: [...record.hashes].sort(),
+      allowFromCount: fingerprints.length,
+      allowFromFingerprints: fingerprints,
+      groupsCount: 0,
+      groupFingerprints: [],
       action: "deferred",
       pendingExcludedCount: record.pendingCount,
     });
