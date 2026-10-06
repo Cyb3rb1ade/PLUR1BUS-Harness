@@ -22,7 +22,8 @@ export type WebFailureCode =
   | "http-error"
   | "cursor-expired"
   | "no-provider"
-  | "provider-failed";
+  | "provider-failed"
+  | "internal-error";
 
 const TEXTS: Record<WebFailureCode, { hint: string; userAction: string }> = {
   "invalid-arguments": { hint: "Fix the arguments named in the message and call again.", userAction: "I called the tool with a malformed request; I will correct it." },
@@ -48,6 +49,7 @@ const TEXTS: Record<WebFailureCode, { hint: string; userAction: string }> = {
   "http-error": { hint: "The server answered with an error status. See `status`; retry later or use another source.", userAction: "The site returned an error." },
   "cursor-expired": { hint: "Fetch the URL again without a cursor.", userAction: "I lost my place in that document and will reload it." },
   "no-provider": { hint: "No search provider is configured. Use web.fetch on a known URL.", userAction: "Web search is not set up: add a search provider in Settings › Web search." },
+  "internal-error": { hint: "The tool failed unexpectedly. Retry once; if it persists use another approach.", userAction: "Something went wrong while reading the web; I will try another way." },
   "provider-failed": { hint: "Every configured search provider failed. Use web.fetch on a known URL.", userAction: "Web search is not answering right now." },
 };
 

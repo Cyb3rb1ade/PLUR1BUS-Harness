@@ -44,7 +44,7 @@ describe("web tools: execute", () => {
       assert.equal(bad.isError, true);
       assert.equal(bad.error.code, "not-found");
       assert.ok(bad.error.hint && bad.error.userAction);
-      assert.ok(!JSON.stringify(bad).includes("at "), "no stack");
+      assert.ok(!/\n\s+at /.test(JSON.stringify(bad)) && !("stack" in bad.error), "no stack");
     } finally {
       await s.close();
     }
