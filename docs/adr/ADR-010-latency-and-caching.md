@@ -192,3 +192,29 @@ The weakest part of the evidence base is worth stating: the Writer numbers are n
 6. [ ] Re-verify Gemini's context-caching TTL and pricing against `ai.google.dev` directly, and vLLM's Automatic Prefix Caching defaults from source, before either is relied on in the provider matrix.
 7. [ ] Add the RAM-budget/LRU-unload design to ADR-006 with the numbers from `KNOWN-ISSUES.md:57-62` and `lib/runtime-scheduler.js:21-22` as the starting bounds, and wire B10 to it.
 8. [ ] Record C1 (pi's dissent) in `docs/assumptions.md` as an open tension so it is re-examined when model cache minimums next change.
+
+## M2 implementation record: the prompt-zone builder (2026-10-06)
+
+`packages/core/src/prompt/` implements §1 and R1–R5. It emits provider-neutral **segments with cache-breakpoint markers**; the wire formats are built by `packages/providers`. Plan: `docs/superpowers/plans/2026-10-06-m2-prompt-builder.md`.
+
+- **Zones and hashes (R3, B6).** Fixed order tools → system → frozen memory snapshot → conversation → volatile tail. Tools are sorted by name; every JSON object is serialised with code-point-sorted keys, NFC strings and finite numbers (`canonical.ts`). Per-zone hashes and cumulative prefix hashes (`tools`, `tools+system`, `tools+system+memory`) are on every rendered prompt (R8's `zoneHashes`). **B6** is a test (`packages/core/test/prompt/b6-determinism.test.ts`) and a `pnpm bench` gate: two renders, two process starts under different time zones and locales, byte-identical.
+- **Breakpoints (R1).** From a data table (`model-table.ts`, rows from `docs/provider-matrix.md` §3): one breakpoint at the end of each non-empty stable zone and one trailing on the last conversation segment, at most the model's maximum; none for implicit-caching models. With a free slot and more than 15 positions of conversation, an interior breakpoint sits 15 positions behind the trailing one; with every slot used the zones win and a transcript past the 20-position lookback is reported as `prompt.lookback-risk`. Consecutive `tool_use` (and `tool_result`) segments count as one position.
+- **L7 (frozen snapshot).** `createPromptSession` captures the snapshot at open and has no way to replace it. A recall rides the volatile tail of its own request, after the last breakpoint, and then folds into the conversation at the point it arrived (the cached prefix only grows).
+- **L3 (typed clip events).** A snapshot over its cap, and engine blocks clipped or dropped under the host cap, emit `prompt.zone-clipped`, `prompt.block-clipped` and `prompt.block-dropped`. Also typed: `prompt.below-minimum` (R2), `prompt.unknown-model`, `prompt.lookback-risk`, `prompt.prefix-invalidated` (R4/R5).
+
+**Rulings** (each marked `// RULING:` at its site):
+
+| # | Ruling |
+|---|---|
+| Q1 | The 1-hour TTL is chosen automatically when at least 3 reads are projected in the window (the ADR's proposal), for models that offer it; `policy: "never"` pins the short TTL. The stable zones take the chosen TTL, the trailing breakpoint always the shortest, so 1-hour entries precede 5-minute ones (`ttl.ts`). |
+| Q2 | The snapshot stays frozen until the next session: no automatic refresh and no refresh API. A deliberate one-time refresh is a follow-up if the owner wants it. |
+| Q3 | Small prompts stay uncacheable and are reported (`prompt.below-minimum`), never padded; there is no padding switch. |
+| — | Unknown model: fail closed. No breakpoint markers, floor 4 096 tokens, `prompt.unknown-model`. |
+| — | Opus 5.x and Sonnet 5.x share the "Opus 5" / "Sonnet 5" rows; GPT-5.6+ gets 4 explicit breakpoints (same shape as Anthropic, ADR-010 §1; the matrix names no count); pre-5.6 GPT floor 1 024; Gemini outside the listed rows 4 096. |
+| — | The token estimate is chars / 4, deliberately low (CJK text is denser), so R2 warns early rather than late. |
+| — | The memory snapshot cap is the engine's 17 000-char inject budget (ADR-010 §caps); a cut falls on a line boundary when that keeps at least half the cap. CRLF and CR become LF in every zone. |
+| — | At most one recall per point in the conversation; a later one replaces an earlier one that has not folded yet. |
+
+**Numbering.** The task's "L3" (clipping emits an event) and "L7" (frozen snapshot) are the engine spec's L3 (`docs/superpowers/specs/2026-09-23-m1b-1-engine-api-design.md` §3.2) and ADR-010 §1's zone-3 freeze; they are not this ADR's own L3 (no syscalls in prompt assembly) and L7 (model pre-warm), which the builder satisfies by being pure.
+
+**Not done here:** the ADR-010 ban list for timestamps and ids in caller-supplied zone 1–3 text (the builder adds none and B6 would catch a drifting one), R4's confirmation UI, R6 sticky routing and R7's cache-age scheduler (provider and scheduler side), R8's usage half, parallel tool-invoked recalls at one point.

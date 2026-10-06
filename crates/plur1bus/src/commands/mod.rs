@@ -1,11 +1,13 @@
 pub mod admin;
 pub mod agent;
+pub mod budget;
 pub mod config;
 pub mod core;
 pub mod daemon;
 pub mod dreams;
 pub mod ext;
 pub mod firstaid;
+pub(crate) mod firstaid_bundle;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
 pub mod import;
@@ -16,11 +18,13 @@ pub mod model;
 pub mod module;
 pub mod plugin;
 pub mod repair;
+pub mod secret;
 pub mod service;
 pub mod setup;
 pub mod skill;
 pub mod stubs;
 pub mod update;
+pub(crate) mod update_apply;
 
 use crate::output::Out;
 use crate::paths::Layout;

@@ -2,3 +2,6 @@ packages:
   - "packages/*"
   - apps/desktop
   - apps/desktop/ui
+
+patchedDependencies:
+  eventsource-parser@3.1.1: patches/eventsource-parser@3.1.1.patch

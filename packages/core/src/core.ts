@@ -28,10 +28,13 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
+import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 import path from "node:path";
+import { createBudgetService, PriceBook, SHIPPED_PRICE_TABLES, type BudgetService } from "./budget/index.ts";
+import { createCoreSecretStore } from "./secrets/runtime.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
@@ -87,6 +90,11 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** M3 RBAC: who a call is made by, and where refusals are audited. Default: the token-authenticated local connection
+   *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
+  rbac?: { resolve?: PrincipalResolver; audit?: AuditSink };
+  /** M2 L8: test seam for the budget service (a price book of its own). */
+  budget?: { prices?: PriceBook };
   /** D112: model discovery adapters and options. */
   discovery?: Partial<DiscoveryAdapters> & {
     scheduler?: boolean;
@@ -136,6 +144,7 @@ export function createCore(o: CoreOptions): Core {
   let reembed: MigrationDriver | null = null;
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
+  let budget: BudgetService | null = null;
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
@@ -233,6 +242,8 @@ export function createCore(o: CoreOptions): Core {
     }
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
+    // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
+    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
@@ -346,6 +357,16 @@ export function createCore(o: CoreOptions): Core {
         }
       }
 
+      // M2 L8: the budget service. A store that cannot be opened (e.g. written by a newer core) must not take the
+      // memory core down: budget.* then answers E_INTERNAL and callers that need a check fail closed.
+      try {
+        budget = createBudgetService({
+          path: path.join(l.state, "budget.sqlite"), clock: { now: clock }, securePath: platform.securePath,
+          prices: o.budget?.prices ?? new PriceBook(SHIPPED_PRICE_TABLES),
+          events: (e) => logger?.warn(e.kind, { ...e }),
+        });
+      } catch (e) { logger.error("budget store unavailable", { err: e }); budget = null; }
+
       const discSettings = () => ({
         enabled: (cfg() as any).models?.scan?.enabled ?? true,
         intervalHours: (cfg() as any).models?.scan?.intervalHours ?? 24,
@@ -396,7 +417,7 @@ export function createCore(o: CoreOptions): Core {
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
       });
       reembed = migration;
-      const methods = buildMethods({
+      const methods = guardMethods(buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
@@ -413,7 +434,12 @@ export function createCore(o: CoreOptions): Core {
         systemJobs,
         discovery,
         reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log }),
-      });
+        ...(budget ? { budget } : {}),
+        // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
+        // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
+      }), { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
@@ -470,6 +496,7 @@ export function createCore(o: CoreOptions): Core {
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
+      await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -537,6 +564,7 @@ export function createCore(o: CoreOptions): Core {
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
+      await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;
         const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: remaining() });
