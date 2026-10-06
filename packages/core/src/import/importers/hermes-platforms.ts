@@ -5,7 +5,7 @@
 // Channel allowlists are reported as "deferred" until target channel integration is configured.
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { isDir, isFile } from "../readonly.ts";
+import { isDir } from "../readonly.ts";
 import { idFingerprints } from "../fingerprint.ts";
 import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 
@@ -19,7 +19,10 @@ export interface HermesChannelAllowlistReport {
   pendingExcludedCount: number;
 }
 
-export function readHermesPairings(searchDirs: string[]): HermesChannelAllowlistReport[] {
+export function readHermesPairings(
+  searchDirs: string[],
+  errors?: Array<{ sourceRef: string; reason: string }>,
+): HermesChannelAllowlistReport[] {
   const reportsByPlatform = new Map<string, { rawIds: Set<string>; pendingCount: number }>();
 
   for (const dir of searchDirs) {
@@ -35,14 +38,16 @@ export function readHermesPairings(searchDirs: string[]): HermesChannelAllowlist
 
     for (const ent of entries) {
       const fullPath = join(pairingDir, ent);
-      if (!isFile(fullPath)) continue;
+      if (!ent.endsWith("-approved.json") && !ent.endsWith("-pending.json")) continue;
+      // A refused file (symlink, FIFO, oversized) is reported by reason code, never read and never skipped silently.
+      const refuse = (reason: string) => errors?.push({ sourceRef: `platforms/pairing/${ent}`, reason });
 
       if (ent.endsWith("-approved.json")) {
         const platform = ent.slice(0, ent.length - "-approved.json".length);
         if (!platform) continue;
 
         const readRes = readHermesSourceFileSafe(fullPath, 1024 * 1024);
-        if (!readRes.ok) continue;
+        if (!readRes.ok) { refuse(readRes.error); continue; }
 
         try {
           const data = JSON.parse(readRes.content);
@@ -66,7 +71,7 @@ export function readHermesPairings(searchDirs: string[]): HermesChannelAllowlist
         if (!platform) continue;
 
         const readRes = readHermesSourceFileSafe(fullPath, 1024 * 1024);
-        if (!readRes.ok) continue;
+        if (!readRes.ok) { refuse(readRes.error); continue; }
 
         try {
           const data = JSON.parse(readRes.content);

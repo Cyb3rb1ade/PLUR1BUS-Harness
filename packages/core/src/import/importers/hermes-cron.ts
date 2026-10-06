@@ -13,7 +13,10 @@ export interface HermesCronJob {
   sourceProfile?: string | undefined;
 }
 
-export function readHermesCronJobs(profiles: Array<{ agentId: string; dir: string }>): {
+export function readHermesCronJobs(
+  profiles: Array<{ agentId: string; dir: string }>,
+  errors?: Array<{ sourceRef: string; reason: string }>,
+): {
   userJobs: HermesCronJob[];
   excludedCount: number;
 } {
@@ -24,7 +27,10 @@ export function readHermesCronJobs(profiles: Array<{ agentId: string; dir: strin
   for (const p of profiles) {
     const cronFile = join(p.dir, "cron", "jobs.json");
     const readRes = readHermesSourceFileSafe(cronFile, 1024 * 1024);
-    if (!readRes.ok) continue;
+    if (!readRes.ok) {
+      if (readRes.error !== "not-found") errors?.push({ sourceRef: `${p.agentId}:cron/jobs.json`, reason: readRes.error });
+      continue;
+    }
 
     try {
       const data = JSON.parse(readRes.content);

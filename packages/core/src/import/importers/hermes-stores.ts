@@ -1,8 +1,15 @@
 // Store take-over for Hermes and existing PLUR1BUS stores (docs/import.md §2.3, M7 Batch 3).
 // Evaluates store schema and embedding identity via Engine.stores.adopt.
-// Order: dry run check -> only if "ok" -> copy-never-move into staging -> adopt -> swap into target layout.
-// If any failure occurs, staging directory is deleted and target remains byte-for-byte identical.
-// Existing target store is either cleanly replaced (backed up to replaced/lancedb) or skipped (target-store-exists).
+// Apply order (all under withTargetLock, BEFORE any engine opens or initialises the target store):
+//   prepareStoreAdopt: copy-never-move the source into a staging dir on the target filesystem
+//     (state/lancedb.adopt-<runId>), then Engine.stores.adopt({dryRun:true}) inspects that COPY;
+//   commitStoreAdopt (after the snapshot/ledger exist): move an existing state/lancedb aside into
+//     imports/<runId>/replaced/lancedb (only with --conflict replace) and rename staging into place;
+//   abortStoreAdopt: delete the staging dir. Any failure before commit leaves the target byte-identical.
+// Existing target store: skip -> store-exists-skipped (left untouched, never merged); rename -> refused;
+// replace -> backed up and replaced as a whole, never merged.
+// Identity source: a generation manifest (`generations/<id>/generation.json`) when the store has one, else the
+// sample cosine probe the engine runs for legacy stores (report field identitySource: "manifest" | "probe").
 // NEVER writes directly to LanceDB or imports external vector store libraries.
 import {
   existsSync,
@@ -33,7 +40,7 @@ export interface StoreAdoptReport {
   sourcePath: string;
   targetPath: string;
   verdict: "ok" | "incompatible";
-  action: "taken-over" | "aborted" | "preview-ok";
+  action: "taken-over" | "aborted" | "preview-ok" | "skipped";
   reason?: string | undefined;
   identitySource?: "manifest" | "probe" | undefined;
   schemaVersion?: string | undefined;
@@ -88,7 +95,9 @@ export function copyStoreDirectorySafe(src: string, dst: string): void {
 
 export async function inspectStoreAdopt(opts: {
   storePath: string;
-  expectedIdentity: any;
+  expectedIdentity?: any;
+  /** Target harness config: the identity a copied store must match is the TARGET engine's identity. */
+  targetConfig?: unknown;
   testInternals?: Record<string, unknown> | undefined;
 }): Promise<{
   verdict: "ok" | "incompatible";
@@ -96,13 +105,13 @@ export async function inspectStoreAdopt(opts: {
   identitySource?: "manifest" | "probe" | undefined;
   schemaVersion?: string | undefined;
 }> {
-  const { storePath, expectedIdentity, testInternals } = opts;
+  const { storePath, expectedIdentity, targetConfig, testInternals } = opts;
   const tmpDir = mkdtempSync(join(tmpdir(), "p1b-adopt-probe-"));
   const tmpL = layout(tmpDir);
 
   const engine = createEngine(
     createTempHost(tmpL.state, async (id: string) => tmpL.workspaceDir(id)),
-    buildEngineConfig(defaults(), tmpL) as any,
+    buildEngineConfig((targetConfig ?? defaults()) as any, tmpL) as any,
     testInternals ? { internals: testInternals } : undefined,
   );
 
@@ -124,10 +133,8 @@ export async function inspectStoreAdopt(opts: {
       schemaVersion: res.storeSchema?.current ?? undefined,
     };
   } catch (err: any) {
-    return {
-      verdict: "incompatible",
-      reason: err?.code ?? err?.message ?? "store-unreadable",
-    };
+    const code = typeof err?.code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(err.code) ? err.code : "store-unreadable";
+    return { verdict: "incompatible", reason: code };
   } finally {
     try {
       await engine.close({ budgetMs: 1_000 });
@@ -136,190 +143,158 @@ export async function inspectStoreAdopt(opts: {
   }
 }
 
-export async function adoptStore(opts: {
+export interface PreparedStoreAdopt {
+  report: StoreAdoptReport;
+  resolvedSource: string;
+  /** Present only in apply mode after a verified copy: the staged store waiting for commit. */
+  stagingDir?: string | undefined;
+  /** state/lancedb existed when the copy was verified (only with --conflict replace). */
+  replacesExisting: boolean;
+}
+
+/**
+ * Validates, stages and inspects. Dry run: inspects the source read-only and writes nothing to the target.
+ * Apply: copies into a staging dir and inspects the copy; on any failure the staging dir is removed again.
+ * Never touches an existing state/lancedb.
+ */
+export async function prepareStoreAdopt(opts: {
   sourceStorePath: string;
   l: Layout;
-  expectedIdentity?: any | undefined;
   isApply: boolean;
-  runId?: string | undefined;
-  repDir?: string | undefined;
-  ledger?: ImportLedger | undefined;
+  runId: string;
   onConflict?: ConflictStrategy | undefined;
-  replacedBackupDir?: string | undefined;
+  expectedIdentity?: any | undefined;
+  targetConfig?: unknown;
   testInternals?: Record<string, unknown> | undefined;
-}): Promise<StoreAdoptReport> {
-  const {
-    sourceStorePath,
-    l,
-    expectedIdentity,
-    isApply,
-    runId = "preview",
-    repDir,
-    ledger,
-    onConflict = "skip",
-    replacedBackupDir,
-    testInternals,
-  } = opts;
-
+  /** Ledger of the run being resumed (if any); a recorded take-over of the same source is not repeated. */
+  resumeLedgerText?: string | undefined;
+}): Promise<PreparedStoreAdopt> {
+  const { sourceStorePath, l, isApply, runId, onConflict = "skip", expectedIdentity, targetConfig, testInternals, resumeLedgerText } = opts;
   const resolvedSource = resolve(sourceStorePath);
+  const targetStore = l.lancedb;
+  const alreadyAdoptedInRun = typeof resumeLedgerText === "string"
+    && resumeLedgerText.split("\n").some((line) => {
+      try {
+        const e = JSON.parse(line);
+        return e?.entity === "store" && e?.idempotencyKey === storeIdempotencyKey(resolvedSource);
+      } catch {
+        return false;
+      }
+    });
   if (!existsSync(resolvedSource) || !isDir(resolvedSource)) {
     throw new ImportError("E_SOURCE_NOT_FOUND", "path-unreadable", `store path not found: ${resolvedSource}`);
   }
-
-  // 1. Dry run inspection on source store (zero writes to target)
-  if (!isApply) {
-    if (existsSync(l.lancedb)) {
-      if (onConflict === "skip") {
-        return {
-          attempted: true,
-          sourcePath: resolvedSource,
-          targetPath: l.lancedb,
-          verdict: "ok",
-          action: "aborted",
-          reason: "target-store-exists",
-        };
-      }
-      if (onConflict === "rename") {
-        return {
-          attempted: true,
-          sourcePath: resolvedSource,
-          targetPath: l.lancedb,
-          verdict: "incompatible",
-          action: "aborted",
-          reason: "store-rename-unsupported",
-        };
-      }
-    }
-
-    const check = await inspectStoreAdopt({
-      storePath: resolvedSource,
-      expectedIdentity,
-      testInternals,
-    });
-
-    if (check.verdict !== "ok") {
-      return {
-        attempted: true,
-        sourcePath: resolvedSource,
-        targetPath: l.lancedb,
-        verdict: "incompatible",
-        action: "aborted",
-        reason: check.reason,
-        identitySource: check.identitySource,
-      };
-    }
-
-    return {
-      attempted: true,
-      sourcePath: resolvedSource,
-      targetPath: l.lancedb,
-      verdict: "ok",
-      action: "preview-ok",
-      identitySource: check.identitySource,
-      schemaVersion: check.schemaVersion,
-    };
+  if (resolvedSource === resolve(targetStore) || isInsideDir(resolve(targetStore), resolvedSource) || isInsideDir(resolvedSource, resolve(targetStore))) {
+    throw new ImportError("E_STORE_INCOMPATIBLE", "overlapping-store-paths", "source store overlaps the target store");
   }
 
-  // 2. Apply mode: run under lock BEFORE target engine is opened
-  const targetStore = l.lancedb;
-  if (existsSync(targetStore)) {
+  const base = { attempted: true, sourcePath: resolvedSource, targetPath: targetStore };
+  const replacesExisting = existsSync(targetStore);
+  // --resume of a run whose ledger already records this take-over: never re-copy (with replace that would discard
+  // every card the first attempt wrote into the adopted store).
+  if (alreadyAdoptedInRun) {
+    return { report: { ...base, verdict: "ok", action: "skipped", reason: "already-adopted-in-run" }, resolvedSource, replacesExisting };
+  }
+  if (replacesExisting) {
     if (onConflict === "skip") {
       return {
-        attempted: true,
-        sourcePath: resolvedSource,
-        targetPath: targetStore,
-        verdict: "ok",
-        action: "aborted",
-        reason: "target-store-exists",
+        report: { ...base, verdict: "ok", action: "skipped", reason: "store-exists-skipped" },
+        resolvedSource,
+        replacesExisting,
       };
     }
     if (onConflict === "rename") {
-      throw new ImportError("E_STORE_INCOMPATIBLE", "store-rename-unsupported", "cannot rename store directory on conflict");
+      throw new ImportError("E_STORE_INCOMPATIBLE", "store-rename-unsupported", "a store cannot be renamed on conflict; use --conflict skip or replace");
     }
   }
 
-  // Copy into staging directory first (copy-never-move, leaves target unchanged on any abort)
-  const stagingDir = repDir ? join(repDir, "staging-lancedb") : join(l.state, `lancedb.adopt-${runId}`);
+  if (!isApply) {
+    const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, testInternals });
+    return {
+      report: check.verdict === "ok"
+        ? { ...base, verdict: "ok", action: "preview-ok", identitySource: check.identitySource, schemaVersion: check.schemaVersion }
+        : { ...base, verdict: "incompatible", action: "aborted", reason: check.reason, identitySource: check.identitySource },
+      resolvedSource,
+      replacesExisting,
+    };
+  }
+
+  // Same filesystem as state/lancedb so the final step is a rename. state/ exists: withTargetLock holds state/core.lock.
+  const stagingDir = join(l.state, `lancedb.adopt-${runId}`);
+  rmSync(stagingDir, { recursive: true, force: true });
   try {
     copyStoreDirectorySafe(resolvedSource, stagingDir);
   } catch (err: any) {
     rmSync(stagingDir, { recursive: true, force: true });
     if (err instanceof ImportError) throw err;
-    throw new ImportError("E_STORE_INCOMPATIBLE", "copy-failed", `failed copying store: ${err.message}`);
+    throw new ImportError("E_STORE_INCOMPATIBLE", "copy-failed", `failed copying store: ${err?.code ?? "io"}`);
   }
 
-  // Inspect staging directory
-  const check = await inspectStoreAdopt({
-    storePath: stagingDir,
-    expectedIdentity,
-    testInternals,
-  });
-
+  let check: Awaited<ReturnType<typeof inspectStoreAdopt>>;
+  try {
+    check = await inspectStoreAdopt({ storePath: stagingDir, expectedIdentity, targetConfig, testInternals });
+  } catch (err) {
+    rmSync(stagingDir, { recursive: true, force: true });
+    throw err;
+  }
   if (check.verdict !== "ok") {
-    // Delete staging directory so target remains byte-identical
     rmSync(stagingDir, { recursive: true, force: true });
     return {
-      attempted: true,
-      sourcePath: resolvedSource,
-      targetPath: targetStore,
-      verdict: "incompatible",
-      action: "aborted",
-      reason: check.reason,
-      identitySource: check.identitySource,
+      report: { ...base, verdict: "incompatible", action: "aborted", reason: check.reason, identitySource: check.identitySource },
+      resolvedSource,
+      replacesExisting,
     };
   }
-
-  // Staging is verified compatible: swap into place
-  if (existsSync(targetStore)) {
-    // onConflict === "replace": move old store aside cleanly
-    if (replacedBackupDir) {
-      mkdirSync(replacedBackupDir, { recursive: true, mode: 0o700 });
-      const bkp = join(replacedBackupDir, "lancedb");
-      rmSync(bkp, { recursive: true, force: true });
-      renameSync(targetStore, bkp);
-    } else {
-      rmSync(targetStore, { recursive: true, force: true });
-    }
-    renameSync(stagingDir, targetStore);
-
-    if (ledger) {
-      ledger.record({
-        entity: "store",
-        idempotencyKey: storeIdempotencyKey(resolvedSource),
-        action: "replace",
-        sourceRef: resolvedSource,
-        targetRef: "state/lancedb",
-        details: {
-          identitySource: check.identitySource,
-          schemaVersion: check.schemaVersion,
-        },
-      });
-    }
-  } else {
-    renameSync(stagingDir, targetStore);
-
-    if (ledger) {
-      ledger.record({
-        entity: "store",
-        idempotencyKey: storeIdempotencyKey(resolvedSource),
-        action: "adopted",
-        sourceRef: resolvedSource,
-        targetRef: "state/lancedb",
-        details: {
-          identitySource: check.identitySource,
-          schemaVersion: check.schemaVersion,
-        },
-      });
-    }
-  }
-
   return {
-    attempted: true,
-    sourcePath: resolvedSource,
-    targetPath: targetStore,
-    verdict: "ok",
-    action: "taken-over",
-    identitySource: check.identitySource,
-    schemaVersion: check.schemaVersion,
+    report: { ...base, verdict: "ok", action: "preview-ok", identitySource: check.identitySource, schemaVersion: check.schemaVersion },
+    resolvedSource,
+    stagingDir,
+    replacesExisting,
   };
+}
+
+/** Removes a staged copy that was never committed. Idempotent. */
+export function abortStoreAdopt(prepared: PreparedStoreAdopt | undefined): void {
+  if (prepared?.stagingDir) {
+    rmSync(prepared.stagingDir, { recursive: true, force: true });
+    prepared.stagingDir = undefined;
+  }
+}
+
+/** Swaps a verified staged copy into state/lancedb (apply mode, after snapshot + ledger exist). */
+export function commitStoreAdopt(
+  prepared: PreparedStoreAdopt,
+  opts: { l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined },
+): StoreAdoptReport {
+  const { l, ledger, replacedBackupDir } = opts;
+  const stagingDir = prepared.stagingDir;
+  if (!stagingDir) return prepared.report;
+  const targetStore = l.lancedb;
+  const replacing = existsSync(targetStore);
+  if (replacing) {
+    if (!replacedBackupDir) {
+      throw new ImportError("E_STORE_INCOMPATIBLE", "store-backup-unavailable", "cannot replace a store without a backup location");
+    }
+    mkdirSync(replacedBackupDir, { recursive: true, mode: 0o700 });
+    const bkp = join(replacedBackupDir, "lancedb");
+    rmSync(bkp, { recursive: true, force: true });
+    renameSync(targetStore, bkp);
+  }
+  renameSync(stagingDir, targetStore);
+  prepared.stagingDir = undefined;
+
+  ledger?.record({
+    entity: "store",
+    idempotencyKey: storeIdempotencyKey(prepared.resolvedSource),
+    action: replacing ? "replace" : "adopted",
+    sourceRef: prepared.resolvedSource,
+    targetRef: "state/lancedb",
+    details: {
+      identitySource: prepared.report.identitySource,
+      schemaVersion: prepared.report.schemaVersion,
+    },
+  });
+
+  prepared.report = { ...prepared.report, action: "taken-over" };
+  return prepared.report;
 }

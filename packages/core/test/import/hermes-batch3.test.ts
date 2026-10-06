@@ -531,11 +531,12 @@ describe("Hermes Importer Batch 3", () => {
     // Verify symlink was rejected and not read
     const defProfile = report.profilesOrAgents.find((p) => p.harnessAgentId === "default");
     assert.ok(defProfile);
+    // Without a user binding the root USER.md is never opened (ADR-007 Q4); the symlink cases with a read are in
+    // hermes-batch3-takeover.test.ts (M1).
     const userFile = defProfile.files.find((f) => f.targetFile.endsWith("USER.md"));
-    if (userFile) {
-      assert.equal(userFile.action, "skipped");
-      assert.equal(userFile.reason, "symlink-refused");
-    }
+    assert.equal(userFile?.action, "skipped");
+    assert.equal(userFile?.reason, "unresolved-user-scope");
+    assert.ok(!JSON.stringify(report).includes("secret outside content"));
   });
 
   it("memory import engine failure surfaces in errors[] and CLI exits 1 with resumable run (P7, B6)", { timeout: 30_000 }, async () => {

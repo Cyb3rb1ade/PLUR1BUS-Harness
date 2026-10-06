@@ -105,7 +105,9 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
           adoptStore: values["adopt-store"] as string | undefined,
         });
         if (r.errors.length > 0) {
-          return fail("E_IMPORT_FAILED", r.errors[0]?.reason ?? "import-failed", `import completed with ${r.errors.length} error(s)`, 1);
+          // Exit 1 with reason codes only; the full report (apply) stays on disk and the run is resumable.
+          const where = r.reportPath ? `; report: ${r.reportPath}; resume with --resume ${r.runId}` : "";
+          return fail("E_IMPORT_FAILED", r.errors[0]?.reason ?? "import-failed", `import completed with ${r.errors.length} error(s): ${[...new Set(r.errors.map((e) => e.reason))].join(", ")}${where}`, 1);
         }
         return { ok: true, schema: "import.hermes/1", value: r as unknown as Record<string, unknown>, human: renderHermes(r) };
       }

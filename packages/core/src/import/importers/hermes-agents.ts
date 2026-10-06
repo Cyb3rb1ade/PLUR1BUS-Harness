@@ -13,7 +13,6 @@ import {
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { scaffoldFiles } from "../../agents.ts";
 import type { Layout } from "../../paths.ts";
-import { isFile } from "../readonly.ts";
 import {
   agentIdempotencyKey,
   fileIdempotencyKey,
@@ -27,7 +26,7 @@ import {
   type AgentImportReport,
   MAX_FILE_BYTES,
 } from "./openclaw-agents.ts";
-import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
+import { existsNoFollow, readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 
 function parseBaseExt(fileName: string): { base: string; ext: string } {
   if (fileName.startsWith(".") && fileName.indexOf(".", 1) === -1) {
@@ -90,6 +89,7 @@ export function planAndMigrateHermesAgent(
   onConflict: ConflictStrategy = "skip",
   ledger?: ImportLedger,
   replacedBackupDir?: string,
+  userBound = false,
 ): { report: AgentImportReport; isNewAgent: boolean } {
   // Validate agentId
   const validation = validateAgentId(agentId);
@@ -149,7 +149,7 @@ export function planAndMigrateHermesAgent(
       return;
     }
 
-    const srcBuffer = Buffer.from(readRes.content, "utf8");
+    const srcBuffer = readRes.buffer; // byte-exact; never round-tripped through a string
 
     const srcSha = createHash("sha256").update(srcBuffer).digest("hex");
     let targetFilePath = join(wsTarget, targetFileName);
@@ -340,15 +340,28 @@ export function planAndMigrateHermesAgent(
   }
 
   // 1. Process SOUL.md if present
+  // existsNoFollow, not isFile: a symlink or FIFO is reported (symlink-refused / not-a-regular-file), never skipped silently.
   const soulPath = join(profileDir, "SOUL.md");
-  if (isFile(soulPath)) {
+  if (existsNoFollow(soulPath)) {
     processFile(soulPath, "SOUL.md");
   }
 
-  // 2. Process USER.md only if present in profile root (memories/USER.md is handled by memory cards per ADR-007 Q4)
+  // 2. A profile-root USER.md is user-scoped content (ADR-007 Q4): copied only with an unambiguous user binding.
+  // Without one it is reported and not copied, exactly like the memories/USER.md cards (unresolved-user-scope).
   const rootUserPath = join(profileDir, "USER.md");
-  if (isFile(rootUserPath)) {
-    processFile(rootUserPath, "USER.md");
+  if (existsNoFollow(rootUserPath)) {
+    if (userBound) {
+      processFile(rootUserPath, "USER.md");
+    } else {
+      fileReports.push({
+        sourceFile: rootUserPath,
+        targetFile: "USER.md",
+        targetPath: join(wsTarget, "USER.md"),
+        action: "skipped",
+        reason: "unresolved-user-scope",
+        bytes: 0,
+      });
+    }
   }
 
   const filesCreated = fileReports.filter((f) => f.action === "created").length;

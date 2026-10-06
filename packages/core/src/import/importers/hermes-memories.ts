@@ -11,7 +11,6 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import type { Layout } from "../../paths.ts";
-import { isFile } from "../readonly.ts";
 import {
   cardIdempotencyKey,
   fileIdempotencyKey,
@@ -20,7 +19,7 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
-import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
+import { existsNoFollow, readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
@@ -40,6 +39,12 @@ export function splitHermesCards(content: string): string[] {
     }
   }
   return cards;
+}
+
+/** A reason code only (never message text, which could echo card content): a short token, else "storage". */
+function importErrorCode(err: any): string {
+  const raw = err?.code ?? err?.reason;
+  return typeof raw === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(raw) ? raw : "storage";
 }
 
 export interface HermesMemoryImportResult {
@@ -203,6 +208,9 @@ export async function importHermesMemories(opts: {
 
   const successfulMemoryTexts: string[] = [];
   const successfulUserTexts: string[] = [];
+  // A file with any failed batch gets no mirror: a partial mirror would later conflict with the complete one.
+  let memoryBatchFailed = false;
+  let userBatchFailed = false;
 
   // Principal for system import
   const principal: Principal = {
@@ -217,7 +225,7 @@ export async function importHermesMemories(opts: {
 
   // 1. Process memories/MEMORY.md (agent-scoped)
   const memoryMdPath = join(profileDir, "memories", "MEMORY.md");
-  if (isFile(memoryMdPath)) {
+  if (existsNoFollow(memoryMdPath)) {
     const readRes = readHermesSourceFileSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES);
     if (!readRes.ok) {
       errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: readRes.error });
@@ -295,11 +303,12 @@ export async function importHermesMemories(opts: {
               systemAgent,
             );
           } catch (err: any) {
-            const code = err?.code || err?.reason || "storage";
+            const code = importErrorCode(err);
             errors.push({
               sourceRef: `${profileName}:memories/MEMORY.md#batch-${batchIdx}`,
               reason: `memory-import-failed:${code}`,
             });
+            memoryBatchFailed = true;
             rejectedCount += batch.length;
             for (const batchCard of batch) {
               cardResults.push({
@@ -381,7 +390,7 @@ export async function importHermesMemories(opts: {
   // ADR-007 Q4: without an unambiguous user binding, USER.md memories are NOT imported to LanceDB.
   // They are reported as unresolved-user-scope.
   const userMdPath = join(profileDir, "memories", "USER.md");
-  if (isFile(userMdPath)) {
+  if (existsNoFollow(userMdPath)) {
     const readRes = readHermesSourceFileSafe(userMdPath, MAX_MEMORY_FILE_BYTES);
     if (!readRes.ok) {
       errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: readRes.error });
@@ -426,11 +435,12 @@ export async function importHermesMemories(opts: {
                 systemAgent,
               );
             } catch (err: any) {
-              const code = err?.code || err?.reason || "storage";
+              const code = importErrorCode(err);
               errors.push({
                 sourceRef: `${profileName}:memories/USER.md#batch-${batchIdx}`,
                 reason: `memory-import-failed:${code}`,
               });
+              userBatchFailed = true;
               rejectedCount += batch.length;
               for (const batchCard of batch) {
                 cardResults.push({
@@ -503,7 +513,7 @@ export async function importHermesMemories(opts: {
   if (isApply) {
     const wsDir = l.workspaceDir(agentId);
     if (existsSync(wsDir)) {
-      if (successfulMemoryTexts.length > 0) {
+      if (successfulMemoryTexts.length > 0 && !memoryBatchFailed) {
         const mirrorContent = successfulMemoryTexts.join("\n\n§\n\n") + "\n";
         writeMirrorWithConflict({
           targetPath: join(wsDir, "memories.md"),
@@ -518,7 +528,7 @@ export async function importHermesMemories(opts: {
         });
       }
 
-      if (successfulUserTexts.length > 0) {
+      if (successfulUserTexts.length > 0 && !userBatchFailed) {
         const userMirrorContent = successfulUserTexts.join("\n\n§\n\n") + "\n";
         writeMirrorWithConflict({
           targetPath: join(wsDir, "USER.md"),
