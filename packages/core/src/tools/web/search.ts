@@ -79,7 +79,7 @@ export interface WebSearchArgs {
 }
 
 export interface WebSearch {
-  search(args: WebSearchArgs, ctx?: { signal?: AbortSignal }): Promise<WebSearchResult>;
+  search(args: WebSearchArgs, ctx?: { signal?: AbortSignal | undefined }): Promise<WebSearchResult>;
 }
 
 const DEFAULT_COUNT = 8;

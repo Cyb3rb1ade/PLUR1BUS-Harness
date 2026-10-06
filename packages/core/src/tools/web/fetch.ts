@@ -84,9 +84,9 @@ export interface WebFetchConfig {
 }
 
 export interface WebFetchContext {
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
   /** Cursors are bound to the agent that obtained them. */
-  agentId?: string;
+  agentId?: string | undefined;
 }
 
 export interface WebFetch {

@@ -11,21 +11,21 @@ import { makeAddressPolicy, resolveGuarded, systemResolver, type AddressPolicy, 
 import { parseAddress } from "./ip.ts";
 
 export interface HttpOptions {
-  resolver?: Resolver;
-  policy?: AddressPolicy;
+  resolver?: Resolver | undefined;
+  policy?: AddressPolicy | undefined;
   /** Redirect hops followed before `too-many-redirects`. Default 10 (D94). */
-  maxRedirects?: number;
+  maxRedirects?: number | undefined;
   /** Cap on the decompressed body. Default 20 MB (D94). */
-  maxBytes?: number;
+  maxBytes?: number | undefined;
   /** One deadline for the whole call, all hops and the body. Default 30 s. */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
   userAgent: string;
-  accept?: string;
+  accept?: string | undefined;
   /** Called with the Content-Type of a 2xx answer before its body is read; false → `unsupported-type`. */
-  acceptType?: (contentType: string | undefined) => boolean;
-  signal?: AbortSignal;
+  acceptType?: ((contentType: string | undefined) => boolean) | undefined;
+  signal?: AbortSignal | undefined;
   /** Extra trusted CA (PEM) — for tests with a local TLS stub; production uses the system store. */
-  tlsCa?: string;
+  tlsCa?: string | undefined;
 }
 
 export interface HttpResponse {
@@ -97,7 +97,7 @@ function mapError(err: unknown): WebFailure {
 }
 
 /** One hop. Resolves with the response, its headers and (for 2xx) the capped, decoded body. */
-function hop(url: URL, pin: ResolvedAddress, o: Required<Pick<HttpOptions, "maxBytes" | "userAgent">> & HttpOptions, signal: AbortSignal): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }> {
+function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number }, signal: AbortSignal): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }> {
   return new Promise((resolve, reject) => {
     const secure = url.protocol === "https:";
     const hostname = url.hostname.startsWith("[") ? url.hostname.slice(1, -1) : url.hostname;

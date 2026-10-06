@@ -229,7 +229,7 @@ describe("web.fetch: sections, never silent truncation", () => {
       assert.equal(first.sections.length, 12, "the full table of contents is in the first answer");
       assert.ok(first.sections.every((x) => x.tokens > 0));
       const parts = [first.markdown];
-      let cursor = first.cursor;
+      let cursor: string | undefined = first.cursor;
       let guard = 0;
       let last: WebFetchResult = first;
       while (cursor && guard++ < 100) {

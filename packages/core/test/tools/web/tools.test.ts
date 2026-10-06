@@ -40,7 +40,7 @@ describe("web tools: execute", () => {
       const ok = await f.execute({ url: `http://127.0.0.1:${s.port}/` }, {});
       assert.equal(ok.isError, false);
       assert.equal((ok as { value: { markdown: string } }).value.markdown, "hi");
-      const bad = (await f.execute({ url: `http://127.0.0.1:${s.port}/gone` }, {})) as { isError: true; error: Record<string, unknown> };
+      const bad = (await f.execute({ url: `http://127.0.0.1:${s.port}/gone` }, {})) as unknown as { isError: true; error: Record<string, unknown> };
       assert.equal(bad.isError, true);
       assert.equal(bad.error.code, "not-found");
       assert.ok(bad.error.hint && bad.error.userAction);

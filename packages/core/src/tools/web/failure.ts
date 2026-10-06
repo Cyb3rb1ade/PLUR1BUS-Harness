@@ -54,9 +54,9 @@ const TEXTS: Record<WebFailureCode, { hint: string; userAction: string }> = {
 };
 
 export interface WebFailureExtra {
-  status?: number;
-  url?: string;
-  retryAfterSeconds?: number;
+  status?: number | undefined;
+  url?: string | undefined;
+  retryAfterSeconds?: number | undefined;
 }
 
 export class WebFailure extends Error {

@@ -9,8 +9,8 @@ import type { WebFetch } from "./fetch.ts";
 import type { WebSearch } from "./search.ts";
 
 export interface ToolContext {
-  agentId?: string;
-  signal?: AbortSignal;
+  agentId?: string | undefined;
+  signal?: AbortSignal | undefined;
 }
 
 export type ToolOutcome = { isError: false; value: unknown } | ReturnType<WebFailure["toResult"]>;
