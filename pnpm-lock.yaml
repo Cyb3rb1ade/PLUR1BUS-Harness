@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  eventsource-parser@3.1.1:
+    hash: 47a61305fb5a67d5574214c89cd21a89f8be02c215e979500b6c4bed1daf0507
+    path: patches/eventsource-parser@3.1.1.patch
+
 importers:
 
   .:
@@ -1533,7 +1538,7 @@ snapshots:
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
-      eventsource-parser: 3.1.1
+      eventsource-parser: 3.1.1(patch_hash=47a61305fb5a67d5574214c89cd21a89f8be02c215e979500b6c4bed1daf0507)
       express: 5.2.1
       express-rate-limit: 8.7.1(express@5.2.1)
       hono: 4.13.13
@@ -1849,11 +1854,11 @@ snapshots:
 
   etag@1.8.1: {}
 
-  eventsource-parser@3.1.1: {}
+  eventsource-parser@3.1.1(patch_hash=47a61305fb5a67d5574214c89cd21a89f8be02c215e979500b6c4bed1daf0507): {}
 
   eventsource@3.0.7:
     dependencies:
-      eventsource-parser: 3.1.1
+      eventsource-parser: 3.1.1(patch_hash=47a61305fb5a67d5574214c89cd21a89f8be02c215e979500b6c4bed1daf0507)
 
   express-rate-limit@8.7.1(express@5.2.1):
     dependencies:
