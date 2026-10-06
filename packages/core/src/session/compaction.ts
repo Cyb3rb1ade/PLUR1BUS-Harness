@@ -34,8 +34,8 @@ export function truncateWithPointer(text: string, maxTokens: number, pointer: st
 
 export interface CompactionHooks {
   /** D23: every swap is preceded by an engine checkpoint `compaction` so the dropped segment's facts reach long-term memory.
-   *  The turn loop wires it to the engine and leaves it out for an incognito session (D92 §3.3). */
-  beforeSwap?: (info: { sessionId: string; fromSeq: number; toSeq: number }) => Promise<void>;
+   *  The core wires it to the engine and answers "skipped" for an incognito session (D92 §3.3). */
+  beforeSwap?: (info: { sessionId: string; fromSeq: number; toSeq: number }) => Promise<void | "skipped">;
   onError?: (what: string, err: unknown) => void;
 }
 
@@ -150,7 +150,7 @@ export class Compactor {
     if (this.#hooks.beforeSwap) {
       // RULING: a failed pre-swap checkpoint does not stop the swap (the L14 bound wins over a missed memory write); it is
       // reported in the turn's compaction data and logged.
-      try { await this.#hooks.beforeSwap({ sessionId, fromSeq: seg.fromSeq, toSeq: seg.toSeq }); checkpoint = "done"; }
+      try { checkpoint = (await this.#hooks.beforeSwap({ sessionId, fromSeq: seg.fromSeq, toSeq: seg.toSeq })) === "skipped" ? "skipped" : "done"; }
       catch (e) { checkpoint = "failed"; this.#hooks.onError?.("compaction checkpoint", e); }
     }
     const prepared = this.#store.listSummaries(sessionId, "prepared").find((p) => p.toSeq <= seg.toSeq && p.fromSeq === seg.fromSeq);
