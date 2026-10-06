@@ -76,10 +76,14 @@ pub(super) fn open_private_append(path: &Path) -> io::Result<File> {
     #[cfg(windows)]
     {
         use std::os::windows::fs::OpenOptionsExt;
-        use windows_sys::Win32::Foundation::GENERIC_WRITE;
-        use windows_sys::Win32::Storage::FileSystem::{FILE_FLAG_OPEN_REPARSE_POINT, WRITE_DAC};
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_APPEND_DATA, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, SYNCHRONIZE,
+            WRITE_DAC,
+        };
+        // An explicit access mask replaces what `append(true)` would grant, and FILE_WRITE_DATA (in GENERIC_WRITE)
+        // would make every write start at offset 0 of a reopened file. Append-only access keeps appending.
         options
-            .access_mode(GENERIC_WRITE | WRITE_DAC)
+            .access_mode(FILE_APPEND_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE | WRITE_DAC)
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
     }
     let file = options.open(path)?;
