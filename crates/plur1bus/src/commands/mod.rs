@@ -1,11 +1,13 @@
 pub mod admin;
 pub mod agent;
+pub mod budget;
 pub mod config;
 pub mod core;
 pub mod daemon;
 pub mod dreams;
 pub mod ext;
 pub mod firstaid;
+pub(crate) mod firstaid_bundle;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
 pub mod import;

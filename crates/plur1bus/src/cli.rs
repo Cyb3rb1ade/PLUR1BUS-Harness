@@ -100,6 +100,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ModelCmd,
     },
+    /// [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+    Budget {
+        #[command(subcommand)]
+        sub: BudgetCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
@@ -272,6 +277,17 @@ pub struct RepairArgs {
     pub only: Vec<String>,
 }
 
+/// `plur1bus 1staid bundle` (M8, logging and diagnostics spec §2.9).
+#[derive(Args, Debug)]
+pub struct BundleArgs {
+    /// Where to write the zip: a new file, or an existing directory (default: `<home>/bundles/`)
+    #[arg(long, value_name = "PATH")]
+    pub out: Option<std::path::PathBuf>,
+    /// Keep the last N lines of each log
+    #[arg(long, value_name = "N", default_value_t = crate::firstaid_bundle::DEFAULT_LINES)]
+    pub lines: usize,
+}
+
 #[derive(Args, Debug)]
 pub struct StubArgs {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
@@ -284,6 +300,9 @@ pub enum FirstAidCmd {
     Check,
     /// [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
     Repair(RepairArgs),
+    /// [experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last
+    /// log lines; never the audit log, payload capture, stores or secrets) and print its path
+    Bundle(BundleArgs),
 }
 #[derive(Subcommand, Debug)]
 pub enum AgentCmd {
@@ -578,6 +597,50 @@ pub enum AdminCmd {
     Embedding {
         #[command(subcommand)]
         sub: EmbeddingCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BudgetCmd {
+    /// [experimental] Show usage for the current day and month and every limit with its state
+    Status {
+        /// only this agent's usage (and the global limits plus its own)
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+    },
+    /// [experimental] Set or clear a limit, or the time zone budget periods follow
+    ///
+    /// A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of
+    /// `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals),
+    /// token values are input + output tokens. A bound left out stays as it is.
+    Set {
+        /// the limit covers all agents together
+        #[arg(long, conflicts_with = "agent")]
+        global: bool,
+        /// the limit covers this agent
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+        /// the period the limit resets on (local calendar day or month)
+        #[arg(long, value_parser = ["day", "month"])]
+        period: Option<String>,
+        /// what is counted: cost in USD or input + output tokens
+        #[arg(long, value_parser = ["cost", "tokens"])]
+        metric: Option<String>,
+        /// warn (once per period) above this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        soft: Option<String>,
+        /// refuse calls that would exceed this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        hard: Option<String>,
+        /// remove the soft bound
+        #[arg(long, conflicts_with = "soft")]
+        clear_soft: bool,
+        /// remove the hard bound
+        #[arg(long, conflicts_with = "hard")]
+        clear_hard: bool,
+        /// an IANA time zone name the periods follow (default UTC)
+        #[arg(long, value_name = "ZONE")]
+        timezone: Option<String>,
     },
 }
 

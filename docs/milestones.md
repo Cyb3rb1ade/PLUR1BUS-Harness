@@ -317,6 +317,8 @@ extensions-ecosystem design conflicts tracked separately in this document's own 
 
 **Exit:** signed release, demo guide, full test report, known-issues list, `UPSTREAM.md`-equivalent compatibility matrix (harness × engine × OpenClaw).
 
+**Status — `1staid bundle` and reboot survival (2026-10-06):** `plur1bus 1staid bundle` (redacted diagnostic zip, spec §2.9) and the simulated-reboot integration tests (`crates/plur1bus/tests/reboot.rs`) are in; acceptance 3's "survival of a reboot per OS" is split into those tests and the manual protocol in `docs/reboot-survival.md`, which stays open per OS until it has been run on real machines. Plan: `docs/superpowers/plans/2026-10-06-m8-reboot-and-bundle.md`.
+
 ---
 
 ### Track D — Desktop app and container bundle (D1 gates v0.1.0, after M3; D2–D4 beside M4–M8; D74, D77, D78)
