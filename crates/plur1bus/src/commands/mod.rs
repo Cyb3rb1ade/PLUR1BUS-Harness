@@ -16,6 +16,7 @@ pub mod model;
 pub mod module;
 pub mod plugin;
 pub mod repair;
+pub mod secret;
 pub mod service;
 pub mod setup;
 pub mod skill;

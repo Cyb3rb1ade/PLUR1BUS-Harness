@@ -40,4 +40,5 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `decision` | object | `{}` | live |  |
 | `models.scan.enabled` | boolean | `true` | live |  |
 | `models.scan.intervalHours` | integer | `24` | live |  |
+| `secrets.fileFallback.enabled` | boolean | `false` | live | Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3. |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |

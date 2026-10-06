@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import errno
+import stat
 import threading
 import time
 import unittest
@@ -69,7 +70,7 @@ class JournalTest(unittest.TestCase):
         self.assertEqual(j.drain(send), 1)
         self.assertEqual(seen, ["0", "1"])
         self.assertEqual(j.counts(), {"queued": 2, "dropped": 0, "rejected": 0, "lost": 0}, "the failed entry stays at the head")
-        self.assertEqual(sorted(JOURNAL_CODES), ["E_AGENT_UNKNOWN", "E_CORE_UNAVAILABLE", "E_SERVER_IDENTITY", "E_TIMEOUT", "E_TRANSPORT"])
+        self.assertEqual(sorted(JOURNAL_CODES), ["E_CORE_UNAVAILABLE", "E_SERVER_IDENTITY", "E_TIMEOUT", "E_TRANSPORT"])
 
     def test_poison_head_does_not_block_replay(self) -> None:
         j = CaptureJournal(self.dir)
@@ -181,6 +182,154 @@ class JournalTest(unittest.TestCase):
         self.assertIsNone(j.last_error())
 
 
+
+
+class JournalAuditTest(unittest.TestCase):
+    """Audit M3 and the lows: dead letter, framing, hostile state.json, permissions, code truncation."""
+
+    def setUp(self) -> None:
+        self.dir = os.path.join(tempfile.mkdtemp(prefix="p1h-ja-"), "plur1bus")
+        self.addCleanup(shutil.rmtree, os.path.dirname(self.dir), ignore_errors=True)
+
+    @staticmethod
+    def _n(e: dict) -> str:
+        return e["messages"][0]["content"].split(" ")[1]
+
+    def test_agent_unknown_is_permanent_and_never_blocks_the_queue(self) -> None:
+        self.assertNotIn("E_AGENT_UNKNOWN", JOURNAL_CODES)
+        j = CaptureJournal(self.dir)
+        for i in range(3):
+            j.append(_entry(i))
+        sent = []
+
+        def send(e: dict) -> None:
+            if self._n(e) == "0":
+                raise pmc.RpcError("E_AGENT_UNKNOWN", "unknown-agent")
+            sent.append(self._n(e))
+
+        self.assertEqual(j.drain(send), 2)
+        self.assertEqual(sent, ["1", "2"])
+        self.assertEqual(j.counts()["queued"], 0)
+        dead = j.dead_letters()
+        self.assertEqual(len(dead), 1)
+        self.assertEqual(dead[0]["code"], "E_AGENT_UNKNOWN")
+        self.assertEqual(self._n(dead[0]["entry"]), "0")
+        self.assertEqual(j.details()["deadLettered"], 1)
+
+    def test_dead_letter_is_bounded_and_private(self) -> None:
+        j = CaptureJournal(self.dir, dead_letter_max_entries=3)
+        for i in range(5):
+            j.dead_letter(_entry(i), "E_INVALID_PARAMS")
+        dead = j.dead_letters()
+        self.assertEqual([self._n(d["entry"]) for d in dead], ["2", "3", "4"], "oldest dropped")
+        self.assertEqual(j.details()["deadLettered"], 5)
+        self.assertEqual(j.counts()["rejected"], 5)
+        if os.name == "posix":
+            self.assertEqual(os.stat(j.dead_letter_path).st_mode & 0o777, 0o600)
+        small = CaptureJournal(os.path.join(self.dir, "b"), dead_letter_max_bytes=600)
+        for i in range(10):
+            small.dead_letter(_entry(i, 100), "E_X")
+        self.assertLessEqual(os.path.getsize(small.dead_letter_path), 600)
+        self.assertTrue(small.dead_letters())
+
+    def test_dead_letter_state_holds_no_text(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.dead_letter(_entry(0), "E_INVALID_PARAMS")
+        with open(j.state_path, encoding="utf-8") as f:
+            self.assertNotIn("turn", f.read())
+
+    def test_garbage_counters_in_state_json_are_read_as_zero(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        for garbage in ('{"dropped": "abc", "rejected": [1], "lost": null, "lastError": 5}', '[1,2]', '{"dropped": 1e999}', '\xff\xfe', '{"rejected": -4}'):
+            with open(j.state_path, "wb") as f:
+                f.write(garbage.encode("latin-1"))
+            c = j.counts()
+            self.assertEqual((c["queued"], c["dropped"], c["rejected"], c["lost"]), (1, 0, 0, 0), garbage)
+            j.bump(rejected=2)  # a writer repairs the file instead of raising
+            self.assertEqual(j.counts()["rejected"], 2)
+            j.note_error("E_TIMEOUT")
+            self.assertEqual(j.last_error(), "E_TIMEOUT")
+
+    def test_torn_tail_does_not_corrupt_the_next_entry(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        j.append(_entry(1))
+        with open(j.path, "ab") as f:  # a crash mid-write: half a record, no newline
+            f.write(b"P1 999 deadbeef {\"agentId\": \"hermes-te")
+        j.append(_entry(2))
+        self.assertEqual([self._n(json.loads(ln)) for ln in j._read_lines()], ["0", "1", "2"])
+        sent = []
+        j.drain(lambda e: sent.append(self._n(e)))
+        self.assertEqual(sent, ["0", "1", "2"])
+        self.assertEqual(j.details()["damaged"], 1)
+
+    def test_a_flipped_byte_skips_only_that_record(self) -> None:
+        j = CaptureJournal(self.dir)
+        for i in range(3):
+            j.append(_entry(i))
+        with open(j.path, "rb") as f:
+            data = bytearray(f.read())
+        at = data.index(b"turn 1") + 5
+        data[at] ^= 0x01
+        with open(j.path, "wb") as f:
+            f.write(bytes(data))
+        sent = []
+        j.drain(lambda e: sent.append(self._n(e)))
+        self.assertEqual(sent, ["0", "2"])
+        self.assertEqual(j.details()["damaged"], 1)
+
+    def test_unframed_legacy_lines_are_still_replayed(self) -> None:
+        os.makedirs(self.dir, mode=0o700)
+        with open(os.path.join(self.dir, "journal.ndjson"), "wb") as f:
+            f.write(json.dumps(_entry(7), separators=(",", ":")).encode() + b"\n")
+        j = CaptureJournal(self.dir)
+        self.assertEqual(j.counts()["queued"], 1)
+        sent = []
+        j.drain(lambda e: sent.append(self._n(e)))
+        self.assertEqual(sent, ["7"])
+
+    @unittest.skipUnless(os.name == "posix", "POSIX modes")
+    def test_loose_directory_and_file_modes_are_repaired_on_every_open(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        j.note_error("E_TIMEOUT")
+        os.chmod(self.dir, 0o755)
+        os.chmod(j.path, 0o644)
+        os.chmod(j.state_path, 0o666)
+        j.append(_entry(1))
+        self.assertEqual(stat.S_IMODE(os.stat(self.dir).st_mode), 0o700)
+        self.assertEqual(stat.S_IMODE(os.stat(j.path).st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE(os.stat(j.state_path).st_mode), 0o600)
+        os.chmod(self.dir, 0o777)
+        j.drain(lambda e: None)
+        self.assertEqual(stat.S_IMODE(os.stat(self.dir).st_mode), 0o700)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX ownership")
+    def test_a_directory_owned_by_someone_else_is_refused(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.append(_entry(0))
+        real = os.lstat
+
+        def foreign(path, *a, **kw):  # noqa: ANN001
+            st = real(path, *a, **kw)
+            if os.fspath(path) == self.dir:
+                return os.stat_result((st.st_mode, st.st_ino, st.st_dev, st.st_nlink, os.geteuid() + 1, st.st_gid, st.st_size, 0, 0, 0))
+            return st
+
+        with mock.patch.object(journal_mod.os, "lstat", foreign):
+            with self.assertRaises(PermissionError):
+                j.append(_entry(1))
+
+    def test_error_codes_are_truncated_and_cleaned(self) -> None:
+        j = CaptureJournal(self.dir)
+        j.note_error("E_" + "X" * 5000 + "\nsecret text")
+        stored = j.last_error()
+        self.assertLessEqual(len(stored), 64)
+        self.assertRegex(stored, r"^[A-Za-z0-9_.?-]+$")
+        self.assertLessEqual(os.path.getsize(j.state_path), 400)
+        self.assertEqual(journal_mod.clean_code("E_TIMEOUT"), "E_TIMEOUT")
+        self.assertEqual(journal_mod.clean_code(None), None)
 
 
 class JournalSharingTest(unittest.TestCase):

@@ -15,6 +15,7 @@ import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 import type { BudgetService } from "../budget/index.ts";
 import { CatalogError } from "../discovery/overrides.ts";
 import { CatalogWriteError } from "../discovery/catalog-store.ts";
+import { buildSecretMethods } from "../secrets/rpc.ts";
 import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
 
@@ -57,6 +58,8 @@ export interface MethodDeps {
   discovery?: import("../discovery/service.ts").DiscoveryService;
   /** M2 L8: the budget service (absent when its store could not be opened). */
   budget?: BudgetService;
+  /** M2: the secret store and who a connection is. Absent, the `secret.*` methods are not served. */
+  secrets?: import("../secrets/rpc.ts").SecretMethodDeps;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -175,6 +178,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     },
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
+    ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),

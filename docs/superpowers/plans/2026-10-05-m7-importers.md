@@ -284,15 +284,17 @@ memory.rebind({
 
 ## Verification & Acceptance Checklist
 
-1. [ ] **Dry-Run Default:** A bare import invocation performs zero writes to source or target and returns a complete preview report.
-2. [ ] **Single-Writer Safety:** An import attempt against a running target home (with active `core.lock` or `core.pid`) fails closed with `target-running`.
-3. [ ] **Byte-Identical Source:** Fixture source directories are bit-for-bit identical before and after import.
+*Ticked 2026-10-06 from the test evidence in `docs/import.md` §11 (each tick names its test there). Open: 4 (OpenClaw store take-over, Task 2.2), 6 (re-embedding routing), 7 (`provenance: "imported"` not asserted by a test); qualifications on 2, 5, 11 are stated in §11.1.*
+
+1. [x] **Dry-Run Default:** A bare import invocation performs zero writes to source or target and returns a complete preview report.
+2. [x] **Single-Writer Safety:** An import attempt against a running target home (with active `core.lock` or `core.pid`) fails closed with `target-running`.
+3. [x] **Byte-Identical Source:** Fixture source directories are bit-for-bit identical before and after import.
 4. [ ] **Store Take-Over without Re-Embedding:** Matching embedding identity store (alpha, 384-d E5) is taken over directly only after store schema format compatibility is verified.
-5. [ ] **Engine Store Ownership:** All memory cards are ingested through `memory.import`; no direct LanceDB writes occur.
+5. [x] **Engine Store Ownership:** All memory cards are ingested through `memory.import`; no direct LanceDB writes occur.
 6. [ ] **Guided Re-Embedding Routing:** Mismatched store (beta, 768-d NANO) is routed to re-embedding migration.
 7. [ ] **Hermes Cards & Pairing:** `MEMORY.md` entries land with provenance `imported`; approved pairing lists are imported; pending pairing codes are excluded.
-8. [ ] **Secret Safety (pre-M2):** `--migrate-secrets` fails closed with `secret-store-unavailable`; report lists only key names without values.
-9. [ ] **Deferred Cron:** Cron jobs are reported as deferred; zero cron files written prior to ADR-009 scheduler.
-10. [ ] **Idempotency:** A second run against an imported target produces zero writes and reports `matched-existing` for all entities.
-11. [ ] **Rollback:** `import --rollback` restores the pre-import target state completely.
-12. [ ] **Zero Leaks:** Automated scans confirm no `FAKE_TOKEN` or `CONTENT_MARKER` appears in any report.
+8. [x] **Secret Safety (pre-M2):** `--migrate-secrets` fails closed with `secret-store-unavailable`; report lists only key names without values.
+9. [x] **Deferred Cron:** Cron jobs are reported as deferred; zero cron files written prior to ADR-009 scheduler.
+10. [x] **Idempotency:** A second run against an imported target produces zero writes and reports `matched-existing` for all entities.
+11. [x] **Rollback:** `import --rollback` restores the pre-import target state completely.
+12. [x] **Zero Leaks:** Automated scans confirm no `FAKE_TOKEN` or `CONTENT_MARKER` appears in any report.

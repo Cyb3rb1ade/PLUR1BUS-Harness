@@ -81,6 +81,12 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget`↴](#plur1bus-budget)
 * [`plur1bus budget status`↴](#plur1bus-budget-status)
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
+* [`plur1bus secret`↴](#plur1bus-secret)
+* [`plur1bus secret status`↴](#plur1bus-secret-status)
+* [`plur1bus secret set`↴](#plur1bus-secret-set)
+* [`plur1bus secret get`↴](#plur1bus-secret-get)
+* [`plur1bus secret rm`↴](#plur1bus-secret-rm)
+* [`plur1bus secret ls`↴](#plur1bus-secret-ls)
 * [`plur1bus login`↴](#plur1bus-login)
 * [`plur1bus channel`↴](#plur1bus-channel)
 * [`plur1bus project`↴](#plur1bus-project)
@@ -130,6 +136,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `user` — Users — M2
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+* `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
 * `project` — Projects — M3
@@ -1140,6 +1147,87 @@ A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least o
 * `--clear-soft` — remove the soft bound
 * `--clear-hard` — remove the hard bound
 * `--timezone <ZONE>` — an IANA time zone name the periods follow (default UTC)
+
+
+
+## `plur1bus secret`
+
+[experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
+
+Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
+
+**Usage:** `plur1bus secret <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
+* `set` — [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+* `get` — [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
+* `rm` — [experimental] Delete a secret from every available backend
+* `ls` — [experimental] List secret names (never values)
+
+
+
+## `plur1bus secret status`
+
+[experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
+
+**Usage:** `plur1bus secret status`
+
+
+
+## `plur1bus secret set`
+
+[experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+
+One trailing newline is removed. Replacing a secret revokes the leases on the old value.
+
+**Usage:** `plur1bus secret set <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
+* `<REST>` — refused: a value never goes in an argument (kept only so the refusal does not echo it)
+
+
+
+## `plur1bus secret get`
+
+[experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
+
+**Usage:** `plur1bus secret get [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--reveal` — print the value itself (it is the only command that does)
+
+
+
+## `plur1bus secret rm`
+
+[experimental] Delete a secret from every available backend
+
+**Usage:** `plur1bus secret rm [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--yes` — skip the confirmation prompt (required outside a terminal)
+
+
+
+## `plur1bus secret ls`
+
+[experimental] List secret names (never values)
+
+**Usage:** `plur1bus secret ls`
 
 
 

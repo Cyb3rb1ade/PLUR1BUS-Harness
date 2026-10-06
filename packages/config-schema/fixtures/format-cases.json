@@ -52,6 +52,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -107,6 +112,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -166,6 +176,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -221,6 +236,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -280,6 +300,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -335,6 +360,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -394,6 +424,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -449,6 +484,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -508,6 +548,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -563,6 +608,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -622,6 +672,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -677,6 +732,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -736,6 +796,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -791,6 +856,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -850,6 +920,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -905,6 +980,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -964,6 +1044,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1019,6 +1104,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -1078,6 +1168,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1133,6 +1228,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -1192,6 +1292,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1247,6 +1352,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -1306,6 +1416,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1361,6 +1476,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -1420,6 +1540,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -1475,6 +1600,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -1534,6 +1664,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1589,6 +1724,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -1648,6 +1788,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1702,6 +1847,11 @@
           "intervalHours": 24
         }
       },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -1754,6 +1904,11 @@
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
