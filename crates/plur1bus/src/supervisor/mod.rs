@@ -1372,6 +1372,28 @@ pub(crate) fn test_state() -> SupervisorState {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_logs_directory_is_refused_without_touching_its_target() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("outside");
+        fs::create_dir(&target).unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).unwrap();
+        let target_file = target.join("outside.log");
+        fs::write(&target_file, b"leave this alone\n").unwrap();
+        let logs = dir.path().join("logs");
+        symlink(&target, &logs).unwrap();
+
+        assert!(tighten_log_tree(&logs).is_err());
+        assert_eq!(
+            fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+            0o755
+        );
+        assert_eq!(fs::read(&target_file).unwrap(), b"leave this alone\n");
+    }
+
     #[test]
     fn time_scale_must_be_finite_and_positive() {
         assert_eq!(parse_time_scale(None), Ok(1.0));
