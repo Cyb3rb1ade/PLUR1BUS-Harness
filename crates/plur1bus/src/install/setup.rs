@@ -1029,7 +1029,7 @@ fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, S
 
 /// The core's own `core.status`, or `None` when it does not answer.
 fn core_status(layout: &Layout) -> Option<Value> {
-    let token = fs::read_to_string(layout.core_token()).ok()?;
+    let token = crate::commands::token_or_say_why(layout.read_token_file(&layout.core_token()))?;
     let platform = if cfg!(windows) { "windows" } else { "posix" };
     let address = layout
         .endpoints(&crate::supervisor::Role::core(), platform)

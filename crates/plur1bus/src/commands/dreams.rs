@@ -6,21 +6,31 @@ use plur1bus_rpc::{Client, ConnectOptions};
 use serde_json::{json, Value};
 
 fn connect(out: &Out, layout: &Layout) -> Client {
-    let token = std::fs::read_to_string(layout.core_token()).unwrap_or_else(|_| {
-        let detail = super::daemon::supervisor_detail(layout);
-        out.fail(
-            "E_CORE_UNAVAILABLE",
-            "core unavailable (no token; is the core running? `plur1bus core run`)",
-            json!({
-                "degraded": {
-                    "reason": "core-unavailable",
-                    "capability": "dreams",
-                    "detail": detail
-                }
-            }),
-            1,
-        )
-    });
+    let token = layout
+        .read_token_file(&layout.core_token())
+        .unwrap_or_else(|e| {
+            if let plur1bus_rpc::RpcError::Call { reason, detail, .. } = &e {
+                out.fail(
+                    "E_UNAUTHORIZED",
+                    &format!("{e}"),
+                    json!({ "reason": reason, "detail": detail }),
+                    1,
+                )
+            }
+            let detail = super::daemon::supervisor_detail(layout);
+            out.fail(
+                "E_CORE_UNAVAILABLE",
+                "core unavailable (no token; is the core running? `plur1bus core run`)",
+                json!({
+                    "degraded": {
+                        "reason": "core-unavailable",
+                        "capability": "dreams",
+                        "detail": detail
+                    }
+                }),
+                1,
+            )
+        });
     super::connect_recorded(
         layout,
         &core_address(

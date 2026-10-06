@@ -20,7 +20,7 @@ fn valid_id(id: &str) -> bool {
 }
 
 fn try_core(layout: &Layout) -> Option<Client> {
-    let token = std::fs::read_to_string(layout.core_token()).ok()?;
+    let token = super::token_or_say_why(layout.read_token_file(&layout.core_token()))?;
     super::connect_recorded(
         layout,
         &core_address(

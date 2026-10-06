@@ -19,6 +19,26 @@ describe("framing", () => {
     const d = new LineDecoder();
     assert.throws(() => d.push(Buffer.alloc(MAX_LINE_BYTES + 1, 0x61)), LineTooLong);
   });
+  it("decode keeps the valid lines of a chunk that also holds an unparseable one (Low)", { timeout: 10_000 }, () => {
+    const d = new LineDecoder();
+    const chunk = Buffer.concat([encodeLine({ id: 1 }), Buffer.from("{nope}\n"), encodeLine({ id: 2 })]);
+    const r = d.decode(chunk);
+    assert.deepEqual(r.values, [{ id: 1 }, { id: 2 }]);
+    assert.equal(r.bad.length, 1);
+    assert.ok(r.bad[0] instanceof SyntaxError);
+    assert.equal(r.tooLong, undefined);
+  });
+  it("decode reports an over-long tail without losing the lines before it", { timeout: 10_000 }, () => {
+    const d = new LineDecoder();
+    const r = d.decode(Buffer.concat([encodeLine({ id: 1 }), Buffer.alloc(MAX_LINE_BYTES + 1, 0x61)]));
+    assert.deepEqual(r.values, [{ id: 1 }]);
+    assert.ok(r.tooLong instanceof LineTooLong);
+  });
+  it("push still throws, now after the whole chunk was consumed, and hands over what it parsed", { timeout: 10_000 }, () => {
+    const d = new LineDecoder();
+    try { d.push(Buffer.concat([encodeLine({ id: 1 }), Buffer.from("{nope}\n")])); assert.fail("push must throw"); }
+    catch (e) { assert.deepEqual((e as { parsed?: unknown[] }).parsed, [{ id: 1 }]); }
+  });
   it("throws on invalid JSON with the offending line kept out of the stream", () => {
     const d = new LineDecoder();
     assert.throws(() => d.push(Buffer.from("{nope}\n")), SyntaxError);

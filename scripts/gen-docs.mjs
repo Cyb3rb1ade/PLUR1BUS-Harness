@@ -36,6 +36,19 @@ endpoint, whose first call is \`supervisor.auth\`. Methods served by a module (*
 module's own endpoint (\`run/module-<name>.sock\`, or the per-home \`-module-<name>\` pipe), whose first call is
 \`module.auth\`. Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
 ${schema.description ? `\n${schema.description}\n` : ""}
+## Local endpoint trust
+
+The trust boundary is the current OS user. On POSIX that rests on \`run/\` (a \`0700\` directory of the user) holding the sockets, tokens and pid files. Before a client reads a token or connects, it checks \`run/\`: it must be a real directory (not a symlink), owned by the current uid, and not writable by group or others; the socket must be a socket of the current uid. The Rust CLI and clients additionally refuse a server whose peer uid (\`SO_PEERCRED\` on Linux, \`getpeereid\` on macOS) is not the current uid. A client that refuses answers \`E_UNAUTHORIZED\` with reason \`run-dir-untrusted\`, \`socket-untrusted\` or \`peer-uid-mismatch\`, and sends nothing. The Python and TypeScript clients apply the directory and socket checks; Node has no peer-uid lookup.
+
+Setups that are refused for this reason:
+
+- \`sudo plur1bus …\` against another user's home: the directory belongs to a different uid.
+- A Docker bind mount of the home whose files belong to a different uid than the process in the container (for example a container running as root over a home owned by the host user).
+- A home on WSL under \`/mnt/c\` (DrvFs), where every entry shows as world-writable.
+- A group- or world-writable home or \`run/\` (for example a sloppy umask or a shared \`PLUR1BUS_HOME\`), and a \`run/\` that is a symlink.
+
+On Windows, \`run/\` is protected by a DACL and the client compares the pipe server's process id with \`run/core.pid\` (or \`run/supervisor.pid\`) before it sends the token; a missing pid file is a refusal (\`server-pid-unknown\`), not a skipped check. The Rust and Python clients ask the OS (\`GetNamedPipeServerProcessId\`). **Limitation:** the TypeScript client (\`@plur1bus/module-api\`) has no native lookup, so it can only compare \`hello.pid\` with the recorded pid after \`core.auth\` was sent: a process that squats the pipe name receives the token and can claim any pid. A host that supplies a native lookup (\`serverPidOf\`) gets the refusal before the token is sent. Closing this for good needs the server to prove it holds the token (an HMAC over a client nonce) before the client sends it; that is not implemented.
+
 ## Error codes
 
 A closed enum; the core puts the code into every error response as \`error.data.error\`, with optional \`reason\`, \`detail\` and \`ids\` (a map of non-secret ids a caller needs to recover, e.g. after a half-finished shared-copy refresh).
