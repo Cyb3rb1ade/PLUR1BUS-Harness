@@ -103,22 +103,23 @@ describe("ssrf matrix: DNS rebinding", () => {
 });
 
 describe("ssrf matrix: redirects to internal addresses", () => {
+  // The first hop is a local stub on 127.0.0.1 that the policy admits explicitly (127.0.0.1/32); none of these
+  // targets is in that range, however it is spelled.
   const internal = [
-    "http://127.0.0.1:1/",
+    "http://127.0.0.2/",
     "http://[::1]/",
     "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
     "http://10.0.0.1/",
     "http://172.16.5.5/",
     "http://192.168.1.1/",
     "http://[fd00::1]/",
-    "http://[::ffff:127.0.0.1]/",
-    "http://2130706433/",
-    "http://0177.0.0.1/",
-    "http://localhost:8080/",
+    "http://[::ffff:127.0.0.2]/",
+    "http://2130706434/",
+    "http://0177.0.0.2/",
+    "http://0.0.0.0/",
   ];
   for (const target of internal) {
     it(`public -> ${target}`, async () => {
-      // The first hop is a local stub the policy admits explicitly; the Location it returns is not admitted.
       const s = await startStub((req, res) => res.writeHead(302, { location: target }).end());
       try {
         await refused(guardedRequest(`http://127.0.0.1:${s.port}/`, { policy: makeAddressPolicy(["127.0.0.1/32"]), resolver: never, userAgent: "t", timeoutMs: 2000 }));
