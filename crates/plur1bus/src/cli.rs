@@ -187,6 +187,9 @@ pub struct ImportArgs {
     /// Force rollback: delete user-modified files created by the import instead of keeping them
     #[arg(long)]
     pub force: bool,
+    /// Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
+    #[arg(long = "adopt-store", value_name = "PATH")]
+    pub adopt_store: Option<PathBuf>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]

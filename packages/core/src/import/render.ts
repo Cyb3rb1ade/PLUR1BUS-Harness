@@ -89,6 +89,12 @@ export function renderRollback(r: PipelineRollbackReport | SkillsRollbackReport)
     L.push(`  ${String(target).padEnd(28)} ${c.change}`);
   }
   if (r.movedAside) L.push(`The replaced state was moved to ${r.movedAside}`);
+  if ("memoryCardsNotReverted" in r && r.memoryCardsNotReverted) {
+    L.push(`Memory cards: ${r.memoryCardsNotReverted} ${r.memoryUndoStatus ?? "not-reverted (engine has no undo)"}`);
+  }
+  if ("storeUndoStatus" in r && r.storeUndoStatus) {
+    L.push(`Store: ${r.storeUndoStatus}`);
+  }
   return L.join("\n");
 }
 
@@ -134,3 +140,56 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
   return L.join("\n");
 }
 
+export function renderHermes(r: any): string {
+  const L: string[] = [];
+  L.push(`Hermes import from ${r.source.root} — ${r.mode === "dry-run" ? "DRY RUN (nothing written; add --apply)" : `applied, run ${r.runId}`}`);
+  L.push(`Target: ${r.harness.home}`);
+  L.push("", `Profiles / Agents (${r.profilesOrAgents.length}):`);
+  for (const a of r.profilesOrAgents) {
+    const memInfo = a.memory
+      ? ` [memory: ${a.memory.importedCount} imported, ${a.memory.skippedDuplicateCount} duplicate/matched, ${a.memory.rejectedCount} rejected${a.memory.unresolvedUserScopeCount ? `, ${a.memory.unresolvedUserScopeCount} unresolved-user-scope` : ""}]`
+      : "";
+    const details = a.action === "rejected"
+      ? `rejected (${a.reason ?? "invalid"})`
+      : `${a.action} (${a.counts.filesCreated} files created, ${a.counts.filesMatched} matched${a.counts.filesConflicted ? `, ${a.counts.filesConflicted} conflicted` : ""})${memInfo}`;
+    L.push(`  ${a.harnessAgentId.padEnd(16)} ${details}`);
+    for (const f of a.files) {
+      L.push(`    ${f.targetFile.padEnd(28)} ${f.action}${f.reason ? ` (${f.reason})` : ""} (${f.bytes} B)`);
+    }
+  }
+  if (r.channels && r.channels.length > 0) {
+    L.push("", `Channels / Pairings (${r.channels.length}):`);
+    for (const ch of r.channels) {
+      const fp = (n: number, f: string[]) => (n ? `${n} [${f.join(", ")}]` : "—");
+      L.push(`  ${ch.platform.padEnd(16)} allowFrom: ${fp(ch.allowFromCount, ch.allowFromFingerprints)}${ch.pendingExcludedCount ? `, ${ch.pendingExcludedCount} pending excluded` : ""}`);
+    }
+  }
+  L.push("", `Cron jobs (${r.cron.count} deferred${r.cron.excludedCount ? `, ${r.cron.excludedCount} excluded` : ""}):`);
+  if (r.cron.jobs.length === 0) {
+    L.push("  none found");
+  }
+  for (const j of r.cron.jobs) {
+    L.push(`  ${j.id.padEnd(16)} schedule: ${j.schedule || "—"}${j.deliverKind ? ` delivery: ${j.deliverKind}` : ""} (deferred)`);
+  }
+  if (r.storeAdopt && r.storeAdopt.attempted) {
+    L.push("", "Store take-over:");
+    L.push(`  source: ${r.storeAdopt.sourcePath} → verdict: ${r.storeAdopt.verdict} (${r.storeAdopt.action})${r.storeAdopt.reason ? ` reason: ${r.storeAdopt.reason}` : ""}`);
+  }
+  L.push("", `Secrets (${r.secrets.count} unmigrated):`);
+  if (r.secrets.unmigrated_secrets.length === 0) {
+    L.push("  none found");
+  } else {
+    L.push(`  keys: ${r.secrets.unmigrated_secrets.join(", ")}`);
+  }
+  if (r.reportPath) {
+    L.push("", `Report: ${r.reportPath}`);
+  }
+  if (r.errors.length) {
+    L.push("", "Errors:");
+    for (const e of r.errors) L.push(`  ${e.sourceRef}: ${e.reason}`);
+    if (r.reportPath) L.push(`Resume with: plur1bus import hermes --resume ${r.runId}`);
+  }
+  const c = r.counts;
+  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.memoryCardsImported} memory cards imported, ${c.memoryCardsSkippedDuplicate} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred} channel pairings deferred; ${c.cronJobsDeferred} cron jobs deferred.`);
+  return L.join("\n");
+}
