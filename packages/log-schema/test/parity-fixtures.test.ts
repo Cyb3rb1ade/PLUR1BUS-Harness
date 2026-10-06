@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { buildVectors } from "../src/gen-fixtures.mjs";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { REDACTION, validateAuditLine, validateLine } from "../src/index.ts";
 
 const committed = JSON.parse(readFileSync(new URL("../fixtures/vectors.json", import.meta.url), "utf8"));
@@ -14,10 +15,11 @@ test("fixtures/vectors.json is what the generator produces now (the Rust parity 
 // `pnpm test` regenerates the fixtures first (like every schema package), so the comparison above cannot go stale by
 // itself. Under CI the regenerated file must also equal the committed one, which is what a forgotten commit looks like.
 test("under CI the regenerated vectors file has no diff against the checkout", { skip: !process.env.CI }, () => {
-  const file = new URL("../fixtures/vectors.json", import.meta.url).pathname;
-  try { execFileSync("git", ["diff", "--exit-code", "--stat", "--", file], { stdio: "pipe" }); } catch (e) {
-    assert.fail(`packages/log-schema/fixtures/vectors.json is stale: run \`pnpm gen\` and commit it\n${(e as { stdout?: Buffer }).stdout?.toString() ?? ""}`);
-  }
+  // Run git from the package directory with a relative path (a `file:` URL pathname is `/D:/…` on Windows), and ignore a
+  // CR at end of line: a Windows checkout with core.autocrlf holds CRLF, the generator writes LF.
+  const cwd = fileURLToPath(new URL("..", import.meta.url));
+  const r = spawnSync("git", ["diff", "--exit-code", "--ignore-cr-at-eol", "--stat", "--", "fixtures/vectors.json"], { cwd, encoding: "utf8" });
+  assert.equal(r.status, 0, `packages/log-schema/fixtures/vectors.json is stale (or git failed): run \`pnpm gen\` and commit it\n${r.stdout}${r.stderr}`);
 });
 
 test("every vector gives its expected verdict in TypeScript", () => {
