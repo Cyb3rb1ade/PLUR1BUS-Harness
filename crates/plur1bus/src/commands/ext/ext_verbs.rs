@@ -323,7 +323,7 @@ pub(crate) fn install(
         return;
     }
     if !out.json {
-        println!("{}", describe_inspection(&insp));
+        crate::output::say(&describe_inspection(&insp));
     }
     // stdin carries the package, so it cannot answer a question.
     let tty = interactive(out) && !flags.yes && matches!(input, Input::Path(_));
@@ -396,7 +396,7 @@ pub(crate) fn install(
                     fail(out, &f, Some(&ack_hint(&x)));
                 }
                 if let Some(d) = &f.data {
-                    println!("{}", describe_inspection(d));
+                    crate::output::say(&describe_inspection(d));
                 }
                 if !ask(&format!("{}; go ahead?", f.message)) {
                     declined(out);
@@ -480,7 +480,7 @@ pub(crate) fn enable(
         Err(f) if f.wants() == Some("capabilities") => {
             if !out.json {
                 if let Some(d) = &f.data {
-                    println!("{}", describe_capabilities(d));
+                    crate::output::say(&describe_capabilities(d));
                 }
             }
             if !yes {
@@ -498,7 +498,7 @@ pub(crate) fn enable(
         Err(f) => fail(out, &f, None),
     };
     if verb == Verb::Plugin && !out.json {
-        println!("{}", plan_lines(&plan));
+        crate::output::say(&plan_lines(&plan));
     }
     let v = be
         .toggle(name, true, agents.as_ref(), &ack, false)
@@ -525,7 +525,7 @@ pub(crate) fn disable(
             .toggle(name, false, None, &[], true)
             .unwrap_or_else(|f| fail(out, &f, None));
         if !out.json {
-            println!("{}", plan_lines(&plan));
+            crate::output::say(&plan_lines(&plan));
         }
         let held = strings(&plan["heldBack"]);
         if !held.is_empty() {

@@ -66,7 +66,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                         .map(|r| {
                             format!(
                                 "{}{}",
-                                r["agentId"].as_str().unwrap(),
+                                r["agentId"].as_str().unwrap_or_default(),
                                 r["activity"]["state"]
                                     .as_str()
                                     .map(|s| format!("  [{s}]"))
@@ -188,10 +188,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
 /// http://howardhinnant.github.io/date_algorithms.html) converts the day count since the Unix
 /// epoch into a proleptic-Gregorian (y, m, d).
 pub(crate) fn rfc3339_now() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+    let secs = crate::journal::now_ms() / 1000;
     let (days, rem) = (secs / 86_400, secs % 86_400);
     let z = days as i64 + 719_468;
     let era = z.div_euclid(146_097);

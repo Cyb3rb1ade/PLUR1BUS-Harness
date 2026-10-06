@@ -198,10 +198,9 @@ impl Client {
     fn call_inner(&mut self, method: &str, params: Value) -> Result<Value, RpcError> {
         let id = self.next_id;
         self.next_id += 1;
-        let line = serde_json::to_string(
-            &json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }),
-        )
-        .unwrap();
+        // `Value`'s Display is infallible (a `Value` always serialises).
+        let line =
+            json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }).to_string();
         {
             let w = self.reader.get_mut();
             w.write_all(line.as_bytes())?;

@@ -76,7 +76,7 @@ pub fn run(out: &Out, layout: &Layout, args: RepairArgs) -> ! {
     let interactive = std::io::stdin().is_terminal() && !out.json;
     if plan.needs_confirmation() && !args.yes && !interactive {
         if !out.json {
-            println!("{}", describe(&plan));
+            crate::output::say(&describe(&plan));
         }
         out.fail(
             "E_INVALID_PARAMS",
@@ -86,7 +86,7 @@ pub fn run(out: &Out, layout: &Layout, args: RepairArgs) -> ! {
         );
     }
     if interactive && plan.needs_confirmation() {
-        println!("{}", describe(&plan));
+        crate::output::say(&describe(&plan));
     }
 
     repair::execute(&mut plan, &ctx, &mut StdinPrompter, args.yes);
