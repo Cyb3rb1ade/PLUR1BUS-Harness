@@ -509,6 +509,9 @@ describe("model discovery end-to-end", () => {
         if (!spyActive) return;
         if (typeof rawP !== "string") return;
         let p = rawP;
+        // Windows securePath (ruling S11) dumps the DACL it just set with `icacls /save` into a scratch dir under the OS
+        // temp dir (module-api secure-path.ts) and removes it again; it holds an ACL listing, never user data.
+        if (process.platform === "win32" && /[\\/]p1b-acl-[^\\/]+(?:[\\/]|$)/.test(p)) return;
         if (p.startsWith("/proc/self/fd/")) {
           try {
             p = fs.readlinkSync(p);
