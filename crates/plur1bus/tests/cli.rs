@@ -544,6 +544,24 @@ fn memory_session_flag_help_says_it_is_capture_context_only_until_m1b_2c() {
     }
 }
 
+/// Asserts a "fails/degrades fast" bound of 1 s. The bound is on the command's own latency (a short probe budget), but
+/// the wall clock also holds process spawn and scheduling, which a saturated machine occasionally stretches past 1 s.
+/// A genuinely slow path (a hang, a retry loop) is slow on every attempt, so the best of three, with `retry` repeating
+/// the measurement without side effects on the test's state, is as strict as a single measurement while ignoring one
+/// descheduled spawn.
+fn assert_fast(
+    what: &str,
+    first: std::time::Duration,
+    mut retry: impl FnMut() -> std::time::Duration,
+) {
+    let limit = std::time::Duration::from_secs(1);
+    let mut took = vec![first];
+    while *took.last().unwrap() >= limit && took.len() < 3 {
+        took.push(retry());
+    }
+    assert!(*took.last().unwrap() < limit, "{what} took {took:?}");
+}
+
 #[test]
 fn memory_add_journals_when_the_core_is_absent_and_recall_degrades_fast() {
     let dir = tempfile::tempdir().unwrap();
@@ -576,7 +594,23 @@ fn memory_add_journals_when_the_core_is_absent_and_recall_degrades_fast() {
         .get_output()
         .stdout
         .clone();
-    assert!(t0.elapsed() < std::time::Duration::from_secs(1));
+    assert_fast("memory add", t0.elapsed(), || {
+        // The same call in a throwaway home: the journal under test is not appended to twice.
+        let scratch = tempfile::tempdir().unwrap();
+        let sh = scratch.path().to_str().unwrap();
+        bin()
+            .args(["--home", sh, "agent", "create", "bernd"])
+            .assert()
+            .success();
+        let t = std::time::Instant::now();
+        bin()
+            .args([
+                "--json", "--home", sh, "memory", "add", "--agent", "bernd", "x",
+            ])
+            .assert()
+            .success();
+        t.elapsed()
+    });
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
     assert_eq!(v["journaled"], true);
     assert_eq!(v["degraded"]["reason"], "core-unavailable");
@@ -600,7 +634,16 @@ fn memory_add_journals_when_the_core_is_absent_and_recall_degrades_fast() {
         .get_output()
         .stdout
         .clone();
-    assert!(t1.elapsed() < std::time::Duration::from_secs(1));
+    assert_fast("memory recall", t1.elapsed(), || {
+        let t = std::time::Instant::now();
+        bin()
+            .args([
+                "--json", "--home", h, "memory", "recall", "--agent", "bernd", "when", "is", "it",
+            ])
+            .assert()
+            .success();
+        t.elapsed()
+    });
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
     assert_eq!(v["degraded"]["reason"], "core-unavailable");
     assert_eq!(v["blocks"].as_array().unwrap().len(), 0);
@@ -962,21 +1005,31 @@ fn memory_ops_without_a_core_fail_fast_with_core_unavailable() {
     for args in cases {
         let mut full = vec!["--json", "--home", h];
         full.extend(args.iter());
-        let t0 = std::time::Instant::now();
-        let out = bin()
-            .args(&full)
-            .assert()
-            .code(1)
-            .get_output()
-            .stdout
-            .clone();
-        let elapsed = t0.elapsed();
+        // The bound is on the command's own latency (a 250 ms probe budget), but the wall clock also holds process
+        // spawn and scheduling, which a saturated machine stretches past 1 s once in a while. A genuinely slow path
+        // (a hang, a retry loop) is slow on every attempt, so the best of three keeps the assertion as strict as it
+        // was while ignoring one descheduled spawn. Every attempt must still answer E_CORE_UNAVAILABLE.
+        let mut took = Vec::new();
+        for _ in 0..3 {
+            let t0 = std::time::Instant::now();
+            let out = bin()
+                .args(&full)
+                .assert()
+                .code(1)
+                .get_output()
+                .stdout
+                .clone();
+            took.push(t0.elapsed());
+            let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+            assert_eq!(v["error"], "E_CORE_UNAVAILABLE", "{args:?} -> {v}");
+            if took.last().unwrap() < &std::time::Duration::from_secs(1) {
+                break;
+            }
+        }
         assert!(
-            elapsed < std::time::Duration::from_secs(1),
-            "{args:?} took {elapsed:?}"
+            took.last().unwrap() < &std::time::Duration::from_secs(1),
+            "{args:?} took {took:?}"
         );
-        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
-        assert_eq!(v["error"], "E_CORE_UNAVAILABLE", "{args:?} -> {v}");
     }
 }
 
@@ -1608,6 +1661,27 @@ fn a_supervisor_without_config_methods_leaves_config_json_to_the_cli() {
     );
 }
 
+/// Leaves a socket file at `path` with nothing listening behind it, and proves the connect is refused.
+///
+/// `UnixListener::bind` + `drop` is not enough on macOS: std sets `FD_CLOEXEC` after `socket()`, so a child another
+/// test thread spawns in that window inherits the listening fd and keeps the "dead" socket alive until it exits. A
+/// connect then succeeds (and is closed by the child) instead of being refused. The inheriting child holds the old
+/// inode, so removing the file and binding a fresh socket escapes it; the connect check makes the precondition
+/// explicit instead of assumed.
+#[cfg(unix)]
+fn dead_socket(path: &std::path::Path) {
+    use std::os::unix::net::{UnixListener, UnixStream};
+    for _ in 0..100 {
+        let _ = std::fs::remove_file(path);
+        drop(UnixListener::bind(path).unwrap());
+        match UnixStream::connect(path) {
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => return,
+            _ => std::thread::sleep(std::time::Duration::from_millis(10)),
+        }
+    }
+    panic!("{}: could not leave a refused socket", path.display());
+}
+
 #[cfg(unix)]
 #[test]
 fn a_live_pid_with_a_refused_socket_counts_as_no_supervisor() {
@@ -1622,7 +1696,7 @@ fn a_live_pid_with_a_refused_socket_counts_as_no_supervisor() {
         format!("{} x\n", std::process::id()),
     )
     .unwrap();
-    drop(std::os::unix::net::UnixListener::bind(run.join("supervisor.sock")).unwrap()); // leaves a dead socket file
+    dead_socket(&run.join("supervisor.sock"));
     let v = json_out(&[
         "--json",
         "--home",
