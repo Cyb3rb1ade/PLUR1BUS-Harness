@@ -112,6 +112,10 @@
       "stability": "experimental",
       "since": "1.3.0"
     },
+    "admin.backup.snapshot": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "admin.embedding.probe": {
       "stability": "experimental",
       "since": "1.3.0"
