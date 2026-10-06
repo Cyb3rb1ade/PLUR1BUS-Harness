@@ -210,7 +210,9 @@ pub fn target_kind(target: &str, store_target: &str) -> Option<Kind> {
 }
 
 fn valid_sha(s: &str) -> bool {
-    s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == 64
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 impl Manifest {
@@ -222,19 +224,27 @@ impl Manifest {
             .strip_prefix("plur1bus.backup/")
             .and_then(|m| m.parse::<u64>().ok())
         else {
-            return bad(format!("schema {:?} is not a plur1bus.backup id", self.schema));
+            return bad(format!(
+                "schema {:?} is not a plur1bus.backup id",
+                self.schema
+            ));
         };
         if major != FORMAT_MAJOR {
             return Err(BackupError::new(
                 "unsupported-format",
-                format!("archive format {major} is not supported (this binary reads {FORMAT_MAJOR})"),
+                format!(
+                    "archive format {major} is not supported (this binary reads {FORMAT_MAJOR})"
+                ),
             ));
         }
         if self.secrets.included {
             return bad("the manifest claims secrets are included".into());
         }
         if !store_target_allowed(&self.store_target) {
-            return bad(format!("store target {:?} is not allowed", self.store_target));
+            return bad(format!(
+                "store target {:?} is not allowed",
+                self.store_target
+            ));
         }
         let mut targets = HashSet::new();
         let mut prefixes = HashMap::new();
@@ -243,7 +253,10 @@ impl Manifest {
                 return bad(format!("unit target {:?} is not allowed", u.target));
             }
             if u.archive != archive_prefix(&u.target, &self.store_target) {
-                return bad(format!("unit {:?} has an unexpected archive path", u.target));
+                return bad(format!(
+                    "unit {:?} has an unexpected archive path",
+                    u.target
+                ));
             }
             if !targets.insert(u.target.as_str()) {
                 return bad(format!("unit {:?} is listed twice", u.target));
@@ -297,22 +310,51 @@ mod tests {
         Manifest {
             schema: SCHEMA.into(),
             created_at_ms: 1,
-            harness: Harness { version: "0.1.0".into() },
-            platform: Platform { os: "linux".into(), arch: "x86_64".into() },
-            engine: Engine { contract: "1.12.0".into(), store_schema: Some("1".into()) },
+            harness: Harness {
+                version: "0.1.0".into(),
+            },
+            platform: Platform {
+                os: "linux".into(),
+                arch: "x86_64".into(),
+            },
+            engine: Engine {
+                contract: "1.12.0".into(),
+                store_schema: Some("1".into()),
+            },
             store_target: "state/lancedb".into(),
             units: vec![
-                Unit { archive: "store".into(), target: "state/lancedb".into(), kind: Kind::Dir },
-                Unit { archive: "config.json".into(), target: "config.json".into(), kind: Kind::File },
+                Unit {
+                    archive: "store".into(),
+                    target: "state/lancedb".into(),
+                    kind: Kind::Dir,
+                },
+                Unit {
+                    archive: "config.json".into(),
+                    target: "config.json".into(),
+                    kind: Kind::File,
+                },
             ],
             absent: vec![],
             dirs: vec![],
             files: vec![
-                FileEntry { path: "store/a".into(), bytes: 1, sha256: "0".repeat(64), mode: None },
-                FileEntry { path: "config.json".into(), bytes: 2, sha256: "1".repeat(64), mode: Some(0o600) },
+                FileEntry {
+                    path: "store/a".into(),
+                    bytes: 1,
+                    sha256: "0".repeat(64),
+                    mode: None,
+                },
+                FileEntry {
+                    path: "config.json".into(),
+                    bytes: 2,
+                    sha256: "1".repeat(64),
+                    mode: Some(0o600),
+                },
             ],
             skipped: vec![],
-            secrets: Secrets { included: false, note: SECRETS_NOTE.into() },
+            secrets: Secrets {
+                included: false,
+                note: SECRETS_NOTE.into(),
+            },
         }
     }
 
@@ -326,7 +368,18 @@ mod tests {
         for ok in ["a", "a/b", "state/x.db"] {
             assert!(safe_rel(ok), "{ok}");
         }
-        for bad in ["", "/a", "a//b", "a/../b", "..", "a/.", "a\\b", "C:/x", "a\0b", "a/b:stream"] {
+        for bad in [
+            "",
+            "/a",
+            "a//b",
+            "a/../b",
+            "..",
+            "a/.",
+            "a\\b",
+            "C:/x",
+            "a\0b",
+            "a/b:stream",
+        ] {
             assert!(!safe_rel(bad), "{bad:?}");
         }
     }
@@ -334,13 +387,29 @@ mod tests {
     #[test]
     fn the_allow_list_refuses_secrets_runtime_and_unknown_locations() {
         let store = "state/lancedb";
-        for t in ["run/core.token", "logs/audit.log", "runtime/node", "models/x", "backups/old", "state/core.lock", "state/backup-staging/x", "elsewhere", "state/other.txt", "../x", ".restore-1/x"] {
+        for t in [
+            "run/core.token",
+            "logs/audit.log",
+            "runtime/node",
+            "models/x",
+            "backups/old",
+            "state/core.lock",
+            "state/backup-staging/x",
+            "elsewhere",
+            "state/other.txt",
+            "../x",
+            ".restore-1/x",
+        ] {
             assert_eq!(target_kind(t, store), None, "{t}");
         }
         assert_eq!(target_kind("config.json", store), Some(Kind::File));
         assert_eq!(target_kind("agents", store), Some(Kind::Dir));
         assert_eq!(target_kind("state/app.sqlite", store), Some(Kind::File));
-        assert_eq!(target_kind("state/journal/x.db", store), None, "inside another unit");
+        assert_eq!(
+            target_kind("state/journal/x.db", store),
+            None,
+            "inside another unit"
+        );
         assert!(!store_target_allowed("run/store"));
         assert!(!store_target_allowed("agents/store"));
         assert!(store_target_allowed("state/lancedb"));
@@ -350,7 +419,10 @@ mod tests {
     fn archive_prefixes_are_fixed() {
         let s = "state/lancedb";
         assert_eq!(archive_prefix("state/lancedb", s), "store");
-        assert_eq!(archive_prefix("state/memory/run-state.json", s), "memory/run-state.json");
+        assert_eq!(
+            archive_prefix("state/memory/run-state.json", s),
+            "memory/run-state.json"
+        );
         assert_eq!(archive_prefix("state/journal", s), "journal");
         assert_eq!(archive_prefix("state/a/b.sqlite", s), "sqlite/a/b.sqlite");
         assert_eq!(archive_prefix("agents", s), "agents");
@@ -371,7 +443,12 @@ mod tests {
         m.units[0].archive = "elsewhere".into();
         assert_eq!(m.validate().unwrap_err().reason, "manifest-invalid");
         let mut m = base();
-        m.files.push(FileEntry { path: "stray".into(), bytes: 0, sha256: "0".repeat(64), mode: None });
+        m.files.push(FileEntry {
+            path: "stray".into(),
+            bytes: 0,
+            sha256: "0".repeat(64),
+            mode: None,
+        });
         assert_eq!(m.validate().unwrap_err().reason, "manifest-invalid");
         let mut m = base();
         m.files[0].sha256 = "XYZ".into();

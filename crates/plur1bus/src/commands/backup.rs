@@ -22,7 +22,12 @@ const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 fn fail(out: &Out, e: BackupError) -> ! {
     let (code, exit) = e.code();
-    out.fail(code, &e.to_string(), json!({ "reason": e.reason, "detail": e.detail }), exit)
+    out.fail(
+        code,
+        &e.to_string(),
+        json!({ "reason": e.reason, "detail": e.detail }),
+        exit,
+    )
 }
 
 fn audit_line(layout: &Layout, action: &str, target: &Path, detail: Value) {
@@ -33,7 +38,11 @@ fn audit_line(layout: &Layout, action: &str, target: &Path, detail: Value) {
 }
 
 fn units_line(m: &Manifest) -> String {
-    m.units.iter().map(|u| u.target.as_str()).collect::<Vec<_>>().join(", ")
+    m.units
+        .iter()
+        .map(|u| u.target.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: BackupCmd) {
@@ -47,7 +56,13 @@ pub fn run(out: &Out, layout: &Layout, cmd: BackupCmd) {
                 "harnessVersion": m.harness.version, "engine": m.engine, "secrets": m.secrets,
             });
             out.ok("backup.verify/1", &doc, || {
-                format!("ok: {} files in {} units ({}), written by harness {}", m.files.len(), m.units.len(), units_line(&m), m.harness.version)
+                format!(
+                    "ok: {} files in {} units ({}), written by harness {}",
+                    m.files.len(),
+                    m.units.len(),
+                    units_line(&m),
+                    m.harness.version
+                )
             });
         }
         BackupCmd::Restore { file, dry_run, yes } => restore_cmd(out, layout, &file, dry_run, yes),
@@ -57,7 +72,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: BackupCmd) {
 fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool) {
     let path = dest.unwrap_or_else(|| create::default_out(layout, now_ms()));
     if path.exists() {
-        fail(out, BackupError::new("exists", format!("{} already exists; refusing to overwrite it", path.display())));
+        fail(
+            out,
+            BackupError::new(
+                "exists",
+                format!(
+                    "{} already exists; refusing to overwrite it",
+                    path.display()
+                ),
+            ),
+        );
     }
     if dry_run {
         let plain: Vec<&str> = create::plain_targets()
@@ -87,7 +111,12 @@ fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool) 
     drop(c);
     let snap = Snapshot::from_rpc(&snap).unwrap_or_else(|e| fail(out, e));
     let r = create::create(layout, &path, &snap).unwrap_or_else(|e| fail(out, e));
-    audit_line(layout, "backup.create", &r.path, json!({ "files": r.files, "bytes": r.bytes, "units": r.units }));
+    audit_line(
+        layout,
+        "backup.create",
+        &r.path,
+        json!({ "files": r.files, "bytes": r.bytes, "units": r.units }),
+    );
     let doc = json!({
         "path": r.path.display().to_string(), "bytes": r.bytes, "files": r.files, "units": r.units, "absent": r.absent,
         "skipped": r.skipped, "createdAtMs": r.created_at_ms, "engine": r.engine,
@@ -106,8 +135,14 @@ fn describe_restore(r: &RestoreReport) -> String {
     let mut s = String::new();
     s.push_str(&format!(
         "{} {} (backup of harness {}, this is {})\n",
-        if r.dry_run { "would restore" } else { "restored" },
-        r.archive, r.archive_harness, r.current_harness
+        if r.dry_run {
+            "would restore"
+        } else {
+            "restored"
+        },
+        r.archive,
+        r.archive_harness,
+        r.current_harness
     ));
     for u in &r.units {
         s.push_str(&format!("  {:<8} {}\n", u.action, u.target));
@@ -117,7 +152,9 @@ fn describe_restore(r: &RestoreReport) -> String {
     }
     match (&r.pre_restore, r.dry_run) {
         (Some(p), _) => s.push_str(&format!("what was replaced is kept in {p}\n")),
-        (None, true) => s.push_str("what is replaced would be kept in <home>/backups/pre-restore-<id>/\n"),
+        (None, true) => {
+            s.push_str("what is replaced would be kept in <home>/backups/pre-restore-<id>/\n")
+        }
         (None, false) => {}
     }
     if !r.dry_run {
@@ -135,11 +172,23 @@ fn restore_cmd(out: &Out, layout: &Layout, file: &Path, dry_run: bool, yes: bool
         // Asked before anything is read or changed, after the cheap refusals: a bad archive or a running core need no answer.
         let m = verify(file).unwrap_or_else(|e| fail(out, e));
         restore::ensure_quiescent(layout).unwrap_or_else(|e| fail(out, e));
-        confirm(out, &format!("replace this installation's state ({}) with the backup?", units_line(&m)), yes);
+        confirm(
+            out,
+            &format!(
+                "replace this installation's state ({}) with the backup?",
+                units_line(&m)
+            ),
+            yes,
+        );
     }
     let r = restore::restore(layout, file, &opts).unwrap_or_else(|e| fail(out, e));
     if r.applied {
-        audit_line(layout, "backup.restore", file, json!({ "units": r.units.len(), "preRestore": r.pre_restore }));
+        audit_line(
+            layout,
+            "backup.restore",
+            file,
+            json!({ "units": r.units.len(), "preRestore": r.pre_restore }),
+        );
     }
     out.ok("backup.restore/1", &r, || describe_restore(&r));
 }

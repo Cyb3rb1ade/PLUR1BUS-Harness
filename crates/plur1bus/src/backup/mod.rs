@@ -99,8 +99,14 @@ mod tests {
 
     #[test]
     fn reasons_map_to_codes() {
-        assert_eq!(BackupError::new("core-running", "x").code(), ("E_LOCKED", 3));
-        assert_eq!(BackupError::new("checksum-mismatch", "x").code().0, "E_INVALID_PARAMS");
+        assert_eq!(
+            BackupError::new("core-running", "x").code(),
+            ("E_LOCKED", 3)
+        );
+        assert_eq!(
+            BackupError::new("checksum-mismatch", "x").code().0,
+            "E_INVALID_PARAMS"
+        );
         assert_eq!(BackupError::new("io", "x").code().0, "E_STORAGE");
     }
 }

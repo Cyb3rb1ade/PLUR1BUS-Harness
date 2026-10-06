@@ -62,10 +62,19 @@ pub fn plan(manifest: &Manifest, home: &Path) -> (Vec<UnitPlan>, Vec<String>) {
         .map(|u| UnitPlan {
             target: u.target.clone(),
             kind: u.kind,
-            action: if exists(&live(home, &u.target)) { "replace" } else { "create" },
+            action: if exists(&live(home, &u.target)) {
+                "replace"
+            } else {
+                "create"
+            },
         })
         .collect();
-    let removed = manifest.absent.iter().filter(|t| exists(&live(home, t))).cloned().collect();
+    let removed = manifest
+        .absent
+        .iter()
+        .filter(|t| exists(&live(home, t)))
+        .cloned()
+        .collect();
     (units, removed)
 }
 
@@ -77,7 +86,8 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
             "a supervisor answers for this home; stop it first (plur1bus daemon stop)",
         ));
     }
-    let probe = crate::supervisor::adopt::probe_core(layout, crate::supervisor::adopt::PROBE_TIMEOUT);
+    let probe =
+        crate::supervisor::adopt::probe_core(layout, crate::supervisor::adopt::PROBE_TIMEOUT);
     if !matches!(probe, crate::supervisor::adopt::Probe::Absent) {
         return Err(BackupError::new(
             "core-running",
@@ -89,7 +99,10 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
 
 fn fail_point(opts: &RestoreOpts, at: &str) -> Result<(), BackupError> {
     if opts.fail_at.as_deref() == Some(at) {
-        return Err(BackupError::new("restore-failed", format!("injected failure at {at}")));
+        return Err(BackupError::new(
+            "restore-failed",
+            format!("injected failure at {at}"),
+        ));
     }
     Ok(())
 }
@@ -172,11 +185,22 @@ fn move_aside(home: &Path, pre: &Path, target: &str) -> io::Result<Option<PathBu
     Ok(Some(to))
 }
 
-fn swap(home: &Path, staging: &Path, pre: &Path, manifest: &Manifest, opts: &RestoreOpts, done: &mut Vec<Done>) -> Result<(), BackupError> {
+fn swap(
+    home: &Path,
+    staging: &Path,
+    pre: &Path,
+    manifest: &Manifest,
+    opts: &RestoreOpts,
+    done: &mut Vec<Done>,
+) -> Result<(), BackupError> {
     for (i, u) in manifest.units.iter().enumerate() {
         let target = live(home, &u.target);
         let moved_to = move_aside(home, pre, &u.target)?;
-        done.push(Done { live: target.clone(), moved_to, placed: false });
+        done.push(Done {
+            live: target.clone(),
+            moved_to,
+            placed: false,
+        });
         fail_point(opts, &format!("swap:{i}"))?;
         if let Some(p) = target.parent() {
             fs::create_dir_all(p)?;
@@ -188,7 +212,11 @@ fn swap(home: &Path, staging: &Path, pre: &Path, manifest: &Manifest, opts: &Res
     for a in &manifest.absent {
         let moved_to = move_aside(home, pre, a)?;
         if moved_to.is_some() {
-            done.push(Done { live: live(home, a), moved_to, placed: false });
+            done.push(Done {
+                live: live(home, a),
+                moved_to,
+                placed: false,
+            });
         }
     }
     Ok(())
@@ -212,10 +240,18 @@ fn roll_back(done: Vec<Done>, rejected: &Path) -> Result<(), String> {
             }
         }
     }
-    if problems.is_empty() { Ok(()) } else { Err(problems.join("; ")) }
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems.join("; "))
+    }
 }
 
-pub fn restore(layout: &Layout, archive: &Path, opts: &RestoreOpts) -> Result<RestoreReport, BackupError> {
+pub fn restore(
+    layout: &Layout,
+    archive: &Path,
+    opts: &RestoreOpts,
+) -> Result<RestoreReport, BackupError> {
     let home = &layout.home;
     let manifest = verify(archive)?;
     let (units, removed) = plan(&manifest, home);
@@ -248,14 +284,22 @@ pub fn restore(layout: &Layout, archive: &Path, opts: &RestoreOpts) -> Result<Re
         return match roll_back(done, &staging.join(".rejected")) {
             Ok(()) => {
                 let _ = fs::remove_dir_all(&pre);
-                Err(BackupError::new("restore-failed", format!("{}; the previous state was put back untouched", e.detail)))
+                Err(BackupError::new(
+                    "restore-failed",
+                    format!("{}; the previous state was put back untouched", e.detail),
+                ))
             }
             Err(left) => {
                 // Keep the staging and pre-restore trees: they hold the only copies of whatever could not be put back.
                 cleanup.0 = PathBuf::new(); // disarm: removing "" is a no-op
                 Err(BackupError::new(
                     "restore-failed",
-                    format!("{}; rolling back failed ({left}); the replaced state is in {} and {}", e.detail, pre.display(), staging.display()),
+                    format!(
+                        "{}; rolling back failed ({left}); the replaced state is in {} and {}",
+                        e.detail,
+                        pre.display(),
+                        staging.display()
+                    ),
                 ))
             }
         };
@@ -271,15 +315,25 @@ mod tests {
 
     #[test]
     fn fail_points_fire_only_where_named() {
-        let o = RestoreOpts { dry_run: false, fail_at: Some("swap:1".into()) };
+        let o = RestoreOpts {
+            dry_run: false,
+            fail_at: Some("swap:1".into()),
+        };
         assert!(fail_point(&o, "swap:0").is_ok());
-        assert_eq!(fail_point(&o, "swap:1").unwrap_err().reason, "restore-failed");
+        assert_eq!(
+            fail_point(&o, "swap:1").unwrap_err().reason,
+            "restore-failed"
+        );
     }
 
     #[test]
     fn roll_back_puts_moved_and_placed_units_back() {
         let d = tempfile::tempdir().unwrap();
-        let (home, pre, rej) = (d.path().join("home"), d.path().join("pre"), d.path().join("rej"));
+        let (home, pre, rej) = (
+            d.path().join("home"),
+            d.path().join("pre"),
+            d.path().join("rej"),
+        );
         fs::create_dir_all(&home).unwrap();
         fs::create_dir_all(&pre).unwrap();
         // unit a: old tree moved to pre, new tree placed; unit b: only moved aside.
@@ -289,8 +343,16 @@ mod tests {
         fs::write(home.join("a/new"), "new").unwrap();
         fs::write(pre.join("b"), "old-b").unwrap();
         let done = vec![
-            Done { live: home.join("a"), moved_to: Some(pre.join("a")), placed: true },
-            Done { live: home.join("b"), moved_to: Some(pre.join("b")), placed: false },
+            Done {
+                live: home.join("a"),
+                moved_to: Some(pre.join("a")),
+                placed: true,
+            },
+            Done {
+                live: home.join("b"),
+                moved_to: Some(pre.join("b")),
+                placed: false,
+            },
         ];
         roll_back(done, &rej).unwrap();
         assert_eq!(fs::read_to_string(home.join("a/old")).unwrap(), "old-a");

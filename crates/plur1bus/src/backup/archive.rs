@@ -41,10 +41,11 @@ pub fn hash_file(path: &Path) -> io::Result<(String, u64)> {
 
 pub fn hex(b: &[u8]) -> String {
     use std::fmt::Write as _;
-    b.iter().fold(String::with_capacity(b.len() * 2), |mut s, x| {
-        let _ = write!(s, "{x:02x}");
-        s
-    })
+    b.iter()
+        .fold(String::with_capacity(b.len() * 2), |mut s, x| {
+            let _ = write!(s, "{x:02x}");
+            s
+        })
 }
 
 /// Writes the archive to `out` (created private, `<out>.partial` until complete). `sources` maps an archive path to the file
@@ -82,15 +83,29 @@ fn write_inner(
     sources: &HashMap<String, PathBuf>,
 ) -> Result<(), BackupError> {
     let file = crate::audit::create_private(partial, true)?;
-    let mut tar = tar::Builder::new(GzEncoder::new(io::BufWriter::new(file), Compression::default()));
-    let json = serde_json::to_vec_pretty(manifest).map_err(|e| BackupError::new("io", e.to_string()))?;
-    append(&mut tar, MANIFEST_NAME, json.len() as u64, &mut json.as_slice())?;
+    let mut tar = tar::Builder::new(GzEncoder::new(
+        io::BufWriter::new(file),
+        Compression::default(),
+    ));
+    let json =
+        serde_json::to_vec_pretty(manifest).map_err(|e| BackupError::new("io", e.to_string()))?;
+    append(
+        &mut tar,
+        MANIFEST_NAME,
+        json.len() as u64,
+        &mut json.as_slice(),
+    )?;
     for f in &manifest.files {
-        let src = sources
-            .get(&f.path)
-            .ok_or_else(|| BackupError::new("missing-entry", format!("no source for {}", f.path)))?;
+        let src = sources.get(&f.path).ok_or_else(|| {
+            BackupError::new("missing-entry", format!("no source for {}", f.path))
+        })?;
         let mut r = HashingReader::new(fs::File::open(src)?);
-        append(&mut tar, &format!("{DATA_PREFIX}{}", f.path), f.bytes, &mut r)?;
+        append(
+            &mut tar,
+            &format!("{DATA_PREFIX}{}", f.path),
+            f.bytes,
+            &mut r,
+        )?;
         r.check(f)?;
     }
     let enc = tar.into_inner()?;
@@ -127,7 +142,11 @@ struct HashingReader<R> {
 
 impl<R: Read> HashingReader<R> {
     fn new(inner: R) -> Self {
-        HashingReader { inner, hash: Sha256::new(), count: 0 }
+        HashingReader {
+            inner,
+            hash: Sha256::new(),
+            count: 0,
+        }
     }
     fn check(self, f: &FileEntry) -> Result<(), BackupError> {
         if self.count != f.bytes || hex(&self.hash.finalize()) != f.sha256 {
@@ -166,7 +185,11 @@ pub fn visit(
             .next()
             .ok_or_else(|| BackupError::new("archive-corrupt", "the archive is empty"))?
             .map_err(classify)?;
-        let name = first.path().map_err(classify)?.to_string_lossy().into_owned();
+        let name = first
+            .path()
+            .map_err(classify)?
+            .to_string_lossy()
+            .into_owned();
         if name != MANIFEST_NAME || !first.header().entry_type().is_file() {
             return Err(BackupError::new(
                 "manifest-invalid",
@@ -174,7 +197,10 @@ pub fn visit(
             ));
         }
         if first.size() > MAX_MANIFEST_BYTES {
-            return Err(BackupError::new("manifest-invalid", "the manifest is too large"));
+            return Err(BackupError::new(
+                "manifest-invalid",
+                "the manifest is too large",
+            ));
         }
         let mut raw = Vec::new();
         first.read_to_end(&mut raw).map_err(classify)?;
@@ -183,25 +209,46 @@ pub fn visit(
         manifest.validate()?;
         drop(first);
 
-        let wanted: HashMap<&str, &FileEntry> = manifest.files.iter().map(|f| (f.path.as_str(), f)).collect();
+        let wanted: HashMap<&str, &FileEntry> = manifest
+            .files
+            .iter()
+            .map(|f| (f.path.as_str(), f))
+            .collect();
         let mut seen = HashSet::new();
         for entry in entries {
             let mut entry = entry.map_err(classify)?;
-            let epath = entry.path().map_err(classify)?.to_string_lossy().into_owned();
+            let epath = entry
+                .path()
+                .map_err(classify)?
+                .to_string_lossy()
+                .into_owned();
             let rel = epath.strip_prefix(DATA_PREFIX).unwrap_or("");
             let Some(f) = wanted.get(rel) else {
-                return Err(BackupError::new("unexpected-entry", format!("{epath:?} is not in the manifest")));
+                return Err(BackupError::new(
+                    "unexpected-entry",
+                    format!("{epath:?} is not in the manifest"),
+                ));
             };
             if !entry.header().entry_type().is_file() {
-                return Err(BackupError::new("unexpected-entry", format!("{epath:?} is not a regular file")));
+                return Err(BackupError::new(
+                    "unexpected-entry",
+                    format!("{epath:?} is not a regular file"),
+                ));
             }
             if !seen.insert(rel.to_string()) {
-                return Err(BackupError::new("unexpected-entry", format!("{epath:?} appears twice")));
+                return Err(BackupError::new(
+                    "unexpected-entry",
+                    format!("{epath:?} appears twice"),
+                ));
             }
             if entry.size() != f.bytes {
                 return Err(BackupError::new(
                     "checksum-mismatch",
-                    format!("{rel}: {} bytes in the archive, {} in the manifest", entry.size(), f.bytes),
+                    format!(
+                        "{rel}: {} bytes in the archive, {} in the manifest",
+                        entry.size(),
+                        f.bytes
+                    ),
                 ));
             }
             let mut r = HashingReader::new((&mut entry).take(f.bytes));
@@ -211,11 +258,17 @@ pub fn visit(
                 return Err(BackupError::new("truncated", format!("{rel} ends early")));
             }
             if hex(&r.hash.finalize()) != f.sha256 {
-                return Err(BackupError::new("checksum-mismatch", format!("{rel}: SHA-256 differs from the manifest")));
+                return Err(BackupError::new(
+                    "checksum-mismatch",
+                    format!("{rel}: SHA-256 differs from the manifest"),
+                ));
             }
         }
         if let Some(missing) = manifest.files.iter().find(|f| !seen.contains(&f.path)) {
-            return Err(BackupError::new("missing-entry", format!("{} is in the manifest but not in the archive", missing.path)));
+            return Err(BackupError::new(
+                "missing-entry",
+                format!("{} is in the manifest but not in the archive", missing.path),
+            ));
         }
     }
     // The gzip trailer (CRC and length) is only read at end of stream.
@@ -242,24 +295,48 @@ mod tests {
         fs::write(&a, b"store bytes").unwrap();
         let entry = |p: &str, src: &Path| {
             let (sha256, bytes) = hash_file(src).unwrap();
-            FileEntry { path: p.into(), bytes, sha256, mode: Some(0o600) }
+            FileEntry {
+                path: p.into(),
+                bytes,
+                sha256,
+                mode: Some(0o600),
+            }
         };
         let m = Manifest {
             schema: SCHEMA.into(),
             created_at_ms: 5,
-            harness: Harness { version: "0.1.0".into() },
-            platform: Platform { os: "linux".into(), arch: "x86_64".into() },
-            engine: Engine { contract: "1.12.0".into(), store_schema: None },
+            harness: Harness {
+                version: "0.1.0".into(),
+            },
+            platform: Platform {
+                os: "linux".into(),
+                arch: "x86_64".into(),
+            },
+            engine: Engine {
+                contract: "1.12.0".into(),
+                store_schema: None,
+            },
             store_target: "state/lancedb".into(),
             units: vec![
-                Unit { archive: "store".into(), target: "state/lancedb".into(), kind: Kind::Dir },
-                Unit { archive: "config.json".into(), target: "config.json".into(), kind: Kind::File },
+                Unit {
+                    archive: "store".into(),
+                    target: "state/lancedb".into(),
+                    kind: Kind::Dir,
+                },
+                Unit {
+                    archive: "config.json".into(),
+                    target: "config.json".into(),
+                    kind: Kind::File,
+                },
             ],
             absent: vec![],
             dirs: vec![],
             files: vec![entry("store/a", &a), entry("config.json", &cfg)],
             skipped: vec![],
-            secrets: Secrets { included: false, note: SECRETS_NOTE.into() },
+            secrets: Secrets {
+                included: false,
+                note: SECRETS_NOTE.into(),
+            },
         };
         let sources = HashMap::from([("store/a".to_string(), a), ("config.json".to_string(), cfg)]);
         let out = dir.join("b.tar.gz");
@@ -278,7 +355,10 @@ mod tests {
             ents.push((e.path().unwrap().to_string_lossy().into_owned(), b));
         }
         f(&mut ents);
-        let mut t = tar::Builder::new(GzEncoder::new(fs::File::create(archive).unwrap(), Compression::default()));
+        let mut t = tar::Builder::new(GzEncoder::new(
+            fs::File::create(archive).unwrap(),
+            Compression::default(),
+        ));
         for (n, b) in ents {
             // Raw header name: the tar crate refuses `..` in `set_path`, and a hostile archive would not use it.
             let mut h = tar::Header::new_gnu();
@@ -305,7 +385,13 @@ mod tests {
         })
         .unwrap();
         assert_eq!(read, m);
-        assert_eq!(got, vec![("store/a".to_string(), b"store bytes".to_vec()), ("config.json".to_string(), b"{\"x\":1}".to_vec())]);
+        assert_eq!(
+            got,
+            vec![
+                ("store/a".to_string(), b"store bytes".to_vec()),
+                ("config.json".to_string(), b"{\"x\":1}".to_vec())
+            ]
+        );
     }
 
     #[cfg(unix)]
@@ -314,7 +400,10 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let d = tempfile::tempdir().unwrap();
         let (a, _) = fixture(d.path());
-        assert_eq!(fs::metadata(&a).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&a).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
 
     #[test]
@@ -365,7 +454,9 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let (a, _) = fixture(d.path());
         rewrite(&a, |e| {
-            let s = String::from_utf8(e[0].1.clone()).unwrap().replace("\"config.json\"", "\"run/core.token\"");
+            let s = String::from_utf8(e[0].1.clone())
+                .unwrap()
+                .replace("\"config.json\"", "\"run/core.token\"");
             e[0].1 = s.into_bytes();
         });
         assert_eq!(verify(&a).unwrap_err().reason, "manifest-invalid");
@@ -385,7 +476,10 @@ mod tests {
         for cut in [0, 1, 10, full.len() / 2, full.len() - 1] {
             fs::write(&a, &full[..cut]).unwrap();
             let r = verify(&a).unwrap_err().reason;
-            assert!(["truncated", "archive-corrupt"].contains(&r), "cut {cut}: {r}");
+            assert!(
+                ["truncated", "archive-corrupt"].contains(&r),
+                "cut {cut}: {r}"
+            );
         }
         fs::write(&a, b"definitely not a gzip file").unwrap();
         assert_eq!(verify(&a).unwrap_err().reason, "archive-corrupt");
@@ -419,6 +513,9 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let (a, m) = fixture(d.path());
         let sources = HashMap::new();
-        assert_eq!(write_archive(&a, &m, &sources).unwrap_err().reason, "exists");
+        assert_eq!(
+            write_archive(&a, &m, &sources).unwrap_err().reason,
+            "exists"
+        );
     }
 }

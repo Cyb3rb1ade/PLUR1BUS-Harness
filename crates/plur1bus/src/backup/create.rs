@@ -41,8 +41,12 @@ pub struct SnapFile {
 
 impl Snapshot {
     pub fn from_rpc(v: &Value) -> Result<Snapshot, BackupError> {
-        serde_json::from_value(v.clone())
-            .map_err(|e| BackupError::new("snapshot-mismatch", format!("unreadable snapshot answer: {e}")))
+        serde_json::from_value(v.clone()).map_err(|e| {
+            BackupError::new(
+                "snapshot-mismatch",
+                format!("unreadable snapshot answer: {e}"),
+            )
+        })
     }
 }
 
@@ -89,7 +93,18 @@ pub fn default_out(layout: &Layout, ms: u64) -> PathBuf {
 /// The plain (CLI-copied) units: targets and kinds, in archive order.
 pub fn plain_targets() -> Vec<(&'static str, Kind)> {
     let mut v: Vec<(&str, Kind)> = vec![];
-    v.extend(["agents", "skills", "modules", "extensions", "catalog", "state/journal", "state/system-jobs"].map(|t| (t, Kind::Dir)));
+    v.extend(
+        [
+            "agents",
+            "skills",
+            "modules",
+            "extensions",
+            "catalog",
+            "state/journal",
+            "state/system-jobs",
+        ]
+        .map(|t| (t, Kind::Dir)),
+    );
     v.push(("config.json", Kind::File));
     v
 }
@@ -124,7 +139,12 @@ fn copy_file_stable(src: &Path, dst: &Path, shown: &str) -> Result<(), BackupErr
     ))
 }
 
-fn copy_tree(src: &Path, dst: &Path, shown: &str, skipped: &mut Vec<String>) -> Result<(), BackupError> {
+fn copy_tree(
+    src: &Path,
+    dst: &Path,
+    shown: &str,
+    skipped: &mut Vec<String>,
+) -> Result<(), BackupError> {
     fs::create_dir_all(dst)?;
     let mut names: Vec<_> = fs::read_dir(src)?.collect::<Result<_, _>>()?;
     names.sort_by_key(|e| e.file_name());
@@ -181,12 +201,19 @@ fn mode_of(_: &Path) -> Option<u32> {
 pub fn check_staging_dir(layout: &Layout, snap: &Snapshot) -> Result<PathBuf, BackupError> {
     let root = fs::canonicalize(layout.state().join("backup-staging"))
         .map_err(|e| BackupError::new("snapshot-mismatch", format!("no staging area: {e}")))?;
-    let dir = fs::canonicalize(&snap.dir)
-        .map_err(|e| BackupError::new("snapshot-mismatch", format!("the staged snapshot is not there: {e}")))?;
+    let dir = fs::canonicalize(&snap.dir).map_err(|e| {
+        BackupError::new(
+            "snapshot-mismatch",
+            format!("the staged snapshot is not there: {e}"),
+        )
+    })?;
     if dir.parent() != Some(root.as_path()) {
         return Err(BackupError::new(
             "snapshot-mismatch",
-            format!("{} is not a staging directory of this home", snap.dir.display()),
+            format!(
+                "{} is not a staging directory of this home",
+                snap.dir.display()
+            ),
         ));
     }
     Ok(dir)
@@ -202,13 +229,24 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
     fs::create_dir_all(&stage)?;
     let _stage_cleanup = Cleanup(stage.clone());
     if !store_target_allowed(&snap.store_target) {
-        return Err(BackupError::new("manifest-invalid", format!("store target {:?} is not allowed", snap.store_target)));
+        return Err(BackupError::new(
+            "manifest-invalid",
+            format!("store target {:?} is not allowed", snap.store_target),
+        ));
     }
     let store = snap.store_target.as_str();
 
     let mut skipped = Vec::new();
-    let mut units: Vec<Unit> = vec![Unit { archive: "store".into(), target: store.into(), kind: Kind::Dir }];
-    for (target, kind) in ENGINE_DIRS.iter().map(|t| (*t, Kind::Dir)).chain(ENGINE_FILES.iter().map(|t| (*t, Kind::File))) {
+    let mut units: Vec<Unit> = vec![Unit {
+        archive: "store".into(),
+        target: store.into(),
+        kind: Kind::Dir,
+    }];
+    for (target, kind) in ENGINE_DIRS
+        .iter()
+        .map(|t| (*t, Kind::Dir))
+        .chain(ENGINE_FILES.iter().map(|t| (*t, Kind::File)))
+    {
         let archive = archive_prefix(target, store);
         let p = join_rel(&engine_dir, &archive);
         let ok = match kind {
@@ -216,16 +254,27 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
             Kind::File => p.is_file(),
         };
         if ok {
-            units.push(Unit { archive, target: target.into(), kind });
+            units.push(Unit {
+                archive,
+                target: target.into(),
+                kind,
+            });
         }
     }
     let sqlite_dir = engine_dir.join("sqlite");
     if sqlite_dir.is_dir() {
-        let mut w = Walked { files: vec![], dirs: vec![] };
+        let mut w = Walked {
+            files: vec![],
+            dirs: vec![],
+        };
         walk(&engine_dir, "sqlite", &mut w)?;
         for (rel, _) in w.files {
             let target = format!("state/{}", &rel["sqlite/".len()..]);
-            units.push(Unit { archive: rel, target, kind: Kind::File });
+            units.push(Unit {
+                archive: rel,
+                target,
+                kind: Kind::File,
+            });
         }
     }
     for (target, kind) in plain_targets() {
@@ -235,12 +284,20 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
             Ok(m) if m.file_type().is_symlink() => skipped.push(target.to_string()),
             Ok(m) if kind == Kind::Dir && m.is_dir() => {
                 copy_tree(&live, &join_rel(&stage, &archive), target, &mut skipped)?;
-                units.push(Unit { archive, target: target.into(), kind });
+                units.push(Unit {
+                    archive,
+                    target: target.into(),
+                    kind,
+                });
             }
             Ok(m) if kind == Kind::File && m.is_file() => {
                 let dst = join_rel(&stage, &archive);
                 copy_file_stable(&live, &dst, target)?;
-                units.push(Unit { archive, target: target.into(), kind });
+                units.push(Unit {
+                    archive,
+                    target: target.into(),
+                    kind,
+                });
             }
             Ok(_) => skipped.push(target.to_string()),
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
@@ -249,7 +306,10 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
     }
     for u in &units {
         if target_kind(&u.target, store) != Some(u.kind) {
-            return Err(BackupError::new("manifest-invalid", format!("unit {:?} is not allowed", u.target)));
+            return Err(BackupError::new(
+                "manifest-invalid",
+                format!("unit {:?} is not allowed", u.target),
+            ));
         }
     }
 
@@ -258,32 +318,55 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
     let mut dirs = BTreeSet::new();
     let mut files: Vec<FileEntry> = Vec::new();
     for u in &units {
-        let root = if exists_nofollow(&join_rel(&engine_dir, &u.archive)) { &engine_dir } else { &stage };
-        let mut w = Walked { files: vec![], dirs: vec![] };
+        let root = if exists_nofollow(&join_rel(&engine_dir, &u.archive)) {
+            &engine_dir
+        } else {
+            &stage
+        };
+        let mut w = Walked {
+            files: vec![],
+            dirs: vec![],
+        };
         match u.kind {
-            Kind::File => w.files.push((u.archive.clone(), join_rel(root, &u.archive))),
+            Kind::File => w
+                .files
+                .push((u.archive.clone(), join_rel(root, &u.archive))),
             Kind::Dir => walk(root, &u.archive, &mut w)?,
         }
         dirs.extend(w.dirs);
         for (rel, path) in w.files {
             let (sha256, bytes) = hash_file(&path)?;
-            files.push(FileEntry { path: rel.clone(), bytes, sha256, mode: mode_of(&path) });
+            files.push(FileEntry {
+                path: rel.clone(),
+                bytes,
+                sha256,
+                mode: mode_of(&path),
+            });
             sources.insert(rel, path);
         }
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
 
     // The core's own digests must agree with what is on disk now, file for file (nothing added, nothing missing).
-    let reported: HashMap<&str, &SnapFile> = snap.files.iter().map(|f| (f.path.as_str(), f)).collect();
+    let reported: HashMap<&str, &SnapFile> =
+        snap.files.iter().map(|f| (f.path.as_str(), f)).collect();
     for f in files.iter().filter(|f| engine_owned(&f.path)) {
         match reported.get(f.path.as_str()) {
             Some(r) if r.sha256 == f.sha256 && r.bytes == f.bytes => {}
-            _ => return Err(BackupError::new("snapshot-mismatch", format!("{} differs from what the core staged", f.path))),
+            _ => {
+                return Err(BackupError::new(
+                    "snapshot-mismatch",
+                    format!("{} differs from what the core staged", f.path),
+                ))
+            }
         }
     }
     let have: BTreeSet<&str> = files.iter().map(|f| f.path.as_str()).collect();
     if let Some(m) = snap.files.iter().find(|f| !have.contains(f.path.as_str())) {
-        return Err(BackupError::new("snapshot-mismatch", format!("{} was staged but is not in the archive plan", m.path)));
+        return Err(BackupError::new(
+            "snapshot-mismatch",
+            format!("{} was staged but is not in the archive plan", m.path),
+        ));
     }
 
     let present: BTreeSet<&str> = units.iter().map(|u| u.target.as_str()).collect();
@@ -296,16 +379,27 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
     let manifest = Manifest {
         schema: SCHEMA.into(),
         created_at_ms: ms,
-        harness: Harness { version: env!("CARGO_PKG_VERSION").into() },
-        platform: Platform { os: std::env::consts::OS.into(), arch: std::env::consts::ARCH.into() },
-        engine: Engine { contract: snap.engine.contract.clone(), store_schema: snap.engine.store_schema.clone() },
+        harness: Harness {
+            version: env!("CARGO_PKG_VERSION").into(),
+        },
+        platform: Platform {
+            os: std::env::consts::OS.into(),
+            arch: std::env::consts::ARCH.into(),
+        },
+        engine: Engine {
+            contract: snap.engine.contract.clone(),
+            store_schema: snap.engine.store_schema.clone(),
+        },
         store_target: store.into(),
         units,
         absent,
         dirs: dirs.into_iter().collect(),
         files,
         skipped,
-        secrets: Secrets { included: false, note: SECRETS_NOTE.into() },
+        secrets: Secrets {
+            included: false,
+            note: SECRETS_NOTE.into(),
+        },
     };
     manifest.validate()?;
     write_archive(out, &manifest, &sources)?;
@@ -328,7 +422,9 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
 
 /// Archive paths the core stages (`store/`, `memory/`, `sqlite/`).
 fn engine_owned(path: &str) -> bool {
-    ["store/", "memory/", "sqlite/"].iter().any(|p| path.starts_with(p))
+    ["store/", "memory/", "sqlite/"]
+        .iter()
+        .any(|p| path.starts_with(p))
 }
 
 #[cfg(test)]
@@ -337,8 +433,14 @@ mod tests {
 
     #[test]
     fn engine_owned_paths_are_the_three_staged_prefixes() {
-        assert!(engine_owned("store/x") && engine_owned("memory/run-state.json") && engine_owned("sqlite/a.db"));
-        assert!(!engine_owned("config.json") && !engine_owned("agents/x") && !engine_owned("journal/a"));
+        assert!(
+            engine_owned("store/x")
+                && engine_owned("memory/run-state.json")
+                && engine_owned("sqlite/a.db")
+        );
+        assert!(
+            !engine_owned("config.json") && !engine_owned("agents/x") && !engine_owned("journal/a")
+        );
     }
 
     #[test]
@@ -350,12 +452,26 @@ mod tests {
         let snap = |dir: PathBuf| Snapshot {
             dir,
             store_target: "state/lancedb".into(),
-            engine: EngineInfo { contract: "1.12.0".into(), store_schema: None },
+            engine: EngineInfo {
+                contract: "1.12.0".into(),
+                store_schema: None,
+            },
             files: vec![],
         };
-        assert!(check_staging_dir(&layout, &snap(layout.state().join("backup-staging").join("plur1bus-x"))).is_ok());
-        for bad in [d.path().join("elsewhere"), layout.state().join("backup-staging"), d.path().to_path_buf()] {
-            assert_eq!(check_staging_dir(&layout, &snap(bad)).unwrap_err().reason, "snapshot-mismatch");
+        assert!(check_staging_dir(
+            &layout,
+            &snap(layout.state().join("backup-staging").join("plur1bus-x"))
+        )
+        .is_ok());
+        for bad in [
+            d.path().join("elsewhere"),
+            layout.state().join("backup-staging"),
+            d.path().to_path_buf(),
+        ] {
+            assert_eq!(
+                check_staging_dir(&layout, &snap(bad)).unwrap_err().reason,
+                "snapshot-mismatch"
+            );
         }
     }
 }
