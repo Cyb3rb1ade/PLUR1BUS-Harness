@@ -31,12 +31,14 @@ source, and a state machine `planned → confirmed → running → validating �
 
 ```
 CLI  plur1bus memory reembed --plan|--run|--status|--abort
- └─ RPC  admin.reembed.plan | run | status | abort            (core, experimental, RPC 1.6.0, additive)
+ └─ RPC  admin.reembed.plan | run | status | abort            (core, experimental, `x-since` 1.5.0; `x-rpc-version` is not bumped: no version bump in this package)
      └─ packages/core/src/embedding-migrate/
           probe.ts     identity comparison → verdict + reasons (pure; uses the engine's own fingerprint id)
           state.ts     <home>/state/reembed/migration.json — checkpoint (atomic tmp+rename, 0600, schema-checked)
           driver.ts    plan / run loop / status / abort over the ReembedEngine port; throttle, fake-clock friendly
           engine-port.ts   ReembedEngine adapter over Engine.admin.reembedding (+ capability detection)
+          port.ts      the narrow engine/switch ports (the driver's only dependency on the engine)
+          target.ts    --model → the engine's own pinned fingerprint
           switch.ts    SwitchPort over ConfigSource.set (one config.set call = one atomic config.json replace)
           index.ts
 ```
@@ -72,7 +74,7 @@ CLI  plur1bus memory reembed --plan|--run|--status|--abort
 | `packages/core/src/embedding-migrate/{probe,state,driver,engine-port,switch,index}.ts` | new | the package above |
 | `packages/core/test/embedding-migrate/*.test.ts` | new | unit + scenario tests with a fake engine/embedder |
 | `packages/core/src/engine-shim.d.ts` | changed (new `declare module` block) | the engine's `fingerprint.js` for the probe |
-| `packages/rpc-schema/schema/rpc.schema.json` | changed (new block, version 1.6.0) | `admin.reembed.*` |
+| `packages/rpc-schema/schema/rpc.schema.json` | changed (new block; `x-rpc-version` stays 1.5.0) | `admin.reembed.*` |
 | `packages/core/src/embedding-migrate/rpc.ts`, `core.ts` | new / minimal block | handlers + registration |
 | `crates/plur1bus/src/cli.rs`, `commands/memory_reembed.rs` (new), `commands/mod.rs` (one dispatch arm) | changed/new | `memory reembed` |
 | `docs/cli.md`, `docs/rpc.md` | generated | `pnpm docs:gen` |
@@ -130,6 +132,9 @@ CLI  plur1bus memory reembed --plan|--run|--status|--abort
 - **R4 Old generation retained**; discarding it is a later explicit confirmation (not built here).
 - **R5 Switch takes effect at the next core start** (config class `core`), not by hot-swapping a live engine.
 - **R6 Throttle default 250 ms between batches, batch size = engine default (8)**.
+- **R7 `--model` is a pinned local-transformers model**: the harness's `engine-config.ts` forces that provider, so a remote target could be copied but never switched to; refused at plan time.
+- **R8 The confirmation token lives in the 0600 checkpoint** so `--plan` and `--run` can be separate invocations; `--run` needs `--yes` or an interactive confirm. The plan requests the engine's maximum confirmation lifetime (1 h).
+- **R9 `x-rpc-version` is not bumped** (the four methods are experimental, `x-since` 1.5.0); the minor bump belongs to the owner/release.
 
 ## Open points (go to the PR)
 
