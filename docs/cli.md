@@ -79,6 +79,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus model list`↴](#plur1bus-model-list)
 * [`plur1bus model scan`↴](#plur1bus-model-scan)
 * [`plur1bus model override`↴](#plur1bus-model-override)
+* [`plur1bus budget`↴](#plur1bus-budget)
+* [`plur1bus budget status`↴](#plur1bus-budget-status)
+* [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -133,6 +136,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `update` — [experimental] Update check: what a release would change and which units would restart (`--check`)
 * `user` — Users — M2
 * `model` — [experimental] Models and provider profiles: list, scan and override
+* `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
@@ -1107,6 +1111,59 @@ Users — M2
 * `--clear-all`
 * `--create`
 * `--remove`
+
+
+
+## `plur1bus budget`
+
+[experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+
+**Usage:** `plur1bus budget <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Show usage for the current day and month and every limit with its state
+* `set` — [experimental] Set or clear a limit, or the time zone budget periods follow
+
+
+
+## `plur1bus budget status`
+
+[experimental] Show usage for the current day and month and every limit with its state
+
+**Usage:** `plur1bus budget status [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <ID>` — only this agent's usage (and the global limits plus its own)
+
+
+
+## `plur1bus budget set`
+
+[experimental] Set or clear a limit, or the time zone budget periods follow
+
+A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals), token values are input + output tokens. A bound left out stays as it is.
+
+**Usage:** `plur1bus budget set [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — the limit covers all agents together
+* `--agent <ID>` — the limit covers this agent
+* `--period <PERIOD>` — the period the limit resets on (local calendar day or month)
+
+  Possible values: `day`, `month`
+
+* `--metric <METRIC>` — what is counted: cost in USD or input + output tokens
+
+  Possible values: `cost`, `tokens`
+
+* `--soft <VALUE>` — warn (once per period) above this value
+* `--hard <VALUE>` — refuse calls that would exceed this value
+* `--clear-soft` — remove the soft bound
+* `--clear-hard` — remove the hard bound
+* `--timezone <ZONE>` — an IANA time zone name the periods follow (default UTC)
 
 
 
