@@ -30,6 +30,8 @@ export function createDreams(o: DreamsOptions): Dreams {
     diaryPath: (id) => { const ws = o.agents.workspaceOf(id); return ws ? path.join(ws, DIARY_FILE) : null; },
     ...o.scheduler,
   });
+  // Runs a killed core left open are closed now, also when the scheduler's own timers stay off (manual-only mode).
+  scheduler.reconcile();
   return {
     scheduler, store,
     start: () => scheduler.start(),

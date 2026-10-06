@@ -478,12 +478,12 @@ pub enum DreamsCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum DreamsScheduleCmd {
-    /// The three phase schedules of an agent
+    /// [experimental] The three phase schedules of an agent
     Get {
         #[arg(long)]
         agent: String,
     },
-    /// Change one phase's cron (5 fields), IANA timezone or enabled switch
+    /// [experimental] Change one phase's cron (5 fields), IANA timezone or enabled switch
     Set {
         #[arg(value_enum)]
         phase: PhaseArg,

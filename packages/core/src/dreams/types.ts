@@ -25,6 +25,7 @@ export const REASON = {
   alreadyRunning: "already_running",
   crashed: "crashed",
   shutdown: "shutdown",
+  cancelled: "cancelled",
   diaryNotWritten: "diary_not_written",
   engineError: "engine_error",
   incomplete: "incomplete",

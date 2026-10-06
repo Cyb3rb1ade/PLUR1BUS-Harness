@@ -52,6 +52,7 @@ class Semaphore {
   release(): void { this.active--; const w = this.#waiters.shift(); if (w) w(); else this.#free++; }
 }
 
+const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/; // rpc.schema.json $defs/AgentId
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const utcDayStart = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
 
@@ -305,6 +306,8 @@ export class DreamScheduler {
   }
 
   async runPhase(agentId: string, phase: Phase, o: { trigger: Trigger; scheduledFor?: number | null; signal?: AbortSignal }): Promise<DreamRun> {
+    // The agent id becomes a path segment of the run log; the registry's ids already match, this keeps the invariant local.
+    if (!AGENT_ID.test(agentId)) throw new Error(`invalid agent id: ${agentId}`);
     const store = this.#o.store;
     this.syncAgents();
     const sched = store.getSchedule(agentId, phase);
@@ -392,7 +395,7 @@ export class DreamScheduler {
     const usage = () => ({ tokensIn: sawTokens ? tokensIn : null, tokensOut: sawTokens ? tokensOut : null, costMicros });
 
     for (const j of jobs) {
-      if (signal.aborted) return finish("aborted", REASON.shutdown, tally(), usage());
+      if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
       const countsAsSession = j.needsLlm && BREAKER_PHASES.has(phase);
       if (countsAsSession && this.#sessionsUsed(agentId, this.#o.clock.now()) >= this.#breakerLimit) {
         this.#tripBreaker(agentId, this.#o.clock.now(), REASON.breakerSessions);

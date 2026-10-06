@@ -585,14 +585,14 @@ Dreaming: phase schedules, status, run, log
 
 ###### **Subcommands:**
 
-* `get` — The three phase schedules of an agent
-* `set` — Change one phase's cron (5 fields), IANA timezone or enabled switch
+* `get` — [experimental] The three phase schedules of an agent
+* `set` — [experimental] Change one phase's cron (5 fields), IANA timezone or enabled switch
 
 
 
 ## `plur1bus dreams schedule get`
 
-The three phase schedules of an agent
+[experimental] The three phase schedules of an agent
 
 **Usage:** `plur1bus dreams schedule get --agent <AGENT>`
 
@@ -604,7 +604,7 @@ The three phase schedules of an agent
 
 ## `plur1bus dreams schedule set`
 
-Change one phase's cron (5 fields), IANA timezone or enabled switch
+[experimental] Change one phase's cron (5 fields), IANA timezone or enabled switch
 
 **Usage:** `plur1bus dreams schedule set [OPTIONS] --agent <AGENT> <PHASE>`
 

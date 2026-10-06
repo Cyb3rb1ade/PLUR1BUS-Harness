@@ -182,6 +182,25 @@ describe("dreams scheduler: one run per agent and phase", () => {
   });
 });
 
+describe("dreams scheduler: cancellation and ids", () => {
+  it("a run whose caller went away is aborted/cancelled, not shutdown, and the next job never starts", async () => {
+    const h = mkHarness();
+    h.captures("bernd", 3);
+    const ac = new AbortController();
+    h.engine.behaviours.set("rem-dream", () => { ac.abort(); return {}; });
+    const run = await h.sched.runPhase("bernd", "rem", { trigger: "manual", signal: ac.signal });
+    assert.equal(run.outcome, "aborted"); assert.equal(run.reason, "cancelled");
+    assert.equal(h.engine.callsOf("discover-semantic-links"), 0);
+    assert.equal(run.claimed, false);
+  });
+
+  it("refuses an agent id that could not be a path segment", async () => {
+    const h = mkHarness({ agents: ["../x"] });
+    await assert.rejects(h.sched.runPhase("../x", "rem", { trigger: "manual" }), /invalid agent id/);
+    assert.equal(h.store.listRuns().length, 0);
+  });
+});
+
 describe("dreams scheduler: concurrency and stagger", () => {
   it("never runs more than 3 phase runs at once, and runs them all", async () => {
     const agents = Array.from({ length: 20 }, (_, i) => `a${String(i).padStart(2, "0")}`);
