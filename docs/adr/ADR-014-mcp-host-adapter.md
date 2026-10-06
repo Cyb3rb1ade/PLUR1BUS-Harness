@@ -79,7 +79,7 @@ One error class, `McpClientError`, with a closed code vocabulary: `invalid-confi
 
 Defaults (all configurable, all bounded): connect (spawn + `initialize`) 30 s; `tools/list` 15 s; `tools/call` 60 s; process-exit grace 2 s before `SIGKILL`; result cap 1 MiB of text; at most 50 `tools/list` pages. Every call accepts the caller's `AbortSignal` and also runs under its own deadline; whichever fires first wins and the code distinguishes them (`aborted` vs `call-timeout`).
 
-**A timeout or abort tears the connection down.** A server that did not answer in time may be wedged or may answer late into a later request, so the client closes the transport, terminates the process (`SIGTERM`, then `SIGKILL` after the grace), waits for exit and marks the server `stopped`. The next call starts a fresh one. A wedged server therefore costs one failed call, never a hung agent or a leaked process.
+**A timeout or abort tears the connection down.** A server that did not answer in time may be wedged or may answer late into a later request, so the client closes the transport, terminates the process (`SIGTERM`, then `SIGKILL` after the grace), waits for exit and marks the server `stopped`. The next call starts a fresh one. A wedged server therefore costs one failed call, never a hung agent or a leaked process. On an `installation`-scope server shared by several agents this also fails the other agents' in-flight calls with `closed` (retryable); that is accepted, since the alternative is to keep talking to a connection whose state is unknown.
 
 ### 7. Security
 
@@ -88,7 +88,7 @@ Defaults (all configurable, all bounded): connect (spawn + `initialize`) 30 s; `
 - **No secrets in logs.** A redactor holds every declared environment value flagged secret (any variable whose name matches `token|secret|key|password|credential|auth`, every `fromHost` value, every HTTP header value) and removes occurrences from server stderr, error messages and log fields before anything is written. Server stderr is captured (not inherited), split into lines, redacted, length-capped and rate-limited. Redaction is exact-value matching; it is a backstop, not a licence to log servers' output (D111's writer-side redaction will apply on top).
 - **HTTP.** `https:` is required except for loopback hosts; credentials in the URL are refused; headers are static in 2b (OAuth per ADR-008's headless ladder lands with D67). No redirect-following surprises are added over the SDK's behaviour; an SSRF guard with DNS pinning (as A2A has, D63) is a recorded follow-up before remote servers are offered in the UI.
 - **Results are untrusted data** (§3). Tool schemas are untrusted too: names and descriptions are length-capped and are not interpreted by the harness.
-- **Read-only introspection.** `mcp.list` and `mcp.status` (RPC, `experimental`) never start a server and never return stderr, environment values, headers or tool results.
+- **Read-only introspection.** `McpRegistry.list` and `status` never start a server and never return stderr, environment values, headers or tool results. An RPC pair over them (`mcp.list`, `mcp.status`; `experimental`, `x-server: core`) is **specified but not added in 2b**: it needs an RPC minor bump (1.6.0) that touches the generated types, the fixtures and the Rust client's version assertions, in files that parallel 2b work changes too, and nothing calls it before the 2c wiring. It lands with that wiring or as its own small change.
 
 ## Options considered
 
@@ -144,7 +144,7 @@ The central trade is **lifetime vs. cost and blast radius**. Lazy start with idl
 
 1. [x] `packages/core/src/mcp/`: client, registry, idle manager, schema cache, provenance, redaction, timeouts (this plan).
 2. [x] Fixture MCP server (stdio and Streamable HTTP, local only) and the tests listed in the plan.
-3. [x] `mcp.list` / `mcp.status` (experimental, read-only) and the `mcp` config block.
+3. [ ] `mcp.list` / `mcp.status` RPC (experimental, read-only) with the RPC 1.6.0 bump, and the `mcp` config block (`allowedCommands`, `idleTimeoutMs`, `servers`), wired in `core.ts` (with 2c, or X2 for registration).
 4. [ ] D109 `policy.decide` in the dispatcher in front of `callTool` (2b/2c).
 5. [ ] Per-agent enable lists and the `mcp-server` extension kind (X2).
 6. [ ] OAuth (D67) and SSRF guard for remote servers; Windows stdio audit (ADR-008 action 11).
