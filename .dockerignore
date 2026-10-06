@@ -11,7 +11,9 @@ target
 **/.env.*
 **/*.pem
 **/*.key
+# the repository's own root .npmrc (auto-install-peers=false) is project config the frozen install needs
 **/.npmrc
+!/.npmrc
 **/.netrc
 **/*.log
 .DS_Store

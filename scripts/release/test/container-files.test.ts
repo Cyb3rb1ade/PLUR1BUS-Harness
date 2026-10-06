@@ -65,9 +65,13 @@ describe("Dockerfile", () => {
 describe(".dockerignore", () => {
   const ignore = read(".dockerignore").split(/\r?\n/).map((l) => l.trim());
   it("keeps VCS data, build output, dependencies and secret-looking files out of the context", () => {
-    for (const must of [".git", "target", "**/node_modules", "**/dist", ".env", "**/*.pem", "**/.npmrc"]) {
+    for (const must of [".git", "target", "**/node_modules", "**/dist", ".env", "**/*.pem", "**/.npmrc", "**/.netrc"]) {
       assert.ok(ignore.includes(must), `.dockerignore lacks ${must}`);
     }
+  });
+  it("keeps the tracked root .npmrc (the frozen install needs auto-install-peers=false)", () => {
+    assert.ok(ignore.includes("!/.npmrc"));
+    assert.ok(ignore.indexOf("!/.npmrc") > ignore.indexOf("**/.npmrc"));
   });
 });
 
