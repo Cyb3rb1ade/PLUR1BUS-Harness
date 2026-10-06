@@ -134,5 +134,16 @@
   "pair.error.keychain-denied": "Der Schlüsselbundzugriff wurde verweigert. Erlaube den Zugriff und kopple erneut.",
   "pair.error.keychain-unavailable": "Der Schlüsselspeicher ist nicht verfügbar oder gesperrt. Entsperre ihn und versuche es erneut.",
   "pair.error.keychain-error": "Der Schlüsselspeicher hat eine nicht unterstützte Antwort geliefert. Versuche es erneut oder prüfe den Schlüsselspeicher des Systems.",
-  "pair.apiVersions": "Server-API: {server}; Client-API: {client}."
+  "pair.apiVersions": "Server-API: {server}; Client-API: {client}.",
+  "quit.title": "PLUR1BUS beenden",
+  "quit.keep": "PLUR1BUS weiterlaufen lassen",
+  "quit.stop": "Harness stoppen",
+  "quit.cancel": "Abbrechen",
+  "quit.confirm": "Beenden",
+  "quit.failed": "Beenden fehlgeschlagen. Bitte erneut versuchen.",
+  "autostart.label": "PLUR1BUS bei Anmeldung starten",
+  "autostart.failed": "Autostart konnte nicht geändert werden. Bitte erneut versuchen.",
+  "autostart.unconfirmed": "Autostart wurde in dieser Sitzung noch nicht bestätigt. Eine Änderung fragt die Berechtigung an.",
+  "background.hint": "PLUR1BUS bleibt im Dash, weil kein Tray verfügbar ist. Schließen minimiert das Fenster.",
+  "background.dismiss": "Schlie\u00dfen"
 }

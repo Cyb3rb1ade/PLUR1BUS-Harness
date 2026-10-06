@@ -63,6 +63,8 @@ jobs:
     env:
       PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY: "1"
       PLUR1BUS_DESKTOP_COOKIE_GUARD: ${{ matrix.cookie_guard }}
+      PLUR1BUS_CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PLUR1BUS_LIFECYCLE_REPORT: ${{ runner.temp }}/lifecycle-report.json
       # Process-scoped transport rewrite; no git config files are changed.
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
@@ -82,7 +84,7 @@ jobs:
           components: clippy, rustfmt
       - name: Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf xvfb
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf xvfb openbox dbus-x11
       - run: pnpm install --frozen-lockfile
       - name: Isolate UI test browser storage
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
@@ -122,12 +124,12 @@ jobs:
           retention-days: 7
       - name: Native fixture tests
         timeout-minutes: 10
-        run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver
+        run: cargo test --locked -p plur1bus-desktop --example transport_spike --example production_spa --example production_driver --example production_job
         working-directory: apps/desktop
       - name: Native probe and Windows startup diagnostic tests
         id: native-diagnostics
         timeout-minutes: 5
-        run: node --test apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
+        run: node --test apps/desktop/scripts/owned-process.test.mjs apps/desktop/scripts/fixture-job.test.mjs apps/desktop/scripts/lifecycle-report.test.mjs apps/desktop/scripts/windows-focus-summary.test.mjs apps/desktop/scripts/windows-startup.test.mjs apps/desktop/src-tauri/examples/transport-spike/probe.test.mjs
       - name: Native transport spike (WebKitGTK)
         if: runner.os == 'Linux'
         timeout-minutes: 10
@@ -152,6 +154,46 @@ jobs:
         if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
         timeout-minutes: 15
         run: node apps/desktop/scripts/native-spa.mjs --output "$RUNNER_TEMP/plur1bus-native-spa-observations"
+      - name: Native lifecycle and isolated second instance (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 8
+        run: |
+          xvfb-run -a dbus-run-session -- sh -c '
+            openbox >/dev/null 2>&1 &
+            native_wm_pid=$!
+            trap "kill $native_wm_pid 2>/dev/null || true" EXIT
+            node apps/desktop/scripts/native-lifecycle.mjs
+          '
+      - name: Native lifecycle and isolated second instance (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 8
+        run: node apps/desktop/scripts/native-lifecycle.mjs
+      - name: Retain Windows lifecycle coverage
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-lifecycle-${{ matrix.os }}-${{ matrix.cookie_guard }}
+          path: ${{ runner.temp }}/lifecycle-report.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Native crash restart, Shell acknowledgment and diagnostics Quit (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 8
+        run: |
+          xvfb-run -a dbus-run-session -- sh -c '
+            openbox >/dev/null 2>&1 &
+            native_wm_pid=$!
+            trap "kill $native_wm_pid 2>/dev/null || true" EXIT
+            node apps/desktop/scripts/native-diagnostics.mjs
+          '
+      - name: Native crash restart, Shell acknowledgment and diagnostics Quit (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 8
+        run: node apps/desktop/scripts/native-diagnostics.mjs
+      - name: Native AppKit tray headers, tooltip and template fallback (macOS)
+        if: runner.os == 'macOS'
+        timeout-minutes: 8
+        run: node apps/desktop/scripts/native-tray.mjs
       - name: Native SPA observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -182,6 +224,27 @@ jobs:
             apps/desktop/target/release/bundle/**/*.AppImage
           if-no-files-found: error
           retention-days: 7
+  windows-focus-summary:
+    name: Windows strict focus coverage
+    needs: desktop
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PLUR1BUS_CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PLUR1BUS_DESKTOP_MATRIX_RESULT: ${{ needs.desktop.result }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.21.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: desktop-lifecycle-windows-*
+          path: ${{ runner.temp }}/windows-focus-reports
+      - name: Require exact-head strict x64 coverage and disclose ARM skips
+        if: always()
+        run: node apps/desktop/scripts/windows-focus-summary.mjs "$RUNNER_TEMP/windows-focus-reports"
   stub-smoke:
     name: stub smoke (${{ matrix.runtime }})
     needs: plan
