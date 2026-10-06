@@ -270,7 +270,7 @@ fn progress_of(cp: &Value) -> Value {
         c["rowsDone"].as_u64().unwrap_or(0),
     );
     json!({ "rows": c["rows"], "rowsDone": c["rowsDone"], "batches": c["batches"], "batchesDone": c["batchesDone"],
-            "percent": if rows == 0 { 0 } else { done * 100 / rows } })
+            "percent": (done * 100).checked_div(rows).unwrap_or(0) })
 }
 
 fn run_migration(out: &Out, layout: &Layout, a: &ReembedArgs) {
