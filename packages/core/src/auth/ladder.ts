@@ -20,7 +20,7 @@ export interface LoginPlan {
   headless: boolean;
 }
 
-export interface PlanOptions { pasteCallback?: boolean }
+export interface PlanOptions { pasteCallback?: boolean | undefined }
 
 /** The headless ladder. RULING (ADR-005 Q "decided per environment probe"): the ladder device code, then loopback
  *  with `ssh -L`, then paste-callback applies when no graphical browser is reachable. With a local browser the
