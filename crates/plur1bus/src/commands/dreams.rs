@@ -6,21 +6,31 @@ use plur1bus_rpc::{Client, ConnectOptions};
 use serde_json::{json, Value};
 
 fn connect(out: &Out, layout: &Layout) -> Client {
-    let token = std::fs::read_to_string(layout.core_token()).unwrap_or_else(|_| {
-        let detail = super::daemon::supervisor_detail(layout);
-        out.fail(
-            "E_CORE_UNAVAILABLE",
-            "core unavailable (no token; is the core running? `plur1bus core run`)",
-            json!({
-                "degraded": {
-                    "reason": "core-unavailable",
-                    "capability": "dreams",
-                    "detail": detail
-                }
-            }),
-            1,
-        )
-    });
+    let token = layout
+        .read_token_file(&layout.core_token())
+        .unwrap_or_else(|e| {
+            if let plur1bus_rpc::RpcError::Call { reason, detail, .. } = &e {
+                out.fail(
+                    "E_UNAUTHORIZED",
+                    &format!("{e}"),
+                    json!({ "reason": reason, "detail": detail }),
+                    1,
+                )
+            }
+            let detail = super::daemon::supervisor_detail(layout);
+            out.fail(
+                "E_CORE_UNAVAILABLE",
+                "core unavailable (no token; is the core running? `plur1bus core run`)",
+                json!({
+                    "degraded": {
+                        "reason": "core-unavailable",
+                        "capability": "dreams",
+                        "detail": detail
+                    }
+                }),
+                1,
+            )
+        });
     super::connect_recorded(
         layout,
         &core_address(
@@ -111,10 +121,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                 .call("jobs.list", json!({}))
                 .unwrap_or_else(|e| out.from_rpc_error(&e));
             let agents: Vec<String> = agent.map(|a| vec![a]).unwrap_or(registered.clone());
-            let now_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64;
+            let now_ms = crate::journal::now_ms();
             let today = utc_day(now_ms);
             let midnight_ms = today * 86_400_000;
             let mut per_agent = Vec::new();
@@ -154,7 +161,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                         let b = &a["breaker"];
                         let mut s = format!(
                             "{}  breaker {}/{}{}\n",
-                            a["agentId"].as_str().unwrap(),
+                            a["agentId"].as_str().unwrap_or_default(),
                             b["llmSessionsToday"],
                             b["limit"],
                             if b["open"].as_bool().unwrap_or(false) {
@@ -163,10 +170,10 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                                 ""
                             }
                         );
-                        for j in a["jobs"].as_array().unwrap() {
+                        for j in a["jobs"].as_array().into_iter().flatten() {
                             s.push_str(&format!(
                                 "  {:<26} {:<10} {}\n",
-                                j["job"].as_str().unwrap(),
+                                j["job"].as_str().unwrap_or_default(),
                                 j["lastOutcome"].as_str().unwrap_or("-"),
                                 j["lastReason"].as_str().unwrap_or("")
                             ));

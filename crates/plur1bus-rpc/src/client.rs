@@ -40,8 +40,8 @@ pub struct ConnectOptions {
     /// The pid the caller expects to serve `address` (the one in `run/core.pid` or `run/supervisor.pid`). On Windows,
     /// where any account can create a pipe of a free name, a pipe whose `GetNamedPipeServerProcessId` differs is
     /// refused before the token is sent (`E_UNAUTHORIZED`, reason `pipe-server-mismatch`, ruling S11). `None` skips
-    /// the check. Unix sockets live in the `0700` `run/` directory, where nobody else can bind, so it is not checked
-    /// there.
+    /// the check. On unix the equivalent is [`crate::trust`]: the socket's directory and file are checked before the
+    /// connect, and the kernel's peer uid after it.
     pub expected_server_pid: Option<u32>,
 }
 impl Default for ConnectOptions {
@@ -75,6 +75,9 @@ pub const MAX_LINE: usize = 4 * 1024 * 1024;
 
 impl Client {
     pub fn connect(address: &str, token: &str, opts: ConnectOptions) -> Result<Client, RpcError> {
+        // Audit M2: a unix socket must sit in a real `run/` directory of ours (not a symlink, no group/other write) and
+        // belong to us, or nothing is connected and no token is sent.
+        crate::trust::verify_address(address)?;
         let stream = transport_connect(address, opts.connect_timeout)?;
         Self::handshake(stream, token, opts)
     }
@@ -96,6 +99,13 @@ impl Client {
         };
         if cfg!(windows) {
             check_server_pid(opts.expected_server_pid, client.peer_pid())?;
+        }
+        // Audit M2: the kernel names the uid that listens; another user's server gets no token.
+        #[cfg(unix)]
+        {
+            // SAFETY: geteuid has no preconditions and cannot fail.
+            let euid = unsafe { libc::geteuid() };
+            crate::trust::check_peer_uid(client.reader.get_ref().peer_uid(), euid)?;
         }
         let method = opts.endpoint.auth_method();
         // The handshake runs under the connect timeout: a server that owns the socket but never answers must fail fast.
@@ -188,10 +198,9 @@ impl Client {
     fn call_inner(&mut self, method: &str, params: Value) -> Result<Value, RpcError> {
         let id = self.next_id;
         self.next_id += 1;
-        let line = serde_json::to_string(
-            &json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }),
-        )
-        .unwrap();
+        // `Value`'s Display is infallible (a `Value` always serialises).
+        let line =
+            json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }).to_string();
         {
             let w = self.reader.get_mut();
             w.write_all(line.as_bytes())?;

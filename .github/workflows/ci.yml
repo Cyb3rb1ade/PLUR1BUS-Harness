@@ -188,7 +188,7 @@ jobs:
       - name: client offline (Tasks 2, 3)
         shell: bash
         timeout-minutes: 10
-        run: '"$PY" -m unittest discover -v -s clients/python/plur1bus-memory-client/tests -t clients/python/plur1bus-memory-client'
+        run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s clients/python/plur1bus-memory-client/tests -t clients/python/plur1bus-memory-client'
       - name: real named pipes ran (Task 3 gate, F20)
         if: runner.os == 'Windows'
         shell: bash
@@ -204,7 +204,7 @@ jobs:
       - name: provider offline (Task 5)
         shell: bash
         timeout-minutes: 10
-        run: '"$PY" -m unittest discover -v -s hosts/hermes/tests -t hosts/hermes'
+        run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes'
       - uses: pnpm/action-setup@v4
         with: { version: 10.28.0 }
       - uses: actions/setup-node@v4
@@ -235,8 +235,8 @@ jobs:
         run: |
           exe=""; [ "$RUNNER_OS" = "Windows" ] && exe=".exe"
           export PLUR1BUS_BIN="$GITHUB_WORKSPACE/target/release/plur1bus$exe" PLUR1BUS_CORE_JS="$GITHUB_WORKSPACE/packages/core/dist/core.js"
-          "$PY" -m unittest discover -v -s clients/python/plur1bus-memory-client/tests/live -t clients/python/plur1bus-memory-client
-          "$PY" -m unittest discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
+          "$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s clients/python/plur1bus-memory-client/tests/live -t clients/python/plur1bus-memory-client
+          "$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests/e2e -t hosts/hermes
         env: { PLUR1BUS_LIVE_REQUIRED: "1", PLUR1BUS_CI_RECALL_HARD_MS: "3000" } # H3-R26: shared runners are not reference hardware
   wsl:
     # Cross-platform migration WSL discovery and tar snapshot job (spec §B.7, gap G5/G6, decision C8).

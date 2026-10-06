@@ -1081,3 +1081,39 @@ fn an_unreadable_state_json_is_state_invalid_for_show_list_and_uninstall() {
         );
     }
 }
+
+/// K4 fix round: a closed stdout must not end the command early. `skill enable` prints the capability disclosure
+/// before it applies; with the reader gone the enable still happens and the exit code is the normal one (0), and an
+/// unconfirmed enable still exits 2 with nothing enabled.
+#[cfg(unix)]
+#[test]
+fn a_closed_stdout_pipe_does_not_skip_the_work_of_enable_and_disable() {
+    let h = Home::new();
+    let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+    ok_doc(
+        &h.run(&["--json", "skill", "install", p(&pkg), "--yes"]),
+        "skill.install/1",
+    );
+
+    let (c, err) = common::run_closed_stdout(h.cmd().args(["skill", "enable", "demo-skill"]));
+    assert_eq!(c, Some(2), "{err}");
+    assert_eq!(h.index_enabled("demo-skill"), Some(false));
+
+    let (c, err) =
+        common::run_closed_stdout(h.cmd().args(["skill", "enable", "demo-skill", "--yes"]));
+    assert_eq!(c, Some(0), "{err}");
+    assert!(!err.contains("panicked"), "{err}");
+    assert_eq!(
+        h.index_enabled("demo-skill"),
+        Some(true),
+        "enable was skipped"
+    );
+
+    let (c, err) = common::run_closed_stdout(h.cmd().args(["skill", "disable", "demo-skill"]));
+    assert_eq!(c, Some(0), "{err}");
+    assert_eq!(
+        h.index_enabled("demo-skill"),
+        Some(false),
+        "disable was skipped"
+    );
+}
