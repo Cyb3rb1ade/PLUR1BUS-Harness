@@ -61,6 +61,16 @@ channel's signed feed by default) and prints what would change and which units w
 Nothing is downloaded or applied; applying an update is a separate, later step outside this skill's
 scope.
 
+## 3b. Hand the evidence to a person
+
+```sh
+plur1bus 1staid bundle --json
+```
+
+Writes one redacted zip (versions, platform, the `1staid check` result, service status, the config with
+secrets removed and the last log lines) with `0600` permissions and prints its path. It never contains the
+audit log, payload capture, stores or tokens, and nothing is uploaded: the owner decides who gets the file.
+
 ## 4. Decide
 
 - Every check `ok`/`skip` and every process `ready`/`stopped`-as-expected: nothing to do.
