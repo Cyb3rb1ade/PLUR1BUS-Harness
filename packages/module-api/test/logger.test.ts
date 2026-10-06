@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createLogger } from "../src/logger.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
@@ -8,6 +8,15 @@ import { tempDir } from "./helpers/temp-dir.ts";
 describe("logger", () => {
   it("creates its log directory as private on POSIX", { skip: process.platform === "win32" ? "POSIX permissions are not available on Windows" : false, timeout: 5000 }, async () => {
     const dir = join(tempDir("p1b-log-"), "logs");
+    const log = createLogger({ file: join(dir, "core.log"), level: "info", role: "core" });
+    await log.close();
+    assert.equal(statSync(dir).mode & 0o777, 0o700);
+  });
+
+  it("tightens an existing log directory on POSIX", { skip: process.platform === "win32" ? "POSIX permissions are not available on Windows" : false, timeout: 5000 }, async () => {
+    const dir = join(tempDir("p1b-log-"), "logs");
+    mkdirSync(dir);
+    chmodSync(dir, 0o755);
     const log = createLogger({ file: join(dir, "core.log"), level: "info", role: "core" });
     await log.close();
     assert.equal(statSync(dir).mode & 0o777, 0o700);

@@ -219,8 +219,15 @@ pub struct Log {
 
 impl Log {
     pub fn open(path: &Path, max_bytes: u64, keep: u32) -> Self {
+        let file = match RotatingFile::open(path, max_bytes, keep) {
+            Ok(file) => Some(file),
+            Err(e) => {
+                eprintln!("plur1bus supervise: cannot open private log; output is dropped: {e}");
+                None
+            }
+        };
         Self {
-            file: Mutex::new(RotatingFile::open(path, max_bytes, keep).ok()),
+            file: Mutex::new(file),
         }
     }
     /// A log that writes nowhere (before `logs/` exists).
@@ -506,6 +513,8 @@ fn tighten_log_tree(dir: &Path) -> io::Result<usize> {
         use std::os::unix::fs::PermissionsExt;
         metadata.permissions().mode() & 0o7777 != 0o700
     });
+    #[cfg(not(unix))]
+    let _ = metadata;
     #[cfg(windows)]
     let mut tightened = 1;
     #[cfg(not(any(unix, windows)))]
@@ -519,6 +528,11 @@ fn tighten_log_tree(dir: &Path) -> io::Result<usize> {
             tightened += tighten_log_tree(&path)?;
         } else if kind.is_file() {
             tightened += tighten_log_file(&path)?;
+        } else if kind.is_symlink() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "logs contains a symbolic link",
+            ));
         }
     }
     Ok(tightened)
@@ -532,12 +546,12 @@ fn tighten_log_file(path: &Path) -> io::Result<usize> {
         if metadata.permissions().mode() & 0o7777 == 0o600 {
             return Ok(0);
         }
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        drop(logfile::open_private_append(path)?);
         Ok(1)
     }
     #[cfg(windows)]
     {
-        drop(crate::audit::create_private(path, false)?);
+        drop(logfile::open_private_append(path)?);
         Ok(1)
     }
     #[cfg(not(any(unix, windows)))]

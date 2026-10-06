@@ -65,9 +65,45 @@ impl RotatingFile {
     }
 }
 
+pub(super) fn open_private_append(path: &Path) -> io::Result<File> {
+    let mut options = OpenOptions::new();
+    options.create(true).append(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Foundation::GENERIC_WRITE;
+        use windows_sys::Win32::Storage::FileSystem::{FILE_FLAG_OPEN_REPARSE_POINT, WRITE_DAC};
+        options
+            .access_mode(GENERIC_WRITE | WRITE_DAC)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let file = options.open(path)?;
+    if file.metadata()?.file_type().is_symlink() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "log path is a symbolic link",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        plur1bus_rpc::win::restrict_to_user(file.as_raw_handle())?;
+    }
+    Ok(file)
+}
+
 fn append(path: &Path) -> io::Result<File> {
-    drop(crate::audit::create_private(path, false)?);
-    OpenOptions::new().create(true).append(true).open(path)
+    open_private_append(path)
 }
 
 impl Write for RotatingFile {
@@ -188,6 +224,30 @@ mod tests {
         assert_eq!(
             fs::metadata(&path).unwrap().permissions().mode() & 0o777,
             0o600
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_log_is_refused_without_changing_its_target() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+
+        let dir = tempfile::tempdir().unwrap();
+        let logs = dir.path().join("logs");
+        fs::create_dir(&logs).unwrap();
+        let target = dir.path().join("outside.log");
+        fs::write(&target, b"leave this alone\n").unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).unwrap();
+        symlink(&target, logs.join("supervisor.log")).unwrap();
+
+        let error = RotatingFile::open(logs.join("supervisor.log"), 1024, 1)
+            .err()
+            .expect("a symbolic-link log must be refused");
+        assert!(error.raw_os_error().is_some(), "{error}");
+        assert_eq!(fs::read(&target).unwrap(), b"leave this alone\n");
+        assert_eq!(
+            fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+            0o644
         );
     }
 }

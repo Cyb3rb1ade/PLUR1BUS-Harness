@@ -1,5 +1,6 @@
-import { closeSync, existsSync, fstatSync, mkdirSync, openSync, renameSync, rmSync, writeSync, type WriteStream } from "node:fs";
+import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, renameSync, rmSync, writeSync, type WriteStream } from "node:fs";
 import { dirname } from "node:path";
+import { createSecurePath } from "./secure-path.ts";
 
 export type Level = "debug" | "info" | "warn" | "error";
 const ORDER: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -55,7 +56,12 @@ function rotatingSink(file: string, maxBytes: number, keep: number): { write(lin
 }
 
 export function createLogger(o: { file: string; level: Level; role: string; stream?: WriteStream; maxBytes?: number; keep?: number }): HarnessLogger {
-  mkdirSync(dirname(o.file), { recursive: true, mode: 0o700 });
+  const logDir = dirname(o.file);
+  mkdirSync(logDir, { recursive: true, mode: 0o700 });
+  const dirType = lstatSync(logDir);
+  if (!dirType.isDirectory()) throw new Error("logger path is not a directory");
+  const secured = createSecurePath()(logDir, { mode: 0o700 });
+  if (!secured.applied) throw new Error(`cannot secure logger directory: ${secured.reason ?? "unknown error"}`);
   // The file sink is synchronous even without rotation: a stream opens its file later, on its own, so a logger nobody
   // closed wrote into its directory after the owner removed it, and a write after close() raised on the stream.
   const sink = o.stream
