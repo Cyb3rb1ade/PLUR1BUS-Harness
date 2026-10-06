@@ -30,10 +30,13 @@ fn io_err(p: &Path, e: io::Error) -> String {
 fn copy_into(from: &Path, dir: &Path, name: &str) -> Result<String, String> {
     let to = dir.join(name);
     fs::copy(from, &to).map_err(|e| io_err(from, e))?;
-    fs::File::open(&to)
-        .and_then(|f| f.sync_all())
-        .map_err(|e| io_err(&to, e))?;
+    sync_file(&to).map_err(|e| io_err(&to, e))?;
     sha256_file(&to).map_err(|e| io_err(&to, e))
+}
+
+/// fsyncs `p`. Opened for writing: on Windows `FlushFileBuffers` needs write access, a read-only handle is refused.
+fn sync_file(p: &Path) -> io::Result<()> {
+    fs::OpenOptions::new().write(true).open(p)?.sync_all()
 }
 
 fn write_meta(dir: &Path, m: &Meta) -> Result<(), String> {
@@ -136,7 +139,7 @@ pub fn put_file(src: &Path, dest: &Path) -> io::Result<()> {
     name.push(format!(".restore-{}", std::process::id()));
     let tmp = PathBuf::from(name);
     let r = fs::copy(src, &tmp)
-        .and_then(|_| fs::File::open(&tmp).and_then(|f| f.sync_all()))
+        .and_then(|_| sync_file(&tmp))
         .and_then(|_| replace_file(&tmp, dest));
     if r.is_err() {
         let _ = fs::remove_file(&tmp);
