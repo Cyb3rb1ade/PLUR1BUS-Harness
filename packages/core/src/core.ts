@@ -135,6 +135,7 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let dreams: Dreams | null = null;
+  let dreamsError: string | undefined;
   let replay: JournalReplay | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
@@ -406,6 +407,7 @@ export function createCore(o: CoreOptions): Core {
         systemJobs,
         discovery,
         dreams: () => dreams?.scheduler ?? null,
+        dreamsError: () => dreamsError,
       });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -432,7 +434,7 @@ export function createCore(o: CoreOptions): Core {
           ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
         });
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
-      } catch (err) { dreams = null; logger.error("dreaming scheduler unavailable", { err }); }
+      } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;

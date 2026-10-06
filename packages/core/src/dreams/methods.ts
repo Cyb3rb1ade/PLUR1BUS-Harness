@@ -7,9 +7,9 @@ import type { Handler } from "../rpc/server.ts";
 import type { DreamScheduler } from "./scheduler.ts";
 import type { DreamRun, Phase, ScheduleRow } from "./types.ts";
 
-export interface DreamsMethodDeps { dreams: () => DreamScheduler | null; agents: AgentRegistry }
+export interface DreamsMethodDeps { dreams: () => DreamScheduler | null; agents: AgentRegistry; /** Why the scheduler is not running, when it failed to open. */ unavailableBecause?: () => string | undefined }
 
-const unavailable = () => new RpcError("E_NOT_AVAILABLE", "the dreaming scheduler is not running", { reason: "dreams-unavailable" });
+
 
 const projectRun = (r: DreamRun) => ({
   runId: r.runId, agentId: r.agentId, phase: r.phase, jobId: r.jobId, partition: r.partition, idempotencyKey: r.idempotencyKey, claimed: r.claimed,
@@ -23,7 +23,12 @@ const projectRun = (r: DreamRun) => ({
 const projectSchedule = (s: ScheduleRow) => ({ agentId: s.agentId, phase: s.phase, cron: s.cron, timezone: s.timezone, enabled: s.enabled, staggerOffsetS: s.staggerOffsetS, nextRunAt: s.enabled ? s.nextRunAt : null });
 
 export function buildDreamsMethods(d: DreamsMethodDeps): Record<string, Handler> {
-  const sched = (): DreamScheduler => { const s = d.dreams(); if (!s) throw unavailable(); return s; };
+  const sched = (): DreamScheduler => {
+    const s = d.dreams();
+    if (s) return s;
+    const why = d.unavailableBecause?.();
+    throw new RpcError("E_NOT_AVAILABLE", "the dreaming scheduler is not running", { reason: "dreams-unavailable", ...(why ? { detail: why } : {}) });
+  };
   const edit = (agentId: string, phase: Phase, patch: { cron?: string; timezone?: string; enabled?: boolean }) => {
     requireAgent(d.agents, agentId);
     try { return { schedule: projectSchedule(sched().setSchedule(agentId, phase, patch)) }; }

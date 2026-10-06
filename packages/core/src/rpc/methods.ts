@@ -57,6 +57,8 @@ export interface MethodDeps {
   discovery?: import("../discovery/service.ts").DiscoveryService;
   /** M1b-3: the dreaming scheduler (ADR-009); null while it is not running (`dreams.*` then answers E_NOT_AVAILABLE). */
   dreams?: () => import("../dreams/scheduler.ts").DreamScheduler | null;
+  /** Why `dreams` is null when its store failed to open (shown as the refusal's detail). */
+  dreamsError?: () => string | undefined;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -172,7 +174,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     },
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
-    ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents }),
+    ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents, ...(d.dreamsError ? { unavailableBecause: d.dreamsError } : {}) }),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
