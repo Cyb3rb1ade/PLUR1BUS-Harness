@@ -72,6 +72,32 @@ class JournalTest(unittest.TestCase):
         self.assertEqual(j.counts(), {"queued": 2, "dropped": 0, "rejected": 0, "lost": 0}, "the failed entry stays at the head")
         self.assertEqual(sorted(JOURNAL_CODES), ["E_CORE_UNAVAILABLE", "E_SERVER_IDENTITY", "E_TIMEOUT", "E_TRANSPORT"])
 
+    def test_a_trust_refusal_is_journaled_not_set_aside(self) -> None:
+        # The client reports an untrusted run/ or socket as E_UNAUTHORIZED with legacy_code E_SERVER_IDENTITY
+        # (#137); that stays in the journal for a retry, unlike a plain E_UNAUTHORIZED from the core.
+        trust = pmc.RpcError("E_UNAUTHORIZED", "run-dir-untrusted", {"reason": "run-dir-untrusted", "legacy_code": "E_SERVER_IDENTITY"})
+        self.assertTrue(journal_mod.is_journal_error(trust))
+        self.assertFalse(journal_mod.is_journal_error(pmc.RpcError("E_UNAUTHORIZED", "bad-token")))
+        self.assertFalse(journal_mod.is_journal_error(pmc.RpcError("E_UNAUTHORIZED", "x", {"legacy_code": "E_OTHER"})))
+        self.assertTrue(journal_mod.is_journal_error(pmc.RpcError("E_TIMEOUT", "slow")))
+        j = CaptureJournal(self.dir)
+        for i in range(2):
+            j.append(_entry(i))
+
+        def send(e: dict) -> None:
+            raise trust
+
+        self.assertEqual(j.drain(send), 0)
+        self.assertEqual(j.counts()["queued"], 2, "trust refusals keep the queue for a later retry")
+        self.assertEqual(len(j.dead_letters()), 0)
+
+        def refuse(e: dict) -> None:
+            raise pmc.RpcError("E_UNAUTHORIZED", "bad-token")
+
+        j.drain(refuse)
+        self.assertEqual(j.counts()["queued"], 0, "a plain E_UNAUTHORIZED is permanent")
+        self.assertEqual(len(j.dead_letters()), 2)
+
     def test_poison_head_does_not_block_replay(self) -> None:
         j = CaptureJournal(self.dir)
         for i in range(3):
