@@ -4,6 +4,7 @@ mod coexistence;
 mod commands;
 mod container;
 mod ext;
+mod firstaid_bundle;
 mod identity;
 mod install;
 mod journal;
@@ -46,6 +47,8 @@ fn main() {
         Cmd::Update(args) => commands::update::run(&out, &layout, args),
         Cmd::User(_) => commands::stubs::milestone(&out, "user", "M2", "users and roles (ADR-007)"),
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),
+        Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),
+        Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Login(_) => {
             commands::stubs::milestone(&out, "login", "M2", "API keys and OAuth templates (D16)")
         }
@@ -65,7 +68,9 @@ fn main() {
         Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),
     }
     // A real stdout write error (not a closed pipe) lost the output the caller asked for: do not report success.
-    if output::stdout_write_failed() {
-        std::process::exit(1);
+    // Commands that end the process themselves go through `output::exit`, which applies the same rule.
+    let code = output::final_exit_code(0);
+    if code != 0 {
+        std::process::exit(code);
     }
 }

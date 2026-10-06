@@ -1,5 +1,6 @@
 //! `plur1bus supervise --no-core`: the endpoint, the run files, `supervisor.auth`, `daemon.status|stop`, single
 //! instance and stale run files. Every test uses its own temp home.
+mod common;
 use plur1bus_rpc::types::ErrorCode;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
@@ -498,7 +499,7 @@ fn stale_supervisor_socket_is_replaced() {
     let home = dir.path();
     std::fs::create_dir_all(run_dir(home)).unwrap();
     // A power loss leaves the socket file, the token and the pid file with no process behind them.
-    drop(std::os::unix::net::UnixListener::bind(run_dir(home).join("supervisor.sock")).unwrap());
+    common::dead_socket(&run_dir(home).join("supervisor.sock"));
     assert!(run_dir(home).join("supervisor.sock").exists());
     std::fs::write(
         run_dir(home).join("supervisor.pid"),

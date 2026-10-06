@@ -10,7 +10,8 @@ import https from "node:https";
 import net from "node:net";
 import childProcess from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
-import { connect, type CoreClient } from "@plur1bus/module-api";
+import { type CoreClient } from "@plur1bus/module-api";
+import { connect } from "../helpers/connect.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore, type Core } from "../../src/core.ts";
 import { layout } from "../../src/paths.ts";
@@ -508,6 +509,9 @@ describe("model discovery end-to-end", () => {
         if (!spyActive) return;
         if (typeof rawP !== "string") return;
         let p = rawP;
+        // Windows securePath (ruling S11) dumps the DACL it just set with `icacls /save` into a scratch dir under the OS
+        // temp dir (module-api secure-path.ts) and removes it again; it holds an ACL listing, never user data.
+        if (process.platform === "win32" && /[\\/]p1b-acl-[^\\/]+(?:[\\/]|$)/.test(p)) return;
         if (p.startsWith("/proc/self/fd/")) {
           try {
             p = fs.readlinkSync(p);

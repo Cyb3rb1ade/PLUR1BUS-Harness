@@ -26,6 +26,8 @@ export function requireAgent(agents: AgentRegistry, agentId: string): string {
 const ERROR_MAP: Readonly<Record<E.MemoryOpErrorCode, ErrorCode>> = Object.freeze({
   "not-found": "E_NOT_FOUND", denied: "E_DENIED", "invalid-input": "E_INVALID_PARAMS", "approval-required": "E_APPROVAL_REQUIRED", conflict: "E_CONFLICT", storage: "E_STORAGE",
   unsupported: "E_NOT_AVAILABLE", // 1.8.0; Task 14 adds its tests and the daemon/1staid surfaces
+  // 1.12.0 (rebind/unbind): no core RPC method calls them yet; the map stays total so the code type-checks and a future caller gets a closed code.
+  "identity-already-bound": "E_CONFLICT", "ledger-corrupt": "E_STORAGE", "lock-lost": "E_STORAGE",
 });
 
 const coreStopping = (ids?: Record<string, string>) =>

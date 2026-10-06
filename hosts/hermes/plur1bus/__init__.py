@@ -45,8 +45,22 @@ from agent.memory_provider import MemoryProvider, is_trivial_prompt, spawn_conte
 
 from ._client import pmc
 from .binding import Binding, BindingInvalid, read_binding, resolve_hermes_home
-from .journal import CaptureJournal, is_journal_code
-from .mapping import SYSTEM_PROMPT_BLOCK, TOOL_METHODS, TOOL_SCHEMAS, ToolArgsError, caller_for, session_key_for, tool_params, turn_messages
+from .journal import CaptureJournal, clean_code, is_journal_code
+from .mapping import (
+    READ_ONLY_PROMPT_BLOCK,
+    SYSTEM_PROMPT_BLOCK,
+    TOOL_METHODS,
+    TOOL_SCHEMAS,
+    WRITE_TOOLS,
+    EntryInvalid,
+    IdentityRefused,
+    ToolArgsError,
+    caller_for,
+    session_key_for,
+    tool_params,
+    turn_messages,
+    validate_entry,
+)
 
 __all__ = ["Plur1busMemoryProvider", "register"]
 
@@ -58,6 +72,9 @@ SHUTDOWN_BUDGET_S = 2.0
 PRE_COMPRESS_WAIT_S = 2.0
 PRE_COMPRESS_CALL_S = 1.0
 CAPTURE_DEADLINE_S = 5.0
+#: Turns the worker has not taken yet; past this the oldest is dropped and counted ``lost`` (a stuck worker must
+#: not grow memory without bound).
+MAX_PENDING_TURNS = 200
 TOOL_DEADLINE_S = 5.0
 #: The only context whose turns are captured (Hermes: skip automatic writes for non-primary contexts).
 CAPTURE_CONTEXTS = frozenset({"primary"})
@@ -71,8 +88,14 @@ def _default_factory(home: str) -> Any:
 
 
 def _code(exc: BaseException) -> str:
-    code = getattr(exc, "code", None)
-    return code if isinstance(code, str) else type(exc).__name__
+    """The error code of ``exc`` for logs and ``state.json``: bounded and cleaned (the core's text is not trusted)."""
+    return clean_code(getattr(exc, "code", None)) or clean_code(type(exc).__name__) or "E_UNKNOWN"
+
+
+class _EntryRejected(Exception):
+    """A queued capture failed validation; permanent, so it is set aside (code ``E_JOURNAL_ENTRY``)."""
+
+    code = "E_JOURNAL_ENTRY"
 
 
 class _Inflight:
@@ -182,7 +205,13 @@ class Plur1busMemoryProvider(MemoryProvider):
             self._warn("binding", f"plur1bus: no binding for this Hermes home; memory is off for this session. {BIND_HINT}")
             return
         self._journal = CaptureJournal.for_home(self._hermes_home)  # no I/O until the worker uses it
-        self._caller = caller_for(kwargs.get("platform"), kwargs.get("user_id"), kwargs.get("chat_id"))
+        try:
+            self._caller = caller_for(kwargs.get("platform"), kwargs.get("user_id"), kwargs.get("chat_id"))
+        except IdentityRefused:
+            # Fail closed (audit M1): without a sender id there is no identity that is not shared with others.
+            self._journal = None
+            self._warn("identity", "plur1bus: this platform supplied no user or chat id; memory is off for this session")
+            return
         self._session_key = session_key_for(self._session_id, kwargs.get("gateway_session_key"))
         self._rclient = self._factory(self._binding.home)
         self._wclient = self._factory(self._binding.home)
@@ -203,7 +232,9 @@ class Plur1busMemoryProvider(MemoryProvider):
         return self._binding is not None and self._rclient is not None
 
     def system_prompt_block(self) -> str:
-        return SYSTEM_PROMPT_BLOCK if self._active else ""
+        if not self._active:
+            return ""
+        return SYSTEM_PROMPT_BLOCK if self._binding.memory_write_tools else READ_ONLY_PROMPT_BLOCK
 
     def on_session_switch(self, new_session_id: str, *, parent_session_id: str = "", reset: bool = False, rewound: bool = False, **kwargs: Any) -> None:
         self._session_id = new_session_id or self._session_id
@@ -265,7 +296,13 @@ class Plur1busMemoryProvider(MemoryProvider):
             if self._stopped:
                 return
             self._items.append(entry)
+            overflow = len(self._items) - MAX_PENDING_TURNS
+            for _ in range(max(0, overflow)):
+                self._items.popleft()
+                self._lost += 1
             self._cv.notify_all()
+        if overflow > 0:
+            log.warning("plur1bus: capture queue full, dropped %d oldest turn(s)", overflow)
         self._ensure_worker()
 
     def _ensure_worker(self) -> None:
@@ -278,38 +315,50 @@ class Plur1busMemoryProvider(MemoryProvider):
         worker.start()
 
     def _worker_loop(self) -> None:
+        while True:
+            try:
+                if self._worker_step():
+                    return
+            except Exception as e:  # noqa: BLE001 - the capture worker must outlive any one bad iteration
+                log.warning("plur1bus: capture worker error (%s); continuing", _code(e))
+                time.sleep(0.05)
+
+    def _worker_step(self) -> bool:
+        """One wake of the worker; True when it should exit."""
         journal = self._journal
         assert journal is not None
-        while True:
-            with self._cv:
-                while not (self._stopped or self._items or self._error_dirty or (self._drain_wanted and not self._closing)):
-                    self._cv.wait()
-                if self._stopped:
-                    return
-                write_error, code = self._error_dirty, self._last_error
-                self._error_dirty = False
-                want_drain = self._drain_wanted and not self._closing
-                self._drain_wanted = False
-                inflight = None
-                if self._items:
-                    inflight = self._inflight = _Inflight(self._items.popleft())
+        with self._cv:
+            while not (self._stopped or self._items or self._error_dirty or (self._drain_wanted and not self._closing)):
+                self._cv.wait()
+            if self._stopped:
+                return True
+            write_error, code = self._error_dirty, self._last_error
+            self._error_dirty = False
+            want_drain = self._drain_wanted and not self._closing
+            self._drain_wanted = False
+            inflight = None
+            if self._items:
+                inflight = self._inflight = _Inflight(self._items.popleft())
+        try:
             if write_error:
                 try:
                     journal.note_error(code)
                 except Exception as e:  # noqa: BLE001 - status only
-                    log.info("plur1bus: could not record the last error (%s)", type(e).__name__)
+                    log.info("plur1bus: could not record the last error (%s)", _code(e))
             if self._queued is None:
                 try:
                     self._queued = journal.counts()["queued"]
-                except OSError:
+                except Exception as e:  # noqa: BLE001 - counts() never raises on a bad file; anything else is a bug to survive
+                    log.info("plur1bus: could not count the journal (%s)", _code(e))
                     self._queued = 0
             if inflight is None:
                 if want_drain and self._queued:
                     self._drain()
-                continue
-            try:
-                self._process(inflight)
-            finally:
+                return False
+            self._process(inflight)
+            return False
+        finally:
+            if inflight is not None:
                 with self._cv:
                     self._inflight = None
                     self._cv.notify_all()
@@ -328,22 +377,28 @@ class Plur1busMemoryProvider(MemoryProvider):
             self._set_error(code)
             if is_journal_code(code):
                 self._journal_inflight(inflight)
+                self._warn("capture", f"plur1bus: memory capture is unavailable ({code}); turns are kept in the local journal and sent later")
+            else:
                 if code == "E_AGENT_UNKNOWN":
                     self._warn("agent-unknown", f"plur1bus: agent {entry['agentId']} is not registered with PLUR1BUS ({code}); {BIND_HINT}")
-                else:
-                    self._warn("capture", f"plur1bus: memory capture is unavailable ({code}); turns are kept in the local journal and sent later")
-            else:
-                log.warning("plur1bus: the core refused a capture (%s); it was dropped", code)
+                log.warning("plur1bus: the core refused a capture (%s); it was set aside in the dead-letter file", code)
                 try:
-                    self._journal.reject()
-                except Exception:  # noqa: BLE001
-                    pass
+                    self._journal.dead_letter(entry, code)
+                except Exception:  # noqa: BLE001 - counted below: it cannot be kept
+                    self._lost += 1
+                    log.warning("plur1bus: a refused capture could not be set aside and is lost")
             self._flush_error()
             return
         self._set_error(None)
         self._flush_error()
 
     def _send_entry(self, entry: dict) -> None:
+        b = self._binding
+        try:
+            validate_entry(entry, b.agent_id if b is not None else "")
+        except EntryInvalid as e:
+            log.warning("plur1bus: a queued capture is not valid for this binding (%s)", e)
+            raise _EntryRejected() from None
         c = entry.get("caller") or {}
         caller = pmc.Caller(str(c.get("accountId") or "hermes:local"), str(c.get("userId") or "local"))
         self._wclient.capture(
@@ -487,12 +542,18 @@ class Plur1busMemoryProvider(MemoryProvider):
             return []
         # Follows the live core.auth capabilities: empty while the core was never reached (see the
         # module docstring for when Hermes asks again).
-        return [dict(TOOL_SCHEMAS[t]) for t, m in TOOL_METHODS.items() if self._rclient.supports(m)]
+        return [dict(TOOL_SCHEMAS[t]) for t, m in TOOL_METHODS.items() if self._tool_enabled(t) and self._rclient.supports(m)]
+
+    def _tool_enabled(self, tool_name: str) -> bool:
+        """The write tools (forget, correct, share) need ``memoryWriteTools`` in the binding (audit M2)."""
+        return tool_name not in WRITE_TOOLS or bool(self._binding is not None and self._binding.memory_write_tools)
 
     def handle_tool_call(self, tool_name: str, args: dict[str, Any], **kwargs: Any) -> str:
         method = TOOL_METHODS.get(tool_name)
         if method is None or not self._active or not self._rclient.supports(method):
             return json.dumps({"error": "E_NOT_AVAILABLE"})
+        if not self._tool_enabled(tool_name):
+            return json.dumps({"error": "E_DISABLED"})
         try:
             p = tool_params(tool_name, args)
         except ToolArgsError:

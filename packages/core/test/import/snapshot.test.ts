@@ -649,7 +649,7 @@ describe("snapshot — WSL tar stream with injected runner (G5, G6)", { timeout:
     }
   });
 
-  it("executes the production WSL branch end-to-end with fake wsl.exe binary on PATH (N2)", async () => {
+  it("executes the production WSL branch end-to-end with fake wsl.exe binary on PATH (N2)", { skip: process.platform === "win32" && "the fake wsl.exe is a #!/bin/sh script on a ':'-separated PATH: not executable as wsl.exe on Windows" }, async () => {
     const fakeBinDir = tempDir("p1b-fake-bin-");
     const fakeWslPath = join(fakeBinDir, "wsl.exe");
     const home = tempDir("p1b-wsl-real-home-");
@@ -1013,7 +1013,7 @@ describe("snapshot — snapshot.json trust anchor (I6)", { timeout: 15_000 }, ()
 
       const loc = locateSource({
         accessRoot: snapDir,
-        platform: "linux",
+        platform: process.platform,
         env: {},
         home,
       });
@@ -1090,7 +1090,7 @@ describe("snapshot — snapshot.json trust anchor (I6)", { timeout: 15_000 }, ()
 
       const loc = locateSource({
         accessRoot: snapDir,
-        platform: "linux",
+        platform: process.platform,
         env: {},
         home,
       });
@@ -1124,7 +1124,7 @@ describe("snapshot — snapshot.json trust anchor (I6)", { timeout: 15_000 }, ()
 
       const loc = locateSource({
         accessRoot: snapDir,
-        platform: "linux",
+        platform: process.platform,
         env: {},
         home,
       });
@@ -1292,7 +1292,7 @@ describe("snapshot — WSL production scripts and protections (Round 4, F1–F4)
     );
   });
 
-  it("F4: PID check parses JSON pid file and leading numbers without mangling", async () => {
+  it("F4: PID check parses JSON pid file and leading numbers without mangling", { skip: process.platform === "win32" && "runs the WSL-side sh script on the host: `kill -0` cannot see a Windows node PID from MSYS sh" }, async () => {
     const srcDir = tempDir("p1b-wsl-f4-pid-");
     writeFileSync(join(srcDir, "gateway.pid"), `{"pid": ${process.pid}, "port": 18789}\n`, "utf8");
 

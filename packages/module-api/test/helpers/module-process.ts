@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connect, type CoreClient } from "../../src/client.ts";
 import { moduleAddress, moduleRunFiles } from "../../src/paths.ts";
+import { readRecordedPid } from "../../src/trust.ts";
 
 const fixtureRoot = fileURLToPath(new URL("../../../module-fixture/", import.meta.url));
 
@@ -56,6 +57,9 @@ export function spawnModule(home: string, o: { name?: string; lifeline?: boolean
   return { child, instanceId, exited, stderr: () => err };
 }
 
+/** `{ expectedServerPid }` from the module's run/*.pid: Windows refuses a pipe without it (absent pid file: refused, retried). */
+export const pidOf = (file: string): { expectedServerPid?: number } => { const pid = readRecordedPid(file); return pid === undefined ? {} : { expectedServerPid: pid }; };
+
 /** Connects with `module.auth` once the module listens (its token file exists and a connect succeeds). */
 export async function connectModule(home: string, name = "fixture", timeoutMs = 20_000): Promise<CoreClient> {
   const deadline = performance.now() + timeoutMs;
@@ -63,7 +67,7 @@ export async function connectModule(home: string, name = "fixture", timeoutMs = 
   let last: unknown;
   while (performance.now() < deadline) {
     if (existsSync(files.token)) {
-      try { return await connect({ address: moduleAddress(home, name), token: readFileSync(files.token, "utf8").trim(), endpoint: "module", connectTimeoutMs: 1000 }); } catch (e) { last = e; }
+      try { return await connect({ address: moduleAddress(home, name), token: readFileSync(files.token, "utf8").trim(), endpoint: "module", connectTimeoutMs: 1000, ...pidOf(files.pid) }); } catch (e) { last = e; }
     }
     await new Promise((r) => setTimeout(r, 50));
   }
