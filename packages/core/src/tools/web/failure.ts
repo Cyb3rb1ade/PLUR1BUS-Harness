@@ -9,6 +9,7 @@ export type WebFailureCode =
   | "not-found"
   | "gone"
   | "auth-required"
+  | "paywall"
   | "rate-limited"
   | "timeout"
   | "too-large"
@@ -34,6 +35,7 @@ const TEXTS: Record<WebFailureCode, { hint: string; userAction: string }> = {
   "not-found": { hint: "The page does not exist at this URL. Search for the current location with web.search.", userAction: "That page is not there any more; I will look for another source." },
   gone: { hint: "The page was removed on purpose. Look for a replacement with web.search.", userAction: "The page has been taken down; I will look for another source." },
   "auth-required": { hint: "The page needs a login. Do not guess credentials; look for a public source.", userAction: "The page needs a login: sign in in the browser panel and say 'continue'." },
+  paywall: { hint: "The content is behind a paywall. Look for a free source with web.search; do not try to bypass it.", userAction: "That article is paywalled: forward it to me or give me access; meanwhile I will look for free sources." },
   "rate-limited": { hint: "Retry after the stated delay, or use another source.", userAction: "The site limits automated requests; I will retry later." },
   timeout: { hint: "The site was too slow. Retry once, or fetch a different page of the site.", userAction: "The site did not answer in time; I will try again or use another source." },
   "too-large": { hint: "The response exceeds the size limit. Use a more specific URL or a page of the document.", userAction: "That file is too large to read in one go." },
