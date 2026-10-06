@@ -170,6 +170,8 @@ PLUR1BUS_LIVE_REQUIRED=1 python3 -m unittest discover -s clients/python/plur1bus
 PLUR1BUS_LIVE_REQUIRED=1 python3 -m unittest discover -s hosts/hermes/tests/e2e -t hosts/hermes
 ```
 
+CI runs the same four commands through `hosts/hermes/tests/run_with_timeout.py` (same arguments, same tests) so a hung test fails with its id and all thread stacks after 120 s instead of holding the job: `python3 hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes`. `PLUR1BUS_TEST_TIMEOUT` (seconds) changes the per-test limit, `PLUR1BUS_FIXTURE_TIMEOUT` the limit for class/module fixtures; a test that needs longer takes `@timeout(seconds)` from that module.
+
 `PLUR1BUS_LIVE_REQUIRED=1` makes a live suite that cannot run fail instead of skipping. Also relevant: `node --test scripts/build-hermes-provider.test.mjs` (the release tarball), `cargo test -p plur1bus --test setup_profile` (the profile rules), and `node scripts/lint-hygiene.mjs`.
 
 Tests never touch a real service manager, a real Hermes or a real home: every test uses temporary `HOME`, `USERPROFILE`, `LOCALAPPDATA`, `XDG_*`, `HERMES_HOME` and `PLUR1BUS_HOME`, and setup runs with `--no-service` (HM2-R19). A real Hermes runs only in `hermes-host.yml` on ephemeral GitHub-hosted runners, guarded by `hosts/hermes/tests/e2e/assert_disposable.py`; do not run it on a machine whose Hermes or home you care about.
