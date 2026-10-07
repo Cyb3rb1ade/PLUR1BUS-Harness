@@ -46,3 +46,10 @@ describe("secret store + records", () => {
     assert.throws(() => decodeRecord("not json CANARY-C", "p"), (e: any) => !e.message.includes("CANARY-C"));
   });
 });
+
+it("new flow aliases and arbitrary audience identifiers validate without coercing values", () => {
+  const p = validateProfile({ ...oauth, authorizeUrl: oauth.authorization_endpoint, tokenUrl: oauth.token_endpoint, audience: "test-audience", scopes: ["read", "offline_access"], pkce: "S256", redirect: { type: "loopback" } });
+  assert.equal(p.audience, "test-audience");
+  assert.throws(() => validateProfile({ ...oauth, token_endpoint: { toString: () => "https://example.test/token" } }));
+  assert.throws(() => validateProfile({ ...oauth, policy_checked: "2026-02-30" }));
+});

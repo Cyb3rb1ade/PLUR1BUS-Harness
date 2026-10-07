@@ -1,4 +1,5 @@
 export type AuthErrorCode =
+  | "login_failed" | "login_timeout" | "state_mismatch" | "access_denied" | "persist_failed"
   | "reauth_required"      // the stored login is dead (refresh token expired/revoked): a person must sign in again
   | "refresh_failed"       // the token endpoint could not be reached or answered 5xx: retry later, login is intact
   | "no_credential"        // nothing stored under the secret reference, or the pool has no entries

@@ -57,7 +57,7 @@ describe("headless ladder (M2 acceptance 1)", () => {
   });
   it("loopback_ssh carries the ssh -L hint with the bound port", () => {
     const plan = planLogin(P.pkce, E.ssh);
-    assert.match(plan.sshHint!(47123), /^ssh -L 47123:localhost:47123 /);
+    assert.match(plan.sshHint!(47123), /^ssh -L 47123:127\.0\.0\.1:47123 /);
     assert.equal(plan.headless, true);
   });
 });

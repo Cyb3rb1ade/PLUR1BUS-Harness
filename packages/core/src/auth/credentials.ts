@@ -3,7 +3,7 @@ import type { Clock } from "./clock.ts";
 import { AuthError } from "./errors.ts";
 import { noLog, type AuthLog } from "./log.ts";
 import { CredentialPool, type Failure, type PoolEntry, type Strategy } from "./pool.ts";
-import { isRefreshable, parseHeaderScheme, type AuthProfile } from "./profile.ts";
+import { validateProfile, isRefreshable, parseHeaderScheme, type AuthProfile } from "./profile.ts";
 import { RefreshOwner, type Refresher } from "./refresh.ts";
 import type { SecretStore } from "./secret-store.ts";
 
@@ -57,11 +57,12 @@ export interface CredentialsProviderOptions {
   log?: AuthLog;
 }
 
-export function createCredentialsProvider(o: CredentialsProviderOptions): CredentialsProvider & { pool(profileId: string): CredentialPool | undefined } {
+export function createCredentialsProvider(o: CredentialsProviderOptions): CredentialsProvider & { pool(profileId: string): CredentialPool | undefined; close(): void } {
   const log = o.log ?? noLog;
   const owner = new RefreshOwner({ store: o.store, clock: o.clock, refresher: o.refresher, log });
   const byId = new Map<string, { profile: AuthProfile; pool: CredentialPool }>();
   for (const pc of o.profiles) {
+    validateProfile(pc.profile);
     // A profile without pool entries but with a `secret_ref` is a pool of one.
     const entries = pc.entries.length ? pc.entries : pc.profile.secret_ref ? [{ id: "default", secretRef: pc.profile.secret_ref }] : [];
     byId.set(pc.profile.id, { profile: pc.profile, pool: new CredentialPool({ profileId: pc.profile.id, entries, ...(pc.strategy ? { strategy: pc.strategy } : {}), clock: o.clock, log }) });
@@ -74,6 +75,7 @@ export function createCredentialsProvider(o: CredentialsProviderOptions): Creden
   const fmt = (p: AuthProfile, token: string) => { const h = parseHeaderScheme(p.id, p.auth_header_scheme); return { name: h.name, value: h.template.split("{token}").join(token) }; };
 
   return {
+    close: () => owner.close(),
     pool: (id) => byId.get(id)?.pool,
 
     async getAuthorization(req) {

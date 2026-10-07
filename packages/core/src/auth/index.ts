@@ -9,3 +9,6 @@ export * from "./profile.ts";
 export * from "./redact.ts";
 export * from "./refresh.ts";
 export * from "./secret-store.ts";
+export * from "./adc.ts";
+export * from "./http.ts";
+export * from "./login.ts";
