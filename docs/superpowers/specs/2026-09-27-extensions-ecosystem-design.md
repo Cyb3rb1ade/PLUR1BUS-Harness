@@ -26,6 +26,8 @@ A person can add capabilities to PLUR1BUS without a harness release, and can see
 | **Plugin · MCP server** | A local MCP server (stdio; Node, Python via `uv`, or a binary; the payload *is* an MCPB tree, §4.4) or a remote one (Streamable HTTP, URL + auth) | Child process of the MCP client (2b) or a remote connection | Server stopped/started; agent tool lists change at the next turn | D17, D38, D46, D67 |
 | **Plugin · bundle** | A named set of members of the kinds above, installed, enabled and updated together (the counterpart of a Claude Code plugin or an Anthropic "plugin" that carries skills plus MCP servers, §4.5) | Its members | Members together; a member can be switched off alone | ADR-008 (bundle import) |
 
+**Proposed kind (2026-10-07, not yet in the schema): Agent Bridge connector.** The `agent-bridge` module (core spec §4.1) describes each external system it drives or attaches (ADR-011, `docs/host-adapters.md`) by a connector manifest; new connectors could ship as `.p1x` packages of a further plugin kind (working name `connector`), data only, loaded by the bridge. The manifest shape, its capability disclosure and its place in §5.2 are open and decided with the bridge's plan; until then, connectors ship with the module.
+
 "Plugin" is the umbrella word for everything that is not a skill, because the UI already uses it that way (canvas `V2Plugins`: "MCP servers and bundles"; `V2Modules`: "Channels and add-ons use the same module contract … shows up under Plugins too"). "Extension" is the umbrella word for both skills and plugins in the code, the CLI's developer commands and this spec.
 
 ## 3. Non-goals

@@ -276,6 +276,8 @@ criteria are met on this codebase:
 
 **Exit:** demo guide (Zed, foreign A2A client, four CLIs), test report incl. TCK/ITK results, nightly per-CLI integration matrix live with the auto-degrade rule.
 
+**Agent Bridge (owner 2026-10-07):** the external-coding-agent tiers are built as the *Drive* role of `agent-bridge` connectors (module at Orchestration · 420, core spec §4.1, ADR-011 amendment 2026-10-07); their *Attach* role is the host-adapter tiers (`docs/host-adapters.md`) and follows the 2b MCP server and the M3 memory proxy.
+
 ### M7 — Importers: OpenClaw and Hermes
 
 **Scope.** `plur1bus-harness import <openclaw|hermes>` plus a UI wizard; dry-run default, copy-never-move, idempotent and resumable, snapshot before, rollback, source-version detection, conflict strategy, report (JSON + readable) **without content or secrets**; secrets opt-in and allowlist-based, straight into the secret store, never in the report. OpenClaw: agents, persona (`SOUL.md` accepted on import, `SOUL.md` written — kept unchanged by owner decision D14, 2026-09-22), curated files (`memory/YYYY-MM-DD.md` → `DailyNote_*`, `MEMORY.md` → `memories.md`, `KNOWLEDGE.md` → `knowledgepool.md`, `DREAMS.md` → `dreaming.md`, per owner decision D15, 2026-09-22), skills, cron, channel config and allowlists, and the **PLUR1BUS stores in full** — take-over without re-embedding when the embedding identity is preserved, otherwise the guided re-embedding migration. Hermes: profiles → agents, `SOUL.md`, `MEMORY.md`/`USER.md` → cards with provenance `imported` (`MEMORY.md` → `memories.md`, D15), skills, cron, platform config, **approved pairing lists imported / pending codes excluded**. original §4.2; `docs/import.md`.

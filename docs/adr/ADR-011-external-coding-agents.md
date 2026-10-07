@@ -1,6 +1,6 @@
 # ADR-011: External coding agents
 
-**Status:** Accepted (2026-09-22) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
+**Status:** Accepted (2026-09-22; amended 2026-10-07: implemented as `agent-bridge` connectors) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
 
 ## Context
 
@@ -211,3 +211,11 @@ auftrag §13 numbers open questions 1–5 only. The M6 minimum-set question is a
 9. [ ] Work the spike list; promote CLIs out of "community-tested, unverified" only with a green nightly job and a ToS re-check against ADR-005.
 10. [ ] Feed the corrected ACP evidence (grok, pi, agy, OpenCode, Cline, Cursor now registry-listed) back into `docs/phase0/research/protocols-channels-coding-clis.md`.
 11. [x] The M6 minimum-set question is registered in `docs/assumptions.md` as open question **Q7** (asked before M6).
+
+## Amendment 2026-10-07 — the drive side is implemented as `agent-bridge` connectors
+
+Owner decision of 2026-10-07 (core spec `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §4.1): the external-agent subsystem of this ADR is the **Drive** role of the first-party module **`agent-bridge`** (display name "Agent Bridge", Orchestration · 420; board `V2AgentBridge`, Settings › Agent Bridge). Each external system is one **connector** with two independently switchable roles: **Drive** — PLUR1BUS uses the external CLI as the engine of one of its agents, through the tiers above (ACP, headless JSON, PTY); **Attach** — the external system uses a PLUR1BUS agent as persona and memory, through the `docs/host-adapters.md` tiers 0–3 (D28).
+
+* The *Discovery* rules above become the connector's detection: version and login state, never reading a credential's contents.
+* The bridge spawns a driven CLI per session, reports health per connector (degraded, never a silent drop) and starts only when at least one connector is active. It owns no transport of its own; it uses `mcp-host`, `memory-proxy`, `http-api` and `plur1bus acp`.
+* Connectors are described by a manifest; new ones can ship as `.p1x` extensions. The per-CLI descriptors and evidence levels of this ADR become connector manifests; the tiers, the permission model and the M6 minimum set are unchanged.
