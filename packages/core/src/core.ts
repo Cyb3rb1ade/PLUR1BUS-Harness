@@ -22,7 +22,7 @@ import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
 import { createLogger, type HarnessLogger, type Level } from "./logger.ts";
-import { MEMORY_OP_METHODS } from "./memory-ops.ts";
+import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
 import { callerToPrincipal } from "./principal.ts";
@@ -34,7 +34,7 @@ import type { ChatProvider } from "./session/provider.ts";
 import { createLogsMethods } from "./logs/index.ts";
 import { openSessionService, type SessionService } from "./session/service.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
-import { createRpcServer, type RpcServer } from "./rpc/server.ts";
+import { createRpcServer, type CallContext, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 import path from "node:path";
@@ -53,11 +53,18 @@ import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metr
 import { createAuditWriter } from "./identity/audit.ts";
 import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
+import { approvalsDbPath } from "./approvals/db.ts";
+import { secretStoreKeySource } from "./approvals/keys.ts";
+import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
+import { createPermissionRuntime, type PermissionRuntime } from "./approvals/runtime.ts";
+import type { ApprovalService } from "./approvals/service.ts";
+import { createPolicyAudit } from "./policy/audit.ts";
+import { connectionSurface, type ConnectionAttestation } from "./rbac/connection-surface.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
  *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture"] as const;
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture", "approval.decide", "approval.cancel", "grant.create", "grant.revoke"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -79,6 +86,8 @@ export interface Core {
   currentConfig(): HarnessConfig | null;
   /** D3: the metric sinks (`turn`, `providerError`); the session and provider code record into them. */
   readonly metrics: Metrics;
+  /** D109: the approval service (opens `state/approvals.sqlite` on first use). Rejects E_NOT_AVAILABLE before start() and after stop(). */
+  approvalService(): Promise<ApprovalService>;
 }
 type State = ProcessState & { since: number };
 
@@ -107,7 +116,11 @@ export interface CoreOptions {
   chatProvider?: ChatProvider;
   /** M3 RBAC: who a call is made by, and where refusals are audited. Default: the token-authenticated local connection
    *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
-  rbac?: { resolve?: PrincipalResolver; audit?: AuditSink };
+  rbac?: {
+    resolve?: PrincipalResolver; audit?: AuditSink;
+    /** D109 §5: a server-side fact about a connection (desktop app, CLI on a TTY, fresh step-up) that raises a person to T3. Without it a token connection is T2; see rbac/connection-surface.ts. */
+    attest?: (ctx: CallContext) => ConnectionAttestation | undefined;
+  };
   /** M2 L8: test seam for the budget service (a price book of its own). */
   budget?: { prices?: PriceBook };
   /** D112: model discovery adapters and options. */
@@ -170,6 +183,8 @@ export function createCore(o: CoreOptions): Core {
   let replay: JournalReplay | null = null;
   let metricsHttp: MetricsServer | null = null;
   let sessions: SessionService | null = null;
+  let permissions: PermissionRuntime | null = null; // D109: grants + approvals (`state/approvals.sqlite`), opened on first use
+  let permissionNotifier: PermissionNotifier | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
@@ -458,6 +473,22 @@ export function createCore(o: CoreOptions): Core {
         },
       });
 
+      // D109: who a connection is, where policy lines go, and the permission stores (opened on first use, so the keychain is not touched at start).
+      const resolvePrincipal: PrincipalResolver = o.rbac?.resolve ?? (() => LOCAL_OWNER);
+      const rbacAudit = o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain);
+      const notifier = createPermissionNotifier({
+        subscriptions: () => server?.subscriptions() ?? [], notify: (m, p, opts) => server?.notify(m, p, opts),
+        principalOf: async (connectionId, method) => resolvePrincipal({ requestId: "notify", connectionId, signal: shutdown.signal }, method, {}),
+        grantRecordOf: (id, person) => permissions?.current()?.grants.inspect({ person }).find((v) => v.grant.id === id),
+        now: clock, log: (msg, fields) => log.debug(msg, fields),
+      });
+      permissionNotifier = notifier;
+      permissions = createPermissionRuntime({
+        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: notifier.events,
+        audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
+      });
+      const perms = permissions;
+
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
       const migration = createMigrationDriver({
         engine: createEnginePort(eng), store: createStateStore(l.state), logger: log,
@@ -493,11 +524,16 @@ export function createCore(o: CoreOptions): Core {
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
         // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
         secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
+        permissions: {
+          permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
+          surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
+          requireAgent: (agentId) => { requireAgent(registry, agentId); }, notify: { grantChanged: notifier.grantChanged },
+        },
         }),
         ...sessions.methods,
         // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
-      }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain), now: clock });
+      }, { resolve: resolvePrincipal, audit: rbacAudit, now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
@@ -571,6 +607,7 @@ export function createCore(o: CoreOptions): Core {
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
       await step(log, "sessions close", async () => { await sessions?.close(); }); sessions = null;
+      await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
@@ -658,6 +695,8 @@ export function createCore(o: CoreOptions): Core {
         const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: remaining() });
         if (!r.drained) logger?.warn("memory ops still pending at close", { pending: r.pending });
       }, errors);
+      // After the drain: a decision in flight is answered before the database closes; calls still waiting end as not approved.
+      await step(logger, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }, errors);
       await step(logger, "metrics close", async () => { await metricsHttp?.close(); metricsHttp = null; }, errors);
       await step(logger, "server close", async () => { await server?.close({ graceMs: 1000 }); }, errors);
       await step(logger, "lock release", () => { lock?.release(); lock = null; }, errors);
@@ -669,5 +708,9 @@ export function createCore(o: CoreOptions): Core {
     return stopping;
   }
 
-  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics };
+  const approvalService = async (): Promise<ApprovalService> => {
+    if (!permissions) throw new RpcError("E_NOT_AVAILABLE", "the core is not running", { reason: "stopping" });
+    return (await permissions.open()).service;
+  };
+  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics, approvalService };
 }
