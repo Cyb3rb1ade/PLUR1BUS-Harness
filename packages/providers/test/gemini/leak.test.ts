@@ -92,6 +92,6 @@ test("a transport failure (connection refused) and an injected fetch that throws
 test("an invalid request is refused before the key is even read", T, async () => {
   let reads = 0;
   const adapter = createGeminiAdapter({ credentials: { apiKey: () => { reads++; return KEY; } }, fetch: (async () => { throw new Error("no"); }) as unknown as typeof fetch });
-  await assert.rejects(adapter.complete({ model: basic.model, messages: [] }), (e: unknown) => e instanceof ProviderError && e.kind === "bad_request");
+  await assert.rejects(adapter.complete({ model: basic.model, messages: [] }), (e: unknown) => e instanceof ProviderError && e.kind === "invalid_request");
   assert.equal(reads, 0);
 });

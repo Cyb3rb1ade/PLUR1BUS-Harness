@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import type { Page } from "playwright";
+import { withChat } from "./chat-fixtures.ts";
 import { browserSkip, setup, signIn, teardown, withApp } from "./harness.ts";
 
 before(setup);
@@ -90,13 +91,28 @@ describe("layout at the reference widths", opts, () => {
         assert.ok(m.minFontPx >= 12, `text ${m.minFontPx}px < 12px`);
         assert.ok(m.minTarget >= (compact ? 44 : 24), `smallest target ${m.minTarget}px at ${width}px`);
         assert.ok(m.mainWidth <= width - m.sidebarWidth);
-        // forms and reading text never stretch: the page content is capped at 880 px
+        // forms and reading text never stretch: a settings-width page (a placeholder today) is capped at 880 px. The landing
+        // route is Chat, which is deliberately full width (its transcript is capped separately, see the test below).
+        await page.evaluate(() => { location.hash = "#/projects"; });
+        await page.getByRole("heading", { name: "Projects", level: 1 }).waitFor();
         const inner = await page.locator(".page-inner").boundingBox();
         assert.ok((inner?.width ?? 0) <= 880);
         if (width > 1600) assert.ok(Math.abs((inner!.x - 256) - (width - inner!.x - inner!.width)) <= 1, `capped content is centred: x=${inner!.x} w=${inner!.width} of ${width}`);
       });
     });
   }
+
+  test("Chat is full width but its transcript stays at 820 px or less: no horizontal scroll at 2560 px", async () => {
+    await withChat({ route: "#/chat/ses_1", width: 2560, height: 900, seed: (c) => { c.seed({ id: "ses_1", title: "Hello world", messages: [["user", "Question"], ["assistant", "Answer"]] }); } }, async ({ page }) => {
+      await page.getByRole("log", { name: "Conversation with bernd" }).waitFor();
+      const r = await page.evaluate(() => ({
+        scroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        transcript: Math.round(document.querySelector(".chat-pane")!.getBoundingClientRect().width),
+      }));
+      assert.equal(r.scroll, false, "no horizontal scroll");
+      assert.ok(r.transcript > 0 && r.transcript <= 820, `transcript ${r.transcript} px`);
+    });
+  });
 
   test("sign-in at every width: no horizontal scroll, targets and text sizes", async () => {
     for (const width of WIDTHS) {

@@ -147,6 +147,15 @@ fn within(a: &str, b: &str) -> bool {
     a == b || (a.starts_with(b) && a.as_bytes().get(b.len()) == Some(&b'/'))
 }
 
+/// SQLite's per-connection sidecars (`<db>-wal`, `<db>-shm`, `<db>-journal`). They describe a live connection, not data
+/// at rest: never part of a backup (the core stages self-contained databases) and never trusted on restore.
+pub const SQLITE_SIDECARS: [&str; 3] = ["-wal", "-shm", "-journal"];
+
+pub fn is_sqlite_sidecar(p: &str) -> bool {
+    let lower = p.to_ascii_lowercase();
+    SQLITE_SIDECARS.iter().any(|s| lower.ends_with(s))
+}
+
 pub fn is_sqlite_name(p: &str) -> bool {
     let lower = p.to_ascii_lowercase();
     [".sqlite", ".sqlite3", ".db"]

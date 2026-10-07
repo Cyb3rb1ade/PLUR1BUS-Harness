@@ -1,0 +1,9 @@
+: SYNTHETIC reconstruction of the lmstudio wire format (scenario "error-overloaded"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"content":"Hel"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"content":"lo, "},"finish_reason":null}]}
+
+data: {"error":{"message":"The server is overloaded. Try again later.","type":"server_error","code":null}}
+

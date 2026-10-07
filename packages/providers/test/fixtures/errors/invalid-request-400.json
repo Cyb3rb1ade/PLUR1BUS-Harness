@@ -1,0 +1,1 @@
+{"expect":{"kind":"invalid_request","status":400,"retryable":false,"code":"invalid_value"},"response":{"status":400,"headers":{},"body":{"error":{"message":"Invalid value for temperature.","type":"invalid_request_error","code":"invalid_value"}}}}

@@ -1,1 +1,0 @@
-{"expect":{"kind":"protocol","status":302,"retryable":false},"response":{"status":302,"headers":{"location":"http://127.0.0.1:1/elsewhere"},"body":""}}

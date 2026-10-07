@@ -57,25 +57,25 @@ test("a response without a finishReason, with a non-JSON body or oversized is a 
     (res: import("node:http").ServerResponse) => { res.writeHead(200, { "content-type": "application/json" }); res.end("not json"); },
   ]) {
     const stub = await startStub((_q, res) => send(res));
-    try { await assert.rejects(adapterFor(stub).adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "protocol"); } finally { await stub.close(); }
+    try { await assert.rejects(adapterFor(stub).adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "unknown"); } finally { await stub.close(); }
   }
   const stub = await startStub((_q, res) => json(res, body));
   try {
-    await assert.rejects(adapterFor(stub, { limits: { maxBodyBytes: 20 } }).adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
+    await assert.rejects(adapterFor(stub, { limits: { maxBodyBytes: 20 } }).adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
   } finally { await stub.close(); }
 });
 
-test("usageMetadata mapping: thoughts count as output, tool-use prompt as input, absent counts are zero", () => {
+test("usageMetadata mapping: thoughts count as output, tool-use prompt as input, absent counts stay absent", () => {
   assert.deepEqual(parseGeminiUsage({ promptTokenCount: 100, toolUsePromptTokenCount: 20, candidatesTokenCount: 30, thoughtsTokenCount: 50, cachedContentTokenCount: 64, totalTokenCount: 200 }),
     { inputTokens: 120, outputTokens: 80, totalTokens: 200, cachedInputTokens: 64, reasoningTokens: 50 });
-  assert.deepEqual(parseGeminiUsage({ promptTokenCount: 4 }), { inputTokens: 4, outputTokens: 0, totalTokens: 4 });
+  assert.deepEqual(parseGeminiUsage({ promptTokenCount: 4 }), { inputTokens: 4 });
   assert.deepEqual(parseGeminiUsage({ promptTokenCount: 4, candidatesTokenCount: 1 }), { inputTokens: 4, outputTokens: 1, totalTokens: 5 });
   for (const bad of [{ promptTokenCount: -1 }, { promptTokenCount: 1.5 }, { promptTokenCount: "7" }, [], null]) {
-    assert.throws(() => parseGeminiUsage(bad), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
+    assert.throws(() => parseGeminiUsage(bad), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
   }
 });
 
 test("a stream chunk with a bad usageMetadata number fails closed", T, async () => {
   const stub = await startStub((_q, res) => sse(res, [{ ...candidate([{ text: "x" }], "STOP"), ...usage({ promptTokenCount: -3 }) }]));
-  try { await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "protocol"); } finally { await stub.close(); }
+  try { await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "unknown"); } finally { await stub.close(); }
 });

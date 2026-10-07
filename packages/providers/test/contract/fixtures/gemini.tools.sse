@@ -1,0 +1,5 @@
+: SYNTHETIC reconstruction of the Gemini streamGenerateContent?alt=sse wire format (scenario "tools"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"get_weather","args":{"city":"Berlin","units":"metric"}}}],"role":"model"},"index":0}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15},"modelVersion":"contract-gemini-1","responseId":"resp-contract-1"}
+
+data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"get_time","args":{"tz":"Europe/Berlin"}}}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":7,"totalTokenCount":19},"modelVersion":"contract-gemini-1","responseId":"resp-contract-1"}
+

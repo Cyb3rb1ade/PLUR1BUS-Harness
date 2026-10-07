@@ -1,0 +1,11 @@
+: SYNTHETIC reconstruction of the openai wire format (scenario "no-usage"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"id":"chatcmpl-contract-1","object":"chat.completion.chunk","created":1700000000,"model":"contract-gpt","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-1","object":"chat.completion.chunk","created":1700000000,"model":"contract-gpt","choices":[{"index":0,"delta":{"content":"o"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-1","object":"chat.completion.chunk","created":1700000000,"model":"contract-gpt","choices":[{"index":0,"delta":{"content":"k"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-1","object":"chat.completion.chunk","created":1700000000,"model":"contract-gpt","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

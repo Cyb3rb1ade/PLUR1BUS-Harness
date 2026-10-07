@@ -29,6 +29,12 @@
   --err-ink: #ff9c9f;
   --err-border: rgba(229, 72, 77, 0.45);
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --ok-bg: rgba(52, 199, 123, 0.14);
+  --ok-ink: #7ee2ae;
+  --warn-bg: rgba(245, 166, 35, 0.14);
+  --warn-ink: #ffc766;
+  --info-bg: rgba(110, 150, 255, 0.16);
+  --info-ink: #b3c6ff;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
@@ -54,6 +60,12 @@
     --err-ink: #a1231a;
     --err-border: #f3c4bf;
     --shadow: 0 8px 28px rgba(22, 22, 26, 0.16);
+    --ok-bg: #e5f6ec;
+    --ok-ink: #14633a;
+    --warn-bg: #fdf1dc;
+    --warn-ink: #7a4a00;
+    --info-bg: #e6edfd;
+    --info-ink: #1f3f8f;
   }
 }
 :root[data-theme="light"] {
@@ -79,12 +91,24 @@
   --err-ink: #a1231a;
   --err-border: #f3c4bf;
   --shadow: 0 8px 28px rgba(22, 22, 26, 0.16);
+  --ok-bg: #e5f6ec;
+  --ok-ink: #14633a;
+  --warn-bg: #fdf1dc;
+  --warn-ink: #7a4a00;
+  --info-bg: #e6edfd;
+  --info-ink: #1f3f8f;
 }
 /* Density (ADR-004 deviation 1). Targets: 24 px minimum at normal and wide, 44 px in compact (WCAG 2.2 SC 2.5.8, C22). */
 :root, :root[data-density="comfortable"] {
   --control-h: 36px;
   --nav-h: 36px;
   --gap: 12px;
+  /* Layout widths (desktop spec §13.7 rule 4): reading text, transcript, dialogs, settings. Not themed. */
+  --w-reading: 72ch;
+  --w-transcript: 820px;
+  --w-dialog: 680px;
+  --w-settings: 880px;
+  --w-settings-nav: 224px;
 }
 @media (max-width: 1023.98px) {
   :root, :root[data-density="comfortable"] {

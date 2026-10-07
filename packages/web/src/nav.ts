@@ -6,6 +6,8 @@ export type NavGroup = { id: "workspace" | "build" | "control"; label: Key; item
 
 const item = (id: string, label: Key, icon: IconName): NavItem => ({ id, path: `/${id}`, label, icon });
 
+// `/memories/dreams` (Dreams is a sub-area of Memories), `/chat/<session>` and the budget page on `/usage` are sub-routes or
+// aliases, not nav items; see router.ts `Route.page.sub`.
 // Desktop spec §13.2 `V2Sidebar` (keys `chat` and `logs` added on the canvas 2026-10-06).
 export const GROUPS: readonly NavGroup[] = [
   { id: "workspace", label: "nav.group.workspace", items: [
@@ -14,10 +16,10 @@ export const GROUPS: readonly NavGroup[] = [
   ] },
   { id: "build", label: "nav.group.build", items: [
     item("library", "nav.library", "library"), item("skills", "nav.skills", "skills"), item("plugins", "nav.plugins", "plugins"),
-    item("switchboard", "nav.switchboard", "switchboard"), item("recurring", "nav.recurring", "recurring"),
+    item("models", "nav.models", "models"), item("switchboard", "nav.switchboard", "switchboard"), item("recurring", "nav.recurring", "recurring"),
   ] },
   { id: "control", label: "nav.group.control", items: [
-    item("approvals", "nav.approvals", "approvals"), item("usage", "nav.usage", "usage"), item("logs", "nav.logs", "logs"),
+    item("approvals", "nav.approvals", "approvals"), item("usage", "nav.usage", "usage"), item("doctor", "nav.doctor", "doctor"), item("logs", "nav.logs", "logs"),
   ] },
 ];
 
@@ -27,3 +29,9 @@ export const ALL_ITEMS: readonly NavItem[] = [...GROUPS.flatMap((g) => g.items),
 
 /** First screen built and the default landing route (milestones M3, direct chat, owner call O2). */
 export const LANDING = "/chat";
+
+declare const __GALLERY__: boolean | undefined;
+/** The pattern gallery (`#/gallery/<pattern>`) is a development and test fixture for the shared components. It exists only in
+ * builds made with `buildWeb(dir, { gallery: true })` (tests, or `PLUR1BUS_WEB_GALLERY=1`); the shipped bundle drops it. */
+export const GALLERY_ENABLED: boolean = typeof __GALLERY__ !== "undefined" && __GALLERY__ === true;
+export const GALLERY_ITEM: NavItem = item("gallery", "nav.gallery", "models");

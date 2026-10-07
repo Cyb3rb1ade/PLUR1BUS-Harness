@@ -11,7 +11,7 @@ const T = { timeout: 20_000 };
 const dir = new URL("./fixtures/errors/", import.meta.url);
 
 interface ErrorFixture {
-  expect: { kind: ProviderErrorKind; status: number; retryable: boolean; code?: string; retryAfterMs?: number };
+  expect: { kind: ProviderErrorKind; status: number; retryable: boolean; code?: string; retryAfterMs?: number; contentFiltered?: boolean };
   response: { status: number; headers: Record<string, string>; body: unknown };
 }
 const fixtures = readdirSync(dir).filter((f) => f.endsWith(".json")).sort().map((f) => [f, JSON.parse(readFileSync(new URL(f, dir), "utf8")) as ErrorFixture] as const);
@@ -28,7 +28,8 @@ async function failure(p: Promise<unknown> | AsyncGenerator<unknown>): Promise<P
 
 test("the fixtures cover every error kind the HTTP layer can produce", T, () => {
   const kinds = new Set(fixtures.map(([, f]) => f.expect.kind));
-  for (const k of ["auth", "rate_limit", "context_length", "content_filter", "bad_request", "server", "timeout", "protocol"] as const) assert.ok(kinds.has(k), k);
+  for (const k of ["auth", "rate_limit", "context_length", "invalid_request", "overloaded", "timeout", "unknown"] as const) assert.ok(kinds.has(k), k);
+  assert.ok(fixtures.some(([, f]) => f.expect.contentFiltered === true), "a content-filter refusal is covered");
 });
 
 for (const [name, fx] of fixtures) {
@@ -47,6 +48,7 @@ for (const [name, fx] of fixtures) {
         assert.equal(err.retryable, fx.expect.retryable);
         assert.equal(err.code, fx.expect.code);
         assert.equal(err.retryAfterMs, fx.expect.retryAfterMs);
+        assert.equal(err.contentFiltered, fx.expect.contentFiltered ?? false);
         assert.ok(!err.message.includes("synthetic-secret-token-123"), "a credential echoed by the provider must not survive into the error");
         assert.equal(stub.requests.length, 1, "an error response is never retried or followed by the adapter");
       } finally { await stub.close(); }
@@ -84,7 +86,7 @@ test("a 200 JSON error body on a stream request is classified like the non-strea
   const cases: [object, ProviderErrorKind][] = [
     [{ error: { message: "slow down", type: "rate_limit_error", code: "rate_limit_exceeded" } }, "rate_limit"],
     [{ error: { message: "too long", code: "context_length_exceeded" } }, "context_length"],
-    [{ error: { message: "oops", type: "server_error" } }, "server"],
+    [{ error: { message: "oops", type: "server_error" } }, "overloaded"],
   ];
   for (const [payload, kind] of cases) {
     const stub = await startStub((_q, res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(payload)); });
@@ -100,9 +102,9 @@ test("an error object inside a 200 stream is classified by its code and type", T
   const cases: [object, ProviderErrorKind][] = [
     [{ error: { message: "slow down", type: "rate_limit_error", code: "rate_limit_exceeded" } }, "rate_limit"],
     [{ error: { message: "too long", code: "context_length_exceeded" } }, "context_length"],
-    [{ error: { message: "blocked", code: "content_filter" } }, "content_filter"],
-    [{ error: { message: "oops", type: "server_error" } }, "server"],
-    [{ error: { message: "who knows" } }, "server"],
+    [{ error: { message: "blocked", code: "content_filter" } }, "invalid_request"],
+    [{ error: { message: "oops", type: "server_error" } }, "overloaded"],
+    [{ error: { message: "who knows" } }, "unknown"],
   ];
   for (const [payload, kind] of cases) {
     const stub = await startStub((_q, res) => {
@@ -227,7 +229,7 @@ test("the credential is never sent over plain http to a non-loopback host", T, a
   const f = (async () => { called++; return new Response("{}"); }) as typeof fetch;
   const a = createChatCompletionsAdapter({ baseUrl: "http://models.example.invalid/v1", credentials: credentials(), fetch: f });
   const err = await failure(a.complete(basicRequest));
-  assert.equal(err.kind, "bad_request");
+  assert.equal(err.kind, "invalid_request");
   assert.equal(called, 0);
   const ok = createChatCompletionsAdapter({ baseUrl: "http://models.example.invalid/v1", credentials: credentials(), fetch: async () => new Response(JSON.stringify({ choices: [{ index: 0, message: { content: "k" }, finish_reason: "stop" }] })), allowInsecureHttp: true });
   assert.equal((await ok.complete(basicRequest)).text, "k");

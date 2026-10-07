@@ -8,7 +8,7 @@ const MAX_RETRY_DELAY_MS = 24 * 60 * 60 * 1000;
 /**
  * Gemini refused to produce (all of) the answer for safety or policy reasons: the prompt was blocked
  * (`promptFeedback.blockReason`) or the candidate stopped with `SAFETY`, `RECITATION`, `PROHIBITED_CONTENT`, ….
- * It is a `content_filter` `ProviderError` (never retryable: the same input is blocked again) that also says which
+ * It is an `invalid_request` `ProviderError` with `contentFiltered` (never retryable: the same input is blocked again) that also says which
  * side was blocked and carries the verbatim reason and the per-category ratings. Whatever text had arrived before a
  * candidate block is in `partial`.
  * RULING: unlike the chat_completions adapter (where finish `content_filter` is a result with a refusal text), a
@@ -21,7 +21,7 @@ export class GeminiSafetyBlockError extends ProviderError {
 
   constructor(message: string, init: GeminiSafetyInit) {
     const { source, reason, ratings, ...rest } = init;
-    super("content_filter", message, { ...rest, code: rest.code ?? reason, retryable: false });
+    super("invalid_request", message, { ...rest, code: rest.code ?? reason, retryable: false, contentFiltered: true });
     this.name = "GeminiSafetyBlockError";
     this.source = source;
     this.reason = reason;
@@ -29,6 +29,9 @@ export class GeminiSafetyBlockError extends ProviderError {
   }
 }
 
+// RULING: exactly the candidate finishReasons that mean "a safety/policy/copyright verdict" (full table: gemini/response.ts).
+// LANGUAGE, OTHER, IMAGE_OTHER and NO_IMAGE are deliberately absent: no verdict, so they are results ("other"), not blocks.
+// Prompt-side blocks are not listed here: any blockReason except BLOCK_REASON_UNSPECIFIED is one (fail closed).
 const CANDIDATE_BLOCKS: ReadonlySet<string> = new Set([
   "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT", "IMAGE_RECITATION",
 ]);
@@ -38,12 +41,12 @@ export function isCandidateBlock(finishReason: string): boolean {
 }
 
 /** `safetyRatings` → the typed list; anything malformed is dropped, never thrown on (the block verdict stands). */
-export function readRatings(v: unknown): GeminiSafetyRating[] {
+export function readRatings(v: unknown, redact: (s: string) => string): GeminiSafetyRating[] {
   if (!Array.isArray(v)) return [];
   const out: GeminiSafetyRating[] = [];
   for (const r of v) {
     if (!isRecord(r) || typeof r["category"] !== "string") continue;
-    const item: GeminiSafetyRating = { category: r["category"], probability: typeof r["probability"] === "string" ? r["probability"] : "UNKNOWN" };
+    const item: GeminiSafetyRating = { category: redact(r["category"]).slice(0, 100), probability: typeof r["probability"] === "string" ? redact(r["probability"]).slice(0, 100) : "UNKNOWN" };
     if (typeof r["blocked"] === "boolean") item.blocked = r["blocked"];
     out.push(item);
   }
@@ -51,15 +54,16 @@ export function readRatings(v: unknown): GeminiSafetyRating[] {
 }
 
 export function promptBlock(promptFeedback: Record<string, unknown>, redact: (s: string) => string): GeminiSafetyBlockError {
-  const reason = typeof promptFeedback["blockReason"] === "string" ? promptFeedback["blockReason"] : "BLOCK_REASON_UNSPECIFIED";
+  const reason = typeof promptFeedback["blockReason"] === "string" ? redact(promptFeedback["blockReason"]).slice(0, 100) : "BLOCK_REASON_UNSPECIFIED";
   const m = promptFeedback["blockReasonMessage"];
   const detail = typeof m === "string" && m !== "" ? `: ${redact(m).slice(0, MAX_MESSAGE_CHARS)}` : "";
-  return new GeminiSafetyBlockError(`prompt blocked by Gemini (${reason})${detail}`, { source: "prompt", reason, ratings: readRatings(promptFeedback["safetyRatings"]) });
+  return new GeminiSafetyBlockError(`prompt blocked by Gemini (${reason})${detail}`, { source: "prompt", reason, ratings: readRatings(promptFeedback["safetyRatings"], redact) });
 }
 
-export function candidateBlock(finishReason: string, safetyRatings: unknown, finishMessage: unknown, redact: (s: string) => string): GeminiSafetyBlockError {
+export function candidateBlock(rawFinishReason: string, safetyRatings: unknown, finishMessage: unknown, redact: (s: string) => string): GeminiSafetyBlockError {
+  const finishReason = redact(rawFinishReason).slice(0, 100);
   const detail = typeof finishMessage === "string" && finishMessage !== "" ? `: ${redact(finishMessage).slice(0, MAX_MESSAGE_CHARS)}` : "";
-  return new GeminiSafetyBlockError(`response blocked by Gemini (${finishReason})${detail}`, { source: "candidate", reason: finishReason, ratings: readRatings(safetyRatings) });
+  return new GeminiSafetyBlockError(`response blocked by Gemini (${finishReason})${detail}`, { source: "candidate", reason: finishReason, ratings: readRatings(safetyRatings, redact) });
 }
 
 /** `google.rpc.RetryInfo.retryDelay` ("34s", "0.5s", "34.5s") out of `error.details`, in ms; absent or odd → undefined. */
@@ -104,7 +108,7 @@ export function classifyGeminiHttp(status: number, headers: Headers, bodyText: s
   const message = typeof err?.["message"] === "string" ? err["message"] : "";
   const reasons = detailReasons(err?.["details"]);
   const providerMessage = message === "" ? undefined : redact(message).slice(0, MAX_MESSAGE_CHARS);
-  const gstatus = typeof err?.["status"] === "string" ? err["status"] : undefined;
+  const gstatus = typeof err?.["status"] === "string" ? redact(err["status"]).slice(0, 100) : undefined;
   const base: ProviderErrorInit = { status };
   if (gstatus !== undefined) base.providerType = gstatus;
   if (providerMessage !== undefined) base.providerMessage = providerMessage;
@@ -131,6 +135,7 @@ export function classifyGeminiHttp(status: number, headers: Headers, bodyText: s
     if (e.code !== undefined) init.code = e.code;
     if (e.providerMessage !== undefined) init.providerMessage = e.providerMessage;
     if (e.timeoutPhase !== undefined) init.timeoutPhase = e.timeoutPhase;
+    if (e.contentFiltered) init.contentFiltered = true;
     return new ProviderError(e.kind, e.message, init);
   }
   // RULING: Gemini's 429 `RESOURCE_EXHAUSTED` covers both the per-minute limit and an exhausted daily quota/billing cap and
@@ -142,18 +147,18 @@ const GRPC_KIND: Record<string, ProviderError["kind"]> = {
   RESOURCE_EXHAUSTED: "rate_limit",
   UNAUTHENTICATED: "auth",
   PERMISSION_DENIED: "auth",
-  INVALID_ARGUMENT: "bad_request",
-  FAILED_PRECONDITION: "bad_request",
-  NOT_FOUND: "bad_request",
-  UNAVAILABLE: "server",
-  INTERNAL: "server",
-  DEADLINE_EXCEEDED: "server",
+  INVALID_ARGUMENT: "invalid_request",
+  FAILED_PRECONDITION: "invalid_request",
+  NOT_FOUND: "invalid_request",
+  UNAVAILABLE: "overloaded",
+  INTERNAL: "overloaded",
+  DEADLINE_EXCEEDED: "overloaded",
 };
 
 /** An `{error:{code,message,status}}` object inside a 200 body or stream event. */
 export function classifyGeminiStreamError(v: unknown, redact: (s: string) => string): ProviderError {
   const e = isRecord(v) && isRecord(v["error"]) ? v["error"] : isRecord(v) ? v : {};
-  const gstatus = typeof e["status"] === "string" ? e["status"] : undefined;
+  const gstatus = typeof e["status"] === "string" ? redact(e["status"]).slice(0, 100) : undefined;
   const code = typeof e["code"] === "number" ? e["code"] : undefined;
   const message = typeof e["message"] === "string" ? redact(e["message"]).slice(0, MAX_MESSAGE_CHARS) : undefined;
   const init: ProviderErrorInit = {};
@@ -166,14 +171,14 @@ export function classifyGeminiStreamError(v: unknown, redact: (s: string) => str
   const text = (what: string) => `${what} in stream (${where})${message ? `: ${message}` : ""}`;
   let kind: ProviderError["kind"] | undefined = gstatus === undefined ? undefined : GRPC_KIND[gstatus];
   if (kind === undefined && code !== undefined) {
-    kind = code === 429 ? "rate_limit" : code === 401 || code === 403 ? "auth" : code >= 500 ? "server" : code >= 400 ? "bad_request" : undefined;
+    kind = code === 429 ? "rate_limit" : code === 401 || code === 403 ? "auth" : code >= 500 ? "overloaded" : code >= 400 ? "invalid_request" : undefined;
   }
   switch (kind) {
     case "rate_limit": return new ProviderError("rate_limit", text("rate limited"), init);
     case "auth": return new ProviderError("auth", text("authentication failure"), init);
-    case "bad_request": return new ProviderError("bad_request", text("request rejected"), init);
-    case "server": return new ProviderError("server", text("provider server error"), init);
-    // RULING: an unrecognised in-stream error is a server-side failure, not retryable by default (as in chat_completions).
-    default: return new ProviderError("server", text("provider error"), { ...init, retryable: false });
+    case "invalid_request": return new ProviderError("invalid_request", text("request rejected"), init);
+    case "overloaded": return new ProviderError("overloaded", text("provider could not serve the request"), init);
+    // RULING: an unrecognised in-stream error is `unknown` and not retryable by default (as in chat_completions).
+    default: return new ProviderError("unknown", text("provider error"), { ...init, retryable: false });
   }
 }

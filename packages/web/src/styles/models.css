@@ -1,0 +1,29 @@
+/* Models page: filter toolbar and grouped list on the left, detail card on the right; override dialog. Tokens only. */
+.model-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; align-content: start; }
+.model-list > * { grid-column: 1 / -1; }
+.model-list > .field { grid-column: auto; margin-bottom: 12px; }
+.model-list .field select { width: 100%; min-width: 0; }
+.model-list > p { margin: 0 0 12px; }
+.model-list section + section { margin-top: 16px; }
+.model-list .group-label { padding: 0 12px; margin: 0 0 4px; }
+.model-list .nav-link { flex-wrap: wrap; gap: 4px 8px; padding-top: 6px; padding-bottom: 6px; }
+.model-list .nav-link > span:first-child { margin-right: auto; overflow-wrap: anywhere; }
+.ld-detail .card { margin-bottom: 0; }
+.ld-empty { padding: 24px 0; max-width: var(--w-reading); }
+
+/* A pressed toggle says so in text-adjacent shape (check mark, filled), not by colour alone. */
+.btn[aria-pressed="true"] { background: var(--primary-bg); color: var(--primary-ink); border-color: transparent; }
+.btn[aria-pressed="true"]::before { content: "\2713"; font-weight: 700; }
+
+/* Capability picker (fieldset of toggle buttons) */
+.toggle-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; padding: 8px 12px 14px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.toggle-group legend { padding: 0 6px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+
+/* Scan result and warnings */
+[data-scan-result] { border-left: 4px solid var(--info-ink); }
+[data-scan-result] p:first-child { margin-bottom: 8px; }
+
+@media (max-width: 599.98px) {
+  .model-list { grid-template-columns: minmax(0, 1fr); }
+  .model-list > .field { grid-column: 1 / -1; }
+}

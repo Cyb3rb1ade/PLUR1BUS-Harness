@@ -1,0 +1,6 @@
+{
+  "error": {
+    "message": "llama runner process has terminated: exit status 2",
+    "type": "api_error"
+  }
+}

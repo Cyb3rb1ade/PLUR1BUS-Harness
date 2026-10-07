@@ -49,10 +49,15 @@ export interface ChatRequest {
   responseFormat?: ResponseFormat;
 }
 
+/**
+ * Token accounting, normalised across adapters.
+ * RULING: a count the provider did not report is `undefined`, never 0 ("did not say" is not "zero"). Local servers
+ * (LM Studio, Ollama, ...) often send partial usage; consumers must treat every field as possibly absent.
+ */
 export interface Usage {
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
   cachedInputTokens?: number;
   reasoningTokens?: number;
 }
