@@ -7,7 +7,7 @@ import { Badge } from "../../components/card.ts";
 import { PageState } from "../../components/page-state.ts";
 import { formatNumber, t } from "../../i18n.ts";
 import { Facts, FailureState, Panel, duration } from "./common.ts";
-import { caller, getApi, useLoad } from "./data.ts";
+import { getApi, useLoad } from "./data.ts";
 import type { RecallResult } from "./rpc-types.ts";
 
 function Explanation({ r }: { r: RecallResult }): View {
@@ -32,7 +32,7 @@ function Explanation({ r }: { r: RecallResult }): View {
 }
 
 function Results({ agentId, query, run }: { agentId: string; query: string; run: number }): View {
-  const { state, reload } = useLoad((signal) => getApi().rpc("memory.recall", { caller: caller(), agentId, query, joined: false }, { write: false, signal }), [agentId, query, run]);
+  const { state, reload } = useLoad((signal) => getApi().rpc("memory.recall", { agentId, query, joined: false }, { write: false, signal }), [agentId, query, run]);
   if (state.status === "loading") return h(PageState, { state: "loading", title: t("memory.search.running") });
   if (state.status === "fail") return h(FailureState, { failure: state.failure, unavailable: t("memory.search.unavailable"), onRetry: reload });
   const r = state.data;

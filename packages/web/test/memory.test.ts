@@ -67,7 +67,7 @@ describe("memories: health", opts, () => {
 });
 
 describe("memories: list, pagination, detail", opts, () => {
-  test("lists 20 cards, loads more until the end, and asks memory.list with caller and agent", async () => {
+  test("lists 20 cards, loads more until the end, and asks memory.list with the agent and no client-built caller", async () => {
     await withApp({}, async (app) => {
       await open(app);
       const l = list(app.page);
@@ -78,11 +78,10 @@ describe("memories: list, pagination, detail", opts, () => {
       await l.getByRole("button", { name: "Load more" }).click();
       await app.page.waitForFunction(() => document.querySelectorAll('[aria-label="Memory cards"] a').length === 45);
       assert.equal(await l.getByRole("button", { name: "Load more" }).count(), 0);
-      const calls = app.server.rpc.calls.filter((c) => c.method === "memory.list").map((c) => c.params as { caller: { channel: string; userId: string }; agentId: string; limit: number });
+      const calls = app.server.rpc.calls.filter((c) => c.method === "memory.list").map((c) => c.params as { agentId: string; limit: number });
       assert.deepEqual(calls.map((c) => c.limit), [20, 40, 60]);
       assert.equal(calls[0]!.agentId, "main");
-      assert.equal(calls[0]!.caller.channel, "cli");
-      assert.equal(calls[0]!.caller.userId, "owner");
+      assert.equal("caller" in calls[0]!, false, "a browser never asserts identity");
     });
   });
 
@@ -193,10 +192,10 @@ describe("memories: search with explanation", opts, () => {
       await app.page.getByRole("button", { name: "Search", exact: true }).click();
       const res = app.page.getByRole("region", { name: "Search results" });
       await res.getByText("Summary of memory 001").waitFor();
-      const call = app.server.rpc.calls.find((c) => c.method === "memory.recall")!.params as { query: string; agentId: string; caller: { channel: string } };
+      const call = app.server.rpc.calls.find((c) => c.method === "memory.recall")!.params as { query: string; agentId: string };
       assert.equal(call.query, "memory 00");
       assert.equal(call.agentId, "main");
-      assert.equal(call.caller.channel, "cli");
+      assert.equal("caller" in call, false, "a browser never asserts identity");
       const why = res.locator("details");
       await why.locator("summary").click();
       await res.getByText("18 ms").waitFor();

@@ -61,8 +61,8 @@ the page for each id in `src/pages/registry.ts`.
 | Doctor | `1staid.check/1` document | no route; local file chosen by the owner, read in the browser, never sent | no |
 | Palette | `config.get` (whole configuration, for the current values of settings; best effort) | assumed | no |
 
-`memory.*` calls carry a `caller` (`{ channel: "cli", accountId, userId }`, built from `whoami`); the `session.*`, `models.*`,
-`budget.*`, `dreams.*`, `core.status` and `config.get` calls send none (see F1). Event consumers accept an SSE message either named
+No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
+`dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
 by its `event:` field or as a JSON-RPC notification object whose `method` is the name (memories, models); chat requires
 `event: session.event` with `data: { event: SessionEvent }`.
 
@@ -156,9 +156,9 @@ Numbers are stable; other documents refer to them.
 ### Backend and API
 
 - **F1. `/rpc` HTTP bridge** (all pages except sign-in). `docs/rpc.md` describes NDJSON over a socket or pipe only. The bridge must
-  derive the `caller` from the session cookie and ignore any client-supplied one: `session.*` requires a `CallerIdentity` with
-  `channel: "cli"` and the chat page sends none, while the memory pages send one they build themselves from `whoami`, which the
-  RPC contract says a client must never do. Also open: CSRF on JSON-RPC writes (the client sends `X-CSRF-Token` on every non-read
+  derive the `caller` from the session cookie and ignore any client-supplied one: `session.*` and `memory.*` require a
+  `CallerIdentity` (`channel: "cli"`) in the documented schema, but no page sends one (the RPC contract says a client never
+  supplies trust), so the bridge must supply it from the session. Also open: CSRF on JSON-RPC writes (the client sends `X-CSRF-Token` on every non-read
   call), HTTP status mapping of JSON-RPC errors, size and rate classes.
 - **F2. `/events` SSE format** (Chat, Memories, Models). Nothing specifies how `session.event`, `models.changed`, `job.run` and
   `memory.proposal` appear on the wire. The client accepts `event: <name>` or a JSON-RPC notification object in `data`; chat needs

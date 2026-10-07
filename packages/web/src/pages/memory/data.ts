@@ -1,9 +1,8 @@
-// Data plumbing of the Memories & Dreams page: the page's own API instance, failure classification, a small load hook, the
-// caller identity and the role gate for dangerous actions. UI code never calls fetch.
+// Data plumbing of the Memories & Dreams page: the page's own API instance, failure classification, a small load hook and the
+// role gate for dangerous actions. UI code never calls fetch.
 import { signal } from "@preact/signals";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { sessionNotice, sessionState } from "../../session.ts";
-import type { CallerIdentity } from "./rpc-types.ts";
 
 /** The shared API client (src/api/shared.ts); a session that ended signs the UI out. */
 export { getApi } from "../../api/shared.ts";
@@ -48,12 +47,6 @@ export function useLoad<T>(fn: (signal: AbortSignal) => Promise<T>, deps: readon
 
   const reload = useCallback(() => { setTick((n) => n + 1); }, []);
   return { state, reload };
-}
-
-export function caller(): CallerIdentity {
-  const s = sessionState.value;
-  const id = s.status === "authenticated" ? s.user.id : "owner";
-  return { channel: "cli", accountId: id, userId: id };
 }
 
 export function currentRole(): string | undefined {

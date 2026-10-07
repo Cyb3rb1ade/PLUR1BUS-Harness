@@ -2,8 +2,8 @@
 // RpcMethods so `api.rpc("memory.list", params)` is typed. `core.status` is deliberately NOT merged: other pages read it too and
 // two differing declarations of one key would not compile; data.ts reads it through its own narrow type.
 
-export type CallerIdentity = { channel: "cli"; accountId: string; userId: string };
-export type AgentRef = { caller: CallerIdentity; agentId: string };
+// `caller` is required by the documented schema but a browser never asserts identity; the Harness API must derive it from the session (docs/web-ui.md F1)
+export type AgentRef = { agentId: string };
 
 export type Degraded = { reason: string; capability: string; detail?: string };
 

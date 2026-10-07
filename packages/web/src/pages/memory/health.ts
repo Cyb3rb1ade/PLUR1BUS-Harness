@@ -5,7 +5,7 @@ import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { formatNumber, t } from "../../i18n.ts";
 import { Facts, Panel, duration } from "./common.ts";
-import { getApi, caller, useLoad, type Failure } from "./data.ts";
+import { getApi, useLoad, type Failure } from "./data.ts";
 import type { Degraded } from "./rpc-types.ts";
 
 type ModelLite = { state: string; warming?: boolean; id?: string | null; error?: string };
@@ -50,7 +50,7 @@ const count = (n: number | null): string => (n === null ? t("memory.none") : for
 export type HealthProps = { agentId: string; core: CoreStatusLite | null; coreFailure: Failure | null; tick: number };
 
 export function Health({ agentId, core, coreFailure, tick }: HealthProps): View {
-  const counts = useLoad((signal) => getApi().rpc("memory.state", { caller: caller(), agentId }, { write: false, signal }), [agentId], tick);
+  const counts = useLoad((signal) => getApi().rpc("memory.state", { agentId }, { write: false, signal }), [agentId], tick);
   const e = core?.engine;
   return h(Panel, { title: t("memory.health.title"), aside: e ? h(EngineBadge, { engine: e }) : null },
     h("div", { class: "m-stack" },

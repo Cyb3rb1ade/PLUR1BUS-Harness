@@ -6,10 +6,10 @@ import { Badge } from "../../components/card.ts";
 import { PageState } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
 import { FailureState, Panel, time } from "./common.ts";
-import { caller, getApi, useLoad } from "./data.ts";
+import { getApi, useLoad } from "./data.ts";
 
 export function Reviews({ agentId, tick }: { agentId: string; tick: number }): View {
-  const { state, reload } = useLoad((signal) => getApi().rpc("memory.proposals.list", { caller: caller(), agentId, status: "pending", limit: 20 }, { write: false, signal }), [agentId], tick);
+  const { state, reload } = useLoad((signal) => getApi().rpc("memory.proposals.list", { agentId, status: "pending", limit: 20 }, { write: false, signal }), [agentId], tick);
   let body: View;
   if (state.status === "loading") body = h(PageState, { state: "loading" });
   else if (state.status === "fail") body = h(FailureState, { failure: state.failure, unavailable: t("memory.reviews.unavailable"), onRetry: reload });

@@ -9,7 +9,7 @@ import { PageState } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
 import { navigate } from "../../router.ts";
 import { Facts, FailureState, Panel, scopeLabel, time } from "./common.ts";
-import { caller, getApi, useLoad } from "./data.ts";
+import { getApi, useLoad } from "./data.ts";
 
 const STEP = 20;
 const MAX = 100;
@@ -19,7 +19,7 @@ function ListPane({ agentId, selectedId, tick }: { agentId: string; selectedId: 
   const [topicInput, setTopicInput] = useState("");
   const [topic, setTopic] = useState("");
   const { state, reload } = useLoad((signal) => getApi().rpc("memory.list", {
-    caller: caller(), agentId, limit, ...(topic === "" ? {} : { topic }),
+    agentId, limit, ...(topic === "" ? {} : { topic }),
   }, { write: false, signal }), [agentId, topic], tick);
 
   const apply = (e: Event): void => {
@@ -60,7 +60,7 @@ function ListPane({ agentId, selectedId, tick }: { agentId: string; selectedId: 
 }
 
 function DetailPane({ agentId, id }: { agentId: string; id: string }): View {
-  const { state, reload } = useLoad((signal) => getApi().rpc("memory.show", { caller: caller(), agentId, id }, { write: false, signal }), [agentId, id]);
+  const { state, reload } = useLoad((signal) => getApi().rpc("memory.show", { agentId, id }, { write: false, signal }), [agentId, id]);
   if (state.status === "loading") return h(PageState, { state: "loading" });
   if (state.status === "fail") return h(FailureState, { failure: state.failure, unavailable: t("memory.detail.unavailable"), notFound: t("memory.detail.notFound"), onRetry: reload });
   const c = state.data.card;
