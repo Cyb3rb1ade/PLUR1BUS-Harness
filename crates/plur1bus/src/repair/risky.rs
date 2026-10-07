@@ -845,6 +845,183 @@ mod tests {
         }
     }
 
+    #[derive(Debug, PartialEq, Eq)]
+    struct TreeEntry {
+        path: String,
+        kind: &'static str,
+        contents: Option<Vec<u8>>,
+        symlink_target: Option<std::path::PathBuf>,
+        permissions: u32,
+    }
+
+    fn tree_snapshot(root: &Path) -> Vec<TreeEntry> {
+        fn visit(root: &Path, path: &Path, entries: &mut Vec<TreeEntry>) {
+            let metadata = fs::symlink_metadata(path).unwrap();
+            let file_type = metadata.file_type();
+            let kind = if file_type.is_dir() {
+                "directory"
+            } else if file_type.is_file() {
+                "file"
+            } else if file_type.is_symlink() {
+                "symlink"
+            } else {
+                "other"
+            };
+            #[cfg(unix)]
+            let permissions = {
+                use std::os::unix::fs::PermissionsExt;
+                metadata.permissions().mode()
+            };
+            #[cfg(not(unix))]
+            let permissions = u32::from(metadata.permissions().readonly());
+            entries.push(TreeEntry {
+                path: path
+                    .strip_prefix(root)
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned(),
+                kind,
+                contents: file_type.is_file().then(|| fs::read(path).unwrap()),
+                symlink_target: file_type.is_symlink().then(|| fs::read_link(path).unwrap()),
+                permissions,
+            });
+            if file_type.is_dir() {
+                for entry in fs::read_dir(path).unwrap() {
+                    visit(root, &entry.unwrap().path(), entries);
+                }
+            }
+        }
+
+        let mut entries = Vec::new();
+        visit(root, root, &mut entries);
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+        entries
+    }
+
+    fn stable_dry_run_document(plan: &Plan) -> Value {
+        let mut plan = plan.clone();
+        for step in &mut plan.steps {
+            if step.id == "unit.terminate-hung" {
+                step.target = "core (pid 4242)".into();
+                let detail = step.detail.as_mut().unwrap();
+                detail["pid"] = json!(4242);
+                detail["instanceId"] = json!("test-instance");
+            }
+        }
+        json!({
+            "schema": "1staid.repair/1",
+            "dryRun": true,
+            "steps": plan.steps,
+            "checkAfter": null
+        })
+    }
+
+    #[test]
+    fn risky_dry_run_is_read_only_and_has_a_complete_stable_document() {
+        let core = HungCore::start();
+        let runner = FakeRunner::new(core.layout.home.clone());
+        let ctx = Ctx::for_host(&core.layout, &runner);
+
+        let log = core.layout.log_file("supervisor");
+        fs::create_dir_all(log.parent().unwrap()).unwrap();
+        let mut records = (0..5)
+            .map(|minute| {
+                format!(
+                    "{{\"at\":\"2026-09-28T10:{minute:02}:00.000Z\",\"msg\":\"supervisor started\"}}"
+                )
+            })
+            .collect::<Vec<_>>();
+        records.push(
+            "{\"at\":\"2026-09-28T10:04:00.200Z\",\"msg\":\"exiting 0 instead of 3 so launchd does not restart a non-transient failure\"}".into(),
+        );
+        fs::write(&log, records.join("\n") + "\n").unwrap();
+
+        let before = tree_snapshot(core._dir.path());
+        let checks = [Check {
+            id: "supervisor.state",
+            status: Status::Warn,
+            summary: "supervisor is not running".into(),
+            detail: None,
+            hint: None,
+        }];
+        let mut steps = plan(&checks, &ctx, &|_| true);
+        steps.push(
+            store_step(&json!({
+                "engine": { "storeSchema": { "current": "1", "expected": "2" } }
+            }))
+            .unwrap(),
+        );
+        steps.sort_by_key(|step| {
+            crate::repair::STEP_ORDER
+                .iter()
+                .position(|id| *id == step.id)
+        });
+        let plan = Plan { steps };
+        assert_eq!(plan.steps.len(), 4);
+        assert_eq!(
+            plan.steps[0].detail.as_ref().unwrap()["pid"],
+            json!(core.child.id())
+        );
+        let document = stable_dry_run_document(&plan);
+        assert_eq!(tree_snapshot(core._dir.path()), before);
+        assert_eq!(
+            document,
+            json!({
+                "schema": "1staid.repair/1",
+                "dryRun": true,
+                "steps": [
+                    {
+                        "id": "unit.terminate-hung",
+                        "action": "terminate the hung process through its pinned peer and remove its run files",
+                        "target": "core (pid 4242)",
+                        "reason": "core.lock",
+                        "risk": "high",
+                        "needsConfirmation": true,
+                        "status": "planned",
+                        "detail": {
+                            "role": "core",
+                            "name": "core",
+                            "pid": 4242,
+                            "instanceId": "test-instance",
+                            "probe": "handshake"
+                        }
+                    },
+                    {
+                        "id": "store.migrate",
+                        "action": "migrate the memory store schema with admin.migrate over the core",
+                        "target": "1→2",
+                        "reason": "core.state",
+                        "risk": "high",
+                        "needsConfirmation": true,
+                        "status": "planned",
+                        "detail": { "from": "1", "to": "2" }
+                    },
+                    {
+                        "id": "service.silent-exit",
+                        "action": "report",
+                        "target": "logs/supervisor.log",
+                        "reason": "supervisor.state",
+                        "risk": "none",
+                        "needsConfirmation": false,
+                        "status": "planned",
+                        "detail": { "code": 3, "at": "2026-09-28T10:04:00.200Z" }
+                    },
+                    {
+                        "id": "service.restart-loop",
+                        "action": "report",
+                        "target": "logs/supervisor.log",
+                        "reason": "supervisor.state",
+                        "risk": "none",
+                        "needsConfirmation": false,
+                        "status": "planned",
+                        "detail": { "starts": 5, "windowMs": 240000, "lastExitCode": 3 }
+                    }
+                ],
+                "checkAfter": null
+            })
+        );
+    }
+
     #[test]
     fn declining_leaves_the_hung_core_running() {
         let mut core = HungCore::start();
