@@ -73,6 +73,11 @@ pub struct PackageStore {
     /// Test seam: the step that fails (the env seam `PLUR1BUS_TEST_EXT_FAIL_AT` needs a process-wide variable).
     #[cfg(test)]
     fail: Option<&'static str>,
+    /// Test seam: this store ignores the process-wide seams (`PLUR1BUS_TEST_EXT_FAIL_AT` and the kill flag it sets).
+    /// `tests/ext_commit.rs` and its siblings include this file, so the unit tests below share a process with tests
+    /// that set them, and a kill seam raised by one of those used to make an install here skip its rollback.
+    #[cfg(test)]
+    isolated: bool,
 }
 
 fn io_err(what: &str, p: &Path, e: &std::io::Error) -> ExtError {
@@ -137,6 +142,8 @@ impl PackageStore {
             after_extract: None,
             #[cfg(test)]
             fail: None,
+            #[cfg(test)]
+            isolated: false,
         }
     }
 
@@ -150,7 +157,28 @@ impl PackageStore {
                 format!("test seam: the {point} step failed"),
             ));
         }
+        #[cfg(test)]
+        if self.isolated {
+            return Ok(());
+        }
         fail_at(point)
+    }
+
+    /// The process-wide kill flag is reset by a real install; an isolated (unit test) store neither touches nor reads it.
+    fn reset_kill(&self) {
+        #[cfg(test)]
+        if self.isolated {
+            return;
+        }
+        reset_kill();
+    }
+
+    fn killed(&self) -> bool {
+        #[cfg(test)]
+        if self.isolated {
+            return false;
+        }
+        killed()
     }
 
     fn staging(&self) -> PathBuf {
@@ -212,7 +240,7 @@ impl PackageStore {
         policy: &Policy,
         opts: &InstallOpts,
     ) -> Result<Installed, ExtError> {
-        reset_kill();
+        self.reset_kill();
         let insp = inspect_file_kinds(pkg, policy, &X2_KINDS)?;
         let m = &insp.manifest;
         if !matches!(m.kind, Kind::McpServer | Kind::Provider) {
@@ -281,7 +309,7 @@ impl PackageStore {
         ) {
             Ok(()) => Ok(installed(m, false, prev.is_some())),
             Err(mut e) => {
-                if killed() {
+                if self.killed() {
                     return Err(e); // a killed process undoes nothing; `recover` does
                 }
                 let failed = tx.rollback();
@@ -370,7 +398,7 @@ impl PackageStore {
     /// Removes the package directory of `name`. It moves out of sight in one rename, then is deleted; `Ok(false)` when
     /// it was not installed. `data/ext/<name>/` is not this store's and stays (X1-R31).
     pub fn uninstall(&self, name: &str) -> Result<bool, ExtError> {
-        reset_kill();
+        self.reset_kill();
         let dir = self.dir_of(name)?;
         if std::fs::symlink_metadata(&dir).is_err() {
             return Ok(false);
@@ -381,7 +409,7 @@ impl PackageStore {
         let gone = staging_root.join(format!("{name}-gone-{}", nonce()));
         rename_retrying(&dir, &gone).map_err(|e| io_err("cannot move", &dir, &e))?;
         if let Err(e) = self.step("uninstall.trash") {
-            if !killed() {
+            if !self.killed() {
                 let _ = rename_retrying(&gone, &dir);
                 self.prune_empty();
             }
@@ -513,6 +541,13 @@ mod tests {
         ]
     }
 
+    /// A store that ignores the process-wide test seams (see `PackageStore::isolated`).
+    fn store(root: PathBuf) -> PackageStore {
+        let mut s = PackageStore::at(root);
+        s.isolated = true;
+        s
+    }
+
     struct Env {
         _dir: tempfile::TempDir,
         root: PathBuf,
@@ -595,7 +630,7 @@ mod tests {
     #[test]
     fn a_remote_mcp_server_installs_into_its_own_directory() {
         let env = Env::new();
-        let st = PackageStore::at(env.root.clone());
+        let st = store(env.root.clone());
         let got = env
             .install(
                 &st,
@@ -641,7 +676,7 @@ mod tests {
     #[test]
     fn a_provider_installs_and_unsigned_needs_the_acknowledgment() {
         let env = Env::new();
-        let st = PackageStore::at(env.root.clone());
+        let st = store(env.root.clone());
         let pkg = env.write("u.p1x", &build_package_from(&provider(), files("x"), None));
         let e = env.install(&st, &pkg, &InstallOpts::default()).unwrap_err();
         assert_eq!(
@@ -664,7 +699,7 @@ mod tests {
     #[test]
     fn a_skill_is_not_a_package_store_kind() {
         let env = Env::new();
-        let st = PackageStore::at(env.root.clone());
+        let st = store(env.root.clone());
         let t = base("demo", "skill", "1.0.0");
         let pkg = env.write(
             "s.p1x",
@@ -689,7 +724,7 @@ mod tests {
     #[test]
     fn zip_slip_symlink_and_checksum_tampering_are_refused_and_write_nothing() {
         let env = Env::new();
-        let st = PackageStore::at(env.root.clone());
+        let st = store(env.root.clone());
         let good = build_package_from(&mcp("1.0.0"), files("r1"), Some(&env.key));
         for (how, want) in [
             (Tamper::DotDot, "archive-unsafe-entry"),
@@ -709,7 +744,7 @@ mod tests {
     #[test]
     fn a_tree_that_changes_between_audit_and_install_is_refused() {
         let env = Env::new();
-        let mut st = PackageStore::at(env.root.clone());
+        let mut st = store(env.root.clone());
         st.after_extract = Some(Box::new(|stage| {
             std::fs::write(stage.join("payload/README.md"), b"swapped").unwrap();
         }));
@@ -740,7 +775,7 @@ mod tests {
     #[test]
     fn a_symlink_that_appears_in_the_staged_tree_is_refused() {
         let env = Env::new();
-        let mut st = PackageStore::at(env.root.clone());
+        let mut st = store(env.root.clone());
         st.after_extract = Some(Box::new(|stage| {
             let p = stage.join("payload/README.md");
             std::fs::remove_file(&p).unwrap();
@@ -760,7 +795,7 @@ mod tests {
     #[test]
     fn file_count_and_size_limits_refuse_before_anything_is_extracted() {
         let env = Env::new();
-        let st = PackageStore::at(env.root.clone());
+        let st = store(env.root.clone());
         let pkg = env.signed(&mcp("1.0.0"), "r1");
         let h = host();
         for limits in [
@@ -794,7 +829,7 @@ mod tests {
         for point in ["extract", "verify", "record", "swap", "commit"] {
             // A fresh install leaves nothing.
             let env = Env::new();
-            let mut st = PackageStore::at(env.root.clone());
+            let mut st = store(env.root.clone());
             st.fail = Some(point);
             let e = env
                 .install(
@@ -807,7 +842,7 @@ mod tests {
             assert!(!env.root.exists(), "{point} left {}", env.root.display());
 
             // A replace keeps the old package byte for byte.
-            let mut st = PackageStore::at(env.root.clone());
+            let mut st = store(env.root.clone());
             env.install(
                 &st,
                 &env.signed(&mcp("1.0.0"), "r1"),
@@ -840,7 +875,7 @@ mod tests {
     #[test]
     fn replace_downgrade_identical_and_name_taken() {
         let env = Env::new();
-        let st = PackageStore::at(env.root.clone());
+        let st = store(env.root.clone());
         let v1 = env.signed(&mcp("1.0.0"), "r1");
         env.install(&st, &v1, &InstallOpts::default()).unwrap();
         let again = env.install(&st, &v1, &InstallOpts::default()).unwrap();
@@ -885,7 +920,7 @@ mod tests {
     #[test]
     fn uninstall_removes_the_directory_and_is_undone_by_a_failure() {
         let env = Env::new();
-        let mut st = PackageStore::at(env.root.clone());
+        let mut st = store(env.root.clone());
         env.install(
             &st,
             &env.signed(&mcp("1.0.0"), "r1"),
@@ -909,7 +944,7 @@ mod tests {
     #[test]
     fn recover_restores_a_replaced_package_and_removes_other_leftovers() {
         let env = Env::new();
-        let st = PackageStore::at(env.root.clone());
+        let st = store(env.root.clone());
         env.install(
             &st,
             &env.signed(&mcp("1.0.0"), "r1"),
