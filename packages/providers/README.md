@@ -32,10 +32,11 @@ tools, `toolChoice`, `parallelToolCalls`, `maxTokens`, `temperature`, `topP`, `s
 - **Streaming**: an incremental SSE parser (UTF-8 across chunks, CRLF/CR/LF, comments, `[DONE]`) and per-`index`
   assembly of tool-call deltas; usage from the final chunk. The stream and non-stream paths produce the same
   `ChatResult` for the same turn.
-- **One error type**, `ProviderError`, with `kind` ∈ `auth`, `rate_limit` (with `retryAfterMs`), `context_length`,
-  `content_filter`, `bad_request`, `server`, `timeout` (`timeoutPhase`: headers, idle, total), `network`,
-  `protocol` (malformed response or stream), `aborted`. `retryable` is a hint for the retry budget. A failed stream
-  carries what had arrived in `partial`.
+- **One error type**, `ProviderError`, with `kind` ∈ `auth`, `rate_limit` (with `retryAfterMs`), `overloaded`,
+  `context_length`, `invalid_request` (`contentFiltered` marks a content/safety refusal), `network`, `timeout`
+  (`timeoutPhase`: headers, idle, total), `aborted`, `unknown` (`code: "protocol"` for a malformed response or stream).
+  `retryable` is a hint for the retry budget. A failed stream carries what had arrived in `partial`. No credential
+  reaches a message, the `cause` chain or a field (`test/secrets.test.ts`). Table: `docs/providers.md`.
 - **Abort and timeouts everywhere**: one `AbortSignal` (caller) plus three bounds; every exit path (done, error,
   abort, the consumer leaving the loop early) cancels the request and clears the timers.
 - **Fail closed**: invalid requests are refused before any I/O; a malformed chunk, a missing `[DONE]`, a tool call
@@ -62,19 +63,20 @@ const gemini = createGeminiAdapter({ credentials: secretStoreKey(secretStore, pr
 - **Key**: read from the secret store (any `{ get(ref) }`, i.e. the core `SecretStore`) on every call; sent only as the
   `x-goog-api-key` header, never in the URL, query, body, an error message or a log; scrubbed from provider texts;
   refused over plain `http:` to a non-loopback host. No key is an `auth` error before any I/O.
-- **Safety blocks** are `GeminiSafetyBlockError` (a `content_filter` `ProviderError`, never retryable) with `source`
+- **Safety blocks** are `GeminiSafetyBlockError` (`invalid_request` + `contentFiltered`, never retryable) with `source`
   (`prompt` | `candidate`), the verbatim `reason` and the `ratings`; text generated before a candidate block is in `partial`.
 - **Usage** from `usageMetadata`: output = candidates + thoughts, input = prompt + tool-use prompt, cached and reasoning
-  tokens separate. **Tool-call ids** are positional (`call_<n>`); a Gemini 3 `thoughtSignature` rides in the id after `~`
+  tokens separate; a count Gemini did not report is `undefined`, never 0. **Tool schemas** go through `convertToolSchema`
+  (supported subset kept, annotations dropped, local `$ref` inlined, unsupported features refused before any I/O). **Tool-call ids** are positional (`call_<n>`); a Gemini 3 `thoughtSignature` rides in the id after `~`
   and is replayed automatically when the id is sent back.
 - Not covered here: `safetySettings`, context caching (`cachedContent`), Vertex AI (ADC auth), embeddings, remote image URLs.
   Decisions the API left open are `// RULING:` comments in `src/gemini/`.
 
 ## Rulings
 
-Decisions the spec left open are marked `// RULING:` in the source (finish reason `content_filter` is a result, not
-an error; `aborted` is its own kind; 402 is `auth`; a tool-call delta without `index` is refused; …). The PR that
-introduced the package lists them.
+Decisions the spec left open are marked `// RULING:` in the source (the OpenAI-compatible finish reason
+`content_filter` is a result, not an error; `aborted` is its own kind; 402 is `auth`; every 5xx is `overloaded`; a
+tool-call delta without `index` is refused; …). The PRs that introduced them list them.
 
 ## Tests
 
@@ -90,14 +92,19 @@ no live call, no network beyond loopback. Every test has a hard timeout.
 `ProviderRouter` maps a profile name to an ordered candidate list (`provider`, `model`, adapter) and adds retry with
 jittered backoff, a circuit breaker per provider+model (closed / open / half-open) and fallback. Fallback happens only
 before the first streamed event and always emits `provider.fallback` through `onEvent`; a `BudgetGuard` port is asked
-before every attempt so a fallback cannot bypass a cost limit. Content-filter, context-length and bad-request errors
-are never retried nor routed to another vendor. Time and randomness are injected (`Clock`, `random`).
+before every attempt so a fallback cannot bypass a cost limit. Only `rate_limit`, `overloaded`, `timeout` and `network`
+fall back; `auth`, `invalid_request` (incl. content filters), `context_length`, `aborted` and `unknown` never do.
+`src/profiles/` resolves the config's `modelProfiles` into a router (`createRouterFromProfiles`) with path-bearing
+config errors and a default profile; `strategy: "moa"` is validated but not executable yet. Time and randomness are injected (`Clock`, `random`).
 
 ## Local models (`src/local`)
 
 - `discoverLocalEndpoints()` probes `127.0.0.1:11434` (Ollama: `/api/tags`, then `/v1/models`) and `127.0.0.1:1234` (LM Studio: `/v1/models`) without any key.
 - `probeEndpoint()` never throws on a service problem; it returns a `state`: `ok`, `empty`, `unreachable`, `timeout`, `refused`, `protocol`.
 - Loopback only. Any other origin needs `allowNonLoopback: true` **and** an `EgressPolicy`; without a policy it is `refused`.
-- `createLocalChatAdapter(endpoint, createChatCompletionsAdapter)` builds the chat_completions adapter with `NO_AUTH` credentials (no `Authorization` header).
+- Discovery is short and bounded (1.5 s per request, 3 s overall); an unreachable server is `unavailable`, never an exception. `LocalEndpointMonitor` keeps a non-blocking cache; `guardLocalAdapter` makes a known-dead endpoint fail fast so the router falls back.
+- `createLocalChatAdapter(endpoint, createChatCompletionsAdapter)` builds the chat_completions adapter with `NO_AUTH` credentials (no `Authorization` header); credentials or auth headers in the config for a loopback endpoint are refused.
 
-Tests: `pnpm --filter @plur1bus/providers test` (fake loopback servers only).
+Tests: `pnpm --filter @plur1bus/providers test` (fake loopback servers only). `test/contract/` runs one streaming
+contract (order: content → one `finish` → at most one `usage` → one `done`) over every adapter; its fixtures are
+synthetic reconstructions of the wire formats, not live captures. Docs: `docs/providers.md`.

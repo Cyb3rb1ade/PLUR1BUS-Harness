@@ -7,7 +7,7 @@
 //! state stays as it was. The core must be stopped (R5); the units are the allow-list of `manifest.rs` and nothing else.
 use super::archive::{verify, visit};
 use super::create::{backups_dir, Cleanup};
-use super::manifest::{Kind, Manifest};
+use super::manifest::{is_sqlite_name, Kind, Manifest, SQLITE_SIDECARS};
 use super::{now_ms, short_id, utc_stamp, BackupError};
 use crate::paths::Layout;
 use serde::Serialize;
@@ -196,17 +196,32 @@ fn swap(
     for (i, u) in manifest.units.iter().enumerate() {
         let target = live(home, &u.target);
         let moved_to = move_aside(home, pre, &u.target)?;
+        let unit_idx = done.len();
         done.push(Done {
             live: target.clone(),
             moved_to,
             placed: false,
         });
+        // A `-wal`/`-shm`/`-journal` left next to a database that is being replaced belongs to the OLD file: SQLite
+        // could replay it onto the restored one. It goes aside with the old tree (and comes back on a roll-back).
+        if u.kind == Kind::File && is_sqlite_name(&u.target) {
+            for sfx in SQLITE_SIDECARS {
+                let side = format!("{}{sfx}", u.target);
+                if let Some(to) = move_aside(home, pre, &side)? {
+                    done.push(Done {
+                        live: live(home, &side),
+                        moved_to: Some(to),
+                        placed: false,
+                    });
+                }
+            }
+        }
         fail_point(opts, &format!("swap:{i}"))?;
         if let Some(p) = target.parent() {
             fs::create_dir_all(p)?;
         }
         fs::rename(live(staging, &u.archive), &target)?;
-        done.last_mut().expect("just pushed").placed = true;
+        done[unit_idx].placed = true;
         fail_point(opts, &format!("swap-after:{i}"))?;
     }
     for a in &manifest.absent {
@@ -312,6 +327,84 @@ pub fn restore(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn archive_of_a_fresh_home(d: &Path) -> (PathBuf, Layout) {
+        use super::super::create::{create, testkit};
+        let src = Layout::new(d.join("src"));
+        let snap = testkit::staged(&src, b"BACKED-UP-DB", false);
+        let out = d.join("backup.tar.gz");
+        create(&src, &out, &snap).expect("create on a fresh home");
+        // The target: a live database that is still in WAL use (a crash left its sidecars behind).
+        let dst = Layout::new(d.join("dst"));
+        fs::create_dir_all(dst.state()).unwrap();
+        for (n, c) in [
+            ("budget.sqlite", "LIVE-DB"),
+            ("budget.sqlite-wal", "STALE-WAL"),
+            ("budget.sqlite-shm", "STALE-SHM"),
+        ] {
+            fs::write(dst.state().join(n), c).unwrap();
+        }
+        (out, dst)
+    }
+
+    #[test]
+    fn a_restore_sets_stale_sqlite_sidecars_aside_so_they_cannot_be_replayed_onto_the_restored_database(
+    ) {
+        let d = tempfile::tempdir().unwrap();
+        let (out, dst) = archive_of_a_fresh_home(d.path());
+        let report = restore(
+            &dst,
+            &out,
+            &RestoreOpts {
+                dry_run: false,
+                fail_at: None,
+            },
+        )
+        .unwrap();
+        assert!(report.applied);
+        let st = dst.state();
+        assert_eq!(fs::read(st.join("budget.sqlite")).unwrap(), b"BACKED-UP-DB");
+        assert!(!exists(&st.join("budget.sqlite-wal")) && !exists(&st.join("budget.sqlite-shm")));
+        let pre = PathBuf::from(report.pre_restore.expect("the replaced state is kept"));
+        assert_eq!(
+            fs::read(pre.join("state/budget.sqlite")).unwrap(),
+            b"LIVE-DB"
+        );
+        assert_eq!(
+            fs::read(pre.join("state/budget.sqlite-wal")).unwrap(),
+            b"STALE-WAL"
+        );
+        assert_eq!(
+            fs::read(pre.join("state/budget.sqlite-shm")).unwrap(),
+            b"STALE-SHM"
+        );
+    }
+
+    #[test]
+    fn a_failed_restore_puts_the_database_and_its_sidecars_back_untouched() {
+        let d = tempfile::tempdir().unwrap();
+        let (out, dst) = archive_of_a_fresh_home(d.path());
+        for at in ["swap:1", "swap-after:1"] {
+            let err = restore(
+                &dst,
+                &out,
+                &RestoreOpts {
+                    dry_run: false,
+                    fail_at: Some(at.into()),
+                },
+            )
+            .unwrap_err();
+            assert_eq!(err.reason, "restore-failed", "{at}");
+            let st = dst.state();
+            for (n, c) in [
+                ("budget.sqlite", "LIVE-DB"),
+                ("budget.sqlite-wal", "STALE-WAL"),
+                ("budget.sqlite-shm", "STALE-SHM"),
+            ] {
+                assert_eq!(fs::read_to_string(st.join(n)).unwrap(), c, "{at}: {n}");
+            }
+        }
+    }
 
     #[test]
     fn fail_points_fire_only_where_named() {

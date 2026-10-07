@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { join } from "node:path";
+import { MockEvents, MockRpc } from "./mock-rpc.ts";
 
 export const STRICT_CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 
@@ -18,6 +19,8 @@ export type MockOptions = {
   retryAfterSeconds?: number;
 };
 export type LoggedRequest = { method: string; url: string; csrf: string | null; hasCookie: boolean; body: string };
+/** A route extension (see mock-rpc.ts): answers the request and returns true, or returns false to let the mock go on. */
+export type MockExtension = (req: IncomingMessage, res: ServerResponse, path: string, body: string) => boolean | Promise<boolean>;
 
 const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css" };
 
@@ -30,11 +33,20 @@ export class MockHarnessServer {
   forceStatus: number | null = null;
   /** When true, the next write refuses its CSRF token (even a fresh one) once more; counts down per refusal. */
   rejectCsrf = 0;
+  /** Extra routes tried before the built-in ones; mock-rpc.ts installs /rpc and /events here. */
+  readonly extensions: MockExtension[] = [];
+  /** JSON-RPC on `/rpc` (scenarios per method). Off the wire until a test enables it, like the real backend today. */
+  readonly rpc: MockRpc;
+  /** SSE on `/events` (push events, drop connections, watch reconnects). */
+  readonly events: MockEvents;
   #server: Server | undefined;
   readonly #opts: Required<MockOptions>;
 
   constructor(opts: MockOptions) {
     this.#opts = { token: OWNER_TOKEN, maxFailures: 5, retryAfterSeconds: 30, ...opts };
+    this.rpc = new MockRpc(this);
+    this.events = new MockEvents(this);
+    this.extensions.push((req, res, path, body) => this.rpc.serve(req, res, path, body), (req, res, path) => this.events.serve(req, res, path));
   }
 
   async start(): Promise<string> {
@@ -50,7 +62,8 @@ export class MockHarnessServer {
     await new Promise<void>((resolve) => this.#server?.close(() => resolve()) ?? resolve());
   }
 
-  #sessionOf(req: IncomingMessage): { id: string; csrf: Set<string> } | null {
+  /** The live session behind the request's cookie, or null. */
+  sessionOf(req: IncomingMessage): { id: string; csrf: Set<string> } | null {
     const m = new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]+)`).exec(req.headers.cookie ?? "");
     const id = m?.[1];
     const s = id ? this.sessions.get(id) : undefined;
@@ -68,12 +81,13 @@ export class MockHarnessServer {
 
   async #handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = (req.url ?? "/").split("?")[0] ?? "/";
-    const body = url.startsWith("/api/v1/") ? await this.#readBody(req) : "";
+    const body = url.startsWith("/api/v1/") || url === "/rpc" ? await this.#readBody(req) : "";
     const csrfHeader = req.headers["x-csrf-token"];
     this.requests.push({ method: req.method ?? "GET", url: req.url ?? "/", csrf: typeof csrfHeader === "string" ? csrfHeader : null, hasCookie: !!req.headers.cookie, body });
     res.setHeader("content-security-policy", STRICT_CSP);
     res.setHeader("x-content-type-options", "nosniff");
 
+    for (const ext of this.extensions) if (await ext(req, res, url, body)) return;
     if (url.startsWith("/api/v1/")) {
       if (this.forceStatus !== null) return this.#error(res, this.forceStatus, "E_CORE_UNAVAILABLE", "unavailable");
       return this.#api(req, res, url, body);
@@ -109,7 +123,7 @@ export class MockHarnessServer {
       return this.#json(res, 200, { schema: "session.create/1", principal, ...times },
         { "set-cookie": `${COOKIE}=${id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200` });
     }
-    const s = this.#sessionOf(req);
+    const s = this.sessionOf(req);
     if (!s) return this.#error(res, 401, "E_UNAUTHORIZED", "no-session");
     if (url === "/api/v1/whoami" && req.method === "GET") return this.#json(res, 200, { schema: "whoami/1", principal, session: times });
     if (url === "/api/v1/csrf" && req.method === "GET") {

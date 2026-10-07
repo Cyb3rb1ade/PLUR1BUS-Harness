@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import * as nodeFs from "node:fs/promises";
-import { mkdir, readFile, readdir, stat } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { DatabaseSync, backup } from "node:sqlite";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
@@ -39,10 +39,11 @@ const sha256File = (path: string): Promise<string> => new Promise((ok, fail) => 
 });
 
 /** The engine's `createSnapshot` fsyncs every file it stages and the staging directories (`hashAndSync`, `fsyncDir`).
- *  Hypothesis, not measured on a Mac: libuv's fsync is `F_FULLFSYNC` on macOS (a drive cache flush, far slower than on
- *  Linux), so a snapshot stalls idle past the client's 30 s call timeout. The staging directory is scratch: the caller
- *  packs it into the archive (which is what must be durable) and removes it, and a failed or killed snapshot is swept
- *  as stale staging. So the staged copy is never fsynced. */
+ *  On macOS libuv's fsync is `F_FULLFSYNC` (a drive cache flush, far slower than on Linux). Measured on a Mac: this is NOT
+ *  what made the call time out (that was the lost event-loop wake-up of `backup()`, see `withLoopKeepalive`), but it is
+ *  pure cost all the same. The staging directory is scratch: the caller packs it into the archive (which is what must
+ *  be durable) and removes it, and a failed or killed snapshot is swept as stale staging. So the staged copy is never
+ *  fsynced. */
 export function stagingFs(base: typeof nodeFs = nodeFs): typeof nodeFs {
   return {
     ...base,
@@ -61,6 +62,35 @@ export function stagingFs(base: typeof nodeFs = nodeFs): typeof nodeFs {
 
 const toPosix = (p: string): string => p.split(sep).join("/");
 
+/** `node:sqlite`'s `backup()` can leave its promise pending while the event loop sleeps: the step finishes on the
+ *  thread pool, but nothing wakes the loop to run the continuation. The promise then settles only when some unrelated
+ *  timer or socket event happens to wake it (observed on macOS, Node 26: stalls of 0.1 s, 8 s, 16 s and up to the 30 s
+ *  call timeout, with the main thread and every pool thread idle in the meantime; the handler then "finished" after the
+ *  caller had already given up). A short, ref'd interval bounds the loop's sleep for as long as the snapshot runs. */
+export async function withLoopKeepalive<T>(fn: () => Promise<T>, everyMs = 20): Promise<T> {
+  const tick = setInterval(() => {}, everyMs);
+  try { return await fn(); } finally { clearInterval(tick); }
+}
+
+/** SQLite's sidecar files (`<db>-wal`, `<db>-shm`, `<db>-journal`): live-connection state, never part of a backup. */
+export const isSqliteSidecar = (name: string): boolean => /-(wal|shm|journal)$/i.test(name);
+
+/** Copies one database with the SQLite backup API (a consistent snapshot that includes what is still in the WAL) and
+ *  leaves a self-contained single file: the copy inherits the WAL journal mode of its source, so it is switched to
+ *  `DELETE`, which folds the WAL in and removes `-wal`/`-shm` again. Opening it read-only instead would CREATE those
+ *  sidecars next to the copy, and they would end up in the archive plan ("unit state/x.sqlite-shm is not allowed"). */
+export async function copyDatabase(src: string, dest: string, shown: string = dest): Promise<void> {
+  const db = new DatabaseSync(src, { readOnly: true });
+  try { await withLoopKeepalive(() => backup(db, dest)); } finally { db.close(); }
+  const copy = new DatabaseSync(dest);
+  try {
+    copy.exec("PRAGMA journal_mode=DELETE");
+    const row = copy.prepare("PRAGMA quick_check").get() as { quick_check?: string } | undefined;
+    if (row?.quick_check !== "ok") throw new RpcError("E_STORAGE", `SQLite copy of ${shown} failed its integrity check`, { reason: "sqlite-corrupt" });
+  } finally { copy.close(); }
+  for (const side of ["-wal", "-shm", "-journal"]) await rm(dest + side, { force: true });
+}
+
 /** `state/<…>` databases to back up: not the lock, the store, the engine's snapshots or this staging area. Symlinks are never followed. */
 async function findDatabases(state: string, skip: readonly string[]): Promise<string[]> {
   const out: string[] = [];
@@ -71,7 +101,7 @@ async function findDatabases(state: string, skip: readonly string[]): Promise<st
       const p = join(dir, ent.name);
       if (skip.some((s) => p === s)) continue;
       if (ent.isDirectory()) await walk(p);
-      else if (ent.isFile() && SQLITE_EXT.test(ent.name) && ent.name !== "core.lock") out.push(p);
+      else if (ent.isFile() && SQLITE_EXT.test(ent.name) && !isSqliteSidecar(ent.name) && ent.name !== "core.lock") out.push(p);
     }
   };
   await walk(state);
@@ -82,7 +112,7 @@ export function buildBackupMethods(d: BackupDeps): Record<(typeof BACKUP_METHODS
   const stopping = () => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
 
   return {
-    "admin.backup.snapshot": async (p: AdminBackupSnapshotParams): Promise<AdminBackupSnapshotResult> => {
+    "admin.backup.snapshot": (p: AdminBackupSnapshotParams): Promise<AdminBackupSnapshotResult> => withLoopKeepalive(async () => {
       if (d.isStopping()) throw stopping();
       const home = resolve(d.layout.home); const state = resolve(d.layout.state); const base = resolve(d.baseDbPath);
       // RULING R8: a store outside the home cannot be restored to a place the manifest names; refuse, do not guess.
@@ -111,13 +141,7 @@ export function buildBackupMethods(d: BackupDeps): Record<(typeof BACKUP_METHODS
           const relPath = `sqlite/${toPosix(relative(state, src))}`;
           const dest = join(snap.dir, ...relPath.split("/"));
           await mkdir(dirname(dest), { recursive: true });
-          const db = new DatabaseSync(src, { readOnly: true });
-          try { await backup(db, dest); } finally { db.close(); }
-          const copy = new DatabaseSync(dest, { readOnly: true });
-          try {
-            const row = copy.prepare("PRAGMA quick_check").get() as { quick_check?: string } | undefined;
-            if (row?.quick_check !== "ok") throw new RpcError("E_STORAGE", `SQLite copy of ${relPath} failed its integrity check`, { reason: "sqlite-corrupt" });
-          } finally { copy.close(); }
+          await copyDatabase(src, dest, relPath);
           files.push({ path: relPath, bytes: (await stat(dest)).size, sha256: await sha256File(dest) });
         }
         const es = await d.engine.status();
@@ -132,6 +156,6 @@ export function buildBackupMethods(d: BackupDeps): Record<(typeof BACKUP_METHODS
         }
         throw e;
       }
-    },
+    }),
   };
 }

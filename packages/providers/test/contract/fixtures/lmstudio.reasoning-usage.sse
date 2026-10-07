@@ -1,0 +1,13 @@
+: SYNTHETIC reconstruction of the lmstudio wire format (scenario "reasoning-usage"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"reasoning_content":"Think "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"reasoning_content":"hard."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"content":"42"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":12}}
+
+data: [DONE]
+

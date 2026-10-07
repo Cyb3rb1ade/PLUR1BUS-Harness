@@ -269,6 +269,10 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
         };
         walk(&engine_dir, "sqlite", &mut w)?;
         for (rel, _) in w.files {
+            // A stray `-wal`/`-shm` next to a staged database is connection state, not data: it is not planned.
+            if is_sqlite_sidecar(&rel) {
+                continue;
+            }
             let target = format!("state/{}", &rel["sqlite/".len()..]);
             units.push(Unit {
                 archive: rel,
@@ -427,9 +431,84 @@ fn engine_owned(path: &str) -> bool {
         .any(|p| path.starts_with(p))
 }
 
+/// A core-staged snapshot fixture for the tests of `create` and `restore`.
+#[cfg(test)]
+pub(crate) mod testkit {
+    use super::*;
+
+    /// `<home>/state/backup-staging/plur1bus-t` with a store file and one database `sqlite/budget.sqlite`; with
+    /// `sidecars`, a `-wal` and a `-shm` lie next to the database as a read-only open of a WAL copy leaves them.
+    pub fn staged(layout: &Layout, db: &[u8], sidecars: bool) -> Snapshot {
+        let dir = layout.state().join("backup-staging").join("plur1bus-t");
+        fs::create_dir_all(dir.join("store")).unwrap();
+        fs::create_dir_all(dir.join("sqlite")).unwrap();
+        fs::write(dir.join("store/t.lance"), b"store").unwrap();
+        fs::write(dir.join("sqlite/budget.sqlite"), db).unwrap();
+        if sidecars {
+            fs::write(dir.join("sqlite/budget.sqlite-shm"), b"shm").unwrap();
+            fs::write(dir.join("sqlite/budget.sqlite-wal"), b"wal").unwrap();
+        }
+        let files = ["store/t.lance", "sqlite/budget.sqlite"]
+            .map(|p| {
+                let (sha256, bytes) = hash_file(&dir.join(p)).unwrap();
+                SnapFile {
+                    path: p.into(),
+                    bytes,
+                    sha256,
+                }
+            })
+            .to_vec();
+        Snapshot {
+            dir,
+            store_target: "state/lancedb".into(),
+            engine: EngineInfo {
+                contract: "1.12.0".into(),
+                store_schema: None,
+            },
+            files,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sqlite_sidecars_next_to_a_staged_database_are_neither_planned_nor_archived() {
+        // Regression: `manifest-invalid: unit "state/budget.sqlite-shm" is not allowed` on a fresh home.
+        let d = tempfile::tempdir().unwrap();
+        let layout = Layout::new(d.path().to_path_buf());
+        let snap = testkit::staged(&layout, b"database bytes", true);
+        let out = d.path().join("backup.tar.gz");
+        let report = create(&layout, &out, &snap).expect("a stray -shm/-wal must not fail create");
+        assert!(report.units.contains(&"state/budget.sqlite".to_string()));
+        assert!(
+            !report.units.iter().any(|u| is_sqlite_sidecar(u)),
+            "{:?}",
+            report.units
+        );
+        let manifest = verify(&out).unwrap();
+        assert!(
+            !manifest.files.iter().any(|f| is_sqlite_sidecar(&f.path)),
+            "{:?}",
+            manifest.files.iter().map(|f| &f.path).collect::<Vec<_>>()
+        );
+        assert!(manifest
+            .files
+            .iter()
+            .any(|f| f.path == "sqlite/budget.sqlite"));
+    }
+
+    #[test]
+    fn sidecar_names_are_recognised_case_insensitively_and_only_as_suffixes() {
+        for n in ["a.sqlite-wal", "a.db-SHM", "state/x.sqlite3-journal"] {
+            assert!(is_sqlite_sidecar(n), "{n}");
+        }
+        for n in ["a.sqlite", "wal.db", "a.sqlite-walnut", "journal"] {
+            assert!(!is_sqlite_sidecar(n), "{n}");
+        }
+    }
 
     #[test]
     fn engine_owned_paths_are_the_three_staged_prefixes() {

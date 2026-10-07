@@ -1,0 +1,42 @@
+/* Memories & Dreams page. m-* are this page's small building blocks (they replace the former style objects of src/pages/memory/common.ts). Tokens only. */
+.m-stack { display: grid; gap: 16px; min-width: 0; }
+.m-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.m-item { display: grid; gap: 4px; min-width: 0; }
+.m-item-title { font-weight: 600; color: var(--ink); line-height: 1.35; }
+.m-muted { color: var(--ink-2); }
+.m-wrap { overflow-wrap: anywhere; }
+.m-strong { color: var(--ink); }
+.m-prose { max-width: var(--w-reading); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.m-live { margin: 0 0 12px; font-size: 13px; }
+.m-section { margin: 24px 0 0; font-size: 16px; }
+.m-sub { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+.m-bullets { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.m-pre { margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; max-height: 24rem; background: var(--field-bg); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; font: 12.5px/1.55 var(--font-mono); }
+
+/* Panels: facts lists of the health card sit side by side when there is room */
+.card .m-stack:has(> .facts + .facts) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 8px 40px; align-items: start; }
+.card .m-stack > :is(p, .page-state, .form-error) { grid-column: 1 / -1; }
+
+/* Reviews: one block per proposal, before/after on their own lines */
+.m-review { padding: 12px 0; border-top: 1px solid var(--line); }
+.plain-list > li:first-child.m-review { border-top: 0; padding-top: 0; }
+
+/* Search */
+form[role="search"] { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+form[role="search"] .field { flex: 1 1 18rem; margin-bottom: 0; }
+.m-disclosure { display: flex; align-items: center; min-height: var(--control-h); cursor: pointer; font-weight: 600; }
+details { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+details[open] > .m-disclosure { margin-bottom: 8px; }
+section[aria-label] > .m-stack > div + div { padding-top: 12px; border-top: 1px solid var(--line); }
+
+/* Cards list (left) and dream runs: title, then scope/time or outcome underneath */
+.ld-list .nav-link:has(> .m-item) { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
+.ld-list .nav-link > .m-item { flex: 1; }
+.ld-list > .m-stack > form { gap: 8px; }
+
+/* Dreams: an agent panel holds the phase cards (light, rem, deep); side by side when there is room */
+.card > .m-stack:has(> .card) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: stretch; gap: 12px; }
+.card > .m-stack:has(> .card) > :not(.card) { grid-column: 1 / -1; }
+.card > .m-stack > .card { margin: 0; }
+.card > .m-stack > .card .m-row { margin-top: 4px; }
+.card > .m-stack > .card .btn { min-width: 24px; }

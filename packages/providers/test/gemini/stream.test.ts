@@ -53,7 +53,7 @@ test("a stream that ends without a finishReason is truncated: protocol error wit
   try {
     await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => {
       assert.ok(e instanceof ProviderError);
-      assert.equal(e.kind, "protocol");
+      assert.equal(e.kind, "unknown");
       assert.equal(e.partial?.text, "half an ans");
       return true;
     });
@@ -70,12 +70,12 @@ test("content after finishReason, a second candidate, an unknown part kind and b
   for (const chunks of cases) {
     const stub = await startStub((_q, res) => sse(res, chunks));
     try {
-      await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
+      await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
     } finally { await stub.close(); }
   }
   const stub = await startStub((_q, res) => { res.writeHead(200, { "content-type": "text/event-stream" }); res.end("data: {not json\r\n\r\n"); });
   try {
-    await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
+    await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
   } finally { await stub.close(); }
 });
 
@@ -84,7 +84,7 @@ test("an error object delivered inside the stream is classified by its gRPC stat
   try {
     await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => {
       assert.ok(e instanceof ProviderError);
-      assert.equal(e.kind, "server");
+      assert.equal(e.kind, "overloaded");
       assert.equal(e.retryable, true);
       assert.equal(e.partial?.text, "x");
       return true;
@@ -99,7 +99,7 @@ test("a 200 JSON body on the stream path: an error object is classified, anythin
   } finally { await stub.close(); }
   stub = await startStub((_q, res) => json(res, [candidate([{ text: "x" }], "STOP")]));
   try {
-    await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
+    await assert.rejects(collect(adapterFor(stub).adapter.stream(basic)), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
   } finally { await stub.close(); }
 });
 

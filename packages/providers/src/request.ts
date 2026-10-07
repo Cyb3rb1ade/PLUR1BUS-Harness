@@ -10,7 +10,7 @@ export interface BuildOptions {
 const TOOL_NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 function bad(msg: string): ProviderError {
-  return new ProviderError("bad_request", `invalid request: ${msg}`);
+  return new ProviderError("invalid_request", `invalid request: ${msg}`);
 }
 
 function checkMessage(m: ChatMessage, i: number): void {

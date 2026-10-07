@@ -1,0 +1,1 @@
+{"expect":{"kind":"unknown","status":302,"retryable":false,"code":"redirect"},"response":{"status":302,"headers":{"location":"http://127.0.0.1:1/elsewhere"},"body":""}}

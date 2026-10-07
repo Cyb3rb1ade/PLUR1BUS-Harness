@@ -1,0 +1,9 @@
+: SYNTHETIC reconstruction of the openai wire format (scenario "error-auth"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"id":"chatcmpl-contract-1","object":"chat.completion.chunk","created":1700000000,"model":"contract-gpt","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-1","object":"chat.completion.chunk","created":1700000000,"model":"contract-gpt","choices":[{"index":0,"delta":{"content":"Hel"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-1","object":"chat.completion.chunk","created":1700000000,"model":"contract-gpt","choices":[{"index":0,"delta":{"content":"lo, "},"finish_reason":null}]}
+
+data: {"error":{"message":"Incorrect API key provided.","type":"invalid_request_error","code":"invalid_api_key"}}
+

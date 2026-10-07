@@ -61,7 +61,15 @@ export type BudgetDecision = { ok: true; ticket: BudgetTicket } | { ok: false; r
  * route around a soft/hard limit. An implementation prices the attempt from `request`, provider and model.
  */
 export interface BudgetGuard {
-  authorize(info: AttemptInfo, request: ChatRequest): BudgetDecision | Promise<BudgetDecision>;
+  /** `ctx.signal` is the caller's abort signal: a guard that does I/O should stop when it fires. */
+  authorize(info: AttemptInfo, request: ChatRequest, ctx?: { signal?: AbortSignal }): BudgetDecision | Promise<BudgetDecision>;
+}
+
+/** Request fields a profile supplies when the request leaves them out (`modelProfiles.<name>.params`). A request's own value wins. */
+export interface RequestDefaults {
+  temperature?: number;
+  topP?: number;
+  maxTokens?: number;
 }
 
 export type RouterEvent =
@@ -72,7 +80,15 @@ export type RouterEvent =
 
 export interface RouterConfig {
   profiles: ProfileTable;
-  clock: Clock;
+  /** Per-profile request defaults (sampling parameters). */
+  profileDefaults?: Readonly<Record<string, RequestDefaults>>;
+  /**
+   * Profiles the router holds but cannot execute (profile name -> why), e.g. a mixture-of-agents profile: a call
+   * on one fails with `RouterError("unsupported_strategy")` instead of silently running as a plain fallback chain.
+   */
+  unsupportedProfiles?: Readonly<Record<string, string>>;
+  /** Default: `systemClock`. */
+  clock?: Clock;
   /** In [0,1); injected so tests are deterministic. */
   random?: () => number;
   breaker?: Partial<BreakerPolicy>;

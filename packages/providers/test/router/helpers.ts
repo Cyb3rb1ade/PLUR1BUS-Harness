@@ -42,11 +42,13 @@ export class ScriptedAdapter implements StreamingAdapter {
   }
 }
 
-export const server = (status = 500) => new ProviderError("server", `HTTP ${status}`, { status });
+export const server = (status = 500) => new ProviderError("overloaded", `HTTP ${status}`, { status });
 export const rateLimit = (retryAfterMs?: number) => new ProviderError("rate_limit", "429", { status: 429, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) });
-export const badRequest = () => new ProviderError("bad_request", "400", { status: 400 });
+export const badRequest = () => new ProviderError("invalid_request", "400", { status: 400 });
 export const auth = () => new ProviderError("auth", "401", { status: 401 });
-export const filter = () => new ProviderError("content_filter", "blocked", { status: 400 });
+/** A failure that is transient by class (so it may fall back) but that the same candidate will not cure: no retry. */
+export const down = () => new ProviderError("overloaded", "503", { status: 503, retryable: false });
+export const filter = () => new ProviderError("invalid_request", "blocked", { status: 400, contentFiltered: true });
 
 export function cand(provider: string, model: string, steps: Step[]): Candidate & { adapter: ScriptedAdapter } {
   return { provider, model, adapter: new ScriptedAdapter(steps) };
