@@ -33,7 +33,8 @@ describe("users: role visibility", { skip: browserSkip }, () => {
         assert.match((await state.textContent()) ?? "", new RegExp(`Your role is ${label}`));
         assert.equal(await app.page.getByRole("button", { name: "Invite person" }).count(), 0);
         assert.equal(await app.page.getByRole("list", { name: "People with access" }).count(), 0);
-        assert.deepEqual(app.server.rpc.calls.map((c) => c.method), []);
+        // The shell itself may list sessions; the section must not ask for people or agents.
+        assert.deepEqual(app.server.rpc.calls.map((c) => c.method).filter((m) => m !== "session.list"), []);
       });
     });
   }

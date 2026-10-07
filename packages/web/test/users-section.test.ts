@@ -107,6 +107,7 @@ describe("users: presets, simple mode, rights", opts, () => {
       await app.page.getByRole("checkbox", { name: "Simple mode" }).uncheck();
       await app.page.getByRole("heading", { name: "Rights per agent" }).waitFor();
       const rows = app.page.locator(".users-matrix tbody tr");
+      await rows.first().waitFor();
       assert.deepEqual(await rows.locator("th").allTextContents(), ["main", "research", "ops"]);
       assert.deepEqual(app.server.rpc.calls.filter((c) => c.method === "config.get").map((c) => c.params), [{ key: "agents" }]);
       assert.match((await app.page.locator(".users-rights").textContent()) ?? "", /sees only the agents shared with them/);
