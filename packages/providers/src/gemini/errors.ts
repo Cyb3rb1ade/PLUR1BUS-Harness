@@ -123,6 +123,16 @@ export function classifyGeminiHttp(status: number, headers: Headers, bodyText: s
     if (ms !== undefined) h.set("retry-after-ms", String(ms));
   }
   const e = classifyHttpError(status, h, bodyText, nowMs, redact);
+  if (e.providerType === undefined && gstatus !== undefined) {
+    // The shared classifier reads `error.type`; Gemini names the gRPC status `error.status`. Same error, with the status kept.
+    const init: ProviderErrorInit = { providerType: gstatus, retryable: e.retryable, ...(e.cause === undefined ? {} : { cause: e.cause }) };
+    if (e.status !== undefined) init.status = e.status;
+    if (e.retryAfterMs !== undefined) init.retryAfterMs = e.retryAfterMs;
+    if (e.code !== undefined) init.code = e.code;
+    if (e.providerMessage !== undefined) init.providerMessage = e.providerMessage;
+    if (e.timeoutPhase !== undefined) init.timeoutPhase = e.timeoutPhase;
+    return new ProviderError(e.kind, e.message, init);
+  }
   // RULING: Gemini's 429 `RESOURCE_EXHAUSTED` covers both the per-minute limit and an exhausted daily quota/billing cap and
   // the body does not tell them apart reliably; it stays `rate_limit` + retryable, and the retry budget (C1) bounds it.
   return e;

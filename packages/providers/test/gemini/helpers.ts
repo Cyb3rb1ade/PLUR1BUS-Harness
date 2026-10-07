@@ -19,9 +19,9 @@ export class MemStore {
   put(ref: string, v: string) { this.#m.set(ref, v); }
 }
 
-export function adapterFor(stub: Stub, over: Partial<GeminiConfig> = {}, key: string | undefined = KEY) {
+export function adapterFor(stub: Stub, over: Partial<GeminiConfig> = {}, key: string | null | undefined = KEY) {
   const store = new MemStore();
-  if (key !== undefined) store.put("gemini:test", key);
+  if (key !== null && key !== undefined) store.put("gemini:test", key);
   return { store, adapter: createGeminiAdapter({ baseUrl: stub.baseUrl, credentials: secretStoreKey(store, "gemini:test"), ...over }) };
 }
 

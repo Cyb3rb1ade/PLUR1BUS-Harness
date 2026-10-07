@@ -46,6 +46,30 @@ tools, `toolChoice`, `parallelToolCalls`, `maxTokens`, `temperature`, `topP`, `s
   arguments are not a JSON object; the call keeps `argumentsError` when there is no hook or it declines. The real
   repair (D97) comes later.
 
+## Gemini (`createGeminiAdapter`)
+
+Native adapter for the Google Generative Language API (`POST {base}/models/{model}:generateContent` and
+`:streamGenerateContent?alt=sse`, default base `https://generativelanguage.googleapis.com/v1beta`). Same `ChatRequest`,
+`ChatResult`, `ChatStreamEvent` and `ProviderError` as above; the system messages become `systemInstruction`, tools
+become `functionDeclarations`, tool results `functionResponse` parts.
+
+```ts
+import { createGeminiAdapter, secretStoreKey } from "@plur1bus/providers";
+
+const gemini = createGeminiAdapter({ credentials: secretStoreKey(secretStore, profile.secret_ref) });
+```
+
+- **Key**: read from the secret store (any `{ get(ref) }`, i.e. the core `SecretStore`) on every call; sent only as the
+  `x-goog-api-key` header, never in the URL, query, body, an error message or a log; scrubbed from provider texts;
+  refused over plain `http:` to a non-loopback host. No key is an `auth` error before any I/O.
+- **Safety blocks** are `GeminiSafetyBlockError` (a `content_filter` `ProviderError`, never retryable) with `source`
+  (`prompt` | `candidate`), the verbatim `reason` and the `ratings`; text generated before a candidate block is in `partial`.
+- **Usage** from `usageMetadata`: output = candidates + thoughts, input = prompt + tool-use prompt, cached and reasoning
+  tokens separate. **Tool-call ids** are positional (`call_<n>`); a Gemini 3 `thoughtSignature` rides in the id after `~`
+  and is replayed automatically when the id is sent back.
+- Not covered here: `safetySettings`, context caching (`cachedContent`), Vertex AI (ADC auth), embeddings, remote image URLs.
+  Decisions the API left open are `// RULING:` comments in `src/gemini/`.
+
 ## Rulings
 
 Decisions the spec left open are marked `// RULING:` in the source (finish reason `content_filter` is a result, not
