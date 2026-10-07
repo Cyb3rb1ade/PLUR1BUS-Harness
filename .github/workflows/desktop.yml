@@ -8,13 +8,19 @@ on:
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
+    inputs:
+      f2_acceptance:
+        description: Run F2 Windows x64 repetitions instead of the normal matrix
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ inputs.f2_acceptance && '-f2' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   desktop:
+    if: ${{ !inputs.f2_acceptance }}
     strategy:
       fail-fast: false
       matrix:
@@ -175,6 +181,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   stub-smoke:
+    if: ${{ !inputs.f2_acceptance }}
     name: stub smoke (${{ matrix.runtime }})
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -196,3 +203,66 @@ jobs:
         run: node apps/desktop/stub-image/build.mjs --runtime "${{ matrix.runtime }}"
       - name: Verify stub lifecycle and container restrictions
         run: node apps/desktop/stub-image/smoke.mjs --runtime "${{ matrix.runtime }}"
+  f2-acceptance:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.f2_acceptance }}
+    name: F2 ${{ matrix.suite }} (${{ matrix.cookie_guard }})
+    runs-on: windows-2025
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: spa
+            cookie_guard: "on"
+            iterations: 20
+          - suite: spa
+            cookie_guard: "off"
+            iterations: 20
+          - suite: startup
+            cookie_guard: "on"
+            iterations: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY: "1"
+      PLUR1BUS_DESKTOP_COOKIE_GUARD: ${{ matrix.cookie_guard }}
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
+      GIT_CONFIG_VALUE_0: "git@github.com:"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable snapshot
+        with:
+          toolchain: "1.95"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @plur1bus/desktop-ui build
+      - name: Run independent repetitions (no retries)
+        timeout-minutes: ${{ matrix.suite == 'spa' && 100 || 60 }}
+        run: node apps/desktop/scripts/windows-flake-loop.mjs "${{ matrix.suite }}" "${{ matrix.iterations }}" "$RUNNER_TEMP/f2-${{ matrix.suite }}"
+      - name: Preserve exact-head evidence
+        if: always()
+        run: |
+          echo "Head: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Suite: ${{ matrix.suite }}, cookie guard: ${{ matrix.cookie_guard }}, requested iterations: ${{ matrix.iterations }}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$RUNNER_TEMP/f2-${{ matrix.suite }}/summary.json" ]]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/f2-${{ matrix.suite }}/summary.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: f2-${{ matrix.suite }}-${{ matrix.cookie_guard }}-${{ github.sha }}
+          path: ${{ runner.temp }}/f2-${{ matrix.suite }}/
+          if-no-files-found: error
+          retention-days: 7

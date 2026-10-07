@@ -1,9 +1,9 @@
 # F2 Windows validation request
 
 Scope: main-based A/B fixes and C measurement, separate from WP6 PR #87.
-No `.github/workflows` file is changed in this branch. Request to the owner of
-the workflow area (PR #99 is already merged): provide dispatch-only, Windows x64 `windows-2025` acceptance jobs
-that check out this PR's exact head and run the commands below after the normal
+Owner-approved `desktop.yml` dispatch input `f2_acceptance=true` runs three
+Windows x64 `windows-2025` acceptance jobs, checking out the dispatch SHA.
+They run the commands below after the normal
 Node 24.21/pnpm 10.28/Rust 1.95 setup, frozen install and desktop UI build.
 
 ```bash
