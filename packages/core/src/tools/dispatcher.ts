@@ -17,6 +17,10 @@ export interface DispatchContext {
   /** The opaque principal the call runs under (D17). */
   principal: string;
   sessionId?: string;
+  /** The D36/D105 task the call belongs to: task grants, the repeat-denial rule and the prompt cap are per task. */
+  taskId?: string;
+  /** The turn the call belongs to (the approval binding, D109 §6). Default: the call id. */
+  turnId?: string;
   /** Trust of the surface the call originates from (D109 §5). */
   surface: SurfaceTrust;
   signal: AbortSignal;
