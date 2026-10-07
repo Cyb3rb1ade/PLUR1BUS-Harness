@@ -139,8 +139,8 @@ describe("shell", opts, () => {
       assert.deepEqual(labels.map((s) => s.trim()), GROUPS);
       const groupItems = async (name: string): Promise<string[]> => (await nav.getByRole("list", { name }).getByRole("link").allTextContents()).map((s) => s.trim());
       assert.deepEqual(await groupItems("Workspace"), ["Chat", "Projects", "Agents", "Inbox", "Memories & Dreams"]);
-      assert.deepEqual(await groupItems("Build"), ["Library", "Skills", "Plugins", "Switchboard", "Recurring Tasks"]);
-      assert.deepEqual(await groupItems("Control"), ["Approvals", "Usage & Quota", "Logs"]);
+      assert.deepEqual(await groupItems("Build"), ["Library", "Skills", "Plugins", "Models", "Switchboard", "Recurring Tasks"]);
+      assert.deepEqual(await groupItems("Control"), ["Approvals", "Usage & Quota", "Doctor", "Logs"]);
       assert.deepEqual((await nav.locator(".nav-bottom a").allTextContents()).map((s) => s.trim()), ["Settings", "Help"]);
       assert.equal(await page.getByRole("button", { name: "Search everything" }).isDisabled(), true);
     });

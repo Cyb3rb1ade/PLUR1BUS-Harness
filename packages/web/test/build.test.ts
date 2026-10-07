@@ -65,3 +65,12 @@ test("tokens.css: the two light blocks are identical and every token has a dark 
   const baseNames = new Set(decls(base).map((d) => d.split(":")[0]));
   for (const d of decls(attr)) assert.ok(baseNames.has(d.split(":")[0]), `${d.split(":")[0]} missing from the dark base`);
 });
+
+test("the shipped bundle has no pattern gallery; a gallery build has it", async () => {
+  assert.doesNotMatch(await read("main.js"), /gallery boom/);
+  const withGallery = await mkdtemp(join(tmpdir(), "p1web-gallery-"));
+  try {
+    await buildWeb(withGallery, { gallery: true });
+    assert.match(await readFile(join(withGallery, "main.js"), "utf8"), /gallery boom/);
+  } finally { await rm(withGallery, { recursive: true, force: true }); }
+});

@@ -2,14 +2,15 @@ import { effect } from "@preact/signals";
 import { h } from "preact";
 import type { View } from "./view.ts";
 import { useLayoutEffect, useRef } from "preact/hooks";
+import { ErrorBoundary } from "./components/error-boundary.ts";
 import { HeaderActions } from "./components/controls.ts";
 import { closeMenu, menuOpen, Sidebar } from "./components/sidebar.ts";
 import { lang, t } from "./i18n.ts";
-import { ALL_ITEMS, LANDING } from "./nav.ts";
+import { LANDING } from "./nav.ts";
 import { LoginPage } from "./pages/login.ts";
 import { NotFoundPage } from "./pages/not-found.ts";
-import { PlaceholderPage } from "./pages/placeholder.ts";
-import { navigate, path, route, type Route } from "./router.ts";
+import { pageFor } from "./pages/registry.ts";
+import { navigate, path, resolve, route, type Route } from "./router.ts";
 import { sessionState } from "./session.ts";
 
 let returnTo: string | null = null;
@@ -23,7 +24,7 @@ export function bindApp(): () => void {
       if (s.status === "checking") return;
       if (s.status === "anonymous" && r.kind !== "login") {
         const p = path.value;
-        returnTo = ALL_ITEMS.some((i) => i.path === p) ? p : null;
+        returnTo = resolve(p).kind === "page" ? p : null;
         navigate("/login", { replace: true });
       } else if (s.status === "authenticated" && r.kind === "login") {
         const to = returnTo ?? LANDING;
@@ -41,9 +42,12 @@ export function bindApp(): () => void {
   return () => stops.forEach((s) => s());
 }
 
-function Page({ r }: { r: Route }): View {
-  if (r.kind === "page") return h(PlaceholderPage, { item: r.item });
-  return h(NotFoundPage, {});
+/** The routed page, from the registry, inside its own error boundary (keyed by page so a navigation resets a failure). */
+function Routed({ r }: { r: Route }): View {
+  if (r.kind !== "page") return h(NotFoundPage, {});
+  const Comp = pageFor(r.item.id);
+  const props = r.sub === undefined ? { item: r.item } : { item: r.item, sub: r.sub };
+  return h(ErrorBoundary, { key: r.item.id, title: t(r.item.label) }, h(Comp, props));
 }
 
 function Shell({ r }: { r: Route }): View {
@@ -62,7 +66,7 @@ function Shell({ r }: { r: Route }): View {
     h(Sidebar, {}),
     h("div", { class: "content", inert: menuOpen.value, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Escape") closeMenu(); } },
       h("header", { class: "topbar" }, h(HeaderActions, {})),
-      h("main", { id: "main", ref: main, class: "page" }, h(Page, { r }))));
+      h("main", { id: "main", ref: main, class: "page" }, h(Routed, { r }))));
 }
 
 export function App(): View | null {

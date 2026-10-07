@@ -74,6 +74,8 @@ export const en = {
   "state.unavailable.body": "This feature is not available on this harness.",
   "state.retry": "Try again",
   "ld.back": "Back to list",
+  "ld.select": "Select an item to see its details.",
+  "nav.gallery": "Pattern gallery",
   "dialog.close": "Close",
 } as const;
 
@@ -151,5 +153,7 @@ export const de: Record<keyof typeof en, string> = {
   "state.unavailable.body": "Diese Funktion ist bei dieser Harness nicht verfügbar.",
   "state.retry": "Erneut versuchen",
   "ld.back": "Zurück zur Liste",
+  "ld.select": "Wähle einen Eintrag, um seine Details zu sehen.",
+  "nav.gallery": "Mustergalerie",
   "dialog.close": "Schließen",
 };

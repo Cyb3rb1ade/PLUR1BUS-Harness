@@ -23,7 +23,7 @@ let browser: Browser | undefined;
 /** One build and one browser per test file (node --test runs each file in its own process). */
 export async function setup(): Promise<void> {
   distDir = await mkdtemp(join(tmpdir(), "p1web-dist-"));
-  await buildWeb(distDir);
+  await buildWeb(distDir, { gallery: true });
   if (executablePath) browser = await chromium.launch({ executablePath, headless: true });
 }
 export async function teardown(): Promise<void> {
@@ -77,4 +77,12 @@ export async function signIn(page: Page, token = TOKEN, lang: "en" | "de" = "en"
   const l = lang === "de" ? { field: "Owner-Token", go: "Anmelden" } : { field: "Owner token", go: "Sign in" };
   await page.getByLabel(l.field, { exact: true }).fill(token);
   await page.getByRole("button", { name: l.go }).click();
+}
+
+/** Sign in and open a (gallery or page) route by hash; resolves when the shell is up. */
+export async function openRoute(page: Page, hash: string, lang: "en" | "de" = "en"): Promise<void> {
+  await signIn(page, TOKEN, lang);
+  await page.locator(".sidebar").waitFor();
+  await page.locator("main h1").first().waitFor();
+  await page.evaluate((h) => { location.hash = h; }, hash);
 }

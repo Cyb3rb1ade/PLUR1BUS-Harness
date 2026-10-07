@@ -1,9 +1,10 @@
 import { computed, signal } from "@preact/signals";
-import { ALL_ITEMS, LANDING, type NavItem } from "./nav.ts";
+import { ALL_ITEMS, GALLERY_ENABLED, GALLERY_ITEM, LANDING, type NavItem } from "./nav.ts";
 
 export type Route =
   | { kind: "login" }
-  | { kind: "page"; item: NavItem }
+  /** `sub` is the path after the first segment (`/memories/dreams` -> "dreams", `/chat/ses_1` -> "ses_1"), absent when empty. */
+  | { kind: "page"; item: NavItem; sub?: string }
   | { kind: "not-found"; path: string };
 
 function currentPath(): string {
@@ -17,8 +18,9 @@ export const path = signal(currentPath());
 
 export function resolve(p: string): Route {
   if (p === "/login") return { kind: "login" };
-  const found = ALL_ITEMS.find((i) => i.path === p);
-  if (found) return { kind: "page", item: found };
+  const [first = "", ...rest] = p.split("/").filter((seg) => seg !== "");
+  const found = ALL_ITEMS.find((i) => i.path === `/${first}`) ?? (GALLERY_ENABLED && first === GALLERY_ITEM.id ? GALLERY_ITEM : undefined);
+  if (found) return rest.length === 0 ? { kind: "page", item: found } : { kind: "page", item: found, sub: rest.join("/") };
   return { kind: "not-found", path: p };
 }
 
