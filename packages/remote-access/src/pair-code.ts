@@ -64,11 +64,20 @@ export interface PairCodeStoreOptions {
   readonly maxPending?: number;
   /** Injected so tests can count derivations. */
   readonly derive?: DeriveKey;
+  /** Failed redeems (from anyone) after which an open code is burned. Default 10. */
+  readonly maxCodeFailures?: number;
+  /** Failed redeems from one source inside `sourceWindowMs` that lock that source. Default 5. */
+  readonly sourceMaxFailures?: number;
+  readonly sourceWindowMs?: number;
+  readonly sourceLockMs?: number;
 }
 
 export interface IssuedCode { readonly id: string; readonly code: string; readonly expiresAt: EpochMs }
 export interface OpenCode { readonly id: string; readonly salt: Buffer; readonly key: Buffer; readonly expiresAt: EpochMs }
-export type RedeemResult = { readonly ok: true; readonly id: string } | { readonly ok: false; readonly reason: "invalid" };
+export type RedeemResult =
+  | { readonly ok: true; readonly id: string }
+  | { readonly ok: false; readonly reason: "invalid" }
+  | { readonly ok: false; readonly reason: "locked"; readonly retryAfterMs: number };
 export interface SnapshotEntry {
   readonly id: string; readonly salt: string; readonly verifier: string;
   readonly expiresAt: EpochMs; readonly used: boolean; readonly failures: number;
@@ -79,13 +88,22 @@ export class PairCodeStore {
   protected readonly ttlMs: number;
   protected readonly maxPending: number;
   protected readonly derive: DeriveKey;
+  protected readonly maxCodeFailures: number;
+  protected readonly sourceMaxFailures: number;
+  protected readonly sourceWindowMs: number;
+  protected readonly sourceLockMs: number;
   protected entries: Entry[] = [];
+  protected sources = new Map<string, { fails: EpochMs[]; lockedUntil: EpochMs }>();
 
   constructor(opts: PairCodeStoreOptions) {
     this.params = opts.params ?? DEFAULT_ARGON2;
     this.ttlMs = opts.ttlMs ?? CODE_TTL_MS;
     this.maxPending = opts.maxPending ?? MAX_PENDING;
     this.derive = opts.derive ?? deriveKey;
+    this.maxCodeFailures = opts.maxCodeFailures ?? 10;
+    this.sourceMaxFailures = opts.sourceMaxFailures ?? 5;
+    this.sourceWindowMs = opts.sourceWindowMs ?? 600_000;
+    this.sourceLockMs = opts.sourceLockMs ?? 900_000;
   }
 
   protected isOpen(e: Entry, now: EpochMs): boolean {
@@ -115,8 +133,14 @@ export class PairCodeStore {
   }
 
   /** Does the same work (one Argon2id per open code, one dummy when none is open) and the same constant-time
-   *  comparisons whatever the input looks like, and never answers more than "invalid". */
-  redeem(input: string, now: EpochMs): RedeemResult {
+   *  comparisons whatever the input looks like. Answers only "invalid" — except that a source with too many recent
+   *  failures is refused up front as "locked", before any work is done for it. Every failure counts against every open
+   *  code (the guesser's target is unknown) and burns a code at `maxCodeFailures`, so the 40 bits of a code cannot be
+   *  searched from any number of sources. A burned or redeemed code is "spent". */
+  redeem(input: string, now: EpochMs, source = "unknown"): RedeemResult {
+    const state = this.sources.get(source);
+    if (state !== undefined && now < state.lockedUntil) return { ok: false, reason: "locked", retryAfterMs: state.lockedUntil - now };
+
     const code = normalizeCode(input);
     const probe = code ?? "AAAAAAAA";
     const open = this.entries.filter((e) => this.isOpen(e, now));
@@ -128,9 +152,27 @@ export class PairCodeStore {
       const candidate = verifierOf(this.derive(probe, e.salt, this.params));
       if (timingSafeEqual(candidate, e.verifier) && code !== undefined) hit = e;
     }
-    if (hit === undefined) return { ok: false, reason: "invalid" };
-    hit.used = true;
-    return { ok: true, id: hit.id };
+    if (hit !== undefined) {
+      hit.used = true;
+      this.sources.delete(source);
+      return { ok: true, id: hit.id };
+    }
+    this.recordFailure(source, now, open);
+    return { ok: false, reason: "invalid" };
+  }
+
+  protected recordFailure(source: string, now: EpochMs, open: readonly Entry[]): void {
+    for (const e of open) {
+      e.failures++;
+      if (e.failures >= this.maxCodeFailures) e.used = true;
+    }
+    const fails = (this.sources.get(source)?.fails ?? []).filter((t) => t > now - this.sourceWindowMs);
+    fails.push(now);
+    if (fails.length >= this.sourceMaxFailures) this.sources.set(source, { fails: [], lockedUntil: now + this.sourceLockMs });
+    else this.sources.set(source, { fails, lockedUntil: 0 });
+    for (const [key, st] of this.sources) {
+      if (now >= st.lockedUntil && !st.fails.some((t) => t > now - this.sourceWindowMs)) this.sources.delete(key);
+    }
   }
 
   snapshot(_now: EpochMs): SnapshotEntry[] {
