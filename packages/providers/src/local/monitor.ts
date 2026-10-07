@@ -72,7 +72,10 @@ export class LocalEndpointMonitor {
   }
 
   /** Fire and forget: errors are swallowed. */
-  refreshInBackground(): void { this.refresh().catch(() => {}); }
+  refreshInBackground(): void {
+    // Without a signal `refresh()` never rejects (service problems become statuses), so there is nothing to swallow.
+    void this.refresh();
+  }
 
   /** A connection error during a chat: the endpoint is unavailable right now, without waiting for a probe. */
   reportFailure(label: string): void {

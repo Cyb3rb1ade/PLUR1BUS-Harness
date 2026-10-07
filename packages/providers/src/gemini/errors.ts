@@ -41,7 +41,7 @@ export function isCandidateBlock(finishReason: string): boolean {
 }
 
 /** `safetyRatings` → the typed list; anything malformed is dropped, never thrown on (the block verdict stands). */
-export function readRatings(v: unknown, redact: (s: string) => string = (s) => s): GeminiSafetyRating[] {
+export function readRatings(v: unknown, redact: (s: string) => string): GeminiSafetyRating[] {
   if (!Array.isArray(v)) return [];
   const out: GeminiSafetyRating[] = [];
   for (const r of v) {

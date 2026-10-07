@@ -71,15 +71,16 @@ export class Run {
   }
 
   /** Set by the adapter once it knows its secrets; transport error text passes through it before it is stored. */
-  redact: (s: string) => string = (s) => s;
+  redact: ((s: string) => string) | undefined;
 
   interruption(cause: unknown): ProviderError {
     const c = this.#cause;
     if (c?.kind === "timeout") return new ProviderError("timeout", `provider call timed out (${c.phase})`, { timeoutPhase: c.phase, cause });
     if (c?.kind === "aborted") return new ProviderError("aborted", "call aborted by the caller", { cause: c.reason });
     // RULING: a transport error may echo request headers (and so the credential) in its text; neither the message nor the cause chain keeps the raw text.
-    const text = this.redact(cause instanceof Error ? cause.message : String(cause)).slice(0, 500);
-    const safeCause = new Error(text, cause instanceof Error && cause.cause !== undefined ? { cause: new Error(this.redact(String((cause.cause as { message?: unknown })?.message ?? cause.cause)).slice(0, 500)) } : undefined);
+    const scrub = (s: string): string => (this.redact === undefined ? s : this.redact(s));
+    const text = scrub(cause instanceof Error ? cause.message : String(cause)).slice(0, 500);
+    const safeCause = new Error(text, cause instanceof Error && cause.cause !== undefined ? { cause: new Error(scrub(String((cause.cause as { message?: unknown })?.message ?? cause.cause)).slice(0, 500)) } : undefined);
     safeCause.name = cause instanceof Error ? cause.name : "Error";
     safeCause.stack = `${safeCause.name}: ${text}`;
     return new ProviderError("network", `network failure: ${text}`, { cause: safeCause });
