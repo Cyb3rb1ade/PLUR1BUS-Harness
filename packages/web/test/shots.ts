@@ -68,7 +68,7 @@ async function check(page: Page, label: string): Promise<void> {
     const compact = w < 1024;
     const doc = document.documentElement;
     const small: string[] = [];
-    for (const el of document.querySelectorAll<HTMLElement>("a[href], button, input:not([type=hidden]), select, textarea, summary, [role=tab], [role=option]")) {
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>("a[href], button, input:not([type=hidden]), select, textarea, summary, [role=tab], [role=option]"))) {
       const b = el.getBoundingClientRect();
       const cs = getComputedStyle(el);
       if (b.width === 0 || b.height === 0 || cs.visibility === "hidden" || el.closest("[hidden]") || el.classList.contains("sr-only") || el.classList.contains("skip-link") || el.closest(".sidebar:not([data-open=true]) .wordmark")) continue; // skip link is shown on focus only; the rail wordmark is hidden text
