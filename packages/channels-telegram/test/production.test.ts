@@ -574,3 +574,51 @@ test("stop during asynchronous secret reading cannot resurrect a channel", async
   assert.deepEqual(await ch.health(), { ok: false });
   assert.equal(fake.callsOf("setWebhook").length, 0);
 });
+
+test("real framework router resolves the Telegram sender and isolates sessions per forum topic", async () => {
+  const { ChannelRouter } = await import("../../core/src/channels/router.ts");
+  const { systemClock } = await import("../../core/src/channels/clock.ts");
+  const sessions = new Map<string, string>();
+  const senders: string[] = [];
+  const submitted: { userId: string; text: string }[] = [];
+  const router = new ChannelRouter({
+    identity: {
+      resolve: async (sender) => {
+        senders.push(sender.senderId);
+        return { linked: true, userId: "linked-person" };
+      },
+      claimPairing: async () => ({ ok: false }),
+    },
+    sessions: {
+      findActive: async (chat) => sessions.get(chat.chatId) ?? null,
+      create: async (chat, owner) => {
+        assert.equal(owner.userId, "linked-person");
+        const id = `session-${sessions.size}`;
+        sessions.set(chat.chatId, id);
+        return id;
+      },
+      archive: async () => {},
+      submit: async (_id, input) => {
+        submitted.push(input);
+        return { text: "answer" };
+      },
+    },
+    clock: systemClock,
+    log: host.log,
+  });
+  const ch = make({ botUsername: "testbot" });
+  await ch.start({ ...host, receive: (msg) => router.handle(msg, (out) => ch.send(out)) });
+  try {
+    await deliver(ch, update(1, { message_thread_id: 7 }));
+    await deliver(ch, update(2, { message_thread_id: 8 }));
+    assert.deepEqual([...sessions.keys()], ["-42:7", "-42:8"]);
+    assert.deepEqual(senders, ["42", "42"]);
+    assert.ok(submitted.every((input) => input.userId === "linked-person"));
+    assert.deepEqual(
+      fake.callsOf("sendMessage").map((c) => c.body.message_thread_id),
+      [7, 8],
+    );
+  } finally {
+    await ch.stop();
+  }
+});
