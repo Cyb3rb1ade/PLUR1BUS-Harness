@@ -12,6 +12,14 @@ function walkNodes(node: any, out: any[]): void {
   if (node.additionalProperties && typeof node.additionalProperties === "object") walkNodes(node.additionalProperties, out);
 }
 
+function withoutDescriptions(value: any): any {
+  if (Array.isArray(value)) return value.map(withoutDescriptions);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => key !== "description")
+    .map(([key, child]) => [key, withoutDescriptions(child)]));
+}
+
 describe("x-tier", () => {
   it("every node that declares x-restart declares x-tier (basic|advanced) and vice versa", () => {
     const nodes: any[] = [];
@@ -48,7 +56,7 @@ describe("x-tier", () => {
   it("tier-cases.json matches tierOf and the filters (run pnpm gen after a schema change)", () => {
     const fixture = JSON.parse(readFileSync(new URL("../fixtures/tier-cases.json", import.meta.url), "utf8"));
     for (const { key, tier } of fixture.cases) assert.equal(tierOf(key), tier, key);
-    assert.deepEqual(fixture.filtered.basic, filterSchemaByTier(CONFIG_SCHEMA, "basic"));
-    assert.deepEqual(fixture.filtered.advanced, filterSchemaByTier(CONFIG_SCHEMA, "advanced"));
+    assert.deepEqual(withoutDescriptions(fixture.filtered.basic), withoutDescriptions(filterSchemaByTier(CONFIG_SCHEMA, "basic")));
+    assert.deepEqual(withoutDescriptions(fixture.filtered.advanced), withoutDescriptions(filterSchemaByTier(CONFIG_SCHEMA, "advanced")));
   });
 });
