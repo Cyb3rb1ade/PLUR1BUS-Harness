@@ -52,6 +52,8 @@ fn main() {
         Cmd::Audit { sub } => commands::audit::run(&out, &layout, sub),
         Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
+        Cmd::Grant { sub } => commands::grant::run(&out, &layout, sub),
+        Cmd::Approval { sub } => commands::approval::run(&out, &layout, sub),
         Cmd::Login(_) => {
             commands::stubs::milestone(&out, "login", "M2", "API keys and OAuth templates (D16)")
         }
