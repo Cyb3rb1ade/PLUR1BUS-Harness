@@ -82,7 +82,7 @@ describe("width tokens (rule 4)", opts, () => {
 
   test("at 2560 reading text stops at 72ch and the page content stops at 880 px, centred", async () => {
     await withApp({ width: 2560, height: 900 }, async ({ page }) => {
-      await openRoute(page, "#/models");
+      await openRoute(page, "#/gallery/actions"); // a settings-width page with a lead (Models no longer has one)
       await page.locator(".lead").waitFor();
       const r = await page.evaluate(() => {
         const lead = document.querySelector(".lead") as HTMLElement;
