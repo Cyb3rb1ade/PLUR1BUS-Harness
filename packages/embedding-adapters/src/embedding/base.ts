@@ -4,6 +4,7 @@
 import type { EmbeddingSettings } from "../config.ts";
 import { AdapterError, isAdapterError } from "../errors.ts";
 import { planBatches } from "../batching.ts";
+import { resolveSecret } from "../secret.ts";
 import { postJson } from "../http.ts";
 import { withRetry } from "../retry.ts";
 import { toFloat32Vectors } from "../validate.ts";
@@ -58,20 +59,6 @@ export function makeEmbeddingAdapter(settings: EmbeddingSettings, wire: Embeddin
   const identity = identityOf(settings);
   const provider = settings.provider;
 
-  async function resolveSecret(): Promise<string | undefined> {
-    if (settings.secretName === undefined) return undefined;
-    let value: string | undefined;
-    try {
-      value = await deps.getSecret(settings.secretName);
-    } catch {
-      throw new AdapterError("auth", `could not resolve secret "${settings.secretName}"`, { provider });
-    }
-    if (typeof value !== "string" || value === "" || /[\u0000-\u001f\u007f]/.test(value)) {
-      throw new AdapterError("auth", `secret "${settings.secretName}" is not available`, { provider });
-    }
-    return value;
-  }
-
   return {
     id: `${provider}:${settings.model}`,
     identity: () => identity,
@@ -101,7 +88,7 @@ export function makeEmbeddingAdapter(settings: EmbeddingSettings, wire: Embeddin
       provider,
     });
 
-    const secret = await resolveSecret();
+    const secret = await resolveSecret(deps.getSecret, settings.secretName, provider);
     const secrets = secret === undefined ? [] : [secret];
     const out: Float32Array[] = new Array(prepared.length);
     // Sequential on purpose: predictable rate-limit behaviour and a hard bound on concurrent load against local servers.

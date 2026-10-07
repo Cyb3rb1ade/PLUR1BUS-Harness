@@ -1,0 +1,34 @@
+{
+  "description": "synthetic vLLM shape (presumed)",
+  "status": 200,
+  "body": {
+    "id": "r",
+    "model": "m",
+    "usage": {
+      "total_tokens": 9
+    },
+    "results": [
+      {
+        "index": 2,
+        "relevance_score": 0.91,
+        "document": {
+          "text": "d"
+        }
+      },
+      {
+        "index": 0,
+        "relevance_score": 0.42,
+        "document": {
+          "text": "d"
+        }
+      },
+      {
+        "index": 1,
+        "relevance_score": 0.05,
+        "document": {
+          "text": "d"
+        }
+      }
+    ]
+  }
+}

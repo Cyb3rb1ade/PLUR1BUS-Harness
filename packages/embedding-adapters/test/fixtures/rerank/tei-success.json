@@ -1,0 +1,18 @@
+{
+  "description": "synthetic TEI shape: root array of {index, score} (presumed)",
+  "status": 200,
+  "body": [
+    {
+      "index": 2,
+      "score": 0.91
+    },
+    {
+      "index": 0,
+      "score": 0.42
+    },
+    {
+      "index": 1,
+      "score": 0.05
+    }
+  ]
+}
