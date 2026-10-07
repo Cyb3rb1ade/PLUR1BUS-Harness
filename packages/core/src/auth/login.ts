@@ -39,6 +39,8 @@ export interface LoginOptions {
   http: OAuthHttp;
   env: EnvSnapshot;
   pasteCallback?: boolean;
+  /** Explicit retry of a method offered by the current environment/profile plan. */
+  method?: LoginMethod;
   secretRef?: string;
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -168,7 +170,9 @@ export async function login(o: LoginOptions): Promise<LoginResult> {
   const timeoutMs = o.timeoutMs ?? 600_000;
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw error();
   const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(o.signal ? [o.signal] : [])]);
-  const method = planLogin(profile, o.env, { pasteCallback: o.pasteCallback }).method;
+  const plan = planLogin(profile, o.env, { pasteCallback: o.pasteCallback });
+  const method = o.method ?? plan.method;
+  if (![plan.method, ...plan.fallbacks].includes(method)) throw error();
   const ref = o.secretRef ?? profile.secret_ref;
   if (!ref) throw error();
   try {

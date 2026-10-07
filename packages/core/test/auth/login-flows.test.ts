@@ -109,3 +109,15 @@ for (const flow of ["loopback_ssh", "paste_callback", "device_code"] as const) i
   assert.equal(m.requests.filter(r => r.form.get("grant_type") === "refresh_token").length, 2);
   assert.ok(!inspect(audit).includes(MARK.access)); assert.ok(!inspect(audit).includes(MARK.refresh));
 });
+
+it("a headless caller can explicitly select SSH loopback from a device profile's planned fallbacks", async t => {
+  const m = await mockOAuth(); t.after(() => m.close()); const clock = new FakeClock();
+  const result = await login({ profile: m.profile({ deviceUrl: `${m.base}/device` }), method: "loopback_ssh", store: new InMemorySecretStore(), clock, http: createOAuthHttp({ egress: m.egress }), env: ssh, sleep: async ms => clock.advance(ms),
+    onAuthorization: async info => { assert.match(info.sshHint!, /127\.0\.0\.1/); await fetch(await m.callback(info.authorizationUrl)); },
+  });
+  assert.equal(result.method, "loopback_ssh"); assert.equal(m.requests.filter(r => r.path === "/device").length, 0);
+});
+it("method overrides cannot enable a graphical browser in a remote session", async t => {
+  const m = await mockOAuth(); t.after(() => m.close()); let opened = false;
+  await assert.rejects(login({ profile: m.profile(), method: "loopback_pkce", store: new InMemorySecretStore(), clock: new FakeClock(), http: createOAuthHttp({ egress: m.egress }), env: ssh, timeoutMs: 30, openBrowser: async () => { opened = true; } }), (e: any) => e.code === "login_failed"); assert.equal(opened, false);
+});

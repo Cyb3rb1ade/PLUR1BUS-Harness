@@ -83,8 +83,9 @@ SSH and remote markers win over a display. `login` executes the selected method:
 | Headless PKCE without device endpoint | `loopback_ssh`; `onAuthorization` receives authorization URL and `ssh -L <port>:127.0.0.1:<port> <this-host>` |
 | Explicit `pasteCallback: true` | `paste_callback`; `readCallback` supplies the full redirect URL |
 
-The plan includes ordered fallback choices. A caller explicitly retries a fallback
-(e.g. paste when forwarding is unavailable); a denial, wrong state or timeout never
+The plan includes ordered fallback choices. A caller explicitly selects a planned fallback with `method`
+(e.g. `loopback_ssh` after an unavailable device endpoint, or `paste_callback`
+when forwarding is unavailable); a denial, wrong state or timeout never
 silently starts a different login. API-key entry, delegated CLI login and ADC setup
 remain separate operations, not OAuth flows through `login`.
 
