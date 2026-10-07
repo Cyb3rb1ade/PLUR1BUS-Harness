@@ -38,6 +38,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
 | `oauth` | object | `{}` | live |  |
 | `decision` | object | `{}` | live |  |
+| `modelProfiles` | object | `{}` | live | Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order. |
 | `models.scan.enabled` | boolean | `true` | live |  |
 | `models.scan.intervalHours` | integer | `24` | live |  |
 | `secrets.fileFallback.enabled` | boolean | `false` | live | Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3. |
