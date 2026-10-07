@@ -60,3 +60,32 @@ cd packages/providers && pnpm test      # or: node ../../scripts/test-package.mj
 
 Only hand-made fixtures (`test/fixtures/`, synthetic ids, no keys) and a local stub HTTP server on `127.0.0.1`;
 no live call, no network beyond loopback. Every test has a hard timeout.
+
+## Gemini (`src/gemini/`)
+
+`createGeminiAdapter` speaks the Google Generative Language API (`native` in `docs/provider-matrix.md`):
+`POST {baseUrl}/models/{model}:generateContent` and `:streamGenerateContent?alt=sse`, default base
+`https://generativelanguage.googleapis.com/v1beta`. Same `complete()` / `stream()` surface, request/result/event types and
+`ProviderError` as above.
+
+```ts
+import { createGeminiAdapter } from "@plur1bus/providers";
+
+const gemini = createGeminiAdapter({
+  credentials: { apiKey: ({ signal }) => secretStoreLease("google-gemini", signal) },   // a port; the core's secret store implements it
+});
+```
+
+- System/developer messages become `systemInstruction`; tools become `functionDeclarations` (`parametersJsonSchema`); a tool call is
+  a `functionCall` part, its result a `functionResponse` in the next user turn. A call the model sends without an id gets
+  `gemini-call-<n>`; a `thoughtSignature` is surfaced on `ToolCall` and must be handed back on `AssistantToolCall`.
+- **Safety blocks are typed errors**: `promptFeedback.blockReason` and a candidate cut by `SAFETY`, `BLOCKLIST`,
+  `PROHIBITED_CONTENT`, `SPII`, `IMAGE_SAFETY` or `RECITATION` throw `ProviderError` kind `content_filter` with `code` = the reason
+  (a mid-stream cut keeps the text so far in `partial`).
+- Tokens come from `usageMetadata` (thinking tokens count as output; `cachedContentTokenCount` as cached input).
+- **The API key** is asked for on every call, sent only as `x-goog-api-key`, refused in the base URL (`?key=` is rejected), and scrubbed
+  (the exact value and anything shaped like a Google key) from every provider message. It is never logged.
+- A 400 that means an invalid key is `auth`, an oversized prompt `context_length`; a 429 takes `retryAfterMs` from `Retry-After`,
+  else from the body's `RetryInfo.retryDelay`.
+
+Tests: `test/gemini/` (fake server on loopback, including `secret-leak.test.ts`).
