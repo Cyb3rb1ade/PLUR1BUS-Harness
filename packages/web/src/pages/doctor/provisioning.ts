@@ -7,7 +7,7 @@ import { h } from "preact";
 import { useId, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge, Card, type BadgeTone } from "../../components/card.ts";
-import { t } from "../../i18n.ts";
+import { t, type Key } from "../../i18n.ts";
 import { CHECK_SCHEMA, MAX_CHECK_BYTES, parseCheckDoc, type CheckItem, type CheckParse, type CheckStatus } from "./model.ts";
 import { DataTable, type Col } from "./views.ts";
 
@@ -28,6 +28,8 @@ export function downloadText(raw: string, name = DOWNLOAD_NAME): void {
 
 type Loaded = Extract<CheckParse, { ok: true }>;
 type ErrKey = "too-large" | "not-json" | "wrong-schema" | "malformed" | "read";
+// i18n keys are camelCase segments (test/i18n.test.ts), the parse reasons are kebab-case.
+const ERR_TEXT = { "too-large": "doctor.prov.err.tooLarge", "not-json": "doctor.prov.err.notJson", "wrong-schema": "doctor.prov.err.wrongSchema", malformed: "doctor.prov.err.malformed", read: "doctor.prov.err.read" } as const satisfies Record<ErrKey, Key>;
 
 async function readFile(file: File): Promise<Loaded | { error: ErrKey }> {
   if (file.size > MAX_CHECK_BYTES) return { error: "too-large" };
@@ -69,7 +71,7 @@ export function ProvisioningCard(): View {
     h("div", { class: "field" },
       h("label", { for: inputId }, t("doctor.prov.file")),
       h("input", { id: inputId, type: "file", accept: ".json,application/json", onChange: (e: Event) => { void onFile(e); } })),
-    error ? h("p", { role: "alert" }, t(`doctor.prov.err.${error}`)) : null,
+    error ? h("p", { role: "alert" }, t(ERR_TEXT[error])) : null,
     loaded
       ? h("div", null,
           h("p", null, h(Badge, { tone: loaded.doc.ok ? "ok" : "err" }, CHECK_SCHEMA), " ", t(loaded.doc.ok ? "doctor.prov.summaryOk" : "doctor.prov.summaryFail")),
