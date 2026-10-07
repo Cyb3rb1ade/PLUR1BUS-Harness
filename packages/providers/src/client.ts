@@ -6,10 +6,10 @@ import type {
   CallOptions, ChatCompletionsAdapter, ChatCompletionsConfig, ChatRequest, ChatStreamEvent, Limits, Timeouts,
 } from "./types.ts";
 
-const DEFAULT_TIMEOUTS: Timeouts = { headersMs: 60_000, idleMs: 60_000, totalMs: 600_000 };
-const DEFAULT_LIMITS: Limits = { maxEventBytes: 4 * 1024 * 1024, maxToolArgumentBytes: 1024 * 1024, maxBodyBytes: 16 * 1024 * 1024 };
-const FORBIDDEN_HEADERS = new Set(["authorization", "proxy-authorization", "cookie", "host", "content-length", "content-type", "accept", "transfer-encoding", "connection"]);
-const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+export const DEFAULT_TIMEOUTS: Timeouts = { headersMs: 60_000, idleMs: 60_000, totalMs: 600_000 };
+export const DEFAULT_LIMITS: Limits = { maxEventBytes: 4 * 1024 * 1024, maxToolArgumentBytes: 1024 * 1024, maxBodyBytes: 16 * 1024 * 1024 };
+export const FORBIDDEN_HEADERS = new Set(["authorization", "proxy-authorization", "cookie", "host", "content-length", "content-type", "accept", "transfer-encoding", "connection"]);
+export const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 type Cause = { kind: "aborted"; reason: unknown } | { kind: "timeout"; phase: "headers" | "idle" | "total" };
 
@@ -27,7 +27,7 @@ function endpoint(baseUrl: string): URL {
  * One call's lifetime: the combined abort signal (caller + three timeouts), the timers, and the single place
  * that decides what an interruption is. `dispose()` always runs and leaves no timer, request or listener behind.
  */
-class Run {
+export class Run {
   readonly controller = new AbortController();
   readonly #timeouts: Timeouts;
   readonly #userSignal: AbortSignal | undefined;
@@ -91,7 +91,7 @@ class Run {
   }
 }
 
-async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerator<Uint8Array, void, void> {
+export async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerator<Uint8Array, void, void> {
   const reader = body.getReader();
   try {
     for (;;) {
@@ -107,7 +107,7 @@ async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerat
   }
 }
 
-async function readText(body: ReadableStream<Uint8Array> | null, run: Run, max: number): Promise<string> {
+export async function readText(body: ReadableStream<Uint8Array> | null, run: Run, max: number): Promise<string> {
   if (!body) return "";
   const dec = new TextDecoder("utf-8");
   let out = "", bytes = 0;
