@@ -1,5 +1,7 @@
+/** Maximum number of bytes accepted for an unterminated JSON-RPC line. */
 export const MAX_LINE_BYTES = 4 * 1024 * 1024;
 
+/** Error raised when an NDJSON line exceeds {@link MAX_LINE_BYTES}. */
 export class LineTooLong extends Error {
   constructor(bytes: number) { super(`line exceeds ${MAX_LINE_BYTES} bytes (${bytes})`); this.name = "LineTooLong"; }
 }
@@ -7,6 +9,7 @@ export class LineTooLong extends Error {
 /** Lone surrogates serialise as `\udXXX` escapes, which strict parsers (serde_json in the Rust CLI) refuse. */
 const SURROGATE_ESCAPE = /\\ud[89a-f]/i;
 
+/** Encodes one JSON value as UTF-8 NDJSON, including its terminating newline. */
 export function encodeLine(value: unknown): Buffer {
   let text = JSON.stringify(value);
   // Backstop for text the core does not produce itself (engine output): a well-formed pair is emitted raw, so an
@@ -21,6 +24,7 @@ export function encodeLine(value: unknown): Buffer {
  *  unterminated tail passed the limit, the `LineTooLong` (the connection is no longer in sync then). */
 export interface DecodedChunk { values: unknown[]; bad: Error[]; tooLong?: LineTooLong }
 
+/** Incremental NDJSON decoder that retains a partial line between chunks. */
 export class LineDecoder {
   #buf: Buffer = Buffer.alloc(0);
 

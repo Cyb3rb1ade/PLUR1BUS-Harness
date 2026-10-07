@@ -6,8 +6,10 @@ const DEFAULT_JSONRPC_CODE: Record<ErrorCode, number> = {
   E_NOT_FOUND: -32000, E_DENIED: -32000, E_APPROVAL_REQUIRED: -32000, E_CONFLICT: -32000, E_STORAGE: -32000,
 };
 
+/** Structured error data serialized in a JSON-RPC error response. */
 export interface RpcErrorData { error: ErrorCode; reason?: string; detail?: string; ids?: Record<string, string> }
 
+/** An application-level RPC error with a harness error code and optional diagnostic metadata. */
 export class RpcError extends Error {
   error: ErrorCode; reason?: string; detail?: string; ids?: Record<string, string>; jsonrpcCode: number;
   constructor(error: ErrorCode, message: string, opts: { reason?: string; detail?: string; ids?: Record<string, string>; jsonrpcCode?: number } = {}) {
