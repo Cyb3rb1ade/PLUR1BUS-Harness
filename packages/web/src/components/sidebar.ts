@@ -7,6 +7,8 @@ import { icon } from "../icons.ts";
 import { compact } from "../layout.ts";
 import { BOTTOM, GROUPS, LANDING, type NavItem } from "../nav.ts";
 import { route } from "../router.ts";
+import { shortcut } from "../palette/hotkey.ts";
+import { openPalette } from "../palette/state.ts";
 
 export const menuOpen = signal(false);
 export const closeMenu = (): void => { menuOpen.value = false; };
@@ -59,8 +61,8 @@ export function Sidebar(): View {
           onClick: () => { menuOpen.value = !menuOpen.value; },
         }, icon(open ? "close" : "menu"), h("span", { class: "sr-only" }, open ? t("nav.close") : t("nav.menu"))),
         h("a", { class: "wordmark", href: `#${LANDING}`, "aria-label": "PLUR1BUS" }, "PLUR", h("span", { class: "one" }, "1"), "BUS")),
-      // ⌘K search is separate M3 scope; the pill is drawn but disabled.
-      h("button", { type: "button", class: "search-pill", disabled: true }, icon("search"), h("span", { class: "label" }, t("nav.search"))),
+      // Opens the command palette (palette/); ⌘K / Ctrl+K and "/" do the same from anywhere.
+      h("button", { type: "button", class: "search-pill", "aria-haspopup": "dialog", "aria-keyshortcuts": `${shortcut()} /`, onClick: openPalette }, icon("search"), h("span", { class: "label" }, t("nav.search"))),
       h("nav", { id: "sidebar-nav", "aria-label": t("nav.main") },
         GROUPS.map((g) => h("div", { class: "nav-group", key: g.id },
           h("p", { class: "group-label", id: `grp-${g.id}` }, t(g.label)),

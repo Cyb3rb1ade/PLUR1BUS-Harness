@@ -142,7 +142,7 @@ describe("shell", opts, () => {
       assert.deepEqual(await groupItems("Build"), ["Library", "Skills", "Plugins", "Models", "Switchboard", "Recurring Tasks"]);
       assert.deepEqual(await groupItems("Control"), ["Approvals", "Usage & Quota", "Doctor", "Logs"]);
       assert.deepEqual((await nav.locator(".nav-bottom a").allTextContents()).map((s) => s.trim()), ["Settings", "Help"]);
-      assert.equal(await page.getByRole("button", { name: "Search everything" }).isDisabled(), true);
+      assert.equal(await page.getByRole("button", { name: "Search everything" }).isDisabled(), false); // opens the command palette (test/palette-e2e.test.ts)
     });
   });
 

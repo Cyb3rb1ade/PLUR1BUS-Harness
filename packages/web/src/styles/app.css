@@ -1,4 +1,5 @@
 @import "./tokens.css";
+@import "./palette.css"; /* command palette (src/palette); declared after the shared rules it overrides via specificity, not order */
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -45,7 +46,8 @@ input[aria-invalid="true"] { border-color: var(--err-ink); }
 .sidebar-head { display: flex; align-items: center; gap: 8px; padding: 0 6px; }
 .menu-btn { display: none; }
 .search-pill { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--hover-bg); color: var(--ink-2); text-align: left; }
-.search-pill:disabled { opacity: 0.8; }
+.search-pill { cursor: pointer; }
+.search-pill:hover { background: var(--active-bg); color: var(--ink); }
 .sidebar nav { display: flex; flex-direction: column; flex: 1; gap: 14px; min-height: 0; }
 .sidebar ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .group-label { margin: 0 0 4px; padding: 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); }

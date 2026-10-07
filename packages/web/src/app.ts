@@ -7,6 +7,8 @@ import { HeaderActions } from "./components/controls.ts";
 import { closeMenu, menuOpen, Sidebar } from "./components/sidebar.ts";
 import { lang, t } from "./i18n.ts";
 import { LANDING } from "./nav.ts";
+import { Palette } from "./palette/palette.ts";
+import { bindPalette } from "./palette/hotkey.ts";
 import { LoginPage } from "./pages/login.ts";
 import { NotFoundPage } from "./pages/not-found.ts";
 import { pageFor } from "./pages/registry.ts";
@@ -32,6 +34,7 @@ export function bindApp(): () => void {
         navigate(to, { replace: true });
       }
     }),
+    bindPalette(),
     effect(() => { document.documentElement.lang = lang.value; }),
     effect(() => {
       const r = route.value;
@@ -66,7 +69,8 @@ function Shell({ r }: { r: Route }): View {
     h(Sidebar, {}),
     h("div", { class: "content", inert: menuOpen.value, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Escape") closeMenu(); } },
       h("header", { class: "topbar" }, h(HeaderActions, {})),
-      h("main", { id: "main", ref: main, class: "page" }, h(Routed, { r }))));
+      h("main", { id: "main", ref: main, class: "page" }, h(Routed, { r }))),
+    h(Palette, {}));
 }
 
 export function App(): View | null {
