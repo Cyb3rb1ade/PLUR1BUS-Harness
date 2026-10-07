@@ -5,12 +5,13 @@ import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errors, fromCoreError } from "./errors.ts";
 import type { PasswordLogin } from "./login.ts";
 import type { LoginChallenges } from "./challenge.ts";
+import type { NoticeInbox } from "./notices.ts";
 import type { PublicToken, TokenService } from "./tokens.ts";
 import type { TotpService } from "./totp.ts";
 import type { UserDirectory } from "./ports.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { RateClass } from "./rate-limit.ts";
-import { authorize, type RbacPrincipal } from "./rbac-bridge.ts";
+import { BreakGlassError, authorize, type BreakGlass, type RbacPrincipal } from "./rbac-bridge.ts";
 import type { Principal, Session, SessionStore } from "./session.ts";
 
 export const API_VERSION = "1.0.0";
@@ -28,8 +29,9 @@ export type Method = "GET" | "POST" | "DELETE";
  *  - `public`: no authentication at all (login only).
  *  - `authenticated`: any live principal; for the caller's own session handling (logout, CSRF token, whoami), which
  *    must work for a Viewer too. Deliberately narrow: the deny-by-default test names every route that uses it.
- *  - `{ action }`: a member of core's RBAC policy table, on the system resource or on the caller's own user. */
-export type Authz = "public" | "authenticated" | { action: string; resource?: "system" | "self" };
+ *  - `{ action }`: a member of core's RBAC policy table, on the system resource, on the caller's own user (`self`) or on
+ *    *some* user (`user`: the role is checked here, the handler names the target and checks again). */
+export type Authz = "public" | "authenticated" | { action: string; resource?: "system" | "self" | "user" };
 
 export interface RouteSpec {
   id: string; method: Method; path: string; summary: string; tag: string;
@@ -63,6 +65,8 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
   }, ["schema", "error", "message"]),
   Principal: obj({ kind: { enum: ["owner", "user"] }, id: { type: "string" }, role: { enum: ROLE_NAMES } }),
   SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { const: "totp" }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
+  BreakGlassGrant: obj({ id: { type: "string" }, targetUserId: { type: "string" }, reason: { type: "string" }, issuedAt: iso, expiresAt: iso }),
+  Notice: obj({ kind: { const: "break-glass.granted" }, grantId: { type: "string" }, holderUserId: { type: "string" }, reason: { type: "string" }, at: iso, expiresAt: iso }),
   Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
   Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] } }, ["state", "since"]),
 };
@@ -181,6 +185,35 @@ export const ROUTES: readonly RouteSpec[] = [
     successStatus: 200, success: { description: "Off; the secret and the backup codes are deleted.", schema: obj({ schema: schemaId("totp.disable/1"), enabled: { const: false } }) },
     extra: { 409: { description: "The caller is the owner-token login, which has no account (`reason`: `no-account`).", schema: ref("Error") } },
   },
+  {
+    id: "breakglass.request", method: "POST", path: `${API_PREFIX}/breakglass`, tag: "breakglass", summary: "Ask for time-boxed read access to another user's cards; a reason is mandatory",
+    auth: "session", authz: { action: "breakglass.request", resource: "user" }, csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
+    requestBody: obj({
+      targetUserId: { type: "string" },
+      reason: { type: "string", minLength: 10, maxLength: 500, description: "Free text, audited, and shown to the affected user." },
+      ttlMinutes: { type: "integer", minimum: 1, maximum: 60, description: "Default 15." },
+    }, ["targetUserId", "reason"]),
+    successStatus: 201,
+    success: { description: "The grant exists only after its audit entry was written; the affected user is told (inbox, plus the delivery hook). It ends by itself.", schema: obj({ schema: schemaId("breakglass.grant/1"), grant: ref("BreakGlassGrant") }) },
+    extra: { 404: { description: "No such user (`reason`: `target`).", schema: ref("Error") }, 503: { description: "The audit log could not record the grant, so there is none (`reason`: `audit-unavailable`).", schema: ref("Error") } },
+  },
+  {
+    id: "breakglass.list", method: "GET", path: `${API_PREFIX}/breakglass`, tag: "breakglass", summary: "The caller's own live break-glass grants",
+    auth: "session", authz: { action: "breakglass.request", resource: "user" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    successStatus: 200, success: { description: "Lapsed grants are gone (and audited once).", schema: obj({ schema: schemaId("breakglass.list/1"), grants: { type: "array", items: ref("BreakGlassGrant") } }) },
+  },
+  {
+    id: "breakglass.revoke", method: "POST", path: `${API_PREFIX}/breakglass/revoke`, tag: "breakglass", summary: "End a grant early: its holder or an Owner",
+    auth: "session", authz: { action: "breakglass.request", resource: "user" }, csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
+    requestBody: obj({ grantId: { type: "string" } }),
+    successStatus: 200, success: { description: "Ended and audited.", schema: obj({ schema: schemaId("breakglass.revoke/1"), revoked: { const: true } }) },
+    extra: { 404: { description: "No such live grant (`reason`: `grant`).", schema: ref("Error") } },
+  },
+  {
+    id: "notices.list", method: "GET", path: `${API_PREFIX}/me/notices`, tag: "status", summary: "Things the caller should know: break-glass grants over their own cards",
+    auth: "session", authz: { action: "my.read", resource: "self" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    successStatus: 200, success: { description: "Newest first. Push delivery to channels is a follow-up; this is the pull side.", schema: obj({ schema: schemaId("notices.list/1"), notices: { type: "array", items: ref("Notice") } }) },
+  },
 ];
 // `Health` is the 200 schema of `health`, referenced by its 503.
 COMPONENT_SCHEMAS.Health = ROUTES.find((r) => r.id === "health")!.success.schema;
@@ -210,6 +243,8 @@ export interface HandlerDeps {
   totp?: TotpService | undefined;
   challenges?: LoginChallenges | undefined;
   limiter?: RateLimiter | undefined;
+  breakGlass?: BreakGlass | undefined;
+  notices?: NoticeInbox | undefined;
   audit: AuditEmitter;
 }
 
@@ -242,6 +277,22 @@ function codeBody(b: unknown): string {
   return (b as { code: string }).code;
 }
 const noAccount = () => new ApiError(409, "E_CONFLICT", "the owner-token login has no account to protect", { reason: "no-account" });
+
+const BG_STATUS: Record<string, { status: number; error: "E_DENIED" | "E_INVALID_PARAMS" | "E_NOT_FOUND" | "E_NOT_AVAILABLE"; reason: string }> = {
+  "not-permitted": { status: 403, error: "E_DENIED", reason: "role-denied" },
+  "invalid-target": { status: 400, error: "E_INVALID_PARAMS", reason: "target" },
+  "self-target": { status: 400, error: "E_INVALID_PARAMS", reason: "self-target" },
+  "reason-required": { status: 400, error: "E_INVALID_PARAMS", reason: "reason" },
+  "ttl-invalid": { status: 400, error: "E_INVALID_PARAMS", reason: "ttl" },
+  "audit-failed": { status: 503, error: "E_NOT_AVAILABLE", reason: "audit-unavailable" },
+  "unknown-grant": { status: 404, error: "E_NOT_FOUND", reason: "grant" },
+};
+/** The registry's failures as API errors with fixed messages: its own text (and a chain's lock error under it) is not forwarded. */
+function breakGlassError(e: unknown): never {
+  if (e instanceof BreakGlassError) { const m = BG_STATUS[e.code] ?? { status: 400, error: "E_INVALID_PARAMS" as const, reason: "request" }; throw new ApiError(m.status, m.error, `break-glass refused (${m.reason})`, { reason: m.reason }); }
+  throw e;
+}
+const grantJson = (g: { id: string; targetUserId: string; reason: string; issuedAt: number; expiresAt: number }) => ({ id: g.id, targetUserId: g.targetUserId, reason: g.reason, issuedAt: iso8601(g.issuedAt), expiresAt: iso8601(g.expiresAt) });
 
 /** A token as the API shows it: times as ISO strings, nothing secret. */
 function tokenJson(t: PublicToken): Record<string, unknown> {
@@ -339,6 +390,38 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       if (!(await d.totp.disable(i.principal.id, code))) { d.audit.emit("auth.totp.failure", i.principal.id, `user:${i.principal.id}`, { stage: "disable", ip: i.ip }); throw errors.forbidden("invalid-code", "that code is not valid"); }
       d.audit.emit("auth.totp.disabled", i.principal.id, `user:${i.principal.id}`, { ip: i.ip });
       return { body: { schema: "totp.disable/1", enabled: false } };
+    },
+    "breakglass.request": async (i) => {
+      if (!i.rbac || !d.breakGlass || !d.users) throw errors.unauthenticated();
+      const b = i.body as Record<string, unknown> | null;
+      if (!b || typeof b !== "object" || Array.isArray(b) || Object.keys(b).some((k) => !["targetUserId", "reason", "ttlMinutes"].includes(k))) throw errors.badRequest("body", "body must be {\"targetUserId\": string, \"reason\": string, \"ttlMinutes\"?: integer}");
+      if (typeof b.targetUserId !== "string" || b.targetUserId === "") throw errors.badRequest("target", "a target user is required");
+      if (typeof b.reason !== "string") throw errors.badRequest("reason", "a reason of 10 to 500 characters is required");
+      let ttlMs: number | undefined;
+      if (b.ttlMinutes !== undefined) {
+        if (typeof b.ttlMinutes !== "number" || !Number.isInteger(b.ttlMinutes) || b.ttlMinutes < 1 || b.ttlMinutes > 60) throw errors.badRequest("ttl", "ttlMinutes must be an integer between 1 and 60");
+        ttlMs = b.ttlMinutes * 60_000;
+      }
+      if (b.targetUserId !== i.rbac.userId && b.targetUserId !== "owner" && !(await d.users.findById(b.targetUserId))) throw new ApiError(404, "E_NOT_FOUND", "no such user", { reason: "target" });
+      try {
+        const g = d.breakGlass.request(i.rbac, { targetUserId: b.targetUserId, reason: b.reason, ...(ttlMs !== undefined ? { ttlMs } : {}) });
+        return { status: 201, body: { schema: "breakglass.grant/1", grant: grantJson(g) } };
+      } catch (e) { return breakGlassError(e); }
+    },
+    "breakglass.list": (i) => {
+      if (!i.rbac || !d.breakGlass) throw errors.unauthenticated();
+      return { body: { schema: "breakglass.list/1", grants: d.breakGlass.active(i.rbac.userId).map(grantJson) } };
+    },
+    "breakglass.revoke": (i) => {
+      if (!i.rbac || !d.breakGlass) throw errors.unauthenticated();
+      const b = i.body as { grantId?: unknown } | null;
+      if (!b || typeof b !== "object" || Array.isArray(b) || typeof b.grantId !== "string" || b.grantId === "" || Object.keys(b).length !== 1) throw errors.badRequest("body", "body must be {\"grantId\": string}");
+      try { d.breakGlass.revoke(i.rbac, b.grantId); } catch (e) { return breakGlassError(e); }
+      return { body: { schema: "breakglass.revoke/1", revoked: true } };
+    },
+    "notices.list": (i) => {
+      if (!i.rbac || !d.notices) throw errors.unauthenticated();
+      return { body: { schema: "notices.list/1", notices: d.notices.list(i.rbac.userId).map((n) => ({ kind: n.kind, grantId: n.grantId, holderUserId: n.holderUserId, reason: n.reason, at: iso8601(n.at), expiresAt: iso8601(n.expiresAt) })) } };
     },
     "session.delete": (i) => {
       d.sessions.destroy(i.sessionId);

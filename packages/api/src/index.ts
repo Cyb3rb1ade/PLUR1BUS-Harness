@@ -12,6 +12,8 @@ export * from "./redact.ts";
 export * from "./routes.ts";
 export * from "./server.ts";
 export * from "./session.ts";
+export * from "./notices.ts";
+export * from "./audit-queue.ts";
 export * from "./static.ts";
 export * from "./challenge.ts";
 export * from "./tokens.ts";

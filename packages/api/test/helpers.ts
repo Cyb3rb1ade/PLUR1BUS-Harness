@@ -4,7 +4,7 @@ import type { CoreRpc } from "../src/core-rpc.ts";
 import type { LockoutPolicy } from "../src/login.ts";
 import { MemoryUserDirectory } from "../src/memory-stores.ts";
 import { hashPassword } from "../src/password.ts";
-import { memoryAuditSink, type MemoryAuditSink } from "../src/rbac-bridge.ts";
+import { memoryAuditSink, type AuditSink, type MemoryAuditSink } from "../src/rbac-bridge.ts";
 import { createApiServer, type ApiLimits, type ApiServer, type ApiServerOptions } from "../src/server.ts";
 import type { RateClasses } from "../src/rate-limit.ts";
 import type { SessionLimits } from "../src/session.ts";
@@ -32,6 +32,8 @@ export interface Harness {
 export interface StartOptions {
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; core?: FakeCore;
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
+  /** Break-glass writes here instead of the shared sink; `noAudit` configures no sink at all. */
+  breakGlassAudit?: AuditSink; notifyBreakGlass?: ApiServerOptions["notifyBreakGlass"]; noAudit?: boolean;
 }
 
 export async function start(o: StartOptions = {}): Promise<Harness> {
@@ -39,9 +41,10 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
   const audit = memoryAuditSink(); const users = o.users ?? new MemoryUserDirectory();
   const sink = (level: string) => (msg: string, fields?: Record<string, unknown>) => { logs.push(JSON.stringify({ level, msg, ...fields })); };
   const api = createApiServer({
-    core, ownerToken: OWNER_TOKEN, clock, users, audit, logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
+    core, ownerToken: OWNER_TOKEN, clock, users, ...(o.noAudit ? {} : { audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
+    ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}), ...(o.notifyBreakGlass ? { notifyBreakGlass: o.notifyBreakGlass } : {}),
   });
   const { url, port } = await api.listen();
   return { api, url, port, clock, core, logs, audit, users, close: () => api.close() };

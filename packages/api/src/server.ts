@@ -13,7 +13,8 @@ import { MemoryTokenStore, MemoryTotpStore } from "./memory-stores.ts";
 import type { TokenStore, TotpStore, UserDirectory } from "./ports.ts";
 import { LoginChallenges } from "./challenge.ts";
 import { DEFAULT_RATE_CLASSES, RateLimiter, type RateClasses } from "./rate-limit.ts";
-import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
+import { createBreakGlass, type AuditSink, type BreakGlassNotice, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
+import { NoticeInbox } from "./notices.ts";
 import { redactFields } from "./redact.ts";
 import { createStaticServer } from "./static.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
@@ -43,6 +44,12 @@ export interface ApiServerOptions {
   tokens?: TokenStore;
   /** Where second-factor secrets live; the in-memory default forgets them at a restart (the real store is core's secret store, a follow-up). */
   totp?: TotpStore; totpIssuer?: string;
+  /** Break-glass writes its own audit here and must not act unrecorded, so this is the unbuffered, fail-closed sink
+   *  (default: `audit`; with neither, there is no break-glass). */
+  breakGlassAudit?: AuditSink;
+  /** Tells the affected user about a grant over their cards, through whatever channel the host has (delivery is a
+   *  follow-up). The API's own inbox (`GET /me/notices`) is filled either way. A throwing hook is audited, the grant stands. */
+  notifyBreakGlass?: (notice: BreakGlassNotice) => void;
   /** The hash-chained audit log of the core, or any sink with the same `append`. Without one nothing is audited. */
   audit?: AuditSink;
   /** The built web app (`packages/web/dist`): served read-only at `/` and below, never under `/api`, with a CSP nonce per
@@ -128,7 +135,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const tokens = new TokenService({ store: o.tokens ?? new MemoryTokenStore(), clock });
   const totp = new TotpService({ store: o.totp ?? new MemoryTotpStore(), clock, issuer: o.totpIssuer ?? "PLUR1BUS Harness" });
   const challenges = new LoginChallenges(clock);
-  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, audit });
+  const notices = new NoticeInbox(clock);
+  const noSink: AuditSink = { append() { throw new Error("no audit sink configured"); } };
+  const breakGlass = createBreakGlass({ audit: o.breakGlassAudit ?? o.audit ?? noSink, clock: () => clock.now(), host: "api", notify: (n) => { notices.add(n); o.notifyBreakGlass?.(n); } });
+  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit });
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
@@ -141,6 +151,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   for (const spec of ROUTES) add(spec, handlers[spec.id]);
   for (const x of o.extraRoutes ?? []) add(x.spec, x.handler);
 
+  let sweeper: NodeJS.Timeout | undefined;
   let allowedHosts = new Set<string>(); let allowedOrigins = new Set<string>();
 
   /** The Referer's origin must be one the API issued; an unparseable, scheme-relative or opaque (`null`) value is not. */
@@ -175,8 +186,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     const az = spec.authz as RouteSpec["authz"] | undefined;
     if (az === undefined || az === "public") return { effect: "deny", reason: "unknown-action" };
     if (az === "authenticated") return { effect: "allow", reason: "role" };
-    const resource: Resource = az.resource === "self" ? { kind: "user", userId: rbac.userId } : { kind: "system" };
-    return authorize(rbac, az.action, resource, { now: clock.now() });
+    // "user": some user, to be named by the handler, which asks the registry again with the real target.
+    const resource: Resource = az.resource === "self" ? { kind: "user", userId: rbac.userId } : az.resource === "user" ? { kind: "user", userId: "*" } : { kind: "system" };
+    // The registry honours the caller's live break-glass grants and audits their use; without one it is plain authorize().
+    return breakGlass.authorize(rbac, az.action, resource);
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -354,12 +367,15 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           const scheme = tls ? "https" : "http";
           allowedOrigins = new Set([...allowedHosts].map((h) => `${scheme}://${h}`));
           const hostPart = bindHost.includes(":") ? `[${bindHost}]` : bindHost;
+          // Grants also end when nobody asks: lapsed ones are swept (and audited) twice a minute.
+          sweeper = setInterval(() => { try { breakGlass.sweep(); } catch { /* the next sweep retries */ } }, 30_000); sweeper.unref();
           log.info("listening", { host: bindHost, port: a.port, tls });
           resolveListen({ host: bindHost, port: a.port, url: `${scheme}://${hostPart}:${a.port}` });
         });
       });
     },
     close() {
+      if (sweeper) clearInterval(sweeper);
       return new Promise((resolveClose) => { server.close(() => resolveClose()); server.closeAllConnections(); });
     },
   };
