@@ -1,10 +1,10 @@
 import { h } from "preact";
 import type { View } from "../view.ts";
-import { useEffect, useRef, useState } from "preact/hooks";
 import { langPref, setLangPref, t, type LangPref } from "../i18n.ts";
 import { icon } from "../icons.ts";
 import { compact } from "../layout.ts";
 import { sessionState, signOut } from "../session.ts";
+import { MoreMenu } from "./more-menu.ts";
 import { setThemePref, themePref, type ThemePref } from "../theme.ts";
 
 function select<V extends string>(id: string, label: string, value: V, options: readonly [V, string][], onChange: (v: V) => void): View {
@@ -33,20 +33,7 @@ function UserBlock(): View | null {
 
 /** Header actions. Compact: everything except the page itself moves into a "More" disclosure (rule 5, step 6). */
 export function HeaderActions(): View {
-  const [open, setOpen] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
   const isCompact = compact.value;
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") { setOpen(false); button.current?.focus(); } };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
-  useEffect(() => { if (!isCompact) setOpen(false); }, [isCompact]);
-
   if (!isCompact) return h("div", { class: "header-actions" }, h(PreferenceControls, { idPrefix: "hdr" }), h(UserBlock, {}));
-  return h("div", { class: "header-actions more" },
-    h("button", { type: "button", ref: button, class: "icon-btn", "aria-expanded": open, "aria-controls": "more-panel", onClick: () => setOpen(!open) },
-      icon("menu"), h("span", { class: "sr-only" }, t("app.more"))),
-    open ? h("div", { id: "more-panel", class: "more-panel" }, h(PreferenceControls, { idPrefix: "more" }), h(UserBlock, {})) : null);
+  return h(MoreMenu, { id: "more-panel", label: t("app.more"), class: "header-actions" }, h(PreferenceControls, { idPrefix: "more" }), h(UserBlock, {}));
 }

@@ -13,9 +13,29 @@ after(async () => { await rm(dir, { recursive: true, force: true }); });
 const read = (name: string): Promise<string> => readFile(join(dir, name), "utf8");
 
 // ADR-004 "CSP": no inline script and no remote origin, so `script-src 'self'; style-src 'self'` is enough.
-test("the build is exactly index.html, main.js and styles.css", async () => {
-  assert.deepEqual((await readdir(dir)).sort(), ["index.html", "main.js", "styles.css"]);
+// Pages are loaded lazily (dynamic import(), esbuild splitting): next to main.js there are same-origin chunk files, nothing else.
+const jsFiles = async (d: string = dir): Promise<string[]> => (await readdir(d)).filter((f) => f.endsWith(".js")).sort();
+
+test("the build is index.html, main.js, styles.css and flat .js chunks, nothing else", async () => {
+  const names = (await readdir(dir)).sort();
+  assert.deepEqual(names.filter((n) => !n.endsWith(".js")), ["index.html", "styles.css"]);
+  assert.ok(names.includes("main.js"));
+  for (const n of names.filter((x) => x.endsWith(".js") && x !== "main.js")) assert.match(n, /^[a-zA-Z0-9_-]+\.js$/, n);
 });
+
+// The chunk graph, read from the import statements (esbuild minified ESM): what main.js needs at start (static imports,
+// transitively) and what it loads on demand (import("./x.js")).
+async function graph(d: string = dir): Promise<{ initial: string[]; lazy: string[] }> {
+  const staticOf = async (f: string): Promise<string[]> => [...(await readFile(join(d, f), "utf8")).matchAll(/(?:\bfrom|\bimport)\s*"\.\/([\w-]+\.js)"/g)].map((m) => m[1]!);
+  const initial = new Set<string>(["main.js"]);
+  for (const f of initial) for (const dep of await staticOf(f)) initial.add(dep);
+  const lazy = new Set<string>();
+  for (const f of await jsFiles(d)) {
+    for (const m of (await readFile(join(d, f), "utf8")).matchAll(/\bimport\("\.\/([\w-]+\.js)"\)/g)) if (!initial.has(m[1]!)) lazy.add(m[1]!);
+  }
+  return { initial: [...initial].sort(), lazy: [...lazy].sort() };
+}
+const gz = async (f: string, d: string = dir): Promise<number> => gzipSync(await readFile(join(d, f)), { level: 9 }).length;
 
 test("index.html has no inline script, no inline style, no event-handler attributes and no remote origin", async () => {
   const html = await read("index.html");
@@ -28,7 +48,7 @@ test("index.html has no inline script, no inline style, no event-handler attribu
 });
 
 test("the bundles use no eval, Function constructor, javascript: URL or remote origin", async () => {
-  const js = await read("main.js");
+  const js = (await Promise.all((await jsFiles()).map(read))).join("\n");
   assert.doesNotMatch(js, /\beval\s*\(/);
   assert.doesNotMatch(js, /new Function\s*\(/);
   assert.doesNotMatch(js, /javascript:/);
@@ -41,12 +61,33 @@ test("the bundles use no eval, Function constructor, javascript: URL or remote o
   }
 });
 
-test("the bundle stays inside its size budget (ADR-004: small shipped bundle)", async () => {
-  const js = gzipSync(await readFile(join(dir, "main.js")), { level: 9 }).length;
-  const css = gzipSync(await readFile(join(dir, "styles.css")), { level: 9 }).length;
-  console.log(`# bundle gzip: main.js ${js} B, styles.css ${css} B, total ${js + css} B`);
-  assert.ok(js <= 25 * 1024, `main.js ${js} B gzip over 25 KiB`);
-  assert.ok(css <= 6 * 1024, `styles.css ${css} B gzip over 6 KiB`);
+// Size budgets (gzip -9). ADR-004 asked for a small shipped bundle: 25 KiB for main.js when there was one page. With real pages
+// the budget is split: main.js itself (shell, sign-in, palette, registry, loader) keeps its own small budget, the start-up
+// closure (main.js plus the chunks it imports statically: Preact, signals, the API client, the i18n catalogues of every area,
+// shared components) has a ceiling, and every lazily loaded page chunk has its own. styles.css (one file for the shell and every
+// page, 6 KiB when there was one page) is allowed 8 KiB. The catalogues are the largest part of the
+// start-up closure (~15 KiB gzip for de+en of all areas); loading them per page would take it near the old 25 KiB.
+const BUDGET_KIB = { main: 10, startup: 46, page: 12, styles: 8 } as const;
+
+test("size budgets: main.js, the start-up closure, each lazy page chunk, styles.css", async () => {
+  const { initial, lazy } = await graph();
+  assert.ok(lazy.length >= 5, `expected the pages as lazy chunks, found ${lazy.length}`);
+  const rows: [string, number][] = [];
+  for (const f of [...initial, ...lazy]) rows.push([`${initial.includes(f) ? "start" : "lazy "} ${f}`, await gz(f)]);
+  rows.push(["styles.css", await gz("styles.css")]);
+  const startup = (await Promise.all(initial.map((f) => gz(f)))).reduce((a, b) => a + b, 0);
+  console.log(["# bundle gzip (KiB)", ...rows.map(([n, b]) => `#   ${n.padEnd(34)} ${(b / 1024).toFixed(1)}`), `#   start-up closure                   ${(startup / 1024).toFixed(1)}`].join("\n"));
+  assert.ok(await gz("main.js") <= BUDGET_KIB.main * 1024, `main.js over ${BUDGET_KIB.main} KiB gzip`);
+  assert.ok(startup <= BUDGET_KIB.startup * 1024, `start-up closure ${startup} B over ${BUDGET_KIB.startup} KiB gzip`);
+  for (const f of lazy) assert.ok((await gz(f)) <= BUDGET_KIB.page * 1024, `${f} over ${BUDGET_KIB.page} KiB gzip`);
+  assert.ok((await gz("styles.css")) <= BUDGET_KIB.styles * 1024, `styles.css over ${BUDGET_KIB.styles} KiB gzip`);
+});
+
+test("pages load on demand: main.js has no page code, only dynamic imports of chunks; index.html loads only main.js", async () => {
+  const main = await read("main.js");
+  assert.doesNotMatch(main, /"session\.submit"|"budget\.status"|"memory\.recall"|"models\.setOverride"/, "page RPC names must not be in main.js");
+  assert.match(main, /\bimport\("\.\/[\w-]+\.js"\)/);
+  assert.deepEqual([...(await read("index.html")).matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]), ["./main.js"]);
 });
 
 // The light palette exists twice (OS light without an override, explicit data-theme="light"); they must not drift.
@@ -64,4 +105,14 @@ test("tokens.css: the two light blocks are identical and every token has a dark 
   assert.match(base, /--bg:\s*#0b0b0e/);
   const baseNames = new Set(decls(base).map((d) => d.split(":")[0]));
   for (const d of decls(attr)) assert.ok(baseNames.has(d.split(":")[0]), `${d.split(":")[0]} missing from the dark base`);
+});
+
+test("the shipped bundle has no pattern gallery; a gallery build has it", async () => {
+  for (const f of await jsFiles()) assert.doesNotMatch(await read(f), /gallery boom/, f);
+  const withGallery = await mkdtemp(join(tmpdir(), "p1web-gallery-"));
+  try {
+    await buildWeb(withGallery, { gallery: true });
+    const all = await Promise.all((await jsFiles(withGallery)).map((f) => readFile(join(withGallery, f), "utf8")));
+    assert.ok(all.some((x) => /gallery boom/.test(x)), "gallery chunk present");
+  } finally { await rm(withGallery, { recursive: true, force: true }); }
 });
