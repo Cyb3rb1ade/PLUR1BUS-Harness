@@ -52,21 +52,26 @@ export interface WrapOptions {
 export function wrapToolResult(raw: { content?: unknown; structuredContent?: unknown; isError?: unknown }, o: WrapOptions): McpToolResult {
   const b: Budget = { left: o.maxBytes, truncated: false, redacted: false };
   const blocks = Array.isArray(raw.content) ? (raw.content as Block[]) : [];
-  const content = blocks.map((blk) => shapeBlock(blk, b, o.redactor));
-  let structured: Record<string, unknown> | undefined;
-  if (raw.structuredContent && typeof raw.structuredContent === "object") {
-    const json = JSON.stringify(raw.structuredContent);
-    const red = o.redactor.redact(json);
-    if (red !== json) b.redacted = true;
+  const scrub = (v: unknown): unknown => {
+    if (typeof v === "string") { const clean = o.redactor.redact(v); if (clean !== v) b.redacted = true; return clean; }
+    if (Array.isArray(v)) return v.map(scrub);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, value]) => [scrub(k) as string, scrub(value)]));
+    return v;
+  };
+  const content = blocks.map(blk => shapeBlock(scrub(blk) as Block, b, o.redactor));
+  let structured: unknown;
+  let hasStructured = false;
+  if (raw.structuredContent !== undefined) {
+    const red = JSON.stringify(scrub(raw.structuredContent));
     if (Buffer.byteLength(red, "utf8") > b.left) b.truncated = true; // dropped, not cut: a partial object would not parse
     else {
-      try { structured = JSON.parse(red) as Record<string, unknown>; b.left -= Buffer.byteLength(red, "utf8"); } catch { b.truncated = true; }
+      try { structured = JSON.parse(red) as unknown; hasStructured = true; b.left -= Buffer.byteLength(red, "utf8"); } catch { b.truncated = true; }
     }
   }
   const transformedBy = [...(b.truncated ? ["truncate"] : []), ...(b.redacted ? ["redact"] : [])];
   return {
     provenance: makeProvenance(o.server, o.caller, o.trust, transformedBy),
     server: o.server, tool: o.tool, isError: raw.isError === true, content,
-    ...(structured ? { structuredContent: structured } : {}),
+    ...(hasStructured ? { structuredContent: structured } : {}),
   };
 }
