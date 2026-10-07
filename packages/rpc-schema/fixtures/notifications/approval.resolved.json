@@ -1,0 +1,43 @@
+{
+  "approval": {
+    "id": "apr_0123456789abcdef01234567",
+    "status": "approved",
+    "capability": "shell.exec",
+    "tool": "shell.run",
+    "risk": "medium",
+    "reversible": false,
+    "principal": "local-owner",
+    "subject": {
+      "kind": "agent",
+      "id": "bernd"
+    },
+    "actionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "turnId": "t1",
+    "taskId": "task1",
+    "sessionId": "s1",
+    "requiredSurface": 2,
+    "originSurface": 3,
+    "grantOptions": [
+      {
+        "scope": "once",
+        "requiredSurface": 2
+      },
+      {
+        "scope": "task",
+        "requiredSurface": 2
+      }
+    ],
+    "tainted": false,
+    "targets": [
+      "/Users/example/notes"
+    ],
+    "summary": "git status",
+    "agentReason": "check the working tree before editing",
+    "createdAt": "2026-10-06T12:00:00.000Z",
+    "expiresAt": "2026-10-07T12:00:00.000Z",
+    "delegable": false,
+    "decidedAt": "2026-10-06T12:01:00.000Z",
+    "decidedBy": "local-owner",
+    "decisionSurface": 3
+  }
+}

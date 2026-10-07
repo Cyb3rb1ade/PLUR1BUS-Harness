@@ -1,0 +1,13 @@
+{
+  "params": {},
+  "result": {
+    "ok": false,
+    "entries": 12,
+    "head": {
+      "seq": 12,
+      "mac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "brokenAt": 7,
+    "reason": "mac-mismatch"
+  }
+}

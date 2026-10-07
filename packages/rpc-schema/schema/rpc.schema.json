@@ -1515,6 +1515,90 @@
         "description": "Cancels the session's running turn: it ends failed with error cancelled (what was already streamed stays stored; nothing is captured). Idempotent: with no running turn nothing happens and cancelled is false.",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["sessionId", "turnId", "cancelled"], "properties": { "sessionId": { "$ref": "#/$defs/SessionId" }, "turnId": { "type": ["string", "null"] }, "cancelled": { "type": "boolean" } } }
+      },
+      "grant.list": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §4: the grants in the approval store, newest first, optionally filtered. Owner/Admin only (RBAC action grant.read); refused for every agent principal (RBAC humanOnly), and never a tool in an agent catalogue, the D103 index, WebMCP (the admin.* rule, B15) or the harness MCP server. limit defaults to 100; cursor comes from a previous result with the same filters (E_INVALID_PARAMS reason=bad-cursor). A broken approval chain lists the affected grants as suspended; it is not an error here.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {
+          "agent": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "capability": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "state": { "$ref": "#/$defs/GrantState" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "cursor": { "type": "string", "minLength": 1, "maxLength": 512 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["grants"], "properties": {
+          "grants": { "type": "array", "items": { "$ref": "#/$defs/GrantRecord" } },
+          "nextCursor": { "type": "string" } } }
+      },
+      "grant.create": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §4: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["capability", "agent", "scope"], "properties": {
+          "capability": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "agent": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "scope": { "enum": ["task", "session", "always"] },
+          "match": { "$ref": "#/$defs/GrantMatch" },
+          "expiresAt": { "type": "string", "maxLength": 40 },
+          "taskId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "sessionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "projectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "jobId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "delegable": { "type": "boolean" },
+          "acknowledgedUnsandboxed": { "type": "boolean" } } },
+        "result": { "$ref": "#/$defs/GrantRecord" }
+      },
+      "grant.revoke": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §4: revokes a grant. Immediate: pending requests it covered return to asking and the next call of a running task is re-decided. Idempotent: revoking a revoked grant returns it unchanged. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "$ref": "#/$defs/GrantId" } } },
+        "result": { "$ref": "#/$defs/GrantRecord" }
+      },
+      "approval.list": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §5: approval requests, newest first. The pending queue is status=pending (there is no separate approval.pending method). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100; cursor as in grant.list. Records never carry the nonce.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {
+          "status": { "$ref": "#/$defs/ApprovalStatus" },
+          "agent": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "cursor": { "type": "string", "minLength": 1, "maxLength": 512 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["approvals"], "properties": {
+          "approvals": { "type": "array", "items": { "$ref": "#/$defs/ApprovalRecord" } },
+          "nextCursor": { "type": "string" } } }
+      },
+      "approval.get": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §5: one approval request with everything a person needs to decide it. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. E_NOT_FOUND for an unknown id.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "$ref": "#/$defs/ApprovalId" } } },
+        "result": { "$ref": "#/$defs/ApprovalRecord" }
+      },
+      "approval.decide": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §5: a person approves or denies a pending request; the first valid answer wins and the other surfaces close. approve may pick one of the request's grantOptions as `scope`; the narrowest is the default. The surface level is derived by the core from the connection and checked against the request's requiredSurface; nothing is ever approved by a timeout or a surface default. nonce is the request's one-time nonce, required where the answer is relayed by a channel. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id. E_DENIED reason=surface-untrusted (the connection's surface is below requiredSurface) | approval-expired | approval-used (already decided or consumed) | approval-mismatch (nonce or binding differs).",
+        "params": { "type": "object", "additionalProperties": false, "required": ["id", "decision"], "properties": {
+          "id": { "$ref": "#/$defs/ApprovalId" },
+          "decision": { "enum": ["approve", "deny"] },
+          "scope": { "$ref": "#/$defs/GrantScopeName" },
+          "delegable": { "type": "boolean" },
+          "nonce": { "type": "string", "minLength": 1, "maxLength": 128 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["approval"], "properties": {
+          "approval": { "$ref": "#/$defs/ApprovalRecord" },
+          "grant": { "anyOf": [{ "$ref": "#/$defs/GrantRecord" }, { "type": "null" }], "description": "The grant created by an approval whose scope is wider than once; null otherwise." } } }
+      },
+      "approval.cancel": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §5: withdraws a pending request (status cancelled); the waiting call receives a typed denial with a userAction sentence. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id; E_CONFLICT when the request is no longer pending.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "$ref": "#/$defs/ApprovalId" } } },
+        "result": { "$ref": "#/$defs/ApprovalRecord" }
+      },
+      "approval.verify": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {} },
+        "result": { "type": "object", "additionalProperties": false, "required": ["ok", "entries", "head"], "properties": {
+          "ok": { "type": "boolean" },
+          "entries": { "type": "integer", "minimum": 0 },
+          "head": { "anyOf": [{ "type": "object", "additionalProperties": false, "required": ["seq", "mac"], "properties": { "seq": { "type": "integer", "minimum": 1 }, "mac": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } }, { "type": "null" }], "description": "The newest entry; null for an empty chain. Pin it outside the host to detect a rewrite of the whole chain." },
+          "brokenAt": { "type": "integer", "minimum": 1, "description": "First seq at which the chain does not hold. Present only when ok is false." },
+          "reason": { "enum": ["seq-gap", "prev-mismatch", "mac-mismatch", "truncated", "head-mismatch", "malformed", "nonce-reuse", "binding-mismatch", "duplicate"], "description": "Present only when ok is false." } } }
       }
     },
     "BudgetLimit": {
@@ -1862,6 +1946,94 @@
       }
     },
 
+    "ApprovalId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$", "description": "Experimental (1.5.0, D109). The store id of an approval request (apr_<hex>)." },
+    "GrantId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$", "description": "Experimental (1.5.0, D109). The store id of a grant (grt_<hex>)." },
+    "ApprovalStatus": { "enum": ["pending", "approved", "denied", "used", "expired", "cancelled"], "description": "Experimental (1.5.0, D109 §5/§6). pending: waiting for a person; approved/denied: decided; used: an approved once-decision was consumed by its call; expired: nobody answered within 24 h (= denied, E_DENIED reason=approval-expired); cancelled: withdrawn through approval.cancel." },
+    "GrantState": { "enum": ["active", "revoked", "consumed", "suspended"], "description": "Experimental (1.5.0, D109 §4/§6). suspended: set aside by a broken approval chain (fail closed) or the §8 taint rule; ends by time (expiresAt, scope bound) are derived by the reader." },
+    "GrantScopeName": { "enum": ["once", "task", "session", "always"], "description": "Experimental (1.5.0, D109 §4). How long a grant lasts: one call (action hash), the task, the session, or until revoked (auto-expires after 90 days unused)." },
+    "ApprovalRisk": { "enum": ["low", "medium", "high", "critical"] },
+    "SurfaceTrustLevel": { "type": "integer", "minimum": 0, "maximum": 3, "description": "Experimental (1.5.0, D109 §5). T0 nothing, T1 inbound ACP editor (low only), T2 web session without step-up or a private linked channel chat, T3 desktop app, CLI on a TTY of the owning OS user, web with step-up. Derived by the core from the connection, never supplied by a client." },
+    "ApprovalSubject": {
+      "description": "Experimental (1.5.0, D109 §6). Who the call runs for: the agent (or helper, peer, client) and its id.",
+      "type": "object", "additionalProperties": false, "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["agent", "subagent", "acp-agent", "mcp-client", "acp-editor", "a2a-peer", "remote-harness"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "GrantOption": {
+      "type": "object", "additionalProperties": false, "required": ["scope", "requiredSurface"],
+      "properties": { "scope": { "$ref": "#/$defs/GrantScopeName" }, "requiredSurface": { "$ref": "#/$defs/SurfaceTrustLevel" } }
+    },
+    "GrantMatch": {
+      "description": "Experimental (1.5.0, D109 §3/§4). action: one call (the action hash); capability: the whole capability inside roots; path: a canonical path, read or write (write implies read), recursive or the direct children only.",
+      "type": "object", "additionalProperties": false, "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["action", "capability", "path"] },
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "access": { "enum": ["read", "write"] },
+        "recursive": { "type": "boolean" }
+      }
+    },
+    "GrantRecord": {
+      "description": "Experimental (1.5.0, D109 §4/§6). A grant as the store holds it. Timestamps are RFC 3339 UTC.",
+      "x-stability": "experimental", "x-since": "1.5.0",
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "capability", "person", "agent", "scope", "match", "state", "createdBy", "createdAt", "delegable", "surface"],
+      "properties": {
+        "id": { "$ref": "#/$defs/GrantId" },
+        "capability": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "person": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "agent": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "scope": { "$ref": "#/$defs/GrantScopeName" },
+        "match": { "$ref": "#/$defs/GrantMatch" },
+        "state": { "$ref": "#/$defs/GrantState" },
+        "effect": { "type": "string" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string" },
+        "lastUsedAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "revokedAt": { "type": "string" },
+        "endReason": { "type": "string" },
+        "actionHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "taskId": { "type": "string" }, "sessionId": { "type": "string" }, "projectId": { "type": "string" }, "jobId": { "type": "string" },
+        "delegable": { "type": "boolean" },
+        "surface": { "$ref": "#/$defs/SurfaceTrustLevel", "description": "The surface level the grant was given on." }
+      }
+    },
+    "ApprovalRecord": {
+      "description": "Experimental (1.5.0, D109 §5/§6). An approval request as the store holds it. The one-time nonce is never part of it. Timestamps are RFC 3339 UTC.",
+      "x-stability": "experimental", "x-since": "1.5.0",
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "capability", "principal", "subject", "actionHash", "createdAt", "expiresAt", "delegable"],
+      "properties": {
+        "id": { "$ref": "#/$defs/ApprovalId" },
+        "status": { "$ref": "#/$defs/ApprovalStatus" },
+        "capability": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "tool": { "type": "string" },
+        "risk": { "$ref": "#/$defs/ApprovalRisk" },
+        "reversible": { "type": "boolean" },
+        "principal": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The person on whose behalf the call runs, and the only one who may decide it." },
+        "subject": { "$ref": "#/$defs/ApprovalSubject" },
+        "actionHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "turnId": { "type": "string" }, "taskId": { "type": "string" }, "sessionId": { "type": "string" },
+        "requiredSurface": { "$ref": "#/$defs/SurfaceTrustLevel" },
+        "originSurface": { "$ref": "#/$defs/SurfaceTrustLevel" },
+        "grantOptions": { "type": "array", "items": { "$ref": "#/$defs/GrantOption" }, "description": "Narrowest first; the first entry is the pre-selected one." },
+        "tainted": { "type": "boolean" },
+        "targets": { "type": "array", "maxItems": 200, "items": { "type": "string" }, "description": "The exact, redacted targets (paths, URLs, package list) the call touches." },
+        "summary": { "type": "string", "maxLength": 8192, "description": "The exact, redacted command line or diff summary; shown before anything the model wrote." },
+        "agentReason": { "type": "string", "maxLength": 2048, "description": "The model's own `why`. Unverified; clients label it so." },
+        "createdAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "decidedAt": { "type": "string" },
+        "decidedBy": { "type": "string" },
+        "decisionSurface": { "$ref": "#/$defs/SurfaceTrustLevel" },
+        "delegable": { "type": "boolean" },
+        "usedAt": { "type": "string" }
+      }
+    },
+
     "notifications": {
       "core.state": { "x-stability": "stable", "x-since": "1.0.0", "x-server": "core", "type": "object", "additionalProperties": false, "required": ["process"], "properties": { "process": { "$ref": "#/$defs/ProcessState" } } },
       "agent.activity": { "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core", "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } },
@@ -1981,6 +2153,24 @@
         "description": "One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.",
         "required": ["agentId", "event"],
         "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "event": { "$ref": "#/$defs/SessionEvent" } }
+      },
+      "approval.requested": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core", "type": "object", "additionalProperties": false,
+        "description": "D109 §5: a new approval request is pending. Opt-in (a subscription must name approval.requested in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
+        "required": ["approval"],
+        "properties": { "approval": { "$ref": "#/$defs/ApprovalRecord" } }
+      },
+      "approval.resolved": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core", "type": "object", "additionalProperties": false,
+        "description": "D109 §5: a request left pending (approved, denied, used, expired or cancelled). The first valid answer closes it on every surface. Opt-in; delivered as approval.requested.",
+        "required": ["approval"],
+        "properties": { "approval": { "$ref": "#/$defs/ApprovalRecord" } }
+      },
+      "grant.changed": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core", "type": "object", "additionalProperties": false,
+        "description": "D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
+        "required": ["change", "grant"],
+        "properties": { "change": { "enum": ["created", "used", "revoked", "expired", "suspended"] }, "grant": { "$ref": "#/$defs/GrantRecord" } }
       }
     }
   }

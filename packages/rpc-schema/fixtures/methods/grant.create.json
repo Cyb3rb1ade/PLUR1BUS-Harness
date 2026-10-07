@@ -1,0 +1,34 @@
+{
+  "params": {
+    "capability": "fs.write",
+    "agent": "bernd",
+    "scope": "always",
+    "match": {
+      "kind": "path",
+      "path": "/Users/example/notes",
+      "access": "write",
+      "recursive": true
+    },
+    "expiresAt": "2027-01-04T12:00:00.000Z"
+  },
+  "result": {
+    "id": "grt_0123456789abcdef01234567",
+    "capability": "fs.write",
+    "person": "local-owner",
+    "agent": "bernd",
+    "scope": "always",
+    "match": {
+      "kind": "path",
+      "path": "/Users/example/notes",
+      "access": "write",
+      "recursive": true
+    },
+    "state": "active",
+    "createdBy": "local-owner",
+    "createdAt": "2026-10-06T12:00:00.000Z",
+    "lastUsedAt": "2026-10-06T13:00:00.000Z",
+    "expiresAt": "2027-01-04T12:00:00.000Z",
+    "delegable": false,
+    "surface": 3
+  }
+}
