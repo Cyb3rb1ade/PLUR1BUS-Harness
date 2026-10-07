@@ -1486,15 +1486,6 @@
         "claimedBy": { "$ref": "#/$defs/IdentityHandle" }, "confirmBy": { "type": "integer" }
       }
     },
-    "IdentityPairing": {
-      "description": "Experimental (1.5.0). A pairing that still waits (a pending code, or a claim waiting for the owner). Never carries the code.",
-      "type": "object", "additionalProperties": false, "required": ["id", "humanId", "channel", "state", "createdAt", "expiresAt"],
-      "properties": {
-        "id": { "type": "string" }, "humanId": { "type": "string" }, "channel": { "type": "string" }, "state": { "$ref": "#/$defs/IdentityPairingState" },
-        "createdAt": { "type": "integer" }, "expiresAt": { "type": "integer" },
-        "claimedBy": { "$ref": "#/$defs/IdentityHandle" }, "confirmBy": { "type": "integer" }
-      }
-    },
     "SessionId": { "type": "string", "minLength": 1, "maxLength": 128 },
     "SessionKind": { "enum": ["direct", "card", "project", "channel", "acp"] },
     "MemoryMode": { "enum": ["remember", "incognito"] },
