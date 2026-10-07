@@ -1207,7 +1207,116 @@ Files: `apps/desktop/src-tauri/src/{profile_audit,windows_spa_profile,lib,spa_pr
 - Local Windows target check unavailable: MSVC `assert.h` missing in `ring`; native Windows CI remains required. Guarded-SPA WebView2 compatibility remains an explicit gap.
 - The native `no_cookie_database_in_app_dirs` test remains in `production_spa`; no vacuous directory-only substitute. Bundled pinned SQLite supports the Windows WAL audit.
 
-## WP6 — IN PROGRESS (not accepted)
+## WP6 — IN PROGRESS (automatic acceptance pending)
+
+**Owner continuation:** PR #235 is merged; its workflow repair was merged into this branch without rebase.
+Manual checks requiring unavailable hardware are **offen – manuell, Owner** and do not block WP6.
+All automatic desktop and Root-unit gates must pass before GREEN and Ready.
+Merge head `1c61067c840820641ecaff3c01594d33a83a53be`, base `bedf063146003c86a7dabb5382763fa76162c1e1`.
+[Desktop continuation run 37686455883](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37686455883)
+and [Root continuation run 37686455910](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37686455910) have superseding observations recorded below.
+The historical invalid-workflow runs below are superseded.
+
+### Continuation fix and no-polling instruction
+
+Functional head `258995e3fdc86805c83fb72d9edd212486555c2d`: serializes `CrashReporter::pending`
+and `mark_handled` through an Arc-owned mutex shared by reporter clones. The panic writer never takes it.
+The native fixture and startup UI queried the same reporter concurrently; the new real parallel regression
+failed locally before the change because the formatter contention replaced the Backtrace section with the
+safe unavailable fallback. After the change all 16 callers receive the same complete redacted offer and one durable receipt.
+Three Windows CI variants on merge head `1c61067c840820641ecaff3c01594d33a83a53be` failed at
+`DIAGNOSTICS_MODAL_MISSING`; their prior lifecycle/SPA gates passed. Fixed native diagnostics now also
+carry closed stage and IPC-result codes, with three actual-observer JavaScript tests; no arbitrary text or credentials are forwarded.
+
+Fresh local verification: locked desktop workspace tests/rustdoc **292 PASS / 0 FAIL / 1 real-keychain IGNORE**;
+locked all-target Clippy and fmt PASS; UI build/**58 PASS**; scripts **71 PASS / 5 platform SKIP**;
+Root lint/typecheck/hygiene PASS. HOME/CFFIXED_USER_HOME/XDG-isolated macOS diagnostics has all six fields true.
+Committed summary: `apps/desktop/acceptance/wp06-2026-10-07/crash-concurrency.json`.
+Logs: `/tmp/desktop-wp06-continuation-*.log`.
+
+Last observed CI, before the Owner's **kein ci polling** instruction:
+Desktop run 37686455883: macOS arm64, Linux x64/arm64 and Windows x64 guard-off complete PASS;
+Windows x64 guard-on and Windows ARM guard-on/off failed at the crash modal (the subsequently corrected path).
+Windows strict-focus summary was still pending. Root run 37686455910: Linux and macOS unit jobs PASS,
+WSL PASS, Windows unit job had passed TypeScript and was running Rust tests.
+These observations belong to the merge head, not the corrected functional head.
+CI polling is stopped; new-head CI is **unverified**. WP6 remains in progress, #233 remains Draft;
+GREEN/Ready is not asserted from local tests. Manual Owner items below are non-blocking.
+
+### Overnight acceptance audit · 2026-10-07
+
+Branch `feat/desktop-shell-wp06-acceptance-audit`; [Draft PR #233](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/233);
+base `origin/main` at `748a9d558dee4799a96106ed20442395f566660b`;
+functional head `60ca6eefc825f37b285582e88cfe4201dce4e996` (compile fix tested at `146dac397fd5dce45e0017c7eb10df0b36ec3611`), native-evidence commit `5af5e665cfd80b0c8b37a2989d6a7267f6c55386`.
+This status is delivered by the later status commit in this PR; CI claims below identify their own exact head.
+PR #87 merged at `4e936f49f380722af2710da9f4bed165e8659e28`; PR #184 merged at `bd5927be8fc648cfbc3fe31aa50fef663eed182c`.
+Their merge state does not close the native gaps listed in the historical WP6 record below.
+
+**Delivered:** `apps/desktop/src-tauri/src/profile_audit.rs` now sets `SecretScanOutcome.timed_out = false`
+after a successful bounded readability scan. The first locked workspace run on the base failed with E0063
+(missing field); the corrected complete suite passes. UI output was built before the corrected Rust run.
+A lifetime-preserving `SecretScanner` type alias also resolves the existing Clippy type-complexity error; no lint is suppressed.
+Error propagation, budgets and ProfileExitGate remain unchanged. Sanitized native observer reports are committed
+in `apps/desktop/acceptance/wp06-2026-10-07/native.json`.
+
+| WP6 acceptance point | Test / evidence | Result and target |
+| --- | --- | --- |
+| Status mapping | `map_status_table`, `combine_table` | PASS, macOS arm64 Rust |
+| Stream reconnect | `stream_reconnects_with_backoff_and_last_event_id` | PASS, macOS arm64 against mock |
+| Stream revocation | `revoked_stream_goes_unpaired_and_stops` | PASS, macOS arm64 against mock |
+| Quit guard/default | `quit_asks_and_defaults_to_keep_running`; native lifecycle `quit_modal_default`, `quit_cancel_preserves_app`, `quit_confirm_exits` | PASS, macOS arm64; OS logout/restart: offen – manuell, Owner |
+| GNOME banners | `gnome_without_appindicator_notifies_every_state_change` | PASS with injected notifier on macOS; native GNOME bus recovery, Background Apps listing/actions and Flatpak packaging: offen – manuell, Owner |
+| Single instance/window behavior | `second_instance_focuses_the_first`; native lifecycle strict second-instance focus, shell/SPA focus, close hide/minimize | PASS, isolated macOS arm64 observer; other platforms not re-proven here |
+| Autostart | `autostart_toggle_calls_the_launcher` | PASS with fake launcher; no real service manager touched |
+| Redaction | `redact_removes_tokens_tickets_cookies_keys_and_url_fragments` | PASS, macOS arm64 |
+| Private log/schema | `the_log_file_never_contains_a_planted_token_or_key` | PASS, macOS arm64 |
+| Local crash/restart offer | `panic_writes_a_redacted_crash_file_and_the_next_start_offers_it`; native diagnostics all six fields | PASS, isolated macOS arm64 observer |
+| Tray/native labels | native tray all eight fields: de/en, states, settings IPC, tooltip, colour/template fallback | PASS, isolated macOS arm64 observer; physical menu/theme/system-language/settererror checks: offen – manuell, Owner |
+| All available OS manual tray record | historical gaps retained below | offen – manuell, Owner; this run adds macOS native observer evidence, not physical multi-OS acceptance |
+| Desktop CI five targets | [main run 37684554199](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37684554199), [PR evidence head run 37685689050](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37685689050) | BLOCKED, both failed before jobs; no platform PASS |
+| Root CI unit jobs | [PR evidence head run 37685695253](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37685695253) | PENDING when recorded; not GREEN |
+
+**Local verification:** Node 24.21.0 / Rust 1.95 toolchain PASS; frozen pnpm install PASS;
+locked desktop workspace tests and rustdoc **291 PASS / 0 FAIL / 1 IGNORE** (the real-keychain opt-in);
+UI build and **58/58 PASS**; script tests **68 PASS / 5 platform SKIP**; root lint/typecheck/hygiene PASS;
+desktop fmt PASS; locked desktop all-target Clippy PASS. After the callback-only refactor,
+all 11 focused `profile_audit` tests PASS; the full suite/native results above predate that type-only refactor. Logs `/tmp/desktop-wp06-audit-*.log` remain local;
+the committed JSON retains native results without transient profile paths or credentials.
+
+**Native smoke:** macOS arm64 GUI session, HOME/CFFIXED_USER_HOME/XDG redirected to a temporary home,
+MemoryStore without real-keychain opt-in. Lifecycle/tray/diagnostics fixtures each create their own disposable
+configuration/profile. Native lifecycle is strict, with every report flag true; tray and crash reports are also
+complete. Crash Escape/Dismiss are driven by fixture observers; clipboard and physical key/menu checks are not claimed.
+No personal home, real runtime objects or real autostart registration were used for this isolated smoke.
+
+**Historical CI blocker (resolved by PR #235):** GitHub's run page reports `Invalid workflow file` at line 72, column 34:
+`Unrecognized named-value: 'runner'` in `runner.temp` used in the desktop job's environment.
+The Actions API confirms zero jobs/check runs. Move that report-path initialization to a runner-context step
+in a separately authorized workflow repair; WP6 does not explicitly authorize workflow edits under this task's allow-list.
+Root CI on PR184's head also failed outside the desktop: macOS RPC framing expected `line-too-long` but got
+no reason, and Windows Core exec rejected cwd as `short-name`
+([run 37600160622](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/37600160622)).
+These historical failures are distinct from the pending new-head run; forbidden root/Core files remain untouched.
+
+**Defaults/deviations:** G13 local-only crash handling, existing C17/C18 behavior retained. No acceptance rule
+was relaxed; no status is called GREEN from merged PRs or mock protocol tests. No core contract extension is delivered
+in this WP6 correction. Runtime/harness controls and bundled auto-pair remain WP7/WP8 work against desktop-contract/mock-harness.
+
+**Continuation gates and Owner manual follow-ups:**
+
+- [x] Merge PR #235 workflow repair from origin/main without rebase/force-push.
+- [ ] Obtain all five targets / Windows variants plus strict-x64 summary at an exact head.
+- [ ] offen – manuell, Owner: native GNOME/Flatpak bus recovery, Background Apps and packaging acceptance (non-blocking per Owner continuation).
+- [ ] Close automatically provable native trust/ack/removal/repair and clipboard/cookie checks through CI; retain physical tray/theme/system-language/error, OS logout/restart and Owner Windows ARM checks as offen – manuell, Owner where hardware/manual operation is required.
+- [ ] Verify all new-head Root unit jobs; do not classify macOS/Windows failures as the permitted WSL infrastructure exception.
+- [ ] Only after WP6 acceptance, start WP7 on its own branch/PR with its full acceptance table.
+- [ ] Then branch WP8 from WP7 if unmerged, naming its dependency and proving the controller/wizard/pairing tables.
+
+WP7 and WP8 have **not started** and have no PRs or acceptance claims in this run.
+The Owner explicitly resumed delivery after PR #235; WP7/WP8 follow automatic WP6 acceptance.
+
+### Historical WP6 implementation and review record
+
 
 Branch `feat/desktop-shell-wp06-lifecycle`; review base `e6909fad`; owner-authorized PR87 review fixes (2026-10-06) active; [Draft PR87](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/87). Windows retention confirmed in all four native CI jobs; ARM initial CI foreground refusal handled by owner-approved local-focus policy. Owner #78 `9ff52676`, main merges `b331729a`/`9009978f` (owner `77a26989`). Core/Hermes/crates/plur1bus reserved for Copilot #79; no rebase/amend/force-push/config/owner merge. WP5 ProfileExitGate/5s Linux GUI observer preserved.
 

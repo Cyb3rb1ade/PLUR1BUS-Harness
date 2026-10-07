@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc,
+        mpsc, Arc, Mutex,
     },
     time::Duration,
 };
@@ -42,6 +42,7 @@ impl PendingCrash {
 pub struct CrashReporter {
     writer: Writer,
     target: String,
+    offers: Arc<Mutex<()>>,
 }
 struct PanicJob {
     message: String,
@@ -62,6 +63,7 @@ impl CrashReporter {
         Ok(Self {
             writer,
             target: target.into(),
+            offers: Arc::new(Mutex::new(())),
         })
     }
     /// Install exactly once, explicitly during native startup. Replaces (never invokes) any previous hook.
@@ -187,6 +189,9 @@ impl CrashReporter {
     /// offering unhandled evidence on subsequent starts. A failed event/receipt leaves it pending.
     /// Task 3 calls this after creating the writer, then offers Copy details / Open folder in the shell.
     pub fn pending(&self) -> Result<Vec<PendingCrash>> {
+        // Startup IPC and native observers can query the same reporter together.
+        // Serialize formatter use and durable receipts; the panic worker never takes this lock.
+        let _offers = self.offers.lock().map_err(|_| LogError::Busy)?;
         let directory = self.writer.directory();
         let mut names = directory.names()?;
         names.sort();
@@ -248,6 +253,7 @@ impl CrashReporter {
     }
     /// Explicit user handling only. Persists a private receipt; retains the crash evidence itself.
     pub fn mark_handled(&self, offer: &PendingCrash) -> Result<()> {
+        let _offers = self.offers.lock().map_err(|_| LogError::Busy)?;
         let directory = self.writer.directory();
         if offer.directory != directory.path() || !owned_crash_name(&offer.id) {
             return Err(LogError::Invalid("crash offer owner"));

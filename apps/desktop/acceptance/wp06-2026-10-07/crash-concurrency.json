@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "sourceHead": "258995e3fdc86805c83fb72d9edd212486555c2d",
+  "platform": "macOS arm64",
+  "regression": "concurrent_crash_offer_requests_keep_the_offer_and_one_startup_receipt",
+  "before": "FAIL: concurrent readers lose Backtrace section through formatter contention",
+  "after": "PASS: 16 simultaneous requests retain the same redacted offer and one durable receipt",
+  "nativeDiagnostics": {
+    "restart_offers_crash": true,
+    "modal_plain_text_redacted": true,
+    "escape_preserves_offer": true,
+    "dismiss_consumes_offer": true,
+    "idle_timer_flushes": true,
+    "confirmed_quit_takes_diagnostics": true
+  },
+  "isolation": {
+    "HOME": "temporary",
+    "CFFIXED_USER_HOME": "temporary",
+    "XDG": "temporary",
+    "keychain": "MemoryStore only"
+  },
+  "localVerification": {
+    "desktopRust": {
+      "passed": 292,
+      "failed": 0,
+      "ignored": 1
+    },
+    "ui": {
+      "passed": 58
+    },
+    "scripts": {
+      "passed": 71,
+      "platformSkipped": 5
+    },
+    "lockedAllTargetClippy": "PASS",
+    "fmt": "PASS",
+    "rootLintHygiene": "PASS"
+  },
+  "ci": "Not asserted: no CI polling after Owner instruction"
+}

@@ -107,13 +107,16 @@ pub(crate) struct ReadAudit<'a> {
     pub special: &'a dyn Fn(&Path) -> io::Result<bool>,
 }
 
+type SecretScanner<'a> =
+    dyn Fn(&Path, Instant) -> super::windows_spa_profile::SecretScanOutcome + 'a;
+
 /// The production read/cookie closures live here, including sub-budget selection and error propagation.
 /// Platform ownership checks and native cookie IO are injected; bounded file reads are never substituted.
 pub(crate) fn audit_after_exit(
     read: ReadAudit<'_>,
     total: Instant,
     validate: impl Fn(Instant) -> io::Result<()>,
-    secret: Option<&dyn Fn(&Path, Instant) -> super::windows_spa_profile::SecretScanOutcome>,
+    secret: Option<&SecretScanner<'_>>,
     cookie: impl FnOnce(Instant) -> io::Result<super::windows_spa_profile::ProfileCleanupEvidence>,
 ) -> super::windows_spa_profile::ProfileCleanupEvidence {
     let limit = deadline((read.now)(), total);
@@ -134,6 +137,7 @@ pub(crate) fn audit_after_exit(
             Ok(super::windows_spa_profile::SecretScanOutcome {
                 complete: true,
                 secret_detected: false,
+                timed_out: false,
                 files_read,
                 bytes_read,
             })

@@ -197,3 +197,62 @@ fn panic_while_redactor_and_writer_are_locked_is_bounded_and_never_raw() {
         "next startup must account for fail-closed crash formatting"
     );
 }
+
+#[test]
+fn concurrent_crash_offer_requests_keep_the_offer_and_one_startup_receipt() {
+    let dir = tempfile::tempdir().unwrap();
+    child(dir.path(), false);
+    let reporter = CrashReporter::new(
+        writer(
+            dir.path(),
+            Arc::new(CredentialPaths::new("/synthetic/home")),
+        ),
+        "synthetic-test-target",
+    )
+    .unwrap();
+    let barrier = Arc::new(std::sync::Barrier::new(16));
+    let results = std::thread::scope(|scope| {
+        let readers: Vec<_> = (0..16)
+            .map(|_| {
+                let reporter = reporter.clone();
+                let barrier = barrier.clone();
+                scope.spawn(move || {
+                    barrier.wait();
+                    reporter.pending()
+                })
+            })
+            .collect();
+        readers
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect::<Vec<_>>()
+    });
+    let mut id = None;
+    for result in results {
+        let offers = result.expect("simultaneous startup requests must not lose the crash offer");
+        assert_eq!(offers.len(), 1);
+        assert!(
+            offers[0].details().contains("Backtrace:"),
+            "concurrent readers must not contend with their own formatter"
+        );
+        assert!(!offers[0].details().contains("syntheticPanicSecretValue"));
+        let same = id.get_or_insert_with(|| offers[0].id().to_owned());
+        assert_eq!(same, offers[0].id());
+    }
+    let records: String = fs::read_dir(dir.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "jsonl")
+        })
+        .map(|path| fs::read_to_string(path).unwrap())
+        .collect();
+    assert_eq!(
+        records
+            .lines()
+            .filter(|line| line.contains(id.as_ref().unwrap()))
+            .count(),
+        1
+    );
+}
