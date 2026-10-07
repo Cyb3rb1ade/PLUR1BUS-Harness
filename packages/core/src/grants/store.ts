@@ -12,6 +12,7 @@ import { ApprovalChain, ApprovalChainError, type ChainEntry } from "../approvals
 import { transaction } from "../approvals/db.ts";
 import { CAPABILITIES, DEFAULTS, GRANT_SCOPES, scopeRank, type GrantScope, type SurfaceTrust } from "../policy/capabilities.ts";
 import type { Clock, Grant, GrantMatch, GrantSource } from "../policy/decide.ts";
+import type { PolicyAudit, PolicyAuditAction } from "../policy/audit.ts";
 import { checkSyntax, isPathRefusal } from "../policy/paths-index.ts";
 
 /** A use is chained at most this often per grant: `always` expiry (90 days) needs no finer granularity, the chain stays small. */
@@ -55,7 +56,17 @@ export interface CreateGrantInput {
   acknowledgedUnsandboxed?: boolean;
 }
 
-export interface GrantStoreOptions { db: DatabaseSync; chain: ApprovalChain; clock: Clock }
+export interface GrantStoreOptions {
+  db: DatabaseSync;
+  chain: ApprovalChain;
+  clock: Clock;
+  /**
+   * D109 §9: every grant change is written to the audit trail inside the same transaction as the change, so a line that cannot be
+   * written rolls the change back (no grant exists, and no once grant is consumed, unrecorded). Revocation is the exception: it only
+   * narrows, so a failing audit never blocks it.
+   */
+  audit?: PolicyAudit;
+}
 
 interface GrantRow {
   id: string; person: string; agent: string; capability: string; effect: string | null; match_kind: string; match_path: string | null;
@@ -82,8 +93,10 @@ export class GrantStore implements GrantSource {
   readonly #db: DatabaseSync;
   readonly #chain: ApprovalChain;
   readonly #clock: Clock;
+  readonly #audit: PolicyAudit | undefined;
 
   constructor(o: GrantStoreOptions) {
+    this.#audit = o.audit;
     this.#db = o.db;
     this.#chain = o.chain;
     this.#clock = o.clock;
@@ -166,6 +179,16 @@ export class GrantStore implements GrantSource {
     return g;
   }
 
+  #note(action: PolicyAuditAction, g: Grant & { createdBy?: string }, extra: { by?: string; reason?: string; actionHash?: string } = {}): void {
+    this.#audit?.record(action, {
+      person: g.person, agentId: g.agent, capability: g.capability, grantId: g.id, grantScope: g.scope, matchKind: g.match.kind,
+      ...(g.match.kind === "path" ? { targets: [g.match.path] } : {}),
+      ...(g.jobId !== undefined ? { jobId: g.jobId } : {}), ...(g.taskId !== undefined ? { taskId: g.taskId } : {}), ...(g.sessionId !== undefined ? { sessionId: g.sessionId } : {}),
+      ...(action === "grant.created" ? { decisionSurface: g.surface, by: g.createdBy ?? g.person } : {}),
+      ...(extra.by !== undefined ? { by: extra.by } : {}), ...(extra.reason !== undefined ? { reason: extra.reason } : {}), ...(extra.actionHash !== undefined ? { actionHash: extra.actionHash } : {}),
+    });
+  }
+
   // ---- write side ----
 
   create(i: CreateGrantInput): StoredGrant {
@@ -199,7 +222,9 @@ export class GrantStore implements GrantSource {
     const m = i.match;
     return transaction(this.#db, () => {
       if (this.#db.prepare("SELECT 1 FROM grants WHERE id = ?").get(id)) bad("duplicate-id", `grant ${id} exists`);
-      return this.#insert(id, now, i, m, def!.id);
+      const created = this.#insert(id, now, i, m, def!.id);
+      this.#note("grant.created", created);
+      return created;
     });
   }
 
@@ -235,6 +260,10 @@ export class GrantStore implements GrantSource {
         // A broken chain cannot take a new entry, but a revocation only narrows: the row alone ends the grant (views honour it).
         if (!(e instanceof ApprovalChainError)) throw e;
       }
+      try {
+        const row = this.#db.prepare("SELECT * FROM grants WHERE id = ?").get(id) as unknown as GrantRow;
+        this.#note(reason === "revoked" ? "grant.revoked" : "grant.ended", this.#toGrant(row), { by, reason });
+      } catch { /* a revocation is never blocked by the audit trail */ }
       return true;
     });
   }
@@ -265,6 +294,7 @@ export class GrantStore implements GrantSource {
       if (v.grant.lastUsedAt !== undefined && now - v.grant.lastUsedAt < USE_RECORD_GRANULARITY_MS) return;
       this.#chain.append("grant.used", id, {});
       this.#db.prepare("UPDATE grants SET last_used_at = ? WHERE id = ?").run(now, id);
+      this.#note("grant.used", v.grant);
     });
   }
 
@@ -294,6 +324,7 @@ export class GrantStore implements GrantSource {
       ).run(now, now, id, b.person, b.agent, b.actionHash, DEFAULTS.lifetimes.onceUnusedMs, now, now);
       if (Number(r.changes) !== 1) return false;
       this.#chain.append("grant.consumed", id, { actionHash: b.actionHash });
+      this.#note("grant.consumed", v.grant, { actionHash: b.actionHash });
       return true;
     });
   }
