@@ -1,14 +1,21 @@
-// Unit test for scripts/lint-hygiene.mjs (run by `pnpm lint`): the supervisor dependency-budget rule (spec §4,
-// 2a-H3b-b Task 3) flags installer crates under a copy of `crates/plur1bus/src/supervisor/`, and only there.
+// Unit tests for scripts/lint-hygiene.mjs (run by `pnpm lint`), including fixture-backed positive and negative cases
+// for every rule.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const script = fileURLToPath(new URL("./lint-hygiene.mjs", import.meta.url));
+const fixtureDir = fileURLToPath(new URL("./fixtures/hygiene/", import.meta.url));
+
+function fixture(id, kind) {
+  const path = join(fixtureDir, `${id}-${kind}.${id === "HYG-013" && kind === "reject" ? "json" : "txt"}`);
+  const text = readFileSync(path, "utf8");
+  return id === "HYG-013" && kind === "reject" ? JSON.parse(text).join(" ") : text;
+}
 
 function lintTree(files) {
   const root = mkdtempSync(join(tmpdir(), "p1b-hygiene-"));
@@ -26,6 +33,33 @@ function lintTree(files) {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+}
+
+const RULE_FIXTURES = [
+  ["HYG-001", "packages/sample/src/example.ts"],
+  ["HYG-002", "packages/sample/src/example.ts"],
+  ["HYG-003", "packages/sample/src/example.ts"],
+  ["HYG-004", "packages/sample/src/example.ts"],
+  ["HYG-005", "crates/plur1bus/src/supervisor/example.rs"],
+  ["HYG-006", "crates/plur1bus/src/supervisor/example.rs"],
+  ["HYG-007", "crates/plur1bus/src/ext/state.rs"],
+  ["HYG-008", "crates/plur1bus/src/ext/state.rs"],
+  ["HYG-009", "crates/plur1bus/src/ext/state.rs"],
+  ["HYG-010", "crates/plur1bus/src/ext/state.rs"],
+  ["HYG-011", "crates/plur1bus/src/ext/unclassified.rs", "crates/plur1bus/src/ext/record.rs"],
+  ["HYG-012", "x.p12", "x.txt"],
+  ["HYG-013", "docs/synthetic.txt"],
+];
+
+for (const [id, rejectPath, allowPath = rejectPath] of RULE_FIXTURES) {
+  test(`${id} detects its forbidden fixture and accepts its clean fixture`, () => {
+    const reject = lintTree({ [rejectPath]: fixture(id, "reject") });
+    assert.equal(reject.status, 1, `${id}: ${reject.stdout}${reject.stderr}`);
+    assert.match(reject.stderr, new RegExp(`\\[${id}\\]`));
+
+    const allow = lintTree({ [allowPath]: fixture(id, "allow") });
+    assert.equal(allow.status, 0, `${id}: ${allow.stdout}${allow.stderr}`);
+  });
 }
 
 test("flags `use ureq;` under supervisor/", () => {
