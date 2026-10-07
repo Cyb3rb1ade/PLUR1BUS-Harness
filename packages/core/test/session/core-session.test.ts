@@ -58,6 +58,8 @@ describe("session.* over a real core (fake provider)", () => {
       // the capture reached the engine exactly once: its cards hold the Tuesday fact once
       const cards = (await c.call<any>("memory.list", { caller: ALICE, agentId: "bernd", since: 0 })).items;
       assert.equal(cards.filter((x: any) => /Tuesday/.test(JSON.stringify(x))).length >= 1, true, JSON.stringify(cards));
+      const dreams = await c.call<any>("dreams.status", { agentId: "bernd" });
+      assert.ok(dreams.agents[0].phases.every((p: any) => p.importance.capturesSinceRun === 1 && p.importance.accumulated === 5), "a stored session capture feeds every dreaming phase once");
 
       assert.equal((await call<any>("session.list", { caller: ALICE, search: "boiler" })).sessions.length, 1);
       assert.equal((await call<any>("session.list", { caller: ALICE, agentId: "ada" })).sessions.length, 0);
@@ -148,6 +150,8 @@ describe("session.* over a real core (fake provider)", () => {
       assert.equal(sub.state, "completed");
       const cards = (await c.call<any>("memory.list", { caller: ALICE, agentId: "bernd", since: 0 })).items;
       assert.equal(JSON.stringify(cards).includes("quokka"), false);
+      const dreams = await c.call<any>("dreams.status", { agentId: "bernd" });
+      assert.ok(dreams.agents[0].phases.every((p: any) => p.importance.capturesSinceRun === 0 && p.importance.accumulated === 0), "incognito turns do not feed dreaming");
     } finally { await c.close(); await core.stop({ budgetMs: 5_000 }); }
   });
 });
