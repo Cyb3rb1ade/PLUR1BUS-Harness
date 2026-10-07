@@ -26,6 +26,8 @@ pub struct SpaState {
     #[cfg(debug_assertions)]
     probe: Mutex<Option<NativeProbe>>,
     #[cfg(debug_assertions)]
+    creation_probe: Mutex<Option<NativeCreationProbe>>,
+    #[cfg(debug_assertions)]
     secrets: Mutex<Option<NativeSecretObserver>>,
     #[cfg(debug_assertions)]
     fixture_old_origin: Mutex<Option<Origin>>,
@@ -33,6 +35,8 @@ pub struct SpaState {
 /// Test-only native title observer; adds no commands, transports, or release behavior.
 #[cfg(debug_assertions)]
 pub type NativeProbe = std::sync::Arc<dyn Fn(tauri::WebviewWindow, String, Origin) + Send + Sync>;
+#[cfg(debug_assertions)]
+pub type NativeCreationProbe = std::sync::Arc<dyn Fn(&'static str, Option<i32>) + Send + Sync>;
 #[cfg(debug_assertions)]
 pub type NativeSecretObserver = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 
@@ -210,6 +214,17 @@ impl SpaState {
     pub fn set_native_probe(&self, probe: NativeProbe) {
         self.probe.lock().unwrap().replace(probe);
     }
+    #[cfg(debug_assertions)]
+    pub fn set_native_creation_probe(&self, probe: NativeCreationProbe) {
+        self.creation_probe.lock().unwrap().replace(probe);
+    }
+    #[cfg(debug_assertions)]
+    pub(crate) fn observe_native_creation(&self, stage: &'static str, hresult: Option<i32>) {
+        let probe = self.creation_probe.lock().unwrap().clone();
+        if let Some(probe) = probe {
+            probe(stage, hresult);
+        }
+    }
     /// Native fixture only: use the active carrier in memory for negative transport checks.
     #[cfg(debug_assertions)]
     pub fn active_proxy(&self) -> Option<SpaProxy> {
@@ -379,6 +394,10 @@ pub async fn open_spa(
         .disable_drag_drop_handler()
         .user_agent(proxy.user_agent())
         .on_navigation(move |url| {
+            #[cfg(debug_assertions)]
+            handle
+                .state::<SpaState>()
+                .observe_native_creation("navigation-requested", None);
             if navigation_proxy.has_launch_secret_in_target(url.as_str()) {
                 return false;
             }
@@ -637,6 +656,7 @@ mod cleanup_aggregation_tests {
                             let scan = crate::windows_spa_profile::SecretScanOutcome {
                                 complete: false,
                                 secret_detected: true,
+                                ..Default::default()
                             };
                             if !scan.record_into(evidence) {
                                 return;

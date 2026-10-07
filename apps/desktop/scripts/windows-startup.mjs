@@ -64,9 +64,12 @@ function readLoaderProgress(path, queries, targetMachine, permittedRoots) {
       if (end < 0 || end - offset > 65536 || ++countRecords > 32768) throw Error('Incomplete progress record');
       const record = JSON.parse(text.slice(offset, end)); offset = end + 1;
       if (!record || record.schema !== 1 || Array.isArray(record)) throw Error('Invalid progress schema');
-      const keys = record.type === 'phase' ? ['schema', 'type', 'phase', 'dll', 'machine', 'name', 'ordinal']
+      const keys = record.type === 'phase' ? ['schema', 'type', 'phase', 'dll', 'machine', 'name', 'ordinal', 'ms']
         : record.type === 'module' ? ['schema', 'type', 'dll', 'lookup', 'resolvedPath', 'previouslyLoadedPath', 'executableMapping', 'loadError', 'mappingError']
         : record.type === 'symbol' ? ['schema', 'type', 'dll', 'name', 'ordinal', 'found', 'error'] : [];
+      if (record.type === 'phase' && (!Number.isSafeInteger(record.ms) || record.ms < 0 || (answer.helperPhaseMs !== undefined && record.ms < answer.helperPhaseMs))) throw Error('Invalid progress timestamp');
+      if (record.type !== 'phase') keys.push('ms');
+      if (record.ms !== undefined && (!Number.isSafeInteger(record.ms) || record.ms < 0)) throw Error('Invalid progress timestamp');
       if (!keys.length || Object.keys(record).some(key => !keys.includes(key))) throw Error('Unexpected progress field');
       const query = queries.find(query => query.dll === record.dll);
       if (record.dll !== undefined && !query) throw Error('Unexpected progress module');
@@ -89,6 +92,7 @@ function readLoaderProgress(path, queries, targetMachine, permittedRoots) {
           module.observationComplete = true;
         }
         answer.helperPhase = record.phase;
+        answer.helperPhaseMs = record.ms;
         answer.helperStage = record.phase.split('-')[0];
         if (query) answer.lastPublicModule = query.dll;
       } else {
@@ -107,7 +111,7 @@ function readLoaderProgress(path, queries, targetMachine, permittedRoots) {
           for (const field of ['resolvedPath', 'previouslyLoadedPath', 'lookup']) {
             if (record[field] !== null && win32.isAbsolute(record[field]) && !permittedRoots.some(root => windowsPathWithin(record[field], root))) record[field] = null;
           }
-          const module = { ...record, symbols: [], observationComplete: false, outsideMetadataScope }; delete module.schema; delete module.type;
+          const module = { ...record, symbols: [], observationComplete: false, outsideMetadataScope }; delete module.schema; delete module.type; delete module.ms;
           if (previous) Object.assign(previous, module);
           else { observations.set(query.dll, module); answer.modules.push(module); }
         } else {
@@ -143,6 +147,8 @@ export function startupResult(child) {
 // Deliberately catches every diagnostic failure. The caller retains the ORIGINAL
 // child status and still fails collection; a diagnostic is never a remediation.
 export function diagnoseWindowsStartup({ root, executable, cwd, env, child }, dependencies = {}) {
+  const helperBatchTimeoutMs = dependencies.helperBatchTimeoutMs ?? 12000;
+  if (!Number.isSafeInteger(helperBatchTimeoutMs) || helperBatchTimeoutMs <= 0) throw Error('Invalid helper batch timeout');
   const run = dependencies.spawnSync ?? spawnSync;
   const now = dependencies.now ?? Date.now;
   const start = now(), deadline = start + 45000;
@@ -218,7 +224,7 @@ export function diagnoseWindowsStartup({ root, executable, cwd, env, child }, de
       const progressPath = resolve(root, `native-loader-progress-${round}.jsonl`);
       writeFileSync(progressPath, '');
       const result = run(powershell, ['-NoProfile', '-NonInteractive', '-File', helper, '-ProgressPath', progressPath, '-InputPath', queryPath],
-        { cwd, env, encoding: 'utf8', timeout: Math.max(1, Math.min(12000, deadline - now())), maxBuffer: 8 * 1024 * 1024, windowsHide: true });
+        { cwd, env, encoding: 'utf8', timeout: Math.max(1, Math.min(helperBatchTimeoutMs, deadline - now())), maxBuffer: 8 * 1024 * 1024, windowsHide: true });
       const batch = { round, status: result.status, signal: publicCode(result.signal), errorCode: publicCode(result.error?.code),
         stderrBytes: Buffer.byteLength(result.stderr ?? ''), modules: [] };
       batches.push(batch);
@@ -322,7 +328,7 @@ export function diagnoseWindowsStartup({ root, executable, cwd, env, child }, de
           const queryPath = resolve(root, 'native-loader-query-versions.json');
           writeFileSync(queryPath, JSON.stringify({ operation: 'file-versions', paths }));
           const result = run(powershell, ['-NoProfile', '-NonInteractive', '-File', helper, '-InputPath', queryPath],
-            { cwd, env, encoding: 'utf8', timeout: Math.max(1, Math.min(12000, deadline - now())), maxBuffer: 1024 * 1024, windowsHide: true });
+            { cwd, env, encoding: 'utf8', timeout: Math.max(1, Math.min(helperBatchTimeoutMs, deadline - now())), maxBuffer: 1024 * 1024, windowsHide: true });
           if (result.status !== 0 || result.error) throw new Error('Version helper unavailable');
           const data = JSON.parse(result.stdout.replace(/^\uFEFF/, ''));
           if (data.schema !== 1 || !Array.isArray(data.versions)) throw new Error('Version helper invalid');

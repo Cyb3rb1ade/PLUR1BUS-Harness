@@ -54,7 +54,9 @@ pub(crate) fn audit_profile_readability(
     now: &impl Fn() -> Instant,
     metadata: impl Fn(&Path) -> io::Result<std::fs::Metadata>,
     special: impl Fn(&Path) -> io::Result<bool>,
-) -> io::Result<()> {
+) -> io::Result<(u64, u64)> {
+    let initial_bytes = remaining;
+    let mut files_read = 0;
     let mut pending = vec![root.to_path_buf()];
     while let Some(dir) = pending.pop() {
         check_deadline(Some(limit), now)?;
@@ -67,32 +69,24 @@ pub(crate) fn audit_profile_readability(
             } else if info.is_file() {
                 if !special(&path)? {
                     read_file_bounded(&path, Some(limit), &mut remaining, now)?;
+                    files_read += 1;
                 }
             } else {
                 return Err(io::Error::other("unsupported SPA profile entry"));
             }
         }
     }
-    Ok(())
+    Ok((files_read, initial_bytes - remaining))
 }
 
 pub(crate) fn post_exit_audit(
     read: impl FnOnce() -> io::Result<super::windows_spa_profile::SecretScanOutcome>,
     cookie: impl FnOnce() -> io::Result<super::windows_spa_profile::ProfileCleanupEvidence>,
 ) -> super::windows_spa_profile::ProfileCleanupEvidence {
+    // Cookie evidence is mandatory and cheap: acquire it before the secret
+    // reader can consume the shared deadline. Neither phase retries.
     let mut evidence = super::windows_spa_profile::ProfileCleanupEvidence::default();
-    let scan = match read() {
-        Ok(scan) => scan,
-        Err(error) => {
-            evidence.audit_timed_out = error.kind() == io::ErrorKind::TimedOut;
-            return evidence;
-        }
-    };
-    evidence.secret_detected = scan.secret_detected;
-    evidence.secret_scan_complete = scan.complete;
-    if !scan.complete {
-        return evidence;
-    }
+    let started = Instant::now();
     match cookie() {
         Ok(audit) => {
             evidence.read_only_complete = true;
@@ -100,8 +94,25 @@ pub(crate) fn post_exit_audit(
             evidence.cookie_database_files = audit.cookie_database_files;
             evidence.cookie_sidecar_files = audit.cookie_sidecar_files;
         }
-        Err(error) => evidence.audit_timed_out = error.kind() == io::ErrorKind::TimedOut,
+        Err(error) => {
+            evidence.cookie_timed_out = error.kind() == io::ErrorKind::TimedOut;
+            evidence.audit_timed_out = evidence.cookie_timed_out;
+        }
     }
+    evidence.cookie_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+    let started = Instant::now();
+    match read() {
+        Ok(scan) => {
+            evidence.secret_detected = scan.secret_detected;
+            evidence.secret_scan_complete = scan.complete;
+            evidence.files_read = scan.files_read;
+            evidence.bytes_read = scan.bytes_read;
+            evidence.scan_timed_out = scan.timed_out;
+        }
+        Err(error) => evidence.scan_timed_out = error.kind() == io::ErrorKind::TimedOut,
+    }
+    evidence.scan_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+    evidence.audit_timed_out |= evidence.scan_timed_out;
     evidence
 }
 
@@ -283,9 +294,15 @@ mod tests {
                             Ok(crate::windows_spa_profile::SecretScanOutcome {
                                 complete: true,
                                 secret_detected: false,
+                                ..Default::default()
                             })
                         },
-                        || panic!("SQL must not run after a readability failure"),
+                        || {
+                            Ok(crate::windows_spa_profile::ProfileCleanupEvidence {
+                                cookie_database_files: 1,
+                                ..Default::default()
+                            })
+                        },
                     )
                 },
                 || std::fs::remove_dir_all(&path).is_ok(),
@@ -297,6 +314,61 @@ mod tests {
             assert_eq!(result.reason_code(), "SPA_PROFILE_CLEANUP_TIMEOUT");
             assert_eq!(crate::windows_spa_profile::cleanup_exit_code(&result), 0);
         }
+    }
+
+    #[test]
+    fn incomplete_scan_keeps_positive_evidence_and_actual_read_counters() {
+        let evidence = post_exit_audit(
+            || {
+                Ok(crate::windows_spa_profile::SecretScanOutcome {
+                    complete: false,
+                    secret_detected: true,
+                    timed_out: true,
+                    files_read: 3,
+                    bytes_read: 8192,
+                })
+            },
+            || {
+                Ok(crate::windows_spa_profile::ProfileCleanupEvidence {
+                    cookie_rows: 2,
+                    cookie_database_files: 1,
+                    ..Default::default()
+                })
+            },
+        );
+        assert!(evidence.secret_detected && evidence.scan_timed_out && evidence.audit_timed_out);
+        assert_eq!(evidence.cookie_rows, 2);
+        assert_eq!((evidence.files_read, evidence.bytes_read), (3, 8192));
+        assert!(!evidence.secret_scan_complete);
+        assert!(!evidence.accepted());
+    }
+
+    #[test]
+    fn slow_scan_cannot_starve_cookie_inspection() {
+        let cookie_completed = std::cell::Cell::new(false);
+        let start = Instant::now();
+        let clock = std::cell::Cell::new(start);
+        let evidence = post_exit_audit(
+            || {
+                assert!(cookie_completed.get(), "cookie phase must finish first");
+                clock.set(start + Duration::from_secs(6));
+                check_deadline(Some(start + MAX_TIME), &|| clock.get())?;
+                unreachable!()
+            },
+            || {
+                check_deadline(Some(start + MAX_TIME), &|| clock.get())?;
+                cookie_completed.set(true);
+                Ok(crate::windows_spa_profile::ProfileCleanupEvidence {
+                    cookie_database_files: 1,
+                    ..Default::default()
+                })
+            },
+        );
+        assert!(evidence.read_only_complete);
+        assert_eq!(evidence.cookie_database_files, 1);
+        assert!(!evidence.cookie_timed_out);
+        assert!(evidence.scan_timed_out);
+        assert!(!evidence.secret_scan_complete);
     }
 
     #[test]

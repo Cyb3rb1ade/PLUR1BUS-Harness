@@ -1614,6 +1614,7 @@ fn main() {
         })
         .setup(move |app| {
             progress("fixture-setup");
+            app.state::<SpaState>().set_native_creation_probe(Arc::new(progress_with_hresult));
             #[cfg(windows)]
             {
                 let sweep = plur1bus_desktop::windows_spa_profile::sweep(app.handle())
@@ -1626,8 +1627,8 @@ fn main() {
             #[cfg(windows)]
             {
                 let cleanup_known = known.clone();
-                app.state::<SpaState>().set_native_profile_audit(Arc::new(move |path| {
-                    post_exit_secret_audit(path, &cleanup_known.lock().unwrap())
+                app.state::<SpaState>().set_native_profile_audit(Arc::new(move |path, deadline| {
+                    { let snapshot = snapshot_secrets(&cleanup_known); post_exit_secret_audit(path, &snapshot, deadline) }
                 }));
             }
             app.state::<SpaState>()
@@ -1881,8 +1882,20 @@ fn main() {
             });
             let timeout = app.handle().clone();
             std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_secs(80));
-                timeout.exit(2);
+                let total_deadline = std::time::Instant::now() + std::time::Duration::from_secs(80);
+                loop {
+                    let expired = {
+                        let clock = FIXTURE_WAIT.lock().unwrap();
+                        clock.as_ref().and_then(|clock| clock.expired(std::time::Instant::now(), total_deadline))
+                    };
+                    if let Some((reason, budget_ms, elapsed_ms)) = expired {
+                        progress(reason);
+                        eprintln!("FIXTURE_STAGE_DEADLINE stage={reason} budgetMs={budget_ms} observedMs={elapsed_ms}");
+                        timeout.exit(2);
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
             });
             Ok(())
         })
@@ -2088,8 +2101,9 @@ async fn negative_controls(
         other_profile,
         Some(other_browser),
         other_gone,
-        Some(Arc::new(move |path| {
-            post_exit_secret_audit(path, &known.lock().unwrap())
+        Some(Arc::new(move |path, deadline| {
+            let snapshot = snapshot_secrets(&known);
+            post_exit_secret_audit(path, &snapshot, deadline)
         })),
         other_close_requested,
     )
@@ -2348,8 +2362,9 @@ async fn finish(
                                 let browser = task_browser.lock().unwrap().take();
                                 if let Some(lease) = lease {
                                     let audit_known = task_known.clone();
-                                    let secret_audit = Arc::new(move |path: &std::path::Path| {
-                                        post_exit_secret_audit(path, &audit_known.lock().unwrap())
+                                    let secret_audit = Arc::new(move |path: &std::path::Path, deadline| {
+                                        let snapshot = snapshot_secrets(&audit_known);
+                                        post_exit_secret_audit(path, &snapshot, deadline)
                                     });
                                     *observer_cleanup = plur1bus_desktop::windows_spa_profile::cleanup_after_exit(
                                         lease, browser, task_gone, Some(secret_audit), close_requested,
@@ -3102,13 +3117,36 @@ fn audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservation {
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
 }
 
+// Hold the registry only while taking a zeroizing snapshot, never during I/O.
+// SecretString deliberately does not implement Clone in the product API.
+#[cfg(any(windows, test))]
+fn snapshot_secrets(known: &Mutex<Vec<SecretString>>) -> Vec<SecretString> {
+    known
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|secret| SecretString::new(secret.expose().to_owned()))
+        .collect()
+}
+
 #[cfg(windows)]
 fn post_exit_secret_audit(
     root: &std::path::Path,
     secrets: &[SecretString],
+    deadline: std::time::Instant,
 ) -> plur1bus_desktop::windows_spa_profile::SecretScanOutcome {
-    let mut reader = FilesystemAuditReader::with_profile_root(Some(root.to_path_buf()));
-    post_exit_secret_audit_with_reader(root, secrets, &mut reader)
+    let mut reader = DeadlineAuditReader {
+        inner: FilesystemAuditReader::with_profile_root(Some(root.to_path_buf())),
+        deadline,
+        files_read: 0,
+        bytes_read: 0,
+    };
+    let mut result = post_exit_secret_audit_with_reader(root, secrets, &mut reader);
+    result.files_read = reader.files_read;
+    result.bytes_read = reader.bytes_read;
+    result.timed_out |= std::time::Instant::now() >= deadline;
+    result.complete &= !result.timed_out;
+    result
 }
 
 #[cfg(any(windows, test))]
@@ -3121,6 +3159,8 @@ fn post_exit_secret_audit_with_reader(
     plur1bus_desktop::windows_spa_profile::SecretScanOutcome {
         complete: observation.audit_complete,
         secret_detected: observation.secret_detected,
+        timed_out: observation.failure_category == AuditFailureCategory::Deadline,
+        ..Default::default()
     }
 }
 
@@ -3148,13 +3188,15 @@ fn live_audit(root: &std::path::Path, secrets: &[SecretString]) -> AuditObservat
     )
 }
 
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(windows, target_os = "linux", test))]
 struct DeadlineAuditReader {
     inner: FilesystemAuditReader,
     deadline: std::time::Instant,
+    files_read: u64,
+    bytes_read: u64,
 }
 
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(windows, target_os = "linux", test))]
 impl DeadlineAuditReader {
     fn ready(&self) -> Result<(), AuditFailureCategory> {
         if std::time::Instant::now() < self.deadline {
@@ -3165,7 +3207,7 @@ impl DeadlineAuditReader {
     }
 }
 
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(windows, target_os = "linux", test))]
 impl AuditReader for DeadlineAuditReader {
     fn read_dir(
         &mut self,
@@ -3177,7 +3219,10 @@ impl AuditReader for DeadlineAuditReader {
 
     fn read_file(&mut self, path: &std::path::Path) -> Result<Vec<u8>, AuditFailureCategory> {
         self.ready()?;
-        self.inner.read_file(path)
+        let bytes = self.inner.read_file(path)?;
+        self.files_read += 1;
+        self.bytes_read += bytes.len() as u64;
+        Ok(bytes)
     }
 
     fn cookie_rows(&mut self, path: &std::path::Path) -> Result<u64, CookieRowFailure> {
@@ -3199,6 +3244,8 @@ fn audit_until(
     let mut reader = DeadlineAuditReader {
         inner: FilesystemAuditReader::default(),
         deadline,
+        files_read: 0,
+        bytes_read: 0,
     };
     audit_with_reader_and_profile_root(root, secrets, &mut reader, native_profile_root.as_deref())
 }
@@ -3509,7 +3556,7 @@ fn record_audit_failure_at(
 }
 
 const MAX_PROGRESS_STAGES: usize = 128;
-const MAX_PROGRESS_BYTES: usize = 4096;
+const MAX_PROGRESS_BYTES: usize = 16 * 1024;
 
 fn append_progress_history(history: &str, label: &str) -> Option<String> {
     if history.len() <= MAX_PROGRESS_BYTES
@@ -3522,9 +3569,113 @@ fn append_progress_history(history: &str, label: &str) -> Option<String> {
     }
 }
 
+// Creation/navigation use the existing initial open's 30-second cap. Later
+// retirement has its existing 15-second cap; all stages share the unchanged
+// 80-second total ceiling. Repeated or late milestones cannot reset a deadline.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum FixtureWait {
+    Startup,
+    InitialWindow,
+    InitialChecks,
+    SecondWindow,
+    SecondNavigation,
+    SecondProbe,
+    NegativeControls,
+    Retirement,
+    Audit,
+}
+impl FixtureWait {
+    fn next(self, label: &str) -> Self {
+        let next = match label {
+            "fixture-open-spa-start" => Self::InitialWindow,
+            "session-ready" if self == Self::InitialWindow => Self::InitialChecks,
+            "benchmark-done" => Self::SecondWindow,
+            "second-page-started-ticket" | "second-page-started-other-path" => {
+                Self::SecondNavigation
+            }
+            "second-page-finished-ticket" | "second-page-finished-other-path" => Self::SecondProbe,
+            "negative-checks" => Self::NegativeControls,
+            "retire" | "retirement-observer-build-start" => Self::Retirement,
+            "audit" => Self::Audit,
+            _ => self,
+        };
+        self.max(next)
+    }
+    fn budget(self) -> std::time::Duration {
+        std::time::Duration::from_secs(match self {
+            Self::InitialWindow
+            | Self::SecondWindow
+            | Self::SecondNavigation
+            | Self::SecondProbe => 30,
+            Self::Retirement => 15,
+            _ => 80,
+        })
+    }
+    fn reason(self) -> &'static str {
+        match self {
+            Self::Startup => "deadline-fixture-startup",
+            Self::InitialWindow => "deadline-initial-window",
+            Self::InitialChecks => "deadline-initial-checks",
+            Self::SecondWindow => "deadline-second-window",
+            Self::SecondNavigation => "deadline-second-navigation",
+            Self::SecondProbe => "deadline-second-probe",
+            Self::NegativeControls => "deadline-negative-controls",
+            Self::Retirement => "deadline-retirement-observer",
+            Self::Audit => "deadline-profile-audit",
+        }
+    }
+}
+struct FixtureWaitClock {
+    stage: FixtureWait,
+    since: std::time::Instant,
+}
+impl FixtureWaitClock {
+    fn observe(&mut self, label: &str, now: std::time::Instant) {
+        let next = self.stage.next(label);
+        if next != self.stage {
+            self.stage = next;
+            self.since = now;
+        }
+    }
+    fn expired(
+        &self,
+        now: std::time::Instant,
+        total: std::time::Instant,
+    ) -> Option<(&'static str, u128, u128)> {
+        if now >= total {
+            return Some((
+                "deadline-fixture-total",
+                80_000,
+                now.duration_since(total - std::time::Duration::from_secs(80))
+                    .as_millis(),
+            ));
+        }
+        let elapsed = now.saturating_duration_since(self.since);
+        (elapsed >= self.stage.budget()).then_some((
+            self.stage.reason(),
+            self.stage.budget().as_millis(),
+            elapsed.as_millis(),
+        ))
+    }
+}
+static FIXTURE_WAIT: std::sync::Mutex<Option<FixtureWaitClock>> = std::sync::Mutex::new(None);
+
 fn progress(label: &str) {
+    progress_with_hresult(label, None);
+}
+fn progress_with_hresult(label: &str, hresult: Option<i32>) {
     if cfg!(test) {
         return;
+    }
+    {
+        let mut clock = FIXTURE_WAIT.lock().unwrap();
+        let now = std::time::Instant::now();
+        clock
+            .get_or_insert(FixtureWaitClock {
+                stage: FixtureWait::Startup,
+                since: now,
+            })
+            .observe(label, now);
     }
     static PROGRESS_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
     if let Some(path) = std::env::args_os().nth(1) {
@@ -3532,8 +3683,16 @@ fn progress(label: &str) {
             .get_or_init(|| std::sync::Mutex::new(()))
             .lock()
             .unwrap();
+        static CLOCK: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        let t_ms = CLOCK
+            .get_or_init(std::time::Instant::now)
+            .elapsed()
+            .as_millis()
+            .min(u64::MAX as u128) as u64;
+        let record =
+            serde_json::to_string(&json!({"stage":label,"t_ms":t_ms,"hresult":hresult})).unwrap();
         let path = PathBuf::from(path);
-        let _ = std::fs::write(path.with_extension("progress"), label);
+        let _ = std::fs::write(path.with_extension("progress"), &record);
         let history_path = path.with_extension("progress-history");
         let mut history = String::new();
         if let Ok(file) = std::fs::File::open(&history_path) {
@@ -3541,7 +3700,7 @@ fn progress(label: &str) {
                 .take((MAX_PROGRESS_BYTES + 1) as u64)
                 .read_to_string(&mut history);
         }
-        if let Some(next) = append_progress_history(&history, label) {
+        if let Some(next) = append_progress_history(&history, &record) {
             let _ = std::fs::write(history_path, next);
         }
     }
@@ -4706,7 +4865,11 @@ mod tests {
         );
         let known = [super::SecretString::new(canary.clone())];
         let scan = |path: &Path| {
-            let outcome = super::post_exit_secret_audit(path, &known);
+            let outcome = super::post_exit_secret_audit(
+                path,
+                &known,
+                std::time::Instant::now() + std::time::Duration::from_secs(5),
+            );
             assert!(outcome.complete, "actual WAL/sidefile scan must finish");
             outcome.secret_detected
         };
@@ -4750,6 +4913,59 @@ mod tests {
         std::fs::write(journal.path().join("Cookies-journal"), b"no planted value").unwrap();
         assert!(!scan(journal.path()));
         drop(writer);
+    }
+
+    #[test]
+    fn audit_snapshot_releases_registry_before_file_io() {
+        let known = std::sync::Mutex::new(vec![super::SecretString::new("fixture-canary".into())]);
+        let snapshot = super::snapshot_secrets(&known);
+        known
+            .try_lock()
+            .expect("audit must not retain registry guard")
+            .clear();
+        assert_eq!(snapshot.len(), 1);
+        assert_eq!(snapshot[0].expose(), "fixture-canary");
+    }
+
+    #[test]
+    fn stage_clock_does_not_extend_on_duplicate_or_late_events_and_total_still_wins() {
+        let start = std::time::Instant::now();
+        let total = start + std::time::Duration::from_secs(80);
+        let mut clock = super::FixtureWaitClock {
+            stage: super::FixtureWait::SecondWindow,
+            since: start,
+        };
+        clock.observe("benchmark-done", start + std::time::Duration::from_secs(25));
+        clock.observe("session-ready", start + std::time::Duration::from_secs(26));
+        assert!(clock
+            .expired(start + std::time::Duration::from_secs(29), total)
+            .is_none());
+        assert_eq!(
+            clock.expired(start + std::time::Duration::from_secs(30), total),
+            Some(("deadline-second-window", 30_000, 30_000))
+        );
+        clock.observe(
+            "second-page-started-ticket",
+            start + std::time::Duration::from_secs(70),
+        );
+        assert_eq!(
+            clock.expired(total, total),
+            Some(("deadline-fixture-total", 80_000, 80_000))
+        );
+    }
+
+    #[test]
+    fn late_milestones_cannot_regress_named_deadlines() {
+        let waiting = super::FixtureWait::SecondNavigation;
+        assert_eq!(waiting.next("benchmark-done"), waiting);
+        assert_eq!(waiting.next("second-page-started-ticket"), waiting);
+        let probe = waiting.next("second-page-finished-ticket");
+        assert_eq!(probe, super::FixtureWait::SecondProbe);
+        assert_eq!(probe.budget(), std::time::Duration::from_secs(30));
+        assert_eq!(
+            probe.next("negative-checks").next("retire").budget(),
+            std::time::Duration::from_secs(15)
+        );
     }
 
     #[test]
@@ -4831,7 +5047,7 @@ mod tests {
             .map(|_| "other-window-fetch-start\n")
             .collect::<String>();
         assert!(append_progress_history(&stages, "other-window-fetch-start").is_none());
-        let bytes = "x".repeat(4096);
+        let bytes = "x".repeat(super::MAX_PROGRESS_BYTES);
         assert!(append_progress_history(&bytes, "other-window-fetch-start").is_none());
     }
 
