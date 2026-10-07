@@ -118,7 +118,7 @@ export interface CoreOptions {
    *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
   rbac?: {
     resolve?: PrincipalResolver; audit?: AuditSink;
-    /** D109 §5: a server-side fact about a connection (desktop app, CLI on a TTY, fresh step-up) that raises a person to T3. Without it a token connection is T2; see rbac/connection-surface.ts. */
+    /** D109 §5: a server-side fact about a connection (desktop app, CLI on a TTY, fresh step-up) that raises a person to T3. Without it a token connection is T1 (#192); see rbac/connection-surface.ts. */
     attest?: (ctx: CallContext) => ConnectionAttestation | undefined;
   };
   /** M2 L8: test seam for the budget service (a price book of its own). */
