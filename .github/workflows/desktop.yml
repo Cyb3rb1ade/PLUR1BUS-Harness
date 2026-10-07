@@ -32,7 +32,7 @@ jobs:
       macos: ${{ steps.plan.outputs.macos }}
       python_matrix: ${{ steps.plan.outputs.python_matrix }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - id: plan
         env:
@@ -74,11 +74,11 @@ jobs:
       GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
       GIT_CONFIG_VALUE_0: "git@github.com:"
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v4.1.0
         with:
           version: 10.28.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.21.0
           cache: pnpm
@@ -122,7 +122,7 @@ jobs:
         run: node apps/desktop/scripts/windows-libtest-loader.mjs --output "$RUNNER_TEMP/plur1bus-libtest-loader"
       - name: Windows libtest loader evidence artifacts
         if: always() && runner.os == 'Windows'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: desktop-libtest-loader-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: ${{ runner.temp }}/plur1bus-libtest-loader/
@@ -146,7 +146,7 @@ jobs:
         run: node apps/desktop/scripts/transport-spike.mjs
       - name: Native transport observations
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: desktop-native-transport-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: ${{ runner.temp }}/plur1bus-native-spike-run-*/native-*
@@ -176,7 +176,7 @@ jobs:
         run: node apps/desktop/scripts/native-lifecycle.mjs
       - name: Retain Windows lifecycle coverage
         if: always() && runner.os == 'Windows'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: desktop-lifecycle-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: ${{ runner.temp }}/lifecycle-report.json
@@ -202,7 +202,7 @@ jobs:
         run: node apps/desktop/scripts/native-tray.mjs
       - name: Native SPA observations
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: desktop-native-spa-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: ${{ runner.temp }}/plur1bus-native-spa-observations/
@@ -219,7 +219,7 @@ jobs:
           suffix=""
           if [[ "${{ runner.os }}" == "Windows" ]]; then suffix=".exe"; fi
           node apps/desktop/scripts/check-release-seams.mjs "apps/desktop/target/debug/plur1bus-desktop${suffix}" "apps/desktop/target/release/plur1bus-desktop${suffix}"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: desktop-unsigned-${{ matrix.os }}-${{ matrix.cookie_guard }}
           path: |
@@ -240,11 +240,11 @@ jobs:
       PLUR1BUS_CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PLUR1BUS_DESKTOP_MATRIX_RESULT: ${{ needs.desktop.result }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.21.0
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           pattern: desktop-lifecycle-windows-*
           path: ${{ runner.temp }}/windows-focus-reports
@@ -264,8 +264,8 @@ jobs:
     env:
       PLUR1BUS_DESKTOP_E2E_RUNTIME: ${{ matrix.runtime }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.21.0
       - name: Install Podman for the isolated CI runtime
@@ -303,13 +303,13 @@ jobs:
       GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
       GIT_CONFIG_VALUE_0: "git@github.com:"
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v4.1.0
         with:
           version: 10.28.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.21.0
           cache: pnpm
@@ -331,7 +331,7 @@ jobs:
             cat "$RUNNER_TEMP/f2-${{ matrix.suite }}/summary.json" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: f2-${{ matrix.suite }}-${{ matrix.cookie_guard }}-${{ github.sha }}
