@@ -1,5 +1,7 @@
-export * from "./types.ts";
-export { createExtIndexClient, assertFresh } from "./client.ts";
+export { createExtIndexClient } from "./client.ts";
 export type { ExtIndexClient, ExtIndexClientOptions } from "./client.ts";
-export { createFileCacheStore, createMemoryCacheStore } from "./store.ts";
-export { importKeys, importPublicKey, parseIndex, verifySignature } from "./verify.ts";
+export { createCatalogFileStore, createFileCacheStore } from "./store.ts";
+export * from "../types.ts";
+// Low-level #162 schema/crypto utilities; the client supplies trust, lifetime, threshold and rollback policy.
+export { importPublicKey, importKeys, parseIndex, verifySignature } from "./verify.ts";
+export { ExtIndexError } from "./types.ts";
