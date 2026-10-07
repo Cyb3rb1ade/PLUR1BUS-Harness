@@ -73,3 +73,7 @@ test('request bounds and error normalization', () => {
   assert.equal(failure(new DOMException('', 'TimeoutError')).code, 'timeout'); assert.equal(failure('secret').code, 'backend_unavailable');
   assert.equal(estimateCost({ ...req, n: 2 }, { id: 'together', model: 'stabilityai/stable-diffusion-xl-base-1.0' }).usd, 0.0038);
 });
+test('fresh installation recovery works before a job directory exists', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'media-fresh-')); const persistence = new FileJobPersistence(join(root, 'not-created-yet'));
+  await persistence.recoverClaims(); assert.deepEqual(await persistence.list(), []);
+});

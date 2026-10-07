@@ -35,7 +35,7 @@ export class FileJobPersistence implements JobPersistence {
     return () => rm(path, { recursive: true, force: true });
   }
   /** Call only after the host has established exclusive ownership; never steals a live runner's claim. */
-  async recoverClaims(): Promise<void> { for (const name of await readdir(this.root)) if (/^[a-zA-Z0-9_-]+\.claim$/.test(name)) await rm(join(this.root, name), { recursive: true }); }
+  async recoverClaims(): Promise<void> { await mkdir(this.root, { recursive: true, mode: 0o700 }); for (const name of await readdir(this.root)) if (/^[a-zA-Z0-9_-]+\.claim$/.test(name)) await rm(join(this.root, name), { recursive: true }); }
 }
 export class JobRunner {
   readonly persistence: JobPersistence; readonly store: OutputStore; private readonly adapters: Map<string, ImageAdapter>; private readonly budget?: BudgetPort;
