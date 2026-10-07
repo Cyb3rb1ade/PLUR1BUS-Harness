@@ -1,0 +1,13 @@
+{
+  "_comment": "Literals the hard-coded-text heuristic must ignore (brand wordmark, not translatable). Entries: { file, text }.",
+  "entries": [
+    { "file": "packages/web/src/components/sidebar.ts", "text": "PLUR1BUS" },
+    { "file": "packages/web/src/components/sidebar.ts", "text": "PLUR" },
+    { "file": "packages/web/src/components/sidebar.ts", "text": "BUS" },
+    { "file": "packages/web/src/pages/login.ts", "text": "PLUR" },
+    { "file": "packages/web/src/pages/login.ts", "text": "BUS" }
+  ],
+  "deadKeys": [
+    { "file": "packages/web/src/i18n.ts", "key": "login.success", "reason": "reserved for the sign-in live-region announcement (later M3 step); translated in both languages already" }
+  ]
+}

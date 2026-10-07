@@ -1,0 +1,5 @@
+{
+  "catalogues": [{ "file": "packages/web/src/i18n.ts", "en": "en", "de": "de" }],
+  "sources": ["packages/web/src"],
+  "allowlist": "scripts/i18n-allowlist.json"
+}
