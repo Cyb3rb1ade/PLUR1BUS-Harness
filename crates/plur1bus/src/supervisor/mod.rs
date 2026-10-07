@@ -1409,7 +1409,8 @@ mod tests {
         let restricted = format!("D:P(A;;0x00140080;;;{sid})(A;;0x00140080;;;SY)");
         plur1bus_rpc::win::set_path_dacl(&path, &restricted).unwrap();
 
-        assert_eq!(tighten_log_tree(&logs).unwrap(), 1);
+        // The directory itself and the one file are each tightened on Windows.
+        assert_eq!(tighten_log_tree(&logs).unwrap(), 2);
 
         let mut log = logfile::RotatingFile::open(&path, u64::MAX, 1).unwrap();
         log.write_all(b"after\n").unwrap();
