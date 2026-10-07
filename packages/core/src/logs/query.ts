@@ -131,12 +131,28 @@ async function* fileCands(f: OpenLogFile, o: { order: Order; filter: LogFilter; 
     const end = to ? await alignForward(f.fh, await seekByTs(f.fh, f.size, to, quickTs, true, o.stats), f.size, o.stats) : f.size;
     lines = backwardLines(f.fh, { end: to ? Math.min(f.size, end + 64 * 1024) : f.size, ...base });
   }
+  // Lines with one timestamp are put in key order (by line hash) before they leave the file, so every source is sorted
+  // by (ts, hash) and the merge and the cursor agree on one total order whatever order the writer appended them in.
+  // RULING: only lines that follow each other count as one group, and a group is cut at 10 000 lines.
+  let group: Cand[] = [];
+  const flush = function* (): Generator<Cand> {
+    group.sort((x, y) => (o.order === "asc" ? cmp(x.key, y.key) : cmp(y.key, x.key)));
+    const out = group; group = [];
+    yield* out;
+  };
   for await (const raw of lines) {
     if (raw.tooLong) { yield "long"; continue; }
     const c = parse(raw.text, f, o.filter);
     if (!c) { yield "corrupt"; continue; }
-    if (o.after && (o.order === "asc" ? cmp(c.key, o.after) <= 0 : cmp(c.key, o.after) >= 0)) continue;
-    yield c;
+    // RULING: timestamps in a file are non-decreasing (as the seek assumes), so a scan that has left the range stops.
+    if (o.order === "desc" ? o.filter.from !== undefined && c.ts < o.filter.from : o.filter.to !== undefined && c.ts > o.filter.to) break;
+    if (group.length > 0 && (group[0]!.ts !== c.ts || group.length >= 10_000)) for (const g of flush()) if (keep(g)) yield g;
+    group.push(c);
+  }
+  for (const g of flush()) if (keep(g)) yield g;
+
+  function keep(c: Cand): boolean {
+    return !(o.after && (o.order === "asc" ? cmp(c.key, o.after) <= 0 : cmp(c.key, o.after) >= 0));
   }
 }
 

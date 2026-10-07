@@ -31,6 +31,7 @@ import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { engineTurnMemory } from "./session/memory-port.ts";
 import type { ChatProvider } from "./session/provider.ts";
+import { createLogsMethods } from "./logs/index.ts";
 import { openSessionService, type SessionService } from "./session/service.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
@@ -465,6 +466,8 @@ export function createCore(o: CoreOptions): Core {
         secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
         }),
         ...sessions.methods,
+        // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
+        ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
       }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,

@@ -116,6 +116,14 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "logs.query": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "logs.tail": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "admin.embedding.probe": {
       "stability": "experimental",
       "since": "1.3.0"
