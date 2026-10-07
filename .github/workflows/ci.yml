@@ -286,21 +286,79 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
+      - name: setup WSL (attempt 1 of 3)
+        id: wsl_setup_1
+        continue-on-error: true
+        uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
           wsl-conf: |
             [user]
             default=root
-      - uses: pnpm/action-setup@v4
+      - name: wait before WSL setup retry 2
+        if: steps.wsl_setup_1.outcome == 'failure'
+        shell: pwsh
+        run: Start-Sleep -Seconds 5
+      - name: setup WSL (attempt 2 of 3)
+        id: wsl_setup_2
+        if: steps.wsl_setup_1.outcome == 'failure'
+        continue-on-error: true
+        uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
+        with:
+          distribution: Ubuntu-24.04
+          wsl-shell-user: root
+          wsl-conf: |
+            [user]
+            default=root
+      - name: wait before WSL setup retry 3
+        if: steps.wsl_setup_2.outcome == 'failure'
+        shell: pwsh
+        run: Start-Sleep -Seconds 5
+      - name: setup WSL (attempt 3 of 3)
+        id: wsl_setup_3
+        if: steps.wsl_setup_2.outcome == 'failure'
+        continue-on-error: true
+        uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
+        with:
+          distribution: Ubuntu-24.04
+          wsl-shell-user: root
+          wsl-conf: |
+            [user]
+            default=root
+      - name: report WSL setup status
+        id: wsl_setup_status
+        if: always()
+        shell: bash
+        env:
+          ATTEMPT_1: ${{ steps.wsl_setup_1.outcome }}
+          ATTEMPT_2: ${{ steps.wsl_setup_2.outcome }}
+          ATTEMPT_3: ${{ steps.wsl_setup_3.outcome }}
+        run: |
+          if [[ "$ATTEMPT_1" == success || "$ATTEMPT_2" == success || "$ATTEMPT_3" == success ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### WSL setup infrastructure failure"
+              echo "WSL setup failed after three attempts. This is a runner/WSL infrastructure failure; WSL tests were skipped."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::WSL setup failed after three attempts; WSL tests were skipped (infrastructure failure)."
+          fi
+      - if: steps.wsl_setup_status.outputs.ready == 'true'
+        uses: pnpm/action-setup@v4
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - if: steps.wsl_setup_status.outputs.ready == 'true'
+        uses: actions/setup-node@v4
         with: { node-version: 24.21.0, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm gen
-      - run: pnpm build
+      - if: steps.wsl_setup_status.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.wsl_setup_status.outputs.ready == 'true'
+        run: pnpm gen
+      - if: steps.wsl_setup_status.outputs.ready == 'true'
+        run: pnpm build
       - name: create synthetic openclaw fixture in WSL
+        if: steps.wsl_setup_status.outputs.ready == 'true'
         shell: wsl-bash {0}
         run: |
           set -euo pipefail
@@ -322,6 +380,7 @@ jobs:
           SKILL
           test -f /root/.openclaw/openclaw.json
       - name: synthetic WSL source and import detect
+        if: steps.wsl_setup_status.outputs.ready == 'true'
         shell: bash
         env:
           MSYS_NO_PATHCONV: "1"
@@ -360,4 +419,3 @@ jobs:
             echo "SECURITY VIOLATION: secret from outside WSL source root leaked into harness staging"
             exit 1
           fi
-
