@@ -125,12 +125,19 @@ pub struct SecretScanOutcome {
     pub complete: bool,
     /// A known secret was found, even if a later read failed.
     pub secret_detected: bool,
+    pub files_read: u64,
+    pub bytes_read: u64,
+    pub timed_out: bool,
 }
 impl SecretScanOutcome {
-    /// Publish positives before deciding whether the subsequent SQL audit may run.
+    /// Preserve positive findings even when the scan is incomplete.
     pub fn record_into(self, evidence: &mut ProfileCleanupEvidence) -> bool {
         evidence.secret_detected |= self.secret_detected;
         evidence.secret_scan_complete = self.complete;
+        evidence.files_read = self.files_read;
+        evidence.bytes_read = self.bytes_read;
+        evidence.scan_timed_out |= self.timed_out;
+        evidence.audit_timed_out |= self.timed_out;
         self.complete
     }
 }
@@ -147,6 +154,12 @@ pub struct ProfileCleanupEvidence {
     pub exit_timed_out: bool,
     /// The bounded post-exit audit exhausted its own byte/time budget.
     pub audit_timed_out: bool,
+    pub scan_timed_out: bool,
+    pub cookie_timed_out: bool,
+    pub scan_ms: u64,
+    pub cookie_ms: u64,
+    pub files_read: u64,
+    pub bytes_read: u64,
     /// Real READ_ONLY SQLite query (with WAL), after verified exit.
     pub read_only_complete: bool,
     /// Rows counted across all primary cookie databases.
@@ -169,6 +182,9 @@ impl ProfileCleanupEvidence {
             && self.exit_wait_ms <= 10_000
             && !self.exit_timed_out
             && self.read_only_complete
+            && !self.audit_timed_out
+            && !self.scan_timed_out
+            && !self.cookie_timed_out
             && self.cookie_rows == 0
             && self.cookie_database_files > 0
             && self.secret_scan_complete
@@ -373,7 +389,8 @@ mod windows {
     }
 
     /// Debug fixture hook that independently reports byte-scan completeness and positives.
-    pub type SecretAudit = Arc<dyn Fn(&Path) -> super::SecretScanOutcome + Send + Sync>;
+    pub type SecretAudit =
+        Arc<dyn Fn(&Path, std::time::Instant) -> super::SecretScanOutcome + Send + Sync>;
 
     type SharedLeaseFile = Arc<Mutex<File>>;
     static LIVE_LEASES: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<File>>>>> = OnceLock::new();
@@ -439,7 +456,10 @@ mod windows {
         crate::profile_audit::read_file_bounded(path, deadline, remaining, &std::time::Instant::now)
     }
     #[cfg(test)]
-    fn audit_profile_readability(root: &Path, deadline: std::time::Instant) -> io::Result<()> {
+    fn audit_profile_readability(
+        root: &Path,
+        deadline: std::time::Instant,
+    ) -> io::Result<(u64, u64)> {
         crate::profile_audit::audit_profile_readability(
             root,
             deadline,
@@ -616,8 +636,23 @@ mod windows {
         let submitted = window.with_webview(move |webview| {
             let result = (|| {
                 let mut record = record.lock().unwrap();
-                let core = unsafe { webview.controller().CoreWebView2() }
-                    .map_err(|_| io::Error::other("browser process unavailable"))?;
+                // These are observations after Tauri has completed native creation,
+                // not timestamps of WebView2's internal asynchronous callbacks.
+                #[cfg(debug_assertions)]
+                {
+                    let _environment = webview.environment();
+                    app.state::<crate::spa::SpaState>()
+                        .observe_native_creation("environment-created", None);
+                }
+                let core = unsafe { webview.controller().CoreWebView2() }.map_err(|_error| {
+                    #[cfg(debug_assertions)]
+                    app.state::<crate::spa::SpaState>()
+                        .observe_native_creation("controller-create-failed", Some(_error.code().0));
+                    io::Error::other("browser process unavailable")
+                })?;
+                #[cfg(debug_assertions)]
+                app.state::<crate::spa::SpaState>()
+                    .observe_native_creation("controller-created", None);
                 let mut pid = 0;
                 unsafe { core.BrowserProcessId(&mut pid) }
                     .map_err(|_| io::Error::other("browser process ID unavailable"))?;
@@ -848,7 +883,8 @@ mod windows {
                     let audit = tokio::task::spawn_blocking(move || {
                         #[cfg(debug_assertions)]
                         let secret = secret_audit.as_ref().map(|check| {
-                            check.as_ref() as &dyn Fn(&Path) -> super::SecretScanOutcome
+                            check.as_ref()
+                                as &dyn Fn(&Path, std::time::Instant) -> super::SecretScanOutcome
                         });
                         #[cfg(not(debug_assertions))]
                         let secret = {
@@ -882,6 +918,8 @@ mod windows {
                             },
                             secret,
                             |limit| {
+                                validate_owned_path(&root, &path)?;
+                                ensure_no_reparse_tree_before(&path, Some(limit))?;
                                 let audit =
                                     inspect_cookie_databases_with_deadline(&path, Some(limit))?;
                                 Ok(super::ProfileCleanupEvidence {
@@ -2206,12 +2244,13 @@ mod windows {
             let gone = Arc::new(AtomicBool::new(false));
             let exited = Arc::new(AtomicBool::new(false));
             let audit_path = lease_path.clone();
-            let hook: SecretAudit = Arc::new(move |profile_path| {
+            let hook: SecretAudit = Arc::new(move |profile_path, _deadline| {
                 assert_eq!(profile_path.join(".lease"), audit_path);
                 match read_owned_lease(&audit_path) {
                     Ok(Some(record)) => super::super::SecretScanOutcome {
                         complete: true,
                         secret_detected: record.len() != 12,
+                        ..Default::default()
                     },
                     _ => super::super::SecretScanOutcome::default(),
                 }
@@ -2323,9 +2362,10 @@ mod windows {
                         profile,
                         Some(receiver),
                         Arc::new(AtomicBool::new(true)),
-                        Some(Arc::new(|_| super::super::SecretScanOutcome {
+                        Some(Arc::new(|_, _| super::super::SecretScanOutcome {
                             complete: true,
                             secret_detected: true,
+                            ..Default::default()
                         })),
                         std::time::Instant::now(),
                         |_| BrowserLeaseStatus::Exited,

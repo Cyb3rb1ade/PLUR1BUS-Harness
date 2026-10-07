@@ -5,22 +5,26 @@ $stage = 'entry'
 $progressWriter = $null
 $progressStream = $null
 $script:serializerReady = $false
+$script:clock = [Diagnostics.Stopwatch]::StartNew()
 # These callers pass fixed public phase literals only. No cmdlet/module autoload
 # or JSON serializer may run before the first durable script-entry checkpoint.
 function Write-LiteralPhase([string]$phase) {
   if ($null -eq $progressWriter) { return }
-  $progressWriter.WriteLine('{"schema":1,"type":"phase","phase":"' + $phase + '"}')
+  $progressWriter.WriteLine('{"schema":1,"type":"phase","phase":"' + $phase + '","ms":' + $script:clock.ElapsedMilliseconds + '}')
   $progressWriter.Flush()
   $progressStream.Flush($true)
 }
 function Write-ProgressRecord($record) {
   if ($null -eq $progressWriter) { return }
   $record.schema = 1
+  $record.ms = $script:clock.ElapsedMilliseconds
   if (-not $script:serializerReady) { Write-LiteralPhase 'serialization-begin' }
   $json = $record | ConvertTo-Json -Depth 6 -Compress
   if (-not $script:serializerReady) {
     Write-LiteralPhase 'serialization-end'
     $script:serializerReady = $true
+    $record.ms = $script:clock.ElapsedMilliseconds
+    $json = $record | ConvertTo-Json -Depth 6 -Compress
   }
   $progressWriter.WriteLine($json)
   $progressWriter.Flush()
@@ -75,64 +79,65 @@ try {
   }
   $stage = 'compile'
   Write-Phase 'compile-begin'
-  Add-Type -TypeDefinition @'
-using System;
-using System.Text;
-using System.Runtime.InteropServices;
-public static class NativeSpikeLoader {
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
-  public static extern IntPtr LoadLibraryExW(string name, IntPtr file, uint flags);
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
-  public static extern IntPtr GetModuleHandleW(string name);
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
-  public static extern uint GetModuleFileNameW(IntPtr module, StringBuilder path, int size);
-  [DllImport("psapi.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
-  public static extern uint GetMappedFileNameW(IntPtr process, IntPtr address, StringBuilder path, int size);
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
-  public static extern uint QueryDosDeviceW(string name, StringBuilder path, int size);
-  [DllImport("kernel32.dll", CharSet=CharSet.Ansi, ExactSpelling=true, SetLastError=true)]
-  public static extern IntPtr GetProcAddress(IntPtr module, string name);
-  [DllImport("kernel32.dll", EntryPoint="GetProcAddress", ExactSpelling=true, SetLastError=true)]
-  public static extern IntPtr GetProcAddressOrdinal(IntPtr module, IntPtr ordinal);
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
-  public static extern bool SetDllDirectoryW(string path);
-  [DllImport("kernel32.dll", SetLastError=true)]
-  public static extern bool IsWow64Process2(IntPtr process, out ushort machine, out ushort nativeMachine);
-  [DllImport("kernel32.dll")]
-  public static extern IntPtr GetCurrentProcess();
-  [DllImport("kernel32.dll")]
-  public static extern bool FreeLibrary(IntPtr module);
-  [DllImport("kernel32.dll")]
-  public static extern uint SetErrorMode(uint mode);
-  public static string PathOf(IntPtr module) {
-    if (module == IntPtr.Zero) return null;
-    var path = new StringBuilder(32768);
-    return GetModuleFileNameW(module, path, path.Capacity) == 0 ? null : path.ToString();
+  # Emit interop entirely in memory: no CodeDom/csc process or temporary DLL.
+  $assemblyName = [Reflection.AssemblyName]::new('NativeSpikeLoaderAssembly')
+  $assembly = [AppDomain]::CurrentDomain.DefineDynamicAssembly($assemblyName, [Reflection.Emit.AssemblyBuilderAccess]::Run)
+  $moduleBuilder = $assembly.DefineDynamicModule('NativeSpikeLoaderModule')
+  $typeBuilder = $moduleBuilder.DefineType('NativeSpikeLoader', [Reflection.TypeAttributes]'Public, Abstract, Sealed')
+  function Define-NativeMethod([string]$name, [string]$dll, [string]$entry, [Type]$result, [Type[]]$parameters, [Runtime.InteropServices.CharSet]$charset, [bool]$lastError) {
+    $method = $typeBuilder.DefinePInvokeMethod($name, $dll, $entry,
+      [Reflection.MethodAttributes]'Public, Static, PinvokeImpl', [Reflection.CallingConventions]::Standard,
+      $result, $parameters, [Runtime.InteropServices.CallingConvention]::Winapi, $charset)
+    $method.SetImplementationFlags([Reflection.MethodImplAttributes]::PreserveSig)
+    $attribute = [Runtime.InteropServices.DllImportAttribute]
+    $fields = [Reflection.FieldInfo[]]@($attribute.GetField('SetLastError'), $attribute.GetField('ExactSpelling'), $attribute.GetField('CharSet'), $attribute.GetField('EntryPoint'))
+    $values = [object[]]@($lastError, $true, $charset, $entry)
+    $constructor = $attribute.GetConstructor([Type[]]@([string]))
+    $method.SetCustomAttribute([Reflection.Emit.CustomAttributeBuilder]::new($constructor, [object[]]@($dll), $fields, $values))
   }
-  public static string ImagePathOf(IntPtr module) {
-    var path = new StringBuilder(32768);
-    // Resource handles tag the mapped address in the low two bits.
-    var address = new IntPtr(module.ToInt64() & ~3L);
-    if (GetMappedFileNameW(GetCurrentProcess(), address, path, path.Capacity) == 0) return null;
-    var nativePath = path.ToString();
-    for (char drive = 'A'; drive <= 'Z'; drive++) {
-      var device = new StringBuilder(32768);
-      var driveName = drive.ToString() + ":";
-      if (QueryDosDeviceW(driveName, device, device.Capacity) == 0) continue;
-      var prefix = device.ToString();
-      if (nativePath.StartsWith(prefix + "\\", StringComparison.OrdinalIgnoreCase))
-        return driveName + nativePath.Substring(prefix.Length);
+  $unicode = [Runtime.InteropServices.CharSet]::Unicode
+  $ansi = [Runtime.InteropServices.CharSet]::Ansi
+  Define-NativeMethod 'LoadLibraryExW' 'kernel32.dll' 'LoadLibraryExW' ([IntPtr]) @([string],[IntPtr],[uint32]) $unicode $true
+  Define-NativeMethod 'GetModuleHandleW' 'kernel32.dll' 'GetModuleHandleW' ([IntPtr]) @([string]) $unicode $true
+  Define-NativeMethod 'GetModuleFileNameW' 'kernel32.dll' 'GetModuleFileNameW' ([uint32]) @([IntPtr],[Text.StringBuilder],[int]) $unicode $true
+  Define-NativeMethod 'GetMappedFileNameW' 'psapi.dll' 'GetMappedFileNameW' ([uint32]) @([IntPtr],[IntPtr],[Text.StringBuilder],[int]) $unicode $true
+  Define-NativeMethod 'QueryDosDeviceW' 'kernel32.dll' 'QueryDosDeviceW' ([uint32]) @([string],[Text.StringBuilder],[int]) $unicode $true
+  Define-NativeMethod 'GetProcAddress' 'kernel32.dll' 'GetProcAddress' ([IntPtr]) @([IntPtr],[string]) $ansi $true
+  Define-NativeMethod 'GetProcAddressOrdinal' 'kernel32.dll' 'GetProcAddress' ([IntPtr]) @([IntPtr],[IntPtr]) $ansi $true
+  Define-NativeMethod 'SetDllDirectoryW' 'kernel32.dll' 'SetDllDirectoryW' ([bool]) @([string]) $unicode $true
+  Define-NativeMethod 'IsWow64Process2' 'kernel32.dll' 'IsWow64Process2' ([bool]) @([IntPtr], [uint16].MakeByRefType(), [uint16].MakeByRefType()) $unicode $true
+  Define-NativeMethod 'GetCurrentProcess' 'kernel32.dll' 'GetCurrentProcess' ([IntPtr]) @() $unicode $false
+  Define-NativeMethod 'FreeLibrary' 'kernel32.dll' 'FreeLibrary' ([bool]) @([IntPtr]) $unicode $false
+  Define-NativeMethod 'SetErrorMode' 'kernel32.dll' 'SetErrorMode' ([uint32]) @([uint32]) $unicode $false
+  $native = $typeBuilder.CreateType()
+  function Get-NativePath([IntPtr]$handle) {
+    if ($handle -eq [IntPtr]::Zero) { return $null }
+    $path = [Text.StringBuilder]::new(32768)
+    if ($native::GetModuleFileNameW($handle, $path, $path.Capacity) -eq 0) { return $null }
+    return $path.ToString()
+  }
+  function Get-NativeImagePath([IntPtr]$handle) {
+    $path = [Text.StringBuilder]::new(32768)
+    $address = [IntPtr]($handle.ToInt64() -band -4L)
+    if ($native::GetMappedFileNameW($native::GetCurrentProcess(), $address, $path, $path.Capacity) -eq 0) { return $null }
+    $nativePath = $path.ToString()
+    for ($letter = 65; $letter -le 90; $letter++) {
+      $device = [Text.StringBuilder]::new(32768)
+      $drive = ([char]$letter).ToString() + ':'
+      if ($native::QueryDosDeviceW($drive, $device, $device.Capacity) -eq 0) { continue }
+      $prefix = $device.ToString()
+      if ($nativePath.StartsWith($prefix + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        return $drive + $nativePath.Substring($prefix.Length)
+      }
     }
-    return null;
+    return $null
   }
-}
-'@
   Write-Phase 'compile-end'
   $stage = 'architecture'
   Write-Phase 'architecture-begin'
   [UInt16]$processMachine = 0
   [UInt16]$nativeMachine = 0
-  if (-not [NativeSpikeLoader]::IsWow64Process2([NativeSpikeLoader]::GetCurrentProcess(), [ref]$processMachine, [ref]$nativeMachine)) {
+  if (-not $native::IsWow64Process2($native::GetCurrentProcess(), [ref]$processMachine, [ref]$nativeMachine)) {
     throw 'machine-query-failed'
   }
   $machine = if ($processMachine -eq 0) { $nativeMachine } else { $processMachine }
@@ -144,8 +149,8 @@ public static class NativeSpikeLoader {
     $stage = 'search'
     Write-Phase 'search-begin'
     # Suppress modal loader-error UI in this disposable helper process only.
-    [void][NativeSpikeLoader]::SetErrorMode(3)
-    if (-not [NativeSpikeLoader]::SetDllDirectoryW($request.executableDirectory)) { throw 'dll-directory-failed' }
+    [void]$native::SetErrorMode(3)
+    if (-not $native::SetDllDirectoryW($request.executableDirectory)) { throw 'dll-directory-failed' }
     Write-Phase 'search-end'
     $stage = 'modules'
     # Join-Path/Test-Path need the installed Management module. Keep discovery
@@ -169,10 +174,10 @@ public static class NativeSpikeLoader {
         Write-Phase 'existence-end' $item.dll
       }
       Write-Phase 'previous-begin' $item.dll
-      $previous = [NativeSpikeLoader]::PathOf([NativeSpikeLoader]::GetModuleHandleW($item.dll))
+      $previous = Get-NativePath ($native::GetModuleHandleW($item.dll))
       Write-Phase 'previous-end' $item.dll
       Write-Phase 'load-begin' $item.dll
-      $module = [NativeSpikeLoader]::LoadLibraryExW($lookup, [IntPtr]::Zero, 0)
+      $module = $native::LoadLibraryExW($lookup, [IntPtr]::Zero, 0)
       $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
       Write-Phase 'load-end' $item.dll
       $executableMapping = $module -ne [IntPtr]::Zero
@@ -187,7 +192,7 @@ public static class NativeSpikeLoader {
         # The public image-resource mode skips imports/initialization. Its actual
         # mapped path lets the Node parser inspect failing transitive imports.
         Write-Phase 'map-begin' $item.dll
-        $module = [NativeSpikeLoader]::LoadLibraryExW($lookup, [IntPtr]::Zero, 0x20)
+        $module = $native::LoadLibraryExW($lookup, [IntPtr]::Zero, 0x20)
         if ($module -eq [IntPtr]::Zero) { $entry.mappingError = [Runtime.InteropServices.Marshal]::GetLastWin32Error() }
         Write-Phase 'map-end' $item.dll
         Write-ProgressRecord @{ type = 'module'; dll = $entry.dll; lookup = $entry.lookup; resolvedPath = $entry.resolvedPath;
@@ -197,7 +202,7 @@ public static class NativeSpikeLoader {
       if ($module -ne [IntPtr]::Zero) {
         try {
           Write-Phase 'path-begin' $item.dll
-          $entry.resolvedPath = if ($executableMapping) { [NativeSpikeLoader]::PathOf($module) } else { [NativeSpikeLoader]::ImagePathOf($module) }
+          $entry.resolvedPath = if ($executableMapping) { Get-NativePath $module } else { Get-NativeImagePath $module }
           Write-Phase 'path-end' $item.dll
           Write-ProgressRecord @{ type = 'module'; dll = $entry.dll; lookup = $entry.lookup; resolvedPath = $entry.resolvedPath;
             previouslyLoadedPath = $entry.previouslyLoadedPath; executableMapping = $entry.executableMapping;
@@ -208,8 +213,8 @@ public static class NativeSpikeLoader {
             $address = [IntPtr]::Zero
             $symbolError = $null
             if ($executableMapping) {
-              $address = if ($named) { [NativeSpikeLoader]::GetProcAddress($module, [string]$symbol.name) }
-                else { [NativeSpikeLoader]::GetProcAddressOrdinal($module, [IntPtr][int]$symbol.ordinal) }
+              $address = if ($named) { $native::GetProcAddress($module, [string]$symbol.name) }
+                else { $native::GetProcAddressOrdinal($module, [IntPtr][int]$symbol.ordinal) }
               $symbolError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
             }
             $fact = [ordered]@{ name = if ($named) { $symbol.name } else { $null };
@@ -221,7 +226,7 @@ public static class NativeSpikeLoader {
             Write-Phase 'symbol-end' $item.dll $symbol
           }
           Write-Phase 'cleanup-begin' $item.dll
-        } finally { [void][NativeSpikeLoader]::FreeLibrary($module) }
+        } finally { [void]$native::FreeLibrary($module) }
         Write-Phase 'cleanup-end' $item.dll
       }
       else {
@@ -232,7 +237,7 @@ public static class NativeSpikeLoader {
       Write-Phase 'module-end' $item.dll
       $result.modules += $entry
     }
-    [void][NativeSpikeLoader]::SetDllDirectoryW($null)
+    [void]$native::SetDllDirectoryW($null)
   }
   Write-Phase 'complete'
   [Console]::Out.Write(($result | ConvertTo-Json -Depth 12 -Compress))

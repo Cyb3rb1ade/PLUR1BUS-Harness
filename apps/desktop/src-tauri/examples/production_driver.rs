@@ -20,6 +20,32 @@ struct ProgressObservation {
     last: String,
     stages: Vec<String>,
     counts: BTreeMap<String, usize>,
+    samples: Vec<ProgressSample>,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct ProgressSample {
+    stage: String,
+    t_ms: Option<u64>,
+    hresult: Option<i32>,
+}
+fn progress_sample(input: &str) -> Result<ProgressSample, &'static str> {
+    if input.trim_start().starts_with('{') {
+        let sample: ProgressSample =
+            serde_json::from_str(input).map_err(|_| "invalid progress record")?;
+        if sample.t_ms.is_none() {
+            return Err("missing progress timestamp");
+        }
+        Ok(sample)
+    } else {
+        // Historical/plain unit fixtures have no timestamp; never invent one.
+        Ok(ProgressSample {
+            stage: input.trim().to_owned(),
+            t_ms: None,
+            hresult: None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
@@ -423,6 +449,20 @@ fn read_bounded(path: &std::path::Path, limit: u64) -> Option<Vec<u8>> {
 fn progress_labels() -> &'static [&'static str] {
     &[
         "starting",
+        "deadline-fixture-total",
+        "deadline-fixture-startup",
+        "deadline-initial-window",
+        "deadline-initial-checks",
+        "deadline-second-window",
+        "deadline-second-navigation",
+        "deadline-second-probe",
+        "deadline-negative-controls",
+        "deadline-retirement-observer",
+        "deadline-profile-audit",
+        "environment-created",
+        "controller-created",
+        "controller-create-failed",
+        "navigation-requested",
         "fixture-setup",
         "fixture-input-parsed",
         "fixture-builder-start",
@@ -547,19 +587,29 @@ fn progress_labels() -> &'static [&'static str] {
 
 fn parse_progress_history(last: &str, history: &str) -> Result<ProgressObservation, &'static str> {
     let labels = progress_labels();
-    let last = last.trim();
-    if !labels.contains(&last) {
+    let last = progress_sample(last)?.stage;
+    if !labels.contains(&last.as_str()) {
         return Err("unknown progress stage");
     }
     let mut stages = Vec::new();
+    let mut samples = Vec::new();
+    let mut previous_ms = 0;
     if history.trim().is_empty() {
         stages.push(last.to_owned());
     } else {
         for stage in history.lines().map(str::trim).filter(|s| !s.is_empty()) {
-            if !labels.contains(&stage) {
+            let sample = progress_sample(stage)?;
+            if !labels.contains(&sample.stage.as_str()) {
                 return Err("unknown progress stage");
             }
-            stages.push(stage.to_owned());
+            if let Some(ms) = sample.t_ms {
+                if ms < previous_ms {
+                    return Err("nonmonotonic progress timestamp");
+                }
+                previous_ms = ms;
+            }
+            stages.push(sample.stage.clone());
+            samples.push(sample);
         }
     }
     let mut counts = BTreeMap::new();
@@ -570,11 +620,12 @@ fn parse_progress_history(last: &str, history: &str) -> Result<ProgressObservati
         last: last.to_owned(),
         stages,
         counts,
+        samples,
     })
 }
 
 fn read_progress_file(path: &std::path::Path) -> String {
-    const MAX_PROGRESS_BYTES: u64 = 4096;
+    const MAX_PROGRESS_BYTES: u64 = 16 * 1024;
     let Ok(file) = std::fs::File::open(path) else {
         return String::new();
     };
@@ -705,21 +756,33 @@ fn main() {
         drop(input);
         let child_started = std::time::Instant::now();
         let deadline = child_started + std::time::Duration::from_secs(90);
+        let mut child_timed_out = false;
         let status = loop {
             if let Some(status) = child.try_wait().unwrap() {
                 break status;
             }
             if std::time::Instant::now() >= deadline {
+                child_timed_out = true;
                 let _ = child.kill();
-                let _ = child.wait();
-                panic!("owned native child timed out; raw output discarded");
+                break child.wait().expect("reap timed-out owned child");
             }
             std::thread::sleep(std::time::Duration::from_millis(100));
         };
         let last = read_progress_file(&result.with_extension("progress"));
         let history = read_progress_file(&result.with_extension("progress-history"));
-        let observation = parse_progress_history(&last, &history).expect("closed progress stages");
-        if !status.success() {
+        let observation = parse_progress_history(&last, &history).unwrap_or_else(|_| {
+            assert!(
+                !status.success() || child_timed_out,
+                "closed progress stages"
+            );
+            ProgressObservation {
+                last: "progress-unavailable".to_owned(),
+                stages: Vec::new(),
+                counts: std::collections::BTreeMap::new(),
+                samples: Vec::new(),
+            }
+        });
+        if !status.success() || child_timed_out {
             const MAX_DIAGNOSTIC_BYTES: u64 = 262_144;
             let diagnostic = read_bounded(&result, MAX_DIAGNOSTIC_BYTES)
                 .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
@@ -732,6 +795,8 @@ fn main() {
                     "milestone":observation.last.clone(),
                     "milestones":observation.stages,
                     "milestoneCounts":observation.counts,
+                    "milestoneTimings":observation.samples,
+                    "childTimedOut":child_timed_out,
                     "exitCode":status.code(),
                     "childElapsedMs":child_started.elapsed().as_millis().min(90_000),
                     "diagnostic":diagnostic,
@@ -742,7 +807,7 @@ fn main() {
             .unwrap();
         }
         assert!(
-            status.success(),
+            status.success() && !child_timed_out,
             "native child failed at {} with code {:?}; raw output discarded",
             observation.last,
             status.code()
@@ -754,7 +819,8 @@ fn main() {
                 .any(|v| v == credential.token.expose().as_bytes()),
             "credential in public report"
         );
-        let report: Value = serde_json::from_slice(&bytes).unwrap();
+        let mut report: Value = serde_json::from_slice(&bytes).unwrap();
+        report["milestoneTimings"] = serde_json::to_value(&observation.samples).unwrap();
         if cfg!(windows) {
             let sweep: SweepObservation = serde_json::from_value(report["startupSweep"].clone())
                 .expect("closed startup sweep observation");
@@ -1017,6 +1083,14 @@ mod tests {
         exit.cookie_rows = 1;
         assert!(!exit.accepted());
         exit.cookie_rows = 0;
+        exit.cookie_database_files = 1;
+        assert!(exit.accepted());
+        exit.scan_timed_out = true;
+        assert!(!exit.accepted());
+        exit.scan_timed_out = false;
+        exit.cookie_timed_out = true;
+        assert!(!exit.accepted());
+        exit.cookie_timed_out = false;
         exit.secret_detected = true;
         assert!(!exit.accepted());
         let mut raw = serde_json::to_value(exit).unwrap();
@@ -1025,6 +1099,23 @@ mod tests {
             plur1bus_desktop::windows_spa_profile::ProfileCleanupEvidence,
         >(raw)
         .is_err());
+    }
+
+    #[test]
+    fn timestamped_milestones_are_closed_monotonic_and_preserve_hresult() {
+        let good = "{\"stage\":\"environment-created\",\"t_ms\":7,\"hresult\":null}\n{\"stage\":\"controller-create-failed\",\"t_ms\":12,\"hresult\":-2147467259}\n";
+        let observed = parse_progress_history("controller-create-failed", good).unwrap();
+        assert_eq!(observed.samples[1].t_ms, Some(12));
+        assert_eq!(observed.samples[1].hresult, Some(-2147467259));
+        for bad in [
+            good.replace("12", "6"),
+            good.replace("12", "-1"),
+            good.replace("12", "1.2"),
+            good.replace("\"t_ms\":12,", ""),
+            good.replace("\"hresult\":null", "\"hresult\":null,\"url\":\"forbidden\""),
+        ] {
+            assert!(parse_progress_history("controller-create-failed", &bad).is_err());
+        }
     }
 
     #[test]

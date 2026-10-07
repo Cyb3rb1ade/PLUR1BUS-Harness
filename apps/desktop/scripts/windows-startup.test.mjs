@@ -327,7 +327,7 @@ function stalledHelper(fixture, records, tail = '') {
   fixture.deps.spawnSync = (_, args) => {
     const progress = args[args.indexOf('-ProgressPath') + 1];
     assert.ok(args.includes('-ProgressPath'));
-    writeFileSync(progress, records.map(record => JSON.stringify(record) + '\n').join('') + tail);
+    writeFileSync(progress, records.map(record => JSON.stringify(record.type === 'phase' ? {...record, ms: record.ms ?? 0} : record) + '\n').join('') + tail);
     return { status: null, signal: 'SIGTERM', error: { code: 'ETIMEDOUT' }, stdout: '', stderr: '' };
   };
 }
@@ -464,7 +464,7 @@ test('incremental load, map and path updates retain one module and nullable mapp
 
 test('Windows helper executes real compile/load/name phases with isolated profile and preserves failure artifacts',
   { skip: process.platform !== 'win32' ? 'Windows runtime unavailable on this host' : false }, async t => {
-    const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-helper-'));
+    const root = mkdtempSync(join(process.env.PLUR1BUS_F2_STARTUP_ROOT ?? process.env.RUNNER_TEMP ?? tmpdir(), 'plur1bus-native-spike-run-helper-'));
     let success = false;
     t.after(async () => { if (success) await removeExitedProfile(root); });
     const executable = join(root, 'transport_spike.exe');
@@ -487,6 +487,7 @@ test('Windows helper executes real compile/load/name phases with isolated profil
         '-ProgressPath', progressPath, '-InputPath', inputPath], { cwd: root, env }, 12000);
     const report = diagnoseWindowsStartup({ root, executable, cwd: root, env,
       child: { status: 3221225785, stdout: '', stderr: '' } }, {
+      helperBatchTimeoutMs: process.env.PLUR1BUS_F2_STARTUP_PRODUCTION_CAP === "1" ? 12000 : 40000,
       spawnSync: (_command, args) => {
         const destination = args[args.indexOf('-ProgressPath') + 1];
         writeFileSync(destination, readFileSync(progressPath));
@@ -515,6 +516,9 @@ test('Windows helper executes real compile/load/name phases with isolated profil
     }
     assert.ok(phases.some(record => record.phase === 'compile-end'));
     assert.ok(phases.some(record => record.type === 'symbol' && record.name === 'GetCurrentProcess' && record.found === true));
+    const timings = phases.filter(record => record.type === 'phase').map(({phase,ms}) => ({phase,ms}));
+    timings.forEach((record,index) => { assert.ok(Number.isSafeInteger(record.ms) && record.ms >= 0); if (index) assert.ok(record.ms >= timings[index - 1].ms); });
+    if (process.env.PLUR1BUS_F2_STARTUP_TIMINGS) writeFileSync(process.env.PLUR1BUS_F2_STARTUP_TIMINGS, JSON.stringify({schema:1,timings}) + '\n');
     success = true;
   });
 
@@ -742,7 +746,7 @@ test('module preparation failure keeps earlier completed facts and rejects inval
     phase('management-module-end', { dll: 'later.dll' }),
     phase('candidate-secret', { dll: 'later.dll' }),
     phase('candidate-end', { dll: 'later.dll', path: 'C:\\private\\not-public' }),
-  ].map(record => JSON.stringify(record) + '\n')]) {
+  ].map(record => JSON.stringify(record.type === 'phase' ? {...record, ms: record.ms ?? 0} : record) + '\n')]) {
     const fixture = diagnosticFixture(t, [
       { dll: 'probe.dll', symbols: [{ name: 'Entry' }] }, { dll: 'later.dll', symbols: [{ name: 'Later' }] },
     ]);
@@ -908,4 +912,48 @@ test('JSON comparison fixtures ignore planted user toolchain/profile/credential 
   assert.equal(systemOnly.SystemDrive, 'C:'); assert.equal(systemOnly.WINDIR, 'C:\\Windows');
   assert.equal(systemOnly.ProgramFiles, 'C:\\Program Files');
   assert.ok(['HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP'].every(key => systemOnly[key] === root));
+});
+
+test('loader phase timestamps are closed, monotonic and retained on timeout', t => {
+  for (const badMs of [-1, 0.5, '40', null, 9, undefined]) {
+    const fixture = diagnosticFixture(t, [{dll:'probe.dll', symbols:[{name:'Entry'}]}]);
+    stalledHelper(fixture, [phase('script-entry', {ms:10}), phase('compile-begin', {ms:badMs})]);
+    // Preserve deliberately invalid timestamps instead of the helper's default.
+    const prior = fixture.deps.spawnSync;
+    fixture.deps.spawnSync = (command, args, options) => {
+      const result = prior(command, args, options);
+      const path = args[args.indexOf('-ProgressPath') + 1];
+      writeFileSync(path, JSON.stringify(phase('script-entry', {ms:10})) + '\n' + JSON.stringify(phase('compile-begin', {ms:badMs})) + '\n');
+      return result;
+    };
+    diagnoseWindowsStartup(fixture.options, fixture.deps);
+    const saved = JSON.parse(readFileSync(join(fixture.root, 'native-loader-exports.json'), 'utf8'));
+    assert.equal(saved.batches[0].helperPhase, 'script-entry');
+    assert.equal(saved.batches[0].helperPhaseMs, 10);
+    assert.equal(saved.batches[0].progressStatus, 'partial-invalid-record');
+  }
+  const fixture = diagnosticFixture(t, [{dll:'probe.dll', symbols:[{name:'Entry'}]}]);
+  stalledHelper(fixture, [phase('script-entry', {ms:0}), phase('compile-begin', {ms:25}), phase('compile-end', {ms:125})]);
+  diagnoseWindowsStartup(fixture.options, fixture.deps);
+  const saved = JSON.parse(readFileSync(join(fixture.root, 'native-loader-exports.json'), 'utf8'));
+  assert.equal(saved.batches[0].helperPhaseMs, 125);
+});
+
+test('injected helper batch timeout remains within the overall deadline', t => {
+  const fixture = diagnosticFixture(t, [{dll:'probe.dll', symbols:[{name:'Entry'}]}]);
+  let observed;
+  fixture.deps.helperBatchTimeoutMs = 40000;
+  fixture.deps.now = () => 100;
+  fixture.deps.spawnSync = (_command, _args, options) => {
+    observed = options.timeout;
+    return {status:null, signal:'SIGTERM',error:{code:'ETIMEDOUT'},stdout:'',stderr:''};
+  };
+  diagnoseWindowsStartup(fixture.options, fixture.deps);
+  assert.equal(observed, 40000);
+  fixture.deps.now = (() => { let count = 0; return () => count++ ? 44100 : 100; })();
+  diagnoseWindowsStartup(fixture.options, fixture.deps);
+  assert.ok(observed <= 1000);
+  for (const invalid of [-1, NaN, Infinity, 0.5]) {
+    assert.throws(() => diagnoseWindowsStartup(fixture.options, {...fixture.deps,helperBatchTimeoutMs:invalid}), /Invalid helper batch timeout/);
+  }
 });
