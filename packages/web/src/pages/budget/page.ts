@@ -1,6 +1,7 @@
 // Usage & Quota page (`/usage`, M3 E8): budget.status (usage per period and agent, every limit with its use and state) and
 // budget.set (docs/rpc.md, M2 L8). origin/main serves no /rpc yet; a 404 shows the "unavailable" state. Documented scopes are
 // global and agent; limits per project or user are not in the RPC, so the page says so instead of drawing them.
+import { getApi } from "../../api/shared.ts";
 import { h } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
@@ -14,7 +15,7 @@ import type { PageProps } from "../registry.ts";
 import { LimitDialog, RemoveLimitDialog } from "./dialogs.ts";
 import { groupLimits, limitView, normalizeStatus, type Limit, type Status } from "./model.ts";
 import type { BudgetPeriod, UsageTotals } from "./rpc-types.ts";
-import { amount, budgetApi, failState, fullTitle, isAborted, limitKey, limitTitle, money, when, type FailState } from "./shared.ts";
+import { amount, failState, fullTitle, isAborted, limitKey, limitTitle, money, when, type FailState } from "./shared.ts";
 
 type Load = { kind: "loading" } | { kind: "ready"; status: Status } | { kind: "fail"; state: FailState };
 type Dlg = null | { kind: "limit"; limit?: Limit } | { kind: "remove"; limit: Limit };
@@ -91,7 +92,7 @@ export function BudgetPage({ sub }: PageProps): View {
     const mine = ++seq.current;
     if (!silent) setLoad({ kind: "loading" });
     try {
-      const status = normalizeStatus(await budgetApi().rpc("budget.status", undefined, { write: false }));
+      const status = normalizeStatus(await getApi().rpc("budget.status", undefined, { write: false }));
       if (alive.current && mine === seq.current) setLoad({ kind: "ready", status });
     } catch (e) {
       if (alive.current && mine === seq.current && !isAborted(e)) setLoad({ kind: "fail", state: failState(e) });

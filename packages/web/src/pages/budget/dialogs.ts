@@ -1,11 +1,12 @@
 import { h, type ComponentChildren } from "preact";
+import { getApi } from "../../api/shared.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { t, type Key } from "../../i18n.ts";
 import { buildSetParams, microsToInput, parseAmount, type Limit, type LimitKey } from "./model.ts";
 import type { BudgetMetric, BudgetPeriodName } from "./rpc-types.ts";
-import { amount, budgetApi, fullTitle, isForbidden, limitKey, limitTitle } from "./shared.ts";
+import { amount, fullTitle, isForbidden, limitKey, limitTitle } from "./shared.ts";
 
 type Bounds = { soft: number | null; hard: number | null };
 type Errors = Partial<Record<"agent" | "soft" | "hard" | "none", string>>;
@@ -17,7 +18,7 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
 const bad = (e: string | undefined, id: string): Record<string, unknown> => (e ? { "aria-invalid": true, "aria-describedby": `${id}-err` } : {});
 
 async function save(key: LimitKey, next: Bounds, before: Bounds | null): Promise<void> {
-  await budgetApi().rpc("budget.set", buildSetParams(key, next, before));
+  await getApi().rpc("budget.set", buildSetParams(key, next, before));
 }
 
 /** Set a new limit or edit one, in two steps: the form, then a review that says what will be sent (a cleared bound is named). Nothing

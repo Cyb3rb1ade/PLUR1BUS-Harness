@@ -1,16 +1,6 @@
-import { createApi, type Api } from "../../api/index.ts";
 import { formatDateTime, t, type Key } from "../../i18n.ts";
-import { initSession } from "../../session.ts";
 import type { PageStateKind } from "../../components/page-state.ts";
 import type { ModelKind, ModelScanOutcomeCode } from "./rpc-types.ts";
-
-let api: Api | undefined;
-/** The page's API client (same origin, session cookie). A call that finds the session gone re-checks it, which sends the
- *  shell to the sign-in page. Created lazily so that importing the page does not touch `fetch`. */
-export function modelsApi(): Api {
-  api ??= createApi({ onUnauthenticated: () => { void initSession(); } });
-  return api;
-}
 
 export type FailState = Extract<PageStateKind, "error" | "forbidden" | "unavailable">;
 /** Which page state a failed call maps to: E_DENIED/403 -> forbidden, route or core absent -> unavailable, anything else -> error. */

@@ -1,17 +1,10 @@
 // Shared state of the chat page: the API client, the history list, the agents and the hand-over of an unsent draft.
 import { signal } from "@preact/signals";
-import { API_ROUTES, createApi, isApiError, type Api } from "../../api/index.ts";
+import { API_ROUTES, isApiError } from "../../api/index.ts";
+import { getApi } from "../../api/shared.ts";
 import type { Key } from "../../i18n.ts";
 import { sessionNotice, sessionState } from "../../session.ts";
 import type { AgentsAnswer, SessionRecord } from "./rpc-types.ts";
-
-/** The page's API client. A session that ended (401) sends the shell back to sign-in, like a failed write does. */
-export const api: Api = createApi({
-  onUnauthenticated: (kind) => {
-    if (kind === "session-expired") sessionNotice.value = "expired";
-    sessionState.value = { status: "anonymous" };
-  },
-});
 
 export type ListState =
   | { status: "loading" }
@@ -23,7 +16,7 @@ export const list = signal<ListState>({ status: "loading" });
 export async function refreshList(silent: boolean): Promise<void> {
   if (!silent) list.value = { status: "loading" };
   try {
-    const r = await api.rpc("session.list", { kind: "direct", archived: "exclude", limit: 100 }, { write: false });
+    const r = await getApi().rpc("session.list", { kind: "direct", archived: "exclude", limit: 100 }, { write: false });
     list.value = { status: "ready", sessions: r.sessions, truncated: r.truncated };
   } catch (error) {
     if (silent && list.value.status === "ready") return;
@@ -38,7 +31,7 @@ export const agents = signal<AgentsState>({ status: "loading" });
 export async function loadAgents(): Promise<void> {
   agents.value = { status: "loading" };
   try {
-    const r = await api.get<AgentsAnswer>(API_ROUTES.agents);
+    const r = await getApi().get<AgentsAnswer>(API_ROUTES.agents);
     agents.value = { status: "ready", agents: Array.isArray(r.agents) ? r.agents.map((a) => a.agentId) : [] };
   } catch {
     agents.value = { status: "error" };

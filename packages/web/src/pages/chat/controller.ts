@@ -5,7 +5,8 @@ import type { Api, EventsHandle, EventsStatus, SseEvent } from "../../api/index.
 import type { Key } from "../../i18n.ts";
 import { applyEvent, addUser, EMPTY_TRANSCRIPT, fromResume, type Transcript } from "./model.ts";
 import type { SessionEvent, SessionRecord } from "./rpc-types.ts";
-import { api as defaultApi, isAborted, refreshList, submitErrorKey } from "./store.ts";
+import { getApi } from "../../api/shared.ts";
+import { isAborted, refreshList, submitErrorKey } from "./store.ts";
 
 export type LoadState = { status: "loading" } | { status: "ready"; session: SessionRecord } | { status: "error"; error: unknown };
 
@@ -40,7 +41,7 @@ export class ChatController {
   #catching = false;
   #again = false;
 
-  constructor(sessionId: string, api: Api = defaultApi) { this.sessionId = sessionId; this.#api = api; }
+  constructor(sessionId: string, api: Api = getApi()) { this.sessionId = sessionId; this.#api = api; }
 
   /** Loads the chat, then follows its stream. Calling it again (Try again) reloads. */
   async start(quiet = false): Promise<void> {

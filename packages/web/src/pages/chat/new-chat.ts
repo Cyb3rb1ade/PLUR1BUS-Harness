@@ -7,7 +7,8 @@ import { navigate } from "../../router.ts";
 import type { View } from "../../view.ts";
 import { Composer } from "./composer.ts";
 import type { MemoryMode } from "./rpc-types.ts";
-import { agents, api, carryDraft, loadAgents, refreshList, submitErrorKey } from "./store.ts";
+import { getApi } from "../../api/shared.ts";
+import { agents, carryDraft, loadAgents, refreshList, submitErrorKey } from "./store.ts";
 
 export function NewChat(): View {
   const id = useId();
@@ -31,7 +32,7 @@ export function NewChat(): View {
     const memoryMode: MemoryMode = incognito ? "incognito" : "remember";
     let sessionId: string;
     try {
-      sessionId = (await api.rpc("session.create", { agentId, kind: "direct", memoryMode })).session.id;
+      sessionId = (await getApi().rpc("session.create", { agentId, kind: "direct", memoryMode })).session.id;
     } catch (e) {
       setNotice(submitErrorKey(e));
       setBusy(false);
@@ -39,7 +40,7 @@ export function NewChat(): View {
       return;
     }
     let error: Key | null = null;
-    try { await api.rpc("session.submit", { sessionId, text: first }); } catch (e) { error = submitErrorKey(e); }
+    try { await getApi().rpc("session.submit", { sessionId, text: first }); } catch (e) { error = submitErrorKey(e); }
     // The chat exists either way; if the first message did not go out it is put back into that chat's composer.
     if (error !== null) carryDraft(sessionId, first, error);
     void refreshList(true);

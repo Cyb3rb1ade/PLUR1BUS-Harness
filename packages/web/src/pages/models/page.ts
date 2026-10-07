@@ -1,5 +1,6 @@
 // Models page (`/models`, M3 E8): the model catalog of docs/rpc.md (models.list/scan/setOverride/removeManual/acknowledge,
 // notification models.changed) as list + detail. None of it is served by origin/main yet; a 404 shows the "unavailable" state.
+import { getApi } from "../../api/shared.ts";
 import { h, type ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
@@ -16,7 +17,7 @@ import {
   filterModels, groupByProvider, modelKey, normalizeList, newKeys, parseModelRoute, routeFor, scanTotals,
   type Filters, type ListData, type ModelEntry, type ScanTotals,
 } from "./model.ts";
-import { capText, failState, isAborted, isForbidden, kindText, modelsApi, outcomeText, warnText, when, type FailState } from "./shared.ts";
+import { capText, failState, isAborted, isForbidden, kindText, outcomeText, warnText, when, type FailState } from "./shared.ts";
 import type { ModelsScanResult } from "./rpc-types.ts";
 
 type Load = { kind: "loading" } | { kind: "ready"; data: ListData; isNew: ReadonlySet<string> } | { kind: "fail"; state: FailState };
@@ -132,7 +133,7 @@ export function ModelsPage({ sub }: PageProps): View {
     const mine = ++seq.current;
     if (!silent) setLoad({ kind: "loading" });
     try {
-      const api = modelsApi();
+      const api = getApi();
       const data = normalizeList(await api.rpc("models.list", undefined, { write: false }));
       let isNew: ReadonlySet<string> = new Set();
       if (data.newCount > 0) {
@@ -148,7 +149,7 @@ export function ModelsPage({ sub }: PageProps): View {
   useEffect(() => {
     alive.current = true;
     void reload(false);
-    const stream = modelsApi().events({ onEvent: (e) => { if (isModelsChanged(e)) void reload(true); } });
+    const stream = getApi().events({ onEvent: (e) => { if (isModelsChanged(e)) void reload(true); } });
     const stop = stream.status.subscribe((s) => { setLive(s === "open" ? "on" : s === "unavailable" || s === "closed" ? "off" : "connecting"); });
     return () => { alive.current = false; seq.current++; stop(); stream.close(); };
   }, []);
@@ -157,7 +158,7 @@ export function ModelsPage({ sub }: PageProps): View {
     if (scan.kind === "running") return;
     setScan({ kind: "running" });
     try {
-      const result: ModelsScanResult = await modelsApi().rpc("models.scan", undefined);
+      const result: ModelsScanResult = await getApi().rpc("models.scan", undefined);
       if (!alive.current) return;
       setScan({ kind: "done", totals: scanTotals(result) });
       await reload(true);
@@ -167,7 +168,7 @@ export function ModelsPage({ sub }: PageProps): View {
   };
 
   const acknowledge = async (): Promise<void> => {
-    try { await modelsApi().rpc("models.acknowledge", undefined); } catch { /* the list below says what is still new */ }
+    try { await getApi().rpc("models.acknowledge", undefined); } catch { /* the list below says what is still new */ }
     await reload(true);
   };
 

@@ -1,16 +1,7 @@
-import { createApi, type Api } from "../../api/index.ts";
 import type { PageStateKind } from "../../components/page-state.ts";
 import { formatDateTime, formatNumber, lang, t, type Key } from "../../i18n.ts";
-import { initSession } from "../../session.ts";
 import type { Limit } from "./model.ts";
 import type { BudgetMetric } from "./rpc-types.ts";
-
-let api: Api | undefined;
-/** The page's API client (same origin, session cookie); a call that finds the session gone re-checks it, which sends the shell to sign-in. */
-export function budgetApi(): Api {
-  api ??= createApi({ onUnauthenticated: () => { void initSession(); } });
-  return api;
-}
 
 export type FailState = Extract<PageStateKind, "error" | "forbidden" | "unavailable">;
 const kindOf = (e: unknown): unknown => (typeof e === "object" && e !== null ? (e as { kind?: unknown }).kind : undefined);

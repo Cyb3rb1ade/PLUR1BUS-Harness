@@ -3,7 +3,8 @@
 // and any request in flight end with the page. A lost session hands over to the shell's sign-in, which returns here.
 import { h } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { createApi, isApiError, type Api } from "../../api/index.ts";
+import { isApiError, type Api } from "../../api/index.ts";
+import { getApi } from "../../api/shared.ts";
 import { Page } from "../../components/page.ts";
 import { PageLoading, PageState } from "../../components/page-state.ts";
 import { lang, t } from "../../i18n.ts";
@@ -73,7 +74,7 @@ function useDoctor(api: Api): Doctor {
 }
 
 export function DoctorPage(): View {
-  const api = useMemo(() => createApi(), []);
+  const api = useMemo(() => getApi(), []);
   const { snap, busy, announce, recheck } = useDoctor(api);
   const lastChecked = snap ? t("doctor.lastChecked", { time: new Intl.DateTimeFormat(lang.value, { timeStyle: "medium" }).format(new Date(snap.at)) }) : "";
 

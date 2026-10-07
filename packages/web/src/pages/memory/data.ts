@@ -2,23 +2,11 @@
 // caller identity and the role gate for dangerous actions. UI code never calls fetch.
 import { signal } from "@preact/signals";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { createApi, type Api } from "../../api/index.ts";
 import { sessionNotice, sessionState } from "../../session.ts";
 import type { CallerIdentity } from "./rpc-types.ts";
 
-let api: Api | undefined;
-/** The page's API client (same origin, session cookie). The first use creates it; a session that ended signs the UI out. */
-export function getApi(): Api {
-  api ??= createApi({
-    onUnauthenticated: (kind) => {
-      if (kind === "session-expired") sessionNotice.value = "expired";
-      sessionState.value = { status: "anonymous" };
-    },
-  });
-  return api;
-}
-/** Tests of components without a browser can swap the client. */
-export function setApi(next: Api | undefined): void { api = next; }
+/** The shared API client (src/api/shared.ts); a session that ended signs the UI out. */
+export { getApi } from "../../api/shared.ts";
 
 export type FailureKind = "forbidden" | "unavailable" | "not-found" | "error";
 export type Failure = { kind: FailureKind; message: string };

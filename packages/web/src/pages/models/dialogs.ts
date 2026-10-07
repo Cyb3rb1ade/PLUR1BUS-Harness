@@ -1,11 +1,12 @@
 import { h, type ComponentChildren } from "preact";
+import { getApi } from "../../api/shared.ts";
 import { useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { t } from "../../i18n.ts";
 import { CAPABILITIES, KINDS, type ModelEntry } from "./model.ts";
 import type { ModelCapability, ModelKind, ModelOverrides } from "./rpc-types.ts";
-import { capText, isForbidden, kindText, modelsApi } from "./shared.ts";
+import { capText, isForbidden, kindText } from "./shared.ts";
 
 type Errors = Partial<Record<"provider" | "id" | "context", string>>;
 
@@ -93,7 +94,7 @@ export function OverrideDialog({ model, onClose, onSaved }: { model?: ModelEntry
 }
 
 function send(p: { provider: string; id: string; set?: ModelOverrides; clear?: "all"; create?: boolean }): Promise<unknown> {
-  return modelsApi().rpc("models.setOverride", p);
+  return getApi().rpc("models.setOverride", p);
 }
 
 /** Confirm removing a manual entry (a scan cannot bring it back). */
@@ -103,7 +104,7 @@ export function RemoveDialog({ model, onClose, onRemoved }: { model: ModelEntry;
   const remove = async (): Promise<void> => {
     if (busy) return;
     setBusy(true); setFailure("");
-    try { await modelsApi().rpc("models.removeManual", { provider: model.provider, id: model.id }); onRemoved(); } catch (e) { setFailure(isForbidden(e) ? t("models.err.forbidden") : t("models.err.failed")); setBusy(false); }
+    try { await getApi().rpc("models.removeManual", { provider: model.provider, id: model.id }); onRemoved(); } catch (e) { setFailure(isForbidden(e) ? t("models.err.forbidden") : t("models.err.failed")); setBusy(false); }
   };
   return h(Dialog, {
     title: t("models.removeManual"), onClose,
