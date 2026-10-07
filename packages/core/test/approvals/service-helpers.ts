@@ -3,7 +3,7 @@ import { staticKeySource } from "../../src/approvals/keys.ts";
 import { openPermissionStores, type PermissionStores } from "../../src/grants/open.ts";
 import { createPolicyAudit } from "../../src/policy/audit.ts";
 import { decide, type Call, type CallFlags, type Context, type Grant } from "../../src/policy/index.ts";
-import { memoryAuditSink, type MemoryAuditSink } from "../../src/rbac/audit.ts";
+import { memoryAuditSink, type AuditSink, type MemoryAuditSink } from "../../src/rbac/audit.ts";
 import type { ApprovalAsk } from "../../src/tools/approval.ts";
 import { FakeClock, KEY, dbFile } from "./helpers.ts";
 
@@ -46,11 +46,11 @@ export interface Rig {
   path: string;
 }
 
-export async function rig(o: { path?: string; ttlMs?: number; foregroundWaitMs?: number; service?: Partial<ApprovalServiceOptions>; clock?: FakeClock } = {}): Promise<Rig> {
+export async function rig(o: { path?: string; ttlMs?: number; foregroundWaitMs?: number; service?: Partial<ApprovalServiceOptions>; clock?: FakeClock; auditSink?: AuditSink } = {}): Promise<Rig> {
   const clock = o.clock ?? new FakeClock();
   const timers = new FakeTimers(clock);
   const mem = memoryAuditSink();
-  const audit = createPolicyAudit({ sink: mem, clock, host: "h" });
+  const audit = createPolicyAudit({ sink: o.auditSink ?? mem, clock, host: "h" });
   const path = o.path ?? dbFile();
   const stores = await openPermissionStores({ path, keys: staticKeySource(KEY), clock, audit, ...(o.ttlMs !== undefined ? { requestTtlMs: o.ttlMs } : {}) });
   const events: Rig["events"] = [];
