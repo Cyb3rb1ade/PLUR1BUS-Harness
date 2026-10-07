@@ -13,7 +13,7 @@ export const IDENTITY_METHODS = ["identity.list", "identity.human.create", "iden
 // RULING: "owner/admin only" is the local cli caller until the M3 RBAC `authorize()` chokepoint exists (ADR-007).
 function owner(caller: CallerIdentity): Actor {
   if (caller?.channel !== "cli") throw new RpcError("E_DENIED", "identity management is owner only", { reason: "owner-only" });
-  return { user: caller.userId, host: caller.accountId };
+  return { user: caller.userId, host: caller.accountId, role: "owner", kind: "person" };
 }
 
 /** The service's failures as the closed RPC codes; `reason` carries the service code. */
@@ -27,6 +27,7 @@ export function mapIdentityError(e: unknown): never {
     case "invalid-code": throw new RpcError("E_DENIED", e.message, { reason: "invalid-code" });
     case "expired": throw new RpcError("E_DENIED", e.message, { reason: "expired" });
     case "rate-limited": throw new RpcError("E_DENIED", e.message, { reason: "rate-limited", detail: `retryAfterMs=${e.retryAfterMs ?? 0}` });
+    case "denied": throw new RpcError("E_DENIED", e.message, { reason: "identity-denied" });
     case "storage": throw new RpcError("E_STORAGE", e.message, { reason: "identity-store" });
   }
 }

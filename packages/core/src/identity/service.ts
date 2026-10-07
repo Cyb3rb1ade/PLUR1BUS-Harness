@@ -1,3 +1,7 @@
+import { deriveUserPrincipal, isUserPrincipal } from "./principals.ts";
+import { requireAuthorization, rbacAuthorizePort, type AuthorizePort, type IdentityAction } from "./authorization.ts";
+import type { Role } from "../rbac/types.ts";
+import type { IdentityStorePort } from "./store.ts";
 import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { generateCode, hashCode, hashesEqual, newSalt, normalizeCode, uuidv7, CODE_LENGTH } from "./codes.ts";
@@ -8,7 +12,7 @@ export { IdentityError } from "./store.ts";
 export type { IdentityErrorCode } from "./store.ts";
 
 /** Who performed an owner-side action: the audit's `actor` (the CLI's own caller identity). */
-export interface Actor { user: string; host: string }
+export interface Actor { user: string; host: string; kind?: "person" | "agent"; role?: Role; tokenScopes?: readonly string[] }
 /** A channel handle. `displayName` is a label for people to read; it is never matched on (ADR-007 Q4: no heuristic link). */
 export interface ChannelIdentity { channel: string; accountId: string; userId: string; displayName?: string }
 export type ProofMethod = "pairing_code" | "owner_manual" | "signed_challenge";
@@ -27,13 +31,13 @@ export interface Pairing {
 export interface AuditEvent { action: string; target: string; detail: Record<string, unknown>; actor?: Actor }
 
 export interface IdentityOptions {
+  store?: IdentityStorePort; authorize?: AuthorizePort;
   dbPath: string; clock: () => number; audit: (e: AuditEvent) => void;
-  /** Lifetime of a code and of a claim waiting for the owner. Default 10 minutes (ADR-007 caps it at 1 hour). */
-  // RULING: 10 minutes ("short"; ADR-007's Hermes-derived 1 hour is the ceiling, not the default).
+  /** Lifetime of a code and of a claim waiting for the owner. Default one hour (ADR-007). */
   codeTtlMs?: number;
 }
 
-export const DEFAULT_CODE_TTL_MS = 10 * 60_000;
+export const DEFAULT_CODE_TTL_MS = 60 * 60_000;
 export const MAX_PENDING_PER_HUMAN_CHANNEL = 3;
 const MAX_FIELD = 128; // INPUT_LIMITS.ACCOUNT_ID / USER_ID in the engine, as in principal.ts
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -74,12 +78,25 @@ const pairingOf = (r: Row): Pairing => ({
 });
 
 export function createIdentityService(o: IdentityOptions) {
-  const db: DatabaseSync = openStore(o.dbPath);
+  const db: DatabaseSync = (o.store ?? { open: openStore }).open(o.dbPath);
   const ttl = o.codeTtlMs ?? DEFAULT_CODE_TTL_MS;
+  if (!Number.isFinite(ttl) || ttl <= 0 || ttl > DEFAULT_CODE_TTL_MS) { db.close(); throw bad("codeTtlMs", "TTL must be positive and at most one hour"); }
+  const authorizeAction = (action: IdentityAction, user: string, actor: Actor) => requireAuthorization(o.authorize ?? rbacAuthorizePort, actor, action, user);
+  const digest = (value: string) => createHash("sha256").update(value).digest("hex");
   const limiter = createLimiter(db, o.clock);
   const now = () => o.clock();
   // A failing audit sink must never decide an outcome; the store's own state is the record of truth.
-  const audit = (e: AuditEvent) => { try { o.audit(e); } catch { /* the sink logs its own failure */ } };
+  const audit = (e: AuditEvent) => {
+    const safe: AuditEvent = { action: e.action, target: digest(e.target),
+      detail: Object.fromEntries(Object.entries(e.detail).map(([k, v]) => [k, typeof v === "string" && !["channel", "proof", "result", "reason"].includes(k) ? digest(v) : v])),
+      ...(e.actor ? { actor: { user: digest(e.actor.user), host: digest(e.actor.host) } } : {}) };
+    try { o.audit(safe); } catch { /* the durable store remains authoritative */ }
+    const name = ({ "identity.link": "link.approved", "identity.pair.start": "link.requested",
+      "identity.pair.confirm": e.detail.result === "confirmed" ? "link.approved" : "link.declined",
+      "identity.unlink": "link.removed", "identity.pair.rate-limited": "pairing.locked" } as Record<string, string>)[e.action]
+      ?? (e.action === "identity.pair.claim" && e.detail.result === "refused" ? "pairing.failed" : undefined);
+    if (name) { try { o.audit({ ...safe, action: name }); } catch { /* emitter may be unavailable */ } }
+  };
 
   /** BEGIN IMMEDIATE … COMMIT. The callback's return value is committed; to commit state and then refuse, return the refusal and throw outside. */
   function tx<T>(fn: () => T): T {
@@ -92,7 +109,7 @@ export function createIdentityService(o: IdentityOptions) {
   const run = (sql: string, ...p: Array<string | number | null>) => { db.prepare(sql).run(...p); };
 
   tx(() => {
-    // Old finished pairings carry only hashes and handles; they are dropped after 30 days.
+    // Finished proofs are retained only inside this process, with bounded lifetime.
     run("DELETE FROM pairings WHERE state != 'pending' AND created_at < ?", now() - PRUNE_AFTER_MS);
     run("DELETE FROM pairings WHERE state = 'pending' AND expires_at < ?", now() - PRUNE_AFTER_MS);
     limiter.prune();
@@ -117,6 +134,7 @@ export function createIdentityService(o: IdentityOptions) {
 
   return {
     createHuman(p: { displayName: string }, actor: Actor): Human {
+      authorizeAction("create", "", actor);
       const displayName = text(p?.displayName, "displayName"); const id = uuidv7(now()); const t = now();
       run("INSERT INTO humans(id, display_name, created_at, created_by) VALUES (?,?,?,?)", id, displayName, t, actor.user);
       audit({ action: "identity.human.create", target: id, detail: { displayName }, actor });
@@ -125,7 +143,9 @@ export function createIdentityService(o: IdentityOptions) {
 
     /** The owner's manual, deliberate link (ADR-007 Q4): no code, immediate, audited. */
     link(p: { humanId: string; identity: ChannelIdentity }, actor: Actor): Link {
+      authorizeAction("link", p.humanId, actor);
       const i = identityOf(p?.identity);
+      audit({ action: "link.requested", target: p.humanId, detail: { channel: i.channel, accountId: i.accountId, userId: i.userId }, actor });
       const l = tx(() => {
         requireHuman(p.humanId);
         if (activeLink(i)) throw conflict(i);
@@ -137,12 +157,22 @@ export function createIdentityService(o: IdentityOptions) {
 
     /** Mints a code for `humanId` on `channel`. The code is returned here once and exists nowhere else but as a salted hash. */
     startPairing(p: { humanId: string; channel: string }, actor: Actor): { pairingId: string; code: string; channel: string; expiresAt: number } {
+      authorizeAction("pair", p.humanId, actor);
       const channel = channelOf(p?.channel);
       const out = tx(() => {
         requireHuman(p.humanId);
         const t = now();
-        const pending = one("SELECT COUNT(*) AS n FROM pairings WHERE human_id = ? AND channel = ? AND state = 'pending' AND expires_at > ?", p.humanId, channel, t)!.n as number;
+        const userKey = `issue:${digest(p.humanId)}`;
+        const issueGlobal = "issue:global";
+        const locked = limiter.lockedFor([userKey, issueGlobal]);
+        if (locked) {
+          audit({ action: "identity.pair.rate-limited", target: userKey, detail: { retryAfterMs: locked, reason: "issuance" }, actor });
+          throw new IdentityError("rate-limited", "pairing issuance locked", { retryAfterMs: locked });
+        }
+        const pending = one("SELECT COUNT(*) AS n FROM pairings WHERE human_id = ? AND channel = ? AND ((state = 'pending' AND expires_at > ?) OR (state = 'claimed' AND confirm_by > ?))", p.humanId, channel, t, t)!.n as number;
         if (pending >= MAX_PENDING_PER_HUMAN_CHANNEL) throw new IdentityError("limit", `at most ${MAX_PENDING_PER_HUMAN_CHANNEL} pending codes per human and channel`);
+        limiter.failure(userKey, { limit: 10, windowMs: 15 * 60_000, lockMs: 15 * 60_000 });
+        limiter.failure(issueGlobal, { limit: 100, windowMs: 15 * 60_000, lockMs: 15 * 60_000 });
         const code = generateCode(); const salt = newSalt(); const id = uuidv7(t);
         run("INSERT INTO pairings(id, human_id, channel, salt, code_hash, state, created_at, created_by, expires_at) VALUES (?,?,?,?,?,'pending',?,?,?)",
           id, p.humanId, channel, salt, hashCode(salt, code), t, actor.user, t + ttl);
@@ -159,23 +189,27 @@ export function createIdentityService(o: IdentityOptions) {
      */
     claim(p: { code: string; identity: ChannelIdentity }): { pairingId: string; state: "awaiting-confirmation"; confirmBy: number } {
       const i = identityOf(p?.identity);
-      const srcKey = `src:${i.channel}:${i.accountId}:${i.userId}`;
+      const srcKey = `src:${digest(JSON.stringify([i.channel, i.accountId, i.userId]))}`;
       type Outcome = { ok: Pairing } | { fail: string } | { locked: number } | { taken: true };
       const outcome = tx((): Outcome => {
         const wait = limiter.lockedFor([srcKey, GLOBAL_KEY]);
         if (wait > 0) return { locked: wait };
         const t = now();
-        const code = typeof p.code === "string" ? normalizeCode(p.code) : "";
+        const code = typeof p.code === "string" && p.code.length <= 128 ? normalizeCode(p.code) : "";
         const shaped = code.length === CODE_LENGTH;
         let hit: Row | undefined; let why = "wrong";
         for (const r of all("SELECT * FROM pairings WHERE channel = ?", i.channel)) { // every row, so the work does not depend on where a match sits
-          const eq = shaped && hashesEqual(hashCode(r.salt as string, code), r.code_hash as string);
+          const eq = hashesEqual(hashCode(r.salt as string, code), r.code_hash as string) && shaped;
           if (!eq) continue;
           if (r.state === "pending" && (r.expires_at as number) > t) hit = r;
           else why = r.state === "pending" ? "expired" : "reused";
         }
         if (!hit) { limiter.failure(srcKey, SOURCE_LIMIT); limiter.failure(GLOBAL_KEY, GLOBAL_LIMIT); return { fail: why }; }
         if (activeLink(i)) return { taken: true }; // not the claimant's guess failing: nothing counted, the code stays usable
+        const userKey = `claim:${digest(hit.human_id as string)}`;
+        const userWait = limiter.lockedFor([userKey]);
+        if (userWait) return { locked: userWait };
+        limiter.failure(userKey, SOURCE_LIMIT);
         run("UPDATE pairings SET state = 'claimed', claim_account_id = ?, claim_user_id = ?, claim_display_name = ?, claimed_at = ?, confirm_by = ? WHERE id = ?",
           i.accountId, i.userId, i.displayName ?? null, t, t + ttl, hit.id as string);
         limiter.success(srcKey);
@@ -202,9 +236,10 @@ export function createIdentityService(o: IdentityOptions) {
       const out = tx((): Outcome => {
         const r = one("SELECT * FROM pairings WHERE id = ?", id);
         if (!r) throw new IdentityError("not-found", `no such pairing: ${id}`);
+        authorizeAction("confirm", r.human_id as string, actor);
         if (r.state !== "claimed") throw new IdentityError("conflict", `pairing is ${String(r.state)}, not waiting for confirmation`);
         const t = now();
-        if (t > (r.confirm_by as number)) { run("UPDATE pairings SET state = 'expired', resolved_at = ? WHERE id = ?", t, id); return { state: "expired", refuse: new IdentityError("expired", "the claim was not confirmed in time") }; }
+        if (t >= (r.confirm_by as number)) { run("UPDATE pairings SET state = 'expired', resolved_at = ? WHERE id = ?", t, id); return { state: "expired", refuse: new IdentityError("expired", "the claim was not confirmed in time") }; }
         const i: ChannelIdentity = { channel: r.channel as string, accountId: r.claim_account_id as string, userId: r.claim_user_id as string, ...(r.claim_display_name !== null ? { displayName: r.claim_display_name as string } : {}) };
         if (p.approve !== true) { run("UPDATE pairings SET state = 'declined', resolved_at = ? WHERE id = ?", t, id); return { state: "declined" }; }
         if (activeLink(i)) { run("UPDATE pairings SET state = 'declined', resolved_at = ? WHERE id = ?", t, id); return { state: "declined", refuse: conflict(i) }; }
@@ -224,6 +259,9 @@ export function createIdentityService(o: IdentityOptions) {
       const l = tx(() => {
         const r = one("SELECT * FROM identities WHERE id = ?", id);
         if (!r) throw new IdentityError("not-found", `no such link: ${id}`);
+        authorizeAction("unlink", r.human_id as string, actor);
+        const backfill = one("SELECT state FROM backfills WHERE link_id = ?", id);
+        if (backfill && ["running", "reversing"].includes(backfill.state as string)) throw new IdentityError("conflict", "finish or recover backfill before unlinking");
         if (r.revoked_at !== null) throw new IdentityError("conflict", "link is already revoked");
         run("UPDATE identities SET revoked_at = ?, revoked_by = ? WHERE id = ?", now(), actor.user, id);
         return linkOf(one("SELECT * FROM identities WHERE id = ?", id)!);
@@ -238,7 +276,7 @@ export function createIdentityService(o: IdentityOptions) {
         id: h.id as string, displayName: h.display_name as string, createdAt: h.created_at as number, identities: links.filter((l) => l.humanId === h.id),
       }));
       const t = now();
-      const pairings = all("SELECT * FROM pairings WHERE (state = 'pending' AND expires_at > ?) OR (state = 'claimed' AND confirm_by >= ?) ORDER BY created_at, id", t, t).map(pairingOf);
+      const pairings = all("SELECT * FROM pairings WHERE (state = 'pending' AND expires_at > ?) OR (state = 'claimed' AND confirm_by > ?) ORDER BY created_at, id", t, t).map(pairingOf);
       return { humans, pairings };
     },
 
@@ -250,9 +288,36 @@ export function createIdentityService(o: IdentityOptions) {
 
     /** The v1 principals of every currently linked handle of `humanId`: the read side of the union recall (ADR-007). */
     linkedV1Principals(humanId: string): string[] {
-      return all("SELECT v1_principal FROM identities WHERE human_id = ? AND revoked_at IS NULL ORDER BY linked_at, id", humanId).map((r) => r.v1_principal as string);
+      requireHuman(humanId);
+      const principals = all("SELECT v1_principal FROM identities WHERE human_id = ? AND revoked_at IS NULL ORDER BY linked_at, id", humanId).map((r) => r.v1_principal as string);
+      if (principals.some(p => !isUserPrincipal(p) || !p.startsWith("user:v1:"))) throw new IdentityError("storage", "invalid stored principal");
+      return principals;
     },
 
+    authorizeAction,
+    resolvePrincipals(userV2: string): string[] {
+      if (!isUserPrincipal(userV2) || !userV2.startsWith("user:v2:")) throw bad("userV2", "expected v2 principal");
+      const human = all("SELECT id FROM humans").find(h => deriveUserPrincipal(h.id as string) === userV2);
+      if (!human) throw new IdentityError("not-found", "unknown harness principal");
+      const principals = all("SELECT v1_principal FROM identities WHERE human_id = ? AND revoked_at IS NULL ORDER BY linked_at, id", human.id as string).map(r => r.v1_principal as string);
+      if (principals.some(p => !isUserPrincipal(p) || !p.startsWith("user:v1:"))) throw new IdentityError("storage", "invalid stored principal");
+      return [userV2, ...new Set(principals)];
+    },
+    getLink(linkId: string): Link {
+      const r = one("SELECT * FROM identities WHERE id = ?", text(linkId, "linkId", 64));
+      if (!r) throw new IdentityError("not-found", "unknown link");
+      return linkOf(r);
+    },
+    backfillRecord(linkId: string): Row | undefined { return one("SELECT * FROM backfills WHERE link_id = ?", linkId); },
+    reserveBackfill(linkId: string, operationId: string, actor: Actor): void {
+      run("INSERT INTO backfills(link_id,operation_id,state,actor_hash,at) VALUES (?,?,'running',?,?) ON CONFLICT(link_id) DO NOTHING", linkId, operationId, digest(actor.user), now());
+    },
+    finishBackfill(linkId: string, state: "applied" | "reversing" | "reversed", count: number, receipt: string): void {
+      const allowed = state === "applied" ? ["running", "applied"] : state === "reversing" ? ["applied", "reversing"] : ["reversing", "reversed"];
+      const result = db.prepare("UPDATE backfills SET state = ?, count = ?, receipt = ? WHERE link_id = ? AND state IN (?, ?)").run(state, count, receipt, linkId, allowed[0]!, allowed[1]!);
+      if (result.changes !== 1) throw new IdentityError("conflict", "backfill state changed concurrently");
+    },
+    emit: audit,
     close(): void { try { db.close(); } catch { /* closed */ } },
   };
 }
