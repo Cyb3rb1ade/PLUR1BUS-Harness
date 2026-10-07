@@ -1447,6 +1447,8 @@ Previous head4d26f738 Root/Desktop evidence remains historical; Windows jobs fai
 
 ## WP7 — IN PROGRESS (local implementation; acceptance open)
 
+- PR: [#263](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/263), Draft, depends on #233.
+
 - Branch: `feat/desktop-shell-wp07-runtime-adapters`; stacked on WP6 acceptance audit (#233), because its compilation/crash fixes are not on main. Main baseline remains `bedf063146003c86a7dabb5382763fa76162c1e1`.
 - Owner instruction: continue WP7/WP8 locally **without CI polling**. No current-head CI result is asserted; no automatic ready/GREEN transition.
 - Implementation: shared native Runtime trait, single ContainerSpec policy, signed Apple CLI adapter, local-only Docker Engine API adapter (`bollard =0.21.1`, pipe feature only, SSL/HTTP features disabled), deterministic candidate ordering/context lookup/socket deduplication, current runtime preservation, closed de/en runtime messages.
