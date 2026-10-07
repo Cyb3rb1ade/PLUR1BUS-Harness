@@ -14,7 +14,7 @@ import { csrfToken, fakeCore, jsonHeaders, login, OWNER_TOKEN, raw, start, type 
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const post = (h: Harness, body: string, headers: Record<string, string> = jsonHeaders(), p = "/api/v1/session") => raw(h, { method: "POST", path: p, headers, body });
-const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 } };
+const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 }, totp: { capacity: 1000, refillPerSec: 100 }, stream: { capacity: 1000, refillPerSec: 100 } };
 
 /** Raw bytes in, everything the server answers out, until it closes or `ms` passes. */
 function socketExchange(port: number, send: (s: ReturnType<typeof connect>) => void, ms = 3000): Promise<string> {
@@ -160,7 +160,7 @@ test("OK-7: the route table is deny-by-default and its only core calls are core.
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["session.create"]);
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["session.create", "session.totp"]);
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));

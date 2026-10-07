@@ -4,7 +4,7 @@ import { DEFAULT_RATE_CLASSES } from "../src/rate-limit.ts";
 import { ROUTES, type RouteSpec } from "../src/routes.ts";
 import { addUser, csrfToken, fakeCore, FIXTURE_PASSWORD, jsonHeaders, login, loginAs, OWNER_TOKEN, raw, start, write, type Harness } from "./helpers.ts";
 
-const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 } };
+const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 }, totp: { capacity: 1000, refillPerSec: 100 }, stream: { capacity: 1000, refillPerSec: 100 } };
 const setup = async (o: Parameters<typeof start>[0] = {}) => {
   const h = await start({ rateClasses: wide, ...o });
   await addUser(h, { id: "u-alice", username: "alice", role: "member", agentRights: { main: "use" } });
@@ -147,7 +147,7 @@ const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "wh
 
 test("the routes that need no role are exactly the session self-service routes, nothing else", () => {
   assert.deepEqual(ROUTES.filter((r) => r.authz === "authenticated").map((r) => r.id).sort(), SELF_SERVICE);
-  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id), ["session.create"]);
+  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id), ["session.create", "session.totp"], "the two login steps");
   for (const r of ROUTES) assert.ok(r.authz !== undefined, `${r.id} declares an authorization`);
 });
 
@@ -161,7 +161,7 @@ test("every route: unauthenticated is 401; a Viewer is refused on every route th
       if (typeof r.authz !== "object") continue;
       const t = r.csrf ? await csrfToken(h, cookie) : undefined;
       const res = await raw(h, { method: r.method, path: r.path, headers: { cookie, ...(t ? { "x-csrf-token": t } : {}) } });
-      const viewerMayRead = r.method === "GET" && ["agents.list", "tokens.list"].includes(r.id); // agent.list is open to all roles; my.read is "own" for all
+      const viewerMayRead = r.method === "GET" && ["agents.list", "tokens.list", "totp.status"].includes(r.id); // agent.list is open to all roles; my.read is "own" for all
       assert.equal(res.status, viewerMayRead ? 200 : 403, `viewer ${r.id}`);
     }
     assert.equal(h.core.calls.filter((c) => c.method !== "agent.list").length, 0, "a refused request never reaches the core");

@@ -3,7 +3,7 @@ import test from "node:test";
 import type { RouteSpec } from "../src/routes.ts";
 import { addUser, fakeCore, FIXTURE_PASSWORD, jsonHeaders, login, loginAs, raw, start, write, type Harness } from "./helpers.ts";
 
-const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 } };
+const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 }, totp: { capacity: 1000, refillPerSec: 100 }, stream: { capacity: 1000, refillPerSec: 100 } };
 const ok = () => ({ body: { ok: true } });
 const spec = (id: string, method: "GET" | "POST", action: string): RouteSpec => ({ id, method, path: `/api/v1/_t/${id}`, summary: "x", tag: "t", auth: "any", authz: { action }, csrf: false, rate: method === "GET" ? "read" : "write", stability: "experimental", since: "0", successStatus: 200, success: { description: "", schema: {} } });
 const EXTRA = [
