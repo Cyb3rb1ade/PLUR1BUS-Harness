@@ -1,0 +1,37 @@
+/* Doctor page: status banner (ok / degraded / down / unknown), fact cards, agents table, provisioning (file loader, results). Tokens only. */
+
+/* Re-check row: button, then what was checked when */
+.page-inner > p:has(> .btn + span) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 4px; color: var(--ink-2); }
+
+/* Banner: tinted surface, tone border on the left, icon and heading in the tone. Text and the badge say the same, colour only adds. */
+.card[data-banner], [data-banner="down"] > .page-state { border-left-width: 4px; }
+.card[data-banner="ok"] { background: var(--ok-bg); border-color: var(--ok-ink); }
+.card[data-banner="degraded"] { background: var(--warn-bg); border-color: var(--warn-ink); }
+.card[data-banner="unknown"] { background: var(--info-bg); border-color: var(--info-ink); }
+.card[data-banner] .card-title { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; }
+.card[data-banner="ok"] .card-title .icon { color: var(--ok-ink); }
+.card[data-banner="degraded"] .card-title .icon { color: var(--warn-ink); }
+.card[data-banner="unknown"] .card-title .icon { color: var(--info-ink); }
+.card[data-banner] p { max-width: var(--w-reading); color: var(--ink); }
+/* Down: the shared error state, laid out as a banner row instead of a centred empty-state block. */
+[data-banner="down"] { margin-bottom: 16px; }
+[data-banner="down"] > .page-state { max-width: none; margin: 0; padding: 20px; justify-items: start; text-align: left; background: var(--err-bg); color: var(--err-ink); border: 1px solid var(--err-border); border-left: 4px solid var(--err-ink); border-radius: 14px; }
+[data-banner="down"] .state-icon, [data-banner="down"] .state-title { color: var(--err-ink); }
+[data-banner="down"] .state-body { color: var(--ink); }
+
+/* A part of a card that has no data (forbidden, error, unavailable) */
+.card .state-body[data-part] { display: flex; align-items: center; gap: 8px; max-width: none; margin: 0; color: var(--ink-2); }
+
+/* Compact: every table row is a small card; keep them as quiet insets */
+.card > .plain-list > li.card { margin: 0 0 8px; padding: 12px; }
+.card > .plain-list > li.card .facts { grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr); font-size: 14px; }
+.card > .plain-list > li.card .facts dt { padding: 6px 16px 6px 0; border-top: 1px solid var(--line); }
+.card > .plain-list > li.card .facts dd { padding: 6px 0; border-top: 1px solid var(--line); }
+.card > .plain-list > li.card .facts > div:first-child > * { border-top: 0; }
+
+/* Provisioning: file input styled like the other controls (visible border, 24 px+ target) */
+input[type="file"] { height: auto; padding: 6px 8px; cursor: pointer; }
+input[type="file"]::file-selector-button { margin-right: 12px; min-height: calc(var(--control-h) - 14px); padding: 0 16px; border: 1px solid var(--field-border); border-radius: 999px; background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+input[type="file"]::file-selector-button:hover { background: var(--hover-bg); }
+
+.card p.reading { margin-bottom: 12px; }

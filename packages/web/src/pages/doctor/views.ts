@@ -55,7 +55,7 @@ export function Banner({ snap }: { snap: Snapshot }): View | null {
 
 // ---- key/value cards ------------------------------------------------------------------------------------------------
 function Facts({ rows }: { rows: [string, ComponentChildren][] }): View {
-  return h("dl", null, rows.map(([k, v]) => h("div", { key: k }, h("dt", null, k), h("dd", null, v))));
+  return h("dl", { class: "facts" }, rows.map(([k, v]) => h("div", { key: k }, h("dt", null, k), h("dd", null, v))));
 }
 const yesNo = (b: boolean): string => t(b ? "doctor.yes" : "doctor.no");
 
@@ -103,9 +103,9 @@ export function DataTable<R>({ label, cols, rows, rowKey }: { label: string; col
   if (compact.value) {
     return h("ul", { class: "plain-list", "aria-label": label },
       rows.map((r) => h("li", { key: rowKey(r), class: "card" },
-        h("dl", null, cols.map((c) => h("div", { key: c.head }, h("dt", null, c.head), h("dd", null, c.cell(r))))))));
+        h("dl", { class: "facts" }, cols.map((c) => h("div", { key: c.head }, h("dt", null, c.head), h("dd", null, c.cell(r))))))));
   }
-  return h("table", { "aria-label": label },
+  return h("table", { class: "data-table", "aria-label": label },
     h("thead", null, h("tr", null, cols.map((c) => h("th", { key: c.head, scope: "col" }, c.head)))),
     h("tbody", null, rows.map((r) => h("tr", { key: rowKey(r) }, cols.map((c) => h("td", { key: c.head }, c.cell(r)))))));
 }

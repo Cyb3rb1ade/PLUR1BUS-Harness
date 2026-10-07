@@ -71,7 +71,7 @@ export function ProvisioningCard(): View {
     h("div", { class: "field" },
       h("label", { for: inputId }, t("doctor.prov.file")),
       h("input", { id: inputId, type: "file", accept: ".json,application/json", onChange: (e: Event) => { void onFile(e); } })),
-    error ? h("p", { role: "alert" }, t(ERR_TEXT[error])) : null,
+    error ? h("p", { class: "form-error", role: "alert" }, t(ERR_TEXT[error])) : null,
     loaded
       ? h("div", null,
           h("p", null, h(Badge, { tone: loaded.doc.ok ? "ok" : "err" }, CHECK_SCHEMA), " ", t(loaded.doc.ok ? "doctor.prov.summaryOk" : "doctor.prov.summaryFail")),
