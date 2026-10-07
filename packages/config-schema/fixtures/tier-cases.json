@@ -417,6 +417,151 @@
           "x-reserved": "M2 (D18)",
           "additionalProperties": true
         },
+        "modelProfiles": {
+          "description": "Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order.",
+          "type": "object",
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "propertyNames": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "candidates"
+            ],
+            "properties": {
+              "displayName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "strategy": {
+                "enum": [
+                  "fallback",
+                  "moa"
+                ],
+                "default": "fallback"
+              },
+              "candidates": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "model"
+                  ],
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "weight": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 100,
+                      "default": 1
+                    }
+                  }
+                }
+              },
+              "aggregator": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "params": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "temperature": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2
+                  },
+                  "topP": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1
+                  },
+                  "maxTokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2000000
+                  }
+                }
+              },
+              "cache": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "hint": {
+                    "enum": [
+                      "auto",
+                      "none",
+                      "prefer"
+                    ],
+                    "default": "auto"
+                  },
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 86400
+                  }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "strategy"
+                  ],
+                  "properties": {
+                    "strategy": {
+                      "const": "moa"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "candidates": {
+                      "type": "array",
+                      "minItems": 2
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": [
+                    "aggregator"
+                  ],
+                  "properties": {
+                    "aggregator": {}
+                  }
+                },
+                "then": {
+                  "required": [
+                    "strategy"
+                  ],
+                  "properties": {
+                    "strategy": {
+                      "const": "moa"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
         "models": {
           "type": "object",
           "additionalProperties": false,
