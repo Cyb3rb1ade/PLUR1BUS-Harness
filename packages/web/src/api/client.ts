@@ -66,7 +66,7 @@ function httpFailure(raw: Raw): ApiError {
   const { status } = raw;
   if (status === 403) return new ForbiddenError(`forbidden${info.reason ? ` (${info.reason})` : ""}`, info.reason, info.error ?? "E_DENIED");
   if ([404, 405, 501, 502, 503, 504].includes(status)) {
-    return new UnavailableError(`unavailable (${status})`, info.reason ?? `http-${status}`, { status, errorCode: info.error });
+    return new UnavailableError(`unavailable (${status})`, info.reason ?? `http-${status}`, { status, errorCode: info.error, body: raw.body });
   }
   return new HttpError(status, `request failed (${status}${info.reason ? ` ${info.reason}` : ""})`, { reason: info.reason, errorCode: info.error, retryAfterSeconds: retryAfter(raw.headers) });
 }

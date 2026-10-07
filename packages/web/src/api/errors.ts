@@ -36,14 +36,17 @@ export class CsrfError extends Error {
   constructor(message = "the CSRF token was refused") { super(message); this.name = "CsrfError"; }
 }
 /** The backend (or the route) is not there: 404/405/501/502/503/504, no network, E_NOT_AVAILABLE / E_CORE_UNAVAILABLE,
- *  or an answer that is not the documented wire format (an HTML fallback page). `reason` is the machine reason. */
+ *  or an answer that is not the documented wire format (an HTML fallback page). `reason` is the machine reason. `body` is the
+ *  parsed JSON body of an HTTP answer, when it had one (e.g. GET /api/v1/health answers 503 with a health/1 document). */
 export class UnavailableError extends Error {
   readonly kind = "unavailable" as const;
   readonly reason: string;
   readonly status: number | undefined;
   readonly errorCode: ErrorCode | null;
-  constructor(message: string, reason: string, opts: { status?: number; errorCode?: ErrorCode | null } = {}) {
+  readonly body?: unknown;
+  constructor(message: string, reason: string, opts: { status?: number; errorCode?: ErrorCode | null; body?: unknown } = {}) {
     super(message); this.name = "UnavailableError"; this.reason = reason; this.status = opts.status; this.errorCode = opts.errorCode ?? null;
+    if (opts.body !== undefined && opts.body !== null) this.body = opts.body;
   }
 }
 /** A JSON-RPC error object: `code` is the JSON-RPC number (-32601 method not found, -32000 application error, ...),

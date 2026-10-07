@@ -72,14 +72,16 @@ describe("health states", opts, () => {
     }, { core: "off" });
   });
 
-  test("down (503) is not degraded: alert, own text, no versions; Re-check recovers", async () => {
+  test("down (503) is not degraded: alert, own text, only the API version from the 503 body; Re-check recovers", async () => {
     await doctor({}, (m) => { m.health = { status: 503, body: HEALTH_DOWN }; m.agents = { status: 503, body: {} }; }, async ({ page }, m) => {
       const b = banner(page, "down");
       await b.waitFor();
       assert.equal(await b.getByRole("alert").count(), 1);
       assert.match(await b.innerText(), /The core is not reachable/);
       assert.equal(await banner(page, "degraded").count(), 0);
-      assert.equal(await page.getByRole("group", { name: "API and core" }).count(), 0);
+      const facts = page.getByRole("group", { name: "API and core" });
+      await facts.getByText("1.4.0").waitFor();
+      assert.equal(await facts.getByText("Core RPC version").count(), 0);
       await expectAxeClean(page, "down");
       m.health = { status: 200, body: HEALTH_OK }; m.agents = { status: 200, body: AGENTS };
       await recheck(page).click();

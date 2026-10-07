@@ -59,10 +59,12 @@ function Facts({ rows }: { rows: [string, ComponentChildren][] }): View {
 }
 const yesNo = (b: boolean): string => t(b ? "doctor.yes" : "doctor.no");
 
-export function HealthCard({ health }: { health: Health }): View {
+/** `down`: the core is not reachable, so only what the API itself knows (its version) is shown. */
+export function HealthCard({ health, down = false }: { health: Health; down?: boolean }): View {
   const loc = lang.value;
   const c = health.core;
   const none = t("doctor.none");
+  if (down) return h(Card, { title: t("doctor.health.title") }, h(Facts, { rows: [[t("doctor.health.api"), health.apiVersion]] }));
   return h(Card, { title: t("doctor.health.title") },
     h(Facts, { rows: [
       [t("doctor.health.api"), health.apiVersion],

@@ -73,6 +73,11 @@ function useDoctor(api: Api): Doctor {
   return { snap, busy, announce, recheck: () => { trigger.current(true); } };
 }
 
+function healthCard(hp: Snapshot["health"]): View | null {
+  if (hp.kind === "ok") return h(HealthCard, { health: hp.value, down: hp.value.status === "down" });
+  return hp.kind === "down" && hp.body !== null ? h(HealthCard, { health: hp.body, down: true }) : null;
+}
+
 export function DoctorPage(): View {
   const api = useMemo(() => getApi(), []);
   const { snap, busy, announce, recheck } = useDoctor(api);
@@ -89,7 +94,7 @@ export function DoctorPage(): View {
       : snap.health.kind === "forbidden" ? h(PageState, { state: "forbidden" })
       : h("div", null,
           h(Banner, { snap }),
-          snap.health.kind === "ok" && snap.health.value.status !== "down" ? h(HealthCard, { health: snap.health.value }) : null,
+          healthCard(snap.health),
           h(CoreCard, { core: snap.core }),
           h(AgentsCard, { agents: snap.agents })),
     h(ProvisioningCard, {}));

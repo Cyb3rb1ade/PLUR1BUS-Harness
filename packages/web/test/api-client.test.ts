@@ -225,3 +225,14 @@ test("neither the CSRF token nor the cookie shows up in a failure's message", as
     assert.ok(!JSON.stringify({ m: e.message, k: e.kind }).includes(csrf));
   });
 });
+
+test("REST: an unavailable answer carries the parsed JSON body (503 health/1 document); no body, no property", async () => {
+  const mk = (status: number, text: string): Api => createApi({ csrf: async () => "t", fetch: async () => new Response(text, { status, headers: { "content-type": "application/json" } }) });
+  const down = { schema: "health/1", status: "down", api: { version: "1.4.0" }, core: { reachable: false } };
+  const e = await failureOf(mk(503, JSON.stringify(down)).get("/api/v1/health"));
+  assert.equal(e.kind, "unavailable");
+  if (e.kind === "unavailable") { assert.equal(e.status, 503); assert.deepEqual(e.body, down); }
+  const empty = await failureOf(mk(503, "").get("/x"));
+  const html = await failureOf(mk(502, "<html>bad gateway</html>").get("/x"));
+  for (const f of [empty, html]) { assert.equal(f.kind, "unavailable"); if (f.kind === "unavailable") assert.equal(f.body, undefined); }
+});
