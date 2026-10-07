@@ -58,3 +58,14 @@ describe("reader-side redaction (D111 section 4)", () => {
     assert.deepEqual(r.value({ n: 1, z: null, b: true }), { n: 1, z: null, b: true });
   });
 });
+it("a generated path flood cannot stall redaction", async () => {
+  const { spawn } = await import("node:child_process");
+  const moduleUrl = new URL("../../src/logs/redact.ts", import.meta.url).href;
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(process.execPath, ["--experimental-strip-types", "--conditions=source", "--input-type=module", "-e",
+      `import {createRedactor} from ${JSON.stringify(moduleUrl)}; createRedactor().text("/x".repeat(256));`], { stdio: "ignore" });
+    const timer = setTimeout(() => { child.kill(); reject(new Error("redaction stalled on a generated path flood")); }, 5000);
+    child.on("error", err => { clearTimeout(timer); reject(err); });
+    child.on("close", code => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error(`fixture exited ${code}`)); });
+  });
+});

@@ -30,7 +30,7 @@ const escapePattern = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\
 // Data contains credential roots with literal spaces (Application Support, Group Containers).
 const SPACE_PATHS = DENY.flatMap((c) => (c.segments ?? []).filter(seq => seq.some(seg => seg.includes(" "))).map(seq => ({
   cls: c.id,
-  re: new RegExp(String.raw`(?:~|[A-Za-z]:)?(?:[\\/][^\s"'<>|:;,()[\]{}]+)*[\\/]` + seq.map(escapePattern).join(String.raw`[\\/]`) + String.raw`(?:[\\/][^\s"'<>|:;,()[\]{}]+)*`, "gi"),
+  re: new RegExp(String.raw`[\\/]` + seq.map(escapePattern).join(String.raw`[\\/]`) + String.raw`(?:[\\/][^\s"'<>|:;,()[\]{}]*)?`, "gi"),
 })));
 
 /** True when a JSON key / header name / env name denotes a credential (rule `key`). */
@@ -75,6 +75,19 @@ function denyClassOf(segs: string[]): string | null {
   }
   return null;
 }
+/** Match the fixed root first; a nested arbitrary-path prefix can backtrack exponentially on foreign output. */
+function redactSpacedPath(text: string, p: { re: RegExp; cls: string }): string {
+  let out = ""; let last = 0;
+  for (const m of text.matchAll(new RegExp(p.re.source, p.re.flags))) {
+    let start = m.index;
+    while (start > last && !/[\s"'<>|:;,()[\]{}]/.test(text[start - 1]!)) start--;
+    if (start >= last + 2 && /^[A-Za-z]:$/.test(text.slice(start - 2, start))) start -= 2;
+    const end = m.index + m[0].length;
+    const segs = canonical(text.slice(start, end)); const cls = denyClassOf(segs);
+    out += text.slice(last, start) + (cls ? `<deny:${cls}>/…#${sha6(segs.join("/"))}` : text.slice(start, end)); last = end;
+  }
+  return out + text.slice(last);
+}
 const PATH_TOKEN = /(?:[A-Za-z]:)?(?:[\\/][^\s"'<>|:;,()[\]{}]+)+|~[\\/][^\s"'<>|:;,()[\]{}]+|\.env(?:\.[A-Za-z0-9_-]+)?\b/g;
 
 export interface RedactOptions {
@@ -113,7 +126,7 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
     });
     for (const p of PATTERNS) s = applyPattern(s, p, "pattern");
     s = s.replace(URL_FIND, (u) => { let r = u; for (const st of URL_STEPS) r = applyPattern(r, st, "url"); return r; });
-    for (const p of SPACE_PATHS) s = s.replace(p.re, tok => `<deny:${p.cls}>/…#${sha6(canonical(tok).join("/"))}`);
+    for (const p of SPACE_PATHS) s = redactSpacedPath(s, p);
     s = s.replace(PATH_TOKEN, (tok) => {
       const segs = canonical(tok.startsWith("~") ? tok.slice(1) : tok);
       const cls = denyClassOf(segs);
