@@ -5,7 +5,7 @@ Hand-written. Code: `packages/embedding-adapters/`. Decision record: `docs/adr/A
 `@plur1bus/embedding-adapters` is one interface over every remote embedding and rerank provider named in ADR-006, with
 shared timeout, retry, batching, response validation and secret handling. It adds **no runtime dependencies** (Node
 `fetch`, `AbortController`, web streams only). **It is not wired into core or the engine** (see
-[Follow-up: wiring](#follow-up-wiring-into-corengine)).
+[Follow-up: wiring](#follow-up-wiring-into-coreengine)).
 
 ## Interface
 
