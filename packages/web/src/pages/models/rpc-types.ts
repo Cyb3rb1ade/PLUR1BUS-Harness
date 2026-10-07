@@ -54,7 +54,7 @@ export type ModelsScanResult = { startedAt: string; finishedAt: string; provider
 
 export type OverrideField = "displayName" | "kind" | "contextWindow" | "capabilities" | "aliases";
 
-declare module "../../api/client.ts" {
+declare module "../../api/index.ts" {
   interface RpcMethods {
     "models.list": { params: { provider?: string; kind?: ModelKind; status?: CatalogModelStatus; newOnly?: boolean } | undefined; result: ModelsListResult };
     "models.scan": { params: { provider?: string } | undefined; result: ModelsScanResult };

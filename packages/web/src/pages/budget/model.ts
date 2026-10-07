@@ -45,7 +45,12 @@ export function normalizeStatus(raw: unknown): Status {
 
 /** Global limits, per-agent limits, and any scope this UI does not know yet (project, user, ...), which is shown rather than hidden. */
 export function groupLimits(limits: readonly Limit[]): { global: Limit[]; agents: Limit[]; other: Limit[] } {
-  return { global: limits.filter((l) => l.scope === "global"), agents: limits.filter((l) => l.scope === "agent"), other: limits.filter((l) => l.scope !== "global" && l.scope !== "agent") };
+  // A stable order whatever the server sends (agent, day before month, cost before tokens): a limit that is changed keeps its place,
+  // so a reload does not move the element the user is working on (a moved element loses keyboard focus).
+  const order = (a: Limit, b: Limit): number =>
+    (a.scope + (a.agentId ?? "")).localeCompare(b.scope + (b.agentId ?? "")) || (a.period === b.period ? 0 : a.period === "day" ? -1 : 1) || a.metric.localeCompare(b.metric);
+  const pick = (f: (l: Limit) => boolean): Limit[] => limits.filter(f).sort(order);
+  return { global: pick((l) => l.scope === "global"), agents: pick((l) => l.scope === "agent"), other: pick((l) => l.scope !== "global" && l.scope !== "agent") };
 }
 
 export type LimitStatus = "ok" | "warn" | "exceeded";

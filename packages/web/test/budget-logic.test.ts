@@ -39,6 +39,10 @@ describe("normalizeStatus and groups", () => {
     assert.equal(g.global.length, 2); assert.equal(g.agents.length, 1); assert.equal(g.other.length, 1);
     assert.equal(g.global[1]!.used, 0);
   });
+  test("limits come out in a stable order whatever the server sends", () => {
+    const a = groupLimits(normalizeStatus({ limits: [lim({ period: "month", metric: "tokens" }), lim({ period: "month", metric: "cost" }), lim({ period: "day", metric: "tokens" }), lim({ period: "day", metric: "cost" })] }).limits).global;
+    assert.deepEqual(a.map((l) => `${l.period}/${l.metric}`), ["day/cost", "day/tokens", "month/cost", "month/tokens"]);
+  });
   test("periods keep agents and models", () => {
     const u = { events: 2, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0, costMicros: 1500, unpricedEvents: 1 };
     const s = normalizeStatus({ timeZone: "UTC", priceVersion: "v1", now: "2026-10-07T00:00:00Z", periods: [{ period: "day", key: "2026-10-07", total: u, agents: [{ agentId: "main", total: u, models: [{ model: "m", ...u }] }] }], limits: [] });

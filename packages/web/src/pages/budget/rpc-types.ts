@@ -21,7 +21,7 @@ export type BudgetSetParams = {
 };
 export type BudgetSetResult = { timeZone: string; limit?: BudgetLimit | null; limits: BudgetLimit[] };
 
-declare module "../../api/client.ts" {
+declare module "../../api/index.ts" {
   interface RpcMethods {
     "budget.status": { params: { agentId?: string } | undefined; result: BudgetStatusResult };
     "budget.set": { params: BudgetSetParams; result: BudgetSetResult };
