@@ -46,3 +46,20 @@ export function readSourceFileSafe(path: string, maxBytes: number): Buffer {
     if (fd !== undefined) closeSync(fd);
   }
 }
+
+/** Strict source text decoding. BOM selects UTF-16; unmarked text must be valid UTF-8.
+ * Never include decoder input in errors: configs may contain credentials. */
+export function decodeSourceText(bytes: Buffer): string {
+  let encoding = "utf-8";
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) encoding = "utf-16le";
+  else if (bytes[0] === 0xfe && bytes[1] === 0xff) encoding = "utf-16be";
+  try {
+    return new TextDecoder(encoding, { fatal: true }).decode(bytes);
+  } catch {
+    throw new ImportError("E_SOURCE_UNSUPPORTED", "invalid-text-encoding", "Source text has invalid encoding");
+  }
+}
+
+export function readSourceTextSafe(path: string, maxBytes: number): string {
+  return decodeSourceText(readSourceFileSafe(path, maxBytes));
+}

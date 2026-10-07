@@ -2,10 +2,11 @@
 // resolution and home markers (hermes_constants.py), config version (hermes_cli/config_defaults.py `_config_version`),
 // sessions schema (hermes_state_common.py SCHEMA_VERSION), skill dirs (get_skills_dir, skills.external_dirs,
 // HERMES_OPTIONAL_SKILLS). Read-only throughout; each profile is its own agent (§3.3).
+import { verifySourceSnapshot } from "../snapshot-source.ts";
 import { join, resolve } from "node:path";
 import { envGet, expandTilde, expandUser, expandVars, locateSource, pathFor, portabilityOf, SourcePathMapper, userHome } from "../paths.ts";
 import { envKeyNames, isDir, isFile, openSqliteReadOnly, sqliteTables, sqliteWarning } from "../readonly.ts";
-import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
 import { caseCollisions, caseInsensitiveTarget, unportableName } from "../skills-scan.ts";
 import { subdirs } from "../store-scan.ts";
 import { readYaml } from "../yaml-lite.ts";
@@ -57,12 +58,15 @@ function readProfile(agentId: string, dir: string): ProfileFacts {
   if (!existsNoFollow(configPath)) return { agentId, dir, config: {}, configVersion: null, unsupported: [] };
   let text: string;
   try {
-    text = readSourceFileSafe(configPath, 4 * 1024 * 1024).toString("utf8");
+    text = readSourceTextSafe(configPath, 4 * 1024 * 1024);
   } catch (error) {
     const reason = error instanceof ImportError ? error.reason : "source-unreadable";
     throw new ImportError("E_SOURCE_UNSUPPORTED", reason, `${configPath}: ${reason}`);
   }
   const { value, unsupported } = readYaml(text);
+  if (unsupported.some(issue => /not a mapping entry|unexpected indentation/.test(issue))) {
+    throw new ImportError("E_SOURCE_UNSUPPORTED", "yaml-unparseable", `${configPath}: yaml-unparseable`);
+  }
   const config = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
   const v = config._config_version;
   return { agentId, dir, config, configVersion: Number.isSafeInteger(v) ? (v as number) : null, unsupported };
@@ -88,6 +92,7 @@ function sessionsSchema(dir: string, warnings: string[]): number | null {
 export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
   const { root, resolvedFrom, profile: envProfile } = resolveHermesRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
   const warnings: string[] = [];
+  const snapshot = verifySourceSnapshot(root, ctx.home);
   if (envProfile !== null && ctx.profile !== undefined && ctx.profile !== envProfile) {
     throw new ImportError("E_INVALID_PARAMS", "profile-conflict", `HERMES_HOME selects profile ${JSON.stringify(envProfile)} but --profile says ${JSON.stringify(ctx.profile)}`);
   }
@@ -103,7 +108,15 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
   }
   const names = ctx.profile !== undefined ? [ctx.profile] : subdirs(join(root, "profiles")).filter((n) => PROFILE_RE.test(n) && !n.startsWith("."));
   const profiles: ProfileFacts[] = ctx.profile !== undefined ? [] : [rootFacts];
-  for (const n of names) profiles.push(readProfile(n, join(root, "profiles", n)));
+  const errors: Array<{ sourceRef: string; reason: string }> = snapshot?.skippedFiles.map(file => ({ sourceRef: file.path, reason: file.reason })) ?? [];
+  for (const n of names) {
+    try { profiles.push(readProfile(n, join(root, "profiles", n))); }
+    catch (error) {
+      const reason = error instanceof ImportError ? error.reason : "config-unparseable";
+      errors.push({ sourceRef: `profiles/${n}/config.yaml`, reason });
+      warnings.push(`profiles/${n}/config.yaml: skipped (${reason})`);
+    }
+  }
   for (const p of profiles) if (p.unsupported.length) warnings.push(`${p.agentId}/config.yaml: unsupported YAML (${p.unsupported.join("; ")}); those keys are unknown`);
 
   const versionWarnings: string[] = [];
@@ -116,7 +129,7 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
   const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir, harnessHome: ctx.home });
   const SP = pathFor(loc.flavour);
   const base = SP.basename(loc.sourceRoot);
-  const mapper = new SourcePathMapper(loc, { maps: ctx.maps, rootNames: base === ".hermes" || base === "hermes" ? [".hermes", "hermes"] : [], env: loc.origin === "native" ? ctx.env : undefined });
+  const mapper = new SourcePathMapper(loc, { maps: ctx.maps, rootNames: base === ".hermes" || base === "hermes" ? [".hermes", "hermes"] : [], env: loc.origin === "native" && !loc.snapshot ? ctx.env : undefined });
   // Profile names become agent ids on the target: a case-insensitive volume (Windows, default macOS) merges `Work`
   // and `work`; Windows cannot hold `con` or `work.` at all (§B.6).
   const target = ctx.targetPlatform ?? ctx.platform ?? process.platform;
@@ -136,7 +149,7 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
   }
   // A host environment variable describes the host's Hermes, not one read over WSL or from a copy on another OS.
   const optional = ctx.env.HERMES_OPTIONAL_SKILLS?.trim();
-  if (optional && loc.origin === "native") skillRoots.push({ dir: resolve(expandTilde(optional, ctx.homedir, process.platform)), tier: "optional", agentId: null, precedence: 1 });
+  if (optional && loc.origin === "native" && !loc.snapshot) skillRoots.push({ dir: resolve(expandTilde(optional, ctx.homedir, process.platform)), tier: "optional", agentId: null, precedence: 1 });
   skillRoots.sort((a, b) => a.precedence - b.precedence);
 
   const secrets: SecretsReport = { files: [], envKeys: [], configKeys: [] };
@@ -155,8 +168,13 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
     sessionsDb: isFile(join(root, "state.db")),
     note: "presence only; imported by M7",
   };
+  if (snapshot) {
+    for (const path of snapshot.omittedCredentials) secrets.files.push({ path, kind: "found-not-imported", present: true });
+    for (const [file, keys] of Object.entries(snapshot.envKeys)) secrets.envKeys.push({ file, keys });
+  }
   return {
     sourceType: "hermes",
+    ...(errors.length ? { errors } : {}),
     source: { root, resolvedFrom, configPath: join(root, "config.yaml"), profile: ctx.profile ?? null },
     version: { release: null, stateSchema: null, configVersion: rootFacts.configVersion, sessionsSchema: sessions, supported: versionWarnings.length === 0, warnings: versionWarnings },
     agents,

@@ -1,0 +1,10 @@
+: SYNTHETIC reconstruction of the anthropic wire format (scenario "empty"), written by hand from the public docs. NOT a live capture. See ../README.md.
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_contract_1","type":"message","role":"assistant","model":"contract-claude","content":[],"stop_reason":null,"stop_sequence":null,"usage":{}}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{}}
+
+event: message_stop
+data: {"type":"message_stop"}
+

@@ -11,14 +11,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import * as pkg from "../../src/index.ts";
-import { createChatCompletionsAdapter, createGeminiAdapter, createLocalChatAdapter, ProviderError } from "../../src/index.ts";
+import { createAnthropicAdapter, createResponsesAdapter, createChatCompletionsAdapter, createGeminiAdapter, createLocalChatAdapter, ProviderError } from "../../src/index.ts";
 import type { ChatRequest, ChatResult, ChatStreamEvent, ProviderErrorKind, StreamingAdapter, Timeouts, Usage } from "../../src/index.ts";
 import { hold, split, sleep, sseHeaders, startStub, until, writeAll } from "../helpers/stub.ts";
 import type { Handler, Stub } from "../helpers/stub.ts";
 
 export const GUARD_MS = 15_000;
 
-export type WireName = "openai" | "ollama" | "lmstudio" | "gemini";
+export type WireName = "openai" | "ollama" | "lmstudio" | "gemini" | "anthropic" | "responses";
 
 export interface WireAdapter {
   /** Unique registry key. */
@@ -67,6 +67,22 @@ export const ADAPTERS: readonly WireAdapter[] = [
     urlPattern: /^\/v1\/models\/contract-model:streamGenerateContent\?alt=sse$/, toolIds: "synthetic", toolArguments: "whole",
     usage: { plain: FULL, reasoning: FULL_REASONING },
     make: (baseUrl) => createGeminiAdapter({ baseUrl, credentials: { apiKey: () => "AIzaSy-contract-synthetic-000000000" }, timeouts: TIMEOUTS }),
+  },
+  {
+    // Anthropic Messages: tool ids from the wire, arguments in input_json_delta fragments; the wire reports no reasoning
+    // token count, so `reasoning` usage equals the plain one.
+    name: "anthropic_messages", wire: "anthropic", factories: ["createAnthropicAdapter"],
+    urlPattern: /^\/v1\/messages$/, toolIds: "wire", toolArguments: "split",
+    usage: { plain: FULL, reasoning: FULL },
+    make: (baseUrl) => createAnthropicAdapter({ baseUrl, credentials: { apiKey: () => "contract-synthetic-anthropic-key-000000" }, timeouts: TIMEOUTS }),
+  },
+  {
+    // OpenAI Responses: tool ids (call_id) from the wire, arguments in function_call_arguments.delta fragments; the usage
+    // carries the reasoning token count, cached tokens have their own unit test.
+    name: "codex_responses", wire: "responses", factories: ["createResponsesAdapter"],
+    urlPattern: /^\/v1\/responses$/, toolIds: "wire", toolArguments: "split",
+    usage: { plain: FULL, reasoning: FULL_REASONING },
+    make: (baseUrl) => createResponsesAdapter({ baseUrl, credentials: { authorization: () => "Bearer sk-contract-synthetic-0000000000" }, timeouts: TIMEOUTS }),
   },
 ];
 

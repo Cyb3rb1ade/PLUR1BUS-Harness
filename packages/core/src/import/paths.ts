@@ -60,6 +60,7 @@ export type Origin = "native" | "network" | "windows-from-wsl" | `wsl:${string}`
 export interface Mount { from: string; to: string }
 
 export interface SourceLocation {
+  snapshot?: boolean;
   origin: Origin;
   /** The path syntax the source wrote its configs in. */
   flavour: Flavour;
@@ -158,9 +159,10 @@ export function locateSource(o: {
                 flavour: meta.flavour,
                 hostFlavour,
                 accessRoot: o.accessRoot,
+                snapshot: true,
                 sourceRoot: typeof meta.sourceRoot === "string" ? meta.sourceRoot : o.accessRoot,
                 sourceHome: typeof meta.sourceHome === "string" ? meta.sourceHome : o.home,
-                accessHome: o.home,
+                accessHome: null,
                 mounts: safeMounts,
               };
             }
@@ -318,7 +320,11 @@ export class SourcePathMapper {
   /** One config value; `key` names it in the report. A relative value resolves against `relBase` (a source-side
    *  directory, e.g. a Hermes profile), else against the root. */
   map(raw: string, key: string, relBase?: string): MapResult {
-    const r = this.resolve(raw.trim(), relBase);
+    let r = this.resolve(raw.trim(), relBase);
+    if (this.loc.snapshot && r.path !== null) {
+      const rel = this.H.relative(this.H.resolve(this.loc.accessRoot), this.H.resolve(r.path));
+      if (rel === ".." || rel.startsWith(`..${this.H.sep}`) || this.H.isAbsolute(rel)) r = { path: null, reason: "outside-source-root" };
+    }
     if (r.path === null) this.unmapped.push({ key, value: raw, reason: r.reason });
     else if (r.how !== "native") this.mapped.push({ key, value: raw, path: r.path, how: r.how });
     return r;

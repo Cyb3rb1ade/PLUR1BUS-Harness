@@ -15,9 +15,11 @@ Naming: `<wire>.<scenario>.sse` (an SSE body, replayed in odd-sized byte pieces)
 | `ollama`   | `createLocalChatAdapter` + chat_completions adapter  | OpenAI `/v1` SSE; usage as native eval counts (`prompt_eval_count` / `eval_count`) on the finish chunk; reasoning under `reasoning` |
 | `lmstudio` | `createLocalChatAdapter` + chat_completions adapter  | OpenAI `/v1` SSE; partial usage (`prompt_tokens` only) on the finish chunk |
 | `gemini`   | `createGeminiAdapter`                                | `streamGenerateContent?alt=sse`, CRLF, no `[DONE]`, cumulative `usageMetadata` in every chunk |
+| `anthropic` | `createAnthropicAdapter`                            | Messages API SSE (`message_start` … `message_stop`), tool input in `input_json_delta` fragments, thinking blocks, errors as `error` events |
+| `responses` | `createResponsesAdapter`                            | OpenAI Responses API SSE (`response.created` … `response.completed`), `function_call_arguments.delta` fragments, reasoning summaries, `response.failed` (overloaded) and `error` events (rate limit, auth) |
 
 Scenarios (one file per wire each): `text`, `tools` (two parallel tool calls, arguments split over several deltas on
-the OpenAI-style wires, whole `functionCall` parts on Gemini), `empty`, `no-usage`, `reasoning-usage`, `stall`
+the OpenAI-style, Anthropic and Responses wires, whole `functionCall` parts on Gemini), `empty`, `no-usage`, `reasoning-usage`, `stall`
 (two deltas, then the server goes silent: the abort scenario), `cut` (two deltas, then the server destroys the
 socket), `truncated` (two deltas, then a clean close without a finish), `error-overloaded`, `error-rate-limit`,
 `error-auth` (two deltas, then an error object in the stream).

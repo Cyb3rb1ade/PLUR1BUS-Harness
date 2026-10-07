@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
-import { readSourceFileSafe } from "./fs-safe.ts";
+import { readSourceFileSafe, decodeSourceText } from "./fs-safe.ts";
 import { ImportError } from "./types.ts";
 
 /** Databases up to this size (plus WAL) are copied to a temp dir and read there. */
@@ -19,7 +19,7 @@ export function readBounded(path: string, max: number): string | null {
   try {
     const st = statSync(path);
     if (!st.isFile() || st.size > max) return null;
-    return readFileSync(path, "utf8");
+    return decodeSourceText(readFileSync(path));
   } catch {
     return null;
   }
@@ -37,7 +37,7 @@ export function isDir(path: string): boolean {
 export function envKeyNames(path: string): string[] {
   let text: string;
   try {
-    text = readSourceFileSafe(path, 1024 * 1024).toString("utf8");
+    text = decodeSourceText(readSourceFileSafe(path, 1024 * 1024));
   } catch {
     return [];
   }
