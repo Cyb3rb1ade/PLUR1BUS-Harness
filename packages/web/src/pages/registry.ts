@@ -1,4 +1,4 @@
-import { GALLERY_ENABLED, GALLERY_ITEM, type NavItem } from "../nav.ts";
+import { GALLERY_ITEM, type NavItem } from "../nav.ts";
 import type { View } from "../view.ts";
 import { GalleryPage } from "./gallery.ts";
 import { PlaceholderPage } from "./placeholder.ts";
@@ -30,7 +30,10 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   help: PlaceholderPage,
 };
 
+declare const __GALLERY__: boolean | undefined;
+
 export function pageFor(id: string): PageComponent {
-  if (GALLERY_ENABLED && id === GALLERY_ITEM.id) return GalleryPage;
+  // Written inline so that the bundler folds the build-time constant and drops the gallery from the shipped bundle.
+  if (typeof __GALLERY__ !== "undefined" && __GALLERY__ && id === GALLERY_ITEM.id) return GalleryPage;
   return PAGES[id] ?? PlaceholderPage;
 }
