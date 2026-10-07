@@ -1,0 +1,7 @@
+$ hermes --version
+Hermes Agent vgit.16c59d0 (2026.9.24) · upstream 16c59d0e
+Install directory: <install-dir>
+Install method: git
+Python: 3.14.7
+OpenAI SDK: 2.24.0
+[exit 0]
