@@ -29,18 +29,18 @@ export async function boundedBytes(response: Response, limit = 64 * 1024 * 1024)
   return Buffer.concat(parts);
 }
 export class HttpTransport {
-  readonly base: URL; readonly key?: string; readonly timeoutMs: number; readonly downloadHosts: string[]; readonly authKind: 'Bearer' | 'Key' | 'google';
+  readonly base: URL; readonly #key?: string; readonly timeoutMs: number; readonly downloadHosts: string[]; readonly authKind: 'Bearer' | 'Key' | 'google';
   constructor(base: string, key: string | undefined, timeoutMs = 120000, downloadHosts: string[] = [], authKind: HttpTransport['authKind'] = 'Bearer') {
     this.base = checkedUrl(base); if (key && privateHost(this.base.hostname)) throw new MediaError('unsupported_parameter');
     if (!privateHost(this.base.hostname) && this.base.protocol !== 'https:') throw new MediaError('unsupported_parameter');
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new MediaError('unsupported_parameter');
-    if (key) this.key = key; this.timeoutMs = timeoutMs; this.downloadHosts = downloadHosts; this.authKind = authKind;
+    if (key) this.#key = key; this.timeoutMs = timeoutMs; this.downloadHosts = downloadHosts; this.authKind = authKind;
   }
   async json(path: string, body: unknown, signal: AbortSignal, method = body === undefined ? 'GET' : 'POST'): Promise<Record<string, unknown>> {
     const url = new URL(this.base.toString().replace(/\/$/, '') + '/' + path.replace(/^\//, ''));
     if (url.origin !== this.base.origin) throw new MediaError('unsupported_parameter');
     const headers: Record<string, string> = {};
-    if (this.key) { if (this.authKind === 'google') headers['x-goog-api-key'] = this.key; else headers.authorization = `${this.authKind} ${this.key}`; }
+    if (this.#key) { if (this.authKind === 'google') headers['x-goog-api-key'] = this.#key; else headers.authorization = `${this.authKind} ${this.#key}`; }
     const multipart = body instanceof FormData;
     if (body !== undefined && !multipart) headers['content-type'] = 'application/json';
     try {

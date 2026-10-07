@@ -35,3 +35,10 @@ test('Together default egress matches the current official SDK endpoint', async 
   const { egressHosts } = await import('../src/index.ts');
   assert.deepEqual(egressHosts([{ id: 'together', model: 'stabilityai/stable-diffusion-xl-base-1.0' }]), ['api.together.ai']);
 });
+test('adapter inspection and serialization never expose configured keys', async () => {
+  const { createAdapter } = await import('../src/index.ts'); const { inspect } = await import('node:util');
+  const key = 'dummy-test-secret-not-a-real-key';
+  const adapter = createAdapter({ id: 'openai', model: 'gpt-image-1', apiKey: key });
+  assert.equal(inspect(adapter, { depth: 10 }).includes(key), false);
+  assert.equal(JSON.stringify(adapter).includes(key), false);
+});

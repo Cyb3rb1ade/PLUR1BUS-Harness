@@ -20,9 +20,9 @@ const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => {
  * Draw Things ignores masks in HTTPAPI: inpaint is intentionally false. Model-specific gateway profiles are narrow; unknown parameters are refused.
  */
 export class HttpImageAdapter implements ImageAdapter {
-  readonly id: HttpAdapterId; readonly model: string; readonly config: HttpAdapterConfig; private readonly http: HttpTransport;
+  readonly id: HttpAdapterId; readonly model: string; readonly config: Omit<HttpAdapterConfig, 'apiKey'>; private readonly http: HttpTransport;
   constructor(config: HttpAdapterConfig) {
-    this.id = config.id; this.model = config.model; this.config = config;
+    this.id = config.id; this.model = config.model; const { apiKey: _apiKey, ...publicConfig } = config; this.config = publicConfig;
     if (!config.model || /[?#]/.test(config.model) || config.model.split('/').some(p => p === '.' || p === '..' || !p)) throw new MediaError('unsupported_parameter');
     const base = config.baseUrl ?? defaults[config.id]; const url = checkedUrl(base);
     if (config.id === 'draw-things' && (!privateHost(url.hostname) || config.apiKey || (url.hostname !== 'localhost' && !['127.0.0.1', '[::1]'].includes(url.hostname) && !config.allowLan))) throw new MediaError('unsupported_parameter');
