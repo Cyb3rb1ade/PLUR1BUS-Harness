@@ -63,11 +63,13 @@ the installation owner (RULING R8), so today's behaviour is unchanged until the 
 Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` (→ `agent.read`), `jobs.run`,
 `models.setOverride` and `models.removeManual` (→ `models.write`), and the whole `admin.*` family (`admin.obsidian.*`,
 `admin.migrate`, `admin.embedding.*`, `admin.reembed.*`). A test pins that every `admin.*` method in the schema has a rule.
+The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`.
+
 The M3 `identity.*` methods are secured by the nearest existing pattern: `identity.list` → `users.read`, and `identity.human.create`, `identity.link`, `identity.unlink`, `identity.pair.start|claim|confirm` → `users.manage` (system resource, Owner and Admin). Their descriptions say "Owner only"; today every connection is the owner, so nothing changes, and whether these should be Owner-only is for the roles ruling (R4/R5 open).
 
 **Not yet secured** (they stay owner-equivalent for the local connection): `core.*`, `memory.recall|capture|checkpoint|
 list|show|correct|share|state|propose|proposals.*|proposal`, `agent.open|close|list|activity`, `jobs.list|history`,
-`models.list|scan|acknowledge`, `session.create|list|get|resume|archive|submit|events` (M1b-2c: per-caller, the owner is derived from the caller identity inside the handler and another owner's session is `E_NOT_FOUND`; classified like the per-caller `memory.*` and `agent.*` methods). Params are schema-validated before the guard runs, so a malformed call is
+`models.list|scan|acknowledge`, `dreams.status|log|schedule.get`, `session.create|list|get|resume|archive|submit|events` (M1b-2c: per-caller, the owner is derived from the caller identity inside the handler and another owner's session is `E_NOT_FOUND`; classified like the per-caller `memory.*` and `agent.*` methods). Params are schema-validated before the guard runs, so a malformed call is
 `E_INVALID_PARAMS` even for a caller who would be refused.
 
 ## Rulings (document defaults; owner questions stay open)
