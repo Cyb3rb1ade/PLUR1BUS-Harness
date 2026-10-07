@@ -7,6 +7,7 @@ import { tempDir } from "../helpers/temp-dir.ts";
 import { createIdentityService, IdentityError, type Actor } from "../../src/identity/service.ts";
 import { deriveUserPrincipal, isUserPrincipal } from "../../src/identity/principals.ts";
 import { createRecallScopeProvider } from "../../src/identity/recall.ts";
+import { openStore } from "../../src/identity/store.ts";
 import { createBackfill, type MetadataRebindPort } from "../../src/identity/backfill.ts";
 
 const admin: Actor = { user: "synthetic-admin", host: "test", kind: "person", role: "admin" };
@@ -44,7 +45,11 @@ it("pairing → confirmation → union recall → archive unlink; no vector writ
     const scopes = createRecallScopeProvider(s);
     let writes = 0;
     const rows = [deriveUserPrincipal(h.id), done.link!.v1Principal];
-    const fakeRecall = (principals: readonly string[]) => rows.filter(p => principals.includes(p));
+    const fakeEngine = {
+      recall: (principals: readonly string[]) => rows.filter(p => principals.includes(p)),
+      write: () => { writes++; },
+    };
+    const fakeRecall = fakeEngine.recall;
     assert.deepEqual(fakeRecall(scopes.resolvePrincipals(rows[0]!)), rows);
     assert.equal(scopes.capturePrincipal(rows[0]!), rows[0]);
     assert.equal(writes, 0);
@@ -94,7 +99,7 @@ it("one-hour TTL boundary, pending cap includes claimed, user issuance limit acr
     assert.throws(() => s.startPairing({ humanId: h.id, channel: identity.channel }, admin), IdentityError);
     advance(3_600_000);
     assert.throws(() => s.confirm({ pairingId: p.pairingId, approve: true }, admin), IdentityError);
-    for (let n = 0; n < 7; n++) s.startPairing({ humanId: h.id, channel: `c${n}` }, admin);
+    for (let n = 0; n < 10; n++) s.startPairing({ humanId: h.id, channel: `c${n}` }, admin);
     assert.throws(() => s.startPairing({ humanId: h.id, channel: "last" }, admin), IdentityError);
   } finally { s.close(); }
 });
@@ -124,5 +129,95 @@ it("metadata rebind preview, idempotent apply and receipt-based reversal; no sha
     await backfill.reverse({ linkId: l.id, dryRun: false }, admin);
     assert.equal(owner, l.v1Principal); assert.equal(writes, 2);
     assert.throws(() => s.authorizeAction("backfill", h.id, { ...admin, role: "member", user: h.id }), IdentityError);
+  } finally { s.close(); }
+});
+it("source/global locks emit only hashed handles; decline emits link.declined", () => {
+  const { s, h, events, advance } = fixture();
+  try {
+    for (let n = 0; n < 5; n++) assert.throws(() => s.claim({ code: "invalid", identity }), IdentityError);
+    assert.throws(() => s.claim({ code: "invalid", identity }), IdentityError);
+    assert.ok(JSON.stringify(events).includes("pairing.failed"));
+    assert.ok(JSON.stringify(events).includes("pairing.locked"));
+    assert.equal(JSON.stringify(events).includes(identity.userId), false);
+    advance(15 * 60_000);
+    const p = s.startPairing({ humanId: h.id, channel: identity.channel }, admin);
+    s.claim({ code: p.code, identity });
+    s.confirm({ pairingId: p.pairingId, approve: false }, admin);
+    assert.ok(JSON.stringify(events).includes("link.declined"));
+  } finally { s.close(); }
+});
+it("rebind retries after engine success/store interruption with the same durable operation id", async () => {
+  const f = fixture();
+  const l = f.s.link({ humanId: f.h.id, identity }, admin);
+  const operations = new Map<string, { count: number; receipt: string }>();
+  let writes = 0; let disconnected = false;
+  const engine: MetadataRebindPort = {
+    async rebind(p) {
+      if (!operations.has(p.operationId)) { writes++; operations.set(p.operationId, { count: 1, receipt: p.operationId }); }
+      if (!disconnected) { disconnected = true; throw new Error("synthetic lost response after commit"); }
+      return operations.get(p.operationId)!;
+    },
+    async reverse() { return { count: 1 }; },
+  };
+  const first = createBackfill({ service: f.s, engine, clock: () => 1 });
+  await assert.rejects(first.run({ linkId: l.id, dryRun: false }, admin));
+  f.s.close();
+  const s = f.open();
+  try {
+    const resumed = createBackfill({ service: s, engine, clock: () => 2 });
+    const r = await resumed.run({ linkId: l.id, dryRun: false }, admin);
+    assert.equal(writes, 1); assert.equal(r.count, 1); assert.equal(operations.size, 1);
+  } finally { s.close(); }
+});
+it("store port migration v1 → v2 preserves approved/revoked links, removes pending proofs", () => {
+  const { s, h, file, open } = fixture();
+  const l = s.link({ humanId: h.id, identity }, admin);
+  s.unlink({ linkId: l.id }, admin); s.close();
+  // Construct a v1-shaped synthetic database while retaining the link records.
+  const db = new DatabaseSync(file);
+  db.exec("DROP TABLE backfills; CREATE TABLE pairings(id TEXT, code_hash TEXT); INSERT INTO pairings VALUES ('synthetic-pending','hash'); PRAGMA user_version = 1");
+  db.close();
+  const migrated = open();
+  try {
+    assert.equal(migrated.list({ includeRevoked: true }).humans[0]!.identities[0]!.revokedAt !== null, true);
+    assert.deepEqual(migrated.list({}).pairings, []);
+  } finally { migrated.close(); }
+});
+it("an injected authorize port cannot permit an agent; custom store port is used", () => {
+  const file = join(tempDir("identity-port-"), "identity.sqlite");
+  let calls = 0;
+  // The real SQLite implementation is still behind an injected opening port.
+  const s = createIdentityService({ dbPath: file, clock: () => 1_800_000_000_000,
+    audit: () => {}, authorize: { authorize: () => true },
+    store: { open(file) { calls++; return openStore(file); } } });
+  try {
+    assert.equal(calls, 1);
+    assert.throws(() => s.createHuman({ displayName: "Synthetic" }, { ...admin, kind: "agent" }), IdentityError);
+  } finally { s.close(); }
+});
+it("global issuance lock cannot be bypassed by new users", () => {
+  const { s, events } = fixture();
+  try {
+    for (let u = 0; u < 10; u++) {
+      const h = s.createHuman({ displayName: `Synthetic ${u}` }, admin);
+      for (let c = 0; c < 10; c++) s.startPairing({ humanId: h.id, channel: `c${c}` }, admin);
+    }
+    const newcomer = s.createHuman({ displayName: "Synthetic newcomer" }, admin);
+    assert.throws(() => s.startPairing({ humanId: newcomer.id, channel: "new" }, admin), e => e instanceof IdentityError && e.code === "rate-limited");
+    assert.ok(JSON.stringify(events).includes("pairing.locked"));
+  } finally { s.close(); }
+});
+it("user claim rate limit spans channels; unknown or corrupt principals fail closed", () => {
+  const { s, h } = fixture();
+  try {
+    for (let n = 0; n < 6; n++) {
+      const channel = `c${n}`;
+      const p = s.startPairing({ humanId: h.id, channel }, admin);
+      const claim = () => s.claim({ code: p.code, identity: { ...identity, channel } });
+      if (n < 5) claim(); else assert.throws(claim, e => e instanceof IdentityError && e.code === "rate-limited");
+    }
+    assert.throws(() => s.resolvePrincipals(deriveUserPrincipal("unknown-user")), IdentityError);
+    assert.throws(() => s.resolvePrincipals("user:v2:bad"), IdentityError);
+    assert.throws(() => s.resolvePrincipals(`user:v1:${"a".repeat(64)}`), IdentityError);
   } finally { s.close(); }
 });

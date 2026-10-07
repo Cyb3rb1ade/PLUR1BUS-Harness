@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { createIdentityService, IdentityError, type IdentityService, type Actor } from "../../src/identity/service.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
-const OWNER: Actor = { user: "owner", host: "box" };
+const OWNER: Actor = { user: "owner", host: "box", role: "owner", kind: "person" };
 const TG = { channel: "telegram", accountId: "bot1", userId: "4242", displayName: "Alex" };
 const DC = { channel: "discord", accountId: "guild1", userId: "9001", displayName: "Alex" };
 
@@ -22,7 +22,7 @@ describe("identity service", () => {
     const h = svc.createHuman({ displayName: "Alex" }, OWNER);
     const p = svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
     assert.match(p.code, /^[A-HJ-NP-Z2-9]{8}$/);
-    assert.equal(p.expiresAt, now + 10 * 60_000);
+    assert.equal(p.expiresAt, now + 60 * 60_000);
     const c = svc.claim({ code: p.code, identity: TG });
     assert.equal(c.state, "awaiting-confirmation");
     assert.equal(svc.resolve(TG), null, "a claim alone links nothing");
@@ -33,7 +33,7 @@ describe("identity service", () => {
     assert.deepEqual(svc.resolve(TG), { humanId: h.id, linkId: done.link!.id });
     assert.equal(svc.linkedV1Principals(h.id).length, 1);
     assert.match(svc.linkedV1Principals(h.id)[0]!, /^user:v1:[a-f0-9]{64}$/);
-    assert.deepEqual(audit.map((a) => a.action), ["identity.human.create", "identity.pair.start", "identity.pair.claim", "identity.pair.confirm"]);
+    assert.deepEqual(audit.map((a) => a.action).filter(a => a.startsWith("identity.")), ["identity.human.create", "identity.pair.start", "identity.pair.claim", "identity.pair.confirm"]);
   });
 
   it("an owner can decline a claim: nothing is linked", () => {
@@ -48,7 +48,7 @@ describe("identity service", () => {
   it("expired code is refused", () => {
     const h = svc.createHuman({ displayName: "Alex" }, OWNER);
     const p = svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
-    now += 10 * 60_000 + 1;
+    now += 60 * 60_000 + 1;
     refusal(() => svc.claim({ code: p.code, identity: TG }), "invalid-code");
     assert.equal(svc.resolve(TG), null);
   });
@@ -124,7 +124,7 @@ describe("identity service", () => {
     const h = svc.createHuman({ displayName: "Alex" }, OWNER);
     const p = svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
     svc.claim({ code: p.code, identity: TG });
-    now += 10 * 60_000 + 1;
+    now += 60 * 60_000 + 1;
     refusal(() => svc.confirm({ pairingId: p.pairingId, approve: true }, OWNER), "expired");
     assert.equal(svc.resolve(TG), null);
   });
@@ -172,7 +172,7 @@ describe("identity service", () => {
     for (let i = 0; i < 3; i++) svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
     refusal(() => svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER), "limit");
     svc.startPairing({ humanId: h.id, channel: "discord" }, OWNER);
-    now += 10 * 60_000 + 1;
+    now += 60 * 60_000 + 1;
     svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER); // expired ones do not count
   });
 
@@ -201,7 +201,7 @@ describe("identity service", () => {
     svc = open();
   });
 
-  it("migrations: a fresh file is version 1, reopening is idempotent, a newer file is refused", () => {
+  it("migrations: a fresh file is version 2, reopening is idempotent, a newer file is refused", () => {
     const file = join(dir, "identity.sqlite");
     assert.ok(existsSync(file));
     svc.createHuman({ displayName: "A" }, OWNER);
@@ -209,7 +209,7 @@ describe("identity service", () => {
     assert.equal(svc.list({}).humans.length, 1);
     svc.close();
     const raw = new DatabaseSync(file);
-    assert.equal((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version, 1);
+    assert.equal((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version, 2);
     raw.exec("PRAGMA user_version = 99"); raw.close();
     assert.throws(() => open(), (e: unknown) => e instanceof IdentityError && e.code === "storage");
     svc = createIdentityService({ dbPath: join(dir, "other.sqlite"), clock: () => now, audit: () => {} });

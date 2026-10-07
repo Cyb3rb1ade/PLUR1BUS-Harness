@@ -1,9 +1,10 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, openSync, closeSync } from "node:fs";
+import { platformCapabilities } from "../platform.ts";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 /** Raised for every failure of the identity store and service; `code` is the closed vocabulary the RPC layer maps. */
-export type IdentityErrorCode = "invalid-params" | "not-found" | "invalid-code" | "expired" | "rate-limited" | "conflict" | "limit" | "storage";
+export type IdentityErrorCode = "invalid-params" | "not-found" | "invalid-code" | "expired" | "rate-limited" | "conflict" | "limit" | "storage" | "denied";
 export class IdentityError extends Error {
   readonly code: IdentityErrorCode; readonly field?: string; readonly retryAfterMs?: number;
   constructor(code: IdentityErrorCode, message: string, o: { field?: string; retryAfterMs?: number } = {}) {
@@ -13,7 +14,9 @@ export class IdentityError extends Error {
   }
 }
 
-export const SCHEMA_VERSION = 1;
+export interface IdentityStorePort { open(file: string): DatabaseSync }
+
+export const SCHEMA_VERSION = 2;
 
 /** Each entry migrates from `index` to `index + 1`; append only. Run in one transaction with the version bump. */
 const MIGRATIONS: readonly string[] = [
@@ -50,14 +53,23 @@ const MIGRATIONS: readonly string[] = [
     key TEXT PRIMARY KEY, failures INTEGER NOT NULL, window_start INTEGER NOT NULL, locked_until INTEGER NOT NULL
   ) STRICT;
   `,
+  `DROP TABLE pairings;
+   CREATE TABLE backfills (
+     link_id TEXT PRIMARY KEY REFERENCES identities(id), operation_id TEXT NOT NULL UNIQUE,
+     state TEXT NOT NULL CHECK (state IN ('running','applied','reversing','reversed')),
+     actor_hash TEXT NOT NULL, at INTEGER NOT NULL, count INTEGER, receipt TEXT
+   ) STRICT;`,
 ];
 
 /** Opens (creating, 0700 directory) and migrates the identity database. A file from a newer harness is refused, never altered. */
 export function openStore(file: string): DatabaseSync {
+  let db: DatabaseSync | undefined;
   try {
     mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-    const db = new DatabaseSync(file);
-    db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+    closeSync(openSync(file, "a", 0o600));
+    platformCapabilities.securePath(file);
+    db = new DatabaseSync(file);
+    db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA temp_store = MEMORY; PRAGMA secure_delete = ON;");
     const version = (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
     if (version > SCHEMA_VERSION) {
       db.close();
@@ -68,8 +80,17 @@ export function openStore(file: string): DatabaseSync {
       try { db.exec(MIGRATIONS[v]!); db.exec(`PRAGMA user_version = ${v + 1}`); db.exec("COMMIT"); }
       catch (e) { db.exec("ROLLBACK"); throw e; }
     }
+    // Pending proofs are ephemeral and cannot enter a backup of the durable identity store.
+    db.exec(`CREATE TEMP TABLE pairings (
+      id TEXT PRIMARY KEY, human_id TEXT NOT NULL, channel TEXT NOT NULL,
+      salt TEXT NOT NULL, code_hash TEXT NOT NULL, state TEXT NOT NULL,
+      created_at INTEGER NOT NULL, created_by TEXT NOT NULL, expires_at INTEGER NOT NULL,
+      claim_account_id TEXT, claim_user_id TEXT, claim_display_name TEXT, claimed_at INTEGER,
+      confirm_by INTEGER, resolved_at INTEGER, link_id TEXT
+    ) STRICT; CREATE INDEX temp.pairings_state ON pairings(state, channel);`);
     return db;
   } catch (e) {
+    try { db?.close(); } catch { /* already closed */ }
     if (e instanceof IdentityError) throw e;
     throw new IdentityError("storage", `identity store unavailable: ${e instanceof Error ? e.message : String(e)}`);
   }

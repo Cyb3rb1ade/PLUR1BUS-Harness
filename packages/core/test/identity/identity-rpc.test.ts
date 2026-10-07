@@ -101,6 +101,6 @@ describe("identity RPC", () => {
     const audit = readFileSync(auditFile, "utf8").trim().split("\n").map((l) => JSON.parse(l));
     assert.ok(audit.length >= 5);
     for (const l of audit) { assert.equal(typeof l.at, "number"); assert.equal(typeof l.action, "string"); assert.equal(typeof l.actor.user, "string"); }
-    assert.ok(audit.some((l) => l.action === "identity.pair.start" && l.actor.user === "owner" && l.actor.host === "box"));
+    assert.ok(audit.some((l) => l.action === "identity.pair.start" && l.actor.user.length === 64 && l.actor.host.length === 64));
   });
 });
