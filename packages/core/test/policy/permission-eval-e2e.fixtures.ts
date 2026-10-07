@@ -54,7 +54,10 @@ export interface E2ERow {
   benign?(w: World): Promise<Verdict>;
   world?: WorldOpts;
   /** Static skip reason (the OS cannot express this scenario). */
-  skip?: string;
+  skip?: string | undefined;
+  /** A real gap in the product code, found by this row. The attack is reported as a `todo` (it must not weaken the table) and is
+   *  listed by name in the suite; it leaves the zero-escape count only because the owner has to decide the fix. */
+  knownGap?: string | undefined;
 }
 
 // ---- OS capabilities, probed once (a scenario that the OS cannot express is skipped with its reason, never faked) ----
@@ -65,6 +68,11 @@ function probe<T>(fn: (dir: string) => T): T {
 }
 export const CAN_SYMLINK: boolean = probe((d) => {
   try { writeFileSync(path.join(d, "t"), "x"); symlinkSync(path.join(d, "t"), path.join(d, "l")); return true; } catch { return false; }
+});
+/** Directory links: a symlink on POSIX, a junction on Windows (needs no privilege). */
+export const DIR_LINK_TYPE = process.platform === "win32" ? "junction" : "dir";
+export const CAN_DIR_LINK: boolean = probe((d) => {
+  try { mkdirSync(path.join(d, "t")); symlinkSync(path.join(d, "t"), path.join(d, "l"), DIR_LINK_TYPE); return true; } catch { return false; }
 });
 export const CAN_HARDLINK: boolean = probe((d) => {
   try { writeFileSync(path.join(d, "t"), "x"); linkSync(path.join(d, "t"), path.join(d, "l")); return true; } catch { return false; }
@@ -105,6 +113,9 @@ export interface World {
   prep(tool: string, input: string, access?: "read" | "write", extra?: { platform?: NodeJS.Platform }): Promise<void>;
   start(tool: string, args: unknown, ov?: Partial<DispatchContext>): Handle;
   startPath(tool: string, input: string, extra?: Record<string, unknown>, ov?: Partial<DispatchContext>): Promise<Handle>;
+  /** Calls any tool; if it waits for an approval, aborts it and reports `pending`. */
+  probeCall(tool: string, args: unknown, ov?: Partial<DispatchContext>): Promise<Verdict>;
+  settleProbe(h: Handle, before: number): Promise<Verdict>;
   /** Calls a path tool; if it parks for approval, aborts it and reports `pending`. */
   probe(tool: string, input: string, extra?: Record<string, unknown>, ov?: Partial<DispatchContext>): Promise<Verdict>;
   /** Calls a path tool, has the person decide the request (default approve once, T3), and returns the result. */
@@ -201,9 +212,12 @@ export async function makeWorld(o: WorldOpts = {}): Promise<World> {
       await w.prep(tool, input);
       return w.start(tool, { path: input, ...(tool === "fs.write" ? { content: "x" } : {}), ...extra }, ov);
     },
-    async probe(tool: string, input: string, extra: Record<string, unknown> = {}, ov: Partial<DispatchContext> = {}): Promise<Verdict> {
+    async probeCall(tool: string, args: unknown, ov: Partial<DispatchContext> = {}): Promise<Verdict> {
       const before = runs.length;
-      const h = await w.startPath(tool, input, extra, ov);
+      const h = w.start(tool, args, ov);
+      return w.settleProbe(h, before);
+    },
+    async settleProbe(h: Handle, before: number): Promise<Verdict> {
       const first = await Promise.race([h.promise, tick().then(() => tick()).then(() => "waiting" as const)]);
       if (first === "waiting") {
         h.ac.abort();
@@ -211,6 +225,11 @@ export async function makeWorld(o: WorldOpts = {}): Promise<World> {
         return { done: runs.length > before, code: "pending" };
       }
       return { done: runs.length > before, code: codeOf(first) };
+    },
+    async probe(tool: string, input: string, extra: Record<string, unknown> = {}, ov: Partial<DispatchContext> = {}): Promise<Verdict> {
+      const before = runs.length;
+      const h = await w.startPath(tool, input, extra, ov);
+      return w.settleProbe(h, before);
     },
     async approvedCall(tool, input, o2 = {}) {
       const h = await w.startPath(tool, input, o2.extra ?? {}, o2.ov ?? {});

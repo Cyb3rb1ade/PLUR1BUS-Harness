@@ -304,7 +304,7 @@ export const AUDIT_ROWS: E2ERow[] = [
     attack: async (w) => {
       await w.probe("fs.read", w.f.wsA);
       await w.probe("fs.read", w.f.wsKey);
-      const never = w.start("grant.create", { capability: "fs.write" }); await never.promise;
+      await w.probeCall("grant.create", { capability: "fs.write" });
       await w.approvedCall("fs.write", w.f.otherB, { extra: WRITE });
       const missing: string[] = [];
       const decisions = w.audit.filter((e) => e.action === "policy.decision").map((e) => `${String(e.detail.tool)}:${String(e.detail.outcome)}`);
