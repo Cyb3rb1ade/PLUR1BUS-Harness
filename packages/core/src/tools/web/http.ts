@@ -24,6 +24,8 @@ export interface HttpOptions {
   /** Called with the Content-Type of a 2xx answer before its body is read; false → `unsupported-type`. */
   acceptType?: ((contentType: string | undefined) => boolean) | undefined;
   signal?: AbortSignal | undefined;
+  /** Optional per-hop policy (the egress gate, B4): consulted before and after name resolution on every hop; throws to refuse. */
+  gate?: { beforeResolve(url: URL): void; afterResolve(url: URL, pin: ResolvedAddress): void } | undefined;
   /** Extra trusted CA (PEM) — for tests with a local TLS stub; production uses the system store. */
   tlsCa?: string | undefined;
 }
@@ -178,7 +180,9 @@ export async function guardedRequest(rawUrl: string, options: HttpOptions): Prom
     let url = parseTarget(rawUrl);
     for (;;) {
       if (ac.signal.aborted) throw new WebFailure("timeout", "the request exceeded its time limit");
+      options.gate?.beforeResolve(url);
       const pin = await raceAbort(resolveGuarded(url.hostname, resolver, policy), ac.signal);
+      options.gate?.afterResolve(url, pin);
       const r = await hop(url, pin, o, ac.signal);
       const location = r.headers.location;
       if (REDIRECT.has(r.status) && typeof location === "string" && location !== "") {
