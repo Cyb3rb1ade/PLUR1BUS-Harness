@@ -1,6 +1,8 @@
 # Budgets (M2 acceptance 10, L8)
 
-Usage accounting and limits for model calls, enforced in the core, not in prompts (ADR-010 §4). Provider adapters (built separately) call `recordUsage` after a call and `check`/`enforce` before it; this directory holds the interface and the store, and imports nothing outside `node:*`.
+Usage accounting and limits for model calls, enforced in the core, not in prompts (ADR-010 §4). Provider adapters (built separately) call `recordUsage` after a call and `check`/`enforce` before it; this directory holds the interface and the store, and has no runtime dependencies outside `node:*` and this module. Context allocation uses a type-only import from the prompt interface.
+
+The complete L8 port is `createCallBudget` in `calls.ts`: atomic pre-call admission/reservation, user/project/agent hierarchy, settlement and injected audit events. It shares this ledger and honors existing RPC limits. Zonal allocation, retry budgets and subagent caps are separate pure/internal helpers exported from `index.ts`. See [the budget contract and integration follow-ups](../../../../docs/budgets.md). The legacy `check`/`enforce` API below remains advisory and is retained for RPC compatibility; it is not the concurrent-admission hook.
 
 ## Interface
 

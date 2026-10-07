@@ -3,7 +3,8 @@
 // changes (23/25 h days) and skipped midnights come out right.
 
 export type Period = "day" | "month";
-export interface PeriodBounds { period: Period; key: string; start: number; end: number }
+export type CallPeriod = Period | "week";
+export interface PeriodBounds { period: CallPeriod; key: string; start: number; end: number }
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 function formatter(timeZone: string): Intl.DateTimeFormat {
@@ -44,10 +45,16 @@ function startOfLocalDate(y: number, m: number, d: number, timeZone: string): nu
   return hi;
 }
 
-export function periodBounds(ts: number, timeZone: string, period: Period): PeriodBounds {
+export function periodBounds(ts: number, timeZone: string, period: CallPeriod): PeriodBounds {
   if (!Number.isFinite(ts)) throw new RangeError("invalid timestamp");
   const l = localDate(ts, timeZone);
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  if (period === "week") {
+    const weekday = new Date(Date.UTC(l.y, l.m - 1, l.d)).getUTCDay();
+    const monday = new Date(Date.UTC(l.y, l.m - 1, l.d - (weekday + 6) % 7));
+    const y = monday.getUTCFullYear(), m = monday.getUTCMonth() + 1, d = monday.getUTCDate();
+    return { period, key: `${pad(y, 4)}-${pad(m)}-${pad(d)}`, start: startOfLocalDate(y, m, d, timeZone), end: startOfLocalDate(y, m, d + 7, timeZone) };
+  }
   if (period === "day") {
     return { period, key: `${pad(l.y, 4)}-${pad(l.m)}-${pad(l.d)}`, start: startOfLocalDate(l.y, l.m, l.d, timeZone), end: startOfLocalDate(l.y, l.m, l.d + 1, timeZone) };
   }
