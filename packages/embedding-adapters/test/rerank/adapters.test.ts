@@ -21,6 +21,7 @@ const cases: Case[] = [
   { name: "vllm /rerank", config: { provider: "vllm", model: "bge", baseURL: "http://127.0.0.1:8000", path: "/rerank" }, fixture: "vllm-success", url: "http://127.0.0.1:8000/rerank", docsField: "documents", topField: "top_n", auth: false },
   { name: "llamacpp", config: { provider: "llamacpp", baseURL: "http://127.0.0.1:8080" }, fixture: "llamacpp-success", url: "http://127.0.0.1:8080/v1/rerank", docsField: "documents", topField: "top_n", auth: false },
   { name: "llamacpp /rerank", config: { provider: "llamacpp", baseURL: "http://127.0.0.1:8080", path: "/rerank" }, fixture: "llamacpp-success", url: "http://127.0.0.1:8080/rerank", docsField: "documents", topField: "top_n", auth: false },
+  { name: "mtplx", config: { provider: "mtplx", baseURL: "http://127.0.0.1:8000" }, fixture: "mtplx-success", url: "http://127.0.0.1:8000/v1/rerank", docsField: "documents", topField: "top_n", auth: false },
   { name: "omlx", config: { provider: "omlx", model: "m", baseURL: "http://127.0.0.1:8000" }, fixture: "omlx-success", url: "http://127.0.0.1:8000/v1/rerank", docsField: "documents", topField: "top_n", auth: false },
 ];
 
@@ -141,11 +142,13 @@ test("rerank retries once on a 503 by default and then succeeds", async () => {
 });
 
 test("the mapping table covers every provider and renders as Markdown", () => {
-  assert.deepEqual(Object.keys(RERANK_SHAPES).sort(), ["cohere", "jina", "llamacpp", "omlx", "tei", "vllm", "voyage"]);
+  assert.deepEqual(Object.keys(RERANK_SHAPES).sort(), ["cohere", "jina", "llamacpp", "mtplx", "omlx", "tei", "vllm", "voyage"]);
   assert.deepEqual(Object.values(RERANK_SHAPES).filter((s) => s.status === "verified").map((s) => s.provider).sort(), ["cohere", "voyage"]);
   const md = renderRerankMappingTable({ tei: "ok" });
   assert.match(md, /^\| Provider \| Request \| Response \| Status \| Live result \|/);
   assert.match(md, /\| tei \| `\{query, texts\[\]\} ?|\| tei \|.*texts\[\]/);
   assert.match(md, /\| tei \|.*\| ok \|/);
   assert.match(md, /\| cohere \|.*\| verified \| not run \|/);
+  assert.match(md, /\| mtplx \|.*\| source \| not run \|/);
+  assert.deepEqual(Object.values(RERANK_SHAPES).filter((s) => s.status === "source").map((s) => s.provider), ["mtplx"]);
 });

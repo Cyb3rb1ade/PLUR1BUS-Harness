@@ -22,6 +22,7 @@ const embeddingSubjects: Array<[string, EmbeddingConfig, Step]> = [
   ["voyage", { provider: "voyage", model: "m", dimensions: 4, ...secretCfg }, fromFixture("voyage/success.json")],
   ["ollama", { provider: "ollama", model: "m", dimensions: 4 }, fromFixture("ollama/success.json")],
   ["tei", { provider: "tei", model: "m", dimensions: 4, baseURL: "http://nas:8080" }, fromFixture("tei/success.json")],
+  ["mtplx", { provider: "mtplx", model: "m", dimensions: 4, baseURL: "http://127.0.0.1:8000" }, fromFixture("mtplx/embeddings-success.json")],
 ];
 const rerankSubjects: Array<[string, RerankConfig, Step]> = [
   ["cohere", { provider: "cohere", model: "m", ...secretCfg }, fromFixture("rerank/cohere-success.json")],
@@ -30,6 +31,7 @@ const rerankSubjects: Array<[string, RerankConfig, Step]> = [
   ["tei", { provider: "tei", baseURL: "http://nas:8080" }, fromFixture("rerank/tei-success.json")],
   ["vllm", { provider: "vllm", model: "m", baseURL: "http://127.0.0.1:8000" }, fromFixture("rerank/vllm-success.json")],
   ["llamacpp", { provider: "llamacpp", baseURL: "http://127.0.0.1:8080" }, fromFixture("rerank/llamacpp-success.json")],
+  ["mtplx", { provider: "mtplx", baseURL: "http://127.0.0.1:8000" }, fromFixture("rerank/mtplx-success.json")],
   ["omlx", { provider: "omlx", model: "m", baseURL: "http://127.0.0.1:8000" }, fromFixture("rerank/omlx-success.json")],
 ];
 
@@ -196,7 +198,7 @@ test("embeddings: an over-long input is too_large before any request; a context-
 });
 
 test("embeddings: fixture 401 for every provider maps to auth", async () => {
-  for (const [name, config] of embeddingSubjects.filter(([n]) => !["openai-compatible", "openrouter"].includes(n))) {
+  for (const [name, config] of embeddingSubjects.filter(([n]) => !["openai-compatible", "openrouter", "mtplx"].includes(n))) {
     const fixture = name === "openai" ? "openai/unauthorized.json" : `${name}/unauthorized.json`;
     const k = kit(fromFixture(fixture));
     await assert.rejects(createEmbeddingAdapter(config, k.deps).embed(["a", "b"], { inputType: "document" }), kindOf("auth"), name);

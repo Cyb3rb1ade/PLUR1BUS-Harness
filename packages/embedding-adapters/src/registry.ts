@@ -25,6 +25,7 @@ const EMBEDDING_WIRES: Record<EmbeddingProviderId, EmbeddingWire> = {
   voyage: voyageWire,
   ollama: ollamaWire,
   tei: teiWire,
+  mtplx: openAiWire,
 };
 
 export function createEmbeddingAdapter(config: EmbeddingConfig, deps: AdapterDeps, path = "embedding"): EmbeddingAdapter {

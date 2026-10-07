@@ -55,6 +55,7 @@ smoke (below) is how a row becomes "live-verified".
 | `voyage` | `POST /embeddings` (`https://api.voyageai.com/v1`) | `input_type` query / document | 128 / 32000 (+100k per batch) | `output_dimension`, `truncation:false` | **unverified** |
 | `ollama` | `POST /api/embed` (`http://127.0.0.1:11434`) | none | 64 / 512 | `truncate:false` | documented |
 | `tei` | `POST /embed` | none (use prefixes) | 32 / 512 | root-array response, `truncate:false` | documented |
+| `mtplx` | `POST {baseURL}/v1/embeddings` (daemon, default `http://127.0.0.1:8000`) | none (an `instruction` field exists server-side, unused) | 32 / 8192 | OpenAI shape; `dimensions` sent, the server truncates (Matryoshka) and answers 400 above the native width; embedding models are opt-in on the daemon (`--embedding-model`), otherwise 404 | source-verified (`mtplx/server/openai.py`), not live |
 
 Limits are conservative defaults, not provider maxima; every one is overridable (`maxBatch`, `maxInputTokens`, `maxBatchTokens`).
 Token counts are an estimate (`ceil(ascii/4 + other/1.5)`); an input over `maxInputTokens` fails with `too_large` before any request.
@@ -73,11 +74,17 @@ match its row is `bad_response` naming the keys it did contain; the adapter neve
 | tei | `{query, texts[]}` | `[{index, score}]` | unverified | not run |
 | vllm | `{model, query, documents[], top_n}` | `{results:[{index, relevance_score}]}` | unverified | not run |
 | llamacpp | `{model, query, documents[], top_n}` | `{results:[{index, relevance_score}]}` | unverified | not run |
+| mtplx | `{model, query, documents[], top_n}` | `{results:[{index, relevance_score}]}` | source | not run |
 | omlx | `{model, query, documents[], top_n}` | `{results:[{index, relevance_score}]}` | unverified | not run |
 
-"Verified" rows are the two ADR-006 marks "Confirmed"; the five "unverified" rows are exactly ADR-006's open gap
-("resolved by a live smoke test against each server, not by guessing"). The mapping table is **not frozen yet** for
-those five: run the live smoke, paste its output over the "Live result" column, and flip each status to verified.
+"verified" rows are the two ADR-006 marks "Confirmed". "source" means the shape was read from the server's own source code
+(MTPLX: `/v1/rerank` in `mtplx/server/openai.py`, youssofal/MTPLX 2.12.2), not yet observed live. The five "unverified" rows are exactly
+ADR-006's open gap ("resolved by a live smoke test against each server, not by guessing"). The mapping table is **not frozen yet**
+for those six: run the live smoke, paste its output over the "Live result" column, and flip each status to verified.
+
+**Infinity** (`michaelfeil/infinity`) is named in ADR-006 but its endpoint and JSON were never captured ("Gap"); it is deliberately not supported until a shape is confirmed.
+
+MTPLX serves reranking and embeddings from the same daemon as chat (opt-in: `--reranker-model` / `--embedding-model`; an unconfigured endpoint answers 404). Scores for the Qwen3-Reranker family are yes/no probabilities, and a jina-style reranker scores the whole list in one pass, so MTPLX is never split (`too_large` above `maxDocs`, default 256). Optional request fields `instruction` and `return_documents` exist; only `return_documents:false` is sent.
 
 Notes: TEI's field is `texts`, not `documents`. vLLM and llama.cpp serve `/rerank` and `/v1/rerank` (`path` option; default `/v1/rerank`).
 Hosted APIs (Cohere, Jina, Voyage) are listwise: a call with more than `maxDocs` documents fails with `too_large` rather than being
@@ -155,8 +162,8 @@ core's `ProbeInput.targetProbe`; it also carries the fingerprint, identity hash 
 - `test:coverage`: line coverage of the package.
 - **Live smoke** (`test/live/`): skipped, and reported as skipped, unless `PLUR1BUS_LIVE_EMBED=1` **and** the target's variable is set.
   Keys: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `COHERE_API_KEY`, `JINA_API_KEY`, `VOYAGE_API_KEY`, `OPENROUTER_API_KEY` (+ `PLUR1BUS_LIVE_OPENROUTER_{MODEL,UPSTREAM,DIMS}`).
-  Local: `PLUR1BUS_LIVE_{OLLAMA,TEI,VLLM,LLAMACPP,OMLX}_URL` (+ `_MODEL`/`_DIMS` where the server does not report them) and
-  `PLUR1BUS_LIVE_{TEI,VLLM,LLAMACPP,OMLX}_RERANK_URL`. Model/dimension defaults are overridable with `PLUR1BUS_LIVE_<P>_MODEL` / `_DIMS`.
+  Local: `PLUR1BUS_LIVE_{OLLAMA,TEI,VLLM,LLAMACPP,OMLX,MTPLX}_URL` (+ `_MODEL`/`_DIMS` where the server does not report them) and
+  `PLUR1BUS_LIVE_{TEI,VLLM,LLAMACPP,OMLX,MTPLX}_RERANK_URL`. Model/dimension defaults are overridable with `PLUR1BUS_LIVE_<P>_MODEL` / `_DIMS`.
   The rerank suite records only the *structure* (key names, JSON types) of each live response and prints the Markdown mapping table at the end.
 
 ## Follow-up: wiring into core/engine

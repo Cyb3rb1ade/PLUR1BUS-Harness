@@ -1,0 +1,34 @@
+{
+  "description": "synthetic, shaped like MTPLX /v1/embeddings (mtplx/server/openai.py): OpenAI list with usage",
+  "status": 200,
+  "body": {
+    "object": "list",
+    "data": [
+      {
+        "object": "embedding",
+        "index": 0,
+        "embedding": [
+          3,
+          4,
+          0,
+          0
+        ]
+      },
+      {
+        "object": "embedding",
+        "index": 1,
+        "embedding": [
+          0,
+          0,
+          5,
+          12
+        ]
+      }
+    ],
+    "model": "Qwen3-Embedding-8B-4bit-DWQ",
+    "usage": {
+      "prompt_tokens": 6,
+      "total_tokens": 6
+    }
+  }
+}

@@ -34,6 +34,7 @@ export const EMBED_TARGETS: LiveEmbedTarget[] = [
   { name: "tei", needs: ["PLUR1BUS_LIVE_TEI_URL", "PLUR1BUS_LIVE_TEI_DIMS"], config: () => ({ provider: "tei", baseURL: str("PLUR1BUS_LIVE_TEI_URL", ""), model: str("PLUR1BUS_LIVE_TEI_MODEL", "tei"), dimensions: num("PLUR1BUS_LIVE_TEI_DIMS", 0) }) },
   { name: "vllm", needs: ["PLUR1BUS_LIVE_VLLM_URL", "PLUR1BUS_LIVE_VLLM_MODEL", "PLUR1BUS_LIVE_VLLM_DIMS"], config: () => ({ provider: "vllm", baseURL: str("PLUR1BUS_LIVE_VLLM_URL", ""), model: str("PLUR1BUS_LIVE_VLLM_MODEL", ""), dimensions: num("PLUR1BUS_LIVE_VLLM_DIMS", 0) }) },
   { name: "llamacpp", needs: ["PLUR1BUS_LIVE_LLAMACPP_URL", "PLUR1BUS_LIVE_LLAMACPP_DIMS"], config: () => ({ provider: "llamacpp", baseURL: str("PLUR1BUS_LIVE_LLAMACPP_URL", ""), model: str("PLUR1BUS_LIVE_LLAMACPP_MODEL", "default"), dimensions: num("PLUR1BUS_LIVE_LLAMACPP_DIMS", 0) }) },
+  { name: "mtplx", needs: ["PLUR1BUS_LIVE_MTPLX_URL", "PLUR1BUS_LIVE_MTPLX_MODEL", "PLUR1BUS_LIVE_MTPLX_DIMS"], config: () => ({ provider: "mtplx", baseURL: str("PLUR1BUS_LIVE_MTPLX_URL", ""), model: str("PLUR1BUS_LIVE_MTPLX_MODEL", ""), dimensions: num("PLUR1BUS_LIVE_MTPLX_DIMS", 0) }) },
   { name: "omlx", needs: ["PLUR1BUS_LIVE_OMLX_URL", "PLUR1BUS_LIVE_OMLX_MODEL", "PLUR1BUS_LIVE_OMLX_DIMS"], config: () => ({ provider: "omlx", baseURL: str("PLUR1BUS_LIVE_OMLX_URL", ""), model: str("PLUR1BUS_LIVE_OMLX_MODEL", ""), dimensions: num("PLUR1BUS_LIVE_OMLX_DIMS", 0) }) },
 ];
 
@@ -44,6 +45,7 @@ export const RERANK_TARGETS: LiveRerankTarget[] = [
   { name: "tei", needs: ["PLUR1BUS_LIVE_TEI_RERANK_URL"], config: () => ({ provider: "tei", baseURL: str("PLUR1BUS_LIVE_TEI_RERANK_URL", "") }) },
   { name: "vllm", needs: ["PLUR1BUS_LIVE_VLLM_RERANK_URL", "PLUR1BUS_LIVE_VLLM_RERANK_MODEL"], config: () => ({ provider: "vllm", baseURL: str("PLUR1BUS_LIVE_VLLM_RERANK_URL", ""), model: str("PLUR1BUS_LIVE_VLLM_RERANK_MODEL", "") }) },
   { name: "llamacpp", needs: ["PLUR1BUS_LIVE_LLAMACPP_RERANK_URL"], config: () => ({ provider: "llamacpp", baseURL: str("PLUR1BUS_LIVE_LLAMACPP_RERANK_URL", "") }) },
+  { name: "mtplx", needs: ["PLUR1BUS_LIVE_MTPLX_RERANK_URL"], config: () => ({ provider: "mtplx", baseURL: str("PLUR1BUS_LIVE_MTPLX_RERANK_URL", ""), ...(env("PLUR1BUS_LIVE_MTPLX_RERANK_MODEL") ? { model: str("PLUR1BUS_LIVE_MTPLX_RERANK_MODEL", "") } : {}) }) },
   { name: "omlx", needs: ["PLUR1BUS_LIVE_OMLX_RERANK_URL", "PLUR1BUS_LIVE_OMLX_RERANK_MODEL"], config: () => ({ provider: "omlx", baseURL: str("PLUR1BUS_LIVE_OMLX_RERANK_URL", ""), model: str("PLUR1BUS_LIVE_OMLX_RERANK_MODEL", "") }) },
 ];
 

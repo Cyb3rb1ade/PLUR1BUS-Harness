@@ -2,10 +2,10 @@
 // is reported with its path ("embedding.baseURL: required for provider \"tei\"") and all problems are reported at once.
 import { DEFAULT_RETRY_POLICY, type RetryPolicy } from "./retry.ts";
 
-export const EMBEDDING_PROVIDERS = ["openai", "openai-compatible", "vllm", "llamacpp", "omlx", "google", "cohere", "jina", "voyage", "openrouter", "ollama", "tei"] as const;
+export const EMBEDDING_PROVIDERS = ["openai", "openai-compatible", "vllm", "llamacpp", "omlx", "google", "cohere", "jina", "voyage", "openrouter", "ollama", "tei", "mtplx"] as const;
 export type EmbeddingProviderId = (typeof EMBEDDING_PROVIDERS)[number];
 
-export const RERANK_PROVIDERS = ["cohere", "jina", "voyage", "tei", "vllm", "llamacpp", "omlx"] as const;
+export const RERANK_PROVIDERS = ["cohere", "jina", "voyage", "tei", "vllm", "llamacpp", "omlx", "mtplx"] as const;
 export type RerankProviderId = (typeof RERANK_PROVIDERS)[number];
 
 export interface ConfigIssue {
@@ -124,6 +124,9 @@ const EMBEDDING_SPECS: Record<EmbeddingProviderId, EmbeddingSpec> = {
   openrouter: { baseURL: "https://openrouter.ai/api/v1", path: "/embeddings", secret: "required", maxBatch: 128, maxInputTokens: 8192, sendDimensions: false, needsUpstream: true },
   ollama: { baseURL: "http://127.0.0.1:11434", path: "/api/embed", secret: "optional", maxBatch: 64, maxInputTokens: 512, sendDimensions: false },
   tei: { path: "/embed", secret: "optional", maxBatch: 32, maxInputTokens: 512, sendDimensions: false },
+  // MTPLX serves OpenAI-shaped /v1/embeddings (baseURL is the daemon origin, default http://127.0.0.1:8000) and honours
+  // `dimensions` by Matryoshka truncation, answering 400 above the native width, so it is sent.
+  mtplx: { path: "/v1/embeddings", secret: "optional", maxBatch: 32, maxInputTokens: 8192, sendDimensions: true },
 };
 
 interface RerankSpec {
@@ -144,12 +147,14 @@ const RERANK_SPECS: Record<RerankProviderId, RerankSpec> = {
   vllm: { path: "/v1/rerank", paths: ["/rerank", "/v1/rerank", "/v2/rerank"], secret: "optional", modelRequired: true, maxDocs: 256, splitOversized: true },
   llamacpp: { path: "/v1/rerank", paths: ["/rerank", "/v1/rerank"], secret: "optional", modelRequired: false, maxDocs: 128, splitOversized: true },
   omlx: { path: "/v1/rerank", secret: "optional", modelRequired: true, maxDocs: 128, splitOversized: true },
+  // Not split: a jina-style reranker served by MTPLX scores a whole candidate list in one pass, so parts would not be comparable.
+  mtplx: { path: "/v1/rerank", secret: "optional", modelRequired: false, maxDocs: 256, splitOversized: false },
 };
 
 /** A rerank request is on the recall hot path (ADR-006: 5 s with a fallback), so it retries once at most. */
 const RERANK_RETRY: RetryPolicy = Object.freeze({ maxAttempts: 2, baseDelayMs: 100, maxDelayMs: 500, maxRetryAfterMs: 1000 });
 
-const SELF_HOSTED_BASE: ReadonlySet<string> = new Set(["openai-compatible", "vllm", "llamacpp", "omlx", "tei"]);
+const SELF_HOSTED_BASE: ReadonlySet<string> = new Set(["openai-compatible", "vllm", "llamacpp", "omlx", "tei", "mtplx"]);
 
 const MAX_RESPONSE_BYTES_DEFAULT = 32 * 1024 * 1024;
 const RERANK_MAX_RESPONSE_BYTES_DEFAULT = 8 * 1024 * 1024;

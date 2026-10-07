@@ -166,3 +166,20 @@ test("identity() is frozen and identical across calls", () => {
   assert.equal(a.identity(), a.identity());
   assert.ok(Object.isFrozen(a.identity()));
 });
+
+test("mtplx: OpenAI shape on /v1/embeddings, dimensions sent for Matryoshka truncation, no auth", async () => {
+  const { deps, requests } = kit(fromFixture("mtplx/embeddings-success.json"));
+  const a = createEmbeddingAdapter({ provider: "mtplx", model: "Qwen3-Embedding-8B-4bit-DWQ", dimensions: 4, baseURL: "http://127.0.0.1:8000" }, deps);
+  close(await a.embed(["a", "b"], { inputType: "document" }), expected);
+  const r = requests[0]!;
+  assert.equal(r.url, "http://127.0.0.1:8000/v1/embeddings");
+  assert.deepEqual(r.body, { model: "Qwen3-Embedding-8B-4bit-DWQ", input: ["a", "b"], encoding_format: "float", dimensions: 4 });
+  assert.equal(r.headers["authorization"], undefined);
+});
+
+test("mtplx: a dimensions-beyond-native 400 is invalid_request and is not retried", async () => {
+  const { deps, requests } = kit(fromFixture("mtplx/embeddings-dimensions-too-large.json"));
+  const a = createEmbeddingAdapter({ provider: "mtplx", model: "m", dimensions: 8192, baseURL: "http://127.0.0.1:8000" }, deps);
+  await assert.rejects(a.embed(["a"], { inputType: "document" }), isKind("invalid_request"));
+  assert.equal(requests.length, 1);
+});

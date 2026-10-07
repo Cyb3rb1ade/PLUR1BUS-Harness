@@ -6,7 +6,8 @@ import type { RerankProviderId, RerankSettings } from "../config.ts";
 import { AdapterError } from "../errors.ts";
 import type { RerankResult } from "../types.ts";
 
-export type ShapeStatus = "verified" | "unverified";
+/** `source`: read from the server's own source code, not yet observed live. */
+export type ShapeStatus = "verified" | "source" | "unverified";
 
 export interface RerankShape {
   provider: RerankProviderId;
@@ -33,6 +34,7 @@ export const RERANK_SHAPES: Readonly<Record<RerankProviderId, RerankShape>> = Ob
   tei: { provider: "tei", status: "unverified", documentsField: "texts", topField: undefined, sendsModel: false, container: "$", indexKey: "index", scoreKey: "score", extra: { raw_scores: false, truncate: false }, basis: "request confirmed (texts, not documents); response presumed root array of {index, score}" },
   vllm: { provider: "vllm", status: "unverified", documentsField: "documents", topField: "top_n", sendsModel: true, container: "results", indexKey: "index", scoreKey: "relevance_score", extra: {}, basis: "endpoint confirmed, Cohere-compatible response presumed" },
   llamacpp: { provider: "llamacpp", status: "unverified", documentsField: "documents", topField: "top_n", sendsModel: true, container: "results", indexKey: "index", scoreKey: "relevance_score", extra: {}, basis: "flag and endpoints confirmed, response presumed Cohere-compatible" },
+  mtplx: { provider: "mtplx", status: "source", documentsField: "documents", topField: "top_n", sendsModel: true, container: "results", indexKey: "index", scoreKey: "relevance_score", extra: { return_documents: false }, basis: "mtplx/server/openai.py route /v1/rerank (youssofal/MTPLX 2.12.2): {query, documents, top_n, return_documents, model?, instruction?} -> {id, model, results:[{index, relevance_score}], usage}" },
   omlx: { provider: "omlx", status: "unverified", documentsField: "documents", topField: "top_n", sendsModel: true, container: "results", indexKey: "index", scoreKey: "relevance_score", extra: {}, basis: "endpoint confirmed, response presumed Cohere-compatible" },
 });
 

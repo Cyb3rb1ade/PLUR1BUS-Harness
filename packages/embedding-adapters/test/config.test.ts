@@ -29,7 +29,7 @@ test("a minimal openai config resolves with the documented defaults", () => {
 });
 
 test("every embedding provider has a usable default set", () => {
-  const needsBase = new Set(["openai-compatible", "vllm", "llamacpp", "omlx", "tei"]);
+  const needsBase = new Set(["openai-compatible", "vllm", "llamacpp", "omlx", "tei", "mtplx"]);
   const needsSecret = new Set(["openai", "google", "cohere", "jina", "voyage", "openrouter"]);
   for (const provider of EMBEDDING_PROVIDERS) {
     const raw: Record<string, unknown> = { provider, model: "m", dimensions: 8 };
@@ -53,7 +53,7 @@ test("an unknown provider is named with its path and the valid choices", () => {
 });
 
 test("providers that cannot work without a baseURL say so", () => {
-  for (const provider of ["openai-compatible", "vllm", "llamacpp", "omlx", "tei"]) {
+  for (const provider of ["openai-compatible", "vllm", "llamacpp", "omlx", "tei", "mtplx"]) {
     assert.deepEqual(issues(() => resolveEmbeddingSettings({ provider, model: "m", dimensions: 8 })), [`embedding.baseURL: required for provider "${provider}"`]);
   }
 });
