@@ -26,6 +26,9 @@ export type { SseEvent } from "./sse.ts";
 // Gemini adapter
 export * from "./gemini/index.ts";
 
+// Anthropic Messages adapter
+export * from "./anthropic/index.ts";
+
 // Router (fallback, breaker, retry)
 export * from "./router/index.ts";
 
