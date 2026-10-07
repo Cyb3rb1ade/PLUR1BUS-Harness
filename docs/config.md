@@ -8,43 +8,43 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
-| `agents` | object | `{}` | live |  |
-| `embedding.useClass` | enum | `"general"` | core |  |
-| `providers` | object | `{}` | live |  |
-| `modelRoles` | object | `{}` | live |  |
+| `agents` | object | `{}` | live | Per-agent settings keyed by a lowercase agent identifier. |
+| `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
+| `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
+| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. |
 
 ## Advanced settings
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
-| `$schema` | string |  | live |  |
-| `schemaVersion` | const |  | core |  |
-| `core.logLevel` | enum | `"info"` | live |  |
-| `core.recall.softBudgetMs` | integer | `400` | core |  |
-| `core.recall.hardBudgetMs` | integer | `600` | live |  |
-| `core.recall.capChars` | integer | `17000` | core |  |
-| `core.capture.waitMs` | integer | `60000` | live |  |
-| `core.shutdownBudgetMs` | integer | `30000` | live |  |
-| `supervisor.graceMs` | integer | `60000` | live |  |
-| `supervisor.healthIntervalMs` | integer | `5000` | live |  |
-| `metrics.enabled` | boolean | `false` | core |  |
-| `metrics.port` | integer | `9464` | core |  |
-| `logs.maxBytes` | integer | `20971520` | live |  |
-| `logs.keep` | integer | `5` | live |  |
-| `extensions.allowUnsigned` | boolean | `true` | live |  |
-| `extensions.trashDays` | integer | `14` | live |  |
-| `extensions.limits.packageBytes` | integer | `268435456` | live |  |
-| `extensions.limits.skillBytes` | integer | `16777216` | live |  |
-| `embedding.acceptedNcLicence` | boolean | `false` | core |  |
-| `embedding.acceptedNcLicenceAt` | string |  | core |  |
+| `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
+| `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `core.logLevel` | enum | `"info"` | live | Minimum severity written to the core log. |
+| `core.recall.softBudgetMs` | integer | `400` | core | Soft target duration for a recall, in milliseconds. |
+| `core.recall.hardBudgetMs` | integer | `600` | live | Maximum duration allowed for a recall before it is aborted, in milliseconds. |
+| `core.recall.capChars` | integer | `17000` | core | Maximum number of characters returned by a recall. |
+| `core.capture.waitMs` | integer | `60000` | live | Maximum time to wait for a memory capture, in milliseconds. |
+| `core.shutdownBudgetMs` | integer | `30000` | live | Maximum time the core spends on graceful shutdown, in milliseconds. |
+| `supervisor.graceMs` | integer | `60000` | live | Grace period given to a child process to exit during shutdown, in milliseconds. |
+| `supervisor.healthIntervalMs` | integer | `5000` | live | Interval between child-process health checks, in milliseconds. |
+| `metrics.enabled` | boolean | `false` | core | Whether to expose the read-only Prometheus metrics endpoint. |
+| `metrics.port` | integer | `9464` | core | Loopback port used by the metrics endpoint. |
+| `logs.maxBytes` | integer | `20971520` | live | Maximum size of each log file before rotation, in bytes. |
+| `logs.keep` | integer | `5` | live | Number of rotated log files to retain. |
+| `extensions.allowUnsigned` | boolean | `true` | live | Whether unsigned extension packages may be installed. |
+| `extensions.trashDays` | integer | `14` | live | Number of days uninstalled extensions are retained in the trash. |
+| `extensions.limits.packageBytes` | integer | `268435456` | live | Maximum size of an extension package, in bytes. |
+| `extensions.limits.skillBytes` | integer | `16777216` | live | Maximum size of an installed skill folder, in bytes. |
+| `embedding.acceptedNcLicence` | boolean | `false` | core | Whether the owner has accepted the model's non-commercial licence terms. |
+| `embedding.acceptedNcLicenceAt` | string |  | core | Date-time when the non-commercial licence was accepted. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
-| `oauth` | object | `{}` | live |  |
-| `decision` | object | `{}` | live |  |
+| `oauth` | object | `{}` | live | Reserved namespace for OAuth configuration. |
+| `decision` | object | `{}` | live | Reserved namespace for decision model configuration. |
 | `modelProfiles` | object | `{}` | live | Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order. |
-| `models.scan.enabled` | boolean | `true` | live |  |
-| `models.scan.intervalHours` | integer | `24` | live |  |
+| `models.scan.enabled` | boolean | `true` | live | Whether periodic model discovery scans are enabled. |
+| `models.scan.intervalHours` | integer | `24` | live | Hours between periodic model discovery scans. |
 | `secrets.fileFallback.enabled` | boolean | `false` | live | Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3. |
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
-| `egress.allowPorts` | array | `[443]` | live |  |
+| `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
