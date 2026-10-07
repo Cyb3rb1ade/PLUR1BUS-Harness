@@ -21,7 +21,7 @@ function world() {
   writeFileSync(join(secret, "token.env"), "x");
   writeFileSync(join(secret, "plain.txt"), "y");
   writeFileSync(join(ws, "own.txt"), "z");
-  symlinkSync(secret, join(shared, "link-to-secrets"));
+  symlinkSync(secret, join(shared, "link-to-secrets"), "junction"); // junction: no symlink privilege needed on Windows, ignored on POSIX
   const deny = [{ path: secret }, { name: ".env" }];
   const opts = (access: "read" | "write") => ({ roots: [{ id: "ws", path: ws }], deny, requireRoot: false, access, home: base });
 
