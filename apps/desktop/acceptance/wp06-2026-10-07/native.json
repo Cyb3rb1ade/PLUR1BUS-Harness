@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "sourceBase": "748a9d558dee4799a96106ed20442395f566660b",
+  "platform": "macOS arm64",
+  "node": "24.21.0",
+  "rust": "1.95.0",
+  "isolation": {
+    "HOME": "temporary directory",
+    "CFFIXED_USER_HOME": "temporary directory",
+    "XDG": "temporary directory",
+    "credentials": "MemoryStore; no real keychain opt-in"
+  },
+  "native": {
+    "lifecycle": {
+      "spa_focus": true,
+      "second_instance_focus": true,
+      "second_instance_focus_mode": "strict",
+      "close_hides": true,
+      "close_minimizes": true,
+      "shell_focus": true,
+      "quit_modal_default": true,
+      "quit_cancel_preserves_app": true,
+      "quit_confirm_exits": true
+    },
+    "tray": {
+      "english_headers": true,
+      "german_headers": true,
+      "runtime_and_secrets_words": true,
+      "settings_ipc_refresh": true,
+      "native_tooltip_matches": true,
+      "colour_image_default": true,
+      "decoder_fallback_is_native_template": true,
+      "colour_image_restored": true
+    },
+    "diagnostics": {
+      "restart_offers_crash": true,
+      "modal_plain_text_redacted": true,
+      "escape_preserves_offer": true,
+      "dismiss_consumes_offer": true,
+      "idle_timer_flushes": true,
+      "confirmed_quit_takes_diagnostics": true
+    }
+  },
+  "limitations": [
+    "Automated native observers; no physical menu or screen-reader acceptance",
+    "No OS logout/restart test",
+    "No native GNOME/Flatpak or Windows ARM owner check",
+    "No five-target CI pass"
+  ],
+  "sourceHead": "146dac397fd5dce45e0017c7eb10df0b36ec3611"
+}
