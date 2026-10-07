@@ -14,7 +14,7 @@ const CANARY = "CANARY-7f3a91c2-do-not-leak";
 async function scan(app: App, consoleLines: string[], where: string): Promise<void> {
   const { html, inputs, storage, url, state } = await app.page.evaluate(() => ({
     html: document.documentElement.outerHTML,
-    inputs: [...document.querySelectorAll("input, textarea, select")].map((e) => (e as HTMLInputElement).value),
+    inputs: Array.from(document.querySelectorAll("input, textarea, select")).map((e) => (e as HTMLInputElement).value),
     storage: JSON.stringify([{ ...localStorage }, { ...sessionStorage }]),
     url: location.href,
     state: JSON.stringify(history.state),
@@ -27,7 +27,7 @@ async function scan(app: App, consoleLines: string[], where: string): Promise<vo
   // Properties are not markup: also walk the DOM for any attribute or property holding it.
   const props = await app.page.evaluate((c) => {
     const hits: string[] = [];
-    for (const el of document.querySelectorAll("*")) {
+    for (const el of Array.from(document.querySelectorAll("*"))) {
       for (const a of el.getAttributeNames()) if ((el.getAttribute(a) ?? "").includes(c)) hits.push(`${el.tagName}@${a}`);
       if (typeof (el as HTMLInputElement).value === "string" && (el as HTMLInputElement).value.includes(c)) hits.push(`${el.tagName}.value`);
     }
@@ -52,8 +52,8 @@ describe("secrets: the value never leaks", opts, () => {
         seedSecrets(app.server.rpc); await openRoute(app.page, "#/settings/secrets");
         if (mode === "create") {
           await app.page.getByRole("button", { name: "Add secret" }).click();
-          await app.page.getByRole("dialog").getByLabel("Name").fill("leak.test");
-          await app.page.getByRole("dialog").getByLabel("Value").fill(CANARY);
+          await app.page.getByRole("dialog").getByLabel("Name", { exact: true }).fill("leak.test");
+          await app.page.getByRole("dialog").getByLabel("Value", { exact: true }).fill(CANARY);
           await app.page.getByRole("dialog").getByLabel("Show value while typing").check();
         } else {
           await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();

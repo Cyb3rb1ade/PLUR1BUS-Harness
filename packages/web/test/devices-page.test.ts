@@ -32,7 +32,7 @@ describe("devices: gate", opts, () => {
       (app: App) => { app.server.rpc.scenario("config.get", "unavailable"); },
     ]) {
       await withApp({}, async (app) => {
-        if (mk.length && app.server.rpc.calls.length === 0) { publish(app, "local"); mk(app); }
+        publish(app, "local"); mk(app);
         await open(app);
         await app.page.getByRole("heading", { name: "Remote access is off" }).waitFor();
       });

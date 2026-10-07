@@ -77,8 +77,8 @@ describe("secrets: create, rotate, delete", opts, () => {
       seedSecrets(app.server.rpc); await open(app);
       await app.page.getByRole("button", { name: "Add secret" }).click();
       const dlg = app.page.getByRole("dialog", { name: "Add a secret" });
-      await dlg.getByLabel("Name").fill("openai.key");
-      const value = dlg.getByLabel("Value");
+      await dlg.getByLabel("Name", { exact: true }).fill("openai.key");
+      const value = dlg.getByLabel("Value", { exact: true });
       assert.equal(await value.getAttribute("type"), "password");
       assert.equal(await value.getAttribute("autocomplete"), "off");
       await value.fill("sk-test-123");
@@ -99,8 +99,8 @@ describe("secrets: create, rotate, delete", opts, () => {
       await dlg.getByRole("button", { name: "Save" }).click();
       await dlg.getByText("Enter a valid name.").waitFor();
       await dlg.getByText("Enter a value.").waitFor();
-      await dlg.getByLabel("Name").fill("anthropic.apiKey");
-      await dlg.getByLabel("Value").fill("x");
+      await dlg.getByLabel("Name", { exact: true }).fill("anthropic.apiKey");
+      await dlg.getByLabel("Value", { exact: true }).fill("x");
       await dlg.getByRole("button", { name: "Save" }).click();
       await dlg.getByText(/Use Rotate/).waitFor();
       assert.equal(calls(app, "secret.set").length, 0);
@@ -112,10 +112,9 @@ describe("secrets: create, rotate, delete", opts, () => {
       await app.page.getByRole("button", { name: "Add secret" }).click();
       const dlg = app.page.getByRole("dialog");
       await dlg.getByLabel("Show value while typing").check();
-      assert.equal(await dlg.getByLabel("Value").getAttribute("type"), "text");
+      assert.equal(await dlg.getByLabel("Value", { exact: true }).getAttribute("type"), "text");
       await dlg.getByLabel("Show value while typing").uncheck();
-      assert.equal(await dlg.getByLabel("Value").getAttribute("type"), "password");
-      assert.deepEqual(await app.page.evaluate(() => [localStorage.length, sessionStorage.length]).then((a) => a.length), 2);
+      assert.equal(await dlg.getByLabel("Value", { exact: true }).getAttribute("type"), "password");
     });
   });
   test("rotate sends the fixed name with the new value", async () => {
@@ -123,7 +122,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       seedSecrets(app.server.rpc); await open(app);
       await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
       const dlg = app.page.getByRole("dialog", { name: "Rotate anthropic.apiKey" });
-      assert.equal(await dlg.getByLabel("Name").count(), 0);
+      assert.equal(await dlg.getByLabel("Name", { exact: true }).count(), 0);
       await dlg.getByLabel("New value").fill("new-val");
       await dlg.getByRole("button", { name: "Save" }).click();
       await app.page.getByText("Saved anthropic.apiKey.").waitFor();
@@ -153,7 +152,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       await dlg.getByLabel(/Type telegram\.token/).fill("telegram.token");
       await go.click();
       await app.page.getByText("Deleted telegram.token.").waitFor();
-      assert.equal(await app.page.getByRole("row", { name: /telegram\.token/ }).count(), 0);
+      await app.page.getByRole("row", { name: /telegram\.token/ }).waitFor({ state: "detached" });
       assert.deepEqual(calls(app, "secret.delete").map((c) => c.params), [{ name: "telegram.token" }]);
     });
   });
@@ -162,7 +161,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       seedSecrets(app.server.rpc); app.server.rpc.scenario("secret.set", "unavailable"); await open(app);
       await app.page.getByRole("button", { name: "Add secret" }).click();
       const dlg = app.page.getByRole("dialog");
-      await dlg.getByLabel("Name").fill("a.b"); await dlg.getByLabel("Value").fill("v");
+      await dlg.getByLabel("Name", { exact: true }).fill("a.b"); await dlg.getByLabel("Value", { exact: true }).fill("v");
       await dlg.getByRole("button", { name: "Save" }).click();
       await dlg.getByText("Not available on this harness yet.").waitFor();
     });
@@ -202,7 +201,8 @@ describe("secrets: keyboard, a11y, layout, German", opts, () => {
       await dlg.waitFor();
       for (let i = 0; i < 6 && (await app.page.evaluate(() => document.activeElement?.id)) !== "confirm-typed"; i++) await app.page.keyboard.press("Tab");
       await app.page.keyboard.type("anthropic.apiKey");
-      await app.page.keyboard.press("Tab");
+      await app.page.keyboard.press("Tab"); // Cancel
+      await app.page.keyboard.press("Tab"); // Delete secret
       await app.page.keyboard.press("Enter");
       await dlg.waitFor({ state: "detached" });
       assert.deepEqual(calls(app, "secret.delete").map((c) => c.params), [{ name: "anthropic.apiKey" }]);
