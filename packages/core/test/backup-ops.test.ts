@@ -60,6 +60,19 @@ describe("admin.backup.snapshot (in-process core)", () => {
     assert.ok(!r.files.some((f: any) => /core\.lock|backup-staging/.test(f.path)), "the lock and the staging area are never copied");
   });
 
+  it("never fsyncs the staged copy (on macOS every fsync is a F_FULLFSYNC that can stall the reply past the call timeout)", async () => {
+    const { open } = await import("node:fs/promises");
+    const probe = join(l.state, "fsync-probe"); writeFileSync(probe, "x");
+    const fh = await open(probe, "r"); const proto = Object.getPrototypeOf(fh) as { sync: () => Promise<void> }; await fh.close();
+    const calls: number[] = []; const orig = proto.sync;
+    proto.sync = function (this: unknown) { calls.push(1); return orig.call(this); };
+    try {
+      const r = await c.call<any>("admin.backup.snapshot", { label: "nosync" });
+      assert.ok(r.files.length > 0);
+    } finally { proto.sync = orig; }
+    assert.equal(calls.length, 0, "FileHandle.sync was called while staging");
+  });
+
   it("is private: the staging root is 0700 on POSIX and holds nothing from run/", async () => {
     const r = await c.call<any>("admin.backup.snapshot", {});
     if (process.platform !== "win32") {

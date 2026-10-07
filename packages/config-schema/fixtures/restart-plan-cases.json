@@ -42,6 +42,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -96,6 +97,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -163,6 +165,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -219,6 +222,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -286,6 +290,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -344,6 +349,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -417,6 +423,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -471,6 +478,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -544,6 +552,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -602,6 +611,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -673,6 +683,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -731,6 +742,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -800,6 +812,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -854,6 +867,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -924,6 +938,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -983,6 +998,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -1057,6 +1073,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
@@ -1111,6 +1128,7 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { buildWeb } from "../build.ts";
-import { MockHarnessServer, type MockOptions } from "./mock-server.ts";
+import { MockHarnessServer, OWNER_TOKEN, type MockOptions } from "./mock-server.ts";
 
 /** Chromium: PLUR1BUS_CHROMIUM, else Playwright's own install, else the container's /opt/pw-browsers/chromium. No download. */
 function findChromium(): string | undefined {
@@ -44,8 +44,8 @@ export type AppOptions = {
 };
 export type App = { page: Page; context: BrowserContext; server: MockHarnessServer; baseUrl: string; problems: string[] };
 
-export const USER = "alice";
-export const PASSWORD = "correct horse battery";
+export const TOKEN = OWNER_TOKEN;
+export const WRONG_TOKEN = "wrong-token-0123456789abcdef0123456789abcdef";
 
 export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>): Promise<void> {
   if (!browser) throw new Error("no browser");
@@ -73,9 +73,8 @@ export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>
   }
 }
 
-export async function signIn(page: Page, user = USER, password = PASSWORD, lang: "en" | "de" = "en"): Promise<void> {
-  const l = lang === "de" ? { user: "Benutzername", pass: "Passwort", go: "Anmelden" } : { user: "Username", pass: "Password", go: "Sign in" };
-  await page.getByLabel(l.user).fill(user);
-  await page.getByLabel(l.pass, { exact: true }).fill(password);
+export async function signIn(page: Page, token = TOKEN, lang: "en" | "de" = "en"): Promise<void> {
+  const l = lang === "de" ? { field: "Owner-Token", go: "Anmelden" } : { field: "Owner token", go: "Sign in" };
+  await page.getByLabel(l.field, { exact: true }).fill(token);
   await page.getByRole("button", { name: l.go }).click();
 }

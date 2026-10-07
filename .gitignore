@@ -160,3 +160,9 @@ __pycache__/
 /apps/desktop/target/
 /apps/desktop/ui/dist/
 /apps/desktop/src-tauri/gen/
+
+# cargo-fuzz
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/Cargo.lock

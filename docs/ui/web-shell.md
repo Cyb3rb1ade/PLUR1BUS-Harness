@@ -50,24 +50,28 @@ and placeholders); the language follows the browser unless picked, and `<html la
 
 ## Session API (provisional)
 
-`SessionApi` is the only thing UI code uses; `HttpSessionApi` implements it. Routes are constants in `SESSION_ROUTES`
-so the real API is a small diff. They are provisional because the Harness API is built in a parallel task.
+`SessionApi` is the only thing UI code uses; `HttpSessionApi` implements it against the Harness API
+(`docs/api-surface.md`, `packages/api`). Routes are constants in `SESSION_ROUTES`.
 
-| Route | Request → response |
+| Route | Use |
 |---|---|
-| `GET /api/v1/auth/whoami` | session cookie → `200 { userId, displayName, role }` (optionally `csrf`), `401` without a session |
-| `POST /api/v1/auth/login` | `{ username, password }` → `200 { userId, displayName, role, csrf }` + `Set-Cookie`; `401` bad credentials; `429` + `Retry-After` |
-| `POST /api/v1/auth/logout` | `X-CSRF-Token` → `204` |
+| `POST /api/v1/session` | `{ token }` (the owner token) → `200 { principal, … }` + `Set-Cookie` (HttpOnly, SameSite=Strict); `401` reason `invalid-token`; `429` + `Retry-After` |
+| `GET /api/v1/whoami` | session cookie → `200 { principal }`; `401` without a session (anonymous) |
+| `GET /api/v1/csrf` | `200 { token }`, one-time; fetched before **every** mutating request |
+| `DELETE /api/v1/session` | `X-CSRF-Token` → `200`; logout |
 
-The CSRF token is held in memory only, the password is never put in a URL, a log or storage, and the session cookie is
-the server's `HttpOnly` cookie, never readable from script.
+A refused CSRF token (`403`, reason `csrf`) is retried once with a fresh one, then reported as `csrf`; a `401` on a write
+is `session-expired` and signs the UI out with a notice (`sessionWrite`). Every failure has an i18n text (de, en).
+
+The owner token is held only in the sign-in field until it has been sent, then cleared: never in a URL, storage or log.
+CSRF tokens are never kept. The session cookie is the server's `HttpOnly` cookie, never readable from script.
 
 ## Rulings
 
 1. **Framework:** Preact + Signals (spike).
 2. **`h()` in `.ts`, no JSX**, so root typecheck covers the package unchanged.
 3. **Hash routing.**
-4. **Provisional `/api/v1/auth/*` routes** behind `SessionApi`; reconcile with the real API.
+4. **Owner-token sign-in** against the real `/api/v1/session`, `/csrf`, `/whoami` behind `SessionApi`.
 5. **Fonts:** system fallbacks until the licensed Glow font files are added.
 6. **Responsive snapshots** are structural, not pixels.
 7. **Field borders** use `--field-border` (≥ 3:1 against the surface, WCAG 1.4.11) instead of the canvas's lighter card
