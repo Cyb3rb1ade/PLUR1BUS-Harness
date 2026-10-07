@@ -42,7 +42,7 @@ export function buildOpenApi(): Record<string, unknown> {
       description: "Generated from `packages/api/src/routes.ts` by `scripts/gen-openapi.mjs`; do not edit by hand. Loopback only. Every response carries the security headers (CSP `default-src 'none'; frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, HSTS over TLS). Failures are `error/1` documents (ADR-016 §8).",
     },
     servers: [{ url: "http://127.0.0.1:{port}", variables: { port: { default: "0", description: "The loopback port the API listens on." } } }],
-    tags: [{ name: "session" }, { name: "tokens" }, { name: "status" }, { name: "agents" }],
+    tags: [{ name: "session" }, { name: "tokens" }, { name: "totp" }, { name: "status" }, { name: "agents" }],
     paths,
     components: {
       securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "A personal API token, `plb_<id>_<secret>` (`POST /api/v1/tokens`). Needs no CSRF token. Acts with the caller's role narrowed by the token's scopes; never holds a human-only action." }, cookieAuth: { type: "apiKey", in: "cookie", name: COOKIE_NAME, description: `The session cookie (\`${COOKIE_NAME_TLS}\` over TLS): HttpOnly, SameSite=Strict, Secure over TLS.` } },

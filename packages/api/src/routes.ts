@@ -4,7 +4,11 @@ import type { Clock } from "./clock.ts";
 import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errors, fromCoreError } from "./errors.ts";
 import type { PasswordLogin } from "./login.ts";
+import type { LoginChallenges } from "./challenge.ts";
 import type { PublicToken, TokenService } from "./tokens.ts";
+import type { TotpService } from "./totp.ts";
+import type { UserDirectory } from "./ports.ts";
+import type { RateLimiter } from "./rate-limit.ts";
 import type { RateClass } from "./rate-limit.ts";
 import { authorize, type RbacPrincipal } from "./rbac-bridge.ts";
 import type { Principal, Session, SessionStore } from "./session.ts";
@@ -58,6 +62,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
     reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `locked`, `role-denied`, `body-too-large`." },
   }, ["schema", "error", "message"]),
   Principal: obj({ kind: { enum: ["owner", "user"] }, id: { type: "string" }, role: { enum: ROLE_NAMES } }),
+  SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { const: "totp" }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
   Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
   Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] } }, ["state", "since"]),
 };
@@ -75,7 +80,10 @@ export const ROUTES: readonly RouteSpec[] = [
       ],
     },
     successStatus: 200,
-    success: { description: "Logged in; `Set-Cookie` carries the session (HttpOnly, SameSite=Strict, Secure over TLS). Any session cookie the request carried is ended.", schema: obj({ schema: schemaId("session.create/1"), principal: ref("Principal"), ...SESSION_TIMES }) },
+    success: {
+      description: "Logged in: `session.create/1`, and `Set-Cookie` carries the session (HttpOnly, SameSite=Strict, Secure over TLS); any session cookie the request carried is ended. When the account has a second factor the answer is `session.challenge/1` instead, with no cookie: send the challenge and a code to `POST /api/v1/session/totp`.",
+      schema: { oneOf: [obj({ schema: schemaId("session.create/1"), principal: ref("Principal"), ...SESSION_TIMES }), ref("SessionChallenge")] },
+    },
   },
   {
     id: "session.delete", method: "DELETE", path: `${API_PREFIX}/session`, tag: "session", summary: "Log out; ends the session server-side",
@@ -140,6 +148,39 @@ export const ROUTES: readonly RouteSpec[] = [
     successStatus: 200, success: { description: "Revoked.", schema: obj({ schema: schemaId("tokens.revoke/1"), revoked: { const: true } }) },
     extra: { 404: { description: "No such live token of the caller's (`reason`: `token`).", schema: ref("Error") } },
   },
+  {
+    id: "session.totp", method: "POST", path: `${API_PREFIX}/session/totp`, tag: "session", summary: "Second step of a login: the challenge and a TOTP or backup code",
+    auth: "none", authz: "public", csrf: false, rate: "totp", stability: "experimental", since: "1.0.0",
+    requestBody: obj({ challenge: { type: "string", maxLength: 100 }, code: { type: "string", maxLength: 32, description: "Six digits from the authenticator app, or a one-time backup code." } }),
+    successStatus: 200,
+    success: { description: "Logged in; the session cookie is set and any cookie the request carried is ended.", schema: obj({ schema: schemaId("session.create/1"), principal: ref("Principal"), ...SESSION_TIMES }) },
+  },
+  {
+    id: "totp.status", method: "GET", path: `${API_PREFIX}/me/totp`, tag: "totp", summary: "Whether the caller's second factor is on, and how many backup codes are left",
+    auth: "session", authz: { action: "my.read", resource: "self" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    successStatus: 200, success: { description: "Never the secret, never a code.", schema: obj({ schema: schemaId("totp.status/1"), enabled: { type: "boolean" }, backupCodesRemaining: { type: "integer" } }) },
+  },
+  {
+    id: "totp.setup", method: "POST", path: `${API_PREFIX}/me/totp/setup`, tag: "totp", summary: "Start enrolling an authenticator app: a new secret and its otpauth URI",
+    auth: "session", authz: { action: "my.write", resource: "self" }, csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
+    successStatus: 200,
+    success: { description: "The secret is pending until `confirm` sees a right code from it. Shown here and nowhere else.", schema: obj({ schema: schemaId("totp.setup/1"), secret: { type: "string" }, otpauthUri: { type: "string" } }) },
+    extra: { 409: { description: "A second factor is already on (`reason`: `totp-enabled`), or the caller is the owner-token login, which has no account (`reason`: `no-account`).", schema: ref("Error") } },
+  },
+  {
+    id: "totp.confirm", method: "POST", path: `${API_PREFIX}/me/totp/confirm`, tag: "totp", summary: "Turn the second factor on with a code from the new secret; returns the backup codes once",
+    auth: "session", authz: { action: "my.write", resource: "self" }, csrf: true, rate: "totp", stability: "experimental", since: "1.0.0",
+    requestBody: obj({ code: { type: "string", maxLength: 32 } }),
+    successStatus: 200, success: { description: "Ten one-time backup codes, shown here and nowhere else (only their hashes are kept).", schema: obj({ schema: schemaId("totp.confirm/1"), enabled: { const: true }, backupCodes: { type: "array", items: { type: "string" } } }) },
+    extra: { 409: { description: "The caller is the owner-token login, which has no account (`reason`: `no-account`).", schema: ref("Error") } },
+  },
+  {
+    id: "totp.disable", method: "POST", path: `${API_PREFIX}/me/totp/disable`, tag: "totp", summary: "Turn the second factor off; needs a valid TOTP or backup code",
+    auth: "session", authz: { action: "my.write", resource: "self" }, csrf: true, rate: "totp", stability: "experimental", since: "1.0.0",
+    requestBody: obj({ code: { type: "string", maxLength: 32 } }),
+    successStatus: 200, success: { description: "Off; the secret and the backup codes are deleted.", schema: obj({ schema: schemaId("totp.disable/1"), enabled: { const: false } }) },
+    extra: { 409: { description: "The caller is the owner-token login, which has no account (`reason`: `no-account`).", schema: ref("Error") } },
+  },
 ];
 // `Health` is the 200 schema of `health`, referenced by its 503.
 COMPONENT_SCHEMAS.Health = ROUTES.find((r) => r.id === "health")!.success.schema;
@@ -165,6 +206,10 @@ export interface HandlerDeps {
   /** Password login; without it only the owner token logs in. */
   login?: PasswordLogin | undefined;
   tokens?: TokenService | undefined;
+  users?: UserDirectory | undefined;
+  totp?: TotpService | undefined;
+  challenges?: LoginChallenges | undefined;
+  limiter?: RateLimiter | undefined;
   audit: AuditEmitter;
 }
 
@@ -190,6 +235,13 @@ function loginBody(b: unknown): LoginBody | undefined {
   if (keys.length === 2 && typeof o.username === "string" && typeof o.password === "string") return { kind: "password", username: o.username, password: o.password };
   return undefined;
 }
+
+/** Exactly `{code: string}`. */
+function codeBody(b: unknown): string {
+  if (!b || typeof b !== "object" || Array.isArray(b) || Object.keys(b).length !== 1 || typeof (b as { code?: unknown }).code !== "string" || (b as { code: string }).code.length > 32) throw errors.badRequest("body", "body must be {\"code\": string}");
+  return (b as { code: string }).code;
+}
+const noAccount = () => new ApiError(409, "E_CONFLICT", "the owner-token login has no account to protect", { reason: "no-account" });
 
 /** A token as the API shows it: times as ISO strings, nothing secret. */
 function tokenJson(t: PublicToken): Record<string, unknown> {
@@ -218,6 +270,11 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
           if (r.locked) throw errors.locked(r.retryAfterSec ?? 1);
           throw new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason: "invalid-credentials" });
         }
+        // A second factor turns the right password into a challenge, not a session.
+        if (d.totp && d.challenges && await d.totp.isEnabled(r.user.id)) {
+          const c = d.challenges.create(r.user.id, r.user.version);
+          return { body: { schema: "session.challenge/1", mfa: "totp", challenge: c.id, expiresAt: iso8601(c.expiresAt) } };
+        }
         principal = { kind: "user", id: r.user.id, role: r.user.role }; authVersion = r.user.version;
       }
       // Session fixation: a cookie the request already carried never becomes the logged-in session, and it dies here.
@@ -226,6 +283,62 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       d.log.info("login", { principal: session.principal.id });
       d.audit.emit("auth.login.success", principal.id, `user:${principal.id}`, { via: b.kind === "token" ? "owner-token" : "password", ip: i.ip });
       return { body: { schema: "session.create/1", principal: session.principal, createdAt: iso8601(session.createdAt), expiresAt: iso8601(session.absoluteExpiresAt), idleExpiresAt: iso8601(session.idleExpiresAt) }, headers: { "Set-Cookie": sessionCookie(d.tls, id, Math.floor((session.absoluteExpiresAt - session.createdAt) / 1000)) } };
+    },
+    "session.totp": async (i) => {
+      const b = i.body as { challenge?: unknown; code?: unknown } | null;
+      if (!b || typeof b !== "object" || Array.isArray(b) || Object.keys(b).length !== 2 || typeof b.challenge !== "string" || typeof b.code !== "string" || b.code.length > 32) throw errors.badRequest("body", "body must be {\"challenge\": string, \"code\": string}");
+      const refused = (reason = "invalid-code") => new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason });
+      const ch = d.challenges?.get(b.challenge);
+      if (!ch || !d.totp || !d.users || !d.limiter) throw refused();
+      // Brute force is bounded per user, not per challenge: a fresh challenge costs only a password the attacker already has.
+      const spend = d.limiter.take("totp", `user:${ch.userId}`);
+      if (!spend.ok) { d.audit.emit("auth.rate-limited", ch.userId, `user:${ch.userId}`, { class: "totp", route: "session.totp", ip: i.ip }); throw errors.rateLimited(spend.retryAfterSec); }
+      const user = await d.users.findById(ch.userId);
+      if (!user || user.disabled === true || user.version !== ch.version) { d.challenges!.consume(b.challenge); throw refused(); }
+      const v = await d.totp.verify(user.id, b.code);
+      if (!v.ok) {
+        d.challenges!.fail(b.challenge);
+        d.audit.emit("auth.totp.failure", user.id, `user:${user.id}`, { stage: "login", ip: i.ip });
+        throw refused();
+      }
+      d.challenges!.consume(b.challenge);
+      d.sessions.destroy(i.presentedSessionId);
+      const principal: Principal = { kind: "user", id: user.id, role: user.role };
+      const { id, session } = d.sessions.create(principal, { authVersion: user.version, stepUpAt: d.clock.now() });
+      d.log.info("login", { principal: user.id });
+      d.audit.emit("auth.login.success", user.id, `user:${user.id}`, { via: v.method === "backup" ? "password+backup" : "password+totp", ip: i.ip });
+      if (v.method === "backup") d.audit.emit("auth.totp.backup-used", user.id, `user:${user.id}`, { remaining: (await d.totp.status(user.id)).backupCodesRemaining, ip: i.ip });
+      return { body: { schema: "session.create/1", principal: session.principal, createdAt: iso8601(session.createdAt), expiresAt: iso8601(session.absoluteExpiresAt), idleExpiresAt: iso8601(session.idleExpiresAt) }, headers: { "Set-Cookie": sessionCookie(d.tls, id, Math.floor((session.absoluteExpiresAt - session.createdAt) / 1000)) } };
+    },
+    "totp.status": async (i) => {
+      if (!i.principal || !d.totp) throw errors.unauthenticated();
+      if (i.principal.kind !== "user") return { body: { schema: "totp.status/1", enabled: false, backupCodesRemaining: 0 } };
+      return { body: { schema: "totp.status/1", ...(await d.totp.status(i.principal.id)) } };
+    },
+    "totp.setup": async (i) => {
+      if (!i.principal || !d.totp || !d.users) throw errors.unauthenticated();
+      if (i.principal.kind !== "user") throw noAccount();
+      const u = await d.users.findById(i.principal.id);
+      if (!u) throw errors.unauthenticated("session-expired");
+      const b = await d.totp.begin(u.id, u.username);
+      return { body: { schema: "totp.setup/1", secret: b.secret, otpauthUri: b.otpauthUri } };
+    },
+    "totp.confirm": async (i) => {
+      if (!i.principal || !d.totp) throw errors.unauthenticated();
+      const code = codeBody(i.body);
+      if (i.principal.kind !== "user") throw noAccount();
+      const r = await d.totp.confirm(i.principal.id, code);
+      if (!r.ok) { d.audit.emit("auth.totp.failure", i.principal.id, `user:${i.principal.id}`, { stage: "confirm", ip: i.ip }); throw errors.forbidden("invalid-code", "that code is not valid"); }
+      d.audit.emit("auth.totp.enabled", i.principal.id, `user:${i.principal.id}`, { ip: i.ip });
+      return { body: { schema: "totp.confirm/1", enabled: true, backupCodes: r.backupCodes } };
+    },
+    "totp.disable": async (i) => {
+      if (!i.principal || !d.totp) throw errors.unauthenticated();
+      const code = codeBody(i.body);
+      if (i.principal.kind !== "user") throw noAccount();
+      if (!(await d.totp.disable(i.principal.id, code))) { d.audit.emit("auth.totp.failure", i.principal.id, `user:${i.principal.id}`, { stage: "disable", ip: i.ip }); throw errors.forbidden("invalid-code", "that code is not valid"); }
+      d.audit.emit("auth.totp.disabled", i.principal.id, `user:${i.principal.id}`, { ip: i.ip });
+      return { body: { schema: "totp.disable/1", enabled: false } };
     },
     "session.delete": (i) => {
       d.sessions.destroy(i.sessionId);

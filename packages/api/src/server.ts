@@ -8,13 +8,15 @@ import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errorBody, errors } from "./errors.ts";
 import { securityHeaders } from "./headers.ts";
 import { PasswordLogin, type LockoutPolicy } from "./login.ts";
-import { MemoryTokenStore } from "./memory-stores.ts";
-import type { TokenStore, UserDirectory } from "./ports.ts";
+import { MemoryTokenStore, MemoryTotpStore } from "./memory-stores.ts";
+import type { TokenStore, TotpStore, UserDirectory } from "./ports.ts";
+import { LoginChallenges } from "./challenge.ts";
 import { DEFAULT_RATE_CLASSES, RateLimiter, type RateClasses } from "./rate-limit.ts";
 import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
 import { TokenService } from "./tokens.ts";
+import { TotpService } from "./totp.ts";
 import { DEFAULT_SESSION_LIMITS, OWNER, ownerTokenVerifier, readCookie, SessionStore, type Principal, type Session, type SessionLimits } from "./session.ts";
 
 export interface ApiLimits {
@@ -37,6 +39,8 @@ export interface ApiServerOptions {
   users?: UserDirectory;
   /** Where personal API tokens live. The in-memory default forgets them at a restart; the real store is a follow-up. */
   tokens?: TokenStore;
+  /** Where second-factor secrets live; the in-memory default forgets them at a restart (the real store is core's secret store, a follow-up). */
+  totp?: TotpStore; totpIssuer?: string;
   /** The hash-chained audit log of the core, or any sink with the same `append`. Without one nothing is audited. */
   audit?: AuditSink;
   /** Loopback only (ruling R7); anything else is refused. Default `127.0.0.1`. */
@@ -117,7 +121,9 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const audit = createAuditEmitter({ sink: o.audit, clock, log });
   const login = o.users ? new PasswordLogin({ users: o.users, clock, ...(o.lockout ? { policy: o.lockout } : {}) }) : undefined;
   const tokens = new TokenService({ store: o.tokens ?? new MemoryTokenStore(), clock });
-  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, audit });
+  const totp = new TotpService({ store: o.totp ?? new MemoryTotpStore(), clock, issuer: o.totpIssuer ?? "PLUR1BUS Harness" });
+  const challenges = new LoginChallenges(clock);
+  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, audit });
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
   const secHeaders = securityHeaders(tls);
   const byPath = new Map<string, Map<string, { spec: RouteSpec; handler: Handler }>>();
