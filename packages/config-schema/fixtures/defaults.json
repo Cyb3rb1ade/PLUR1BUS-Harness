@@ -39,6 +39,7 @@
   "oauth": {},
   "decision": {},
   "modelRoles": {},
+  "modelProfiles": {},
   "models": {
     "scan": {
       "enabled": true,

@@ -18,7 +18,7 @@ payload/…           the item's files, and nothing else
 
 Manifest fields that matter to a person: `id` (`<publisher>/<name>`), `name` (the local name: a directory, a module name and a skill name at once, so it is unique across kinds), `version` (semver), `kind`, `title`, `summary`, `publisher`, `licence`, `compat` (`harness` range, `moduleApi`, `rpc`, `platforms`, `container`), `requires.runtime`, `capabilities` (`network`, `filesystem`, `processes`, `harness` are always present; `secrets`, `hostBridge`, `tools`, `mcpApps` optional) and `defaultEnabled` (honoured only for bundled items).
 
-**Kinds in X1:** `skill` (`payload/` is the skill folder, with `payload/SKILL.md`), `module` and `channel` (`payload/` is the module directory, with `payload/module.json`; the install is the D14 module install, module-guide §9). A `.p1x` of kind `mcp-server` or `bundle`, and `.mcpb`, `.dxt` and Claude Code plugin inputs, are refused at inspection with `E_NOT_AVAILABLE reason=kind-unsupported` (`"<kind> packages arrive in X2"`).
+**Kinds in X1:** `skill` (`payload/` is the skill folder, with `payload/SKILL.md`), `module` and `channel` (`payload/` is the module directory, with `payload/module.json`; the install is the D14 module install, module-guide §9). A `.p1x` of kind `mcp-server`, `provider` or `bundle` is refused by `ext.inspect` and `ext.install` (the first two have a package store since X2/D1, below, which nothing calls over RPC yet), and `.mcpb`, `.dxt` and Claude Code plugin inputs, are refused at inspection with `E_NOT_AVAILABLE reason=kind-unsupported` (`"<kind> packages arrive in X2"`).
 
 **Other inputs.** A skill folder with a `SKILL.md`, a `.zip` holding one and an Anthropic `.skill` are normalised in memory into an **unsigned** `.p1x` (id `local/<name>`, publisher `local`, trust `unsigned`) and then go through the same pipeline. The normalised manifest states what a skill without a manifest could do: with no scripts, `network: none`, no filesystem, no processes and no harness access; with scripts, network `any`, process spawning, read-write access to the agent workspace, and still no harness access. A module directory stays `plur1bus module install <dir>` (trust `dev`).
 
@@ -214,9 +214,31 @@ All live (`x-restart: "live"`), `x-tier: "advanced"`: `extensions.allowUnsigned`
 - **Key compromise.** Between a compromise and the next rotation or revocation an attacker can sign packages that verify.
 - **Dependencies vendored inside a package** are reviewed at the pinned version only.
 
+## 8a. X2 / D1: `mcp-server` and `provider` packages (library level)
+
+Not reachable over RPC or the CLI yet; the building blocks are `plur1bus_ext::kinds`, `plur1bus_ext::rights` and `plur1bus::ext::packages` (a worker-side file, never linked by the supervisor).
+
+**Kinds.** The manifest `kind` enum gained `provider`. A `provider` carries `provider: { api: "chat_completions", baseUrl: "https://…" }` (closed block, required for that kind). The `remote` block is `mcp-server` only, the `provider` block `provider` only.
+
+**Per-kind rules** (`kinds::check_kind`, after the schema, `package-invalid` with the field in the detail; `ext.inspect` of a package store caller runs it right after the compatibility step):
+
+| Kind | Rules |
+|---|---|
+| `skill` | harness authority `none` |
+| `module`, `channel` | the common rules only (full authority, §8.6) |
+| `mcp-server`, remote | runtime `none`, no spawn, no scripts; `capabilities.network` is an allowlist naming the URL's host (never `any`, never `none`); `auth: header` needs a required secret slot; the URL has no credentials |
+| `mcp-server`, local | runtime `node`, `python` or `binary`; `processes.spawn`; a non-empty payload |
+| `mcp-server`, both | authority `none` or `scoped`, never `full` |
+| `provider` | the `provider` block; runtime `none`, no spawn, no scripts, authority `none`; the allowlist names the `baseUrl` host |
+| every kind | allowlist hosts are bare lower-case names (`*.` prefix allowed, no scheme, port or path); secret slots are unique |
+
+**Declared rights** (`rights::declared_rights`): the capabilities as an id-sorted list with a risk (`low`, `medium`, `high`): `network:host:<h>` / `network:any`, `fs:<scope>[:<path>]:<access>`, `process:spawn`, `process:command:<c>`, `secret:<slot>[:required]`, `hostbridge:<x>`, `harness:full` / `harness:scoped:<rpc>`, `tool:<name>:<effect>`, `mcpapps`, `remote:<url>`, `provider:<baseUrl>`. A right the extension does not ask for is absent. It is disclosure, not a sandbox (§8).
+
+**Package store** (`packages::PackageStore`, `<home>/extensions/packages/<name>/`). `install` audits the package (zip structure, `..`, symlinks, case collisions, caps from the caller's `Policy`: package bytes, entry bytes, entry count, ratio), verifies the signature, applies the kind rules and every file's SHA-256, extracts with the one verified extractor into `packages/.staging/<name>-<nonce>/`, checks the extracted tree against `files` once more, writes `record.json` (id, version, kind, package SHA-256, trust, rights, files) and renames the directory into place. A replace moves the old directory aside first. Any failure undoes every step; a refusal leaves `extensions/` as it was. Unsigned, unknown-signer and downgrade need the same acknowledgments as X1 (`E_APPROVAL_REQUIRED acknowledge-*`); the same name under another id is `E_CONFLICT name-taken`; the identical package is a no-op. `uninstall` renames the directory out of sight, then deletes it (`data/ext/<name>/` stays). `recover` finishes what a kill left. Nothing is enabled or run; there is no `state.json` record yet, so `ext.list` does not show these packages.
+
 ## 9. What arrives in X2–X5
 
-- **X2:** `mcp-server` and `bundle` kinds, `.mcpb`/`.dxt` and Claude Code plugin inputs, `ctx.dataDir` and `P1X_DATA` for modules and scripts, per-agent MCP lists.
+- **X2:** (D1 above: the `mcp-server` and `provider` manifests, rights and package store; still to come:) `bundle` kind, the `ext.*` and CLI wiring of the package store, `.mcpb`/`.dxt` and Claude Code plugin inputs, `ctx.dataDir` and `P1X_DATA` for modules and scripts, per-agent MCP lists.
 - **X3:** web UI, the upload endpoint (`ext.inspect` `upload`), D1 `.p1x` file association, the WebMCP deny list work beyond the one-line defence in depth already in place.
 - **X4:** the signed catalogue and `ext.inspect` `catalog`, search, per-item updates with health gate and rollback, pin/skip, revocation lists and `--force-revoked`, the 24 h integrity timer and repair from the cache, key rotation.
 - **X5:** the pinned first-party keys, `ext lint`, the publishing repository and first packages. After X5 a signed package can be `first-party`.

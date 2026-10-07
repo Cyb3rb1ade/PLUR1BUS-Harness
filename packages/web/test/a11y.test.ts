@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { after, before, describe, test } from "node:test";
 import type { Page } from "playwright";
-import { browserSkip, setup, signIn, teardown, withApp, type AppOptions } from "./harness.ts";
+import { browserSkip, setup, signIn, teardown, TOKEN, WRONG_TOKEN, withApp, type AppOptions } from "./harness.ts";
 
 before(setup);
 after(teardown);
@@ -47,10 +47,8 @@ describe("axe: sign-in page", opts, () => {
 
   test("with an error message shown (German)", async () => {
     await withApp({ locale: "de-DE" }, async ({ page }) => {
-      await page.getByLabel("Benutzername").fill("alice");
-      await page.getByLabel("Passwort", { exact: true }).fill("falsch");
-      await page.getByRole("button", { name: "Anmelden" }).click();
-      await page.getByRole("alert").filter({ hasText: "stimmt nicht" }).waitFor();
+      await signIn(page, WRONG_TOKEN, "de");
+      await page.getByRole("alert").filter({ hasText: "Token stimmt nicht" }).waitFor();
       await expectClean(page, "sign-in error de");
     });
   });
@@ -59,7 +57,7 @@ describe("axe: sign-in page", opts, () => {
 describe("axe: shell", opts, () => {
   const shell = async (o: AppOptions, run: (page: Page) => Promise<void>): Promise<void> => {
     await withApp(o, async ({ page }) => {
-      await signIn(page, undefined, undefined, o.locale?.startsWith("de") ? "de" : "en");
+      await signIn(page, undefined, o.locale?.startsWith("de") ? "de" : "en");
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
       await run(page);
     });
@@ -102,10 +100,8 @@ describe("keyboard", opts, () => {
   test("sign-in is operable by keyboard alone", async () => {
     await withApp({}, async ({ page }) => {
       await page.getByRole("heading", { name: "Sign in", level: 1 }).waitFor();
-      await page.getByLabel("Username").focus();
-      await page.keyboard.type("alice");
-      await page.keyboard.press("Tab");
-      await page.keyboard.type("correct horse battery");
+      await page.getByLabel("Owner token", { exact: true }).focus();
+      await page.keyboard.type(TOKEN);
       await page.keyboard.press("Enter");
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
     });

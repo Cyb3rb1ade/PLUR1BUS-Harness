@@ -1,4 +1,6 @@
 pub mod types {
+    // typify emits a `oneOf` result (dreams.run: a ledger row or a dry-run plan) as an enum with one large variant.
+    #![allow(clippy::large_enum_variant)]
     include!(concat!(env!("OUT_DIR"), "/types.rs"));
 }
 include!(concat!(env!("OUT_DIR"), "/rpc_version.rs"));

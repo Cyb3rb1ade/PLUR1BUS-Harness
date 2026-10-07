@@ -27,7 +27,7 @@ function UserBlock(): View | null {
   const s = sessionState.value;
   if (s.status !== "authenticated") return null;
   return h("div", { class: "user" },
-    h("span", { class: "user-name" }, t("user.signedInAs", { name: s.user.displayName })),
+    h("span", { class: "user-name" }, t("user.signedInAs", { name: s.user.id })),
     h("button", { type: "button", class: "btn btn-quiet", onClick: () => { void signOut(); } }, t("user.signOut")));
 }
 

@@ -63,6 +63,8 @@ importers:
         specifier: workspace:*
         version: link:../rpc-schema
 
+  packages/channels-telegram: {}
+
   packages/config-schema:
     dependencies:
       ajv:

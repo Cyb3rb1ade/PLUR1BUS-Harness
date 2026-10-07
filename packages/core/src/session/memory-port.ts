@@ -24,6 +24,7 @@ export interface EnginePortDeps {
   engine: Engine; config: () => HarnessConfig; agents: AgentRegistry; logger: HarnessLogger;
   /** R19: the core's shutdown signal, the only abort a capture observes. */
   captureSignal: AbortSignal; isStopping: () => boolean;
+  onStoredCapture?: (agentId: string) => void;
 }
 
 export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
@@ -47,6 +48,7 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
         agentId, principal, agent: AGENT_CONTEXT_CLI, messages, incognito, signal: d.captureSignal, sessionKey: `session:${sessionId}`, runId: turnId,
       });
       const r = await handle.done;
+      if (r.stored > 0) d.onStoredCapture?.(agentId);
       d.logger.info("session capture done", { agentId, sessionId, turnId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason });
     },
     async checkpoint({ agentId, reason }) {
