@@ -1,0 +1,9 @@
+{ "params": { "stream": "diagnostic", "from": "2026-10-07T09:00:00Z", "to": "2026-10-07T10:00:00Z", "minLevel": "warn", "component": "core", "text": "timeout", "limit": 50, "order": "desc" },
+  "result": {
+    "records": [
+      { "ts": "2026-10-07T09:14:03.218Z", "level": "error", "component": "core", "stream": "diagnostic", "record": { "ts": "2026-10-07T09:14:03.218Z", "level": "error", "source": { "kind": "harness", "id": "core", "version": null }, "event": "provider.request.failed", "msg": "provider request failed", "attrs": { "token": "[REDACTED:key]" } } }
+    ],
+    "nextCursor": "eyJ2IjoxfQ",
+    "corrupt": 0,
+    "scanned": { "files": 2, "bytes": 8192 },
+    "truncated": false } }

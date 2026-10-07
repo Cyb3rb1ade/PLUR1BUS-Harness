@@ -2382,6 +2382,139 @@ Stages the consistent, engine-owned part of a backup (plur1bus backup create): t
 }
 ```
 
+### `logs.query`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "stream": {
+      "$ref": "#/$defs/LogStream"
+    },
+    "minLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Not valid with stream audit (E_INVALID_PARAMS reason=level-not-applicable)."
+    },
+    "component": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "A file role, a record's source.id or source.kind; on the audit stream the first segment of the action."
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "From a previous result of the same call with the same filters (E_INVALID_PARAMS reason=bad-cursor | cursor-mismatch). Stable across appends and log rotation."
+    },
+    "from": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "to": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "order": {
+      "enum": [
+        "asc",
+        "desc"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/LogPage"
+}
+```
+
+### `logs.tail`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "stream": {
+      "$ref": "#/$defs/LogStream"
+    },
+    "minLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Not valid with stream audit (E_INVALID_PARAMS reason=level-not-applicable)."
+    },
+    "component": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "A file role, a record's source.id or source.kind; on the audit stream the first segment of the action."
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "From a previous result of the same call with the same filters (E_INVALID_PARAMS reason=bad-cursor | cursor-mismatch). Stable across appends and log rotation."
+    },
+    "waitMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/LogPage"
+}
+```
+
 ### `audit.verify`
 
 **Stability:** experimental · since 1.5.0
@@ -9660,6 +9793,137 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "declined",
     "expired"
   ]
+}
+```
+
+### `LogLevel`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "fatal"
+  ]
+}
+```
+
+### `LogStream`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "diagnostic",
+    "audit"
+  ],
+  "description": "diagnostic: logs/<role>.log (+ rotated copies); audit: logs/audit.log. payload.log is never served."
+}
+```
+
+### `LogRecord`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ts",
+    "level",
+    "component",
+    "stream",
+    "record"
+  ],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "description": "Normalised RFC 3339 UTC, millisecond precision (a legacy `at` field is normalised the same way)."
+    },
+    "level": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LogLevel"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "null on the audit stream."
+    },
+    "component": {
+      "type": "string",
+      "description": "The file's role (core, supervisor, ...; audit for the audit stream)."
+    },
+    "stream": {
+      "$ref": "#/$defs/LogStream"
+    },
+    "record": {
+      "type": "object",
+      "description": "The line as written, after reader-side redaction (D111 section 4): secret-looking keys and credential shapes are replaced by [REDACTED:<rule>]."
+    }
+  }
+}
+```
+
+### `LogPage`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "records",
+    "nextCursor",
+    "corrupt",
+    "scanned",
+    "truncated"
+  ],
+  "properties": {
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LogRecord"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Opaque; send it back with the same filters. logs.query: null when nothing more lies in that direction. logs.tail: always set after the first call."
+    },
+    "corrupt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Lines looked at that were not a valid record (not JSON, no timestamp, bad level, over-long). Counted, never fatal; an unterminated last line is not counted, it is the writer's line in flight."
+    },
+    "scanned": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files",
+        "bytes"
+      ],
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "The per-call scan budget ran out before the page was full; nextCursor continues from the last line looked at."
+    }
+  }
 }
 ```
 

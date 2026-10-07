@@ -159,6 +159,8 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<IdentityPairConfirmParams, IdentityPairConfirmResult>(name, f)
         }
         "identity.unlink" => pair::<IdentityUnlinkParams, IdentityUnlinkResult>(name, f),
+        "logs.query" => pair::<LogsQueryParams, LogsQueryResult>(name, f),
+        "logs.tail" => pair::<LogsTailParams, LogsTailResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
