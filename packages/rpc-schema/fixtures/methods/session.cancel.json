@@ -1,0 +1,1 @@
+{ "params": {"caller": {"channel": "cli", "accountId": "macbooker", "userId": "cyberblade"}, "sessionId": "ses_1"}, "result": {"sessionId": "ses_1", "turnId": "trn_1", "cancelled": true}}
