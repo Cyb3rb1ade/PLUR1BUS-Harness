@@ -29,6 +29,9 @@ export * from "./gemini/index.ts";
 // Anthropic Messages adapter
 export * from "./anthropic/index.ts";
 
+// OpenAI Responses adapter (codex_responses)
+export * from "./responses/index.ts";
+
 // Router (fallback, breaker, retry)
 export * from "./router/index.ts";
 
