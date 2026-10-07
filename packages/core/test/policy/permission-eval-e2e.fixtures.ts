@@ -135,7 +135,7 @@ const PATH_SCHEMA = { type: "object", additionalProperties: false, required: ["p
 const BASE_CTX = { agentId: "bernd", principal: "christian", sessionId: "s1", taskId: "t1", surface: 3 as SurfaceTrust };
 
 export async function makeWorld(o: WorldOpts = {}): Promise<World> {
-  const tmp = realpathSync(tempDir("p1b-e2e-"));
+  const tmp = realpathSync.native(tempDir("p1b-e2e-"));
   const put = (p: string, body = "x"): string => { mkdirSync(path.dirname(p), { recursive: true }); writeFileSync(p, body); return p; };
   const j = (...s: string[]): string => path.join(tmp, ...s);
   const f: Paths = {
