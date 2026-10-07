@@ -1,0 +1,59 @@
+/* Chat page: history column, one conversation (transcript <= --w-transcript), composer. Tokens only (tokens.css). */
+
+/* History */
+.chat-list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 12px; }
+.chat-list-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-2); }
+.chat-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.chat-row { display: grid; gap: 3px; min-height: var(--nav-h); padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; text-decoration: none; color: var(--ink); }
+.chat-row:hover { background: var(--hover-bg); }
+.chat-row[aria-current="page"] { background: var(--active-bg); border-color: var(--border); box-shadow: inset 3px 0 0 var(--accent); }
+.chat-row-title { font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.chat-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--ink-2); font-size: 12.5px; }
+.chat-row-agent { font-family: var(--font-mono); font-size: 12px; }
+.chat-note { margin: 0; color: var(--ink-2); font-size: 13px; }
+
+/* Conversation */
+.chat-pane { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.chat-pane > h2 { margin: 0; font-size: 18px; line-height: 1.3; }
+.chat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.chat-head h2 { margin: 0; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
+.chat-log { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; min-height: 200px; max-height: calc(100dvh - 380px); overflow-y: auto; padding: 4px 4px 8px; border-radius: 10px; }
+.chat-empty { margin: auto; padding: 24px 0; color: var(--ink-2); max-width: var(--w-reading); }
+
+/* Message: the assistant speaks on the page itself, the user in a quiet bubble on the right. */
+.msg { display: grid; gap: 6px; max-width: min(100%, var(--w-reading)); min-width: 0; }
+.msg-who { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.msg-text { font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+.msg-text:empty { display: none; }
+.msg-detail { margin: 0; font-size: 13px; color: var(--err-ink); overflow-wrap: anywhere; }
+.msg[data-role="user"] { align-self: flex-end; max-width: min(88%, 60ch); padding: 10px 14px; border-radius: 16px 16px 4px 16px; border: 1px solid var(--border); background: var(--surface); }
+/* The speaker stays in the accessibility tree; only the bubble alignment says it visually. */
+.msg[data-role="user"] .msg-who { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.msg[data-role="assistant"] { padding-left: 14px; border-left: 2px solid var(--border); }
+.msg[data-role="tool"], .msg[data-role="system"] { padding: 6px 12px; border-radius: 10px; border: 1px dashed var(--border); }
+.msg[data-role="tool"] .msg-text, .msg[data-role="system"] .msg-text { font-size: 13px; line-height: 1.5; color: var(--ink-2); font-family: var(--font-mono); }
+
+/* Notices and errors: icon-free, but always text, a border and a tinted surface (colour is never the only cue). */
+.chat-notice { margin: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--err-border); border-left-width: 4px; background: var(--err-bg); color: var(--err-ink); font-size: 13.5px; }
+
+/* Composer */
+.chat-compose { display: grid; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); }
+.chat-compose:focus-within { border-color: var(--focus); outline: 2px solid var(--focus); outline-offset: 2px; }
+.chat-compose textarea { box-sizing: border-box; width: 100%; min-height: calc(var(--control-h) * 2); padding: 8px 6px; font: inherit; line-height: 1.5; color: var(--ink); background: transparent; border: 0; border-radius: 8px; resize: vertical; }
+.chat-compose textarea:focus-visible { outline: none; } /* the whole composer carries the ring */
+.chat-compose textarea::placeholder { color: var(--ink-3); opacity: 1; }
+.chat-compose-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.chat-hint { margin: 0; color: var(--ink-2); font-size: 12.5px; }
+.chat-compose .btn[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; border-style: dashed; }
+
+/* New chat */
+.chat-field { display: grid; gap: 6px; }
+.chat-field label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.chat-field select { max-width: 100%; }
+.chat-check { display: flex; align-items: center; gap: 10px; min-height: var(--control-h); }
+.chat-check input { width: 24px; height: 24px; min-height: 0; padding: 0; margin: 0; flex: none; accent-color: var(--accent); }
+
+@media (max-width: 1023.98px) {
+  .chat-compose-row .btn { flex: none; }
+  .msg[data-role="user"] { max-width: 92%; }
+}

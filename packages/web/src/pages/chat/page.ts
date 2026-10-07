@@ -15,7 +15,6 @@ import { NewChat } from "./new-chat.ts";
 import type { SessionRecord } from "./rpc-types.ts";
 import { SessionView } from "./session-view.ts";
 import { list, refreshList, stateFor } from "./store.ts";
-import { installChatStyles } from "./styles.ts";
 
 function History({ sessions, truncated, current }: { sessions: SessionRecord[]; truncated: boolean; current: string | null }): View {
   return h("div", null,
@@ -27,14 +26,13 @@ function History({ sessions, truncated, current }: { sessions: SessionRecord[]; 
       : h("ul", { class: "chat-rows" }, sessions.map((s) => h("li", { key: s.id },
         h("a", { class: "chat-row", href: `#/chat/${encodeURIComponent(s.id)}`, ...(s.id === current ? { "aria-current": "page" } : {}) },
           h("span", { class: "chat-row-title" }, s.title || t("chat.untitled")),
-          h("span", { class: "chat-row-meta" }, s.agentId,
+          h("span", { class: "chat-row-meta" }, h("span", { class: "chat-row-agent" }, s.agentId),
             s.memoryMode === "incognito" ? h(Badge, { tone: "info" }, t("chat.incognito")) : null,
-            formatDateTime(new Date(s.lastTurnAt ?? s.updatedAt))))))),
+            h("span", {}, formatDateTime(new Date(s.lastTurnAt ?? s.updatedAt)))))))),
     truncated ? h("p", { class: "chat-note" }, t("chat.truncated")) : null);
 }
 
 export function ChatPage({ item, sub }: PageProps): View {
-  installChatStyles();
   useEffect(() => { void refreshList(false); }, []);
   const title = t(item.label);
   const ls = list.value;
