@@ -149,6 +149,7 @@ function migrate(db: DatabaseSync): void {
 
 /** Runs `fn` in an IMMEDIATE transaction (write lock up front, so two connections serialise instead of failing). */
 export function transaction<T>(db: DatabaseSync, fn: () => T): T {
+  if (db.isTransaction) return fn(); // nested: the outer transaction commits or rolls back everything
   db.exec("BEGIN IMMEDIATE");
   try {
     const r = fn();

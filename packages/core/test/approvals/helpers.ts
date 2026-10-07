@@ -9,6 +9,7 @@ import { createApprovalStore, type ApprovalBinding, type ApprovalStore } from ".
 export const NOW = Date.UTC(2026, 9, 6, 12, 0, 0);
 export const MIN = 60_000;
 export const HOUR = 60 * MIN;
+export const DAY = 24 * HOUR;
 
 export class FakeClock {
   t: number;
