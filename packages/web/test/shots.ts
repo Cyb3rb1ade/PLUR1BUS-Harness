@@ -2,12 +2,12 @@
 // and 1600 px (wide), against the mock server with filled fixtures. Not a test; run by hand and for PR screenshots:
 //   PLUR1BUS_WEB_SHOTS_DIR=<dir> pnpm --filter @plur1bus/web exec node --experimental-strip-types test/shots.ts
 // Files: <page>-<hell|dunkel>-<compact|wide>.png (hell = light, dunkel = dark). PLUR1BUS_WEB_SHOTS_ONLY=chat,doctor narrows the pages.
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "playwright";
 import { FakeChat, stubAgents, AGENTS } from "./chat-fixtures.ts";
 import { AGENTS as DOCTOR_AGENTS, CORE_OK, DoctorMock, HEALTH_DEGRADED } from "./doctor-fixtures.ts";
-import { browserSkip, openRoute, setup, signIn, teardown, withApp, type App } from "./harness.ts";
+import { browserSkip, getDistDir, openRoute, setup, signIn, teardown, withApp, type App } from "./harness.ts";
 import { defaultFixture, installMemoryMocks } from "./memory-fixtures.ts";
 import type { MockRpc } from "./mock-rpc.ts";
 
@@ -67,17 +67,28 @@ async function settle(page: Page, file: string): Promise<void> {
   await page.screenshot({ path: file });
 }
 
+/** The bundle may be split into chunks/ (lazy pages); serve them even when the mock server only knows flat file names, then reload. */
+async function serveChunks(app: App): Promise<void> {
+  app.server.extensions.unshift(async (req, res, path) => {
+    if (!/^\/chunks\/[a-zA-Z0-9_.-]+$/.test(path)) return false;
+    try { const body = await readFile(`${getDistDir()}${path}`); res.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" }); res.end(body); } catch { res.writeHead(404).end(); }
+    return true;
+  });
+  await app.page.reload();
+}
+
 const withTheme = async (app: App, theme: "light" | "dark"): Promise<void> => {
   await app.page.evaluate((th) => { document.documentElement.dataset.theme = th; }, theme);
 };
 
-function shot(name: string, route: string, prep: (app: App) => void | Promise<void>, ready: (page: Page) => Promise<void>, signInFirst = false): Shot {
+function shot(name: string, route: string, prep: (app: App) => void | Promise<void>, ready: (page: Page) => Promise<void>): Shot {
   return {
     name,
     run: async (theme, width, file) => {
-      await withApp({ width, height: width < 800 ? 900 : 1000, colorScheme: theme, hash: signInFirst ? route : undefined }, async (app) => {
+      await withApp({ width, height: width < 800 ? 900 : 1000, colorScheme: theme }, async (app) => {
+        await serveChunks(app);
         await prep(app);
-        if (signInFirst) { await signIn(app.page); await app.page.locator(".sidebar").waitFor(); } else await openRoute(app.page, route);
+        await openRoute(app.page, route);
         await withTheme(app, theme);
         await ready(app.page);
         await settle(app.page, file);
@@ -91,6 +102,7 @@ const SHOTS: Shot[] = [
     name: "chat",
     run: async (theme, width, file) => {
       await withApp({ width, height: width < 800 ? 900 : 1000, colorScheme: theme, hash: "#/chat/ses_1" }, async (app) => {
+        await serveChunks(app);
         const chat = new FakeChat(app.server); chat.install(); seedChat(chat);
         await stubAgents(app.page, AGENTS);
         await signIn(app.page);
@@ -121,6 +133,7 @@ const SHOTS: Shot[] = [
     name: "doctor",
     run: async (theme, width, file) => {
       await withApp({ width, height: width < 800 ? 900 : 1000, colorScheme: theme, hash: "#/doctor" }, async (app) => {
+        await serveChunks(app);
         const m = new DoctorMock(app.server, { core: CORE_OK });
         m.health = { status: 200, body: HEALTH_DEGRADED }; m.agents = { status: 200, body: DOCTOR_AGENTS };
         await signIn(app.page);
@@ -136,6 +149,7 @@ const SHOTS: Shot[] = [
     name: "palette-geöffnet",
     run: async (theme, width, file) => {
       await withApp({ width, height: width < 800 ? 900 : 1000, colorScheme: theme }, async (app) => {
+        await serveChunks(app);
         const chat = new FakeChat(app.server); chat.install(); seedChat(chat);
         await stubAgents(app.page, AGENTS);
         await signIn(app.page);
