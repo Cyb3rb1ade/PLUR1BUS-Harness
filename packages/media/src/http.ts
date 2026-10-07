@@ -46,7 +46,7 @@ export class HttpTransport {
     try {
       const response = await fetch(url, { method, headers, redirect: 'error', signal, ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }) });
       let json: unknown;
-      try { json = JSON.parse(Buffer.from(await boundedBytes(response)).toString('utf8')); } catch (e) { if (e instanceof MediaError) throw e; throw new MediaError('invalid_response'); }
+      try { json = JSON.parse(Buffer.from(await boundedBytes(response)).toString('utf8')); } catch (e) { if (e instanceof MediaError) throw e; if (!response.ok) throw classify(response.status, {}); throw new MediaError('invalid_response'); }
       if (!response.ok || (json as Record<string, unknown>)?.error) throw classify(response.status, json);
       if (!json || typeof json !== 'object' || Array.isArray(json)) throw new MediaError('invalid_response');
       return json as Record<string, unknown>;

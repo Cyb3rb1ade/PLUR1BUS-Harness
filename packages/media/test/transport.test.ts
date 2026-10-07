@@ -23,3 +23,11 @@ test('image decoding and format boundaries without network', async () => {
   for (const value of ['data:image/svg+xml;base64,AAAA', '%%%', 'data:image/png;base64,', 'http://user:secret@127.0.0.1/image', 'https://127.0.0.2/image']) await assert.rejects(transport.image(value, 'png', signal));
   const image = await transport.image('data:image/webp;base64,aW1hZ2U=', 'png', signal); assert.equal(image.format, 'webp');
 });
+test('non-JSON service failures keep transport taxonomy and sanitized errors', async () => {
+  const { createServer } = await import('node:http');
+  const s = createServer((_req, res) => { res.writeHead(503); res.end('<html>upstream unavailable secret-123</html>'); });
+  await new Promise<void>(r => s.listen(0, '127.0.0.1', r));
+  const address = s.address() as import('node:net').AddressInfo;
+  try { await assert.rejects(new HttpTransport(`http://127.0.0.1:${address.port}`, undefined).json('test', {}, new AbortController().signal), (e: unknown) => e instanceof MediaError && e.code === 'backend_unavailable' && !String(e).includes('secret')); }
+  finally { s.closeAllConnections(); await new Promise<void>(r => s.close(() => r())); }
+});
