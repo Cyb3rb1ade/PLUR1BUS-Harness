@@ -64,7 +64,7 @@ describe("agents lifecycle", opts, () => {
       await go.click();
       await dlg.getByText("Deleting an agent is not available on this harness yet. Nothing was deleted.").waitFor();
       assert.equal(app.server.rpc.calls.length, calls, "nothing was sent");
-      assert.equal(app.server.rpc.calls.filter((c) => c.method !== "config.get" && c.method !== "ext.list").length, 0);
+      assert.equal(app.server.rpc.calls.filter((c) => c.method !== "config.get" && c.method !== "ext.list" && c.method !== "session.list").length, 0); // session.list is the shell's own
       await app.page.keyboard.press("Escape");
       await app.page.getByRole("heading", { name: "Scribe", level: 2 }).waitFor();
       assert.equal(await app.page.getByRole("dialog").count(), 0);

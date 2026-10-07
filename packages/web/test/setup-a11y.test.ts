@@ -70,7 +70,7 @@ describe("setup wizard: a11y", opts, () => {
       await page.locator("main h1").focus();
       await press(/^Next$/);
       await stepHeading(page, "Name & persona").waitFor();
-      assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Name & persona");
+      await page.waitForFunction(() => document.activeElement?.textContent === "Name & persona");
       await page.keyboard.press("Tab"); await page.keyboard.type("hal"); // agent id field is first
       await page.keyboard.press("Tab"); await page.keyboard.type("Hal Nine Thousand");
       await press(/^Next$/);

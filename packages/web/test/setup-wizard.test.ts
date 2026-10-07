@@ -70,7 +70,7 @@ describe("setup wizard: flow", opts, () => {
       await next(page);
       await stepHeading(page, "Name & persona").waitFor();
       assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 7: Name & persona");
-      assert.equal(await page.evaluate(() => document.activeElement?.tagName + ":" + document.activeElement?.textContent), "H2:Name & persona");
+      await page.waitForFunction(() => document.activeElement?.tagName === "H2" && document.activeElement?.textContent === "Name & persona");
     });
   });
 
