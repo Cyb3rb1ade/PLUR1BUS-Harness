@@ -45,23 +45,23 @@ const SCOPED = [
     files: EXT_SAFE.map((n) => `crates/plur1bus/src/ext/${n}.rs`),
     patterns: [
       {
-      id: "HYG-007",
-      re: /\b(plur1bus_ext::(zipaudit|verify|pack|normalise)|install::archive|zip::|flate2|minisign_verify)\b/,
-      why: "supervisor must not parse package bytes (X1-R2)",
-    },
-    // `zip::` ends in a non-word character, so `\b` after it does not match before `{` or `*`.
-    { id: "HYG-008", re: /\bzip::[{*]/, why: "supervisor must not parse package bytes (X1-R2)" },
-    {
-      id: "HYG-009",
-      multi: true,
-      re: /\bplur1bus_ext::\{[^;]*?\b(zipaudit|verify|pack|normalise)\b/,
-      why: "supervisor must not parse package bytes (X1-R2)",
-    },
-    {
-      id: "HYG-010",
-      multi: true,
-      re: /\binstall::\{[^;]*?\barchive\b/,
-      why: "supervisor must not parse package bytes (X1-R2)",
+        id: "HYG-007",
+        re: /\b(plur1bus_ext::(zipaudit|verify|pack|normalise)|install::archive|zip::|flate2|minisign_verify)\b/,
+        why: "supervisor must not parse package bytes (X1-R2)",
+      },
+      // `zip::` ends in a non-word character, so `\b` after it does not match before `{` or `*`.
+      { id: "HYG-008", re: /\bzip::[{*]/, why: "supervisor must not parse package bytes (X1-R2)" },
+      {
+        id: "HYG-009",
+        multi: true,
+        re: /\bplur1bus_ext::\{[^;]*?\b(zipaudit|verify|pack|normalise)\b/,
+        why: "supervisor must not parse package bytes (X1-R2)",
+      },
+      {
+        id: "HYG-010",
+        multi: true,
+        re: /\binstall::\{[^;]*?\barchive\b/,
+        why: "supervisor must not parse package bytes (X1-R2)",
       },
     ],
   },
