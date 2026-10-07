@@ -7,14 +7,22 @@ import { LineDecoder, encodeLine } from "./framing.ts";
 import type { HarnessLogger } from "./logger.ts";
 import { RpcError } from "./rpc-error.ts";
 
+/** Per-client queued-write limit; clients exceeding it are disconnected. */
 export const MAX_PENDING_BYTES = 16 * 1024 * 1024;
 
+/** Context passed to each RPC handler invocation. */
 export interface CallContext { requestId: string; connectionId: string; signal: AbortSignal }
+/** Async handler for one RPC method; parameters have already passed schema validation. */
 export type Handler = (params: any, ctx: CallContext) => Promise<unknown>;
+/** One active event subscription registered by an authenticated connection. */
 export interface Subscription { id: string; connectionId: string; names?: string[]; agentId?: string }
+/** Result of waiting for selected method calls to finish. */
 export interface DrainResult { drained: boolean; pending: number }
+/** Optional notification delivery filters. */
 export interface NotifyOptions { audience?: readonly string[]; optIn?: boolean }
+/** Operations and diagnostics exposed by a running RPC server. */
 export interface RpcServer {
+  /** Starts listening at the configured local endpoint. */
   listen(): Promise<void>;
   /** Resolves once every dispatch of a listed method that started before the call has written its reply (success or
    *  error), or after `budgetMs` with `drained: false` and the number still pending. */
@@ -60,6 +68,7 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
 interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
 
+/** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
   /** The role this process serves (default `core`): its handshake is `<server>.auth`, and only the methods whose
    *  `x-server` is `server` are dispatched (any other is method-not-found). */
@@ -67,6 +76,7 @@ export interface RpcServerOptions {
   address: string; token: string;
   /** The handshake's result. */
   hello: () => object;
+  /** Implementations for methods served by this process; each method is schema-checked. */
   methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number;
   /** Called once per connection after its socket has closed (an adopted lifeline, S4). */
   onConnectionClosed?: (connectionId: string) => void;

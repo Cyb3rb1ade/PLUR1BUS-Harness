@@ -22,7 +22,7 @@ jobs:
       macos: ${{ steps.plan.outputs.macos }}
       python_matrix: ${{ steps.plan.outputs.python_matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - id: plan
         env:
@@ -46,10 +46,10 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
@@ -107,10 +107,10 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95" }
@@ -167,8 +167,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24.21.0 }
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95" }
@@ -212,8 +212,8 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "${{ matrix.python }}" }
       - name: dev requirements (hash-pinned, in a venv)
         shell: bash
@@ -242,9 +242,9 @@ jobs:
         shell: bash
         timeout-minutes: 10
         run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes'
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95" }
@@ -285,11 +285,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: setup WSL (attempt 1 of 3)
         id: wsl_setup_1
         continue-on-error: true
-        uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
+        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -304,7 +304,7 @@ jobs:
         id: wsl_setup_2
         if: steps.wsl_setup_1.outcome == 'failure'
         continue-on-error: true
-        uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
+        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -319,7 +319,7 @@ jobs:
         id: wsl_setup_3
         if: steps.wsl_setup_2.outcome == 'failure'
         continue-on-error: true
-        uses: Vampire/setup-wsl@79d85ead05e70e4ba1e1e83367db6e0ccb89b578 # v4.1.1
+        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -346,10 +346,10 @@ jobs:
             echo "::warning::WSL setup failed after three attempts; WSL tests were skipped (infrastructure failure)."
           fi
       - if: steps.wsl_setup_status.outputs.ready == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with: { version: 10.28.0 }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with: { node-version: 24.21.0, cache: pnpm }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
