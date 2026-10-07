@@ -4,6 +4,7 @@ import { ChatPage } from "./chat/page.ts";
 import { DoctorPage } from "./doctor/page.ts";
 import { BudgetPage } from "./budget/page.ts";
 import { GalleryPage } from "./gallery.ts";
+import { MemoriesPage } from "./memory/index.ts";
 import { ModelsPage } from "./models/page.ts";
 import { PlaceholderPage } from "./placeholder.ts";
 
@@ -19,7 +20,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   projects: PlaceholderPage,
   agents: PlaceholderPage,
   inbox: PlaceholderPage,
-  memories: PlaceholderPage,
+  memories: MemoriesPage,
   library: PlaceholderPage,
   skills: PlaceholderPage,
   plugins: PlaceholderPage,
