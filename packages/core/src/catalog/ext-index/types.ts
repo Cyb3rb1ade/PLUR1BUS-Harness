@@ -25,22 +25,6 @@ export class ExtIndexError extends Error {
   }
 }
 
-/** The egress policy (B4) lives behind this port. The implementation must enforce `maxBytes` while reading and `timeoutMs`. */
-export interface EgressPort {
-  get(url: string, opts: { maxBytes: number; timeoutMs: number; signal?: AbortSignal | undefined }): Promise<{ status: number; body: Uint8Array }>;
-}
-
-export interface ExtIndexConfig {
-  enabled: boolean;
-  /** HTTPS URL of `index.json`; the signature is read from `signatureUrl` (default `<url>.minisig`). */
-  url: string;
-  signatureUrl?: string;
-  /** keyId -> raw 32-byte Ed25519 public key, base64. No key is built in; an empty map refuses everything. */
-  publicKeys: Record<string, string>;
-  maxBytes?: number;
-  timeoutMs?: number;
-}
-
 export interface IndexVersion {
   version: string;
   url: string;
@@ -63,27 +47,4 @@ export interface ExtIndex {
   packages: IndexPackage[];
   revocations: unknown[];
   [k: string]: unknown;
-}
-
-export interface CachedIndex {
-  indexBytes: Uint8Array;
-  signature: string;
-  fetchedAt: number; // epoch ms
-}
-
-export interface IndexCacheStore {
-  read(): Promise<{ cached: CachedIndex | null; lastSerial: number }>;
-  /** Writes the index first, then raises `last-serial` (a crash in between leaves a cache that is still acceptable). */
-  write(cached: CachedIndex, serial: number): Promise<void>;
-}
-
-export interface IndexResult {
-  index: ExtIndex;
-  keyId: string;
-  fetchedAt: number;
-  /** Past `expires`: installed items keep running, installs/updates are refused, revocations still apply (§7.2.1). */
-  stale: boolean;
-  source: "network" | "cache";
-  /** Set when a refresh failed and the cache was served instead. */
-  refreshError?: ExtIndexError;
 }
