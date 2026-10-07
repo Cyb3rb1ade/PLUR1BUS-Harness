@@ -1,0 +1,61 @@
+name: Fehler melden
+description: Einen reproduzierbaren Fehler melden.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Zusammenfassung
+      description: Was ist fehlerhaft?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Tatsächliches Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Schritte zur Reproduktion
+      description: Füge bei Bedarf Logs oder Fehlermeldungen hinzu und entferne vorher sensible Daten.
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Ziel
+      description: Welches Ergebnis soll die Fehlerbehebung erreichen?
+    validations:
+      required: true
+  - type: textarea
+    id: allowed_files
+    attributes:
+      label: Erlaubte Dateien
+      description: Welche Dateien oder Bereiche dürfen geändert werden?
+      placeholder: "- packages/…"
+    validations:
+      required: true
+  - type: textarea
+    id: forbidden_files
+    attributes:
+      label: Verbotene Dateien
+      description: Welche Dateien oder Bereiche müssen unangetastet bleiben?
+      placeholder: "- packages/…"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Akzeptanzkriterien
+      description: Woran lässt sich erkennen, dass der Fehler behoben ist?
+    validations:
+      required: true
