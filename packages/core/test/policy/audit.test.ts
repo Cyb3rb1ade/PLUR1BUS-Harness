@@ -112,7 +112,7 @@ describe("policy audit (D109 §9, D9)", () => {
 
   it("rejected hand-off references are listed with a closed reason, ids clipped", () => {
     const { sink, audit } = rig();
-    audit.record("approvals.held-rejected", { person: "p", taskId: "t1", rejected: [{ id: "grt_forged", reason: "unknown" }, { id: "x".repeat(500), reason: "not-delegable" }, { id: "g", reason: ({ evil: 1 } as unknown) as string }] });
+    audit.record("approvals.held-rejected", { person: "p", taskId: "t1", rejected: [{ id: "grt_forged", reason: "unknown" }, { id: "x".repeat(500), reason: "not-delegable" }, { id: "g", reason: ({ evil: 1 } as unknown) as never }] });
     const r = sink.events[0]!.detail.rejected as { id: string; reason: string }[];
     assert.equal(r.length, 2);
     assert.deepEqual(r[0], { id: "grt_forged", reason: "unknown" });
