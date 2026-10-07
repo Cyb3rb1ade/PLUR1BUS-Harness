@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Firefox
+Exec=/usr/lib/firefox/firefox %u
+Type=Application
+Hidden=false

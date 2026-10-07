@@ -1,0 +1,8 @@
+"Image Name","PID","Session Name","Session#","Mem Usage","Status","User Name","CPU Time","Window Title"
+"System Idle Process","0","Services","0","8 K","Running","NT AUTHORITY\\SYSTEM","0:00:00","N/A"
+"System","4","Services","0","144 K","Running","NT AUTHORITY\\SYSTEM","0:00:01","N/A"
+"csrss.exe","1","Services","0","5,124 K","Running","NT AUTHORITY\\SYSTEM","0:00:01","N/A"
+"plur1bus.exe","400","Console","1","40,000 K","Running","DESKTOP\\alice","0:00:02","N/A"
+"node.exe","424","Console","1","80,000 K","Running","DESKTOP\\alice","0:00:10","N/A"
+"sleep.exe","512","Console","1","1,024 K","Running","DESKTOP\\bob","0:00:00","N/A"
+"explorer.exe","1234","Console","1","50,000 K","Running","DESKTOP\\alice","0:01:00","Program Manager"

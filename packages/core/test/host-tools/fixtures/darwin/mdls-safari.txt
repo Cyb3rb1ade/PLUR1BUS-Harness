@@ -1,0 +1,2 @@
+kMDItemDisplayName = "Safari"
+kMDItemVersion     = "18.3"
