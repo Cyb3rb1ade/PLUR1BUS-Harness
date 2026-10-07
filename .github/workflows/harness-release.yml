@@ -80,7 +80,7 @@ jobs:
       channel: ${{ steps.meta.outputs.channel }}
       base-url: ${{ steps.meta.outputs.base-url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: meta
         shell: bash
         env:
@@ -159,7 +159,7 @@ jobs:
           assert not bad, bad
           PY
           (cd hermes && sha256sum -- * | tee -a "$GITHUB_STEP_SUMMARY")
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: hermes-artefacts
           path: hermes/
@@ -185,10 +185,10 @@ jobs:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       SOURCE_DATE_EPOCH: "0"
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24.21.0, cache: pnpm }
       # As in ci.yml: fetch the engine over HTTPS, with the read token when the engine repo is private. Never echoes
       # the rewritten URL.
@@ -209,7 +209,7 @@ jobs:
       - name: assemble the core payload
         shell: bash
         run: node scripts/release/assemble-payload.mjs --target "${{ matrix.target }}" --out "dist/core-${{ needs.meta.outputs.version }}-${{ matrix.target }}.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: payload-${{ matrix.target }}
           path: dist/core-${{ needs.meta.outputs.version }}-${{ matrix.target }}.*
@@ -230,13 +230,13 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with: { toolchain: "1.95", targets: "${{ matrix.triple }}" }
       # HB7: glibc 2.28 floor for the Linux binaries.
       - if: matrix.zig
         run: python3 -m pip install --user cargo-zigbuild==0.23.4 ziglang==0.15.2
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: payload-${{ matrix.target }}
           path: payload
@@ -284,7 +284,7 @@ jobs:
           cp "target/$TRIPLE/release/plur1bus$ext" "out/plur1bus-$TARGET$ext"
           # Each target builds on its own architecture, so the binary runs here.
           "out/plur1bus-$TARGET$ext" --version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: binary-${{ matrix.target }}
           path: out/
@@ -301,7 +301,7 @@ jobs:
     timeout-minutes: 60
     environment: macos-signing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: binary-darwin-arm64
           path: out
@@ -362,7 +362,7 @@ jobs:
         run: |
           [ -n "${KEYCHAIN:-}" ] && security delete-keychain "$KEYCHAIN" || true
           rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/plur1bus.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: signed-darwin-arm64
           path: out/plur1bus-darwin-arm64
@@ -381,26 +381,26 @@ jobs:
     outputs:
       artifact: ${{ steps.name.outputs.artifact }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24.21.0, cache: pnpm }
       # release-native.mjs validates with Ajv from @plur1bus/rpc-schema; nothing else is installed.
       - run: pnpm install --frozen-lockfile --filter @plur1bus/rpc-schema
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: "{payload,binary}-*"
           path: artifacts
           merge-multiple: true
       - name: use the signed macOS binary
         if: ${{ !inputs.dry-run }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: signed-darwin-arm64
           path: artifacts
       # HM2 Task 7: the provider tarball, the client wheel and sdist join SHA256SUMS and the upload.
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: hermes-artefacts
           path: artifacts
@@ -428,7 +428,7 @@ jobs:
       - id: name
         run: echo "artifact=harness-release-${{ needs.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
       - if: ${{ !inputs.dry-run }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.name.outputs.artifact }}
           path: |
