@@ -339,15 +339,14 @@ export async function listWslDistros(runner: WslRunner = defaultWslRunner, timeo
         const line = rawLine.trim();
         const isDef = /^\*/.test(line);
         const cleanRest = line.replace(/^\*\s*/, "").trim();
-        const m = /^(\S+)\s+/i.exec(cleanRest);
         const mVer = /\s+([12])\s*$/.exec(line);
         const ver = mVer ? parseInt(mVer[1]!, 10) : 2;
-        if (m) {
-          const lineName = m[1]!;
-          if (names.includes(lineName)) {
-            if (isDef) defaults.add(lineName);
-            versions.set(lineName, ver);
-          }
+        // Match known complete names, longest first; splitting on whitespace loses names with spaces.
+        const lineName = [...names].sort((a, b) => b.length - a.length)
+          .find(name => cleanRest.startsWith(name) && /^\s/.test(cleanRest.slice(name.length)));
+        if (lineName) {
+          if (isDef) defaults.add(lineName);
+          versions.set(lineName, ver);
         }
       }
     }
@@ -383,13 +382,19 @@ export interface WslProbeOptions {
   timeoutMs?: number | undefined;
 }
 
-const PROBE_SCRIPT = `H="$HOME"
+export const PROBE_SCRIPT = `H="$HOME"
 OC_STATE="\${OPENCLAW_STATE_DIR:-\$H/.openclaw}"
 OC_LEGACY="\$H/.clawdbot"
 H_HOME="\${HERMES_HOME:-\$H/.hermes}"
-echo "HOME=\$H"
-if [ -d "$OC_STATE" ]; then echo "OPENCLAW=\$OC_STATE"; elif [ -d "$OC_LEGACY" ]; then echo "OPENCLAW=\$OC_LEGACY"; fi
-if [ -d "$H_HOME" ]; then echo "HERMES=\$H_HOME"; fi
+printf '%s\\0' "HOME=$H"
+if [ -d "$OC_STATE" ]; then printf '%s\\0' "OPENCLAW=$OC_STATE"; elif [ -d "$OC_LEGACY" ]; then printf '%s\\0' "OPENCLAW=$OC_LEGACY"; fi
+if [ -d "$H_HOME" ]; then printf '%s\\0' "HERMES=$H_HOME"; fi
+for h in /home/*; do
+  [ -d "$h" ] && [ ! -L "$h" ] && [ "$h" != "$H" ] || continue
+  printf '%s\\0' "HOME=$h"
+  if [ -d "$h/.openclaw" ]; then printf '%s\\0' "OPENCLAW=$h/.openclaw"; elif [ -d "$h/.clawdbot" ]; then printf '%s\\0' "OPENCLAW=$h/.clawdbot"; fi
+  if [ -d "$h/.hermes" ]; then printf '%s\\0' "HERMES=$h/.hermes"; fi
+done
 `;
 
 /** Probes one WSL distro for OpenClaw or Hermes source installations (§B.2).
@@ -427,38 +432,25 @@ export async function probeWslDistro(distro: WslDistro, opts: WslProbeOptions = 
   }
 
   const text = decodeWslOutput(res.stdout);
-  const vars: Record<string, string> = {};
-  for (const line of text.split(/\r?\n/)) {
-    const eq = line.indexOf("=");
-    if (eq > 0) {
-      vars[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-    }
-  }
-
-  const sourceHome = vars.HOME || "/home";
+  const candidates: WslCandidate[] = [];
+  let sourceHome = "/home";
   const prefix = `\\\\wsl.localhost\\${distro.name}`;
   const toAccess = (p: string) => `${prefix}${p.replace(/\//g, "\\")}`;
-
-  const candidates: WslCandidate[] = [];
-  if (vars.OPENCLAW) {
+  // NUL-delimited production output preserves newlines in paths. Accept legacy runner fixtures too.
+  const records = text.includes("\0") ? text.split("\0") : text.split(/\r?\n/);
+  for (const record of records) {
+    const eq = record.indexOf("=");
+    if (eq < 1) continue;
+    const key = record.slice(0, eq);
+    const value = record.slice(eq + 1);
+    if (key === "HOME") { sourceHome = value; continue; }
+    if ((key !== "OPENCLAW" && key !== "HERMES") || !value.startsWith("/")) continue;
     candidates.push({
-      sourceType: "openclaw",
+      sourceType: key === "OPENCLAW" ? "openclaw" : "hermes",
       distro: distro.name,
       state: distro.state,
-      sourceRoot: vars.OPENCLAW,
-      accessRoot: toAccess(vars.OPENCLAW),
-      sourceHome,
-      accessHome: toAccess(sourceHome),
-      probed: true,
-    });
-  }
-  if (vars.HERMES) {
-    candidates.push({
-      sourceType: "hermes",
-      distro: distro.name,
-      state: distro.state,
-      sourceRoot: vars.HERMES,
-      accessRoot: toAccess(vars.HERMES),
+      sourceRoot: value,
+      accessRoot: toAccess(value),
       sourceHome,
       accessHome: toAccess(sourceHome),
       probed: true,

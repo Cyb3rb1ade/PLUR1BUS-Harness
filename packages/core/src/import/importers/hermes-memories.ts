@@ -19,7 +19,7 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
-import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { existsNoFollow, readSourceFileSafe, readSourceTextSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
@@ -250,7 +250,7 @@ export async function importHermesMemories(opts: {
   if (existsNoFollow(memoryMdPath)) {
     let content: string | null = null;
     try {
-      content = readSourceFileSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES).toString("utf8");
+      content = readSourceTextSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES);
     } catch (error) {
       errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
     }
@@ -418,7 +418,7 @@ export async function importHermesMemories(opts: {
   if (existsNoFollow(userMdPath)) {
     let content: string | null = null;
     try {
-      content = readSourceFileSafe(userMdPath, MAX_MEMORY_FILE_BYTES).toString("utf8");
+      content = readSourceTextSafe(userMdPath, MAX_MEMORY_FILE_BYTES);
     } catch (error) {
       errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
     }
