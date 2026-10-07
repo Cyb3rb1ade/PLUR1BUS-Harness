@@ -8,14 +8,23 @@ mod fixture {
     use std::time::{Duration, Instant};
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
-    const CRASH_MODAL_OBSERVER: &str = r#"(() => { const timer = setInterval(() => {
+    const CRASH_MODAL_OBSERVER: &str = r#"(() => {
+        const mark = value => { if (document.title !== value) document.title = value; };
+        mark('DIAGNOSTICS_OBSERVER_STARTED');
+        const timer = setInterval(() => {
           const dialog = document.querySelector('dialog[data-crash-offer]');
-          if (!dialog?.open) return;
+          if (!dialog) { mark('DIAGNOSTICS_MODAL_ABSENT'); return; }
+          if (!dialog.open) { mark('DIAGNOSTICS_MODAL_CLOSED'); return; }
           clearInterval(timer);
           const pre = dialog.querySelector('pre');
           const text = pre?.textContent || '';
+          if (!pre) { mark('DIAGNOSTICS_MODAL_PRE_ABSENT'); return; }
+          if (!text.includes('PLUR1BUS desktop crash')) { mark('DIAGNOSTICS_MODAL_HEADER_ABSENT'); return; }
+          if (!text.includes('Backtrace:')) { mark('DIAGNOSTICS_MODAL_BACKTRACE_ABSENT'); return; }
+          if (pre.childElementCount !== 0) { mark('DIAGNOSTICS_MODAL_NOT_PLAIN_TEXT'); return; }
+          if (text.includes('wp06NativeCrashCanary') || text.includes('wp06NativeTicket') || text.includes('wp06NativeCookie')) { mark('DIAGNOSTICS_MODAL_SECRET_DETECTED'); return; }
           if (text.includes('PLUR1BUS desktop crash') && text.includes('Backtrace:') && pre.childElementCount === 0
-            && !text.includes('wp06NativeCrashCanary') && !text.includes('wp06NativeTicket') && !text.includes('wp06NativeCookie')) document.title = 'WP6_CRASH_MODAL';
+            && !text.includes('wp06NativeCrashCanary') && !text.includes('wp06NativeTicket') && !text.includes('wp06NativeCookie')) mark('WP6_CRASH_MODAL');
         }, 20); })();"#;
     #[derive(Default, serde::Serialize)]
     struct Report {
@@ -25,6 +34,21 @@ mod fixture {
         dismiss_consumes_offer: bool,
         idle_timer_flushes: bool,
         confirmed_quit_takes_diagnostics: bool,
+    }
+    #[tauri::command]
+    async fn crash_offers(
+        window: tauri::WebviewWindow,
+    ) -> Result<Vec<commands::CrashOffer>, String> {
+        let result = commands::crash_offers(window).await;
+        match &result {
+            Ok(offers) if offers.len() == 1 => eprintln!("DIAGNOSTICS_CRASH_IPC_ONE_OFFER"),
+            Ok(_) => eprintln!("DIAGNOSTICS_CRASH_IPC_OTHER_COUNT"),
+            Err(reason) if reason == "CRASH_READ_FAILED" => {
+                eprintln!("DIAGNOSTICS_CRASH_IPC_READ_FAILED")
+            }
+            Err(_) => eprintln!("DIAGNOSTICS_CRASH_IPC_OTHER_FAILED"),
+        }
+        result
     }
     fn gui<T: Send + 'static>(
         app: &tauri::AppHandle,
@@ -218,7 +242,7 @@ mod fixture {
                 commands::quit_offer,
                 commands::quit_response,
                 commands::background_hint,
-                commands::crash_offers,
+                crash_offers,
                 commands::crash_handled
             ])
             .setup(move |app| {
@@ -246,6 +270,14 @@ mod fixture {
                     // initial document and lose its timer on navigation.
                     // Install the observer in each finished shell document.
                     .on_page_load(|webview, payload| {
+                        match payload.event() {
+                            tauri::webview::PageLoadEvent::Started => {
+                                eprintln!("DIAGNOSTICS_PAGE_STARTED")
+                            }
+                            tauri::webview::PageLoadEvent::Finished => {
+                                eprintln!("DIAGNOSTICS_PAGE_FINISHED")
+                            }
+                        }
                         if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
                             && webview.eval(CRASH_MODAL_OBSERVER).is_err()
                         {
@@ -253,6 +285,17 @@ mod fixture {
                         }
                     })
                     .on_document_title_changed(move |_, title| {
+                        match title.as_str() {
+                            "DIAGNOSTICS_OBSERVER_STARTED"
+                            | "DIAGNOSTICS_MODAL_ABSENT"
+                            | "DIAGNOSTICS_MODAL_CLOSED"
+                            | "DIAGNOSTICS_MODAL_PRE_ABSENT"
+                            | "DIAGNOSTICS_MODAL_HEADER_ABSENT"
+                            | "DIAGNOSTICS_MODAL_BACKTRACE_ABSENT"
+                            | "DIAGNOSTICS_MODAL_NOT_PLAIN_TEXT"
+                            | "DIAGNOSTICS_MODAL_SECRET_DETECTED" => eprintln!("{title}"),
+                            _ => {}
+                        }
                         if title == "WP6_CRASH_MODAL" {
                             title_modal.store(true, Ordering::SeqCst);
                         }

@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 const desktop = fileURLToPath(new URL('..', import.meta.url));
 const fields = ['restart_offers_crash', 'modal_plain_text_redacted', 'escape_preserves_offer', 'dismiss_consumes_offer', 'idle_timer_flushes', 'confirmed_quit_takes_diagnostics'];
 const reasons = new Set(['DIAGNOSTICS_GUI_DISPATCH_FAILED', 'DIAGNOSTICS_GUI_TIMEOUT', 'DIAGNOSTICS_OBSERVER_TIMEOUT', 'DIAGNOSTICS_EVAL_FAILED', 'DIAGNOSTICS_CRASH_READ_FAILED', 'DIAGNOSTICS_CRASH_MISSING', 'DIAGNOSTICS_MODAL_MISSING', 'DIAGNOSTICS_ESCAPE_FAILED', 'DIAGNOSTICS_ESCAPE_CONSUMED', 'DIAGNOSTICS_DISMISS_FAILED', 'DIAGNOSTICS_LOG_READ_FAILED', 'DIAGNOSTICS_IDLE_TIMER_FAILED']);
+for (const stage of ['PAGE_STARTED', 'PAGE_FINISHED', 'OBSERVER_STARTED', 'MODAL_ABSENT', 'MODAL_CLOSED', 'MODAL_PRE_ABSENT', 'MODAL_HEADER_ABSENT', 'MODAL_BACKTRACE_ABSENT', 'MODAL_NOT_PLAIN_TEXT', 'MODAL_SECRET_DETECTED', 'CRASH_IPC_ONE_OFFER', 'CRASH_IPC_OTHER_COUNT', 'CRASH_IPC_READ_FAILED', 'CRASH_IPC_OTHER_FAILED']) reasons.add('DIAGNOSTICS_' + stage);
 function run(command, args, timeout, capture = false) {
   return new Promise((accept, reject) => {
     const child = spawn(command, args, {cwd:desktop, stdio:capture ? ['ignore','pipe','pipe'] : 'inherit'});
