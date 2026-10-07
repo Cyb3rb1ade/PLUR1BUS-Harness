@@ -1,6 +1,7 @@
 // node:http adapter for the A2A handler. Loopback only (ADR-008: TLS-only exposure beyond loopback is a later slice):
 // any other bind address is refused, the Host header must be one we listen on (DNS-rebinding guard), and the body cap
-// is enforced while the body streams in, not after it is buffered.
+// is enforced while the body streams in, not after it is buffered. SSE responses are chunked (no Content-Length);
+// disconnecting a stream does not cancel the task.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
 import { BodyTooLarge, createA2aHandler, type A2aHandler, type A2aHandlerOptions, type A2aHttpRequest } from "./handler.ts";
@@ -45,7 +46,7 @@ export function createA2aServer(o: A2aServerOptions): A2aServer {
     res.writeHead(status, { ...headers, "Content-Length": payload.length });
     res.end(payload);
   };
-  const server = createServer({ maxHeaderSize: 16 * 1024, requestTimeout: 30_000, headersTimeout: 10_000 }, (req, res) => {
+  const server = createServer({ maxHeaderSize: 16 * 1024, requestTimeout: 0, headersTimeout: 10_000 }, (req, res) => {
     void (async () => {
       try {
         const host = req.headers.host?.toLowerCase();
@@ -59,6 +60,17 @@ export function createA2aServer(o: A2aServerOptions): A2aServer {
         };
         const r = await handler.handle(areq);
         if (r.status === 413) req.resume();
+        if (r.stream) {
+          if (res.headersSent) { res.end(); return; }
+          res.writeHead(r.status, r.headers);
+          try {
+            for await (const chunk of r.stream) {
+              if (res.writableEnded) break;
+              if (!res.write(chunk)) await new Promise<void>((resolve) => res.once("drain", resolve));
+            }
+          } finally { if (!res.writableEnded) res.end(); }
+          return;
+        }
         send(res, r.status, r.headers, r.body);
       } catch { send(res, 500, { "Content-Type": "application/json" }, '{"error":"internal"}'); }
     })();

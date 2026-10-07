@@ -85,7 +85,7 @@ describe("message/send, tasks/get, tasks/cancel", () => {
     assert.equal(x.json.error.code, -32603); assert.equal(x.json.error.data.reason, "no-provider");
     assert.equal(r.h.tasks.size, 0);
   });
-  it("send validation: roles, parts, follow-ups, non-text parts, empty text", async () => {
+  it("send validation: roles, parts, follow-ups, unknown kinds, empty text", async () => {
     const { h } = rig();
     const code = async (p: unknown) => (await rpc(h, "message/send", p)).json.error?.code;
     assert.equal(await code({}), -32602);
@@ -93,14 +93,50 @@ describe("message/send, tasks/get, tasks/cancel", () => {
     assert.equal(await code({ message: { role: "user", parts: [{ kind: "text", text: "x" }] } }), -32602);
     assert.equal(await code({ message: { role: "user", messageId: "m", parts: [] } }), -32602);
     assert.equal(await code(sendMsg("   ")), -32602);
-    assert.equal(await code(sendMsg("x", { taskId: "t1" })), -32004);
-    assert.equal(await code({ message: { role: "user", messageId: "m", parts: [{ kind: "file", file: { uri: "file:///etc/passwd" } }] } }), -32005);
+    assert.equal(await code(sendMsg("x", { taskId: "t1" })), -32001);
+    assert.equal(await code({ message: { role: "user", messageId: "m", parts: [{ kind: "audio" }] } }), -32005);
     assert.equal(await code(sendMsg("x", { contextId: "bad\nid" })), -32602);
   });
-  it("unsupported and unknown methods", async () => {
+  it("file and data parts are accepted; a file uri is never fetched", async () => {
     const { h } = rig();
-    assert.equal((await rpc(h, "message/stream", sendMsg("x"))).json.error.code, -32004);
-    assert.equal((await rpc(h, "tasks/pushNotificationConfig/set", {})).json.error.code, -32004);
+    const file = await rpc(h, "message/send", {
+      message: { role: "user", messageId: "f1", parts: [{ kind: "file", file: { name: "note.txt", mimeType: "text/plain", uri: "file:///etc/passwd" } }] },
+      configuration: { blocking: true },
+    });
+    assert.equal(file.json.result.status.state, "completed");
+    assert.match(file.json.result.artifacts[0].parts[0].text, /uri=file:\/\/\/etc\/passwd/);
+    const data = await rpc(h, "message/send", {
+      message: { role: "user", messageId: "d1", parts: [{ kind: "data", data: { k: 1 } }] },
+      configuration: { blocking: true },
+    });
+    assert.equal(data.json.result.status.state, "completed");
+    assert.match(data.json.result.artifacts[0].parts[0].text, /\[data\] \{"k":1\}/);
+  });
+  it("the same messageId is idempotent; a follow-up uses taskId only in input-required", async () => {
+    const { h } = rig();
+    const params = sendMsg("hello");
+    const a = await rpc(h, "message/send", params);
+    const b = await rpc(h, "message/send", params);
+    assert.equal(a.json.result.id, b.json.result.id);
+    const done = await rpc(h, "message/send", sendMsg("x", {}, { blocking: true }));
+    assert.equal((await rpc(h, "message/send", sendMsg("again", { taskId: done.json.result.id }))).json.error.code, -32004);
+    const paused = await rpc(h, "message/send", sendMsg("please INPUT_REQUIRED", {}, { blocking: true }));
+    assert.equal(paused.json.result.status.state, "input-required");
+    const resumed = await rpc(h, "message/send", sendMsg("hello", { taskId: paused.json.result.id, contextId: paused.json.result.contextId }, { blocking: true }));
+    assert.equal(resumed.json.result.status.state, "completed");
+    assert.equal(resumed.json.result.id, paused.json.result.id);
+    assert.match(resumed.json.result.artifacts[0].parts[0].text, /echo\[bernd\]: hello/);
+  });
+  it("auth-required and rejected are reachable states", async () => {
+    const { h } = rig();
+    const auth = await rpc(h, "message/send", sendMsg("need AUTH_REQUIRED", {}, { blocking: true }));
+    assert.equal(auth.json.result.status.state, "auth-required");
+    const rej = await rpc(h, "message/send", sendMsg("REJECT this", {}, { blocking: true }));
+    assert.equal(rej.json.result.status.state, "rejected");
+    assert.equal((await rpc(h, "tasks/cancel", { id: rej.json.result.id })).json.error.code, -32002);
+  });
+  it("unknown methods are method-not-found; historyLength is validated", async () => {
+    const { h } = rig();
     assert.equal((await rpc(h, "tasks/list", {})).json.error.code, -32601);
     assert.equal((await rpc(h, "__proto__", {})).json.error.code, -32601);
     assert.equal((await rpc(h, "tasks/get", { id: 5 })).json.error.code, -32602);

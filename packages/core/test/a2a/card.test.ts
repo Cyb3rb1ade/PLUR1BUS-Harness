@@ -8,8 +8,37 @@ describe("agent card", () => {
     const c = buildAgentCard("bernd", AGENTS.bernd!, BASE, "0.1.0");
     assert.deepEqual(validateAgentCard(c), []);
     assert.equal(c.url, `${BASE}/a2a/bernd/`);
-    assert.equal(c.capabilities.streaming, false);
-    assert.equal(c.capabilities.pushNotifications, false);
+    assert.equal(c.protocolVersion, "0.3.0");
+    assert.equal(c.preferredTransport, "JSONRPC");
+    assert.equal(c.capabilities.streaming, true);
+    assert.equal(c.capabilities.pushNotifications, true);
+    assert.equal(c.capabilities.stateTransitionHistory, false);
+    assert.deepEqual(c.defaultInputModes, ["text/plain"]);
+    assert.deepEqual(c.defaultOutputModes, ["text/plain"]);
+    assert.equal(c.securitySchemes.peerKey.type, "http");
+    assert.equal(c.securitySchemes.peerKey.scheme, "bearer");
+  });
+  it("snapshots the A2A 0.3.0 Agent Card fields", () => {
+    const c = buildAgentCard("bernd", {
+      optIn: true, displayName: "Bernd", description: "Helpful assistant",
+      defaultInputModes: ["text/plain", "application/json"], defaultOutputModes: ["text/plain"],
+      skills: [{ id: "chat", name: "Chat", description: "Talk", tags: ["general"], inputModes: ["text/plain"], outputModes: ["text/plain"] }],
+    }, BASE, "0.1.0");
+    assert.deepEqual(validateAgentCard(c), []);
+    assert.deepEqual(c, {
+      protocolVersion: "0.3.0",
+      name: "Bernd",
+      description: "Helpful assistant",
+      url: `${BASE}/a2a/bernd/`,
+      preferredTransport: "JSONRPC",
+      version: "0.1.0",
+      capabilities: { streaming: true, pushNotifications: true, stateTransitionHistory: false },
+      defaultInputModes: ["text/plain", "application/json"],
+      defaultOutputModes: ["text/plain"],
+      skills: [{ id: "chat", name: "Chat", description: "Talk", tags: ["general"], inputModes: ["text/plain"], outputModes: ["text/plain"] }],
+      securitySchemes: { peerKey: { type: "http", scheme: "bearer", description: "A per-peer API key issued by the operator." } },
+      security: [{ peerKey: [] }],
+    });
   });
   it("falls back to a generic skill and the agent id", () => {
     const c = buildAgentCard("anna", AGENTS.anna!, `${BASE}/`, "0.1.0");
@@ -28,7 +57,7 @@ describe("agent card", () => {
   it("the validator rejects drift", () => {
     const c = buildAgentCard("bernd", AGENTS.bernd!, BASE, "0.1.0") as unknown as Record<string, unknown>;
     assert.ok(validateAgentCard({ ...c, extra: 1 }).some((e) => e.includes("unexpected key extra")));
-    assert.ok(validateAgentCard({ ...c, capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: false } }).length > 0);
+    assert.ok(validateAgentCard({ ...c, capabilities: { streaming: "yes", pushNotifications: false, stateTransitionHistory: false } }).length > 0);
     assert.ok(validateAgentCard({ ...c, url: "ftp://x" }).length > 0);
     assert.ok(validateAgentCard({ ...c, skills: [] }).length > 0);
     assert.ok(validateAgentCard(null).length > 0);
@@ -45,10 +74,16 @@ describe("agent card", () => {
     assert.equal((await http(h, { method: "GET", path: "/a2a/hidden/.well-known/agent-card.json" })).status, 404);
     assert.equal((await http(h, { method: "GET", path: "/a2a/nobody/.well-known/agent-card.json" })).status, 404);
   });
-  it("has no root card and rejects other methods", async () => {
+  it("has no root card unless defaultAgentId is set, and rejects other methods", async () => {
     const { h } = rig();
     assert.equal((await http(h, { method: "GET", path: "/.well-known/agent-card.json" })).status, 404);
     const r = await http(h, { method: "POST", path: "/a2a/bernd/.well-known/agent-card.json", body: {} });
     assert.equal(r.status, 405); assert.equal(r.headers.Allow, "GET");
+    const rooted = rig({ opts: { defaultAgentId: "bernd" } });
+    const root = await http(rooted.h, { method: "GET", path: "/.well-known/agent-card.json" });
+    assert.equal(root.status, 200);
+    const card = JSON.parse(root.body);
+    assert.deepEqual(validateAgentCard(card), []);
+    assert.equal(card.url, `${BASE}/a2a/bernd/`);
   });
 });

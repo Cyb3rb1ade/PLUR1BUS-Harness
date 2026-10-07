@@ -2,6 +2,7 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { FakeChatProvider, type ChatProvider, type FakeProviderOptions } from "../../src/session/provider.ts";
 import { BodyTooLarge, createA2aHandler, type A2aHandler, type A2aHandlerOptions, type A2aHttpResponse } from "../../src/a2a/handler.ts";
 import { hashKey } from "../../src/a2a/policy.ts";
+import type { PushTransport } from "../../src/a2a/push.ts";
 import type { A2aAgentInfo, A2aPeerConfig } from "../../src/a2a/types.ts";
 import type { Scheduler } from "../../src/a2a/tasks.ts";
 
@@ -21,9 +22,18 @@ export class ManualScheduler implements Scheduler {
 }
 
 export const peers = (): A2aPeerConfig[] => [
-  { id: "peer-a", keySha256: hashKey(KEY_A), grants: { bernd: ["card.read", "task.send", "task.read", "task.cancel"] } },
+  { id: "peer-a", keySha256: hashKey(KEY_A), grants: { bernd: ["card.read", "task.send", "task.read", "task.cancel", "task.push"] } },
   { id: "peer-b", keySha256: hashKey(KEY_B), grants: { bernd: ["card.read"], anna: ["card.read", "task.send", "task.read", "task.cancel"] } },
 ];
+
+/** Admits every http(s) URL and reports 204. Tests that need SSRF use a real egress instead. */
+export const allowPush: PushTransport = {
+  async decide(url) {
+    const u = new URL(url);
+    return { allowed: true, host: u.hostname, port: u.port === "" ? (u.protocol === "https:" ? 443 : 80) : Number(u.port), address: "127.0.0.1", family: 4 };
+  },
+  async post() { return { status: 204 }; },
+};
 export const AGENTS: Record<string, A2aAgentInfo> = {
   bernd: { optIn: true, displayName: "Bernd", description: "Helpful assistant", skills: [{ id: "chat", name: "Chat", description: "Talk", tags: ["general"] }] },
   anna: { optIn: true },
@@ -54,5 +64,18 @@ export async function http(h: A2aHandler, c: Call): Promise<A2aHttpResponse> {
 let n = 0;
 export const rpc = (h: A2aHandler, method: string, params: unknown, c: Partial<Call> = {}): Promise<{ status: number; json: any }> =>
   http(h, { path: "/a2a/bernd/", body: { jsonrpc: "2.0", id: ++n, method, params }, ...c }).then((r) => ({ status: r.status, json: JSON.parse(r.body) }));
+export const rpcStream = (h: A2aHandler, method: string, params: unknown, c: Partial<Call> = {}): Promise<A2aHttpResponse> =>
+  http(h, { path: "/a2a/bernd/", body: { jsonrpc: "2.0", id: ++n, method, params }, ...c });
 export const sendMsg = (text: string, extra: Record<string, unknown> = {}, cfg: Record<string, unknown> = {}) =>
   ({ message: { role: "user", messageId: `m-${++n}`, parts: [{ kind: "text", text }], ...extra }, ...(Object.keys(cfg).length ? { configuration: cfg } : {}) });
+
+export async function collectSse(res: A2aHttpResponse): Promise<any[]> {
+  if (!res.stream) throw new Error("expected an SSE stream");
+  const out: any[] = [];
+  for await (const chunk of res.stream) {
+    const m = /^data: (.*)\n\n$/s.exec(chunk);
+    if (!m) throw new Error(`bad sse chunk: ${JSON.stringify(chunk)}`);
+    out.push(JSON.parse(m[1]!));
+  }
+  return out;
+}
