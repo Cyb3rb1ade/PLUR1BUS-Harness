@@ -7701,7 +7701,7 @@ D109 §5: a new approval request is pending. Opt-in (a subscription must name ap
 
 **Served by:** core
 
-D109 §5: a request left pending (approved, denied, used, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.
+D109 §5: a request left pending (approved, denied, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.
 
 ```json
 {
@@ -7710,7 +7710,7 @@ D109 §5: a request left pending (approved, denied, used, expired or cancelled).
   "x-server": "core",
   "type": "object",
   "additionalProperties": false,
-  "description": "D109 §5: a request left pending (approved, denied, used, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.",
+  "description": "D109 §5: a request left pending (approved, denied, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.",
   "required": [
     "approval"
   ],
@@ -7728,7 +7728,7 @@ D109 §5: a request left pending (approved, denied, used, expired or cancelled).
 
 **Served by:** core
 
-D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.
+D109 §4: a grant was created or revoked (use, expiry and suspension are not notified in this version). Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.
 
 ```json
 {
@@ -7737,7 +7737,7 @@ D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a su
   "x-server": "core",
   "type": "object",
   "additionalProperties": false,
-  "description": "D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
+  "description": "D109 §4: a grant was created or revoked (use, expiry and suspension are not notified in this version). Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
   "required": [
     "change",
     "grant"

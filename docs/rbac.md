@@ -103,7 +103,7 @@ The M3 `identity.*` methods are secured by the nearest existing pattern: `identi
 
 `audit.verify` (B5, the hash-chained audit file, docs/audit-chain.md) → `audit.read` on the system resource: Owner and Admin, the same pair that may read the audit trail. It is read-only on the log and its findings carry file names and line numbers, never record content.
 
-`grant.*` and `approval.*` (D109, the eight methods in the table above) are secured by human-only actions; an agent principal is refused with `E_DENIED reason=agent-principal` in every state. The handlers are not registered yet, so a guarded call answers as an unknown method until the approval service lands.
+`grant.*` and `approval.*` (D109, the eight methods in the table above) are secured by human-only actions; an agent principal is refused with `E_DENIED reason=agent-principal` in every state. The handlers are registered in the core (`approvals/rpc.ts`, `grants/rpc.ts`) and run behind the same guard.
 
 **Not yet secured** (they stay owner-equivalent for the local connection): `core.*`, `memory.recall|capture|checkpoint|
 list|show|correct|share|state|propose|proposals.*|proposal`, `agent.open|close|list|activity`, `jobs.list|history`,
