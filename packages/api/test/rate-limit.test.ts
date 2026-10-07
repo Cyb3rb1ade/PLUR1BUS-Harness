@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FakeClock } from "../src/clock.ts";
-import { RateLimiter } from "../src/rate-limit.ts";
+import { DEFAULT_RATE_CLASSES, RateLimiter } from "../src/rate-limit.ts";
 
 const classes = { auth: { capacity: 2, refillPerSec: 0.5 }, read: { capacity: 3, refillPerSec: 1 }, write: { capacity: 1, refillPerSec: 1 } };
 
@@ -55,4 +55,33 @@ test("memory follows the active keys: full buckets are dropped, the oldest goes 
 test("a nonsensical class is refused at construction", () => {
   assert.throws(() => new RateLimiter(new FakeClock(), { ...classes, read: { capacity: 0, refillPerSec: 1 } }));
   assert.throws(() => new RateLimiter(new FakeClock(), { ...classes, read: { capacity: 1, refillPerSec: 0 } }));
+});
+
+test("the five route classes are auth, read, write, stream and totp; a configuration that names only the first three still gets the defaults for the others", () => {
+  assert.deepEqual(Object.keys(DEFAULT_RATE_CLASSES).sort(), ["auth", "read", "stream", "totp", "write"]);
+  const clock = new FakeClock(); const rl = new RateLimiter(clock, classes);
+  let ok = 0; while (rl.take("stream", "ip:1").ok) ok++;
+  assert.equal(ok, DEFAULT_RATE_CLASSES.stream.capacity);
+  ok = 0; while (rl.take("totp", "user:1").ok) ok++;
+  assert.equal(ok, DEFAULT_RATE_CLASSES.totp.capacity);
+});
+
+test("TOTP and login are the strictest classes: fewer attempts, slower refill than any other class", () => {
+  const { totp, auth, read, write, stream } = DEFAULT_RATE_CLASSES;
+  for (const other of [read, write, stream]) { assert.ok(totp.capacity <= other.capacity && auth.capacity <= other.capacity); assert.ok(totp.refillPerSec < other.refillPerSec && auth.refillPerSec < other.refillPerSec); }
+  assert.ok(totp.refillPerSec <= auth.refillPerSec, "TOTP is at least as slow as login");
+});
+
+test("a class given explicitly overrides its default; an invalid new class is refused like an invalid old one", () => {
+  const clock = new FakeClock();
+  const rl = new RateLimiter(clock, { ...classes, stream: { capacity: 1, refillPerSec: 1 } });
+  assert.equal(rl.take("stream", "k").ok, true); assert.equal(rl.take("stream", "k").ok, false);
+  assert.throws(() => new RateLimiter(clock, { ...classes, totp: { capacity: 0, refillPerSec: 1 } }), /totp/);
+  assert.throws(() => new RateLimiter(clock, { ...classes, stream: { capacity: 1, refillPerSec: 0 } }), /stream/);
+});
+
+test("classes do not share buckets: draining totp for a key leaves its read and auth buckets full", () => {
+  const rl = new RateLimiter(new FakeClock(), classes);
+  while (rl.take("totp", "user:1").ok) { /* drain */ }
+  assert.equal(rl.take("read", "user:1").ok, true); assert.equal(rl.take("auth", "user:1").ok, true);
 });
