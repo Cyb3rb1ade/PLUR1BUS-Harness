@@ -26,6 +26,12 @@ const PII: Compiled[] = (rule("pii").patterns as PatternDef[]).map(compile);
 const URL_FIND = new RegExp(rule("url").find, "g");
 const URL_STEPS: Compiled[] = (rule("url").steps as PatternDef[]).map(compile);
 const DENY: DenyClass[] = rule("path").classes;
+const escapePattern = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Data contains credential roots with literal spaces (Application Support, Group Containers).
+const SPACE_PATHS = DENY.flatMap((c) => (c.segments ?? []).filter(seq => seq.some(seg => seg.includes(" "))).map(seq => ({
+  cls: c.id,
+  re: new RegExp(String.raw`[\\/]` + seq.map(escapePattern).join(String.raw`[\\/]`) + String.raw`(?:[\\/][^\s"'<>|:;,()[\]{}]*)?`, "gi"),
+})));
 
 /** True when a JSON key / header name / env name denotes a credential (rule `key`). */
 export const isSecretKey = (name: string): boolean => KEY_RE.test(name) || KEY_CAMEL_RE.test(name);
@@ -69,6 +75,19 @@ function denyClassOf(segs: string[]): string | null {
   }
   return null;
 }
+/** Match the fixed root first; a nested arbitrary-path prefix can backtrack exponentially on foreign output. */
+function redactSpacedPath(text: string, p: { re: RegExp; cls: string }): string {
+  let out = ""; let last = 0;
+  for (const m of text.matchAll(new RegExp(p.re.source, p.re.flags))) {
+    let start = m.index;
+    while (start > last && !/[\s"'<>|:;,()[\]{}]/.test(text[start - 1]!)) start--;
+    if (start >= last + 2 && /^[A-Za-z]:$/.test(text.slice(start - 2, start))) start -= 2;
+    const end = m.index + m[0].length;
+    const segs = canonical(text.slice(start, end)); const cls = denyClassOf(segs);
+    out += text.slice(last, start) + (cls ? `<deny:${cls}>/…#${sha6(segs.join("/"))}` : text.slice(start, end)); last = end;
+  }
+  return out + text.slice(last);
+}
 const PATH_TOKEN = /(?:[A-Za-z]:)?(?:[\\/][^\s"'<>|:;,()[\]{}]+)+|~[\\/][^\s"'<>|:;,()[\]{}]+|\.env(?:\.[A-Za-z0-9_-]+)?\b/g;
 
 export interface RedactOptions {
@@ -95,14 +114,19 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
   const text = (input: string): string => {
     let s = input;
     for (const f of secretForms) if (f.length > 0) s = s.split(f).join(tag("secret"));
+    s = s.replace(/\b((?:proxy-)?authorization|(?:set-)?cookie)([ \t]*:[ \t]*)([^\r\n]*)/gi,
+      (_m, name: string, sep: string) => `${name}${sep}${tag("key")}`);
+    // Header values can contain spaces and semicolon-separated cookies: redact the whole line.
+    s = s.replace(/^([A-Za-z0-9_-]+)([ \t]*:[ \t]*)([^\r\n]+)/gm, (m, name: string, sep: string) => isSecretKey(name) ? `${name}${sep}${tag("key")}` : m);
     // `key=value` / `"key": "value"` inside free text
-    s = s.replace(/(["']?)([A-Za-z0-9_.-]+)\1(\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&"']+)/g, (m, q: string, name: string, sep: string, val: string) => {
+    s = s.replace(/(["']?)([A-Za-z0-9_.-]+)\1(\s*[:=]\s*)("[^"]*"|'[^']*'|(?:Bearer|Basic)\s+[^\s,;&"']+|[^\s,;&"']+)/gi, (m, q: string, name: string, sep: string, val: string) => {
       if (!isSecretKey(name)) return m;
       const quote = val.startsWith('"') ? '"' : val.startsWith("'") ? "'" : "";
       return `${q}${name}${q}${sep}${quote}${tag("key")}${quote}`;
     });
     for (const p of PATTERNS) s = applyPattern(s, p, "pattern");
     s = s.replace(URL_FIND, (u) => { let r = u; for (const st of URL_STEPS) r = applyPattern(r, st, "url"); return r; });
+    for (const p of SPACE_PATHS) s = redactSpacedPath(s, p);
     s = s.replace(PATH_TOKEN, (tok) => {
       const segs = canonical(tok.startsWith("~") ? tok.slice(1) : tok);
       const cls = denyClassOf(segs);
