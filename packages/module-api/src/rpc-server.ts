@@ -30,6 +30,8 @@ export interface RpcServer {
   /** Deprecated methods/notifications used at least once since start (ADR-016 §5, S13), as `method:<name>`/
    *  `notification:<name>`, sorted; for `core.status.deprecationsUsed` and `1staid check`'s `api.deprecations`. */
   deprecationsUsed(): string[];
+  /** Open client connections now (authenticated or not), for the metrics endpoint. */
+  connectionCount(): number;
 }
 
 // ADR-016 §5 / G13: the schema's deprecated surface, computed once per serving role; each name is warned about once
@@ -68,6 +70,9 @@ export interface RpcServerOptions {
   methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number;
   /** Called once per connection after its socket has closed (an adopted lifeline, S4). */
   onConnectionClosed?: (connectionId: string) => void;
+  /** Called once per authenticated, schema-known request after its reply (or error) was written: the method name
+   *  and `"ok"` or the RPC error code. Never sees params or results (the metrics counters, D3). */
+  onCall?: (method: string, result: string, ms: number) => void;
 }
 
 /** The NDJSON JSON-RPC server of every harness process that serves RPC (the core and each module, H3B-R12): the
@@ -140,24 +145,27 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     const handler = o.methods[method];
     if (!served.has(method) || !handler) return errorReply(c, id, new RpcError("E_INTERNAL", `method not found: ${method}`, { reason: "method-not-found", jsonrpcCode: -32601 }));
     const v = validateParams(method, params);
-    if (!v.ok) return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") }));
+    if (!v.ok) { try { o.onCall?.(method, "E_INVALID_PARAMS", 0); } catch { /* metrics only */ } return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); }
 
     const ac = new AbortController(); c.inflight.set(id, ac);
     let markWritten!: () => void;
     const d: Dispatch = { method, done: new Promise<void>((res) => { markWritten = res; }), settled: false };
     dispatches.add(d);
     const t0 = performance.now();
+    let outcome = "E_INTERNAL";
     try {
       const result = await handler(params, { requestId: String(id), connectionId: c.id, signal: ac.signal });
       const rv = validateResult(method, result);
       if (!rv.ok) { log.error("result violates schema", { errors: rv.errors }); return errorReply(c, id, new RpcError("E_INTERNAL", "result violates schema", { reason: "result-schema" })); }
       send(c, { jsonrpc: "2.0", id, result });
+      outcome = "ok";
       log.debug("ok", { ms: Math.round(performance.now() - t0) });
     } catch (e) {
-      if (e instanceof RpcError) { log.info("rpc error", { error: e.error, reason: e.reason }); return errorReply(c, id, e); }
+      if (e instanceof RpcError) { outcome = e.error; log.info("rpc error", { error: e.error, reason: e.reason }); return errorReply(c, id, e); }
       log.error("handler failed", { err: e });
       errorReply(c, id, new RpcError("E_INTERNAL", "internal error", { reason: "handler-threw" }));
     } finally {
+      try { o.onCall?.(method, outcome, performance.now() - t0); } catch { /* a metrics hook never affects a reply */ }
       c.inflight.delete(id);
       d.settled = true; dispatches.delete(d); markWritten(); // the reply (result or error) has been written above
     }
@@ -241,5 +249,6 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     },
     subscriptions: () => [...conns.values()].flatMap((c) => [...c.subs.values()]),
     deprecationsUsed: () => [...warnedDeprecated].sort(),
+    connectionCount: () => conns.size,
   };
 }

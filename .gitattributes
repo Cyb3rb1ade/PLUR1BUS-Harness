@@ -3,3 +3,4 @@
 hosts/hermes/plur1bus/** text eol=lf
 clients/python/**/src/** text eol=lf
 LICENSE text eol=lf
+docs/ops/zabbix/** text eol=lf

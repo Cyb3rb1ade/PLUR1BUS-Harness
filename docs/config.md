@@ -27,6 +27,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `core.shutdownBudgetMs` | integer | `30000` | live |  |
 | `supervisor.graceMs` | integer | `60000` | live |  |
 | `supervisor.healthIntervalMs` | integer | `5000` | live |  |
+| `metrics.enabled` | boolean | `false` | core |  |
+| `metrics.port` | integer | `9464` | core |  |
 | `logs.maxBytes` | integer | `20971520` | live |  |
 | `logs.keep` | integer | `5` | live |  |
 | `extensions.allowUnsigned` | boolean | `true` | live |  |

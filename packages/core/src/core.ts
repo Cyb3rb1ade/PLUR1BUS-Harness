@@ -47,6 +47,7 @@ import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.t
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
 import { createDreams, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
+import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
 import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
@@ -74,6 +75,8 @@ export interface Core {
   readonly address: string; readonly token: string; readonly layout: Layout;
   /** The configuration the core runs now (B7); null before start() has read it. */
   currentConfig(): HarnessConfig | null;
+  /** D3: the metric sinks (`turn`, `providerError`); the session and provider code record into them. */
+  readonly metrics: Metrics;
 }
 type State = ProcessState & { since: number };
 
@@ -163,6 +166,7 @@ export function createCore(o: CoreOptions): Core {
   let budget: BudgetService | null = null;
   let auditChain: AuditChain | null = null;
   let replay: JournalReplay | null = null;
+  let metricsHttp: MetricsServer | null = null;
   let sessions: SessionService | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
@@ -174,6 +178,10 @@ export function createCore(o: CoreOptions): Core {
   // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
   const shutdown = new AbortController();
   const capabilities = buildCapabilities(CORE_FEATURES, "core");
+  const metrics = createMetrics({
+    connections: () => server?.connectionCount() ?? 0,
+    health: () => { const s = status(); return { ready: s.engine.ready, journalBacklog: s.journalBacklog ?? 0, agents: s.agents.length, uptimeSeconds: s.uptimeMs / 1000 }; },
+  });
 
   const setState = (s: State) => { state = s; server?.notify("core.state", { process: s }); };
   /** The state behind an `orphaned`: orphaned is about the lifeline, not the engine's health. */
@@ -487,6 +495,7 @@ export function createCore(o: CoreOptions): Core {
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
+        onCall: (method, result) => metrics.rpcCall(method, result),
       });
 
       wroteRunFiles = true;
@@ -494,6 +503,13 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
+      if (config.metrics.enabled) {
+        // D3: a metrics endpoint that cannot start (port taken) never keeps the core from starting.
+        try {
+          const mh = createMetricsServer({ token: loadOrCreateMetricsToken(path.join(l.state, "metrics.token"), platform.securePath), port: config.metrics.port, render: () => metrics.render(), logger });
+          await mh.listen(); metricsHttp = mh;
+        } catch (err) { logger.warn("metrics endpoint unavailable", { err }); }
+      }
       // Test seam (Task 2 review M2), honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1: holds the listening core in
       // `starting`, so the lifeline paths before ready (grace expired while starting, adoption before ready) stay testable.
       if (typeof startDelayMs === "number" && process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1") await new Promise((r) => setTimeout(r, startDelayMs));
@@ -551,6 +567,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "sessions close", async () => { await sessions?.close(); }); sessions = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
+      await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
       await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -635,6 +652,7 @@ export function createCore(o: CoreOptions): Core {
         const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: remaining() });
         if (!r.drained) logger?.warn("memory ops still pending at close", { pending: r.pending });
       }, errors);
+      await step(logger, "metrics close", async () => { await metricsHttp?.close(); metricsHttp = null; }, errors);
       await step(logger, "server close", async () => { await server?.close({ graceMs: 1000 }); }, errors);
       await step(logger, "lock release", () => { lock?.release(); lock = null; }, errors);
       await step(logger, "run files", () => removeRunFiles(), errors);
@@ -645,5 +663,5 @@ export function createCore(o: CoreOptions): Core {
     return stopping;
   }
 
-  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null };
+  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics };
 }

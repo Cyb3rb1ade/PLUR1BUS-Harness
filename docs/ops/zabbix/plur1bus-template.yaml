@@ -1,0 +1,350 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: fe5d7f3f3148446da4ca5c0d7509de7e
+      name: Templates/Applications
+  templates:
+    - uuid: a7201198a3124f0886d6b7191450dc5b
+      template: 'PLUR1BUS Harness by HTTP'
+      name: 'PLUR1BUS Harness by HTTP'
+      description: |
+        PLUR1BUS harness metrics over the core's loopback endpoint GET /metrics (Prometheus text format).
+        One HTTP agent item fetches the exposition once a minute; every other item is dependent and picks its
+        value with Prometheus preprocessing. Set {$PLUR1BUS.METRICS.TOKEN} to the contents of
+        <home>/state/metrics.token. The endpoint is loopback-only, so the Zabbix server, proxy or agent that
+        polls it must run on the same host. See docs/ops/metrics.md.
+      groups:
+        - name: Templates/Applications
+      items:
+        - uuid: 813ba2a91ea94eaa864cb7269ea2cc4c
+          name: 'PLUR1BUS: Get metrics'
+          type: HTTP_AGENT
+          key: plur1bus.metrics.get
+          delay: 1m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          timeout: 10s
+          description: 'Raw Prometheus exposition; not stored (history 0).'
+          url: 'http://{$PLUR1BUS.METRICS.HOST}:{$PLUR1BUS.METRICS.PORT}/metrics'
+          headers:
+            - name: Authorization
+              value: 'Bearer {$PLUR1BUS.METRICS.TOKEN}'
+          status_codes: '200'
+          tags:
+            - tag: component
+              value: raw
+        - uuid: 7403a197713544c99f0ec07acf06da3e
+          name: 'PLUR1BUS: Engine ready'
+          type: DEPENDENT
+          key: plur1bus.engine.ready
+          delay: '0'
+          history: 7d
+          trends: 90d
+          description: '1 when the core is ready and the memory engine reports no degradation.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_engine_ready'
+                - value
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: engine
+        - uuid: 5d5f77a501ea465aa2514b01bad2bf71
+          name: 'PLUR1BUS: Core uptime'
+          type: DEPENDENT
+          key: plur1bus.core.uptime
+          delay: '0'
+          history: 7d
+          trends: 90d
+          value_type: FLOAT
+          units: 's'
+          description: 'Seconds since the core started.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_core_uptime_seconds'
+                - value
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: engine
+        - uuid: d7eda3fad381407b9810e11999c1b42a
+          name: 'PLUR1BUS: Open RPC connections'
+          type: DEPENDENT
+          key: plur1bus.rpc.connections
+          delay: '0'
+          history: 7d
+          trends: 90d
+          description: 'Open connections to the core RPC socket.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_rpc_connections_open'
+                - value
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: rpc
+        - uuid: a8597a60f1aa4bd385d58553d6d709da
+          name: 'PLUR1BUS: RPC calls per second'
+          type: DEPENDENT
+          key: plur1bus.rpc.calls.rate
+          delay: '0'
+          history: 7d
+          trends: 90d
+          value_type: FLOAT
+          units: 'rps'
+          description: 'All RPC calls handled by the core (summed over methods and results).'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_rpc_calls_total'
+                - sum
+                - ''
+              error_handler: CUSTOM_VALUE
+              error_handler_params: '0'
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: rpc
+        - uuid: 540e4bd6fdd2467299d7e5bb997c2c04
+          name: 'PLUR1BUS: RPC internal errors per second'
+          type: DEPENDENT
+          key: plur1bus.rpc.internal_errors.rate
+          delay: '0'
+          history: 7d
+          trends: 90d
+          value_type: FLOAT
+          units: 'eps'
+          description: 'RPC calls that ended in E_INTERNAL, E_STORAGE or E_CONFIG_INVALID.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_rpc_calls_total{result="internal"}'
+                - sum
+                - ''
+              error_handler: CUSTOM_VALUE
+              error_handler_params: '0'
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: rpc
+        - uuid: ce238cf6ca19477eb4dd649ace8d5053
+          name: 'PLUR1BUS: Chat turns per second'
+          type: DEPENDENT
+          key: plur1bus.turn.rate
+          delay: '0'
+          history: 7d
+          trends: 90d
+          value_type: FLOAT
+          units: 'tps'
+          description: 'Finished chat turns (all outcomes).'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_turn_duration_seconds_count'
+                - sum
+                - ''
+              error_handler: CUSTOM_VALUE
+              error_handler_params: '0'
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: turns
+        - uuid: cbeb1ecbac8c459cb5ec5f3f67711fff
+          name: 'PLUR1BUS: Chat turn seconds per second'
+          type: DEPENDENT
+          key: plur1bus.turn.seconds.rate
+          delay: '0'
+          history: 7d
+          trends: 90d
+          value_type: FLOAT
+          description: 'Seconds spent in chat turns per second; divide by turns per second for the mean duration.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_turn_duration_seconds_sum'
+                - sum
+                - ''
+              error_handler: CUSTOM_VALUE
+              error_handler_params: '0'
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: turns
+        - uuid: cbcc5f3e64f04f84ac0b46e471a82f31
+          name: 'PLUR1BUS: Provider errors per second'
+          type: DEPENDENT
+          key: plur1bus.provider.errors.rate
+          delay: '0'
+          history: 7d
+          trends: 90d
+          value_type: FLOAT
+          units: 'eps'
+          description: 'Failed provider calls, all providers and kinds.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_provider_errors_total'
+                - sum
+                - ''
+              error_handler: CUSTOM_VALUE
+              error_handler_params: '0'
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: provider
+        - uuid: 8f473987d10747c4b7fec11db1673716
+          name: 'PLUR1BUS: Resident memory'
+          type: DEPENDENT
+          key: plur1bus.memory.rss
+          delay: '0'
+          history: 7d
+          trends: 90d
+          units: 'B'
+          description: 'Resident set size of the core process.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_process_resident_memory_bytes'
+                - value
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: memory
+        - uuid: 6c7e85718781468f8f01c9a9ea146837
+          name: 'PLUR1BUS: Heap in use'
+          type: DEPENDENT
+          key: plur1bus.memory.heap_used
+          delay: '0'
+          history: 7d
+          trends: 90d
+          units: 'B'
+          description: 'V8 heap in use.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_process_heap_used_bytes'
+                - value
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: memory
+        - uuid: 2d12b177c25044dea3cbe3025ae7deb5
+          name: 'PLUR1BUS: Journal backlog'
+          type: DEPENDENT
+          key: plur1bus.journal.backlog
+          delay: '0'
+          history: 7d
+          trends: 90d
+          description: 'Capture journal entries not yet stored.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_journal_backlog_entries'
+                - value
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: engine
+        - uuid: 4a4f0a265e37423c875dbce6e968cb85
+          name: 'PLUR1BUS: Agents'
+          type: DEPENDENT
+          key: plur1bus.agents
+          delay: '0'
+          history: 7d
+          trends: 90d
+          description: 'Number of configured agents.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'plur1bus_agents'
+                - value
+                - ''
+          master_item:
+            key: plur1bus.metrics.get
+          tags:
+            - tag: component
+              value: engine
+      triggers:
+        - uuid: 5217e8010b734a288a5f1e1ed2201d9b
+          expression: 'nodata(/PLUR1BUS Harness by HTTP/plur1bus.engine.ready,{$PLUR1BUS.NODATA.TIMEOUT})=1'
+          name: 'PLUR1BUS: Metrics endpoint not answering'
+          priority: HIGH
+          description: 'No metrics for the configured time: the core is down, metrics.enabled is off, the port or token is wrong, or the poller is not on the harness host.'
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: 5f6715e7a9f7498b888ae6cc6cd9f076
+          expression: 'max(/PLUR1BUS Harness by HTTP/plur1bus.engine.ready,{$PLUR1BUS.NOTREADY.TIMEOUT})=0'
+          name: 'PLUR1BUS: Engine not ready'
+          priority: AVERAGE
+          description: 'The core answers but the memory engine reported itself degraded or not ready for the whole interval.'
+          dependencies:
+            - name: 'PLUR1BUS: Metrics endpoint not answering'
+              expression: 'nodata(/PLUR1BUS Harness by HTTP/plur1bus.engine.ready,{$PLUR1BUS.NODATA.TIMEOUT})=1'
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: 7582c8410e3942d8906b6e87bf36d437
+          expression: 'avg(/PLUR1BUS Harness by HTTP/plur1bus.provider.errors.rate,15m)>{$PLUR1BUS.PROVIDER.ERRORS.RATE.MAX}'
+          name: 'PLUR1BUS: Provider errors high'
+          priority: WARNING
+          description: 'Failed provider calls per second, averaged over 15 minutes, above the threshold (rate limits, auth failures, timeouts).'
+          tags:
+            - tag: scope
+              value: provider
+      macros:
+        - macro: '{$PLUR1BUS.METRICS.HOST}'
+          value: '127.0.0.1'
+          description: 'Loopback address of the metrics endpoint (it never binds anything else).'
+        - macro: '{$PLUR1BUS.METRICS.PORT}'
+          value: '9464'
+          description: 'metrics.port in config.json.'
+        - macro: '{$PLUR1BUS.METRICS.TOKEN}'
+          type: SECRET_TEXT
+          value: ''
+          description: 'Contents of <home>/state/metrics.token. Store as a secret; leave empty here.'
+        - macro: '{$PLUR1BUS.NODATA.TIMEOUT}'
+          value: '5m'
+          description: 'How long without metrics before the endpoint trigger fires.'
+        - macro: '{$PLUR1BUS.NOTREADY.TIMEOUT}'
+          value: '5m'
+          description: 'How long the engine may stay not ready before the trigger fires.'
+        - macro: '{$PLUR1BUS.PROVIDER.ERRORS.RATE.MAX}'
+          value: '0.01'
+          description: 'Provider errors per second (15 min average); 0.01 is about 9 per 15 minutes.'

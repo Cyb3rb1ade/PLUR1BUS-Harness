@@ -20,6 +20,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -82,6 +86,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -146,6 +154,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -208,6 +220,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -272,6 +288,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -334,6 +354,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -398,6 +422,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -460,6 +488,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -524,6 +556,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -586,6 +622,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -650,6 +690,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -712,6 +756,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -776,6 +824,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -838,6 +890,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -902,6 +958,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -964,6 +1024,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1028,6 +1092,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1090,6 +1158,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1154,6 +1226,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1216,6 +1292,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1280,6 +1360,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1342,6 +1426,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1406,6 +1494,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1468,6 +1560,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1532,6 +1628,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1594,6 +1694,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1658,6 +1762,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1720,6 +1828,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1784,6 +1896,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1847,6 +1963,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1906,6 +2026,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
