@@ -77,3 +77,9 @@ it("a UI port throwing a foreign AuthError cannot smuggle a code or message into
   const m = await mockOAuth(); t.after(() => m.close()); const { AuthError } = await import("../../src/auth/errors.ts"); const logs: unknown[] = [];
   await assert.rejects(login({ profile: m.profile(), store: new InMemorySecretStore(), clock: new FakeClock(), http: createOAuthHttp({ egress: m.egress }), env, log: (e, fields) => logs.push([e, fields]), openBrowser: async () => { throw new AuthError(MARK.access as any, MARK.refresh); } }), e => { safe(e); return true; }); safe(logs);
 });
+
+it("refresh-owner storage-read failures never copy token-bearing messages", async t => {
+  const m = await mockOAuth(); t.after(() => m.close());
+  const owner = new RefreshOwner({ store: { get: async () => { throw new Error(MARK.refresh); }, set: async () => {}, delete: async () => {} }, clock: new FakeClock(), refresher: new HttpRefresher(createOAuthHttp({ egress: m.egress })) });
+  await assert.rejects(owner.fresh(m.profile(), "test/ref", "a"), e => { safe(e); return true; }); owner.close();
+});

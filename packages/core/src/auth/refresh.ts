@@ -127,7 +127,8 @@ export class RefreshOwner {
   async #load(profile: AuthProfile, ref: string, credentialId: string): Promise<OAuthRecord> {
     const pending = this.#unpersisted.get(ref);
     if (pending) { await this.#save(ref, pending, profile, credentialId); return this.#unpersisted.get(ref) ?? pending; }
-    const raw = await this.#o.store.get(ref);
+    let raw: string | undefined;
+    try { raw = await this.#o.store.get(ref); } catch { throw new AuthError("invalid_secret_record", "Stored credential could not be read.", { profileId: profile.id }); }
     if (raw === undefined) throw new AuthError("no_credential", `No sign-in is stored for ${profile.display_name}.`, { profileId: profile.id, credentialId, action: `plur1bus login ${profile.id}` });
     const rec = decodeRecord(raw, profile.id);
     if (rec.reauthRequired) throw reauth(profile, credentialId);
