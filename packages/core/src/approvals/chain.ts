@@ -135,6 +135,7 @@ export class ApprovalChain {
     const requested = new Map<string, { tuple: string; nonce: string | null }>();
     const decided = new Map<string, string>();
     const used = new Set<string>();
+    const cancelled = new Set<string>();
     const nonces = new Set<string>();
     for (const e of rows) {
       if (!e.kind.startsWith("approval.")) continue;
@@ -151,8 +152,13 @@ export class ApprovalChain {
         const r = requested.get(e.refId);
         if (!r || tuple !== r.tuple || r.nonce !== e.nonce) return { at: e.seq, reason: "binding-mismatch", detail: "decision does not match its request" };
         if (decided.has(e.refId)) return { at: e.seq, reason: "duplicate", detail: "request decided twice" };
+        if (cancelled.has(e.refId)) return { at: e.seq, reason: "binding-mismatch", detail: "a cancelled request was decided" };
         if (p.decision !== "approve" && p.decision !== "deny") return { at: e.seq, reason: "malformed", detail: "decision" };
         decided.set(e.refId, p.decision);
+      } else if (e.kind === "approval.cancelled") {
+        const r = requested.get(e.refId);
+        if (!r || tuple !== r.tuple || decided.has(e.refId)) return { at: e.seq, reason: "binding-mismatch", detail: "cancel does not match an undecided request" };
+        cancelled.add(e.refId);
       } else if (e.kind === "approval.used") {
         const r = requested.get(e.refId);
         if (!r || tuple !== r.tuple || decided.get(e.refId) !== "approve") return { at: e.seq, reason: "binding-mismatch", detail: "use does not match an approved request" };

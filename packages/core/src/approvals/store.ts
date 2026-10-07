@@ -9,6 +9,7 @@ import { ApprovalChain, ApprovalChainError, bindingTuple, type ChainEntry, type 
 import { transaction } from "./db.ts";
 import type { ChainKeySource } from "./keys.ts";
 
+const MAX_DETAIL_BYTES = 16 * 1024;
 export const DEFAULT_REQUEST_TTL_MS = 24 * 60 * 60_000; // §5: parked up to 24 h, then expired = denied
 
 export interface ApprovalSubject { kind: SubjectKind; id: string }
@@ -29,7 +30,7 @@ export type ApprovalResult<T extends object = Record<never, never>> = ({ ok: tru
 
 export class ApprovalIntegrityError extends ApprovalChainError {}
 
-export type ApprovalStatus = "pending" | "approved" | "denied" | "used" | "expired";
+export type ApprovalStatus = "pending" | "approved" | "denied" | "used" | "expired" | "cancelled";
 export interface ApprovalRecord {
   id: string;
   status: ApprovalStatus;
@@ -42,9 +43,16 @@ export interface ApprovalRecord {
   decisionSurface?: SurfaceTrust;
   delegable: boolean;
   usedAt?: number;
+  /** What the harness computed about the request (risk, flags, grant options, targets …). Inside the chained payload, so it is as tamper-evident as the binding. */
+  detail?: Record<string, unknown>;
+  cancelledAt?: number;
 }
 
-export interface RequestInput extends Omit<ApprovalBinding, "requestId"> { capability: string }
+export interface RequestInput extends Omit<ApprovalBinding, "requestId"> {
+  capability: string;
+  /** Redacted by the caller; the store keeps it verbatim. Bounded: a detail over 16 KiB is refused. */
+  detail?: Record<string, unknown>;
+}
 export interface DecideInput {
   requestId: string;
   nonce: string;
@@ -59,6 +67,8 @@ export interface ApprovalStore {
   /** Issues a request with a one-time nonce. The nonce goes only to the surfaces that may decide it. */
   request(input: RequestInput): { id: string; nonce: string; expiresAt: number };
   decide(input: DecideInput): ApprovalResult<{ status: "approved" | "denied" }>;
+  /** Closes a pending request without a decision (the call was aborted, or the person withdrew it). A cancelled request can never be decided or consumed. */
+  cancel(id: string, by: string): ApprovalResult;
   /** Atomic single use: exactly one caller gets `ok`; the same arguments afterwards are `approval-used`. */
   consume(b: ApprovalBinding): ApprovalResult<{ delegable: boolean }>;
   get(id: string): ApprovalRecord | undefined;
@@ -100,11 +110,14 @@ export async function createApprovalStore(o: ApprovalStoreOptions): Promise<Appr
     const use = find(list, "approval.used");
     const dp = dec ? parse(dec) : undefined;
     const expiresAt = Number(rp.expiresAt);
-    let status: ApprovalStatus = use ? "used" : dp ? (dp.decision === "approve" ? "approved" : "denied") : "pending";
+    const cancel = find(list, "approval.cancelled");
+    let status: ApprovalStatus = use ? "used" : cancel ? "cancelled" : dp ? (dp.decision === "approve" ? "approved" : "denied") : "pending";
     if ((status === "pending" || status === "approved") && now >= expiresAt) status = "expired";
     const out: ApprovalRecord = { id, status, capability: String(rp.capability), bound: rp.bound, createdAt: req.ts, expiresAt, delegable: dp?.delegable === true };
     if (dec && dp) { out.decidedAt = dec.ts; out.decidedBy = String(dp.person); out.decisionSurface = dp.surface as SurfaceTrust; }
     if (use) out.usedAt = use.ts;
+    if (cancel) out.cancelledAt = cancel.ts;
+    if (rp.detail !== undefined && rp.detail !== null && typeof rp.detail === "object") out.detail = rp.detail as Record<string, unknown>;
     return out;
   }
 
@@ -117,11 +130,12 @@ export async function createApprovalStore(o: ApprovalStoreOptions): Promise<Appr
       const nonce = randomBytes(16).toString("hex");
       const bound = boundOf({ ...input, requestId: id });
       if (bindingTuple(bound) === null) throw new TypeError("approval request needs actionHash, principal, subject, turnId, taskId and sessionId");
+      if (input.detail !== undefined && JSON.stringify(input.detail).length > MAX_DETAIL_BYTES) throw new TypeError("approval request detail is too large");
       return transaction(o.db, () => {
         trusted();
         const now = o.clock.now();
         const expiresAt = now + ttl;
-        chain.append("approval.requested", id, { capability: input.capability, expiresAt, bound }, nonce);
+        chain.append("approval.requested", id, { capability: input.capability, expiresAt, bound, ...(input.detail !== undefined ? { detail: input.detail } : {}) }, nonce);
         o.db.prepare(
           "INSERT INTO approvals (id, principal, subject_kind, subject_id, capability, action_hash, turn_id, task_id, session_id, nonce, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
         ).run(id, bound.principal, bound.subject.kind, bound.subject.id, input.capability, bound.actionHash, bound.turnId, bound.taskId, bound.sessionId, nonce, now, expiresAt);
@@ -139,6 +153,7 @@ export async function createApprovalStore(o: ApprovalStoreOptions): Promise<Appr
         if (rp.bound.principal !== d.person) return { ok: false, reason: "approval-mismatch" } as const;
         if (typeof d.nonce !== "string" || req.nonce === null || !sameStr(d.nonce, req.nonce)) return { ok: false, reason: "approval-mismatch" } as const;
         if (find(list, "approval.decided")) return { ok: false, reason: "approval-used" } as const;
+        if (find(list, "approval.cancelled")) return { ok: false, reason: "approval-expired" } as const; // closed without a decision
         const now = o.clock.now();
         if (now >= Number(rp.expiresAt)) return { ok: false, reason: "approval-expired" } as const;
         const delegable = d.delegable === true && d.decision === "approve";
@@ -147,6 +162,21 @@ export async function createApprovalStore(o: ApprovalStoreOptions): Promise<Appr
         o.db.prepare("UPDATE approvals SET status = ?, decided_at = ?, decided_by = ?, decision_surface = ?, delegable = ? WHERE id = ?")
           .run(status, now, d.person, d.surface, delegable ? 1 : 0, d.requestId);
         return { ok: true, status } as const;
+      });
+    },
+
+    cancel(id, by) {
+      return transaction(o.db, () => {
+        const list = trusted().byRef.get(id);
+        const req = find(list, "approval.requested");
+        if (!req) return { ok: false, reason: "approval-mismatch" } as const;
+        const rp = parse(req);
+        if (find(list, "approval.decided") || find(list, "approval.cancelled")) return { ok: false, reason: "approval-used" } as const;
+        const now = o.clock.now();
+        if (now >= Number(rp.expiresAt)) return { ok: false, reason: "approval-expired" } as const;
+        chain.append("approval.cancelled", id, { by, bound: rp.bound });
+        o.db.prepare("UPDATE approvals SET status = 'cancelled' WHERE id = ?").run(id);
+        return { ok: true } as const;
       });
     },
 
