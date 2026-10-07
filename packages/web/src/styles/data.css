@@ -39,7 +39,8 @@
 /* Tables (Doctor agents). Compact widths get a list of cards instead (DataTable), so a table never scrolls sideways. */
 .data-table { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 14px; }
 .data-table th, .data-table td { padding: 10px 12px; text-align: left; vertical-align: baseline; overflow-wrap: anywhere; border-bottom: 1px solid var(--line); }
-.data-table th { color: var(--ink-2); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+/* No text-transform: the column head keeps the case of its text (screen readers and copy/paste read it as written). */
+.data-table th { color: var(--ink-2); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .data-table :is(th, td):first-child { padding-left: 0; }
 .data-table tbody tr:last-child td { border-bottom: 0; }
 .data-table tbody tr:hover { background: var(--hover-bg); }
