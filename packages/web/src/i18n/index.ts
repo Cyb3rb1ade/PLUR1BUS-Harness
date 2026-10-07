@@ -8,13 +8,23 @@
 //    identical keys and placeholders in every area; both are checked by tests.
 //  - `Key` is the union of all keys of all areas, so `t("chat.send")` is checked by the compiler. An area's `de` should be
 //    typed `Record<keyof typeof en, string>` once it has keys, so a missing translation fails typecheck at the source.
+import * as activity from "./activity.ts";
+import * as agents from "./agents.ts";
 import * as budget from "./budget.ts";
 import * as chat from "./chat.ts";
 import * as core from "./core.ts";
+import * as devices from "./devices.ts";
 import * as doctor from "./doctor.ts";
+import * as logs from "./logs.ts";
 import * as memory from "./memory.ts";
 import * as models from "./models.ts";
 import * as palette from "./palette.ts";
+import * as secrets from "./secrets.ts";
+import * as sessions from "./sessions.ts";
+import * as settings from "./settings.ts";
+import * as setup from "./setup.ts";
+import * as shared from "./shared.ts";
+import * as users from "./users.ts";
 
 export type Area = { readonly name: string; readonly en: Readonly<Record<string, string>>; readonly de: Readonly<Record<string, string>> };
 
@@ -27,6 +37,16 @@ export const AREAS = [
   { name: "budget", en: budget.en, de: budget.de },
   { name: "doctor", en: doctor.en, de: doctor.de },
   { name: "palette", en: palette.en, de: palette.de },
+  { name: "shared", en: shared.en, de: shared.de },
+  { name: "setup", en: setup.en, de: setup.de },
+  { name: "agents", en: agents.en, de: agents.de },
+  { name: "settings", en: settings.en, de: settings.de },
+  { name: "users", en: users.en, de: users.de },
+  { name: "secrets", en: secrets.en, de: secrets.de },
+  { name: "devices", en: devices.en, de: devices.de },
+  { name: "logs", en: logs.en, de: logs.de },
+  { name: "activity", en: activity.en, de: activity.de },
+  { name: "sessions", en: sessions.en, de: sessions.de },
 ] as const satisfies readonly Area[];
 
 type AreaEn = (typeof AREAS)[number]["en"];

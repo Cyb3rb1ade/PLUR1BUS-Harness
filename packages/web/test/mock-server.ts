@@ -17,6 +17,8 @@ export type MockOptions = {
   /** Consecutive failed logins before the mock answers 429. */
   maxFailures?: number;
   retryAfterSeconds?: number;
+  /** Role of the signed-in principal (default `owner`); lets role-visibility tests sign in as a Member or Viewer. */
+  role?: string;
 };
 export type LoggedRequest = { method: string; url: string; csrf: string | null; hasCookie: boolean; body: string };
 /** A route extension (see mock-rpc.ts): answers the request and returns true, or returns false to let the mock go on. */
@@ -43,7 +45,7 @@ export class MockHarnessServer {
   readonly #opts: Required<MockOptions>;
 
   constructor(opts: MockOptions) {
-    this.#opts = { token: OWNER_TOKEN, maxFailures: 5, retryAfterSeconds: 30, ...opts };
+    this.#opts = { token: OWNER_TOKEN, maxFailures: 5, retryAfterSeconds: 30, role: "owner", ...opts };
     this.rpc = new MockRpc(this);
     this.events = new MockEvents(this);
     this.extensions.push((req, res, path, body) => this.rpc.serve(req, res, path, body), (req, res, path) => this.events.serve(req, res, path));
@@ -109,7 +111,8 @@ export class MockHarnessServer {
   }
 
   #api(req: IncomingMessage, res: ServerResponse, url: string, raw: string): void {
-    const principal = { kind: "owner", id: "owner", role: "owner" };
+    const role = this.#opts.role;
+    const principal = { kind: role === "owner" ? "owner" : "user", id: role, role };
     const times = { createdAt: "2026-01-01T00:00:00.000Z", expiresAt: "2026-01-01T12:00:00.000Z", idleExpiresAt: "2026-01-01T00:30:00.000Z" };
     if (url === "/api/v1/session" && req.method === "POST") {
       if (this.failures >= this.#opts.maxFailures) return this.#error(res, 429, "E_DENIED", "rate-limited", { "retry-after": String(this.#opts.retryAfterSeconds) });

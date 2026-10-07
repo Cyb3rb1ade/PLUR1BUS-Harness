@@ -13,6 +13,10 @@ const MemoriesPage = lazyPage(() => import("./memory/index.ts").then((m) => m.Me
 const ModelsPage = lazyPage(() => import("./models/page.ts").then((m) => m.ModelsPage));
 const BudgetPage = lazyPage(() => import("./budget/page.ts").then((m) => m.BudgetPage));
 const DoctorPage = lazyPage(() => import("./doctor/page.ts").then((m) => m.DoctorPage));
+const AgentsPage = lazyPage(() => import("./agents/page.ts").then((m) => m.AgentsPage));
+const SettingsPage = lazyPage(() => import("./settings/page.ts").then((m) => m.SettingsPage));
+const LogsPage = lazyPage(() => import("./logs/page.ts").then((m) => m.LogsPage));
+const SetupPage = lazyPage(() => import("./setup/page.ts").then((m) => m.SetupPage));
 
 /** Nav item id -> page. A page agent replaces exactly its own line (and adds its import above):
  *   import { MemoriesPage } from "./memories.ts";   ...   memories: MemoriesPage,
@@ -20,7 +24,7 @@ const DoctorPage = lazyPage(() => import("./doctor/page.ts").then((m) => m.Docto
 export const PAGES: Readonly<Record<string, PageComponent>> = {
   chat: ChatPage,
   projects: PlaceholderPage,
-  agents: PlaceholderPage,
+  agents: AgentsPage,
   inbox: PlaceholderPage,
   memories: MemoriesPage,
   library: PlaceholderPage,
@@ -32,9 +36,10 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   approvals: PlaceholderPage,
   usage: BudgetPage,
   doctor: DoctorPage,
-  logs: PlaceholderPage,
-  settings: PlaceholderPage,
+  logs: LogsPage,
+  settings: SettingsPage,
   help: PlaceholderPage,
+  setup: SetupPage,
 };
 
 declare const __GALLERY__: boolean | undefined;

@@ -1,0 +1,10 @@
+/* Pieces shared by the M3 part 2 pages: danger button, field hints, confirm dialog body, notices. */
+.btn-danger { background: var(--err-bg); color: var(--err-ink); border-color: var(--err-border); }
+.btn-danger:hover { background: var(--err-bg); opacity: 0.9; }
+.field-hint { font-size: 12.5px; color: var(--ink-2); }
+.field-error { font-size: 12.5px; color: var(--err-ink); }
+.confirm-body { display: grid; gap: 12px; }
+.confirm-body p { max-width: var(--w-reading); }
+.notice { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 13.5px; }
+.notice[data-tone="warn"] { border-color: var(--err-border); }
+.notice[data-tone="error"] { background: var(--err-bg); color: var(--err-ink); border-color: var(--err-border); }

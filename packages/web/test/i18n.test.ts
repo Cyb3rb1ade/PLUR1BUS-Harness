@@ -5,8 +5,11 @@ import { AREAS } from "../src/i18n/index.ts";
 
 const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
 
-test("i18n areas: core plus chat, memory, models, budget, doctor, palette are registered", () => {
-  assert.deepEqual(AREAS.map((a) => a.name), ["core", "chat", "memory", "models", "budget", "doctor", "palette"]);
+test("i18n areas: core plus the page areas are registered", () => {
+  assert.deepEqual(AREAS.map((a) => a.name), [
+    "core", "chat", "memory", "models", "budget", "doctor", "palette",
+    "shared", "setup", "agents", "settings", "users", "secrets", "devices", "logs", "activity", "sessions",
+  ]);
 });
 
 test("i18n: every area has the same keys in de and en, no empty text, matching placeholders", () => {

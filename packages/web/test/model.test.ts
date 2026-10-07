@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ALL_ITEMS, BOTTOM, GROUPS, LANDING } from "../src/nav.ts";
+import { ALL_ITEMS, BOTTOM, GROUPS, HIDDEN_ITEMS, LANDING } from "../src/nav.ts";
 import { PAGES, pageFor } from "../src/pages/registry.ts";
 import { PlaceholderPage } from "../src/pages/placeholder.ts";
 import { resolve } from "../src/router.ts";
@@ -41,7 +41,7 @@ test("router: the new pages live under their groups with the agreed paths", () =
 });
 
 test("registry: every nav item has an entry, nothing else does, and an unknown id falls back to the placeholder", () => {
-  assert.deepEqual(Object.keys(PAGES).sort(), ALL_ITEMS.map((i) => i.id).sort());
-  for (const i of ALL_ITEMS) assert.equal(typeof pageFor(i.id), "function", i.id);
+  assert.deepEqual(Object.keys(PAGES).sort(), [...ALL_ITEMS, ...HIDDEN_ITEMS].map((i) => i.id).sort());
+  for (const i of [...ALL_ITEMS, ...HIDDEN_ITEMS]) assert.equal(typeof pageFor(i.id), "function", i.id);
   assert.equal(pageFor("no-such-page"), PlaceholderPage);
 });

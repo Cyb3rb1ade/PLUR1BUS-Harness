@@ -1,0 +1,9 @@
+/* Settings page: section navigation (224 px) next to the content (<= 880 px); the grid itself is .settings-layout in app.css. */
+.settings-nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.settings-nav-link { display: block; padding: 8px 12px; border-radius: 10px; color: inherit; text-decoration: none; }
+.settings-nav-link:hover { background: var(--hover-bg); }
+.settings-nav-link[aria-current="page"] { background: var(--hover-bg); font-weight: 650; }
+.settings-content { min-width: 0; }
+@media (max-width: 719.98px) {
+  .settings-nav ul { display: flex; flex-wrap: wrap; gap: 4px; }
+}
