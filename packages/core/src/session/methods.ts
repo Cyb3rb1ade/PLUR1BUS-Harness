@@ -1,7 +1,7 @@
 // `session.*` over the core's RPC (M1b-2c). The owner of every session is derived here from the caller identity (never
 // sent, never client-controlled); a session of another owner is E_NOT_FOUND, never E_DENIED (no existence oracle).
 import type {
-  CallerIdentity, SessionArchiveParams, SessionCreateParams, SessionEvent, SessionEventsParams, SessionGetParams, SessionListParams, SessionMessage,
+  CallerIdentity, SessionArchiveParams, SessionCancelParams, SessionCreateParams, SessionEvent, SessionEventsParams, SessionGetParams, SessionListParams, SessionMessage,
   SessionRecord as WireSession, SessionResumeParams, SessionSubmitParams,
 } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../agents.ts";
@@ -104,6 +104,12 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       // The turn is the core's, not the connection's: a client that hangs up does not cancel it (it is replayable by session.events).
       const out = await Promise.race([h.done, new Promise<never>((_, rej) => signal.addEventListener("abort", () => rej(signal.reason), { once: true }))]);
       return { sessionId: s.id, turnId: h.turnId, messageId: h.messageId, state: out.state, ...(out.reply !== undefined ? { reply: out.reply } : {}), ...(out.error !== undefined ? { error: out.error } : {}) };
+    }),
+
+    "session.cancel": wrap(async (p: SessionCancelParams, owner) => {
+      const s = d.store.getOwned(p.sessionId, owner);
+      const turnId = d.runner.cancel(s.id);
+      return { sessionId: s.id, turnId, cancelled: turnId !== null };
     }),
 
     "session.events": wrap(async (p: SessionEventsParams, owner) => {
