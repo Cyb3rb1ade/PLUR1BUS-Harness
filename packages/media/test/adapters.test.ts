@@ -167,3 +167,11 @@ test('xAI moderation flags and Gemini image safety reasons are policy failures',
     const s = await server(body); try { await assert.rejects(createAdapter({ id, model: 'test', baseUrl: s.url }).generate({ prompt: 'tree' }), (e: unknown) => e instanceof MediaError && e.code === 'content_policy'); } finally { await s.close(); }
   }
 });
+test('nested size fields cannot override provider model or safety settings', async () => {
+  for (const id of ['together', 'draw-things'] as const) {
+    const s = await server(response(id));
+    const size = { width: 512, height: 512, disable_safety_checker: true, model: 'injected-model' };
+    try { await assert.rejects(createAdapter({ id, model: 'test', baseUrl: s.url }).generate({ prompt: 'tree', size }), (e: unknown) => e instanceof MediaError && e.code === 'unsupported_parameter'); assert.equal(s.calls.length, 0); }
+    finally { await s.close(); }
+  }
+});

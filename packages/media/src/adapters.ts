@@ -84,18 +84,18 @@ export class HttpImageAdapter implements ImageAdapter {
     if (this.id === 'draw-things') {
       omitUnsupported(req, ['aspect', 'format']);
       if (refs.length > 1) throw new MediaError('unsupported_parameter');
-      return { path: `sdapi/v1/${edit ? 'img2img' : 'txt2img'}`, body: { model: this.model, prompt: req.prompt, negative_prompt: req.negativePrompt ?? '', batch_size: n, ...(req.size ?? {}), ...(req.seed === undefined ? {} : { seed: req.seed }), ...(req.steps === undefined ? {} : { steps: req.steps }), ...(req.guidance === undefined ? {} : { cfg_scale: req.guidance }), ...(edit ? { init_images: refs.map(i => Buffer.from(i.bytes).toString('base64')) } : {}) } };
+      return { path: `sdapi/v1/${edit ? 'img2img' : 'txt2img'}`, body: { model: this.model, prompt: req.prompt, negative_prompt: req.negativePrompt ?? '', batch_size: n, ...(req.size ? { width: req.size.width, height: req.size.height } : {}), ...(req.seed === undefined ? {} : { seed: req.seed }), ...(req.steps === undefined ? {} : { steps: req.steps }), ...(req.guidance === undefined ? {} : { cfg_scale: req.guidance }), ...(edit ? { init_images: refs.map(i => Buffer.from(i.bytes).toString('base64')) } : {}) } };
     }
     if (this.id === 'together') {
       omitUnsupported(req, ['aspect']); if (req.format === 'webp') throw new MediaError('unsupported_parameter');
-      return { path: 'images/generations', body: { model: this.model, prompt: req.prompt, n, response_format: 'base64', output_format: req.format ?? 'png', ...(req.size ?? {}), ...(req.seed === undefined ? {} : { seed: req.seed }), ...(req.steps === undefined ? {} : { steps: req.steps }), ...(req.guidance === undefined ? {} : { guidance_scale: req.guidance }), ...(req.negativePrompt === undefined ? {} : { negative_prompt: req.negativePrompt }) } };
+      return { path: 'images/generations', body: { model: this.model, prompt: req.prompt, n, response_format: 'base64', output_format: req.format ?? 'png', ...(req.size ? { width: req.size.width, height: req.size.height } : {}), ...(req.seed === undefined ? {} : { seed: req.seed }), ...(req.steps === undefined ? {} : { steps: req.steps }), ...(req.guidance === undefined ? {} : { guidance_scale: req.guidance }), ...(req.negativePrompt === undefined ? {} : { negative_prompt: req.negativePrompt }) } };
     }
     // Gateway profile: FLUX schnell. Other model schemas must get a separate explicit profile.
     omitUnsupported(req, this.id === 'replicate' ? ['negativePrompt', 'guidance', 'size'] : ['negativePrompt', 'aspect']);
     if (this.id === 'fal' && req.format === 'webp') throw new MediaError('unsupported_parameter');
     const input = { prompt: req.prompt, ...(req.seed === undefined ? {} : { seed: req.seed }), ...(req.steps === undefined ? {} : { num_inference_steps: req.steps }), ...(req.aspect ? { aspect_ratio: req.aspect } : {}), output_format: req.format ?? 'png' };
     if (this.id === 'replicate') return { path: `models/${this.model}/predictions`, body: { input: { ...input, output_format: req.format === 'jpeg' ? 'jpg' : req.format ?? 'png', num_outputs: n } } };
-    return { path: this.model, body: { ...input, num_images: n, enable_safety_checker: true, ...(req.size ? { image_size: req.size } : {}), ...(req.guidance === undefined ? {} : { guidance_scale: req.guidance }) } };
+    return { path: this.model, body: { ...input, num_images: n, enable_safety_checker: true, ...(req.size ? { image_size: { width: req.size.width, height: req.size.height } } : {}), ...(req.guidance === undefined ? {} : { guidance_scale: req.guidance }) } };
   }
   private async poll(id: string, signal: AbortSignal, context: GenerationContext): Promise<Record<string, unknown>> {
     const path = this.id === 'replicate' ? `predictions/${id}` : `${this.model}/requests/${id}`;

@@ -37,6 +37,7 @@ export interface ImageAdapter {
 export function validateRequest(req: ImageRequest): void {
   if (!req.prompt?.trim() || (req.n !== undefined && (!Number.isInteger(req.n) || req.n < 1 || req.n > 10))) throw new MediaError('unsupported_parameter');
   if (req.prompt.length > 32000 || req.referenceImages?.some(i => i.bytes.byteLength > 50 * 1024 * 1024) || (req.mask?.bytes.byteLength ?? 0) > 50 * 1024 * 1024) throw new MediaError('too_large');
+  if (req.size && Object.keys(req.size).some(key => key !== 'width' && key !== 'height')) throw new MediaError('unsupported_parameter');
   if (req.size && (![req.size.width, req.size.height].every(v => Number.isInteger(v) && v > 0 && v <= 8192))) throw new MediaError('unsupported_parameter');
   if ([req.seed, req.steps, req.guidance].some(v => v !== undefined && !Number.isFinite(v))) throw new MediaError('unsupported_parameter');
   if (req.steps !== undefined && (!Number.isInteger(req.steps) || req.steps < 1 || req.steps > 1000)) throw new MediaError('unsupported_parameter');
