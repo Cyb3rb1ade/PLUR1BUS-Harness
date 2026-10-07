@@ -16,7 +16,9 @@ import { runDir } from "./paths.ts";
  */
 export type TrustVerdict = { ok: true } | { ok: false; reason: "run-dir-untrusted" | "socket-untrusted"; detail: string };
 
+/** Platform and filesystem identity adapters for local endpoint trust checks. */
 export interface TrustOptions {
+  /** Defaults to the current platform; tests can select Windows behavior on any host. */
   platform?: NodeJS.Platform;
   /** The effective uid; default `process.geteuid()`. A test passes another uid to simulate a foreign owner. */
   euid?: number;
@@ -31,6 +33,7 @@ function euidOf(o: TrustOptions): number | undefined {
 
 /** `dir` must be a real directory of the current user that group and others cannot write to. A missing directory is
  *  `{ ok: true }`: that is "core absent", which the connect reports as it always did. */
+/** Checks that a POSIX run directory is a real, current-user-owned directory not writable by others. */
 export function checkRunDir(dir: string, o: TrustOptions = {}): TrustVerdict {
   if ((o.platform ?? process.platform) === "win32") return { ok: true };
   const euid = euidOf(o);
@@ -48,6 +51,7 @@ export function checkRunDir(dir: string, o: TrustOptions = {}): TrustVerdict {
 }
 
 /** `file` must be a socket of the current user. A missing file is `{ ok: true }` (core absent). */
+/** Checks that a POSIX RPC endpoint is a socket owned by the current user. */
 export function checkSocketFile(file: string, o: TrustOptions = {}): TrustVerdict {
   if ((o.platform ?? process.platform) === "win32") return { ok: true };
   const euid = euidOf(o);

@@ -15,6 +15,7 @@ export interface ConfigWatch {
    *  before a listener was registered). */
   readonly config: Record<string, unknown>;
   readonly revision: string;
+  /** Registers a configuration-change listener and returns an unsubscribe function. */
   onChange(fn: (c: ConfigChanged) => void): () => void;
   /** Called once when the subscription's connection ends (the supervisor died, dropped it, or close() was called). */
   onClose(fn: () => void): () => void;
@@ -57,6 +58,7 @@ async function attempt(home: string, timeoutMs: number): Promise<ConfigWatch> {
 
 /** Subscribes to the supervisor's configuration (B7): `attempts` tries (default 3), each bounded by `connectTimeoutMs`
  *  (default 1000) and spaced so every attempt takes that long at least; rejects with the last error. */
+/** Connects to the supervisor and subscribes to configuration snapshots and changes. */
 export async function watchSupervisorConfig(o: { home: string; connectTimeoutMs?: number; attempts?: number }): Promise<ConfigWatch> {
   const timeoutMs = o.connectTimeoutMs ?? 1000;
   const attempts = Math.max(1, o.attempts ?? 3);

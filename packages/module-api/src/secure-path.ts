@@ -4,16 +4,20 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 /** The engine contract's `SecurePathResult` (types/engine.d.ts), restated here so module-api does not depend on it. */
+/** Result of applying the platform's owner-only permissions to a path. */
 export interface SecurePathResult {
   applied: boolean;
   reason?: "not-a-filesystem-path" | "missing" | "unsupported-platform" | "acl-tool-unavailable";
   mechanism?: "chmod" | "acl";
 }
+/** Function returned by {@link createSecurePath} to secure a filesystem path. */
 export type SecurePath = (p: string, options?: { mode?: number }) => SecurePathResult;
 
 /** Runs a tool synchronously and returns its stdout; throws when it cannot run or exits non-zero. */
+/** Synchronous executable adapter used by the Windows ACL implementation. */
 export type ExecFile = (file: string, args: readonly string[]) => string;
 
+/** Platform, filesystem, and process adapters used to create a secure-path function. */
 export interface SecurePathOptions {
   /** Defaults to `process.platform`; a test reaches the win32 branch on any OS. */
   platform?: NodeJS.Platform;

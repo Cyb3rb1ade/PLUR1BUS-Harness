@@ -7,6 +7,7 @@ export const MANIFEST_SCHEMA = schemaJson as Record<string, any>;
 /** Current module API major (B12). A module's `apiVersion` is supported when it is this or the one before. */
 export const MODULE_API_VERSION = 1;
 
+/** Parsed module manifest as validated against {@link MANIFEST_SCHEMA}. */
 export interface ModuleManifest {
   name: string;
   version: string;
@@ -27,6 +28,7 @@ export interface ModuleManifest {
 }
 
 /** `n` and `n−1` (B12): `v` must be a canonical decimal (no sign, no leading zero). */
+/** Returns whether a canonical major-version string is supported by the current/previous-major policy. */
 export function apiVersionSupported(v: string, current: number = MODULE_API_VERSION): boolean {
   if (!/^[1-9][0-9]*$/.test(v)) return false;
   const n = Number(v);
@@ -35,6 +37,7 @@ export function apiVersionSupported(v: string, current: number = MODULE_API_VERS
 
 let validateFn: ValidateFunction | undefined; // compiled on first use: importing module-api stays cheap
 
+/** Validates and applies schema defaults to an untrusted `module.json` value. */
 export function validateManifest(v: unknown): { ok: true; manifest: ModuleManifest } | { ok: false; errors: string[] } {
   if (!validateFn) {
     const ajv = new ((Ajv2020 as any).default ?? Ajv2020)({ strict: true, allErrors: true, useDefaults: true, strictSchema: false });
