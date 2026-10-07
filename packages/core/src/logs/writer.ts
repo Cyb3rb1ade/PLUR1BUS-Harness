@@ -119,7 +119,7 @@ export function createWriter(o: WriterOptions) {
         const record = { at: new Date(now()).toISOString(), level, role: o.role, ...safe, msg: cap(redactor.text(msg), LIMITS.msgBytes) };
         let line = JSON.stringify(record);
         if (Buffer.byteLength(line) > LIMITS.lineBytes) line = JSON.stringify({ at: record.at, level, role: o.role, msg: record.msg, truncated: true, bytes: Buffer.byteLength(line) });
-        pending.push(`${line}\n`); if (pending.length >= 64) flush();
+        pending.push(`${line}\n`); flush(); // Legacy callers relied on synchronous file visibility.
       } catch { emit("log.redaction.failed", { attempted_event: "log.unregistered" }, {}, true); }
     },
     registerSecret(value: string) { secrets.add(value); redactor = createRedactor({ pii: o.redactPii ?? false, secrets }); },

@@ -27,5 +27,13 @@ it("an uncaught crash flushes buffered, redacted records without swallowing the 
     child.on("error", reject); child.on("close", resolve);
   });
   assert.equal(code, 1); const text = readFileSync(path.join(dir, "core.log"), "utf8");
-  assert.ok(text.includes("core.process.started") && text.includes("buffered crash fixture")); assert.ok(!text.includes("fixture-crash-canary"));
+  assert.ok(text.includes("core.process.started") && text.includes("core.process.stopping") && text.includes("buffered crash fixture")); assert.ok(!text.includes("fixture-crash-canary"));
+});
+it("legacy scan failure remains synchronously readable by existing diagnostics", async () => {
+  const dir = logsDir(); const log = createCoreLog({ dir, role: "core", source: { kind: "harness", id: "core", version: null }, timers: false });
+  try {
+    log.warn("model.scan.failed", { source: "provider:fixture", password: "fixture-legacy-canary" });
+    const text = readFileSync(path.join(dir, "core.log"), "utf8");
+    assert.ok(text.includes("model.scan.failed")); assert.ok(!text.includes("fixture-legacy-canary"));
+  } finally { await log.close(); }
 });

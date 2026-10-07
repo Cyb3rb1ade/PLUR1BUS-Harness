@@ -23,7 +23,7 @@ from the catalogue. Every new record is validated against both schema and event-
 before enqueueing. Unknown events throw with `strict: true`; otherwise they produce a redacted
 `log.unregistered` record. Audit/payload events and invalid attribution, attrs or levels are refused.
 
-The queue flushes every second or after 64 records. `flush()` drains it synchronously; `close()`
+New records flush every second or after 64 records; transitional legacy calls flush synchronously to preserve existing diagnostic readers. `flush()` drains it synchronously; `close()`
 also emits pending dedup/drop summaries. Each complete line is appended under a shared native
 role lock with `O_APPEND` and fsync. Handles close before rotation and deletion, including on Windows.
 Files are secured with the existing module API's private-path helper (0600 on POSIX; Windows ACL).
