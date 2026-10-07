@@ -45,9 +45,13 @@ def _lock_timeout_diagnostics(path: str, side: str, last_holder: str | None) -> 
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             parts = f.read().split()
+        pid = parts[0] if parts and parts[0].isascii() and parts[0].isdigit() else None
         token = {
-            "pid": parts[0] if parts and parts[0].isascii() and parts[0].isdigit() else None,
+            "pid": pid,
             "nonce": parts[3] if len(parts) >= 4 and valid_nonce(parts[3]) else None,
+            # who owns it and how old it is: the two facts that tell a live holder from an ownerless leftover
+            "owner": None if pid is None else ("this-process" if int(pid) == os.getpid() else "other"),
+            "age_s": max(0, int(time.time() - os.stat(path).st_mtime)),
         }
     except OSError as e:
         token = {"state": type(e).__name__}
@@ -459,8 +463,9 @@ class BindingTest(unittest.TestCase):
             with open(path + suffix, "w", encoding="utf-8") as f:
                 f.write("private content")
         snapshot = _lock_timeout_diagnostics(path, "provider", "installer")
+        self.assertIsInstance(snapshot["lock"].pop("age_s"), int)
         self.assertEqual(snapshot, {
-            "timeout_side": "provider", "lock": {"pid": "123", "nonce": nonce},
+            "timeout_side": "provider", "lock": {"pid": "123", "nonce": nonce, "owner": "other"},
             "moved": [f".hermes-bindings.lock.break-{nonce}", ".hermes-bindings.lock.rel-<redacted>",
                       f".hermes-bindings.lock.rel-{nonce}"],
             "last_holder": "installer",
@@ -468,7 +473,8 @@ class BindingTest(unittest.TestCase):
         with open(path, "w", encoding="utf-8") as f:
             f.write("private-pid private-host 123456 private-nonce\n")
         snapshot = _lock_timeout_diagnostics(path, "installer", "provider")
-        self.assertEqual(snapshot["lock"], {"pid": None, "nonce": None})
+        self.assertIsInstance(snapshot["lock"].pop("age_s"), int)
+        self.assertEqual(snapshot["lock"], {"pid": None, "nonce": None, "owner": None})
         self.assertNotIn("private", json.dumps(snapshot))
         self.assertNotIn(self.root, json.dumps(snapshot))
 
@@ -604,6 +610,10 @@ class BindingTest(unittest.TestCase):
             t.start()
         for t in threads:
             t.join(60)
+        alive = [t.name for t in threads if t.is_alive()]
+        if alive:  # a hang is reported with the lock's state too, not just as a wrong counter below
+            diagnostics.append(_lock_timeout_diagnostics(path, "hang:" + ",".join(alive), last_holder[0]))
+        self.assertEqual(alive, [], json.dumps(diagnostics, sort_keys=True))
         self.assertEqual(errors, [], json.dumps(diagnostics, sort_keys=True))
         with open(counter, encoding="utf-8") as f:
             self.assertEqual(f.read(), "30")
@@ -615,6 +625,28 @@ class BindingTest(unittest.TestCase):
         with open(path, encoding="utf-8") as f:
             self.assertIn("ab" * 16, f.read())
         self.assertEqual([n for n in os.listdir(os.path.dirname(path)) if ".rel-" in n], [])
+
+    def test_a_forward_clock_step_never_leaves_an_ownerless_lock(self) -> None:
+        """Issue #75, the one trigger the analysis left: both tokens carry a live pid, so a waiter judges the
+        installer's lock stale only when ``time.time()`` steps forward by more than ``STALE_S`` (an NTP or VM-resume
+        step on a CI runner). That is a *double entry* (the stale rule, by design), but it must never end in a
+        ``LockTimeout``: the break unlinks the judged file, the installer's release finds it gone, settles (nothing
+        moved aside holds its nonce) and returns, and no lock is left that nobody owns. Driven with a stepped clock,
+        not with sleeps."""
+        from unittest import mock
+
+        p1home = self._dir("p")
+        path = self._lock_path(p1home)
+        lock, nonce = _js_acquire(p1home)  # the installer holds it, fresh
+        real_time = time.time
+        with mock.patch.object(time, "time", lambda: real_time() + ExclusiveLockFile.STALE_S + 1):
+            with ExclusiveLockFile(path).hold(1):  # the waiter judges the live lock stale and breaks it
+                entered_while_the_installer_still_holds = True
+        self.assertTrue(entered_while_the_installer_still_holds)
+        _js_release(lock, nonce)  # the installer's release: ENOENT, settle finds nothing, nothing of ours is left
+        self.assertEqual(os.listdir(os.path.dirname(path)), [], "no lock, break or release file is left behind")
+        with ExclusiveLockFile(path).hold(0.3):  # and the next holder is not locked out
+            pass
 
     def test_stolen_lock_is_not_released_by_the_old_holder(self) -> None:
         p1home = self._dir("p")
