@@ -14,20 +14,27 @@ function nonNegInt(v: unknown, what: string): number | undefined {
   return v;
 }
 
-/** `usage` → normalised; strict on the numbers, tolerant of absent optional detail objects. */
-export function parseUsage(v: unknown): Usage {
+/**
+ * `usage` → normalised, or `undefined` when the object carries no count at all. Strict on the numbers (a present
+ * value that is not a non-negative integer is a protocol error), tolerant of absent counts and detail objects.
+ * RULING: OpenAI fields win; Ollama's native `prompt_eval_count` / `eval_count` are only a fallback for shims that
+ * forward them. `totalTokens` is the provider's own total, else input+output when BOTH are known, else absent.
+ */
+export function parseUsage(v: unknown): Usage | undefined {
   if (!isRecord(v)) throw protocol("usage is not an object");
-  const input = nonNegInt(v["prompt_tokens"], "usage.prompt_tokens");
-  const output = nonNegInt(v["completion_tokens"], "usage.completion_tokens");
-  if (input === undefined || output === undefined) throw protocol("usage lacks prompt_tokens or completion_tokens");
-  const total = nonNegInt(v["total_tokens"], "usage.total_tokens") ?? input + output;
-  const u: Usage = { inputTokens: input, outputTokens: output, totalTokens: total };
+  const input = nonNegInt(v["prompt_tokens"], "usage.prompt_tokens") ?? nonNegInt(v["prompt_eval_count"], "usage.prompt_eval_count");
+  const output = nonNegInt(v["completion_tokens"], "usage.completion_tokens") ?? nonNegInt(v["eval_count"], "usage.eval_count");
+  const total = nonNegInt(v["total_tokens"], "usage.total_tokens") ?? (input !== undefined && output !== undefined ? input + output : undefined);
   const pd = v["prompt_tokens_details"], cd = v["completion_tokens_details"];
   const cached = isRecord(pd) ? nonNegInt(pd["cached_tokens"], "usage.prompt_tokens_details.cached_tokens") : undefined;
   const reasoning = isRecord(cd) ? nonNegInt(cd["reasoning_tokens"], "usage.completion_tokens_details.reasoning_tokens") : undefined;
+  const u: Usage = {};
+  if (input !== undefined) u.inputTokens = input;
+  if (output !== undefined) u.outputTokens = output;
+  if (total !== undefined) u.totalTokens = total;
   if (cached !== undefined) u.cachedInputTokens = cached;
   if (reasoning !== undefined) u.reasoningTokens = reasoning;
-  return u;
+  return Object.keys(u).length === 0 ? undefined : u;
 }
 
 export function normaliseFinish(raw: string): FinishReason {
@@ -78,8 +85,9 @@ export class ChatAccumulator {
     if (!Array.isArray(choices) && !isRecord(usage)) throw protocol("chunk has neither choices nor usage");
     if (Array.isArray(choices)) for (const c of choices) this.#choice(c, events);
     if (usage !== undefined && usage !== null) {
-      this.#usage = parseUsage(usage);
-      events.push({ type: "usage", usage: this.#usage });
+      const u = parseUsage(usage);
+      // RULING: an empty usage object says nothing; it neither emits an event nor erases a usage already known.
+      if (u !== undefined) { this.#usage = u; events.push({ type: "usage", usage: u }); }
     }
     return events;
   }

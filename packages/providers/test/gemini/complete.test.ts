@@ -65,10 +65,10 @@ test("a response without a finishReason, with a non-JSON body or oversized is a 
   } finally { await stub.close(); }
 });
 
-test("usageMetadata mapping: thoughts count as output, tool-use prompt as input, absent counts are zero", () => {
+test("usageMetadata mapping: thoughts count as output, tool-use prompt as input, absent counts stay absent", () => {
   assert.deepEqual(parseGeminiUsage({ promptTokenCount: 100, toolUsePromptTokenCount: 20, candidatesTokenCount: 30, thoughtsTokenCount: 50, cachedContentTokenCount: 64, totalTokenCount: 200 }),
     { inputTokens: 120, outputTokens: 80, totalTokens: 200, cachedInputTokens: 64, reasoningTokens: 50 });
-  assert.deepEqual(parseGeminiUsage({ promptTokenCount: 4 }), { inputTokens: 4, outputTokens: 0, totalTokens: 4 });
+  assert.deepEqual(parseGeminiUsage({ promptTokenCount: 4 }), { inputTokens: 4 });
   assert.deepEqual(parseGeminiUsage({ promptTokenCount: 4, candidatesTokenCount: 1 }), { inputTokens: 4, outputTokens: 1, totalTokens: 5 });
   for (const bad of [{ promptTokenCount: -1 }, { promptTokenCount: 1.5 }, { promptTokenCount: "7" }, [], null]) {
     assert.throws(() => parseGeminiUsage(bad), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");

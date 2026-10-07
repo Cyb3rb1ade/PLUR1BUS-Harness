@@ -29,6 +29,9 @@ export class GeminiSafetyBlockError extends ProviderError {
   }
 }
 
+// RULING: exactly the candidate finishReasons that mean "a safety/policy/copyright verdict" (full table: gemini/response.ts).
+// LANGUAGE, OTHER, IMAGE_OTHER and NO_IMAGE are deliberately absent: no verdict, so they are results ("other"), not blocks.
+// Prompt-side blocks are not listed here: any blockReason except BLOCK_REASON_UNSPECIFIED is one (fail closed).
 const CANDIDATE_BLOCKS: ReadonlySet<string> = new Set([
   "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT", "IMAGE_RECITATION",
 ]);

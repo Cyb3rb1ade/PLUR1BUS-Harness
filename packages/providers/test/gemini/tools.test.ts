@@ -80,3 +80,52 @@ test("a malformed functionCall, oversized arguments and MALFORMED_FUNCTION_CALL 
   await assert.rejects(send(candidate([{ functionCall: { name: "f", args: { big: "x".repeat(200) } } }], "STOP"), { limits: { maxToolArgumentBytes: 100 } }), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
   await assert.rejects(send(candidate([], "MALFORMED_FUNCTION_CALL")), (e: unknown) => e instanceof ProviderError && e.kind === "unknown" && e.retryable);
 });
+
+test("a refused tool schema fails before any HTTP request (complete and stream)", T, async () => {
+  const stub = await startStub((_q, res) => json(res, candidate([{ text: "never" }], "STOP")));
+  try {
+    const { adapter } = adapterFor(stub);
+    const bad: NonNullable<ChatRequest["tools"]> = [
+      { name: "get_weather", parameters: { type: "object" } },
+      { name: "search", parameters: { type: "object", properties: { q: { type: "object", patternProperties: { "^x": { type: "string" } } } } } },
+    ];
+    const isRefusal = (e: unknown) => e instanceof ProviderError && e.kind === "invalid_request" && e.message === "tools[1] \"search\": parameters.properties.q.patternProperties is not supported by Gemini";
+    await assert.rejects(adapter.complete({ ...basic, tools: bad }), isRefusal);
+    await assert.rejects(collect(adapter.stream({ ...basic, tools: bad })), isRefusal);
+    for (const parameters of [
+      { $defs: { n: { type: "object", properties: { c: { $ref: "#/$defs/n" } } } }, $ref: "#/$defs/n" },
+      { type: "object", properties: { a: { $ref: "https://example.invalid/s.json" } } },
+      { if: { type: "string" }, then: { type: "string" } },
+      { type: "object", futureKeyword: 1 },
+    ]) {
+      await assert.rejects(adapter.complete({ ...basic, tools: [{ name: "t", parameters }] }), (e: unknown) => e instanceof ProviderError && e.kind === "invalid_request" && e.message.startsWith("tools[0] \"t\": parameters"));
+    }
+    assert.equal(stub.requests.length, 0);
+  } finally { await stub.close(); }
+});
+
+test("a reducible tool schema reaches the wire converted; the caller's schema object is untouched", T, async () => {
+  const stub = await startStub((_q, res) => json(res, candidate([{ text: "ok" }], "STOP")));
+  try {
+    const parameters = {
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      $defs: { city: { type: "string" } },
+      type: "object",
+      properties: { city: { $ref: "#/$defs/city", description: "where" }, unit: { const: "C" }, n: { oneOf: [{ type: "integer" }, { type: "null" }] } },
+      required: ["city"],
+    };
+    const before = structuredClone(parameters);
+    await adapterFor(stub).adapter.complete({ ...basic, tools: [{ name: "get_weather", parameters }, { name: "ping" }] });
+    assert.equal(stub.requests.length, 1);
+    const sent = JSON.parse(stub.requests[0]!.body);
+    assert.deepEqual(sent.tools, [{ functionDeclarations: [
+      { name: "get_weather", parametersJsonSchema: {
+        type: "object",
+        properties: { city: { type: "string", description: "where" }, unit: { enum: ["C"] }, n: { anyOf: [{ type: "integer" }, { type: "null" }] } },
+        required: ["city"],
+      } },
+      { name: "ping" },
+    ] }]);
+    assert.deepEqual(parameters, before);
+  } finally { await stub.close(); }
+});

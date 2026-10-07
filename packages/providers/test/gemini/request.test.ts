@@ -97,3 +97,102 @@ test("same request, same bytes", () => {
   const r = one([{ role: "system", content: "s" }, { role: "user", content: "u" }], { tools: [{ name: "t", parameters: { type: "object" } }], temperature: 1 });
   assert.equal(JSON.stringify(buildGeminiBody(r)), JSON.stringify(buildGeminiBody(structuredClone(r))));
 });
+
+test("system prompt: several system/developer messages keep their order, one part each", () => {
+  const b = buildGeminiBody(one([
+    { role: "system", content: "S1" }, { role: "developer", content: "D1" }, { role: "system", content: "S2\nline two" }, { role: "user", content: "u" },
+  ]));
+  assert.deepEqual(b["systemInstruction"], { parts: [{ text: "S1" }, { text: "D1" }, { text: "S2\nline two" }] });
+  assert.deepEqual(b["contents"], [{ role: "user", parts: [{ text: "u" }] }]);
+});
+
+test("system prompt: a system message in the middle of the conversation is hoisted, order kept, contents untouched", () => {
+  const b = buildGeminiBody(one([
+    { role: "system", content: "first" },
+    { role: "user", content: "u1" },
+    { role: "assistant", content: "a1" },
+    { role: "system", content: "middle" },
+    { role: "user", content: "u2" },
+    { role: "developer", content: "last" },
+  ]));
+  assert.deepEqual(b["systemInstruction"], { parts: [{ text: "first" }, { text: "middle" }, { text: "last" }] });
+  assert.deepEqual(b["contents"], [
+    { role: "user", parts: [{ text: "u1" }] }, { role: "model", parts: [{ text: "a1" }] }, { role: "user", parts: [{ text: "u2" }] },
+  ]);
+});
+
+test("RULING system prompt: empty and whitespace-only messages are dropped (Gemini rejects empty text parts); other text is untouched", () => {
+  const b = buildGeminiBody(one([
+    { role: "system", content: "" }, { role: "developer", content: " \n\t " }, { role: "system", content: "  keep \n" }, { role: "user", content: "u" },
+  ]));
+  assert.deepEqual(b["systemInstruction"], { parts: [{ text: "  keep \n" }] });
+  // nothing left: no systemInstruction key at all, never an empty parts list
+  const none = buildGeminiBody(one([{ role: "system", content: "" }, { role: "developer", content: "   " }, { role: "user", content: "u" }]));
+  assert.equal("systemInstruction" in none, false);
+  assert.deepEqual(Object.keys(none), ["contents"]);
+  // the user's own empty text is not the adapter's business and is not touched
+  assert.deepEqual(buildGeminiBody(one([{ role: "user", content: "" }]))["contents"], [{ role: "user", parts: [{ text: "" }] }]);
+});
+
+test("system prompt: only system/developer messages (even empty ones) are refused", () => {
+  refuses(one([{ role: "system", content: "S" }, { role: "developer", content: "D" }]), /non-system/);
+  refuses(one([{ role: "system", content: "  " }]), /non-system/);
+});
+
+test("system prompt: the developer role is treated exactly like system", () => {
+  const dev = buildGeminiBody(one([{ role: "developer", content: "rules" }, { role: "user", content: "u" }]));
+  const sys = buildGeminiBody(one([{ role: "system", content: "rules" }, { role: "user", content: "u" }]));
+  assert.equal(JSON.stringify(dev), JSON.stringify(sys));
+});
+
+test("system prompt: unusual unicode round-trips untouched", () => {
+  const text = "  Ünï cödé ​‮ rtl 🚀 \u{1F468}‍\u{1F469}‍\u{1F467} \u0000 é ﻿ end\r\n  ";
+  const b = buildGeminiBody(one([{ role: "system", content: text }, { role: "user", content: "u" }]));
+  const parts = (b["systemInstruction"] as { parts: { text: string }[] }).parts;
+  assert.equal(parts[0]!.text, text);
+  assert.equal((JSON.parse(JSON.stringify(b)) as { systemInstruction: { parts: { text: string }[] } }).systemInstruction.parts[0]!.text, text);
+  // a lone surrogate is passed on as given (JSON.stringify later escapes it); the adapter does not "repair" text
+  assert.equal(((buildGeminiBody(one([{ role: "system", content: "a\ud800b" }, { role: "user", content: "u" }]))["systemInstruction"]) as { parts: { text: string }[] }).parts[0]!.text, "a\ud800b");
+});
+
+test("tools + systemInstruction + toolConfig + generationConfig: the documented fixed key order", () => {
+  const b = buildGeminiBody(one([{ role: "system", content: "s" }, { role: "user", content: "u" }], {
+    maxTokens: 5, toolChoice: "auto", tools: [{ name: "t", description: "d", parameters: { type: "object", properties: { x: { type: "string" } } } }],
+  }));
+  assert.deepEqual(Object.keys(b), ["systemInstruction", "contents", "tools", "toolConfig", "generationConfig"]);
+  assert.deepEqual(Object.keys(((b["tools"] as { functionDeclarations: object[] }[])[0]!.functionDeclarations[0])!), ["name", "description", "parametersJsonSchema"]);
+});
+
+test("tool schemas: reduced where safe, caller key order kept, tool without parameters stays without parametersJsonSchema", () => {
+  const parameters = {
+    $schema: "http://json-schema.org/draft-07/schema#",
+    $defs: { city: { type: "string", description: "A city", default: "Bern" } },
+    type: "object",
+    properties: { from: { $ref: "#/$defs/city" }, mode: { const: "fast" }, pick: { oneOf: [{ type: "string" }, { type: "integer" }] } },
+    required: ["from"],
+    additionalProperties: false,
+  };
+  const before = structuredClone(parameters);
+  const b = buildGeminiBody(one([{ role: "user", content: "x" }], { tools: [{ name: "a", parameters }, { name: "b" }] }));
+  assert.equal(JSON.stringify(b["tools"]), JSON.stringify([{ functionDeclarations: [
+    { name: "a", parametersJsonSchema: {
+      type: "object",
+      properties: { from: { type: "string", description: "A city" }, mode: { enum: ["fast"] }, pick: { anyOf: [{ type: "string" }, { type: "integer" }] } },
+      required: ["from"],
+      additionalProperties: false,
+    } },
+    { name: "b" },
+  ] }]));
+  assert.deepEqual(parameters, before);
+});
+
+test("tool schemas: an unsupported schema is refused naming the tool index, name and path", () => {
+  const base = [{ role: "user" as const, content: "x" }];
+  const ok = { name: "fine", parameters: { type: "object" } };
+  refuses(one(base, { tools: [ok, { name: "search", parameters: { type: "object", properties: { q: { patternProperties: {} } } } }] }),
+    /^tools\[1\] "search": parameters\.properties\.q\.patternProperties is not supported by Gemini$/);
+  refuses(one(base, { tools: [{ name: "search", parameters: { type: "object", properties: { q: { $ref: "https://example.invalid/x.json" } } } }] }),
+    /^tools\[0\] "search": parameters\.properties\.q\.\$ref "https:\/\/example\.invalid\/x\.json" is not supported by Gemini/);
+  // refusal is by ProviderError of kind invalid_request, unprefixed
+  assert.throws(() => buildGeminiBody(one(base, { tools: [{ name: "t", parameters: { not: {} } }] })), (e: unknown) => e instanceof ProviderError && e.kind === "invalid_request" && e.message === "tools[0] \"t\": parameters.not is not supported by Gemini");
+});

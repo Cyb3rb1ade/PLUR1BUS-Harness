@@ -1,5 +1,6 @@
 import { isRecord, ProviderError } from "../errors.ts";
 import { validateRequest } from "../request.ts";
+import { convertToolSchema } from "./schema.ts";
 import type { AssistantToolCall, ChatMessage, ChatRequest, ContentPart, ToolChoice } from "../types.ts";
 
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -80,7 +81,8 @@ function toolConfig(c: ToolChoice): Record<string, unknown> {
  * URL path, the key a header.
  *
  * RULING: system and developer messages are hoisted, in order, into one `systemInstruction` (Gemini has no system
- * role inside `contents`); a request with nothing but system messages is refused.
+ * role inside `contents`), one part per message; empty and whitespace-only ones are dropped (no `systemInstruction`
+ * key when none is left); a request with nothing but system messages is refused.
  * RULING: `parallelToolCalls: false` is refused (Gemini has no switch to forbid parallel calls; ignoring it would
  * silently break the caller's contract). `true` and absent are the same.
  * RULING: a tool message must answer a call from an earlier assistant message of the same request (Gemini's
@@ -101,7 +103,10 @@ export function buildGeminiBody(req: ChatRequest): Record<string, unknown> {
     switch (m.role) {
       case "system":
       case "developer":
-        system.push(m.content);
+        // RULING: Gemini rejects an empty text part, and a whitespace-only instruction carries no instruction, so
+        // both are dropped (the message adds nothing; dropping it cannot change the model's behaviour). Any other
+        // text, leading/trailing whitespace and unusual unicode included, is sent byte for byte.
+        if (m.content.trim() !== "") system.push(m.content);
         return;
       case "user":
         flush();
@@ -140,12 +145,14 @@ export function buildGeminiBody(req: ChatRequest): Record<string, unknown> {
   body["contents"] = contents;
   if (req.tools && req.tools.length > 0) {
     // RULING: `parametersJsonSchema` (full JSON Schema) rather than `parameters` (OpenAPI subset): the registry's
-    // schemas are JSON Schema and are sent as given, in the caller's key order.
+    // schemas are JSON Schema. They are reduced by `convertToolSchema` (caller's key order kept; unsupported
+    // features refused here, before any I/O, instead of surfacing as an opaque HTTP 400). A tool without
+    // `parameters` stays without `parametersJsonSchema`.
     body["tools"] = [{
-      functionDeclarations: req.tools.map((t) => {
+      functionDeclarations: req.tools.map((t, i) => {
         const d: Record<string, unknown> = { name: t.name };
         if (t.description !== undefined) d["description"] = t.description;
-        if (t.parameters !== undefined) d["parametersJsonSchema"] = t.parameters;
+        if (t.parameters !== undefined) d["parametersJsonSchema"] = convertToolSchema(t.parameters, `tools[${i}] "${t.name}"`);
         return d;
       }),
     }];
