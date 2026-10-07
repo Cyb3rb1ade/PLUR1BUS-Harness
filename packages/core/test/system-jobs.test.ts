@@ -6,6 +6,8 @@ import { createPlatformCapabilities } from "../src/platform.ts";
 import { createSystemJobs, type SystemJobHandler } from "../src/system-jobs/index.ts";
 import { SystemJobsLedger } from "../src/system-jobs/ledger.ts";
 import { createModelsScanJob } from "../src/discovery/job.ts";
+import { createScanScheduler } from "../src/discovery/scheduler.ts";
+import { nextRegularAt } from "../src/discovery/schedule.ts";
 import { buildMethods } from "../src/rpc/methods.ts";
 import { RpcError } from "../src/rpc/errors.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
@@ -166,6 +168,36 @@ describe("system jobs and jobs.* merge", () => {
     };
   }
 
+  function createScheduleFixture(clock: FakeClock, initialState: Record<string, unknown> = {}) {
+    let providerState = { ...initialState };
+    const calls: { provider: string; trigger: string; at: number }[] = [];
+    const store = {
+      read: () => ({ providers: { "example-compat": providerState } }),
+      mutate: async (mutate: (catalog: any) => { next: any; result: unknown }) => {
+        const result = mutate(store.read());
+        providerState = result.next.providers["example-compat"];
+        return result.result;
+      },
+    };
+    const scheduler = createScanScheduler({
+      service: { scannable: () => [{ id: "example-compat" }] } as any,
+      store: store as any,
+      systemRun: async (provider, trigger) => {
+        calls.push({ provider, trigger, at: clock.now() });
+        providerState = {
+          lastScanAt: new Date(clock.now()).toISOString(),
+          nextScanAt: new Date(nextRegularAt(clock.now(), 24, () => 0.25)).toISOString(),
+        };
+      },
+      clock,
+      rng: () => 0.25,
+      settings: () => ({ enabled: true, intervalHours: 24 }),
+      logger: { debug: () => {} },
+    });
+
+    return { calls, scheduler, state: () => ({ ...providerState }) };
+  }
+
   it("jobs.list default output is byte-identical to the engine's", async () => {
     const { call, engine, systemJobs } = setup();
     const svc = createMockDiscoveryService();
@@ -218,6 +250,59 @@ describe("system jobs and jobs.* merge", () => {
     intervalHours = 6;
     res = (await call("jobs.list", { kind: "system" })) as any;
     assert.equal(res.jobs[0].schedule.every, 21_600_000);
+  });
+
+  it("regular schedule jitter stays within its declared window for deterministic clock samples", () => {
+    const clock = new FakeClock(Date.parse("2026-03-07T17:00:00.000Z"));
+    const intervalMs = 24 * 3_600_000;
+    const draws = [0, 0.001, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999];
+
+    for (let i = 0; i < 1_000; i += 1) {
+      const elapsed = nextRegularAt(clock.now(), 24, () => draws[i % draws.length]!) - clock.now();
+      assert.ok(elapsed >= intervalMs * 0.9, `elapsed (${elapsed}) >= lower bound`);
+      assert.ok(elapsed <= intervalMs * 1.1, `elapsed (${elapsed}) <= upper bound`);
+    }
+  });
+
+  it("a catch-up after more than 24 hours runs once and a restart within the window does not repeat it", async () => {
+    const clock = new FakeClock(1_758_700_000_000);
+    const lastScanAt = new Date(clock.now() - 25 * 3_600_000).toISOString();
+    const nextScanAt = new Date(clock.now() - 3_600_000).toISOString();
+    const state = { lastScanAt, nextScanAt };
+    const first = createScheduleFixture(clock, state);
+
+    first.scheduler.start();
+    await clock.advance(15_000);
+    assert.equal(first.calls.length, 1);
+    assert.equal(first.calls[0]!.trigger, "harness");
+
+    first.scheduler.stop();
+    const restarted = createScheduleFixture(clock, first.state());
+    restarted.scheduler.start();
+    await clock.advance(60_000);
+
+    assert.equal(restarted.calls.length, 0);
+    restarted.scheduler.stop();
+  });
+
+  it("daily intervals remain elapsed-time based across daylight-saving transitions", () => {
+    const intervalMs = 24 * 3_600_000;
+    const springBefore = Date.parse("2026-03-07T12:00:00-05:00");
+    const fallBefore = Date.parse("2026-10-31T12:00:00-04:00");
+    const next = (at: number) => nextRegularAt(at, 24, () => 0.5);
+    const localHour = (at: number) =>
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        hourCycle: "h23",
+      }).format(new Date(at));
+
+    assert.equal(next(springBefore) - springBefore, intervalMs);
+    assert.equal(localHour(springBefore), "12");
+    assert.equal(localHour(next(springBefore)), "13");
+    assert.equal(next(fallBefore) - fallBefore, intervalMs);
+    assert.equal(localHour(fallBefore), "12");
+    assert.equal(localHour(next(fallBefore)), "11");
   });
 
   it("jobs.history without agentId is the system runs, with agentId only that agent's", async () => {
