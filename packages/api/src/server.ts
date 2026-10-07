@@ -125,6 +125,11 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   let allowedHosts = new Set<string>(); let allowedOrigins = new Set<string>();
 
+  /** The Referer's origin must be one the API issued; an unparseable, scheme-relative or opaque (`null`) value is not. */
+  const refererAllowed = (value: string): boolean => {
+    try { const u = new URL(value); return (u.protocol === "http:" || u.protocol === "https:") && allowedOrigins.has(u.origin.toLowerCase()); } catch { return false; }
+  };
+
   const send = (res: ServerResponse, status: number, body: object, extra: Record<string, string> = {}): void => {
     const payload = Buffer.from(JSON.stringify(body), "utf8");
     if (res.headersSent) { res.end(); return; }
@@ -174,6 +179,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       // owner's login and read buckets (review F1).
       const origin = req.headers.origin;
       if (origin !== undefined && !allowedOrigins.has(origin.toLowerCase())) throw errors.forbidden("origin");
+      // A write that names a Referer must name the API's own origin (even when Origin is fine: a browser never sends that
+      // pair). Reads may carry any Referer, it is a normal link from elsewhere. A missing one is a non-browser client.
+      const referer = req.headers.referer;
+      if (referer !== undefined && req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS" && !refererAllowed(referer)) throw errors.forbidden("referer");
       const site = req.headers["sec-fetch-site"];
       if (site !== undefined && site !== "same-origin" && site !== "none") throw errors.forbidden("cross-site");
       const methods = byPath.get(path); const route = methods?.get(req.method ?? "");
