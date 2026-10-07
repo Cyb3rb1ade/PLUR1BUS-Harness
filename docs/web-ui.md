@@ -126,9 +126,9 @@ Two different questions decide a row:
 | Sessions: transcript via break-glass | `breakglass.request` | **no** | Same dialog, `unavailable` (F41) |
 | **Log viewer** query, filters, export | `logs.query` (`stream`, `minLevel`, `component`, `text`, `from`, `to`, `order`, `limit`, `cursor`) | yes | Built. `trace_id` has no parameter: it is matched with `text`; export is the loaded, filtered rows (F43) |
 | Log viewer live tail | `logs.tail` (long poll with `waitMs`) | yes | Built over `/rpc`; there is no log event on SSE (F2) |
-| **Activity feed** | `jobs.history`, `dreams.log`, `models.list`, `logs.query` with `stream: "audit"`, `audit.verify` | yes | Built |
+| **Activity feed** | `logs.query` (streams `audit` and `diagnostic`), `audit.verify` | yes | Built from the log streams only; `jobs.history`, `dreams.log` and `models.list` are not used (F43) |
 | Devices / pairing card | `config.get` key `remote.publish` | **no** (key is not in the config schema on main) | Card hidden at `local` and when the key is unknown; paired devices, QR or deep link, fingerprint and remove have no API (F44) |
-| **Command palette** entities | `GET /api/v1/agents`, `agent.list`, `session.list`, `logs.query`, static navigation, settings and actions | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
+| **Command palette** entities | `config.get` (`agents`), `session.list`, static navigation, settings, actions and a log-search link | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
 | Grants and approvals (D109, PR #190) | not built | n/a | The existing `approvals` navigation entry stays a placeholder |
 
 Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`;
