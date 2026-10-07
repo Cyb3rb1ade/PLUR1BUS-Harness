@@ -680,7 +680,7 @@ Checked against `origin/main` at `ba22bdd8` on 2026-10-07, before implementation
 | C8: WSL infrastructure job and three OS unit jobs | Yes | Existing `.github/workflows/ci.yml`: `unit` on Linux/macOS/Windows, `wsl` on Windows. No workflow edits; injected WSL unit tests run everywhere |
 | HM3: BOM/CRLF and robust formats | BOM/CRLF yes; UTF-16 and typed malformed optional-file errors missing | `json5.ts`, `yaml-lite.ts`; `parsers.test.ts`. Added strict BOM-aware decoding, JSON reason codes and per-profile YAML/encoding skips |
 | M7: stable IDs, dry-run, repeat apply | Yes, PRs #92/#93/#100/#115; snapshot round-trip proof missing | `ledger.ts`, `importers/`; `openclaw-import.test.ts`, `hermes-batch3.test.ts`, `pipeline-batch4.test.ts`. Added snapshot plan/apply/repeat tests for both importers |
-| M7: secret-free reports and credential deny-list | Yes for imports/reports, PRs #98/#104/#117; snapshot omission incomplete | `readonly.ts`, `sources/`, `render.ts`; leak tests. Added `auth-profiles.json` exclusion and credential omission from completed snapshots |
+| M7: secret-free reports and credential deny-list | Yes for imports/reports, PRs #98/#104/#117; snapshot omission incomplete | `readonly.ts`, `sources/`, `render.ts`; leak tests. Added snapshot-specific `auth-profiles.json` exclusion and credential omission from completed snapshots |
 | HM3 fixtures for both sources and OS layouts | Yes, PRs #40/#91; UTF-16, invalid-byte names and standalone-WAL cases missing | `test/import/{layouts,fixtures}.ts`; extended generated synthetic cases in `cross-platform-gaps.test.ts`. No real source data |
 | D91 / D2: host-to-container transport | No; host bridge follow-up | Requires CLI/RPC/host bridge work outside the allowed paths; not implemented here |
 

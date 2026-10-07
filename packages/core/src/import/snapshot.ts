@@ -1252,7 +1252,9 @@ function generateSnapshotMetadata(o: {
         scan(full, credentials || e.name.toLowerCase() === "credentials");
       } else if (e.isFile()) {
         const rel = relative(o.stagingDir, full).replace(/\\/g, "/");
-        if (credentials || isSecretFileName(e.name)) {
+        // Snapshot source credentials include legacy host auth profiles; keep this policy
+        // separate from the shared TS/Rust skill packaging exclusions.
+        if (credentials || e.name.toLowerCase() === "auth-profiles.json" || isSecretFileName(e.name)) {
           if (e.name === ".env" || e.name.startsWith(".env.")) envKeys[rel] = envKeyNames(full);
           omittedCredentials.push(rel);
           rmSync(full, { force: true });

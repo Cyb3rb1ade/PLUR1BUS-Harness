@@ -49,7 +49,7 @@ export function envKeyNames(path: string): string[] {
   return keys;
 }
 
-const SECRET_NAMES = new Set([".env", "auth.json", "auth-profiles.json", "credentials.json", ".netrc", ".npmrc", ".pypirc"]);
+const SECRET_NAMES = new Set([".env", "auth.json", "credentials.json", ".netrc", ".npmrc", ".pypirc"]);
 /** File names a skill copy never carries and a report never reads (credentials by convention). */
 export function isSecretFileName(name: string): boolean {
   const n = name.toLowerCase();
