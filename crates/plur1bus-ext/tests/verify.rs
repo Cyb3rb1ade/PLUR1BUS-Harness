@@ -12,7 +12,8 @@ use plur1bus_ext::testkit::{
 };
 use plur1bus_ext::trust::{trusted_comment, Tier, TrustStore, PINNED_KEYS};
 use plur1bus_ext::verify::{
-    first_line, inspect_file, inspect_reader, Inspection, Policy, ScriptInfo, Status,
+    first_line, inspect_file, inspect_reader, inspect_reader_kinds, Inspection, Policy, ScriptInfo, Status,
+    X2_KINDS,
 };
 use plur1bus_ext::zipaudit::Limits;
 use serde_json::{json, Value};
@@ -492,6 +493,64 @@ fn mcp_server_and_bundle_kinds_are_kind_unsupported_naming_x2() {
         );
         assert_eq!(e.detail, format!("{kind} packages arrive in X2"));
     }
+}
+
+fn x2_mcp() -> Value {
+    let mut t = template("crm", "mcp-server");
+    t["remote"] = json!({ "url": "https://mcp.example.org/v1", "auth": "none" });
+    t["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["mcp.example.org"] });
+    t
+}
+
+fn x2_provider() -> Value {
+    let mut t = template("acme", "provider");
+    t["provider"] = json!({ "api": "chat_completions", "baseUrl": "https://api.acme.example/v1" });
+    t["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["api.acme.example"] });
+    t
+}
+
+#[test]
+fn x2_kinds_inspect_when_the_caller_accepts_them_and_stay_refused_for_x1_callers() {
+    let key = test_key("test");
+    let store = store_for(&[&key]);
+    let host = host();
+    let p = Policy {
+        limits: Limits::default(),
+        skill_bytes: MAX_SKILL_BYTES,
+        store: &store,
+        host: &host,
+        reserved: &["core"],
+        revoked: &no_revocations,
+    };
+    for t in [x2_mcp(), x2_provider()] {
+        let pkg = build_package_from(&t, vec![f("README.md", b"x", false)], Some(&key));
+        let e = refusal(&pkg, &store);
+        assert_eq!((e.code, e.reason), ("E_NOT_AVAILABLE", reason::KIND_UNSUPPORTED));
+        let i = inspect_reader_kinds(&mut Cursor::new(&pkg), &p, &X2_KINDS).unwrap();
+        assert_eq!(status_of(&i, "manifest"), Status::Pass);
+        assert_eq!(i.manifest.name, t["name"].as_str().unwrap());
+    }
+}
+
+#[test]
+fn x2_kinds_run_their_own_rules_before_the_file_checks() {
+    let key = test_key("test");
+    let store = store_for(&[&key]);
+    let host = host();
+    let p = Policy {
+        limits: Limits::default(),
+        skill_bytes: MAX_SKILL_BYTES,
+        store: &store,
+        host: &host,
+        reserved: &["core"],
+        revoked: &no_revocations,
+    };
+    let mut t = x2_provider();
+    t["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["elsewhere.example"] });
+    let pkg = build_package_from(&t, vec![], Some(&key));
+    let e = inspect_reader_kinds(&mut Cursor::new(&pkg), &p, &X2_KINDS).unwrap_err();
+    assert_eq!(e.reason, reason::PACKAGE_INVALID);
+    assert!(e.detail.contains("api.acme.example"), "{}", e.detail);
 }
 
 #[test]

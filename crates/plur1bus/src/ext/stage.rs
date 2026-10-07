@@ -261,7 +261,7 @@ fn check_kind(payload: &Path, m: &P1xManifest) -> Result<(), ExtError> {
                 ));
             }
         }
-        Kind::McpServer | Kind::Bundle => {
+        Kind::McpServer | Kind::Provider | Kind::Bundle => {
             return Err(ExtError::new(
                 "E_NOT_AVAILABLE",
                 reason::KIND_UNSUPPORTED,

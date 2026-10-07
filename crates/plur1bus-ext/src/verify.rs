@@ -13,6 +13,7 @@
 //! | `scripts` | 6. the derived script set equals `scripts` (signed: refusal; unsigned: a warning) |
 //! | `revocation` | 7. the id and version are not revoked |
 use crate::compat::{check_compat, HostFacts};
+use crate::kinds::check_kind;
 use crate::manifest::{parse_manifest, Kind, P1xManifest};
 use crate::refusal::{reason, Refusal};
 use crate::scripts::is_script;
@@ -128,6 +129,7 @@ fn kind_name(k: Kind) -> &'static str {
         Kind::Module => "module",
         Kind::Channel => "channel",
         Kind::McpServer => "mcp-server",
+        Kind::Provider => "provider",
         Kind::Bundle => "bundle",
     }
 }
@@ -164,6 +166,29 @@ fn invisible(c: char) -> bool {
 
 /// Runs §8.4 steps 1–7 on the package in `r` (from its start, whatever the handle's position).
 pub fn inspect_reader<R: Read + Seek>(r: &mut R, p: &Policy) -> Result<Inspection, Refusal> {
+    inspect_reader_kinds(r, p, &X1_KINDS)
+}
+
+/// The kinds `ext.install` handles since X1: everything a host-supervised lifecycle exists for.
+pub const X1_KINDS: [Kind; 3] = [Kind::Skill, Kind::Module, Kind::Channel];
+
+/// X1's kinds plus the two inert kinds the package store (`plur1bus::ext::packages`) installs (X2 / D1). `bundle`
+/// stays refused until its own task.
+pub const X2_KINDS: [Kind; 5] = [
+    Kind::Skill,
+    Kind::Module,
+    Kind::Channel,
+    Kind::McpServer,
+    Kind::Provider,
+];
+
+/// [`inspect_reader`] for a chosen set of accepted kinds: any other kind is `E_NOT_AVAILABLE reason=kind-unsupported`
+/// after the manifest and compatibility steps, and before the kind's own rules ([`check_kind`]) are applied.
+pub fn inspect_reader_kinds<R: Read + Seek>(
+    r: &mut R,
+    p: &Policy,
+    kinds: &[Kind],
+) -> Result<Inspection, Refusal> {
     let mut checks = Vec::with_capacity(8);
 
     // 1. Size.
@@ -227,13 +252,14 @@ pub fn inspect_reader<R: Read + Seek>(r: &mut R, p: &Policy) -> Result<Inspectio
     checks.push(row("compat", Status::Pass, "compatible with this harness"));
 
     // 6. Kind, a skill's names and size, then the entry set against `files`.
-    if matches!(m.kind, Kind::McpServer | Kind::Bundle) {
+    if !kinds.contains(&m.kind) {
         return Err(Refusal {
             code: "E_NOT_AVAILABLE",
             reason: reason::KIND_UNSUPPORTED,
             detail: format!("{} packages arrive in X2", kind_name(m.kind)),
         });
     }
+    check_kind(&m)?;
     let payload_bytes: u64 = payload.iter().map(|e| e.uncompressed).sum();
     if m.kind == Kind::Skill {
         let names = m
@@ -352,6 +378,11 @@ pub fn inspect_reader<R: Read + Seek>(r: &mut R, p: &Policy) -> Result<Inspectio
 
 /// [`inspect_reader`] on a file. The size is checked on its metadata before the file is opened.
 pub fn inspect_file(path: &Path, p: &Policy) -> Result<Inspection, Refusal> {
+    inspect_file_kinds(path, p, &X1_KINDS)
+}
+
+/// [`inspect_file`] for a chosen set of accepted kinds (see [`inspect_reader_kinds`]).
+pub fn inspect_file_kinds(path: &Path, p: &Policy, kinds: &[Kind]) -> Result<Inspection, Refusal> {
     let meta = std::fs::metadata(path).map_err(|e| Refusal::io(&e))?;
     if !meta.is_file() {
         return Err(package_invalid(format!(
@@ -363,5 +394,5 @@ pub fn inspect_file(path: &Path, p: &Policy) -> Result<Inspection, Refusal> {
         return Err(size_refusal(meta.len(), p.limits.package_bytes));
     }
     let file = std::fs::File::open(path).map_err(|e| Refusal::io(&e))?;
-    inspect_reader(&mut std::io::BufReader::new(file), p)
+    inspect_reader_kinds(&mut std::io::BufReader::new(file), p, kinds)
 }
