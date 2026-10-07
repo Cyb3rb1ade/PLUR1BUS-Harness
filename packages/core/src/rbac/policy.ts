@@ -52,6 +52,8 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("sessions.read", "system", READERS),
   spec("logs.read", "system", READERS),
   spec("audit.read", "system", OA),
+  // D4 logs.query / logs.tail: the protected log files (diagnostic and audit stream) are Owner/Admin only, narrower than `logs.read` (RULING).
+  spec("logs.query", "system", OA),
 
   ...["models", "providers", "channels", "plugins", "mcp"].flatMap(catalogue),
 

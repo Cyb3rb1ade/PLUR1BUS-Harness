@@ -78,6 +78,7 @@ export const ENTRIES: readonly Entry[] = [
   { action: "sessions.read", page: "Dreaming, Cron, Sessions/Logs", verb: "read" },
   { action: "logs.read", page: "Dreaming, Cron, Sessions/Logs", verb: "read" },
   { action: "audit.read", page: "Users & roles", verb: "read" }, // R7: audit trail with the users page, not the operator's logs
+  { action: "logs.query", page: "Users & roles", verb: "read", cells: ownerAdmin }, // D4: logs.query/logs.tail, Owner/Admin only (narrower than logs.read)
 
   ...["models", "providers", "channels", "plugins", "mcp"].flatMap(catalogue),
 

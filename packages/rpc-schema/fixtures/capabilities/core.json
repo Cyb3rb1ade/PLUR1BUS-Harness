@@ -144,6 +144,14 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "logs.query": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "logs.tail": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "audit.verify": {
       "stability": "experimental",
       "since": "1.5.0"

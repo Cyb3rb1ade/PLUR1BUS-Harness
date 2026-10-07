@@ -61,7 +61,7 @@ through untouched. A refusal is `E_DENIED` with the reason code, a missing or fa
 the installation owner (RULING R8), so today's behaviour is unchanged until the M3 Harness API supplies sessions.
 
 Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` (→ `agent.read`), `jobs.run`,
-`models.setOverride` and `models.removeManual` (→ `models.write`), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
+`models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query` and `logs.tail` (→ `logs.query`, Owner/Admin only, D4), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
 `admin.migrate`, `admin.embedding.*`, `admin.reembed.*`). A test pins that every `admin.*` method in the schema has a rule.
 The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`.
 
@@ -111,6 +111,7 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `sessions.read` | system | ✔ | ✔ | ✔ | – | ✔ |
 | `logs.read` | system | ✔ | ✔ | ✔ | – | ✔ |
 | `audit.read` | system | ✔ | ✔ | – | – | – |
+| `logs.query` | system | ✔ | ✔ | – | – | – |
 | `models.read` | system | ✔ | ✔ | ✔ | – | ✔ |
 | `models.write` | system | ✔ | ✔ | – | – | – |
 | `providers.read` | system | ✔ | ✔ | ✔ | – | ✔ |

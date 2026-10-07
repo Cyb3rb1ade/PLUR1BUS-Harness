@@ -300,6 +300,28 @@
             }
           }
         },
+        "metrics": {
+          "description": "D3: the read-only Prometheus text endpoint `GET /metrics` on a loopback address, protected by a bearer token kept in `state/metrics.token`.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 65535,
+              "default": 9464,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            }
+          }
+        },
         "logs": {
           "type": "object",
           "additionalProperties": false,
