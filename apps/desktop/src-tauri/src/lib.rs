@@ -18,6 +18,7 @@ pub mod pair;
 pub mod policy;
 #[cfg(any(windows, test))]
 mod profile_audit;
+pub mod runtime;
 pub mod secrets;
 pub mod settings;
 mod shell_commands;
