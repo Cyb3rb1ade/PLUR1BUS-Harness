@@ -8,6 +8,8 @@ export type EpochMs = number;
 export interface NoticeAck {
   readonly by: string;
   readonly at: EpochMs;
+  /** Version of the notice text that was confirmed; a confirmation without it never satisfies `noticeNeeded`. */
+  readonly version?: number;
 }
 
 /** A note from a planner or a check: a stable machine code plus a human sentence. */
