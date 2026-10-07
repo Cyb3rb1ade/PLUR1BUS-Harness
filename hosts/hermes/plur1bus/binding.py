@@ -94,12 +94,13 @@ class Binding:
     bin: str | None = None
     recall_hard_ms: int = DEFAULT_RECALL_HARD_MS
     capture: bool = True
+    memory_write_tools: bool = False
     version: str | None = None
     installed_by: str | None = None
     schema: str = field(default=BINDING_SCHEMA)
 
     def to_json(self) -> dict:
-        return {
+        doc = {
             "schema": self.schema,
             "version": self.version,
             "installedBy": self.installed_by,
@@ -109,6 +110,9 @@ class Binding:
             "recallHardMs": self.recall_hard_ms,
             "capture": self.capture,
         }
+        if self.memory_write_tools:  # absent means off: files the installer wrote keep their shape
+            doc["memoryWriteTools"] = True
+        return doc
 
     @staticmethod
     def from_json(doc: object, path: str = BINDING_FILE) -> Binding:
@@ -132,12 +136,15 @@ class Binding:
         capture = doc.get("capture", True)
         if not isinstance(capture, bool):
             raise BindingInvalid(path, "capture must be a boolean")
+        write_tools = doc.get("memoryWriteTools", False)
+        if not isinstance(write_tools, bool):
+            raise BindingInvalid(path, "memoryWriteTools must be a boolean")
         version = doc.get("version")
         installed_by = doc.get("installedBy")
         for key, v in (("version", version), ("installedBy", installed_by)):
             if v is not None and not isinstance(v, str):
                 raise BindingInvalid(path, f"{key} must be a string or null")
-        return Binding(home, agent_id, b, hard, capture, version, installed_by)
+        return Binding(home, agent_id, b, hard, capture, write_tools, version, installed_by)
 
     def with_(self, **changes: object) -> Binding:
         return replace(self, **changes)  # type: ignore[arg-type]
@@ -310,6 +317,8 @@ def read_binding(hermes_home: str) -> Binding | None:
             text = f.read(256 * 1024)
     except FileNotFoundError:
         return None
+    except UnicodeDecodeError:
+        raise BindingInvalid(path, "not valid UTF-8") from None
     except OSError as e:
         raise BindingInvalid(path, f"unreadable ({type(e).__name__})") from None
     try:

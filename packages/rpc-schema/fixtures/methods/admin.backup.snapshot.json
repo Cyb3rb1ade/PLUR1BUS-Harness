@@ -1,0 +1,12 @@
+{
+  "params": { "label": "backup" },
+  "result": {
+    "id": "plur1bus-20261006T150000Z-backup",
+    "dir": "/home/u/.plur1bus/state/backup-staging/plur1bus-20261006T150000Z-backup",
+    "storeTarget": "state/lancedb",
+    "engine": { "contract": "1.12.0", "storeSchema": "1" },
+    "files": [
+      { "path": "store/_schema.json", "bytes": 12, "sha256": "0000000000000000000000000000000000000000000000000000000000000000" }
+    ]
+  }
+}

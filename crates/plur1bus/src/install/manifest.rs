@@ -12,7 +12,7 @@ use std::sync::OnceLock;
 pub const INSTALL_SCHEMA_JSON: &str = include_str!("../../schema/install-manifest.schema.json");
 pub const RELEASE_SCHEMA_JSON: &str = include_str!("../../schema/release-manifest.schema.json");
 pub const INSTALL_SCHEMA_VERSION: u32 = 1;
-pub const CORE_CONTRACT: &str = "1.11.0";
+pub const CORE_CONTRACT: &str = "1.12.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

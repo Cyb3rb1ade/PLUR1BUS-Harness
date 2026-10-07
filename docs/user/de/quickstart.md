@@ -73,8 +73,15 @@ Eine Agent-Id passt auf `^[a-z0-9][a-z0-9_-]{0,63}$`. Eine bereits vorhandene Id
 
 ## 4. Erste Unterhaltung
 
-Dieser Build hat keinen `chat`-Befehl. Möglich ist, Tatsachen in das Gedächtnis eines Agenten zu schreiben und sie
-in jeder späteren Sitzung abzurufen:
+`plur1bus chat` (experimentell) spricht mit einem Agenten: eine Nachricht als Argument oder zeilenweise über stdin bis
+EOF. `--agent <id>` wählt den Agenten (Standard: der einzige registrierte), `--session <id>` setzt eine Sitzung fort,
+`--no-memory` startet inkognito, sodass nichts vom Chat gemerkt wird:
+
+```sh
+plur1bus chat --agent main "Welche Datenbank ist Staging?"
+```
+
+Du kannst auch Tatsachen in das Gedächtnis eines Agenten schreiben und sie in jeder späteren Sitzung abrufen:
 
 ```sh
 plur1bus memory add --agent main "Die Staging-Datenbank heißt orion."
@@ -87,36 +94,41 @@ state, propose, proposals).
 
 ## 5. Backup und Wiederherstellung
 
-Dieser Build hat keinen `backup`-Befehl. Alles, was die Installation besitzt, liegt im Home-Verzeichnis; ein Backup
-ist also eine Kopie dieses Verzeichnisses, gemacht, während nichts läuft:
+`plur1bus backup` (experimentell) schreibt ein konsistentes Archiv der Installation mit Prüfsummen. `create` braucht
+einen laufenden Core; das Archiv enthält nie Geheimnisse (API-Schlüssel bleiben im Schlüsselbund des Betriebssystems,
+`run/` wird nie archiviert) und ist weder signiert noch verschlüsselt:
 
 ```sh
-plur1bus daemon stop
-# das gesamte Home-Verzeichnis mit einem Werkzeug deiner Wahl kopieren (siehe operations.md#verzeichnisse)
-plur1bus daemon start
+plur1bus backup create --dry-run          # zeigen, was archiviert würde, nichts schreiben
+plur1bus backup create                    # Standard: <home>/backups/plur1bus-backup-<UTC>.tar.gz
+plur1bus backup verify <Archiv>           # Manifest und jede SHA-256; Exit 1 bei einem Archiv, das ein Restore ablehnt
 ```
 
-Zum Wiederherstellen: Daemon stoppen, die Kopie anstelle des Home-Verzeichnisses einspielen, Daemon starten und
-`plur1bus 1staid check` ausführen. Zwei Grenzen: `run/` enthält Sockets, Tokens und Pid-Dateien, die beim Start neu
-entstehen, also nie ein Home in eine laufende Installation kopieren; und eine Kopie ist nur so konsistent wie der
-Moment, in dem du den Daemon gestoppt hast.
+Zum Wiederherstellen: Daemon stoppen, dann `plur1bus backup restore <Archiv>` ausführen (`--dry-run` zeigt den Plan;
+ein Skript braucht `--yes`). Der Befehl prüft zuerst, tauscht jede Einheit per Umbenennen ein und behält Ersetztes in
+`<home>/backups/pre-restore-<id>/`; bei einem Fehler wird der alte Stand zurückgelegt. Danach den Daemon starten und
+`plur1bus 1staid check` ausführen. `--out <Datei>` wählt den Archivpfad; eine vorhandene Datei wird nie überschrieben.
 
 Automatisch geschieht eines: Ist `config.json` beschädigt, stellt `plur1bus 1staid repair` sie aus der laufenden
 Konfiguration oder der neuesten gültigen `config.json.bak-*` daneben wieder her.
 
 ## 6. Aktualisieren
 
-Dieser Build kann auf ein Update prüfen, aber keines einspielen:
+`plur1bus update` (experimentell) spielt ein signiertes Release mit Snapshot, Gesundheitsprüfung und automatischem
+Rollback ein:
 
 ```sh
-plur1bus update --check
+plur1bus update --check      # mit dem Release-Manifest vergleichen und den Plan zeigen; ändert nichts
+plur1bus update              # einspielen (fragt im Terminal nach; ein Skript braucht --yes)
+plur1bus update status       # Phase und Ergebnis des letzten Updates, und ob ein Rollback möglich ist
+plur1bus update --rollback   # zum Snapshot des zuletzt eingespielten Updates zurückkehren
 ```
 
-`update --check` vergleicht die Installation mit dem Release-Manifest ihres Kanals (`stable` oder `beta`, siehe
-`--channel`), zeigt, welche Einheiten sich ändern und neu starten würden, und ändert nichts. Ohne `--check` meldet
-`plur1bus update`, dass das Einspielen eines Releases mit M8 kommt, und endet mit Code 2. Um heute auf eine neuere
-Version zu wechseln, installiere die neuere Programmdatei und führe `plur1bus setup` erneut aus; Schritte, deren
-Ergebnis aktuell ist, werden übersprungen.
+`--channel` (`stable` oder `beta`) wählt den Release-Kanal, `--manifest <Pfad|URL>` ein anderes Manifest als den
+signierten Feed des Kanals. Ein Update stoppt den Daemon, sichert Programmdatei, `config.json`, das Installations-
+manifest und die Core-Nutzlast (nie den Gedächtnisspeicher), tauscht aus, startet und prüft `--version`, einen
+bereiten Core und `1staid check`; bei jedem Fehler wird der Snapshot zurückgelegt. Ein Release, das die Node-Laufzeit
+oder den Modulsatz ändert, wird abgelehnt: führe stattdessen `plur1bus setup` aus.
 
 ## Weiter
 

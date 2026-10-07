@@ -269,7 +269,7 @@ Reusing PLUR1BUS's own idempotency pattern (`/share`'s `idempotencyKey = hash([a
 | Memory card (Hermes path, §3.2) | `hermes:${profile}:${sourceFile}:${cardHash}` — hash of the card's source entry text + source file + source profile (never containing `runId`) | A card already imported is recognized as `matched-existing` (zero writes). Deleted cards (`memory.forget`) produce `rejected` with `reason: "previously-imported-deleted"`; reruns never recreate deleted cards. |
 | Store take-over (`--adopt-store <path>`) | `store:${sha256(resolved source path)[:16]}` | Under `core.lock` and **before any engine opens or initialises the target store**: copy the source into `state/lancedb.adopt-<runId>` (same filesystem), inspect that **copy** with `engine.stores.adopt({dryRun:true})` against the target config's embedding identity, then snapshot + ledger, then rename it to `state/lancedb`. Identity source: a generation manifest (`generations/<id>/generation.json`) when present, else the engine's sample cosine probe for legacy stores (`identitySource: "manifest" \| "probe"`). Any abort before the rename (`identity-mismatch`, `dimension-mismatch`, `schema-mismatch`, `identity-unverifiable`, `copy-failed`, `unsafe-store-entry`, `store-rename-unsupported`) deletes the staging copy and leaves the target byte-identical (beyond `state/core.lock`). Existing `state/lancedb`: `skip` → `store-exists-skipped` (untouched); `replace` → moved whole to `imports/<runId>/replaced/lancedb`, never merged; `rename` → refused. Rollback restores the moved-aside store (`storeUndoStatus: "restored"`), removes an adopted one (`"removed"`), or says `"not-reverted"`. Dry run inspects the source read-only and writes nothing to the target. |
 | Hermes `USER.md` (profile root and `memories/USER.md`) | n/a | ADR-007 Q4: without an explicit user binding (API only; the CLI never sets one) neither file is copied, mirrored or imported; cards are reported as `rejected/unresolved-user-scope`, the root file as `skipped/unresolved-user-scope` (reported, not an error). |
-| Hermes source reads | n/a | Every Hermes source file (SOUL.md, USER.md, MEMORY.md, pairing and cron JSON) is read through one helper: no final symlink (`O_NOFOLLOW` + lstat), regular file on the fd, bounded read. Refusals (`symlink-refused`, `not-a-regular-file`, `file-too-large`, `read-failed`) and `memory-import-failed:<code>` go to `errors[]` (reason codes only) and make the CLI exit 1; the full report is still printed in human and `--json` modes, including dry runs, and an applied run stays resumable. Mirrors (`memories.md`, bound `USER.md`) follow `--conflict` like every other file and are skipped for a file whose import had a failed batch. Under `rename`, identical renamed mirrors are reused as `matched-existing` (including legacy `.imported.md` copies); new copies use `.imported-N.md`, starting at 1. Dry run never opens an engine on the target; its card counts are planned counts from the source. |
+| Hermes source reads | n/a | Every Hermes source file is read through `readSourceFileSafe`: no final symlink (`O_NOFOLLOW` + lstat), regular file on the fd, bounded read (including growth past the limit). Refusals (`unsafe-symlink`, `not-regular-file`, `file-too-large`, `source-unreadable`) and `memory-import-failed:<code>` go to `errors[]` (reason codes only) and make the CLI exit 1; the full report is still printed in human and `--json` modes, including dry runs, and an applied run stays resumable. Mirrors (`memories.md`, bound `USER.md`) follow `--conflict` like every other file and are skipped for a file whose import had a failed batch. Under `rename`, identical renamed mirrors are reused as `matched-existing` (including legacy `.imported.md` copies); new copies use `.imported-N.md`, starting at 1. Dry run never opens an engine on the target; its card counts are planned counts from the source. |
 
 ### 5.3 Resumability
 
@@ -571,3 +571,94 @@ Dry-run is the default and writes nothing. `--apply`: take `<home>/imports/.lock
 ### 9.7 Hermes skills, soul and cron
 
 Hermes skills follow §3.2 (`skills/<category>/<name>/SKILL.md`, frontmatter preserved verbatim, `.curator_state` not imported). `SOUL.md` and `cron/jobs.json` are detected (presence, §8.5 `other`) but imported only by M7 (§3.2, §4.2): soul → the agent's `SOUL.md` (D14), cron → harness scheduler or archive.
+
+---
+
+## 10. Import guide (M7)
+
+How to take over an OpenClaw or Hermes installation with `plur1bus import`. Everything here is copy-never-move: the source is read, never changed.
+
+### 10.1 Before you start
+
+- Stop the target harness core (`plur1bus daemon stop`). Any write mode refuses with `target-running` while `<home>/state/core.lock` is held or `<home>/run/core.pid` names a live process.
+- Look first: `plur1bus import openclaw --detect` (or `hermes`) is read-only and lists agents or profiles, stores and their embedding identity, skills and secret *key names* (§8).
+- A source on another OS or in WSL: pass `--source` (a `\\wsl$\<distro>\…` path works) and, where the config holds absolute paths, `--map SOURCE=LOCAL` (§8.6).
+
+### 10.2 Dry run (the default)
+
+```bash
+plur1bus --home <home> import openclaw --source ~/.openclaw          # plan only
+plur1bus --home <home> import hermes   --source ~/.hermes [--profile work]
+```
+
+Without `--apply` nothing is written to the source or to `<home>`. The output lists, per agent or profile, the files that would be created, matched or conflict, the channel allowlists (counts and fingerprints only), the cron jobs reported as deferred, and the secret key names found. Add `--json` for the machine-readable report (`import.openclaw/1`, `import.hermes/1`, §5.7).
+
+### 10.3 Apply
+
+```bash
+plur1bus --home <home> import openclaw --source ~/.openclaw --apply [--conflict skip|rename|replace]
+plur1bus --home <home> import hermes   --source ~/.hermes   --apply [--adopt-store <path>]
+```
+
+What an apply does, in order: takes the single-writer lock, snapshots the target state it will touch to `<home>/imports/<runId>/snapshot/`, registers agents in `config.agents` and scaffolds their workspaces, copies `SOUL.md` and the curated files (D14/D15) into `<home>/agents/<id>/workspace`, then writes the ledger and `report.json` (mode 0600) to `<home>/imports/<runId>/`.
+
+- **Conflicts.** `--conflict` (alias `--on-conflict`) is `skip` (default: an existing differing file stays and is reported as `conflict`), `rename`, or `replace` (the old file is kept under the run directory).
+- **Hermes memory cards** go through the engine's `memory.import` with provenance `imported`, in batches of at most 500. `USER.md` content is not imported unless a user binding exists (§2.4); it is reported as `unresolvedUserScope`.
+- **Hermes store take-over** is opt-in: `--adopt-store <path>` adopts an existing PLUR1BUS store through `stores.adopt`, after an identity probe. An identity mismatch aborts before anything is replaced.
+- **Interrupted run.** `--resume <runId>` continues it; a re-run converges without duplicates (every entity reports `matched-existing`).
+- **Secrets.** `--migrate-secrets` is refused with `secret-store-unavailable` until the M2 secret store exists. The report lists only allowlisted key names (`unmigrated_secrets`), never values.
+- **Deferred.** Cron jobs are reported (count, names, schedule, delivery kind) and **not** written anywhere; channel allowlists are reported with counts and fingerprints. See §11.3.
+
+### 10.4 Rollback
+
+```bash
+plur1bus --home <home> import openclaw --rollback <home>/imports/<runId>/report.json            # preview
+plur1bus --home <home> import openclaw --rollback <home>/imports/<runId>/report.json --apply [--force]
+```
+
+Rollback takes the same lock, verifies the snapshot hashes and the ledger, then restores the pre-apply target state. Files the import created and the user later changed are kept (backed up to `rolled-back/replaced/`) and reported as `kept-modified`; `--force` deletes them after the backup. A corrupt ledger or a tampered snapshot fails closed. Limits: Hermes memory cards stay in the engine store (`not-reverted (engine has no undo)`, §5.5), and the source is never touched. (`docs/cli.md` still words `--rollback` as "undo one --skills run"; it also reverts a full import, see §11.1 item 11.)
+
+### 10.5 Reports
+
+Per run: `<home>/imports/<runId>/report.json` (apply only), `ledger.jsonl` (one line per mutation with its idempotency key) and the human rendering printed to the terminal. None of them contains secret values, token strings, memory or message content, or plain channel ids (counts and 8-hex fingerprints instead). §11 names the tests that enforce this.
+
+---
+
+## 11. M7 exit report: test evidence
+
+Status 2026-10-06. Each item of the 12-point checklist in `docs/superpowers/plans/2026-10-05-m7-importers.md` ("Verification & Acceptance Checklist") is ticked only where a named test proves it. Tests live in `packages/core/test/import/`; titles are quoted as written so a script can grep them (the PR runs that check).
+
+### 11.1 Checklist
+
+| # | Item | Proven by (file → test title) | State |
+|---|---|---|---|
+| 1 | Dry-run default: zero writes, full preview | `openclaw-import.test.ts` → "dry-run is default: returns complete plan and writes zero files to source or target"; `hermes-batch3.test.ts` → "dry run writes zero bytes and does not initialize target engine (P4, B4)"; `hermes-batch3-takeover.test.ts` → "B4/P4: dry run writes nothing — fresh home, populated home, and with --adopt-store" | [x] |
+| 2 | Single-writer safety: `target-running` | `openclaw-import.test.ts` → "single-writer safety (C1): refuses with target-running when core is running or lock is held"; `pipeline-batch4.test.ts` → "rollback safety: refuses when core.lock is held and fails closed on unconditionally tampered snapshot (B5)". The Hermes importer shares `single-writer.ts` but has no test of its own for the refusal | [x] |
+| 3 | Byte-identical source | `openclaw-import.test.ts` → "apply copies files, registers agents in config.agents, and scaffolds workspace (copy-never-move)" (tree digest of the fixture before and after apply) | [x] |
+| 4 | Store take-over without re-embedding, after format check (OpenClaw alpha, 384-d) | Hermes store only: `hermes-batch3-takeover.test.ts` → "B1/P10: fresh home + default --conflict skip adopts the store byte-identically (not preview-ok)". No test for the OpenClaw store (`openclaw-stores.ts` of plan Task 2.2 does not exist) | [ ] open: OpenClaw store take-over not built (Task 2.2, waits for the engine's store-format check) |
+| 5 | Cards only through `memory.import` | `hermes-batch3.test.ts` → "batches cards exceeding 500 into multiple calls with correct counters" (all cards reach the engine call in batches 500/5/2); "memory import engine failure surfaces in errors[] and CLI exits 1 with resumable run (P7, B6)"; `hermes-batch3-takeover.test.ts` → "B1: fresh home with the REAL target engine adopts first; the engine then writes into the adopted store". "No direct LanceDB write" rests on `hermes-memories.ts` not importing LanceDB, which no test asserts | [x] for the Hermes card path (the only card path); the no-direct-write half is by construction, not by test |
+| 6 | Mismatched store (beta, 768-d) routed to guided re-embedding | Fail-closed half only: `hermes-batch3-takeover.test.ts` → "B2/P5a: a REAL identity mismatch (same 384-d, different model) aborts and leaves a populated target byte-identical" and "B2: identity mismatch on a fresh home leaves nothing but the lock file, no store, no run dir". No re-embedding migration exists, and no test uses the 768-d `beta` store | [ ] open: the mismatch aborts safely (never mixed into the vector space) but is not routed into a re-embedding migration |
+| 7 | Hermes: cards with provenance `imported`; approved pairings imported; pending excluded | Pairings: `hermes-batch3.test.ts` → "imports Hermes profiles, cards, persona, pairings, and reports deferred crons" (approved fingerprinted, `pendingExcludedCount` 1) and "excludes pending pairing codes from allowlists and ledgers". Cards land (`memoryCardsImported`) in the same test. **No test asserts the value `provenance: "imported"`** (set in `hermes-memories.ts`) | [ ] open: pairings proven; the `provenance: "imported"` value is not asserted by any test |
+| 8 | Secrets pre-M2: refusal, key names only | `openclaw-import.test.ts` → "secrets safety: --migrate-secrets fails closed before M2 and reports secret keys only" | [x] |
+| 9 | Deferred cron: reported, zero files written | `openclaw-import.test.ts` → "apply copies files, registers agents in config.agents, and scaffolds workspace (copy-never-move)" (no `<home>/cron`, no `state/system-jobs/cron`) and "dry-run is default: returns complete plan and writes zero files to source or target" (`cron.status` deferred, managed job excluded); `hermes-batch3.test.ts` → "imports Hermes profiles, cards, persona, pairings, and reports deferred crons" | [x] |
+| 10 | Idempotency: second run all `matched-existing`, zero writes | `openclaw-import.test.ts` → "idempotency: a second apply run produces matched-existing for all entities and zero new writes outside imports/ (I4)"; `hermes-batch3.test.ts` → "second apply run converges: all matched-existing, zero duplicates (idempotency)"; `pipeline-batch4.test.ts` → "crash then --resume converges to complete import state and rolls back cleanly (B3)" | [x] |
+| 11 | Rollback restores the pre-import target | `pipeline-batch4.test.ts` → "pre-apply snapshot and rollback: restores exact pre-import state (B5 assert against digestBefore)" (OpenClaw: files, config, agents); `hermes-batch3.test.ts` → "rollback after Hermes apply restores files and reports cards as not-reverted". Exception: Hermes memory cards stay in the engine (§5.5) | [x] for files, config and agents; the card exception is explicit and reported |
+| 12 | Zero leaks: no `FAKE_TOKEN`/`CONTENT_MARKER` in any report | `openclaw-import.test.ts` → "leak test: neither report JSON nor human rendering contains FAKE_TOKEN or CONTENT_MARKER"; `pipeline-batch4.test.ts` → "report schema conforming to docs/import.md §5.7 with leak assertions including ledger (B5)"; `hermes-batch3.test.ts` → "leak test: zero secrets, card texts, delivery targets, or channel IDs in reports, ledgers, or render (P1, P2, P10)"; `openclaw-import-leak.test.ts` → "report.json, ledger.jsonl, returned report and rendered output contain no plain ids" | [x] |
+
+Result: **9 of 12 ticked, 3 open** (4, 6, 7). Items 2, 5 and 11 carry the stated qualification.
+
+### 11.2 Also covered (not checklist items)
+
+Path-traversal and symlink refusal in rollback (`pipeline-batch4.test.ts`, B1 titles), conflict strategies skip/rename/replace (`openclaw-import.test.ts` "conflict safety (C2)…", `pipeline-batch4.test.ts` "conflict strategy 'rename' is strictly idempotent…" and "…'replace': backs up…"), hostile agent ids (`openclaw-import.test.ts` "untrusted agentId safety (C3)…"), oversized, FIFO and symlinked Hermes inputs (`hermes-batch3-takeover.test.ts` P6 titles), the CLI envelope (`cli.test.ts`, `openclaw-import.test.ts` "runs openclaw import end-to-end through CLI envelope", `pipeline-batch4.test.ts` "CLI integration: supports --conflict alias and full import rollback via runImport").
+
+### 11.3 Open and deliberately deferred
+
+| Item | State | Reason |
+|---|---|---|
+| Checklist 4: OpenClaw store take-over | open | `openclaw-stores.ts` (plan Task 2.2) not built; waits for the engine's store-format check on the OpenClaw path |
+| Checklist 6: guided re-embedding routing | open | only the fail-closed abort exists; the migration and a `beta` (768-d) test are not built |
+| Checklist 7: `provenance: "imported"` assertion | open | the code sets it; a test asserting the call payload is missing (small follow-up, no design question) |
+| Plan Task 2.5: identity linking and memory back-fill (ADR-007 Q4) | open | needs engine `memory.rebind` (contract 1.11.0, grok PR #216); no code in this repo yet |
+| Cron import | deliberately deferred | no harness cron scheduler yet (ADR-009); jobs are reported, never written (checklist 9 proves the report-only behaviour) |
+| Secret import (`--migrate-secrets`) | deliberately deferred | no M2 secret store; refused fail-closed (checklist 8) |
+| Sessions, desktop wizard | out of M7 | sessions are sensitive and not imported by default (§3); the wizard belongs to M3/D2 |

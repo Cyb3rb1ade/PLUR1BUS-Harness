@@ -141,9 +141,15 @@ class CiPythonHostJobTest(EngineTokenScopeMixin, unittest.TestCase):
         t = _read("ci.yml")
         self.assertIn("  python-host:", t)
         job = t[t.index("  python-host:") :]
+        # The matrix comes from the macOS-load plan job (scripts/ci/macos-plan.mjs); the legs themselves live there.
+        self.assertIn("fromJSON(needs.plan.outputs.python_matrix)", job)
+        with open(os.path.join(REPO_ROOT, "scripts", "ci", "macos-plan.mjs"), encoding="utf-8") as f:
+            plan = f.read()
+        for leg in ('{ os: "ubuntu-24.04", python: "3.11" }', '{ os: "ubuntu-24.04", python: "3.13" }', '"macos-15"',
+                    '"windows-2025"', '{ os: "windows-11-arm", python: "3.13", informational: true }'):
+            self.assertIn(leg, plan)
         for needle in (
-            '{ os: ubuntu-24.04, python: "3.11" }', '{ os: ubuntu-24.04, python: "3.13" }', "macos-15", "windows-2025",
-            "windows-11-arm", "--require-hashes", "NamedPipeTest", "r.testsRun == 6", 'PLUR1BUS_LIVE_REQUIRED: "1"',
+            "--require-hashes", "NamedPipeTest", "r.testsRun == 6", 'PLUR1BUS_LIVE_REQUIRED: "1"',
             "hosts/hermes/tests/e2e", "clients/python/plur1bus-memory-client/tests/live",
         ):
             self.assertIn(needle, job)

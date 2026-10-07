@@ -1,0 +1,94 @@
+/* Glow tokens (desktop spec §13.1). The only token source for the web UI; no OpenClaw-derived values (ADR-004, 2026-10-01).
+ * Dark is the base, so "no OS preference" falls back to dark (C2). The light block exists twice (OS light without an
+ * override, and the explicit data-theme="light"); build.test.ts asserts the two stay identical.
+ * Type: the Glow stack (Atkinson Hyperlegible Next, Lilita One, JetBrains Mono) needs bundled font files that are not in
+ * the repo yet; until then the stacks fall back to system fonts and no layout depends on font metrics. */
+:root {
+  color-scheme: dark;
+  --font-ui: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mark: "Lilita One", ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --bg: #0b0b0e;
+  --surface: #16161b;
+  --ink: #ecebf2;
+  --ink-2: #b4b4bf;
+  --ink-3: #9c9ca8;
+  --border: rgba(255, 255, 255, 0.1);
+  --line: rgba(255, 255, 255, 0.07);
+  --field-border: #8a8a96;
+  --field-bg: #16161b;
+  --sidebar-bg: rgba(28, 28, 34, 0.72);
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --active-bg: rgba(255, 255, 255, 0.08);
+  --primary-bg: #ecebf2;
+  --primary-ink: #0e0e12;
+  --accent: #ff5a5f;
+  --focus: #a9bbff;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --err-bg: rgba(229, 72, 77, 0.14);
+  --err-ink: #ff9c9f;
+  --err-border: rgba(229, 72, 77, 0.45);
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --ink: #16161a;
+    --ink-2: #4a4a54;
+    --ink-3: #5c5c66;
+    --border: #e6e4de;
+    --line: #e8e6e0;
+    --field-border: #80808a;
+    --field-bg: #ffffff;
+    --sidebar-bg: rgba(255, 255, 255, 0.6);
+    --hover-bg: #efeeea;
+    --active-bg: #ffffff;
+    --primary-bg: #16161a;
+    --primary-ink: #ffffff;
+    --accent: #e5484d;
+    --focus: #1f4bb8;
+    --scrim: rgba(14, 14, 18, 0.32);
+    --err-bg: #fdecea;
+    --err-ink: #a1231a;
+    --err-border: #f3c4bf;
+    --shadow: 0 8px 28px rgba(22, 22, 26, 0.16);
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f4f1;
+  --surface: #ffffff;
+  --ink: #16161a;
+  --ink-2: #4a4a54;
+  --ink-3: #5c5c66;
+  --border: #e6e4de;
+  --line: #e8e6e0;
+  --field-border: #80808a;
+  --field-bg: #ffffff;
+  --sidebar-bg: rgba(255, 255, 255, 0.6);
+  --hover-bg: #efeeea;
+  --active-bg: #ffffff;
+  --primary-bg: #16161a;
+  --primary-ink: #ffffff;
+  --accent: #e5484d;
+  --focus: #1f4bb8;
+  --scrim: rgba(14, 14, 18, 0.32);
+  --err-bg: #fdecea;
+  --err-ink: #a1231a;
+  --err-border: #f3c4bf;
+  --shadow: 0 8px 28px rgba(22, 22, 26, 0.16);
+}
+/* Density (ADR-004 deviation 1). Targets: 24 px minimum at normal and wide, 44 px in compact (WCAG 2.2 SC 2.5.8, C22). */
+:root, :root[data-density="comfortable"] {
+  --control-h: 36px;
+  --nav-h: 36px;
+  --gap: 12px;
+}
+@media (max-width: 1023.98px) {
+  :root, :root[data-density="comfortable"] {
+    --control-h: 44px;
+    --nav-h: 44px;
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "params": {
+    "agentId": "main"
+  },
+  "result": {
+    "timeZone": "Europe/Berlin",
+    "priceVersion": "2026-10-06",
+    "now": "2026-10-06T12:00:00.000Z",
+    "periods": [
+      {
+        "period": "day",
+        "key": "2026-10-06",
+        "start": "2026-10-05T22:00:00.000Z",
+        "end": "2026-10-06T22:00:00.000Z",
+        "total": {
+          "events": 3,
+          "inputTokens": 1200,
+          "outputTokens": 400,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costMicros": 3200,
+          "unpricedEvents": 0
+        },
+        "agents": [
+          {
+            "agentId": "main",
+            "total": {
+              "events": 3,
+              "inputTokens": 1200,
+              "outputTokens": 400,
+              "cacheReadTokens": 0,
+              "cacheWriteTokens": 0,
+              "costMicros": 3200,
+              "unpricedEvents": 0
+            },
+            "models": [
+              {
+                "model": "claude-haiku-4-5-20251001",
+                "events": 3,
+                "inputTokens": 1200,
+                "outputTokens": 400,
+                "cacheReadTokens": 0,
+                "cacheWriteTokens": 0,
+                "costMicros": 3200,
+                "unpricedEvents": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "period": "month",
+        "key": "2026-10",
+        "start": "2026-09-30T22:00:00.000Z",
+        "end": "2026-10-31T23:00:00.000Z",
+        "total": {
+          "events": 3,
+          "inputTokens": 1200,
+          "outputTokens": 400,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "costMicros": 3200,
+          "unpricedEvents": 0
+        },
+        "agents": [
+          {
+            "agentId": "main",
+            "total": {
+              "events": 3,
+              "inputTokens": 1200,
+              "outputTokens": 400,
+              "cacheReadTokens": 0,
+              "cacheWriteTokens": 0,
+              "costMicros": 3200,
+              "unpricedEvents": 0
+            },
+            "models": [
+              {
+                "model": "claude-haiku-4-5-20251001",
+                "events": 3,
+                "inputTokens": 1200,
+                "outputTokens": 400,
+                "cacheReadTokens": 0,
+                "cacheWriteTokens": 0,
+                "costMicros": 3200,
+                "unpricedEvents": 0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "limits": [
+      {
+        "scope": "agent",
+        "agentId": "main",
+        "period": "day",
+        "metric": "cost",
+        "soft": 2000000,
+        "hard": 5000000,
+        "used": 3200,
+        "state": "ok"
+      },
+      {
+        "scope": "global",
+        "period": "month",
+        "metric": "tokens",
+        "soft": null,
+        "hard": 10000000,
+        "used": 1600,
+        "state": "ok"
+      }
+    ]
+  }
+}

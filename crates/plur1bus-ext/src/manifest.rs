@@ -18,6 +18,7 @@ pub enum Kind {
     Module,
     Channel,
     McpServer,
+    Provider,
     Bundle,
 }
 

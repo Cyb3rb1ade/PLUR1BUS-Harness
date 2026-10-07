@@ -5,6 +5,7 @@ use zeroize::Zeroizing;
 pub struct SecretString(Zeroizing<String>);
 impl SecretString {
     pub fn new(value: String) -> Self {
+        crate::logging::SecretRegistry::process().register_sensitive(&value);
         Self(Zeroizing::new(value))
     }
     pub fn expose(&self) -> &str {

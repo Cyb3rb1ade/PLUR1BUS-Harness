@@ -72,8 +72,15 @@ An agent id matches `^[a-z0-9][a-z0-9_-]{0,63}$`. Creating an id that exists fai
 
 ## 4. First conversation
 
-This build has no `chat` command. What you can do is put facts into an agent's memory and recall them, from any
-later session:
+`plur1bus chat` (experimental) talks to an agent: one message as an argument, or line by line on stdin until EOF.
+`--agent <id>` picks the agent (default: the only registered one), `--session <id>` continues a session, `--no-memory`
+starts incognito so nothing of the chat is remembered:
+
+```sh
+plur1bus chat --agent main "Which database is staging?"
+```
+
+You can also put facts into an agent's memory and recall them, from any later session:
 
 ```sh
 plur1bus memory add --agent main "The staging database is called orion."
@@ -86,34 +93,40 @@ proposals).
 
 ## 5. Backup and restore
 
-This build has no `backup` command. Everything the installation owns is under its home directory, so a backup is a
-copy of that directory taken while nothing runs:
+`plur1bus backup` (experimental) writes a consistent, checksummed archive of the installation. `create` needs a
+running core; the archive never contains secrets (API keys stay in the OS keyring, `run/` is never archived) and is
+neither signed nor encrypted:
 
 ```sh
-plur1bus daemon stop
-# copy the whole home directory with your file tool of choice (see operations.md#directories)
-plur1bus daemon start
+plur1bus backup create --dry-run          # list what would be archived, write nothing
+plur1bus backup create                    # default: <home>/backups/plur1bus-backup-<UTC>.tar.gz
+plur1bus backup verify <archive>          # manifest and every SHA-256; exits 1 for an archive a restore would refuse
 ```
 
-To restore, stop the daemon, put the copy back in place of the home directory and start it again; then run
-`plur1bus 1staid check`. Two limits to know: `run/` holds sockets, tokens and pid files that are recreated on start, so never copy a home
-into a running installation; and a copy is only as consistent as the moment you stopped the daemon.
+To restore, stop the daemon, then run `plur1bus backup restore <archive>` (`--dry-run` prints the plan; a script needs
+`--yes`). It verifies first, swaps each unit in by rename and keeps whatever it replaced in
+`<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Afterwards start the daemon and run
+`plur1bus 1staid check`. `--out <file>` chooses the archive path; an existing file is never overwritten.
 
 One thing that is automatic: when `config.json` is damaged, `plur1bus 1staid repair` restores it from the running
 configuration or from the newest valid `config.json.bak-*` beside it.
 
 ## 6. Update
 
-This build can check for an update but not apply one:
+`plur1bus update` (experimental) applies a signed release with a snapshot, a health gate and automatic rollback:
 
 ```sh
-plur1bus update --check
+plur1bus update --check      # compare with the release manifest and print the plan; changes nothing
+plur1bus update              # apply (asks first on a terminal; a script needs --yes)
+plur1bus update status       # phase and outcome of the last update, and whether a rollback is possible
+plur1bus update --rollback   # go back to the snapshot of the last applied update
 ```
 
-`update --check` compares the installation with the release manifest of its channel (`stable` or `beta`, see
-`--channel`), prints which units would change and which would restart, and changes nothing. Without `--check`,
-`plur1bus update` prints that applying a release arrives in M8 and exits with code 2. To move to a newer version
-today, install the newer binary and run `plur1bus setup` again; steps whose result is current are skipped.
+`--channel` (`stable` or `beta`) selects the release channel and `--manifest <path|url>` a manifest other than the
+channel's signed feed. An update stops the daemon, snapshots the binary, `config.json`, the install manifest and the
+core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any
+failure restores the snapshot. A release that changes the Node runtime or the module set is refused: run
+`plur1bus setup` instead.
 
 ## Next
 

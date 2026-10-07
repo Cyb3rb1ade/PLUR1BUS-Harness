@@ -163,4 +163,73 @@ describe("config-schema", () => {
     assert.equal(mk((c) => { c.models.scan.bogus = 1; }), false);
     assert.equal(mk((c) => { c.models.bogus = 1; }), false);
   });
+
+  describe("modelProfiles (C4)", () => {
+    const fb = { candidates: [{ model: "a/x" }, { model: "b/y", weight: 3 }] };
+    const mk = (f: (c: any) => void) => { const c: any = defaults(); f(c); return validate(c); };
+
+    it("defaults to {} and is live/advanced", () => {
+      assert.deepEqual(defaults().modelProfiles, {});
+      assert.equal(restartClassOf("modelProfiles.fast.candidates"), "live");
+      assert.equal(tierOf("modelProfiles.fast.params.temperature"), "advanced");
+    });
+
+    it("accepts a fallback and a moa profile and fills defaults", () => {
+      const r = mk((c) => { c.modelProfiles.fast = fb; c.modelProfiles.panel = { strategy: "moa", aggregator: "a/x", candidates: [{ model: "a/x" }, { model: "b/y" }], params: { temperature: 0.7, topP: 0.9, maxTokens: 2048 }, cache: { hint: "prefer", ttlSeconds: 300 } }; });
+      assert.equal(r.ok, true);
+      const p = (r as any).config.modelProfiles;
+      assert.equal(p.fast.strategy, "fallback");
+      assert.deepEqual(p.fast.candidates, [{ model: "a/x", weight: 1 }, { model: "b/y", weight: 3 }]);
+      assert.deepEqual(p.fast.params, {});
+      assert.deepEqual(p.fast.cache, { hint: "auto" });
+    });
+
+    it("rejects invalid profiles", () => {
+      const bad: Record<string, any> = {
+        "empty candidates": { candidates: [] },
+        "missing candidates": { strategy: "fallback" },
+        "moa with one candidate": { strategy: "moa", candidates: [{ model: "a/x" }] },
+        "aggregator without moa": { ...fb, aggregator: "a/x" },
+        "aggregator with default strategy": { candidates: fb.candidates, aggregator: "a/x" },
+        "unknown strategy": { ...fb, strategy: "vote" },
+        "zero weight": { candidates: [{ model: "a/x", weight: 0 }] },
+        "weight too big": { candidates: [{ model: "a/x", weight: 101 }] },
+        "empty model": { candidates: [{ model: "" }] },
+        "too many candidates": { candidates: Array.from({ length: 17 }, (_, i) => ({ model: `m/${i}` })) },
+        "temperature too high": { ...fb, params: { temperature: 2.5 } },
+        "maxTokens zero": { ...fb, params: { maxTokens: 0 } },
+        "maxTokens fractional": { ...fb, params: { maxTokens: 1.5 } },
+        "bad cache hint": { ...fb, cache: { hint: "always" } },
+        "negative ttl": { ...fb, cache: { ttlSeconds: -1 } },
+      };
+      for (const [name, prof] of Object.entries(bad)) assert.equal(mk((c) => { c.modelProfiles.p = prof; }).ok, false, name);
+      assert.equal(mk((c) => { c.modelProfiles["Bad Name"] = fb; }).ok, false, "profile name pattern");
+    });
+
+    it("rejects unknown fields at every level", () => {
+      assert.equal(mk((c) => { c.modelProfiles.p = { ...fb, bogus: 1 }; }).ok, false);
+      assert.equal(mk((c) => { c.modelProfiles.p = { candidates: [{ model: "a/x", bogus: 1 }] }; }).ok, false);
+      assert.equal(mk((c) => { c.modelProfiles.p = { ...fb, params: { bogus: 1 } }; }).ok, false);
+      assert.equal(mk((c) => { c.modelProfiles.p = { ...fb, cache: { bogus: 1 } }; }).ok, false);
+    });
+
+    it("migrate adds the key to an old config, validates, and is idempotent", () => {
+      const { modelProfiles, ...old } = defaults() as any;
+      const m1 = migrate(old);
+      assert.equal(m1.applied, true);
+      assert.deepEqual((m1.config as any).modelProfiles, {});
+      assert.equal(validate(m1.config).ok, true);
+      const m2 = migrate(m1.config);
+      assert.equal(m2.applied, false);
+      assert.deepEqual(m2.config, m1.config);
+      const keep = { ...defaults(), modelProfiles: { fast: fb } };
+      assert.deepEqual(migrate(keep).config, keep);
+      assert.equal(old.modelProfiles, undefined, "input is not mutated");
+    });
+
+    it("changing a profile is a live change", () => {
+      const a = defaults(); const b = structuredClone(a); b.modelProfiles.fast = { strategy: "fallback", candidates: [{ model: "a/x", weight: 1 }], params: {}, cache: { hint: "auto" } };
+      assert.deepEqual(restartPlan(a, b).restart, { live: ["modelProfiles.fast"], core: false, modules: [] });
+    });
+  });
 });

@@ -2,6 +2,15 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, realpat
 import { basename, dirname, join } from "node:path";
 import { ImportError } from "./types.ts";
 
+export function existsNoFollow(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function readSourceFileSafe(path: string, maxBytes: number): Buffer {
   const refuse = (reason: string) => new ImportError("E_IMPORT_FAILED", reason, `${basename(path)}: ${reason}`);
   let fd: number | undefined;

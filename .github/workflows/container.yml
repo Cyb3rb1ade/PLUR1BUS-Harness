@@ -1,0 +1,148 @@
+name: container
+# M8 harness container image: build, smoke test, size report, informational scans, reproducibility check. Build only:
+# nothing is pushed to a registry or signed here (the release pipeline, desktop D1, owns that).
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - deploy/**
+      - scripts/container-smoke.sh
+      - scripts/release/test/container-files.test.ts
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - crates/**
+      - packages/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+      - .github/workflows/container.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - deploy/**
+      - scripts/container-smoke.sh
+      - scripts/release/test/container-files.test.ts
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - crates/**
+      - packages/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+      - .github/workflows/container.yml
+  workflow_dispatch:
+    inputs:
+      arm64:
+        description: "Also build and smoke-test linux/arm64 on a native arm64 runner"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  IMAGE: plur1bus-harness:ci
+  # desktop spec §6.15.9: harness image <= 350 MB compressed per arch (gated at +10 % by D1's release pipeline).
+  SIZE_TARGET_MB: "350"
+jobs:
+  build:
+    name: build + smoke (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      # arm64 only on demand: a native arm64 runner is not available to every repository, and a queued job must not hold a PR.
+      matrix: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.arm64 && '{"include":[{"arch":"amd64","runner":"ubuntu-24.04"},{"arch":"arm64","runner":"ubuntu-24.04-arm"}]}' || '{"include":[{"arch":"amd64","runner":"ubuntu-24.04"}]}') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: static checks of the image files
+        run: node --experimental-strip-types --test --test-timeout=60000 scripts/release/test/container-files.test.ts
+      - name: build
+        run: |
+          set -euo pipefail
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          docker buildx build \
+            --secret id=engine_token,env=GH_ENGINE_READ_TOKEN \
+            --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+            --output "type=docker,name=${IMAGE},rewrite-timestamp=true" \
+            --provenance=false --sbom=false \
+            .
+          docker image inspect --format '{{.Id}}' "$IMAGE" | tee image-id.txt
+          docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > image-layers.txt
+          docker run --rm --entrypoint sh "$IMAGE" -c 'cd /opt/plur1bus/core && find . -print0 | LC_ALL=C sort -z | xargs -0 stat -c "%n %F %a %u:%g %Y %s" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum' > core-files.txt
+      - name: smoke test
+        run: scripts/container-smoke.sh "$IMAGE"
+        timeout-minutes: 12
+      - name: vulnerability scans (informational)
+        if: matrix.arch == 'amd64'
+        continue-on-error: true
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1 image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 "$IMAGE" || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock anchore/grype:v0.86.1 "docker:$IMAGE" || true
+      - uses: actions/upload-artifact@v4
+        if: matrix.arch == 'amd64'
+        with:
+          name: image-id
+          path: |
+            image-id.txt
+            image-layers.txt
+            core-files.txt
+      - name: size
+        run: |
+          set -euo pipefail
+          raw=$(docker image inspect --format '{{.Size}}' "$IMAGE")
+          gz=$(docker save "$IMAGE" | gzip -6 | wc -c)
+          raw_mb=$((raw / 1000000)); gz_mb=$((gz / 1000000))
+          {
+            echo "### Harness image size (${{ matrix.arch }})"
+            echo "| | MB |"; echo "|---|---|"
+            echo "| uncompressed | ${raw_mb} |"; echo "| gzip of \`docker save\` (approximates the compressed pull size) | ${gz_mb} |"
+            echo "| target (spec 6.15.9) | ${SIZE_TARGET_MB} |"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          docker history --format '{{.Size}}\t{{.CreatedBy}}' --no-trunc "$IMAGE" | cut -c1-160 | sort -hr | head -8
+          if [ "$gz_mb" -gt "$SIZE_TARGET_MB" ]; then echo "::warning::compressed image ${gz_mb} MB exceeds the ${SIZE_TARGET_MB} MB target"; fi
+
+  reproducible:
+    # Informational until a green run shows a stable digest on the runner: a second, cache-less build from the same commit
+    # must give the same image id (base images by digest, --locked/--frozen-lockfile, SOURCE_DATE_EPOCH, rewrite-timestamp).
+    needs: build
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 60
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: actions/download-artifact@v4
+        with: { name: image-id }
+      - name: rebuild without cache and compare
+        run: |
+          set -euo pipefail
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          docker buildx build --no-cache \
+            --secret id=engine_token,env=GH_ENGINE_READ_TOKEN \
+            --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+            --output "type=docker,name=${IMAGE},rewrite-timestamp=true" \
+            --provenance=false --sbom=false \
+            .
+          second="$(docker image inspect --format '{{.Id}}' "$IMAGE")"
+          first="$(cat image-id.txt)"
+          echo "first : $first"; echo "second: $second"
+          if [ "$first" != "$second" ]; then
+            docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > second-layers.txt
+            echo "layers that differ (first vs second):"; diff image-layers.txt second-layers.txt || true
+            docker run --rm --entrypoint sh "$IMAGE" -c 'cd /opt/plur1bus/core && find . -print0 | LC_ALL=C sort -z | xargs -0 stat -c "%n %F %a %u:%g %Y %s" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum' > second-core-files.txt
+            echo "files of /opt/plur1bus/core that differ (first vs second):"; diff core-files.txt second-core-files.txt | head -100 || true
+            docker history --no-trunc --format '{{.Size}}\t{{.CreatedBy}}' "$IMAGE" | cut -c1-140
+          fi
+          [ "$first" = "$second" ] || { echo "::warning::the two builds differ (not bit-reproducible yet)"; exit 1; }

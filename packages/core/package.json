@@ -11,9 +11,13 @@
     "test": "node ../../scripts/test-package.mjs"
   },
   "dependencies": {
-    "@cyb3rb1ade/plur1bus-memory": "git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#9bafa0477bb47a3d8386d0dc682137adba3aa466",
+    "@cyb3rb1ade/plur1bus-memory": "git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#6868b7b117cf7d59b24eb1e75f02aafc1a48f46c",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@plur1bus/config-schema": "workspace:*",
     "@plur1bus/module-api": "workspace:*",
     "@plur1bus/rpc-schema": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "2.1.0"
   }
 }
