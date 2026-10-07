@@ -220,3 +220,8 @@ it("caller mutation cannot alter subsequent artifact verification", async (t) =>
   assert.equal(Buffer.from(ok(await f.client.download({ serial: 1, id: "owner/skill", version: "1.0.0" }))).toString(), "package");
   assert.ok(!f.hits.includes("/package"));
 });
+it("does not interpret a JSON-null checkpoint or missing checkpoint with corrupt snapshot as a fresh trust store", async (t) => {
+  const f = await fixture(t); f.serve(); ok(await f.client.refresh());
+  await writeFile(join(f.dir, "checkpoint.json"), "null"); failure(await f.make().get(), "rollback_detected");
+  await rm(join(f.dir, "checkpoint.json")); await writeFile(join(f.dir, "snapshot.json"), "broken"); failure(await f.make().get(), "rollback_detected");
+});
