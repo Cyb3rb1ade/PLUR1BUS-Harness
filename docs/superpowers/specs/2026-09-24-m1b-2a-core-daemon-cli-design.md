@@ -188,6 +188,7 @@ The first-party module names and priorities below were proposed on 2026-10-06, c
 | `a2a` | Orchestration · 430 | D63 | Off by default (`V2A2A`: serving off until turned on). |
 
 **Agent Bridge.** One **connector** per external system (Claude Code, Codex CLI, kimi-cli, Claude Desktop, Jan, LibreChat, OpenClaw, Hermes, …). Each connector has two roles, switched on and off independently:
+*Open before implementation (2026-10-07):* the configuration each connector writes in an external system (file paths, formats, the MCP launch command — the canvas uses `plur1bus mcp serve --agent <id>`, not yet specified — and the prompt-snippet markers) is unverified; each connector verifies it against that system's current documentation and records it in its manifest. See desktop spec §13.3 (c) item 9.
 
 - **Drive** — PLUR1BUS uses the external CLI as the engine of one of its agents, through the ADR-011 tiers (ACP adapter, headless JSON, PTY). The bridge spawns the driven CLI per session.
 - **Attach** — the external system uses a PLUR1BUS agent as its persona and memory, through the `docs/host-adapters.md` tiers 0–3 (D28, "one harness, both roles"). The bridge writes the attach configuration into the external system (MCP entry, hooks, a prompt snippet with the slim payload) visibly and reversibly, and removes it again on request.
