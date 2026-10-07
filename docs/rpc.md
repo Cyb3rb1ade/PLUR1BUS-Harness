@@ -5667,6 +5667,63 @@ The session's persisted events after afterSeq (default 0), oldest first: the sam
 }
 ```
 
+### `session.cancel`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Cancels the session's running turn: it ends failed with error cancelled (what was already streamed stays stored; nothing is captured). Idempotent: with no running turn nothing happens and cancelled is false.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "cancelled"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cancelled": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.

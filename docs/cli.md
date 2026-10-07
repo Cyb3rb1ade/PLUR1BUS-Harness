@@ -43,6 +43,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus session show`↴](#plur1bus-session-show)
 * [`plur1bus session archive`↴](#plur1bus-session-archive)
 * [`plur1bus chat`↴](#plur1bus-chat)
+* [`plur1bus acp`↴](#plur1bus-acp)
+* [`plur1bus acp serve`↴](#plur1bus-acp-serve)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -147,6 +149,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `memory` — Memory: add and recall through the core
 * `session` — Chat sessions: list, show, archive
 * `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
+* `acp` — Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
 * `dreams` — Dreaming jobs: status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
@@ -660,6 +663,32 @@ Chat sessions: list, show, archive
 * `--agent <AGENT>` — The agent to talk to (default: the only registered agent)
 * `--session <SESSION>` — Continue this session instead of starting a new one
 * `--no-memory` — Start the chat incognito: nothing of it is remembered
+
+
+
+## `plur1bus acp`
+
+Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
+
+**Usage:** `plur1bus acp <COMMAND>`
+
+###### **Subcommands:**
+
+* `serve` — [experimental] Serve ACP (schema v1) on stdin/stdout for an editor such as Zed
+
+
+
+## `plur1bus acp serve`
+
+[experimental] Serve ACP (schema v1) on stdin/stdout for an editor such as Zed
+
+stdout carries only ACP JSON-RPC lines; diagnostics go to stderr and never contain prompts, model output or credentials. Each ACP session becomes one harness session of kind `acp`. Needs a running core (`plur1bus daemon start`). Not affected by `--json`.
+
+**Usage:** `plur1bus acp serve [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>` — The agent the editor talks to (default: the only registered agent)
 
 
 
