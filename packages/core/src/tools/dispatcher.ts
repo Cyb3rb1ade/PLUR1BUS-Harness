@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { decide, type ApprovalRequest, type Call, type CallFlags, type Clock, type Context, type Decision, type GrantSource, type SurfaceTrust } from "../policy/index.ts";
 import type { PolicyAudit, PolicyAuditFields } from "../policy/audit.ts";
+import { headlessGate } from "../policy/headless.ts";
 import type { ApprovalAnswer, ApprovalAsk, ApprovalPort } from "./approval.ts";
 import { repairMessage, validateArgs, type RepairHook, type ValidationIssue } from "./repair.ts";
 import type { RegisteredTool, ToolRegistry, ToolTrust } from "./registry.ts";
@@ -198,7 +199,7 @@ export class ToolDispatcher {
     try {
       // The hook is inside the guard: a hook that throws (a broken approval chain, an unwritable audit line) is a refusal, never an allow.
       const context: Context = { ...baseCtx, ...(this.#d.policyContext?.(ctx) ?? {}) };
-      try { return { decision: decide(call, context, { grants: this.#d.grants, clock: this.#d.clock }), context }; }
+      try { return { decision: headlessGate(decide(call, context, { grants: this.#d.grants, clock: this.#d.clock }), context), context }; } // D5: a headless ask is a refusal, never a wait
       catch { return { decision: { kind: "deny", reason: "policy-never", rule: "evaluator-error" }, context }; } // fail closed
     } catch {
       return { decision: { kind: "deny", reason: "policy-never", rule: "context-unavailable" }, context: baseCtx };
