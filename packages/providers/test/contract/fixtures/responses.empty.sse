@@ -1,0 +1,10 @@
+: SYNTHETIC reconstruction of the responses wire format (scenario "empty"), written by hand from the public docs. NOT a live capture. See ../README.md.
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_contract_1","object":"response","model":"contract-gpt","status":"in_progress","output":[]}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_contract_1","object":"response","model":"contract-gpt","status":"in_progress"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":2,"response":{"id":"resp_contract_1","object":"response","model":"contract-gpt","status":"completed","output":[]}}
+
