@@ -202,7 +202,7 @@ await setup();
 let failed = 0;
 try {
   for (const s of SHOTS) {
-    if (only && !only.some((o) => s.name.startsWith(o))) continue;
+    if (only && only.length > 0 && !only.some((o) => s.name.startsWith(o))) continue;
     for (const theme of ["light", "dark"] as const) for (const [size, width] of Object.entries(WIDTHS)) {
       const file = join(dir, `${s.name}-${SCHEME[theme]}-${size}.png`);
       try { await s.run(theme, width, file); console.log("ok  ", file); } catch (e) { failed += 1; console.error("FAIL", file, String(e).split("\n")[0]); }
