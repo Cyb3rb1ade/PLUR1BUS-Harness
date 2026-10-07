@@ -134,6 +134,7 @@ pub(crate) fn audit_after_exit(
             Ok(super::windows_spa_profile::SecretScanOutcome {
                 complete: true,
                 secret_detected: false,
+                timed_out: false,
                 files_read,
                 bytes_read,
             })
