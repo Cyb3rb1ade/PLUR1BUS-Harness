@@ -59,3 +59,12 @@ it("stdio shutdown reaps descendants even when the parent exits on EOF (all OS)"
   await t.start(); const pid = await child;
   await t.close(); assert.ok(await waitDead(pid), "descendant survived its parent's graceful exit");
 });
+
+it("stdio rejects invalid UTF-8 instead of changing protocol bytes", async () => {
+  const input = new PassThrough(); const output = new PassThrough();
+  const t = new BoundedStdioTransport({ input, output }, 256, 50); let messages = 0; let errors = 0;
+  t.onmessage = () => { messages++; }; t.onerror = () => { errors++; };
+  await t.start();
+  output.write(Buffer.concat([Buffer.from('{"jsonrpc":"2.0","method":"notice","params":{"text":"'), Buffer.from([0xff]), Buffer.from('"}}\n')]));
+  await t.close(); assert.equal(messages, 0); assert.equal(errors, 1);
+});

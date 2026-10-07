@@ -24,3 +24,9 @@ describe("mcp redaction", () => {
     assert.deepEqual(e.missing, ["ABSENT"]);
   });
 });
+
+it("redacts individual lines of a declared multiline secret before stderr line logging", () => {
+  const r = createRedactor(); r.add("fake-secret-line-one\nfake-secret-line-two", true);
+  assert.equal(r.redact("value=fake-secret-line-one"), "value=[REDACTED]");
+  assert.equal(r.redact("value=fake-secret-line-two"), "value=[REDACTED]");
+});

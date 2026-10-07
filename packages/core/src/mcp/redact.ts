@@ -22,7 +22,8 @@ export function createRedactor(initial: Iterable<string> = []): Redactor {
   let ordered: string[] = [];
   const add = (v: string, force = false): void => {
     if (typeof v !== "string" || v.length < (force ? 1 : MIN_SECRET_LENGTH)) return;
-    for (const form of new Set([v, encodeURIComponent(v)])) {
+    const lines = v.split(/\r\n|\r|\n/).filter(Boolean);
+    for (const form of new Set([v, encodeURIComponent(v), ...lines, ...lines.map(encodeURIComponent)])) {
       if (form.length >= (force ? 1 : MIN_SECRET_LENGTH)) values.add(form);
     }
     ordered = [...values].sort((a, b) => b.length - a.length); // longest first: a secret containing another is removed whole

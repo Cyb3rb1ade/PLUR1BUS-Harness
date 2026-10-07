@@ -74,7 +74,7 @@ export class BoundedStdioTransport {
       this.buffer = Buffer.concat([this.buffer, part]);
       if (newline < 0) return;
       try {
-        const message = JSONRPCMessageSchema.parse(JSON.parse(this.buffer.toString("utf8")));
+        const message = JSONRPCMessageSchema.parse(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(this.buffer)));
         this.buffer = Buffer.alloc(0); this.onmessage?.(message);
       } catch { this.fail("MCP malformed JSON-RPC frame"); return; }
       offset = newline + 1;
