@@ -6,3 +6,6 @@ export { FileOffsetStore, MemoryOffsetStore } from "./offset.ts";
 export { splitMessage, TELEGRAM_MAX_TEXT } from "./split.ts";
 export { redactString, redactAttrs } from "./redact.ts";
 export type * from "./port.ts";
+export { CallbackSigner } from "./callback.ts";
+export { TokenBucket } from "./rate-limit.ts";
+export { escapeText } from "./split.ts";

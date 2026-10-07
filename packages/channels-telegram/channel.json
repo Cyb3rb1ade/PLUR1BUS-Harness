@@ -1,0 +1,10 @@
+{
+  "name": "telegram",
+  "version": "0.1.0",
+  "kind": "channel",
+  "apiVersion": "1",
+  "displayName": "Telegram",
+  "chatKinds": ["direct", "group"],
+  "startDelayMs": 0,
+  "maxRestarts": 8
+}

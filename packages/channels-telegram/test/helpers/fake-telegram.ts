@@ -1,12 +1,16 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-export interface Call { method: string; body: Record<string, unknown> }
+export interface Call {
+  method: string;
+  body: Record<string, unknown>;
+}
 
 /** A local Bot API stand-in. getUpdates holds the request open (like long polling) until updates are queued or close(). */
 export class FakeTelegram {
   readonly token = "123456789:AAFakeTokenForTestsOnly_abcdefghijklmnop";
   readonly calls: Call[] = [];
+  readonly files = new Map<string, { path: string; mime: string; data: Buffer }>();
   readonly queue: Record<string, unknown>[] = [];
   /** Scripted failures per method, consumed in order: [status, body]. */
   readonly failures: Record<string, Array<[number, unknown]>> = {};
@@ -43,18 +47,70 @@ export class FakeTelegram {
   async #handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
+    const filePrefix = `/file/bot${this.token}/`;
+    if ((req.url ?? "").startsWith(filePrefix)) {
+      const path = req.url!.slice(filePrefix.length);
+      const file = [...this.files.values()].find((f) => f.path === path);
+      if (!file) {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
+      res.writeHead(200, { "content-type": file.mime });
+      res.end(file.data);
+      return;
+    }
     const m = /^\/bot([^/]+)\/(\w+)$/.exec(req.url ?? "");
     const send = (status: number, body: unknown) => {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
     };
-    if (!m || m[1] !== this.token) return send(401, { ok: false, error_code: 401, description: "Unauthorized" });
+    if (!m || m[1] !== this.token)
+      return send(401, {
+        ok: false,
+        error_code: 401,
+        description: "Unauthorized",
+      });
     const method = m[2]!;
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as Record<string, unknown>;
+    const raw = Buffer.concat(chunks);
+    let body: Record<string, unknown>;
+    if (req.headers["content-type"]?.startsWith("multipart/form-data")) {
+      const request = new Request("http://localhost", {
+        method: "POST",
+        headers: { "content-type": req.headers["content-type"] },
+        body: raw,
+      });
+      const form = await request.formData();
+      body = {};
+      form.forEach((v, k) => {
+        body[k] = typeof v === "string" ? v : { size: v.size, type: v.type, name: v.name };
+      });
+    } else body = JSON.parse(raw.toString("utf8") || "{}") as Record<string, unknown>;
     this.calls.push({ method, body });
     const fail = this.failures[method]?.shift();
     if (fail) return send(fail[0], fail[1]);
-    if (method === "sendMessage") return send(200, { ok: true, result: { message_id: this.#nextMessageId++ } });
+    if (method === "getMe") return send(200, { ok: true, result: { id: 999, username: "testbot" } });
+    if (["setWebhook", "deleteWebhook", "setMyCommands", "answerCallbackQuery"].includes(method))
+      return send(200, { ok: true, result: true });
+    if (method === "getFile") {
+      const file = this.files.get(String(body.file_id));
+      return file
+        ? send(200, {
+            ok: true,
+            result: { file_path: file.path, file_size: file.data.length },
+          })
+        : send(400, { ok: false, error_code: 400 });
+    }
+    if (["sendPhoto", "sendDocument", "sendVoice", "sendAudio", "sendVideo"].includes(method))
+      return send(200, {
+        ok: true,
+        result: { message_id: this.#nextMessageId++ },
+      });
+    if (method === "sendMessage")
+      return send(200, {
+        ok: true,
+        result: { message_id: this.#nextMessageId++ },
+      });
     if (method === "getUpdates") {
       const offset = typeof body.offset === "number" ? body.offset : 0;
       let ready = this.queue.filter((u) => (u.update_id as number) >= offset);
@@ -73,5 +129,11 @@ export class FakeTelegram {
 
 export const textUpdate = (id: number, chatId: number, text: string) => ({
   update_id: id,
-  message: { message_id: id * 10, date: 1_700_000_000, text, chat: { id: chatId, type: "private" }, from: { id: chatId } },
+  message: {
+    message_id: id * 10,
+    date: 1_700_000_000,
+    text,
+    chat: { id: chatId, type: "private" },
+    from: { id: chatId },
+  },
 });
