@@ -139,12 +139,25 @@ describe("palette: keyboard operation", opts, () => {
       assert.equal(await options.first().getAttribute("aria-selected"), "true");
       assert.equal(await page.locator("dialog.palette [role=status]").getAttribute("aria-live"), "polite");
       await c.fill("log");
-      const count = (await page.locator("dialog.palette [role=status]").textContent()) ?? "";
-      assert.equal(count, `${await options.count()} results`);
+      // The count is announced when the list has settled (rate limited), so wait for it.
+      await page.waitForFunction(() => /^\d+ results$/.test(document.querySelector("dialog.palette [role=status]")?.textContent ?? "") && document.querySelector("dialog.palette [role=status]")?.textContent !== "30 results");
+      assert.equal((await page.locator("dialog.palette [role=status]").textContent()) ?? "", `${await options.count()} results`);
+      await c.fill("zzzzzz"); // an Owner still gets the "Search logs for ..." fallback, nothing else
+      await options.first().waitFor();
+      assert.equal(await options.count(), 1);
+      assert.equal(await options.first().textContent(), "Search logs for “zzzzzz”");
+    });
+  });
+
+  test("a role without log access gets 'No results' (no listbox, aria-expanded false)", async () => {
+    await withApp({ server: { role: "member" } }, async (app) => {
+      const page = await shell(app);
+      await open(page);
+      const c = combo(page);
       await c.fill("zzzzzz");
       assert.equal(await c.getAttribute("aria-expanded"), "false");
       assert.equal(await c.getAttribute("aria-controls"), null);
-      assert.equal(await page.locator("dialog.palette [role=status]").textContent(), "No results");
+      await page.waitForFunction(() => document.querySelector("dialog.palette [role=status]")?.textContent === "No results");
       await page.getByText("No results", { exact: true }).first().waitFor();
     });
   });
@@ -155,7 +168,7 @@ describe("palette: keyboard operation", opts, () => {
       await open(page);
       await combo(page).fill("dreams");
       const groups = await page.locator("dialog.palette [role=group]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? document.getElementById(e.getAttribute("aria-labelledby") ?? "")?.textContent));
-      assert.deepEqual(groups, ["Navigation"]);
+      assert.deepEqual(groups, ["Navigation", "Logs"]); // Logs: the Owner's "Search logs for ..." fallback, always last
       assert.equal((await dlg(page).getByRole("option").first().textContent())?.startsWith("Dreams"), true);
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });
@@ -165,7 +178,7 @@ describe("palette: keyboard operation", opts, () => {
     });
   });
 
-  test("a settings hit opens #/settings?focus=<key>; typing finds it by label, key, help and value", async () => {
+  test("a settings hit opens #/settings/<section>?focus=<key>; typing finds it by label, key, help and value", async () => {
     await withApp({}, async (app) => {
       const page = await shell(app);
       await open(page);
@@ -173,7 +186,7 @@ describe("palette: keyboard operation", opts, () => {
       await dlg(page).getByRole("option", { name: /Soft budget ms/ }).waitFor();
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });
-      assert.equal(await hash(page), "#/settings?focus=core.recall.softBudgetMs");
+      assert.equal(await hash(page), "#/settings/general?focus=core.recall.softBudgetMs");
       await page.getByRole("heading", { name: "Settings", level: 1 }).waitFor();
       await page.waitForFunction(() => document.activeElement?.tagName === "H1");
       // Same page again: the query changes, focus must not be lost to <body>.
@@ -182,13 +195,13 @@ describe("palette: keyboard operation", opts, () => {
       await dlg(page).getByRole("option", { name: /Allow loopback/ }).waitFor();
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });
-      assert.equal(await hash(page), "#/settings?focus=egress.allowLoopback");
+      assert.equal(await hash(page), "#/settings/network?focus=egress.allowLoopback");
       await page.waitForFunction(() => document.activeElement?.tagName === "H1");
       await open(page);
       await combo(page).fill("9464"); // current value, from config.get
       await dlg(page).getByRole("option", { name: /Port/ }).waitFor();
       await dlg(page).getByRole("option", { name: /Port/ }).click();
-      assert.equal(await hash(page), "#/settings?focus=metrics.port");
+      assert.equal(await hash(page), "#/settings/general?focus=metrics.port");
     });
   });
 
@@ -213,7 +226,7 @@ describe("palette: keyboard operation", opts, () => {
       await app.page.keyboard.press(`${(await mods(app.page)).mod}+K`);
       const c = combo(app.page);
       await c.waitFor();
-      assert.equal(await c.getAttribute("aria-label"), "Seiten und Einstellungen durchsuchen");
+      assert.equal(await c.getAttribute("aria-label"), "Seiten, Aktionen, Agenten, Chats und Einstellungen durchsuchen");
       await c.fill("traume");
       assert.equal((await dlg(app.page).getByRole("option").first().textContent())?.startsWith("Träume"), true);
       await c.fill("memories"); // the English label is found from the German UI too
@@ -235,11 +248,12 @@ describe("palette: values and sensitive keys", opts, () => {
       assert.ok(keys.some((k) => k.includes("metrics.enabled")));
       assert.ok(!keys.some((k) => k.includes("secrets.fileFallback.enabled")), "a sensitive key's value must not be searchable");
       await combo(page).fill("secrets");
-      const secretRow = (await page.locator("dialog.palette [role=option]").first().textContent()) ?? "";
+      const secretRow = (await page.locator("dialog.palette [role=option]", { hasText: "secrets.fileFallback.enabled" }).first().textContent()) ?? "";
       assert.ok(secretRow.includes("secrets.fileFallback.enabled") && !secretRow.includes("= true"), secretRow);
       await combo(page).fill("TOPSECRET");
-      assert.equal(await dlg(page).getByRole("option").count(), 0);
-      assert.equal((await page.content()).includes("TOPSECRET"), false);
+      await dlg(page).getByRole("option").first().waitFor();
+      assert.deepEqual(await dlg(page).getByRole("option").allTextContents(), ["Search logs for “TOPSECRET”"]); // only the query-built fallback, no setting
+      assert.equal((await page.content()).includes("sk-TOPSECRET-123"), false);
     });
   });
 
@@ -313,7 +327,7 @@ describe("palette: responsive", opts, () => {
 
 describe("palette: axe (WCAG 2.1 AA)", opts, () => {
   for (const [scheme, width] of [["light", 1440], ["dark", 1440], ["light", 400], ["dark", 400]] as const) {
-    test(`${scheme}, ${width} px: open, with hits, without hits`, async () => {
+    test(`${scheme}, ${width} px: open, with hits, with only the fallback`, async () => {
       await withApp({ colorScheme: scheme, width, height: 800 }, async (app) => {
         const page = await shell(app);
         await open(page);
@@ -323,8 +337,8 @@ describe("palette: axe (WCAG 2.1 AA)", opts, () => {
         await page.keyboard.press("ArrowDown");
         await expectAxeClean(page, "with hits");
         await combo(page).fill("zzzzzz");
-        await page.getByText("No results", { exact: true }).first().waitFor();
-        await expectAxeClean(page, "without hits");
+        await page.getByRole("option", { name: /Search logs for/ }).waitFor();
+        await expectAxeClean(page, "only the log search fallback");
       });
     });
   }

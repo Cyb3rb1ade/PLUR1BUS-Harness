@@ -5,6 +5,15 @@
 @import "./doctor.css"; /* doctor page */
 @import "./memory.css"; /* memories & dreams page */
 @import "./chat.css"; /* chat page (src/pages/chat) */
+@import "./shared.css";
+@import "./settings.css";
+@import "./agents.css";
+@import "./users.css";
+@import "./secrets.css";
+@import "./setup.css";
+@import "./logs.css";
+@import "./activity.css";
+@import "./sessions.css";
 @import "./palette.css"; /* command palette (src/palette); declared after the shared rules it overrides via specificity, not order */
 
 *, *::before, *::after { box-sizing: border-box; }

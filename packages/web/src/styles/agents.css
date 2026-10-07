@@ -1,0 +1,16 @@
+/* agents page styles. */
+.a-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.nav-link.a-row { display: grid; gap: 2px; justify-items: start; }
+.a-row-name { font-weight: 600; overflow-wrap: anywhere; }
+.a-row-meta { font-size: 12.5px; color: var(--ink-2); }
+.a-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 16px; padding: 0; color: var(--ink-2); font-size: 13px; }
+.a-steps [aria-current="step"] { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+.a-step-title { margin: 0 0 12px; font-size: 18px; }
+.a-step-title:focus { outline: none; }
+.a-skills { border: 0; margin: 0 0 16px; padding: 0; }
+.a-check { display: flex; align-items: center; gap: 8px; min-height: var(--control-h, 36px); }
+.a-nav { justify-content: flex-start; }
+.a-actions { gap: 12px; }
+.a-action .btn[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
+.a-action .field-hint { margin: 4px 0 0; }
+.a-detail { display: grid; gap: 16px; }

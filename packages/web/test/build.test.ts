@@ -65,9 +65,11 @@ test("the bundles use no eval, Function constructor, javascript: URL or remote o
 // the budget is split: main.js itself (shell, sign-in, palette, registry, loader) keeps its own small budget, the start-up
 // closure (main.js plus the chunks it imports statically: Preact, signals, the API client, the i18n catalogues of every area,
 // shared components) has a ceiling, and every lazily loaded page chunk has its own. styles.css (one file for the shell and every
-// page, 6 KiB when there was one page) is allowed 8 KiB. The catalogues are the largest part of the
-// start-up closure (~15 KiB gzip for de+en of all areas); loading them per page would take it near the old 25 KiB.
-const BUDGET_KIB = { main: 10, startup: 46, page: 12, styles: 8 } as const;
+// page, 6 KiB when there was one page) is allowed 9 KiB. The catalogues are the largest part of the
+// start-up closure (~28 KiB gzip for de+en of all areas); loading them per page would take it near the old 25 KiB (follow-up F18).
+// M3 part 2 added ten areas (wizard, agents, settings, users, secrets, logs, activity, sessions, devices, shared) and raised the
+// ceiling from 46 to 54 KiB (measured about 51 after the palette dialog became a lazy chunk) and styles from 8 to 9 KiB (measured 8.6).
+const BUDGET_KIB = { main: 10, startup: 54, page: 12, styles: 9 } as const;
 
 test("size budgets: main.js, the start-up closure, each lazy page chunk, styles.css", async () => {
   const { initial, lazy } = await graph();

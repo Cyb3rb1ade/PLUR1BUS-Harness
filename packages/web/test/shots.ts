@@ -1,4 +1,5 @@
-// Screenshots of the seven pages (chat, memories, dreams, models, usage, doctor, palette) in light and dark at 400 px (compact)
+// Screenshots of the pages (chat, memories, dreams, models, usage, doctor, palette, agents, agent detail, settings general / users /
+// secrets / devices, logs viewer / activity / sessions, setup wizard, palette with entity results) in light and dark at 400 px (compact)
 // and 1600 px (wide), against the mock server with filled fixtures. Not a test; run by hand and for PR screenshots:
 //   PLUR1BUS_WEB_SHOTS_DIR=<dir> pnpm --filter @plur1bus/web exec node --experimental-strip-types test/shots.ts
 // Files: <page>-<hell|dunkel>-<compact|wide>.png (hell = light, dunkel = dark). PLUR1BUS_WEB_SHOTS_ONLY=chat,doctor narrows the pages.
@@ -13,6 +14,8 @@ import { AGENTS as DOCTOR_AGENTS, CORE_OK, DoctorMock, HEALTH_DEGRADED } from ".
 import { browserSkip, getDistDir, openRoute, setup, signIn, teardown, withApp, type App } from "./harness.ts";
 import { defaultFixture, installMemoryMocks } from "./memory-fixtures.ts";
 import type { MockRpc } from "./mock-rpc.ts";
+import * as M3 from "./shots-m3b.ts";
+import { next, stepHeading, toSwitchboard } from "./setup-fixtures.ts";
 
 type Rec = Record<string, unknown>;
 
@@ -125,6 +128,23 @@ function shot(name: string, route: string, prep: (app: App) => void | Promise<vo
   };
 }
 
+function setupShot(name: string, walk: (page: Page, app: App) => Promise<void>): Shot {
+  return {
+    name,
+    run: async (theme, width, file) => {
+      await withApp({ width, height: width < 800 ? 900 : 1000, colorScheme: theme }, async (app) => {
+        await serveChunks(app);
+        M3.seedWizard(app.server);
+        await openRoute(app.page, "#/setup");
+        await withTheme(app, theme);
+        await walk(app.page, app);
+        await app.page.waitForTimeout(200);
+        await settle(app.page, file);
+      });
+    },
+  };
+}
+
 const SHOTS: Shot[] = [
   {
     name: "chat",
@@ -187,6 +207,66 @@ const SHOTS: Shot[] = [
         await app.page.keyboard.press(`${mod}+K`);
         await app.page.locator("dialog.palette [role=combobox]").waitFor();
         await app.page.waitForTimeout(250);
+        await app.page.screenshot({ path: file });
+      });
+    },
+  },
+  shot("agents", "#/agents", (app) => { M3.seedAgents(app.server); }, async (p) => { await p.getByRole("link", { name: /Bernd das Bot/ }).waitFor(); }),
+  shot("agent-detail", "#/agents/main", (app) => { M3.seedAgents(app.server); }, async (p) => { await p.getByRole("heading", { level: 1 }).first().waitFor(); await p.waitForTimeout(300); }),
+  shot("settings-general", "#/settings/general", (app) => { M3.seedGeneral(app.server); }, async (p) => {
+    await p.locator("#cfg-core-logLevel").waitFor();
+    await p.locator("#cfg-core-logLevel").selectOption("debug");
+    await p.locator("#cfg-core-recall-softBudgetMs").fill("500");
+    await p.getByRole("button", { name: "Review changes" }).click();
+    await p.locator(".cfg-diff").waitFor();
+  }),
+  shot("settings-users", "#/settings/users", (app) => { M3.seedUsersPage(app.server); }, async (p) => {
+    await p.getByRole("list", { name: "People with access" }).getByRole("listitem").nth(3).waitFor();
+  }),
+  shot("settings-secrets", "#/settings/secrets", (app) => { M3.seedSecretsPage(app.server); }, async (p) => { await p.getByRole("row", { name: /openai\.apiKey/ }).waitFor(); }),
+  shot("settings-devices", "#/settings/devices", (app) => { M3.seedDevices(app.server); }, async (p) => { await p.getByText("Published as lan").waitFor(); }),
+  shot("logs-viewer", "#/logs", (app) => { M3.seedLogs(app.server); }, async (p) => { await p.getByRole("grid", { name: "Log entries" }).locator('[role="row"][data-row]').first().waitFor(); }),
+  shot("logs-activity", "#/logs/activity", (app) => { M3.seedActivity(app.server); }, async (p) => { await p.getByRole("region", { name: "Recent activity" }).getByRole("heading", { level: 3 }).first().waitFor(); }),
+  shot("logs-sessions", "#/logs/sessions", (app) => { M3.seedSessions(app.server); }, async (p) => { await p.locator("li.session-row").first().waitFor(); }),
+  setupShot("setup-step1", async () => {}),
+  setupShot("setup-step3", async (p) => {
+    await stepHeading(p, "Your account").waitFor(); await next(p);
+    await stepHeading(p, "Name & persona").waitFor(); await p.getByLabel("Display name").fill("Hal"); await next(p);
+    await stepHeading(p, /Main model/).waitFor();
+  }),
+  setupShot("setup-summary", async (p, app) => {
+    await toSwitchboard(app);
+    await p.getByRole("button", { name: "Skip this step" }).click();
+    await stepHeading(p, /Memory/).waitFor(); await next(p);
+    await stepHeading(p, /Backups/).waitFor();
+    await p.getByRole("button", { name: "Create a backup now" }).click();
+    await p.getByText("Backup created: plur1bus-20261007-setup").waitFor(); await next(p);
+    await stepHeading(p, /Import/).waitFor();
+    await p.getByRole("button", { name: "Skip and finish" }).click();
+    await stepHeading(p, "Setup summary").waitFor();
+  }),
+  {
+    name: "palette-entitaeten",
+    run: async (theme, width, file) => {
+      await withApp({ width, height: width < 800 ? 900 : 1000, colorScheme: theme }, async (app) => {
+        await serveChunks(app);
+        const agents = { alpha: { displayName: "Alpha" }, bernd: { displayName: "Bernd das Bot" } };
+        app.server.rpc.handle("config.get", (p) => {
+          const key = (p as { key?: string } | undefined)?.key;
+          return key === "agents" ? { key, tier: null, value: agents, restartClass: null, restart: null, revision: "r1" } : { key: null, tier: null, value: { metrics: { port: 9464 }, agents }, restartClass: null, restart: null, revision: "r1" };
+        }, { write: false });
+        const rec = (id: string, title: string) => ({ id, kind: "direct", agentId: "bernd", scope: "user:t", chatKey: null, title, pinned: false, memoryMode: "remember", createdAt: 1, updatedAt: 1, lastTurnAt: 1, archivedAt: null, turnCount: 1 });
+        app.server.rpc.handle("session.list", () => ({ sessions: [rec("ses_1", "Alpha planning"), rec("ses_2", "Alpha retro")], truncated: false }), { write: false });
+        await signIn(app.page);
+        await app.page.locator(".sidebar").waitFor();
+        await withTheme(app, theme);
+        const mod = await app.page.evaluate(() => (/mac|iphone|ipad/i.test(navigator.platform) ? "Meta" : "Control"));
+        await app.page.keyboard.press(`${mod}+K`);
+        const combo = app.page.locator("dialog.palette [role=combobox]");
+        await combo.waitFor();
+        await combo.fill("alpha");
+        await app.page.locator("dialog.palette [role=group]").first().waitFor();
+        await app.page.waitForTimeout(400);
         await app.page.screenshot({ path: file });
       });
     },
