@@ -1,6 +1,7 @@
 // Pure matching, ranking and highlighting for the palette. No DOM, no i18n, no signals: unit-tested in test/palette-match.test.ts.
+import type { RolePreset } from "../pages/common/load.ts";
 
-export type Group = "nav" | "setting";
+export type Group = "nav" | "action" | "log" | "agent" | "session" | "setting";
 
 export type Entry = {
   /** Unique and stable. */
@@ -19,6 +20,8 @@ export type Entry = {
   meta?: string;
   /** Route to open, with query for settings (`/settings/<section>?focus=<key>`). */
   to: string;
+  /** Roles that may see the entry (docs/rbac.md); absent: every role. Applied by `buildIndex`, never by `search`. */
+  roles?: readonly RolePreset[];
 };
 
 export type Hit = { entry: Entry; rank: number };
@@ -61,10 +64,10 @@ const byCodeUnit = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0
 
 /** Entries matching every word of the query (AND, any field), best first. Rank: the weakest word's field class, then the sum
  * of the classes, then the folded label and the id, so the order is total and independent of the input order.
- * A blank query lists the navigation only, in index order. */
+ * A blank query lists navigation and actions, in index order. */
 export function search(entries: readonly Entry[], query: string): Hit[] {
   const ws = words(query);
-  if (ws.length === 0) return entries.filter((e) => e.group === "nav").map((entry) => ({ entry, rank: 0 }));
+  if (ws.length === 0) return entries.filter((e) => e.group === "nav" || e.group === "action").map((entry) => ({ entry, rank: 0 }));
   const scored: { entry: Entry; worst: number; sum: number; label: string }[] = [];
   for (const entry of entries) {
     const folded = {
