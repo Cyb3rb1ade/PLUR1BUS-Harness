@@ -2,9 +2,11 @@ import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, renam
 import { dirname } from "node:path";
 import { createSecurePath } from "./secure-path.ts";
 
+/** Severity levels accepted by {@link HarnessLogger}. */
 export type Level = "debug" | "info" | "warn" | "error";
 const ORDER: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
+/** Structured JSON-lines logger used by the harness and its modules. */
 export interface HarnessLogger {
   debug(msg: string, fields?: Record<string, unknown>): void;
   info(msg: string, fields?: Record<string, unknown>): void;
@@ -55,6 +57,7 @@ function rotatingSink(file: string, maxBytes: number, keep: number): { write(lin
   };
 }
 
+/** Creates a secured logger that writes structured records to a rotating file or the supplied stream. */
 export function createLogger(o: { file: string; level: Level; role: string; stream?: WriteStream; maxBytes?: number; keep?: number }): HarnessLogger {
   const logDir = dirname(o.file);
   mkdirSync(logDir, { recursive: true, mode: 0o700 });

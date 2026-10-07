@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+/** Handle keeping a per-module OS lock held until {@link release} is called. */
 export interface ExclusiveLock { release(): void }
 
 /** SQLITE_BUSY: another connection holds the database (here: its EXCLUSIVE transaction). */
