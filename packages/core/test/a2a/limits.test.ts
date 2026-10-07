@@ -67,6 +67,13 @@ describe("size, type and rate limits", () => {
     await rpc(r.h, "tasks/cancel", { id: a });
     assert.ok((await rpc(r.h, "message/send", sendMsg("4"))).json.result.id);
   });
+  it("a file or data part over the cap is invalid params", async () => {
+    const r = rig({ opts: { limits: { maxFileBytes: 16, maxDataBytes: 16 } } });
+    const file = await rpc(r.h, "message/send", { message: { role: "user", messageId: "f", parts: [{ kind: "file", file: { bytes: "A".repeat(64) } }] } });
+    assert.equal(file.json.error.code, -32602); assert.equal(file.json.error.data.reason, "file-too-large");
+    const data = await rpc(r.h, "message/send", { message: { role: "user", messageId: "d", parts: [{ kind: "data", data: { blob: "x".repeat(64) } }] } });
+    assert.equal(data.json.error.code, -32602); assert.equal(data.json.error.data.reason, "data-too-large");
+  });
   it("the stored-task cap refuses new work instead of evicting live tasks", async () => {
     const r = rig({ opts: { limits: { maxStoredTasks: 1 } } });
     await rpc(r.h, "message/send", sendMsg("1", {}, { blocking: true }));

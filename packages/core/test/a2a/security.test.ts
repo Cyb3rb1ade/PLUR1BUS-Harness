@@ -42,6 +42,18 @@ describe("a2a-peer authentication (default deny)", () => {
     const r = rig({ opts: { peers: [{ id: "p", keySha256: hashKey(KEY_A), grants: { hidden: [...A2A_ACTIONS] } }] } });
     assert.equal((await http(r.h, { method: "GET", path: "/a2a/hidden/.well-known/agent-card.json" })).status, 404);
   });
+  it("an injected bearer verifier is the only credential check; a rejection never starts a turn", async () => {
+    const r = rig({
+      opts: {
+        verifyBearer: (token) => token === KEY_A ? { kind: "a2a-peer", peerId: "peer-a" } : undefined,
+      },
+    });
+    assert.equal((await http(r.h, { method: "GET", path: CARD, key: KEY_B })).status, 401);
+    assert.equal((await http(r.h, { method: "GET", path: CARD, key: KEY_A })).status, 200);
+    const denied = await rpc(r.h, "message/send", sendMsg("x"), { key: KEY_B });
+    assert.equal(denied.status, 401);
+    assert.equal(r.h.tasks.size, 0);
+  });
   it("repeated failed authentication from one address is blocked before any key is compared", async () => {
     const r = rig({ opts: { limits: { failedAuthPerMinute: 3 } } });
     for (let i = 0; i < 3; i++) assert.equal((await http(r.h, { method: "GET", path: CARD, key: "bad-key-0123456789abcdef0123456789ab", remote: "10.0.0.9" })).status, 401);

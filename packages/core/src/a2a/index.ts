@@ -1,5 +1,10 @@
-export { createA2aHandler, BodyTooLarge, type A2aHandler, type A2aHandlerOptions, type A2aHttpRequest, type A2aHttpResponse } from "./handler.ts";
+export { createA2aHandler, BodyTooLarge, type A2aHandler, type A2aHandlerOptions, type A2aHttpRequest, type A2aHttpResponse, type VerifyBearer } from "./handler.ts";
 export { createA2aServer, loopbackAddress, type A2aServer, type A2aServerOptions } from "./server.ts";
-export { buildAgentCard, validateAgentCard, type AgentCard } from "./card.ts";
+export { buildAgentCard, validateAgentCard, DEFAULT_CARD_FEATURES, type AgentCard } from "./card.ts";
 export { authorizePeer, hashKey, resolvePeer, validatePeers, type A2aPeer } from "./policy.ts";
+export { TaskStore, TaskError, realScheduler, type Scheduler, type StartArgs } from "./tasks.ts";
+export { parseParts, PartError } from "./parts.ts";
+export { parsePushConfig, createEgressPushTransport, PushDispatcher, PushError, assignPushId, toTaskPush, type PushTransport } from "./push.ts";
+export { createProviderTurnPort, createSessionTurnPort, openA2aSessionBackend, a2aCaller, type A2aTurnPort, type A2aSessionBackend } from "./turn-port.ts";
+export { statusUpdate, artifactUpdate, sseLines } from "./events.ts";
 export * from "./types.ts";
