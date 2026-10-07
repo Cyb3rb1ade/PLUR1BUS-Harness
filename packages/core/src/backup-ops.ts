@@ -7,6 +7,7 @@
 // RULING R6: SQLite databases under `state/` go through the SQLite backup API (`node:sqlite` `backup`), never a file copy.
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
+import * as nodeFs from "node:fs/promises";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
 import { DatabaseSync, backup } from "node:sqlite";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -36,6 +37,27 @@ const sha256File = (path: string): Promise<string> => new Promise((ok, fail) => 
   const h = createHash("sha256");
   createReadStream(path).on("data", (c) => h.update(c)).on("error", fail).on("end", () => ok(h.digest("hex")));
 });
+
+/** The engine's `createSnapshot` fsyncs every file it stages and the staging directories (`hashAndSync`, `fsyncDir`).
+ *  Hypothesis, not measured on a Mac: libuv's fsync is `F_FULLFSYNC` on macOS (a drive cache flush, far slower than on
+ *  Linux), so a snapshot stalls idle past the client's 30 s call timeout. The staging directory is scratch: the caller
+ *  packs it into the archive (which is what must be durable) and removes it, and a failed or killed snapshot is swept
+ *  as stale staging. So the staged copy is never fsynced. */
+export function stagingFs(base: typeof nodeFs = nodeFs): typeof nodeFs {
+  return {
+    ...base,
+    open: (async (...args: Parameters<typeof nodeFs.open>) => {
+      const fh = await base.open(...args);
+      return new Proxy(fh, {
+        get(target, prop) {
+          if (prop === "sync" || prop === "datasync") return async () => {};
+          const v = Reflect.get(target, prop, target);
+          return typeof v === "function" ? v.bind(target) : v;
+        },
+      });
+    }) as typeof nodeFs.open,
+  };
+}
 
 const toPosix = (p: string): string => p.split(sep).join("/");
 
@@ -73,6 +95,8 @@ export function buildBackupMethods(d: BackupDeps): Record<(typeof BACKUP_METHODS
       try {
         const snap = await createSnapshot({
           stateDir: state, baseDbPath: base, snapshotsDir: root, ...(p.label !== undefined ? { label: p.label } : {}),
+          // The engine implements `fsImpl` (its JSDoc) but its .d.ts omits it, hence the spread of a variable.
+          ...({ fsImpl: stagingFs() } as object),
           ...(d.now ? { now: d.now } : {}),
         });
         // Belt and braces: the engine's own digests, re-read from the copy before anything else is added to it.
