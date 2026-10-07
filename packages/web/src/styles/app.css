@@ -1,4 +1,6 @@
 @import "./tokens.css";
+@import "./data.css"; /* shared value pieces: facts, tables, meter, nested cards */
+@import "./models.css"; /* models page */
 @import "./chat.css"; /* chat page (src/pages/chat) */
 @import "./palette.css"; /* command palette (src/palette); declared after the shared rules it overrides via specificity, not order */
 

@@ -77,7 +77,7 @@ function ModelList({ data, isNew, filters, setFilters, selected }: { data: ListD
   const select = (id: string, label: string, value: string, options: readonly (readonly [string, string])[], on: (v: string) => void): View =>
     h("div", { class: "field" }, h("label", { for: id }, label),
       h("select", { id, value, onChange: (e: Event) => on((e.target as HTMLSelectElement).value) }, options.map(([v, text]) => h("option", { key: v, value: v, selected: v === value }, text))));
-  return h("div", {},
+  return h("div", { class: "model-list" },
     select("mf-provider", t("models.filter.provider"), filters.provider, [["", t("models.filter.all")], ...providers.map((p) => [p, p] as const)], (provider) => setFilters({ ...filters, provider })),
     select("mf-status", t("models.filter.status"), filters.status, [["", t("models.filter.all")], ["available", t("models.status.available")], ["unavailable", t("models.status.unavailable")], ["manual", t("models.status.manual")]], (status) => setFilters({ ...filters, status })),
     h("p", {}, h("button", { type: "button", class: "btn btn-quiet", "aria-pressed": filters.newOnly, onClick: () => setFilters({ ...filters, newOnly: !filters.newOnly }) }, t("models.filter.newOnly"))),
