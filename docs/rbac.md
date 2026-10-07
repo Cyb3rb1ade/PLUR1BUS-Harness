@@ -67,6 +67,8 @@ The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` �
 
 The M3 `identity.*` methods are secured by the nearest existing pattern: `identity.list` → `users.read`, and `identity.human.create`, `identity.link`, `identity.unlink`, `identity.pair.start|claim|confirm` → `users.manage` (system resource, Owner and Admin). Their descriptions say "Owner only"; today every connection is the owner, so nothing changes, and whether these should be Owner-only is for the roles ruling (R4/R5 open).
 
+`audit.verify` (B5, the hash-chained audit file, docs/audit-chain.md) → `audit.read` on the system resource: Owner and Admin, the same pair that may read the audit trail. It is read-only on the log and its findings carry file names and line numbers, never record content.
+
 **Not yet secured** (they stay owner-equivalent for the local connection): `core.*`, `memory.recall|capture|checkpoint|
 list|show|correct|share|state|propose|proposals.*|proposal`, `agent.open|close|list|activity`, `jobs.list|history`,
 `models.list|scan|acknowledge`, `dreams.status|log|schedule.get`, `session.create|list|get|resume|archive|submit|events` (M1b-2c: per-caller, the owner is derived from the caller identity inside the handler and another owner's session is `E_NOT_FOUND`; classified like the per-caller `memory.*` and `agent.*` methods). Params are schema-validated before the guard runs, so a malformed call is

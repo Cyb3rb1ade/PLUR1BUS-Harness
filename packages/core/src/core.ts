@@ -48,6 +48,7 @@ import { createDiscoveryService, type DiscoveryService } from "./discovery/servi
 import { createDreams, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
+import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
@@ -160,6 +161,7 @@ export function createCore(o: CoreOptions): Core {
   let dreamsError: string | undefined;
   let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
   let budget: BudgetService | null = null;
+  let auditChain: AuditChain | null = null;
   let replay: JournalReplay | null = null;
   let sessions: SessionService | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
@@ -433,9 +435,16 @@ export function createCore(o: CoreOptions): Core {
         memory: engineTurnMemory({ engine: eng, config: cfg, agents: registry, logger, captureSignal: shutdown.signal, isStopping: () => state.state === "stopping" || state.state === "stopped", onStoredCapture: (agentId) => dreams?.scheduler.recordCapture(agentId) }),
         provider: () => o.chatProvider ?? null, notify: (method, params, opts) => server?.notify(method, params, opts), signal: shutdown.signal,
       });
+      // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
+      auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
+      const chain = auditChain;
+      const identityLog = createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock });
       identity = createIdentityService({
         dbPath: path.join(l.state, "identity.sqlite"), clock,
-        audit: createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock }),
+        audit: (e) => {
+          identityLog(e);
+          chain.append({ at: clock(), actor: e.actor ?? { user: "core", host: "core" }, action: e.action, target: e.target, detail: e.detail });
+        },
       });
 
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
@@ -465,6 +474,7 @@ export function createCore(o: CoreOptions): Core {
         dreamsError: () => dreamsError,
         identity,
         backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
+        auditChain,
         reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log }),
         ...(budget ? { budget } : {}),
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
@@ -473,7 +483,7 @@ export function createCore(o: CoreOptions): Core {
         secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
         }),
         ...sessions.methods,
-      }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), now: clock });
+      }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain), now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
