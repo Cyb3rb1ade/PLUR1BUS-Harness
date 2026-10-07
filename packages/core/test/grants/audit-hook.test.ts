@@ -6,6 +6,7 @@ import { createPolicyAudit } from "../../src/policy/audit.ts";
 import { memoryAuditSink, type AuditSink } from "../../src/rbac/audit.ts";
 import { FakeClock, HOUR, KEY, MIN, dbFile } from "./helpers.ts";
 import { alwaysCap } from "./helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 15_000 };
 
@@ -22,13 +23,13 @@ const actions = (m: { events: { action: string }[] }) => m.events.map((e) => e.a
 describe("grant changes are audited (D109 §9)", () => {
   it("create writes grant.created with who, what, scope, match and surface; no definition body", T, async () => {
     const { s, mem } = await rig();
-    const g = s.grants.create(alwaysCap({ match: { kind: "path", path: "/work/proj", access: "read", recursive: true } }));
+    const g = s.grants.create(alwaysCap({ match: { kind: "path", path: abs("/work/proj"), access: "read", recursive: true } }));
     assert.deepEqual(actions(mem), ["grant.created"]);
     const e = mem.events[0]!;
     assert.equal(e.target, `grant:${g.id}`);
     assert.equal(e.actor.user, "christian");
     assert.deepEqual(e.detail, {
-      person: "christian", agentId: "bernd", capability: "fs.read", grantScope: "always", matchKind: "path", targets: ["/work/proj"], by: "christian", decisionSurface: 3, grantId: g.id,
+      person: "christian", agentId: "bernd", capability: "fs.read", grantScope: "always", matchKind: "path", targets: [abs("/work/proj")], by: "christian", decisionSurface: 3, grantId: g.id,
     });
   });
 

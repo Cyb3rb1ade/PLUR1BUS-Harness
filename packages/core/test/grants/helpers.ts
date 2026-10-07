@@ -4,6 +4,7 @@ import { staticKeySource } from "../../src/approvals/keys.ts";
 import type { Call, CallFlags, Context } from "../../src/policy/index.ts";
 import { decide } from "../../src/policy/index.ts";
 import { FakeClock, KEY, dbFile } from "../approvals/helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 export { DAY, FakeClock, HOUR, KEY, MIN, NOW, dbFile, raw } from "../approvals/helpers.ts";
 
@@ -20,7 +21,7 @@ export const alwaysCap = (o: Partial<CreateGrantInput> = {}): CreateGrantInput =
 export const flags = (f: Partial<CallFlags> = {}): CallFlags => ({ outsideRoots: false, denyListHit: false, ...f });
 export const call = (o: Partial<Omit<Call, "flags">> & { flags?: Partial<CallFlags> } = {}): Call => {
   const { flags: f, ...rest } = o;
-  return { capability: "fs.read", tool: "fs.read", flags: flags(f), targets: ["/work/proj/a.txt"], access: "read", actionHash: "h1", ...rest };
+  return { capability: "fs.read", tool: "fs.read", flags: flags(f), targets: [abs("/work/proj/a.txt")], access: "read", actionHash: "h1", ...rest };
 };
 export const ctx = (o: Partial<Context> = {}): Context => ({ principal: { person: "christian" }, subject: { kind: "agent", agentId: "bernd" }, surface: 3, sessionId: "s1", taskId: "t1", ...o });
 

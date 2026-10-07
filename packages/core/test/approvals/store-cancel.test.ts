@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { BINDING, KEY, OTHER_KEY, dbFile, openStore, raw } from "./helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 15_000 };
 const reason = (r: { ok: boolean; reason?: string }) => (r.ok ? "ok" : r.reason);
@@ -8,7 +9,7 @@ const reason = (r: { ok: boolean; reason?: string }) => (r.ok ? "ok" : r.reason)
 describe("approval store: request detail (D109 §5/§6)", () => {
   it("keeps the harness-computed request detail in the chain and returns it on get/list", T, async () => {
     const { store } = await openStore(dbFile());
-    const detail = { tool: "fs.read", risk: "low", flags: { outsideRoots: true }, targets: ["/x/a"] };
+    const detail = { tool: "fs.read", risk: "low", flags: { outsideRoots: true }, targets: [abs("/x/a")] };
     const req = store.request({ ...BINDING, capability: "fs.read", detail });
     assert.deepEqual(store.get(req.id)!.detail, detail);
     assert.deepEqual(store.list()[0]!.detail, detail);

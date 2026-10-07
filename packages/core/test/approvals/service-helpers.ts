@@ -6,6 +6,7 @@ import { decide, type Call, type CallFlags, type Context, type Grant } from "../
 import { memoryAuditSink, type AuditSink, type MemoryAuditSink } from "../../src/rbac/audit.ts";
 import type { ApprovalAsk } from "../../src/tools/approval.ts";
 import { FakeClock, KEY, dbFile } from "./helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 export { DAY, HOUR, MIN, NOW, FakeClock, KEY, dbFile, raw } from "./helpers.ts";
 
@@ -74,7 +75,7 @@ export function askFor(o: {
   const capability = o.capability ?? "fs.read";
   const call: Call = {
     capability, tool: o.tool ?? capability, ...(o.effect ? { effect: o.effect } : {}), flags: flagsOf(o.flags),
-    targets: o.targets ?? ["/outside/dir/a.txt"], access: o.access ?? "read", actionHash: o.actionHash ?? "h1".padEnd(64, "0"),
+    targets: o.targets ?? [abs("/outside/dir/a.txt")], access: o.access ?? "read", actionHash: o.actionHash ?? "h1".padEnd(64, "0"),
   };
   const principal = o.principal ?? "christian";
   const agentId = o.agentId ?? "bernd";

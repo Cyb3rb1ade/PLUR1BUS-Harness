@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { AGENT_PRINCIPAL, OTHER_PERSON, PERSON, refused, rpcRig } from "./rpc-helpers.ts";
 import { HOUR, MIN } from "./service-helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 20_000 };
 const create = (o: Record<string, unknown> = {}) => ({ capability: "fs.write", agent: "bernd", scope: "always", ...o });
@@ -32,8 +33,8 @@ describe("grant.create", () => {
   it("a path match and an expiry are mapped to the store's shapes", T, async () => {
     const r = await rpcRig();
     const exp = new Date(r.clock.now() + 2 * HOUR).toISOString();
-    const g = await r.call("grant.create", create({ capability: "fs.read", match: { kind: "path", path: "/work/notes", access: "read", recursive: true }, expiresAt: exp }));
-    assert.deepEqual(g.match, { kind: "path", path: "/work/notes", access: "read", recursive: true });
+    const g = await r.call("grant.create", create({ capability: "fs.read", match: { kind: "path", path: abs("/work/notes"), access: "read", recursive: true }, expiresAt: exp }));
+    assert.deepEqual(g.match, { kind: "path", path: abs("/work/notes"), access: "read", recursive: true });
     assert.equal(g.expiresAt, exp);
   });
 
@@ -71,14 +72,14 @@ describe("grant.create", () => {
     // os.grant needs T3 (minSurface); always-grants of fs.write for a path need T3 as well (outside roots, D109 §5).
     assert.deepEqual(await refused(r.call("grant.create", create({ capability: "os.grant" }))), { error: "E_DENIED", reason: "surface-untrusted" });
     assert.deepEqual(
-      await refused(r.call("grant.create", create({ match: { kind: "path", path: "/elsewhere", access: "write", recursive: true } }))),
+      await refused(r.call("grant.create", create({ match: { kind: "path", path: abs("/elsewhere"), access: "write", recursive: true } }))),
       { error: "E_DENIED", reason: "surface-untrusted" },
     );
     assert.equal(r.stores.grants.inspect().length, 0);
     r.attestation = { kind: "desktop-app" };
     const g = await r.call("grant.create", create({ capability: "os.grant" }));
     assert.equal(g.surface, 3);
-    assert.ok(await r.call("grant.create", create({ match: { kind: "path", path: "/elsewhere", access: "write", recursive: true } })));
+    assert.ok(await r.call("grant.create", create({ match: { kind: "path", path: abs("/elsewhere"), access: "write", recursive: true } })));
   });
 });
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Worker } from "node:worker_threads";
 import { MIN, alwaysCap, call, ctx, dbFile, decideWith, open } from "./helpers.ts";
 import { KEY } from "./helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 30_000 };
 const OUT = { outsideRoots: true };
@@ -10,7 +11,7 @@ const who = { person: "christian", agent: "bernd", actionHash: "h1" };
 const onceGrant = (s: Awaited<ReturnType<typeof open>>, o: object = {}) => s.grants.create(alwaysCap({
   capability: "fs.write", scope: "once", match: { kind: "action" }, actionHash: "h1", id: "once1", ...o,
 }));
-const outWrite = () => call({ capability: "fs.write", tool: "fs.write", access: "write", targets: ["/data/x"], flags: OUT, actionHash: "h1" });
+const outWrite = () => call({ capability: "fs.write", tool: "fs.write", access: "write", targets: [abs("/data/x")], flags: OUT, actionHash: "h1" });
 
 describe("once grants: atomic consumption (D109 §4/§6)", () => {
   it("decide allows via the grant, consumeOnce spends it, the same call then asks again", T, async () => {

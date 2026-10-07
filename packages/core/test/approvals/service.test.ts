@@ -4,6 +4,7 @@ import { DEFAULT_FOREGROUND_WAIT_MS } from "../../src/approvals/service.ts";
 import { decide } from "../../src/policy/index.ts";
 import type { DispatchContext } from "../../src/tools/dispatcher.ts";
 import { DAY, HOUR, MIN, askFor, lastNonce, raw, rig, tick, NO_GRANTS } from "./service-helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 20_000 };
 const dctx = (o: Partial<DispatchContext> = {}): DispatchContext => ({ agentId: "bernd", principal: "christian", sessionId: "s1", taskId: "t1", surface: 3, signal: new AbortController().signal, ...o });
@@ -33,7 +34,7 @@ describe("ApprovalService: park and resolve (D109 §5, D4)", () => {
     assert.equal(approval.taskId, "t1");
     assert.equal(approval.turnId, "turn1");
     assert.equal(approval.capability, "fs.read");
-    assert.deepEqual(approval.targets, ["/outside/dir/a.txt"]);
+    assert.deepEqual(approval.targets, [abs("/outside/dir/a.txt")]);
     assert.ok(approval.grantOptions.length >= 1);
     assert.ok(!("nonce" in approval));
     const stored = r.stores.approvals.get(approval.id)!;
@@ -151,13 +152,13 @@ describe("ApprovalService: park and resolve (D109 §5, D4)", () => {
     const g = r.stores.grants.get(a.grantIds![0]!)!;
     assert.equal(g.scope, "task");
     assert.equal(g.taskId, "t1");
-    assert.deepEqual(g.match, { kind: "path", path: "/outside/dir", access: "read", recursive: false });
-    const next = askFor({ targets: ["/outside/dir/b.txt"], actionHash: "h2".padEnd(64, "0") });
+    assert.deepEqual(g.match, { kind: "path", path: abs("/outside/dir"), access: "read", recursive: false });
+    const next = askFor({ targets: [abs("/outside/dir/b.txt")], actionHash: "h2".padEnd(64, "0") });
     // the same call again is now allowed by the grant; a sibling directory still asks
     const base = { principal: { person: "christian" }, subject: { kind: "agent" as const, agentId: "bernd" }, surface: 3 as const, sessionId: "s1", taskId: "t1" };
     const call = (targets: string[], h: string) => ({ capability: "fs.read", tool: "fs.read", flags: { outsideRoots: true, denyListHit: false }, targets, access: "read" as const, actionHash: h });
-    assert.equal(decide(call(["/outside/dir/b.txt"], "h2"), base, { grants: r.stores.grants, clock: r.clock }).kind, "allow");
-    assert.equal(decide(call(["/outside/other/b.txt"], "h3"), base, { grants: r.stores.grants, clock: r.clock }).kind, "ask");
+    assert.equal(decide(call([abs("/outside/dir/b.txt")], "h2"), base, { grants: r.stores.grants, clock: r.clock }).kind, "allow");
+    assert.equal(decide(call([abs("/outside/other/b.txt")], "h3"), base, { grants: r.stores.grants, clock: r.clock }).kind, "ask");
     void next;
   });
 
@@ -399,7 +400,7 @@ describe("ApprovalService: timeouts, abort, errors: never approved", () => {
 describe("ApprovalService: list, get, cancel, verify", () => {
   it("views never carry the nonce or the arguments; list filters by status and principal", T, async () => {
     const r = await rig();
-    void r.service.request(askFor({ args: { path: "/outside/dir/a.txt", token: "ghp_" + "A".repeat(36) } }));
+    void r.service.request(askFor({ args: { path: abs("/outside/dir/a.txt"), token: "ghp_" + "A".repeat(36) } }));
     void r.service.request(askFor({ principal: "anna", actionHash: "d4".padEnd(64, "0") }));
     await tick();
     const all = r.service.list();
@@ -467,7 +468,7 @@ describe("ApprovalService.policyContext: repeat protection and prompt cap (D109 
     const pc = r.service.policyContext();
     assert.deepEqual(pc(dctx()).deniedActionHashes, ["e5".padEnd(64, "0")]);
     assert.deepEqual(pc(dctx({ taskId: "t2" })).deniedActionHashes ?? [], []);
-    const call = { capability: "fs.read", tool: "fs.read", flags: { outsideRoots: true, denyListHit: false }, targets: ["/outside/dir/a.txt"], access: "read" as const, actionHash: "e5".padEnd(64, "0") };
+    const call = { capability: "fs.read", tool: "fs.read", flags: { outsideRoots: true, denyListHit: false }, targets: [abs("/outside/dir/a.txt")], access: "read" as const, actionHash: "e5".padEnd(64, "0") };
     const ctx = { principal: { person: "christian" }, subject: { kind: "agent" as const, agentId: "bernd" }, surface: 3 as const, sessionId: "s1", taskId: "t1", ...pc(dctx()) };
     const d = decide(call, ctx, { grants: NO_GRANTS, clock: r.clock });
     assert.deepEqual(d.kind === "deny" && d.reason, "repeat-denied");
@@ -490,7 +491,7 @@ describe("ApprovalService.policyContext: repeat protection and prompt cap (D109 
     const pc = r.service.policyContext();
     assert.equal(pc(dctx()).promptsThisHour, 10);
     assert.equal(pc(dctx({ taskId: "t2" })).promptsThisHour ?? 0, 0);
-    const call = { capability: "fs.read", tool: "fs.read", flags: { outsideRoots: true, denyListHit: false }, targets: ["/outside/dir/new.txt"], access: "read" as const, actionHash: "9".repeat(64) };
+    const call = { capability: "fs.read", tool: "fs.read", flags: { outsideRoots: true, denyListHit: false }, targets: [abs("/outside/dir/new.txt")], access: "read" as const, actionHash: "9".repeat(64) };
     const ctx = { principal: { person: "christian" }, subject: { kind: "agent" as const, agentId: "bernd" }, surface: 3 as const, sessionId: "s1", taskId: "t1", ...pc(dctx()) };
     const d = decide(call, ctx, { grants: NO_GRANTS, clock: r.clock });
     assert.deepEqual(d.kind === "deny" && d.reason, "prompt-cap");

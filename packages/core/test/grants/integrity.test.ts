@@ -1,11 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { alwaysCap, call, ctx, decideWith, open, raw } from "./helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 15_000 };
 const OUT = { outsideRoots: true };
-const pg = { kind: "path", path: "/data", access: "read", recursive: true } as const;
-const outRead = () => call({ targets: ["/data/x"], flags: OUT });
+const pg = { kind: "path", path: abs("/data"), access: "read", recursive: true } as const;
+const outRead = () => call({ targets: [abs("/data/x")], flags: OUT });
 const q = { person: "christian", agent: "bernd", capability: "fs.read" };
 
 async function three() {

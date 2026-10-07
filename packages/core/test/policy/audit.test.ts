@@ -6,6 +6,7 @@ import { createPolicyAudit, hashAndSize, MAX_AUDIT_TARGETS } from "../../src/pol
 import { createAuditChain, ACTIVE_NAME } from "../../src/audit/chain.ts";
 import { memoryAuditSink, type AuditSink } from "../../src/rbac/audit.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
+import { abs } from "../helpers/abs.ts";
 
 const NOW = Date.UTC(2026, 9, 6, 12, 0, 0);
 const clock = { now: () => NOW };
@@ -23,7 +24,7 @@ describe("policy audit (D109 §9, D9)", () => {
     const { sink, audit } = rig();
     audit.record("policy.decision", {
       person: "user:v1:christian", agentId: "bernd", subjectKind: "agent", sessionId: "s1", taskId: "t1", tool: "fs.read", capability: "fs.read",
-      effect: "read", risk: "low", outcome: "approval", via: "ask", rule: "approval-class", surface: 3, actionHash: "ab".repeat(32), targets: ["/work/a.txt"], argsBytes: 17,
+      effect: "read", risk: "low", outcome: "approval", via: "ask", rule: "approval-class", surface: 3, actionHash: "ab".repeat(32), targets: [abs("/work/a.txt")], argsBytes: 17,
     });
     assert.equal(sink.events.length, 1);
     const e = sink.events[0]!;
@@ -33,7 +34,7 @@ describe("policy audit (D109 §9, D9)", () => {
     assert.equal(e.target, "tool:fs.read");
     assert.deepEqual(e.detail, {
       person: "user:v1:christian", agentId: "bernd", subjectKind: "agent", sessionId: "s1", taskId: "t1", tool: "fs.read", capability: "fs.read", effect: "read", risk: "low",
-      outcome: "approval", via: "ask", rule: "approval-class", surface: 3, actionHash: "ab".repeat(32), targets: ["/work/a.txt"], argsBytes: 17,
+      outcome: "approval", via: "ask", rule: "approval-class", surface: 3, actionHash: "ab".repeat(32), targets: [abs("/work/a.txt")], argsBytes: 17,
     });
   });
 
@@ -50,7 +51,7 @@ describe("policy audit (D109 §9, D9)", () => {
     const { sink, audit } = rig();
     audit.record("policy.decision", {
       tool: "fs.write", outcome: "allowed",
-      ...({ args: { path: "/x", content: "TOP SECRET BODY" }, content: "file body", result: "tool output", output: "o", diff: "--- a\n+++ b\n+secret", value: "v", env: { A: "b" } } as object),
+      ...({ args: { path: abs("/x"), content: "TOP SECRET BODY" }, content: "file body", result: "tool output", output: "o", diff: "--- a\n+++ b\n+secret", value: "v", env: { A: "b" } } as object),
     });
     const d = sink.events[0]!.detail;
     assert.deepEqual(Object.keys(d).sort(), ["outcome", "tool"]);
@@ -79,7 +80,7 @@ describe("policy audit (D109 §9, D9)", () => {
 
   it("a path in a credential store is replaced by its class, not logged", () => {
     const { sink, audit } = rig();
-    audit.record("policy.decision", { tool: "fs.read", outcome: "never", rule: "deny-list", targets: ["/home/c/.ssh/id_ed25519"] });
+    audit.record("policy.decision", { tool: "fs.read", outcome: "never", rule: "deny-list", targets: [abs("/home/c/.ssh/id_ed25519")] });
     const t = (sink.events[0]!.detail.targets as string[])[0]!;
     assert.ok(!t.includes("id_ed25519"));
     assert.match(t, /deny:/);

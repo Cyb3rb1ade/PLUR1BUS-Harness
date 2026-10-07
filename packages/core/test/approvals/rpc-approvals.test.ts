@@ -2,13 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { AGENT_PRINCIPAL, OTHER_PERSON, PERSON, refused, rpcRig } from "./rpc-helpers.ts";
 import { DAY, MIN, raw, tick } from "./service-helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 20_000 };
 
 describe("approval.list and approval.get", () => {
   it("shows the pending queue with everything a person needs to decide, and never the nonce or the raw arguments", T, async () => {
     const r = await rpcRig();
-    const { id, nonce } = await r.park({ args: { path: "/outside/dir/a.txt", token: "sk-live-0123456789abcdefghijkl" }, targets: ["/outside/dir/a.txt"] });
+    const { id, nonce } = await r.park({ args: { path: abs("/outside/dir/a.txt"), token: "sk-live-0123456789abcdefghijkl" }, targets: [abs("/outside/dir/a.txt")] });
     const list = await r.call("approval.list", { status: "pending" });
     assert.equal(list.approvals.length, 1);
     const a = list.approvals[0];
@@ -18,7 +19,7 @@ describe("approval.list and approval.get", () => {
     assert.equal(a.principal, "christian");
     assert.deepEqual(a.subject, { kind: "agent", id: "bernd" });
     assert.equal(a.actionHash, "ab".padEnd(64, "0"));
-    assert.deepEqual(a.targets, ["/outside/dir/a.txt"]);
+    assert.deepEqual(a.targets, [abs("/outside/dir/a.txt")]);
     assert.equal(a.createdAt, new Date(r.clock.now()).toISOString());
     assert.equal(a.expiresAt, new Date(r.clock.now() + DAY).toISOString());
     assert.equal(a.delegable, false);

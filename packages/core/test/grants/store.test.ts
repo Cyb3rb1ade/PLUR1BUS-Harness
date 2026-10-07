@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { GrantError } from "../../src/grants/store.ts";
 import { DAY, HOUR, MIN, alwaysCap, call, ctx, dbFile, decideWith, open, raw } from "./helpers.ts";
+import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 15_000 };
 const code = (c: string) => (e: unknown) => { assert.ok(e instanceof GrantError, String(e)); assert.equal(e.code, c); return true; };
@@ -13,7 +14,7 @@ describe("grant store: model and validation", () => {
     const a = await open(path);
     const g = a.grants.create({
       capability: "fs.write", person: "christian", agent: "bernd", scope: "always", createdBy: "christian@cli", surface: 3, effect: "local-write",
-      match: { kind: "path", path: "/data/in", access: "write", recursive: true }, expiresAt: a.clock.now() + 400 * DAY, projectId: "p1", delegable: true,
+      match: { kind: "path", path: abs("/data/in"), access: "write", recursive: true }, expiresAt: a.clock.now() + 400 * DAY, projectId: "p1", delegable: true,
     });
     a.close();
     const b = await open(path, { clock: a.clock });
@@ -58,7 +59,7 @@ describe("grant store: model and validation", () => {
     assert.throws(() => s.grants.create(alwaysCap({ match: { kind: "action" } })), code("invalid-grant"));
     assert.throws(() => s.grants.create(alwaysCap({ scope: "session", sessionId: "s", jobId: "j" })), code("invalid-grant"));
     assert.throws(() => s.grants.create(alwaysCap({ match: { kind: "path", path: "relative/x", access: "read", recursive: true } })), code("invalid-grant"));
-    assert.throws(() => s.grants.create(alwaysCap({ match: { kind: "path", path: "/a/../etc", access: "read", recursive: true } })), code("invalid-grant"));
+    assert.throws(() => s.grants.create(alwaysCap({ match: { kind: "path", path: abs("/a/../etc"), access: "read", recursive: true } })), code("invalid-grant"));
     s.grants.create(alwaysCap({ id: "dup" }));
     assert.throws(() => s.grants.create(alwaysCap({ id: "dup" })), code("duplicate-id"));
   });
@@ -66,22 +67,22 @@ describe("grant store: model and validation", () => {
 
 describe("grant resolution: lifetimes, revocation (D109 §4)", () => {
   const grantFor = (s: Awaited<ReturnType<typeof open>>, cap = "fs.read") => s.grants.create({
-    capability: cap, person: "christian", agent: "bernd", scope: "always", match: { kind: "path", path: "/data", access: "read", recursive: true }, createdBy: "christian", surface: 3,
+    capability: cap, person: "christian", agent: "bernd", scope: "always", match: { kind: "path", path: abs("/data"), access: "read", recursive: true }, createdBy: "christian", surface: 3,
   });
-  const outRead = () => call({ targets: ["/data/x"], flags: OUT });
+  const outRead = () => call({ targets: [abs("/data/x")], flags: OUT });
 
   it("outside the roots and without a grant it is approval; a path grant allows exactly its subtree", T, async () => {
     const s = await open();
     assert.equal(decideWith(s, outRead(), ctx()).kind, "ask");
     const g = grantFor(s);
     assert.deepEqual(decideWith(s, outRead(), ctx()), { kind: "allow", via: "grant", grantId: g.id });
-    assert.equal(decideWith(s, call({ targets: ["/data2/x"], flags: OUT }), ctx()).kind, "ask");
-    assert.equal(decideWith(s, call({ targets: ["/data/x"], flags: OUT, capability: "fs.write", tool: "fs.write", access: "write" }), ctx()).kind, "ask");
+    assert.equal(decideWith(s, call({ targets: [abs("/data2/x")], flags: OUT }), ctx()).kind, "ask");
+    assert.equal(decideWith(s, call({ targets: [abs("/data/x")], flags: OUT, capability: "fs.write", tool: "fs.write", access: "write" }), ctx()).kind, "ask");
   });
 
   it("task grants end with the task, session grants with the session, others are untouched", T, async () => {
     const s = await open();
-    const mk = (scope: "task" | "session", id: string, o: object) => s.grants.create(alwaysCap({ scope, match: { kind: "path", path: "/data", access: "read", recursive: true }, ...o, id }));
+    const mk = (scope: "task" | "session", id: string, o: object) => s.grants.create(alwaysCap({ scope, match: { kind: "path", path: abs("/data"), access: "read", recursive: true }, ...o, id }));
     mk("task", "t1g", { taskId: "t1" });
     mk("task", "t2g", { taskId: "t2" });
     mk("session", "s1g", { sessionId: "s1" });
@@ -99,7 +100,7 @@ describe("grant resolution: lifetimes, revocation (D109 §4)", () => {
 
   it("task and session grants are also bounded by 24 h and 7 days idle", T, async () => {
     const s = await open();
-    s.grants.create(alwaysCap({ scope: "task", taskId: "t1", match: { kind: "path", path: "/data", access: "read", recursive: true } }));
+    s.grants.create(alwaysCap({ scope: "task", taskId: "t1", match: { kind: "path", path: abs("/data"), access: "read", recursive: true } }));
     assert.equal(decideWith(s, outRead(), ctx()).kind, "allow");
     s.clock.advance(24 * HOUR);
     assert.equal(decideWith(s, outRead(), ctx()).kind, "ask");
@@ -165,8 +166,8 @@ describe("grant resolution: lifetimes, revocation (D109 §4)", () => {
 
   it("a job grant serves only its job; session and task grants never serve a headless run", T, async () => {
     const s = await open();
-    s.grants.create(alwaysCap({ jobId: "job1", match: { kind: "path", path: "/data", access: "read", recursive: true } }));
-    s.grants.create(alwaysCap({ scope: "session", sessionId: "s1", id: "sess", match: { kind: "path", path: "/data", access: "read", recursive: true } }));
+    s.grants.create(alwaysCap({ jobId: "job1", match: { kind: "path", path: abs("/data"), access: "read", recursive: true } }));
+    s.grants.create(alwaysCap({ scope: "session", sessionId: "s1", id: "sess", match: { kind: "path", path: abs("/data"), access: "read", recursive: true } }));
     assert.equal(decideWith(s, outRead(), ctx({ headless: { jobId: "job1" } })).kind, "allow");
     const other = decideWith(s, outRead(), ctx({ headless: { jobId: "job2" } }));
     assert.deepEqual([other.kind, other.kind === "ask" && other.park], ["ask", true]);
@@ -177,7 +178,7 @@ describe("grant resolution: lifetimes, revocation (D109 §4)", () => {
 
   it("a delegable grant can be referenced by a sub-agent; a forged id cannot", T, async () => {
     const s = await open();
-    const g = s.grants.create(alwaysCap({ scope: "task", taskId: "t1", delegable: true, match: { kind: "path", path: "/data", access: "read", recursive: true } }));
+    const g = s.grants.create(alwaysCap({ scope: "task", taskId: "t1", delegable: true, match: { kind: "path", path: abs("/data"), access: "read", recursive: true } }));
     const sub = (held: string[]) => ctx({
       subject: { kind: "subagent", agentId: "helper" },
       handoff: { scope: ["fs.read"], taskId: "t1", approvalsHeld: held },
