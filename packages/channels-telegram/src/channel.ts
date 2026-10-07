@@ -442,15 +442,25 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       bucket = new TokenBucket(1, chat.startsWith("-") ? 3000 : 1000, this.#o.now ?? Date.now, this.#sleep);
       this.#chats.set(chat, bucket);
     }
-    for (let attempt = 0; ; attempt++) {
-      signal.throwIfAborted();
-      await bucket.take(signal);
+    const limit = bucket;
+    return this.#retry(signal, async () => {
+      await limit.take(signal);
       await this.#global.take(signal);
       if (this.#inactive.has(chat)) throw new Error("telegram chat is inactive");
       try {
         return await call();
       } catch (e) {
         if (e instanceof TelegramApiError && e.kind === "forbidden") this.#inactive.add(chat);
+        throw e;
+      }
+    });
+  }
+  async #retry<T>(signal: AbortSignal, call: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      signal.throwIfAborted();
+      try {
+        return await call();
+      } catch (e) {
         if (
           !(e instanceof TelegramApiError) ||
           !["rate-limited", "network", "timeout"].includes(e.kind) ||
@@ -462,7 +472,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
           e.kind === "rate-limited"
             ? (e.retryAfterMs ?? 1000)
             : Math.round(Math.min(60_000, 1000 * 2 ** attempt) * (0.75 + (this.#o.random ?? Math.random)() * 0.5));
-        this.#log("warn", "channel.telegram.send-retry", {
+        this.#log("warn", "channel.telegram.request-retry", {
           kind: e.kind,
           waitMs: wait,
           attempt,
@@ -631,13 +641,15 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
         media.mime_type ??
         (kind === "photo" ? "image/jpeg" : kind === "voice" ? "audio/ogg" : "application/octet-stream");
       this.#checkMime(kind, mime);
-      const file = await this.#api!.call<{
-        file_path?: string;
-        file_size?: number;
-      }>("getFile", { file_id: media.file_id }, signal);
+      const file = await this.#retry(signal, () =>
+        this.#api!.call<{
+          file_path?: string;
+          file_size?: number;
+        }>("getFile", { file_id: media.file_id }, signal),
+      );
       if (!file.file_path || (file.file_size !== undefined && file.file_size > max))
         throw new Error("media size limit");
-      const downloaded = await this.#api!.download(file.file_path, max, signal);
+      const downloaded = await this.#retry(signal, () => this.#api!.download(file.file_path!, max, signal));
       if (downloaded.mimeType !== "application/octet-stream") this.#checkMime(kind, downloaded.mimeType);
       if (downloaded.mimeType !== "application/octet-stream" && downloaded.mimeType !== mime)
         throw new Error("media MIME mismatch");

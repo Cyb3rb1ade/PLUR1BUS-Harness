@@ -622,3 +622,34 @@ test("real framework router resolves the Telegram sender and isolates sessions p
     await ch.stop();
   }
 });
+
+test("media getFile rate limits and download network errors retry without losing the turn", async () => {
+  let failDownload = true;
+  const waits: number[] = [];
+  const got: InboundMessage[] = [];
+  const ch = make({
+    sleep: async (ms) => void waits.push(ms),
+    random: () => 0.5,
+    fetch: async (url, init) => {
+      if (String(url).includes("/file/") && failDownload) {
+        failDownload = false;
+        throw new Error(fake.token);
+      }
+      return fetch(url, init);
+    },
+  });
+  ch.onMessage((m) => void got.push(m));
+  await ch.start();
+  try {
+    fake.files.set("retry", { path: "files/retry", mime: "application/octet-stream", data: Buffer.from("media") });
+    fake.failNext("getFile", 429, { ok: false, error_code: 429, parameters: { retry_after: 2 } });
+    await deliver(ch, { update_id: 1, message: { ...textUpdate(1, 42, "").message, photo: [{ file_id: "retry" }] } });
+    assert.equal(got.length, 1);
+    assert.equal(got[0]!.attachments![0]!.mimeType, "image/jpeg");
+    assert.ok(waits.includes(2000));
+    assert.equal(fake.callsOf("getFile").length, 2);
+    assert.equal(failDownload, false);
+  } finally {
+    await ch.stop();
+  }
+});

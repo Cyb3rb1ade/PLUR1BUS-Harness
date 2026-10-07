@@ -47,7 +47,7 @@ All options belong to the host's channel factory and take effect on channel rest
 | `botId`, `botUsername` | Normally discovered with `getMe`; explicit overrides available |
 | `groupPolicy` | `addressed`; `all` accepts all delivered group messages |
 | `maxMediaBytes` | 20 MiB maximum; checked before and during download and before upload |
-| `maxSendRetries` | 3 for 429/network/timeout retries |
+| `maxSendRetries` | 3 for send/media-fetch 429/network/timeout retries |
 | `pollTimeoutSec` | 30 seconds |
 | `commands` | Additional existing command-set entries to advertise; execution belongs to the host |
 | `commandScopes` | Private and group chat scopes, each in de/en; explicit chat scopes supported |
