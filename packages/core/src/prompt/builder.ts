@@ -1,9 +1,10 @@
+import { stickySessionId } from "./telemetry.ts";
 import { joinBlocks } from "../join.ts";
 import { canonicalJson, normalizeText, sha256Hex } from "./canonical.ts";
-import { lookupCacheProfile, normalizeModelId, type CacheProfile, type CacheTtl } from "./model-table.ts";
+import { lookupCacheProfile, normalizeModelId, PROVIDER_CACHE_CONFIG, type CacheProfile, type CacheTtl } from "./model-table.ts";
 import {
   DEFAULT_MEMORY_CAP_CHARS, DEFAULT_VOLATILE_CAP_CHARS, STABLE_ZONES,
-  type Breakpoint, type ConversationItem, type PromptEvent, type RenderInput, type RenderedPrompt, type Segment, type StableZone, type VolatileInput, type ZoneName,
+  type Breakpoint, type ZoneMetadata, type ConversationItem, type PromptEvent, type RenderInput, type RenderedPrompt, type Segment, type StableZone, type VolatileInput, type ZoneName,
 } from "./types.ts";
 
 /** ADR-010 R1: the second trailing breakpoint sits this many positions behind the last one, inside Anthropic's 20-position lookback.
@@ -18,6 +19,10 @@ export interface PromptBuilder {
 export interface PromptBuilderOptions {
   /** Called once per event, in order, as each render produces it (the same events are also on the result). */
   emit?: (event: PromptEvent) => void;
+  /** Request-time clock in milliseconds. Generation time therefore consumes TTL. */
+  now?: () => number;
+  /** Overrides each provider class's expected TTL, including an explicit null for unknown/disabled. */
+  cacheTtlMs?: Partial<Record<CacheProfile["provider"], number | null>>;
 }
 
 /** Same-length-or-shorter prefix of `text` that never ends on a high surrogate. */
@@ -67,9 +72,19 @@ export function joinRecall(agentId: string, model: string, v: VolatileInput, pus
 
 export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptBuilder {
   const known = new Map<string, Record<StableZone, string>>();
+  const lastRender = new Map<string, { at: number; hash: string; ttlMs: number | null; eligible: boolean }>();
+  const activeModels = new Map<string, string>();
+  const now = options.now ?? Date.now;
+  const ttlConfig = { ...PROVIDER_CACHE_CONFIG };
+  const ttlOverrides = { ...options.cacheTtlMs };
+  for (const ttl of Object.values(ttlOverrides)) {
+    if (ttl !== null && ttl !== undefined && (!Number.isFinite(ttl) || ttl < 0)) throw new TypeError("cache TTL must be finite and nonnegative or null");
+  }
 
   function render(input: RenderInput): RenderedPrompt {
     const { agentId, model } = input;
+    const at = now();
+    if (!Number.isFinite(at)) throw new TypeError("prompt clock must be finite");
     const events: PromptEvent[] = [];
     const push = (e: PromptEvent) => { events.push(e); options.emit?.(e); };
     const profile: CacheProfile = lookupCacheProfile(model);
@@ -118,37 +133,47 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
     // R2: warn, never pad, when the stable prefix cannot clear the model's floor.
     const stableChars = [...toolSegs, ...systemSegs, ...memSegs].reduce((n, s) => n + s.text.length, 0);
     const stableTokensEstimate = tokens(stableChars);
-    if (profile.known && stableChars > 0 && stableTokensEstimate < profile.minTokens) {
+    const eligible = profile.known && stableChars > 0 && stableTokensEstimate >= profile.minTokens;
+    if (profile.known && stableTokensEstimate < profile.minTokens) {
       push({ type: "prompt.below-minimum", agentId, model, tokensEstimate: stableTokensEstimate, minTokens: profile.minTokens });
     }
 
     // R1: breakpoint placement from the model table.
     const breakpoints: Breakpoint[] = [];
-    if (profile.mechanism === "explicit" && profile.maxBreakpoints > 0) {
-      const wanted: CacheTtl = input.cacheTtl ?? "5m";
-      const stableTtl = profile.ttls.includes(wanted) ? wanted : profile.ttls[0]!;
+    const wanted: CacheTtl = input.cacheTtl ?? "5m";
+    const stableTtl = profile.ttls.includes(wanted) ? wanted : (profile.ttls[0] ?? "5m");
+    const metadataAt = (segment: number): ZoneMetadata => {
+      const text = segments.slice(0, segment + 1).map((s) => s.text).join("");
+      return { zone: segments[segment]!.zone, byteOffset: Buffer.byteLength(text), tokenEstimate: tokens(text.length), hash: sha256Hex(text) };
+    };
+    const addBreakpoint = (segment: number, ttl: CacheTtl, kind: Breakpoint["kind"]) => {
+      const metadata = metadataAt(segment);
+      if (metadata.tokenEstimate >= profile.minTokens) breakpoints.push({ ...metadata, segment, ttl, kind });
+    };
+    if (eligible && profile.mechanism === "explicit" && profile.maxBreakpoints > 0) {
       // RULING: the trailing breakpoint always takes the shortest TTL (its content changes every turn); 1h entries therefore precede 5m ones.
       const trailingTtl: CacheTtl = profile.ttls.includes("5m") ? "5m" : profile.ttls[0]!;
       const hasTrailing = convSegs.length > 0;
       // RULING: if the model allows fewer breakpoints than wanted, drop tools first, then system, then memory; the trailing one is kept before any zone.
-      let zones = (STABLE_ZONES as readonly ZoneName[]).filter((z) => indexOf(z) >= 0);
-      const room = profile.maxBreakpoints - (hasTrailing ? 1 : 0);
+      let zones = (STABLE_ZONES as readonly ZoneName[]).filter((z) => indexOf(z) >= 0 && metadataAt(indexOf(z)).tokenEstimate >= profile.minTokens);
+      const needsInterior = hasTrailing && profile.lookbackPositions > 0 && positionsOf(convSegs).at(-1)! > INTERIOR_BACK;
+      const room = profile.maxBreakpoints - (hasTrailing ? 1 : 0) - (needsInterior ? 1 : 0);
       if (zones.length > room) zones = zones.slice(zones.length - Math.max(room, 0));
-      for (const z of zones) breakpoints.push({ segment: indexOf(z), zone: z, ttl: stableTtl, kind: "zone" });
+      for (const z of zones) addBreakpoint(indexOf(z), stableTtl, "zone");
       if (hasTrailing) {
         const first = toolSegs.length + systemSegs.length + memSegs.length;
         const pos = positionsOf(convSegs);
         const total = pos[pos.length - 1]!;
         const free = profile.maxBreakpoints - zones.length - 1;
-        if (total > INTERIOR_BACK && free > 0) {
+        if (needsInterior && free > 0) {
           const target = total - INTERIOR_BACK;
           let at = -1;
           pos.forEach((p, i) => { if (p === target) at = i; });
-          breakpoints.push({ segment: first + at, zone: "conversation", ttl: trailingTtl, kind: "interior" });
-        } else if (total > profile.lookbackPositions) {
+          addBreakpoint(first + at, trailingTtl, "interior");
+        } else if (profile.lookbackPositions > 0 && total > profile.lookbackPositions) {
           push({ type: "prompt.lookback-risk", agentId, model, positions: total, lookback: profile.lookbackPositions });
         }
-        breakpoints.push({ segment: first + convSegs.length - 1, zone: "conversation", ttl: trailingTtl, kind: "trailing" });
+        addBreakpoint(first + convSegs.length - 1, trailingTtl, "trailing");
       }
       for (const bp of breakpoints) segments[bp.segment]!.cache = { ttl: bp.ttl };
     }
@@ -168,11 +193,38 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
     if (before) {
       const changedFrom = STABLE_ZONES.find((z) => before[z] !== prefixHashes[z]);
       prefix = changedFrom ? { status: "invalidated", changedFrom } : { status: "warm" };
-      if (changedFrom) push({ type: "prompt.prefix-invalidated", agentId, model, from: changedFrom });
+      if (changedFrom) push({ type: "prompt.prefix-invalidated", agentId, model, from: changedFrom, reason: input.invalidationReason ?? "prefix-changed" });
     }
     known.set(prefixKey, { ...prefixHashes });
 
-    return { agentId, model, prefixKey, segments, breakpoints, zoneHashes, prefixHashes, prefix, stableTokensEstimate, events };
+    // Session identity is metadata only; model switches do not erase other models' entries.
+    const session_id = stickySessionId(agentId, input.sessionId);
+    const previousModel = activeModels.get(session_id);
+    if (previousModel !== undefined && normalizeModelId(previousModel) !== normalizeModelId(model)) {
+      push({ type: "prompt.prefix-invalidated", agentId, model, previousModel, reason: "model-changed" });
+    }
+    activeModels.set(session_id, model);
+
+    const configuredTtl = ttlOverrides[profile.provider];
+    const ttlMs = configuredTtl !== undefined ? configuredTtl
+      : profile.provider === "anthropic" && stableTtl === "1h" ? 3_600_000 : ttlConfig[profile.provider].ttlMs;
+    const renderKey = canonicalJson({ prefixKey, session_id });
+    const last = lastRender.get(renderKey);
+    const ageMs = last ? at - last.at : null;
+    const warm = eligible && last?.eligible === true && last.hash === prefixHashes.memory
+      && ageMs !== null && ageMs >= 0 && last.ttlMs !== null && ageMs < last.ttlMs;
+    lastRender.set(renderKey, { at, hash: prefixHashes.memory, ttlMs, eligible });
+    let byteOffset = 0;
+    const zones: ZoneMetadata[] = (["tools", "system", "memory", "conversation", "volatile"] as const).map((zone) => {
+      const parts = segments.filter((s) => s.zone === zone);
+      byteOffset += parts.reduce((n, s) => n + Buffer.byteLength(s.text), 0);
+      return { zone, byteOffset, tokenEstimate: tokens(parts.reduce((n, s) => n + s.text.length, 0)), hash: zoneHashes[zone] };
+    });
+    const reason: RenderedPrompt["cache"]["reason"] = !profile.known ? "unknown-model" : stableChars === 0 ? "empty-prefix"
+      : !eligible ? "below-minimum" : profile.mechanism === "implicit" ? "implicit-provider" : "eligible";
+    return { agentId, model, prefixKey, segments, breakpoints, zoneHashes, prefixHashes, prefix, stableTokensEstimate,
+      zones, session_id, cache: { provider: profile.provider, mechanism: profile.mechanism, minimumTokens: profile.minTokens,
+        eligible, reason, expected: warm ? "warm" : "cold", ageMs, ttlMs }, events };
   }
 
   return { render };

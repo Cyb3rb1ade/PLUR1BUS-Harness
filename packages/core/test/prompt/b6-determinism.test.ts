@@ -55,3 +55,22 @@ describe("B6: zone determinism", () => {
     assert.equal(r.prefixHashes.memory, "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f");
   });
 });
+
+// Extend B6 to the new metadata without changing the pinned original zone-hash corpus/probe.
+describe("B6: cache metadata determinism", () => {
+  it("offsets, breakpoint hashes and routing identity survive two process starts", () => {
+    const builderUrl = new URL("../../src/prompt/index.ts", import.meta.url).href;
+    const corpusUrl = new URL("../fixtures/prompt-corpus.ts", import.meta.url).href;
+    const script = `
+      import { createPromptBuilder } from ${JSON.stringify(builderUrl)};
+      import { corpusInput } from ${JSON.stringify(corpusUrl)};
+      const b = createPromptBuilder({ now: () => 0 });
+      const project = r => ({ zones: r.zones, breakpoints: r.breakpoints, prefixKey: r.prefixKey, session_id: r.session_id });
+      process.stdout.write(JSON.stringify([2, 3].map(n => project(b.render(corpusInput(n, { sessionId: "b6" }))))));
+    `;
+    const run = (env: Record<string, string>) => execFileSync(process.execPath,
+      ["--experimental-strip-types", "--no-warnings=ExperimentalWarning", "--input-type=module", "-e", script],
+      { encoding: "utf8", timeout: 30_000, env: { PATH: process.env.PATH ?? "", ...env } });
+    assert.equal(run({ TZ: "UTC", LC_ALL: "C" }), run({ TZ: "Pacific/Auckland", LC_ALL: "de_DE.UTF-8" }));
+  });
+});
