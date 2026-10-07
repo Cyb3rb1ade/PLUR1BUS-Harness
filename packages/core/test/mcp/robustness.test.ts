@@ -57,3 +57,13 @@ it("modern resource/prompt listings reject malformed entries before aggregate co
     });
   }
 });
+
+it("output schemas are isolated per tool even when a server reuses the same $id", async () => {
+  await withModern(m => {
+    if (m.method === "tools/list") return { jsonrpc: "2.0", id: m.id, result: { resultType: "complete", ttlMs: 0, cacheScope: "private", tools: [
+      { ...tool, outputSchema: { $id: "test://same", type: "object", required: ["answer"], properties: { answer: { type: "string" } } } },
+      { ...tool, name: "number", outputSchema: { $id: "test://same", type: "object", required: ["answer"], properties: { answer: { type: "number" } } } },
+    ] } };
+    return modernHandler(m);
+  }, async c => { await assert.rejects(c.callTool("number", { text: "a string" }), /outputSchema/); });
+});

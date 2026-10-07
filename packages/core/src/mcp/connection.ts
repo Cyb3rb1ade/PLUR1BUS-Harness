@@ -194,10 +194,10 @@ export class McpConnection {
   async listTools(signal?: AbortSignal): Promise<McpToolDescriptor[]> {
     this.toolCacheTtlMs = undefined;
     const raw = await this.pages<Record<string, unknown>>("tools/list", "tools", signal);
-    const out: McpToolDescriptor[] = []; const validators = new AjvJsonSchemaValidator();
+    const out: McpToolDescriptor[] = [];
     this.tools.clear(); this.outputValidators.clear();
     for (const item of raw) {
-      if (typeof item.name !== "string" || !item.name || item.name.length > MAX_NAME || this.tools.has(item.name) || !item.inputSchema || typeof item.inputSchema !== "object") throw new McpClientError("protocol", "MCP tool descriptor invalid", { server: this.d.def.name });
+      if (typeof item.name !== "string" || !item.name || item.name.length > MAX_NAME || this.tools.has(item.name) || !item.inputSchema || typeof item.inputSchema !== "object" || Array.isArray(item.inputSchema) || (item.inputSchema as Record<string, unknown>).type !== "object") throw new McpClientError("protocol", "MCP tool descriptor invalid", { server: this.d.def.name });
       const tool = toDescriptor(item);
       if (this.transport instanceof ModernHttpTransport) {
         try { this.transport.setToolHeaders(tool.name, toolHeaderExtractor(tool.inputSchema)); }
@@ -205,7 +205,7 @@ export class McpConnection {
       }
       if (tool.outputSchema) {
         // The schema walk also bounds composition depth and count, so compiling untrusted output schemas is finite.
-        try { toolHeaderExtractor(tool.outputSchema); this.outputValidators.set(tool.name, validators.getValidator(tool.outputSchema)); }
+        try { toolHeaderExtractor(tool.outputSchema); this.outputValidators.set(tool.name, new AjvJsonSchemaValidator().getValidator(tool.outputSchema)); }
         catch { throw new McpClientError("protocol", "MCP output schema unsupported or invalid", { server: this.d.def.name }); }
       }
       this.tools.set(tool.name, tool); out.push(tool);
