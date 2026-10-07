@@ -146,4 +146,23 @@ describe("turn loop", () => {
     assert.equal(r.memory.calls.capture.length, 25); assert.equal(r.memory.calls.recall.length, 25);
     assert.equal(r.store.listMessages(s.id).length, 50);
   });
+
+  it("cancel aborts the running turn: failed(cancelled), the stored deltas stay, no capture; nothing running is a no-op", async () => {
+    let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+    const r = rig({ provider: new FakeChatProvider({ chunkSize: 2, gate: async (_q, i) => { if (i === 2) await gate; } }) }); const s = r.session();
+    assert.equal(r.runner.cancel(s.id), null, "nothing running");
+    const h = r.runner.submit({ session: s, caller: CALLER, text: "hello world" });
+    while (r.events.filter((e) => e.type === "delta").length < 2) await new Promise((res) => setImmediate(res));
+    assert.equal(r.runner.cancel(s.id), h.turnId);
+    release();
+    const out = await h.done;
+    assert.deepEqual([out.state, out.error], ["failed", "cancelled"]);
+    assert.equal(r.store.runningTurn(s.id), null);
+    assert.equal(r.events.at(-1)!.type, "turn.failed");
+    assert.equal(r.events.at(-1)!.data.error, "cancelled");
+    assert.equal(r.memory.calls.capture.length, 0);
+    assert.equal(r.runner.cancel(s.id), null, "already ended");
+    // the session is usable again
+    assert.equal((await r.runner.submit({ session: s, caller: CALLER, text: "again" }).done).state, "completed");
+  });
 });

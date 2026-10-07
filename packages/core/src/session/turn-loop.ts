@@ -35,6 +35,8 @@ export class NoProviderError extends SessionError {
 export class TurnRunner {
   readonly #d: TurnRunnerDeps;
   readonly #inflight = new Set<Promise<unknown>>();
+  /** The cancel switch of every running turn, by turn id (`cancel`). */
+  readonly #cancels = new Map<string, AbortController>();
   constructor(d: TurnRunnerDeps) { this.#d = d; }
 
   /** The caller has authorised `session` (owner check) already. */
@@ -44,9 +46,21 @@ export class TurnRunner {
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
     const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text));
     this.#emit(event, a.session);
-    const run = this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider);
-    this.#inflight.add(run); void run.finally(() => this.#inflight.delete(run));
+    const cancel = new AbortController();
+    this.#cancels.set(turn.id, cancel);
+    const run = this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal);
+    this.#inflight.add(run); void run.finally(() => { this.#inflight.delete(run); this.#cancels.delete(turn.id); });
     return { turnId: turn.id, sessionId: a.session.id, messageId: message.id, done: run };
+  }
+
+  /** Aborts the session's running turn: it ends `failed` with error `cancelled` (what was streamed stays stored, nothing is
+   *  captured). Returns the turn id, or null when no turn of this core is running for the session. */
+  cancel(sessionId: string): string | null {
+    const turn = this.#d.store.runningTurn(sessionId);
+    const c = turn ? this.#cancels.get(turn.id) : undefined;
+    if (!turn || !c || c.signal.aborted) return null;
+    c.abort(new Error("cancelled"));
+    return turn.id;
   }
 
   /** Resolves once every turn that was running when it was called has fully finished (events, capture, compaction). */
@@ -59,9 +73,9 @@ export class TurnRunner {
     this.#emit(this.#d.store.appendEvent(turnId, type, data), session);
   }
 
-  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider): Promise<TurnOutcome> {
+  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal): Promise<TurnOutcome> {
     const { store, memory, compactor } = this.#d;
-    const signal = this.#d.signal ?? new AbortController().signal;
+    const signal = this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     try {
       // 1. recall: exactly one call. A recall that fails or degrades never fails the turn.
       let recalled: { text: string; degraded: unknown } = { text: "", degraded: null };
@@ -106,7 +120,7 @@ export class TurnRunner {
       await this.#after(session, caller, turnId, text, reply, incognito);
       return { state: "completed", assistantMessageId: done.message.id, reply };
     } catch (e) {
-      const error = signal.aborted ? "aborted" : e instanceof Error ? e.message : String(e);
+      const error = cancelled.aborted ? "cancelled" : signal.aborted ? "aborted" : e instanceof Error ? e.message : String(e);
       try { const ev = store.failTurn(turnId, error); if (ev) this.#emit(ev, session); }
       catch (e2) { this.#d.logger?.warn("session turn could not be marked failed; recovery will at the next start", { sessionId: session.id, turnId, err: e2 }); }
       this.#d.logger?.warn("session turn failed", { sessionId: session.id, turnId, error });

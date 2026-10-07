@@ -64,6 +64,7 @@ fn main() {
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
         Cmd::Session { sub } => commands::session::run(&out, &layout, sub),
         Cmd::Chat(args) => commands::session::chat(&out, &layout, args),
+        Cmd::Acp { sub } => commands::acp::run(&out, &layout, sub),
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
         Cmd::Ext {
             cmd: cli::ExtCmd::Worker { op },

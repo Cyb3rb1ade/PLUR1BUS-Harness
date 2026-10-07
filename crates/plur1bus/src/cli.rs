@@ -61,6 +61,11 @@ pub enum Cmd {
     },
     /// [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
     Chat(ChatArgs),
+    /// Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
+    Acp {
+        #[command(subcommand)]
+        sub: AcpCmd,
+    },
     /// Dreaming: phase schedules, status, run, log
     Dreams {
         #[command(subcommand)]
@@ -794,6 +799,20 @@ pub enum AdminCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum AcpCmd {
+    /// [experimental] Serve ACP (schema v1) on stdin/stdout for an editor such as Zed
+    ///
+    /// stdout carries only ACP JSON-RPC lines; diagnostics go to stderr and never contain prompts, model output or
+    /// credentials. Each ACP session becomes one harness session of kind `acp`. Needs a running core
+    /// (`plur1bus daemon start`). Not affected by `--json`.
+    Serve {
+        /// The agent the editor talks to (default: the only registered agent)
+        #[arg(long)]
+        agent: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum SessionCmd {
     /// [experimental] List your chat sessions (pinned first, then by last turn)
     List {
@@ -1330,6 +1349,12 @@ mod tests {
                 );
                 assert_eq!((limit, agent), (Some(5), None));
             }
+            other => panic!("{other:?}"),
+        }
+        match parse(&["acp", "serve", "--agent", "bernd"]).cmd {
+            Cmd::Acp {
+                sub: AcpCmd::Serve { agent },
+            } => assert_eq!(agent.as_deref(), Some("bernd")),
             other => panic!("{other:?}"),
         }
         match parse(&["session", "show", "ses_1"]).cmd {
