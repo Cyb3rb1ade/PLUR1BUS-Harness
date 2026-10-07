@@ -8,7 +8,7 @@ const SIG = new AbortController().signal;
 const id = (x: string) => x;
 
 const created = { type: "response.created", response: { id: "resp_synthetic_1", model: "gpt-synthetic", status: "in_progress", output: [] } };
-const itemAdded = (i: number, item: object) => ({ type: "response.output_item.added", output_index: i, item });
+const itemAdded = (i: number, item: unknown) => ({ type: "response.output_item.added", output_index: i, item });
 const itemDone = (i: number, item: object = {}) => ({ type: "response.output_item.done", output_index: i, item });
 const msgItem = { type: "message", id: "msg_1", role: "assistant", content: [] };
 const text = (i: number, d: string) => ({ type: "response.output_text.delta", output_index: i, content_index: 0, delta: d });
@@ -206,6 +206,8 @@ test("non-stream body replays as the same events: message, reasoning, function_c
 
 test("non-stream bodies: incomplete, failed, error objects and junk", async () => {
   const play = async (b: unknown) => { const acc = new ResponsesAccumulator(id, 1000); for (const f of responseToEvents(b)) acc.push(f); return acc.finish(undefined, undefined, SIG); };
+  const refused = await play({ id: "r", status: "completed", output: [{ type: "message", content: [{ type: "refusal", refusal: "No." }, 7, { type: "other" }] }, { type: "web_search_call", id: "ws" }] });
+  assert.deepEqual([refused.text, refused.finishReason], ["No.", "content_filter"]);
   assert.equal((await play({ id: "r", status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output: [] })).finishReason, "length");
   await assert.rejects(play({ id: "r", status: "failed", error: { code: "server_error", message: "boom" }, output: [] }), (e: unknown) => e instanceof ProviderError && e.kind === "overloaded" && e.retryable);
   await assert.rejects(play({ error: { code: "invalid_api_key", message: "no" } }), (e: unknown) => e instanceof ProviderError && e.kind === "auth");

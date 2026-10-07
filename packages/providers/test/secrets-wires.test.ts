@@ -154,7 +154,7 @@ function cases(t: Target): Case[] {
     { label: "a credentials provider that throws", over: { credential: () => { throw new Error("vault locked"); } }, handler: (_q, res) => body(res, 200, {}, "{}") },
     {
       label: "a transport that fails with the request headers in its message", handler: (_q, res) => body(res, 200, {}, "{}"),
-      over: { fetch: (async (_u: unknown, init?: RequestInit) => { throw new TypeError(`fetch failed: ${JSON.stringify([...new Headers(init?.headers).entries()])}`, { cause: new Error(`socket: ${t.key}`) }); }) as unknown as typeof fetch },
+      over: { fetch: (async (_u: unknown, init?: RequestInit) => { throw new TypeError(`fetch failed: ${JSON.stringify([...(new Headers(init?.headers) as unknown as Iterable<[string, string]>)])}`, { cause: new Error(`socket: ${t.key}`) }); }) as unknown as typeof fetch },
     },
     { label: "timeout on a server that never answers", over: { timeouts: { headersMs: 80, idleMs: 80, totalMs: 200 } }, handler: (_q, res) => hold(res) },
     { label: "idle timeout mid-stream", over: { timeouts: { headersMs: 1000, idleMs: 80, totalMs: 2000 } }, handler: async (_q, res) => { sseHeaders(res); res.write(t.okStream.slice(0, 120)); await hold(res); } },
