@@ -34,3 +34,6 @@
 .cfg-diff li { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
 .cfg-diff-key, .cfg-diff-val { overflow-wrap: anywhere; }
 .cfg-old { text-decoration: line-through; color: var(--ink-2); }
+@media (max-width: 1023.98px) {
+  .settings-nav-link { display: flex; align-items: center; min-height: 44px; }
+}

@@ -35,3 +35,4 @@
   .users-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .users-row .btn { grid-column: 1 / -1; }
 }
+.users-matrix input[type="checkbox"], #users-simple, input[name="users-preset"] { width: 24px; height: 24px; }
