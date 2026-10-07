@@ -6,7 +6,7 @@ import { createMetrics } from "../../src/metrics/metrics.ts";
 import { parseExposition } from "./exposition-parser.ts";
 
 // No YAML library is a dependency of the harness; the template is checked structurally, line by line.
-const text = readFileSync(fileURLToPath(new URL("../../../../docs/ops/zabbix/plur1bus-template.yaml", import.meta.url)), "utf8");
+const text = readFileSync(fileURLToPath(new URL("../../../../docs/ops/zabbix/plur1bus-template.yaml", import.meta.url)), "utf8").replace(/\r\n/g, "\n"); // a Windows autocrlf checkout must not change what is asserted
 
 describe("Zabbix 7 template", () => {
   it("is a 7.0 export with one template, valid unique v4 uuids", () => {
