@@ -220,23 +220,32 @@ describe("core supervised mode before ready (startDelayMs seam)", () => {
   }
 
   it("an adoption before ready survives ready", async () => {
-    const s = slowStart(GRACE_MS * 2);
+    // The seam holds the core in `starting` for HOLD_MS after it listens. The test needs two things inside that window:
+    // A's grace (GRACE_MS, counted from the lifeline loss) runs out, and the adoption goes through. Neither the engine
+    // start nor connect() has a bound on a loaded runner, so the hold is generous (it only costs the test its own
+    // duration) and the "still starting" precondition below is asserted, not assumed.
+    const HOLD_MS = GRACE_MS + 6000;
+    const s = slowStart(HOLD_MS);
+    const lostAt = performance.now();
     s.lifeline.end(); // supervisor A is gone before the core is ready
     const started = s.core.start();
     let c: CoreClient | null = null;
     try {
-      await until(() => existsSync(layout(s.home).coreToken), 10_000);
+      await until(() => existsSync(layout(s.home).coreToken), 30_000);
       const token = writeSupervisorToken(s.home);
-      await sleep(GRACE_MS + 200); // A's grace runs out while starting
-      assert.equal(s.core.status().process.state, "starting");
+      // A's grace runs out while starting: wait for that instant (measured from the loss), not for a fixed sleep
+      // that begins whenever the token file happens to appear.
+      await until(() => performance.now() - lostAt > GRACE_MS + 100, 30_000);
+      assert.equal(s.core.status().process.state, "starting", "the seam hold ended before the grace ran out: the machine is too slow for HOLD_MS");
       c = await connect({ address: s.core.address, token: s.core.token });
+      assert.equal(s.core.status().process.state, "starting", "the seam hold ended before B could connect: the machine is too slow for HOLD_MS");
       await c.call("core.adopt", { nonce: token }); // supervisor B adopts before ready: the expired grace is void
       await started;
       assert.equal(s.core.status().process.state, "ready", "B's connection is the lifeline, not A's dead stdin");
       await sleep(GRACE_MS + 200);
       assert.equal(s.core.status().process.state, "ready"); assert.equal(s.expired(), 0);
       await c.close(); c = null;
-      await until(() => s.core.status().process.state === "orphaned");
+      await until(() => s.core.status().process.state === "orphaned", 30_000);
     } finally { await c?.close(); await started.catch(() => {}); await s.core.stop({ budgetMs: 5000 }); }
   });
 
@@ -253,11 +262,19 @@ describe("core supervised mode before ready (startDelayMs seam)", () => {
 
   it("the seam is ignored without PLUR1BUS_ALLOW_TEST_INTERNALS=1", async () => {
     delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS;
-    const s = slowStart(5000);
+    // A seam that was honoured would hold start() for SEAM_MS. A plain start has no upper bound on a loaded runner, so
+    // the verdict is a race between start() and a ceiling far below SEAM_MS but far above any real start: the seam can
+    // only win the race by being ignored, and no sleep decides when the test proceeds.
+    const SEAM_MS = 60_000, CEILING_MS = 40_000;
+    const s = slowStart(SEAM_MS);
+    let ceiling: NodeJS.Timeout | undefined;
     try {
-      const t0 = performance.now(); await s.core.start();
-      assert.ok(performance.now() - t0 < 4000, "start was not delayed");
-    } finally { process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = "1"; await s.core.stop({ budgetMs: 5000 }); }
+      const outcome = await Promise.race([
+        s.core.start().then(() => "started" as const),
+        new Promise<"held">((r) => { ceiling = setTimeout(() => r("held"), CEILING_MS); }),
+      ]);
+      assert.equal(outcome, "started", `start() was still pending after ${CEILING_MS} ms: the seam was honoured without PLUR1BUS_ALLOW_TEST_INTERNALS=1`);
+    } finally { clearTimeout(ceiling); process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = "1"; await s.core.stop({ budgetMs: 5000 }); }
   });
 });
 
