@@ -14,7 +14,7 @@ import { csrfToken, fakeCore, jsonHeaders, login, OWNER_TOKEN, raw, start, type 
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const post = (h: Harness, body: string, headers: Record<string, string> = jsonHeaders(), p = "/api/v1/session") => raw(h, { method: "POST", path: p, headers, body });
-const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 } };
+const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 }, totp: { capacity: 1000, refillPerSec: 100 }, stream: { capacity: 1000, refillPerSec: 100 } };
 
 /** Raw bytes in, everything the server answers out, until it closes or `ms` passes. */
 function socketExchange(port: number, send: (s: ReturnType<typeof connect>) => void, ms = 3000): Promise<string> {
@@ -157,12 +157,12 @@ test("OK-7: the route table is deny-by-default and its only core calls are core.
     for (const r of ROUTES) {
       for (const headers of [{}, { cookie: "plur1bus_session=forged" }] as Array<Record<string, string>>) {
         const res = await raw(h, { method: r.method, path: r.path, headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
-        if (r.auth === "session") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
+        if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["session.create"]);
-    assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth === "session").every((r) => r.csrf), "every authenticated write needs CSRF");
-    for (const r of ROUTES) if (r.auth === "session" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["session.create", "session.totp"]);
+    assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
+    for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
     assert.deepEqual([...called].sort(), ["agent.list", "core.status"]);
     for (const p of ["/api/v1/admin/migrate", "/api/v1/admin.migrate", "/api/v1/rpc", "/api/v1/admin/reembed/run", "/api/v1/users", "/api/v1/identity", "/api/v1/secrets"]) {
@@ -267,5 +267,170 @@ test("OK-14: no failure response carries a stack frame, a host path, a token or 
       assert.ok(!r.text.includes(OWNER_TOKEN));
     }
     assert.equal(probes[0]!.status, 503); // a TypeError from the core link is "unreachable", without its text
+  } finally { await h.close(); }
+});
+
+// ---- Q12: authN and hardening (api-authn-hardening) -----------------------------------------------------------------
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { addUser, FIXTURE_PASSWORD, loginAs, write } from "./helpers.ts";
+
+const loginBody = (username: string, password: string) => JSON.stringify({ username, password });
+
+test("Q12-1: session ids are 256-bit random and unique, never in a body or a URL, and the cookie has no Domain", async () => {
+  const h = await start({ rateClasses: wide });
+  try {
+    await addUser(h, { id: "u-mia", username: "mia", role: "member" });
+    const seen = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      const r = await post(h, loginBody("mia", FIXTURE_PASSWORD));
+      const set = r.headers["set-cookie"]![0]!; const id = /^plur1bus_session=([A-Za-z0-9_-]+);/.exec(set)![1]!;
+      assert.equal(id.length, 43); assert.ok(!/;\s*Domain=/i.test(set)); assert.ok(!r.text.includes(id)); seen.add(id);
+    }
+    assert.equal(seen.size, 40);
+  } finally { await h.close(); }
+});
+
+test("Q12-2: every authenticated write on the route table needs the one-time CSRF token and refuses a foreign Origin or Referer even with one", async () => {
+  const h = await start({ rateClasses: wide });
+  try {
+    await addUser(h, { id: "u-adam", username: "adam", role: "admin" });
+    const { cookie } = await loginAs(h, "adam");
+    for (const r of ROUTES.filter((x) => x.auth !== "none" && x.method !== "GET")) {
+      assert.equal(r.csrf, true, r.id);
+      const bare = await raw(h, { method: r.method, path: r.path, headers: { cookie, ...jsonHeaders() }, body: r.requestBody ? "{}" : undefined as never });
+      assert.deepEqual([bare.status, bare.json.reason], [403, "csrf"], `${r.id} without a token`);
+      for (const extra of [{ origin: "https://evil.example" }, { referer: "https://evil.example/x" }, { "sec-fetch-site": "cross-site" }]) {
+        const t = await csrfToken(h, cookie);
+        const x = await raw(h, { method: r.method, path: r.path, headers: { cookie, "x-csrf-token": t, ...jsonHeaders(), ...extra }, body: r.requestBody ? "{}" : undefined as never });
+        assert.equal(x.status, 403, `${r.id} ${Object.keys(extra)[0]}`); assert.notEqual(x.json.reason, undefined);
+      }
+    }
+  } finally { await h.close(); }
+});
+
+test("Q12-3: identity and role come from the server, never from a header or a body field: spoofed identity headers change nothing, extra body fields are refused", async () => {
+  const h = await start({ rateClasses: wide });
+  try {
+    await addUser(h, { id: "u-mia", username: "mia", role: "member" });
+    const { cookie } = await loginAs(h, "mia");
+    const spoof = { "x-user-id": "owner", "x-role": "owner", "x-forwarded-user": "owner", "remote-user": "owner", "x-auth-user": "owner", "x-original-user": "owner" };
+    const who = await raw(h, { path: "/api/v1/whoami", headers: { cookie, ...spoof } });
+    assert.deepEqual(who.json.principal, { kind: "user", id: "u-mia", role: "member" });
+    assert.equal((await raw(h, { path: "/api/v1/health", headers: { cookie, ...spoof } })).status, 403);
+    for (const body of [{ username: "mia", password: FIXTURE_PASSWORD, role: "owner" }, { username: "mia", password: FIXTURE_PASSWORD, userId: "owner" }, { token: OWNER_TOKEN, role: "x" }]) assert.equal((await post(h, JSON.stringify(body))).status, 400, JSON.stringify(Object.keys(body)));
+    for (const extra of [{ role: "owner" }, { userId: "owner" }, { admin: true }]) assert.equal((await write(h, cookie, { path: "/api/v1/tokens", body: { name: "x", scopes: ["agent.read"], ...extra } })).json.reason, "body");
+    assert.equal((await write(h, cookie, { path: "/api/v1/tokens", body: { name: "x", scopes: ["*"] } })).json.reason, "scope", "a wildcard over everything is not a scope");
+  } finally { await h.close(); }
+});
+
+test("Q12-4: password spraying from one address is stopped by the login bucket whatever the names (a right password is refused too until it refills)", async () => {
+  const h = await start({ rateClasses: { ...wide, auth: { capacity: 5, refillPerSec: 0.001 } } });
+  try {
+    await addUser(h, { id: "u-mia", username: "mia", role: "member" });
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i++) codes.push((await post(h, loginBody(`user${i}`, "guess"))).status);
+    assert.deepEqual(codes.slice(0, 5), [401, 401, 401, 401, 401]); assert.ok(codes.slice(5).every((c) => c === 429), JSON.stringify(codes));
+    const r = await post(h, loginBody("mia", FIXTURE_PASSWORD));
+    assert.equal(r.status, 429, "the right password from the sprayed address is refused too until the bucket refills"); assert.ok(r.headers["retry-after"]);
+  } finally { await h.close(); }
+});
+
+test("Q12-5: nothing the client sends is reflected into a response header or body: CR/LF, Set-Cookie look-alikes in path, query, cookie, Authorization, CSRF, Referer and login fields", async () => {
+  const h = await start({ rateClasses: wide });
+  try {
+    const marker = "INJECTED-MARKER";
+    const evil = `x%0d%0aSet-Cookie:%20${marker}=1%0d%0aX-Injected:%20${marker}`;
+    const probes: Array<Promise<Awaited<ReturnType<typeof raw>>>> = [
+      raw(h, { path: `/api/v1/${evil}` }), raw(h, { path: `/api/v1/whoami?next=${evil}` }),
+      raw(h, { path: "/api/v1/whoami", headers: { cookie: `plur1bus_session=${marker}` } }),
+      raw(h, { path: "/api/v1/whoami", headers: { authorization: `Bearer plb_${marker}` } }),
+      raw(h, { method: "DELETE", path: "/api/v1/session", headers: { cookie: `plur1bus_session=${marker}`, "x-csrf-token": marker } }),
+      raw(h, { method: "POST", path: "/api/v1/session", headers: { ...jsonHeaders(), referer: `https://x/${marker}` }, body: "{}" }),
+      post(h, JSON.stringify({ username: `${marker}\r\nSet-Cookie: ${marker}=1`, password: marker })), post(h, JSON.stringify({ token: marker.repeat(5) })),
+      raw(h, { method: "POST", path: "/api/v1/session/totp", headers: jsonHeaders(), body: JSON.stringify({ challenge: marker, code: marker }) }),
+    ];
+    for (const p of probes) {
+      const r = await p;
+      assert.equal(r.headers["x-injected"], undefined); assert.ok(!JSON.stringify(r.headers).includes(marker), JSON.stringify(r.headers)); assert.ok(!r.text.includes(marker), r.text.slice(0, 120));
+      assert.equal(r.headers["set-cookie"], undefined);
+    }
+    assert.ok(!h.logs.join("\n").includes(marker), "nor into the log");
+    assert.ok(!JSON.stringify(h.audit.events).includes(marker), "nor into the audit");
+    const lit = await socketExchange(h.port, (s) => s.write(`GET /api/v1/whoami HTTP/1.1\r\nHost: 127.0.0.1:${h.port}\r\nCookie: a=b\r\nX-Smuggle: 1\rInjected: ${marker}\r\n\r\n`));
+    assert.ok(!lit.includes(`Injected: ${marker}`) && !lit.includes("Set-Cookie: INJECTED"), "a bare CR is not turned into a header");
+  } finally { await h.close(); }
+});
+
+test("Q12-6: no open redirect: crafted paths never answer 3xx or a Location header, with the web app served or not", async () => {
+  const base = mkdtempSync(path.join(tmpdir(), "plur1bus-redir-")); const root = path.join(base, "dist"); mkdirSync(root);
+  writeFileSync(path.join(root, "index.html"), "<!doctype html><script src=./m.js></script>");
+  const paths = ["//evil.example", "//evil.example/x", "/\\evil.example", "/%2f%2fevil.example", "/%5cevil.example", "/https://evil.example", "/..//evil.example", "/api/v1/session?next=//evil.example", "/api/v1/whoami?redirect=https://evil.example", "/api/v1//whoami", "/api/v1/whoami/", "/api/v1/session/", "/index.html/", "/./", "/%2e/"];
+  for (const webRoot of [undefined, root]) {
+    const h = await start({ rateClasses: wide, ...(webRoot ? { webRoot } : {}) });
+    try {
+      for (const p of paths) for (const method of ["GET", "POST", "HEAD"]) {
+        const r = await raw(h, { method, path: p, headers: method === "POST" ? jsonHeaders() : {}, body: method === "POST" ? "{}" : undefined as never });
+        assert.ok(r.status < 300 || r.status >= 400, `${method} ${p} -> ${r.status}`); assert.equal(r.headers.location, undefined, `${method} ${p}`);
+      }
+    } finally { await h.close(); }
+  }
+  rmSync(base, { recursive: true, force: true });
+});
+
+test("Q12-7: forwarding and override headers are not trusted: a fresh X-Forwarded-For per request gives no fresh rate bucket, method override and proto/host hints are ignored", async () => {
+  const h = await start({ rateClasses: { ...wide, auth: { capacity: 2, refillPerSec: 0.001 } } });
+  try {
+    const codes: number[] = [];
+    for (let i = 0; i < 5; i++) codes.push((await raw(h, { method: "POST", path: "/api/v1/session", headers: { ...jsonHeaders(), "x-forwarded-for": `10.0.0.${i}`, "x-real-ip": `10.1.0.${i}`, forwarded: `for=10.2.0.${i}` }, body: JSON.stringify({ token: "b".repeat(64) }) })).status);
+    assert.deepEqual(codes, [401, 401, 429, 429, 429]);
+  } finally { await h.close(); }
+  const h2 = await start({ rateClasses: wide });
+  try {
+    const { cookie } = await login(h2);
+    const t = await csrfToken(h2, cookie);
+    const r = await raw(h2, { method: "POST", path: "/api/v1/session", headers: { cookie, "x-csrf-token": t, "x-http-method-override": "DELETE", "x-method-override": "DELETE", ...jsonHeaders() }, body: JSON.stringify({ token: OWNER_TOKEN }) });
+    assert.equal(r.json.schema, "session.create/1", "POST stays POST");
+    const l = await raw(h2, { method: "POST", path: "/api/v1/session", headers: { ...jsonHeaders(), "x-forwarded-proto": "https", "x-forwarded-host": "evil.example" }, body: JSON.stringify({ token: OWNER_TOKEN }) });
+    assert.equal(l.status, 200); assert.doesNotMatch(l.headers["set-cookie"]![0]!, /Secure|__Host-/, "plain HTTP stays plain whatever a proxy header claims");
+  } finally { await h2.close(); }
+});
+
+test("Q12-8: prototype pollution and odd JSON on the new routes: __proto__/constructor keys are refused, nothing leaks into Object.prototype, oversized bodies are 413", async () => {
+  const h = await start({ rateClasses: wide });
+  try {
+    await addUser(h, { id: "u-mia", username: "mia", role: "member" });
+    const { cookie } = await loginAs(h, "mia");
+    for (const raw1 of ['{"__proto__":{"role":"owner"},"username":"mia","password":"x"}', '{"constructor":{"prototype":{"admin":true}},"token":"x"}', '{"username":"mia","password":"x","__proto__":1}']) assert.equal((await post(h, raw1)).status, 400, raw1.slice(0, 30));
+    const t = await write(h, cookie, { path: "/api/v1/tokens", body: JSON.parse('{"name":"x","scopes":["agent.read"],"__proto__":{"role":"owner"}}') });
+    assert.deepEqual([t.status, t.json.reason], [400, "body"], "an own __proto__ key in a token request is an extra field, refused");
+    assert.equal(({} as Record<string, unknown>).role, undefined); assert.equal(({} as Record<string, unknown>).admin, undefined);
+    const big = JSON.stringify({ name: "x", scopes: ["agent.read"], pad: "a".repeat(70_000) });
+    assert.equal((await raw(h, { method: "POST", path: "/api/v1/tokens", headers: { cookie, "x-csrf-token": await csrfToken(h, cookie), ...jsonHeaders() }, body: big })).status, 413);
+    for (const body of ["[]", "null", '"str"', "5", "true"]) assert.equal((await post(h, body)).status, 400, body);
+    assert.equal((await post(h, JSON.stringify({ username: ["mia"], password: "x" }))).status, 400);
+  } finally { await h.close(); }
+});
+
+test("Q12-9: no route, new or old, grants CORS: a cross-origin preflight or request is refused with no access-control header, static files included", async () => {
+  const base = mkdtempSync(path.join(tmpdir(), "plur1bus-cors-")); const root = path.join(base, "dist"); mkdirSync(root); writeFileSync(path.join(root, "index.html"), "<html></html>");
+  const h = await start({ rateClasses: wide, webRoot: root });
+  try {
+    for (const r of [...ROUTES, { method: "GET", path: "/" }, { method: "GET", path: "/main.js" }]) {
+      for (const method of ["OPTIONS", r.method]) {
+        const res = await raw(h, { method, path: r.path, headers: { origin: "https://evil.example", "access-control-request-method": r.method, "access-control-request-headers": "x-csrf-token" } });
+        assert.equal(res.status, 403, `${method} ${r.path}`);
+        for (const k of Object.keys(res.headers)) assert.ok(!k.startsWith("access-control-"), `${r.path}: ${k}`);
+      }
+    }
+  } finally { await h.close(); rmSync(base, { recursive: true, force: true }); }
+});
+
+test("Q12-10: a login that sends its headers and then dribbles or stalls on the body is cut off by the request timeout; the server keeps serving", async () => {
+  const h = await start({ rateClasses: wide, limits: { requestTimeoutMs: 400, headersTimeoutMs: 300 } });
+  try {
+    const out = await socketExchange(h.port, (s) => { s.write(`POST /api/v1/session HTTP/1.1\r\nHost: 127.0.0.1:${h.port}\r\nContent-Type: application/json\r\nContent-Length: 1000\r\n\r\n{"user`); }, 4000);
+    assert.ok(!out.includes(" 200 ") && !out.includes("Set-Cookie"), out.slice(0, 200)); assert.ok(out === "" || /HTTP\/1\.1 (408|400|413)/.test(out), out.slice(0, 120));
+    assert.equal((await raw(h, { path: "/api/v1/health" })).status, 401, "still serving");
   } finally { await h.close(); }
 });

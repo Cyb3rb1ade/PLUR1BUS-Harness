@@ -4,6 +4,7 @@ import test from "node:test";
 import { buildOpenApi, buildSurfaceMarkdown } from "../src/openapi.ts";
 import { buildHandlers, ROUTES } from "../src/routes.ts";
 import { fakeCore } from "./helpers.ts";
+import { noopAudit } from "../src/audit.ts";
 import { FakeClock } from "../src/clock.ts";
 import { OWNER, SessionStore, ownerTokenVerifier } from "../src/session.ts";
 
@@ -17,7 +18,7 @@ test("every route is in the document and every operation in the document is a ro
 });
 
 test("every route has a handler and every handler a route", () => {
-  const d = { core: fakeCore(), sessions: new SessionStore(new FakeClock()), verifyOwner: ownerTokenVerifier("x".repeat(40)), clock: new FakeClock(), tls: false, principal: OWNER, healthTimeoutMs: 10, log: { info() {}, warn() {} } };
+  const d = { core: fakeCore(), sessions: new SessionStore(new FakeClock()), verifyOwner: ownerTokenVerifier("x".repeat(40)), clock: new FakeClock(), tls: false, principal: OWNER, healthTimeoutMs: 10, log: { info() {}, warn() {} }, audit: noopAudit };
   assert.deepEqual(Object.keys(buildHandlers(d)).sort(), ROUTES.map((r) => r.id).sort());
 });
 
@@ -26,7 +27,7 @@ test("the document says what the server enforces: cookie auth except login, CSRF
   for (const r of ROUTES) {
     const op = doc.paths[r.path][r.method.toLowerCase()];
     assert.equal(op["x-stability"] !== undefined && op["x-since"] !== undefined, true, r.id);
-    assert.deepEqual(op.security, r.auth === "session" ? [{ cookieAuth: [] }] : [], r.id);
+    assert.deepEqual(op.security, r.auth === "session" ? [{ cookieAuth: [] }] : r.auth === "any" ? [{ cookieAuth: [] }, { bearerAuth: [] }] : [], r.id);
     assert.equal(Boolean(op.parameters?.some((p: any) => p.name === "X-CSRF-Token")), r.csrf, r.id);
     for (const s of ["401", "403", "413", "421", "429", "504"]) assert.ok(op.responses[s], `${r.id} ${s}`);
     assert.ok(op.responses[String(r.successStatus)], r.id);
