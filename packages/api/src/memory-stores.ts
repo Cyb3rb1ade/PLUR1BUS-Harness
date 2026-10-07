@@ -1,4 +1,13 @@
-import type { TokenRecord, TokenStore, UserDirectory, UserRecord } from "./ports.ts";
+import type { TokenRecord, TokenStore, TotpRecord, TotpStore, UserDirectory, UserRecord } from "./ports.ts";
+
+/** In-memory `TotpStore` for tests. */
+export class MemoryTotpStore implements TotpStore {
+  readonly #byUser = new Map<string, TotpRecord>();
+  async get(userId: string): Promise<TotpRecord | undefined> { return this.#byUser.get(userId); }
+  async put(rec: TotpRecord): Promise<void> { this.#byUser.set(rec.userId, Object.freeze({ ...rec })); }
+  async delete(userId: string): Promise<void> { this.#byUser.delete(userId); }
+  dump(): string { return JSON.stringify([...this.#byUser.values()]); }
+}
 
 /** In-memory `TokenStore` for tests; records are copied in and out so a caller cannot mutate the stored one. */
 export class MemoryTokenStore implements TokenStore {

@@ -32,6 +32,19 @@ export interface TokenStore {
   update(id: string, patch: { lastUsedAt?: number; revokedAt?: number }): Promise<void>;
 }
 
+/** A user's second factor. `secret` is the base32 TOTP seed: it must be recoverable to check codes, so the real store
+ *  belongs in the core's secret store (follow-up); the in-memory store is for tests. `backupHashes` are SHA-256 of the
+ *  normalised one-time codes. `lastStep` is the newest accepted time step (replay guard). */
+export interface TotpRecord {
+  readonly userId: string; readonly secret: string; readonly enabled: boolean; readonly createdAt: number;
+  readonly lastStep?: number; readonly backupHashes: readonly string[];
+}
+export interface TotpStore {
+  get(userId: string): Promise<TotpRecord | undefined>;
+  put(rec: TotpRecord): Promise<void>;
+  delete(userId: string): Promise<void>;
+}
+
 export interface UserDirectory {
   findByUsername(username: string): Promise<UserRecord | undefined>;
   findById(id: string): Promise<UserRecord | undefined>;
