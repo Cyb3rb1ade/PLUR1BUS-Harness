@@ -19,8 +19,8 @@ it("token POST never follows redirects, caps bytes, times out and redacts malfor
   t.after(async () => { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); });
   const port = (server.address() as { port: number }).port;
   const egress = createEgress({ config: () => ({ allowHosts: ["127.0.0.1"], allowPorts: [port], allowLoopback: true }) });
-  const http = createOAuthHttp({ egress, timeoutMs: 100, maxBytes: 1024 });
-  for (const path of ["redirect", "large", "bad", "hang"]) await assert.rejects(http.post(`http://127.0.0.1:${port}/${path}`, { client_secret: MARK.key }), e => !inspect(e).includes(MARK.access));
+  const http = createOAuthHttp({ egress, timeoutMs: 1000, maxBytes: 1024 });
+  for (const path of ["redirect", "large", "bad", "hang"]) await assert.rejects((path === "hang" ? createOAuthHttp({ egress, timeoutMs: 50 }) : http).post(`http://127.0.0.1:${port}/${path}`, { client_secret: MARK.key }), e => !inspect(e).includes(MARK.access));
   assert.equal(hits, 4);
   const data = await http.post(`http://127.0.0.1:${port}/token`, {});
   assert.equal(data.access_token, MARK.access); assert.ok(!inspect(data).includes(MARK.access)); assert.ok(!JSON.stringify(data).includes(MARK.access));

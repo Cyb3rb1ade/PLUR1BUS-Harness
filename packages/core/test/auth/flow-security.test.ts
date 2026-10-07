@@ -72,3 +72,8 @@ it("OAuth record and refresh snapshots are redacted; secret encoding still persi
   const result = await owner.fresh(m.profile(), "auth/test", "a"); safe(result); safe(owner);
   assert.ok((await store.get("auth/test"))!.includes(MARK.refresh));
 });
+
+it("a UI port throwing a foreign AuthError cannot smuggle a code or message into logs", async t => {
+  const m = await mockOAuth(); t.after(() => m.close()); const { AuthError } = await import("../../src/auth/errors.ts"); const logs: unknown[] = [];
+  await assert.rejects(login({ profile: m.profile(), store: new InMemorySecretStore(), clock: new FakeClock(), http: createOAuthHttp({ egress: m.egress }), env, log: (e, fields) => logs.push([e, fields]), openBrowser: async () => { throw new AuthError(MARK.access as any, MARK.refresh); } }), e => { safe(e); return true; }); safe(logs);
+});

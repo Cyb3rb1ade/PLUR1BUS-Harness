@@ -50,7 +50,8 @@ export interface LoginOptions {
   log?: AuthLog;
 }
 export interface LoginResult { profileId: string; method: LoginMethod; expiresAt: number | null }
-const error = (code: AuthErrorCode = "login_failed") => new AuthError(code, code === "state_mismatch" ? "Sign-in callback did not match this login." : code === "login_timeout" ? "Sign-in timed out or was cancelled." : code === "access_denied" ? "Sign-in was declined." : code === "persist_failed" ? "Sign-in could not be saved; try again." : "Sign-in failed; try again.");
+const localErrors = new WeakSet<AuthError>();
+const error = (code: AuthErrorCode = "login_failed") => { const e = new AuthError(code, code === "state_mismatch" ? "Sign-in callback did not match this login." : code === "login_timeout" ? "Sign-in timed out or was cancelled." : code === "access_denied" ? "Sign-in was declined." : code === "persist_failed" ? "Sign-in could not be saved; try again." : "Sign-in failed; try again."); localErrors.add(e); return e; };
 
 function bounded<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -96,8 +97,8 @@ async function pkce(o: LoginOptions, method: LoginMethod, signal: AbortSignal): 
     try {
       if (req.headers.host !== new URL(redirect).host) throw error();
       const raw = new URL(req.url!, redirect).href; callbackCode(raw, redirect, state);
-      res.writeHead(200); res.end("Sign-in complete. You may close this window."); resolveCallback(raw);
-    } catch (e) { res.writeHead(400); res.end("Sign-in failed. Close this window and try again."); rejectCallback(e); }
+      res.writeHead(200); res.end("Sign-in complete. You may close this window.", () => resolveCallback(raw));
+    } catch (e) { res.writeHead(400); res.end("Sign-in failed. Close this window and try again.", () => rejectCallback(e)); }
     server.close();
   });
   try {
@@ -180,7 +181,7 @@ export async function login(o: LoginOptions): Promise<LoginResult> {
     log("auth.login.ok", { profileId: profile.id, method });
     return { profileId: profile.id, method, expiresAt: expiresAt ?? null };
   } catch (e) {
-    const safe = e instanceof AuthError ? error(e.code) : error(e instanceof OAuthHttpError && e.code === "access_denied" ? "access_denied" : "login_failed");
+    const safe = e instanceof AuthError && localErrors.has(e) ? e : error(e instanceof OAuthHttpError && e.code === "access_denied" ? "access_denied" : "login_failed");
     log("auth.login.failed", { profileId: profile.id, code: safe.code }); throw safe;
   }
 }
