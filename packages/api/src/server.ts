@@ -2,14 +2,18 @@ import { createServer as createHttpServer, type IncomingMessage, type Server, ty
 import { createServer as createHttpsServer } from "node:https";
 import { isIP, type Socket } from "node:net";
 import type { HarnessLogger } from "@plur1bus/module-api";
+import { createAuditEmitter } from "./audit.ts";
 import { systemClock, type Clock } from "./clock.ts";
 import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errorBody, errors } from "./errors.ts";
 import { securityHeaders } from "./headers.ts";
+import { PasswordLogin, type LockoutPolicy } from "./login.ts";
+import type { UserDirectory } from "./ports.ts";
 import { DEFAULT_RATE_CLASSES, RateLimiter, type RateClasses } from "./rate-limit.ts";
+import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
-import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, type Handler, type RouteSpec } from "./routes.ts";
-import { DEFAULT_SESSION_LIMITS, OWNER, ownerTokenVerifier, readCookie, SessionStore, type SessionLimits } from "./session.ts";
+import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
+import { DEFAULT_SESSION_LIMITS, OWNER, ownerTokenVerifier, readCookie, SessionStore, type Principal, type Session, type SessionLimits } from "./session.ts";
 
 export interface ApiLimits {
   maxBodyBytes: number; handlerTimeoutMs: number; healthTimeoutMs: number;
@@ -27,18 +31,26 @@ export interface ApiServerOptions {
   core: CoreRpc;
   /** The owner credential `POST /api/v1/session` checks (ruling R2). At least 32 characters. */
   ownerToken: string;
+  /** Local accounts (password login). Without it only the owner token logs in. */
+  users?: UserDirectory;
+  /** The hash-chained audit log of the core, or any sink with the same `append`. Without one nothing is audited. */
+  audit?: AuditSink;
   /** Loopback only (ruling R7); anything else is refused. Default `127.0.0.1`. */
   host?: string; port?: number;
   /** A PEM key and certificate: the listener is then HTTPS, the cookie `Secure`, HSTS is sent. */
   tls?: { key: string | Buffer; cert: string | Buffer };
   logger?: ApiLogger; clock?: Clock;
-  limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits;
+  limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; lockout?: Partial<LockoutPolicy>;
+  /** Test seam: routes served besides the table, to prove what the dispatcher does with a route that declares nothing. */
+  extraRoutes?: ReadonlyArray<{ spec: RouteSpec; handler: Handler }>;
 }
 
 export interface ApiServer {
   listen(): Promise<{ host: string; port: number; url: string }>;
   close(): Promise<void>;
   readonly server: Server;
+  /** A user's role or rights changed: their sessions get a new cookie value at their next request. */
+  rightsChanged(userId: string): number;
 }
 
 /** The address to bind for a loopback host, or a refusal. `localhost` is pinned to 127.0.0.1 so it cannot resolve
@@ -79,6 +91,8 @@ function parseJson(raw: Buffer): unknown {
   try { return JSON.parse(raw.toString("utf8")); } catch { throw errors.badRequest("json", "the body is not valid JSON"); }
 }
 
+interface Resolved { principal: Principal; rbac: RbacPrincipal; version: number }
+
 export function createApiServer(o: ApiServerOptions): ApiServer {
   const bindHost = loopbackBind(o.host ?? "127.0.0.1");
   const verifyOwner = ownerTokenVerifier(o.ownerToken);
@@ -96,14 +110,18 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   };
   const sessions = new SessionStore(clock, o.sessionLimits ?? DEFAULT_SESSION_LIMITS);
   const limiter = new RateLimiter(clock, o.rateClasses ?? DEFAULT_RATE_CLASSES);
-  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log });
+  const audit = createAuditEmitter({ sink: o.audit, clock, log });
+  const login = o.users ? new PasswordLogin({ users: o.users, clock, ...(o.lockout ? { policy: o.lockout } : {}) }) : undefined;
+  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, audit });
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
   const secHeaders = securityHeaders(tls);
   const byPath = new Map<string, Map<string, { spec: RouteSpec; handler: Handler }>>();
-  for (const spec of ROUTES) {
-    const handler = handlers[spec.id]; if (!handler) throw new Error(`no handler for route ${spec.id}`);
+  const add = (spec: RouteSpec, handler: Handler | undefined) => {
+    if (!handler) throw new Error(`no handler for route ${spec.id}`);
     const m = byPath.get(spec.path) ?? new Map(); m.set(spec.method, { spec, handler }); byPath.set(spec.path, m);
-  }
+  };
+  for (const spec of ROUTES) add(spec, handlers[spec.id]);
+  for (const x of o.extraRoutes ?? []) add(x.spec, x.handler);
 
   let allowedHosts = new Set<string>(); let allowedOrigins = new Set<string>();
 
@@ -114,10 +132,37 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     res.end(payload);
   };
 
+  /** The principal of a session as it is *now*: owner from the bootstrap, users from the directory (so a demotion, a
+   *  disabled account or a deleted one takes effect at the next request, whatever the session was made with). */
+  async function resolve(session: Session): Promise<Resolved | undefined> {
+    const p = session.principal;
+    if (p.kind === "owner") return { principal: p, rbac: { userId: p.id, role: "owner", kind: "person" }, version: 0 };
+    const u = await o.users?.findById(p.id);
+    if (!u || u.disabled === true) return undefined;
+    return {
+      principal: { kind: "user", id: u.id, role: u.role },
+      rbac: { userId: u.id, role: u.role, kind: "person", ...(u.agentRights ? { agentRights: u.agentRights } : {}), ...(u.projectRights ? { projectRights: u.projectRights } : {}) },
+      version: u.version,
+    };
+  }
+
+  /** Every route's declared authorization, evaluated by core's `authorize`. A route without a declaration is refused. */
+  function decide(spec: RouteSpec, rbac: RbacPrincipal): Decision {
+    const az = spec.authz as RouteSpec["authz"] | undefined;
+    if (az === undefined || az === "public") return { effect: "deny", reason: "unknown-action" };
+    if (az === "authenticated") return { effect: "allow", reason: "role" };
+    const resource: Resource = az.resource === "self" ? { kind: "user", userId: rbac.userId } : { kind: "system" };
+    return authorize(rbac, az.action, resource, { now: clock.now() });
+  }
+
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const t0 = process.hrtime.bigint();
     const ip = (req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, "");
     let routeId = "-"; let principalId: string | undefined; let status = 500;
+    const rateLimited = (scope: string, cls: string, retryAfterSec: number): never => {
+      audit.emit("auth.rate-limited", principalId ?? "anonymous", scope, { class: cls, route: routeId, ip });
+      throw errors.rateLimited(retryAfterSec);
+    };
     try {
       const host = req.headers.host?.toLowerCase();
       if (!host || !allowedHosts.has(host)) throw errors.misdirected();
@@ -134,7 +179,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       const methods = byPath.get(path); const route = methods?.get(req.method ?? "");
       const cls = route?.spec.rate ?? "read";
       const ipVerdict = limiter.take(cls, `ip:${ip}`);
-      if (!ipVerdict.ok) throw errors.rateLimited(ipVerdict.retryAfterSec);
+      if (!ipVerdict.ok) rateLimited(`ip:${ip}`, cls, ipVerdict.retryAfterSec);
       if (!methods) throw errors.notFound();
       if (!route) throw errors.methodNotAllowed([...methods.keys()]);
       const { spec, handler } = route; routeId = spec.id;
@@ -146,15 +191,39 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         if (n > limits.maxBodyBytes) { drain(req, limits.maxBodyBytes * 4 + 65_536); throw errors.tooLarge(limits.maxBodyBytes); }
       }
 
-      let sessionId: string | undefined; let session; 
+      const presented = readCookie(req.headers.cookie, cookieName);
+      let sessionId: string | undefined; let session: Session | undefined; let resolved: Resolved | undefined; let rotated: string | undefined;
       if (spec.auth === "session") {
-        sessionId = readCookie(req.headers.cookie, cookieName);
+        sessionId = presented;
         session = sessions.get(sessionId);
         if (!session) throw errors.unauthenticated();
-        principalId = session.principal.id;
+        resolved = await resolve(session);
+        if (!resolved) { sessions.destroy(sessionId); throw errors.unauthenticated("session-expired"); }
+        principalId = resolved.principal.id;
         const pv = limiter.take(cls, `principal:${principalId}`);
-        if (!pv.ok) throw errors.rateLimited(pv.retryAfterSec);
-        if (spec.csrf && !sessions.consumeCsrf(sessionId!, req.headers[CSRF_HEADER] as string | undefined)) throw errors.forbidden("csrf", "a valid one-time CSRF token is required");
+        if (!pv.ok) rateLimited(`principal:${principalId}`, cls, pv.retryAfterSec);
+        // The CSRF token is spent before any rotation: rotation drops the old session's tokens.
+        if (spec.csrf && !sessions.consumeCsrf(sessionId!, req.headers[CSRF_HEADER] as string | undefined)) {
+          audit.emit("auth.csrf-refused", principalId, `user:${principalId}`, { route: routeId, ip });
+          throw errors.forbidden("csrf", "a valid one-time CSRF token is required");
+        }
+        // Rights changed since the session was made (or someone asked for it): the cookie value changes, the old one dies.
+        if (session.mustRotate || resolved.version !== session.authVersion) {
+          const r = sessions.rotate(sessionId, resolved.version);
+          if (r) {
+            sessionId = r.id; session = r.session;
+            rotated = sessionCookie(tls, r.id, Math.max(1, Math.floor((r.session.absoluteExpiresAt - clock.now()) / 1000)));
+            audit.emit("auth.session.rotated", principalId, `user:${principalId}`, { route: routeId });
+          }
+        }
+        const d = decide(spec, resolved.rbac);
+        if (d.effect === "deny") {
+          if (req.method !== "GET") audit.emit("auth.denied", principalId, `route:${spec.id}`, { reason: d.reason, method: req.method, ip, ...(typeof spec.authz === "object" ? { action: spec.authz.action } : {}) });
+          throw spec.authz === undefined ? errors.undeclared() : errors.forbidden(d.reason);
+        }
+      } else if ((spec.authz as RouteSpec["authz"] | undefined) !== "public") {
+        // A route that is not authenticated by a session and not declared public has no way to be allowed.
+        throw errors.undeclared();
       }
 
       let body: unknown;
@@ -168,11 +237,11 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
       let timer: NodeJS.Timeout | undefined;
       const out = await Promise.race([
-        Promise.resolve(handler({ principal: session?.principal, session, sessionId, body })),
+        Promise.resolve(handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip })),
         new Promise<never>((_, rej) => { timer = setTimeout(() => rej(errors.timeout()), limits.handlerTimeoutMs); }),
       ]).finally(() => clearTimeout(timer));
       status = out.status ?? spec.successStatus;
-      send(res, status, out.body, out.headers);
+      send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
     } catch (e) {
       let err: ApiError;
       if (e instanceof ApiError) err = e;
@@ -204,8 +273,9 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   return {
     server,
+    rightsChanged: (userId) => sessions.markRotate(userId),
     listen() {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolveListen, reject) => {
         server.once("error", reject);
         server.listen(o.port ?? 0, bindHost, () => {
           server.off("error", reject);
@@ -216,12 +286,12 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           allowedOrigins = new Set([...allowedHosts].map((h) => `${scheme}://${h}`));
           const hostPart = bindHost.includes(":") ? `[${bindHost}]` : bindHost;
           log.info("listening", { host: bindHost, port: a.port, tls });
-          resolve({ host: bindHost, port: a.port, url: `${scheme}://${hostPart}:${a.port}` });
+          resolveListen({ host: bindHost, port: a.port, url: `${scheme}://${hostPart}:${a.port}` });
         });
       });
     },
     close() {
-      return new Promise((resolve) => { server.close(() => resolve()); server.closeAllConnections(); });
+      return new Promise((resolveClose) => { server.close(() => resolveClose()); server.closeAllConnections(); });
     },
   };
 }

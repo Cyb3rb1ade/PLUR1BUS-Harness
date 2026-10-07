@@ -12,7 +12,7 @@ export const OWNER: Principal = Object.freeze({ kind: "owner", id: "owner", role
 export interface Session {
   readonly principal: Principal; readonly createdAt: number; absoluteExpiresAt: number; idleExpiresAt: number;
   /** The user record's `version` when the session was made; a different one means rights changed since. */
-  readonly authVersion: number;
+  authVersion: number;
   /** Set when rights changed: the next request gets a new cookie and the old value stops working. */
   mustRotate: boolean;
   /** Epoch ms of the last second-factor check (the T3 step-up window of ADR-007); undefined when none happened. */
@@ -71,12 +71,13 @@ export class SessionStore {
   }
 
   /** Swaps the cookie value of a live session: the old one dies, the lifetime is *not* extended, pending CSRF tokens go. */
-  rotate(id: string | undefined): { id: string; session: Session } | undefined {
+  rotate(id: string | undefined, authVersion?: number): { id: string; session: Session } | undefined {
     const e = this.#entry(id);
     if (!e || id === undefined) return undefined;
     this.#byId.delete(sha256(id));
     const next = newSecret();
     e.csrf.clear(); e.mustRotate = false;
+    if (authVersion !== undefined) e.authVersion = authVersion;
     this.#byId.set(sha256(next), e);
     return { id: next, session: e };
   }

@@ -1,7 +1,11 @@
+import type { AuditEmitter } from "./audit.ts";
+import { nameHandle } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errors, fromCoreError } from "./errors.ts";
+import type { PasswordLogin } from "./login.ts";
 import type { RateClass } from "./rate-limit.ts";
+import { authorize, type RbacPrincipal } from "./rbac-bridge.ts";
 import type { Principal, Session, SessionStore } from "./session.ts";
 
 export const API_VERSION = "1.0.0";
@@ -14,10 +18,19 @@ export const CSRF_HEADER = "x-csrf-token";
 export type JsonSchema = Record<string, unknown>;
 export type Method = "GET" | "POST" | "DELETE";
 
+/** What a route needs from `authorize(principal, action, resource)` (ADR-007 *Enforcement*): every route declares one of
+ *  these, and a route that does not is refused with 403 whoever calls it.
+ *  - `public`: no authentication at all (login only).
+ *  - `authenticated`: any live principal; for the caller's own session handling (logout, CSRF token, whoami), which
+ *    must work for a Viewer too. Deliberately narrow: the deny-by-default test names every route that uses it.
+ *  - `{ action }`: a member of core's RBAC policy table, on the system resource or on the caller's own user. */
+export type Authz = "public" | "authenticated" | { action: string; resource?: "system" | "self" };
+
 export interface RouteSpec {
   id: string; method: Method; path: string; summary: string; tag: string;
-  /** `none` is public (login only, ruling R5); everything else needs a session. */
+  /** `none` is public (login only, ruling R5); everything else needs a live session. */
   auth: "none" | "session";
+  authz: Authz;
   /** A one-time CSRF token in `X-CSRF-Token` (ruling R6). */
   csrf: boolean;
   rate: RateClass;
@@ -31,6 +44,7 @@ export interface RouteSpec {
 const ref = (name: string): JsonSchema => ({ $ref: `#/components/schemas/${name}` });
 const obj = (properties: Record<string, JsonSchema>, required: string[] = Object.keys(properties)): JsonSchema => ({ type: "object", additionalProperties: false, required, properties });
 const schemaId = (id: string): JsonSchema => ({ const: id });
+const ROLE_NAMES = ["owner", "admin", "operator", "member", "viewer"];
 
 /** Reusable schemas of the OpenAPI document (`components.schemas`). */
 export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
@@ -38,9 +52,9 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
     schema: schemaId("error/1"),
     error: { type: "string", description: "A member of the closed RPC `ErrorCode` enum (ADR-016 §2).", enum: ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE"] },
     message: { type: "string" },
-    reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `body-too-large`." },
+    reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `locked`, `role-denied`, `body-too-large`." },
   }, ["schema", "error", "message"]),
-  Principal: obj({ kind: { enum: ["owner"] }, id: { type: "string" }, role: { enum: ["owner"] } }),
+  Principal: obj({ kind: { enum: ["owner", "user"] }, id: { type: "string" }, role: { enum: ROLE_NAMES } }),
   Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] } }, ["state", "since"]),
 };
 
@@ -49,25 +63,35 @@ const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
   {
-    id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token; sets the session cookie",
-    auth: "none", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
-    requestBody: obj({ token: { type: "string", minLength: 32, maxLength: 512, description: "The owner token (`run/api-owner.token`). The core's RPC token is not accepted." } }),
+    id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
+    auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
+    requestBody: {
+      oneOf: [
+        obj({ token: { type: "string", minLength: 32, maxLength: 512, description: "The owner token (`run/api-owner.token`), the bootstrap way in. The core's RPC token is not accepted." } }),
+        obj({ username: { type: "string", minLength: 1, maxLength: 128 }, password: { type: "string", minLength: 1, maxLength: 1024 } }),
+      ],
+    },
     successStatus: 200,
-    success: { description: "Logged in; `Set-Cookie` carries the session (HttpOnly, SameSite=Strict, Secure over TLS).", schema: obj({ schema: schemaId("session.create/1"), principal: ref("Principal"), ...SESSION_TIMES }) },
+    success: { description: "Logged in; `Set-Cookie` carries the session (HttpOnly, SameSite=Strict, Secure over TLS). Any session cookie the request carried is ended.", schema: obj({ schema: schemaId("session.create/1"), principal: ref("Principal"), ...SESSION_TIMES }) },
   },
   {
     id: "session.delete", method: "DELETE", path: `${API_PREFIX}/session`, tag: "session", summary: "Log out; ends the session server-side",
-    auth: "session", csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
+    auth: "session", authz: "authenticated", csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
     successStatus: 200, success: { description: "Logged out; the cookie is cleared.", schema: obj({ schema: schemaId("session.delete/1"), ok: { const: true } }) },
   },
   {
+    id: "sessions.revoke-all", method: "DELETE", path: `${API_PREFIX}/sessions`, tag: "session", summary: "Log out everywhere: ends every session of the caller",
+    auth: "session", authz: "authenticated", csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
+    successStatus: 200, success: { description: "Every session of the caller, this one included, is ended; the cookie is cleared.", schema: obj({ schema: schemaId("sessions.revoke-all/1"), revoked: { type: "integer" } }) },
+  },
+  {
     id: "csrf.issue", method: "GET", path: `${API_PREFIX}/csrf`, tag: "session", summary: "A one-time CSRF token for the next write, bound to this session",
-    auth: "session", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    auth: "session", authz: "authenticated", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200, success: { description: "Send it back in `X-CSRF-Token`; it works once.", schema: obj({ schema: schemaId("csrf/1"), token: { type: "string" }, expiresAt: iso }) },
   },
   {
     id: "health", method: "GET", path: `${API_PREFIX}/health`, tag: "status", summary: "API and core health",
-    auth: "session", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    auth: "session", authz: { action: "doctor.read" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200,
     success: {
       description: "`ok`, or `degraded` while the engine is not ready or reports a degradation.",
@@ -80,26 +104,36 @@ export const ROUTES: readonly RouteSpec[] = [
   },
   {
     id: "whoami", method: "GET", path: `${API_PREFIX}/whoami`, tag: "status", summary: "The calling principal and its session",
-    auth: "session", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
-    successStatus: 200, success: { description: "The principal behind the session cookie.", schema: obj({ schema: schemaId("whoami/1"), principal: ref("Principal"), session: obj(SESSION_TIMES) }) },
+    auth: "session", authz: "authenticated", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    successStatus: 200, success: { description: "The principal behind the session cookie, with the role as it is now.", schema: obj({ schema: schemaId("whoami/1"), principal: ref("Principal"), session: obj(SESSION_TIMES) }) },
   },
   {
-    id: "agents.list", method: "GET", path: `${API_PREFIX}/agents`, tag: "agents", summary: "The agents the core knows (core RPC `agent.list`)",
-    auth: "session", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    id: "agents.list", method: "GET", path: `${API_PREFIX}/agents`, tag: "agents", summary: "The agents the caller may see (core RPC `agent.list`, filtered by `agent.read`)",
+    auth: "session", authz: { action: "agent.list" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200,
-    success: { description: "The core's `agent.list` result, with a schema id.", schema: obj({ schema: schemaId("agents.list/1"), agents: { type: "array", items: obj({ agentId: { type: "string" }, open: { type: "boolean" }, activity: ref("Activity") }) } }) },
+    success: { description: "The core's `agent.list` result, with a schema id, reduced to the agents the caller holds `agent.read` on.", schema: obj({ schema: schemaId("agents.list/1"), agents: { type: "array", items: obj({ agentId: { type: "string" }, open: { type: "boolean" }, activity: ref("Activity") }) } }) },
   },
 ];
 // `Health` is the 200 schema of `health`, referenced by its 503.
 COMPONENT_SCHEMAS.Health = ROUTES.find((r) => r.id === "health")!.success.schema;
 
-export interface HandlerInput { principal: Principal | undefined; session: Session | undefined; sessionId: string | undefined; body: unknown }
+export interface HandlerInput {
+  principal: Principal | undefined; session: Session | undefined; sessionId: string | undefined; body: unknown;
+  /** The RBAC principal built from the user directory for this request (never from the session's stored role). */
+  rbac: RbacPrincipal | undefined;
+  /** The session cookie the request carried, if any, on routes that do not authenticate with it (login): it is ended. */
+  presentedSessionId: string | undefined;
+  ip: string;
+}
 export interface HandlerOutput { status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
 export type Handler = (i: HandlerInput) => Promise<HandlerOutput> | HandlerOutput;
 
 export interface HandlerDeps {
   core: CoreRpc; sessions: SessionStore; verifyOwner: (candidate: unknown) => boolean; clock: Clock; tls: boolean;
   principal: Principal; healthTimeoutMs: number; log: { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void };
+  /** Password login; without it only the owner token logs in. */
+  login?: PasswordLogin | undefined;
+  audit: AuditEmitter;
 }
 
 const iso8601 = (ms: number) => new Date(ms).toISOString();
@@ -114,20 +148,60 @@ function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, t]).finally(() => clearTimeout(timer));
 }
 
+type LoginBody = { kind: "token"; token: string } | { kind: "password"; username: string; password: string };
+
+/** Exactly `{token}` or exactly `{username, password}`; anything else is not a login. */
+function loginBody(b: unknown): LoginBody | undefined {
+  if (!b || typeof b !== "object" || Array.isArray(b)) return undefined;
+  const o = b as Record<string, unknown>; const keys = Object.keys(o);
+  if (keys.length === 1 && typeof o.token === "string") return { kind: "token", token: o.token };
+  if (keys.length === 2 && typeof o.username === "string" && typeof o.password === "string") return { kind: "password", username: o.username, password: o.password };
+  return undefined;
+}
+
 export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
+  const clearCookie = { "Set-Cookie": sessionCookie(d.tls, "", 0) };
   return {
-    "session.create": (i) => {
-      const b = i.body as { token?: unknown } | null;
-      if (!b || typeof b !== "object" || Array.isArray(b) || typeof b.token !== "string" || Object.keys(b).length !== 1) throw errors.badRequest("body", "body must be {\"token\": string}");
-      if (!d.verifyOwner(b.token)) { d.log.warn("login refused"); throw new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason: "invalid-token" }); }
-      const { id, session } = d.sessions.create(d.principal);
+    "session.create": async (i) => {
+      const b = loginBody(i.body);
+      if (!b) throw errors.badRequest("body", "body must be {\"token\": string} or {\"username\": string, \"password\": string}");
+      let principal: Principal; let authVersion = 0;
+      if (b.kind === "token") {
+        if (!d.verifyOwner(b.token)) {
+          d.log.warn("login refused");
+          d.audit.emit("auth.login.failure", "anonymous", "owner-token", { via: "owner-token", reason: "invalid-token", ip: i.ip });
+          throw new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason: "invalid-token" });
+        }
+        principal = d.principal;
+      } else {
+        const r = d.login ? await d.login.check(b.username, b.password) : ({ ok: false, locked: false } as const);
+        if (!r.ok) {
+          d.log.warn("login refused");
+          d.audit.emit("auth.login.failure", "anonymous", nameHandle(b.username), { via: "password", reason: r.locked ? "locked" : "invalid-credentials", ip: i.ip });
+          if (r.locked) throw errors.locked(r.retryAfterSec ?? 1);
+          throw new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason: "invalid-credentials" });
+        }
+        principal = { kind: "user", id: r.user.id, role: r.user.role }; authVersion = r.user.version;
+      }
+      // Session fixation: a cookie the request already carried never becomes the logged-in session, and it dies here.
+      d.sessions.destroy(i.presentedSessionId);
+      const { id, session } = d.sessions.create(principal, { authVersion });
       d.log.info("login", { principal: session.principal.id });
+      d.audit.emit("auth.login.success", principal.id, `user:${principal.id}`, { via: b.kind === "token" ? "owner-token" : "password", ip: i.ip });
       return { body: { schema: "session.create/1", principal: session.principal, createdAt: iso8601(session.createdAt), expiresAt: iso8601(session.absoluteExpiresAt), idleExpiresAt: iso8601(session.idleExpiresAt) }, headers: { "Set-Cookie": sessionCookie(d.tls, id, Math.floor((session.absoluteExpiresAt - session.createdAt) / 1000)) } };
     },
     "session.delete": (i) => {
       d.sessions.destroy(i.sessionId);
       d.log.info("logout", { principal: i.principal?.id });
-      return { body: { schema: "session.delete/1", ok: true }, headers: { "Set-Cookie": sessionCookie(d.tls, "", 0) } };
+      d.audit.emit("auth.logout", i.principal?.id ?? "anonymous", `user:${i.principal?.id ?? "-"}`, { ip: i.ip });
+      return { body: { schema: "session.delete/1", ok: true }, headers: clearCookie };
+    },
+    "sessions.revoke-all": (i) => {
+      if (!i.principal) throw errors.unauthenticated();
+      const revoked = d.sessions.destroyAllFor(i.principal.id);
+      d.log.info("logout everywhere", { principal: i.principal.id, revoked });
+      d.audit.emit("auth.logout-all", i.principal.id, `user:${i.principal.id}`, { revoked, ip: i.ip });
+      return { body: { schema: "sessions.revoke-all/1", revoked }, headers: clearCookie };
     },
     "csrf.issue": (i) => {
       const t = i.sessionId ? d.sessions.issueCsrf(i.sessionId) : undefined;
@@ -147,10 +221,17 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       if (!i.session || !i.principal) throw errors.unauthenticated();
       return { body: { schema: "whoami/1", principal: i.principal, session: { createdAt: iso8601(i.session.createdAt), expiresAt: iso8601(i.session.absoluteExpiresAt), idleExpiresAt: iso8601(i.session.idleExpiresAt) } } };
     },
-    "agents.list": async () => {
+    "agents.list": async (i) => {
       try {
         const r = await d.core.call<Record<string, unknown>>("agent.list");
-        return { body: { schema: "agents.list/1", ...r } }; // the raw RPC value, never re-serialised (AGENTS.md, ruling R13)
+        // Object rights decide which agents a caller sees (acceptance 3). Elements pass through untouched or not at all
+        // (never re-serialised, ruling R13); a result that is not a list is shown to nobody.
+        const all = Array.isArray(r.agents) ? (r.agents as unknown[]) : [];
+        const agents = all.filter((a) => {
+          const agentId = a && typeof a === "object" && typeof (a as { agentId?: unknown }).agentId === "string" ? (a as { agentId: string }).agentId : "";
+          return authorize(i.rbac, "agent.read", { kind: "agent", agentId }).effect === "allow";
+        });
+        return { body: { schema: "agents.list/1", ...r, agents } };
       } catch (e) { throw fromCoreError(e); }
     },
   };

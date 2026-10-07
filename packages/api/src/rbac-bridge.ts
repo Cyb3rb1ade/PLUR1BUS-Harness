@@ -8,5 +8,6 @@ export { policyFor } from "../../core/src/rbac/policy.ts";
 export { createBreakGlass, BreakGlassError } from "../../core/src/rbac/break-glass.ts";
 export { createAuditChain } from "../../core/src/audit/chain.ts";
 export type { BreakGlass, BreakGlassNotice } from "../../core/src/rbac/break-glass.ts";
-export type { AuditEvent, AuditSink } from "../../core/src/rbac/audit.ts";
+export { memoryAuditSink } from "../../core/src/rbac/audit.ts";
+export type { AuditEvent, AuditSink, MemoryAuditSink } from "../../core/src/rbac/audit.ts";
 export type { AgentRight, Decision, Principal as RbacPrincipal, ProjectRight, Resource, Role } from "../../core/src/rbac/types.ts";

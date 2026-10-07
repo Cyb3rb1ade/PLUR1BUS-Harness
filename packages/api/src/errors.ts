@@ -33,6 +33,10 @@ export const errors = {
   unsupportedMedia: () => new ApiError(415, "E_INVALID_PARAMS", "content type must be application/json", { reason: "unsupported-media-type" }),
   tooLarge: (limit: number) => new ApiError(413, "E_INVALID_PARAMS", `request body exceeds ${limit} bytes`, { reason: "body-too-large", headers: { Connection: "close" } }),
   rateLimited: (retryAfterSec: number) => new ApiError(429, "E_DENIED", "rate limit exceeded", { reason: "rate-limited", headers: { "Retry-After": String(retryAfterSec) } }),
+  /** An account name locked after failed logins (`PasswordLogin`); applies to names that do not exist alike, so it is no oracle. */
+  locked: (retryAfterSec: number) => new ApiError(429, "E_DENIED", "too many failed attempts", { reason: "locked", headers: { "Retry-After": String(retryAfterSec) } }),
+  /** A route that reached the dispatcher without a declared authorization: refused, whatever the caller is (deny by default). */
+  undeclared: () => new ApiError(403, "E_DENIED", "request refused", { reason: "undeclared-route" }),
   timeout: (reason = "handler-timeout") => new ApiError(504, "E_NOT_AVAILABLE", "the request timed out", { reason }),
   misdirected: () => new ApiError(421, "E_DENIED", "unexpected Host header", { reason: "host" }),
   internal: () => new ApiError(500, "E_INTERNAL", "internal error"),
