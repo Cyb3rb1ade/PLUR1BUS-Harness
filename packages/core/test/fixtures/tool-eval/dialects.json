@@ -1,0 +1,130 @@
+{
+  "input": {
+    "name": "lookup",
+    "description": "Look up an item",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "expected": {
+    "openai-chat": {
+      "wire": {
+        "type": "function",
+        "function": {
+          "name": "lookup",
+          "description": "Look up an item",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "count": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
+            },
+            "required": [
+              "query",
+              "count"
+            ],
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      "reductions": []
+    },
+    "openai-responses": {
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Look up an item",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "count": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          },
+          "required": [
+            "query",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        "strict": true
+      },
+      "reductions": []
+    },
+    "anthropic": {
+      "wire": {
+        "name": "lookup",
+        "description": "Look up an item",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "reductions": []
+    },
+    "gemini": {
+      "wire": {
+        "name": "lookup",
+        "description": "Look up an item",
+        "parametersJsonSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "reductions": []
+    }
+  }
+}
