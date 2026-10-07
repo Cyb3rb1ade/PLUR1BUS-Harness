@@ -527,8 +527,9 @@ fn is_zombie(_pid: u32) -> bool {
 }
 
 /// Terminates a hung or foreign child found at start (S6, S8): `core.shutdown` (`role`'s own `shutdown`) on a fresh
-/// connection to that same server, SIGTERM (unix) after 2 s, SIGKILL / TerminateProcess 10 s later (both × the time
-/// scale). Returns once the process is gone, or after the kill plus a short wait.
+/// connection to that same server (attempt bounded by [`PROBE_TIMEOUT`]), then SIGTERM (unix) after 2 s,
+/// SIGKILL / TerminateProcess 10 s later (both × the time scale). Returns once the process is gone,
+/// or after the kill plus a short wait.
 pub fn terminate_found(
     shared: &Arc<Shared>,
     layout: &Layout,
@@ -539,7 +540,6 @@ pub fn terminate_found(
     let scale = shared.lock().time_scale;
     let s = |ms: u64| Duration::from_secs_f64(ms as f64 / 1000.0 * scale);
     let pid = peer.pid;
-    let t0 = Instant::now();
     let what = format!("terminating a {} found at start", role.name);
     let log = |step: &str| {
         shared
@@ -547,13 +547,16 @@ pub fn terminate_found(
             .warn(&what, json!({ "pid": pid, "probe": probe, "step": step }))
     };
     log("shutdown");
-    // On its own thread: a hung core never answers, and the escalation below must not wait for it.
+    // On its own thread: a hung core never answers, so the wait for the attempt must be bounded.
     let ep = endpoints(layout, role);
     let role2 = role.clone();
+    let (shutdown_done, shutdown_wait) = std::sync::mpsc::channel::<()>();
     let spawned = spawn_guarded(
         shared,
         &format!("{}-shutdown-{pid}", role.name),
         move || {
+            // Dropping the sender signals completion, including every early return.
+            let _shutdown_done = shutdown_done;
             let Some(token) = read_token(&ep) else {
                 return;
             };
@@ -576,7 +579,9 @@ pub fn terminate_found(
             json!({ "err": e.to_string() }),
         );
     }
-    let term_at = t0 + s(2_000);
+    // Scaled escalation must not race a shutdown RPC that has not had a chance to finish.
+    let _ = shutdown_wait.recv_timeout(PROBE_TIMEOUT);
+    let term_at = Instant::now() + s(2_000);
     if wait_gone(&peer, term_at) {
         return;
     }

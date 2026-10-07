@@ -463,6 +463,11 @@ fn a_foreign_instance_id_is_terminated() {
 
     let mut s = start(&h, "300");
     let mut c = client(&h.home);
+    wait_until("core.shutdown reaching the foreign core", WAIT, || {
+        h.events("shutdown")
+            .iter()
+            .any(|e| e["pid"].as_u64() == Some(u64::from(foreign.pid)))
+    });
     let child = wait_child(&mut c, "a fresh core", |c| {
         ready(c) && c["pid"].as_u64() != Some(u64::from(foreign.pid))
     });
