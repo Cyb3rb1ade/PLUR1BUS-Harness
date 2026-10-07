@@ -5240,6 +5240,109 @@ Usage per period (the current local day and month in the configured time zone) a
 }
 ```
 
+### `egress.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The outgoing-network policy in force (B4): normalised host allowlist, ports, loopback switch, configuration errors (a configuration with errors is deny-all) and counters of per-hop decisions by refusal reason. Read-only; never URLs or addresses.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy",
+    "decisions",
+    "since"
+  ],
+  "properties": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowHosts",
+        "allowPorts",
+        "allowLoopback",
+        "valid",
+        "errors"
+      ],
+      "properties": {
+        "allowHosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        },
+        "allowLoopback": {
+          "type": "boolean"
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "denied",
+        "byReason"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byReason": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "since": {
+      "type": "string",
+      "description": "RFC 3339: when the counters started (core start)"
+    }
+  }
+}
+```
+
 ### `budget.set`
 
 **Stability:** experimental · since 1.5.0

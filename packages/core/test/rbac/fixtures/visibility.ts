@@ -98,6 +98,7 @@ export const ENTRIES: readonly Entry[] = [
 
   { action: "settings.read", page: "Settings / Secrets", verb: "read", cells: ownerAdmin },
   { action: "settings.write", page: "Settings / Secrets", verb: "write", cells: ownerAdmin },
+  { action: "egress.read", page: "Settings / Secrets", verb: "read", cells: ownerAdmin },
   { action: "secrets.list", page: "Settings / Secrets", verb: "read", cells: ownerAdmin },
   { action: "secrets.reveal", page: "Settings / Secrets", verb: "reveal", cells: owner }, // ADR-004 "no secret reveal" for Admin; ADR-007 Owner's secret store
   { action: "secrets.write", page: "Settings / Secrets", verb: "write", cells: owner }, // R6

@@ -58,6 +58,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -116,6 +123,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -189,6 +203,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -249,6 +270,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -322,6 +350,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -384,6 +419,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -463,6 +505,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -521,6 +570,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -600,6 +656,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -662,6 +725,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -739,6 +809,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -801,6 +878,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -876,6 +960,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -934,6 +1025,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1010,6 +1108,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {
         "fixture": {
           "enabled": true,
@@ -1073,6 +1178,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {
         "fixture": {
@@ -1153,6 +1265,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "after": {
@@ -1211,6 +1330,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {
         "fixture-b": {

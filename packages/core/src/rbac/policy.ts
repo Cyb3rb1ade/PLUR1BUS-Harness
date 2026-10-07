@@ -80,6 +80,9 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("secrets.reveal", "system", { owner: A }),
   spec("secrets.write", "system", { owner: A }),
 
+  // Outgoing network policy (B4): who may read it. Owner/Admin, like the other settings.
+  spec("egress.read", "system", OA),
+
   // Import and Doctor: Operator gets Doctor only.
   spec("import.run", "system", OA),
   spec("doctor.read", "system", { owner: A, admin: A, operator: A }),

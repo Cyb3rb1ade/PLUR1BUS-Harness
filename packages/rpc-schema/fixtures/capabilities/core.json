@@ -212,6 +212,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "egress.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "budget.set": {
       "stability": "experimental",
       "since": "1.5.0"

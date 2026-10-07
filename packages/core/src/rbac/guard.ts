@@ -34,6 +34,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "jobs.run": rule("jobs.run", system),
   "models.setOverride": rule("models.write", system),
   "models.removeManual": rule("models.write", system),
+  "egress.status": rule("egress.read", system),
   "admin.obsidian.detect": rule("admin.obsidian.detect", system),
   "admin.obsidian.prepare": rule("admin.obsidian.prepare", system),
   "admin.obsidian.confirm": rule("admin.obsidian.confirm", system),

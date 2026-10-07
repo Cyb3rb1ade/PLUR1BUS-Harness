@@ -19,6 +19,7 @@ import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 import { buildIdentityMethods } from "../identity/rpc.ts";
 import type { BudgetService } from "../budget/index.ts";
+import type { Egress } from "../egress/index.ts";
 import { CatalogError } from "../discovery/overrides.ts";
 import { CatalogWriteError } from "../discovery/catalog-store.ts";
 import { buildSecretMethods } from "../secrets/rpc.ts";
@@ -76,6 +77,8 @@ export interface MethodDeps {
   reembed?: Record<string, Handler>;
   /** M2 L8: the budget service (absent when its store could not be opened). */
   budget?: BudgetService;
+  /** B4: the egress policy service (`egress.status`). */
+  egress?: Egress;
   /** M2: the secret store and who a connection is. Absent, the `secret.*` methods are not served. */
   secrets?: import("../secrets/rpc.ts").SecretMethodDeps;
 }
@@ -325,6 +328,10 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
           limits: st.limits,
         };
       } catch (err) { mapBudgetError(err); }
+    },
+    "egress.status": async () => {
+      if (!d.egress) throw new RpcError("E_INTERNAL", "egress service unavailable");
+      return d.egress.status();
     },
     "budget.set": async (p: BudgetSetParams) => {
       if (!d.budget) throw new RpcError("E_INTERNAL", "budget service unavailable");

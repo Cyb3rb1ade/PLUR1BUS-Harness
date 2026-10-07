@@ -55,5 +55,12 @@
       "enabled": false
     }
   },
+  "egress": {
+    "allowHosts": [],
+    "allowPorts": [
+      443
+    ],
+    "allowLoopback": false
+  },
   "modules": {}
 }

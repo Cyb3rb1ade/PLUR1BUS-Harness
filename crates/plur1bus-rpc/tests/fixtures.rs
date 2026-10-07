@@ -162,6 +162,7 @@ fn method_fixture(name: &str, f: &Value) {
         "logs.query" => pair::<LogsQueryParams, LogsQueryResult>(name, f),
         "logs.tail" => pair::<LogsTailParams, LogsTailResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
+        "egress.status" => pair::<EgressStatusParams, EgressStatusResult>(name, f),
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
         "secret.list" => pair::<SecretListParams, SecretListResult>(name, f),
