@@ -95,8 +95,10 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
   const text = (input: string): string => {
     let s = input;
     for (const f of secretForms) if (f.length > 0) s = s.split(f).join(tag("secret"));
+    // Header values can contain spaces and semicolon-separated cookies: redact the whole line.
+    s = s.replace(/^([A-Za-z0-9_-]+)([ \t]*:[ \t]*)([^\r\n]+)/gm, (m, name: string, sep: string) => isSecretKey(name) ? `${name}${sep}${tag("key")}` : m);
     // `key=value` / `"key": "value"` inside free text
-    s = s.replace(/(["']?)([A-Za-z0-9_.-]+)\1(\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&"']+)/g, (m, q: string, name: string, sep: string, val: string) => {
+    s = s.replace(/(["']?)([A-Za-z0-9_.-]+)\1(\s*[:=]\s*)("[^"]*"|'[^']*'|(?:Bearer|Basic)\s+[^\s,;&"']+|[^\s,;&"']+)/g, (m, q: string, name: string, sep: string, val: string) => {
       if (!isSecretKey(name)) return m;
       const quote = val.startsWith('"') ? '"' : val.startsWith("'") ? "'" : "";
       return `${q}${name}${q}${sep}${quote}${tag("key")}${quote}`;
