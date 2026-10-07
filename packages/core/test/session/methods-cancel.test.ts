@@ -16,7 +16,7 @@ function rig(gate?: () => Promise<void>) {
   const memory = { recall: async () => ({ text: "", degraded: null }), capture: async () => {}, checkpoint: async () => {} };
   const compactor = new Compactor(store, defaultCompaction(8192), { beforeSwap: async () => {} });
   const runner = new TurnRunner({ store, compactor, memory, provider: () => new FakeChatProvider({ chunkSize: 2, ...(gate ? { gate } : {}) }) });
-  const methods = buildSessionMethods({ store, runner, agents: { has: () => true } as never, isStopping: () => false });
+  const methods = buildSessionMethods({ store, runner, agents: { workspaceOf: () => "/ws" } as never, isStopping: () => false });
   const session = store.createSession({ kind: "acp", agentId: "bernd", owner: userPrincipalHash(CALLER) });
   const call = (m: string, p: object) => methods[m]!(p, { signal: new AbortController().signal } as never) as Promise<any>;
   return { store, runner, session, call };
