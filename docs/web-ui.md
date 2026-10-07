@@ -1,8 +1,9 @@
 # Web UI pages and API usage (`packages/web`)
 
-`@plur1bus/web` is the M3 web UI skeleton: the shell of [`ui/web-shell.md`](ui/web-shell.md) plus five real pages (Chat, Memories &
-Dreams, Models, Usage & Quota, Doctor), a command palette (⌘K / Ctrl+K), a typed API client and mock servers for tests. Every other
-nav item is still a placeholder. The package stays a static build (`index.html`, `main.js`, lazy page chunks, `styles.css`) under
+`@plur1bus/web` is the M3 web UI: the shell of [`ui/web-shell.md`](ui/web-shell.md) plus the pages Chat, Memories & Dreams, Models, Usage & Quota,
+Doctor (M3 part 1) and Agents, Settings (general, models, memory, extensions, network, users & roles, secrets, devices), Logs
+(log viewer, activity feed, sessions overview) and the first-run wizard (M3 part 2), a command palette (⌘K / Ctrl+K), a typed API
+client and mock servers for tests. The remaining nav items are still placeholders. The package stays a static build (`index.html`, `main.js`, lazy page chunks, `styles.css`) under
 the strict CSP of ADR-004. Everything it needs beyond the five REST routes of [`api-surface.md`](api-surface.md) (`/rpc`, `/events`)
 is not served by `origin/main`; the pages show that as the `unavailable` state, and the follow-ups below list what the backend owes.
 
@@ -25,10 +26,17 @@ the page for each id in `src/pages/registry.ts`.
 | `/models`, `/models/<provider>/<id>` | Models | Build | all five | Providers, filterable list, detail, "new" badges and acknowledge, scan, manual add, override edit, remove manual. Both id parts are percent-encoded. Unknown fields are shown with secret-named values masked. Live updates on `models.changed`. |
 | `/usage`, `/usage/<tab>` (`global`, `agents`, `other`, `usage`) | Usage & Quota (budget) | Control | all five | Limits with soft/hard state, set/edit/remove limit dialogs, usage per period, agent and model. Scopes the UI does not know (project, user) appear in the `other` tab. Money is micro-USD, converted without float drift. |
 | `/doctor` | Doctor | Control | each part separately: health, core status, agents (ok, unavailable, forbidden, error, `down` for a 503 `status: down`); whole page forbidden if health is | Re-check button, automatic refresh every 30 s (stops while the tab is hidden), provisioning check: loads a `1staid.check/1` JSON file chosen by the owner, shows it as a table, copy/download of the unchanged text. |
-| `/projects`, `/agents`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/logs`, `/settings`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `/settings` is the target of palette settings hits. |
+| `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/archive/export shown `unavailable`, delete flow (archive first, export offer, typed name) built and sends nothing (F39). Only owner/admin create. |
+| `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. |
+| `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; assignment and break-glass are `unavailable` (F40, F41). Owner/admin only. |
+| `/settings/secrets` | Secrets | pinned | all five | Names and metadata only; create, rotate (masked input, value cleared at submit) and delete (typed name). No value is ever in the DOM, storage, URL or console (tested). |
+| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; paired devices, QR and removal are `unavailable` (F44). |
+| `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: metadata of the caller's direct chats, transcript only via the break-glass dialog (`unavailable`, F41). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
+| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Seven steps (six when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models. |
+| `/projects`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). |
 | `/login` | Sign-in | none | form errors only | Owner token against `POST /api/v1/session`; see `ui/web-shell.md`. |
 | any other path | 404 | none | n/a | Link back to the landing route. |
-| ⌘K / Ctrl+K, `/` | Command palette | overlay | n/a | Only while signed in and on a page (not on `/login`). |
+| ⌘K / Ctrl+K, `/` | Command palette | overlay | n/a | Only while signed in and on a page (not on `/login`). Groups: navigation, actions, settings, agents, chats, logs; entity groups come from a bounded, abortable fan-out (150 ms debounce, 5 per group, 1.5 s per source) and are filtered by role. The dialog is its own lazy chunk. |
 | `/gallery/<pattern>` | Pattern gallery | n/a | n/a | Exists only in builds made with `PLUR1BUS_WEB_GALLERY=1` (tests); the shipped bundle drops it (`__GALLERY__` build constant). |
 
 ## RPCs and routes per page
@@ -59,7 +67,16 @@ the page for each id in `src/pages/registry.ts`.
 | Doctor | `GET /api/v1/health`, `GET /api/v1/agents` | real | no |
 | Doctor | `core.status` | assumed | no |
 | Doctor | `1staid.check/1` document | no route; local file chosen by the owner, read in the browser, never sent | no |
-| Palette | `config.get` (whole configuration, for the current values of settings; best effort) | assumed | no |
+| Agents | `config.get` (`agents`), `config.set` (`agents.<id>`, `ifRevision`), `ext.list` (`kind: skill`) | assumed | set: yes |
+| Settings | `config.get` (whole configuration, then one call per key for `restartClass`), `config.set` (`dryRun: true`, then with `ifRevision`) | assumed | set: yes |
+| Users | `identity.list`, `config.get` (`agents`) | assumed | no |
+| Secrets | `secret.list`, `secret.status`, `secret.set`, `secret.delete` (`secret.get` is never called) | assumed | set, delete: yes |
+| Devices | `config.get` (`remote.publish`) | assumed | no |
+| Logs viewer | `logs.query`, `logs.tail` (long poll) | assumed | no |
+| Activity | `logs.query` (streams `audit` and `diagnostic`), `audit.verify` | assumed | no |
+| Sessions | `session.list` (`kind: direct`, `archived: any`, `limit: 200`) | assumed | no |
+| Wizard | `GET /api/v1/whoami`, `models.list`, `config.set` (`agents.<id>`, `modelRoles.chat`, `modelRoles.rerank`, `embedding.*`), `admin.backup.snapshot` | real / assumed | set, snapshot: yes |
+| Palette | `config.get` (`agents`, and the whole configuration for setting values), `session.list` (`search`, `limit: 5`) | assumed | no |
 
 No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
 `dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
@@ -190,12 +207,13 @@ pnpm lint                                  # typecheck, hygiene, check-i18n (not
 - **Coverage.** axe (WCAG 2.1 AA) per page, state and theme; layout checks at 400, 960, 1440 and 2560 px (1024 where a mode changes),
   no horizontal scroll, 200 % text zoom (a 1440 px window becomes a 720 px viewport), keyboard paths, contrast of the tokens.
 - **Bundle budgets** (`test/build.test.ts`, gzip level 9): `main.js` 10 KiB, start-up closure (`main.js` plus statically imported
-  chunks) 46 KiB, each lazy page chunk 12 KiB, `styles.css` 8 KiB. Measured on this branch: start-up closure 40.0 KiB (`main.js`
-  8.2 KiB), page chunks 4.7 to 7.9 KiB, `styles.css` 6.2 KiB. The same test forbids `eval`, `new Function`, inline script or style,
+  chunks) 54 KiB, each lazy page chunk 12 KiB, `styles.css` 9 KiB. M3 part 2 raised the start-up closure from 46 (it was 40.0 KiB) and
+  `styles.css` from 8 (it was 6.2 KiB) because ten new i18n areas live in the start-up closure (F18); the palette dialog became a lazy
+  chunk to keep it down. Measured: start-up closure about 51 KiB, page chunks up to 7.5 KiB, `styles.css` 8.6 KiB. The same test forbids `eval`, `new Function`, inline script or style,
   `javascript:` URLs and remote origins.
 - **Screenshots.** Not a test; run by hand, e.g. for a PR:
   `PLUR1BUS_WEB_SHOTS_DIR=<dir> pnpm --filter @plur1bus/web exec node --experimental-strip-types test/shots.ts`. It captures chat,
-  memories, dreams, models, usage, doctor and palette, light and dark, at 400 and 1600 px, against the mock server with filled
+  memories, dreams, models, usage, doctor, palette, agents, settings (general, users, secrets, devices), logs (viewer, activity, sessions) and setup, light and dark, at 400 and 1600 px, against the mock server with filled
   fixtures; files are `<page>-<hell|dunkel>-<compact|wide>.png`. `PLUR1BUS_WEB_SHOTS_ONLY=chat,doctor` narrows the pages (empty
   means all), `PLUR1BUS_WEB_SHOTS_CHECK=1` also reports overflow, axe violations and targets below 24 px (44 px high below 1024 px),
   `PLUR1BUS_WEB_SHOTS_WIDTHS=400,640,960,1440,2560` replaces the two widths. Screenshots are not committed.
@@ -242,14 +260,15 @@ Numbers are stable; other documents refer to them.
 
 ### Frontend and cross-cutting
 
-- **F14. Search across entities** (palette). The palette finds navigation entries and settings only. Agents, Switchboard, memories,
-  sessions and actions need a search endpoint or a client fan-out: owner decision (milestones M3, desktop spec §13.3 B11).
+- **F14. Search across entities** (palette). Answered on the client in M3 part 2: agents, chats, settings, actions and a log search
+  (bounded, abortable fan-out over the list RPCs). Still open: memories and Switchboard (no list RPC), and a server search endpoint
+  as the later option (milestones M3, desktop spec §13.3 B11).
 - **F15. Voice input** for the palette search (same scope as F14; nothing is implemented).
-- **F16. Settings page.** `/settings` is a placeholder; the palette navigates to `#/settings?focus=<key>`, which the page must
-  evaluate once it exists (scroll to and focus that setting).
+- **F16. Settings page.** Done in M3 part 2: the palette links to `#/settings/<section>?focus=<key>` and the section scrolls to the field.
+  Keys the page cannot edit (`engine` as an object) show a quiet notice.
 - **F17. Localised setting labels and help.** The schema has no titles; labels are derived from the key and help is English. Needs
   schema titles or an owner-approved UI catalogue.
-- **F18. i18n catalogues per page.** All areas are in the start-up closure (40.0 KiB gzip, budget 46 KiB; the target of ADR-004 was
+- **F18. i18n catalogues per page.** All areas are in the start-up closure (about 51 KiB gzip, budget 54 KiB, was 40.0 of 46 before M3 part 2; the target of ADR-004 was
   25 KiB for `main.js` alone). Loading catalogues with the page chunk would bring the start-up closure toward 25 KiB.
 - **F19. Role gates.** Only Dreams has a client-side gate (run: owner, admin, operator; enable/disable: owner, admin), taken from
   `docs/rbac.md`. Models and Usage rely on the server answering `E_DENIED`. The mock and the only role the API documents
@@ -270,5 +289,36 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** Twelve pages (Projects, Agents, Inbox, Library, Skills, Plugins, Switchboard, Recurring, Approvals, Logs,
-  Settings, Help) are placeholders.
+- **F29. Placeholders.** Nine pages (Projects, Inbox, Library, Skills, Plugins, Switchboard, Recurring, Approvals, Help) are placeholders.
+
+### M3 part 2
+
+- **F30. Native or bundled?** (Wizard). No `core.status` field tells a native or VPS install from the bundled app, so the six-step
+  variant is chosen with `?mode=bundled`.
+- **F31. Owner bootstrap token** (Wizard, step "Your account"). There is no one-time bootstrap token and no route for it; the step
+  shows the signed-in principal, or the owner token form.
+- **F32. Persona** (Wizard). `SOUL.md` has no RPC; the persona text is shown as unavailable.
+- **F33. Provider login** (Wizard). `plur1bus login` is a stub; no RPC signs a provider in.
+- **F34. Switchboard channels** (Wizard). No `channel.*` RPC; the step is skippable.
+- **F35. Licence confirmation record** (Wizard, Memory). The config stores `embedding.acceptedNcLicence` and `...At` only; who confirmed,
+  the licence and the model revision are shown in the dialog but not persisted. Also `modelRoles.embedding` is not writable while the
+  engine forces its default (ADR-006 deviation O5), and several revisions are not pinned in the ADR-006 table.
+- **F36. Backup schedule and list** (Wizard). Only `admin.backup.snapshot` exists.
+- **F37. Import** (Wizard). `plur1bus import` is CLI only; the step shows the command.
+- **F38. `agent.create` with an idempotency key** (Agents). Create goes through `config.set` with `ifRevision`, an existence check and
+  a client key; a real RPC with a server-side key would replace it. `agents.<id>.state` and `skills` are assumptions about the shape.
+- **F39. Agent lifecycle** (Agents). Pause, archive, export bundle (without secrets) and delete have no RPC; the delete dialog is built.
+- **F40. Users, roles and rights** (Users). No RPC reads or assigns roles, invites people or stores per-agent use/manage rights.
+  `identity.human.create` takes a display name only.
+- **F41. Break-glass** (Users, Sessions). `breakglass.request` and the log read are library code (`docs/rbac.md`), not RPCs; the
+  dialog validates and then reports `unavailable`.
+- **F42. Sessions of other people** (Sessions). `session.list` returns the caller's own sessions; no owner, model or usage fields.
+- **F43. Log viewer** (Logs). `logs.query` has no `trace_id` parameter (matched with `text`, and not combinable with a search text);
+  `logs.tail` is a long poll (no log event on SSE); `audit.verify` returns no check time; the activity feed relies on scheduler job
+  names (`scheduler.run.*`) because the log schema registers no agent-run, dream, model-scan or backup events.
+- **F44. Devices** (Devices). `remote.publish` is not in the config schema on `origin/main`; paired devices, QR or deep link,
+  fingerprint and removal have no API.
+- **F45. Config schema over RPC** (Settings). No `config.schema` method: types, bounds, enums and defaults come from a static table
+  in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
+  class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).
+- **F46. Roles in `whoami`.** Only `owner` is emitted today; Operator, Member and Viewer paths are tested with a mock role only.
