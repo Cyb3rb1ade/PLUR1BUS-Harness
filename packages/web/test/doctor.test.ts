@@ -167,7 +167,7 @@ describe("provisioning results", opts, () => {
       const table = page.getByRole("table", { name: "1staid check results" });
       await table.waitFor();
       assert.equal(await table.getByRole("row").count(), CHECK_DOC.checks.length + 1);
-      assert.deepEqual(await table.getByRole("columnheader").allInnerTexts(), ["Check", "Status", "Message", "How to fix"]);
+      assert.deepEqual(await table.getByRole("columnheader").allTextContents(), ["Check", "Status", "Message", "How to fix"]);
       const row = table.getByRole("row", { name: /run\.permissions/ });
       const cells = await row.getByRole("cell").allInnerTexts();
       assert.deepEqual(cells, ["run.permissions", "Failed", "run/ is 777, expected 0700", "Run: plur1bus 1staid repair --yes"]);
