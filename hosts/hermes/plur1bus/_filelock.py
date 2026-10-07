@@ -9,7 +9,7 @@ import os
 import socket
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
 __all__ = ["ExclusiveLockFile", "FileLock", "LockLost", "LockTimeout"]
@@ -64,7 +64,7 @@ def _try_lock(fd: int) -> bool:
 
         try:
             os.lseek(fd, 0, os.SEEK_SET)
-            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
             return True
         except OSError:
             return False
@@ -83,7 +83,7 @@ def _unlock(fd: int) -> None:
 
         try:
             os.lseek(fd, 0, os.SEEK_SET)
-            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
         except OSError:
             pass
     else:
@@ -93,7 +93,7 @@ def _unlock(fd: int) -> None:
 
 
 class _Held:
-    def __init__(self, lock: "ExclusiveLockFile", nonce: str) -> None:
+    def __init__(self, lock: ExclusiveLockFile, nonce: str) -> None:
         self._lock = lock
         self.nonce = nonce
 
@@ -185,7 +185,10 @@ class ExclusiveLockFile:
                     else:
                         time.sleep(self.POLL_S)
             try:
-                os.write(fd, f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)} {nonce}\n".encode())
+                os.write(
+                    fd,
+                    f"{os.getpid()} {socket.gethostname()} {int(time.time() * 1000)} {nonce}\n".encode(),
+                )
             except BaseException:
                 os.close(fd)
                 self._release(nonce)
@@ -248,7 +251,10 @@ class ExclusiveLockFile:
         deadline = time.monotonic() + self.RELEASE_RETRY_S
         while True:
             try:
-                if _retry_sharing(lambda: os.rename(self.path, rel), max(0.0, deadline - time.monotonic())):
+                if _retry_sharing(
+                    lambda: os.rename(self.path, rel),
+                    max(0.0, deadline - time.monotonic()),
+                ):
                     break
             except OSError:
                 return  # still busy after the retries, or e.g. a read-only directory: the stale rules apply to it
@@ -339,7 +345,11 @@ class ExclusiveLockFile:
                     pass
 
 
-_SHARING_WINERRORS = (5, 32, 33)  # ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION
+_SHARING_WINERRORS = (
+    5,
+    32,
+    33,
+)  # ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION
 _SHARING_ERRNOS = (errno.EACCES, errno.EPERM, errno.EBUSY)
 
 
@@ -350,7 +360,7 @@ def _is_sharing_error(error: OSError) -> bool:
     return code in _SHARING_WINERRORS if code is not None else error.errno in _SHARING_ERRNOS
 
 
-def _retry_sharing(op, budget_s: float) -> bool:
+def _retry_sharing(op: Callable[[], object], budget_s: float) -> bool:
     """Run ``op`` (a rename or unlink). True when it succeeded, False when the source is gone
     (``FileNotFoundError``). On Windows a sharing/access error is retried for ``budget_s`` (backoff 10 ms
     doubling to 100 ms) and then re-raised; any other error, and every sharing error on POSIX, propagates."""
@@ -397,17 +407,21 @@ def _pid_dead_nt(pid: int) -> bool:
     import ctypes
     from ctypes import wintypes
 
-    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
     k32.OpenProcess.restype = wintypes.HANDLE
     k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
     k32.GetExitCodeProcess.restype = wintypes.BOOL
     k32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
     k32.CloseHandle.restype = wintypes.BOOL
     k32.CloseHandle.argtypes = (wintypes.HANDLE,)
-    process_query_limited_information, still_active, error_invalid_parameter = 0x1000, 259, 87
+    process_query_limited_information, still_active, error_invalid_parameter = (
+        0x1000,
+        259,
+        87,
+    )
     h = k32.OpenProcess(process_query_limited_information, False, pid)
     if not h:
-        return ctypes.get_last_error() == error_invalid_parameter  # ERROR_ACCESS_DENIED etc.: it runs
+        return bool(ctypes.get_last_error() == error_invalid_parameter)  # type: ignore[attr-defined]  # ERROR_ACCESS_DENIED etc.: it runs
     try:
         code = wintypes.DWORD()
         if not k32.GetExitCodeProcess(h, ctypes.byref(code)):
