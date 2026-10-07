@@ -27,8 +27,8 @@ export interface ModuleManifest {
   kind?: "module" | "channel";
 }
 
-/** `n` and `n−1` (B12): `v` must be a canonical decimal (no sign, no leading zero). */
-/** Returns whether a canonical major-version string is supported by the current/previous-major policy. */
+/** Returns whether `v` is supported by the current/previous-major (`n` and `n−1`) policy (B12).
+ *  `v` must be a canonical decimal with no sign or leading zero. */
 export function apiVersionSupported(v: string, current: number = MODULE_API_VERSION): boolean {
   if (!/^[1-9][0-9]*$/.test(v)) return false;
   const n = Number(v);
