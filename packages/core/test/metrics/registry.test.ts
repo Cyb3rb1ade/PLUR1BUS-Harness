@@ -59,7 +59,7 @@ describe("metrics registry", () => {
   it("ignores negative counter increments and non-finite observations", () => {
     const r = createRegistry();
     const c = r.counter("t_n_total", "N.", {}); c.inc({}, -5); c.inc({}, Number.NaN); c.inc({});
-    const h = r.histogram("t_h_seconds", "H.", {}, [1]); h.observe({}, Number.NaN); h.observe({}, -1);
+    const h = r.histogram("t_h_seconds", "H.", {}, [1]); h.initAll(); h.observe({}, Number.NaN); h.observe({}, -1);
     const fams = parseExposition(r.render());
     assert.equal(fams[0]!.samples[0]!.value, 1);
     assert.equal(fams[1]!.samples.find((s) => s.name === "t_h_seconds_count")!.value, 0);

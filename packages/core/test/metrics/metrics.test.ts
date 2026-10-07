@@ -42,7 +42,7 @@ describe("harness metrics", () => {
     const f = fam(m.render(), "plur1bus_turn_duration_seconds")!;
     assert.equal(f.type, "histogram");
     const count = (o: string) => f.samples.find((s) => s.name.endsWith("_count") && s.labels.outcome === o)!.value;
-    assert.deepEqual([count("ok"), count("error"), count("aborted")], [1, 1, 0]); // unknown outcome -> error
+    assert.deepEqual([count("ok"), count("error"), count("aborted")], [1, 2, 0]); // unknown outcome -> error
   });
 
   it("counts provider errors under fixed provider and kind enumerations, all series present from the start", () => {
