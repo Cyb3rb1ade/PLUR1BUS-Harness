@@ -17,6 +17,7 @@ const params: Record<string, unknown> = {
   "memory.forget": { caller, agentId: "bernd", id: "m1" },
   "agent.status": { agentId: "bernd" },
   "jobs.run": { job: "light", agentId: "bernd" },
+  "egress.status": {},
   "models.setOverride": { provider: "p", model: "m" },
   "models.removeManual": { provider: "p", model: "m" },
   "admin.migrate": {}, "admin.obsidian.detect": {}, "admin.obsidian.prepare": {}, "admin.obsidian.confirm": {},
@@ -52,9 +53,9 @@ describe("rpc guard: rules", () => {
       assert.ok(actions.has(rule.action), `${method} -> unknown action ${rule.action}`);
     }
   });
-  it("secures six families: memory.forget, agent.status, jobs.run, models.* writes, the admin.* family and identity.*", () => {
+  it("secures seven families: memory.forget, agent.status, jobs.run, egress.status, models.* writes, the admin.* family and identity.*", () => {
     const families = new Set(Object.keys(RPC_RULES).map((m) => m.split(".").slice(0, m.startsWith("admin.") || m.startsWith("identity.") ? 1 : 2).join(".")));
-    assert.deepEqual([...families].sort(), ["admin", "agent.status", "identity", "jobs.run", "memory.forget", "models.removeManual", "models.setOverride"].sort());
+    assert.deepEqual([...families].sort(), ["admin", "agent.status", "egress.status", "identity", "jobs.run", "memory.forget", "models.removeManual", "models.setOverride"].sort());
   });
   it("every admin.* method in the schema is guarded (an `admin.*` is never left open)", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));
@@ -98,6 +99,10 @@ describe("rpc guard: decisions", () => {
     for (const role of ["operator", "admin"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "agent.status"), {}, role);
   });
 
+  it("egress.status: Owner and Admin may read, Operator, Member and Viewer may not", async () => {
+    for (const role of ["owner", "admin"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "egress.status"), {}, role);
+    for (const role of ["operator", "member", "viewer"] as const) assert.equal((await code(wrap(asRole(role)).guarded, "egress.status")).error, "E_DENIED", role);
+  });
   it("jobs.run: Operator may, Member and Viewer may not; models writes: Operator may not", async () => {
     assert.deepEqual(await code(wrap(asRole("operator")).guarded, "jobs.run"), {});
     for (const role of ["member", "viewer"] as const) assert.equal((await code(wrap(asRole(role)).guarded, "jobs.run")).error, "E_DENIED", role);

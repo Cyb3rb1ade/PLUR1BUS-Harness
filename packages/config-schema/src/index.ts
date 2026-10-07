@@ -20,6 +20,7 @@ export interface HarnessConfig {
   modelRoles: Record<string, string>;
   models: { scan: { enabled: boolean; intervalHours: number } };
   secrets: { fileFallback: { enabled: boolean } };
+  egress: { allowHosts: string[]; allowPorts: number[]; allowLoopback: boolean };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
 }
 

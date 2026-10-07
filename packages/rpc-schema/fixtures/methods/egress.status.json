@@ -1,0 +1,18 @@
+{
+  "params": {},
+  "result": {
+    "policy": {
+      "allowHosts": ["api.example.com", "*.cdn.example.net"],
+      "allowPorts": [443],
+      "allowLoopback": false,
+      "valid": true,
+      "errors": []
+    },
+    "decisions": {
+      "allowed": 12,
+      "denied": 3,
+      "byReason": { "host-not-allowed": 2, "private-address": 1 }
+    },
+    "since": "2026-10-07T08:00:00.000Z"
+  }
+}

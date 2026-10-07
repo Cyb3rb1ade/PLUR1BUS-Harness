@@ -127,6 +127,27 @@
         }
       }
     },
+    "egress": {
+      "description": "Outgoing network policy (B4). Default deny: nothing is reachable until a host is listed. https only (plain http only to a listed loopback host when allowLoopback is on); private, link-local and metadata addresses are refused after name resolution whatever is listed.",
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "allowHosts": {
+          "description": "Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets).",
+          "type": "array", "maxItems": 256, "uniqueItems": true, "default": [],
+          "items": { "type": "string", "minLength": 1, "maxLength": 253 },
+          "x-restart": "live", "x-tier": "advanced"
+        },
+        "allowPorts": {
+          "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "default": [443],
+          "items": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "x-restart": "live", "x-tier": "advanced"
+        },
+        "allowLoopback": {
+          "description": "Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused.",
+          "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced"
+        }
+      }
+    },
     "modules": {
       "description": "Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",

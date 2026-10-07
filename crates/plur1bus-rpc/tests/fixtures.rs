@@ -151,6 +151,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "identity.unlink" => pair::<IdentityUnlinkParams, IdentityUnlinkResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
+        "egress.status" => pair::<EgressStatusParams, EgressStatusResult>(name, f),
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),
         "secret.list" => pair::<SecretListParams, SecretListResult>(name, f),

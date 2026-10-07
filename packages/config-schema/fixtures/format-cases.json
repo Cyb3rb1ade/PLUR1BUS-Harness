@@ -57,6 +57,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": true
@@ -118,6 +125,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -181,6 +195,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": true
@@ -242,6 +263,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -305,6 +333,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": true
@@ -366,6 +401,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -429,6 +471,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": true
@@ -490,6 +539,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -553,6 +609,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -614,6 +677,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -677,6 +747,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -738,6 +815,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -801,6 +885,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -862,6 +953,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -925,6 +1023,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -986,6 +1091,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1049,6 +1161,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -1110,6 +1229,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1173,6 +1299,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -1234,6 +1367,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1297,6 +1437,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -1358,6 +1505,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1421,6 +1575,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -1482,6 +1643,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1545,6 +1713,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": true
@@ -1606,6 +1781,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1669,6 +1851,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -1730,6 +1919,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1793,6 +1989,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": false
@@ -1852,6 +2055,13 @@
           "enabled": false
         }
       },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
+      },
       "modules": {}
     },
     "valid": true
@@ -1910,6 +2120,13 @@
         "fileFallback": {
           "enabled": false
         }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
